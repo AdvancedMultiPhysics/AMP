@@ -7,7 +7,6 @@
 #include <thrust/for_each.h>
 #include <thrust/inner_product.h>
 
-
 namespace AMP {
 namespace LinearAlgebra {
 
@@ -27,14 +26,14 @@ void DeviceOperationsHelpers<TYPE>::copy( size_t N, const TYPE *x, TYPE *y )
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, TYPE *x )
 {
-    auto lambda = [alpha] __device__( TYPE y ) { return y * alpha; };
+    auto lambda = [alpha] __host__ __device__( TYPE y ) { return y * alpha; };
     thrust::transform( thrust::device, x, x + N, x, lambda );
 }
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
-    auto lambda = [alpha] __device__( TYPE x ) { return x * alpha; };
+    auto lambda = [alpha] __host__ __device__( TYPE x ) { return x * alpha; };
     thrust::transform( thrust::device, x, x + N, y, lambda );
 }
 
@@ -66,7 +65,7 @@ void DeviceOperationsHelpers<TYPE>::divide( size_t N, const TYPE *x, const TYPE 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::reciprocal( size_t N, const TYPE *x, TYPE *y )
 {
-    auto lambda = [] __device__( TYPE x ) { return (TYPE) 1 / x; };
+    auto lambda = [] __host__ __device__( TYPE x ) { return (TYPE) 1 / x; };
     thrust::transform( thrust::device, x, x + N, y, lambda );
 }
 
@@ -75,7 +74,9 @@ template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::linearSum(
     TYPE alpha, size_t N, const TYPE *x, TYPE beta, const TYPE *y, TYPE *z )
 {
-    auto lambda = [alpha, beta] __device__( TYPE x, TYPE y ) { return alpha * x + beta * y; };
+    auto lambda = [alpha, beta] __host__ __device__( TYPE x, TYPE y ) {
+        return alpha * x + beta * y;
+    };
     thrust::transform( thrust::device, x, x + N, y, z, lambda );
 }
 
@@ -83,14 +84,14 @@ void DeviceOperationsHelpers<TYPE>::linearSum(
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::abs( size_t N, const TYPE *x, TYPE *y )
 {
-    auto lambda = [] __device__( TYPE x ) { return x < 0 ? -x : x; };
+    auto lambda = [] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
     thrust::transform( thrust::device, x, x + N, y, lambda );
 }
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::addScalar( size_t N, const TYPE *x, TYPE alpha, TYPE *y )
 {
-    auto lambda = [alpha] __device__( TYPE x ) { return x + alpha; };
+    auto lambda = [alpha] __host__ __device__( TYPE x ) { return x + alpha; };
     thrust::transform( thrust::device, x, x + N, y, lambda );
 }
 
@@ -104,7 +105,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localMin( size_t N, const TYPE *x )
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMax( size_t N, const TYPE *x )
 {
-    auto lambda = [=] __device__( TYPE x ) { return x; };
+    auto lambda = [=] __host__ __device__( TYPE x ) { return x; };
     return thrust::transform_reduce(
         thrust::device, x, x + N, lambda, (TYPE) 0, thrust::maximum<TYPE>() );
 }
@@ -119,7 +120,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localSum( size_t N, const TYPE *x )
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localL1Norm( size_t N, const TYPE *x )
 {
-    auto lambda = [=] __device__( TYPE x ) { return x < 0 ? -x : x; };
+    auto lambda = [=] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
     return thrust::transform_reduce(
         thrust::device, x, x + N, lambda, (TYPE) 0, thrust::plus<TYPE>() );
 }
@@ -127,7 +128,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localL1Norm( size_t N, const TYPE *x )
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localL2Norm( size_t N, const TYPE *x )
 {
-    auto lambda = [=] __device__( TYPE x ) { return x * x; };
+    auto lambda = [=] __host__ __device__( TYPE x ) { return x * x; };
     auto result = thrust::transform_reduce(
         thrust::device, x, x + N, lambda, (TYPE) 0, thrust::plus<TYPE>() );
     return sqrt( result );
@@ -136,7 +137,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localL2Norm( size_t N, const TYPE *x )
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMaxNorm( size_t N, const TYPE *x )
 {
-    auto lambda = [=] __device__( TYPE x ) { return x < 0 ? -x : x; };
+    auto lambda = [=] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
     return thrust::transform_reduce(
         thrust::device, x, x + N, lambda, (TYPE) 0, thrust::maximum<TYPE>() );
 }
