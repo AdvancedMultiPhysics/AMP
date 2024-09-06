@@ -20,6 +20,46 @@
  *  Macros to help instantiate functions                 *
  ********************************************************/
 // clang-format off
+#if defined(USING_ICC) && !defined(INTEL_LLVM_COMPILER)
+
+#define instantiateArrayConstructors( TYPE )                                       \
+    template AMP::Array<TYPE>::Array();                                            \
+    template AMP::Array<TYPE>::~Array();                                           \
+    template AMP::Array<TYPE>::Array( const AMP::ArraySize&, TYPE const* );        \
+    template AMP::Array<TYPE>::Array( size_t );                                    \
+    template AMP::Array<TYPE>::Array( size_t, size_t );                            \
+    template AMP::Array<TYPE>::Array( size_t, size_t, size_t );                    \
+    template AMP::Array<TYPE>::Array( size_t, size_t, size_t, size_t );            \
+    template AMP::Array<TYPE>::Array( size_t, size_t, size_t, size_t, size_t );    \
+    template AMP::Array<TYPE>::Array( std::initializer_list<TYPE> );               \
+    template AMP::Array<TYPE>::Array( std::initializer_list<std::initializer_list<TYPE>> ); \
+    template AMP::Array<TYPE>::Array( const AMP::Array<TYPE>& );                   \
+    template AMP::Array<TYPE>::Array( AMP::Array<TYPE>&& );                        \
+    template void AMP::Array<TYPE>::allocate( const AMP::ArraySize& );             \
+    template void AMP::Array<TYPE>::reshape( const AMP::ArraySize& );              \
+    template std::unique_ptr<const AMP::Array<TYPE>>                               \
+        AMP::Array<TYPE>::constView( const AMP::ArraySize&, const std::shared_ptr<TYPE const>& ); \
+    template void AMP::Array<TYPE>::viewRaw( const AMP::ArraySize&, TYPE*, bool, bool ); \
+    template void AMP::Array<TYPE>::view2( const AMP::ArraySize&, std::shared_ptr<TYPE> ); \
+    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( const AMP::Array<TYPE>& ); \
+    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( AMP::Array<TYPE>&& );  \
+    template TYPE* AMP::Array<TYPE>::data();                                       \
+    template TYPE const* AMP::Array<TYPE>::data() const;                           \
+    template void AMP::Array<TYPE>::resize( size_t );                              \
+    template void AMP::Array<TYPE>::resize( size_t, size_t );                      \
+    template void AMP::Array<TYPE>::resize( size_t, size_t, size_t );              \
+    template void AMP::Array<TYPE>::resize( AMP::ArraySize const& );               \
+    template void AMP::Array<TYPE>::clear();                                       \
+    template int AMP::Array<TYPE>::ndim() const;                                   \
+    template const AMP::ArraySize& AMP::Array<TYPE>::size() const;                 \
+    template size_t AMP::Array<TYPE>::size( int ) const;                           \
+    template size_t AMP::Array<TYPE>::length() const;                              \
+    template bool AMP::Array<TYPE>::empty() const;                                 \
+    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( const std::vector<TYPE>& ); \
+    template bool AMP::Array<TYPE>::operator==( const AMP::Array<TYPE>& ) const
+
+#else
+
 #define instantiateArrayConstructors( TYPE )                                       \
     template AMP::Array<TYPE>::Array();                                            \
     template AMP::Array<TYPE>::~Array<TYPE>();                                     \
@@ -55,6 +95,9 @@
     template bool AMP::Array<TYPE>::empty() const;                                 \
     template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( const std::vector<TYPE>& ); \
     template bool AMP::Array<TYPE>::operator==( const AMP::Array<TYPE>& ) const
+
+#endif
+  
 #define PACK_UNPACK_ARRAY( TYPE )                                         \
     template size_t AMP::packSize( const AMP::Array<TYPE> & );            \
     template size_t AMP::pack( const AMP::Array<TYPE> &, std::byte * );   \
