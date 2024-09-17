@@ -28,7 +28,7 @@ namespace AMP::Solver {
 HypreSolver::HypreSolver() : SolverStrategy() {}
 HypreSolver::HypreSolver( std::shared_ptr<SolverStrategyParameters> parameters )
     : SolverStrategy( parameters ),
-#if defined (USE_CUDA) || defined (USE_HIP)
+#if defined ( USE_DEVICE )
       d_memory_location( HYPRE_MEMORY_DEVICE ),
       d_exec_policy( HYPRE_EXEC_DEVICE )
 #else
