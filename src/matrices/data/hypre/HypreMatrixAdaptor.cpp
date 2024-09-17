@@ -8,6 +8,9 @@
 #ifdef USE_CUDA
     #include "AMP/utils/cuda/CudaAllocator.h"
 #endif
+#ifdef USE_HIP
+    #include "AMP/utils/hip/HipAllocator.h"
+#endif
 
 #include <numeric>
 
@@ -94,6 +97,10 @@ void HypreMatrixAdaptor::initializeHypreMatrix( HYPRE_BigInt first_row,
     AMP::CudaManagedAllocator<HYPRE_BigInt> managedAllocator;
 #endif
 
+#ifdef USE_HIP
+    AMP::HipManagedAllocator<HYPRE_BigInt> managedAllocator;
+#endif
+
     HYPRE_IJMatrixSetRowSizes( d_matrix, nnz_per_row );
 
     // The next 2 lines affect efficiency and should be resurrected at some point
@@ -112,7 +119,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( HYPRE_BigInt first_row,
         row_ids_p = row_ids.data();
     } else if ( memType == AMP::Utilities::MemoryType::managed ) {
 
-#ifdef USE_CUDA
+#if defined(USE_CUDA) || defined(USE_HIP)
         row_ids_p = managedAllocator.allocate( nrows );
 #endif
 
@@ -125,7 +132,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( HYPRE_BigInt first_row,
     HYPRE_IJMatrixAssemble( d_matrix );
 
     if ( memType == AMP::Utilities::MemoryType::managed ) {
-#ifdef USE_CUDA
+#if defined(USE_CUDA) || defined(USE_HIP)
         managedAllocator.deallocate( row_ids_p, nrows );
 #endif
     }
