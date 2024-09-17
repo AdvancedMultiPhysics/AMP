@@ -289,19 +289,6 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
     HYPRE_BoomerAMGSetTol( d_solver, static_cast<HYPRE_Real>( d_dRelativeTolerance ) );
     HYPRE_BoomerAMGSetMaxIter( d_solver, d_iMaxIterations );
     HYPRE_BoomerAMGSetPrintLevel( d_solver, d_iDebugPrintInfoLevel );
-
-    if ( db->keyExists( "memory_location" ) ) {
-        auto memory_location = db->getString( "memory_location" );
-        AMP_INSIST( memory_location == "host" || memory_location == "device",
-                    "memory_location must be either device or host" );
-        d_memory_location = ( memory_location == "host" ) ? HYPRE_MEMORY_HOST : HYPRE_MEMORY_DEVICE;
-    }
-    if ( db->keyExists( "exec_policy" ) ) {
-        auto exec_policy = db->getString( "exec_policy" );
-        AMP_INSIST( exec_policy == "host" || exec_policy == "device",
-                    "exec_policy must be either device or host" );
-        d_exec_policy = ( exec_policy == "host" ) ? HYPRE_EXEC_HOST : HYPRE_EXEC_DEVICE;
-    }
 }
 
 void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
