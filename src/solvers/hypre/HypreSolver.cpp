@@ -51,6 +51,8 @@ void HypreSolver::initialize( std::shared_ptr<const SolverStrategyParameters> pa
     AMP_ASSERT( parameters );
 
     HypreSolver::getFromInput( parameters->d_db );
+    HYPRE_SetMemoryLocation( d_memory_location );
+    HYPRE_SetExecutionPolicy( d_exec_policy );
 
     if ( d_pOperator ) {
         registerOperator( d_pOperator );
@@ -212,7 +214,7 @@ void HypreSolver::copyFromHypre( HYPRE_IJVector hypre_v,
         // likewise we should distinguish between managed and host options
         HYPRE_ParVector par_v;
         HYPRE_IJVectorGetObject( hypre_v, (void **) &par_v );
-        hypre_ParVectorMigrate( par_v, HYPRE_MEMORY_HOST );
+        hypre_ParVectorMigrate( par_v, d_memory_location );
         std::vector<HYPRE_Real> values( nDOFS, 0.0 );
         auto values_p = values.data();
         ierr =
