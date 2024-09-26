@@ -36,6 +36,9 @@ ADD_AMP_TEST( test_DelaunayInterpolation point_set_2d point_set_2d_2 point_set_2
 IF( NOT USING_ICC )
     ADD_AMP_TEST( testArray )
 ENDIF()
+IF ( CMAKE_Fortran_COMPILER )
+    ADD_AMP_TEST( test_Fortran )
+ENDIF()
 ADD_AMP_PROVISIONAL_TEST( test_crash )
 #ADD_AMP_PROVISIONAL_TEST( test_crash_log )
 
