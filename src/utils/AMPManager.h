@@ -46,7 +46,7 @@ public:
     //! Print memory statistics (default is only if leaks detected)
     int print_memory = -1;
 
-    //! Initialize CUDA/HIP (default is true)
+    //! Initialize CUDA/HIP device (default is true)
     bool initialize_device = true;
 
     //! Associate each accelerator with a single MPI rank (default is true)
@@ -202,8 +202,7 @@ private:
     static double start_SAMRAI();
     static double start_PETSc();
     static double start_HYPRE();
-    static double start_CUDA();
-    static double start_HIP();
+    static double start_CudaOrHip();
     static double stop_SAMRAI();
     static double stop_HYPRE();
     static double stop_PETSc();

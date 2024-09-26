@@ -159,10 +159,8 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
     comm_world = AMP_MPI( AMP_COMM_WORLD );
     if ( d_properties.COMM_WORLD != AMP_COMM_WORLD )
         comm_world = AMP_MPI( d_properties.COMM_WORLD );
-    // Initialize cuda
-    start_CUDA();
-    // Initialize cuda
-    start_HIP();
+    // Initialize cuda/hip
+    start_CudaOrHip();
     // Initialize Kokkos
     AMP::Utilities::initializeKokkos( argc, argv );
     // Initialize Hypre
@@ -360,51 +358,37 @@ double AMPManager::stop_SAMRAI() { return 0; }
 /****************************************************************************
  * Function to start/stop CUDA                                               *
  ****************************************************************************/
-double AMPManager::start_CUDA()
+double AMPManager::start_CudaOrHip()
 {
     if ( !d_properties.initialize_device )
         return 0;
     auto start = std::chrono::steady_clock::now();
-#ifdef USE_CUDA
+#if defined( USE_DEVICE )
     if ( d_properties.bind_process_to_accelerator ) {
         AMP::Utilities::setenv( "RDMAV_FORK_SAFE", "1" );
         auto nodeComm = comm_world.splitByNode();
         auto nodeRank = nodeComm.getRank();
         int deviceCount;
+
+    #if defined( USE_CUDA )
         cudaGetDeviceCount( &deviceCount ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
         cudaSetDevice( device_id ); // Map MPI-process to a GPU
-    }
-
-    void *tmp;
-    checkCudaErrors( cudaMallocManaged( &tmp, 10, cudaMemAttachGlobal ) );
-    cudaFree( tmp );
-#endif
-    return getDuration( start );
-}
-
-/****************************************************************************
- * Function to start/stop HIP                                               *
- ****************************************************************************/
-double AMPManager::start_HIP()
-{
-    if ( !d_properties.initialize_device )
-        return 0;
-    auto start = std::chrono::steady_clock::now();
-#ifdef USE_HIP
-    if ( d_properties.bind_process_to_accelerator ) {
-        AMP::Utilities::setenv( "RDMAV_FORK_SAFE", "1" );
-        auto nodeComm = comm_world.splitByNode();
-        auto nodeRank = nodeComm.getRank();
-        int deviceCount;
+    #else
         hipGetDeviceCount( &deviceCount ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
         hipSetDevice( device_id ); // Map MPI-process to a GPU
+    #endif
     }
 
     void *tmp;
+    #if defined( USE_CUDA )
+    checkCudaErrors( cudaMallocManaged( &tmp, 10, cudaMemAttachGlobal ) );
+    cudaFree( tmp );
+    #else
     checkHipErrors( hipMallocManaged( &tmp, 10, hipMemAttachGlobal ) );
     hipFree( tmp );
+    #endif
 #endif
     return getDuration( start );
 }
@@ -429,6 +413,7 @@ std::tuple<int, const char *const *> AMPManager::get_args()
 {
     return std::tuple<int, const char *const *>( d_argc, d_argv );
 }
+
 AMPManagerProperties AMPManager::getAMPManagerProperties()
 {
     AMP_INSIST( d_initialized, "AMP has not been initialized" );
