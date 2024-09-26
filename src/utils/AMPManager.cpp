@@ -165,6 +165,8 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
     start_HIP();
     // Initialize Kokkos
     AMP::Utilities::initializeKokkos( argc, argv );
+    // Initialize Hypre
+    double hypre_time = start_HYPRE();
     // Initialize PETSc
     double petsc_time = start_PETSc();
     // Initialize SAMRAI
@@ -182,6 +184,8 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
         printf( "startup time = %0.3f s\n", time );
         if ( MPI_time != 0 )
             printf( "  MPI startup time = %0.3f s\n", MPI_time );
+        if ( hypre_time != 0 )
+            printf( "  Hypre startup time = %0.3f s\n", hypre_time );
         if ( petsc_time != 0 )
             printf( "  PETSc startup time = %0.3f s\n", petsc_time );
         if ( SAMRAI_time != 0 )
@@ -218,6 +222,8 @@ void AMPManager::shutdown()
     double SAMRAI_time = stop_SAMRAI();
     // Shudown PETSc
     double petsc_time = stop_PETSc();
+    // Shudown Hypre
+    double hypre_time = stop_HYPRE();
     // shutdown Kokkos
     AMP::Utilities::finalizeKokkos();
     // Shutdown MPI
@@ -251,6 +257,8 @@ void AMPManager::shutdown()
             printf( "  SAMRAI shutdown time = %0.3f s\n", SAMRAI_time );
         if ( petsc_time != 0 )
             printf( "  PETSc shutdown time = %0.3f s\n", petsc_time );
+        if ( hypre_time != 0 )
+            printf( "  Hypre shutdown time = %0.3f s\n", hypre_time );
         if ( MPI_time != 0 )
             printf( "  MPI shutdown time = %0.3f s\n", MPI_time );
         printf( "\n" );
