@@ -133,6 +133,9 @@ public:
     //! Function to check if AMP has been initialized
     static bool isInitialized();
 
+    //! Function to check if AMP has been finalized
+    static bool isFinalized();
+
     /*!
      * Return a reference to the original command line arguments that were used to initialize AMP.
      */

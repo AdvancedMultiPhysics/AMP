@@ -424,6 +424,7 @@ AMPManagerProperties::AMPManagerProperties() : COMM_WORLD( AMP_COMM_WORLD )
  *  Some simple functions                                                    *
  ****************************************************************************/
 bool AMPManager::isInitialized() { return d_initialized != 0; }
+bool AMPManager::isFinalized() { return d_initialized == -1; }
 std::tuple<int, const char *const *> AMPManager::get_args()
 {
     return std::tuple<int, const char *const *>( d_argc, d_argv );
