@@ -20,7 +20,7 @@
  *  Macros to help instantiate functions                 *
  ********************************************************/
 // clang-format off
-#if defined(USING_ICC) && !defined(INTEL_LLVM_COMPILER)
+#if defined(__INTEL_COMPILER) && !defined(INTEL_LLVM_COMPILER)
 
 #define instantiateArrayConstructors( TYPE )                                       \
     template AMP::Array<TYPE>::Array();                                            \
