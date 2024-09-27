@@ -15,9 +15,7 @@ namespace AMP {
 /********************************************************************
  * Helper functions                                                  *
  ********************************************************************/
-#if defined( USING_ICC )
 DISABLE_WARNINGS
-#endif
 template<class TYPE>
 void Scalar::store( const TYPE &x )
 {
@@ -34,9 +32,7 @@ void Scalar::store( const TYPE &x )
         d_type = 0;
     }
 }
-#if defined( USING_ICC )
 ENABLE_WARNINGS
-#endif
 
 
 /********************************************************************

@@ -13,7 +13,7 @@ namespace AMP {
 /********************************************************
  *  Explicit instantiations of Array                     *
  ********************************************************/
-#if defined( USING_ICC )
+#if defined( __INTEL_COMPILER )
 DISABLE_WARNINGS
 #endif
 template class Array<bool>;
@@ -59,7 +59,7 @@ template bool Array<std::complex<float>>::NaNs() const;
 template bool Array<std::complex<double>>::NaNs() const;
 template void AMP::Array<std::complex<double>, AMP::FunctionTable>::rand();
 
-#if defined( USING_ICC )
+#if defined( __INTEL_COMPILER )
 ENABLE_WARNINGS
 #endif
 

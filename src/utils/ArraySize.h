@@ -25,7 +25,7 @@
     #define CONSTEXPR HOST_DEVICE constexpr
     #define CONSTEXPR_IF constexpr
 #endif
-#if defined( USING_GCC ) || defined( USING_CLANG )
+#if defined( __GNUC__ ) || defined( __clang__ )
     #define ARRAY_INLINE HOST_DEVICE inline __attribute__( ( always_inline ) )
 #elif defined( _MSC_VER )
     #define ARRAY_INLINE HOST_DEVICE __forceinline
@@ -52,7 +52,7 @@
         } while ( 0 )
 #endif
 
-#if defined( USING_ICC )
+#if defined( __INTEL_COMPILER )
     #include "AMP/utils/UtilityMacros.h"
 DISABLE_WARNINGS
 #endif
@@ -472,7 +472,7 @@ CONSTEXPR ArraySize operator+( size_t v, const ArraySize &x )
 
 } // namespace AMP
 
-#if defined( USING_ICC )
+#if defined( __INTEL_COMPILER )
 ENABLE_WARNINGS
 #endif
 

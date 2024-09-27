@@ -72,11 +72,11 @@ constexpr void getTypeName( uint64_t N, char *name )
     } else {
         // Get the name of the function to create the type name
         char name0[1024] = { 0 };
-#if defined( __clang__ ) || defined( USING_CLANG )
+#if defined( __clang__ )
         copy( name0, __PRETTY_FUNCTION__, sizeof( name0 ) );
-#elif defined( __GNUC__ ) || defined( USING_GCC )
+#elif defined( __GNUC__ )
         copy( name0, __PRETTY_FUNCTION__, sizeof( name0 ) );
-#elif defined( _MSC_VER ) || defined( USING_MSVC )
+#elif defined( _MSC_VER )
         copy( name0, __FUNCSIG__, sizeof( name0 ) );
 #else
     // Not finished, one possible workaround, pass default class name as string_view

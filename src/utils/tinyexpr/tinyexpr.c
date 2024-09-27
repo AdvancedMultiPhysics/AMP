@@ -43,10 +43,10 @@ For log = natural log uncomment the next line. */
 #include <ctype.h>
 #include <limits.h>
 
-#if defined( USING_CLANG )
+#if defined( __clang__ )
     _Pragma( "clang diagnostic push" )
     _Pragma( "clang diagnostic ignored \"-Warray-bounds\"" )
-#elif defined( USING_GCC )
+#elif defined( __GNUC__ )
     _Pragma( "GCC diagnostic push" )
     _Pragma( "GCC diagnostic ignored \"-Warray-bounds\"" )
 #endif

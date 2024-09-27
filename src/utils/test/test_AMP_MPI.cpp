@@ -982,7 +982,7 @@ testCommTimerResults testComm( MPI_CLASS comm, UnitTest &ut )
 // Test comm dup and the number of communicators that can be created
 void testCommDup( UnitTest &ut )
 {
-#if defined( USING_CLANG ) && defined( __APPLE__ )
+#if defined( __clang__ ) && defined( __APPLE__ )
     // The MPI error handler crashes so this test fails
     // This seems to be a MAC? + Clang + MPICH? issue only
     ut.expected_failure( "testCommDup skipped for this architecture/compiler" );
