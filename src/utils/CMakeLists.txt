@@ -16,7 +16,7 @@ IF( USE_DEVICE )
     ADD_PACKAGE_SUBDIRECTORY( device )
 ENDIF()
 IF ( CMAKE_Fortran_COMPILER )
-    ADD_AMP_TEST( test_Fortran )
+    ADD_PACKAGE_SUBDIRECTORY( fortran )
 ENDIF()
 INSTALL_AMP_TARGET( utils )
 
