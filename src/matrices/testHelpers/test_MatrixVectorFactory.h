@@ -85,9 +85,7 @@ public:
         auto view = AMP::LinearAlgebra::PetscMatrix::view( d_matrix );
         ::Mat m   = view->getMat();
         ::Vec v;
-        DISABLE_WARNINGS
-        MatGetVecs( m, &v, nullptr );
-        ENABLE_WARNINGS
+        MatCreateVecs( m, &v, nullptr );
         auto vector = createVector( v, true );
         vector->setVariable( std::make_shared<AMP::LinearAlgebra::Variable>( "petsc_left" ) );
         return vector;
@@ -118,9 +116,7 @@ public:
         auto view = AMP::LinearAlgebra::PetscMatrix::view( d_matrix );
         ::Mat m   = view->getMat();
         ::Vec v;
-        DISABLE_WARNINGS
-        MatGetVecs( m, &v, nullptr );
-        ENABLE_WARNINGS
+        MatCreateVecs( m, &v, nullptr );
         auto vector = createVector( v, true );
         vector->setVariable( std::make_shared<AMP::LinearAlgebra::Variable>( "petsc_right" ) );
         return vector;
