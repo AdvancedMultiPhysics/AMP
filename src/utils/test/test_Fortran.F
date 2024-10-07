@@ -8,9 +8,9 @@
         character(len=40,kind=c_char), allocatable, target :: args(:) ! must be target in order to get the starting C address of each name, which is a C char*
 
         argc = command_argument_count()
-        allocate(args(num_args))  ! I've omitted checking the return status of the allocation 
+        allocate(args(argc))  ! I've omitted checking the return status of the allocation 
 
-        do ix = 1, num_args
+        do ix = 1, argc
            call get_command_argument(ix,args(ix))
            ! now parse the argument as you wish
         end do
