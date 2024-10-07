@@ -429,4 +429,6 @@ AMPManagerProperties AMPManager::getAMPManagerProperties()
 extern "C" {
 void amp_startup_f( int argc, char **argv ) { AMP::AMPManager::startup( argc, argv ); }
 void amp_shutdown_f( void ) { AMP::AMPManager::shutdown(); }
+bool amp_initialized_f( void ) { return AMP::AMPManager::isInitialized(); }
+bool amp_finalized_f( void ) { return AMP::AMPManager::isFinalized(); }
 }
