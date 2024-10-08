@@ -62,8 +62,8 @@ void HypreSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
                     "memory_location must be either device or host" );
         d_memory_location = ( memory_location == "host" ) ? HYPRE_MEMORY_HOST : HYPRE_MEMORY_DEVICE;
     } else
-      d_memory_location = HYPRE_MEMORY_HOST;
-      
+        d_memory_location = HYPRE_MEMORY_HOST;
+
     if ( db->keyExists( "exec_policy" ) ) {
         auto exec_policy = db->getString( "exec_policy" );
         AMP_INSIST( exec_policy == "host" || exec_policy == "device",

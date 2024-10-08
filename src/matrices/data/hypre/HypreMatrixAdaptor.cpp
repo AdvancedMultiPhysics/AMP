@@ -119,7 +119,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( HYPRE_BigInt first_row,
         row_ids_p = row_ids.data();
     } else if ( memType == AMP::Utilities::MemoryType::managed ) {
 
-#if defined (USE_DEVICE)
+#if defined( USE_DEVICE )
         row_ids_p = managedAllocator.allocate( nrows );
 #endif
 
@@ -132,7 +132,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( HYPRE_BigInt first_row,
     HYPRE_IJMatrixAssemble( d_matrix );
 
     if ( memType == AMP::Utilities::MemoryType::managed ) {
-#if defined ( USE_DEVICE )
+#if defined( USE_DEVICE )
         managedAllocator.deallocate( row_ids_p, nrows );
 #endif
     }
