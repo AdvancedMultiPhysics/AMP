@@ -371,23 +371,23 @@ double AMPManager::start_CudaOrHip()
         int deviceCount;
 
     #if defined( USE_CUDA )
-        cudaGetDeviceCount( &deviceCount ); // How many GPUs?
+        checkCudaErrors( cudaGetDeviceCount( &deviceCount ) ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
-        cudaSetDevice( device_id ); // Map MPI-process to a GPU
+        checkCudaErrors( cudaSetDevice( device_id ) ); // Map MPI-process to a GPU
     #else
-        hipGetDeviceCount( &deviceCount ); // How many GPUs?
+        checkHipErrors( hipGetDeviceCount( &deviceCount ) ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
-        hipSetDevice( device_id ); // Map MPI-process to a GPU
+        checkHipErrors( hipSetDevice( device_id ) ); // Map MPI-process to a GPU
     #endif
     }
 
     void *tmp;
     #if defined( USE_CUDA )
     checkCudaErrors( cudaMallocManaged( &tmp, 10, cudaMemAttachGlobal ) );
-    cudaFree( tmp );
+    checkCudaErrors( cudaFree( tmp ) );
     #else
     checkHipErrors( hipMallocManaged( &tmp, 10, hipMemAttachGlobal ) );
-    hipFree( tmp );
+    checkHipErrors( hipFree( tmp ) );
     #endif
 #endif
     return getDuration( start );
@@ -429,4 +429,6 @@ AMPManagerProperties AMPManager::getAMPManagerProperties()
 extern "C" {
 void amp_startup_f( int argc, char **argv ) { AMP::AMPManager::startup( argc, argv ); }
 void amp_shutdown_f( void ) { AMP::AMPManager::shutdown(); }
+bool amp_initialized_f( void ) { return AMP::AMPManager::isInitialized(); }
+bool amp_finalized_f( void ) { return AMP::AMPManager::isFinalized(); }
 }
