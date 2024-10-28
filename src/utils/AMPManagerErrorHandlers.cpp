@@ -191,6 +191,8 @@ void AMPManager::setHandlers()
     }
     // Initialize call stack handler
     auto comm_world = getCommWorld();
+    if ( comm_world.isNull() )
+        comm_world = AMP_COMM_SELF;
     AMP_ASSERT( d_properties.stack_trace_type <= 3 && d_properties.stack_trace_type >= 0 );
     if ( comm_world.getSize() == 1 )
         d_properties.stack_trace_type = std::min( d_properties.stack_trace_type, 2 );

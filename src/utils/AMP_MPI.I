@@ -157,7 +157,7 @@ constexpr bool isMPItype()
 template<class TYPE>
 MPI_CLASS::Datatype MPI_getType()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     if constexpr ( std::is_same_v<TYPE, std::byte> )
         return MPI_BYTE;
     if constexpr ( std::is_same_v<TYPE, char> )
@@ -264,7 +264,7 @@ void MPI_CLASS::sumReduce( const TYPE *send, TYPE *recv, int n ) const
             recv[i] = send[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "sumReduce", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -320,7 +320,7 @@ void MPI_CLASS::minReduce( const TYPE *send, TYPE *recv, int n ) const
             recv[i] = send[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "minReduce", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -342,7 +342,7 @@ void MPI_CLASS::minReduce( const TYPE *send, TYPE *recv, int n, int *rank ) cons
         }
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     using TYPE2 = typename TypeIntSelector<TYPE>::type;
     if constexpr ( !isMPItype<TYPE>() )
         throw std::logic_error( "minReduce with rank is not supported for arbitrary types" );
@@ -423,7 +423,7 @@ void MPI_CLASS::maxReduce( const TYPE *send, TYPE *recv, int n ) const
             recv[i] = send[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "maxReduce", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -445,7 +445,7 @@ void MPI_CLASS::maxReduce( const TYPE *send, TYPE *recv, int n, int *rank ) cons
         }
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     using TYPE2 = typename TypeIntSelector<TYPE>::type;
     if constexpr ( !isMPItype<TYPE>() )
         throw std::logic_error( "maxReduce with rank is not supported for arbitrary types" );
@@ -518,7 +518,7 @@ void MPI_CLASS::maxReduce( TYPE *x, int n, int *rank ) const
 /************************************************************************
  *  bcast                                                                *
  ************************************************************************/
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 template<class TYPE>
 void MPI_CLASS::bcast( TYPE *x, int n, int root ) const
 {
@@ -598,7 +598,7 @@ void MPI_CLASS::send( const TYPE &buf, int recv_proc, int tag ) const
 inline void MPI_Send2(
     const void *buf, int length, MPI_CLASS::Datatype type, int proc, int tag, MPI_CLASS::Comm comm )
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Send( buf, length, type, proc, tag, comm );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
@@ -645,7 +645,7 @@ inline void MPI_Isend2( const void *buf,
                         MPI_CLASS::Comm comm,
                         MPI_CLASS::Request2 *request )
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Isend( buf, length, type, proc, tag, comm, request );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
@@ -693,7 +693,7 @@ TYPE MPI_CLASS::recv( int send_proc, int tag ) const
 inline void MPI_Recv2(
     void *buf, int length, MPI_CLASS::Datatype type, int proc, int tag, MPI_CLASS::Comm comm )
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Recv( buf, length, type, proc, tag, comm, MPI_STATUS_IGNORE );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
@@ -759,7 +759,7 @@ inline void MPI_Irecv2( void *buf,
                         MPI_CLASS::Comm comm,
                         MPI_CLASS::Request2 *request )
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Irecv( buf, length, type, proc, tag, comm, request );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
@@ -817,7 +817,7 @@ void MPI_CLASS::sendrecv( const TYPE *sendbuf,
             recvbuf[i] = sendbuf[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "sendrecv", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -908,7 +908,7 @@ void MPI_CLASS::gather( const TYPE *sendbuf,
             recvbuf[i + recv_disp[0]] = sendbuf[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "gather", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -981,7 +981,7 @@ void MPI_CLASS::allGather( const TYPE &x, TYPE *y ) const
             y[0] = x;
             return;
         }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
         PROFILE( "allGather", profile_level );
         if constexpr ( isMPItype<TYPE>() ) {
             auto type = MPI_getType<TYPE>();
@@ -1042,7 +1042,7 @@ int MPI_CLASS::allGather( const TYPE *send_data,
             }
             return send_cnt;
         }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
         PROFILE( "allGather2", profile_level );
         // Get the sizes of the received data (if necessary)
         int *recv_cnt  = recv_cnt0;
@@ -1196,7 +1196,7 @@ void MPI_CLASS::sumScan( const TYPE *x, TYPE *y, int n ) const
             y[i] = x[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "sumScan", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -1227,7 +1227,7 @@ void MPI_CLASS::minScan( const TYPE *x, TYPE *y, int n ) const
             y[i] = x[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "minScan", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -1258,7 +1258,7 @@ void MPI_CLASS::maxScan( const TYPE *x, TYPE *y, int n ) const
             y[i] = x[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "maxScan", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
@@ -1282,7 +1282,7 @@ void MPI_CLASS::allToAll( int n, const TYPE *send, TYPE *recv ) const
             recv[i] = send[i];
         return;
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
         MPI_Alltoall( send, n, type, recv, n, type, d_comm );
@@ -1327,7 +1327,7 @@ int MPI_CLASS::allToAll( const TYPE *send_data,
             recv_data[i + recv_disp[0]] = send_data[i + send_disp[0]];
         return send_cnt[0];
     }
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     PROFILE( "allToAll", profile_level );
     // Get the recv sizes if needed
     int *recv_cnt2  = recv_cnt;

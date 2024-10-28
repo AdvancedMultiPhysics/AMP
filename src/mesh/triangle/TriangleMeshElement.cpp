@@ -442,16 +442,24 @@ double TriangleMeshElement<NG, NP, TYPE>::distance( const MeshPoint<double> &pos
 DISABLE_WARNINGS
 template class TriangleMeshElement<1, 1, 0>;
 template class TriangleMeshElement<1, 1, 1>;
+template class TriangleMeshElement<1, 1, 2>;
+template class TriangleMeshElement<1, 1, 3>;
 template class TriangleMeshElement<1, 2, 0>;
 template class TriangleMeshElement<1, 2, 1>;
+template class TriangleMeshElement<1, 2, 2>;
+template class TriangleMeshElement<1, 2, 3>;
 template class TriangleMeshElement<1, 3, 0>;
 template class TriangleMeshElement<1, 3, 1>;
+template class TriangleMeshElement<1, 3, 2>;
+template class TriangleMeshElement<1, 3, 3>;
 template class TriangleMeshElement<2, 2, 0>;
 template class TriangleMeshElement<2, 2, 1>;
 template class TriangleMeshElement<2, 2, 2>;
+template class TriangleMeshElement<2, 2, 3>;
 template class TriangleMeshElement<2, 3, 0>;
 template class TriangleMeshElement<2, 3, 1>;
 template class TriangleMeshElement<2, 3, 2>;
+template class TriangleMeshElement<2, 3, 3>;
 template class TriangleMeshElement<3, 3, 0>;
 template class TriangleMeshElement<3, 3, 1>;
 template class TriangleMeshElement<3, 3, 2>;

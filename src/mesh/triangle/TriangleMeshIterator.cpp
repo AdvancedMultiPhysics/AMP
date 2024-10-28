@@ -205,16 +205,24 @@ bool TriangleMeshIterator<NG, NP, TYPE>::operator!=( const MeshIterator &rhs ) c
  ********************************************************/
 template class TriangleMeshIterator<1, 1, 0>;
 template class TriangleMeshIterator<1, 1, 1>;
+template class TriangleMeshIterator<1, 1, 2>;
+template class TriangleMeshIterator<1, 1, 3>;
 template class TriangleMeshIterator<1, 2, 0>;
 template class TriangleMeshIterator<1, 2, 1>;
+template class TriangleMeshIterator<1, 2, 2>;
+template class TriangleMeshIterator<1, 2, 3>;
 template class TriangleMeshIterator<1, 3, 0>;
 template class TriangleMeshIterator<1, 3, 1>;
+template class TriangleMeshIterator<1, 3, 2>;
+template class TriangleMeshIterator<1, 3, 3>;
 template class TriangleMeshIterator<2, 2, 0>;
 template class TriangleMeshIterator<2, 2, 1>;
 template class TriangleMeshIterator<2, 2, 2>;
+template class TriangleMeshIterator<2, 2, 3>;
 template class TriangleMeshIterator<2, 3, 0>;
 template class TriangleMeshIterator<2, 3, 1>;
 template class TriangleMeshIterator<2, 3, 2>;
+template class TriangleMeshIterator<2, 3, 3>;
 template class TriangleMeshIterator<3, 3, 0>;
 template class TriangleMeshIterator<3, 3, 1>;
 template class TriangleMeshIterator<3, 3, 2>;

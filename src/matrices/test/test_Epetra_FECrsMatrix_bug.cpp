@@ -4,6 +4,7 @@
  *  -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC flags are set.
  *
  */
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 
@@ -12,7 +13,7 @@
 #include <Epetra_FECrsMatrix.h>
 #include <Epetra_Map.h>
 
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     #include <Epetra_MpiComm.h>
 #else
     #include <Epetra_SerialComm.h>
@@ -29,7 +30,7 @@ int main( int argc, char *argv[] )
     }
 
 // Create the matrix
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     Epetra_MpiComm comm = MPI_COMM_WORLD;
     #include <Epetra_MpiComm.h>
 #else

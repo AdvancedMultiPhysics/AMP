@@ -8,6 +8,7 @@
 #include <thread>
 #include <vector>
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.I"
@@ -30,7 +31,7 @@ using AMP::Utilities::stringf;
 
 
 // Set some global define variables
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 bool useMPI = true;
 #else
 bool useMPI   = false;
@@ -996,7 +997,7 @@ void testCommDup( UnitTest &ut )
         ut.failure( "dup comm" );
         return;
     }
-    #if defined( USE_PETSC ) && !defined( USE_MPI )
+    #if defined( USE_PETSC ) && !defined( AMP_USE_MPI )
     ut.expected_failure( "Skipping dup tests, PETSc (no-mpi) has a limit of 128 unique comms" );
     return;
     #endif

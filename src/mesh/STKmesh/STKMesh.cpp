@@ -1,4 +1,5 @@
 #include "AMP/mesh/STKmesh/STKMesh.h"
+#include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/MeshElementVectorIterator.h"
@@ -107,7 +108,7 @@ STKMesh::STKMesh( std::shared_ptr<stk::mesh::BulkData> mesh, std::string name )
     AMP_INSIST( fem_meta_data, "STKMesh::STKMesh not called with a FEM meta data." );
     d_STKMeshMeta.reset( fem_meta_data, NullDeleter() );
     d_STKMeshBulk.reset( mesh.get(), NullDeleter() );
-#ifdef USE_MPI
+#ifdef MPI_CLASS
     this->d_comm = AMP_MPI( d_STKMeshBulk->parallel() );
     AMP_ASSERT( d_comm != AMP_MPI( AMP_COMM_NULL ) );
 #else

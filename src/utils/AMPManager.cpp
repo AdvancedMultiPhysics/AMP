@@ -156,9 +156,8 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
     AMP_MPI::start_MPI( argc, argv, d_properties.profile_MPI_level );
     auto MPI_time = getDuration( MPI_start );
     // Initialize AMP's MPI
-    comm_world = AMP_MPI( AMP_COMM_WORLD );
-    if ( d_properties.COMM_WORLD != AMP_COMM_WORLD )
-        comm_world = AMP_MPI( d_properties.COMM_WORLD );
+    AMP_INSIST( d_properties.COMM_WORLD != AMP_COMM_NULL, "AMP comm world cannot be null" );
+    comm_world = d_properties.COMM_WORLD;
     // Initialize cuda/hip
     start_CudaOrHip();
     // Initialize Kokkos

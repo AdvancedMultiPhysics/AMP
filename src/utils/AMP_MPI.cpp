@@ -1,9 +1,11 @@
 // This file implements a wrapper class for MPI functions
 
 // Include AMP headers
-#include "AMP/utils/AMP_MPI.h"
+#include "AMP/AMP_TPLs.h"
+
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.I"
+#include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/threadpool/ThreadHelpers.h"
 
@@ -29,12 +31,6 @@
 #include <string>
 #include <thread>
 #include <typeinfo>
-
-
-// Make sure USE_MPI is set properly
-#if !defined( USE_MPI ) && defined( AMP_USE_MPI )
-    #define USE_MPI
-#endif
 
 
 // Include mpi.h (or define MPI objects)
@@ -97,7 +93,7 @@ MPI_CLASS::Comm MPI_CLASS::commWorld                  = ( (MPI_CLASS::Comm) 0xF4
 
 // Static data for asyncronous communication without MPI
 // Note: these routines may not be thread-safe yet
-#ifndef USE_MPI
+#ifndef AMP_USE_MPI
 struct Isendrecv_struct {
     const void *data;     // Pointer to data
     int bytes;            // Number of bytes in the message
@@ -125,7 +121,7 @@ static MPI_CLASS::Request2 getRequest( MPI_CLASS::Comm comm, int tag )
  ************************************************************************/
 std::array<int, 2> MPI_CLASS::version()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     int MPI_version;
     int MPI_subversion;
     MPI_Get_version( &MPI_version, &MPI_subversion );
@@ -137,7 +133,7 @@ std::array<int, 2> MPI_CLASS::version()
 std::string MPI_CLASS::info()
 {
     std::string MPI_info;
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     #if MPI_VERSION >= 3
     int MPI_version_length = 0;
     char MPI_version_string[MPI_MAX_LIBRARY_VERSION_STRING];
@@ -183,7 +179,7 @@ void MPI_CLASS::setProcessAffinity( const std::vector<int> &procs )
  ************************************************************************/
 bool MPI_CLASS::MPI_Active()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     int initialized = 0, finalized = 0;
     MPI_Initialized( &initialized );
     MPI_Finalized( &finalized );
@@ -194,7 +190,7 @@ bool MPI_CLASS::MPI_Active()
 }
 MPI_CLASS::ThreadSupport MPI_CLASS::queryThreadSupport()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     int provided = 0;
     MPI_Query_thread( &provided );
     if ( provided == MPI_THREAD_SINGLE )
@@ -280,7 +276,7 @@ void MPI_CLASS::reset()
     if ( count == 0 ) {
         // We are holding that last reference to the MPI_Comm object, we need to free it
         if ( d_manage ) {
-#if defined( USE_MPI ) || defined( USE_PETSC )
+#if defined( AMP_USE_MPI ) || defined( USE_PETSC )
             MPI_Comm_set_errhandler( d_comm, MPI_ERRORS_ARE_FATAL );
             int err = MPI_Comm_free( (MPI_Comm *) &d_comm );
             if ( err != MPI_SUCCESS )
@@ -437,7 +433,7 @@ static inline uint64_t hashComm( MPI_Comm comm )
         throw std::logic_error( "Not finished" );
     }
     uint64_t hash = h ^ x;
-#if USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Bcast( &hash, 1, MPI_UINT64_T, 0, comm );
 #endif
     return hash;
@@ -475,7 +471,7 @@ MPI_CLASS::MPI_CLASS( Comm comm, bool manage )
         d_rank = 0;
         d_size = 1;
     } else {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
         // Attach the error handler
         StackTrace::setMPIErrorHandler( d_comm );
         // Get the communicator properties
@@ -622,7 +618,7 @@ size_t MPI_CLASS::rand() const
 /************************************************************************
  *  Intersect two communicators                                          *
  ************************************************************************/
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 static inline void MPI_Group_free2( MPI_Group *group )
 {
     if ( *group != MPI_GROUP_EMPTY ) {
@@ -715,7 +711,7 @@ MPI_CLASS MPI_CLASS::split( int color, int key, bool manage ) const
     }
     PROFILE( "split", profile_level );
     MPI_CLASS::Comm new_MPI_comm = commNull;
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     // USE MPI to split the communicator
     int error = 0;
     if ( color == -1 ) {
@@ -758,7 +754,7 @@ MPI_CLASS MPI_CLASS::dup( bool manage ) const
         return MPI_CLASS( commNull );
     PROFILE( "dup", profile_level );
     MPI_CLASS::Comm new_MPI_comm = d_comm;
-#if defined( USE_MPI ) || defined( USE_PETSC )
+#if defined( AMP_USE_MPI ) || defined( USE_PETSC )
     // USE MPI to duplicate the communicator
     MPI_Comm_dup( d_comm, &new_MPI_comm );
 #else
@@ -779,7 +775,7 @@ MPI_CLASS MPI_CLASS::dup( bool manage ) const
  ************************************************************************/
 std::string MPI_CLASS::getNodeName()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     int length;
     char name[MPI_MAX_PROCESSOR_NAME + 1];
     memset( name, 0, MPI_MAX_PROCESSOR_NAME + 1 );
@@ -823,7 +819,7 @@ bool MPI_CLASS::operator<( const MPI_CLASS &comm ) const
         flag = false;
 // Check the union of the communicator groups
 // this is < comm iff this group is a subgroup of comm's group
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Group group1 = MPI_GROUP_EMPTY, group2 = MPI_GROUP_EMPTY, group12 = MPI_GROUP_EMPTY;
     if ( !d_isNull )
         MPI_Comm_group( d_comm, &group1 );
@@ -855,7 +851,7 @@ bool MPI_CLASS::operator<=( const MPI_CLASS &comm ) const
         return false;
     if ( comm.d_isNull )
         flag = false;
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     int world_size = 0;
     MPI_Comm_size( MPI_COMM_WORLD, &world_size );
     if ( comm.getSize() == world_size )
@@ -871,7 +867,7 @@ bool MPI_CLASS::operator<=( const MPI_CLASS &comm ) const
     if ( d_size > comm.d_size )
         flag = false;
 // Check the unnion of the communicator groups
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Group group1, group2, group12;
     MPI_Comm_group( d_comm, &group1 );
     MPI_Comm_group( comm.d_comm, &group2 );
@@ -908,7 +904,7 @@ bool MPI_CLASS::operator>( const MPI_CLASS &comm ) const
         flag = false;
 // Check the unnion of the communicator groups
 // this is > comm iff comm's group is a subgroup of this group
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Group group1 = MPI_GROUP_EMPTY, group2 = MPI_GROUP_EMPTY, group12 = MPI_GROUP_EMPTY;
     if ( !d_isNull )
         MPI_Comm_group( d_comm, &group1 );
@@ -941,7 +937,7 @@ bool MPI_CLASS::operator>=( const MPI_CLASS &comm ) const
         return false;
     if ( comm.d_isNull )
         flag = false;
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     int world_size = 0;
     MPI_Comm_size( MPI_COMM_WORLD, &world_size );
     if ( getSize() == world_size )
@@ -957,7 +953,7 @@ bool MPI_CLASS::operator>=( const MPI_CLASS &comm ) const
         flag = false;
 // Check the unnion of the communicator groups
 // this is >= comm iff comm's group is a subgroup of this group
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Group group1 = MPI_GROUP_EMPTY, group2 = MPI_GROUP_EMPTY, group12 = MPI_GROUP_EMPTY;
     if ( !d_isNull )
         MPI_Comm_group( d_comm, &group1 );
@@ -984,7 +980,7 @@ int MPI_CLASS::compare( const MPI_CLASS &comm ) const
 {
     if ( d_comm == comm.d_comm )
         return 1;
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     if ( d_isNull || comm.d_isNull )
         return 0;
     int result;
@@ -1015,7 +1011,7 @@ int MPI_CLASS::compare( const MPI_CLASS &comm ) const
 void MPI_CLASS::setCallAbortInSerialInsteadOfExit( bool flag ) { d_call_abort = flag; }
 void MPI_CLASS::abort() const
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     MPI_Comm comm = d_comm;
     if ( comm == MPI_COMM_NULL )
         comm = MPI_COMM_WORLD;
@@ -1040,7 +1036,7 @@ void MPI_CLASS::abort() const
  ************************************************************************/
 int MPI_CLASS::newTag()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     // Syncronize the processes to ensure all ranks enter this call
     // Needed so the count will match
     barrier();
@@ -1076,7 +1072,7 @@ bool MPI_CLASS::allReduce( const bool value ) const
 {
     bool ret = value;
     if ( d_size > 1 ) {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
         MPI_Allreduce( (void *) &value, (void *) &ret, 1, MPI_UNSIGNED_CHAR, MPI_MIN, d_comm );
 #else
         NULL_USE( value );
@@ -1089,7 +1085,7 @@ void MPI_CLASS::allReduce( std::vector<bool> &x ) const
 {
     if ( d_size <= 1 )
         return;
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     size_t N  = ( x.size() + 63 ) / 64;
     auto send = new uint64_t[N];
     auto recv = new uint64_t[N];
@@ -1118,7 +1114,7 @@ bool MPI_CLASS::anyReduce( const bool value ) const
 {
     bool ret = value;
     if ( d_size > 1 ) {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
         MPI_Allreduce( (void *) &value, (void *) &ret, 1, MPI_UNSIGNED_CHAR, MPI_MAX, d_comm );
 #else
         NULL_USE( value );
@@ -1131,7 +1127,7 @@ void MPI_CLASS::anyReduce( std::vector<bool> &x ) const
 {
     if ( d_size <= 1 )
         return;
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     size_t N  = ( x.size() + 63 ) / 64;
     auto send = new uint64_t[N];
     auto recv = new uint64_t[N];
@@ -1199,7 +1195,7 @@ int MPI_CLASS::calcAllToAllDisp( const std::vector<int> &send_cnt,
  ************************************************************************/
 void MPI_CLASS::barrier() const
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     if ( d_size <= 1 )
         return;
     PROFILE( "barrier", profile_level );
@@ -1208,7 +1204,7 @@ void MPI_CLASS::barrier() const
 }
 void MPI_CLASS::sleepBarrier() const
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     if ( d_size <= 1 )
         return;
     using namespace std::chrono_literals;
@@ -1232,7 +1228,7 @@ void MPI_CLASS::sleepBarrier() const
  *  Send/Recv data                                                       *
  *  We need a concrete instantiation of send for use without MPI         *
  ************************************************************************/
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 void MPI_CLASS::sendBytes( const void *buf, int bytes, int recv_proc, int tag ) const
 {
     send<char>( (const char *) buf, bytes, recv_proc, tag );
@@ -1338,7 +1334,7 @@ MPI_CLASS::IrecvBytes( void *buf, const int bytes, const int, const int tag ) co
  ************************************************************************/
 std::vector<int> MPI_CLASS::commRanks( const std::vector<int> &ranks ) const
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     // Get a byte array with the ranks to communicate
     auto data1 = new char[d_size];
     auto data2 = new char[d_size];
@@ -1368,7 +1364,7 @@ std::vector<int> MPI_CLASS::commRanks( const std::vector<int> &ranks ) const
 /************************************************************************
  *  Wait functions                                                       *
  ************************************************************************/
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 void MPI_CLASS::wait( Request2 request )
 {
     PROFILE( "wait", profile_level );
@@ -1531,7 +1527,7 @@ std::vector<int> MPI_CLASS::waitSome( int count, const Request *request )
 /************************************************************************
  *  Probe functions                                                      *
  ************************************************************************/
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 int MPI_CLASS::Iprobe( int source, int tag ) const
 {
     MPI_CLASS_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
@@ -1580,7 +1576,7 @@ int MPI_CLASS::probe( int source, int tag ) const
 /************************************************************************
  *  Timer functions                                                      *
  ************************************************************************/
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 double MPI_CLASS::time() { return MPI_Wtime(); }
 double MPI_CLASS::tick() { return MPI_Wtick(); }
 #else
@@ -1603,7 +1599,7 @@ double MPI_CLASS::tick()
  ************************************************************************/
 void MPI_CLASS::serializeStart()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     // Wait for a message from the previous rank
     if ( d_rank > 0 ) {
         MPI_Request request;
@@ -1618,7 +1614,7 @@ void MPI_CLASS::serializeStart()
 }
 void MPI_CLASS::serializeStop()
 {
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     // Send flag to next rank
     if ( d_rank < d_size - 1 )
         MPI_Send( &d_rank, 1, MPI_INT, d_rank + 1, 5627, d_comm );
@@ -1631,13 +1627,13 @@ void MPI_CLASS::serializeStop()
 /****************************************************************************
  * Function to start/stop MPI                                                *
  ****************************************************************************/
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
 static bool called_MPI_Init = false;
 #endif
 void MPI_CLASS::start_MPI( int &argc, char *argv[], int profile_level )
 {
     changeProfileLevel( profile_level );
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     if ( MPI_Active() ) {
         called_MPI_Init = false;
     } else {
@@ -1660,7 +1656,7 @@ void MPI_CLASS::stop_MPI()
 {
     MPI_COMM_WORLD_ranks = std::vector<int>();
     AMPManager::setCommWorld( AMP_COMM_NULL );
-#ifdef USE_MPI
+#ifdef AMP_USE_MPI
     int finalized;
     MPI_Finalized( &finalized );
     if ( called_MPI_Init && !finalized ) {

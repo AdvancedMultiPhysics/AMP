@@ -5,9 +5,9 @@ The Advanced Multi-Physics (AMP) package is an open source parallel object-orien
 
 To access the Advanced Multi-Physics (AMP) code:
 
-* Log in to bitbucket
+* Log in to github
 * Clone the AMP repository to your local machine/cluster, e.g.
-    * git clone https://bitbucket.org/AdvancedMultiPhysics/amp
+    * git clone https://github.com/AdvancedMultiPhysics/AMP.git
 * Build the prerequisite software following the instructions on the Wiki (link on left or below)
 
 # Associated Websites #
@@ -30,6 +30,7 @@ The websites associated with the AMP package includes:
 * Richard Berger (LANL)
 * Brian Romero (LANL)
 * Ian May (LANL)
+* Charles Ferenbaugh (LANL)
 
 # Alumni #
 
