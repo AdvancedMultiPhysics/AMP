@@ -156,8 +156,16 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
     AMP_MPI::start_MPI( argc, argv, d_properties.profile_MPI_level );
     auto MPI_time = getDuration( MPI_start );
     // Initialize AMP's MPI
-    AMP_INSIST( d_properties.COMM_WORLD != AMP_COMM_NULL, "AMP comm world cannot be null" );
-    comm_world = d_properties.COMM_WORLD;
+    AMP_MPI::Comm new_comm = d_properties.COMM_WORLD;
+#if defined( AMP_USE_MPI )
+    AMP_INSIST( new_comm != AMP_COMM_NULL, "AMP comm world cannot be null" );
+    AMP_INSIST( new_comm != MPI_COMM_NULL, "AMP comm world cannot be null" );
+    if ( new_comm == AMP_COMM_WORLD )
+        new_comm = MPI_COMM_WORLD;
+    if ( new_comm == AMP_COMM_SELF )
+        new_comm = MPI_COMM_SELF;
+#endif
+    comm_world = AMP_MPI( new_comm, true );
     // Initialize cuda/hip
     start_CudaOrHip();
     // Initialize Kokkos
@@ -225,6 +233,7 @@ void AMPManager::shutdown()
     AMP::Utilities::finalizeKokkos();
     // Shutdown MPI
     auto MPI_start = std::chrono::steady_clock::now();
+    comm_world     = AMP_COMM_NULL;
     AMP_MPI::stop_MPI();
     auto MPI_time = getDuration( MPI_start );
     // Print any AMP_MPI leaks
