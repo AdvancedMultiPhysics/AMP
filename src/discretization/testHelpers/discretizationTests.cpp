@@ -102,6 +102,45 @@ void testBasics( std::shared_ptr<AMP::Discretization::DOFManager> DOF, AMP::Unit
 }
 
 
+// Test correct accounting of remote DOFs
+// made to mimic how matrices are constructed
+void testRemoteDOFs( std::shared_ptr<AMP::Discretization::DOFManager> DOF, AMP::UnitTest &ut )
+{
+    // first get all remote dofs that are actually referenced
+    std::set<size_t> remote_DOFs;
+    for ( size_t row = DOF->beginDOF(); row < DOF->endDOF(); ++row ) {
+        auto row_dofs = DOF->getRowDOFs( DOF->getElementID( row ) );
+        for ( auto &&rdof : row_dofs ) {
+            remote_DOFs.insert( rdof );
+        }
+    }
+
+    const auto num_remote_used = remote_DOFs.size();
+
+    // then check that stored remote dofs are the same
+    // Inserting any *should* fail, so if one does
+    // enter the std::set above then it is an
+    // unnecessary remote dof
+    bool pass = true;
+    for ( auto &&rdof : DOF->getRemoteDOFs() ) {
+        auto it = remote_DOFs.insert( rdof );
+        if ( it.second ) {
+            pass = false;
+        }
+    }
+
+    if ( !pass ) {
+        std::cout << "testRemoteDOFs on rank " << DOF->getComm().getRank() << ": DOFManager has "
+                  << remote_DOFs.size() << " remote DOFs, but should only have " << num_remote_used
+                  << ". Global size is " << DOF->numGlobalDOF() << ". Type is " << DOF->className()
+                  << "." << std::endl;
+        ut.expected_failure( "Unnecessary remote DOFs present" );
+        return;
+    }
+
+    ut.passes( "Test remote DOFs" );
+}
+
 // Test subsetting for different comms
 void testSubsetComm( std::shared_ptr<AMP::Discretization::DOFManager> DOF, AMP::UnitTest &ut )
 {
@@ -285,12 +324,14 @@ void testLogicalDOFMap( std::shared_ptr<const AMP::Mesh::Mesh> mesh,
     AMP_ASSERT( !std::dynamic_pointer_cast<AMP::Discretization::boxMeshDOFManager>( dofs2 ) );
     AMP_ASSERT( std::dynamic_pointer_cast<AMP::Discretization::simpleDOFManager>( dofs1 ) );
     AMP_ASSERT( std::dynamic_pointer_cast<AMP::Discretization::simpleDOFManager>( dofs2 ) );
+    testRemoteDOFs( dofs1, ut );
+    testRemoteDOFs( dofs2, ut );
 
     // Check the sizes on the DOF managers
     bool pass = true;
     pass      = pass && dofs1->numLocalDOF() == dofs2->numLocalDOF();
-    pass      = pass && dofs1->numGlobalDOF() == dofs1->numGlobalDOF();
-    pass      = pass && dofs1->getRemoteDOFs().size() == dofs1->getRemoteDOFs().size();
+    pass      = pass && dofs1->numGlobalDOF() == dofs2->numGlobalDOF();
+    pass      = pass && dofs1->getRemoteDOFs().size() == dofs2->getRemoteDOFs().size();
     pass      = pass && dofs1->numLocalDOF() == DOFsPerElement * mesh->numLocalElements( type );
     pass      = pass && dofs1->numGlobalDOF() == DOFsPerElement * mesh->numGlobalElements( type );
     if ( commSize > 1 )

@@ -24,6 +24,10 @@ void testBasics( std::shared_ptr<AMP::Discretization::DOFManager> DOF, AMP::Unit
 void testSubsetComm( std::shared_ptr<AMP::Discretization::DOFManager> DOF, AMP::UnitTest &ut );
 
 
+// Test correct accounting of remote DOFs
+// made to mimic how matrices are constructed
+void testRemoteDOFs( std::shared_ptr<AMP::Discretization::DOFManager> DOF, AMP::UnitTest &ut );
+
 // Test subsetting for different meshes
 void testSubsetMesh( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                      std::shared_ptr<AMP::Discretization::DOFManager> DOF,
