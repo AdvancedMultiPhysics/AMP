@@ -15,6 +15,9 @@ ENDIF()
 ADD_AMP_TEST_1_2_4( test_Discretization )
 ADD_AMP_TEST_1_2_4( test_Neighbors )
 
+ADD_AMP_TEST_1_2_4( test_vertexRemoteDOFs )
+COPY_TEST_FILE( input_testRemoteDOFs-boxmesh-1 )
+
 IF ( USE_LIBMESH )
     ADD_AMP_TEST_1_2_4( test_libmeshElement )
 ENDIF()

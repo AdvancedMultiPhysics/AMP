@@ -46,6 +46,7 @@ void testSubsetDOFManager( std::shared_ptr<MeshGenerator> generator, bool split,
     testBasics( DOF, ut );
     testSubsetComm( DOF, ut );
     testSubsetMesh( mesh, DOF, true, 1, 1, ut );
+    testRemoteDOFs( DOF, ut );
 
     // Subset for iterators
     auto iterator  = mesh->getIterator( Vertex, 1 );
@@ -108,6 +109,10 @@ void testSimpleDOFManager( std::shared_ptr<MeshGenerator> generator, AMP::UnitTe
     testSubsetMesh( mesh, DOF2, true, 1, 1, ut );
     testSubsetMesh( mesh, DOF3, true, 3, 1, ut );
     testSubsetMesh( mesh, DOF4, true, 1, 1, ut );
+    testRemoteDOFs( DOF1, ut );
+    testRemoteDOFs( DOF2, ut );
+    testRemoteDOFs( DOF3, ut );
+    testRemoteDOFs( DOF4, ut );
 
     // Check some simple properties
     PASS_FAIL( DOF1->numLocalDOF() > 0, "Non-empty DOFs: " + name );
@@ -176,6 +181,7 @@ void testMultiDOFManager( std::shared_ptr<MeshGenerator> generator, AMP::UnitTes
     testBasics( DOFs, ut );
     testSubsetComm( DOFs, ut );
     testSubsetMesh( mesh, DOFs, true, 1, 1, ut );
+    testRemoteDOFs( DOFs, ut );
 
     // Test a multivector that contains multiple vectors with the same DOFManager
     testMultiDOFVector( ut, DOFs );
@@ -214,6 +220,7 @@ void testStructureDOFManager(
     testBasics( DOFs, ut );
     testSubsetComm( DOFs, ut );
     testSubsetMesh( mesh, DOFs, false, 0, GCW, ut );
+    testRemoteDOFs( DOFs, ut );
 
     // Check getRowDOFs
     if ( Nx > 0 && Ny > 0 && Nz > 0 ) {

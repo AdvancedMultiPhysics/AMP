@@ -242,7 +242,7 @@ size_t CommunicationList::getVectorReceiveBufferSize() const { return d_ReceiveD
 const std::vector<size_t> &CommunicationList::getPartition() const { return d_partition; }
 const std::vector<size_t> &CommunicationList::getGhostIDList() const { return d_ReceiveDOFList; }
 const std::vector<size_t> &CommunicationList::getReplicatedIDList() const { return d_SendDOFList; }
-const std::vector<int> &CommunicationList::getRecieveSizes() const { return d_ReceiveSizes; }
+const std::vector<int> &CommunicationList::getReceiveSizes() const { return d_ReceiveSizes; }
 const std::vector<int> &CommunicationList::getSendSizes() const { return d_SendSizes; }
 const AMP_MPI &CommunicationList::getComm() const { return d_comm; }
 
