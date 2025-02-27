@@ -1,3 +1,4 @@
+#include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
@@ -13,6 +14,8 @@
 
 void remoteDOFTest( AMP::UnitTest *ut, std::string input_file )
 {
+    AMP::pout << "Testing vertex remote DOFs with input: " << input_file << std::endl;
+
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( input_file );
 
@@ -38,6 +41,8 @@ void remoteDOFTest( AMP::UnitTest *ut, std::string input_file )
     // 2. Every present remote dof must be referenced
     // By corollary the two sets will be the same size
 
+    const size_t start = scalarDOFs->beginDOF(), end = scalarDOFs->endDOF();
+
     // stick all remote dofs in scalarDOFs into a set
     std::set<size_t> stored_rDOFs;
     for ( auto &&rdof : scalarDOFs->getRemoteDOFs() ) {
@@ -47,16 +52,21 @@ void remoteDOFTest( AMP::UnitTest *ut, std::string input_file )
 
     // get all remote dofs that are actually referenced
     bool pass_ref_in_stored = true;
+    auto is_remote          = [start, end]( const size_t rdof ) -> bool {
+        return rdof < start || rdof >= end;
+    };
     std::set<size_t> refd_rDOFs;
-    for ( size_t row = scalarDOFs->beginDOF(); row < scalarDOFs->endDOF(); ++row ) {
+    for ( size_t row = start; row < end; ++row ) {
         auto row_dofs = scalarDOFs->getRowDOFs( scalarDOFs->getElementID( row ) );
         for ( auto &&rdof : row_dofs ) {
-            refd_rDOFs.insert( rdof );
-            auto it = stored_rDOFs.insert( rdof );
-            if ( it.second ) {
-                // successful insertion means there was a referenced DOF
-                // missing from the stored DOFs
-                pass_ref_in_stored = false;
+            if ( is_remote( rdof ) ) {
+                refd_rDOFs.insert( rdof );
+                auto it = stored_rDOFs.insert( rdof );
+                if ( it.second ) {
+                    // successful insertion means there was a referenced DOF
+                    // missing from the stored DOFs
+                    pass_ref_in_stored = false;
+                }
             }
         }
     }
@@ -83,11 +93,12 @@ void remoteDOFTest( AMP::UnitTest *ut, std::string input_file )
         ut->failure( "DOFManager contains un-referenced remote DOFs" );
     }
 
-    if ( !pass_ref_in_stored || !pass_stored_is_refd ) {
+    if ( !pass_ref_in_stored || !pass_stored_is_refd || true ) {
         std::cout << "Rank " << comm.getRank() << " stored " << num_stored << " DOFs, referenced "
-                  << num_refd << " DOFs, with " << scalarDOFs->numGlobalDOF() << " global DOFs"
-                  << std::endl;
+                  << num_refd << " DOFs, with " << scalarDOFs->numLocalDOF() << " local DOFs and "
+                  << scalarDOFs->numGlobalDOF() << " global DOFs" << std::endl;
     }
+    comm.barrier();
 }
 
 // Main function
@@ -99,12 +110,14 @@ int main( int argc, char **argv )
     PROFILE_ENABLE();
 
     if ( argc > 1 ) {
-
         files.emplace_back( argv[1] );
-
     } else {
-
         files.emplace_back( "input_testRemoteDOFs-boxmesh-1" );
+        files.emplace_back( "input_testRemoteDOFs-boxmesh-2" );
+#ifdef AMP_USE_LIBMESH
+        files.emplace_back( "input_testRemoteDOFs-libmesh-1" );
+        files.emplace_back( "input_testRemoteDOFs-libmesh-2" );
+#endif
     }
 
     for ( auto &file : files ) {
