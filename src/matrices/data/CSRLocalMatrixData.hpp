@@ -309,6 +309,12 @@ CSRLocalMatrixData<Policy, Allocator>::cloneMatrixData()
             AMP::Utilities::Algorithms<gidx_t>::copy_n(
                 d_cols.get(), d_nnz, cloneData->d_cols.get() );
         }
+        if ( d_cols_unq.get() != nullptr ) {
+            cloneData->d_ncols_unq = d_ncols_unq;
+            cloneData->d_cols_unq  = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
+            std::copy(
+                d_cols_unq.get(), d_cols_unq.get() + d_ncols_unq, cloneData->d_cols_unq.get() );
+        }
     }
 
     return cloneData;
@@ -341,7 +347,7 @@ void CSRLocalMatrixData<Policy, Allocator>::setNNZ( const std::vector<lidx_t> &n
 
     std::fill( d_cols.get(), d_cols.get() + d_nnz, 0 );
     std::fill( d_cols_loc.get(), d_cols_loc.get() + d_nnz, 0 );
-    std::fill( d_coeffs.get(), d_coeffs.get() + d_nnz, 0.0 );
+    std::fill( d_coeffs.get(), d_coeffs.get() + d_nnz, static_cast<scalar_t>( 0.0 ) );
 }
 
 template<typename Policy, class Allocator>

@@ -433,9 +433,9 @@ void testFileSystem( AMP::UnitTest &ut )
         FILE *fid = fopen( "testDeleteFile.txt", "w" );
         fputs( "Temporary test", fid );
         fclose( fid );
-        PASS_FAIL( AMP::IO::fileExists( "testDeleteFile.txt" ), "File exists" );
+        PASS_FAIL( AMP::IO::exists( "testDeleteFile.txt" ), "File exists" );
         AMP::IO::deleteFile( "testDeleteFile.txt" );
-        PASS_FAIL( !AMP::IO::fileExists( "testDeleteFile.txt" ), "File deleted" );
+        PASS_FAIL( !AMP::IO::exists( "testDeleteFile.txt" ), "File deleted" );
     }
 
     // Test creating/deleting directories
@@ -444,7 +444,7 @@ void testFileSystem( AMP::UnitTest &ut )
     AMP::IO::recursiveMkdir( "testUtilitiesDir/a/b" );
     globalComm.barrier();
     std::this_thread::sleep_for( 10ms );
-    PASS_FAIL( AMP::IO::fileExists( "testUtilitiesDir/a/b" ), "Create directory" );
+    PASS_FAIL( AMP::IO::exists( "testUtilitiesDir/a/b" ), "Create directory" );
     globalComm.barrier();
     if ( globalComm.getRank() == 0 ) {
         AMP::IO::deleteFile( "testUtilitiesDir/a/b" );
@@ -453,7 +453,7 @@ void testFileSystem( AMP::UnitTest &ut )
         std::this_thread::sleep_for( 10ms );
     }
     globalComm.barrier();
-    PASS_FAIL( !AMP::IO::fileExists( "testUtilitiesDir/a/b" ), "Destroy directory" );
+    PASS_FAIL( !AMP::IO::exists( "testUtilitiesDir/a/b" ), "Destroy directory" );
 }
 
 

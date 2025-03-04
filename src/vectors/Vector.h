@@ -394,11 +394,9 @@ public: // Clone vectors
 
 
 public: // Up/down-cast vectors
-    /** \brief Copy tup/down-casting  <i>this</i>
-     * \details  This will allocate new space with the same layout as <i>this</i>.
-     *    It will have the same number of blocks, each with the same engines and same number
-     *    of entries.  The vector will be associated with the same Variable, and will contain
-     *    a copy of the data after up/down-casting it.
+    /** \brief Copy up/down-casting  <i>this</i>
+     * \details  The vector will be associated with the same Variable, and will contain
+     *    a copy of the data in x after up/down-casting it.
      * \return  A Vector shared pointer
      */
     void copyCast( std::shared_ptr<const Vector> x );

@@ -143,8 +143,8 @@ static bool testLogicalGeometry( const AMP::Geometry::LogicalGeometry &geom, AMP
         auto p2 = geom.logical( p[i] );
         auto p3 = geom.physical( p2 );
         for ( int d = 0; d < ndim; d++ ) {
-            pass2 = pass2 && std::abs( p[i][d] - p3[d] ) < 1e-6;
-            if ( std::abs( p[i][d] - p3[d] ) > 1e-6 ) {
+            pass2 = pass2 && std::abs( p[i][d] - p3[d] ) < 1e-8;
+            if ( std::abs( p[i][d] - p3[d] ) > 1e-8 ) {
                 geom.logical( p[i] );
                 geom.physical( p2 );
             }
@@ -329,7 +329,7 @@ void testGeometry( const AMP::Geometry::Geometry &geom, AMP::UnitTest &ut )
     {
         PROFILE( "testGeometry-sample" );
         auto box = geom.box();
-        static std::mt19937 gen( 84397 );
+        std::mt19937 gen( 84397 );
         std::uniform_real_distribution<double> dist[3];
         for ( int d = 0; d < ndim; d++ )
             dist[d] = std::uniform_real_distribution<double>( box.first[d], box.second[d] );

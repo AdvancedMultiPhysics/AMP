@@ -162,7 +162,7 @@ void testWriterVector( AMP::UnitTest &ut, const std::string &writerName )
     auto rankStr         = std::to_string( comm.getRank() + 1 );
     std::string filename = "output_test_Writer/vector-" + writerName + "-" + rankStr + "proc";
     writer->writeFile( filename, 0, 0.0 );
-    if ( AMP::IO::fileExists( filename + "_0." + properties.extension ) )
+    if ( AMP::IO::exists( filename + "_0." + properties.extension ) )
         ut.passes( writerName + " registered independent vector" );
     else
         ut.failure( writerName + " registered independent vector" );
@@ -208,7 +208,7 @@ void testWriterMatrix( AMP::UnitTest &ut, const std::string &writerName )
     std::string filename = "output_test_Writer/matrix-" + writerName + "-" + rankStr + "proc";
     writer->setDecomposition( 1 );
     writer->writeFile( filename, 0, 0.0 );
-    if ( AMP::IO::fileExists( filename + "_0." + properties.extension ) )
+    if ( AMP::IO::exists( filename + "_0." + properties.extension ) )
         ut.passes( writerName + " registered matrix" );
     else
         ut.failure( writerName + " registered matrix" );

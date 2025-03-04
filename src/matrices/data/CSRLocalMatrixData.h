@@ -19,7 +19,7 @@ class DOFManager;
 namespace AMP::LinearAlgebra {
 
 // Forward declare CSRMatrixData to make it a friend
-template<typename P, class A, class DIAG, class OFFD>
+template<typename P, class A, class DIAG>
 class CSRMatrixData;
 
 template<typename Policy, class Allocator>
@@ -27,7 +27,7 @@ class CSRLocalMatrixData :
     public AMP::enable_shared_from_this<CSRLocalMatrixData<Policy, Allocator>>
 {
 public:
-    template<typename P, class A, class DIAG, class OFFD>
+    template<typename P, class A, class DIAG>
     friend class CSRMatrixData;
 
     using gidx_t   = typename Policy::gidx_t;
@@ -62,6 +62,9 @@ public:
         return std::make_tuple(
             d_row_starts.get(), d_cols.get(), d_cols_loc.get(), d_coeffs.get() );
     }
+
+    //! Get the memory space where data is stored
+    auto getMemoryLocation() const { return d_memory_location; }
 
     //! Check if this is a diagonal block
     bool isDiag() const { return d_is_diag; }

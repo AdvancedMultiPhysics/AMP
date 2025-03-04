@@ -24,8 +24,7 @@ template<
     class ViewSpace = typename std::conditional<std::is_same_v<Allocator, AMP::HostAllocator<void>>,
                                                 Kokkos::HostSpace,
                                                 Kokkos::SharedSpace>::type,
-    class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>,
-    class OffdMatrixData = CSRLocalMatrixData<Policy, Allocator>>
+    class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>>
 class CSRMatrixOperationsKokkos : public MatrixOperations
 {
 public:
@@ -42,7 +41,7 @@ public:
                                                               Allocator,
                                                               ExecSpace,
                                                               ViewSpace,
-                                                              OffdMatrixData>>( d_exec_space ) )
+                                                              DiagMatrixData>>( d_exec_space ) )
     {
     }
 
@@ -84,6 +83,18 @@ public:
      */
     void axpy( AMP::Scalar alpha, const MatrixData &X, MatrixData &Y ) override;
 
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients after up/down casting
+     * \param[in] x matrix data to copy from
+     * \param[in] y matrix data to copy to after up/down casting the coefficients
+     */
+    void copyCast( const MatrixData &X, MatrixData &Y ) override;
+
+    template<typename PolicyIn>
+    static void
+    copyCast( CSRMatrixData<PolicyIn, Allocator, CSRLocalMatrixData<PolicyIn, Allocator>> *X,
+              CSRMatrixData<Policy, Allocator, DiagMatrixData> *Y );
+
     /** \brief  Set the non-zeros of the matrix to a scalar
      * \param[in]  alpha  The value to set the non-zeros to
      */
@@ -119,8 +130,7 @@ protected:
     std::shared_ptr<
         CSRLocalMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>>
         d_localops_diag;
-    std::shared_ptr<
-        CSRLocalMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, OffdMatrixData>>
+    std::shared_ptr<CSRLocalMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace>>
         d_localops_offd;
 };
 

@@ -398,7 +398,7 @@ void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
 #endif
     // clang-format on
 
-    std::string log_file = "output_testMatVecPerf";
+    std::string log_file = "output_testMatOpDev";
     AMP::logOnlyNodeZero( log_file );
 
     // Read the input file

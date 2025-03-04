@@ -176,7 +176,7 @@ template<class T>
 void quicksort( std::vector<T> &x );
 
 /*!
- * Quicksort a std::vector
+ * Quicksort a vector
  * \param N      Number of entries to sort
  * \param x      Vector to sort
  * \param y      Extra values to be sorted with X
@@ -187,10 +187,20 @@ void quicksort( size_t N, T1 *x, T2 *y );
 /*!
  * Quicksort a std::vector
  * \param x      Vector to sort
- * \param y      Extra values to be sorted with X
+ * \param y      Extra values to be sorted with x
  */
 template<class T1, class T2>
 void quicksort( std::vector<T1> &x, std::vector<T2> &y );
+
+/*!
+ * Quicksort a vector
+ * \param N      Number of entries to sort
+ * \param x      Vector to sort
+ * \param y      Extra values to be sorted with x
+ * \param z      Extra values to be sorted with x
+ */
+template<class T1, class T2, class T3>
+void quicksort( size_t N, T1 *x, T2 *y, T3 *z );
 
 
 /*!

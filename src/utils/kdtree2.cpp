@@ -6,14 +6,17 @@
 /********************************************************
  *  Explicit instantiations                              *
  ********************************************************/
-#define INSANTIATE( TYPE )                \
-    template class AMP::kdtree2<1, TYPE>; \
-    template class AMP::kdtree2<2, TYPE>; \
-    template class AMP::kdtree2<3, TYPE>; \
-    template class AMP::kdtree2<4, TYPE>; \
-    template class AMP::kdtree2<5, TYPE>
+#define INSANTIATE2( TYPE, NDIM )                                                    \
+    template class AMP::kdtree2<NDIM, TYPE>;                                         \
+    template void AMP::Utilities::quicksort<double, std::array<double, NDIM>, TYPE>( \
+        size_t, double *, std::array<double, NDIM> *, TYPE * )
+#define INSANTIATE( TYPE )  \
+    INSANTIATE2( TYPE, 1 ); \
+    INSANTIATE2( TYPE, 2 ); \
+    INSANTIATE2( TYPE, 3 ); \
+    INSANTIATE2( TYPE, 4 ); \
+    INSANTIATE2( TYPE, 5 )
 INSANTIATE( bool );
 INSANTIATE( int );
 INSANTIATE( float );
 INSANTIATE( double );
-template void AMP::Utilities::quicksort<double, uint64_t>( size_t, double *, uint64_t * );

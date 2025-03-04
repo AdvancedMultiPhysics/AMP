@@ -420,14 +420,6 @@ public: // Advanced functions
      */
     virtual std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const = 0;
 
-    /** \brief Copy cast
-     */
-    template<typename TYPE2>
-    std::shared_ptr<VectorData> copyCastData( const std::string &name = "" ) const
-    {
-        return cloneData( name );
-    }
-
     /** \brief Associate the ghost buffer of a Vector with this Vector
      * \param in  The Vector to share a ghost buffer with
      */

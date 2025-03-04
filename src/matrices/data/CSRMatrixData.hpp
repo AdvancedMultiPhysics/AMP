@@ -4,7 +4,6 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/AMPCSRMatrixParameters.h"
-#include "AMP/matrices/GetRowHelper.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/matrices/RawCSRMatrixParameters.h"
@@ -19,15 +18,15 @@ namespace AMP::LinearAlgebra {
 /********************************************************
  * Constructors/Destructor                              *
  ********************************************************/
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::CSRMatrixData()
+template<typename Policy, class Allocator, class DiagMatrixData>
+CSRMatrixData<Policy, Allocator, DiagMatrixData>::CSRMatrixData()
     : d_memory_location( AMP::Utilities::getAllocatorMemoryType<Allocator>() )
 {
     AMPManager::incrementResource( "CSRMatrixData" );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::CSRMatrixData(
+template<typename Policy, class Allocator, class DiagMatrixData>
+CSRMatrixData<Policy, Allocator, DiagMatrixData>::CSRMatrixData(
     std::shared_ptr<MatrixParametersBase> params )
     : MatrixData( params ), d_memory_location( AMP::Utilities::getAllocatorMemoryType<Allocator>() )
 {
@@ -54,7 +53,7 @@ CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::CSRMatrixData(
         // Construct on/off diag blocks
         d_diag_matrix = std::make_shared<DiagMatrixData>(
             params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, true );
-        d_offd_matrix = std::make_shared<OffdMatrixData>(
+        d_offd_matrix = std::make_shared<DiagMatrixData>(
             params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, false );
 
         // Only special item, raw data doesn't come with DOFManagers so need to make some
@@ -73,7 +72,7 @@ CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::CSRMatrixData(
         // Construct on/off diag blocks
         d_diag_matrix = std::make_shared<DiagMatrixData>(
             params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, true );
-        d_offd_matrix = std::make_shared<OffdMatrixData>(
+        d_offd_matrix = std::make_shared<DiagMatrixData>(
             params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, false );
 
         // If, more specifically, have ampCSRParams then blocks are not yet
@@ -122,20 +121,19 @@ CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::CSRMatrixData(
     d_is_square = ( d_leftDOFManager->numGlobalDOF() == d_rightDOFManager->numGlobalDOF() );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::~CSRMatrixData()
+template<typename Policy, class Allocator, class DiagMatrixData>
+CSRMatrixData<Policy, Allocator, DiagMatrixData>::~CSRMatrixData()
 {
     AMPManager::decrementResource( "CSRMatrixData" );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
+template<typename Policy, class Allocator, class DiagMatrixData>
 std::shared_ptr<MatrixData>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::cloneMatrixData() const
+CSRMatrixData<Policy, Allocator, DiagMatrixData>::cloneMatrixData() const
 {
     std::shared_ptr<CSRMatrixData> cloneData;
 
-    cloneData =
-        std::make_shared<CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>>();
+    cloneData = std::make_shared<CSRMatrixData<Policy, Allocator, DiagMatrixData>>();
 
     cloneData->d_is_square       = d_is_square;
     cloneData->d_first_row       = d_first_row;
@@ -153,9 +151,9 @@ CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::cloneMatrixDat
     return cloneData;
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::setNNZ(
-    const std::vector<lidx_t> &nnz_diag, const std::vector<lidx_t> &nnz_offd )
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::setNNZ( const std::vector<lidx_t> &nnz_diag,
+                                                               const std::vector<lidx_t> &nnz_offd )
 {
     // forward to internal blocks to get the internals allocated
     d_diag_matrix->setNNZ( nnz_diag );
@@ -163,15 +161,15 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::setNNZ(
     d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::globalToLocalColumns()
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::globalToLocalColumns()
 {
     d_diag_matrix->globalToLocalColumns();
     d_offd_matrix->globalToLocalColumns();
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::resetDOFManagers()
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::resetDOFManagers()
 {
     std::vector<size_t> remoteDOFsRight;
     d_offd_matrix->getColumnMap( remoteDOFsRight );
@@ -185,15 +183,14 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::resetDOFM
     }
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-std::shared_ptr<MatrixData>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::transpose() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+std::shared_ptr<MatrixData> CSRMatrixData<Policy, Allocator, DiagMatrixData>::transpose() const
 {
     AMP_ERROR( "Not implemented" );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getRowByGlobalID(
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::getRowByGlobalID(
     size_t row, std::vector<size_t> &cols, std::vector<double> &vals ) const
 {
     AMP_DEBUG_INSIST( row >= static_cast<size_t>( d_first_row ) &&
@@ -216,8 +213,8 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getRowByG
     vals.insert( vals.end(), od_vals.begin(), od_vals.end() );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getValuesByGlobalID(
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::getValuesByGlobalID(
     size_t num_rows,
     size_t num_cols,
     size_t *rows,
@@ -253,8 +250,8 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getValues
 // The two getValues functions above can directly forward to the diag and off diag blocks
 // The addValuesByGlobalID and setValuesByGlobalID functions can't do this since
 // they need to also handle the other_data case
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::addValuesByGlobalID(
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::addValuesByGlobalID(
     size_t num_rows,
     size_t num_cols,
     size_t *rows,
@@ -288,8 +285,8 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::addValues
     }
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::setValuesByGlobalID(
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::setValuesByGlobalID(
     size_t num_rows,
     size_t num_cols,
     size_t *rows,
@@ -324,9 +321,9 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::setValues
     }
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
+template<typename Policy, class Allocator, class DiagMatrixData>
 std::vector<size_t>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getColumnIDs( size_t row ) const
+CSRMatrixData<Policy, Allocator, DiagMatrixData>::getColumnIDs( size_t row ) const
 {
     AMP_DEBUG_INSIST( row >= static_cast<size_t>( d_first_row ) &&
                           row < static_cast<size_t>( d_last_row ),
@@ -344,8 +341,8 @@ CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getColumnIDs( 
     return cols;
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::setOtherData(
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::setOtherData(
     std::map<gidx_t, std::map<gidx_t, scalar_t>> &other_data, AMP::LinearAlgebra::ScatterType t )
 {
     AMP_MPI comm   = getComm();
@@ -431,8 +428,8 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::setOtherD
     other_data.clear();
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::makeConsistent(
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixData<Policy, Allocator, DiagMatrixData>::makeConsistent(
     AMP::LinearAlgebra::ScatterType t )
 {
     if ( t == AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD )
@@ -441,16 +438,16 @@ void CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::makeConsi
         setOtherData( d_ghost_data, AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
+template<typename Policy, class Allocator, class DiagMatrixData>
 std::shared_ptr<Discretization::DOFManager>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getRightDOFManager() const
+CSRMatrixData<Policy, Allocator, DiagMatrixData>::getRightDOFManager() const
 {
     return d_rightDOFManager;
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
+template<typename Policy, class Allocator, class DiagMatrixData>
 std::shared_ptr<Discretization::DOFManager>
-CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getLeftDOFManager() const
+CSRMatrixData<Policy, Allocator, DiagMatrixData>::getLeftDOFManager() const
 {
     return d_leftDOFManager;
 }
@@ -458,27 +455,27 @@ CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::getLeftDOFMana
 /********************************************************
  * Get the number of rows/columns in the matrix          *
  ********************************************************/
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::numLocalRows() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::numLocalRows() const
 {
     return static_cast<size_t>( d_last_row - d_first_row );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::numGlobalRows() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::numGlobalRows() const
 {
     AMP_ASSERT( d_leftDOFManager );
     return d_leftDOFManager->numGlobalDOF();
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::numLocalColumns() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::numLocalColumns() const
 {
     return static_cast<size_t>( d_last_col - d_first_col );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::numGlobalColumns() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::numGlobalColumns() const
 {
     AMP_ASSERT( d_rightDOFManager );
     return d_rightDOFManager->numGlobalDOF();
@@ -487,26 +484,26 @@ size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::numGlob
 /********************************************************
  * Get iterators                                         *
  ********************************************************/
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::beginRow() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::beginRow() const
 {
     return static_cast<size_t>( d_first_row );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::endRow() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::endRow() const
 {
     return static_cast<size_t>( d_last_row );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::beginCol() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::beginCol() const
 {
     return static_cast<size_t>( d_first_col );
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-size_t CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>::endCol() const
+template<typename Policy, class Allocator, class DiagMatrixData>
+size_t CSRMatrixData<Policy, Allocator, DiagMatrixData>::endCol() const
 {
     return static_cast<size_t>( d_last_col );
 }

@@ -1,58 +1,38 @@
-#include "ProfilerApp.h"
+#ifndef included_AMP_Matrix_GetRowHelper_hpp
+#define included_AMP_Matrix_GetRowHelper_hpp
+
+#include "AMP/matrices/GetRowHelper.h"
+
 
 namespace AMP::LinearAlgebra {
 
-template<class BIGINT_TYPE, class INT_TYPE>
-void GetRowHelper::NNZ( BIGINT_TYPE row, INT_TYPE &num_local, INT_TYPE &num_remote )
+
+/****************************************************************
+ * Get rows / size of rows                                       *
+ ****************************************************************/
+template<class INT>
+void GetRowHelper::NNZ( size_t row, INT &N_local, INT &N_remote ) const
 {
-    PROFILE( "GetRowHelper::NNZ" );
-
-    // attempt to get row dofs and resize backing vector if needed
-    const auto id = d_leftDOF->getElementID( row );
-    const auto N  = d_rightDOF->getRowDOFs( id, d_rowDOFs.data(), d_rowDOFs.size(), false );
-    if ( N > d_rowDOFs.size() ) {
-        d_rowDOFs.resize( N );
-        d_rightDOF->getRowDOFs( id, d_rowDOFs.data(), d_rowDOFs.size(), false );
+    auto N   = NNZ( row );
+    N_local  = N[0];
+    N_remote = N[1];
+}
+template<class INT>
+void GetRowHelper::getRow( INT row, INT *local, INT *remote ) const
+{
+    auto [N_local, N_remote] = NNZ( row );
+    auto [p_local, p_remote] = getRow2( row );
+    if ( local ) {
+        for ( size_t i = 0; i < N_local; i++ )
+            local[i] = static_cast<INT>( p_local[i] );
     }
-
-    // test for local vs remote and assign accordingly
-    num_local  = 0;
-    num_remote = 0;
-    for ( size_t k = 0; k < N; ++k ) {
-        if ( d_rowDOFs[k] >= d_beginCol && d_rowDOFs[k] < d_endCol ) {
-            ++num_local;
-        } else {
-            ++num_remote;
-        }
+    if ( remote ) {
+        for ( size_t i = 0; i < N_remote; i++ )
+            remote[i] = static_cast<INT>( p_remote[i] );
     }
 }
 
-template<class BIGINT_TYPE>
-void GetRowHelper::getRow( BIGINT_TYPE row, BIGINT_TYPE *cols_local, BIGINT_TYPE *cols_remote )
-{
-    PROFILE( "GetRowHelper::getRow" );
-
-    // attempt to get row dofs and resize backing vector if needed
-    // resize shouldn't be needed since a prior call to NNZ should have already
-    // done this
-    const auto id = d_leftDOF->getElementID( row );
-    const auto N  = d_rightDOF->getRowDOFs( id, d_rowDOFs.data(), d_rowDOFs.size(), false );
-    if ( N > d_rowDOFs.size() ) {
-        AMP_WARNING(
-            "GetRowHelper: resize of backing vector needed in getRow. This should not happen." );
-        d_rowDOFs.resize( N );
-        d_rightDOF->getRowDOFs( id, d_rowDOFs.data(), d_rowDOFs.size(), false );
-    }
-
-    // test for local vs remote and assign accordingly
-    size_t nl = 0, nr = 0;
-    for ( size_t k = 0; k < N; ++k ) {
-        if ( d_rowDOFs[k] >= d_beginCol && d_rowDOFs[k] < d_endCol ) {
-            cols_local[nl++] = static_cast<BIGINT_TYPE>( d_rowDOFs[k] );
-        } else {
-            cols_remote[nr++] = static_cast<BIGINT_TYPE>( d_rowDOFs[k] );
-        }
-    }
-}
 
 } // namespace AMP::LinearAlgebra
+
+#endif

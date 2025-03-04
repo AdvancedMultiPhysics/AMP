@@ -505,9 +505,9 @@ void testInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x, bool check
     int Nn    = 3;
     size_t N2 = Nn * N;
     AMP::Array<TYPE> x2( ndim, N2 );
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dist( -1, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dist( -1, 1 );
     for ( size_t i = 0; i < N; i++ ) {
         for ( int j = 0; j < Nn; j++ ) {
             for ( int d = 0; d < ndim; d++ )

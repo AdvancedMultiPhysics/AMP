@@ -40,16 +40,16 @@ template<class TYPE>
 static TYPE random()
 {
     if constexpr ( std::is_floating_point_v<TYPE> ) {
-        static std::uniform_real_distribution<double> dist( 0, 1 );
+        std::uniform_real_distribution<double> dist( 0, 1 );
         return static_cast<TYPE>( dist( generator ) );
     } else if constexpr ( std::is_integral_v<TYPE> ) {
-        static std::uniform_int_distribution<int> dist( 0, 1000000000 );
+        std::uniform_int_distribution<int> dist( 0, 1000000000 );
         return static_cast<TYPE>( dist( generator ) );
     } else if constexpr ( std::is_same_v<TYPE, std::complex<double>> ) {
-        static std::uniform_real_distribution<double> dist( 0, 1 );
+        std::uniform_real_distribution<double> dist( 0, 1 );
         return std::complex<double>( random<double>(), random<double>() );
     } else if constexpr ( std::is_same_v<TYPE, std::complex<float>> ) {
-        static std::uniform_real_distribution<float> dist( 0, 1 );
+        std::uniform_real_distribution<float> dist( 0, 1 );
         return std::complex<float>( random<float>(), random<float>() );
     } else {
         AMP_ERROR( "Invalid TYPE: " + std::string( AMP::getTypeID<TYPE>().name ) );

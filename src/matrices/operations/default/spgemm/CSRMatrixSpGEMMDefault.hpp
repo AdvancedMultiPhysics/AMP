@@ -8,9 +8,8 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>::
-    symbolicMultiply()
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>::symbolicMultiply()
 {
     PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply" );
 
@@ -84,15 +83,15 @@ void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixD
     C->resetDOFManagers();
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
+template<typename Policy, class Allocator, class DiagMatrixData>
 template<class AMatrixData, class BMatrixData>
-void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>::
-    symbolicMultiply( std::shared_ptr<AMatrixData> A_data,
-                      std::shared_ptr<BMatrixData> B_data,
-                      const typename Policy::gidx_t col_diag_start,
-                      const typename Policy::gidx_t col_diag_end,
-                      const bool is_diag,
-                      std::vector<std::set<typename Policy::gidx_t>> &C_cols )
+void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>::symbolicMultiply(
+    std::shared_ptr<AMatrixData> A_data,
+    std::shared_ptr<BMatrixData> B_data,
+    const typename Policy::gidx_t col_diag_start,
+    const typename Policy::gidx_t col_diag_end,
+    const bool is_diag,
+    std::vector<std::set<typename Policy::gidx_t>> &C_cols )
 {
     using lidx_t   = typename Policy::lidx_t;
     using gidx_t   = typename Policy::gidx_t;
@@ -142,9 +141,8 @@ void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixD
     }
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>::
-    createBRemoteCommInfo()
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>::createBRemoteCommInfo()
 {
     /*
      * Setting up the comms is somewhat involved. A high level overview
@@ -300,9 +298,8 @@ void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixD
 }
 
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>::
-    createBRemoteSymbolic()
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>::createBRemoteSymbolic()
 {
     PROFILE( "CSRMatrixSpGEMMDefault::createBRemoteSymbolic" );
 
@@ -384,9 +381,8 @@ void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixD
 
 // TODO: this is redundant with the last step of the symbolic phase
 //       abstract the comms pattern to work for cols or coeffs
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>::
-    fillBRemoteNumeric()
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>::fillBRemoteNumeric()
 {
     PROFILE( "CSRMatrixSpGEMMDefault::fillBRemoteNumeric" );
 
@@ -440,9 +436,8 @@ void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixD
 }
 
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>::
-    numericMultiply()
+template<typename Policy, class Allocator, class DiagMatrixData>
+void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>::numericMultiply()
 {
     PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply" );
 
@@ -471,12 +466,12 @@ void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixD
     }
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
+template<typename Policy, class Allocator, class DiagMatrixData>
 template<class AMatrixData, class BMatrixData, class CMatrixData>
-void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>::
-    numericMultiply( std::shared_ptr<AMatrixData> A_data,
-                     std::shared_ptr<BMatrixData> B_data,
-                     std::shared_ptr<CMatrixData> C_data )
+void CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>::numericMultiply(
+    std::shared_ptr<AMatrixData> A_data,
+    std::shared_ptr<BMatrixData> B_data,
+    std::shared_ptr<CMatrixData> C_data )
 {
     using lidx_t   = typename Policy::lidx_t;
     using gidx_t   = typename Policy::gidx_t;

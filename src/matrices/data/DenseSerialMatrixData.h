@@ -151,6 +151,14 @@ public:
      */
     size_t numGlobalColumns() const override { return d_cols; }
 
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    typeID getCoeffType() const override
+    {
+        constexpr auto type = getTypeID<double>();
+        return type;
+    }
+
 protected:
     // AMP variables and DOFManagers for the left and right vectors
     std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerLeft;

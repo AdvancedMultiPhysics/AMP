@@ -225,6 +225,143 @@ void quicksort( size_t n, T1 *x, T2 *y )
         }
     }
 }
+template<class T1, class T2, class T3>
+void quicksort( size_t n, T1 *x, T2 *y, T3 *z )
+{
+    if ( n <= 1 )
+        return;
+    T1 *arr = &x[0];
+    T2 *brr = &y[0];
+    T3 *crr = &z[0];
+    bool test;
+    long int i, ir, j, jstack, k, l, istack[100];
+    T1 a;
+    T2 b;
+    T3 c;
+    jstack = 0;
+    l      = 0;
+    ir     = n - 1;
+    while ( 1 ) {
+        if ( ir - l < 7 ) { // Insertion sort when subarray small enough.
+            for ( j = l + 1; j <= ir; j++ ) {
+                a    = arr[j];
+                b    = brr[j];
+                c    = crr[j];
+                test = true;
+                for ( i = j - 1; i >= 0; i-- ) {
+                    if ( arr[i] < a ) {
+                        arr[i + 1] = a;
+                        brr[i + 1] = b;
+                        crr[i + 1] = c;
+                        test       = false;
+                        break;
+                    }
+                    arr[i + 1] = arr[i];
+                    brr[i + 1] = brr[i];
+                    crr[i + 1] = crr[i];
+                }
+                if ( test ) {
+                    i          = l - 1;
+                    arr[i + 1] = a;
+                    brr[i + 1] = b;
+                    crr[i + 1] = c;
+                }
+            }
+            if ( jstack == 0 )
+                return;
+            ir = istack[jstack]; // Pop stack and begin a new round of partitioning.
+            l  = istack[jstack - 1];
+            jstack -= 2;
+        } else {
+            k = ( l + ir ) / 2; // Choose median of left, center and right elements as partitioning
+                                // element a. Also rearrange so that a(l) ? a(l+1) ? a(ir).
+            auto tmp_a = arr[k];
+            arr[k]     = arr[l + 1];
+            arr[l + 1] = tmp_a;
+            auto tmp_b = brr[k];
+            brr[k]     = brr[l + 1];
+            brr[l + 1] = tmp_b;
+            auto tmp_c = crr[k];
+            crr[k]     = crr[l + 1];
+            crr[l + 1] = tmp_c;
+            if ( arr[l] > arr[ir] ) {
+                tmp_a   = arr[l];
+                arr[l]  = arr[ir];
+                arr[ir] = tmp_a;
+                tmp_b   = brr[l];
+                brr[l]  = brr[ir];
+                brr[ir] = tmp_b;
+                tmp_c   = crr[l];
+                crr[l]  = crr[ir];
+                crr[ir] = tmp_c;
+            }
+            if ( arr[l + 1] > arr[ir] ) {
+                tmp_a      = arr[l + 1];
+                arr[l + 1] = arr[ir];
+                arr[ir]    = tmp_a;
+                tmp_b      = brr[l + 1];
+                brr[l + 1] = brr[ir];
+                brr[ir]    = tmp_b;
+                tmp_c      = crr[l + 1];
+                crr[l + 1] = crr[ir];
+                crr[ir]    = tmp_c;
+            }
+            if ( arr[l] > arr[l + 1] ) {
+                tmp_a      = arr[l];
+                arr[l]     = arr[l + 1];
+                arr[l + 1] = tmp_a;
+                tmp_b      = brr[l];
+                brr[l]     = brr[l + 1];
+                brr[l + 1] = tmp_b;
+                tmp_c      = crr[l];
+                crr[l]     = crr[l + 1];
+                crr[l + 1] = tmp_c;
+            }
+            // Scan up to find element > a
+            j = ir;
+            a = arr[l + 1]; // Partitioning element.
+            b = brr[l + 1];
+            c = crr[l + 1];
+            for ( i = l + 2; i <= ir; i++ ) {
+                if ( arr[i] < a )
+                    continue;
+                while ( arr[j] > a ) // Scan down to find element < a.
+                    j--;
+                if ( j < i )
+                    break;       // Pointers crossed. Exit with partitioning complete.
+                tmp_a  = arr[i]; // Exchange elements of both arrays.
+                arr[i] = arr[j];
+                arr[j] = tmp_a;
+                tmp_b  = brr[i];
+                brr[i] = brr[j];
+                brr[j] = tmp_b;
+                tmp_c  = crr[i];
+                crr[i] = crr[j];
+                crr[j] = tmp_c;
+            }
+            arr[l + 1] = arr[j]; // Insert partitioning element in both arrays.
+            arr[j]     = a;
+            brr[l + 1] = brr[j];
+            brr[j]     = b;
+            crr[l + 1] = crr[j];
+            crr[j]     = c;
+            jstack += 2;
+            // Push pointers to larger subarray on stack, process smaller subarray immediately.
+            if ( ir - i + 1 >= j - l ) {
+                istack[jstack]     = ir;
+                istack[jstack - 1] = i;
+                ir                 = j - 1;
+            } else {
+                auto j2 = j - 1;
+                while ( j2 - l > 1 && arr[j2] == arr[j] )
+                    j2--;
+                istack[jstack]     = j2;
+                istack[jstack - 1] = l;
+                l                  = i;
+            }
+        }
+    }
+}
 template<class T>
 void quicksort( std::vector<T> &x )
 {

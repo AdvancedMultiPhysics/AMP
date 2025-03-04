@@ -490,7 +490,7 @@ void ElementFinder::initialize() const
     // Update the internal hash
     d_pos_hash = d_mesh->positionHash();
     // Create a kdtree with the points
-    d_tree = AMP::kdtree2<3, AMP::Mesh::MeshElementID>( ids.size(), points.data(), ids.data() );
+    d_tree = AMP::kdtree2<3, AMP::Mesh::MeshElementID>( points, ids );
 }
 void ElementFinder::update() const
 {

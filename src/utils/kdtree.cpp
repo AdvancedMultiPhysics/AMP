@@ -43,7 +43,7 @@ void *createTree( const size_t N, const double *const *x )
         for ( int d = 0; d < NDIM; d++ )
             x2[i][d] = x[d][i];
     }
-    return new kdtree2<NDIM, int>( N, x2.data(), index.data() );
+    return new kdtree2<NDIM, int>( x2, index );
 }
 kdtree::kdtree( const int N_dim, const size_t N, const double *const *x )
     : d_dim( N_dim ), d_N( N ), d_tree( nullptr )

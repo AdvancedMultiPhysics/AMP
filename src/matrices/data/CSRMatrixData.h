@@ -20,8 +20,7 @@ namespace AMP::LinearAlgebra {
 
 template<typename Policy,
          class Allocator      = AMP::HostAllocator<void>,
-         class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>,
-         class OffdMatrixData = CSRLocalMatrixData<Policy, Allocator>>
+         class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>>
 class CSRMatrixData : public MatrixData
 {
 public:
@@ -166,11 +165,18 @@ public:
     //!  Get the global id of the last column in diagonal block (exclusive)
     size_t endCol() const override;
 
+    //! Return the typeid of the matrix coeffs
+    typeID getCoeffType() const override
+    {
+        constexpr auto type = getTypeID<scalar_t>();
+        return type;
+    }
+
     //! Get pointer to diagonal block
     std::shared_ptr<DiagMatrixData> getDiagMatrix() { return d_diag_matrix; }
 
     //! Get pointer to off-diagonal block
-    std::shared_ptr<OffdMatrixData> getOffdMatrix() { return d_offd_matrix; }
+    std::shared_ptr<DiagMatrixData> getOffdMatrix() { return d_offd_matrix; }
 
     //! Get row pointers from diagonal block
     lidx_t *getDiagRowStarts() { return d_diag_matrix->d_row_starts.get(); }
@@ -242,7 +248,7 @@ protected:
     //! Diagonal matrix block [d_first_row,d_last_row] x [d_first_col,d_last_col]
     std::shared_ptr<DiagMatrixData> d_diag_matrix;
     //! Diagonal matrix block [d_first_row,d_last_row] x ]d_first_col,d_last_col[
-    std::shared_ptr<OffdMatrixData> d_offd_matrix;
+    std::shared_ptr<DiagMatrixData> d_offd_matrix;
 
     //! DOFManager for left vectors
     std::shared_ptr<Discretization::DOFManager> d_leftDOFManager;
@@ -260,24 +266,20 @@ protected:
                        AMP::LinearAlgebra::ScatterType );
 };
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-static CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData> const *
+template<typename Policy, class Allocator, class DiagMatrixData>
+static CSRMatrixData<Policy, Allocator, DiagMatrixData> const *
 getCSRMatrixData( MatrixData const &A )
 {
-    auto ptr =
-        dynamic_cast<CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData> const *>(
-            &A );
+    auto ptr = dynamic_cast<CSRMatrixData<Policy, Allocator, DiagMatrixData> const *>( &A );
     AMP_INSIST( ptr, "dynamic cast from const MatrixData to const CSRMatrixData failed" );
     return ptr;
 }
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
-static CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData> *
-getCSRMatrixData( MatrixData &A )
+template<typename Policy, class Allocator, class DiagMatrixData>
+static CSRMatrixData<Policy, Allocator, DiagMatrixData> *getCSRMatrixData( MatrixData &A )
 {
-    auto ptr =
-        dynamic_cast<CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData> *>( &A );
-    AMP_INSIST( ptr, "dynamic cast from const MatrixData to const CSRMatrixData failed" );
+    auto ptr = dynamic_cast<CSRMatrixData<Policy, Allocator, DiagMatrixData> *>( &A );
+    AMP_INSIST( ptr, "dynamic cast from MatrixData to CSRMatrixData failed" );
     return ptr;
 }
 

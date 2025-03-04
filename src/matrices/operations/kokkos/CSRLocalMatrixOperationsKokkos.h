@@ -75,6 +75,15 @@ public:
     void
     axpy( scalar_t alpha, std::shared_ptr<LocalMatrixData> X, std::shared_ptr<LocalMatrixData> Y );
 
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients after up/down casting
+     * \param[in] X matrix data to copy from
+     * \param[in] Y matrix data to copy to after up/down casting the coefficients
+     */
+    template<typename PolicyIn>
+    static void copyCast( std::shared_ptr<CSRLocalMatrixData<PolicyIn, Allocator>> X,
+                          std::shared_ptr<LocalMatrixData> Y );
+
     /** \brief  Set the non-zeros of the matrix to a scalar
      * \param[in]  alpha  The value to set the non-zeros to
      * \param[out] A The input matrix A

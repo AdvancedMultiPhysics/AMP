@@ -74,6 +74,15 @@ public:
 
     AMP_MPI getComm() const override;
 
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    typeID getCoeffType() const override
+    {
+        // Petsc matrices are double only for the moment
+        constexpr auto type = getTypeID<double>();
+        return type;
+    }
+
 private:
     Mat d_Mat                   = nullptr;
     bool d_MatCreatedInternally = false;

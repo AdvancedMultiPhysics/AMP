@@ -109,6 +109,13 @@ void DeviceMatrixOperations<G, L, S>::axpy( const size_t N, const S alpha, S *x,
     deviceSynchronize();
 }
 
+// copy
+template<typename G, typename L, typename S>
+void DeviceMatrixOperations<G, L, S>::copy( const size_t N, const S *x, S *y )
+{
+    deviceMemcpy( y, x, N * sizeof( S ), deviceMemcpyDeviceToDevice );
+}
+
 // extract diagonal
 template<typename L, typename S>
 __global__ static void

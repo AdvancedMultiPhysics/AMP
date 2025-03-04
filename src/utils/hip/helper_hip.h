@@ -12,6 +12,7 @@
 
 #define deviceMemcpyHostToDevice hipMemcpyHostToDevice
 #define deviceMemcpyDeviceToHost hipMemcpyDeviceToHost
+#define deviceMemcpyDeviceToDevice hipMemcpyDeviceToDevice
 
 #define deviceSynchronize() checkHipErrors( hipDeviceSynchronize() )
 #define deviceMalloc( ... ) checkHipErrors( hipMalloc( __VA_ARGS__ ) )

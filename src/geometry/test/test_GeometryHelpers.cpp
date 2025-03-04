@@ -222,9 +222,9 @@ void test_map_logical_sphere_surface( int N, AMP::UnitTest &ut )
 // Create random triangle/ray/distance sets in the same plane
 static std::tuple<std::array<Point3D, 3>, Point3D, Point3D, double> createTriRayPlane()
 {
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<> dis( -1.0, 1.0 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<> dis( -1.0, 1.0 );
     // Create the center of a triangle and point of intersection
     Point3D c  = { dis( gen ), dis( gen ), dis( gen ) };
     Point3D pi = { dis( gen ), dis( gen ), dis( gen ) };
@@ -245,9 +245,9 @@ static std::tuple<std::array<Point3D, 3>, Point3D, Point3D, double> createTriRay
 // Create random triangle/ray/distance sets in the same plane
 static std::tuple<std::array<Point3D, 3>, Point3D, Point3D, double> createTriRayVol()
 {
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<> dis( -1.0, 1.0 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<> dis( -1.0, 1.0 );
     // Create the triangle points
     std::array<Point3D, 3> tri;
     tri[0] = { dis( gen ), dis( gen ), dis( gen ) };

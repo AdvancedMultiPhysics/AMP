@@ -127,9 +127,9 @@ void test_interp( UnitTest &ut, const std::vector<size_t> &N )
         ut.failure( testname + " (input points)" );
 
     // Test random points
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dis( 0, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dis( 0, 1 );
     pass = true;
     std::vector<double> x1( 3, 0 );
     std::vector<double> x2( 3, 0 );

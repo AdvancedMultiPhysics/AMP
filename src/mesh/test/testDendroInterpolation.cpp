@@ -103,11 +103,11 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName )
     }
 
     // Generate Random points in [min, max]
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dist_x( minCoords[0], maxCoords[0] );
-    static std::uniform_real_distribution<double> dist_y( minCoords[1], maxCoords[1] );
-    static std::uniform_real_distribution<double> dist_z( minCoords[2], maxCoords[2] );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dist_x( minCoords[0], maxCoords[0] );
+    std::uniform_real_distribution<double> dist_y( minCoords[1], maxCoords[1] );
+    std::uniform_real_distribution<double> dist_z( minCoords[2], maxCoords[2] );
     std::vector<double> pts( 3 * numLocalPts );
     for ( size_t i = 0; i < numLocalPts; ++i ) {
         pts[3 * i]     = dist_x( gen );

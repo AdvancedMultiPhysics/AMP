@@ -3,14 +3,14 @@
 
 #include "AMP/matrices/data/MatrixData.h"
 #include "AMP/matrices/operations/MatrixOperations.h"
+#include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
 #include "AMP/vectors/Vector.h"
 
 namespace AMP::LinearAlgebra {
 
 template<typename Policy,
          class Allocator,
-         class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>,
-         class OffdMatrixData = CSRLocalMatrixData<Policy, Allocator>>
+         class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>>
 class CSRMatrixOperationsDevice : public MatrixOperations
 {
 
@@ -51,6 +51,18 @@ class CSRMatrixOperationsDevice : public MatrixOperations
      * \details  Compute \f$\mathbf{THIS} = \alpha\mathbf{X} + \mathbf{THIS}\f$
      */
     void axpy( AMP::Scalar alpha, const MatrixData &X, MatrixData &Y ) override;
+
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients after up/down casting
+     * \param[in] x matrix data to copy from
+     * \param[in] y matrix data to copy to after up/down casting the coefficients
+     */
+    void copyCast( const MatrixData &X, MatrixData &Y ) override;
+
+    template<typename PolicyIn>
+    static void
+    copyCast( CSRMatrixData<PolicyIn, Allocator, CSRLocalMatrixData<PolicyIn, Allocator>> *X,
+              CSRMatrixData<Policy, Allocator, DiagMatrixData> *Y );
 
     /** \brief  Set the non-zeros of the matrix to a scalar
      * \param[in]  alpha  The value to set the non-zeros to

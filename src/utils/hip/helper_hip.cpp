@@ -9,8 +9,7 @@ AMP::Utilities::MemoryType getHipMemoryType( const void *ptr )
     auto err = hipPointerGetAttributes( &attributes, ptr );
     checkHipErrors( err );
     if ( attributes.type == hipMemoryTypeUnregistered )
-        // HIP always treats host as unregistered
-        return AMP::Utilities::MemoryType::host;
+        return AMP::Utilities::MemoryType::unregistered;
     else if ( attributes.type == hipMemoryTypeHost )
         return AMP::Utilities::MemoryType::host;
     else if ( attributes.type == hipMemoryTypeDevice )

@@ -11,10 +11,10 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Policy, class Allocator, class DiagMatrixData, class OffdMatrixData>
+template<typename Policy, class Allocator, class DiagMatrixData>
 class CSRMatrixSpGEMMHelperDefault
 {
-    using CSRData = CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData>;
+    using CSRData = CSRMatrixData<Policy, Allocator, DiagMatrixData>;
     using lidx_t  = typename Policy::lidx_t;
     using gidx_t  = typename Policy::gidx_t;
 

@@ -130,8 +130,6 @@ constexpr void getTypeName( uint64_t N, char *name )
             auto i2 = name2.rfind( ">" );
             name2   = name2.substr( i1 + 12, i2 - i1 - 12 );
         }
-        replace( name, N, "class ", "" );
-        replace( name, N, "struct ", "" );
         if ( name2[0] == ' ' )
             name2.remove_prefix( 1 );
 #else
@@ -147,6 +145,8 @@ constexpr void getTypeName( uint64_t N, char *name )
         // Cleanup some common format issues to make the typeid more consistent
         // clang-format off
         name[N - 1] = 0;
+        replace( name, N, "class ", "" );
+        replace( name, N, "struct ", "" );
         replace( name, N, "std::__cxx11::basic_string<char>", "std::string" );
         replace( name, N, "std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>", "std::string" );
         replace( name, N, "std::basic_string<char,struct std::char_traits<char>,class std::allocator<char>>", "std::string" );

@@ -38,10 +38,12 @@ void CGSolver<T>::initialize(
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
             auto outerDB = db->keyExists( pcName ) ? db : parameters->d_global_db;
             if ( outerDB ) {
-                auto pcDB       = outerDB->getDatabase( pcName );
-                auto parameters = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
-                parameters->d_pOperator = d_pOperator;
-                d_pPreconditioner       = AMP::Solver::SolverFactory::create( parameters );
+                auto pcDB = outerDB->getDatabase( pcName );
+                auto innerParameters =
+                    std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
+                innerParameters->d_global_db = parameters->d_global_db;
+                innerParameters->d_pOperator = d_pOperator;
+                d_pPreconditioner = AMP::Solver::SolverFactory::create( innerParameters );
                 AMP_ASSERT( d_pPreconditioner );
             }
         }

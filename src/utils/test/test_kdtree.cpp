@@ -58,9 +58,9 @@ void run_kdtree_test( AMP::UnitTest &ut, int DIM, size_t Nx, size_t Ns )
     prefix += "::";
 
     // Initialize the random number
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dis( 0, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dis( 0, 1 );
 
     // Create the coordinates
     std::vector<std::vector<double>> points( DIM, std::vector<double>( Nx, 0.0 ) );
@@ -134,9 +134,9 @@ template<int DIM>
 void run_kdtree2_test( [[maybe_unused]] AMP::UnitTest &ut, size_t N )
 {
     // Initialize the random number
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dis( 0, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dis( 0, 1 );
 
     // Create the coordinates
     std::vector<int> index( N, -1 );
@@ -148,7 +148,7 @@ void run_kdtree2_test( [[maybe_unused]] AMP::UnitTest &ut, size_t N )
     }
 
     // Create the tree
-    auto tree = AMP::kdtree2<DIM, int>( N, x.data(), index.data() );
+    auto tree = AMP::kdtree2<DIM, int>( x, index );
 
     // Check for ray intersections
     std::array<double, 3> p0 = { 10, 20, 20 };
@@ -187,6 +187,7 @@ int main( int argc, char *argv[] )
 
     PROFILE_ENABLE( 3 );
     PROFILE_ENABLE_TRACE();
+
     // Run a 1D test
     run_kdtree_test( ut, 1, 10, 10 );
     run_kdtree_test( ut, 1, 10000, 1000 );

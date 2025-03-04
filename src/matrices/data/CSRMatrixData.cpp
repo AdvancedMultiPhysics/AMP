@@ -9,7 +9,6 @@
     template class AMP::LinearAlgebra::CSRMatrixData<                         \
         policy,                                                               \
         allocator,                                                            \
-        AMP::LinearAlgebra::CSRLocalMatrixData<policy, allocator>,            \
         AMP::LinearAlgebra::CSRLocalMatrixData<policy, allocator>>;
 
 // Check if device based allocators are needed
@@ -24,13 +23,13 @@
 
 // Check if hypre is present
 using CSRPolicyDouble = AMP::LinearAlgebra::CSRPolicy<size_t, int, double>;
+using CSRPolicyFloat  = AMP::LinearAlgebra::CSRPolicy<size_t, int, float>;
+INSTANTIATE_ALLOCS( CSRPolicyDouble )
+INSTANTIATE_ALLOCS( CSRPolicyFloat )
 #if defined( AMP_USE_HYPRE )
-    #include "AMP/matrices/data/hypre/HypreCSRPolicy.h"
-    #define INSTANTIATE_POLICIES              \
-        INSTANTIATE_ALLOCS( CSRPolicyDouble ) \
-        INSTANTIATE_ALLOCS( AMP::LinearAlgebra::HypreCSRPolicy )
-#else
-    #define INSTANTIATE_POLICIES INSTANTIATE_ALLOCS( CSRPolicyDouble )
+    #include "HYPRE_utilities.h"
+using HYPRECSRPolicyFloat  = AMP::LinearAlgebra::CSRPolicy<HYPRE_BigInt, HYPRE_Int, double>;
+using HYPRECSRPolicyDouble = AMP::LinearAlgebra::CSRPolicy<HYPRE_BigInt, HYPRE_Int, float>;
+INSTANTIATE_ALLOCS( HYPRECSRPolicyDouble )
+INSTANTIATE_ALLOCS( HYPRECSRPolicyFloat )
 #endif
-
-INSTANTIATE_POLICIES

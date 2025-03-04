@@ -148,6 +148,15 @@ public:
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
     std::shared_ptr<Vector> getRightVector() const;
     std::shared_ptr<Vector> getLeftVector() const;
+
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    typeID getCoeffType() const override
+    {
+        // Epetra matrix are double only for the moment
+        constexpr auto type = getTypeID<double>();
+        return type;
+    }
 };
 
 

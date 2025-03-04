@@ -74,10 +74,10 @@ void VectorOperationsOpenMP<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::setRandomValues( VectorData &x )
 {
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
     if constexpr ( std::is_floating_point_v<TYPE> ) {
-        static std::uniform_real_distribution<TYPE> dis( 0, 1 );
+        std::uniform_real_distribution<TYPE> dis( 0, 1 );
         auto y    = x.begin<TYPE>();
         auto last = x.end<TYPE>();
         while ( y != last ) {
@@ -85,7 +85,7 @@ void VectorOperationsOpenMP<TYPE>::setRandomValues( VectorData &x )
             ++y;
         }
     } else if constexpr ( std::is_integral_v<TYPE> ) {
-        static std::uniform_int_distribution<TYPE> dis;
+        std::uniform_int_distribution<TYPE> dis;
         auto y    = x.begin<TYPE>();
         auto last = x.end<TYPE>();
         while ( y != last ) {

@@ -47,6 +47,7 @@ NonlinearKrylovAccelerator<T>::NonlinearKrylovAccelerator(
                 auto pc_solver_db = global_db->getDatabase( pc_solver_name );
                 auto pcSolverParameters =
                     std::make_shared<AMP::Solver::SolverStrategyParameters>( pc_solver_db );
+                pcSolverParameters->d_global_db = params->d_global_db;
                 if ( d_pOperator ) {
                     auto pcOperator                 = createPreconditionerOperator( d_pOperator );
                     pcSolverParameters->d_pOperator = pcOperator;

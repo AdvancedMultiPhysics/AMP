@@ -246,6 +246,10 @@ public:
         return d_pParameters->d_backend;
     }
 
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    virtual typeID getCoeffType() const = 0;
+
 protected:
     std::shared_ptr<MatrixParametersBase> d_pParameters;
 };

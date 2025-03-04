@@ -125,6 +125,11 @@ public:
      */
     virtual shared_ptr clone() const = 0;
 
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients after up/down casting
+     */
+    void copyCast( std::shared_ptr<const Matrix> X );
+
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the diagonal values

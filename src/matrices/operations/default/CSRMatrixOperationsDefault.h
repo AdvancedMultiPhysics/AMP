@@ -14,16 +14,14 @@ namespace AMP::LinearAlgebra {
 
 template<typename Policy,
          class Allocator,
-         class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>,
-         class OffdMatrixData = CSRLocalMatrixData<Policy, Allocator>>
+         class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>>
 class CSRMatrixOperationsDefault : public MatrixOperations
 {
 public:
     CSRMatrixOperationsDefault()
         : d_localops_diag( std::make_shared<
                            CSRLocalMatrixOperationsDefault<Policy, Allocator, DiagMatrixData>>() ),
-          d_localops_offd( std::make_shared<
-                           CSRLocalMatrixOperationsDefault<Policy, Allocator, OffdMatrixData>>() )
+          d_localops_offd( std::make_shared<CSRLocalMatrixOperationsDefault<Policy, Allocator>>() )
     {
     }
 
@@ -69,6 +67,18 @@ public:
      */
     void axpy( AMP::Scalar alpha, const MatrixData &X, MatrixData &Y ) override;
 
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients after up/down casting
+     * \param[in] x matrix data to copy from
+     * \param[in] y matrix data to copy to after up/down casting the coefficients
+     */
+    void copyCast( const MatrixData &X, MatrixData &Y ) override;
+
+    template<typename PolicyIn>
+    static void
+    copyCast( CSRMatrixData<PolicyIn, Allocator, CSRLocalMatrixData<PolicyIn, Allocator>> *X,
+              CSRMatrixData<Policy, Allocator, DiagMatrixData> *Y );
+
     /** \brief  Set the non-zeros of the matrix to a scalar
      * \param[in]  alpha  The value to set the non-zeros to
      * \param[out] A The input matrix A
@@ -107,11 +117,10 @@ public:
 protected:
     std::shared_ptr<CSRLocalMatrixOperationsDefault<Policy, Allocator, DiagMatrixData>>
         d_localops_diag;
-    std::shared_ptr<CSRLocalMatrixOperationsDefault<Policy, Allocator, OffdMatrixData>>
-        d_localops_offd;
-    std::map<std::pair<CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData> *,
-                       CSRMatrixData<Policy, Allocator, DiagMatrixData, OffdMatrixData> *>,
-             CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData, OffdMatrixData>>
+    std::shared_ptr<CSRLocalMatrixOperationsDefault<Policy, Allocator>> d_localops_offd;
+    std::map<std::pair<CSRMatrixData<Policy, Allocator, DiagMatrixData> *,
+                       CSRMatrixData<Policy, Allocator, DiagMatrixData> *>,
+             CSRMatrixSpGEMMHelperDefault<Policy, Allocator, DiagMatrixData>>
         d_SpGEMMHelpers;
 };
 

@@ -115,6 +115,11 @@ void Matrix::axpy( AMP::Scalar alpha, const Matrix &X )
     d_matrixOps->axpy( alpha, *( X.getMatrixData() ), *getMatrixData() );
 }
 
+void Matrix::copyCast( std::shared_ptr<const Matrix> X )
+{
+    d_matrixOps->copyCast( *X->getMatrixData(), *getMatrixData() );
+}
+
 void Matrix::setScalar( AMP::Scalar alpha ) { d_matrixOps->setScalar( alpha, *getMatrixData() ); }
 
 void Matrix::zero() { d_matrixOps->zero( *getMatrixData() ); }

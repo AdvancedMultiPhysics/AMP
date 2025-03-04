@@ -15,6 +15,35 @@ namespace AMP {
 
 
 /****************************************************************
+ * data_struct                                                   *
+ ****************************************************************/
+template<uint8_t NDIM, class TYPE>
+kdtree2<NDIM, TYPE>::data_struct::data_struct( size_t N0 )
+{
+    N    = N0;
+    x    = (Point *) malloc( N * sizeof( Point ) );
+    data = (TYPE *) malloc( N * sizeof( TYPE ) );
+}
+template<uint8_t NDIM, class TYPE>
+kdtree2<NDIM, TYPE>::data_struct::~data_struct()
+{
+    free( x );
+    free( data );
+    x    = nullptr;
+    data = nullptr;
+}
+template<uint8_t NDIM, class TYPE>
+void kdtree2<NDIM, TYPE>::data_struct::add( const Point &x2, const TYPE &d2 )
+{
+    x       = (Point *) realloc( x, ( N + 1 ) * sizeof( Point ) );
+    data    = (TYPE *) realloc( data, ( N + 1 ) * sizeof( TYPE ) );
+    x[N]    = x2;
+    data[N] = d2;
+    N++;
+}
+
+
+/****************************************************************
  * Compute the distance to a box                                 *
  ****************************************************************/
 template<uint8_t NDIM, class TYPE>
@@ -57,24 +86,31 @@ double kdtree2<NDIM, TYPE>::distanceToBox( const std::array<double, NDIM> &pos,
  * Constructor                                           *
  ********************************************************/
 template<uint8_t NDIM, class TYPE>
-kdtree2<NDIM, TYPE>::kdtree2( size_t N, const std::array<double, NDIM> *x, const TYPE *data )
+kdtree2<NDIM, TYPE>::kdtree2( size_t N, std::array<double, NDIM> *x, TYPE *data )
 {
-    auto x2    = std::vector<Point>( x, x + N );
-    auto data2 = std::vector<TYPE>( data, data + N );
-    initialize( x2, data2 );
+    initialize( N, x, data );
 }
 template<uint8_t NDIM, class TYPE>
 kdtree2<NDIM, TYPE>::kdtree2( const std::vector<std::array<double, NDIM>> &x,
                               const std::vector<TYPE> &data )
 {
     AMP_ASSERT( x.size() == data.size() );
-    initialize( x, data );
+    size_t N = x.size();
+    auto x2  = new std::array<double, NDIM>[N];
+    auto d2  = new TYPE[N];
+    for ( size_t i = 0; i < N; i++ ) {
+        x2[i] = x[i];
+        d2[i] = data[i];
+    }
+    initialize( N, x2, d2 );
+    delete[] x2;
+    delete[] d2;
 }
 template<uint8_t NDIM, class TYPE>
-void kdtree2<NDIM, TYPE>::initialize( const std::vector<Point> &x, const std::vector<TYPE> &data )
+void kdtree2<NDIM, TYPE>::initialize( size_t N, Point *x, TYPE *data )
 {
     PROFILE( "initialize" );
-    d_N = x.size();
+    d_N = N;
     // Update the box
     d_lb.fill( 1e100 );
     d_ub.fill( -1e100 );
@@ -88,17 +124,24 @@ void kdtree2<NDIM, TYPE>::initialize( const std::vector<Point> &x, const std::ve
     constexpr uint64_t threshold = 40; // Optimize for performance
     if ( d_N > threshold ) {
         // Split the tree and recurse
-        splitData( x, data );
+        splitData( N, x, data );
     } else {
         // Store the data
-        d_data       = new data_struct;
-        d_data->x    = x;
-        d_data->data = data;
+        d_data = std::make_unique<data_struct>( N );
+        for ( size_t i = 0; i < N; i++ ) {
+            d_data->x[i]    = x[i];
+            d_data->data[i] = data[i];
+        }
     }
 }
 template<uint8_t NDIM, class TYPE>
-void kdtree2<NDIM, TYPE>::splitData( const std::vector<Point> &x, const std::vector<TYPE> &data )
+void kdtree2<NDIM, TYPE>::splitData( size_t N, Point *x, TYPE *data )
 {
+    // Check that points are unique
+    bool allMatch = true;
+    for ( size_t i = 0; i < N; i++ )
+        allMatch = allMatch && x[i] == x[0];
+    AMP_ASSERT( !allMatch );
     // Choose the splitting direction (and tolerance)
     int dir    = 0;
     double tmp = d_ub[0] - d_lb[0];
@@ -109,72 +152,25 @@ void kdtree2<NDIM, TYPE>::splitData( const std::vector<Point> &x, const std::vec
         }
     }
     // Resort the data along the splitting direction
-    size_t N = x.size();
-    auto x2  = new double[N];
+    auto x2 = new double[N];
     for ( size_t i = 0; i < N; i++ )
         x2[i] = x[i][dir];
-    auto index = new uint64_t[N];
-    for ( size_t i = 0; i < N; i++ )
-        index[i] = i;
-    AMP::Utilities::quicksort( N, x2, index );
-    auto t1 = new Point[N];
-    auto t2 = new TYPE[N];
-    for ( size_t i = 0; i < N; i++ ) {
-        t1[i] = x[index[i]];
-        t2[i] = data[index[i]];
-    }
-    delete[] index;
+    AMP::Utilities::quicksort( N, x2, x, data );
     // Find the ideal point to split
     size_t k = find_split( N, x2 );
-    AMP_ASSERT( k > 0 );
+    if ( k == 0 ) {
+        printf( "%i, %f\n", dir, tmp );
+        for ( int d = 0; d < NDIM; d++ )
+            printf( "%i: %f %f\n", d, d_lb[d], d_ub[d] );
+        auto msg = AMP::Utilities::stringf( "Error in split (k==0), %i", N );
+        AMP_ERROR( msg );
+    }
     // Recursively split
     d_split_dim = dir;
     d_split     = 0.5 * ( x2[k - 1] + x2[k] );
     delete[] x2;
-    d_left  = new kdtree2( k, t1, t2 );
-    d_right = new kdtree2( N - k, &t1[k], &t2[k] );
-    delete[] t1;
-    delete[] t2;
-}
-template<uint8_t NDIM, class TYPE>
-kdtree2<NDIM, TYPE>::kdtree2( kdtree2 &&rhs )
-    : d_N( rhs.d_N ),
-      d_split_dim( rhs.d_split_dim ),
-      d_split( rhs.d_split ),
-      d_lb( rhs.d_lb ),
-      d_ub( rhs.d_ub ),
-      d_left( rhs.d_left ),
-      d_right( rhs.d_right ),
-      d_data( rhs.d_data )
-{
-    rhs.d_left  = nullptr;
-    rhs.d_right = nullptr;
-    rhs.d_data  = nullptr;
-}
-template<uint8_t NDIM, class TYPE>
-kdtree2<NDIM, TYPE> &kdtree2<NDIM, TYPE>::operator=( kdtree2 &&rhs )
-{
-    if ( &rhs == this )
-        return *this;
-    d_N         = rhs.d_N;
-    d_split_dim = rhs.d_split_dim;
-    d_split     = rhs.d_split;
-    d_lb        = rhs.d_lb;
-    d_ub        = rhs.d_ub;
-    d_left      = rhs.d_left;
-    d_right     = rhs.d_right;
-    d_data      = rhs.d_data;
-    rhs.d_left  = nullptr;
-    rhs.d_right = nullptr;
-    rhs.d_data  = nullptr;
-    return *this;
-}
-template<uint8_t NDIM, class TYPE>
-kdtree2<NDIM, TYPE>::~kdtree2()
-{
-    delete d_left;
-    delete d_right;
-    delete d_data;
+    d_left  = std::unique_ptr<kdtree2>( new kdtree2( k, x, data ) );
+    d_right = std::unique_ptr<kdtree2>( new kdtree2( N - k, &x[k], &data[k] ) );
 }
 
 
@@ -198,14 +194,12 @@ void kdtree2<NDIM, TYPE>::add( const Point &p, const TYPE &data )
             d_right->add( p, data );
     } else {
         // Add the point to the current leaf node
-        d_data->x.push_back( p );
-        d_data->data.push_back( data );
+        d_data->add( p, data );
         // Split the leaf node if needed
         constexpr uint64_t threshold = 40; // Optimize for performance
         if ( d_N > threshold ) {
-            splitData( d_data->x, d_data->data );
-            delete d_data;
-            d_data = nullptr;
+            splitData( d_data->N, d_data->x, d_data->data );
+            d_data.reset();
         }
     }
 }
@@ -243,7 +237,7 @@ void kdtree2<NDIM, TYPE>::getPoints( std::vector<Point> &x ) const
         d_left->getPoints( x );
         d_right->getPoints( x );
     } else {
-        x.insert( x.end(), d_data->x.begin(), d_data->x.end() );
+        x.insert( x.end(), d_data->x, d_data->x + d_data->N );
     }
 }
 

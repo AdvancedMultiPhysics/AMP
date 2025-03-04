@@ -9,7 +9,7 @@ namespace AMP::Utilities {
  ****************************************************************************/
 MemoryType getMemoryType( [[maybe_unused]] const void *ptr )
 {
-    auto type = MemoryType::host;
+    [[maybe_unused]] auto type = MemoryType::host;
 #if defined( AMP_USE_CUDA ) || defined( USE_CUDA )
     type = getCudaMemoryType( ptr );
     if ( type != MemoryType::unregistered )
@@ -20,7 +20,7 @@ MemoryType getMemoryType( [[maybe_unused]] const void *ptr )
     if ( type != MemoryType::unregistered )
         return type;
 #endif
-    return type;
+    return MemoryType::host;
 }
 
 std::string getString( MemoryType type )

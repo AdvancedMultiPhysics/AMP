@@ -16,15 +16,15 @@
     #define INSTANTIATE_ALLOCS( policy ) INSTANTIATE_FULL( policy, AMP::HostAllocator<void> )
 #endif
 
-// Check if hypre is present
 using CSRPolicyDouble = AMP::LinearAlgebra::CSRPolicy<size_t, int, double>;
+using CSRPolicyFloat  = AMP::LinearAlgebra::CSRPolicy<size_t, int, float>;
+INSTANTIATE_ALLOCS( CSRPolicyDouble )
+INSTANTIATE_ALLOCS( CSRPolicyFloat )
+// Check if hypre is present
 #if defined( AMP_USE_HYPRE )
-    #include "AMP/matrices/data/hypre/HypreCSRPolicy.h"
-    #define INSTANTIATE_POLICIES              \
-        INSTANTIATE_ALLOCS( CSRPolicyDouble ) \
-        INSTANTIATE_ALLOCS( AMP::LinearAlgebra::HypreCSRPolicy )
-#else
-    #define INSTANTIATE_POLICIES INSTANTIATE_ALLOCS( CSRPolicyDouble )
+    #include "HYPRE_utilities.h"
+using HYPRECSRPolicyFloat  = AMP::LinearAlgebra::CSRPolicy<HYPRE_BigInt, HYPRE_Int, double>;
+using HYPRECSRPolicyDouble = AMP::LinearAlgebra::CSRPolicy<HYPRE_BigInt, HYPRE_Int, float>;
+INSTANTIATE_ALLOCS( HYPRECSRPolicyDouble )
+INSTANTIATE_ALLOCS( HYPRECSRPolicyFloat )
 #endif
-
-INSTANTIATE_POLICIES

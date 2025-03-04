@@ -55,10 +55,12 @@ void GMRESSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters>
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
             auto outerDB = db->keyExists( pcName ) ? db : parameters->d_global_db;
             if ( outerDB ) {
-                auto pcDB       = outerDB->getDatabase( pcName );
-                auto parameters = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
-                parameters->d_pOperator = d_pOperator;
-                d_pPreconditioner       = AMP::Solver::SolverFactory::create( parameters );
+                auto pcDB = outerDB->getDatabase( pcName );
+                auto innerParameters =
+                    std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
+                innerParameters->d_global_db = parameters->d_global_db;
+                innerParameters->d_pOperator = d_pOperator;
+                d_pPreconditioner = AMP::Solver::SolverFactory::create( innerParameters );
                 AMP_ASSERT( d_pPreconditioner );
             }
         }
@@ -289,6 +291,10 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
         }
     }
 
+    if ( d_iDebugPrintInfoLevel > 3 ) {
+        d_dHessenberg.print( AMP::pout, "Hessenberg Matrix H" );
+    }
+
     if ( k > 0 ) {
         // compute y, the solution to the least squares minimization problem
         backwardSolve( k - 1 );
@@ -338,7 +344,7 @@ void GMRESSolver<T>::orthogonalize( const int k, std::shared_ptr<AMP::LinearAlge
         AMP_ERROR( "Unknown orthogonalization method in GMRES" );
     }
 
-    v->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    //    v->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // h_{k+1, k}
     const auto v_norm         = static_cast<T>( v->L2Norm() );
@@ -485,6 +491,5 @@ void GMRESSolver<T>::addCorrection( const int nr,
             u->axpy( d_dy[i], *d_vBasis[i], *u );
         }
     }
-    u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 } // namespace AMP::Solver

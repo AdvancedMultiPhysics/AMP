@@ -15,6 +15,7 @@
 
 #define deviceMemcpyHostToDevice cudaMemcpyHostToDevice
 #define deviceMemcpyDeviceToHost cudaMemcpyDeviceToHost
+#define deviceMemcpyDeviceToDevice cudaMemcpyDeviceToDevice
 
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
 #define deviceMalloc( ... ) checkCudaErrors( cudaMalloc( __VA_ARGS__ ) )

@@ -110,9 +110,9 @@ static void myTest( AMP::UnitTest *ut )
     double epsilon = 1.0e-12;
 
     // Test the local map with elements
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dist( -1, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dist( -1, 1 );
     for ( dtk_iterator = dtk_iterator.begin(); dtk_iterator != dtk_iterator.end();
           ++dtk_iterator ) {
         // Get the bounding box.
