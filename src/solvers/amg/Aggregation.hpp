@@ -1,0 +1,401 @@
+#ifndef included_AMP_AMG_Aggregation_hpp
+#define included_AMP_AMG_Aggregation_hpp
+
+#include <optional>
+#include <fstream>
+
+#include "AMP/vectors/VectorBuilder.h"
+#include "AMP/matrices/data/CSRMatrixData.hpp"
+#include "AMP/solvers/amg/Strength.hpp"
+#include "AMP/solvers/amg/Aggregation.h"
+
+namespace AMP::Solver::AMG {
+
+template<class View>
+using aggregate_type = std::vector<
+	std::vector<typename View::lidx_t, rebind_alloc<typename View::allocator_type, typename View::lidx_t>>,
+	rebind_alloc<typename View::allocator_type, std::vector<typename View::lidx_t, rebind_alloc<typename View::allocator_type, typename View::lidx_t>>>>;
+
+template<class Config>
+using aggregateT_type = std::vector<
+	typename Config::lidx_t, rebind_alloc<typename Config::allocator_type, typename Config::lidx_t>>;
+
+template<class Mat>
+auto make_unmarked_list( csr_view<Mat> A, bool checkdd ) {
+	prospect unmarked;
+	using scalar = typename csr_view<Mat>::scalar_t;
+	using lidx_t = typename csr_view<Mat>::lidx_t;
+
+	if ( checkdd ) {
+		auto row_vals = [](auto csr_ptrs) {
+			auto [rowptr, colind, values] = csr_ptrs;
+			return [=](lidx_t r) {
+				return values.subspan(rowptr[r], rowptr[r+1] - rowptr[r]);
+			};
+		};
+		auto diag_row_vals = row_vals(A.diag());
+		auto offd_row_vals = row_vals(A.offd());
+		for (lidx_t r = 0; r < A.numLocalRows(); ++r) {
+			auto diag_vals = diag_row_vals(r);
+			auto offd_vals = offd_row_vals(r);
+			auto redop = [](scalar a, scalar b) {
+				return std::abs(a) + std::abs(b);
+			};
+			auto offd_sum = std::reduce(diag_vals.begin() + 1, diag_vals.end(), 0, redop) +
+				std::reduce(offd_vals.begin(), offd_vals.end(), 0, redop);
+			auto diag_val = diag_vals[0];
+			if (!(diag_val > 5 * offd_sum)) unmarked.insert(r);
+		}
+	} else {
+		for (lidx_t r = 0; r < A.numLocalRows(); ++r) {
+			unmarked.insert(r);
+		}
+	}
+
+	return unmarked;
+}
+
+
+template<class T, class Mat>
+auto find_pair( T r, const prospect & unmarked,
+                csr_view<Mat> A, bool checkdd ) {
+	using scalar_t = typename csr_view<Mat>::scalar_t;
+	using lidx_t = typename csr_view<Mat>::lidx_t;
+	auto [rowptr, colind, values] = A.diag();
+	struct {
+		std::optional<lidx_t> colid;
+		scalar_t value = std::numeric_limits<scalar_t>::max();
+	} curr;
+
+	for (lidx_t off = rowptr[r]; off < rowptr[r + 1]; ++off) {
+		auto col = colind[off];
+		auto val = values[off];
+		if (unmarked.contains(col) && val < curr.value) {
+			curr.colid = col;
+			curr.value = val;
+		}
+	}
+	return curr.colid;
+}
+
+template<class Mat>
+aggregate_type<csr_view<Mat>>
+pairwise_aggregate( csr_view<Mat> A, const PairwiseCoarsenSettings & settings ) {
+	aggregate_type<csr_view<Mat>> aggregates;
+	using lidx_t = typename csr_view<Mat>::lidx_t;
+
+	auto S = compute_soc<classical_strength<norm::min>>( A, settings.strength_threshold );
+
+	auto unmarked = make_unmarked_list( A, settings.checkdd );
+	unmarked.prioritize( S );
+
+	auto update_priorities = [&](lidx_t k) {
+		S.do_strong(k, [&](lidx_t col){
+			unmarked.decrement_priority(col);
+		});
+	};
+	while (!unmarked.empty()) {
+		auto selected = unmarked.pop();
+		auto maybe_pair = find_pair( selected, unmarked, A, settings.checkdd );
+		if (maybe_pair.has_value() && S.is_strong( selected, maybe_pair.value() )) {
+			auto pair = maybe_pair.value();
+			unmarked.remove( pair );
+			update_priorities( pair );
+			aggregates.push_back( {selected, pair} );
+		} else {
+			aggregates.push_back( {selected} );
+		}
+		update_priorities( selected );
+	}
+
+	return aggregates;
+}
+
+template<class T1, class T2>
+auto agg_union( const T1 & agg1, const T2 & agg2 )
+{
+	T1 agg(agg2.size());
+
+	for (std::size_t i = 0; i < agg2.size(); ++i) {
+		for (auto e2 : agg2[i]) {
+			for (auto e1 : agg1[e2])
+				agg[i].push_back(e1);
+		}
+	}
+
+	return agg;
+}
+
+
+template<class T, class I>
+auto transpose_aggregates( const T & agg,  I fine_size ) {
+	using lidx_t = typename T::value_type::value_type;
+	using alloc_t = typename T::value_type::allocator_type;
+	std::vector<lidx_t, alloc_t> aggt( fine_size );
+	for (std::size_t i = 0; i < agg.size(); ++i) {
+		for (auto fi : agg[i]) {
+			aggt[fi] = i;
+		}
+	}
+
+	return aggt;
+}
+
+template<class Mat>
+auto create_aux( csr_view<Mat> A, const aggregate_type<csr_view<Mat>> & agg ) {
+	using csr_policy = typename csr_view<Mat>::csr_policy;
+	using allocator = typename csr_view<Mat>::allocator_type;
+	par_csr<csr_policy>  aux;
+	using lidx_t = typename csr_view<Mat>::lidx_t;
+	using scalar_t = typename csr_view<Mat>::scalar_t;
+
+	auto aggt = transpose_aggregates( agg, A.numLocalRows() );
+
+	auto collapse = [&](auto src, auto & dst, auto && cmap) {
+		auto [rowptr, colind, values] = src;
+		dst.rowptr.resize(agg.size() + 1);
+		[&](auto & ... v) { (v.reserve(agg.size()), ...); }(dst.colind, dst.values);
+		for (lidx_t rc = 0; rc < agg.size(); ++rc) {
+			// coarse column index -> aggregated value
+			std::map<lidx_t, scalar_t> agg_values;
+			for (auto r : agg[rc]) {
+				for (size_t off = rowptr[r]; off < rowptr[r + 1]; ++off) {
+					agg_values[cmap(colind[off])] += values[off];
+				}
+			}
+
+			for (auto [cid, value] : agg_values) {
+				dst.colind.push_back(cid);
+				dst.values.push_back(value);
+			}
+			dst.rowptr[rc + 1] = dst.rowptr[rc] + agg_values.size();
+		}
+	};
+	collapse(A.diag(), aux.diag(), [&](lidx_t col) { return aggt[col]; });
+	collapse(A.offd(), aux.offd(),
+	         // avoid communication by treating offd as distinct aggregates
+	         [](lidx_t col) { return col; });
+
+	return csr_view(aux);
+}
+
+
+template<class Config>
+auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> & fine_matrix,
+                     const aggregate_type<csr_view<LinearAlgebra::CSRMatrix<Config>>> & aggregates,
+                     const aggregateT_type<Config> & aggregatesT ) {
+	using lidx_t = typename Config::lidx_t;
+	using scalar_t = typename Config::scalar_t;
+
+	csr_view fine( fine_matrix );
+	const auto & fine_data = fine.data();
+
+    auto & comm = fine_data.getRightCommList()->getComm();
+
+	coarse_matrix<Config> coarse_mat;
+	coarse_mat.comm = comm;
+	coarse_mat.left_var = fine_matrix.getMatrixData()->getRightVariable();
+	coarse_mat.right_var = fine_matrix.getMatrixData()->getLeftVariable();
+	[&](auto & ... m) {	(m.rowptr.resize(aggregates.size() + 1), ...); }(coarse_mat.store.diag(), coarse_mat.store.offd());
+
+    // using gidx_t = typename Config::gidx_t;
+	using gidx_t = double;
+
+    // maps local column ids from fine matrix to global column ids in coarse matrix
+	struct { std::vector<gidx_t> diag, offd; } aggt;
+	auto aggtvec = [&](){ // make vector for aggt storage and communication in (global) coarse indexing
+		auto vec = LinearAlgebra::createSimpleVector<gidx_t, LinearAlgebra::VectorOperationsDefault<gidx_t>,
+		                                             LinearAlgebra::VectorDataDefault<gidx_t>>(
+			                                             std::make_shared<LinearAlgebra::Variable>("aggregates"),
+			                                             fine_data.getRightDOFManager(),
+			                                             fine_data.getRightCommList());
+		aggt.diag.resize( vec->getLocalSize() );
+		auto local_offset = comm.sumScan( aggregates.size() ) - aggregates.size();
+		coarse_mat.diag_extents = {local_offset, local_offset + aggregates.size()};
+		for (std::size_t i = 0; i < aggt.diag.size(); ++i)
+			aggt.diag[i] = aggregatesT[i] + local_offset;
+
+		vec->putRawData( aggt.diag.data() );
+		vec->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+		auto & offd_mat = *(fine_data.getOffdMatrix());
+		auto nghosts = offd_mat.numUniqueColumns();
+		aggt.offd.resize( nghosts );
+		if constexpr ( std::is_same_v<size_t, typename Config::gidx_t> ) {
+			size_t *colmap = offd_mat.getColumnMap();
+			vec->getGhostValuesByGlobalID( nghosts, colmap, aggt.offd.data() );
+		} else {
+			std::vector<size_t> colmap;
+			offd_mat.getColumnMap( colmap );
+			vec->getGhostValuesByGlobalID( nghosts, colmap.data(), aggt.offd.data() );
+		}
+
+		return vec;
+	}();
+
+	for (size_t rc = 0; rc < aggregates.size(); ++rc) {
+		auto collapse = [&](auto & cmat, auto fine_ptrs, const std::vector<gidx_t> & aggregates_transpose) {
+			// coarse (global) column index -> aggregated value (nnz in this coarse row)
+			std::map<lidx_t, scalar_t> agg_values;
+			auto [rowptr, colind, values] = fine_ptrs;
+			for (auto r : aggregates[rc]) {
+				for (auto off = rowptr[r]; off < rowptr[r + 1]; ++off) {
+					agg_values[aggregates_transpose[colind[off]]] += values[off];
+				}
+			}
+			for (auto [cid, val] : agg_values) {
+				cmat.colind.push_back(cid);
+				cmat.values.push_back(val);
+			}
+			cmat.rowptr[rc + 1] = cmat.colind.size();
+		};
+		collapse(coarse_mat.store.diag(), fine.diag(), aggt.diag);
+		collapse(coarse_mat.store.offd(), fine.offd(), aggt.offd);
+	}
+
+	return coarse_mat;
+}
+
+template<class Config>
+auto make_coarse_operator( const coarse_matrix<Config> & mat ) {
+	auto params = std::make_shared<coarse_operator_parameters<Config>>();
+	params->d_db = std::make_shared<AMP::Database>();
+	params->matrix = mat;
+	return std::make_shared<coarse_operator<Config>>( params );
+}
+
+template<class Config>
+struct UAIntergridParams : AMP::Operator::OperatorParameters {
+	enum class intergrid_type { interpolation, restriction };
+	UAIntergridParams() : AMP::Operator::OperatorParameters( nullptr ) {}
+	std::shared_ptr<const aggregateT_type<Config>> aggregatesT;
+	intergrid_type transfer_type = intergrid_type::interpolation;
+};
+
+template<class Config>
+struct AggregateInjection : AMP::Operator::Operator {
+	using lidx_t = typename Config::lidx_t;
+	using aggT_type = aggregateT_type<Config>;
+	using intergrid_type = typename UAIntergridParams<Config>::intergrid_type;
+
+	explicit AggregateInjection( std::shared_ptr<const AMP::Operator::OperatorParameters> iparams ) :
+		AMP::Operator::Operator( iparams )
+	{
+		auto params = std::dynamic_pointer_cast<const UAIntergridParams<Config>>( iparams );
+		AMP_DEBUG_ASSERT( params );
+		d_aggregatesT = params->aggregatesT;
+		transfer_type = params->transfer_type;
+	}
+
+	[[nodiscard]] std::string type() const override { return "AggregateInjection"; }
+
+	auto T() const {
+		auto params = std::make_shared<UAIntergridParams<Config>>();
+		params->d_db = std::make_shared<AMP::Database>();
+		params->aggregatesT = d_aggregatesT;
+		params->transfer_type = (transfer_type == intergrid_type::interpolation) ?
+			intergrid_type::restriction : intergrid_type::interpolation;
+		return std::make_shared<AggregateInjection<Config>>( params );
+	}
+
+	void apply( std::shared_ptr<const LinearAlgebra::Vector> x,
+	            std::shared_ptr<LinearAlgebra::Vector> y ) override {
+		auto inc = [](auto & ... i) { (++i,...); };
+		switch (transfer_type) {
+		case intergrid_type::interpolation:
+		{
+			const auto & aggt = aggregateT();
+			AMP_DEBUG_ASSERT( y->getLocalSize() == aggt.size() );
+
+			auto xbeg = x->begin();
+			auto yit = y->begin();
+			auto ait = aggt.begin();
+			while ( yit != y->end() ) {
+				auto val = xbeg + *ait;
+				*yit = *val;
+
+				inc( yit, ait );
+			}
+			break;
+		}
+		case intergrid_type::restriction:
+		{
+			const auto & aggt = aggregateT();
+			AMP_DEBUG_ASSERT( x->getLocalSize() == aggt.size() );
+
+			y->setToScalar( 0 );
+			auto ybeg = y->begin();
+			auto xit = x->begin();
+			auto ait = aggt.begin();
+			while ( xit != x->end() ) {
+				auto pos = ybeg + *ait;
+				*pos += *xit;
+
+				inc( xit, ait );
+			}
+		}
+		};
+		y->makeConsistent();
+	}
+
+	const aggT_type & aggregateT() const { return *d_aggregatesT; }
+
+protected:
+	std::shared_ptr<const aggT_type> d_aggregatesT;
+	intergrid_type transfer_type;
+};
+
+template<class Config>
+auto make_ua_intergrid( aggregateT_type<Config> && aggT ) {
+	auto aggT_ptr = std::make_shared<
+		const aggregateT_type<Config>>( std::move( aggT ) );
+
+	auto params = std::make_shared<UAIntergridParams<Config>>();
+	params->d_db = std::make_shared<AMP::Database>();
+	params->aggregatesT = aggT_ptr;
+	return std::make_shared<AggregateInjection<Config>>( params );
+}
+
+template<class Fine>
+auto pairwise_aggregation( csr_view<Fine> A, const PairwiseCoarsenSettings & settings )
+{
+	PairwiseCoarsenSettings settings_later_passes = settings;
+	settings_later_passes.checkdd = false;
+	if (settings.pairwise_passes == 2) {
+		auto agg1 = pairwise_aggregate( A, settings );
+		auto aux = create_aux( A, agg1 );
+		auto agg2 = pairwise_aggregate( aux, settings_later_passes );
+		return agg_union( agg1, agg2 );
+	} else if (settings.pairwise_passes == 3) {
+		auto agg1 = pairwise_aggregate( A, settings );
+		auto aux = create_aux( A, agg1 );
+		auto agg2 = pairwise_aggregate( aux, settings_later_passes );
+		auto aux1 = create_aux( aux, agg2 );
+		auto agg3 = pairwise_aggregate( aux1, settings_later_passes );
+
+		return agg_union( agg_union( agg1, agg2 ), agg3 );
+	} else {
+		AMP_ERROR("Invalid number of pairwise passes");
+	}
+}
+
+
+template<class Config>
+coarse_ops_type
+pairwise_coarsen( const LinearAlgebra::CSRMatrix<Config> & fine,
+                  const PairwiseCoarsenSettings &settings ) {
+	AMP_INSIST(settings.pairwise_passes == 2 ||
+	           settings.pairwise_passes == 3,
+	           "Pairwise Aggregation: invalid number of passes");
+
+	auto aggregates = pairwise_aggregation( csr_view(fine), settings );
+	auto aggregatesT = transpose_aggregates( aggregates, fine.numLocalRows() );
+	auto matrix = coarsen_matrix( fine, aggregates, aggregatesT );
+	auto Ac = make_coarse_operator( matrix );
+	auto P = make_ua_intergrid<Config>( std::move( aggregatesT ) );
+
+	return {P->T(), Ac, P};
+}
+
+}
+#endif

@@ -159,9 +159,9 @@ void SASolver::setup()
 
         // Attach restriction/prolongation operators for getting to/from new level
         d_levels.back().R = std::make_shared<Operator::LinearOperator>( op_params );
-        d_levels.back().R->setMatrix( R );
+        std::dynamic_pointer_cast<Operator::LinearOperator>(d_levels.back().R)->setMatrix( R );
         d_levels.back().P = std::make_shared<Operator::LinearOperator>( op_params );
-        d_levels.back().P->setMatrix( P );
+        std::dynamic_pointer_cast<Operator::LinearOperator>(d_levels.back().P)->setMatrix( P );
 
         // Relaxation operators for new level
         d_levels.back().pre_relaxation = createRelaxation( d_levels.back().A, d_pre_relax_params );

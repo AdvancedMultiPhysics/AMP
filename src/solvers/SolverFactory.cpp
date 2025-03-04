@@ -35,6 +35,7 @@ responsibility for the use of this software.
 #include "AMP/solvers/TFQMRSolver.h"
 #include "AMP/solvers/amg/SASolver.h"
 #include "AMP/utils/memory.h"
+#include "AMP/solvers/UASolver.h"
 
 #ifdef AMP_USE_PETSC
     #include "AMP/solvers/petsc/PetscKrylovSolver.h"
@@ -74,8 +75,9 @@ SolverFactory::create( std::shared_ptr<SolverStrategyParameters> parameters )
     auto inputDatabase = parameters->d_db;
     AMP_ASSERT( inputDatabase );
     auto objectName = inputDatabase->getString( "name" );
+
     return FactoryStrategy<SolverStrategy, std::shared_ptr<SolverStrategyParameters>>::create(
-        objectName, parameters );
+	    objectName, parameters );
 }
 
 
@@ -119,6 +121,7 @@ void AMP::FactoryStrategy<AMP::Solver::SolverStrategy,
     d_factories["BiCGSTABSolver"]  = BiCGSTABSolver<double>::createSolver;
     d_factories["TFQMRSolver"]     = TFQMRSolver<double>::createSolver;
     d_factories["QMRCGSTABSolver"] = QMRCGSTABSolver<double>::createSolver;
+    d_factories["UASolver"]        = UASolver::createSolver;
 
 
     d_factories["CGSolver<double>"]        = CGSolver<double>::createSolver;
