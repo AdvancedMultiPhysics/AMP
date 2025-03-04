@@ -118,32 +118,3 @@ void remoteDOFTest( AMP::UnitTest *ut, std::string input_file )
     testPair( ut, vertexDOFs, vertexDOFs );
     testPair( ut, cellDOFs, cellDOFs );
 }
-
-int main( int argc, char **argv )
-{
-    AMP::AMPManager::startup( argc, argv );
-    AMP::UnitTest ut;
-    std::vector<std::string> files;
-    PROFILE_ENABLE();
-
-    if ( argc > 1 ) {
-        files.emplace_back( argv[1] );
-    } else {
-        files.emplace_back( "input_testRemoteDOFs-boxmesh-1" );
-        files.emplace_back( "input_testRemoteDOFs-boxmesh-2" );
-#ifdef AMP_USE_LIBMESH
-        files.emplace_back( "input_testRemoteDOFs-libmesh-1" );
-        files.emplace_back( "input_testRemoteDOFs-libmesh-2" );
-#endif
-    }
-
-    for ( auto &file : files ) {
-        remoteDOFTest( &ut, file );
-    }
-
-    ut.report();
-
-    int num_failed = ut.NumFailGlobal();
-    AMP::AMPManager::shutdown();
-    return num_failed;
-}
