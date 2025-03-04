@@ -15,7 +15,7 @@ int main( int argc, char **argv )
     }
 
     for ( auto &file : files ) {
-        remoteDOFTest( &ut, file );
+        remoteDOFTest( &ut, true, file );
     }
 
     ut.report();

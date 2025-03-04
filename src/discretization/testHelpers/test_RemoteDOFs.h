@@ -13,6 +13,7 @@
 #include <set>
 
 void testPair( AMP::UnitTest *ut,
+               bool verbose_output,
                std::shared_ptr<AMP::Discretization::DOFManager> leftDOF,
                std::shared_ptr<AMP::Discretization::DOFManager> rightDOF )
 {
@@ -56,12 +57,14 @@ void testPair( AMP::UnitTest *ut,
     const size_t num_refd = refd_rDOFs.size();
 
     // now attempt inserting all stored dofs into referenced
+    std::set<size_t> unused_rdofs;
     bool pass_stored_is_refd = true;
     for ( auto &&rdof : stored_rDOFs ) {
         auto it = refd_rDOFs.insert( rdof );
         if ( it.second ) {
             // successful insertion means that a stored dof was never referenced
             pass_stored_is_refd = false;
+            unused_rdofs.insert( rdof );
         }
     }
 
@@ -84,9 +87,20 @@ void testPair( AMP::UnitTest *ut,
                   << rightDOF->numGlobalDOF() << " global DOFs" << std::endl;
     }
     comm.barrier();
+    if ( !pass_ref_in_stored || !pass_stored_is_refd ) {
+        if ( verbose_output ) {
+            // if desired also write out the individual offending dofs
+            AMP::pout << "The following remote DOFs were stored on rank 0 but never referenced"
+                      << std::endl;
+            for ( auto &&rdof : unused_rdofs ) {
+                AMP::pout << rdof << std::endl;
+            }
+        }
+    }
+    comm.barrier();
 }
 
-void remoteDOFTest( AMP::UnitTest *ut, std::string input_file )
+void remoteDOFTest( AMP::UnitTest *ut, bool verbose_output, std::string input_file )
 {
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( input_file );
@@ -115,6 +129,6 @@ void remoteDOFTest( AMP::UnitTest *ut, std::string input_file )
         AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Cell, 1, 1 );
 
     // test combinations of managers
-    testPair( ut, vertexDOFs, vertexDOFs );
-    testPair( ut, cellDOFs, cellDOFs );
+    testPair( ut, verbose_output, vertexDOFs, vertexDOFs );
+    testPair( ut, verbose_output, cellDOFs, cellDOFs );
 }

@@ -17,7 +17,8 @@ int main( int argc, char **argv )
     }
 
     for ( auto &file : files ) {
-        remoteDOFTest( &ut, file );
+        // do not use verbose output, way too many failing DOFs
+        remoteDOFTest( &ut, false, file );
     }
 
     ut.report();
