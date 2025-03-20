@@ -104,11 +104,11 @@ public:
     const std::vector<size_t> &getReplicatedIDList() const;
 
     /**
-     * \brief Retrieve number of DOFs recieved from each rank
+     * \brief Retrieve number of DOFs received from each rank
      * \return A vector size of comm.getSize() containing the number
      *         of DOFs we will receive from each rank
      */
-    const std::vector<int> &getRecieveSizes() const;
+    const std::vector<int> &getReceiveSizes() const;
 
     /**
      * \brief Retrieve number of DOFs sent to each rank
