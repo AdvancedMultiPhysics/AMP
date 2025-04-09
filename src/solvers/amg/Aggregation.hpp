@@ -21,61 +21,75 @@ using aggregateT_type = std::vector<
 	typename Config::lidx_t, rebind_alloc<typename Config::allocator_type, typename Config::lidx_t>>;
 
 template<class Mat>
-auto make_unmarked_list( csr_view<Mat> A, bool checkdd ) {
-	prospect unmarked;
-	using scalar = typename csr_view<Mat>::scalar_t;
-	using lidx_t = typename csr_view<Mat>::lidx_t;
-
-	if ( checkdd ) {
-		auto row_vals = [](auto csr_ptrs) {
-			auto [rowptr, colind, values] = csr_ptrs;
-			return [=](lidx_t r) {
-				return values.subspan(rowptr[r], rowptr[r+1] - rowptr[r]);
-			};
-		};
-		auto diag_row_vals = row_vals(A.diag());
-		auto offd_row_vals = row_vals(A.offd());
-		for (lidx_t r = 0; r < A.numLocalRows(); ++r) {
-			auto diag_vals = diag_row_vals(r);
-			auto offd_vals = offd_row_vals(r);
-			auto redop = [](scalar a, scalar b) {
-				return std::abs(a) + std::abs(b);
-			};
-			auto offd_sum = std::reduce(diag_vals.begin() + 1, diag_vals.end(), 0, redop) +
-				std::reduce(offd_vals.begin(), offd_vals.end(), 0, redop);
-			auto diag_val = diag_vals[0];
-			if (!(diag_val > 5 * offd_sum)) unmarked.insert(r);
+struct prospect
+{
+	using strength_type = Strength<Mat>;
+	using lidx_t = typename strength_type::lidx_t;
+	prospect( const Strength<Mat> & soc ) :
+		node_prio( soc.numLocalRows() ),
+		chosen( soc.numLocalRows(), false )
+	{
+		std::vector<lidx_t> priority( soc.numLocalRows(), 0 );
+		for (lidx_t i = 0; i < priority.size(); ++i) {
+			soc.do_strong(i, [&](lidx_t col) {
+				if (col != i) ++priority[col];
+			});
 		}
-	} else {
-		for (lidx_t r = 0; r < A.numLocalRows(); ++r) {
-			unmarked.insert(r);
+
+		for (lidx_t i = 0; i < priority.size(); ++i) {
+			node_prio[i] = prio_node.insert({priority[i], i});
 		}
 	}
 
-	return unmarked;
-}
+	std::size_t pop() {
+		auto selected = prio_node.cbegin();
+		chosen[selected->second] = true;
+		prio_node.erase(selected);
+		return selected->second;
+	}
 
+	void remove(lidx_t e) {
+		chosen[e] = true;
+		prio_node.erase(node_prio[e]);
+	}
+
+	void decrement_priority(lidx_t e) {
+		if (!chosen[e]) {
+			auto old = node_prio[e];
+			node_prio[e] = prio_node.insert({old->first - 1, e});
+			prio_node.erase(old);
+		}
+	}
+
+	bool empty() const { return prio_node.empty(); }
+
+	using mm_type = std::multimap<std::size_t, std::size_t>;
+	mm_type prio_node;
+	std::vector<typename mm_type::iterator> node_prio;
+	std::vector<bool> chosen;
+};
+template<class M>
+prospect(const Strength<M>&)->prospect<M>;
 
 template<class T, class Mat>
-auto find_pair( T r, const prospect & unmarked,
-                csr_view<Mat> A, bool checkdd ) {
+auto find_pair( T r, const prospect<Mat> & unmarked,
+                const Strength<Mat> & S ) {
 	using scalar_t = typename csr_view<Mat>::scalar_t;
 	using lidx_t = typename csr_view<Mat>::lidx_t;
-	auto [rowptr, colind, values] = A.diag();
+
 	struct {
 		std::optional<lidx_t> colid;
 		scalar_t value = std::numeric_limits<scalar_t>::max();
-	} curr;
+	} cur;
 
-	for (lidx_t off = rowptr[r]; off < rowptr[r + 1]; ++off) {
-		auto col = colind[off];
-		auto val = values[off];
-		if (unmarked.contains(col) && val < curr.value) {
-			curr.colid = col;
-			curr.value = val;
+	S.do_strong_val(r, [&](lidx_t col, scalar_t val) {
+		if (!unmarked.chosen[col] && val < cur.value) {
+			cur.value = val;
+			cur.colid = col;
 		}
-	}
-	return curr.colid;
+	});
+
+	return cur.colid;
 }
 
 template<class Mat>
@@ -83,11 +97,11 @@ aggregate_type<csr_view<Mat>>
 pairwise_aggregate( csr_view<Mat> A, const PairwiseCoarsenSettings & settings ) {
 	aggregate_type<csr_view<Mat>> aggregates;
 	using lidx_t = typename csr_view<Mat>::lidx_t;
+	using scalar_t = typename csr_view<Mat>::scalar_t;
 
 	auto S = compute_soc<classical_strength<norm::min>>( A, settings.strength_threshold );
 
-	auto unmarked = make_unmarked_list( A, settings.checkdd );
-	unmarked.prioritize( S );
+	prospect unmarked( S );
 
 	auto update_priorities = [&](lidx_t k) {
 		S.do_strong(k, [&](lidx_t col){
@@ -96,8 +110,8 @@ pairwise_aggregate( csr_view<Mat> A, const PairwiseCoarsenSettings & settings ) 
 	};
 	while (!unmarked.empty()) {
 		auto selected = unmarked.pop();
-		auto maybe_pair = find_pair( selected, unmarked, A, settings.checkdd );
-		if (maybe_pair.has_value() && S.is_strong( selected, maybe_pair.value() )) {
+		auto maybe_pair = find_pair( selected, unmarked, S );
+		if (maybe_pair.has_value()) {
 			auto pair = maybe_pair.value();
 			unmarked.remove( pair );
 			update_priorities( pair );

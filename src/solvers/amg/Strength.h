@@ -11,6 +11,7 @@ template<class Mat>
 struct Strength {
 	explicit Strength( csr_view<Mat> A );
 	using lidx_t = typename csr_view<Mat>::lidx_t;
+	using scalar_t = typename csr_view<Mat>::scalar_t;
 
 	constexpr auto diag_row(lidx_t r) {
 		return d_diag.row(r);
@@ -53,7 +54,19 @@ struct Strength {
 			}
 		};
 		loop(diag());
-		loop(offd());
+		// loop(offd());
+	}
+
+	template<class F>
+	void do_strong_val( lidx_t r, F && f ) const {
+		auto loop = [=](auto ptrs, auto mat_values) {
+			auto [rowptr, colind, values] = ptrs;
+			for (lidx_t off = rowptr[r]; off < rowptr[r + 1]; ++off) {
+				if (values[off]) f(colind[off], mat_values[off]);
+			}
+		};
+		loop(diag(), d_diag.mat_values);
+		// loop(offd());
 	}
 
 private:
@@ -64,6 +77,7 @@ private:
 		value_type         values;
 		span<const lidx_t> rowptr;
 		span<const lidx_t> colind;
+		span<const scalar_t> mat_values;
 
 		struct reference {
 			std::vector<bool, alloc_t> * ptr;

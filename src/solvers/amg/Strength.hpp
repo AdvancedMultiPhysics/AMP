@@ -41,6 +41,7 @@ AMG::Strength<Mat>::Strength( csr_view<Mat> A ) {
 		auto [rowptr, colind, values] = src;
 		dst.rowptr = rowptr;
 		dst.colind = colind;
+		dst.mat_values = values;
 		dst.values.resize(colind.size());
 	};
 	init(A.diag(), d_diag);

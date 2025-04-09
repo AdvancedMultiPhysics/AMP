@@ -252,6 +252,10 @@ struct csr_view<LinearAlgebra::CSRMatrix<Config>>
 		return ptr->numLocalRows();
 	}
 
+	[[nodiscard]] size_t numGlobalRows() const {
+		return ptr->numGlobalRows();
+	}
+
 	[[nodiscard]] size_t numGhosts() const {
 		return data().getOffdMatrix()->numUniqueColumns();
 	}
@@ -327,106 +331,6 @@ private:
 };
 template<class Config, class ColID>
 csr_view(par_csr<Config, ColID>)->csr_view<par_csr<Config, ColID>>;
-
-class prospect
-{
-public:
-	std::size_t pop() {
-		assert(!needs_rebuild);
-
-		auto selected = prio_node.cbegin();
-		node_prio.erase(selected->second);
-		prio_node.erase(selected);
-		return selected->second;
-	}
-
-	void remove(std::size_t e) {
-		assert(!needs_rebuild);
-
-		// remove from forward map
-		auto eprio = node_prio.at(e);
-		node_prio.erase(e);
-
-		// remove from reverse map
-		auto rng = prio_node.equal_range(eprio);
-		for (auto i = rng.first; i != rng.second; ++i) {
-			if (i->second == e) {
-				prio_node.erase(i);
-				break;
-			}
-		}
-	}
-
-	void decrement_priority(std::size_t e) {
-		auto npnode = node_prio.find(e);
-		if (npnode != node_prio.end()) {
-			auto prio = npnode->second;
-
-			auto rng = prio_node.equal_range(prio);
-			for (auto i = rng.first; i != rng.second; ++i) {
-				if (i->second == e) {
-					prio_node.erase(i);
-					break;
-				}
-			}
-
-			prio_node.insert({prio - 1, e});
-			--node_prio[e];
-		}
-	}
-
-	void insert(std::size_t node) {
-		node_prio[node];
-		needs_rebuild = true;
-	}
-
-	[[nodiscard]] bool contains(std::size_t node) const {
-		return node_prio.find(node) != node_prio.end();
-	}
-
-	[[nodiscard]] bool empty() const { return node_prio.empty(); }
-
-	template<class SOC>
-	void prioritize(const SOC & soc) {
-		using lidx_t = typename SOC::lidx_t;
-		for (lidx_t r = 0; r < soc.numLocalRows(); ++r) {
-			soc.do_strong(r, [=](lidx_t col) {
-				// Increment priority for node if it is in SOC and unmarked list
-				auto priority = node_prio.find(col);
-				if (priority != node_prio.end()) {
-					++(priority->second);
-				}
-			});
-		}
-		rebuild();
-	}
-
-	void dump(std::ostream & os) {
-		for (const auto & v : node_prio) {
-			os << "node -> priority: " << v.first << " -> " << v.second
-			   << '\n';
-		}
-
-		for (const auto & v : prio_node) {
-			os << "priority => node: " << v.first << " => " << v.second
-			   << '\n';
-		}
-	}
-
-	[[nodiscard]] std::size_t size() const { return node_prio.size(); }
-
-protected:
-	void rebuild() {
-		for (const auto & nd : node_prio) {
-			prio_node.insert({nd.second, nd.first});
-		}
-		needs_rebuild = false;
-	}
-	std::multimap<std::size_t, std::size_t> prio_node;
-	std::map<std::size_t, std::size_t> node_prio;
-	bool needs_rebuild;
-};
-
 
 }
 
