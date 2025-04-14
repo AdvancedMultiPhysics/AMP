@@ -289,6 +289,7 @@ struct UAIntergridParams : AMP::Operator::OperatorParameters {
 template<class Config>
 struct AggregateInjection : AMP::Operator::Operator {
 	using lidx_t = typename Config::lidx_t;
+	using scalar_t = typename Config::scalar_t;
 	using aggT_type = aggregateT_type<Config>;
 	using intergrid_type = typename UAIntergridParams<Config>::intergrid_type;
 
@@ -312,44 +313,34 @@ struct AggregateInjection : AMP::Operator::Operator {
 		return std::make_shared<AggregateInjection<Config>>( params );
 	}
 
-	void apply( std::shared_ptr<const LinearAlgebra::Vector> x,
-	            std::shared_ptr<LinearAlgebra::Vector> y ) override {
-		auto inc = [](auto & ... i) { (++i,...); };
+	void apply( std::shared_ptr<const LinearAlgebra::Vector> xvec,
+	            std::shared_ptr<LinearAlgebra::Vector> yvec ) override {
+		const auto & aggt = aggregateT();
+		auto x = xvec->getVectorData()->getRawDataBlock<scalar_t>( 0 );
+		auto y = yvec->getVectorData()->getRawDataBlock<scalar_t>( 0 );
+
 		switch (transfer_type) {
 		case intergrid_type::interpolation:
 		{
-			const auto & aggt = aggregateT();
-			AMP_DEBUG_ASSERT( y->getLocalSize() == aggt.size() );
+			AMP_DEBUG_ASSERT( yvec->getLocalSize() == aggt.size() );
 
-			auto xbeg = x->begin();
-			auto yit = y->begin();
-			auto ait = aggt.begin();
-			while ( yit != y->end() ) {
-				auto val = xbeg + *ait;
-				*yit = *val;
-
-				inc( yit, ait );
+			for (size_t i = 0; i < yvec->getLocalSize(); ++i) {
+				y[i] = x[aggt[i]];
 			}
 			break;
 		}
 		case intergrid_type::restriction:
 		{
-			const auto & aggt = aggregateT();
-			AMP_DEBUG_ASSERT( x->getLocalSize() == aggt.size() );
+			AMP_DEBUG_ASSERT( xvec->getLocalSize() == aggt.size() );
 
-			y->setToScalar( 0 );
-			auto ybeg = y->begin();
-			auto xit = x->begin();
-			auto ait = aggt.begin();
-			while ( xit != x->end() ) {
-				auto pos = ybeg + *ait;
-				*pos += *xit;
-
-				inc( xit, ait );
+			yvec->setToScalar( 0 );
+			for (size_t i = 0; i < xvec->getLocalSize(); ++i) {
+				y[aggt[i]] += x[i];
 			}
 		}
 		};
-		y->makeConsistent();
+		yvec->setUpdateStatus( LinearAlgebra::UpdateState::LOCAL_CHANGED );
+		yvec->makeConsistent();
 	}
 
 	const aggT_type & aggregateT() const { return *d_aggregatesT; }
