@@ -102,7 +102,7 @@ COPY_TEST_FILE( input_linearBVP-Mechanics+Thermal+Fick+Dirichlet-UO2MSRZC09-1   
 COPY_TEST_FILE( input_linearThermalDiffusion+FickDiffusion-UO2MSRZC09-1            diffusion/data )
 COPY_TEST_FILE( input_linearMechanics+ThermalDiffusion+FickDiffusion-TUI-1         mechanics/data )
 COPY_TEST_FILE( input_linearMechanics+ThermalDiffusion+FickDiffusion-UO2MSRZC09-1  mechanics/data )
-
+COPY_TEST_FILE(  input_testLinearThermalRobinOperatorPerformance )
 
 # Copy test data
 IF ( AMP_DATA )
@@ -156,6 +156,7 @@ IF ( USE_LIBMESH AND AMP_DATA )
 ENDIF()
 FINALIZE_TESTBUILDER()
 
+ADD_AMP_TEST( testLinearThermalRobinOperatorPerformance )
 
 # Add subdirectories
 ADD_SUBDIRECTORY( maps )
