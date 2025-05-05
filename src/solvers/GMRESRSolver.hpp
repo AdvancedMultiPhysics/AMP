@@ -92,10 +92,14 @@ void GMRESRSolver<T>::getFromInput( std::shared_ptr<AMP::Database> db )
  *  Solve                                                        *
  ****************************************************************/
 template<typename T>
-void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                             std::shared_ptr<AMP::LinearAlgebra::Vector> u )
+void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
+                             std::shared_ptr<AMP::LinearAlgebra::Vector> u_in )
 {
     PROFILE( "GMRESRSolver<T>::apply" );
+
+    AMP_ASSERT( d_pOperator );
+    auto u = d_pOperator->subsetInputVector( u_in );
+    auto f = d_pOperator->subsetOutputVector( f_in );
 
     if ( d_variant != "gcr" )
         AMP_INSIST( d_pNestedSolver, "Error: A nested solver must always be set for GMRESR" );

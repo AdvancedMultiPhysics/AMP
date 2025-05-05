@@ -99,10 +99,14 @@ void GMRESSolver<T>::getFromInput( std::shared_ptr<AMP::Database> db )
  *  Solve                                                        *
  ****************************************************************/
 template<typename T>
-void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                            std::shared_ptr<AMP::LinearAlgebra::Vector> u )
+void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> u_in )
 {
     PROFILE( "GMRESSolver<T>::apply" );
+
+    AMP_ASSERT( d_pOperator );
+    auto u = d_pOperator->subsetInputVector( u_in );
+    auto f = d_pOperator->subsetOutputVector( f_in );
 
     // Always zero before checking stopping criteria for any reason
     d_iNumberIterations = 1;

@@ -68,10 +68,14 @@ void QMRCGSTABSolver<T>::getFromInput( std::shared_ptr<const AMP::Database> db )
  *  Solve                                                        *
  ****************************************************************/
 template<typename T>
-void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                                std::shared_ptr<AMP::LinearAlgebra::Vector> x )
+void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
+                                std::shared_ptr<AMP::LinearAlgebra::Vector> x_in )
 {
     PROFILE( "QMRCGSTABSolver<T>::apply" );
+
+    AMP_ASSERT( d_pOperator );
+    auto x = d_pOperator->subsetInputVector( x_in );
+    auto f = d_pOperator->subsetOutputVector( f_in );
 
     // Always zero before checking stopping criteria for any reason
     d_iNumberIterations = 0;

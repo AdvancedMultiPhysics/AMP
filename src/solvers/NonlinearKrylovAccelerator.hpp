@@ -332,12 +332,15 @@ void NonlinearKrylovAccelerator<T>::correction( std::shared_ptr<AMP::LinearAlgeb
 }
 
 template<typename T>
-void NonlinearKrylovAccelerator<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                                           std::shared_ptr<AMP::LinearAlgebra::Vector> u )
+void NonlinearKrylovAccelerator<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
+                                           std::shared_ptr<AMP::LinearAlgebra::Vector> u_in )
 {
     PROFILE( "NonlinearKrylovAccelerator<T>::apply" );
     d_ConvergenceStatus = AMP::Solver::SolverStrategy::SolverStatus::DivergedOther;
-    AMP_ASSERT( u && d_pOperator );
+    AMP_ASSERT( u_in && d_pOperator );
+
+    auto u = d_pOperator->subsetInputVector( u_in );
+    auto f = d_pOperator->subsetOutputVector( f_in );
 
     if ( d_uses_preconditioner ) {
         AMP_ASSERT( d_pNestedSolver );
