@@ -3,5 +3,5 @@ variables:
   GROUP: nerd-project
 include:
   - project: 'xcap/oss/solvers/dev-ops/ci'
-    ref: master
+    ref: glongo/adding_trilinos_env_to_ci
     file: 'amp-darwin.yml'
