@@ -65,7 +65,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("libmesh+exodusii+netcdf+metis", when="+libmesh")
 
     depends_on("petsc", when="+petsc")
-    depends_on("trilinos+epetra+epetraext+thyra+tpetra+ml~muelu+kokkos+amesos+ifpack+ifpack2+belos+nox+stratimikos", when="+trilinos")
+    depends_on("trilinos+epetra+epetraext+thyra+tpetra+ml+muelu+kokkos+amesos+ifpack+ifpack2+belos+nox+stratimikos gotype=int", when="+trilinos")
 
     requires("+lapack", when="+trilinos")
 
@@ -169,7 +169,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                 ]
             )
         if spec.satisfies("+trilinos"):
-            options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
+            options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Xpetra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
 
         for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "trilinos"):
             if spec.satisfies(f"+{vname}"):
