@@ -22,6 +22,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("stacktrace", default=False, description="Build with support for Stacktrace")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
     variant("lapack", default=False, description="Build with support for lapack")
+    variant("lapackwrappers", default=False, description="Build with support for lapackwrappers")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
     variant("mpi", default=False, description="Build with MPI support")
@@ -46,6 +47,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("timerutility+shared", when="+shared+timerutility")
     depends_on("timerutility+mpi", when="+mpi+timerutility")
     depends_on("timerutility~mpi", when="~mpi+timerutility")
+
+    depends_on("lapackwrappers~shared", when="~shared+lapackwrappers")
+    depends_on("lapackwrappers+shared", when="+shared+lapackwrappers")
 
     depends_on("hypre+mixedint", when="+hypre")
     depends_on("kokkos", when="+kokkos")
@@ -171,9 +175,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         if spec.satisfies("+trilinos"):
             options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Xpetra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
 
-        for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "trilinos"):
+        for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):
-                tpl_name = "TIMER" if vname == "timerutility" else vname.upper()
+                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else vname.upper()
                 tpl_list.append(tpl_name)
                 options.append(self.define(f"{tpl_name}_INSTALL_DIR", spec[vname].prefix))
 
