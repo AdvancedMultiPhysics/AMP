@@ -5,15 +5,14 @@
 #include <vector>
 
 #include "AMP/operators/LinearOperator.h"
-#include "AMP/operators/Operator.h"
 #include "AMP/solvers/SolverStrategy.h"
 
 namespace AMP::Solver::AMG {
 
 struct Level {
-	std::shared_ptr<Operator::LinearOperator> A;
-	std::shared_ptr<Operator::Operator> R, P;
-    std::unique_ptr<Solver::SolverStrategy> pre_relaxation, post_relaxation;
+    std::shared_ptr<AMP::Operator::LinearOperator> A;
+    std::shared_ptr<AMP::Operator::Operator> R, P;
+	std::unique_ptr<AMP::Solver::SolverStrategy> pre_relaxation, post_relaxation;
     std::shared_ptr<LinearAlgebra::Vector> x, b;
     mutable std::size_t nrelax = 0;
 };
@@ -32,7 +31,6 @@ void kappa_kcycle( std::shared_ptr<const LinearAlgebra::Vector> b,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
                    float ktol );
-
 } // namespace AMP::Solver::AMG
 
 #endif

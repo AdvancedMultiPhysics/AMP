@@ -195,11 +195,11 @@ public:
 
     //! Get pointer to diagonal block
     std::shared_ptr<localmatrixdata_t> getDiagMatrix() { return d_diag_matrix; }
-	std::shared_ptr<const localmatrixdata_t> getDiagMatrix() const { return d_diag_matrix; }
+    std::shared_ptr<const localmatrixdata_t> getDiagMatrix() const { return d_diag_matrix; }
 
     //! Get pointer to off-diagonal block
     std::shared_ptr<localmatrixdata_t> getOffdMatrix() { return d_offd_matrix; }
-	std::shared_ptr<const localmatrixdata_t> getOffdMatrix() const { return d_offd_matrix; }
+    std::shared_ptr<const localmatrixdata_t> getOffdMatrix() const { return d_offd_matrix; }
 
     //! Get row pointers from diagonal block
     lidx_t *getDiagRowStarts() { return d_diag_matrix->d_row_starts.get(); }

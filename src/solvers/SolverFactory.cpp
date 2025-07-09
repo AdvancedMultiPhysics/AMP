@@ -77,7 +77,7 @@ SolverFactory::create( std::shared_ptr<SolverStrategyParameters> parameters )
     auto objectName = inputDatabase->getString( "name" );
 
     return FactoryStrategy<SolverStrategy, std::shared_ptr<SolverStrategyParameters>>::create(
-	    objectName, parameters );
+        objectName, parameters );
 }
 
 
