@@ -130,16 +130,15 @@ inline void print_summary( const char *fname,
     std::vector<size_t> nrows, nnz, nprocs, nspmv;
     std::vector<std::pair<size_t, size_t>> nrows_local;
 
-	for (auto & level : ml) {
-		LinearAlgebra::csrVisit(level.A->getMatrix(),
-		                         [&](auto A) {
-			                         nnz.push_back(get_nnz(*A));
-			                         nrows.push_back(get_nrows(*A));
-			                         nprocs.push_back(get_nprocs(*A));
-			                         nspmv.push_back(level.nrelax);
-			                         nrows_local.push_back(get_local_nrows(*A));
-		                         });
-	}
+    for ( auto &level : ml ) {
+        LinearAlgebra::csrVisit( level.A->getMatrix(), [&]( auto A ) {
+            nnz.push_back( get_nnz( *A ) );
+            nrows.push_back( get_nrows( *A ) );
+            nprocs.push_back( get_nprocs( *A ) );
+            nspmv.push_back( level.nrelax );
+            nrows_local.push_back( get_local_nrows( *A ) );
+        } );
+    }
 
     auto hypre_solver            = dynamic_cast<HypreSolver &>( cg_solver ).getHYPRESolver();
     hypre_ParAMGData *amg_data   = (hypre_ParAMGData *) hypre_solver;
