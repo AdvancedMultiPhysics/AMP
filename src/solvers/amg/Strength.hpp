@@ -57,9 +57,11 @@ template<class StrengthPolicy, class Mat>
 Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
 {
     using lidx_t = typename csr_view<Mat>::lidx_t;
-    auto get_row = [=]( auto csr_ptrs ) {
+    auto get_row = [=]( auto csr_ptrs) {
         auto [rowptr, colind, values] = csr_ptrs;
-        return [=]( lidx_t r ) { return values.subspan( rowptr[r], rowptr[r + 1] - rowptr[r] ); };
+        return [=]( lidx_t r ) {
+	        return values.subspan( rowptr[r], rowptr[r + 1] - rowptr[r] );
+        };
     };
 
     auto diag_rows = get_row( A.diag() );
@@ -69,9 +71,9 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
 
     for ( size_t r = 0; r < A.numLocalRows(); ++r ) {
         auto diag_values          = diag_rows( r );
-        auto offd_values          = offd_rows( r );
-        auto strongest_connection = std::max( StrengthPolicy::strongest( diag_values.subspan( 1 ) ),
-                                              StrengthPolicy::strongest( offd_values ) );
+        auto strongest_connection = StrengthPolicy::strongest( diag_values.subspan( 1 ));
+        if (A.has_offd())
+	        strongest_connection  = std::max( strongest_connection, StrengthPolicy::strongest( offd_rows( r ) ) );
         auto is_strong            = StrengthPolicy::is_strong( strongest_connection, threshold );
         auto fill_strength        = [&]( auto vals, auto strength ) {
             for ( std::size_t i = 0; i < vals.size(); ++i )

@@ -142,6 +142,8 @@ struct par_csr {
     const seq_type &diag() const { return *d_diag; }
     const seq_type &offd() const { return *d_offd; }
 
+	bool has_offd() const { return offd().rowptr.size() > 0; }
+
 protected:
     std::shared_ptr<seq_type> d_diag, d_offd;
 };
@@ -239,6 +241,8 @@ struct csr_view<LinearAlgebra::CSRMatrix<Config>> {
 
     auto offd() const { return csr_ptrs( *( data().getOffdMatrix() ) ); }
 
+	[[nodiscard]] bool has_offd() const { return data().hasOffDiag(); }
+
     [[nodiscard]] size_t numLocalRows() const { return ptr->numLocalRows(); }
 
     [[nodiscard]] size_t numGlobalRows() const { return ptr->numGlobalRows(); }
@@ -296,6 +300,8 @@ struct csr_view<par_csr<Config, ColID>> {
     auto diag() const { return csr_ptrs( data.diag() ); }
 
     auto offd() const { return csr_ptrs( data.offd() ); }
+
+	[[nodiscard]] bool has_offd() const { return data.has_offd(); }
 
     [[nodiscard]] size_t numLocalRows() const { return data.diag().rowptr.size() - 1; }
 

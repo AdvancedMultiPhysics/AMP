@@ -1,11 +1,10 @@
 Preconditioner{
   name = "UASolver"
   checkdd = true
-  max_levels = 2
+  max_levels = 4
   max_iterations = 1
   max_error = 1e-10
-  min_coarse = 20
-  min_local_coarse = 10
+  min_coarse = 10
   strong_threshold = 0.5
   pairwise_passes = 3
   kappa = 100000
@@ -21,11 +20,10 @@ Preconditioner{
     name = "BoomerAMGSolver"
     max_iterations = 1
 	print_info_level = 0
-	min_coarse_size = 5
-	max_coarse_size = 100
+	max_coarse_size = 25
     strong_threshold = 0.5
     cycle_type = 1
-    relax_type = 6
+    relax_type = 16
     coarsen_type = 10
     interp_type = 17
     relax_order = 0

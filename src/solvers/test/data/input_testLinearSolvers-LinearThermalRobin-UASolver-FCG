@@ -3,7 +3,7 @@
 LinearSolver{
   name = "CGSolver"
   variant = "fcg"
-  max_dimension = 100
+  max_dimension = 3
   uses_preconditioner = TRUE
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
@@ -14,7 +14,7 @@ LinearSolver{
 <<< "PC-UASolverParameters" >>>
 
 Reference{
-  iterations = 8
+  iterations = 9
   res_l2_norm = -1.0
   tolerance = 0.0
   strict = FALSE

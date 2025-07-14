@@ -35,12 +35,13 @@ struct unmarked_list {
 	constexpr bool operator()(lidx_t i) const {
 		if (!checkdd) return true;
 
-		auto get_row = [=](auto csr_ptrs) {
+		auto get_row = [=](auto csr_ptrs, bool has_data = true) {
 			auto [rowptr, colind, values] = csr_ptrs;
+			if (!has_data) return decltype(values){};
 			return values.subspan(rowptr[i], rowptr[i + 1] - rowptr[i]);
 		};
 		auto diag_row = get_row(A.diag());
-		auto offd_row = get_row(A.offd());
+		auto offd_row = get_row(A.offd(), A.has_offd());
 		auto diag_val = diag_row.front();
 		auto local_offd_vals = diag_row.subspan( 1 );
 
@@ -227,10 +228,12 @@ auto create_aux( csr_view<Mat> A, const aggregate_type<csr_view<Mat>> &agg )
         }
     };
     collapse( A.diag(), aux.diag(), [&]( lidx_t col ) { return aggt[col]; } );
-    collapse( A.offd(),
-              aux.offd(),
-              // avoid communication by treating offd as distinct aggregates
-              []( lidx_t col ) { return col; } );
+    if (A.has_offd()) {
+	    collapse( A.offd(),
+	              aux.offd(),
+	              // avoid communication by treating offd as distinct aggregates
+	              []( lidx_t col ) { return col; } );
+    }
 
     return csr_view( aux );
 }
@@ -253,9 +256,11 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
     coarse_mat.comm      = comm;
     coarse_mat.left_var  = fine_matrix.getMatrixData()->getRightVariable();
     coarse_mat.right_var = fine_matrix.getMatrixData()->getLeftVariable();
-    [&]( auto &...m ) {
-        ( m.rowptr.resize( aggregates.size() + 1 ), ... );
-    }( coarse_mat.store.diag(), coarse_mat.store.offd() );
+    auto size_rowptr = [&](auto & m) {
+	    m.rowptr.resize( aggregates.size() + 1);
+    };
+    size_rowptr( coarse_mat.store.diag() );
+    if (fine.has_offd()) size_rowptr( coarse_mat.store.offd() );
 
     // using gidx_t = typename Config::gidx_t;
     using gidx_t = double;
@@ -318,7 +323,9 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
                 cmat.rowptr[rc + 1] = cmat.colind.size();
             };
         collapse( coarse_mat.store.diag(), fine.diag(), aggt.diag );
-        collapse( coarse_mat.store.offd(), fine.offd(), aggt.offd );
+        if (fine.has_offd()) {
+	        collapse( coarse_mat.store.offd(), fine.offd(), aggt.offd );
+        }
     }
 
     return coarse_mat;
