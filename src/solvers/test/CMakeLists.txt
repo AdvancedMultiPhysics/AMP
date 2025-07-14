@@ -13,6 +13,7 @@ COPY_TEST_FILE( PetscFGMRESParameters )
 COPY_TEST_FILE( PetscCGParameters )
 COPY_TEST_FILE( PetscBiCGSTABParameters )
 COPY_TEST_FILE( PC-BoomerAMGParameters )
+COPY_TEST_FILE( PC-UASolverParameters )
 COPY_TEST_FILE( PC-MLParameters )
 COPY_TEST_FILE( PC-MueLuParameters )
 COPY_TEST_FILE( PC-DiagParameters )
@@ -160,6 +161,8 @@ COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG )
 
 COPY_TEST_FILE( input_testLinearSolvers-PL-AmpMesh-BoomerAMG )
 COPY_TEST_FILE( input_testLinearSolvers-PL-CylMesh-BoomerAMG )
+
+COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-UASolver-FCG )
 
 IF( USE_PETSC )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG )

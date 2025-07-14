@@ -90,7 +90,6 @@ void UASolver::setup()
         AMP_DEBUG_ASSERT( matrix );
         return matrix->numGlobalRows();
     };
-    AMP::pout << num_rows( d_levels[0].A ) << '\n';
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         auto &fine_level = d_levels.back();
         auto [R, Ac, P]  = AMG::pairwise_coarsen( fine_level.A, d_coarsen_settings );
@@ -98,7 +97,6 @@ void UASolver::setup()
             break;
 
         d_levels.emplace_back().A = Ac;
-        AMP::pout << num_rows( Ac ) << '\n';
         d_levels.back().R               = R;
         d_levels.back().P               = P;
         d_levels.back().pre_relaxation  = create_relaxation( Ac, d_pre_relax_params );

@@ -1,6 +1,7 @@
 #ifndef included_AMP_AMG_Aggregation_hpp
 #define included_AMP_AMG_Aggregation_hpp
 
+#include <numeric>
 #include <fstream>
 #include <optional>
 
@@ -25,22 +26,57 @@ using aggregateT_type =
                 rebind_alloc<typename Config::allocator_type, typename Config::lidx_t>>;
 
 template<class Mat>
+struct unmarked_list {
+	unmarked_list( csr_view<Mat> mat, bool checkdd, float threshold = 5. ) :
+		A(mat), checkdd( checkdd ), dd_threshold(threshold) {}
+
+	using lidx_t = typename csr_view<Mat>::lidx_t;
+	using scalar_t = typename csr_view<Mat>::scalar_t;
+	constexpr bool operator()(lidx_t i) const {
+		if (!checkdd) return true;
+
+		auto get_row = [=](auto csr_ptrs) {
+			auto [rowptr, colind, values] = csr_ptrs;
+			return values.subspan(rowptr[i], rowptr[i + 1] - rowptr[i]);
+		};
+		auto diag_row = get_row(A.diag());
+		auto offd_row = get_row(A.offd());
+		auto diag_val = diag_row.front();
+		auto local_offd_vals = diag_row.subspan( 1 );
+
+		auto acc = [](auto a, auto b) { return a + std::abs(b); };
+		auto offd_sum = std::accumulate(local_offd_vals.begin(), local_offd_vals.end(), scalar_t{}, acc) +
+			std::accumulate(offd_row.begin(), offd_row.end(), scalar_t{}, acc);
+
+        return !(diag_val > dd_threshold * offd_sum);
+	}
+
+private:
+	csr_view<Mat> A;
+	bool checkdd;
+	float dd_threshold;
+};
+template<class Mat>
+unmarked_list( csr_view<Mat>, float ) -> unmarked_list<Mat>;
+
+template<class Mat>
 struct prospect {
     using strength_type = Strength<Mat>;
     using lidx_t        = typename strength_type::lidx_t;
-    prospect( const Strength<Mat> &soc )
+	prospect( const Strength<Mat> &soc, const unmarked_list<Mat> & initial_unmarked )
         : node_prio( soc.numLocalRows() ), chosen( soc.numLocalRows(), false )
     {
         std::vector<lidx_t> priority( soc.numLocalRows(), 0 );
         for ( size_t i = 0; i < priority.size(); ++i ) {
             soc.do_strong( i, [&]( lidx_t col ) {
-                if ( col != static_cast<lidx_t>( i ) )
+	            if ( col != static_cast<lidx_t>( i ) && initial_unmarked(col) )
                     ++priority[col];
             } );
         }
 
         for ( size_t i = 0; i < priority.size(); ++i ) {
-            node_prio[i] = prio_node.insert( { priority[i], i } );
+	        if ( initial_unmarked(i) )
+		        node_prio[i] = prio_node.insert( { priority[i], i } );
         }
     }
 
@@ -107,7 +143,7 @@ aggregate_type<csr_view<Mat>> pairwise_aggregate( csr_view<Mat> A,
 
     auto S = compute_soc<classical_strength<norm::min>>( A, settings.strength_threshold );
 
-    prospect unmarked( S );
+    prospect unmarked( S, unmarked_list( A, settings.checkdd ) );
 
     auto update_priorities = [&]( lidx_t k ) {
         S.do_strong( k, [&]( lidx_t col ) { unmarked.decrement_priority( col ); } );
