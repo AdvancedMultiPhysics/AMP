@@ -150,8 +150,11 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-TFQMR" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-BiCGSTAB" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
-        files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS" );
-        files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG" );
+        if ( std::string( "CSRMatrix" ) == DEFAULT_MATRIX ) {
+            files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS" );
+            files.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG" );
+        }
 #ifdef AMP_USE_PETSC
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscCG" );
         files.emplace_back(
@@ -189,7 +192,9 @@ int main( int argc, char *argv[] )
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
-        files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
+        if ( std::string( "CSRMatrix" ) == DEFAULT_MATRIX ) {
+            files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
+        }
     #ifdef AMP_USE_PETSC
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscFGMRES" );
