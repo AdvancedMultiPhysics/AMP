@@ -1,5 +1,6 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
+#include "AMP/matrices/MatrixBuilder.h"
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/solvers/SolverFactory.h"
@@ -150,7 +151,7 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-TFQMR" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-BiCGSTAB" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
-        if ( std::string( "CSRMatrix" ) == DEFAULT_MATRIX ) {
+        if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
             files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS" );
             files.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG" );
@@ -192,7 +193,7 @@ int main( int argc, char *argv[] )
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES" );
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
-        if ( std::string( "CSRMatrix" ) == DEFAULT_MATRIX ) {
+        if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
             files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
         }
     #ifdef AMP_USE_PETSC
