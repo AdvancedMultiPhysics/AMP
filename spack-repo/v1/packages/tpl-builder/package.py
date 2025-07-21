@@ -76,10 +76,12 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     for _flag in list(CudaPackage.cuda_arch_values):
         depends_on(f"hypre cuda_arch={_flag}", when=f"+hypre+cuda cuda_arch={_flag}")
         depends_on(f"kokkos cuda_arch={_flag}", when=f"+kokkos+cuda cuda_arch={_flag}")
+        depends_on(f"trilinos cuda_arch={_flag}", when=f"+trilinos+cuda cuda_arch={_flag}")
 
     for _flag in ROCmPackage.amdgpu_targets:
         depends_on(f"hypre amdgpu_target={_flag}", when=f"+hypre+rocm amdgpu_target={_flag}")
         depends_on(f"kokkos amdgpu_target={_flag}", when=f"+kokkos+rocm amdgpu_target={_flag}")
+        depends_on(f"trilinos amdgpu_target={_flag}", when=f"+trilinos+rocm amdgpu_target={_flag}")
 
     # MPI related dependencies
     depends_on("mpi", when="+mpi")
