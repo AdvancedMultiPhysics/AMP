@@ -17,9 +17,8 @@ coarse_ops_type pairwise_coarsen( std::shared_ptr<Operator::Operator> fine,
     auto mat = linop->getMatrix();
     AMP_INSIST( mat, "matrix cannot be NULL" );
 
-    return LinearAlgebra::csrVisit(mat, [&](auto csr_ptr) {
-		return pairwise_coarsen( *csr_ptr, settings );
-	});
+    return LinearAlgebra::csrVisit(
+        mat, [&]( auto csr_ptr ) { return pairwise_coarsen( *csr_ptr, settings ); } );
 }
 
 

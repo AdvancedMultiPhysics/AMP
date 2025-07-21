@@ -1,8 +1,8 @@
 #ifndef included_AMP_AMG_Aggregation_hpp
 #define included_AMP_AMG_Aggregation_hpp
 
-#include <numeric>
 #include <fstream>
+#include <numeric>
 #include <optional>
 
 #include "AMP/matrices/data/CSRMatrixData.hpp"
@@ -27,35 +27,41 @@ using aggregateT_type =
 
 template<class Mat>
 struct unmarked_list {
-	unmarked_list( csr_view<Mat> mat, bool checkdd, float threshold = 5. ) :
-		A(mat), checkdd( checkdd ), dd_threshold(threshold) {}
+    unmarked_list( csr_view<Mat> mat, bool checkdd, float threshold = 5. )
+        : A( mat ), checkdd( checkdd ), dd_threshold( threshold )
+    {
+    }
 
-	using lidx_t = typename csr_view<Mat>::lidx_t;
-	using scalar_t = typename csr_view<Mat>::scalar_t;
-	constexpr bool operator()(lidx_t i) const {
-		if (!checkdd) return true;
+    using lidx_t   = typename csr_view<Mat>::lidx_t;
+    using scalar_t = typename csr_view<Mat>::scalar_t;
+    constexpr bool operator()( lidx_t i ) const
+    {
+        if ( !checkdd )
+            return true;
 
-		auto get_row = [=](auto csr_ptrs, bool has_data = true) {
-			auto [rowptr, colind, values] = csr_ptrs;
-			if (!has_data) return decltype(values){};
-			return values.subspan(rowptr[i], rowptr[i + 1] - rowptr[i]);
-		};
-		auto diag_row = get_row(A.diag());
-		auto offd_row = get_row(A.offd(), A.has_offd());
-		auto diag_val = diag_row.front();
-		auto local_offd_vals = diag_row.subspan( 1 );
+        auto get_row = [=]( auto csr_ptrs, bool has_data = true ) {
+            auto [rowptr, colind, values] = csr_ptrs;
+            if ( !has_data )
+                return decltype( values ){};
+            return values.subspan( rowptr[i], rowptr[i + 1] - rowptr[i] );
+        };
+        auto diag_row        = get_row( A.diag() );
+        auto offd_row        = get_row( A.offd(), A.has_offd() );
+        auto diag_val        = diag_row.front();
+        auto local_offd_vals = diag_row.subspan( 1 );
 
-		auto acc = [](auto a, auto b) { return a + std::abs(b); };
-		auto offd_sum = std::accumulate(local_offd_vals.begin(), local_offd_vals.end(), scalar_t{}, acc) +
-			std::accumulate(offd_row.begin(), offd_row.end(), scalar_t{}, acc);
+        auto acc = []( auto a, auto b ) { return a + std::abs( b ); };
+        auto offd_sum =
+            std::accumulate( local_offd_vals.begin(), local_offd_vals.end(), scalar_t{}, acc ) +
+            std::accumulate( offd_row.begin(), offd_row.end(), scalar_t{}, acc );
 
-        return !(diag_val > dd_threshold * offd_sum);
-	}
+        return !( diag_val > dd_threshold * offd_sum );
+    }
 
 private:
-	csr_view<Mat> A;
-	bool checkdd;
-	float dd_threshold;
+    csr_view<Mat> A;
+    bool checkdd;
+    float dd_threshold;
 };
 template<class Mat>
 unmarked_list( csr_view<Mat>, float ) -> unmarked_list<Mat>;
@@ -64,20 +70,20 @@ template<class Mat>
 struct prospect {
     using strength_type = Strength<Mat>;
     using lidx_t        = typename strength_type::lidx_t;
-	prospect( const Strength<Mat> &soc, const unmarked_list<Mat> & initial_unmarked )
+    prospect( const Strength<Mat> &soc, const unmarked_list<Mat> &initial_unmarked )
         : node_prio( soc.numLocalRows() ), chosen( soc.numLocalRows(), false )
     {
         std::vector<lidx_t> priority( soc.numLocalRows(), 0 );
         for ( size_t i = 0; i < priority.size(); ++i ) {
             soc.do_strong( i, [&]( lidx_t col ) {
-	            if ( col != static_cast<lidx_t>( i ) && initial_unmarked(col) )
+                if ( col != static_cast<lidx_t>( i ) && initial_unmarked( col ) )
                     ++priority[col];
             } );
         }
 
         for ( size_t i = 0; i < priority.size(); ++i ) {
-	        if ( initial_unmarked(i) )
-		        node_prio[i] = prio_node.insert( { priority[i], i } );
+            if ( initial_unmarked( i ) )
+                node_prio[i] = prio_node.insert( { priority[i], i } );
         }
     }
 
@@ -198,14 +204,14 @@ auto transpose_aggregates( const T &agg, I fine_size )
 }
 
 template<typename T>
-std::vector<size_t> argsort(const std::vector<T> &array) {
-    std::vector<size_t> indices(array.size());
-    std::iota(indices.begin(), indices.end(), 0);
-    std::sort(indices.begin(), indices.end(),
-              [&array](int left, int right) -> bool {
-                  // sort indices according to corresponding array element
-                  return array[left] < array[right];
-              });
+std::vector<size_t> argsort( const std::vector<T> &array )
+{
+    std::vector<size_t> indices( array.size() );
+    std::iota( indices.begin(), indices.end(), 0 );
+    std::sort( indices.begin(), indices.end(), [&array]( int left, int right ) -> bool {
+        // sort indices according to corresponding array element
+        return array[left] < array[right];
+    } );
 
     return indices;
 }
@@ -225,34 +231,34 @@ auto create_aux( csr_view<Mat> A, const aggregate_type<csr_view<Mat>> &agg )
         dst.rowptr.resize( agg.size() + 1 );
         [&]( auto &...v ) { ( v.reserve( agg.size() ), ... ); }( dst.colind, dst.values );
         for ( size_t rc = 0; rc < agg.size(); ++rc ) {
-	        std::vector<lidx_t> agg_indices;
-	        std::vector<scalar_t> agg_values;
-	        [&](auto & ... v) { (v.reserve(agg[rc].size()),...); }(agg_indices, agg_values);
-	        for ( auto r : agg[rc] ) {
-		        for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
-			        agg_indices.push_back(cmap(colind[off]));
-			        agg_values.push_back(values[off]);
-		        }
-	        }
+            std::vector<lidx_t> agg_indices;
+            std::vector<scalar_t> agg_values;
+            [&]( auto &...v ) { ( v.reserve( agg[rc].size() ), ... ); }( agg_indices, agg_values );
+            for ( auto r : agg[rc] ) {
+                for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
+                    agg_indices.push_back( cmap( colind[off] ) );
+                    agg_values.push_back( values[off] );
+                }
+            }
 
-	        auto ind = argsort( agg_indices );
-	        for (std::size_t i = 0; i < ind.size(); ++i) {
-		        auto cur_val = agg_values[ind[i]];
-		        auto cur_ind = agg_indices[ind[i]];
-		        while (i < ind.size() - 1 && agg_indices[ind[i+1]] == cur_ind)
-			        cur_val += agg_values[ind[++i]];
-		        dst.colind.push_back(cur_ind);
-		        dst.values.push_back(cur_val);
-	        }
-	        dst.rowptr[rc + 1] = dst.colind.size();
+            auto ind = argsort( agg_indices );
+            for ( std::size_t i = 0; i < ind.size(); ++i ) {
+                auto cur_val = agg_values[ind[i]];
+                auto cur_ind = agg_indices[ind[i]];
+                while ( i < ind.size() - 1 && agg_indices[ind[i + 1]] == cur_ind )
+                    cur_val += agg_values[ind[++i]];
+                dst.colind.push_back( cur_ind );
+                dst.values.push_back( cur_val );
+            }
+            dst.rowptr[rc + 1] = dst.colind.size();
         }
     };
     collapse( A.diag(), aux.diag(), [&]( lidx_t col ) { return aggt[col]; } );
-    if (A.has_offd()) {
-	    collapse( A.offd(),
-	              aux.offd(),
-	              // avoid communication by treating offd as distinct aggregates
-	              []( lidx_t col ) { return col; } );
+    if ( A.has_offd() ) {
+        collapse( A.offd(),
+                  aux.offd(),
+                  // avoid communication by treating offd as distinct aggregates
+                  []( lidx_t col ) { return col; } );
     }
 
     return csr_view( aux );
@@ -276,11 +282,10 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
     coarse_mat.comm      = comm;
     coarse_mat.left_var  = fine_matrix.getMatrixData()->getRightVariable();
     coarse_mat.right_var = fine_matrix.getMatrixData()->getLeftVariable();
-    auto size_rowptr = [&](auto & m) {
-	    m.rowptr.resize( aggregates.size() + 1);
-    };
+    auto size_rowptr     = [&]( auto &m ) { m.rowptr.resize( aggregates.size() + 1 ); };
     size_rowptr( coarse_mat.store.diag() );
-    if (fine.has_offd()) size_rowptr( coarse_mat.store.offd() );
+    if ( fine.has_offd() )
+        size_rowptr( coarse_mat.store.offd() );
 
     // using gidx_t = typename Config::gidx_t;
     using gidx_t = double;
@@ -326,38 +331,38 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
         }();
 
 
-
     auto collapse =
-	    [&]( auto &cmat, auto fine_ptrs, const std::vector<gidx_t> &aggregates_transpose ) {
-		    auto [rowptr, colind, values] = fine_ptrs;
-		    for ( size_t rc = 0; rc < aggregates.size(); ++rc ) {
-			    // coarse (global) column index -> aggregated value (nnz in this coarse row)
-			    std::vector<lidx_t> agg_indices;
-			    std::vector<scalar_t> agg_values;
-			    [&](auto & ... v) { (v.reserve(aggregates[rc].size()),...); }(agg_indices, agg_values);
-			    for ( auto r : aggregates[rc] ) {
-				    for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
-					    agg_indices.push_back(aggregates_transpose[colind[off]]);
-					    agg_values.push_back(values[off]);
-				    }
-			    }
+        [&]( auto &cmat, auto fine_ptrs, const std::vector<gidx_t> &aggregates_transpose ) {
+            auto [rowptr, colind, values] = fine_ptrs;
+            for ( size_t rc = 0; rc < aggregates.size(); ++rc ) {
+                // coarse (global) column index -> aggregated value (nnz in this coarse row)
+                std::vector<lidx_t> agg_indices;
+                std::vector<scalar_t> agg_values;
+                [&]( auto &...v ) { ( v.reserve( aggregates[rc].size() ), ... ); }( agg_indices,
+                                                                                    agg_values );
+                for ( auto r : aggregates[rc] ) {
+                    for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
+                        agg_indices.push_back( aggregates_transpose[colind[off]] );
+                        agg_values.push_back( values[off] );
+                    }
+                }
 
-			    auto ind = argsort( agg_indices );
-			    for (std::size_t i = 0; i < ind.size(); ++i) {
-				    auto cur_val = agg_values[ind[i]];
-				    auto cur_ind = agg_indices[ind[i]];
-				    while (i < ind.size() - 1 && agg_indices[ind[i+1]] == cur_ind)
-					    cur_val += agg_values[ind[++i]];
-				    cmat.colind.push_back(cur_ind);
-				    cmat.values.push_back(cur_val);
-			    }
-			    cmat.rowptr[rc + 1] = cmat.colind.size();
-		    }
-	    };
+                auto ind = argsort( agg_indices );
+                for ( std::size_t i = 0; i < ind.size(); ++i ) {
+                    auto cur_val = agg_values[ind[i]];
+                    auto cur_ind = agg_indices[ind[i]];
+                    while ( i < ind.size() - 1 && agg_indices[ind[i + 1]] == cur_ind )
+                        cur_val += agg_values[ind[++i]];
+                    cmat.colind.push_back( cur_ind );
+                    cmat.values.push_back( cur_val );
+                }
+                cmat.rowptr[rc + 1] = cmat.colind.size();
+            }
+        };
 
     collapse( coarse_mat.store.diag(), fine.diag(), aggt.diag );
-    if (fine.has_offd()) {
-	    collapse( coarse_mat.store.offd(), fine.offd(), aggt.offd );
+    if ( fine.has_offd() ) {
+        collapse( coarse_mat.store.offd(), fine.offd(), aggt.offd );
     }
 
     return coarse_mat;

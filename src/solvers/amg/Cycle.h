@@ -12,7 +12,7 @@ namespace AMP::Solver::AMG {
 struct Level {
     std::shared_ptr<AMP::Operator::LinearOperator> A;
     std::shared_ptr<AMP::Operator::Operator> R, P;
-	std::unique_ptr<AMP::Solver::SolverStrategy> pre_relaxation, post_relaxation;
+    std::unique_ptr<AMP::Solver::SolverStrategy> pre_relaxation, post_relaxation;
     std::shared_ptr<LinearAlgebra::Vector> x, b;
     mutable std::size_t nrelax = 0;
 };

@@ -1,6 +1,6 @@
-#include "AMP/solvers/SolverFactory.h"
-#include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/UASolver.h"
+#include "AMP/operators/LinearOperator.h"
+#include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/amg/Aggregation.h"
 #include "AMP/solvers/amg/Stats.h"
 
@@ -51,9 +51,9 @@ std::unique_ptr<SolverStrategy>
 UASolver::create_relaxation( std::shared_ptr<AMP::Operator::LinearOperator> A,
                              std::shared_ptr<AMG::RelaxationParameters> params )
 {
-	auto rel_op = SolverFactory::create( params );
-	rel_op->registerOperator( A );
-	return rel_op;
+    auto rel_op = SolverFactory::create( params );
+    rel_op->registerOperator( A );
+    return rel_op;
 }
 
 void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
@@ -96,7 +96,7 @@ void UASolver::setup()
         if ( !Ac )
             break;
 
-        d_levels.emplace_back().A = Ac;
+        d_levels.emplace_back().A       = Ac;
         d_levels.back().R               = R;
         d_levels.back().P               = P;
         d_levels.back().pre_relaxation  = create_relaxation( Ac, d_pre_relax_params );
