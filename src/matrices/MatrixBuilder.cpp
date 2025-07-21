@@ -32,6 +32,13 @@ namespace AMP::LinearAlgebra {
 
 
 /********************************************************
+ * Set the default matrix type                           *
+ * Definition set by CMake variable DEFAULT_MATRIX       *
+ ********************************************************/
+std::string getDefaultMatrixType() { return DEFAULT_MATRIX; }
+
+
+/********************************************************
  * Check if we have a spare matrix available             *
  ********************************************************/
 #if defined( AMP_USE_TRILINOS ) || defined( AMP_USE_PETSC )
@@ -322,7 +329,7 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
               std::function<std::vector<size_t>( size_t )> getRow )
 {
     if ( type == "auto" )
-        type = DEFAULT_MATRIX; // Definition set by CMake variable DEFAULT_MATRIX
+        type = getDefaultMatrixType();
     if ( type == "NULL" )
         return nullptr; // Special case to return nullptr
 

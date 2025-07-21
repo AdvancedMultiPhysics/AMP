@@ -21,6 +21,10 @@ namespace AMP::LinearAlgebra {
 bool haveSparseMatrix();
 
 
+//! Return the default matrix type
+std::string getDefaultMatrixType();
+
+
 /**
  * \brief  This function will create a matrix from two vectors
  * \details  This function is responsible for creating matrices given a left and a right vector

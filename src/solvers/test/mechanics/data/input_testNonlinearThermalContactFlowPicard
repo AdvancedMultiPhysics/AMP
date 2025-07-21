@@ -28,7 +28,7 @@ Mesh{
         Range = 5.46e-3, 6.35e-3, 0, 0.0127
         surfaceIds = 8, 4, -1, -1, 1, 2
         static = TRUE
-    } 
+    }
 }
 
 DiffusionTransportModel1{
@@ -74,7 +74,6 @@ NeutronicsOperator{
 NonlinearThermalOperator1 {
   name="NonlinearBVPOperator"
     print_info_level = 1
-
     VolumeOperator = "DiffusionNonlinearFEOperator1"
     BoundaryOperator = "RobinVectorCorrection1"
 
@@ -83,7 +82,6 @@ NonlinearThermalOperator1 {
 LinearThermalOperator1 {
   name = "LinearBVPOperator"
     print_info_level = 3
-
     VolumeOperator = "DiffusionLinearFEOperator1"
     BoundaryOperator="RobinMatrixCorrection1"
 }
@@ -91,7 +89,6 @@ LinearThermalOperator1 {
 LinearThermalOperator2 {
   name = "LinearBVPOperator"
     print_info_level = 3
-
     VolumeOperator = "DiffusionLinearFEOperator2"
     BoundaryOperator="ColumnBoundaryOperator2"
 }

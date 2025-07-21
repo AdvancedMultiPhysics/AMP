@@ -147,7 +147,7 @@ void UnitTest::report( const int level0, bool removeDuplicates ) const
     Utilities::sleep_ms( 10 );
     // Broadcast the print level from rank 0
     int level = d_comm->bcast( level0, 0 );
-    if ( level < 0 || level > 2 )
+    if ( level < 0 || level > 3 )
         AMP_ERROR( "Invalid print level" );
     // Report
     if ( d_comm->getRank() == 0 )

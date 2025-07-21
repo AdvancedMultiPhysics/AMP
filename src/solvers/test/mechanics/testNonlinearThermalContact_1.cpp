@@ -112,9 +112,8 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
     auto ResidualVec1      = AMP::LinearAlgebra::createVector( nodalDofMap1, outputVariable1 );
 
     // CREATE THE LINEAR THERMAL OPERATOR 1
-    auto linearThermalOperator1 = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            mesh1, "LinearThermalOperator1", input_db ) );
+    auto linearThermalOperator1 = std::make_shared<AMP::Operator::LinearBVPOperator>(
+        nonlinearThermalOperator1->getParameters( "Jacobian", nullptr ) );
 
     // CREATE THE NEUTRONICS SOURCE
     AMP_INSIST( input_db->keyExists( "NeutronicsOperator" ),
@@ -216,12 +215,12 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto map3dto1d_db1    = input_db->getDatabase( "MapPelletto1D" );
     auto map3dto1dParams1 = std::make_shared<AMP::Operator::MapOperatorParameters>( map3dto1d_db1 );
-    map3dto1dParams1->d_Mesh = mesh1;
-    auto map1ToLowDim        = std::make_shared<AMP::Operator::Map3Dto1D>( map3dto1dParams1 );
+    map3dto1dParams1->d_MapMesh = mesh1;
+    auto map1ToLowDim           = std::make_shared<AMP::Operator::Map3Dto1D>( map3dto1dParams1 );
 
     auto map1dto3d_db1    = input_db->getDatabase( "Map1DtoClad" );
     auto map1dto3dParams1 = std::make_shared<AMP::Operator::MapOperatorParameters>( map1dto3d_db1 );
-    map1dto3dParams1->d_Mesh = mesh2;
+    map1dto3dParams1->d_MapMesh = mesh2;
     //-------------------------------------
     // This is related to But # 1219 and 1210.
     //  -- It dies in compute_Z_locations of the constructor for mat1dto3d.
@@ -233,21 +232,22 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto map3dto1d_db2    = input_db->getDatabase( "MapCladto1D" );
     auto map3dto1dParams2 = std::make_shared<AMP::Operator::MapOperatorParameters>( map3dto1d_db2 );
-    map3dto1dParams2->d_Mesh = mesh2;
-    auto map2ToLowDim        = std::make_shared<AMP::Operator::Map3Dto1D>( map3dto1dParams2 );
+    map3dto1dParams2->d_MapMesh = mesh2;
+    auto map2ToLowDim           = std::make_shared<AMP::Operator::Map3Dto1D>( map3dto1dParams2 );
 
     auto map1dto3d_db2    = input_db->getDatabase( "Map1DtoPellet" );
     auto map1dto3dParams2 = std::make_shared<AMP::Operator::MapOperatorParameters>( map1dto3d_db2 );
-    map1dto3dParams2->d_Mesh = mesh1;
-    auto map2ToHighDim       = std::make_shared<AMP::Operator::Map1Dto3D>( map1dto3dParams2 );
+    map1dto3dParams2->d_MapMesh = mesh1;
+    auto map2ToHighDim          = std::make_shared<AMP::Operator::Map1Dto3D>( map1dto3dParams2 );
 
     map2ToLowDim->setZLocations( map2ToHighDim->getZLocations() );
 
     //------------------------------------------
 
     auto boundaryOp1 = nonlinearThermalOperator1->getBoundaryOperator();
+
     auto robinBoundaryOp1 =
-        ( std::dynamic_pointer_cast<AMP::Operator::BoundaryOperator>( boundaryOp1 ) );
+        std::dynamic_pointer_cast<AMP::Operator::BoundaryOperator>( boundaryOp1 );
 
     auto boundaryDatabase1 =
         input_db->getDatabase( nonlinearThermalDatabase1->getString( "BoundaryOperator" ) );
@@ -263,7 +263,7 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto boundaryOp2 = linearThermalOperator2->getBoundaryOperator();
     auto robinBoundaryOp2 =
-        ( std::dynamic_pointer_cast<AMP::Operator::ColumnBoundaryOperator>( boundaryOp2 ) )
+        std::dynamic_pointer_cast<AMP::Operator::ColumnBoundaryOperator>( boundaryOp2 )
             ->getBoundaryOperator( 0 );
 
     auto robinboundaryDatabase2 = input_db->getDatabase( "RobinMatrixCorrection" );
@@ -305,7 +305,7 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
         RightHandSideVec2->zero();
 
         RightHandSideVec1->copyVector( PowerInWattsVec );
-        std::cout << "PowerInWattsVec norm  inside loop = " << RightHandSideVec1->L2Norm() << "\n";
+        AMP::pout << "PowerInWattsVec norm  inside loop = " << RightHandSideVec1->L2Norm() << "\n";
 
         map2ToLowDim->apply( TemperatureInKelvinVec2, gapVecPellet );
         map2ToHighDim->apply( gapVecPellet, scratchTempVec1 );
@@ -316,7 +316,7 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
         correctionParameters1->d_variableFlux = variableFluxVec1;
         robinBoundaryOp1->reset( correctionParameters1 );
 
-        std::cout << "Variable flux1 norm inside loop : " << variableFluxVec1->L2Norm()
+        AMP::pout << "Variable flux1 norm inside loop : " << variableFluxVec1->L2Norm()
                   << std::endl;
 
         nonlinearThermalOperator1->modifyRHSvector( RightHandSideVec1 );
@@ -325,16 +325,16 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
         nonlinearThermalOperator1->residual(
             RightHandSideVec1, TemperatureInKelvinVec1, ResidualVec1 );
 
-        std::cout << "Norm of TemperatureInKelvinVec1: " << TemperatureInKelvinVec1->L2Norm()
+        AMP::pout << "Norm of TemperatureInKelvinVec1: " << TemperatureInKelvinVec1->L2Norm()
                   << std::endl;
 
         map1ToLowDim->apply( TemperatureInKelvinVec1, gapVecClad );
 
-        std::cout << "Norm of solVec after map1toLowDim: " << gapVecClad->L2Norm() << std::endl;
+        AMP::pout << "Norm of solVec after map1toLowDim: " << gapVecClad->L2Norm() << std::endl;
 
         map1ToHighDim->apply( gapVecClad, scratchTempVec2 );
 
-        std::cout << "Norm of scratch2: " << scratchTempVec2->L2Norm() << std::endl;
+        AMP::pout << "Norm of scratch2: " << scratchTempVec2->L2Norm() << std::endl;
 
         scratchTempVec2->scale( heff );
         variableFluxVec2->copyVector( scratchTempVec2 );
@@ -342,7 +342,7 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
         correctionParameters2->d_variableFlux = variableFluxVec2;
         robinBoundaryOp2->reset( correctionParameters2 );
 
-        std::cout << "Variable flux2 norm inside loop : " << variableFluxVec2->L2Norm()
+        AMP::pout << "Variable flux2 norm inside loop : " << variableFluxVec2->L2Norm()
                   << std::endl;
 
         linearThermalOperator2->modifyRHSvector( RightHandSideVec2 );
@@ -350,9 +350,9 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
             RightHandSideVec2, TemperatureInKelvinVec2, ResidualVec2 );
         mlSolver2->apply( RightHandSideVec2, TemperatureInKelvinVec2 );
 
-        std::cout << "Residual Norm on Pellet after " << cnt
+        AMP::pout << "Residual Norm on Pellet after " << cnt
                   << " iteration is : " << ResidualVec1->L2Norm() << std::endl;
-        std::cout << "Residual Norm on Clad after " << cnt
+        AMP::pout << "Residual Norm on Clad after " << cnt
                   << " iteration is : " << ResidualVec2->L2Norm() << std::endl;
 
         vecLag2->subtract( *TemperatureInKelvinVec2, *vecLag2 );
@@ -361,10 +361,10 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
             testPassed = true;
             break;
         } else {
-            std::cout << "for iteration cnt = " << cnt << " --> " << vecLag1->L2Norm() << " "
+            AMP::pout << "for iteration cnt = " << cnt << " --> " << vecLag1->L2Norm() << " "
                       << vecLag2->L2Norm() << std::endl;
         }
-        std::cout << std::endl;
+        AMP::pout << std::endl;
 
         vecLag1->copyVector( TemperatureInKelvinVec1 );
         vecLag2->copyVector( TemperatureInKelvinVec2 );

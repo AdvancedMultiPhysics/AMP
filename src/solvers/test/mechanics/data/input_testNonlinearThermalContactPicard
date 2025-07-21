@@ -10,6 +10,7 @@ Mesh{
     MeshType = "Multimesh"
     MeshDatabasePrefix = "Mesh_"
     MeshArrayDatabasePrefix = "MeshArray_"
+    LoadBalanceMethod = 0
     Mesh_1 {
         MeshName = "pellet"
         MeshType = "AMP"
@@ -27,7 +28,36 @@ Mesh{
         Range = 5.46e-3, 6.35e-3, 0, 0.0127
         surfaceIds = 8, 4, -1, -1, 1, 2
         static = TRUE
-    }  
+    }
+}
+
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+} 
+
+DiffusionTransportModel2{
+  name = "DiffusionTransportModel"
+    Material = "Steel316_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 513.2
+    Default_Burnup   = 0.0
+}
+
+SourcePhysicsModel {
+  name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.2 
+    Default_Burnup   = 0.0
 }
 
 NeutronicsOperator{
@@ -48,35 +78,6 @@ NonlinearThermalOperator1 {
     BoundaryOperator = "RobinVectorCorrection1"
 }
 
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-} 
-
-DiffusionTransportModel2{
-  name = "DiffusionTransportModel"
-    Material = "Steel316_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 513.2
-    Default_Burnup   = 0.0
-} 
-
-SourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.2 
-    Default_Burnup   = 0.0
-}
-
 DiffusionNonlinearFEOperator1 {
   name = "DiffusionNonlinearFEOperator" 
     print_info_level = 1
@@ -84,7 +85,7 @@ DiffusionNonlinearFEOperator1 {
       temperature = "Temperature"
     }
   OutputVariable = "Temperature"
-    PrincipalVariable = "temperature" 
+    PrincipalVariable = "Temperature" 
 
     DiffusionElement{
       name = "DiffusionNonlinearElement"
@@ -256,37 +257,40 @@ VolumeIntegralOperator{
 }
 
 NonlinearSolver{
-  print_info_level = 7
+    print_info_level = 7
+    name = "PetscSNESSolver"
     max_iterations = 500
     max_error = 1e-10
 
-    absolute_tolerance = 1.0e-10
-    relative_tolerance = 1.0e-10
-    stepTolerance = 1.0e-10
+    absolute_tolerance = 1e-10
+    relative_tolerance = 1e-10
+    stepTolerance = 1e-10
     maximumFunctionEvals = 100
     usesJacobian=FALSE
 
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_maxstep 10000.0 -snes_ls_alpha 1.0e-4"
 
     LinearSolver{
-      print_info_level = 0
+        print_info_level = 0
+        name = "PetscKrylovSolver"
         max_iterations = 100
-        max_error = 1e-11
+        max_error = 1e-10
         ksp_type = "fgmres"
-        absolute_tolerance = 1.0e-11
-        relative_tolerance = 1.0e-06
-        divergence_tolerance = 1.0e03
+        absolute_tolerance = 1e-9
+        relative_tolerance = 1e-3
+        divergence_tolerance = 1e3
         max_krylov_dimension = 40
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
 
-        KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100 -ksp_rtol 1.0e-9 -ksp_atol 1.0e-10"
+        KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100 -ksp_rtol 1.0e-9 -ksp_atol 1.0e-9"
 
         Preconditioner{
-          print_info_level = 0
+    	    name = "BoomerAMGSolver"
+            print_info_level = 0
             max_iterations = 1
-            max_error = 1.0e-15
+            max_error = 1e-7
         }
     }
 }

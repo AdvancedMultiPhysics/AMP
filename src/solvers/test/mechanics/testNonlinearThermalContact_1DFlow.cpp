@@ -66,14 +66,14 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto TemperatureVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
 
-    auto intguess = input_db->getWithDefault<double>( "InitialGuess", 400.0 );
+    auto intguess = input_db->getWithDefault<double>( "InitialGuess", 400 );
 
     auto TemperatureInKelvin = AMP::LinearAlgebra::createVector( nodalDofMap, TemperatureVar );
     TemperatureInKelvin->setToScalar( intguess );
 
-    //   CREATE THE NONLINEAR THERMAL OPERATOR 1 ----
-    AMP_INSIST( input_db->keyExists( "NonlinearThermalOperator1" ), "key missing!" );
 
+    //   CREATE THE NONLINEAR THERMAL OPERATOR 1
+    AMP_INSIST( input_db->keyExists( "NonlinearThermalOperator1" ), "key missing!" );
     auto nonlinearThermalDatabase1 = input_db->getDatabase( "NonlinearThermalOperator1" );
     auto nonlinearThermalOperator1 = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
@@ -91,12 +91,12 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
     auto RightHandSideVec1 = AMP::LinearAlgebra::createVector( nodalDofMap1, outputVariable1 );
     auto ResidualVec1      = AMP::LinearAlgebra::createVector( nodalDofMap1, outputVariable1 );
 
-    //   CREATE THE LINEAR THERMAL OPERATOR 1
+    // CREATE THE LINEAR THERMAL OPERATOR 1
     auto linearThermalOperator1 = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
             mesh1, "LinearThermalOperator1", input_db ) );
 
-    //  CREATE THE NEUTRONICS SOURCE
+    // CREATE THE NEUTRONICS SOURCE
     AMP_INSIST( input_db->keyExists( "NeutronicsOperator" ),
                 "Key ''NeutronicsOperator'' is missing!" );
     auto neutronicsOp_db  = input_db->getDatabase( "NeutronicsOperator" );
@@ -109,9 +109,8 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
 
     neutronicsOperator->apply( nullptr, SpecificPowerVec );
 
-    //  Integrate Nuclear Rhs over Desnity * GeomType::Cell
+    //  Integrate Nuclear Rhs over Desnity * GeomType::Cell //
     AMP_INSIST( input_db->keyExists( "VolumeIntegralOperator" ), "key missing!" );
-
     auto sourceOperator = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
             mesh1, "VolumeIntegralOperator", input_db ) );
@@ -124,8 +123,8 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
     // convert the vector of specific power to power for a given basis.
     sourceOperator->apply( SpecificPowerVec, PowerInWattsVec );
 
-    //--------------------------------------
     AMP_INSIST( input_db->keyExists( "NonlinearSolver" ), "Key ''NonlinearSolver'' is missing!" );
+
     auto nonlinearSolver_db1 = input_db->getDatabase( "NonlinearSolver" );
     auto linearSolver_db1    = nonlinearSolver_db1->getDatabase( "LinearSolver" );
 
@@ -140,8 +139,6 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto nonlinearSolver1 =
         std::make_shared<AMP::Solver::PetscSNESSolver>( nonlinearSolverParams1 );
-
-    //----------------------------------------------------------------------------------------------------------------------------------------------//
 
     auto thermalPreconditioner_db1 = linearSolver_db1->getDatabase( "Preconditioner" );
     auto thermalPreconditionerParams1 =
@@ -163,7 +160,6 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
     auto gapVariable = std::make_shared<AMP::LinearAlgebra::Variable>( "Gap" );
 
     // CREATE THE LINEAR THERMAL OPERATOR 2
-
     AMP_INSIST( input_db->keyExists( "LinearThermalOperator2" ), "key missing!" );
 
     auto linearThermalDatabase2 = input_db->getDatabase( "LinearThermalOperator2" );
@@ -171,7 +167,6 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
         AMP::Operator::OperatorBuilder::createOperator(
             mesh2, "LinearThermalOperator2", input_db ) );
 
-    //----------------------------------------------------------------------------------------------------------------------------------------------//
     auto thermalVolumeOperator2 =
         std::dynamic_pointer_cast<AMP::Operator::DiffusionLinearFEOperator>(
             linearThermalOperator2->getVolumeOperator() );
@@ -183,7 +178,6 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
     auto RightHandSideVec2 = AMP::LinearAlgebra::createVector( nodalDofMap2, outputVariable2 );
     auto ResidualVec2      = AMP::LinearAlgebra::createVector( nodalDofMap2, outputVariable2 );
 
-    //---------------------------------------
     auto mlSolverParams2 =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( linearSolver_db1 );
     mlSolverParams2->d_pOperator = linearThermalOperator2;
@@ -191,7 +185,6 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
     mlSolver2->setZeroInitialGuess( true );
 
     //-------------------------------------
-
     auto variableFluxVec1 = AMP::LinearAlgebra::createVector( nodalDofMap1, TemperatureVar );
     auto scratchTempVec1  = AMP::LinearAlgebra::createVector( nodalDofMap1, TemperatureVar );
     variableFluxVec1->setToScalar( 0.0 );

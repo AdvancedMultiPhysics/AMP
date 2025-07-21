@@ -37,19 +37,6 @@ ENDIF()
 SET_DEVICE_COMPILER( CSRMatrix.cpp )
 
 # Set the default matrix type
-SET( MATRIX_TYPES "ManagedEpetraMatrix" "NativePetscMatrix" "CSRMatrix" "DenseSerialMatrix" "NULL" )
-IF ( NOT DEFINED DEFAULT_MATRIX )
-    SET( DEFAULT_MATRIX "CSRMatrix" )
-ENDIF()
-IF ( NOT "${DEFAULT_MATRIX}" IN_LIST MATRIX_TYPES )
-    MESSAGE( FATAL_ERROR "DEFAULT_MATRIX=${DEFAULT_MATRIX} is not a valid matrix type" )
-ENDIF()
-IF ( "${DEFAULT_MATRIX}" STREQUAL "ManagedEpetraMatrix" AND NOT USE_TRILINOS )
-    MESSAGE( FATAL_ERROR "Specified default matrix of ManagedEpetraMatrix, but compiled without Trilinos" )
-ENDIF()
-IF ( "${DEFAULT_MATRIX}" STREQUAL "NativePetscMatrix" AND NOT USE_PETSC )
-    MESSAGE( FATAL_ERROR "Specified default matrix of NativePetscMatrix, but compiled without PETSc" )
-ENDIF()
 ADD_COMPILE_DEFINITIONS( DEFAULT_MATRIX="${DEFAULT_MATRIX}" )
 
 # Install the matrices target
