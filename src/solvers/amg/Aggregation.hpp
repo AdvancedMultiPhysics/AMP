@@ -197,6 +197,19 @@ auto transpose_aggregates( const T &agg, I fine_size )
     return aggt;
 }
 
+template<typename T>
+std::vector<size_t> argsort(const std::vector<T> &array) {
+    std::vector<size_t> indices(array.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(),
+              [&array](int left, int right) -> bool {
+                  // sort indices according to corresponding array element
+                  return array[left] < array[right];
+              });
+
+    return indices;
+}
+
 template<class Mat>
 auto create_aux( csr_view<Mat> A, const aggregate_type<csr_view<Mat>> &agg )
 {
@@ -212,19 +225,26 @@ auto create_aux( csr_view<Mat> A, const aggregate_type<csr_view<Mat>> &agg )
         dst.rowptr.resize( agg.size() + 1 );
         [&]( auto &...v ) { ( v.reserve( agg.size() ), ... ); }( dst.colind, dst.values );
         for ( size_t rc = 0; rc < agg.size(); ++rc ) {
-            // coarse column index -> aggregated value
-            std::map<lidx_t, scalar_t> agg_values;
-            for ( auto r : agg[rc] ) {
-                for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
-                    agg_values[cmap( colind[off] )] += values[off];
-                }
-            }
+	        std::vector<lidx_t> agg_indices;
+	        std::vector<scalar_t> agg_values;
+	        [&](auto & ... v) { (v.reserve(agg[rc].size()),...); }(agg_indices, agg_values);
+	        for ( auto r : agg[rc] ) {
+		        for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
+			        agg_indices.push_back(cmap(colind[off]));
+			        agg_values.push_back(values[off]);
+		        }
+	        }
 
-            for ( auto [cid, value] : agg_values ) {
-                dst.colind.push_back( cid );
-                dst.values.push_back( value );
-            }
-            dst.rowptr[rc + 1] = dst.rowptr[rc] + agg_values.size();
+	        auto ind = argsort( agg_indices );
+	        for (std::size_t i = 0; i < ind.size(); ++i) {
+		        auto cur_val = agg_values[ind[i]];
+		        auto cur_ind = agg_indices[ind[i]];
+		        while (i < ind.size() - 1 && agg_indices[ind[i+1]] == cur_ind)
+			        cur_val += agg_values[ind[++i]];
+		        dst.colind.push_back(cur_ind);
+		        dst.values.push_back(cur_val);
+	        }
+	        dst.rowptr[rc + 1] = dst.colind.size();
         }
     };
     collapse( A.diag(), aux.diag(), [&]( lidx_t col ) { return aggt[col]; } );
@@ -305,31 +325,44 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
             return vec;
         }();
 
-    for ( size_t rc = 0; rc < aggregates.size(); ++rc ) {
-        auto collapse =
-            [&]( auto &cmat, auto fine_ptrs, const std::vector<gidx_t> &aggregates_transpose ) {
-                // coarse (global) column index -> aggregated value (nnz in this coarse row)
-                std::map<lidx_t, scalar_t> agg_values;
-                auto [rowptr, colind, values] = fine_ptrs;
-                for ( auto r : aggregates[rc] ) {
-                    for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
-                        agg_values[aggregates_transpose[colind[off]]] += values[off];
-                    }
-                }
-                for ( auto [cid, val] : agg_values ) {
-                    cmat.colind.push_back( cid );
-                    cmat.values.push_back( val );
-                }
-                cmat.rowptr[rc + 1] = cmat.colind.size();
-            };
-        collapse( coarse_mat.store.diag(), fine.diag(), aggt.diag );
-        if (fine.has_offd()) {
-	        collapse( coarse_mat.store.offd(), fine.offd(), aggt.offd );
-        }
+
+
+    auto collapse =
+	    [&]( auto &cmat, auto fine_ptrs, const std::vector<gidx_t> &aggregates_transpose ) {
+		    auto [rowptr, colind, values] = fine_ptrs;
+		    for ( size_t rc = 0; rc < aggregates.size(); ++rc ) {
+			    // coarse (global) column index -> aggregated value (nnz in this coarse row)
+			    std::vector<lidx_t> agg_indices;
+			    std::vector<scalar_t> agg_values;
+			    [&](auto & ... v) { (v.reserve(aggregates[rc].size()),...); }(agg_indices, agg_values);
+			    for ( auto r : aggregates[rc] ) {
+				    for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
+					    agg_indices.push_back(aggregates_transpose[colind[off]]);
+					    agg_values.push_back(values[off]);
+				    }
+			    }
+
+			    auto ind = argsort( agg_indices );
+			    for (std::size_t i = 0; i < ind.size(); ++i) {
+				    auto cur_val = agg_values[ind[i]];
+				    auto cur_ind = agg_indices[ind[i]];
+				    while (i < ind.size() - 1 && agg_indices[ind[i+1]] == cur_ind)
+					    cur_val += agg_values[ind[++i]];
+				    cmat.colind.push_back(cur_ind);
+				    cmat.values.push_back(cur_val);
+			    }
+			    cmat.rowptr[rc + 1] = cmat.colind.size();
+		    }
+	    };
+
+    collapse( coarse_mat.store.diag(), fine.diag(), aggt.diag );
+    if (fine.has_offd()) {
+	    collapse( coarse_mat.store.offd(), fine.offd(), aggt.offd );
     }
 
     return coarse_mat;
 }
+
 
 template<class Config>
 auto make_coarse_operator( const coarse_matrix<Config> &mat )
