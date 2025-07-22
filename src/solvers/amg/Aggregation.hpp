@@ -73,6 +73,7 @@ struct prospect {
     prospect( const Strength<Mat> &soc, const unmarked_list<Mat> &initial_unmarked )
         : node_prio( soc.numLocalRows() ), chosen( soc.numLocalRows(), false )
     {
+        PROFILE( "AMG::prospect" );
         std::vector<lidx_t> priority( soc.numLocalRows(), 0 );
         for ( size_t i = 0; i < priority.size(); ++i ) {
             soc.do_strong( i, [&]( lidx_t col ) {
@@ -145,6 +146,7 @@ template<class Mat>
 aggregate_type<csr_view<Mat>> pairwise_aggregate( csr_view<Mat> A,
                                                   const PairwiseCoarsenSettings &settings )
 {
+    PROFILE( "AMG::pairwise_aggregate" );
     aggregate_type<csr_view<Mat>> aggregates;
     using lidx_t = typename csr_view<Mat>::lidx_t;
 
@@ -219,6 +221,7 @@ std::vector<size_t> argsort( const std::vector<T> &array )
 template<class Mat>
 auto create_aux( csr_view<Mat> A, const aggregate_type<csr_view<Mat>> &agg )
 {
+    PROFILE( "AMG::create_aux" );
     using csr_policy = typename csr_view<Mat>::csr_policy;
     par_csr<csr_policy> aux;
     using lidx_t   = typename csr_view<Mat>::lidx_t;
@@ -270,6 +273,7 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
                      const aggregate_type<csr_view<LinearAlgebra::CSRMatrix<Config>>> &aggregates,
                      const aggregateT_type<Config> &aggregatesT )
 {
+    PROFILE( "AMG::coarsen_matrix" );
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
@@ -465,6 +469,7 @@ auto make_ua_intergrid( aggregateT_type<Config> &&aggT )
 template<class Fine>
 auto pairwise_aggregation( csr_view<Fine> A, const PairwiseCoarsenSettings &settings )
 {
+    PROFILE( "AMG::pairwise_aggregation" );
     PairwiseCoarsenSettings settings_later_passes = settings;
     settings_later_passes.checkdd                 = false;
     if ( settings.pairwise_passes == 2 ) {

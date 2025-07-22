@@ -83,6 +83,7 @@ void UASolver::makeCoarseSolver()
 
 void UASolver::setup()
 {
+    PROFILE( "UASolver::setup" );
     auto num_rows = []( std::shared_ptr<AMP::Operator::Operator> op ) {
         auto linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( op );
         AMP_DEBUG_ASSERT( linop );
@@ -114,18 +115,82 @@ void UASolver::setup()
 void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
                       std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    x->zero(); // TODO: remove (for preconditioning)
-    auto &A = *( d_levels[0].A );
+    PROFILE( "UASolver::apply" );
 
-    auto r = x->clone();
-    A.residual( b, x, r );
-    for ( int i = 0; i < d_iMaxIterations; ++i ) {
+    d_iNumberIterations   = 0;
+    const bool need_norms = d_iMaxIterations > 1 || d_iDebugPrintInfoLevel > 1;
+    auto r                = b->clone();
+
+    const auto b_norm =
+        need_norms ? static_cast<double>( b->L2Norm() ) : std::numeric_limits<double>::max();
+
+    // Zero rhs implies zero solution, bail out early
+    if ( b_norm == 0.0 ) {
+        x->zero();
+        d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
+        d_dResidualNorm     = 0.0;
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << "UASolver::apply: solution is zero" << std::endl;
+        }
+        return;
+    }
+
+    d_dInitialResidual = [&]() {
+        if ( d_bUseZeroInitialGuess ) {
+            x->zero();
+            return b_norm;
+        }
+
+        d_pOperator->residual( b, x, r );
+        return need_norms ? static_cast<double>( r->L2Norm() ) : std::numeric_limits<double>::max();
+    }();
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "UASolver::apply: initial L2Norm of solution vector: " << x->L2Norm()
+                  << std::endl;
+        AMP::pout << "UASolver::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
+        AMP::pout << "UASolver::apply: initial L2Norm of residual: " << d_dInitialResidual
+                  << std::endl;
+    }
+
+    // return if the residual is already low enough
+    // checkStoppingCriteria responsible for setting flags on convergence reason
+    if ( checkStoppingCriteria( d_dInitialResidual ) ) {
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << "UASolver::apply: initial residual below tolerance" << std::endl;
+        }
+        return;
+    }
+
+    auto current_res = d_dInitialResidual;
+    for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
+          ++d_iNumberIterations ) {
         kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
-        A.residual( b, x, r );
-        auto rnorm = r->L2Norm();
-        if ( rnorm <= d_dRelativeTolerance )
+
+        d_pOperator->residual( b, x, r );
+        current_res =
+            need_norms ? static_cast<double>( r->L2Norm() ) : std::numeric_limits<double>::max();
+        if ( d_iDebugPrintInfoLevel > 1 )
+            AMP::pout << "UA: iteration " << d_iNumberIterations << ", residual " << current_res
+                      << std::endl;
+        if ( checkStoppingCriteria( current_res ) )
             break;
     }
+
+    // Store final residual norm and update convergence flags
+    d_dResidualNorm = current_res;
+    checkStoppingCriteria( current_res );
+
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "UASolver::apply: final L2Norm of solution: " << x->L2Norm() << std::endl;
+        AMP::pout << "UASolver::apply: final L2Norm of residual: " << current_res << std::endl;
+        AMP::pout << "UASolver::apply: iterations: " << d_iNumberIterations << std::endl;
+        AMP::pout << "UASolver::apply: convergence reason: "
+                  << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+    }
+
+    if ( d_iDebugPrintInfoLevel > 2 )
+        print_summary( d_levels, *d_coarse_solver );
 }
 
 } // namespace AMP::Solver::AMG
