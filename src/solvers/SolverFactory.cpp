@@ -33,8 +33,8 @@ responsibility for the use of this software.
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/TFQMRSolver.h"
-#include "AMP/solvers/UASolver.h"
 #include "AMP/solvers/amg/SASolver.h"
+#include "AMP/solvers/amg/UASolver.h"
 #include "AMP/utils/memory.h"
 
 #ifdef AMP_USE_PETSC
@@ -121,7 +121,6 @@ void AMP::FactoryStrategy<AMP::Solver::SolverStrategy,
     d_factories["BiCGSTABSolver"]  = BiCGSTABSolver<double>::createSolver;
     d_factories["TFQMRSolver"]     = TFQMRSolver<double>::createSolver;
     d_factories["QMRCGSTABSolver"] = QMRCGSTABSolver<double>::createSolver;
-    d_factories["UASolver"]        = UASolver::createSolver;
 
 
     d_factories["CGSolver<double>"]        = CGSolver<double>::createSolver;
@@ -151,6 +150,7 @@ void AMP::FactoryStrategy<AMP::Solver::SolverStrategy,
     d_factories["ColumnSolver"] = ColumnSolver::createSolver;
 
     d_factories["SASolver"] = AMG::SASolver::createSolver;
+    d_factories["UASolver"] = AMG::UASolver::createSolver;
     d_factories["HybridGS"] = AMG::HybridGS::createSolver;
     d_factories["JacobiL1"] = AMG::JacobiL1::createSolver;
 }

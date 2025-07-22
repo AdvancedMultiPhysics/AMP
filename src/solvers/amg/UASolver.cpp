@@ -1,10 +1,10 @@
-#include "AMP/solvers/UASolver.h"
+#include "AMP/solvers/amg/UASolver.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/amg/Aggregation.h"
 #include "AMP/solvers/amg/Stats.h"
 
-namespace AMP::Solver {
+namespace AMP::Solver::AMG {
 
 UASolver::UASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverStrategy( params )
 {
@@ -36,10 +36,10 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     d_coarsen_settings.checkdd          = db->getWithDefault<bool>( "checkdd", true );
 
     auto pre_db        = db->getDatabase( "pre_relaxation" );
-    d_pre_relax_params = std::make_shared<AMG::RelaxationParameters>( pre_db );
+    d_pre_relax_params = std::make_shared<RelaxationParameters>( pre_db );
 
     auto post_db        = db->getDatabase( "post_relaxation" );
-    d_post_relax_params = std::make_shared<AMG::RelaxationParameters>( post_db );
+    d_post_relax_params = std::make_shared<RelaxationParameters>( post_db );
 
     AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
     auto cg_solver_db = db->getDatabase( "coarse_solver" );
@@ -49,7 +49,7 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
 
 std::unique_ptr<SolverStrategy>
 UASolver::create_relaxation( std::shared_ptr<AMP::Operator::LinearOperator> A,
-                             std::shared_ptr<AMG::RelaxationParameters> params )
+                             std::shared_ptr<RelaxationParameters> params )
 {
     auto rel_op = SolverFactory::create( params );
     rel_op->registerOperator( A );
@@ -92,7 +92,7 @@ void UASolver::setup()
     };
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         auto &fine_level = d_levels.back();
-        auto [R, Ac, P]  = AMG::pairwise_coarsen( fine_level.A, d_coarsen_settings );
+        auto [R, Ac, P]  = pairwise_coarsen( fine_level.A, d_coarsen_settings );
         if ( !Ac )
             break;
 
@@ -128,9 +128,4 @@ void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     }
 }
 
-void UASolver::print_summary( std::size_t niters, float setup_time, float solve_time )
-{
-    AMG::print_summary( "summary", d_levels, *d_coarse_solver, niters, setup_time, solve_time );
-}
-
-} // namespace AMP::Solver
+} // namespace AMP::Solver::AMG
