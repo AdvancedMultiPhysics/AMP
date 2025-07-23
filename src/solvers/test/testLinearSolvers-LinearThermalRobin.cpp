@@ -195,6 +195,7 @@ int main( int argc, char *argv[] )
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
         if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
             files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
+            files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG" );
         }
     #ifdef AMP_USE_PETSC
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );
