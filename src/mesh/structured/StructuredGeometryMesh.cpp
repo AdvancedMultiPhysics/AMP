@@ -1,5 +1,5 @@
 #include "AMP/mesh/structured/StructuredGeometryMesh.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/mesh/MeshParameters.h"
 

@@ -1,5 +1,5 @@
 #include "AMP/mesh/MeshIterator.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/mesh/structured/structuredMeshIterator.h"
 

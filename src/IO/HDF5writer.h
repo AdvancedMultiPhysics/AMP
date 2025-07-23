@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/Writer.h"
 #include "AMP/IO/Xdmf.h"
 

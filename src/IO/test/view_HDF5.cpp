@@ -9,7 +9,7 @@
 #include <string>
 
 #include "AMP/IO/FileSystem.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/HDF5_Class.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/UnitTest.h"

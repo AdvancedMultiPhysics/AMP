@@ -127,7 +127,7 @@ static_assert( approx_equal( Units( "ohm" ).convert( Units( microOhm ) ), 1e6 ) 
 /************************************************************************
  * read/write HDF5                                                      *
  ***********************************************************************/
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/utils/Array.hpp"
 #ifdef AMP_USE_HDF5
 template<>

@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "AMP/IO/HDF5.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/IO/HDF5_Class.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Array.h"
@@ -409,12 +409,12 @@ int main( int argc, char *argv[] )
 
         // Write variables to HDF5
         data_struct data;
-        auto fid = AMP::IO::openHDF5( "test_HDF5.hdf5", "w" );
+        auto fid = AMP::IO::openHDF5( "test_HDF.hdf5", "w" );
         data.write( fid );
         AMP::IO::closeHDF5( fid, true );
 
         // Read the variables from HDF5
-        fid = AMP::IO::openHDF5( "test_HDF5.hdf5", "r" );
+        fid = AMP::IO::openHDF5( "test_HDF.hdf5", "r" );
         data.check( fid, ut );
         AMP::IO::closeHDF5( fid, true );
 

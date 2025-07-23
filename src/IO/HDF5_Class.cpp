@@ -1,6 +1,6 @@
 #include "AMP/IO/HDF5_Class.h"
-#include "AMP/IO/HDF5.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Utilities.h"

@@ -1,6 +1,6 @@
 #include "AMP/IO/HDF5writer.h"
 #include "AMP/IO/FileSystem.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/Xdmf.h"
 #include "AMP/discretization/boxMeshDOFManager.h"
 #include "AMP/matrices/Matrix.h"
