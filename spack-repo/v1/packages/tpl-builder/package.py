@@ -30,6 +30,10 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("libmesh", default=False, description="Build with support for libmesh")
     variant("petsc", default=False, description="Build with support for petsc")
 
+    depends_on("c", type="build")
+    depends_on("cxx", type="build")
+    depends_on("fortran", type="build")
+
     depends_on("git", type="build")
 
     depends_on("stacktrace~shared", when="~shared+stacktrace")
