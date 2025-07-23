@@ -25,7 +25,8 @@ void kappa_kcycle( size_t lvl,
                    const std::vector<Level> &ml,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
-                   float ktol )
+                   float ktol,
+                   bool comm_free_interp )
 {
     auto &flevel = ml[lvl];
     auto &clevel = ml[lvl + 1];
@@ -50,7 +51,7 @@ void kappa_kcycle( size_t lvl,
             auto Ac                   = clevel.A;
             auto [c, v, btilde, d, w] = make_clones<5>( *coarse_b );
             c->zero();
-            kappa_kcycle( lvl + 1, coarse_b, c, ml, coarse_solver, kappa, ktol );
+            kappa_kcycle( lvl + 1, coarse_b, c, ml, coarse_solver, kappa, ktol, comm_free_interp );
             Ac->apply( c, v );
             auto rho1   = c->dot( *v );
             auto alpha1 = c->dot( *coarse_b );
@@ -60,7 +61,8 @@ void kappa_kcycle( size_t lvl,
                 coarse_x->axpy( tau1, *c, *coarse_x );
             } else {
                 d->zero();
-                kappa_kcycle( lvl + 1, btilde, d, ml, coarse_solver, kappa - 1, ktol );
+                kappa_kcycle(
+                    lvl + 1, btilde, d, ml, coarse_solver, kappa - 1, ktol, comm_free_interp );
                 Ac->apply( d, w );
                 auto gamma  = d->dot( *v );
                 auto beta   = d->dot( *w );
@@ -69,10 +71,12 @@ void kappa_kcycle( size_t lvl,
                 auto tau2   = tau1 - ( gamma * alpha2 ) / ( rho1 * rho2 );
                 auto tau3   = alpha2 / rho2;
                 coarse_x->linearSum( tau2, *c, tau3, *d );
-                coarse_x->makeConsistent();
+                if ( !comm_free_interp )
+                    coarse_x->makeConsistent();
             }
         } else {
-            kappa_kcycle( lvl + 1, coarse_b, coarse_x, ml, coarse_solver, kappa, ktol );
+            kappa_kcycle(
+                lvl + 1, coarse_b, coarse_x, ml, coarse_solver, kappa, ktol, comm_free_interp );
         }
     }
 
@@ -89,12 +93,13 @@ void kappa_kcycle( std::shared_ptr<const LinearAlgebra::Vector> b,
                    const std::vector<Level> &ml,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
-                   float ktol )
+                   float ktol,
+                   bool comm_free_interp )
 {
     if ( ml.size() == 1 )
         coarse_solver.apply( b, x );
     else
-        kappa_kcycle( 0, b, x, ml, coarse_solver, kappa, ktol );
+        kappa_kcycle( 0, b, x, ml, coarse_solver, kappa, ktol, comm_free_interp );
 }
 
 } // namespace AMP::Solver::AMG

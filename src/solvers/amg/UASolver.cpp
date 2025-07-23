@@ -3,6 +3,8 @@
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/amg/Aggregation.h"
 #include "AMP/solvers/amg/Stats.h"
+#include "AMP/solvers/amg/default/MIS2Aggregator.h"
+#include "AMP/solvers/amg/default/SimpleAggregator.h"
 
 namespace AMP::Solver::AMG {
 
@@ -20,7 +22,6 @@ UASolver::UASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
 {
     d_max_levels     = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_min_coarse     = db->getWithDefault<size_t>( "min_coarse", 10 );
     d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
     d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
     d_boomer_cg      = db->getWithDefault<bool>( "boomer_cg", false );
@@ -30,10 +31,29 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.redist_coarsen_factor =
         db->getWithDefault<size_t>( "redist_coarsen_factor", 2 );
-    d_coarsen_settings.min_local_coarse = db->getWithDefault<size_t>( "min_local_coarse", 5 );
-    d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse", 10 );
+    d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
     d_coarsen_settings.pairwise_passes  = db->getWithDefault<size_t>( "pairwise_passes", 2 );
     d_coarsen_settings.checkdd          = db->getWithDefault<bool>( "checkdd", true );
+
+    d_implicit_RAP = db->getWithDefault<bool>( "implicit_RAP", false );
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "UASolver: using " << ( ( d_implicit_RAP ) ? "implicit" : "explicit" )
+                  << " RAP" << std::endl;
+    }
+
+    auto agg_type = db->getWithDefault<std::string>( "agg_type", "MIS2" );
+    if ( !d_implicit_RAP || ( d_implicit_RAP && ( agg_type != "pairwise" ) ) ) {
+        float weak_thresh = db->getWithDefault<float>( "agg_weak_thresh", 6.0 );
+
+        if ( agg_type == "Simple" || agg_type == "simple" || agg_type == "SIMPLE" ) {
+            d_aggregator = std::make_shared<SimpleAggregator>( weak_thresh );
+        } else if ( agg_type == "pairwise" ) {
+            d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
+        } else {
+            d_aggregator = std::make_shared<MIS2Aggregator>( weak_thresh );
+        }
+    }
 
     auto pre_db        = db->getDatabase( "pre_relaxation" );
     d_pre_relax_params = std::make_shared<RelaxationParameters>( pre_db );
@@ -81,19 +101,54 @@ void UASolver::makeCoarseSolver()
 }
 
 
+coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop,
+                                   const PairwiseCoarsenSettings &coarsen_settings )
+{
+    if ( d_implicit_RAP ) {
+        if ( !d_aggregator )
+            return pairwise_coarsen( Aop, coarsen_settings );
+        return aggregator_coarsen( Aop, *d_aggregator );
+    }
+
+    auto A  = Aop->getMatrix();
+    auto P  = d_aggregator->getAggregateMatrix( A );
+    auto R  = P->transpose();
+    auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
+    auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
+
+    auto op_db     = std::make_shared<Database>( "UASolver::Internal" );
+    auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
+
+    auto make_op = [=]( auto mat ) {
+        auto op = std::make_shared<Operator::LinearOperator>( op_params );
+        std::dynamic_pointer_cast<Operator::LinearOperator>( op )->setMatrix( mat );
+        return op;
+    };
+
+    return { make_op( R ), make_op( Ac ), make_op( P ) };
+}
+
+
 void UASolver::setup()
 {
     PROFILE( "UASolver::setup" );
-    auto num_rows = []( std::shared_ptr<AMP::Operator::Operator> op ) {
+    auto coarse_too_small = [&]( std::shared_ptr<AMP::Operator::Operator> op ) {
         auto linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( op );
         AMP_DEBUG_ASSERT( linop );
         auto matrix = linop->getMatrix();
         AMP_DEBUG_ASSERT( matrix );
-        return matrix->numGlobalRows();
+        int nrows_local   = static_cast<int>( matrix->numLocalRows() );
+        auto nrows_global = matrix->numGlobalRows();
+        return nrows_global <= d_coarsen_settings.min_coarse ||
+               matrix->getComm().anyReduce( nrows_local < d_coarsen_settings.min_coarse_local );
     };
+
+    auto &fine_settings     = d_coarsen_settings;
+    auto coarse_settings    = fine_settings;
+    coarse_settings.checkdd = false; // checkdd only used on fine grid
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         auto &fine_level = d_levels.back();
-        auto [R, Ac, P]  = pairwise_coarsen( fine_level.A, d_coarsen_settings );
+        auto [R, Ac, P]  = coarsen( fine_level.A, ( i == 0 ? fine_settings : coarse_settings ) );
         if ( !Ac )
             break;
 
@@ -105,11 +160,13 @@ void UASolver::setup()
         d_levels.back().x               = Ac->getMatrix()->getRightVector();
         d_levels.back().b               = Ac->getMatrix()->getRightVector();
 
-        if ( num_rows( Ac ) <= d_coarsen_settings.min_coarse )
+        if ( coarse_too_small( Ac ) )
             break;
     }
 
     makeCoarseSolver();
+    if ( d_iDebugPrintInfoLevel > 0 )
+        print_summary( d_levels, *d_coarse_solver );
 }
 
 void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -165,7 +222,7 @@ void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     auto current_res = d_dInitialResidual;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
-        kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
+        kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol, d_implicit_RAP );
 
         d_pOperator->residual( b, x, r );
         current_res =
@@ -188,9 +245,6 @@ void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         AMP::pout << "UASolver::apply: convergence reason: "
                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
     }
-
-    if ( d_iDebugPrintInfoLevel > 2 )
-        print_summary( d_levels, *d_coarse_solver );
 }
 
 } // namespace AMP::Solver::AMG

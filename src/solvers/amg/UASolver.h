@@ -4,6 +4,7 @@
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/amg/Aggregation.h"
+#include "AMP/solvers/amg/Aggregator.h"
 #include "AMP/solvers/amg/Cycle.h"
 #include "AMP/solvers/amg/Relaxation.h"
 
@@ -28,17 +29,20 @@ struct UASolver : SolverStrategy {
                 std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
 
 private:
+    coarse_ops_type coarsen( std::shared_ptr<Operator::LinearOperator> A,
+                             const PairwiseCoarsenSettings & );
     static std::unique_ptr<SolverStrategy>
     create_relaxation( std::shared_ptr<AMP::Operator::LinearOperator> A,
                        std::shared_ptr<RelaxationParameters> params );
     void makeCoarseSolver();
     size_t d_max_levels;
-    size_t d_min_coarse;
     size_t d_num_relax_pre;
     size_t d_num_relax_post;
     bool d_boomer_cg;
     size_t d_kappa;
     float d_kcycle_tol;
+    bool d_implicit_RAP;
+    std::shared_ptr<Aggregator> d_aggregator;
     PairwiseCoarsenSettings d_coarsen_settings;
     std::vector<Level> d_levels;
     std::shared_ptr<RelaxationParameters> d_pre_relax_params;

@@ -93,7 +93,8 @@ std::size_t get_nnz( const LinearAlgebra::CSRMatrix<Config> &A )
     using csr_data_t = LinearAlgebra::CSRMatrixData<Config>;
     const auto &comm = A.getComm();
     const auto &data = *( std::dynamic_pointer_cast<const csr_data_t>( A.getMatrixData() ) );
-    return comm.sumReduce( static_cast<double>( data.numberOfNonZeros() ) );
+    auto nnz         = data.numberOfNonZerosDiag() + data.numberOfNonZerosOffDiag();
+    return comm.sumReduce( nnz );
 }
 
 

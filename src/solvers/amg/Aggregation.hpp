@@ -85,6 +85,8 @@ struct prospect {
         for ( size_t i = 0; i < priority.size(); ++i ) {
             if ( initial_unmarked( i ) )
                 node_prio[i] = prio_node.insert( { priority[i], i } );
+            else
+                chosen[i] = true;
         }
     }
 
@@ -505,6 +507,44 @@ coarse_ops_type pairwise_coarsen( const LinearAlgebra::CSRMatrix<Config> &fine,
     auto P           = make_ua_intergrid<Config>( std::move( aggregatesT ) );
 
     return { P->T(), Ac, P };
+}
+
+template<class Config>
+coarse_ops_type aggregator_coarsen( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> fine,
+                                    Aggregator &aggregator )
+{
+    aggregateT_type<Config> aggregatesT( fine->numLocalRows(), 0 );
+    auto num_agg    = aggregator.assignLocalAggregates( fine, aggregatesT.data() );
+    auto aggregates = []( auto &aggt, const auto num_agg ) {
+        aggregate_type<csr_view<LinearAlgebra::CSRMatrix<Config>>> agg( num_agg );
+        for ( std::size_t i = 0; i < aggt.size(); ++i ) {
+            agg[aggt[i]].push_back( i );
+        }
+        return agg;
+    }( aggregatesT, num_agg );
+    auto matrix = coarsen_matrix( *fine, aggregates, aggregatesT );
+    auto Ac     = make_coarse_operator( matrix );
+    auto P      = make_ua_intergrid<Config>( std::move( aggregatesT ) );
+
+    return { P->T(), Ac, P };
+}
+
+
+int PairwiseAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A,
+                                               int *agg_ids )
+{
+    return LinearAlgebra::csrVisit(
+        A, [=]( auto csr_ptr ) { return assignLocalAggregates( csr_ptr, agg_ids ); } );
+}
+
+template<class Config>
+int PairwiseAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                                               int *agg_ids )
+{
+    auto aggregates  = pairwise_aggregation( csr_view( *A ), d_settings );
+    auto aggregatesT = transpose_aggregates( aggregates, A->numLocalRows() );
+    std::copy( aggregatesT.begin(), aggregatesT.end(), agg_ids );
+    return aggregates.size();
 }
 
 } // namespace AMP::Solver::AMG

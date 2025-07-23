@@ -23,14 +23,16 @@ void kappa_kcycle( size_t lvl,
                    const std::vector<Level> &levels,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
-                   float ktol );
+                   float ktol,
+                   bool comm_free_interp );
 
 void kappa_kcycle( std::shared_ptr<const LinearAlgebra::Vector> b,
                    std::shared_ptr<LinearAlgebra::Vector> x,
                    const std::vector<Level> &levels,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
-                   float ktol );
+                   float ktol,
+                   bool comm_free_interp = false );
 } // namespace AMP::Solver::AMG
 
 #endif

@@ -4,7 +4,10 @@ Preconditioner{
   max_levels = 4
   max_iterations = 1
   max_error = 1e-10
-  min_coarse = 10
+  implicit_RAP = true
+  agg_type = "pairwise"
+  min_coarse_global = 10
+  min_coarse_local = 10
   strong_threshold = 0.5
   pairwise_passes = 3
   kappa = 100000
