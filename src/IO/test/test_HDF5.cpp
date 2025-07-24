@@ -34,8 +34,8 @@ static inline void record( bool pass, const std::string &name, AMP::UnitTest &ut
 
 // Structure to test HDF5 compounds
 struct compoundStruct {
-    compoundStruct()                         = default;
-    compoundStruct( const compoundStruct & ) = default;
+    compoundStruct()                                    = default;
+    compoundStruct( const compoundStruct & )            = default;
     compoundStruct &operator=( const compoundStruct & ) = default;
     compoundStruct( int x, float y, double z ) : a( x ), b( y ), c( z ) {}
     bool operator==( const compoundStruct &x ) const { return x.a == a && x.b == b && x.c == c; }
@@ -409,12 +409,12 @@ int main( int argc, char *argv[] )
 
         // Write variables to HDF5
         data_struct data;
-        auto fid = AMP::IO::openHDF5( "test_HDF.hdf5", "w" );
+        auto fid = AMP::IO::openHDF5( "test_HDF5.hdf5", "w" );
         data.write( fid );
         AMP::IO::closeHDF5( fid, true );
 
         // Read the variables from HDF5
-        fid = AMP::IO::openHDF5( "test_HDF.hdf5", "r" );
+        fid = AMP::IO::openHDF5( "test_HDF5.hdf5", "r" );
         data.check( fid, ut );
         AMP::IO::closeHDF5( fid, true );
 

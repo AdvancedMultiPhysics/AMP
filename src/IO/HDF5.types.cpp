@@ -1,5 +1,5 @@
-#include "AMP/IO/HDF.h"
 #include "AMP/AMP_TPLs.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/HDF.hpp"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/MeshPoint.h"
@@ -511,6 +511,9 @@ INSTANTIATE_DEFAULT( float );
 INSTANTIATE_DEFAULT( double );
 INSTANTIATE_DEFAULT( long double );
 INSTANTIATE_DEFAULT( std::byte );
+#if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 )
+INSTANTIATE_DEFAULT( long int );
+#endif
 
 
 /************************************************************************
