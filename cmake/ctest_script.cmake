@@ -30,7 +30,6 @@ SET( USE_CUDA              $ENV{USE_CUDA}              )
 SET( CUDA_FLAGS           "$ENV{CUDA_FLAGS}"           )
 SET( CTEST_SITE           "$ENV{CTEST_SITE}"           )
 SET( CTEST_URL            "$ENV{CTEST_URL}"            )
-SET( EXCLUDE_WEEKLY       "$ENV{EXCLUDE_WEEKLY}"       )
 SET( DEFAULT_MATRIX       "$ENV{DEFAULT_MATRIX}"       )
 
 
@@ -65,8 +64,6 @@ ELSEIF( ${CTEST_SCRIPT_ARG} STREQUAL "debug" )
     SET( ENABLE_GCOV "true" )
 ELSEIF( (${CTEST_SCRIPT_ARG} STREQUAL "optimized") OR (${CTEST_SCRIPT_ARG} STREQUAL "opt") )
     SET( CTEST_BUILD_NAME "${PROJ}-opt" )
-ELSEIF( (${CTEST_SCRIPT_ARG} STREQUAL "weekly") )
-    SET( CTEST_BUILD_NAME "AMP-Weekly" )
 ELSEIF( ${CTEST_SCRIPT_ARG} STREQUAL "valgrind" )
     SET( CTEST_BUILD_NAME "${PROJ}-valgrind" )
     SET( CMAKE_BUILD_TYPE "Debug" )
@@ -127,7 +124,7 @@ SET( CTEST_SOURCE_DIRECTORY "${${PROJ}_SOURCE_DIR}" )
 SET( CTEST_BINARY_DIRECTORY "." )
 SET( CTEST_CUSTOM_MAXIMUM_NUMBER_OF_ERRORS 500 )
 SET( CTEST_CUSTOM_MAXIMUM_NUMBER_OF_WARNINGS 500 )
-SET( CTEST_CUSTOM_MAXIMUM_PASSED_TEST_OUTPUT_SIZE 10000 )
+SET( CTEST_CUSTOM_MAXIMUM_PASSED_TEST_OUTPUT_SIZE 5000 )
 SET( CTEST_CUSTOM_MAXIMUM_FAILED_TEST_OUTPUT_SIZE 20000 )
 SET( CTEST_COMMAND "\"${CTEST_EXECUTABLE_NAME}\" -D ${CTEST_DASHBOARD}" )
 IF ( BUILD_SERIAL )
@@ -146,7 +143,7 @@ SET( CTEST_CUSTOM_WARNING_EXCEPTION
 )
 
 
-# Set timeouts: 10 minutes for debug, 5 for opt, and 30 minutes for valgrind/weekly
+# Set timeouts: 10 minutes for debug, 5 for opt, and 30 minutes for valgrind
 IF ( USE_VALGRIND )
     SET( CTEST_TEST_TIMEOUT 1800 )
 ELSEIF( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
@@ -157,7 +154,6 @@ ENDIF()
 
 
 # Set valgrind options
-#SET (VALGRIND_COMMAND_OPTIONS "--tool=memcheck --leak-check=yes --track-fds=yes --num-callers=50 --show-reachable=yes --track-origins=yes --malloc-fill=0xff --free-fill=0xfe --suppressions=${${PROJ}_SOURCE_DIR}/ValgrindSuppresionFile" )
 SET( VALGRIND_COMMAND_OPTIONS  "--tool=memcheck --leak-check=yes --track-fds=yes --num-callers=50 --show-reachable=yes --suppressions=${${PROJ}_SOURCE_DIR}/ValgrindSuppresionFile" )
 IF ( USE_VALGRIND )
     SET( MEMORYCHECK_COMMAND ${VALGRIND_COMMAND} )
@@ -251,15 +247,12 @@ CTEST_SUBMIT( PARTS Configure )
 # Run the configure/build/test
 CTEST_BUILD()
 CTEST_SUBMIT( PARTS Build )
-EXECUTE_PROCESS( COMMAND ${CMAKE_MAKE_PROGRAM} install )
 IF ( SKIP_TESTS )
     # Do not run tests
     SET( CTEST_COVERAGE_COMMAND )
 ELSEIF ( USE_VALGRIND )
     SET( CTEST_COVERAGE_COMMAND )
     CTEST_MEMCHECK( EXCLUDE "(procs|WEEKLY|cppcheck|cppclean|test_crash|input_crystal_circular_tri)" PARALLEL_LEVEL ${N_PROCS} )
-ELSEIF ( EXCLUDE_WEEKLY )
-    CTEST_TEST( EXCLUDE WEEKLY  PARALLEL_LEVEL ${N_PROCS} )
 ELSE()
     CTEST_TEST( PARALLEL_LEVEL ${N_PROCS} )
 ENDIF()

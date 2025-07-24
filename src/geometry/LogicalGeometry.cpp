@@ -1,5 +1,5 @@
 #include "AMP/geometry/LogicalGeometry.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/UtilityMacros.h"
 
 #include <vector>

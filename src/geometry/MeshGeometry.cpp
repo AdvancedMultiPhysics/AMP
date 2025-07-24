@@ -1,5 +1,5 @@
 #include "AMP/geometry/MeshGeometry.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"

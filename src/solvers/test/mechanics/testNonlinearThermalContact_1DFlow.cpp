@@ -162,7 +162,6 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
     // CREATE THE LINEAR THERMAL OPERATOR 2
     AMP_INSIST( input_db->keyExists( "LinearThermalOperator2" ), "key missing!" );
 
-    auto linearThermalDatabase2 = input_db->getDatabase( "LinearThermalOperator2" );
     auto linearThermalOperator2 = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
             mesh2, "LinearThermalOperator2", input_db ) );
@@ -420,8 +419,6 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
         linearThermalOperator2->residual(
             RightHandSideVec2, TemperatureInKelvinVec2, ResidualVec2 );
         mlSolver2->apply( RightHandSideVec2, TemperatureInKelvinVec2 );
-
-        //------------------------------------------------------------
 
         AMP::pout << "Residual Norm on Pellet after " << cnt
                   << " iteration is : " << ResidualVec1->L2Norm() << std::endl;

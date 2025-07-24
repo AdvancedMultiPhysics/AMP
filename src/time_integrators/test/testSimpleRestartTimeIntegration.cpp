@@ -131,7 +131,7 @@ void testIntegratorRestart( const std::string &name,
 
 
     // Check the answer
-    double ans;
+    double ans = 0;
     if ( test == "du/dt=3" ) {
         ans = 1.0 + 3 * T;
     } else if ( test == "du/dt=-3u" ) {

@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <errno.h>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -144,6 +145,16 @@ int main( int argc, char *argv[] )
 
         // Test printing a warning
         AMP_WARNING( "Testing warning" );
+
+        // Test errno
+        errno         = ETXTBSY;
+        auto errorMsg = AMP::Utilities::getLastErrnoString();
+        PASS_FAIL( errorMsg == "Text file busy", "errno" );
+
+        // Test demangle
+        auto mangled   = "_Z3fooPci";
+        auto demangled = AMP::Utilities::demangle( mangled );
+        std::cout << "demangled: " << demangled << std::endl;
 
         // Finished testing, report the results
         ut.report();
