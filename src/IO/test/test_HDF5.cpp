@@ -34,8 +34,8 @@ static inline void record( bool pass, const std::string &name, AMP::UnitTest &ut
 
 // Structure to test HDF5 compounds
 struct compoundStruct {
-    compoundStruct()                                    = default;
-    compoundStruct( const compoundStruct & )            = default;
+    compoundStruct()                         = default;
+    compoundStruct( const compoundStruct & ) = default;
     compoundStruct &operator=( const compoundStruct & ) = default;
     compoundStruct( int x, float y, double z ) : a( x ), b( y ), c( z ) {}
     bool operator==( const compoundStruct &x ) const { return x.a == a && x.b == b && x.c == c; }
