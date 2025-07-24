@@ -62,8 +62,11 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 
     // verify this is actually a CSRMatrix
     const auto mode = mat->mode();
-    AMP_INSIST( mode < std::numeric_limits<std::uint16_t>::max(),
-                "SASolver::registerOperator: Must pass in linear operator in CSRMatrix format" );
+    if ( mode == std::numeric_limits<std::uint16_t>::max() ) {
+        AMP::pout << "Expected a CSRMatrix but received a matrix of type: " << mat->type()
+                  << std::endl;
+        AMP_ERROR( "SASolver::registerOperator: Must pass in linear operator in CSRMatrix format" );
+    }
 
     // determine the memory location from the mode
     const auto csr_mode = static_cast<LinearAlgebra::csr_mode>( mode );

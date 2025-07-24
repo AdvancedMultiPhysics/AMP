@@ -174,23 +174,22 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
         }
     }
 
-    auto row_sum = []( auto ptrs, auto &xvals, bool skip = false ) {
-        auto [rowptr, colind, values] = ptrs;
-        return [=, &xvals]( lidx_t r ) {
-            scalar_t rsum = 0;
-            if ( rowptr == nullptr ) {
+    auto row_sum =
+        []( lidx_t *rowptr, lidx_t *colind, scalar_t *coeffs, auto &xvals, bool skip = false ) {
+            return [=, &xvals]( lidx_t r ) {
+                scalar_t rsum = 0;
+                if ( rowptr == nullptr ) {
+                    return rsum;
+                }
+                for ( auto off = rowptr[r] + skip; off < rowptr[r + 1]; ++off ) {
+                    rsum += xvals[colind[off]] * coeffs[off];
+                }
                 return rsum;
-            }
-            for ( auto off = rowptr[r] + skip; off < rowptr[r + 1]; ++off ) {
-                rsum += xvals[colind[off]] * values[off];
-            }
-            return rsum;
+            };
         };
-    };
 
-    auto diag_sum =
-        row_sum( std::make_tuple( Ad_rs, Ad_cols_loc, Ad_coeffs ), x, true ); // skip diagonal value
-    auto offd_sum = row_sum( std::make_tuple( Ao_rs, Ao_cols_loc, Ao_coeffs ), ghosts );
+    auto diag_sum = row_sum( Ad_rs, Ad_cols_loc, Ad_coeffs, x, true ); // skip diagonal value
+    auto offd_sum = row_sum( Ao_rs, Ao_cols_loc, Ao_coeffs, ghosts );
 
     auto update = [&]( lidx_t row ) {
         auto diag = Ad_coeffs[Ad_rs[row]];
