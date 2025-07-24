@@ -639,13 +639,6 @@ NonlinearKrylovAccelerator<T>::forwardbackwardSolve( std::shared_ptr<AMP::Linear
     return cv;
 }
 
-template<typename T>
-void NonlinearKrylovAccelerator<T>::setNestedSolver(
-    std::shared_ptr<AMP::Solver::SolverStrategy> pc )
-{
-    d_pNestedSolver = pc;
-}
-
 /*
 *************************************************************************
 *                                                                       *

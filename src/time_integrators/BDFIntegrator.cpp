@@ -1886,7 +1886,7 @@ void BDFIntegrator::reset(
         }
     }
 
-    if ( d_integrator_step > 0 ) {
+    if ( d_solution_vector ) {
         d_solution_vector->reset();
     }
 

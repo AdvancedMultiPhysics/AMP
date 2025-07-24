@@ -1114,6 +1114,13 @@ void testRand( UnitTest &ut )
     }
     if ( pass )
         ut.passes( "rand()" );
+    // Test randomString
+    auto str  = AMP::Utilities::randomString( comm );
+    auto str0 = comm.bcast( str, 0 );
+    if ( str == str0 )
+        ut.passes( "randomString" );
+    else
+        ut.failure( "randomString" );
 }
 void testBasicCommCreatePerformance()
 {

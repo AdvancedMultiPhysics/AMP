@@ -3,6 +3,7 @@
 
 #include "AMP/operators/mechanics/MechanicsConstants.h"
 #include "AMP/operators/mechanics/MechanicsElement.h"
+#include "AMP/operators/mechanics/MechanicsNonlinearElement.h"
 #include "AMP/operators/mechanics/UpdatedLagrangianUtils.h"
 
 #include <memory>
@@ -19,11 +20,6 @@ nonlinear updated lagrangian finite element operator for modelling solid mechani
 class MechanicsNonlinearUpdatedLagrangianElement : public MechanicsElement
 {
 public:
-    /**
-      This is primarily for use with the updateMaterialModel() function.
-     */
-    enum MaterialUpdateType { RESET, JACOBIAN };
-
     //! Constructor.
     explicit MechanicsNonlinearUpdatedLagrangianElement(
         std::shared_ptr<const ElementOperationParameters> params )
@@ -88,27 +84,22 @@ public:
     void initMaterialModel( const std::vector<double> &initTempVector );
 
     /**
-      This function is used to update the equilibrium values of stress, strain, temperature, burnup
-      etc that are
-      stored in the material model class. This is typically required at the end of each loading
-      step. This function is
-      typically
-      called from within the MechanicsNonlinearFEOperator's reset function, which is evaluated at
-      the end of each
-      loading step.
+      This function is used to update the equilibrium values of stress, strain,
+      temperature, burnup etc that are stored in the material model class.
+      This is typically required at the end of each loading step.
+      This function is typically  called from within the MechanicsNonlinearFEOperator's
+      reset function, which is evaluated at the end of each loading step.
       This function also gets called from within the MechanicsNonlinearFEOperator's
-      getJacobianParameters
-      function if the jacobian is evaluated at a state (displacement, temperature etc) different
-      from
-      that of the last call to MechanicsNonlinearFEOperator's apply function.
+      getJacobianParameters function if the jacobian is evaluated at a state
+      (displacement, temperature etc) different from that of the last call to
+      MechanicsNonlinearFEOperator's apply function.
       @param [in] elementInputVectors Field (Displacement, Temperature, Burnup etc) values at the
-      nodes of the current element.
+         nodes of the current element.
       @param [in] elementInputVectors_pre Field (Displacement, Temperature, Burnup etc) values at
-      the
-      nodes of the current element at the previous time-step.
+         the nodes of the current element at the previous time-step.
      */
-    template<MaterialUpdateType type>
-    void updateMaterialModel( const std::vector<std::vector<double>> &elementInputVectors,
+    void updateMaterialModel( MechanicsNonlinearElement::MaterialUpdateType type,
+                              const std::vector<std::vector<double>> &elementInputVectors,
                               const std::vector<std::vector<double>> &elementInputVectors_pre );
 
     /**
@@ -169,22 +160,21 @@ public:
     }
 
 protected:
-    template<MaterialUpdateType type>
-    void materialModelPreNonlinearElementOperation();
+    void materialModelPreNonlinearElementOperation( MechanicsNonlinearElement::MaterialUpdateType );
 
-    template<MaterialUpdateType type>
-    void materialModelPreNonlinearGaussPointOperation();
+    void materialModelPreNonlinearGaussPointOperation(
+        MechanicsNonlinearElement::MaterialUpdateType );
 
-    template<MaterialUpdateType type>
-    void materialModelNonlinearGaussPointOperation( const std::vector<std::vector<double>> &,
+    void materialModelNonlinearGaussPointOperation( MechanicsNonlinearElement::MaterialUpdateType,
+                                                    const std::vector<std::vector<double>> &,
                                                     double[3][3],
                                                     double[3][3] );
 
-    template<MaterialUpdateType type>
-    void materialModelPostNonlinearGaussPointOperation();
+    void materialModelPostNonlinearGaussPointOperation(
+        MechanicsNonlinearElement::MaterialUpdateType );
 
-    template<MaterialUpdateType type>
-    void materialModelPostNonlinearElementOperation();
+    void
+        materialModelPostNonlinearElementOperation( MechanicsNonlinearElement::MaterialUpdateType );
 
     /**
       Element residual vector computation using normal integration scheme.
@@ -238,420 +228,6 @@ private:
 };
 
 
-template<>
-inline void MechanicsNonlinearUpdatedLagrangianElement::materialModelPreNonlinearElementOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::RESET>()
-{
-    d_materialModel->preNonlinearResetElementOperation();
-}
-
-template<>
-inline void MechanicsNonlinearUpdatedLagrangianElement::materialModelPreNonlinearElementOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::JACOBIAN>()
-{
-    d_materialModel->preNonlinearJacobianElementOperation();
-}
-
-template<>
-inline void
-MechanicsNonlinearUpdatedLagrangianElement::materialModelPreNonlinearGaussPointOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::RESET>()
-{
-    d_materialModel->preNonlinearResetGaussPointOperation();
-}
-
-template<>
-inline void
-MechanicsNonlinearUpdatedLagrangianElement::materialModelPreNonlinearGaussPointOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::JACOBIAN>()
-{
-    d_materialModel->preNonlinearJacobianGaussPointOperation();
-}
-
-template<>
-inline void MechanicsNonlinearUpdatedLagrangianElement::materialModelPostNonlinearElementOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::RESET>()
-{
-    d_materialModel->postNonlinearResetElementOperation();
-}
-
-template<>
-inline void MechanicsNonlinearUpdatedLagrangianElement::materialModelPostNonlinearElementOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::JACOBIAN>()
-{
-    d_materialModel->postNonlinearJacobianElementOperation();
-}
-
-template<>
-inline void
-MechanicsNonlinearUpdatedLagrangianElement::materialModelPostNonlinearGaussPointOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::RESET>()
-{
-    d_materialModel->postNonlinearResetGaussPointOperation();
-}
-
-template<>
-inline void
-MechanicsNonlinearUpdatedLagrangianElement::materialModelPostNonlinearGaussPointOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::JACOBIAN>()
-{
-    d_materialModel->postNonlinearJacobianGaussPointOperation();
-}
-
-template<>
-inline void MechanicsNonlinearUpdatedLagrangianElement::materialModelNonlinearGaussPointOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::RESET>(
-    const std::vector<std::vector<double>> &strain, double R_n[3][3], double R_np1[3][3] )
-{
-    d_materialModel->nonlinearResetGaussPointOperation_UL( strain, R_n, R_np1 );
-}
-
-template<>
-inline void MechanicsNonlinearUpdatedLagrangianElement::materialModelNonlinearGaussPointOperation<
-    MechanicsNonlinearUpdatedLagrangianElement::JACOBIAN>(
-    const std::vector<std::vector<double>> &strain, double R_n[3][3], double R_np1[3][3] )
-{
-    d_materialModel->nonlinearJacobianGaussPointOperation_UL( strain, R_n, R_np1 );
-}
-
-
-template<MechanicsNonlinearUpdatedLagrangianElement::MaterialUpdateType type>
-void MechanicsNonlinearUpdatedLagrangianElement::updateMaterialModel(
-    const std::vector<std::vector<double>> &elementInputVectors,
-    const std::vector<std::vector<double>> &elementInputVectors_pre )
-{
-    const std::vector<std::vector<libMesh::RealGradient>> &dphi = ( *d_dphi );
-
-    const std::vector<std::vector<libMesh::Real>> &phi = ( *d_phi );
-
-    std::vector<libMesh::Point> xyz, xyz_n, xyz_np1, xyz_np1o2;
-
-    d_fe->reinit( d_elem );
-
-    materialModelPreNonlinearElementOperation<type>();
-
-    const unsigned int num_nodes = d_elem->n_nodes();
-
-    xyz.resize( num_nodes );
-    xyz_n.resize( num_nodes );
-    xyz_np1.resize( num_nodes );
-    xyz_np1o2.resize( num_nodes );
-
-    for ( unsigned int ijk = 0; ijk < num_nodes; ijk++ ) {
-        const auto &p1 = d_elem->point( ijk );
-        xyz[ijk]       = p1;
-    }
-
-    double currX[8], currY[8], currZ[8], dNdx[8], dNdy[8], dNdz[8], detJ[1], delta_u[8], delta_v[8],
-        delta_w[8];
-    double x_np1o2[8], y_np1o2[8], z_np1o2[8];
-    double rsq3              = ( 1.0 / std::sqrt( 3.0 ) );
-    const double currXi[8]   = { -rsq3, rsq3, -rsq3, rsq3, -rsq3, rsq3, -rsq3, rsq3 };
-    const double currEta[8]  = { -rsq3, -rsq3, rsq3, rsq3, -rsq3, -rsq3, rsq3, rsq3 };
-    const double currZeta[8] = { -rsq3, -rsq3, -rsq3, -rsq3, rsq3, rsq3, rsq3, rsq3 };
-    double Bl_np1_bar[6][24], Bl_center[6][24];
-
-    for ( unsigned int ijk = 0; ijk < num_nodes; ijk++ ) {
-        xyz_n[ijk]( 0 ) =
-            xyz[ijk]( 0 ) + elementInputVectors_pre[Mechanics::DISPLACEMENT][( 3 * ijk ) + 0];
-        xyz_n[ijk]( 1 ) =
-            xyz[ijk]( 1 ) + elementInputVectors_pre[Mechanics::DISPLACEMENT][( 3 * ijk ) + 1];
-        xyz_n[ijk]( 2 ) =
-            xyz[ijk]( 2 ) + elementInputVectors_pre[Mechanics::DISPLACEMENT][( 3 * ijk ) + 2];
-
-        currX[ijk] = xyz_np1[ijk]( 0 ) =
-            xyz[ijk]( 0 ) + elementInputVectors[Mechanics::DISPLACEMENT][( 3 * ijk ) + 0];
-        currY[ijk] = xyz_np1[ijk]( 1 ) =
-            xyz[ijk]( 1 ) + elementInputVectors[Mechanics::DISPLACEMENT][( 3 * ijk ) + 1];
-        currZ[ijk] = xyz_np1[ijk]( 2 ) =
-            xyz[ijk]( 2 ) + elementInputVectors[Mechanics::DISPLACEMENT][( 3 * ijk ) + 2];
-
-        delta_u[ijk] = elementInputVectors[Mechanics::DISPLACEMENT][( 3 * ijk ) + 0] -
-                       elementInputVectors_pre[Mechanics::DISPLACEMENT][( 3 * ijk ) + 0];
-        delta_v[ijk] = elementInputVectors[Mechanics::DISPLACEMENT][( 3 * ijk ) + 1] -
-                       elementInputVectors_pre[Mechanics::DISPLACEMENT][( 3 * ijk ) + 1];
-        delta_w[ijk] = elementInputVectors[Mechanics::DISPLACEMENT][( 3 * ijk ) + 2] -
-                       elementInputVectors_pre[Mechanics::DISPLACEMENT][( 3 * ijk ) + 2];
-
-        x_np1o2[ijk] = xyz_np1o2[ijk]( 0 ) = xyz_n[ijk]( 0 ) + ( delta_u[ijk] / 2.0 );
-        y_np1o2[ijk] = xyz_np1o2[ijk]( 1 ) = xyz_n[ijk]( 1 ) + ( delta_v[ijk] / 2.0 );
-        z_np1o2[ijk] = xyz_np1o2[ijk]( 2 ) = xyz_n[ijk]( 2 ) + ( delta_w[ijk] / 2.0 );
-    }
-
-    if ( d_useReducedIntegration && d_useJaumannRate ) {
-        double sum_detJ = 0.0;
-        for ( unsigned int i = 0; i < 6; i++ ) {
-            for ( unsigned int j = 0; j < ( 3 * num_nodes ); j++ ) {
-                Bl_np1_bar[i][j] = 0.0;
-                Bl_center[i][j]  = 0.0;
-            }
-        }
-
-        for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
-            constructShapeFunctionDerivatives( dNdx,
-                                               dNdy,
-                                               dNdz,
-                                               currX,
-                                               currY,
-                                               currZ,
-                                               currXi[qp],
-                                               currEta[qp],
-                                               currZeta[qp],
-                                               detJ );
-            sum_detJ += detJ[0];
-
-            for ( unsigned int i = 0; i < 8; i++ ) {
-                Bl_np1_bar[0][( 3 * i ) + 0] += ( dNdx[i] * detJ[0] );
-                Bl_np1_bar[1][( 3 * i ) + 0] += ( dNdx[i] * detJ[0] );
-                Bl_np1_bar[2][( 3 * i ) + 0] += ( dNdx[i] * detJ[0] );
-
-                Bl_np1_bar[0][( 3 * i ) + 1] += ( dNdy[i] * detJ[0] );
-                Bl_np1_bar[1][( 3 * i ) + 1] += ( dNdy[i] * detJ[0] );
-                Bl_np1_bar[2][( 3 * i ) + 1] += ( dNdy[i] * detJ[0] );
-
-                Bl_np1_bar[0][( 3 * i ) + 2] += ( dNdz[i] * detJ[0] );
-                Bl_np1_bar[1][( 3 * i ) + 2] += ( dNdz[i] * detJ[0] );
-                Bl_np1_bar[2][( 3 * i ) + 2] += ( dNdz[i] * detJ[0] );
-            }
-        }
-
-        // std::cout<<"sum_detJ="<<sum_detJ<<std::endl;
-        double one3TimesSumDetJ = 1.0 / ( 3.0 * sum_detJ );
-        for ( auto &elem : Bl_np1_bar ) {
-            for ( unsigned int j = 0; j < ( 3 * num_nodes ); j++ ) {
-                elem[j] = elem[j] * one3TimesSumDetJ;
-                // std::cout<<"Bl_np1_bar["<<i<<"]["<<j<<"]="<<Bl_np1_bar[i][j]<<std::endl;
-            }
-        }
-
-        constructShapeFunctionDerivatives(
-            dNdx, dNdy, dNdz, currX, currY, currZ, 0.0, 0.0, 0.0, detJ );
-        for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
-            Bl_center[0][( 3 * qp ) + 0] += ( dNdx[qp] );
-            Bl_center[1][( 3 * qp ) + 1] += ( dNdy[qp] );
-            Bl_center[2][( 3 * qp ) + 2] += ( dNdz[qp] );
-            Bl_center[3][( 3 * qp ) + 1] += ( dNdz[qp] );
-            Bl_center[3][( 3 * qp ) + 2] += ( dNdy[qp] );
-            Bl_center[4][( 3 * qp ) + 0] += ( dNdz[qp] );
-            Bl_center[4][( 3 * qp ) + 2] += ( dNdx[qp] );
-            Bl_center[5][( 3 * qp ) + 0] += ( dNdy[qp] );
-            Bl_center[5][( 3 * qp ) + 1] += ( dNdx[qp] );
-        }
-    }
-
-    for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
-        materialModelPreNonlinearGaussPointOperation<type>();
-
-        double Identity[3][3];
-
-        // Constructing an identity matrix.
-        for ( unsigned int i = 0; i < 3; i++ ) {
-            for ( unsigned int j = 0; j < 3; j++ ) {
-                Identity[i][j] = 0.0;
-            }
-            Identity[i][i] = 1.0;
-        }
-
-        double Bl_np1[6][24], spin_np1[3][3], el_np1[6];
-        double R_n[3][3], R_np1[3][3];
-        double e_np1o2_tilda_rotated[3][3];
-
-        if ( d_useJaumannRate == false ) {
-            double R_np1o2[3][3];
-            if ( d_useFlanaganTaylorElem == false ) {
-                double U_n[3][3], U_np1[3][3], U_np1o2[3][3];
-                double F_n[3][3], F_np1[3][3], F_np1o2[3][3];
-                // The deformation gradients are computed in the next three lines.
-                computeDeformationGradient( dphi, xyz_n, num_nodes, qp, F_n );
-                computeDeformationGradient( dphi, xyz_np1, num_nodes, qp, F_np1 );
-                computeDeformationGradient( dphi, xyz_np1o2, num_nodes, qp, F_np1o2 );
-
-                // Polar decomposition (F=RU) of the deformation gradient is conducted here.
-                polarDecompositionFeqRU_Simo( F_n, R_n, U_n );
-                polarDecompositionFeqRU_Simo( F_np1, R_np1, U_np1 );
-                polarDecompositionFeqRU_Simo( F_np1o2, R_np1o2, U_np1o2 );
-            }
-
-            // Gradient of the incremental displacement with respect to the np1o2 configuration.
-            double dN_dxnp1o2[8], dN_dynp1o2[8], dN_dznp1o2[8], detJ_np1o2[1], d_np1o2[3][3],
-                d_np1o2_temp[3][3];
-            constructShapeFunctionDerivatives( dN_dxnp1o2,
-                                               dN_dynp1o2,
-                                               dN_dznp1o2,
-                                               x_np1o2,
-                                               y_np1o2,
-                                               z_np1o2,
-                                               currXi[qp],
-                                               currEta[qp],
-                                               currZeta[qp],
-                                               detJ_np1o2 );
-
-            // Calculate the rate of deformation tensor with respect to the np1o2 configuration.
-            computeGradient( dN_dxnp1o2,
-                             dN_dynp1o2,
-                             dN_dznp1o2,
-                             delta_u,
-                             delta_v,
-                             delta_w,
-                             num_nodes,
-                             d_np1o2_temp );
-            for ( int i = 0; i < 3; i++ ) {
-                for ( int j = 0; j < 3; j++ ) {
-                    d_np1o2[i][j] = 0.5 * ( d_np1o2_temp[i][j] + d_np1o2_temp[j][i] );
-                }
-            }
-
-            // Rotate the rate of deformation to the unrotated configuration.
-            pullbackCorotational( R_np1o2, d_np1o2, e_np1o2_tilda_rotated );
-        }
-
-        if ( d_useJaumannRate == true ) {
-            // Calculate the derivatives of the shape functions at the current coordinate.
-            constructShapeFunctionDerivatives( dNdx,
-                                               dNdy,
-                                               dNdz,
-                                               currX,
-                                               currY,
-                                               currZ,
-                                               currXi[qp],
-                                               currEta[qp],
-                                               currZeta[qp],
-                                               detJ );
-
-            double Bl_dil[6][24];
-            for ( int i = 0; i < 6; i++ ) {
-                el_np1[i] = 0.0;
-                for ( int j = 0; j < 24; j++ ) {
-                    Bl_np1[i][j] = 0.0;
-                    if ( d_useReducedIntegration ) {
-                        Bl_dil[i][j] = 0.0;
-                    }
-                }
-            }
-
-            for ( unsigned int i = 0; i < num_nodes; i++ ) {
-                Bl_np1[0][( 3 * i ) + 0] = dNdx[i];
-                Bl_np1[1][( 3 * i ) + 1] = dNdy[i];
-                Bl_np1[2][( 3 * i ) + 2] = dNdz[i];
-                Bl_np1[3][( 3 * i ) + 1] = dNdz[i];
-                Bl_np1[3][( 3 * i ) + 2] = dNdy[i];
-                Bl_np1[4][( 3 * i ) + 0] = dNdz[i];
-                Bl_np1[4][( 3 * i ) + 2] = dNdx[i];
-                Bl_np1[5][( 3 * i ) + 0] = dNdy[i];
-                Bl_np1[5][( 3 * i ) + 1] = dNdx[i];
-
-                if ( d_useReducedIntegration ) {
-                    double one3 = 1.0 / 3.0;
-                    for ( int j = 0; j < 3; j++ ) {
-                        Bl_dil[j][( 3 * i ) + 0] = dNdx[i] * one3;
-                        Bl_dil[j][( 3 * i ) + 1] = dNdy[i] * one3;
-                        Bl_dil[j][( 3 * i ) + 2] = dNdz[i] * one3;
-                    }
-                }
-            }
-
-            // Calculate the spin tensor for the jaumann rate.
-            double d_np1[3][3];
-            computeGradient( dNdx, dNdy, dNdz, delta_u, delta_v, delta_w, num_nodes, d_np1 );
-            for ( int i = 0; i < 3; i++ ) {
-                for ( int j = 0; j < 3; j++ ) {
-                    spin_np1[i][j] = 0.5 * ( d_np1[i][j] - d_np1[j][i] );
-                }
-            }
-
-            if ( d_useReducedIntegration ) {
-                for ( int i = 0; i < 6; i++ ) {
-                    for ( unsigned int j = 0; j < ( 3 * num_nodes ); j++ ) {
-                        Bl_np1[i][j] = Bl_np1[i][j] - Bl_dil[i][j] + Bl_np1_bar[i][j];
-                        // std::cout<<"Bl_np1["<<i<<"]["<<j<<"]="<<Bl_np1[i][j]<<std::endl;
-                    }
-                }
-            }
-
-            if ( d_onePointShearIntegration ) {
-                for ( int i = 3; i < 6; i++ ) {
-                    for ( unsigned int j = 0; j < ( 3 * num_nodes ); j++ ) {
-                        Bl_np1[i][j] = Bl_center[i][j];
-                    }
-                }
-            }
-
-            for ( int i = 0; i < 6; i++ ) {
-                for ( int j = 0; j < 8; j++ ) {
-                    el_np1[i] += ( Bl_np1[i][( 3 * j ) + 0] * delta_u[j] );
-                    el_np1[i] += ( Bl_np1[i][( 3 * j ) + 1] * delta_v[j] );
-                    el_np1[i] += ( Bl_np1[i][( 3 * j ) + 2] * delta_w[j] );
-                }
-            }
-        }
-
-        /* Compute Strain From Given Displacement */
-
-        std::vector<std::vector<double>> fieldsAtGaussPt( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-
-        // Strain
-        if ( d_useJaumannRate == true ) {
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( el_np1[0] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( el_np1[1] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( el_np1[2] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( el_np1[3] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( el_np1[4] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( el_np1[5] );
-        }
-
-        if ( d_useJaumannRate == false ) {
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( e_np1o2_tilda_rotated[0][0] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( e_np1o2_tilda_rotated[1][1] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( e_np1o2_tilda_rotated[2][2] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 2.0 * e_np1o2_tilda_rotated[1][2] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 2.0 * e_np1o2_tilda_rotated[0][2] );
-            fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 2.0 * e_np1o2_tilda_rotated[0][1] );
-        }
-
-        if ( !( elementInputVectors[Mechanics::TEMPERATURE].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt += ( elementInputVectors[Mechanics::TEMPERATURE][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::TEMPERATURE].push_back( valAtGaussPt );
-        }
-
-        if ( !( elementInputVectors[Mechanics::BURNUP].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt += ( elementInputVectors[Mechanics::BURNUP][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::BURNUP].push_back( valAtGaussPt );
-        }
-
-        if ( !( elementInputVectors[Mechanics::OXYGEN_CONCENTRATION].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt +=
-                    ( elementInputVectors[Mechanics::OXYGEN_CONCENTRATION][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::OXYGEN_CONCENTRATION].push_back( valAtGaussPt );
-        }
-
-        if ( !( elementInputVectors[Mechanics::LHGR].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt += ( elementInputVectors[Mechanics::LHGR][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::LHGR].push_back( valAtGaussPt );
-        }
-
-        if ( d_useJaumannRate == true ) {
-            materialModelNonlinearGaussPointOperation<type>( fieldsAtGaussPt, spin_np1, Identity );
-        } else {
-            materialModelNonlinearGaussPointOperation<type>( fieldsAtGaussPt, R_n, R_np1 );
-        }
-
-        materialModelPostNonlinearGaussPointOperation<type>();
-    } // end for qp
-
-    materialModelPostNonlinearElementOperation<type>();
-}
 } // namespace AMP::Operator
 
 #endif

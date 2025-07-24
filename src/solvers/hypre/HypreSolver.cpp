@@ -255,7 +255,6 @@ void HypreSolver::resetOperator( std::shared_ptr<const AMP::Operator::OperatorPa
     AMP_INSIST( ( d_pOperator ), "ERROR: HypreSolver::resetOperator() operator cannot be NULL" );
     d_bMatrixInitialized = false;
     d_pOperator->reset( params );
-    reset( std::shared_ptr<SolverStrategyParameters>() );
 }
 
 

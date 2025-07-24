@@ -32,7 +32,10 @@ public:
     // required if we are managing time dependent operator
     void setGamma( AMP::Scalar gamma )
     {
-        d_matrix->setScalar( 1.0 + gamma );
+        if ( gamma != d_gamma ) {
+            d_gamma         = gamma;
+            d_update_matrix = true;
+        }
         //        AMP::pout << *d_matrix << std::endl;
     }
 
@@ -40,7 +43,10 @@ public:
     void apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
                 AMP::LinearAlgebra::Vector::shared_ptr r ) override
     {
+
         AMP::LinearAlgebra::Vector::const_shared_ptr u;
+
+        reset( {} );
 
         if ( d_pSolutionScaling ) {
 
@@ -65,6 +71,16 @@ public:
         }
     }
 
+    // this updates the matrix when gamma changes
+    void reset(
+        [[maybe_unused]] std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override
+    {
+        if ( d_update_matrix ) {
+            d_matrix->setScalar( 1.0 + d_gamma );
+            d_update_matrix = false;
+        }
+    }
+
     // only required if we are doing multi-physics and scaling of components needed
     void setComponentScalings( std::shared_ptr<AMP::LinearAlgebra::Vector> s,
                                std::shared_ptr<AMP::LinearAlgebra::Vector> f )
@@ -73,6 +89,8 @@ public:
         d_pFunctionScaling = f;
     }
 
+    AMP::Scalar d_gamma;
+    bool d_update_matrix = true;
     // only required if we are doing multi-physics and scaling of components needed
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_pSolutionScaling;
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_pFunctionScaling;
@@ -277,12 +295,14 @@ void runIntegratorWithUserOperatorTests( const std::string &inputFileName,
 
     // Test with fixed source and constant operator
     // testing du/dt = -u+1
+    std::dynamic_pointer_cast<UserDiagonalOperator>( userOperator )->d_gamma = 0.0;
     source->setToScalar( 1.0 );
     params->d_pSourceTerm = source;
     testIntegrator( ti_name, "du/dt=-u+1", params, 1.0, ut );
 
 #ifdef AMP_USE_HYPRE
     // Test with fixed source and const operator, CG w/BoomerAMG
+    std::dynamic_pointer_cast<UserDiagonalOperator>( userOperator )->d_gamma = 0.0;
     source->setToScalar( 1.0 );
     params->d_pSourceTerm = nullptr;
     updateDatabaseWithPC( params->d_db );

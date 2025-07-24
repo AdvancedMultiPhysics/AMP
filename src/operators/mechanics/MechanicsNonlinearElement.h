@@ -98,8 +98,8 @@ public:
       @param [in] elementInputVectors Field (Displacement, Temperature, Burnup etc) values at the
       nodes of the current element.
      */
-    template<MaterialUpdateType type>
-    void updateMaterialModel( const std::vector<std::vector<double>> &elementInputVectors );
+    void updateMaterialModel( MaterialUpdateType type,
+                              const std::vector<std::vector<double>> &elementInputVectors );
 
     /**
       Writes the stess and strain values at the Gauss points within the current element to the file
@@ -125,20 +125,16 @@ public:
                                  std::vector<double> &strainVec );
 
 protected:
-    template<MaterialUpdateType type>
-    void materialModelPreNonlinearElementOperation();
+    void materialModelPreNonlinearElementOperation( MaterialUpdateType );
 
-    template<MaterialUpdateType type>
-    void materialModelPreNonlinearGaussPointOperation();
+    void materialModelPreNonlinearGaussPointOperation( MaterialUpdateType );
 
-    template<MaterialUpdateType type>
-    void materialModelNonlinearGaussPointOperation( const std::vector<std::vector<double>> & );
+    void materialModelNonlinearGaussPointOperation( MaterialUpdateType,
+                                                    const std::vector<std::vector<double>> & );
 
-    template<MaterialUpdateType type>
-    void materialModelPostNonlinearGaussPointOperation();
+    void materialModelPostNonlinearGaussPointOperation( MaterialUpdateType );
 
-    template<MaterialUpdateType type>
-    void materialModelPostNonlinearElementOperation();
+    void materialModelPostNonlinearElementOperation( MaterialUpdateType );
 
     /**
       Element residual vector computation using normal integration scheme.
@@ -174,178 +170,6 @@ private:
 };
 
 
-template<>
-inline void MechanicsNonlinearElement::materialModelPreNonlinearElementOperation<
-    MechanicsNonlinearElement::RESET>()
-{
-    d_materialModel->preNonlinearResetElementOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelPreNonlinearElementOperation<
-    MechanicsNonlinearElement::JACOBIAN>()
-{
-    d_materialModel->preNonlinearJacobianElementOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelPreNonlinearGaussPointOperation<
-    MechanicsNonlinearElement::RESET>()
-{
-    d_materialModel->preNonlinearResetGaussPointOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelPreNonlinearGaussPointOperation<
-    MechanicsNonlinearElement::JACOBIAN>()
-{
-    d_materialModel->preNonlinearJacobianGaussPointOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelPostNonlinearElementOperation<
-    MechanicsNonlinearElement::RESET>()
-{
-    d_materialModel->postNonlinearResetElementOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelPostNonlinearElementOperation<
-    MechanicsNonlinearElement::JACOBIAN>()
-{
-    d_materialModel->postNonlinearJacobianElementOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelPostNonlinearGaussPointOperation<
-    MechanicsNonlinearElement::RESET>()
-{
-    d_materialModel->postNonlinearResetGaussPointOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelPostNonlinearGaussPointOperation<
-    MechanicsNonlinearElement::JACOBIAN>()
-{
-    d_materialModel->postNonlinearJacobianGaussPointOperation();
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelNonlinearGaussPointOperation<
-    MechanicsNonlinearElement::RESET>( const std::vector<std::vector<double>> &strain )
-{
-    d_materialModel->nonlinearResetGaussPointOperation( strain );
-}
-
-template<>
-inline void MechanicsNonlinearElement::materialModelNonlinearGaussPointOperation<
-    MechanicsNonlinearElement::JACOBIAN>( const std::vector<std::vector<double>> &strain )
-{
-    d_materialModel->nonlinearJacobianGaussPointOperation( strain );
-}
-
-template<MechanicsNonlinearElement::MaterialUpdateType type>
-void MechanicsNonlinearElement::updateMaterialModel(
-    const std::vector<std::vector<double>> &elementInputVectors )
-{
-    const std::vector<std::vector<libMesh::RealGradient>> &dphi = ( *d_dphi );
-
-    const std::vector<std::vector<libMesh::Real>> &phi = ( *d_phi );
-
-    d_fe->reinit( d_elem );
-
-    materialModelPreNonlinearElementOperation<type>();
-
-    const unsigned int num_nodes = d_elem->n_nodes();
-
-    for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
-        materialModelPreNonlinearGaussPointOperation<type>();
-
-        /* Compute Strain From Given Displacement */
-
-        double dudx = 0;
-        double dudy = 0;
-        double dudz = 0;
-        double dvdx = 0;
-        double dvdy = 0;
-        double dvdz = 0;
-        double dwdx = 0;
-        double dwdy = 0;
-        double dwdz = 0;
-
-        for ( unsigned int k = 0; k < num_nodes; k++ ) {
-            dudx +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 0] * dphi[k][qp]( 0 ) );
-            dudy +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 0] * dphi[k][qp]( 1 ) );
-            dudz +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 0] * dphi[k][qp]( 2 ) );
-
-            dvdx +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 1] * dphi[k][qp]( 0 ) );
-            dvdy +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 1] * dphi[k][qp]( 1 ) );
-            dvdz +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 1] * dphi[k][qp]( 2 ) );
-
-            dwdx +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 2] * dphi[k][qp]( 0 ) );
-            dwdy +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 2] * dphi[k][qp]( 1 ) );
-            dwdz +=
-                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 2] * dphi[k][qp]( 2 ) );
-        } // end for k
-
-        std::vector<std::vector<double>> fieldsAtGaussPt( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-
-        // Strain
-        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( dudx );
-        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( dvdy );
-        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( dwdz );
-        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 0.5 * ( dvdz + dwdy ) );
-        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 0.5 * ( dudz + dwdx ) );
-        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 0.5 * ( dudy + dvdx ) );
-
-        if ( !( elementInputVectors[Mechanics::TEMPERATURE].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt += ( elementInputVectors[Mechanics::TEMPERATURE][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::TEMPERATURE].push_back( valAtGaussPt );
-        }
-
-        if ( !( elementInputVectors[Mechanics::BURNUP].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt += ( elementInputVectors[Mechanics::BURNUP][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::BURNUP].push_back( valAtGaussPt );
-        }
-
-        if ( !( elementInputVectors[Mechanics::OXYGEN_CONCENTRATION].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt +=
-                    ( elementInputVectors[Mechanics::OXYGEN_CONCENTRATION][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::OXYGEN_CONCENTRATION].push_back( valAtGaussPt );
-        }
-
-        if ( !( elementInputVectors[Mechanics::LHGR].empty() ) ) {
-            double valAtGaussPt = 0;
-            for ( unsigned int k = 0; k < num_nodes; k++ ) {
-                valAtGaussPt += ( elementInputVectors[Mechanics::LHGR][k] * phi[k][qp] );
-            } // end for k
-            fieldsAtGaussPt[Mechanics::LHGR].push_back( valAtGaussPt );
-        }
-
-        materialModelNonlinearGaussPointOperation<type>( fieldsAtGaussPt );
-
-        materialModelPostNonlinearGaussPointOperation<type>();
-    } // end for qp
-
-    materialModelPostNonlinearElementOperation<type>();
-}
 } // namespace AMP::Operator
 
 #endif

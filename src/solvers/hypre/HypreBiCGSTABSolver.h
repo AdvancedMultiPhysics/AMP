@@ -73,21 +73,6 @@ public:
      */
     void initialize( std::shared_ptr<const SolverStrategyParameters> parameters ) override;
 
-    /**
-     * sets a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     * @param pc shared pointer to preconditioner
-     */
-    inline void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override
-    {
-        d_pNestedSolver = pc;
-    }
-
-    inline std::shared_ptr<AMP::Solver::SolverStrategy> getNestedSolver() override
-    {
-        return d_pNestedSolver;
-    }
-
     void getFromInput( std::shared_ptr<const AMP::Database> db );
 
     void reset( std::shared_ptr<SolverStrategyParameters> params ) override;
@@ -97,7 +82,6 @@ private:
 
     bool d_bUsesPreconditioner = false;
     bool d_bDiagScalePC        = false; //! use diagonal scaled preconditioner
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver;
 };
 } // namespace AMP::Solver
 

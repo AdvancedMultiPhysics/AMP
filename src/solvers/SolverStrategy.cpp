@@ -27,7 +27,8 @@ SolverStrategy::SolverStrategy( std::shared_ptr<const SolverStrategyParameters> 
 {
     AMP_INSIST( parameters, "NULL SolverStrategyParameters object" );
     SolverStrategy::d_iInstanceId++;
-    d_pOperator = parameters->d_pOperator;
+    d_pOperator     = parameters->d_pOperator;
+    d_pNestedSolver = parameters->d_pNestedSolver;
     SolverStrategy::getFromInput( parameters->d_db );
 }
 
@@ -67,9 +68,25 @@ void SolverStrategy::resetOperator(
     if ( d_pOperator ) {
         d_pOperator->reset( params );
     }
+
+    // should add a mechanism for the linear operator to provide updated parameters for the
+    // preconditioner operator
+    // though it's unclear where this might be necessary
+    if ( d_pNestedSolver && ( d_pOperator != d_pNestedSolver->getOperator() ) ) {
+        d_pNestedSolver->resetOperator( params );
+    }
 }
 
-void SolverStrategy::reset( std::shared_ptr<SolverStrategyParameters> ) {}
+void SolverStrategy::reset( std::shared_ptr<SolverStrategyParameters> params )
+{
+    // this should be refactored so that operator params can be passed on
+    resetOperator( {} );
+
+    // this should be refactored so that only preconditioner specific parameters are passed on
+    if ( d_pNestedSolver ) {
+        d_pNestedSolver->reset( params );
+    }
+}
 
 void SolverStrategy::setInitialGuess( std::shared_ptr<AMP::LinearAlgebra::Vector> ) {}
 

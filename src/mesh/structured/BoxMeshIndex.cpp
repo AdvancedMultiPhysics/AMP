@@ -1,4 +1,4 @@
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/mesh/structured/BoxMesh.h"
 #include "AMP/utils/Array.h"
 

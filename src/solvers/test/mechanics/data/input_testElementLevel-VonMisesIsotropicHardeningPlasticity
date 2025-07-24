@@ -62,8 +62,10 @@ NonlinearSolver{
     stepTolerance = 1.0e-10
     maximumFunctionEvals = 1000
     usesJacobian=TRUE
-
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
+    linear_solver_type               =  "fgmres"
+    forcing_term_strategy            =  "EWCHOICE3"
+    EW_choice2_alpha = 2.0
+    EW_choice2_gamma = 0.9
 
     LinearSolver{
       print_info_level = 1

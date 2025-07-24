@@ -82,8 +82,6 @@ public:
     void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                 std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
 
-    void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override;
-
     void printStatistics( std::ostream &os ) override;
 
     void registerOperator( std::shared_ptr<AMP::Operator::Operator> op ) override final;
@@ -121,9 +119,6 @@ private:
     std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> d_v; //! correction vectors
     std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> d_w; //! function difference vectors
     T **d_h; //! matrix of w vector inner products
-
-    std::shared_ptr<AMP::Solver::SolverStrategy>
-        d_pNestedSolver; //! stores a pointer to the preconditioner if being used
 
     /* Linked-list organization of the vector storage. */
     int d_first = 0;         //! index of first subspace vector

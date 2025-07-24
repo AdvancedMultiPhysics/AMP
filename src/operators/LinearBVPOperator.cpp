@@ -54,42 +54,44 @@ LinearBVPOperator::LinearBVPOperator( std::shared_ptr<const OperatorParameters> 
 
 void LinearBVPOperator::reset( std::shared_ptr<const OperatorParameters> inParams )
 {
-    auto params = std::dynamic_pointer_cast<const BVPOperatorParameters>( inParams );
+    if ( inParams ) {
+        auto params = std::dynamic_pointer_cast<const BVPOperatorParameters>( inParams );
 
-    AMP_INSIST( params, "LinearBVPOperator :: reset Null parameter" );
+        AMP_INSIST( params, "LinearBVPOperator :: reset Null parameter" );
 
-    d_volumeOperator->reset( params->d_volumeOperatorParams );
+        d_volumeOperator->reset( params->d_volumeOperatorParams );
 
-    // first case - single linear boundary operator parameter object
-    // This logic does not work with NeumannVectorCorrection boundary operator.
-    // As Neumann does not do a matrix correction and its params is not derived
-    //    from LinearBoundaryOperatorParameters
-    auto linearBoundaryParams = std::dynamic_pointer_cast<LinearBoundaryOperatorParameters>(
-        std::const_pointer_cast<OperatorParameters>( params->d_boundaryOperatorParams ) );
+        // first case - single linear boundary operator parameter object
+        // This logic does not work with NeumannVectorCorrection boundary operator.
+        // As Neumann does not do a matrix correction and its params is not derived
+        //    from LinearBoundaryOperatorParameters
+        auto linearBoundaryParams = std::dynamic_pointer_cast<LinearBoundaryOperatorParameters>(
+            std::const_pointer_cast<OperatorParameters>( params->d_boundaryOperatorParams ) );
 
-    if ( linearBoundaryParams ) {
-        linearBoundaryParams->d_inputMatrix = d_volumeOperator->getMatrix();
-        d_boundaryOperator->reset( linearBoundaryParams );
-    } else {
-        auto columnBoundaryParams =
-            std::dynamic_pointer_cast<const ColumnBoundaryOperatorParameters>(
-                params->d_boundaryOperatorParams );
+        if ( linearBoundaryParams ) {
+            linearBoundaryParams->d_inputMatrix = d_volumeOperator->getMatrix();
+            d_boundaryOperator->reset( linearBoundaryParams );
+        } else {
+            auto columnBoundaryParams =
+                std::dynamic_pointer_cast<const ColumnBoundaryOperatorParameters>(
+                    params->d_boundaryOperatorParams );
 
-        AMP_ASSERT( columnBoundaryParams );
+            AMP_ASSERT( columnBoundaryParams );
 
-        for ( auto cparams : columnBoundaryParams->d_OperatorParameters ) {
+            for ( auto cparams : columnBoundaryParams->d_OperatorParameters ) {
 
-            auto linearColBoundaryParams =
-                std::dynamic_pointer_cast<LinearBoundaryOperatorParameters>(
-                    std::const_pointer_cast<OperatorParameters>( cparams ) );
-            if ( linearColBoundaryParams ) {
-                linearColBoundaryParams->d_inputMatrix = d_volumeOperator->getMatrix();
+                auto linearColBoundaryParams =
+                    std::dynamic_pointer_cast<LinearBoundaryOperatorParameters>(
+                        std::const_pointer_cast<OperatorParameters>( cparams ) );
+                if ( linearColBoundaryParams ) {
+                    linearColBoundaryParams->d_inputMatrix = d_volumeOperator->getMatrix();
+                }
             }
+            d_boundaryOperator->reset( columnBoundaryParams );
         }
-        d_boundaryOperator->reset( columnBoundaryParams );
-    }
 
-    d_matrix = d_volumeOperator->getMatrix();
+        d_matrix = d_volumeOperator->getMatrix();
+    }
 }
 
 

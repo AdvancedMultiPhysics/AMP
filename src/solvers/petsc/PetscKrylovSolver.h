@@ -120,25 +120,6 @@ public:
     void initialize( std::shared_ptr<const SolverStrategyParameters> parameters ) override;
 
     /**
-     * returns a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     */
-    inline std::shared_ptr<AMP::Solver::SolverStrategy> getNestedSolver( void ) override
-    {
-        return d_pNestedSolver;
-    }
-
-    /**
-     * sets a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     * @param pc shared pointer to preconditioner
-     */
-    inline void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override
-    {
-        d_pNestedSolver = pc;
-    }
-
-    /**
      * Register the operator that the solver will use during solves
      * @param [in] op shared pointer to operator $A()$ for equation \f$A(u) = f\f$
      */
@@ -193,8 +174,6 @@ private:
     std::shared_ptr<PetscMonitor> d_PetscMonitor;
 
     KSP d_KrylovSolver;
-
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver;
 
     Mat d_Mat;
 };

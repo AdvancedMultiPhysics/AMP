@@ -229,20 +229,4 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
     }
 }
-
-template<typename T>
-void GMRESRSolver<T>::resetOperator(
-    std::shared_ptr<const AMP::Operator::OperatorParameters> params )
-{
-    if ( d_pOperator ) {
-        d_pOperator->reset( params );
-    }
-
-    // should add a mechanism for the linear operator to provide updated parameters for the
-    // preconditioner operator
-    // though it's unclear where this might be necessary
-    if ( d_pNestedSolver ) {
-        d_pNestedSolver->resetOperator( params );
-    }
-}
 } // namespace AMP::Solver

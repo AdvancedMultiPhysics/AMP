@@ -78,31 +78,10 @@ public:
     void initialize( std::shared_ptr<const SolverStrategyParameters> params ) override;
 
     /**
-     * sets a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     * @param pc shared pointer to preconditioner
-     */
-    inline void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override
-    {
-        d_pNestedSolver = pc;
-    }
-
-    inline std::shared_ptr<AMP::Solver::SolverStrategy> getNestedSolver() override
-    {
-        return d_pNestedSolver;
-    }
-
-    /**
      * Register the operator that the solver will use during solves
      * @param [in] op shared pointer to operator $A()$ for equation \f$A(u) = f\f$
      */
     void registerOperator( std::shared_ptr<AMP::Operator::Operator> op ) override;
-
-    /**
-     * Resets the registered operator internally with new parameters if necessary
-     * @param params    OperatorParameters object that is NULL by default
-     */
-    void resetOperator( std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override;
 
 protected:
     void getFromInput( std::shared_ptr<AMP::Database> db );
@@ -122,8 +101,6 @@ private:
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_s_hat;
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_t;
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_v;
-
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver;
 };
 } // namespace AMP::Solver
 

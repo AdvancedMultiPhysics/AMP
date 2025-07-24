@@ -75,28 +75,6 @@ public:
      */
     void initialize( std::shared_ptr<const SolverStrategyParameters> params ) override;
 
-    /**
-     * sets a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     * @param pc shared pointer to preconditioner
-     */
-    inline void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override
-    {
-        d_pNestedSolver = pc;
-    }
-
-    inline std::shared_ptr<AMP::Solver::SolverStrategy> getNestedSolver() override
-    {
-        return d_pNestedSolver;
-    }
-
-    /**
-     * Resets the registered operator internally with new parameters if necessary
-     * @param parameters    OperatorParameters object that is NULL by default
-     */
-    void
-    resetOperator( std::shared_ptr<const AMP::Operator::OperatorParameters> parameters ) override;
-
 protected:
     void getFromInput( std::shared_ptr<const AMP::Database> db );
 
@@ -104,8 +82,6 @@ private:
     bool d_bUsesPreconditioner = false;
 
     std::string d_preconditioner_side;
-
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver;
 };
 } // namespace AMP::Solver
 

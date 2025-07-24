@@ -417,7 +417,7 @@ void PetscKrylovSolver::resetOperator(
 
     // should add a mechanism for the linear operator to provide updated parameters for the
     // preconditioner operator though it's unclear where this might be necessary
-    if ( d_pNestedSolver ) {
+    if ( d_pNestedSolver && ( d_pOperator != d_pNestedSolver->getOperator() ) ) {
         d_pNestedSolver->resetOperator( params );
     }
 }

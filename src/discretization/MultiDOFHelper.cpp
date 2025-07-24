@@ -1,5 +1,5 @@
 #include "AMP/discretization/MultiDOFHelper.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/data/VectorData.h"
 
@@ -271,7 +271,7 @@ multiDOFHelper::multiDOFHelper( size_t gid )
 /********************************************************
  *  Write/Read from HDF5                                 *
  ********************************************************/
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.hpp"
 template<>
 void AMP::IO::writeHDF5<AMP::Discretization::multiDOFHelper>(
     hid_t fid, const std::string &name, const AMP::Discretization::multiDOFHelper &data )

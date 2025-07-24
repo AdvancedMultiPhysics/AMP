@@ -1,4 +1,4 @@
-#include "AMP/mesh/latex_visualization_tools.h"
+#include "AMP/mesh/testHelpers/latex_visualization_tools.h"
 #include "AMP/mesh/euclidean_geometry_tools.h"
 #include "AMP/utils/UtilityMacros.h"
 
@@ -34,7 +34,7 @@ void write_face( double const **f, std::ostream &os ) { write_cycle( 4, f, os );
 
 void write_triangle( double const **t, std::ostream &os ) { write_cycle( 3, t, os ); }
 
-void draw_line( double const *b, double const *e, const std::string &option, std::ostream &os )
+void draw_line( double const *b, double const *e, std::ostream &os, const std::string &option )
 {
     os << "\\draw[" << option << "]";
     write_point( b, os );
@@ -43,7 +43,7 @@ void draw_line( double const *b, double const *e, const std::string &option, std
     os << " ;\n";
 }
 
-void draw_line( unsigned int n, double const *l, const std::string &option, std::ostream &os )
+void draw_line( unsigned int n, double const *l, std::ostream &os, const std::string &option )
 {
     os << "\\draw[" << option << "]";
     for ( unsigned int i = 0; i < n; ++i ) {
@@ -53,7 +53,7 @@ void draw_line( unsigned int n, double const *l, const std::string &option, std:
     os << " ;\n";
 }
 
-void draw_face( hex8_element_t *e_ptr, unsigned int f, const std::string &option, std::ostream &os )
+void draw_face( hex8_element_t *e_ptr, unsigned int f, std::ostream &os, const std::string &option )
 {
     AMP_ASSERT( f < 6 );
     std::vector<double const *> sp_ptr( 4 );
@@ -65,7 +65,7 @@ void draw_face( hex8_element_t *e_ptr, unsigned int f, const std::string &option
     write_face( &( sp_ptr[0] ), os );
 }
 
-void draw_triangle( triangle_t *t_ptr, const std::string &option, std::ostream &os )
+void draw_triangle( triangle_t *t_ptr, std::ostream &os, const std::string &option )
 {
     std::vector<double const *> sp_ptr( 3 );
     for ( unsigned int i = 0; i < 3; ++i ) {
@@ -123,7 +123,7 @@ void draw_bounding_polyhedron( hex8_element_t *e_ptr,
             } else {
                 options[2 * f + t] += "fill=none,dotted";
             } // end if
-            draw_triangle( *( t_ptr + 2 * f + t ), options[2 * f + t], os );
+            draw_triangle( *( t_ptr + 2 * f + t ), os, options[2 * f + t] );
         } // end for t
     }     // end for f
 }
@@ -140,13 +140,13 @@ void draw_hex8_element( hex8_element_t *e_ptr, double const *point_of_view, std:
         } else {
             options[f] += "fill=none,dotted";
         } // end if
-        draw_face( e_ptr, f, options[f], os );
+        draw_face( e_ptr, f, os, options[f] );
     }
 }
 
 void draw_point( double const *p,
-                 const std::string &option,
                  std::ostream &os,
+                 const std::string &option,
                  const std::string &text )
 {
     os << "\\node[" << option << "] at ";

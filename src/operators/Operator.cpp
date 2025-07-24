@@ -38,12 +38,11 @@ Operator::Operator( std::shared_ptr<const OperatorParameters> params )
 
 void Operator::reset( std::shared_ptr<const OperatorParameters> params )
 {
-    AMP_INSIST( params, "NULL parameter" );
-
     // try and keep the next call the last in the function
     // so as not to override any parameters set through it
     // by accident
-    getFromInput( params->d_db );
+    if ( params )
+        getFromInput( params->d_db );
 }
 
 

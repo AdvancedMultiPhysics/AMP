@@ -121,18 +121,18 @@ void ColumnSolver::resetOperator( std::shared_ptr<const AMP::Operator::OperatorP
     if ( d_resetColumnOperator ) {
         d_pOperator->reset( params );
 
-        std::shared_ptr<SolverStrategyParameters> solverParams;
-
-        for ( auto &elem : d_Solvers ) {
-            elem->reset( solverParams );
-        }
     } else {
-        auto columnParams =
-            std::dynamic_pointer_cast<const AMP::Operator::ColumnOperatorParameters>( params );
-        AMP_INSIST( columnParams, "Dynamic cast failed!" );
+        if ( params ) {
+            auto columnParams =
+                std::dynamic_pointer_cast<const AMP::Operator::ColumnOperatorParameters>( params );
+            AMP_INSIST( columnParams, "Dynamic cast failed!" );
 
-        for ( unsigned int i = 0; i < d_Solvers.size(); i++ ) {
-            d_Solvers[i]->resetOperator( columnParams->d_OperatorParameters[i] );
+            for ( unsigned int i = 0; i < d_Solvers.size(); i++ ) {
+                d_Solvers[i]->resetOperator( columnParams->d_OperatorParameters[i] );
+            }
+        } else {
+            for ( auto &solver : d_Solvers )
+                solver->resetOperator( {} );
         }
     }
 }

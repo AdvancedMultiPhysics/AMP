@@ -1,7 +1,7 @@
 #ifndef included_AMP_Database_hpp
 #define included_AMP_Database_hpp
 
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/AMP_MPI_pack.hpp"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"

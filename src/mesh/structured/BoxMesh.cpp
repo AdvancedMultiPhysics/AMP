@@ -1,5 +1,5 @@
 #include "AMP/mesh/structured/BoxMesh.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/MultiIterator.h"

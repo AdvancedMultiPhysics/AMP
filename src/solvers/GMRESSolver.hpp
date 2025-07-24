@@ -488,22 +488,6 @@ void GMRESSolver<T>::backwardSolve( const int nr )
 }
 
 template<typename T>
-void GMRESSolver<T>::resetOperator(
-    std::shared_ptr<const AMP::Operator::OperatorParameters> params )
-{
-    if ( d_pOperator ) {
-        d_pOperator->reset( params );
-    }
-
-    // should add a mechanism for the linear operator to provide updated parameters for the
-    // preconditioner operator
-    // though it's unclear where this might be necessary
-    if ( d_pNestedSolver ) {
-        d_pNestedSolver->resetOperator( params );
-    }
-}
-
-template<typename T>
 void GMRESSolver<T>::computeInitialResidual( bool use_zero_guess,
                                              std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                                              std::shared_ptr<AMP::LinearAlgebra::Vector> u,

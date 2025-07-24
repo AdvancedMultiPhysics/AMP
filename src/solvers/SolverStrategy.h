@@ -154,13 +154,16 @@ public:
      * Set a nested solver, eg, Krylov for Newton, preconditioner for Krylov etc. Null op in base
      * class
      */
-    virtual void setNestedSolver( std::shared_ptr<SolverStrategy> ) {}
+    virtual void setNestedSolver( std::shared_ptr<SolverStrategy> solver )
+    {
+        d_pNestedSolver = solver;
+    }
 
     /**
      * Return a nested solver (eg preconditioner) if it exists. By default return a nullptr
      */
 
-    virtual std::shared_ptr<SolverStrategy> getNestedSolver( void ) { return nullptr; }
+    virtual std::shared_ptr<SolverStrategy> getNestedSolver( void ) { return d_pNestedSolver; }
 
     /**
      * Register the operator that the solver will use during solves
@@ -304,6 +307,9 @@ protected:
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_pFunctionScaling;
 
     std::shared_ptr<AMP::Operator::Operator> d_pOperator = nullptr;
+
+    //! nested solver used by this solver
+    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver = nullptr;
 
     std::shared_ptr<AMP::IO::Writer> d_writer = nullptr;
 

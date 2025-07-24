@@ -171,11 +171,11 @@ protected:
     mySubsetVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec,
                     std::shared_ptr<AMP::LinearAlgebra::Variable> var );
 
-    template<MechanicsNonlinearElement::MaterialUpdateType updateType>
-    void updateMaterialForElement( const AMP::Mesh::MeshElement & );
+    void updateMaterialForElement( MechanicsNonlinearElement::MaterialUpdateType,
+                                   const AMP::Mesh::MeshElement & );
 
-    template<MechanicsNonlinearUpdatedLagrangianElement::MaterialUpdateType updateType>
-    void updateMaterialForUpdatedLagrangianElement( const AMP::Mesh::MeshElement & );
+    void updateMaterialForUpdatedLagrangianElement( MechanicsNonlinearElement::MaterialUpdateType,
+                                                    const AMP::Mesh::MeshElement & );
 
     void updateMaterialForElementCommonFunction( const AMP::Mesh::MeshElement &,
                                                  std::vector<std::vector<double>> &,
@@ -245,31 +245,6 @@ protected:
     std::vector<std::vector<size_t>> d_dofIndices; /**< Primary DOF indices */
 };
 
-template<MechanicsNonlinearElement::MaterialUpdateType updateType>
-void MechanicsNonlinearFEOperator::updateMaterialForElement( const AMP::Mesh::MeshElement &elem )
-{
-    std::vector<std::vector<double>> elementInputVectors1( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-    std::vector<std::vector<double>> elementInputVectors_pre1(
-        Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-
-    updateMaterialForElementCommonFunction( elem, elementInputVectors1, elementInputVectors_pre1 );
-
-    d_mechNonlinElem->updateMaterialModel<updateType>( elementInputVectors1 );
-}
-
-template<MechanicsNonlinearUpdatedLagrangianElement::MaterialUpdateType updateType>
-void MechanicsNonlinearFEOperator::updateMaterialForUpdatedLagrangianElement(
-    const AMP::Mesh::MeshElement &elem )
-{
-    std::vector<std::vector<double>> elementInputVectors2( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-    std::vector<std::vector<double>> elementInputVectors_pre2(
-        Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-
-    updateMaterialForElementCommonFunction( elem, elementInputVectors2, elementInputVectors_pre2 );
-
-    d_mechNULElem->updateMaterialModel<updateType>( elementInputVectors2,
-                                                    elementInputVectors_pre2 );
-}
 } // namespace AMP::Operator
 
 #endif

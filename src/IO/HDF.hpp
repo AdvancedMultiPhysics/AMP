@@ -4,7 +4,7 @@
 #define included_AMP_HDF5_hpp
 
 #include "AMP/AMP_TPLs.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/HDF5_Class.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/TypeTraits.h"
