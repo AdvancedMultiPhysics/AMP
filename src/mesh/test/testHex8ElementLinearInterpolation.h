@@ -4,6 +4,7 @@
 #include "AMP/utils/UtilityMacros.h"
 
 #include <cmath>
+#include <functional>
 #include <iostream>
 
 
@@ -20,44 +21,37 @@ double my_function_no_cross_terms( double const *xyz )
 }
 
 unsigned int perform_battery_of_tests( hex8_element_t *volume_element,
-                                       double ( *my_function_to_call )( double const * ),
+                                       std::function<double( const double * )> fun,
                                        unsigned int n_random_candidate_points = 1000,
                                        double tol_abs                         = 1.0e-12,
                                        double tol_rel                         = 1.0e-12 )
 {
-    std::vector<double> my_function_at_support_points( 8 );
-    for ( unsigned int i = 0; i < 8; ++i ) {
-        my_function_at_support_points[i] =
-            ( *my_function_to_call )( volume_element->get_support_point( i ) );
-    } // end for i
+    std::vector<double> f_at_support_points( 8 );
+    for ( unsigned int i = 0; i < 8; ++i )
+        f_at_support_points[i] = fun( volume_element->get_support_point( i ) );
 
-    std::vector<double> candidate_point_local_coordinates( 3 ),
-        candidate_point_global_coordinates( 3 );
+
+    std::vector<double> local_coordinates( 3 ), global_coordinates( 3 );
     std::vector<double> basis_functions_values( 8 );
-    double interpolated_value, my_function_at_candidate_point, interpolation_error, tol;
+    double interpolated_value, f_at_candidate_point, interpolation_error, tol;
     unsigned int count_tests_failing = 0;
     for ( unsigned int i = 0; i < n_random_candidate_points; ++i ) {
-        for ( unsigned int j = 0; j < 3; ++j ) {
-            candidate_point_local_coordinates[j] = -1.0 + 2.0 * rand() / RAND_MAX;
-        }
+        for ( unsigned int j = 0; j < 3; ++j )
+            local_coordinates[j] = -1.0 + 2.0 * rand() / RAND_MAX;
 
-        hex8_element_t::get_basis_functions_values( &( candidate_point_local_coordinates[0] ),
-                                                    &( basis_functions_values[0] ) );
+        hex8_element_t::get_basis_functions_values( local_coordinates.data(),
+                                                    basis_functions_values.data() );
         interpolated_value = 0.0;
-        for ( unsigned int j = 0; j < 8; ++j ) {
-            interpolated_value += my_function_at_support_points[j] * basis_functions_values[j];
-        } // end for j
+        for ( unsigned int j = 0; j < 8; ++j )
+            interpolated_value += f_at_support_points[j] * basis_functions_values[j];
 
-        volume_element->map_local_to_global( &( candidate_point_local_coordinates[0] ),
-                                             &( candidate_point_global_coordinates[0] ) );
-        my_function_at_candidate_point =
-            ( *my_function_to_call )( &( candidate_point_global_coordinates[0] ) );
-        interpolation_error = fabs( interpolated_value - my_function_at_candidate_point );
-        tol                 = tol_abs + tol_rel * fabs( interpolated_value );
-        if ( interpolation_error > tol ) {
+        volume_element->map_local_to_global( local_coordinates.data(), global_coordinates.data() );
+        f_at_candidate_point = fun( global_coordinates.data() );
+        interpolation_error  = fabs( interpolated_value - f_at_candidate_point );
+        tol                  = tol_abs + tol_rel * fabs( interpolated_value );
+        if ( interpolation_error > tol )
             ++count_tests_failing;
-        }
-    } // end for i
+    }
     return count_tests_failing;
 }
 
