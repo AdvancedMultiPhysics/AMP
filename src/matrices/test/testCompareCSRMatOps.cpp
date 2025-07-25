@@ -34,7 +34,7 @@
 
 template<typename Config>
 void createMatrixAndVectors( AMP::UnitTest *ut,
-                             AMP::Utilities::Backend AccelerationBackend,
+                             AMP::Utilities::Backend backend,
                              std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                              std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
@@ -68,7 +68,7 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
 
     // Create the matrix parameters
     auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOF, rightDOF, comm, inVar, outVar, AccelerationBackend, getRow );
+        leftDOF, rightDOF, comm, inVar, outVar, backend, getRow );
 
     // Create the matrix
     auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Config>>( params );

@@ -4,6 +4,7 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Backend.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/memory.h"
 
@@ -447,134 +448,6 @@ private:
     uint32_t d_size;
     TYPE d_data[CAPACITY];
 };
-
-//! Enum to store the backend used for gpu acceleration
-enum class Backend : int8_t {
-    none     = -1,
-    serial   = 0,
-    hip_cuda = 1,
-    kokkos   = 2,
-    openMP   = 3,
-    openACC  = 4,
-    openCL   = 5,
-    raja     = 6
-};
-
-//! Structs for each backend
-namespace AccelerationBackend {
-struct Serial {
-};
-#ifdef USE_DEVICE
-struct Hip_Cuda {
-};
-#endif
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
-struct Kokkos {
-};
-#endif
-#ifdef USE_OPENMP
-struct OpenMP {
-};
-#endif
-#ifdef USE_OPENACC
-struct OpenACC {
-};
-#endif
-#ifdef USE_OPENCL
-struct OpenCL {
-};
-#endif
-#ifdef USE_RAJA
-struct RAJA {
-};
-#endif
-} // namespace AccelerationBackend
-
-
-static inline Backend getDefaultBackend( const MemoryType memory_location )
-{
-    if ( memory_location == MemoryType::unregistered || memory_location == MemoryType::host ) {
-#ifdef USE_OPENMP
-        return Backend::openMP;
-#else
-        return Backend::serial;
-#endif
-    } else if ( memory_location == MemoryType::managed || memory_location == MemoryType::device ) {
-        return Backend::hip_cuda;
-    }
-    return Backend::none;
-}
-
-static inline std::string getString( const Backend backend )
-{
-    if ( backend == Backend::serial ) {
-        return "serial";
-    } else if ( backend == Backend::hip_cuda ) {
-        return "hip_cuda";
-    } else if ( backend == Backend::kokkos ) {
-        return "kokkos";
-    } else if ( backend == Backend::openMP ) {
-        return "openMP";
-    } else if ( backend == Backend::openACC ) {
-        return "openACC";
-    } else if ( backend == Backend::openCL ) {
-        return "openCL";
-    } else if ( backend == Backend::raja ) {
-        return "raja";
-    }
-    AMP_ERROR( "Unknown backend" );
-    return "none";
-}
-
-static inline Backend backendFromString( const std::string &name )
-{
-    auto lcname( name );
-    std::transform( lcname.begin(), lcname.end(), lcname.begin(), []( unsigned char c ) {
-        return std::tolower( c );
-    } );
-
-    if ( lcname == "serial" ) {
-        return Backend::serial;
-    } else if ( name == "hip_cuda" ) {
-#ifdef USE_DEVICE
-        return Backend::hip_cuda;
-#else
-        AMP_ERROR( "HIP or CUDA need to be loaded to be able to use hip_cuda backend." );
-#endif
-    } else if ( lcname == "kokkos" ) {
-#if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
-        return Backend::kokkos;
-#else
-        AMP_ERROR( "KOKKOS need to be loaded to be able to use kokkos backend." );
-#endif
-    } else if ( lcname == "openmp" ) {
-#ifdef USE_OPENMP
-        return Backend::openMP;
-#else
-        AMP_ERROR( "OpenMP need to be loaded to be able to use OpenMP backend." );
-#endif
-    } else if ( lcname == "openacc" ) {
-#ifdef USE_OPENACC
-        return Backend::openACC;
-#else
-        AMP_ERROR( "OpenACC need to be loaded to be able to use OpenACC backend." );
-#endif
-    } else if ( lcname == "opencl" ) {
-#ifdef USE_OPENCL
-        return Backend::openCL;
-#else
-        AMP_ERROR( "OpenCL need to be loaded to be able to use OpenCL backend." );
-#endif
-    } else if ( lcname == "raja" ) {
-#ifdef USE_OPENCL
-        return Backend::raja;
-#else
-        AMP_ERROR( "RAJA need to be loaded to be able to use RAJA backend." );
-#endif
-    }
-    AMP_ERROR( "Unknown backend" );
-    return Backend::none;
-}
 
 
 void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
