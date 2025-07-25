@@ -28,15 +28,15 @@ namespace AMP::Utilities {
     INSTANTIATE_ALLOCATOR( float, float, backend )  \
     INSTANTIATE_ALLOCATOR( double, double, backend )
 
-INSTANTIATE_TYPES( AMP::Utilities::AccelerationBackend::Serial )
+INSTANTIATE_TYPES( AMP::Utilities::Backend::Serial )
 #ifdef USE_OPENMP
-INSTANTIATE_TYPES( AMP::Utilities::AccelerationBackend::OpenMP )
+INSTANTIATE_TYPES( AMP::Utilities::Backend::OpenMP )
 #endif
 #if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
-INSTANTIATE_TYPES( AMP::Utilities::AccelerationBackend::Kokkos )
+INSTANTIATE_TYPES( AMP::Utilities::Backend::Kokkos )
 #endif
 #ifdef USE_DEVICE
-INSTANTIATE_TYPES( AMP::Utilities::AccelerationBackend::Hip_Cuda )
+INSTANTIATE_TYPES( AMP::Utilities::Backend::Hip_Cuda )
 #endif
 
 

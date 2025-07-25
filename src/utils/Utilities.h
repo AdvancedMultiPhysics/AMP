@@ -172,10 +172,10 @@ inline bool approx_equal_abs( const T &v1, const T &v2, const T tol = type_defau
  * @param[inout] vec_out  The outgoing vector to with the up/down-casted values from vec_in
  *                        It is assumed that vec_out is properly allocated
  */
-template<typename T1, typename T2, typename Backend, class Allocator>
+template<typename T1, typename T2, Backend, class Allocator>
 void copyCast( size_t len, const T1 *vec_in, T2 *vec_out );
 
-template<typename T1, typename T2, typename Backend>
+template<typename T1, typename T2, Backend>
 void copyCast( size_t len, const T1 *vec_in, T2 *vec_out );
 
 

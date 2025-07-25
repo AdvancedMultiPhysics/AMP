@@ -23,37 +23,6 @@ enum class Backend : int8_t {
 };
 
 
-//! Structs for each backend
-namespace AccelerationBackend {
-struct Serial {
-};
-#ifdef USE_DEVICE
-struct Hip_Cuda {
-};
-#endif
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
-struct Kokkos {
-};
-#endif
-#ifdef USE_OPENMP
-struct OpenMP {
-};
-#endif
-#ifdef USE_OPENACC
-struct OpenACC {
-};
-#endif
-#ifdef USE_OPENCL
-struct OpenCL {
-};
-#endif
-#ifdef USE_RAJA
-struct RAJA {
-};
-#endif
-} // namespace AccelerationBackend
-
-
 Backend getDefaultBackend( const MemoryType memory_location );
 
 std::string getString( const Backend backend );

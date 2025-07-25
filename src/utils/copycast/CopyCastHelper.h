@@ -16,7 +16,7 @@ namespace AMP::Utilities {
  *                        It is assumed that vec_out is properly allocated
  * @param[in]    len      Length of above vectors
  */
-template<typename T1, typename T2, typename Backend, class MemoryType>
+template<typename T1, typename T2, AMP::Utilities::Backend, class MemoryType>
 struct copyCast_ {
     static void apply( size_t, const T1 *, T2 * ) { AMP_ERROR( "Not implemented" ); }
 };

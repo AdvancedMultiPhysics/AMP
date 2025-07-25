@@ -533,10 +533,9 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast(
 
         Kokkos::deep_copy( Y_v, X_v );
     } else {
-        AMP::Utilities::copyCast<scalar_t_in,
-                                 scalar_t_out,
-                                 AMP::Utilities::AccelerationBackend::Kokkos,
-                                 allocator_type>( X->numberOfNonZeros(), X_coeffs, Y_coeffs );
+        AMP::Utilities::
+            copyCast<scalar_t_in, scalar_t_out, AMP::Utilities::Backend::Kokkos, allocator_type>(
+                X->numberOfNonZeros(), X_coeffs, Y_coeffs );
     }
 }
 

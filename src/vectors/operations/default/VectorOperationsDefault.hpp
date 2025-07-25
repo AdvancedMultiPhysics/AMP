@@ -156,7 +156,7 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
-    using DefaultBackend = AMP::Utilities::AccelerationBackend::Serial;
+    constexpr auto DefaultBackend = AMP::Utilities::Backend::Serial;
     if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
         for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
             auto ydata   = y.getRawDataBlock<TYPE>( block_id );

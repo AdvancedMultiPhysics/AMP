@@ -131,7 +131,7 @@ void VectorOperationsDevice<TYPE>::copy( const VectorData &x, VectorData &y )
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
-    using Hip_Cuda = AMP::Utilities::AccelerationBackend::Hip_Cuda;
+    constexpr auto Hip_Cuda = AMP::Utilities::Backend::Hip_Cuda;
     if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
         for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
             auto ydata = y.getRawDataBlock<TYPE>( block_id );
