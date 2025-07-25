@@ -65,7 +65,7 @@ void test_mapping_face_to_local( hex8_element_t *volume_element,
                 computed_local_coordinates_on_face, local_coordinates_on_face, error_vector );
             AMP_ASSERT( compute_vector_norm( error_vector ) < tol );
         } // end for f
-    } // end for i
+    }     // end for i
 }
 
 void test_basis_functions_values_on_face( hex8_element_t *volume_element,
@@ -89,8 +89,8 @@ void test_basis_functions_values_on_face( hex8_element_t *volume_element,
                 AMP_ASSERT( std::abs( basis_functions_values_on_face[v] -
                                       basis_functions_values[face_ordering[v]] ) < tol );
             } // end for v
-        } // end for f
-    } // end for i
+        }     // end for f
+    }         // end for i
 }
 
 void test_mapping_basis_functions_values_to_local_coordinates_on_face(
@@ -147,7 +147,7 @@ void draw_lines_on_triangle( triangle_t *t, std::ostream &os )
             } // end for j
             draw_line( b, e, os );
         } // end for i
-    } // end for k
+    }     // end for k
 }
 
 void draw_lines_on_face( unsigned int f, hex8_element_t *volume_element, std::ostream &os )
