@@ -18,7 +18,7 @@
 namespace AMP::Utilities {
 
 template<typename T1, typename T2>
-struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::Hip_Cuda, AMP::HostAllocator<void>> {
+struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::HostAllocator<void>> {
     void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
@@ -35,10 +35,7 @@ struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::Hip_Cuda, AMP::Hos
 };
 
 template<typename T1, typename T2>
-struct copyCast_<T1,
-                 T2,
-                 AMP::Utilities::AccelerationBackend::Hip_Cuda,
-                 AMP::ManagedAllocator<void>> {
+struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::ManagedAllocator<void>> {
     void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
@@ -55,10 +52,7 @@ struct copyCast_<T1,
 };
 
 template<typename T1, typename T2>
-struct copyCast_<T1,
-                 T2,
-                 AMP::Utilities::AccelerationBackend::Hip_Cuda,
-                 AMP::DeviceAllocator<void>> {
+struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::DeviceAllocator<void>> {
     void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )

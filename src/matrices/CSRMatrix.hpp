@@ -33,7 +33,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixParametersBase> params ) : M
 {
     bool set_ops = false;
 
-    if ( params->d_backend == AMP::Utilities::Backend::hip_cuda ) {
+    if ( params->d_backend == AMP::Utilities::Backend::Hip_Cuda ) {
 #ifdef USE_DEVICE
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
         set_ops     = true;
@@ -42,7 +42,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixParametersBase> params ) : M
 #endif
     }
 
-    if ( params->d_backend == AMP::Utilities::Backend::kokkos ) {
+    if ( params->d_backend == AMP::Utilities::Backend::Kokkos ) {
 #if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
         set_ops     = true;
@@ -65,7 +65,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixData> data ) : Matrix( data 
     auto backend = data->getBackend();
     bool set_ops = false;
 
-    if ( backend == AMP::Utilities::Backend::hip_cuda ) {
+    if ( backend == AMP::Utilities::Backend::Hip_Cuda ) {
 #ifdef USE_DEVICE
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
         set_ops     = true;
@@ -74,7 +74,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixData> data ) : Matrix( data 
 #endif
     }
 
-    if ( backend == AMP::Utilities::Backend::kokkos ) {
+    if ( backend == AMP::Utilities::Backend::Kokkos ) {
 #if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
         set_ops     = true;

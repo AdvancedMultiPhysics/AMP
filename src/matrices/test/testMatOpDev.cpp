@@ -74,11 +74,11 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
         return _rightDOF->getRowDOFs( id );
     };
 
-// clang-format off
+    // clang-format off
 #ifdef USE_DEVICE
-    auto backend = AMP::Utilities::Backend::hip_cuda;
+    auto backend = AMP::Utilities::Backend::Hip_Cuda;
 #else
-    auto backend = AMP::Utilities::Backend::serial;
+    auto backend = AMP::Utilities::Backend::Serial;
 #endif
     // clang-format on
 

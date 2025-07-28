@@ -101,7 +101,7 @@ void VectorOperationsOpenMP<TYPE>::copy( const VectorData &x, VectorData &y )
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
-    using OpenMP = AMP::Utilities::AccelerationBackend::OpenMP;
+    constexpr auto OpenMP = AMP::Utilities::Backend::OpenMP;
     if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
         for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
             auto ydata = y.getRawDataBlock<TYPE>( block_id );

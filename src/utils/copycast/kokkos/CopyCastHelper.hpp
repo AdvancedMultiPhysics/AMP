@@ -26,7 +26,7 @@ typedef Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> dev_range_policy;
  *                        It is assumed that vec_out is properly allocated
  */
 template<typename T1, typename T2>
-struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::Kokkos, AMP::HostAllocator<void>> {
+struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::HostAllocator<void>> {
     void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
@@ -51,7 +51,7 @@ struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::Kokkos, AMP::HostA
 #ifdef USE_DEVICE
 
 template<typename T1, typename T2>
-struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::Kokkos, AMP::ManagedAllocator<void>> {
+struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::ManagedAllocator<void>> {
     void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
     {
     #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
@@ -75,7 +75,7 @@ struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::Kokkos, AMP::Manag
 };
 
 template<typename T1, typename T2>
-struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::Kokkos, AMP::DeviceAllocator<void>> {
+struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::DeviceAllocator<void>> {
     void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
     {
     #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
