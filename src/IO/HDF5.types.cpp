@@ -513,6 +513,7 @@ INSTANTIATE_DEFAULT( long double );
 INSTANTIATE_DEFAULT( std::byte );
 #if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 )
 INSTANTIATE_DEFAULT( long int );
+INSTANTIATE_DEFAULT( unsigned long int );
 #endif
 
 
