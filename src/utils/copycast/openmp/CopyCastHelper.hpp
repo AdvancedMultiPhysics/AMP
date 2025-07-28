@@ -18,7 +18,7 @@ namespace AMP::Utilities {
  *                        It is assumed that vec_out is properly allocated
  */
 template<typename T1, typename T2>
-struct copyCast_<T1, T2, AMP::Utilities::AccelerationBackend::OpenMP, AMP::HostAllocator<void>> {
+struct copyCast_<T1, T2, AMP::Utilities::Backend::OpenMP, AMP::HostAllocator<void>> {
     static void apply( size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )

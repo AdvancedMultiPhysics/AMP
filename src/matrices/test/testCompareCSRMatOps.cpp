@@ -34,7 +34,7 @@
 
 template<typename Config>
 void createMatrixAndVectors( AMP::UnitTest *ut,
-                             AMP::Utilities::Backend AccelerationBackend,
+                             AMP::Utilities::Backend backend,
                              std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                              std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
@@ -68,7 +68,7 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
 
     // Create the matrix parameters
     auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOF, rightDOF, comm, inVar, outVar, AccelerationBackend, getRow );
+        leftDOF, rightDOF, comm, inVar, outVar, backend, getRow );
 
     // Create the matrix
     auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Config>>( params );
@@ -98,7 +98,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::Vector> dev_x              = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> dev_y              = nullptr;
     createMatrixAndVectors<Config>(
-        ut, AMP::Utilities::Backend::hip_cuda, dofManager, dev_mat, dev_x, dev_y );
+        ut, AMP::Utilities::Backend::Hip_Cuda, dofManager, dev_mat, dev_x, dev_y );
 
     fillWithPseudoLaplacian( dev_mat, dofManager );
     dev_mat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -114,7 +114,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::Vector> kks_x              = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> kks_y              = nullptr;
     createMatrixAndVectors<Config>(
-        ut, AMP::Utilities::Backend::kokkos, dofManager, kks_mat, kks_x, kks_y );
+        ut, AMP::Utilities::Backend::Kokkos, dofManager, kks_mat, kks_x, kks_y );
 
     fillWithPseudoLaplacian( kks_mat, dofManager );
     kks_mat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );

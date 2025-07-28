@@ -202,10 +202,9 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copyCast(
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::copy(
             X->numberOfNonZeros(), X_coeffs, Y_coeffs );
     } else {
-        AMP::Utilities::copyCast<scalar_t_in,
-                                 scalar_t_out,
-                                 AMP::Utilities::AccelerationBackend::Hip_Cuda,
-                                 allocator_type>( X->numberOfNonZeros(), X_coeffs, Y_coeffs );
+        AMP::Utilities::
+            copyCast<scalar_t_in, scalar_t_out, AMP::Utilities::Backend::Hip_Cuda, allocator_type>(
+                X->numberOfNonZeros(), X_coeffs, Y_coeffs );
     }
 }
 

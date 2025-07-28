@@ -23,7 +23,7 @@ public:
         : d_comm( comm ),
           d_VariableLeft( std::make_shared<Variable>( "" ) ),
           d_VariableRight( std::make_shared<Variable>( "" ) ),
-          d_backend( AMP::Utilities::Backend::none )
+          d_backend( AMP::Utilities::Backend::Serial )
     {
     }
 
@@ -50,7 +50,7 @@ public:
         : d_comm( comm ),
           d_VariableLeft( varLeft ),
           d_VariableRight( varRight ),
-          d_backend( AMP::Utilities::Backend::none )
+          d_backend( AMP::Utilities::Backend::Serial )
     {
     }
 

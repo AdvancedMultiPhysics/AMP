@@ -100,7 +100,7 @@ void Operator::getFromInput( std::shared_ptr<AMP::Database> db )
         auto memLoc       = db->getWithDefault<std::string>( "MemoryLocation", "host" );
         d_memory_location = AMP::Utilities::memoryLocationFromString( memLoc );
     }
-    if ( d_backend == AMP::Utilities::Backend::none ) {
+    if ( d_backend == AMP::Utilities::Backend::Serial ) {
         if ( db->keyExists( "AccelerationBackend" ) ) {
             auto bcknd = db->getString( "AccelerationBackend" );
             d_backend  = AMP::Utilities::backendFromString( bcknd );
@@ -115,7 +115,7 @@ void Operator::setMemoryAndBackendParameters( std::shared_ptr<AMP::Database> db 
     if ( d_memory_location != AMP::Utilities::MemoryType::none )
         db->putScalar<std::string>( "MemoryLocation",
                                     AMP::Utilities::getString( d_memory_location ) );
-    if ( d_backend != AMP::Utilities::Backend::none )
+    if ( d_backend != AMP::Utilities::Backend::Serial )
         db->putScalar<std::string>( "AccelerationBackend", AMP::Utilities::getString( d_backend ) );
 }
 

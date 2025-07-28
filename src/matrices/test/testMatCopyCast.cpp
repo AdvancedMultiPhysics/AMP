@@ -48,7 +48,7 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
     // clang-format off
 #ifdef USE_DEVICE
-    // using  AMP::ManagedAllocator<void>;
+    // using AMP::ManagedAllocator<void>;
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(
@@ -190,14 +190,14 @@ void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
 
     // clang-format off
     using AMP::LinearAlgebra::alloc;
-    testCopyCast<alloc::host>( ut, "Serial Host", AMP::Utilities::Backend::serial, scalarDOFs );
+    testCopyCast<alloc::host>( ut, "Serial Host", AMP::Utilities::Backend::Serial, scalarDOFs );
 #ifdef USE_DEVICE
-    testCopyCast<alloc::managed>( ut, "Hip_Cuda Managed", AMP::Utilities::Backend::hip_cuda, scalarDOFs );
+    testCopyCast<alloc::managed>( ut, "Hip_Cuda Managed", AMP::Utilities::Backend::Hip_Cuda, scalarDOFs );
 #endif
 #if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
-    testCopyCast<alloc::host>( ut, "Kokkos Host", AMP::Utilities::Backend::kokkos, scalarDOFs );
+    testCopyCast<alloc::host>( ut, "Kokkos Host", AMP::Utilities::Backend::Kokkos, scalarDOFs );
     #ifdef USE_DEVICE
-    testCopyCast<alloc::managed>( ut, "Kokkos Managed", AMP::Utilities::Backend::kokkos, scalarDOFs );
+    testCopyCast<alloc::managed>( ut, "Kokkos Managed", AMP::Utilities::Backend::Kokkos, scalarDOFs );
     #endif
 #endif
 }
