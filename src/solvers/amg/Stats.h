@@ -12,10 +12,11 @@
 #include "AMP/matrices/CSRVisit.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/amg/Cycle.h"
-#include "AMP/solvers/hypre/HypreSolver.h"
 
-#include <_hypre_parcsr_ls.h>
-
+#if defined( AMP_USE_HYPRE )
+    #include "AMP/solvers/hypre/HypreSolver.h"
+    #include <_hypre_parcsr_ls.h>
+#endif
 
 namespace AMP::Solver::AMG {
 
@@ -135,20 +136,25 @@ inline void print_summary( std::vector<Level> &ml, SolverStrategy &cg_solver )
         } );
     }
 
-    auto hypre_solver            = dynamic_cast<HypreSolver &>( cg_solver ).getHYPRESolver();
-    hypre_ParAMGData *amg_data   = (hypre_ParAMGData *) hypre_solver;
-    auto num_levels              = hypre_ParAMGDataNumLevels( amg_data );
-    hypre_ParCSRMatrix **A_array = hypre_ParAMGDataAArray( amg_data );
+#if defined( AMP_USE_HYPRE )
+    auto hsolver = dynamic_cast<HypreSolver *>( &cg_solver );
+    if ( hsolver ) {
+        auto hypre_solver            = hsolver->getHYPRESolver();
+        hypre_ParAMGData *amg_data   = (hypre_ParAMGData *) hypre_solver;
+        auto num_levels              = hypre_ParAMGDataNumLevels( amg_data );
+        hypre_ParCSRMatrix **A_array = hypre_ParAMGDataAArray( amg_data );
 
-    for ( int lvl = 1; lvl < num_levels; ++lvl ) {
-        AMP_MPI comm( hypre_ParCSRMatrixComm( A_array[lvl] ) );
-        nnz.push_back( hypre_ParCSRMatrixNumNonzeros( A_array[lvl] ) );
-        nrows.push_back( hypre_ParCSRMatrixGlobalNumRows( A_array[lvl] ) );
-        nprocs.push_back( comm.getSize() );
-        std::size_t my_nrows_local = hypre_ParCSRMatrixNumRows( A_array[lvl] );
-        nrows_local.push_back(
-            { comm.maxReduce( my_nrows_local ), comm.minReduce( my_nrows_local ) } );
+        for ( int lvl = 1; lvl < num_levels; ++lvl ) {
+            AMP_MPI comm( hypre_ParCSRMatrixComm( A_array[lvl] ) );
+            nnz.push_back( hypre_ParCSRMatrixNumNonzeros( A_array[lvl] ) );
+            nrows.push_back( hypre_ParCSRMatrixGlobalNumRows( A_array[lvl] ) );
+            nprocs.push_back( comm.getSize() );
+            std::size_t my_nrows_local = hypre_ParCSRMatrixNumRows( A_array[lvl] );
+            nrows_local.push_back(
+                { comm.maxReduce( my_nrows_local ), comm.minReduce( my_nrows_local ) } );
+        }
     }
+#endif
 
     auto total_nnz   = std::accumulate( nnz.begin(), nnz.end(), 0 );
     auto total_nrows = std::accumulate( nrows.begin(), nrows.end(), 0 );

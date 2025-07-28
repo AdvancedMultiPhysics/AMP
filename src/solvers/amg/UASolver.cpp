@@ -83,6 +83,24 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     auto mat = linop->getMatrix();
     AMP_INSIST( mat, "matrix cannot be NULL" );
 
+    // verify this is actually a CSRMatrix
+    const auto mode = mat->mode();
+    AMP_INSIST( mode < std::numeric_limits<std::uint16_t>::max(),
+                "SASolver::registerOperator: Must pass in linear operator in CSRMatrix format" );
+
+    // determine the memory location from the mode
+    const auto csr_mode = static_cast<LinearAlgebra::csr_mode>( mode );
+    auto csr_alloc      = LinearAlgebra::get_alloc( csr_mode );
+    if ( csr_alloc == LinearAlgebra::alloc::host ) {
+        d_mem_loc = Utilities::MemoryType::host;
+    } else if ( csr_alloc == LinearAlgebra::alloc::managed ) {
+        d_mem_loc = Utilities::MemoryType::managed;
+    } else if ( csr_alloc == LinearAlgebra::alloc::device ) {
+        d_mem_loc = Utilities::MemoryType::device;
+    } else {
+        AMP_ERROR( "Unrecognized memory location" );
+    }
+
     d_levels.clear();
     d_levels.emplace_back().A       = linop;
     d_levels.back().pre_relaxation  = create_relaxation( linop, d_pre_relax_params );
@@ -102,7 +120,8 @@ void UASolver::makeCoarseSolver()
 
 
 coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop,
-                                   const PairwiseCoarsenSettings &coarsen_settings )
+                                   const PairwiseCoarsenSettings &coarsen_settings,
+                                   std::shared_ptr<Operator::OperatorParameters> op_params )
 {
     if ( d_implicit_RAP ) {
         if ( !d_aggregator )
@@ -115,9 +134,6 @@ coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop
     auto R  = P->transpose();
     auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
     auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
-
-    auto op_db     = std::make_shared<Database>( "UASolver::Internal" );
-    auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 
     auto make_op = [=]( auto mat ) {
         auto op = std::make_shared<Operator::LinearOperator>( op_params );
@@ -132,6 +148,15 @@ coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop
 void UASolver::setup()
 {
     PROFILE( "UASolver::setup" );
+
+    auto op_db = std::make_shared<Database>( "UASolver::Internal" );
+    if ( d_mem_loc == Utilities::MemoryType::host ) {
+        op_db->putScalar<std::string>( "memory_location", "host" );
+    } else {
+        AMP_ERROR( "UASolver: Only host memory is supported currently" );
+    }
+    auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
+
     auto coarse_too_small = [&]( std::shared_ptr<AMP::Operator::Operator> op ) {
         auto linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( op );
         AMP_DEBUG_ASSERT( linop );
@@ -148,7 +173,8 @@ void UASolver::setup()
     coarse_settings.checkdd = false; // checkdd only used on fine grid
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         auto &fine_level = d_levels.back();
-        auto [R, Ac, P]  = coarsen( fine_level.A, ( i == 0 ? fine_settings : coarse_settings ) );
+        auto [R, Ac, P] =
+            coarsen( fine_level.A, ( i == 0 ? fine_settings : coarse_settings ), op_params );
         if ( !Ac )
             break;
 

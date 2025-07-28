@@ -42,8 +42,10 @@ void linearThermalTest( AMP::UnitTest *ut,
               << ",  backend: " << accelerationBackend << ",  memory: " << memoryLocation
               << ", repetitions: " << nReps << std::endl;
 
-    // SASolver does not support any type of device memory yet
-    if ( inputFileName.find( "SASolver" ) != std::string::npos && memoryLocation != "host" ) {
+    // SASolver and UASolver do not support any type of device memory yet
+    if ( ( inputFileName.find( "SASolver" ) != std::string::npos ||
+           inputFileName.find( "UASolver" ) != std::string::npos ) &&
+         memoryLocation != "host" ) {
         ut->expected_failure( "Skipping SASolver on non-host memory" );
         return;
     }
