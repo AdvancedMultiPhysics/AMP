@@ -2,6 +2,7 @@
 #define included_AMP_GhostDataHelper_hpp
 
 #include "AMP/IO/RestartManager.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/data/GhostDataHelper.h"
 
 #include <cstring>
