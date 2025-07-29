@@ -373,7 +373,7 @@ template<class TYPE, class Allocator>
 size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const typeID &id ) const
 {
     if ( id == getTypeID<TYPE>() ) {
-        std::memcpy( vals, d_Ghosts, d_ghostSize * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::copy_n( d_Ghosts, d_ghostSize, vals );
     } else {
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }

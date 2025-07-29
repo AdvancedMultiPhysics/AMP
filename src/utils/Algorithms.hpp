@@ -37,11 +37,25 @@ void Algorithms<TYPE>::fill_n( TYPE *x, const size_t N, const TYPE alpha )
 template<typename TYPE>
 void Algorithms<TYPE>::copy_n( TYPE *x, const size_t N, TYPE *y )
 {
-    if ( getMemoryType( x ) < MemoryType::device ) {
+    const auto xmtype = getMemoryType( x );
+    const auto ymtype = getMemoryType( y );
+    if ( xmtype <= MemoryType::host && ymtype <= MemoryType::host ) {
         std::copy( x, x + N, y );
-    } else {
+    } else if ( xmtype >= MemoryType::managed && ymtype >= MemoryType::managed ) {
 #ifdef USE_DEVICE
         thrust::copy_n( thrust::device, x, N, y );
+#else
+        AMP_ERROR( "Invalid memory type" );
+#endif
+    } else if ( xmtype <= MemoryType::host && ymtype >= MemoryType::managed ) {
+#ifdef USE_DEVICE
+        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyHostToDevice );
+#else
+        AMP_ERROR( "Invalid memory type" );
+#endif
+    } else {
+#ifdef USE_DEVICE
+        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyDeviceToHost );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
