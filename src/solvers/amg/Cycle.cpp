@@ -69,7 +69,7 @@ void kappa_kcycle( size_t lvl,
     auto correction = flevel.correction;
     clevel.P->apply( coarse_x, correction );
     x->add( *x, *correction );
-    x->makeConsistent();
+    x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
     flevel.post_relaxation->apply( b, x );
     ++flevel.nrelax;
 }

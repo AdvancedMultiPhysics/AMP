@@ -447,7 +447,6 @@ struct AggregateInjection : AMP::Operator::Operator {
         }
         };
         yvec->setUpdateStatus( LinearAlgebra::UpdateState::LOCAL_CHANGED );
-        yvec->makeConsistent();
     }
 
     const aggT_type &aggregateT() const { return *d_aggregatesT; }
