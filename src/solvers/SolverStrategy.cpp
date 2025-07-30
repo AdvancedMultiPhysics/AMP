@@ -79,8 +79,9 @@ void SolverStrategy::resetOperator(
 
 void SolverStrategy::reset( std::shared_ptr<SolverStrategyParameters> params )
 {
+    // trying to separate out reset of operators from reset of solvers
     // this should be refactored so that operator params can be passed on
-    resetOperator( {} );
+    //    resetOperator( {} );
 
     // this should be refactored so that only preconditioner specific parameters are passed on
     if ( d_pNestedSolver ) {
