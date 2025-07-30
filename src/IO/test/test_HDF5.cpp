@@ -34,8 +34,8 @@ static inline void record( bool pass, const std::string &name, AMP::UnitTest &ut
 
 // Structure to test HDF5 compounds
 struct compoundStruct {
-    compoundStruct()                         = default;
-    compoundStruct( const compoundStruct & ) = default;
+    compoundStruct()                                    = default;
+    compoundStruct( const compoundStruct & )            = default;
     compoundStruct &operator=( const compoundStruct & ) = default;
     compoundStruct( int x, float y, double z ) : a( x ), b( y ), c( z ) {}
     bool operator==( const compoundStruct &x ) const { return x.a == a && x.b == b && x.c == c; }
@@ -160,7 +160,7 @@ public:
     template<class Generator>
     std::complex<double> operator()( Generator &g )
     {
-        std::uniform_real_distribution<double> dist( 0, 1 );
+        static std::uniform_real_distribution<double> dist( 0, 1 );
         return { dist( g ), dist( g ) };
     }
 };
@@ -170,8 +170,26 @@ public:
     template<class Generator>
     char operator()( Generator &g )
     {
-        std::uniform_int_distribution<int> dist( 32, 126 );
+        static std::uniform_int_distribution<int> dist( 32, 126 );
         return dist( g );
+    }
+};
+template<class TYPE>
+class random_integral
+{
+public:
+    template<class Generator>
+    TYPE operator()( Generator &g )
+    {
+        if constexpr ( std::is_signed_v<TYPE> ) {
+            static std::uniform_int_distribution<long long> dist(
+                std::numeric_limits<TYPE>::min(), std::numeric_limits<TYPE>::max() );
+            return dist( g );
+        } else {
+            static std::uniform_int_distribution<unsigned long long> dist(
+                std::numeric_limits<TYPE>::min(), std::numeric_limits<TYPE>::max() );
+            return dist( g );
+        }
     }
 };
 class random_string
@@ -180,8 +198,8 @@ public:
     template<class Generator>
     std::string operator()( Generator &g )
     {
-        std::uniform_int_distribution<int> length( 3, 10 );
-        std::uniform_int_distribution<int> dist( 32, 126 );
+        static std::uniform_int_distribution<int> length( 3, 10 );
+        static std::uniform_int_distribution<int> dist( 32, 126 );
         std::string str;
         str.resize( length( g ) );
         for ( size_t i = 0; i < str.size(); i++ )
@@ -195,8 +213,8 @@ public:
     template<class Generator>
     compoundStruct operator()( Generator &g )
     {
-        std::uniform_int_distribution<int> dist_i( 3, 10 );
-        std::uniform_real_distribution<double> dist_d( 0, 1 );
+        static std::uniform_int_distribution<int> dist_i( 3, 10 );
+        static std::uniform_real_distribution<double> dist_d( 0, 1 );
         return compoundStruct( dist_i( g ), dist_d( g ), dist_d( g ) );
     }
 };
@@ -218,8 +236,7 @@ public:
             random_char dist;
             fill( dist, gen );
         } else if constexpr ( std::is_integral_v<TYPE> ) {
-            std::uniform_int_distribution<TYPE> dist( std::numeric_limits<TYPE>::min(),
-                                                      std::numeric_limits<TYPE>::max() );
+            random_integral<TYPE> dist;
             fill( dist, gen );
         } else if constexpr ( std::is_floating_point_v<TYPE> ) {
             std::uniform_real_distribution<TYPE> dist( 0, 1 );

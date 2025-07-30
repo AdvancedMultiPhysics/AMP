@@ -14,6 +14,8 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
+#include <numeric>
+
 
 class FunctionOperator : public AMP::Operator::Operator
 {
