@@ -1024,26 +1024,15 @@ PetscErrorCode PetscSNESSolver::setupPreconditioner( PC pc )
     AMP_ASSERT( snesSolver );
     checkErr( SNESGetSolution( snesSolver->getSNESSolver(), &current_solution ) );
 
-    auto soln = PETSC::getAMP( current_solution );
-
-    auto op = snesSolver->getOperator();
-    AMP_ASSERT( op );
-
-    auto operatorParameters = op->getParameters( "Jacobian", soln );
-    AMP_ASSERT( operatorParameters );
-
     auto krylovSolver = snesSolver->getKrylovSolver();
     AMP_ASSERT( krylovSolver );
 
     auto preconditioner = krylovSolver->getNestedSolver();
     AMP_ASSERT( preconditioner );
 
-    auto pcOperator = preconditioner->getOperator();
-    AMP_ASSERT( pcOperator );
-    pcOperator->reset( operatorParameters );
-
     // preconditioners like MG might need to rebuild their hierarchies
-    // once the preconditioning operator has been reset
+    // note that at present we are passing in a null parameter object
+    // in future things like the solution vector might be appropriate
     preconditioner->reset( {} );
 
     return ierr;
