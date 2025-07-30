@@ -2,6 +2,7 @@
 #define included_AMP_GhostDataHelper_hpp
 
 #include "AMP/IO/RestartManager.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/data/GhostDataHelper.h"
 
 #include <cstring>
@@ -373,7 +374,8 @@ template<class TYPE, class Allocator>
 size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const typeID &id ) const
 {
     if ( id == getTypeID<TYPE>() ) {
-        std::memcpy( vals, d_Ghosts, d_ghostSize * sizeof( TYPE ) );
+        auto dst = reinterpret_cast<TYPE *>( vals );
+        AMP::Utilities::Algorithms<TYPE>::copy_n( d_Ghosts, d_ghostSize, dst );
     } else {
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
