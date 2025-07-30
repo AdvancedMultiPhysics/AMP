@@ -1016,13 +1016,11 @@ PetscErrorCode PetscSNESSolver::setupPreconditioner( PC pc )
     PROFILE( "PetscSNESSolver::setupPreconditioner" );
 
     int ierr = 0;
-    Vec current_solution;
     void *ctx;
     PCShellGetContext( pc, &ctx );
 
     auto snesSolver = static_cast<PetscSNESSolver *>( ctx );
     AMP_ASSERT( snesSolver );
-    checkErr( SNESGetSolution( snesSolver->getSNESSolver(), &current_solution ) );
 
     auto krylovSolver = snesSolver->getKrylovSolver();
     AMP_ASSERT( krylovSolver );
