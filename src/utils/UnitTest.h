@@ -90,6 +90,15 @@ public:
     //! Return the number of expected failed tests locally
     size_t NumExpectedFailGlobal() const;
 
+    //! Return the tests passed locally
+    inline const auto &getPass() const { return d_pass; }
+
+    //! Return the number of failed tests locally
+    inline const auto &getFail() const { return d_fail; }
+
+    //! Return the number of expected failed tests locally
+    inline const auto &getExpected() const { return d_expected; }
+
     /*!
      * Print a report of the passed and failed tests.
      * Note: This is a blocking call that all processors must execute together.
