@@ -46,7 +46,7 @@ private:
     Utilities::MemoryType d_mem_loc;
     std::shared_ptr<Aggregator> d_aggregator;
     PairwiseCoarsenSettings d_coarsen_settings;
-    std::vector<Level> d_levels;
+    std::vector<KCycleLevel> d_levels;
     std::shared_ptr<RelaxationParameters> d_pre_relax_params;
     std::shared_ptr<RelaxationParameters> d_post_relax_params;
     std::shared_ptr<SolverStrategyParameters> d_coarse_solver_params;

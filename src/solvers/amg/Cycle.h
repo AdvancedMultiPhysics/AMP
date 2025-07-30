@@ -13,14 +13,32 @@ struct Level {
     std::shared_ptr<AMP::Operator::LinearOperator> A;
     std::shared_ptr<AMP::Operator::Operator> R, P;
     std::unique_ptr<AMP::Solver::SolverStrategy> pre_relaxation, post_relaxation;
-    std::shared_ptr<LinearAlgebra::Vector> x, b;
+    std::shared_ptr<LinearAlgebra::Vector> x, b, r, correction;
     mutable std::size_t nrelax = 0;
 };
+
+template<std::size_t N>
+struct LevelWithWorkspace : Level {
+    // extra work vectors used in cycling
+    std::array<std::shared_ptr<LinearAlgebra::Vector>, N> work;
+};
+
+/**
+   Initialize workspace by cloning a vector
+
+   \param[in] level Level with workspace to initialize
+   \param[in] donor Vector to use as donor for workspace vector clones
+*/
+template<std::size_t N>
+void clone_workspace( LevelWithWorkspace<N> &level, const LinearAlgebra::Vector &donor );
+
+inline constexpr std::size_t num_work_kcycle = 5;
+using KCycleLevel                            = LevelWithWorkspace<num_work_kcycle>;
 
 void kappa_kcycle( size_t lvl,
                    std::shared_ptr<const LinearAlgebra::Vector> b,
                    std::shared_ptr<LinearAlgebra::Vector> x,
-                   const std::vector<Level> &levels,
+                   const std::vector<KCycleLevel> &levels,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
                    float ktol,
@@ -28,7 +46,7 @@ void kappa_kcycle( size_t lvl,
 
 void kappa_kcycle( std::shared_ptr<const LinearAlgebra::Vector> b,
                    std::shared_ptr<LinearAlgebra::Vector> x,
-                   const std::vector<Level> &levels,
+                   const std::vector<KCycleLevel> &levels,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
                    float ktol,

@@ -105,6 +105,8 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     d_levels.emplace_back().A       = linop;
     d_levels.back().pre_relaxation  = create_relaxation( linop, d_pre_relax_params );
     d_levels.back().post_relaxation = create_relaxation( linop, d_post_relax_params );
+    d_levels.back().r               = linop->getMatrix()->createInputVector();
+    d_levels.back().correction      = linop->getMatrix()->createInputVector();
 
     setup();
 }
@@ -183,8 +185,11 @@ void UASolver::setup()
         d_levels.back().P               = P;
         d_levels.back().pre_relaxation  = create_relaxation( Ac, d_pre_relax_params );
         d_levels.back().post_relaxation = create_relaxation( Ac, d_post_relax_params );
-        d_levels.back().x               = Ac->getMatrix()->getRightVector();
-        d_levels.back().b               = Ac->getMatrix()->getRightVector();
+        d_levels.back().x               = Ac->getMatrix()->createInputVector();
+        d_levels.back().b               = Ac->getMatrix()->createInputVector();
+        d_levels.back().r               = Ac->getMatrix()->createInputVector();
+        d_levels.back().correction      = Ac->getMatrix()->createInputVector();
+        clone_workspace( d_levels.back(), *( d_levels.back().x ) );
 
         if ( coarse_too_small( Ac ) )
             break;

@@ -122,7 +122,7 @@ std::pair<size_t, size_t> get_local_nrows( const LinearAlgebra::CSRMatrix<Config
 }
 
 
-inline void print_summary( std::vector<Level> &ml, SolverStrategy &cg_solver )
+inline void print_summary( std::vector<KCycleLevel> &ml, SolverStrategy &cg_solver )
 {
     std::vector<size_t> nrows, nnz, nprocs;
     std::vector<std::pair<size_t, size_t>> nrows_local;

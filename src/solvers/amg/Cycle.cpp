@@ -1,28 +1,14 @@
-#include "AMP/solvers/amg/Cycle.h"
+#include "AMP/solvers/amg/Cycle.hpp"
 
 namespace AMP::Solver::AMG {
 
-namespace {
-
-template<size_t... I>
-std::array<std::shared_ptr<LinearAlgebra::Vector>, sizeof...( I )>
-clone( const LinearAlgebra::Vector &x, std::index_sequence<I...> )
-{
-    return { [&]( size_t ) { return x.clone(); }( I )... };
-}
-
-template<size_t N>
-auto make_clones( const LinearAlgebra::Vector &x )
-{
-    return clone( x, std::make_index_sequence<N>() );
-}
-
-} // namespace
+template void clone_workspace( LevelWithWorkspace<num_work_kcycle> &,
+                               const LinearAlgebra::Vector & );
 
 void kappa_kcycle( size_t lvl,
                    std::shared_ptr<const LinearAlgebra::Vector> b,
                    std::shared_ptr<LinearAlgebra::Vector> x,
-                   const std::vector<Level> &ml,
+                   const std::vector<KCycleLevel> &ml,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
                    float ktol,
@@ -35,7 +21,7 @@ void kappa_kcycle( size_t lvl,
     flevel.pre_relaxation->apply( b, x );
     ++flevel.nrelax;
 
-    auto r = b->clone();
+    auto r = flevel.r;
     A->residual( b, x, r );
 
     auto coarse_b = clevel.b;
@@ -49,7 +35,7 @@ void kappa_kcycle( size_t lvl,
     } else {
         if ( kappa > 1 ) {
             auto Ac                   = clevel.A;
-            auto [c, v, btilde, d, w] = make_clones<5>( *coarse_b );
+            auto [c, v, btilde, d, w] = clevel.work;
             c->zero();
             kappa_kcycle( lvl + 1, coarse_b, c, ml, coarse_solver, kappa, ktol, comm_free_interp );
             Ac->apply( c, v );
@@ -80,7 +66,7 @@ void kappa_kcycle( size_t lvl,
         }
     }
 
-    auto correction = b->clone();
+    auto correction = flevel.correction;
     clevel.P->apply( coarse_x, correction );
     x->add( *x, *correction );
     x->makeConsistent();
@@ -90,7 +76,7 @@ void kappa_kcycle( size_t lvl,
 
 void kappa_kcycle( std::shared_ptr<const LinearAlgebra::Vector> b,
                    std::shared_ptr<LinearAlgebra::Vector> x,
-                   const std::vector<Level> &ml,
+                   const std::vector<KCycleLevel> &ml,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
                    float ktol,
