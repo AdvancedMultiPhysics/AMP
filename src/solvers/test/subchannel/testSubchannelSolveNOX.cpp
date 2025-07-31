@@ -655,21 +655,19 @@ static void SubchannelSolve( AMP::UnitTest *ut, const std::string &exeName )
     AMP::pout << "Final residual norm: " << std::setprecision( 13 )
               << globalResMultiVector->L2Norm() << std::endl;
 
-
-#if 0
     // Compute the flow temperature and density
     AMP::LinearAlgebra::Vector::shared_ptr flowTempVec;
     AMP::LinearAlgebra::Vector::shared_ptr deltaFlowTempVec;
     AMP::LinearAlgebra::Vector::shared_ptr flowDensityVec;
     if ( subchannelMesh ) {
-        flowTempVec        = subchannelFuelTemp->clone();
-        flowDensityVec     = subchannelFuelTemp->clone();
-        int DOFsPerFace[3] = { 0, 0, 2 };
-        auto faceDOFManager =
-            AMP::Discretization::structuredFaceDOFManager::create( subchannelMesh, DOFsPerFace, 0 );
-        DOFsPerFace[2] = 1;
-        auto scalarFaceDOFManager =
-            AMP::Discretization::structuredFaceDOFManager::create( subchannelMesh, DOFsPerFace, 0 );
+        flowTempVec         = subchannelFuelTemp->clone();
+        flowDensityVec      = subchannelFuelTemp->clone();
+        int DOFsPerFace[3]  = { 0, 0, 2 };
+        auto faceDOFManager = std::make_shared<AMP::Discretization::structuredFaceDOFManager>(
+            subchannelMesh, DOFsPerFace, 0 );
+        DOFsPerFace[2]            = 1;
+        auto scalarFaceDOFManager = std::make_shared<AMP::Discretization::structuredFaceDOFManager>(
+            subchannelMesh, DOFsPerFace, 0 );
         auto face = xyFaceMesh->getIterator( AMP::Mesh::GeomType::Face, 0 );
         std::vector<size_t> dofs;
         std::vector<size_t> scalarDofs;
@@ -701,49 +699,45 @@ static void SubchannelSolve( AMP::UnitTest *ut, const std::string &exeName )
                          ->getScalar<double>( "Inlet_Temperature" );
         deltaFlowTempVec = flowTempVec->clone();
         deltaFlowTempVec->copyVector( flowTempVec );
-        deltaFlowTempVec->addScalar( deltaFlowTempVec, -Tin );
+        deltaFlowTempVec->addScalar( *deltaFlowTempVec, -Tin );
     }
     double flowTempMin = 1e100;
     double flowTempMax = -1e100;
     if ( flowTempVec ) {
-        flowTempMin = flowTempVec->min();
-        flowTempMax = flowTempVec->max();
+        flowTempMin = static_cast<double>( flowTempVec->min() );
+        flowTempMax = static_cast<double>( flowTempVec->max() );
     }
     flowTempMin = globalComm.minReduce( flowTempMin );
     flowTempMax = globalComm.maxReduce( flowTempMax );
     AMP::pout << "Subchannel Flow Temp Max : " << flowTempMax << " Min : " << flowTempMin
               << std::endl;
 
-
     // Test the subchannel to point map
-    auto subchannelToPointMapParams =
-        std::make_shared<AMP::Operator::SubchannelToPointMapParameters>();
-    subchannelToPointMapParams->d_Mesh                   = subchannelMesh;
-    subchannelToPointMapParams->d_comm                   = globalComm;
-    subchannelToPointMapParams->d_subchannelPhysicsModel = subchannelPhysicsModel;
-    subchannelToPointMapParams->d_outputVar.reset( new AMP::LinearAlgebra::Variable( "Density" ) );
+    auto mapParams    = std::make_shared<AMP::Operator::SubchannelToPointMapParameters>();
+    mapParams->d_Mesh = subchannelMesh;
+    mapParams->d_comm = globalComm;
+    mapParams->d_subchannelPhysicsModel = subchannelPhysicsModel;
+    mapParams->d_outputVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Density" );
     if ( subchannelMesh ) {
         auto face = xyFaceMesh->getIterator( AMP::Mesh::GeomType::Face, 0 );
         for ( size_t i = 0; i < face.size(); i++ ) {
             auto pos = face->centroid();
-            subchannelToPointMapParams->x.push_back( pos[0] );
-            subchannelToPointMapParams->y.push_back( pos[1] );
-            subchannelToPointMapParams->z.push_back( pos[2] );
+            mapParams->x.push_back( pos[0] );
+            mapParams->y.push_back( pos[1] );
+            mapParams->z.push_back( pos[2] );
             ++face;
         }
-        AMP_ASSERT( subchannelToPointMapParams->x.size() == flowDensityVec->getLocalSize() );
+        AMP_ASSERT( mapParams->x.size() == flowDensityVec->getLocalSize() );
     }
-    AMP::Operator::SubchannelToPointMap subchannelDensityToPointMap( subchannelToPointMapParams );
-    subchannelToPointMapParams->d_outputVar.reset(
-        new AMP::LinearAlgebra::Variable( "Temperature" ) );
-    AMP::Operator::SubchannelToPointMap subchannelTemperatureToPointMap(
-        subchannelToPointMapParams );
-    auto densityMapVec = AMP::LinearAlgebra::SimpleVector<double>::create(
-        subchannelToPointMapParams->x.size(), subchannelDensityToPointMap.getOutputVariable() );
-    auto temperatureMapVec = AMP::LinearAlgebra::SimpleVector<double>::create(
-        subchannelToPointMapParams->x.size(), subchannelTemperatureToPointMap.getOutputVariable() );
-    subchannelDensityToPointMap.residual( nullVec, flowSolVec, densityMapVec );
-    subchannelTemperatureToPointMap.residual( nullVec, flowSolVec, temperatureMapVec );
+    AMP::Operator::SubchannelToPointMap densityMap( mapParams );
+    mapParams->d_outputVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
+    AMP::Operator::SubchannelToPointMap temperatureMap( mapParams );
+    auto densityMapVec = AMP::LinearAlgebra::createSimpleVector<double>(
+        mapParams->x.size(), densityMap.getOutputVariable() );
+    auto temperatureMapVec = AMP::LinearAlgebra::createSimpleVector<double>(
+        mapParams->x.size(), temperatureMap.getOutputVariable() );
+    densityMap.apply( flowSolVec, densityMapVec );
+    temperatureMap.apply( flowSolVec, temperatureMapVec );
     if ( subchannelMesh ) {
         auto face = xyFaceMesh->getIterator( AMP::Mesh::GeomType::Face, 0 );
         std::vector<size_t> dofs;
@@ -770,10 +764,9 @@ static void SubchannelSolve( AMP::UnitTest *ut, const std::string &exeName )
         else
             ut->failure( "Subchannel temperature to point map" );
     }
+
     ut->passes( "test runs to completion" );
-#else
-    ut->expected_failure( "Solve disabled because it does not converge (requires debugging)" );
-#endif
+
     globalComm.barrier();
     PROFILE_SAVE( "exeName" );
 }
