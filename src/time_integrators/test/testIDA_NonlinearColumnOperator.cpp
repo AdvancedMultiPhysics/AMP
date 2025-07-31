@@ -97,7 +97,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     auto columnMassOperator = std::make_shared<AMP::Operator::ColumnOperator>();
     columnMassOperator->append( massOperator );
 
-    // create a  time operator for use in the preconditioner
+    // create a time operator for use in the preconditioner
     auto timeOperator_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
     timeOperator_db->putScalar( "CurrentDt", 0.01 );
     timeOperator_db->putScalar( "name", "TimeOperator" );
@@ -105,17 +105,16 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     timeOperator_db->putScalar( "bLinearRhsOperator", false );
     timeOperator_db->putScalar( "ScalingFactor", 1.0 / 0.01 );
 
-    auto timeOperatorParameters =
+    auto timeOpParameters =
         std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );
-    timeOperatorParameters->d_pRhsOperator  = columnLinearRhsOperator;
-    timeOperatorParameters->d_pMassOperator = columnMassOperator;
-    timeOperatorParameters->d_Mesh          = mesh;
+    timeOpParameters->d_pRhsOperator  = columnLinearRhsOperator;
+    timeOpParameters->d_pMassOperator = columnMassOperator;
+    timeOpParameters->d_Mesh          = mesh;
     auto columnLinearTimeOperator =
-        std::make_shared<AMP::TimeIntegrator::ColumnTimeOperator>( timeOperatorParameters );
+        std::make_shared<AMP::TimeIntegrator::ColumnTimeOperator>( timeOpParameters );
 
     // create vectors for initial conditions (IC) and time derivative at IC
-    auto outputVar = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVariable>(
-        columnNonlinearRhsOperator->getOutputVariable() );
+    auto outputVar = columnNonlinearRhsOperator->getOutputVariable();
 
     auto initialCondition      = AMP::LinearAlgebra::createVector( nodalDofMap, outputVar );
     auto initialConditionPrime = AMP::LinearAlgebra::createVector( nodalDofMap, outputVar );
@@ -178,7 +177,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
             // ** as this causes trouble with the boundary - BP, 07/16/2010
             initialConditionPrime->setValuesByGlobalID( 1, &elem, &zero );
         } // end for i
-    }     // end for node
+    } // end for node
 
     // create a copy of the rhs which can be modified at each time step (maybe)
     auto thermalRhs = f->select( vectorSelector );
@@ -235,7 +234,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     time_Params->d_pMassOperator = columnMassOperator;
     time_Params->d_operator      = columnNonlinearRhsOperator;
-    // time_Params->d_pNestedSolver = columnPreconditioner;
+    time_Params->d_pNestedSolver = columnPreconditioner;
 
     time_Params->d_ic_vector       = initialCondition;
     time_Params->d_ic_vector_prime = initialConditionPrime;
@@ -282,7 +281,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     }
 
     if ( input_file == "input_testIDA-NonlinearColumnOperator-1" ) {
-        double expectedMax = 891.016; // if you change the code in way that intentionally changes
+        double expectedMax = 892.102; // if you change the code in way that intentionally changes
                                       // the solution, you need to update this number.
         double expectedMin = 750.;  // if you change the code in way that intentionally changes the
                                     // solution, you need to update this number.

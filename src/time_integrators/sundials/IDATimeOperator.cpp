@@ -99,12 +99,13 @@ IDATimeOperator::getParameters( const std::string &type,
 {
 
     auto timeOperator_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
-    timeOperator_db->putScalar( "CurrentDt", d_dCurrentDt );
-    timeOperator_db->putScalar( "name", "TimeOperator" );
-    timeOperator_db->putScalar( "bLinearMassOperator", d_bLinearMassOperator );
-    timeOperator_db->putScalar( "bLinearRhsOperator", d_bLinearRhsOperator );
-    timeOperator_db->putScalar( "bAlgebraicComponent", d_bAlgebraicComponent );
-    timeOperator_db->putScalar( "ScalingFactor", 1.0 / d_dCurrentDt );
+    auto Overwrite       = AMP::Database::Check::Overwrite;
+    timeOperator_db->putScalar( "CurrentDt", d_dCurrentDt, {}, Overwrite );
+    timeOperator_db->putScalar( "name", "TimeOperator", {}, Overwrite );
+    timeOperator_db->putScalar( "bLinearMassOperator", d_bLinearMassOperator, {}, Overwrite );
+    timeOperator_db->putScalar( "bLinearRhsOperator", d_bLinearRhsOperator, {}, Overwrite );
+    timeOperator_db->putScalar( "bAlgebraicComponent", d_bAlgebraicComponent, {}, Overwrite );
+    timeOperator_db->putScalar( "ScalingFactor", 1.0 / d_dCurrentDt, {}, Overwrite );
 
     auto timeOperatorParameters =
         std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );

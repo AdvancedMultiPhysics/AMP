@@ -140,6 +140,7 @@ DiffusionLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
+    LocalModel = DiffusionTransportModel
 }
 
 DirichletMatrixCorrection{
@@ -216,7 +217,7 @@ IDATimeIntegrator{
         ResetColumnOperator = TRUE
         max_error = 1e-10
         thermalPreconditioner{
-            print_info_level = 3
+            print_info_level = 0
             max_iterations = 1
             max_error = 1e-10
         }
