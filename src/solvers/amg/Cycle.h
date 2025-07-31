@@ -23,6 +23,9 @@ struct LevelWithWorkspace : Level {
     std::array<std::shared_ptr<LinearAlgebra::Vector>, N> work;
 };
 
+template<class T>
+constexpr bool is_level_v = std::is_base_of_v<Level, T>;
+
 /**
    Initialize workspace by cloning a vector
 
