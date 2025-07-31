@@ -164,9 +164,11 @@ int testSimpleTimeIntegration( int argc, char *argv[] )
 
     // List of integrators
     // We need to look at the errors for the first order -- whether they are acceptable
-    //auto integrators = { "ExplicitEuler", "RK2",  "RK4", "Backward Euler", "CN",
-    //    "BDF1", "BDF2", "BDF3", "BDF4", "BDF5" };
-    auto integrators = { "RK2",  "RK4", "CN", "BDF2", "BDF3", "BDF4", "BDF5" };
+    // auto integrators = { "ExplicitEuler", "Backward Euler" "CN",
+    //    "RK2", "RK23", "RK34", "RK4", "RK45", "BDF1", "BDF2", "BDF3", "BDF4", "BDF5" };
+    auto integrators = {
+        "CN", "RK2", "RK23", "RK34", "RK4", "RK45", "BDF2", "BDF3", "BDF4", "BDF5"
+    };
 
     // Run the tests
     for ( auto tmp : integrators )
