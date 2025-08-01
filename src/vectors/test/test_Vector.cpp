@@ -151,6 +151,14 @@ int main( int argc, char **argv )
     AMP::UnitTest ut;
     PROFILE_ENABLE( 3 );
 
+    for ( int i = 0; i < 10; i++ ) {
+        auto name    = "ManagedThyraFactory<SimpleVectorFactory<15,false,double>>";
+        auto factory = generateVectorFactory( name );
+        VectorTests tests( factory );
+        tests.testVectorSelector( &ut );
+    }
+
+
 #if 1
 
     // Test ArrayVector dimensions

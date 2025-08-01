@@ -82,7 +82,9 @@ Vector::shared_ptr Vector::selectInto( const VectorSelector &s )
     if ( managed ) {
         auto engine = managed->getVectorEngine();
         if ( engine )
-            return engine->selectInto( s );
+            subvector = engine->selectInto( s );
+        if ( subvector )
+            return subvector;
     }
     if ( s.isSelected( *this ) ) {
         // Subset the vector
