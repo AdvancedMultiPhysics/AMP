@@ -1,0 +1,117 @@
+Mesh{
+	MeshName = "zoo"
+	MeshType = "Multimesh"
+	MeshDatabasePrefix = "Mesh_"
+	MeshArrayDatabasePrefix = "MeshArray_"
+    LoadBalanceMethod = 0
+
+	Mesh_1 {
+		MeshName = "cube_3d"
+		MeshType = "AMP"
+		dim = 3
+		Generator = "cube"
+		Size = 15, 10, 6
+		Range = -1, 1, -0.9, 0.9, -0.8, 0.8
+		x_offset = -2
+		y_offset = 2
+		z_offset = 0
+	}
+	
+	Mesh_2 {
+		MeshName = "cylinder"
+		MeshType = "AMP"
+		dim = 3
+		Generator = "cylinder"
+		Size = 8, 6
+		Range = 1, -0.5, 0.5
+		x_offset = -2
+		y_offset = 6
+		z_offset = 0
+	}
+	
+	Mesh_3 {
+		MeshName = "tube"
+		MeshType = "AMP"
+		Generator = "tube"
+		Size = 5, 20, 5
+		Range = 0.8, 1, -0.5, 0.5
+		x_offset = 2
+		y_offset = 6
+		z_offset = 0
+	}
+	
+	Mesh_4 {
+		MeshName = "sphere"
+		MeshType = "AMP"
+		Generator = "sphere"
+		Size = 6
+		Range = 1
+		x_offset = -2
+		y_offset = 2
+		z_offset = 3
+	}
+
+	Mesh_5 {
+		MeshName = "shell"
+		MeshType = "AMP"
+		Generator = "shell"
+		Size = 6, 3
+		Range = 0.8, 1
+		x_offset = 2
+		y_offset = 2
+		z_offset = 3
+	}
+
+	Mesh_6 {
+		MeshName = "sphere_surface"
+		MeshType = "AMP"
+		Generator = "sphere_surface"
+		Size = 40
+		Range = 1
+		x_offset = -2
+		y_offset = 6
+		z_offset = 3
+	}
+
+	Mesh_7 {
+		MeshName = "square_frustrum"
+		MeshType = "AMP"
+		Generator = "square_frustrum"
+		Size = 15, 10, 6
+		Range = -1, 1, -0.9, 0.9, -0.5, 0.5
+		Dir = "+z"
+		Height = 3
+		x_offset = 2
+		y_offset = 6
+		z_offset = 3
+	}
+
+	Mesh_8 {
+		MeshName = "circle_frustrum"
+		MeshType = "AMP"
+		Generator = "circle_frustrum"
+		Size = 8, 6
+		BaseRadius = 0.8
+		TopRadius = 0.6
+		Height = 1
+		Dir = "+z"
+		x_offset = -2
+		y_offset = 2
+		z_offset = 5
+	}
+
+	Mesh_9 {
+		MeshName = "Parallelepiped"
+		MeshType = "AMP"
+		Generator = "Parallelepiped"
+		Size = 10, 8, 6
+        a = 1, 0, 0
+        b = 0, 1, 0
+        c = 0.2, 0, 1
+		x_offset = 2
+		y_offset = 2
+		z_offset = 5
+	}
+	
+}
+
