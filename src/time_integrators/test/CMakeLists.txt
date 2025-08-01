@@ -36,7 +36,7 @@ IF ( USE_SUNDIALS AND USE_LIBMESH AND USE_TRILINOS AND USE_PETSC AND AMP_DATA )
     ADD_TB_TEST( testIDA_LinearBVPOperator PROCS 4 )
     ADD_TB_TEST( testIDA_NonlinearBVPOperator PROCS 4 )
     ADD_TB_TEST( testIDA_NonlinearColumnOperator  PROCS 4 )
-    ADD_TB_PROVISIONAL_TEST( testIDA_NonlinearThermalOxygenDiffusion )
+    ADD_TB_TEST( testIDA_NonlinearThermalOxygenDiffusion )
 ENDIF()
 FINALIZE_TESTBUILDER()
 
