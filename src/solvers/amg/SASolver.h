@@ -38,10 +38,12 @@ protected:
     size_t d_max_levels;
     int d_min_coarse_local;
     size_t d_min_coarse_global;
+    int d_num_smooth_prol;
     int d_num_relax_pre;
     int d_num_relax_post;
     int d_kappa;
     float d_kcycle_tol;
+    float d_prol_trunc;
     Utilities::MemoryType d_mem_loc;
 
 
@@ -60,9 +62,8 @@ protected:
     createRelaxation( std::shared_ptr<Operator::Operator> A,
                       std::shared_ptr<AMG::RelaxationParameters> params );
 
-    std::shared_ptr<LinearAlgebra::Matrix>
-    smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
-                      std::shared_ptr<LinearAlgebra::Matrix> P ) const;
+    void smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
+                           std::shared_ptr<LinearAlgebra::Matrix> &P ) const;
 };
 
 } // namespace AMP::Solver::AMG

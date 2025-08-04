@@ -329,6 +329,7 @@ void CSRMatrixData<Config>::globalToLocalColumns()
 {
     PROFILE( "CSRMatrixData::globalToLocalColumns" );
 
+    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
     d_diag_matrix->globalToLocalColumns();
     d_offd_matrix->globalToLocalColumns();
 }
@@ -392,6 +393,19 @@ void CSRMatrixData<Config>::resetDOFManagers( bool force_right )
         d_rightDOFManager = std::make_shared<Discretization::DOFManager>(
             d_last_col - d_first_col, comm, d_rightCommList->getGhostIDList() );
     }
+}
+
+
+template<typename Config>
+void CSRMatrixData<Config>::removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up )
+{
+    PROFILE( "CSRMatrixData::removeRange" );
+    const auto blo = static_cast<scalar_t>( bnd_lo );
+    const auto bup = static_cast<scalar_t>( bnd_up );
+    d_diag_matrix->removeRange( blo, bup );
+    d_offd_matrix->removeRange( blo, bup );
+    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
+    resetDOFManagers( true );
 }
 
 template<typename Config>

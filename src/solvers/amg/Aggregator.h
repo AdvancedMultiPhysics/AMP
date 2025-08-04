@@ -8,13 +8,17 @@
 #include "AMP/matrices/data/CSRMatrixData.h"
 
 #include <memory>
+#include <numeric>
 
 namespace AMP::Solver::AMG {
 
 // Base class for all aggregators
 struct Aggregator {
-    Aggregator() : d_weak_thresh( 50.0 ) {}
-    Aggregator( float wt_ ) : d_weak_thresh( wt_ ) {}
+    Aggregator() : d_max_agg_size( std::numeric_limits<int>::max() ), d_weak_thresh( 4.0 ) {}
+    Aggregator( int ms_, float wt_ )
+        : d_max_agg_size( ms_ > 0 ? ms_ : std::numeric_limits<int>::max() ), d_weak_thresh( wt_ )
+    {
+    }
 
     virtual ~Aggregator() {}
 
@@ -32,6 +36,7 @@ struct Aggregator {
     getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                         std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
 
+    const int d_max_agg_size;
     const float d_weak_thresh;
 };
 

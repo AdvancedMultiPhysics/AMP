@@ -255,6 +255,12 @@ public:
      */
     void resetDOFManagers( bool force_right = false );
 
+    /** \brief  Remove matrix entries within given range
+     * \param[in] bnd_lo Lower bound of range to discard
+     * \param[in] bnd_up Upper bound of range to discard
+     */
+    void removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up ) override;
+
     //! Print information about matrix blocks
     void printStats( bool verbose, bool show_zeros ) const
     {

@@ -7,10 +7,14 @@ LinearSolver{
   relative_tolerance = 1.0e-12
   print_info_level = 2
   max_iterations = 30
+  max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
   agg_type = "simple"
+  agg_weak_thresh = 0.0
+  max_agg_size = 0
+  prol_trunc = 0.0
 
   pre_relaxation{
     name = "HybridGS"
@@ -26,8 +30,8 @@ LinearSolver{
 
   coarse_solver{
     name = "BoomerAMGSolver"
-    absolute_tolerance = 1.0e-12
-    relative_tolerance = 1.0e-12
+    absolute_tolerance = 0.0
+    relative_tolerance = 0.0
     max_iterations = 1
     min_coarse_size = 10
     max_coarse_size = 100
@@ -42,7 +46,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 17
+  iterations = 20
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

@@ -75,6 +75,8 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
+
     /** \brief Change the EpetraMaps for the matrix
      * \param[in] range  A vector that represents the range: y in y = A*x (row map)
      * \param[in] domain  A vector that represents the domain: x in y = A*x (column map)

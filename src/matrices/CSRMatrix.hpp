@@ -175,8 +175,10 @@ template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::getRowSums( Vector::shared_ptr buf ) const
 {
     Vector::shared_ptr out = buf;
-    if ( !buf )
-        out = this->getRightVector();
+    if ( !buf ) {
+        out = this->getLeftVector();
+    }
+    out->setNoGhosts();
 
     d_matrixOps->getRowSums( *getMatrixData(), out );
 
@@ -187,8 +189,10 @@ template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf ) const
 {
     Vector::shared_ptr out = buf;
-    if ( !buf )
-        out = this->getRightVector();
+    if ( !buf ) {
+        out = this->getLeftVector();
+    }
+    out->setNoGhosts();
 
     d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out );
 

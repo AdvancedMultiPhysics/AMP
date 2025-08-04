@@ -357,13 +357,15 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
     AMP_ASSERT( buf->isType<scalar_t>( 0 ) );
 
     auto *rawVecData = buf->getRawDataBlock<scalar_t>();
-    auto memTypeV    = AMP::Utilities::getMemoryType( rawVecData );
+    AMP_ASSERT( rawVecData );
+    auto memTypeV = AMP::Utilities::getMemoryType( rawVecData );
     AMP_INSIST( memTypeV < AMP::Utilities::MemoryType::device &&
                     csrData->d_memory_location < AMP::Utilities::MemoryType::device,
                 "CSRMatrixOperationsDefault::extractDiagonal not implemented for device memory" );
 
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
     AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
 
     d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
@@ -382,13 +384,15 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     AMP_ASSERT( buf->isType<scalar_t>( 0 ) );
 
     auto *rawVecData = buf->getRawDataBlock<scalar_t>();
-    auto memTypeV    = AMP::Utilities::getMemoryType( rawVecData );
+    AMP_ASSERT( rawVecData );
+    auto memTypeV = AMP::Utilities::getMemoryType( rawVecData );
     AMP_INSIST( memTypeV < AMP::Utilities::MemoryType::device &&
                     csrData->d_memory_location < AMP::Utilities::MemoryType::device,
                 "CSRMatrixOperationsDefault::extractDiagonal not implemented for device memory" );
 
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
     AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );

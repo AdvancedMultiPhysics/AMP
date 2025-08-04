@@ -5,6 +5,10 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
 
+#include "ProfilerApp.h"
+
+#include <algorithm>
+
 namespace AMP::Solver::AMG {
 
 int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A,
@@ -22,28 +26,12 @@ template<typename Config>
 int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                              int *agg_ids )
 {
+    PROFILE( "SimpleAggregator::assignLocalAggregates" );
+
     using lidx_t       = typename Config::lidx_t;
     using scalar_t     = typename Config::scalar_t;
     using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t = typename matrix_t::matrixdata_t;
-
-    // function to find strength entries for one row
-    auto row_strength =
-        []( const lidx_t row_len, const scalar_t *coeffs, std::vector<scalar_t> &Sij ) -> scalar_t {
-        Sij.resize( row_len );
-        scalar_t numer = 0.0;
-        for ( lidx_t n = 1; n < row_len; ++n ) {
-            numer += std::abs( coeffs[n] );
-        }
-        Sij[0]                 = 0.0;
-        const scalar_t scl_max = std::numeric_limits<scalar_t>::max();
-        scalar_t min_str       = std::sqrt( scl_max );
-        for ( lidx_t n = 1; n < row_len; ++n ) {
-            Sij[n]  = coeffs[n] < 0.0 ? std::fabs( 1.0 + numer / coeffs[n] ) : scl_max;
-            min_str = std::min( Sij[n], min_str );
-        }
-        return min_str;
-    };
 
     // information about A and unpack diag block
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
@@ -62,34 +50,54 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     // neighbors that are already associated
     // NOTE: there are several loops through the entries in a row
     //       that could be collapsed into a single loop
-    int num_agg            = 0;
-    const auto weak_thresh = this->d_weak_thresh;
+    int num_agg = 0;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         const auto rs = Ad_rs[row], re = Ad_rs[row + 1], row_len = re - rs;
 
         // do not form aggregates from rows with only one entry
-        if ( row_len == 1 ) {
+        // or rows contained in a prior aggregate
+        if ( row_len == 1 || agg_ids[row] >= 0 ) {
             continue;
         }
 
-        // check if any members of this row are already associated
-        // and skip if so
-        bool have_assn = false;
-        for ( lidx_t c = rs; c < re; ++c ) {
-            have_assn = have_assn || ( agg_ids[Ad_cols_loc[c]] >= 0 );
-            if ( have_assn ) {
-                break;
-            }
+        // Check if any members of this row are already associated
+        // and skip if so.
+        // Also find the strength-of-connection numerator.
+        bool have_nbr      = false;
+        scalar_t soc_numer = 0.0;
+        for ( lidx_t c = rs + 1; c < re; ++c ) {
+            have_nbr = have_nbr || agg_ids[Ad_cols_loc[c]] < 0;
+            soc_numer += std::fabs( Ad_coeffs[c] );
         }
-        if ( have_assn ) {
+
+        // skip if all nbrs are already aggregated, this should be very rare
+        if ( !have_nbr ) {
             continue;
         }
+
+        // fill in strength of connection and find minimum value
+        Sij.resize( row_len );
+        Sij[0]                 = 0.0;
+        const scalar_t scl_max = std::numeric_limits<scalar_t>::max();
+        scalar_t min_str       = std::sqrt( scl_max );
+        for ( lidx_t n = 1; n < row_len; ++n ) {
+            const bool do_soc = Ad_coeffs[rs + n] < 0.0 && agg_ids[Ad_cols_loc[rs + n]] < 0;
+            Sij[n]            = do_soc ? std::fabs( 1.0 + soc_numer / Ad_coeffs[rs + n] ) : scl_max;
+            min_str           = std::min( Sij[n], min_str );
+        }
+        auto Sij_sort = Sij;
+        std::sort( Sij_sort.data(), Sij_sort.data() + row_len );
 
         // create new aggregate from row
-        const auto thresh = weak_thresh * row_strength( row_len, &Ad_coeffs[rs], Sij );
+        scalar_t thresh = Sij_sort[std::min( d_max_agg_size - 1, row_len - 1 )];
+        if ( d_weak_thresh > 0.0 ) {
+            thresh = std::fmin( d_weak_thresh * min_str, thresh );
+        }
+
         agg_size.push_back( 0 );
         for ( lidx_t n = 0; n < row_len; ++n ) {
-            if ( Sij[n] < thresh ) {
+            if ( Ad_coeffs[rs + n] != 0.0 && Sij[n] <= thresh &&
+                 agg_size[num_agg] < d_max_agg_size ) {
                 agg_ids[Ad_cols_loc[rs + n]] = num_agg;
                 agg_size[num_agg]++;
             }

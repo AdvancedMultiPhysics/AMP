@@ -46,6 +46,8 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
+
     void addValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
     void setValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
     void getValuesByGlobalID(
