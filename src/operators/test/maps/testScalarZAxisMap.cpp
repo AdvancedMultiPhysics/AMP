@@ -26,7 +26,7 @@ static void setBoundary( int id,
     for ( const auto &elem : boundaryIterator ) {
         DOFManager->getDOFs( elem.globalID(), ids );
         auto x = elem.coord();
-        v1->setLocalValuesByGlobalID( ids.size(), &ids[0], &x[2] );
+        v1->setValuesByGlobalID( ids.size(), &ids[0], &x[2] );
     }
 }
 

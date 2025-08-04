@@ -288,7 +288,7 @@ void CladToSubchannelMap::applyFinish( AMP::LinearAlgebra::Vector::const_shared_
         AMP_ASSERT( index >= 0 );
         if ( x[index].size() > 0 ) {
             double val = interp_linear( x[index], f[index], pos[2] );
-            d_OutputVector->setLocalValuesByGlobalID( 1, &dofs[0], &val );
+            d_OutputVector->setValuesByGlobalID( 1, &dofs[0], &val );
         }
         ++it;
     }

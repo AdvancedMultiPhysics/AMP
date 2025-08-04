@@ -196,7 +196,7 @@ void HypreSolver::copyFromHypre( HYPRE_IJVector hypre_v,
             const auto startingIndex = dofManager->beginDOF();
             std::vector<size_t> indices( nDOFS, 0 );
             std::iota( indices.begin(), indices.end(), startingIndex );
-            amp_v->setLocalValuesByGlobalID( nDOFS, indices.data(), values_p );
+            amp_v->setValuesByGlobalID( nDOFS, indices.data(), values_p );
 
         } else {
 

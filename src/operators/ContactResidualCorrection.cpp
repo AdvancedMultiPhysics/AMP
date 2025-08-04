@@ -20,8 +20,8 @@ void ContactResidualCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_
         const double zero = 0.0;
         for ( auto &elem : d_dofs[i] ) {
             double slaveVal = rSlave->getLocalValueByGlobalID( slaveGlobalIds[elem] );
-            rMaster->addLocalValuesByGlobalID( 1, &masterGlobalIds[elem], &slaveVal );
-            rSlave->setLocalValuesByGlobalID( 1, &slaveGlobalIds[elem], &zero );
+            rMaster->addValuesByGlobalID( 1, &masterGlobalIds[elem], &slaveVal );
+            rSlave->setValuesByGlobalID( 1, &slaveGlobalIds[elem], &zero );
             slaveVal = rSlave->getLocalValueByGlobalID( slaveGlobalIds[elem] );
         } // end for j
     }     // end for i
