@@ -108,6 +108,17 @@ public:
         return nullptr;
     }
 
+    /** \brief Get a input vector ( For \f$\mathbf{A(x)}\f$, \f$\mathbf{x}\f$ is a
+     * input vector ) \return  A newly created input vector
+     */
+    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const;
+
+    /** \brief Get a left vector ( For \f$\mathbf{y=A(x)}\f$, \f$\mathbf{y}\f$ is an output
+     * vector )
+     * \return  A newly created output vector
+     */
+    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> createOutputVector() const;
+
     //! Return the selector for output vectors
     virtual std::shared_ptr<AMP::LinearAlgebra::VectorSelector> selectOutputVector() const;
 

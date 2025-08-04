@@ -143,6 +143,13 @@ std::shared_ptr<AMP::LinearAlgebra::VectorSelector> Operator::selectInputVector(
     return AMP::LinearAlgebra::VectorSelector::create( selectors );
 }
 
+/********************************************************
+ * Create input and output vectors                      *
+ ********************************************************/
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> Operator::createInputVector() const { return nullptr; }
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> Operator::createOutputVector() const { return nullptr; }
 
 /********************************************************
  * Subset vectors                                        *

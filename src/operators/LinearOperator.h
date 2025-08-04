@@ -69,16 +69,16 @@ public:
         return d_outputVariable;
     }
 
-    /** \brief Get a right vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a
-     * right vector ) \return  A newly created right vector
+    /** \brief Get a input vector ( For \f$\mathbf{A(x)}\f$, \f$\mathbf{x}\f$ is a
+     * input vector ) \return  A newly created input vector
      */
-    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override;
 
-    /** \brief Get a left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{y}\f$ is a left
+    /** \brief Get an output vector ( For \f$\mathbf{y=A(x)}\f$, \f$\mathbf{y}\f$ is an output
      * vector )
-     * \return  A newly created left vector
+     * \return  A newly created output vector
      */
-    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> createOutputVector() const;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createOutputVector() const override;
 
 protected:
     //! Empty constructor
