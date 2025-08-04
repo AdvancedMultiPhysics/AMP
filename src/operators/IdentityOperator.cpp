@@ -53,13 +53,13 @@ void IdentityOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     rInternal->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
-std::shared_ptr<AMP::LinearAlgebra::Vector> IdentityOperator::getInputVector() const
+std::shared_ptr<AMP::LinearAlgebra::Vector> IdentityOperator::createInputVector() const
 {
     return AMP::LinearAlgebra::createSimpleVector<double>(
         d_localSize, d_inputVariable, AMP_COMM_WORLD );
 }
 
-std::shared_ptr<AMP::LinearAlgebra::Vector> IdentityOperator::getOutputVector() const
+std::shared_ptr<AMP::LinearAlgebra::Vector> IdentityOperator::createOutputVector() const
 {
     return AMP::LinearAlgebra::createSimpleVector<double>(
         d_localSize, d_outputVariable, AMP_COMM_WORLD );

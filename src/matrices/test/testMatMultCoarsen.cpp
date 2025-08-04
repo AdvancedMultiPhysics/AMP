@@ -70,9 +70,9 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     auto AP = AMP::LinearAlgebra::Matrix::matMatMult( A, P );
 
     // vectors of ones to apply operators to
-    auto xa  = A->getInputVector();
-    auto xp  = P->getInputVector();
-    auto xap = AP->getInputVector();
+    auto xa  = A->createInputVector();
+    auto xp  = P->createInputVector();
+    auto xap = AP->createInputVector();
     xa->setToScalar( 1.0 );
     xp->setToScalar( 1.0 );
     xap->setToScalar( 1.0 );
@@ -81,9 +81,9 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     xap->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // output vectors
-    auto ya  = A->getOutputVector();
-    auto yp  = AP->getOutputVector();
-    auto yap = AP->getOutputVector();
+    auto ya  = A->createOutputVector();
+    auto yp  = AP->createOutputVector();
+    auto yap = AP->createOutputVector();
     ya->zero();
     yp->zero();
     yap->zero();
@@ -109,8 +109,8 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     // Get transpose of aggregate matrix and produce coarsened matrix
     auto Pt    = P->transpose();
     auto PtAP  = AMP::LinearAlgebra::Matrix::matMatMult( Pt, AP );
-    auto xptap = PtAP->getInputVector();
-    auto yptap = PtAP->getOutputVector();
+    auto xptap = PtAP->createInputVector();
+    auto yptap = PtAP->createOutputVector();
     xptap->setToScalar( 1.0 );
     xptap->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     yptap->zero();

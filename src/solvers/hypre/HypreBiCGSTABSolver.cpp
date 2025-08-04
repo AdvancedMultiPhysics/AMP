@@ -56,7 +56,7 @@ void HypreBiCGSTABSolver::setupHypreSolver(
     AMP_ASSERT( op );
     auto matrix = op->getMatrix();
     AMP_ASSERT( matrix );
-    auto f = matrix->getInputVector();
+    auto f = matrix->createInputVector();
     f->zero(); // just to be safe
     AMP_ASSERT( f );
     copyToHypre( f, d_hypre_rhs );

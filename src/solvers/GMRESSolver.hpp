@@ -110,7 +110,7 @@ void GMRESSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operator> 
         auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
         if ( linearOp ) {
             if ( d_bUsesPreconditioner ) {
-                d_z = linearOp->getInputVector();
+                d_z = linearOp->createInputVector();
                 if ( d_preconditioner_side == "right" ) {
                     d_z1 = d_z->clone();
                 }
@@ -563,7 +563,7 @@ void GMRESSolver<T>::allocateBasis( std::shared_ptr<const AMP::LinearAlgebra::Ve
     } else {
         auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
         if ( linearOp )
-            v = linearOp->getInputVector();
+            v = linearOp->createInputVector();
     }
 
     if ( v ) {

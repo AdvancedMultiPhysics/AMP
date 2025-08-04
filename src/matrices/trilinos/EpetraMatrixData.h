@@ -146,8 +146,8 @@ public:
     AMP::AMP_MPI getComm() const override;
     std::shared_ptr<Discretization::DOFManager> getRightDOFManager() const override;
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
-    std::shared_ptr<Vector> getInputVector() const;
-    std::shared_ptr<Vector> getOutputVector() const;
+    std::shared_ptr<Vector> createInputVector() const;
+    std::shared_ptr<Vector> createOutputVector() const;
 
     /** \brief Return the typeid of the matrix coeffs
      */

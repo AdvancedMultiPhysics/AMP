@@ -285,7 +285,7 @@ std::shared_ptr<Discretization::DOFManager> EpetraMatrixData::getLeftDOFManager(
 /********************************************************
  * Get the left/right Vector/DOFManager                  *
  ********************************************************/
-std::shared_ptr<Vector> EpetraMatrixData::getInputVector() const
+std::shared_ptr<Vector> EpetraMatrixData::createInputVector() const
 {
 
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
@@ -300,7 +300,7 @@ std::shared_ptr<Vector> EpetraMatrixData::getInputVector() const
     vec->setVariable( params->getRightVariable() );
     return vec;
 }
-std::shared_ptr<Vector> EpetraMatrixData::getOutputVector() const
+std::shared_ptr<Vector> EpetraMatrixData::createOutputVector() const
 {
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );

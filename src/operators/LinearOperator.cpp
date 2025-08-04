@@ -23,17 +23,17 @@ void LinearOperator::setMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> in_m
     d_matrix = in_mat;
 }
 
-std::shared_ptr<AMP::LinearAlgebra::Vector> LinearOperator::getInputVector() const
+std::shared_ptr<AMP::LinearAlgebra::Vector> LinearOperator::createInputVector() const
 {
     if ( d_matrix )
-        return d_matrix->getInputVector();
+        return d_matrix->createInputVector();
     return nullptr;
 }
 
-std::shared_ptr<AMP::LinearAlgebra::Vector> LinearOperator::getOutputVector() const
+std::shared_ptr<AMP::LinearAlgebra::Vector> LinearOperator::createOutputVector() const
 {
     if ( d_matrix )
-        return d_matrix->getOutputVector();
+        return d_matrix->createOutputVector();
     return nullptr;
 }
 

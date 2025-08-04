@@ -57,7 +57,7 @@ Vector::shared_ptr NativePetscMatrix::extractDiagonal( Vector::shared_ptr v ) co
 {
     Vector::shared_ptr retVal = v;
     if ( !retVal ) {
-        retVal = this->getInputVector();
+        retVal = this->createInputVector();
     } else if ( std::dynamic_pointer_cast<NativePetscVectorData>( v->getVectorData() ) ) {
         retVal = v;
     } else {
@@ -69,23 +69,23 @@ Vector::shared_ptr NativePetscMatrix::extractDiagonal( Vector::shared_ptr v ) co
     return retVal;
 }
 
-Vector::shared_ptr NativePetscMatrix::getInputVector() const
+Vector::shared_ptr NativePetscMatrix::createInputVector() const
 {
-    return std::dynamic_pointer_cast<NativePetscMatrixData>( d_matrixData )->getInputVector();
+    return std::dynamic_pointer_cast<NativePetscMatrixData>( d_matrixData )->createInputVector();
 }
-Vector::shared_ptr NativePetscMatrix::getOutputVector() const
+Vector::shared_ptr NativePetscMatrix::createOutputVector() const
 {
-    return std::dynamic_pointer_cast<NativePetscMatrixData>( d_matrixData )->getOutputVector();
+    return std::dynamic_pointer_cast<NativePetscMatrixData>( d_matrixData )->createOutputVector();
 }
 std::shared_ptr<Discretization::DOFManager> NativePetscMatrix::getRightDOFManager() const
 {
-    //    return getInputVector()->getDOFManager();
+    //    return createInputVector()->getDOFManager();
     return d_matrixData->getRightDOFManager();
 }
 std::shared_ptr<Discretization::DOFManager> NativePetscMatrix::getLeftDOFManager() const
 {
     return d_matrixData->getLeftDOFManager();
-    //    return getOutputVector()->getDOFManager();
+    //    return createOutputVector()->getDOFManager();
 }
 
 std::shared_ptr<Matrix> NativePetscMatrix::clone() const

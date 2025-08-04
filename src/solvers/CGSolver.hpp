@@ -98,7 +98,7 @@ void CGSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operator> op 
     if ( d_pOperator ) {
         auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
         if ( linearOp ) {
-            d_r = linearOp->getInputVector();
+            d_r = linearOp->createInputVector();
             if ( !d_bUsesPreconditioner )
                 d_z = d_r;
             allocateScratchVectors( d_r );

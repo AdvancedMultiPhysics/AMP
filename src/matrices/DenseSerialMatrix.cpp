@@ -83,7 +83,7 @@ Vector::shared_ptr DenseSerialMatrix::extractDiagonal( Vector::shared_ptr buf ) 
 {
     Vector::shared_ptr out = buf;
     if ( !buf )
-        out = this->getInputVector();
+        out = this->createInputVector();
 
     d_matrixOps->extractDiagonal( *getMatrixData(), out );
 
@@ -93,12 +93,12 @@ Vector::shared_ptr DenseSerialMatrix::extractDiagonal( Vector::shared_ptr buf ) 
 /********************************************************
  * Get the left/right vectors and DOFManagers            *
  ********************************************************/
-Vector::shared_ptr DenseSerialMatrix::getInputVector() const
+Vector::shared_ptr DenseSerialMatrix::createInputVector() const
 {
     auto var = std::dynamic_pointer_cast<DenseSerialMatrixData>( d_matrixData )->getRightVariable();
     return createVector( getRightDOFManager(), var );
 }
-Vector::shared_ptr DenseSerialMatrix::getOutputVector() const
+Vector::shared_ptr DenseSerialMatrix::createOutputVector() const
 {
     auto var = std::dynamic_pointer_cast<DenseSerialMatrixData>( d_matrixData )->getLeftVariable();
     return createVector( getLeftDOFManager(), var );
