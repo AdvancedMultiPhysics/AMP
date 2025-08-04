@@ -12,7 +12,8 @@ namespace AMP::Operator {
 NonlinearBVPOperator::NonlinearBVPOperator( std::shared_ptr<const OperatorParameters> params )
     : Operator( params )
 {
-    auto parmeters     = std::dynamic_pointer_cast<const BVPOperatorParameters>( params );
+    auto parmeters = std::dynamic_pointer_cast<const BVPOperatorParameters>( params );
+    AMP_ASSERT( parmeters );
     d_volumeOperator   = parmeters->d_volumeOperator;
     d_boundaryOperator = parmeters->d_boundaryOperator;
     d_Mesh             = d_volumeOperator->getMesh();

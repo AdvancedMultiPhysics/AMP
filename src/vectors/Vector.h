@@ -877,13 +877,6 @@ protected:                                                         // Internal d
     std::shared_ptr<VectorData> d_VectorData;                      // Pointer to data
     std::shared_ptr<VectorOperations> d_VectorOps;                 // Pointer to a VectorOperations
     std::shared_ptr<std::vector<std::any>> d_Views;                // Views of the vector
-
-
-public: // Deprecated functions (to be removed soon
-    [[deprecated]] typedef VectorDataIterator<double> iterator;
-    [[deprecated]] typedef VectorDataIterator<const double> const_iterator;
-    [[deprecated]] shared_ptr select( const VectorSelector &, const std::string & );
-    [[deprecated]] const_shared_ptr select( const VectorSelector &, const std::string & ) const;
 };
 
 

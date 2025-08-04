@@ -102,6 +102,9 @@ COPY_TEST_FILE( input_linearBVP-Mechanics+Thermal+Fick+Dirichlet-UO2MSRZC09-1   
 COPY_TEST_FILE( input_linearThermalDiffusion+FickDiffusion-UO2MSRZC09-1            diffusion/data )
 COPY_TEST_FILE( input_linearMechanics+ThermalDiffusion+FickDiffusion-TUI-1         mechanics/data )
 COPY_TEST_FILE( input_linearMechanics+ThermalDiffusion+FickDiffusion-UO2MSRZC09-1  mechanics/data )
+COPY_TEST_FILE( input_MoveMesh_1D )
+COPY_TEST_FILE( input_MoveMesh_2D )
+COPY_TEST_FILE( input_MoveMesh_3D )
 
 
 # Copy test data
@@ -130,6 +133,7 @@ IF ( USE_LIBMESH AND AMP_DATA )
     ADD_TB_TEST_1_2_4( testPowerShape_Zr )
     ADD_TB_TEST_1_2_4( testLinearOperator )
     ADD_TB_TEST_1_2_4( testLinearRobin )
+    ADD_TB_TEST_1_2_4( testMoveMesh )
     ADD_TB_TEST_1_2_4( testNonlinearRobin )
     ADD_TB_TEST_1_2_4( testVolumeIntegral )
     ADD_TB_TEST_1_2_4( testNonlinearFickSoret )

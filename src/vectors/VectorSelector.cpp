@@ -2,6 +2,7 @@
 #include "AMP/vectors/CommSelfVariable.h"
 #include "AMP/vectors/CommVariable.h"
 #include "AMP/vectors/MeshVariable.h"
+#include "AMP/vectors/MultiVariable.h"
 #include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/StridedVariable.h"
 #include "AMP/vectors/SubsetVariable.h"
@@ -40,7 +41,19 @@ std::shared_ptr<const Vector> VectorSelector::subset( std::shared_ptr<const Vect
  * VS_ByVariableName                                     *
  ********************************************************/
 VS_ByVariableName::VS_ByVariableName( std::string name ) : d_VecName( std::move( name ) ) {}
-bool VS_ByVariableName::isSelected( const Vector &v ) const { return v.getName() == d_VecName; }
+bool VS_ByVariableName::isSelected( const Vector &v ) const
+{
+    if ( v.getName() == d_VecName )
+        return true;
+    auto multivar = std::dynamic_pointer_cast<const MultiVariable>( v.getVariable() );
+    if ( multivar ) {
+        for ( auto &var : *multivar ) {
+            if ( var->getName() == d_VecName )
+                return true;
+        }
+    }
+    return false;
+}
 std::shared_ptr<Vector> VS_ByVariableName::subset( std::shared_ptr<Vector> vec ) const
 {
     auto var = vec->getVariable();

@@ -9,6 +9,10 @@ MESSAGE ("Configuring AMP")
 MESSAGE ("===============")
 
 
+# Print the CMake version
+MESSAGE( "CMake Version: ${CMAKE_VERSION}" )
+
+
 # Set the project name
 SET( PROJ AMP )                 # Set the project name for CMake
 SET( AMP_LIB amp )              # Set the final library name

@@ -35,35 +35,33 @@ ColumnTimeOperator::ColumnTimeOperator(
         const int numberOfOperators = d_pRhsOperator->getNumberOfOperators();
 
         for ( int i = 0; i < numberOfOperators; i++ ) {
-            auto timeOperator_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
+            auto timeOp_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
             // we assume for now that either all operators in the column operator are linear or all
             // are nonlinear
-            timeOperator_db->putScalar( "CurrentDt",
-                                        column_db->getWithDefault<double>( "CurrentDt", 1.0e-08 ) );
-            timeOperator_db->putScalar( "CurrentTime",
-                                        column_db->getWithDefault<double>( "CurrentTime", 0.0 ) );
-            timeOperator_db->putScalar( "name", "TimeOperator" );
-            timeOperator_db->putScalar(
-                "bLinearMassOperator",
-                column_db->getWithDefault<bool>( "bLinearMassOperator", true ) );
-            timeOperator_db->putScalar(
-                "bLinearRhsOperator",
-                column_db->getWithDefault<bool>( "bLinearRhsOperator", false ) );
-            timeOperator_db->putScalar(
-                "ScalingFactor", column_db->getWithDefault<double>( "ScalingFactor", 1.0e6 ) );
-            auto timeOperatorParameters =
-                std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );
-            timeOperatorParameters->d_pRhsOperator = d_pRhsOperator->getOperator( i );
+            auto Overwrite = AMP::Database::Check::Overwrite;
+            auto currentDt = column_db->getWithDefault<double>( "CurrentDt", 1.0e-08 );
+            auto currentT  = column_db->getWithDefault<double>( "CurrentTime", 0.0 );
+            auto scale     = column_db->getWithDefault<double>( "ScalingFactor", 1.0e6 );
+            bool massOp    = column_db->getWithDefault<bool>( "bLinearMassOperator", true );
+            bool rhsOp     = column_db->getWithDefault<bool>( "bLinearRhsOperator", false );
+            timeOp_db->putScalar( "CurrentDt", currentDt, {}, Overwrite );
+            timeOp_db->putScalar( "CurrentTime", currentT, {}, Overwrite );
+            timeOp_db->putScalar( "name", "TimeOperator", {}, Overwrite );
+            timeOp_db->putScalar( "bLinearMassOperator", massOp, {}, Overwrite );
+            timeOp_db->putScalar( "bLinearRhsOperator", rhsOp, {}, Overwrite );
+            timeOp_db->putScalar( "ScalingFactor", scale, {}, Overwrite );
+            auto timeOpParams =
+                std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOp_db );
+            timeOpParams->d_pRhsOperator = d_pRhsOperator->getOperator( i );
 
             // if there are algebraic components set the mass operator to NULL
             if ( i != d_iAlgebraicComponent ) {
-                timeOperatorParameters->d_pMassOperator = d_pMassOperator->getOperator( i );
+                timeOpParams->d_pMassOperator = d_pMassOperator->getOperator( i );
             } else {
-                timeOperator_db->putScalar( "bAlgebraicComponent", true );
+                timeOp_db->putScalar( "bAlgebraicComponent", true, {}, Overwrite );
             }
 
-            auto op =
-                std::make_shared<AMP::TimeIntegrator::LinearTimeOperator>( timeOperatorParameters );
+            auto op = std::make_shared<AMP::TimeIntegrator::LinearTimeOperator>( timeOpParams );
 
             d_operators.push_back( op );
         }
@@ -97,38 +95,38 @@ void ColumnTimeOperator::reset( std::shared_ptr<const AMP::Operator::OperatorPar
     const int numberOfOperators = d_pRhsOperator->getNumberOfOperators();
 
     for ( int i = 0; i < numberOfOperators; i++ ) {
-        auto timeOperator_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
+        auto timeOp_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
         // we assume for now that either all operators in the column operator are linear or all are
         // nonlinear
-        timeOperator_db->putScalar( "CurrentDt",
-                                    column_db->getWithDefault<double>( "CurrentDt", 1.0e-08 ) );
-        timeOperator_db->putScalar( "CurrentTime",
-                                    column_db->getWithDefault<double>( "CurrentTime", 0.0 ) );
-        timeOperator_db->putScalar( "name", "TimeOperator" );
-        timeOperator_db->putScalar(
-            "bLinearMassOperator", column_db->getWithDefault<bool>( "bLinearMassOperator", true ) );
-        timeOperator_db->putScalar(
-            "bLinearRhsOperator", column_db->getWithDefault<bool>( "bLinearRhsOperator", false ) );
-        timeOperator_db->putScalar( "ScalingFactor",
-                                    column_db->getWithDefault<double>( "ScalingFactor", 1.0e6 ) );
-        auto timeOperatorParameters =
-            std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );
+        auto Overwrite = AMP::Database::Check::Overwrite;
+        auto currentDt = column_db->getWithDefault<double>( "CurrentDt", 1.0e-08 );
+        auto currentT  = column_db->getWithDefault<double>( "CurrentTime", 0.0 );
+        auto scale     = column_db->getWithDefault<double>( "ScalingFactor", 1.0e6 );
+        bool massOp    = column_db->getWithDefault<bool>( "bLinearMassOperator", true );
+        bool rhsOp     = column_db->getWithDefault<bool>( "bLinearRhsOperator", false );
+        timeOp_db->putScalar( "CurrentDt", currentDt, {}, Overwrite );
+        timeOp_db->putScalar( "CurrentTime", currentT, {}, Overwrite );
+        timeOp_db->putScalar( "name", "TimeOperator", {}, Overwrite );
+        timeOp_db->putScalar( "bLinearMassOperator", massOp, {}, Overwrite );
+        timeOp_db->putScalar( "bLinearRhsOperator", rhsOp, {}, Overwrite );
+        timeOp_db->putScalar( "ScalingFactor", scale, {}, Overwrite );
+        auto timeOpParams =
+            std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOp_db );
         if ( pRhsParameters ) {
-            timeOperatorParameters->d_pRhsOperatorParameters =
-                ( pRhsParameters->d_OperatorParameters )[i];
+            timeOpParams->d_pRhsOperatorParameters = ( pRhsParameters->d_OperatorParameters )[i];
         }
 
         // if there are algebraic components set the mass operator to NULL
         if ( i != d_iAlgebraicComponent ) {
             if ( pMassParameters ) {
-                timeOperatorParameters->d_pMassOperatorParameters =
+                timeOpParams->d_pMassOperatorParameters =
                     ( pMassParameters->d_OperatorParameters )[i];
             }
         } else {
-            timeOperator_db->putScalar( "bAlgebraicComponent", true );
+            timeOp_db->putScalar( "bAlgebraicComponent", true, {}, Overwrite );
         }
 
-        d_operators[i]->reset( timeOperatorParameters );
+        d_operators[i]->reset( timeOpParams );
     }
 }
 

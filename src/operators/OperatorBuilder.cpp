@@ -40,13 +40,13 @@ createNonlinearFickSoretOperatorParameters( std::shared_ptr<AMP::Mesh::Mesh> mes
     auto fickOperatorName  = operator_db->getString( "FickOperator" );
     auto soretOperatorName = operator_db->getString( "SoretOperator" );
     // Ensure consistency of operator memory locations
-    AMP::Utilities::setNestedOperatorMemoryLocations(
-        input_db, operatorName, { fickOperatorName, soretOperatorName } );
     std::shared_ptr<Database> db = input_db->cloneDatabase();
-    auto fickOperator            = createOperator( mesh, fickOperatorName, input_db );
-    auto soretOperator           = createOperator( mesh, soretOperatorName, input_db );
-    auto params                  = std::make_shared<FickSoretNonlinearFEOperatorParameters>( db );
-    params->d_Mesh               = mesh;
+    AMP::Utilities::setNestedOperatorMemoryLocations(
+        db, operatorName, { fickOperatorName, soretOperatorName } );
+    auto fickOperator  = createOperator( mesh, fickOperatorName, db );
+    auto soretOperator = createOperator( mesh, soretOperatorName, db );
+    auto params        = std::make_shared<FickSoretNonlinearFEOperatorParameters>( db );
+    params->d_Mesh     = mesh;
     params->d_FickOperator =
         std::dynamic_pointer_cast<DiffusionNonlinearFEOperator>( fickOperator );
     params->d_SoretOperator =
@@ -74,19 +74,20 @@ createLinearBVPOperatorParameters( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     auto volumeOperatorName   = operator_db->getString( "VolumeOperator" );
     auto boundaryOperatorName = operator_db->getString( "BoundaryOperator" );
     // Ensure consistency of operator memory locations
+    std::shared_ptr<Database> db = input_db->cloneDatabase();
     AMP::Utilities::setNestedOperatorMemoryLocations(
-        input_db, operatorName, { volumeOperatorName, boundaryOperatorName } );
+        db, operatorName, { volumeOperatorName, boundaryOperatorName } );
     // create the volume operator
-    auto volumeOperator = createOperator( mesh, volumeOperatorName, input_db );
+    auto volumeOperator = createOperator( mesh, volumeOperatorName, db );
     auto volumeLinearOp = std::dynamic_pointer_cast<LinearOperator>( volumeOperator );
     AMP_ASSERT( volumeLinearOp );
     // create the boundary operator
-    auto boundaryOperator_db = input_db->getDatabase( boundaryOperatorName );
+    auto boundaryOperator_db = db->getDatabase( boundaryOperatorName );
     AMP_INSIST( boundaryOperator_db, "NULL database object passed for boundary operator" );
     boundaryOperator_db->putScalar(
         "isAttachedToVolumeOperator", true, Units(), Database::Check::Overwrite );
     auto boundaryOperator =
-        createBoundaryOperator( mesh, boundaryOperatorName, input_db, volumeLinearOp );
+        createBoundaryOperator( mesh, boundaryOperatorName, db, volumeLinearOp );
     auto bvpOperatorParams                = std::make_shared<BVPOperatorParameters>( operator_db );
     bvpOperatorParams->d_volumeOperator   = volumeOperator;
     bvpOperatorParams->d_boundaryOperator = boundaryOperator;
@@ -104,18 +105,19 @@ createNonlinearBVPOperatorParameters( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     auto volumeOperatorName   = operator_db->getString( "VolumeOperator" );
     auto boundaryOperatorName = operator_db->getString( "BoundaryOperator" );
     // Ensure consistency of operator memory locations
+    std::shared_ptr<Database> db = input_db->cloneDatabase();
     AMP::Utilities::setNestedOperatorMemoryLocations(
-        input_db, operatorName, { volumeOperatorName, boundaryOperatorName } );
+        db, operatorName, { volumeOperatorName, boundaryOperatorName } );
     // create the volume operator
-    auto volumeOperator = createOperator( mesh, volumeOperatorName, input_db );
+    auto volumeOperator = createOperator( mesh, volumeOperatorName, db );
     // create the boundary operator
-    auto boundaryOperator_db = input_db->getDatabase( boundaryOperatorName );
+    auto boundaryOperator_db = db->getDatabase( boundaryOperatorName );
     AMP_INSIST( boundaryOperator_db, "NULL database object passed for boundary operator" );
     boundaryOperator_db->putScalar(
         "isAttachedToVolumeOperator", true, Units(), Database::Check::Overwrite );
     auto boundaryOperator =
-        createBoundaryOperator( mesh, boundaryOperatorName, input_db, volumeOperator );
-    auto bvpOperatorParams                = std::make_shared<BVPOperatorParameters>( input_db );
+        createBoundaryOperator( mesh, boundaryOperatorName, db, volumeOperator );
+    auto bvpOperatorParams                = std::make_shared<BVPOperatorParameters>( db );
     bvpOperatorParams->d_volumeOperator   = volumeOperator;
     bvpOperatorParams->d_boundaryOperator = boundaryOperator;
     return bvpOperatorParams;
@@ -140,12 +142,13 @@ createColumnBoundaryOperator( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     auto boundaryOps = operator_db->getVector<std::string>( "boundaryOperators" );
     AMP_ASSERT( N == (int) boundaryOps.size() );
     // Ensure consistency of operator memory locations
-    AMP::Utilities::setNestedOperatorMemoryLocations( input_db, boundaryOperatorName, boundaryOps );
+    std::shared_ptr<Database> db = input_db->cloneDatabase();
+    AMP::Utilities::setNestedOperatorMemoryLocations( db, boundaryOperatorName, boundaryOps );
     // Create the parameters and operators
     auto params                 = std::make_shared<OperatorParameters>( operator_db, mesh );
     auto columnBoundaryOperator = std::make_shared<ColumnBoundaryOperator>( params );
     for ( int i = 0; i < N; i++ ) {
-        auto bcOperator = createBoundaryOperator( mesh, boundaryOps[i], input_db, volumeOperator );
+        auto bcOperator = createBoundaryOperator( mesh, boundaryOps[i], db, volumeOperator );
         AMP_ASSERT( bcOperator );
         columnBoundaryOperator->append( bcOperator );
     }
