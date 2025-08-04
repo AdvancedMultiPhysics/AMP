@@ -1,0 +1,19 @@
+Mesh{
+    MeshName = "zoo"
+    MeshType = "Multimesh"
+    MeshDatabasePrefix = "Mesh_"
+    MeshArrayDatabasePrefix = "MeshArray_"
+    LoadBalanceMethod = 0
+
+    Mesh_1 {
+        MeshName = "cube_1d"
+        MeshType = "AMP"
+        dim = 1
+        Generator = "cube"
+        Size = 30
+        Range = -1, 1
+        x_offset = 0
+        static = FALSE
+    }
+}
+

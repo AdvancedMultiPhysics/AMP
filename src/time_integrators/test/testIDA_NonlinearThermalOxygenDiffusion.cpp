@@ -12,7 +12,6 @@
 #include "AMP/operators/boundary/DirichletMatrixCorrection.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
 #include "AMP/operators/diffusion/DiffusionLinearFEOperator.h"
-#include "AMP/operators/diffusion/FickSoretNonlinearFEOperator.h"
 #include "AMP/operators/libmesh/MassLinearFEOperator.h"
 #include "AMP/operators/libmesh/VolumeIntegralOperator.h"
 #include "AMP/operators/mechanics/MechanicsLinearElement.h"
@@ -57,6 +56,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
+    // Create the Mesh
     AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
@@ -105,16 +105,16 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     // create a mass linear BVP operator
     auto massThermalOp = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator( mesh, "MassThermalOperator", input_db ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "LinearThermalOperator", input_db ) );
     auto massOxygenOp = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator( mesh, "MassOxygenOperator", input_db ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "MassOperator", input_db ) );
 
     // create a column mass operator object for use in the nonlinear and linear problem definition
     auto columnMassOperator = std::make_shared<AMP::Operator::ColumnOperator>();
     columnMassOperator->append( massThermalOp );
     columnMassOperator->append( massOxygenOp );
 
-    // create a  time operator for use in the preconditioner
+    // create a time operator for use in the preconditioner
     auto timeOperator_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
     timeOperator_db->putScalar( "CurrentDt", 0.01 );
     timeOperator_db->putScalar( "name", "TimeOperator" );
@@ -122,21 +122,17 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     timeOperator_db->putScalar( "bLinearRhsOperator", false );
     timeOperator_db->putScalar( "ScalingFactor", 1.0 / 0.01 );
 
-    auto timeOperatorParameters =
+    auto timeOpParameters =
         std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );
-    timeOperatorParameters->d_pRhsOperator  = columnLinearRhsOperator;
-    timeOperatorParameters->d_pMassOperator = columnMassOperator;
-    timeOperatorParameters->d_Mesh          = mesh;
+    timeOpParameters->d_pRhsOperator  = columnLinearRhsOperator;
+    timeOpParameters->d_pMassOperator = columnMassOperator;
+    timeOpParameters->d_Mesh          = mesh;
     auto columnLinearTimeOperator =
-        std::make_shared<AMP::TimeIntegrator::ColumnTimeOperator>( timeOperatorParameters );
+        std::make_shared<AMP::TimeIntegrator::ColumnTimeOperator>( timeOpParameters );
 
     // create vectors for initial conditions (IC) and time derivative at IC
-    auto thermalVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
-            nonlinearThermalOperator->getVolumeOperator() );
-    auto oxygenVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::FickSoretNonlinearFEOperator>(
-            nonlinearOxygenOperator->getVolumeOperator() );
+    auto thermalVolumeOperator = nonlinearThermalOperator->getVolumeOperator();
+    auto oxygenVolumeOperator  = nonlinearOxygenOperator->getVolumeOperator();
 
     // note that the input variable for the time integrator and time operator will be a
     // multivariable
@@ -181,17 +177,16 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     // convert the vector of specific power to power for a given basis.
     sourceOperator->apply( SpecificPowerVec, powerInWattsVec );
-    //----------------------------------------------------------------------------------------------------------------------------------------------//
-    // set initial conditions, initialize created vectors
 
+    // set initial conditions, initialize created vectors
     auto node     = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     auto end_node = node.end();
 
     AMP::LinearAlgebra::VS_Mesh vectorSelector1( mesh );
     AMP::LinearAlgebra::VS_Mesh vectorSelector2( mesh );
 
-    auto thermalIC = initialCondition->select( vectorSelector1 );
-    auto oxygenIC  = initialCondition->select( vectorSelector2 );
+    auto thermalIC = initialCondition->subsetVectorForVariable( "temperature" );
+    auto oxygenIC  = initialCondition->subsetVectorForVariable( "concentration" );
     int counter    = 0;
     for ( ; node != end_node; ++node ) {
         counter++;
@@ -205,10 +200,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
         double tval = init_thermal( px, py, pz );
         double oval = init_oxygen( px, py, pz );
-        std::cout << "tval = " << tval << std::endl;
-        std::cout << "oval = " << oval << std::endl;
 
-        std::cout << "counter = " << counter << "bndGlobalIds.size() = " << gid.size() << std::endl;
         for ( auto &elem : gid ) {
             thermalIC->setValuesByGlobalID( 1, &elem, &tval );
             oxygenIC->setValuesByGlobalID( 1, &elem, &oval );
@@ -219,9 +211,10 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     // ** as this causes trouble with the boundary - BP, 07/16/2010
     initialConditionPrime->zero();
 
-    auto thermalRhs = f->select( vectorSelector1 );
+    auto thermalRhs = f->subsetVectorForVariable( powerInWattsVar );
     // create a copy of the rhs which can be modified at each time step (maybe)
     thermalRhs->copyVector( powerInWattsVec );
+
     // modify the rhs to take into account boundary conditions
     nonlinearThermalOperator->modifyRHSvector( f );
     nonlinearThermalOperator->modifyInitialSolutionVector( initialCondition );
@@ -281,7 +274,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     time_Params->d_pMassOperator = columnMassOperator;
     time_Params->d_operator      = columnNonlinearRhsOperator;
-    // time_Params->d_pNestedSolver = columnPreconditioner;
+    time_Params->d_pNestedSolver = columnPreconditioner;
 
     time_Params->d_ic_vector       = initialCondition;
     time_Params->d_ic_vector_prime = initialConditionPrime;
@@ -300,13 +293,14 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     }
 
     // step in time
-    int j = 1;
+    double current_time = 0;
+    int j               = 1;
     while ( pIDATimeIntegrator->getCurrentTime() < pIDATimeIntegrator->getFinalTime() ) {
         auto v = pIDATimeIntegrator->getSolution();
         int retval =
             pIDATimeIntegrator->advanceSolution( pIDATimeIntegrator->getCurrentDt(), false, v, v );
         // pIDATimeIntegrator->updateSolution();
-        double current_time = pIDATimeIntegrator->getCurrentTime();
+        current_time = pIDATimeIntegrator->getCurrentTime();
 
         std::cout << j++ << "-th timestep" << std::endl;
         if ( retval == 0 ) {
@@ -334,8 +328,6 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     }
 
 
-    AMP::AMPManager::shutdown();
-
     if ( ut->NumFailLocal() == 0 ) {
         ut->passes( "testIDATimeIntegrator successful" );
     }
@@ -357,7 +349,3 @@ int testIDA_NonlinearThermalOxygenDiffusion( int argc, char *argv[] )
     AMP::AMPManager::shutdown();
     return num_failed;
 }
-
-//---------------------------------------------------------------------------//
-//                        end of SundialsVectorTest.cc
-//---------------------------------------------------------------------------//

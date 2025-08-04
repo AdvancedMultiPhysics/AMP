@@ -94,13 +94,13 @@ DiffusionNonlinearFEOperator{
     OutputVariable = "temperature"
     PrincipalVariable = "temperature" 
     DiffusionElement{
-       name = "DiffusionNonlinearElement"
-       TransportAtGaussPoints = TRUE
-       FE_ORDER = "FIRST"  
-       FE_FAMILY = "LAGRANGE"
-       QRULE_TYPE = "QGAUSS"
-       QRULE_ORDER = "DEFAULT"
-    }    
+        name = "DiffusionNonlinearElement"
+        TransportAtGaussPoints = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }
     LocalModel = DiffusionTransportModel
 }
 
@@ -117,10 +117,10 @@ DirichletVectorCorrection{
 }
 
 LinearThermalOperator {
-   name="LinearBVPOperator"
-   print_info_level = 1
-   VolumeOperator="DiffusionLinearFEOperator"
-   BoundaryOperator="DirichletMatrixCorrection"
+    name="LinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator="DiffusionLinearFEOperator"
+    BoundaryOperator="DirichletMatrixCorrection"
 }
 
 DiffusionLinearFEOperator{
@@ -140,6 +140,7 @@ DiffusionLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
+    LocalModel = DiffusionTransportModel
 }
 
 DirichletMatrixCorrection{
@@ -194,35 +195,33 @@ MassMatrixCorrection{
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        = 0.
-  }
+}
 
 IDATimeIntegrator{
     name = "IDATimeIntegrator"
-    linear_solver_type        = 1
-    relative_tolerance        = 1.00e-10
-    absolute_tolerance        = 1.00e-16
-    initial_time              = 0.0
-    final_time                = 1000.0
-    max_integrator_steps      = 10000
-    initial_dt                = 0.01
-    max_dt                    = 10.0
-    min_dt                    = 1.0e-08
-    bLinearMassOperator       = TRUE
-    bLinearRhsOperator        = FALSE
-    CallCalcIC=TRUE
+    linear_solver_type   = 1
+    relative_tolerance   = 1.00e-10
+    absolute_tolerance   = 1.00e-16
+    initial_time         = 0.0
+    final_time           = 1000
+    max_integrator_steps = 10000
+    initial_dt           = 0.01
+    max_dt               = 10
+    min_dt               = 1.0e-08
+    bLinearMassOperator  = TRUE
+    bLinearRhsOperator   = FALSE
+    CallCalcIC           = TRUE
+
     Preconditioner{
         print_info_level = 3
         max_iterations = 1
         ResetColumnOperator = TRUE
         max_error = 1e-10
         thermalPreconditioner{
-            print_info_level = 3
+            print_info_level = 0
             max_iterations = 1
             max_error = 1e-10
         }
     }
 }
-
-
-
 
