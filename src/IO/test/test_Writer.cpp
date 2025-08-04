@@ -48,7 +48,7 @@ AMP::LinearAlgebra::Vector::shared_ptr calcVolume( std::shared_ptr<AMP::Mesh::Me
         double volume = elem.volume();
         DOF->getDOFs( elem.globalID(), dofs );
         AMP_ASSERT( dofs.size() == 1 );
-        vec->addLocalValuesByGlobalID( 1, &dofs[0], &volume );
+        vec->addValuesByGlobalID( 1, &dofs[0], &volume );
     }
     return vec;
 }
@@ -73,7 +73,7 @@ AMP::LinearAlgebra::Vector::shared_ptr calcLogical( std::shared_ptr<AMP::Mesh::M
         double p[3] = { y.x(), y.y(), y.z() };
         DOF->getDOFs( elem.globalID(), dofs );
         AMP_ASSERT( dofs.size() == ndim );
-        vec->addLocalValuesByGlobalID( ndim, &dofs[0], p );
+        vec->addValuesByGlobalID( ndim, &dofs[0], p );
     }
     vec->makeConsistent();
     return vec;

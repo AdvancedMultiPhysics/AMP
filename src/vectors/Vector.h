@@ -672,24 +672,9 @@ public: // VectorData operations
         d_VectorData->setValuesByLocalID( num, indices, vals );
     }
     template<class TYPE>
-    inline void setLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->setLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
     inline void addValuesByLocalID( int num, size_t *indices, const TYPE *vals )
     {
         d_VectorData->addValuesByLocalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void addLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->addLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void getLocalValuesByGlobalID( int num, size_t *indices, TYPE *vals ) const
-    {
-        d_VectorData->getLocalValuesByGlobalID( num, indices, vals );
     }
     inline uint64_t getDataID() const { return d_VectorData->getDataID(); }
     inline void *getRawDataBlockAsVoid( size_t i )
@@ -806,7 +791,7 @@ public: // Get values
      * \brief Return a local value from the vector.
      * \param[in] i The global index into the vector
      * \return The value stored at the index
-     * \details This uses getLocalValuesByGlobalID to get the value
+     * \details This uses getValuesByGlobalID to get the value
      */
     template<typename TYPE = double>
     TYPE getLocalValueByGlobalID( size_t i ) const;

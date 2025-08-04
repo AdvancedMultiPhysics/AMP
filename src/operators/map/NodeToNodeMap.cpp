@@ -172,7 +172,7 @@ void NodeToNodeMap::applyFinish( AMP::LinearAlgebra::Vector::const_shared_ptr,
     waitForAllRequests();
 
     // Store the DOFs
-    d_OutputVector->setLocalValuesByGlobalID( dofs.size(), dofs.data(), d_recvBuffer.data() );
+    d_OutputVector->setValuesByGlobalID( dofs.size(), dofs.data(), d_recvBuffer.data() );
 
     // Update ghost cells (this should be done on the full output vector)
     if ( d_callMakeConsistentSet )

@@ -13,7 +13,7 @@ void CustomConstraintsEliminationOperator::addSlaveToMaster(
 {
     if ( !d_MasterIndices.empty() ) {
         std::vector<double> slaveValues( d_SlaveIndices.size() );
-        u->getLocalValuesByGlobalID(
+        u->getValuesByGlobalID(
             d_SlaveIndices.size(), &( d_SlaveIndices[0] ), &( slaveValues[0] ) );
         std::vector<double> addToMasterValues;
         for ( size_t i = 0; i < d_SlaveIndices.size(); ++i ) {
@@ -49,7 +49,7 @@ void CustomConstraintsEliminationOperator::copyMasterToSlave(
                 }     // end if
             }         // end for i
         }             // end if
-        u->setLocalValuesByGlobalID(
+        u->setValuesByGlobalID(
             d_SlaveIndices.size(), &( d_SlaveIndices[0] ), &( slaveValues[0] ) );
     } // end if
 }

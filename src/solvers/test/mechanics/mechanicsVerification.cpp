@@ -102,9 +102,9 @@ computeForcingTerms( std::shared_ptr<AMP::Mesh::Mesh> mesh,
             V[i]     = manufacturedSolution->getForcingTermY( x, y, z );
             W[i]     = manufacturedSolution->getForcingTermZ( x, y, z );
         } // end loop over all integration points of the element
-        dummyIntegrationPointVecU->setLocalValuesByGlobalID( dofs.size(), dofs.data(), U.data() );
-        dummyIntegrationPointVecV->setLocalValuesByGlobalID( dofs.size(), dofs.data(), V.data() );
-        dummyIntegrationPointVecW->setLocalValuesByGlobalID( dofs.size(), dofs.data(), W.data() );
+        dummyIntegrationPointVecU->setValuesByGlobalID( dofs.size(), dofs.data(), U.data() );
+        dummyIntegrationPointVecV->setValuesByGlobalID( dofs.size(), dofs.data(), V.data() );
+        dummyIntegrationPointVecW->setValuesByGlobalID( dofs.size(), dofs.data(), W.data() );
     } // end loop over all elements
     dummyIntegrationPointVecU->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     dummyIntegrationPointVecV->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -134,7 +134,7 @@ computeForcingTerms( std::shared_ptr<AMP::Mesh::Mesh> mesh,
         double val[3] = { dummyNodalVecU->getLocalValueByGlobalID( nd1GlobalIds[0] ),
                           dummyNodalVecV->getLocalValueByGlobalID( nd1GlobalIds[0] ),
                           dummyNodalVecW->getLocalValueByGlobalID( nd1GlobalIds[0] ) };
-        forcingTermsVec->setLocalValuesByGlobalID( nd3GlobalIds.size(), nd3GlobalIds.data(), val );
+        forcingTermsVec->setValuesByGlobalID( nd3GlobalIds.size(), nd3GlobalIds.data(), val );
     } // end loop over all nodes
     if ( verbose ) {
         AMP::pout << "------------------------------------------\n"
@@ -166,7 +166,7 @@ computeExactSolution( std::shared_ptr<AMP::Mesh::Mesh> mesh,
             manufacturedSolution->getExactSolutions( coord[0], coord[1], coord[2] );
         // Distribute values in the vector object
         for ( unsigned int xyz = 0; xyz < 3; ++xyz ) {
-            exactSolutionsVec->setLocalValuesByGlobalID(
+            exactSolutionsVec->setValuesByGlobalID(
                 1, &globalIDs[xyz], &displacementXYZ[xyz] );
         } // end loop over the coordinates
     }     // end soop over all nodes
@@ -350,7 +350,7 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
             double bndVals[3] = { normalDotGradientX, normalDotGradientY, normalDotGradientZ };
             NodalVectorDOF->getDOFs( node.globalID(), dofs );
             AMP_ASSERT( dofs.size() == 3 );
-            rhsVec->addLocalValuesByGlobalID( dofs.size(), dofs.data(), bndVals );
+            rhsVec->addValuesByGlobalID( dofs.size(), dofs.data(), bndVals );
         }
     }
 

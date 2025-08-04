@@ -29,7 +29,7 @@ void ConstraintsEliminationOperator::setSlaveToZero( AMP::LinearAlgebra::Vector:
 {
     if ( !d_SlaveIndices.empty() ) {
         std::vector<double> zeroSlaveValues( d_SlaveIndices.size(), 0.0 );
-        u->setLocalValuesByGlobalID(
+        u->setValuesByGlobalID(
             d_SlaveIndices.size(), &( d_SlaveIndices[0] ), &( zeroSlaveValues[0] ) );
     } // end if
     u->makeConsistent();
@@ -39,7 +39,7 @@ void ConstraintsEliminationOperator::addShiftToSlave( AMP::LinearAlgebra::Vector
 {
     AMP_ASSERT( d_SlaveShift.size() == d_SlaveIndices.size() );
     if ( !d_SlaveIndices.empty() ) {
-        u->addLocalValuesByGlobalID(
+        u->addValuesByGlobalID(
             d_SlaveIndices.size(), &( d_SlaveIndices[0] ), &( d_SlaveShift[0] ) );
     } // end if
 }

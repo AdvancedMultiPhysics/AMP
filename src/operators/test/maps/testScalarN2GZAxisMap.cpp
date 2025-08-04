@@ -46,7 +46,7 @@ static void setBoundary( int id,
     while ( curBnd != endBnd ) {
         d1->getDOFs( curBnd->globalID(), ids );
         auto x = curBnd->coord();
-        v1->setLocalValuesByGlobalID( ids.size(), &ids[0], &x[2] );
+        v1->setValuesByGlobalID( ids.size(), &ids[0], &x[2] );
         ++curBnd;
     }
 }

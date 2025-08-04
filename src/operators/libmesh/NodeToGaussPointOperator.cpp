@@ -127,7 +127,7 @@ void NodeToGaussPointOperator::apply( AMP::LinearAlgebra::Vector::const_shared_p
                 computedAtGauss[qp] += ( computedAtNode * d_phi[i][j + qp * N_nodes] );
             } // end for qp
         }     // end for j
-        gaussPtVec->setLocalValuesByGlobalID( N_quad, &gaussPtIndices[0], computedAtGauss );
+        gaussPtVec->setValuesByGlobalID( N_quad, &gaussPtIndices[0], computedAtGauss );
 
     } // end for
 } // end apply
