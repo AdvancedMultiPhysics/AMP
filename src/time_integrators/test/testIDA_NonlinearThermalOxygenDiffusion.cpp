@@ -205,7 +205,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
             thermalIC->setValuesByGlobalID( 1, &elem, &tval );
             oxygenIC->setValuesByGlobalID( 1, &elem, &oval );
         } // end for i
-    }     // end for node
+    } // end for node
 
     // ** please do not set the time derivative to be non-zero!!
     // ** as this causes trouble with the boundary - BP, 07/16/2010
