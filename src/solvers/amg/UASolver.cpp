@@ -29,12 +29,10 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
 
     d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
-    d_coarsen_settings.redist_coarsen_factor =
-        db->getWithDefault<size_t>( "redist_coarsen_factor", 2 );
-    d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
-    d_coarsen_settings.pairwise_passes  = db->getWithDefault<size_t>( "pairwise_passes", 2 );
-    d_coarsen_settings.checkdd          = db->getWithDefault<bool>( "checkdd", true );
+    d_coarsen_settings.min_coarse_local   = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_coarsen_settings.min_coarse         = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
+    d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
 
     d_implicit_RAP = db->getWithDefault<bool>( "implicit_RAP", false );
     if ( d_iDebugPrintInfoLevel > 1 ) {
@@ -61,9 +59,10 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     auto post_db        = db->getDatabase( "post_relaxation" );
     d_post_relax_params = std::make_shared<RelaxationParameters>( post_db );
 
-    AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
+    AMP_INSIST( db->keyExists( "coarse_solver" ), "UASolver: Key coarse_solver is missing!" );
     auto cg_solver_db = db->getDatabase( "coarse_solver" );
-    AMP_INSIST( db->keyExists( "name" ), "Key name does not exist in coarse solver database" );
+    AMP_INSIST( db->keyExists( "name" ),
+                "UASolver: Key name does not exist in coarse solver database" );
     d_coarse_solver_params = std::make_shared<SolverStrategyParameters>( cg_solver_db );
 }
 
@@ -81,12 +80,12 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     auto linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( op );
     AMP_INSIST( linop, "UASolver: operator must be linear" );
     auto mat = linop->getMatrix();
-    AMP_INSIST( mat, "matrix cannot be NULL" );
+    AMP_INSIST( mat, "UASolver: matrix cannot be NULL" );
 
     // verify this is actually a CSRMatrix
     const auto mode = mat->mode();
     AMP_INSIST( mode < std::numeric_limits<std::uint16_t>::max(),
-                "SASolver::registerOperator: Must pass in linear operator in CSRMatrix format" );
+                "UASolver::registerOperator: Must pass in linear operator in CSRMatrix format" );
 
     // determine the memory location from the mode
     const auto csr_mode = static_cast<LinearAlgebra::csr_mode>( mode );
@@ -98,7 +97,7 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     } else if ( csr_alloc == LinearAlgebra::alloc::device ) {
         d_mem_loc = Utilities::MemoryType::device;
     } else {
-        AMP_ERROR( "Unrecognized memory location" );
+        AMP_ERROR( "UASolver: Unrecognized memory location" );
     }
 
     d_levels.clear();
@@ -196,7 +195,7 @@ void UASolver::setup()
     }
 
     makeCoarseSolver();
-    if ( d_iDebugPrintInfoLevel > 0 )
+    if ( d_iDebugPrintInfoLevel > 1 )
         print_summary( d_levels, *d_coarse_solver );
 }
 

@@ -46,7 +46,7 @@ void linearThermalTest( AMP::UnitTest *ut,
     if ( ( inputFileName.find( "SASolver" ) != std::string::npos ||
            inputFileName.find( "UASolver" ) != std::string::npos ) &&
          memoryLocation != "host" ) {
-        ut->expected_failure( "Skipping SASolver on non-host memory" );
+        ut->expected_failure( "Skipping SASolver or UASolver on non-host memory" );
         return;
     }
 

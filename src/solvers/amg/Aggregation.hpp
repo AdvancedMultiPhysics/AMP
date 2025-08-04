@@ -487,7 +487,7 @@ auto pairwise_aggregation( csr_view<Fine> A, const PairwiseCoarsenSettings &sett
 
         return agg_union( agg_union( agg1, agg2 ), agg3 );
     } else {
-        AMP_ERROR( "Invalid number of pairwise passes" );
+        AMP_ERROR( "Pairwise Aggregation: Invalid number of pairwise passes" );
     }
 }
 

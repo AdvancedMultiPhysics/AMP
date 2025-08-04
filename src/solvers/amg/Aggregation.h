@@ -9,7 +9,6 @@
 namespace AMP::Solver::AMG {
 struct CoarsenSettings {
     float strength_threshold;
-    size_t redist_coarsen_factor;
     int min_coarse_local;
     size_t min_coarse;
 };
