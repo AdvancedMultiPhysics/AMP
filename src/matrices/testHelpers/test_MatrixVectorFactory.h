@@ -32,7 +32,7 @@ public:
     AMP::LinearAlgebra::Vector::shared_ptr getVector() const override
     {
         PROFILE( "AmpInterfaceLeftVectorFactory::getVector" );
-        auto vector = d_matrix->getLeftVector();
+        auto vector = d_matrix->createOutputVector();
         vector->setVariable( std::make_shared<AMP::LinearAlgebra::Variable>( "left" ) );
         return vector;
     }
@@ -56,7 +56,7 @@ public:
     AMP::LinearAlgebra::Vector::shared_ptr getVector() const override
     {
         PROFILE( "AmpInterfaceRightVectorFactory::getVector" );
-        auto vector = d_matrix->getRightVector();
+        auto vector = d_matrix->createInputVector();
         vector->setVariable( std::make_shared<AMP::LinearAlgebra::Variable>( "right" ) );
         return vector;
     }

@@ -164,7 +164,7 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
 #if 1
         d_dofManager = inputMatrix->getRightDOFManager();
 #else
-        auto inVec   = inputMatrix->getRightVector();
+        auto inVec   = inputMatrix->createInputVector();
         d_dofManager = inVec->getDOFManager();
 #endif
         unsigned int numIds  = d_boundaryIds.size();

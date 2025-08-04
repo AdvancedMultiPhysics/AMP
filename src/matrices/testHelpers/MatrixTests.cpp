@@ -167,11 +167,11 @@ void MatrixTests::VerifyAXPYMatrix( AMP::UnitTest *utils )
     // Test axpy
     matrix2->axpy( -2., matrix1 ); // matrix2 = -matrix1
 
-    auto vector1lhs   = matrix1->getRightVector();
-    auto vector2lhs   = matrix2->getRightVector();
-    auto vector1rhs   = matrix1->getRightVector();
-    auto vector2rhs   = matrix2->getRightVector();
-    auto vectorresult = matrix2->getRightVector();
+    auto vector1lhs   = matrix1->createInputVector();
+    auto vector2lhs   = matrix2->createInputVector();
+    auto vector1rhs   = matrix1->createInputVector();
+    auto vector2rhs   = matrix2->createInputVector();
+    auto vectorresult = matrix2->createInputVector();
 
     vector1lhs->setRandomValues();
     vector1lhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -220,12 +220,12 @@ void MatrixTests::VerifyCopyMatrix( AMP::UnitTest *utils )
     fillWithPseudoLaplacian( matrix1, d_factory );
     auto matrix2 = getCopyMatrix( matrix1 );
 
-    auto u1 = matrix1->getRightVector();
-    auto v1 = matrix1->getRightVector();
+    auto u1 = matrix1->createInputVector();
+    auto v1 = matrix1->createInputVector();
 
-    auto u2           = matrix2->getRightVector();
-    auto v2           = matrix2->getRightVector();
-    auto vectorresult = matrix2->getRightVector();
+    auto u2           = matrix2->createInputVector();
+    auto v2           = matrix2->createInputVector();
+    auto vectorresult = matrix2->createInputVector();
 
     u1->setRandomValues();
     u1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -281,11 +281,11 @@ void MatrixTests::VerifyScaleMatrix( AMP::UnitTest *utils )
 
     matrix2->scale( 1.234567 ); // matrix2 = matrix1
 
-    auto vector1lhs   = matrix1->getRightVector();
-    auto vector2lhs   = matrix2->getRightVector();
-    auto vector1rhs   = matrix1->getRightVector();
-    auto vector2rhs   = matrix2->getRightVector();
-    auto vectorresult = matrix2->getRightVector();
+    auto vector1lhs   = matrix1->createInputVector();
+    auto vector2lhs   = matrix2->createInputVector();
+    auto vector1rhs   = matrix1->createInputVector();
+    auto vector2rhs   = matrix2->createInputVector();
+    auto vectorresult = matrix2->createInputVector();
 
     vector1lhs->setRandomValues();
     vector1lhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -314,7 +314,7 @@ void MatrixTests::VerifyExtractDiagonal( AMP::UnitTest *utils )
     PROFILE( "VerifyExtractDiagonal" );
     auto matrix = d_factory->getMatrix();
     //    matrix->makeConsistent(); // required by PETSc
-    auto vector     = matrix->getRightVector();
+    auto vector     = matrix->createInputVector();
     size_t firstRow = vector->getCommunicationList()->getStartGID();
     size_t maxCols  = matrix->numGlobalColumns();
     for ( size_t i = 0; i != vector->getCommunicationList()->numLocalRows(); i++ ) {
@@ -352,8 +352,8 @@ void MatrixTests::VerifyMultMatrix( AMP::UnitTest *utils )
     // Verify mult with 0 matrix
     matrix = getCopyMatrix( matrix );
     matrix->zero();
-    auto vectorlhs = matrix->getRightVector();
-    auto vectorrhs = matrix->getRightVector();
+    auto vectorlhs = matrix->createInputVector();
+    auto vectorrhs = matrix->createInputVector();
     double normlhs, normrhs;
 
     vectorlhs->setRandomValues();
@@ -402,8 +402,8 @@ void MatrixTests::VerifyMatMultMatrix_IA( AMP::UnitTest *utils )
     fillWithPseudoLaplacian( matLap, d_factory );
     matLap = getCopyMatrix( matLap );
 
-    auto x = matLap->getRightVector();
-    auto y = matLap->getLeftVector();
+    auto x = matLap->createInputVector();
+    auto y = matLap->createOutputVector();
 
     x->setToScalar( 1.0 );
     const auto l1x = static_cast<double>( x->L1Norm() );
@@ -418,8 +418,8 @@ void MatrixTests::VerifyMatMultMatrix_IA( AMP::UnitTest *utils )
     const auto l1y = static_cast<double>( y->L1Norm() );
 
     auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matId, matLap );
-    auto xp      = matProd->getRightVector();
-    auto yp      = matProd->getLeftVector();
+    auto xp      = matProd->createInputVector();
+    auto yp      = matProd->createOutputVector();
     xp->setToScalar( 1.0 );
     matProd->mult( xp, yp );
     auto l1yp = static_cast<double>( yp->L1Norm() );
@@ -441,8 +441,8 @@ void MatrixTests::VerifyMatMultMatrix_AI( AMP::UnitTest *utils )
     fillWithPseudoLaplacian( matLap, d_factory );
     matLap = getCopyMatrix( matLap );
 
-    auto x = matLap->getRightVector();
-    auto y = matLap->getLeftVector();
+    auto x = matLap->createInputVector();
+    auto y = matLap->createOutputVector();
 
     x->setToScalar( 1.0 );
     const auto l1x = static_cast<double>( x->L1Norm() );
@@ -457,8 +457,8 @@ void MatrixTests::VerifyMatMultMatrix_AI( AMP::UnitTest *utils )
     const auto l1y = static_cast<double>( y->L1Norm() );
 
     auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matLap, matId );
-    auto xp      = matProd->getRightVector();
-    auto yp      = matProd->getLeftVector();
+    auto xp      = matProd->createInputVector();
+    auto yp      = matProd->createOutputVector();
     xp->setToScalar( 1.0 );
     matProd->mult( xp, yp );
     auto l1yp = static_cast<double>( yp->L1Norm() );
@@ -480,8 +480,8 @@ void MatrixTests::VerifyMatMultMatrix_AA( AMP::UnitTest *utils )
     fillWithPseudoLaplacian( matLap, d_factory );
     matLap = getCopyMatrix( matLap );
 
-    auto x = matLap->getRightVector();
-    auto y = matLap->getLeftVector();
+    auto x = matLap->createInputVector();
+    auto y = matLap->createOutputVector();
 
     x->setToScalar( 1.0 );
     const auto l1x = static_cast<double>( x->L1Norm() );
@@ -491,8 +491,8 @@ void MatrixTests::VerifyMatMultMatrix_AA( AMP::UnitTest *utils )
     const auto l1y = static_cast<double>( y->L1Norm() );
 
     auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matLap, matLap );
-    auto xp      = matProd->getRightVector();
-    auto yp      = matProd->getLeftVector();
+    auto xp      = matProd->createInputVector();
+    auto yp      = matProd->createOutputVector();
     xp->setToScalar( 1.0 );
     matProd->mult( xp, yp );
     auto l1yp = static_cast<double>( yp->L1Norm() );

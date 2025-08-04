@@ -101,8 +101,8 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
         ut->failure( type + ": Unable to create a square matrix" );
     }
 
-    x = matrix->getRightVector();
-    y = matrix->getLeftVector();
+    x = matrix->createInputVector();
+    y = matrix->createOutputVector();
 }
 
 template<typename Config>
@@ -229,7 +229,7 @@ void testAXPY( AMP::UnitTest *ut,
     Y->mult( rY, lY );
 
     // Check pL * one + (-pL*one) = 0
-    auto z = X->getLeftVector();
+    auto z = X->createOutputVector();
     z->zero();
     z->add( *lX, *lY );
 

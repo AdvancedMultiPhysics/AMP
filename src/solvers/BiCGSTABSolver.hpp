@@ -102,7 +102,7 @@ void BiCGSTABSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operato
     if ( d_pOperator ) {
         auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
         if ( linearOp ) {
-            d_r = linearOp->getRightVector();
+            d_r = linearOp->createInputVector();
             allocateScratchVectors( d_r );
         }
     }

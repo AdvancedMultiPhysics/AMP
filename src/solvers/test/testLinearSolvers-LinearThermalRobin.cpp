@@ -69,8 +69,8 @@ void linearThermalTest( AMP::UnitTest *ut,
         AMP::Operator::OperatorBuilder::createOperator( mesh, "DiffusionBVPOperator", input_db ) );
 
     auto linearOp               = diffusionOperator->getVolumeOperator();
-    auto TemperatureInKelvinVec = linearOp->getLeftVector();
-    auto RightHandSideVec       = linearOp->getRightVector();
+    auto TemperatureInKelvinVec = linearOp->createOutputVector();
+    auto RightHandSideVec       = linearOp->createInputVector();
 
     auto boundaryOpCorrectionVec = RightHandSideVec->clone();
 
