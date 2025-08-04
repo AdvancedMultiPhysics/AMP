@@ -90,8 +90,8 @@ void calculateManufacturedSolution(
                 // double val2 = fun(pt[0],pt[1],pt[2]-20); // not used.
                 double val3 = __dTdn__( pt[0], pt[1], pt[2], 1 );
 
-                manufacturedSolution->setLocalValuesByGlobalID( 1, &d_dofIndices[j], &val1 );
-                manufacturedNormalGradient->setLocalValuesByGlobalID( 1, &d_dofIndices[j], &val3 );
+                manufacturedSolution->setValuesByGlobalID( 1, &d_dofIndices[j], &val1 );
+                manufacturedNormalGradient->setValuesByGlobalID( 1, &d_dofIndices[j], &val3 );
             } // end for node
         }
     }

@@ -130,7 +130,7 @@ void DirichletVectorCorrection::applyZeroValues( AMP::LinearAlgebra::Vector::sha
             dof_map->getDOFs( bnd->globalID(), bndGlobalIds );
             const double val = 0.0;
             for ( auto &elem : d_dofIds[j] ) {
-                rInternal->setLocalValuesByGlobalID( 1, &bndGlobalIds[elem], &val );
+                rInternal->setValuesByGlobalID( 1, &bndGlobalIds[elem], &val );
             }
         }
     }
@@ -157,7 +157,7 @@ void DirichletVectorCorrection::applyNonZeroValues( AMP::LinearAlgebra::Vector::
                         d_dirichletValues1[j][i] :
                         d_dirichletValues2->getLocalValueByGlobalID( bndGlobalIds[d_dofIds[j][i]] );
                 dVal *= d_scalingFactor;
-                rInternal->setLocalValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
+                rInternal->setValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
             }
         }
     }
@@ -185,7 +185,7 @@ void DirichletVectorCorrection::applyResidual( AMP::LinearAlgebra::Vector::const
                         d_dirichletValues1[j][i] :
                         d_dirichletValues2->getLocalValueByGlobalID( bndGlobalIds[d_dofIds[j][i]] );
                 dVal = d_scalingFactor * ( uVal - dVal );
-                r->setLocalValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
+                r->setValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
             }
         }
     }
