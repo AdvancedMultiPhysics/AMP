@@ -125,11 +125,11 @@ PetscErrorCode _AMP_GetVecs( Mat m, Vec *right, Vec *left )
 {
     auto mat = PETSC::getAMP( m );
     if ( right != nullptr ) {
-        auto pRight = AMP::LinearAlgebra::PetscVector::view( mat->getRightVector() );
+        auto pRight = AMP::LinearAlgebra::PetscVector::view( mat->getInputVector() );
         VecDuplicate( pRight->getVec(), right );
     }
     if ( left != nullptr ) {
-        auto pLeft = AMP::LinearAlgebra::PetscVector::view( mat->getLeftVector() );
+        auto pLeft = AMP::LinearAlgebra::PetscVector::view( mat->getOutputVector() );
         VecDuplicate( pLeft->getVec(), left );
     }
     return 0;

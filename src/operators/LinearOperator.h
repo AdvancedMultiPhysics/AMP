@@ -72,13 +72,13 @@ public:
     /** \brief Get a right vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a
      * right vector ) \return  A newly created right vector
      */
-    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> getRightVector() const;
+    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> getInputVector() const;
 
     /** \brief Get a left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{y}\f$ is a left
      * vector )
      * \return  A newly created left vector
      */
-    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> getLeftVector() const;
+    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> getOutputVector() const;
 
 protected:
     //! Empty constructor

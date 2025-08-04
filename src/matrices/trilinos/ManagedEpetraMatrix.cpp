@@ -81,24 +81,24 @@ std::shared_ptr<Matrix> ManagedEpetraMatrix::transpose() const
 /********************************************************
  * Get the left/right Vector/DOFManager                  *
  ********************************************************/
-std::shared_ptr<Vector> ManagedEpetraMatrix::getRightVector() const
+std::shared_ptr<Vector> ManagedEpetraMatrix::getInputVector() const
 {
     const auto data = std::dynamic_pointer_cast<const EpetraMatrixData>( d_matrixData );
     AMP_ASSERT( data );
-    return data->getRightVector();
+    return data->getInputVector();
 }
-std::shared_ptr<Vector> ManagedEpetraMatrix::getLeftVector() const
+std::shared_ptr<Vector> ManagedEpetraMatrix::getOutputVector() const
 {
     const auto data = std::dynamic_pointer_cast<const EpetraMatrixData>( d_matrixData );
     AMP_ASSERT( data );
-    return data->getLeftVector();
+    return data->getOutputVector();
 }
 
 
 std::shared_ptr<Vector> ManagedEpetraMatrix::extractDiagonal( std::shared_ptr<Vector> vec ) const
 {
     if ( !vec )
-        vec = getRightVector();
+        vec = getInputVector();
     d_matrixOps->extractDiagonal( *d_matrixData, vec );
     return vec;
 }
@@ -116,8 +116,8 @@ void ManagedEpetraMatrix::multiply( shared_ptr other_op, std::shared_ptr<Matrix>
 #else
     AMP_MPI::Comm epetraComm = AMP_COMM_SELF;
 #endif
-    auto leftVec  = this->getLeftVector();
-    auto rightVec = other_op->getRightVector();
+    auto leftVec  = this->getOutputVector();
+    auto rightVec = other_op->getInputVector();
 
     auto memp = std::make_shared<MatrixParameters>( leftVec->getDOFManager(),
                                                     rightVec->getDOFManager(),

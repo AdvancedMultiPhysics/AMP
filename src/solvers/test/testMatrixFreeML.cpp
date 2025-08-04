@@ -68,8 +68,8 @@ int myMatVec( ML_Operator *data, int in_length, double in[], int out_length, dou
     auto *op = reinterpret_cast<AMP::Operator::LinearOperator *>( ML_Get_MyMatvecData( data ) );
     auto mat = op->getMatrix();
 
-    auto inVec  = mat->getRightVector();
-    auto outVec = mat->getLeftVector();
+    auto inVec  = mat->getInputVector();
+    auto outVec = mat->getOutputVector();
 
     AMP_ASSERT( in_length == (int) inVec->getLocalSize() );
     AMP_ASSERT( out_length == (int) outVec->getLocalSize() );

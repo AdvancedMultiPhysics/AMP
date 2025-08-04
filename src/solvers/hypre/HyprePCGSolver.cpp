@@ -55,7 +55,7 @@ void HyprePCGSolver::setupHypreSolver( std::shared_ptr<const SolverStrategyParam
     AMP_ASSERT( op );
     auto matrix = op->getMatrix();
     AMP_ASSERT( matrix );
-    auto f = matrix->getRightVector();
+    auto f = matrix->getInputVector();
     f->zero(); // just to be safe
     AMP_ASSERT( f );
     copyToHypre( f, d_hypre_rhs );

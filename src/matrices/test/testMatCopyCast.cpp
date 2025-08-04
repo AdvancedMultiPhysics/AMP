@@ -91,8 +91,8 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
         ut->failure( test_name + ": Unable to create a square matrix" );
     }
 
-    x = matrix->getRightVector();
-    y = matrix->getLeftVector();
+    x = matrix->getInputVector();
+    y = matrix->getOutputVector();
 }
 
 template<class Config>

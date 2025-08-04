@@ -84,8 +84,8 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
         ut->failure( " Unable to create a square matrix" );
     }
 
-    x = matrix->getRightVector();
-    y = matrix->getLeftVector();
+    x = matrix->getInputVector();
+    y = matrix->getOutputVector();
 }
 
 template<typename Config>
@@ -127,7 +127,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
 
     const auto tolerance = 2 * std::numeric_limits<scalar_t>::epsilon();
     {
-        auto sum = kks_mat->getLeftVector();
+        auto sum = kks_mat->getOutputVector();
         sum->axpy( -1.0, *kks_y, *dev_y );
         auto norm = static_cast<scalar_t>( sum->L1Norm() / kks_y->L1Norm() );
         if ( norm < tolerance ) {
@@ -140,7 +140,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
         }
     }
     {
-        auto sum = dev_mat->getLeftVector();
+        auto sum = dev_mat->getOutputVector();
         sum->axpy( -1.0, *kks_y, *dev_y );
         auto norm = static_cast<scalar_t>( sum->L1Norm() / dev_y->L1Norm() );
         if ( norm < tolerance ) {

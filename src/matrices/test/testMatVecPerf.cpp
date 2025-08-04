@@ -77,8 +77,8 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     using scalar_t = double;
 #endif
 
-    auto x = matrix->getRightVector();
-    auto y = matrix->getLeftVector();
+    auto x = matrix->getInputVector();
+    auto y = matrix->getOutputVector();
 
     x->setToScalar( 1.0 );
     // this shouldn't be necessary, but evidently is!

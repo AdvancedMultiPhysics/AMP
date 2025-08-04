@@ -77,13 +77,13 @@ public:
      * vector )
      * \return  A newly created right vector
      */
-    Vector::shared_ptr getRightVector() const override;
+    Vector::shared_ptr getInputVector() const override;
 
     /** \brief Get a left vector( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{y}\f$ is a left
      * vector )
      * \return  A newly created left vector
      */
-    Vector::shared_ptr getLeftVector() const override;
+    Vector::shared_ptr getOutputVector() const override;
 
 protected:
     //! Unimplemented constructor

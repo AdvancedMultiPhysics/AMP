@@ -76,8 +76,8 @@ public:
         AMP_ERROR( "Not implemented" );
     }
     std::shared_ptr<Matrix> clone() const override;
-    Vector::shared_ptr getRightVector() const override;
-    Vector::shared_ptr getLeftVector() const override;
+    Vector::shared_ptr getInputVector() const override;
+    Vector::shared_ptr getOutputVector() const override;
 };
 
 

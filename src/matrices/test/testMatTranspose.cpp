@@ -88,10 +88,10 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
     using scalar_t = double;
 #endif
 
-    auto x  = matrix->getRightVector();
-    auto y  = matrix->getLeftVector();
-    auto xt = matrix_t->getRightVector();
-    auto yt = matrix_t->getLeftVector();
+    auto x  = matrix->getInputVector();
+    auto y  = matrix->getOutputVector();
+    auto xt = matrix_t->getInputVector();
+    auto yt = matrix_t->getOutputVector();
 
     x->setToScalar( 1.0 );
     xt->setToScalar( 1.0 );

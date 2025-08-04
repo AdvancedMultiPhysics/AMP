@@ -37,7 +37,7 @@ myTest( AMP::UnitTest *ut, std::shared_ptr<AMP::Database> input_db, const std::s
     auto op =
         AMP::Operator::OperatorBuilder::createOperator( nullptr, "IdentityOperator", input_db );
 
-    auto u = std::dynamic_pointer_cast<AMP::Operator::IdentityOperator>( op )->getRightVector();
+    auto u = std::dynamic_pointer_cast<AMP::Operator::IdentityOperator>( op )->getInputVector();
     auto f = u->clone();
 
 

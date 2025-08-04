@@ -82,8 +82,8 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     for ( int nProd = 1; nProd < NUM_PRODUCTS_NOREUSE; ++nProd ) {
         PROFILE( "SpGEMM test no reuse" );
         auto Asq = AMP::LinearAlgebra::Matrix::matMatMult( A, A );
-        auto x   = Asq->getRightVector();
-        auto y   = Asq->getLeftVector();
+        auto x   = Asq->getInputVector();
+        auto y   = Asq->getOutputVector();
         x->setToScalar( 1.0 );
         x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         y->zero();
@@ -95,8 +95,8 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
         }
     }
     auto Asq = AMP::LinearAlgebra::Matrix::matMatMult( A, A );
-    auto x   = Asq->getRightVector();
-    auto y   = Asq->getLeftVector();
+    auto x   = Asq->getInputVector();
+    auto y   = Asq->getOutputVector();
     x->setToScalar( 1.0 );
     x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     y->zero();

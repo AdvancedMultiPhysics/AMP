@@ -109,7 +109,7 @@ Writer::MatrixData::MatrixData( std::shared_ptr<AMP::LinearAlgebra::Matrix> mat_
     if ( !mat )
         return;
     if ( name.empty() )
-        name = mat->getLeftVector()->getName() + " - " + mat->getRightVector()->getName();
+        name = mat->getOutputVector()->getName() + " - " + mat->getInputVector()->getName();
 }
 
 
@@ -368,7 +368,7 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
 void Writer::registerMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> mat,
                              const std::string &name )
 {
-    auto id = getID( mat->getLeftVector()->getComm() );
+    auto id = getID( mat->getOutputVector()->getComm() );
     MatrixData data( mat, name );
     d_matrices.insert( std::make_pair( id, std::move( data ) ) );
 }

@@ -103,10 +103,10 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
         ut->failure( "Number of local and global rows don't match for default and CSR matrices" );
     }
 
-    auto x1 = matrix->getRightVector();
-    auto x2 = matrix->getRightVector();
-    auto y1 = matrix->getRightVector();
-    auto y2 = matrix->getRightVector();
+    auto x1 = matrix->getInputVector();
+    auto x2 = matrix->getInputVector();
+    auto y1 = matrix->getInputVector();
+    auto y2 = matrix->getInputVector();
 
     x1->setToScalar( 1.0 );
     x2->setToScalar( 1.0 );

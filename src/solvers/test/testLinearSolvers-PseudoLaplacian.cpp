@@ -91,8 +91,8 @@ void linearThermalTest( AMP::UnitTest *ut,
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, linearOperator );
 
     // Set initial guess and rhs
-    auto sol = matrix->getRightVector();
-    auto rhs = matrix->getLeftVector();
+    auto sol = matrix->getInputVector();
+    auto rhs = matrix->getOutputVector();
     sol->setToScalar( 0.0 );
     rhs->setRandomValues();
 
