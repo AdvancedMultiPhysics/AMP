@@ -109,7 +109,7 @@ void HybridGS::relax( LinearAlgebra::CSRMatrix<Config> &A,
         }
     }
 
-    x.makeConsistent();
+    x.makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 template<typename Config>

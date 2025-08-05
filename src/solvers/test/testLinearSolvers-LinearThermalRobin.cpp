@@ -42,9 +42,11 @@ void linearThermalTest( AMP::UnitTest *ut,
               << ",  backend: " << accelerationBackend << ",  memory: " << memoryLocation
               << ", repetitions: " << nReps << std::endl;
 
-    // SASolver does not support any type of device memory yet
-    if ( inputFileName.find( "SASolver" ) != std::string::npos && memoryLocation != "host" ) {
-        ut->expected_failure( "Skipping SASolver on non-host memory" );
+    // SASolver and UASolver do not support any type of device memory yet
+    if ( ( inputFileName.find( "SASolver" ) != std::string::npos ||
+           inputFileName.find( "UASolver" ) != std::string::npos ) &&
+         memoryLocation != "host" ) {
+        ut->expected_failure( "Skipping SASolver or UASolver on non-host memory" );
         return;
     }
 
@@ -195,6 +197,7 @@ int main( int argc, char *argv[] )
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
         if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
             files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
+            files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG" );
         }
     #ifdef AMP_USE_PETSC
         files.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );

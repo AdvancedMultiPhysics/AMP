@@ -1,31 +1,18 @@
-#include "AMP/solvers/amg/Cycle.h"
+#include "AMP/solvers/amg/Cycle.hpp"
 
 namespace AMP::Solver::AMG {
 
-namespace {
-
-template<size_t... I>
-std::array<std::shared_ptr<LinearAlgebra::Vector>, sizeof...( I )>
-clone( const LinearAlgebra::Vector &x, std::index_sequence<I...> )
-{
-    return { [&]( size_t ) { return x.clone(); }( I )... };
-}
-
-template<size_t N>
-auto make_clones( const LinearAlgebra::Vector &x )
-{
-    return clone( x, std::make_index_sequence<N>() );
-}
-
-} // namespace
+template void clone_workspace( LevelWithWorkspace<num_work_kcycle> &,
+                               const LinearAlgebra::Vector & );
 
 void kappa_kcycle( size_t lvl,
                    std::shared_ptr<const LinearAlgebra::Vector> b,
                    std::shared_ptr<LinearAlgebra::Vector> x,
-                   const std::vector<Level> &ml,
+                   const std::vector<KCycleLevel> &ml,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
-                   float ktol )
+                   float ktol,
+                   bool comm_free_interp )
 {
     auto &flevel = ml[lvl];
     auto &clevel = ml[lvl + 1];
@@ -34,7 +21,7 @@ void kappa_kcycle( size_t lvl,
     flevel.pre_relaxation->apply( b, x );
     ++flevel.nrelax;
 
-    auto r = b->clone();
+    auto r = flevel.r;
     A->residual( b, x, r );
 
     auto coarse_b = clevel.b;
@@ -48,9 +35,9 @@ void kappa_kcycle( size_t lvl,
     } else {
         if ( kappa > 1 ) {
             auto Ac                   = clevel.A;
-            auto [c, v, btilde, d, w] = make_clones<5>( *coarse_b );
+            auto [c, v, btilde, d, w] = clevel.work;
             c->zero();
-            kappa_kcycle( lvl + 1, coarse_b, c, ml, coarse_solver, kappa, ktol );
+            kappa_kcycle( lvl + 1, coarse_b, c, ml, coarse_solver, kappa, ktol, comm_free_interp );
             Ac->apply( c, v );
             auto rho1   = c->dot( *v );
             auto alpha1 = c->dot( *coarse_b );
@@ -60,7 +47,8 @@ void kappa_kcycle( size_t lvl,
                 coarse_x->axpy( tau1, *c, *coarse_x );
             } else {
                 d->zero();
-                kappa_kcycle( lvl + 1, btilde, d, ml, coarse_solver, kappa - 1, ktol );
+                kappa_kcycle(
+                    lvl + 1, btilde, d, ml, coarse_solver, kappa - 1, ktol, comm_free_interp );
                 Ac->apply( d, w );
                 auto gamma  = d->dot( *v );
                 auto beta   = d->dot( *w );
@@ -69,32 +57,35 @@ void kappa_kcycle( size_t lvl,
                 auto tau2   = tau1 - ( gamma * alpha2 ) / ( rho1 * rho2 );
                 auto tau3   = alpha2 / rho2;
                 coarse_x->linearSum( tau2, *c, tau3, *d );
-                coarse_x->makeConsistent();
+                if ( !comm_free_interp )
+                    coarse_x->makeConsistent();
             }
         } else {
-            kappa_kcycle( lvl + 1, coarse_b, coarse_x, ml, coarse_solver, kappa, ktol );
+            kappa_kcycle(
+                lvl + 1, coarse_b, coarse_x, ml, coarse_solver, kappa, ktol, comm_free_interp );
         }
     }
 
-    auto correction = b->clone();
+    auto correction = flevel.correction;
     clevel.P->apply( coarse_x, correction );
     x->add( *x, *correction );
-    x->makeConsistent();
+    x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
     flevel.post_relaxation->apply( b, x );
     ++flevel.nrelax;
 }
 
 void kappa_kcycle( std::shared_ptr<const LinearAlgebra::Vector> b,
                    std::shared_ptr<LinearAlgebra::Vector> x,
-                   const std::vector<Level> &ml,
+                   const std::vector<KCycleLevel> &ml,
                    SolverStrategy &coarse_solver,
                    size_t kappa,
-                   float ktol )
+                   float ktol,
+                   bool comm_free_interp )
 {
     if ( ml.size() == 1 )
         coarse_solver.apply( b, x );
     else
-        kappa_kcycle( 0, b, x, ml, coarse_solver, kappa, ktol );
+        kappa_kcycle( 0, b, x, ml, coarse_solver, kappa, ktol, comm_free_interp );
 }
 
 } // namespace AMP::Solver::AMG
