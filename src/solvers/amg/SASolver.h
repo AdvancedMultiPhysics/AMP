@@ -46,7 +46,7 @@ protected:
 
 
     std::shared_ptr<AMG::Aggregator> d_aggregator;
-    std::vector<AMG::Level> d_levels;
+    std::vector<AMG::KCycleLevel> d_levels;
     std::shared_ptr<AMG::RelaxationParameters> d_pre_relax_params;
     std::shared_ptr<AMG::RelaxationParameters> d_post_relax_params;
     std::shared_ptr<SolverStrategyParameters> d_coarse_solver_params;

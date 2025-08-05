@@ -1,0 +1,21 @@
+#ifndef included_AMP_AMG_STATS
+#define included_AMP_AMG_STATS
+
+#include <vector>
+
+#include "AMP/solvers/amg/Cycle.h"
+
+namespace AMP::Solver::AMG {
+
+/**
+   Print summary of an AMG Hierarchy.
+
+   \param[in] ml multilevel hierarchy
+   \param[in] cg_solver Coarse grid solver for hierarchy
+ */
+template<class T, std::enable_if_t<is_level_v<T>, bool> = true>
+void print_summary( const std::vector<T> &ml, const SolverStrategy &cg_solver );
+
+} // namespace AMP::Solver::AMG
+
+#endif

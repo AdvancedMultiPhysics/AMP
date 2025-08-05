@@ -78,6 +78,13 @@ public:
             d_row_starts.get(), d_cols.get(), d_cols_loc.get(), d_coeffs.get() );
     }
 
+    std::tuple<const lidx_t *, const gidx_t *, const lidx_t *, const scalar_t *>
+    getDataFields() const
+    {
+        return std::make_tuple(
+            d_row_starts.get(), d_cols.get(), d_cols_loc.get(), d_coeffs.get() );
+    }
+
     //! Swap data fields with another CSRLocalMatrix
     void swapDataFields( CSRLocalMatrixData<Config> &other );
 
