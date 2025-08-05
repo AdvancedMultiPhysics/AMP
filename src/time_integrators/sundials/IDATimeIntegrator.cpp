@@ -428,8 +428,9 @@ int IDATimeIntegrator::IDAPrecSetup( realtype tt,
         auto amp_yy    = getAMP( yy );
         auto jacParams = user_data->getIDATimeOperator()->getParameters( "Jacobian", amp_yy );
         auto &db       = jacParams->d_db;
-        db->putScalar( "ScalingFactor", cj );
-        db->putScalar( "CurrentTime", tt );
+        auto Overwrite = AMP::Database::Check::Overwrite;
+        db->putScalar( "ScalingFactor", cj, {}, Overwrite );
+        db->putScalar( "CurrentTime", tt, {}, Overwrite );
         std::shared_ptr<AMP::Solver::SolverStrategy> pSolver = user_data->getPreconditioner();
         // double currentTime = user_data->getCurrentTime();
 

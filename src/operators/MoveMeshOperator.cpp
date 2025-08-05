@@ -1,7 +1,9 @@
 #include "AMP/operators/MoveMeshOperator.h"
 #include "AMP/mesh/Mesh.h"
 
+
 namespace AMP::Operator {
+
 
 MoveMeshOperator::MoveMeshOperator( std::shared_ptr<const OperatorParameters> params )
     : Operator( params )
@@ -20,21 +22,25 @@ std::shared_ptr<AMP::LinearAlgebra::Variable> MoveMeshOperator::getInputVariable
     return d_var;
 }
 
+void MoveMeshOperator::reset( std::shared_ptr<const OperatorParameters> ) { d_prevDisp.reset(); }
+
 void MoveMeshOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                               AMP::LinearAlgebra::Vector::shared_ptr )
 {
-    AMP::LinearAlgebra::Vector::const_shared_ptr dispVec = u->subsetVectorForVariable( d_var );
+    auto dispVec = u->subsetVectorForVariable( d_var );
 
-    if ( d_prevDisp == nullptr ) {
+    if ( !d_prevDisp ) {
         d_prevDisp = dispVec->clone();
         d_prevDisp->zero();
     }
 
-    AMP::LinearAlgebra::Vector::shared_ptr deltaDisp = dispVec->clone();
+    auto deltaDisp = dispVec->clone();
     deltaDisp->subtract( *dispVec, *d_prevDisp );
 
     d_Mesh->displaceMesh( deltaDisp );
 
     d_prevDisp->copyVector( dispVec );
 }
+
+
 } // namespace AMP::Operator

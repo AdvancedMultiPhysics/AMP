@@ -100,8 +100,8 @@ void AsciiWriter::writeFile( const std::string &fname_in, size_t iteration_count
         if ( d_matrices.find( mat_id ) != d_matrices.end() ) {
             mat     = d_matrices[mat_id].mat;
             name    = d_matrices[mat_id].name;
-            size[0] = mat->getLeftVector()->getGlobalSize();
-            size[1] = mat->getRightVector()->getGlobalSize();
+            size[0] = mat->createOutputVector()->getGlobalSize();
+            size[1] = mat->createInputVector()->getGlobalSize();
         }
         name    = d_comm.bcast( name, 0 );
         size[0] = d_comm.bcast( size[0], 0 );

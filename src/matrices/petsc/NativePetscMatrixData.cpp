@@ -125,13 +125,13 @@ void NativePetscMatrixData::setMat( Mat mat, bool manage )
 /********************************************************
  * Get the left/right Vector/DOFManager                  *
  ********************************************************/
-Vector::shared_ptr NativePetscMatrixData::getRightVector() const
+Vector::shared_ptr NativePetscMatrixData::createInputVector() const
 {
     Vec a;
     MatCreateVecs( d_Mat, &a, nullptr );
     return createVector( a, true );
 }
-Vector::shared_ptr NativePetscMatrixData::getLeftVector() const
+Vector::shared_ptr NativePetscMatrixData::createOutputVector() const
 {
     Vec a;
     MatCreateVecs( d_Mat, nullptr, &a );
@@ -144,7 +144,7 @@ std::shared_ptr<Discretization::DOFManager> NativePetscMatrixData::getRightDOFMa
     if ( parameters )
         return parameters->getRightDOFManager();
 
-    return getRightVector()->getDOFManager();
+    return createInputVector()->getDOFManager();
 }
 
 std::shared_ptr<Discretization::DOFManager> NativePetscMatrixData::getLeftDOFManager() const
@@ -153,7 +153,7 @@ std::shared_ptr<Discretization::DOFManager> NativePetscMatrixData::getLeftDOFMan
     if ( parameters )
         return parameters->getLeftDOFManager();
 
-    return getLeftVector()->getDOFManager();
+    return createOutputVector()->getDOFManager();
 }
 
 

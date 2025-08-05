@@ -139,17 +139,6 @@ public: // Get/Set data
     void setValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
-     * \brief Set owned values using global identifier
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[in] vals the values to place in the vector
-     *
-     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
-     */
-    template<class TYPE>
-    void setLocalValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
-
-    /**
      * \brief Set ghost values using global identifier
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -184,18 +173,6 @@ public: // Get/Set data
      */
     template<class TYPE>
     void addValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
-
-    /**
-     * \brief Add owned values using global identifier
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[in] vals the values to place in the vector
-     *
-     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
-     * \mathit{vals}_i \f$
-     */
-    template<class TYPE>
-    void addLocalValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
      * \brief Add owned or shared values using global identifier
@@ -251,16 +228,6 @@ public: // Get/Set data
      */
     template<class TYPE>
     void getValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
-
-    /**
-     * \brief Get local values in the vector by their global offset
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[out] vals the values to place in the vector
-     * \details This will get any value owned by this core.
-     */
-    template<class TYPE>
-    void getLocalValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
 
     /**
      * \brief Get ghost values in the vector by their global offset
@@ -555,6 +522,13 @@ public: // Virtual functions dealing with the update status
      *\details Calls clearBuffer for the communication list and removes any storage for ghosts
      */
     virtual void setNoGhosts();
+
+    /** \brief returns the memory location for data
+     */
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return AMP::Utilities::MemoryType::host;
+    }
 
     virtual void
     print( std::ostream &os, const std::string &name = "A", const std::string &prefix = "" ) const;

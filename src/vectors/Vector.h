@@ -2,6 +2,7 @@
 #define included_AMP_Vector
 
 #include "AMP/utils/Units.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/data/VectorData.h"
@@ -672,24 +673,9 @@ public: // VectorData operations
         d_VectorData->setValuesByLocalID( num, indices, vals );
     }
     template<class TYPE>
-    inline void setLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->setLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
     inline void addValuesByLocalID( int num, size_t *indices, const TYPE *vals )
     {
         d_VectorData->addValuesByLocalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void addLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->addLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void getLocalValuesByGlobalID( int num, size_t *indices, TYPE *vals ) const
-    {
-        d_VectorData->getLocalValuesByGlobalID( num, indices, vals );
     }
     inline uint64_t getDataID() const { return d_VectorData->getDataID(); }
     inline void *getRawDataBlockAsVoid( size_t i )
@@ -792,6 +778,13 @@ public: // VectorData operations
      */
     inline void setNoGhosts() { d_VectorData->setNoGhosts(); }
 
+    /** \brief returns the memory location for data
+     */
+    AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return d_VectorData->getMemoryLocation();
+    }
+
 public: // Get values
     /**
      * \brief Return a value from the vector.
@@ -806,7 +799,7 @@ public: // Get values
      * \brief Return a local value from the vector.
      * \param[in] i The global index into the vector
      * \return The value stored at the index
-     * \details This uses getLocalValuesByGlobalID to get the value
+     * \details This uses getValuesByGlobalID to get the value
      */
     template<typename TYPE = double>
     TYPE getLocalValueByGlobalID( size_t i ) const;
@@ -877,13 +870,6 @@ protected:                                                         // Internal d
     std::shared_ptr<VectorData> d_VectorData;                      // Pointer to data
     std::shared_ptr<VectorOperations> d_VectorOps;                 // Pointer to a VectorOperations
     std::shared_ptr<std::vector<std::any>> d_Views;                // Views of the vector
-
-
-public: // Deprecated functions (to be removed soon
-    [[deprecated]] typedef VectorDataIterator<double> iterator;
-    [[deprecated]] typedef VectorDataIterator<const double> const_iterator;
-    [[deprecated]] shared_ptr select( const VectorSelector &, const std::string & );
-    [[deprecated]] const_shared_ptr select( const VectorSelector &, const std::string & ) const;
 };
 
 

@@ -58,8 +58,8 @@ public:
 
     void makeConsistent( AMP::LinearAlgebra::ScatterType t ) override;
 
-    std::shared_ptr<Vector> getRightVector() const;
-    std::shared_ptr<Vector> getLeftVector() const;
+    std::shared_ptr<Vector> createInputVector() const;
+    std::shared_ptr<Vector> createOutputVector() const;
     std::shared_ptr<Discretization::DOFManager> getRightDOFManager() const override;
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
 

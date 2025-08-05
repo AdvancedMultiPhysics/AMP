@@ -202,8 +202,8 @@ void SASolver::setup()
             createRelaxation( d_levels.back().A, d_post_relax_params );
 
         // in/out vectors for new level
-        d_levels.back().x = Ac->getRightVector();
-        d_levels.back().b = Ac->getRightVector();
+        d_levels.back().x = Ac->createInputVector();
+        d_levels.back().b = Ac->createInputVector();
 
         // if newest level is small enough break out
         const auto Ac_nrows_loc = static_cast<int>( Ac->numLocalRows() );

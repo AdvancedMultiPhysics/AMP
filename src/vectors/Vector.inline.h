@@ -92,7 +92,7 @@ template<typename TYPE>
 TYPE Vector::getLocalValueByGlobalID( size_t i ) const
 {
     TYPE ans;
-    getLocalValuesByGlobalID( 1, &i, &ans );
+    getValuesByGlobalID( 1, &i, &ans );
     return ans;
 }
 template<typename TYPE>

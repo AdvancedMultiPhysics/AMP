@@ -122,60 +122,6 @@ void VectorData::addValuesByLocalID( size_t N, const size_t *ndx, const TYPE *va
     addValuesByLocalID( N, ndx, vals, type );
 }
 template<typename TYPE>
-void VectorData::getLocalValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
-{
-    constexpr size_t N_max = 128;
-    while ( N > N_max ) {
-        getLocalValuesByGlobalID( N_max, ndx, vals );
-        N -= N_max;
-        ndx  = &ndx[N_max];
-        vals = &vals[N_max];
-    }
-    size_t index[N_max];
-    for ( size_t i = 0; i < N; i++ ) {
-        AMP_ASSERT( ndx[i] >= d_localStart && ndx[i] < ( d_localStart + d_localSize ) );
-        index[i] = ndx[i] - d_localStart;
-    }
-    constexpr auto type = getTypeID<TYPE>();
-    getValuesByLocalID( N, index, vals, type );
-}
-template<typename TYPE>
-void VectorData::addLocalValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
-{
-    constexpr size_t N_max = 128;
-    while ( N > N_max ) {
-        addLocalValuesByGlobalID( N_max, ndx, vals );
-        N -= N_max;
-        ndx  = &ndx[N_max];
-        vals = &vals[N_max];
-    }
-    size_t index[N_max];
-    for ( size_t i = 0; i < N; i++ ) {
-        AMP_ASSERT( ndx[i] >= d_localStart && ndx[i] < ( d_localStart + d_localSize ) );
-        index[i] = ndx[i] - d_localStart;
-    }
-    constexpr auto type = getTypeID<TYPE>();
-    addValuesByLocalID( N, index, vals, type );
-}
-template<typename TYPE>
-void VectorData::setLocalValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
-{
-    constexpr size_t N_max = 128;
-    while ( N > N_max ) {
-        setLocalValuesByGlobalID( N_max, ndx, vals );
-        N -= N_max;
-        ndx  = &ndx[N_max];
-        vals = &vals[N_max];
-    }
-    size_t index[N_max];
-    for ( size_t i = 0; i < N; i++ ) {
-        AMP_ASSERT( ndx[i] >= d_localStart && ndx[i] < ( d_localStart + d_localSize ) );
-        index[i] = ndx[i] - d_localStart;
-    }
-    constexpr auto type = getTypeID<TYPE>();
-    setValuesByLocalID( N, index, vals, type );
-}
-template<typename TYPE>
 void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
     constexpr size_t N_max = 128;

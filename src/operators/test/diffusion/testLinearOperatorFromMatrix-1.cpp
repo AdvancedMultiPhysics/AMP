@@ -53,7 +53,7 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &exeName
     AMP_INSIST( userMat->numGlobalColumns() == userMat->numGlobalRows(), "matrix is not square" );
 
     // extract the right vector
-    const auto userVector = userMat->getRightVector();
+    const auto userVector = userMat->createInputVector();
 
     // concludes creation of a native linear operator
     // ************************************************************************************************

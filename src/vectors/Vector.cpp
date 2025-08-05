@@ -78,6 +78,14 @@ void Vector::setRandomValues() { d_VectorOps->setRandomValues( *getVectorData() 
 Vector::shared_ptr Vector::selectInto( const VectorSelector &s )
 {
     Vector::shared_ptr subvector;
+    auto managed = std::dynamic_pointer_cast<ManagedVectorData>( d_VectorData );
+    if ( managed ) {
+        auto engine = managed->getVectorEngine();
+        if ( engine )
+            subvector = engine->selectInto( s );
+        if ( subvector )
+            return subvector;
+    }
     if ( s.isSelected( *this ) ) {
         // Subset the vector
         subvector = s.subset( shared_from_this() );
@@ -92,18 +100,7 @@ Vector::shared_ptr Vector::selectInto( const VectorSelector &s )
 }
 Vector::const_shared_ptr Vector::selectInto( const VectorSelector &s ) const
 {
-    Vector::const_shared_ptr subvector;
-    if ( s.isSelected( *this ) ) {
-        // Subset the vector
-        subvector = s.subset( shared_from_this() );
-        if ( subvector ) {
-            // Check the global size of the new vector to make sure it is <= the current size
-            size_t N1 = this->getGlobalSize();
-            size_t N2 = subvector->getGlobalSize();
-            AMP_ASSERT( N2 <= N1 );
-        }
-    }
-    return subvector;
+    return const_cast<Vector *>( this )->selectInto( s );
 }
 Vector::shared_ptr Vector::select( const VectorSelector &s )
 {
@@ -116,33 +113,7 @@ Vector::shared_ptr Vector::select( const VectorSelector &s )
 }
 Vector::const_shared_ptr Vector::select( const VectorSelector &s ) const
 {
-    if ( dynamic_cast<const VS_ByVariableName *>( &s ) ) {
-        const std::string &name = dynamic_cast<const VS_ByVariableName *>( &s )->getName();
-        if ( name == this->getVariable()->getName() )
-            return shared_from_this();
-    }
-    return this->selectInto( s );
-}
-Vector::shared_ptr Vector::select( const VectorSelector &s, const std::string &variable_name )
-{
-    auto vec = select( s );
-    if ( vec ) {
-        vec      = MultiVector::view( vec );
-        auto var = std::make_shared<Variable>( variable_name );
-        vec->setVariable( var );
-    }
-    return vec;
-}
-Vector::const_shared_ptr Vector::select( const VectorSelector &s,
-                                         const std::string &variable_name ) const
-{
-    auto vec = select( s );
-    if ( vec ) {
-        vec      = MultiVector::constView( vec );
-        auto var = std::make_shared<Variable>( variable_name );
-        std::const_pointer_cast<Vector>( vec )->setVariable( var );
-    }
-    return vec;
+    return const_cast<Vector *>( this )->select( s );
 }
 Vector::shared_ptr Vector::subsetVectorForVariable( const std::string &name )
 {

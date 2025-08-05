@@ -95,7 +95,7 @@ void SubchannelToCladGPMap::fillReturnVector( AMP::LinearAlgebra::Vector::shared
         AMP_ASSERT( dofs.size() == 4 );
         for ( int j = 0; j < 4; j++ )
             vals[j] = interp_linear( z, f, z_gauss[i].z[j] );
-        vec->setLocalValuesByGlobalID( 4, &dofs[0], &vals[0] );
+        vec->setValuesByGlobalID( 4, &dofs[0], &vals[0] );
     }
 }
 
