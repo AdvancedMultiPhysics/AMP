@@ -335,6 +335,12 @@ BoxMesh::~BoxMesh() = default;
 /****************************************************************
  * Get the surface element ranges                                *
  ****************************************************************/
+int BoxMesh::getSurfaceID( int s ) const
+{
+    int s_max = 2 * static_cast<int>( GeomDim );
+    AMP_ASSERT( s >= 0 && s < s_max );
+    return d_surfaceId[s];
+}
 BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
 {
     // Check if we are keeping the given surface
@@ -758,7 +764,7 @@ BoxMesh::ElementBlocks BoxMesh::intersect( const ElementBlocks &set1,
     }
     return set;
 }
-inline MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
+MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
 {
     if ( list.empty() ) {
         return MeshIterator();

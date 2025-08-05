@@ -207,6 +207,15 @@ public: // Mesh based tests
 
 
     /**
+     * \brief Check BoxMesh
+     * \details  Test specific BoxMesh tests
+     * \param[in,out] ut        Unit test class to report the results
+     * \param[in] mesh          Mesh to test
+     */
+    static void testBoxMesh( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::Mesh> mesh );
+
+
+    /**
      * \brief Check mesh performance
      * \details Test the performance of some common mesh operations
      * \param[in,out] ut        Unit test class to report the results
