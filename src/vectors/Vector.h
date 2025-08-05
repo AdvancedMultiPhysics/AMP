@@ -2,6 +2,7 @@
 #define included_AMP_Vector
 
 #include "AMP/utils/Units.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/data/VectorData.h"
@@ -776,6 +777,13 @@ public: // VectorData operations
      *\details Calls clearBuffer for the communication list and removes any storage for ghosts
      */
     inline void setNoGhosts() { d_VectorData->setNoGhosts(); }
+
+    /** \brief returns the memory location for data
+     */
+    AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return d_VectorData->getMemoryLocation();
+    }
 
 public: // Get values
     /**
