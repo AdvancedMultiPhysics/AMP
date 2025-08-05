@@ -121,7 +121,9 @@ std::pair<size_t, size_t> get_local_nrows( const LinearAlgebra::CSRMatrix<Config
 
 
 template<class T, std::enable_if_t<is_level_v<T>, bool>>
-void print_summary( const std::vector<T> &ml, const SolverStrategy &cg_solver )
+void print_summary( std::string amg_name,
+                    const std::vector<T> &ml,
+                    const SolverStrategy &cg_solver )
 {
     std::vector<size_t> nrows, nnz, nprocs;
     std::vector<std::pair<size_t, size_t>> nrows_local;
@@ -174,7 +176,7 @@ void print_summary( const std::vector<T> &ml, const SolverStrategy &cg_solver )
                      [&, nlvl = nrows.size()]() {
                          std::vector<std::string> types;
                          for ( std::size_t i = 0; i < nlvl; ++i )
-                             types.push_back( ( i < ml.size() - 1 ) ? "UA AMG" : "BoomerAMG" );
+                             types.push_back( ( i < ml.size() - 1 ) ? amg_name : cg_solver.type() );
                          return types;
                      }(),
                      []( std::string val ) { return val; } };

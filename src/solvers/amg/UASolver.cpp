@@ -196,7 +196,7 @@ void UASolver::setup()
 
     makeCoarseSolver();
     if ( d_iDebugPrintInfoLevel > 1 )
-        print_summary( d_levels, *d_coarse_solver );
+        print_summary( "UASolver", d_levels, *d_coarse_solver );
 }
 
 void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
