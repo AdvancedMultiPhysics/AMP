@@ -523,6 +523,13 @@ public: // Virtual functions dealing with the update status
      */
     virtual void setNoGhosts();
 
+    /** \brief returns the memory location for data
+     */
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return AMP::Utilities::MemoryType::host;
+    }
+
     virtual void
     print( std::ostream &os, const std::string &name = "A", const std::string &prefix = "" ) const;
 

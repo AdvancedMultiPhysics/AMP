@@ -122,6 +122,11 @@ size_t VectorDataDefault<TYPE, Allocator>::sizeofDataBlockType( size_t ) const
     return sizeof( TYPE );
 }
 
+template<typename TYPE, class Allocator>
+AMP::Utilities::MemoryType VectorDataDefault<TYPE, Allocator>::getMemoryLocation() const
+{
+    return AMP::Utilities::getAllocatorMemoryType<Allocator>();
+}
 
 /****************************************************************
  * Access the raw data blocks                                    *

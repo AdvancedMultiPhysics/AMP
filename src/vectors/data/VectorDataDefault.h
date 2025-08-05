@@ -154,6 +154,10 @@ public: // Advanced virtual functions
      */
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 
+    /** \brief returns the memory location for data
+     */
+    AMP::Utilities::MemoryType getMemoryLocation() const override;
+
 public: // Non-virtual functions
     /** \brief Access the raw element
      * \param i        The element to return (local index)

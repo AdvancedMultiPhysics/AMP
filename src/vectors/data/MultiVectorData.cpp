@@ -488,6 +488,18 @@ std::shared_ptr<VectorData> MultiVectorData::cloneData( const std::string & ) co
     return std::shared_ptr<VectorData>();
 }
 
+AMP::Utilities::MemoryType MultiVectorData::getMemoryLocation() const
+{
+    auto rval = d_data[0]->getMemoryLocation();
+    for ( size_t i = 1; i < d_data.size(); i++ ) {
+        if ( d_data[i]->getMemoryLocation() != rval ) {
+            rval = AMP::Utilities::MemoryType::none;
+            break;
+        }
+    }
+    return rval;
+}
+
 
 /****************************************************************
  * Check if vector contains given entry                          *
