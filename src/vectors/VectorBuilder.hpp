@@ -113,11 +113,10 @@ Vector::shared_ptr createVector( std::shared_ptr<AMP::Discretization::DOFManager
 }
 
 template<typename TYPE>
-AMP::LinearAlgebra::Vector::shared_ptr
-createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
-              std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
-              bool split,
-              AMP::Utilities::MemoryType memType )
+std::shared_ptr<Vector> createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                      std::shared_ptr<Variable> variable,
+                                      bool split,
+                                      AMP::Utilities::MemoryType memType )
 {
     PROFILE( "createVector" );
 
@@ -145,6 +144,26 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
         AMP_ERROR( "Unknown memory space in createVector" );
     }
 }
+template<typename TYPE>
+std::shared_ptr<Vector> createVector( std::shared_ptr<Vector> vector,
+                                      AMP::Utilities::MemoryType memType )
+{
+    if ( !vector )
+        return nullptr;
+    // Check if we are dealing with a multiVector
+    auto multiVector = std::dynamic_pointer_cast<MultiVector>( vector );
+    if ( multiVector ) {
+        std::vector<std::shared_ptr<Vector>> vecs;
+        for ( auto vec : *multiVector )
+            vecs.push_back( createVector<TYPE>( vec, memType ) );
+        auto multiVector = MultiVector::create( vector->getVariable(), vector->getComm() );
+        multiVector->addVector( vecs );
+        return multiVector;
+    }
+    // Create a vector that mimics the original vector
+    return createVector<TYPE>( vector->getDOFManager(), vector->getVariable(), false, memType );
+}
+
 
 /****************************************************************
  * SimpleVector                                                  *
@@ -260,7 +279,7 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
     }
 
     auto vec = std::make_shared<Vector>( vecData, vecOps, var, DOFs );
-    vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vec->makeConsistent( ScatterType::CONSISTENT_SET );
     return vec;
 }
 
