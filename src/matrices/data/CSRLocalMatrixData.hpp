@@ -665,6 +665,97 @@ void CSRLocalMatrixData<Config>::setNNZ( const std::vector<lidx_t> &nnz )
 }
 
 template<typename Config>
+void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scalar_t bnd_up )
+{
+    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+                "CSRLocalMatrixData::removeRange not implemented on device yet" );
+    if ( d_is_empty ) {
+        return;
+    }
+
+    // count coeffs that lie outside of range and zero them along the way
+    lidx_t num_delete = 0;
+    std::vector<lidx_t> delete_per_row( d_num_rows, 0 );
+    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
+        for ( lidx_t c = d_row_starts[row]; c < d_row_starts[row + 1]; ++c ) {
+            if ( bnd_lo < d_coeffs[c] && d_coeffs[c] < bnd_up ) {
+                delete_per_row[row]++;
+                num_delete++;
+            }
+        }
+    }
+
+    // if none to delete then done
+    if ( num_delete == 0 ) {
+        return;
+    }
+
+    // if all entries will be deleted throw a warning and set the matrix
+    // as empty
+    if ( d_nnz == num_delete ) {
+        d_cols.reset();
+        d_cols_unq.reset();
+        d_cols_loc.reset();
+        d_coeffs.reset();
+        d_is_empty = true;
+        AMP_WARNING( "CSRLocalMatrixData::removeRange deleting all entries" );
+        return;
+    }
+
+    // allocate space for new data fields and copy over parts to keep
+    const lidx_t old_nnz = d_nnz;
+    d_nnz -= num_delete;
+    auto new_row_starts = sharedArrayBuilder( d_num_rows + 1, d_lidxAllocator );
+    auto new_coeffs     = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+    std::shared_ptr<lidx_t[]> new_cols_loc;
+    std::shared_ptr<gidx_t[]> new_cols;
+    if ( d_is_diag ) {
+        new_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
+    } else {
+        new_cols = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+    }
+
+    // new row starts is old minus running total of deleted entries
+    lidx_t run_ndel   = 0;
+    new_row_starts[0] = 0;
+    for ( lidx_t row = 1; row <= d_num_rows; ++row ) {
+        run_ndel += delete_per_row[row - 1];
+        new_row_starts[row] = d_row_starts[row] - run_ndel;
+    }
+
+    // coeffs is a masked copy
+    // cols_loc is masked copy if this is diag block, otherwise
+    // build cols from cols_unq and call globalToLocal
+    lidx_t nctr = 0;
+    for ( lidx_t n = 0; n < old_nnz; ++n ) {
+        if ( bnd_lo < d_coeffs[n] && d_coeffs[n] < bnd_up ) {
+            continue;
+        }
+        new_coeffs[nctr] = d_coeffs[n];
+        if ( d_is_diag ) {
+            new_cols_loc[nctr] = d_cols_loc[n];
+        } else {
+            new_cols[nctr] = d_cols_unq[d_cols_loc[n]];
+        }
+        ++nctr;
+    }
+
+    d_cols_unq.reset();
+
+    d_row_starts.swap( new_row_starts );
+    d_cols.swap( new_cols );
+    d_cols_loc.swap( new_cols_loc );
+    d_coeffs.swap( new_coeffs );
+
+    new_row_starts.reset();
+    new_cols.reset();
+    new_cols_loc.reset();
+    new_coeffs.reset();
+
+    globalToLocalColumns();
+}
+
+template<typename Config>
 void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
 {
     AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,

@@ -29,19 +29,20 @@ public:
         typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
 
     CSRMatrixCommunicator() = default;
-    CSRMatrixCommunicator( std::shared_ptr<CommunicationList> comm_list )
+    CSRMatrixCommunicator( std::shared_ptr<CommunicationList> comm_list,
+                           const bool flip_sendrecv = false )
         : d_comm( comm_list->getComm() ),
           d_send_called( false ),
           d_num_sources( 0 ),
           d_num_allowed_sources( 0 )
     {
-        auto send_sizes = comm_list->getSendSizes();
+        auto send_sizes = !flip_sendrecv ? comm_list->getSendSizes() : comm_list->getReceiveSizes();
         for ( int n = 0; n < d_comm.getSize(); ++n ) {
             if ( send_sizes[n] > 0 ) {
                 d_allowed_dest.push_back( n );
             }
         }
-        auto recv_sizes = comm_list->getReceiveSizes();
+        auto recv_sizes = !flip_sendrecv ? comm_list->getReceiveSizes() : comm_list->getSendSizes();
         for ( int n = 0; n < d_comm.getSize(); ++n ) {
             if ( recv_sizes[n] > 0 ) {
                 d_num_allowed_sources++;

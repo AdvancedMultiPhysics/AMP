@@ -9,6 +9,7 @@
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/CommunicationList.h"
+#include "AMP/vectors/Scalar.h"
 #include "AMP/vectors/Variable.h"
 
 namespace AMP::Discretization {
@@ -41,6 +42,9 @@ public:
 
     //! Transpose
     virtual std::shared_ptr<MatrixData> transpose() const = 0;
+
+    //! \brief Remove matrix entries within given range
+    virtual void removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up ) = 0;
 
     //! Return the type of the matrix
     virtual std::string type() const = 0;

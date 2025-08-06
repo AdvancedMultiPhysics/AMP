@@ -189,7 +189,7 @@ void CSRLocalMatrixOperationsDefault<Config>::getRowSumsAbsolute(
 
     for ( lidx_t row = 0; row < nRows; ++row ) {
         for ( lidx_t c = rs[row]; c < rs[row + 1]; ++c ) {
-            buf[row] += std::abs( coeffs[c] );
+            buf[row] += std::fabs( coeffs[c] );
         }
     }
 }
