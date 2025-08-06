@@ -227,7 +227,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
     PROFILE( "CSRMatrixData::transposeOffd" );
 
     // make a matrix communicator based on right comm list
-    CSRMatrixCommunicator<Config> mat_comm( d_rightCommList );
+    CSRMatrixCommunicator<Config> mat_comm( d_rightCommList, true );
 
     // extract info from offd block
     auto col_map = d_offd_matrix->getColumnMap();

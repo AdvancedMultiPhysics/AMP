@@ -1,6 +1,7 @@
 #ifndef included_AMP_AMG_STATS
 #define included_AMP_AMG_STATS
 
+#include <string>
 #include <vector>
 
 #include "AMP/solvers/amg/Cycle.h"

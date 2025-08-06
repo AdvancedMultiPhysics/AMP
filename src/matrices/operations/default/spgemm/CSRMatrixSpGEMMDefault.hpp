@@ -27,16 +27,6 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply()
     } else {
         numericMultiply_NonOverlapped();
     }
-
-    // std::cout << " ========================================" << std::endl;
-    // std::cout << " ========================================" << std::endl;
-    // A->printStats( false, false );
-    // std::cout << " ========================================" << std::endl;
-    // B->printStats( false, false );
-    // std::cout << " ========================================" << std::endl;
-    // C->printStats( false, false );
-    // std::cout << " ========================================" << std::endl;
-    // std::cout << " ========================================" << std::endl;
 }
 
 template<typename Config>

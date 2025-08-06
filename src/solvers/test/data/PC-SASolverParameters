@@ -7,11 +7,10 @@ Preconditioner{
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
-  kappa = 2
+  kappa = 3
   agg_type = "simple"
   agg_weak_thresh = 0.0
-  max_agg_size = 0
-  prol_trunc = 0.0
+  prol_trunc = 0.1
   
   pre_relaxation{
     name = "HybridGS"
