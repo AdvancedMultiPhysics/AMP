@@ -12,9 +12,12 @@
     #include <thrust/for_each.h>
     #include <thrust/inner_product.h>
     #include <thrust/scan.h>
+#else
+    #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
 #endif
 
 #include <algorithm>
+#include <cstring>
 #include <numeric>
 
 namespace AMP {
@@ -35,30 +38,30 @@ void Algorithms<TYPE>::fill_n( TYPE *x, const size_t N, const TYPE alpha )
 }
 
 template<typename TYPE>
-void Algorithms<TYPE>::copy_n( TYPE *x, const size_t N, TYPE *y )
+void Algorithms<TYPE>::copy_n( const TYPE *x, const size_t N, TYPE *y )
 {
     const auto xmtype = getMemoryType( x );
     const auto ymtype = getMemoryType( y );
-    if ( xmtype <= MemoryType::host && ymtype <= MemoryType::host ) {
-        std::copy( x, x + N, y );
-    } else if ( xmtype >= MemoryType::managed && ymtype >= MemoryType::managed ) {
+    AMP_DEBUG_ASSERT( xmtype != MemoryType::none && ymtype != MemoryType::none );
+    if ( xmtype == MemoryType::managed && ymtype == MemoryType::managed ) {
+        // managed-managed operations can use device or CPU
 #ifdef USE_DEVICE
-        thrust::copy_n( thrust::device, x, N, y );
+        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice );
 #else
-        AMP_ERROR( "Invalid memory type" );
+        memcpy( y, x, N * sizeof( TYPE ) );
 #endif
-    } else if ( xmtype <= MemoryType::host && ymtype >= MemoryType::managed ) {
-#ifdef USE_DEVICE
-        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyHostToDevice );
-#else
-        AMP_ERROR( "Invalid memory type" );
-#endif
-    } else {
-#ifdef USE_DEVICE
+    } else if ( xmtype <= MemoryType::managed && ymtype <= MemoryType::managed ) {
+        // host-host
+        memcpy( y, x, N * sizeof( TYPE ) );
+    } else if ( ymtype <= MemoryType::host ) {
+        // device to host
         deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyDeviceToHost );
-#else
-        AMP_ERROR( "Invalid memory type" );
-#endif
+    } else if ( xmtype <= MemoryType::host ) {
+        // host to device
+        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyHostToDevice );
+    } else {
+        // device to device
+        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice );
     }
 }
 
