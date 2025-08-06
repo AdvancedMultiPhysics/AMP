@@ -128,11 +128,6 @@ void Matrix::scaleInv( AMP::Scalar alpha, Vector::const_shared_ptr D )
     d_matrixOps->scaleInv( alpha, D, *getMatrixData() );
 }
 
-void Matrix::removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up )
-{
-    getMatrixData()->removeRange( bnd_lo, bnd_up );
-}
-
 void Matrix::axpy( AMP::Scalar alpha, const Matrix &X )
 {
     if ( this->type() == X.type() )

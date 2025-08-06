@@ -123,9 +123,6 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
         AMP_ERROR( "Check supplied MatrixParameters object" );
     }
 
-    // get total nnz count
-    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
-
     // determine if DOFManagers and CommLists need to be (re)created
     resetDOFManagers();
 
@@ -150,7 +147,6 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
     cloneData->d_last_row        = d_last_row;
     cloneData->d_first_col       = d_first_col;
     cloneData->d_last_col        = d_last_col;
-    cloneData->d_nnz             = d_nnz;
     cloneData->d_leftDOFManager  = d_leftDOFManager;
     cloneData->d_rightDOFManager = d_rightDOFManager;
     cloneData->d_pParameters     = d_pParameters;
@@ -207,10 +203,6 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
                                                  d_last_row,
                                                  false );
     }
-
-    // total number of local non-zeros not the same, offd block can change
-    transposeData->d_nnz =
-        transposeData->d_diag_matrix->d_nnz + transposeData->d_offd_matrix->d_nnz;
 
     // matrix blocks will not have correct ordering within rows and still
     // have their global indices present. Call g2l to fix that.
@@ -298,7 +290,6 @@ void CSRMatrixData<Config>::setNNZ( lidx_t tot_nnz_diag, lidx_t tot_nnz_offd )
     // forward to internal blocks to get the internals allocated
     d_diag_matrix->setNNZ( tot_nnz_diag );
     d_offd_matrix->setNNZ( tot_nnz_offd );
-    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
 }
 
 template<typename Config>
@@ -310,7 +301,6 @@ void CSRMatrixData<Config>::setNNZ( const std::vector<lidx_t> &nnz_diag,
     // forward to internal blocks to get the internals allocated
     d_diag_matrix->setNNZ( nnz_diag );
     d_offd_matrix->setNNZ( nnz_offd );
-    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
 }
 
 template<typename Config>
@@ -321,7 +311,6 @@ void CSRMatrixData<Config>::setNNZ( bool do_accum )
     // forward to internal blocks to get the internals allocated
     d_diag_matrix->setNNZ( do_accum );
     d_offd_matrix->setNNZ( do_accum );
-    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
 }
 
 template<typename Config>
@@ -329,7 +318,6 @@ void CSRMatrixData<Config>::globalToLocalColumns()
 {
     PROFILE( "CSRMatrixData::globalToLocalColumns" );
 
-    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
     d_diag_matrix->globalToLocalColumns();
     d_offd_matrix->globalToLocalColumns();
 }
@@ -404,7 +392,6 @@ void CSRMatrixData<Config>::removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up 
     const auto bup = static_cast<scalar_t>( bnd_up );
     d_diag_matrix->removeRange( blo, bup );
     d_offd_matrix->removeRange( blo, bup );
-    d_nnz = d_diag_matrix->d_nnz + d_offd_matrix->d_nnz;
     resetDOFManagers( true );
 }
 

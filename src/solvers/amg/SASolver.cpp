@@ -143,7 +143,7 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
 
     // truncate small non-zeros and re-normalize
     if ( d_prol_trunc > 0.0 ) {
-        P_smooth->removeRange( -d_prol_trunc, d_prol_trunc );
+        P_smooth->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
         Ds = P_smooth->getRowSums( Ds );
         P_smooth->scaleInv( 1.0, Ds );
     }
@@ -211,7 +211,7 @@ void SASolver::setup()
     makeCoarseSolver();
 
     if ( d_iDebugPrintInfoLevel > 2 ) {
-        print_summary( "SASolver", d_levels, *d_coarse_solver );
+        print_summary( type(), d_levels, *d_coarse_solver );
     }
 }
 

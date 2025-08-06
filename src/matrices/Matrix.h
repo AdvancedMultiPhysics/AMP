@@ -86,12 +86,6 @@ public:
      */
     void scaleInv( AMP::Scalar alpha, Vector::const_shared_ptr D );
 
-    /** \brief  Remove matrix entries that lie within given range
-     * \param[in] bnd_lo Lower bound of range to discard
-     * \param[in] bnd_up Upper bound of range to discard
-     */
-    void removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up );
-
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
      * \param[in] X matrix

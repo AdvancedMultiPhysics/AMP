@@ -214,7 +214,7 @@ public:
     bool isEmpty() const noexcept { return d_diag_matrix->d_is_empty && d_offd_matrix->d_is_empty; }
 
     //! Get total number of nonzeros in both blocks
-    auto numberOfNonZeros() const { return d_nnz; }
+    auto numberOfNonZeros() const { return d_diag_matrix->d_nnz + d_offd_matrix->d_nnz; }
 
     //! Get total number of nonzeros in diagonal block
     auto numberOfNonZerosDiag() const { return d_diag_matrix->d_nnz; }
@@ -302,8 +302,6 @@ protected:
     gidx_t d_first_col = 0;
     //! Global index of last column of diagonal block
     gidx_t d_last_col = 0;
-    //! Total number of nonzeros in both blocks
-    lidx_t d_nnz = 0;
 
     //! Allocator for gidx_t matched to template parameter
     gidxAllocator_t d_gidxAllocator;
