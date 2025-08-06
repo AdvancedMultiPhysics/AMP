@@ -179,6 +179,9 @@ public:
     //! setNNZ function that references d_row_starts and optionally does scan
     void setNNZ( bool do_accum );
 
+    //! \brief Remove matrix entries from within given range
+    void removeRange( const scalar_t bnd_lo, const scalar_t bnd_up );
+
     //! Get pointers into d_cols at start of each row
     void getColPtrs( std::vector<gidx_t *> &col_ptrs );
 

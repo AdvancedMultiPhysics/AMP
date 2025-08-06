@@ -15,6 +15,7 @@ namespace AMP::Solver::AMG {
 struct MIS2Aggregator : Aggregator {
     MIS2Aggregator() = default;
     MIS2Aggregator( float wt_ ) : Aggregator( wt_ ){};
+    MIS2Aggregator( int ms_, float wt_ ) : Aggregator( ms_, wt_ ){};
 
     // Necessary overrides from base class
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;

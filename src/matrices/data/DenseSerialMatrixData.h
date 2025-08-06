@@ -44,6 +44,8 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
+
     /** \brief  Add values to those in the matrix
      * \param[in] num_rows The number of rows represented in values
      * \param[in] num_cols The number of cols represented in values

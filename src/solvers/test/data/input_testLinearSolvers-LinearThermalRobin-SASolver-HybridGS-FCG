@@ -10,37 +10,7 @@ LinearSolver{
   print_info_level = 2
 }
 
-Preconditioner{
-  name = "SASolver"
-  uses_preconditioner = FALSE
-  absolute_tolerance = 1.0e-12
-  relative_tolerance = 1.0e-12
-  print_info_level = 0
-  max_iterations = 1
-  min_coarse_local = 10
-  min_coarse_global = 40
-  kappa = 2
-  agg_type = "simple"
-  agg_weak_thresh = 4.0
-
-  pre_relaxation{
-    name = "HybridGS"
-    num_sweeps = 2
-    sweep_type = "forward"
-  }
-
-  post_relaxation{
-    name = "HybridGS"
-    num_sweeps = 2
-    sweep_type = "backward"
-  }
-
-  coarse_solver{
-    name = "HybridGS"
-    num_sweeps = 1
-    sweep_type = "symmetric"
-  }
-}
+<<< "PC-SASolverParameters" >>>
 
 Reference{
   iterations = 10
