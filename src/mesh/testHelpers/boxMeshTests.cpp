@@ -1,9 +1,14 @@
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/mesh/structured/BoxMesh.h"
+#include "AMP/mesh/structured/structuredMeshElement.h"
 #include "AMP/mesh/testHelpers/meshTests.h"
+#include "AMP/utils/AMP_MPI.I"
 #include "AMP/utils/Utilities.h"
 
 #include "ProfilerApp.h"
+
+
+using AMP::Utilities::stringf;
 
 
 namespace AMP::Mesh {
@@ -49,31 +54,51 @@ static void testElementFromPoint( AMP::UnitTest &ut,
 static void testSurface( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::BoxMesh> mesh )
 {
     PROFILE( "testSurface" );
-    // Get a list of element ids on each surface id
-    std::map<int, std::vector<MeshElementID>> map;
-    for ( auto id : mesh->getBoundaryIDs() ) {
-        auto it    = mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, id, 0 );
-        auto &list = map[id];
-        list.reserve( it.size() );
-        for ( auto &elem : it )
-            list.push_back( elem.globalID() );
-        map[id] = mesh->getComm().allGather( list );
-        AMP::Utilities::unique( map[id] );
-    }
-    // Check that each surface is in the list
+    bool allPass    = true;
     auto logicalDim = static_cast<int>( mesh->getGeomType() );
-    bool pass       = true;
-    for ( int s = 0; s < 2 * logicalDim; s++ ) {
-        auto id   = mesh->getSurfaceID( s );
-        auto it   = mesh->createIterator( mesh->getSurface( s, AMP::Mesh::GeomType::Vertex ) );
-        auto list = map[id];
-        for ( auto &elem : it )
-            pass = pass && std::binary_search( list.begin(), list.end(), elem.globalID() );
+    const auto name = mesh->getName();
+    for ( int t = 0; t <= logicalDim; t++ ) {
+        auto type     = static_cast<AMP::Mesh::GeomType>( t );
+        auto typeName = to_string( type );
+        // Get a list of element ids on each surface id
+        std::map<int, std::vector<BoxMesh::MeshElementIndex>> map;
+        for ( auto id : mesh->getBoundaryIDs() ) {
+            auto it    = mesh->getBoundaryIDIterator( type, id, 0 );
+            auto &list = map[id];
+            list.reserve( it.size() );
+            for ( auto &elem : it ) {
+                auto elem2 = dynamic_cast<const structuredMeshElement *>( elem.getRawElement() );
+                list.push_back( elem2->getIndex() );
+            }
+            map[id]  = mesh->getComm().allGather( list );
+            size_t N = map[id].size();
+            AMP::Utilities::unique( map[id] );
+            if ( N != map[id].size() )
+                ut.failure( stringf(
+                    "%s - getSurface (getBoundaryIDIterator,%s)", name.data(), typeName.data() ) );
+        }
+        // Check that each surface is in the list
+        for ( int s = 0; s < 2 * logicalDim; s++ ) {
+            auto id    = mesh->getSurfaceID( s );
+            auto boxes = mesh->getSurface( s, type );
+            auto it    = mesh->createIterator( boxes );
+            auto list  = map[id];
+            bool pass  = true;
+            for ( auto &elem : it ) {
+                auto elem2 = dynamic_cast<const structuredMeshElement *>( elem.getRawElement() );
+                auto index = elem2->getIndex();
+                if ( !std::binary_search( list.begin(), list.end(), index ) )
+                    pass = false;
+            }
+            if ( !pass ) {
+                auto it2 = mesh->getBoundaryIDIterator( type, id, 0 );
+                ut.failure( stringf( "%s - getSurface (%s,%i)", name.data(), typeName.data(), s ) );
+                allPass = false;
+            }
+        }
     }
-    if ( pass )
-        ut.passes( mesh->getName() + " - getSurface" );
-    else
-        ut.failure( mesh->getName() + " - getSurface" );
+    if ( allPass )
+        ut.passes( name + " - getSurface" );
 }
 
 

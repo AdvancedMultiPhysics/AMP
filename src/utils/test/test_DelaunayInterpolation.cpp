@@ -198,7 +198,7 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
         ut.failure( "Triangle neighbors are invalid " + msg );
         return nullptr;
     }
-    
+
     // Check building using a predefined triangle list
     auto data2 = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
     data2->create_tessellation( x, data->get_tri() );
