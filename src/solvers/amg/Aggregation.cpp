@@ -1,0 +1,37 @@
+#include <tuple>
+#include <type_traits>
+
+#include "AMP/matrices/CSRConfig.h"
+#include "AMP/matrices/CSRMatrix.h"
+#include "AMP/matrices/CSRVisit.h"
+#include "AMP/operators/LinearOperator.h"
+#include "AMP/solvers/amg/Aggregation.hpp"
+
+namespace AMP::Solver::AMG {
+
+coarse_ops_type pairwise_coarsen( std::shared_ptr<Operator::Operator> fine,
+                                  const AMG::PairwiseCoarsenSettings &settings )
+{
+    auto linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( fine );
+    AMP_INSIST( linop, "AMG:pairwise_coarsen: operator must be linear" );
+    auto mat = linop->getMatrix();
+    AMP_INSIST( mat, "AMG::pairwise_coarsen: matrix cannot be NULL" );
+
+    return LinearAlgebra::csrVisit(
+        mat, [&]( auto csr_ptr ) { return pairwise_coarsen( *csr_ptr, settings ); } );
+}
+
+
+coarse_ops_type aggregator_coarsen( std::shared_ptr<Operator::Operator> fine,
+                                    Aggregator &aggregator )
+{
+    auto linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( fine );
+    AMP_INSIST( linop, "AMG::aggregator_coarsen: operator must be linear" );
+    auto mat = linop->getMatrix();
+    AMP_INSIST( mat, "AMG::aggregator_coarsen: matrix cannot be NULL" );
+
+    return LinearAlgebra::csrVisit(
+        mat, [&]( auto csr_ptr ) { return aggregator_coarsen( csr_ptr, aggregator ); } );
+}
+
+} // namespace AMP::Solver::AMG

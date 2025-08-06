@@ -1,0 +1,144 @@
+Mesh{
+    MeshName = "cube"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 16, 16, 16
+    Range = -5, 5, -5, 5, -5, 5
+    surfaceIds = 4, 6, 3, 5, 2, 1
+    static = TRUE
+}
+
+
+DiffusionTransportModel{
+    name = "DiffusionTransportTensorModel"
+    Material = "Independent"
+    Dimensions = 3, 3
+    Property = "TensorFickCoefficient"
+    Parameters = 0.5473676758414011, 0.31012922415893235, 0.33146995811374047, 0.8606039940130038, 0.9192113004632436, 0.6951307318632206, 0.9294906640302045, 0.5645117036874121, 0.49656423993087295
+} 
+    
+MassDensityModel{
+    name = "MassDensityModel"
+    Material = "Independent"
+    Equation = "ManufacturedSource"
+    ManufacturedSourceEquation = "Fick"
+    ManufacturedVariable = "Concentration"
+    Property = "TensorFickCoefficient"
+    print_info_level = 3
+     ManufacturedSolution {
+         MinX = -5.12000000001
+         MinY = -5.12000000001
+         MinZ = -5.12000000001
+         MaxX =  5.12000000001
+         MaxY =  5.12000000001
+         MaxZ =  5.12000000001
+         QuadraticDistortion =  0.6797416063318512, 0.01109423928195731, 0.21318240955633663, 0.8069840540921128, 0.2624706425762914, 0.20550931484578683, 0.11202717028989782, 0.5658687852691642, 0.345413206154187
+         QuadraticFunction = "Exponential"
+     }
+}  
+
+FickNonlinearBVPOperator {
+    name="NonlinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator="FickDiffusionNonlinearFEOperator"
+    BoundaryOperator="FickDirichletVectorCorrection"
+}
+
+FickLinearBVPOperator {
+    name="LinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator="FickDiffusionLinearFEOperator"
+    BoundaryOperator="FickDirichletMatrixCorrection"
+}
+
+ManufacturedSourceOperator {
+    name = "MassLinearFEOperator"
+    InputVariable = "concentration"
+    OutputVariable = "concentration"
+    print_info_level = 3
+    reset_reuses_matrix = TRUE
+    FixedConcentration = 0.15
+    FixedTemperature   = 750
+    FixedBurnup   = 0.0
+
+    MassElement {
+        name = "MassLinearElement"
+        print_info_level = 3
+        TransportAtGaussPoints = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }    
+    LocalModel = MassDensityModel
+}
+
+FickDiffusionNonlinearFEOperator{
+    name="DiffusionNonlinearFEOperator"
+    InputVariable="concentration"
+    OutputVariable="concentration"
+    print_info_level = 1
+    ActiveInputVariables { 
+        concentration = "concentration"
+    }
+    PrincipalVariable = "concentration"
+    LocalModel = DiffusionTransportModel
+    DiffusionElement {
+        name = "DiffusionNonlinearElement"
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }
+}
+
+FickDirichletVectorCorrection{
+    name = "DirichletVectorCorrection"
+    print_info_level = 3
+    skip_params = FALSE
+    number_of_ids = 2
+    id_0         =   4
+    number_of_dofs_0 =   1
+    dof_0_0          =   0
+    value_0_0        =  -4.982361720289004
+    id_1         =   6 
+    number_of_dofs_1 =   1
+    dof_1_0          =   0
+    value_1_0        =  -4.426041611890331
+}
+
+FickDiffusionLinearFEOperator{
+    name="DiffusionLinearFEOperator"
+    InputVariable="concentration"
+    OutputVariable="concentration"
+    print_info_level = 3
+
+    DiffusionElement {
+       name = "DiffusionLinearElement"
+       print_info_level = 3
+       FE_ORDER = "FIRST"  
+       FE_FAMILY = "LAGRANGE"
+       QRULE_TYPE = "QGAUSS"
+       QRULE_ORDER = "DEFAULT"
+    }
+
+    LocalModel = DiffusionTransportModel
+}
+   
+FickDirichletMatrixCorrection{
+        name = "DirichletVectorCorrection"
+     print_info_level = 3
+     skip_params = FALSE
+     number_of_ids = 2
+     id_0         =   4
+     number_of_dofs_0 =   1
+     dof_0_0          =   0
+     value_0_0        =  -4.982361720289004
+     id_1         =   6 
+     number_of_dofs_1 =   1
+     dof_1_0          =   0
+     value_1_0        =  -4.426041611890331
+   }
+
+

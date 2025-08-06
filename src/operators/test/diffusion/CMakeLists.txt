@@ -62,6 +62,8 @@ COPY_TEST_FILE( input_Diffusion-Fick-OxMSRZC09-MMS-1 )
 COPY_TEST_FILE( input_Diffusion-Fick-TUI-MMS-1 )
 COPY_TEST_FILE( input_TensorDiffusion-Fick-MMS-1 )
 COPY_TEST_FILE( input_TensorDiffusion-Fick-MMS-2 )
+COPY_TEST_FILE( input_TensorDiffusion-Fick-MMS-3 )
+COPY_TEST_FILE( input_TensorDiffusion-Fick-MMS-4 )
 COPY_TEST_FILE( input_linearThermalDiffusion+FickDiffusion-TUI-1 )
 COPY_TEST_FILE( input_linearThermalDiffusion+FickDiffusion-UO2MSRZC09-1 )
 

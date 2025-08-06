@@ -1,10 +1,10 @@
 
 Mesh{
-	MeshName = "Mesh"
-	MeshType = "AMP"
-	Generator = "tube"
-	Size = 5, 64, 10
-	Range = 0.5, 1, -0.5, 0.5
+    MeshName = "Mesh"
+    MeshType = "AMP"
+    Generator = "tube"
+    Size = 5, 64, 10
+    Range = 0.5, 1, -0.5, 0.5
     static = TRUE
 }
 
@@ -12,47 +12,44 @@ DiffusionTransportModel{
     name = "DiffusionCylindricalTransportModel"
     Material = "CylindricallySymmetric"
     Property = "ScalarRadialFick"
-	RadiusArgument = "radius"
-	// coefficients for the polynomial 1. + 100 r (1 - r) (r - .2) (r - .52) (r - .63) (r - .8)
+    RadiusArgument = "radius"
+    // coefficients for the polynomial 1. + 100 r (1 - r) (r - .2) (r - .52) (r - .63) (r - .8)
     Parameters =  1., 5.2416, -56.4016, 214.92, -378.76, 315.0, -100.
 } 
-	
+    
 MassDensityModel{
     name = "MassDensityModel"
-	Equation = "ManufacturedSource"
-	ManufacturedSourceEquation = "Fick"
-	ManufacturedVariable = "Concentration"
+    Equation = "ManufacturedSource"
+    ManufacturedSourceEquation = "Fick"
+    ManufacturedVariable = "Concentration"
     Material = "CylindricallySymmetric"
     Property = "TensorFick"
     Parameters = 7., 1., 5.2416, -56.4016, 214.92, -378.76, 315.0, -100., 0.
     print_info_level = 3
- 	ManufacturedSolution {
- 		Geometry = "CylindricalRodRZ"
- 		Order = "Cubic"
- 		BoundaryType = "None"
-  		Coefficients = 14.565519491455166, 14.51316443791129, 17.032171451208203, -8.987124892620383, 0, 0, 0, 0, 12.517794782212528, 6.796432207509762, 5.550731118198651, 6.6139884494310675, -4.194714492268008, -19.623908485943932, -13.94646064306552, -0.09865646462251965
-		MinR = .49999999999
- 		MaxR = 1.0000000001
- 		MinZ = -.5000000001
- 		MaxZ =  .5000000001
+    ManufacturedSolution {
+        Geometry = "CylindricalRodRZ"
+        Order = "Cubic"
+        BoundaryType = "None"
+        Coefficients = 14.565519491455166, 14.51316443791129, 17.032171451208203, -8.987124892620383, 0, 0, 0, 0, 12.517794782212528, 6.796432207509762, 5.550731118198651, 6.6139884494310675, -4.194714492268008, -19.623908485943932, -13.94646064306552, -0.09865646462251965
+        MinR = .49999999999
+        MaxR = 1.0000000001
+        MinZ = -.5000000001
+        MaxZ =  .5000000001
     }
 }  
 
 FickNonlinearBVPOperator {
-   name="NonlinearBVPOperator"
-   print_info_level = 1
-
-  VolumeOperator="FickDiffusionNonlinearFEOperator"
-   
-  BoundaryOperator="FickDirichletVectorCorrection"
+    name="NonlinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator="FickDiffusionNonlinearFEOperator"
+    BoundaryOperator="FickDirichletVectorCorrection"
 }
 
 FickLinearBVPOperator {
-   name="LinearBVPOperator"
-   print_info_level = 1
-
-   VolumeOperator="FickDiffusionLinearFEOperator"
-   BoundaryOperator="FickDirichletMatrixCorrection"
+    name="LinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator="FickDiffusionLinearFEOperator"
+    BoundaryOperator="FickDirichletMatrixCorrection"
 }
 
 ManufacturedSourceOperator {
@@ -67,7 +64,7 @@ ManufacturedSourceOperator {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+        print_info_level = 3
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -78,73 +75,73 @@ ManufacturedSourceOperator {
 }
 
 FickDiffusionNonlinearFEOperator{
-	 name="DiffusionNonlinearFEOperator"
-	 InputVariable="concentration"
-	 OutputVariable="concentration"
-	 print_info_level = 1
-	
-	 ActiveInputVariables { 
-	   concentration = "concentration"
-	 }
-	 PrincipalVariable = "concentration"
+    name="DiffusionNonlinearFEOperator"
+    InputVariable="concentration"
+    OutputVariable="concentration"
+    print_info_level = 1
+    
+    ActiveInputVariables { 
+       concentration = "concentration"
+    }
+    PrincipalVariable = "concentration"
 
-         LocalModel = DiffusionTransportModel
+    LocalModel = DiffusionTransportModel
 
-         DiffusionElement {
-	      name = "DiffusionNonlinearElement"
-	      FE_ORDER = "FIRST"  
-	      FE_FAMILY = "LAGRANGE"
-	      QRULE_TYPE = "QGAUSS"
-	      QRULE_ORDER = "DEFAULT"
-	   }
-   }
+    DiffusionElement {
+        name = "DiffusionNonlinearElement"
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }
+}
 
 FickDirichletVectorCorrection{
-   	 name = "DirichletVectorCorrection"
-     print_info_level = 3
-     skip_params = FALSE
-     number_of_ids = 2
-     id_0         =   4
-     number_of_dofs_0 =   1
-     dof_0_0          =   0
-     value_0_0        =  -4.982361720289004
-     id_1         =   6 
-     number_of_dofs_1 =   1
-     dof_1_0          =   0
-     value_1_0        =  -4.426041611890331
-   }
+    name = "DirichletVectorCorrection"
+    print_info_level = 3
+    skip_params = FALSE
+    number_of_ids = 2
+    id_0         =   4
+    number_of_dofs_0 =   1
+    dof_0_0          =   0
+    value_0_0        =  -4.982361720289004
+    id_1         =   6 
+    number_of_dofs_1 =   1
+    dof_1_0          =   0
+    value_1_0        =  -4.426041611890331
+}
 
 FickDiffusionLinearFEOperator{
-      name="DiffusionLinearFEOperator"
-      InputVariable="concentration"
-      OutputVariable="concentration"
-      print_info_level = 3
+    name="DiffusionLinearFEOperator"
+    InputVariable="concentration"
+    OutputVariable="concentration"
+    print_info_level = 3
 
-     DiffusionElement {
+    DiffusionElement {
        name = "DiffusionLinearElement"
        print_info_level = 3
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
        QRULE_ORDER = "DEFAULT"
-     }
+    }
 
-     LocalModel = DiffusionTransportModel
-   }
+    LocalModel = DiffusionTransportModel
+}
    
 FickDirichletMatrixCorrection{
-   	 name = "DirichletVectorCorrection"
-     print_info_level = 3
-     skip_params = FALSE
-     number_of_ids = 2
-     id_0         =   4
-     number_of_dofs_0 =   1
-     dof_0_0          =   0
-     value_0_0        =  -4.982361720289004
-     id_1         =   6 
-     number_of_dofs_1 =   1
-     dof_1_0          =   0
-     value_1_0        =  -4.426041611890331
-   }
+    name = "DirichletVectorCorrection"
+    print_info_level = 3
+    skip_params = FALSE
+    number_of_ids = 2
+    id_0         =   4
+    number_of_dofs_0 =   1
+    dof_0_0          =   0
+    value_0_0        =  -4.982361720289004
+    id_1         =   6 
+    number_of_dofs_1 =   1
+    dof_1_0          =   0
+    value_1_0        =  -4.426041611890331
+}
 
 

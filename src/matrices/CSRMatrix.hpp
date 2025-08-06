@@ -161,7 +161,7 @@ Vector::shared_ptr CSRMatrix<Config>::extractDiagonal( Vector::shared_ptr buf ) 
 {
     Vector::shared_ptr out = buf;
     if ( !buf )
-        out = this->getRightVector();
+        out = this->createInputVector();
 
     d_matrixOps->extractDiagonal( *getMatrixData(), out );
 
@@ -176,7 +176,7 @@ Vector::shared_ptr CSRMatrix<Config>::getRowSums( Vector::shared_ptr buf ) const
 {
     Vector::shared_ptr out = buf;
     if ( !buf )
-        out = this->getRightVector();
+        out = this->createInputVector();
 
     d_matrixOps->getRowSums( *getMatrixData(), out );
 
@@ -188,7 +188,7 @@ Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf
 {
     Vector::shared_ptr out = buf;
     if ( !buf )
-        out = this->getRightVector();
+        out = this->createInputVector();
 
     d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out );
 
@@ -199,7 +199,7 @@ Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf
  * Get the left/right vectors and DOFManagers            *
  ********************************************************/
 template<typename Config>
-Vector::shared_ptr CSRMatrix<Config>::getRightVector() const
+Vector::shared_ptr CSRMatrix<Config>::createInputVector() const
 {
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getRightVariable();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
@@ -207,7 +207,7 @@ Vector::shared_ptr CSRMatrix<Config>::getRightVector() const
 }
 
 template<typename Config>
-Vector::shared_ptr CSRMatrix<Config>::getLeftVector() const
+Vector::shared_ptr CSRMatrix<Config>::createOutputVector() const
 {
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getLeftVariable();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();

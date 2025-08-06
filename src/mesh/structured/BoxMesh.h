@@ -417,6 +417,9 @@ public: // Convenience typedef
 
 
 public: // Advanced functions
+    // Get the surface id for a given surface
+    int getSurfaceID( int surface ) const;
+
     // Get the surface set for a given surface/type
     ElementBlocks getSurface( int surface, GeomType type ) const;
 
@@ -429,7 +432,7 @@ public: // Advanced functions
     ElementBlocks intersect( const ElementBlocks &v1, const ElementBlocks &v2 ) const;
 
     // Helper function to create an iterator from an ElementBlocks list
-    inline MeshIterator createIterator( const ElementBlocks &list ) const;
+    MeshIterator createIterator( const ElementBlocks &list ) const;
 
 
 protected:

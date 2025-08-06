@@ -93,7 +93,7 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
     auto inputMatrix = myParams->d_inputMatrix;
     AMP_INSIST( inputMatrix, "NULL matrix" );
 
-    auto inVec   = inputMatrix->getRightVector();
+    auto inVec   = inputMatrix->createInputVector();
     auto dof_map = inVec->getDOFManager();
 
     unsigned int numIds = d_boundaryIds.size();

@@ -1,7 +1,9 @@
 #ifndef included_AMP_VectorOperationsDefault_hpp
 #define included_AMP_VectorOperationsDefault_hpp
 
-#include "AMP/utils/Utilities.h"
+#include "AMP/utils/Algorithms.h"
+#include "AMP/utils/Backend.h"
+#include "AMP/utils/memory.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
@@ -150,23 +152,40 @@ template<typename TYPE>
 void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
 {
     AMP_DEBUG_ASSERT( y.getLocalSize() == x.getLocalSize() );
-    std::copy( x.begin<TYPE>(), x.end<TYPE>(), y.begin<TYPE>() );
-    y.copyGhostValues( x );
+    AMP_DEBUG_ASSERT( y.isType<TYPE>() );
+    size_t N_blocks   = y.numberOfDataBlocks();
+    size_t N_blocks_x = x.numberOfDataBlocks();
+    if ( N_blocks_x == N_blocks && x.isType<TYPE>() ) {
+        for ( size_t i = 0; i < N_blocks; i++ ) {
+            auto xdata   = x.getRawDataBlock<TYPE>( i );
+            auto ydata   = y.getRawDataBlock<TYPE>( i );
+            const auto N = y.sizeOfDataBlock( i );
+            AMP_ASSERT( xdata && ydata && N == x.sizeOfDataBlock( i ) );
+            AMP::Utilities::Algorithms<TYPE>::copy_n( xdata, N, ydata );
+        }
+        y.copyGhostValues( x );
+    } else if ( N_blocks_x == N_blocks && !x.isType<TYPE>() ) {
+        copyCast( x, y );
+    } else {
+        std::copy( x.begin<TYPE>(), x.end<TYPE>(), y.begin<TYPE>() );
+        y.copyGhostValues( x );
+    }
 }
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
     constexpr auto DefaultBackend = AMP::Utilities::Backend::Serial;
     if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
-        for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
-            auto ydata   = y.getRawDataBlock<TYPE>( block_id );
-            const auto N = y.sizeOfDataBlock( block_id );
-            AMP_ASSERT( N == x.sizeOfDataBlock( block_id ) );
-            if ( x.getType( 0 ) == getTypeID<float>() ) {
-                auto xdata = x.getRawDataBlock<float>( block_id );
+        for ( size_t i = 0; i < y.numberOfDataBlocks(); i++ ) {
+            auto ydata   = y.getRawDataBlock<TYPE>( i );
+            auto type    = x.getType( i );
+            const auto N = y.sizeOfDataBlock( i );
+            AMP_ASSERT( N == x.sizeOfDataBlock( i ) );
+            if ( type == getTypeID<float>() ) {
+                auto xdata = x.getRawDataBlock<float>( i );
                 AMP::Utilities::copyCast<float, TYPE, DefaultBackend>( N, xdata, ydata );
-            } else if ( x.getType( 0 ) == getTypeID<double>() ) {
-                auto xdata = x.getRawDataBlock<double>( block_id );
+            } else if ( type == getTypeID<double>() ) {
+                auto xdata = x.getRawDataBlock<double>( i );
                 AMP::Utilities::copyCast<double, TYPE, DefaultBackend>( N, xdata, ydata );
             } else {
                 AMP_ERROR( "CopyCast only implemented for float or doubles." );

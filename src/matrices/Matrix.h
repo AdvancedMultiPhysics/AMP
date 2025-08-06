@@ -182,13 +182,13 @@ public:
     /** \brief Get a right vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a
      * right vector ) \return  A newly created right vector
      */
-    virtual Vector::shared_ptr getRightVector() const = 0;
+    virtual Vector::shared_ptr createInputVector() const = 0;
 
     /** \brief Get a left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{y}\f$ is a left
      * vector )
      * \return  A newly created left vector
      */
-    virtual Vector::shared_ptr getLeftVector() const = 0;
+    virtual Vector::shared_ptr createOutputVector() const = 0;
 
 public:
     /** \brief  Add values to those in the matrix
