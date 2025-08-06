@@ -35,6 +35,8 @@ void meshTests::MeshTestLoop( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh
     VerifyNodeElemMapIteratorTest( ut, mesh );
     VerifyBoundaryIteratorTest( ut, mesh );
     VerifyElementForNode( ut, mesh );
+    // Test BoxMesh
+    testBoxMesh( ut, mesh );
     // Test performance
     MeshPerformance( ut, mesh );
 }

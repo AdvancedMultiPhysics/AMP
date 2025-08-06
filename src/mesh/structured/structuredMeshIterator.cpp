@@ -60,7 +60,8 @@ structuredMeshIterator::structuredMeshIterator()
     d_mesh          = nullptr;
     d_isPeriodic.fill( false );
     d_globalSize.fill( 0 );
-    d_element = &d_cur_element;
+    d_element     = &d_cur_element;
+    d_cur_element = structuredMeshElement( getIndex( d_pos ), d_mesh );
 }
 structuredMeshIterator::structuredMeshIterator( const BoxMesh::MeshElementIndex &first,
                                                 const BoxMesh::MeshElementIndex &last,
