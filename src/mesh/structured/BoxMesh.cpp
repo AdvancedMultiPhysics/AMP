@@ -9,6 +9,7 @@
 #include "AMP/mesh/structured/structuredMeshElement.h"
 #include "AMP/mesh/structured/structuredMeshIterator.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/kdtree2.hpp"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
@@ -269,6 +270,8 @@ void BoxMesh::initialize( const std::array<int, 3> &boxSize,
             localIndex[2 * d + 1] = globalSize[d];
         localIndex[2 * d + 1]++;
     }
+    // Map any boundaries of -2
+    // createMaps();
 }
 void BoxMesh::createBoundingBox()
 {
@@ -341,14 +344,9 @@ int BoxMesh::getSurfaceID( int s ) const
     AMP_ASSERT( s >= 0 && s < s_max );
     return d_surfaceId[s];
 }
-BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
+BoxMesh::ElementBlocks BoxMesh::getSurface2( int s, GeomType type ) const
 {
-    // Check if we are keeping the given surface
-    int d     = s / 2;
-    int s_max = 2 * static_cast<int>( GeomDim );
-    if ( d_surfaceId[s] < 0 || s > s_max )
-        return {};
-    // Initialize some basic info
+    int d                       = s / 2;
     bool left                   = s % 2 == 0;
     std::array<int, 3> lastCell = { std::max( d_globalSize[0] - 1, 0 ),
                                     std::max( d_globalSize[1] - 1, 0 ),
@@ -358,8 +356,6 @@ BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
         if ( d_surfaceId[2 * d + 1] != -1 )
             lastNode[d]++;
     }
-    if ( d_surfaceId[0] == -2 || d_surfaceId[2] == -2 || d_surfaceId[4] == -2 )
-        AMP_WARN_ONCE( "Fix last node" );
     // Create the surface list
     if ( type == GeomDim ) {
         // We are dealing with the desired geometric type (e.g. Volume)
@@ -443,6 +439,19 @@ BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
         AMP_ERROR( "Unknown type" );
     }
     return {};
+}
+BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
+{
+    // Check if we are keeping the given surface
+    int s_max = 2 * static_cast<int>( GeomDim );
+    if ( d_surfaceId[s] < 0 || s > s_max )
+        return {};
+    // Get the surface
+    auto blocks = getSurface2( s, type );
+    // Fix issues with the mapped nodes
+    if ( d_surfaceId[0] == -2 || d_surfaceId[2] == -2 || d_surfaceId[4] == -2 )
+        AMP_WARN_ONCE( "Fix last node" );
+    return blocks;
 }
 
 
@@ -927,6 +936,58 @@ bool BoxMesh::isOnBoundary( const MeshElementIndex &index, int id ) const
         }
     }
     return test;
+}
+
+
+/****************************************************************
+ * Map points on the boundary                                    *
+ ****************************************************************/
+template<uint8_t NDIM>
+std::vector<BoxMesh::MeshElementIndex>
+BoxMesh::createMap( const std::vector<MeshElementIndex> x ) const
+{
+    // Build the point map
+    std::vector<std::array<double, NDIM>> p( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        coord( x[i], p[i].data() );
+    // Map the points
+    kdtree2<NDIM, MeshElementIndex> map( p, x );
+    double dist = 1e-8;
+    std::vector<BoxMesh::MeshElementIndex> y( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        auto tmp = map.findNearest( p[i], dist );
+        AMP_ASSERT( tmp.size() == 0 );
+        if ( std::get<1>( tmp[0] ) == x[i] )
+            y[i] = std::get<1>( tmp[1] );
+        else
+            y[i] = std::get<1>( tmp[0] );
+    }
+    return y;
+}
+void BoxMesh::createMaps()
+{
+    for ( int t = 0; t < PhysicalDim; t++ ) {
+        std::vector<MeshElementIndex> x;
+        for ( int s = 0; s < 2 * PhysicalDim; s++ ) {
+            if ( d_surfaceId[s] != -2 )
+                continue;
+            auto blocks = getSurface2( s, static_cast<GeomType>( t ) );
+            for ( [[maybe_unused]] auto block : blocks ) {
+                AMP_ERROR( "Not finished" );
+            }
+        }
+        if ( x.empty() )
+            continue;
+        [[maybe_unused]] std::vector<MeshElementIndex> y;
+        if ( PhysicalDim == 1 ) {
+            y = createMap<1>( x );
+        } else if ( PhysicalDim == 2 ) {
+            y = createMap<2>( x );
+        } else if ( PhysicalDim == 3 ) {
+            y = createMap<3>( x );
+        }
+        AMP_ERROR( "Not finished" );
+    }
 }
 
 
