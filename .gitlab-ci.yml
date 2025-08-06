@@ -1,7 +1,6 @@
 variables:
   PROJECT: AMP
   GROUP: nerd-project
-  PROJECT_SPACK_ENV_VERSION: mr/108/2025-01-18 
 include:
   - project: 'xcap/oss/solvers/dev-ops/ci'
     ref: glongo/adding_trilinos_env_to_ci
