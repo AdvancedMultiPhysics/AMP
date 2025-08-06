@@ -58,7 +58,8 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
 {
     using lidx_t = typename csr_view<Mat>::lidx_t;
     auto get_row = [=]( auto csr_ptrs ) {
-        auto [rowptr, colind, values] = csr_ptrs;
+        auto rowptr = std::get<0>( csr_ptrs );
+        auto values = std::get<2>( csr_ptrs );
         return [=]( lidx_t r ) { return values.subspan( rowptr[r], rowptr[r + 1] - rowptr[r] ); };
     };
 
