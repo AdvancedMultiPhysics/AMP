@@ -4,7 +4,7 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/mesh/MeshUtilities.h"
-#include "AMP/utils/arrayHelpers.h"
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/kdtree2.h"
 
 #include "ProfilerApp.h"

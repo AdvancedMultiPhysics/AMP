@@ -1,8 +1,8 @@
 #ifndef included_AMP_CopyCastHelper_H_
 #define included_AMP_CopyCastHelper_H_
 
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 
 #include <iostream>
 #include <memory>

@@ -1,8 +1,8 @@
 #ifndef included_AMP_DevCopyCast_HPP_
 #define included_AMP_DevCopyCast_HPP_
 
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 #include <memory>
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>

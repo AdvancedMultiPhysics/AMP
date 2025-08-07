@@ -1,7 +1,7 @@
 #ifndef included_AMP_DeviceOperationsHelpers_hpp
 #define included_AMP_DeviceOperationsHelpers_hpp
 
-#include "AMP/utils/device/device.h"
+#include "AMP/utils/device/Device.h"
 
 namespace AMP {
 namespace LinearAlgebra {

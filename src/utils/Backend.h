@@ -2,7 +2,7 @@
 #define included_AMP_Backend
 
 #include "AMP/AMP_TPLs.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #include <algorithm>
 #include <string>

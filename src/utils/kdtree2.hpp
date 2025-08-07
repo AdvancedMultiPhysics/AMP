@@ -1,8 +1,8 @@
 #ifndef included_AMP_kdtree2_hpp
 #define included_AMP_kdtree2_hpp
 
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/Utilities.hpp"
-#include "AMP/utils/arrayHelpers.h"
 #include "AMP/utils/kdtree2.h"
 
 #include "ProfilerApp.h"

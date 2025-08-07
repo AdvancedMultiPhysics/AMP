@@ -2,7 +2,7 @@
 #define included_AMP_CopyCast_openmp_HPP_
 
 #include "AMP/AMP_TPLs.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #include <limits>
 #include <memory>

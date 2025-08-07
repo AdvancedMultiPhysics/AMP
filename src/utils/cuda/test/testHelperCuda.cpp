@@ -1,9 +1,9 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/cuda/CudaAllocator.h"
-#include "AMP/utils/cuda/helper_cuda.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/cuda/Helper_Cuda.h"
 
 #include <iostream>
 #include <memory>

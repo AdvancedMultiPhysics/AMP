@@ -1,8 +1,8 @@
 #ifndef included_AMP_VectorDataDefault
 #define included_AMP_VectorDataDefault
 
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
-#include "AMP/utils/memory.h"
 #include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 

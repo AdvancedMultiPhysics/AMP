@@ -1,6 +1,6 @@
-#include "AMP/utils/hip/helper_hip.h"
+#include "AMP/utils/hip/Helper_Hip.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 #include <hip/hip_runtime.h>
 
 AMP::Utilities::MemoryType getHipMemoryType( const void *ptr )

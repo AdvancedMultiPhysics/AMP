@@ -1,4 +1,4 @@
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/Utilities.h"
 

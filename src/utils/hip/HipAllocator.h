@@ -2,7 +2,7 @@
 #define included_AMP_GPUDevAllocator
 
 #include "AMP/utils/UtilityMacros.h"
-#include "AMP/utils/hip/helper_hip.h"
+#include "AMP/utils/hip/Helper_Hip.h"
 
 DISABLE_WARNINGS
 #include <hip/hip_runtime.h>

@@ -8,7 +8,7 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
 
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #include "thrust/device_vector.h"
 #include "thrust/execution_policy.h"

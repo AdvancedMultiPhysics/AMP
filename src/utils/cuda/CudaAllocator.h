@@ -5,7 +5,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include "AMP/utils/cuda/helper_cuda.h"
+#include "AMP/utils/cuda/Helper_Cuda.h"
 
 
 namespace AMP {

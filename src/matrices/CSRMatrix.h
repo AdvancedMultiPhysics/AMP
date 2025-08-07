@@ -3,7 +3,7 @@
 
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/Matrix.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/Vector.h"
 #include <memory>
 
