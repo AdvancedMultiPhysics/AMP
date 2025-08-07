@@ -42,4 +42,3 @@ INSTANTIATE_TYPES( AMP::Utilities::Backend::Hip_Cuda )
 
 
 } // namespace AMP::Utilities
-

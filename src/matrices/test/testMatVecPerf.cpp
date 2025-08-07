@@ -50,8 +50,8 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     auto outVec = AMP::LinearAlgebra::createVector(
         dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
 #else
-    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto inVec     = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    auto outVec    = AMP::LinearAlgebra::createVector( dofManager, outVar );
 #endif
 
     // Create the matrix
