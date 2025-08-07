@@ -30,10 +30,10 @@
     #include "MemoryApp.h"
 #endif
 
-#if defined( AMP_USE_CUDA ) || defined( USE_CUDA )
+#ifdef AMP_USE_CUDA
     #include "AMP/utils/cuda/helper_cuda.h"
 #endif
-#if defined( AMP_USE_HIP ) || defined( USE_HIP )
+#ifdef AMP_USE_HIP
     #include "AMP/utils/hip/helper_hip.h"
 #endif
 

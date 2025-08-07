@@ -17,6 +17,7 @@
 #define deviceSynchronize() checkHipErrors( hipDeviceSynchronize() )
 #define deviceMalloc( ... ) checkHipErrors( hipMalloc( __VA_ARGS__ ) )
 #define deviceMemcpy( ... ) checkHipErrors( hipMemcpy( __VA_ARGS__ ) )
+#define deviceMemset( ... ) checkHipErrors( hipMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkHipErrors( hipFree( __VA_ARGS__ ) )
 
 

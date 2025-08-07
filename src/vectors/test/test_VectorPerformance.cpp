@@ -1,17 +1,17 @@
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/memory.h"
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/data/VectorDataDefault.h"
 
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
     #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
 #endif
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 #endif
-#include "AMP/utils/memory.h"
-
 
 #include "ProfilerApp.h"
 
@@ -166,7 +166,7 @@ int main( int argc, char **argv )
             AMP::pout << std::endl;
         }
 
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
         vec = AMP::LinearAlgebra::
             createSimpleVector<double, AMP::LinearAlgebra::VectorOperationsOpenMP<double>>(
                 N, var, globalComm );
@@ -179,7 +179,7 @@ int main( int argc, char **argv )
         }
 #endif
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         using ALLOC = AMP::ManagedAllocator<void>;
         using DATA  = AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>;
         using OPS   = AMP::LinearAlgebra::VectorOperationsDevice<double>;

@@ -471,6 +471,14 @@ protected:
     // Helper function to check if an element is on a given side
     bool onSide( const MeshElementIndex &index, int d, int s ) const;
 
+    // Get the surface (including mapped surfaces)
+    ElementBlocks getSurface2( int surface, GeomType type ) const;
+
+    // Helper function to map points on the boundary
+    template<uint8_t NDIM>
+    std::vector<MeshElementIndex> createMap( const std::vector<MeshElementIndex> ) const;
+    void createMaps();
+
 protected: // Write/read restart data
     void writeRestart( int64_t ) const override;
     BoxMesh( int64_t, AMP::IO::RestartManager * );

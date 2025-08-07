@@ -10,7 +10,7 @@
 
 #include "ProfilerApp.h"
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
 
     #include "Kokkos_Core.hpp"
 

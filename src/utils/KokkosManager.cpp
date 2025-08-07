@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <string>
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
     #include <Kokkos_Core.hpp>
 #endif
 
@@ -13,7 +13,7 @@
 namespace AMP::Utilities {
 
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
 static bool AMP_CalledKokkosInit = false;
 void initializeKokkos( int &argc_in, char *argv_in[], const AMPManagerProperties &properties )
 {

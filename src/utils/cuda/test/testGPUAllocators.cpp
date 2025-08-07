@@ -60,8 +60,9 @@ int main( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    ArrayTestWithAllocators<double, AMP::CudaManagedAllocator<void>, AMP::CudaDevAllocator<void>>(
-        ut );
+    ArrayTestWithAllocators<double,
+                            AMP::CudaManagedAllocator<double>,
+                            AMP::CudaDevAllocator<double>>( ut );
 
     ut.report();
     int num_failed = ut.NumFailGlobal();

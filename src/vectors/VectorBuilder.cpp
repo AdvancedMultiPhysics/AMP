@@ -1,4 +1,5 @@
 #include "AMP/vectors/VectorBuilder.h"
+#include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/MultiDOF_Manager.h"
 #include "AMP/utils/memory.h"
 #include "AMP/vectors/MultiVariable.h"
@@ -18,7 +19,7 @@ INSTANTIATE_SIMPLE_VECTOR( double,
                            AMP::LinearAlgebra::VectorOperationsDefault<double>,
                            AMP::LinearAlgebra::VectorDataDefault<double> );
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
 using float_op    = AMP::LinearAlgebra::VectorOperationsDevice<float>;
 using double_op   = AMP::LinearAlgebra::VectorOperationsDevice<double>;
 using float_data  = AMP::LinearAlgebra::VectorDataDefault<float, AMP::ManagedAllocator<void>>;

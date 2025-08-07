@@ -3,17 +3,18 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
-#ifdef USE_DEVICE
-    #include "AMP/utils/device/GPUFunctionTable.h"
-    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
-#else
-    #include "AMP/utils/FunctionTable.h"
-#endif
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/memory.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorDataDefault.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
+
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/GPUFunctionTable.h"
+    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
+#else
+    #include "AMP/utils/FunctionTable.h"
+#endif
 
 #include <string>
 

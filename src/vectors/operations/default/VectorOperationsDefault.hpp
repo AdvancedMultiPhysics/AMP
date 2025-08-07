@@ -75,22 +75,15 @@ std::string VectorOperationsDefault<TYPE>::VectorOpName() const
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::zero( VectorData &x )
 {
-    constexpr auto zro = static_cast<TYPE>( 0.0 );
-    if ( allDefaultDataType( x ) ) {
-        auto xdata = x.getRawDataBlock<TYPE>();
-        auto N     = x.sizeOfDataBlock( 0 );
-        for ( size_t i = 0; i < N; ++i ) {
-            xdata[i] = zro;
-        }
-    } else {
-        auto curMe = x.begin<TYPE>();
-        auto last  = x.end<TYPE>();
-        while ( curMe != last ) {
-            *curMe = 0;
-            ++curMe;
-        }
+    AMP_DEBUG_ASSERT( x.isType<TYPE>() );
+    static_assert( std::is_trivially_copyable_v<TYPE> );
+    size_t N_blocks = x.numberOfDataBlocks();
+    for ( size_t i = 0; i < N_blocks; i++ ) {
+        auto data = x.getRawDataBlock<TYPE>( i );
+        auto N    = x.sizeOfDataBlock( i );
+        AMP::Utilities::zero( data, N * sizeof( TYPE ) );
     }
-    x.fillGhosts( zro );
+    x.fillGhosts( 0 );
     // Override the status state since we set the ghost values
     x.setUpdateStatus( UpdateState::UNCHANGED );
 }
@@ -156,16 +149,31 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
     size_t N_blocks   = y.numberOfDataBlocks();
     size_t N_blocks_x = x.numberOfDataBlocks();
     if ( N_blocks_x == N_blocks && x.isType<TYPE>() ) {
+        static_assert( std::is_trivially_copyable_v<TYPE> );
         for ( size_t i = 0; i < N_blocks; i++ ) {
-            auto xdata   = x.getRawDataBlock<TYPE>( i );
-            auto ydata   = y.getRawDataBlock<TYPE>( i );
-            const auto N = y.sizeOfDataBlock( i );
+            size_t N   = y.sizeOfDataBlock( i );
+            auto xdata = x.getRawDataBlock<TYPE>( i );
+            auto ydata = y.getRawDataBlock<TYPE>( i );
             AMP_ASSERT( xdata && ydata && N == x.sizeOfDataBlock( i ) );
-            AMP::Utilities::Algorithms<TYPE>::copy_n( xdata, N, ydata );
+            AMP::Utilities::memcpy( ydata, xdata, N * sizeof( TYPE ) );
         }
         y.copyGhostValues( x );
     } else if ( N_blocks_x == N_blocks && !x.isType<TYPE>() ) {
-        copyCast( x, y );
+        for ( size_t i = 0; i < N_blocks; i++ ) {
+            size_t N   = y.sizeOfDataBlock( i );
+            auto ydata = y.getRawDataBlock<TYPE>( i );
+            auto type  = x.getType( i );
+            AMP_ASSERT( N == x.sizeOfDataBlock( i ) );
+            if ( type == getTypeID<float>() ) {
+                auto xdata = x.getRawDataBlock<float>( i );
+                AMP::Utilities::copy( N, xdata, ydata );
+            } else if ( type == getTypeID<double>() ) {
+                auto xdata = x.getRawDataBlock<double>( i );
+                AMP::Utilities::copy( N, xdata, ydata );
+            } else {
+                AMP_ERROR( "copy only implemented for float or doubles" );
+            }
+        }
     } else {
         std::copy( x.begin<TYPE>(), x.end<TYPE>(), y.begin<TYPE>() );
         y.copyGhostValues( x );
@@ -174,28 +182,7 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
-    constexpr auto DefaultBackend = AMP::Utilities::Backend::Serial;
-    if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
-        for ( size_t i = 0; i < y.numberOfDataBlocks(); i++ ) {
-            auto ydata   = y.getRawDataBlock<TYPE>( i );
-            auto type    = x.getType( i );
-            const auto N = y.sizeOfDataBlock( i );
-            AMP_ASSERT( N == x.sizeOfDataBlock( i ) );
-            if ( type == getTypeID<float>() ) {
-                auto xdata = x.getRawDataBlock<float>( i );
-                AMP::Utilities::copyCast<float, TYPE, DefaultBackend>( N, xdata, ydata );
-            } else if ( type == getTypeID<double>() ) {
-                auto xdata = x.getRawDataBlock<double>( i );
-                AMP::Utilities::copyCast<double, TYPE, DefaultBackend>( N, xdata, ydata );
-            } else {
-                AMP_ERROR( "CopyCast only implemented for float or doubles." );
-            }
-        }
-    } else {
-        AMP_ERROR( "Different number of blocks; CopyCast not implemented for non-matching "
-                   "multiblock data." );
-    }
-    y.copyGhostValues( x );
+    VectorOperationsDefault<TYPE>::copy( x, y );
 }
 
 template<typename TYPE>

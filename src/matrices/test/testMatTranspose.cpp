@@ -34,14 +34,14 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(
         dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
 #else
-    auto inVec     = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec    = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
 #endif
 
     // Create the matrix

@@ -2,12 +2,14 @@
 #define included_AMP_CopyCast_kokkos_HPP_
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/Utilities.h"
+#include "AMP/utils/memory.h"
+
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Macros.hpp>
 
-#include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 #include <memory>
+
 
 namespace AMP::Utilities {
 #ifdef KOKKOS_ENABLE_OPENMP
@@ -48,7 +50,7 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::HostAllocator<voi
     }
 };
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
 
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::ManagedAllocator<void>> {
