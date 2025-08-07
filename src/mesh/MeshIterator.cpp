@@ -226,12 +226,12 @@ uint64_t MeshIterator::getID() const
  ****************************************************************/
 void MeshIterator::registerChildObjects( AMP::IO::RestartManager *manager ) const
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         d_iterator->registerChildObjects( manager );
 }
 void MeshIterator::writeRestart( int64_t fid ) const
 {
-    if ( d_iterator != nullptr ) {
+    if ( d_iterator ) {
         d_iterator->writeRestart( fid );
     } else {
         IO::writeHDF5( fid, "typeHash", d_typeHash );

@@ -140,13 +140,61 @@ public:
         std::string print() const;
 
     private:
-        uint8_t d_type; //!<  Mesh element type
-        uint8_t d_side; //!<  Are we dealing with x, y, or z faces/edges
-        std::array<int, 3>
-            d_index; //!<  Global x, y, z index (may be negative with periodic boundaries)
+        uint8_t d_type;             //!<  Mesh element type
+        uint8_t d_side;             //!<  Are we dealing with x, y, or z faces/edges
+        std::array<int, 3> d_index; //!<  Global x, y, z index (may be negative if periodic)
         friend class BoxMesh;
         friend class structuredMeshElement;
     };
+
+    /**
+     * \class MeshElementIndexIterator
+     * \brief Iterator over a box
+     * \details  This class will iterator over a MeshElementIndex box
+     */
+    class MeshElementIndexIterator final
+    {
+    public: // iterator_traits
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type        = MeshElementIndex;
+        using difference_type   = ptrdiff_t;
+        using pointer           = const MeshElementIndex *;
+        using reference         = const MeshElementIndex &;
+
+    public:
+        MeshElementIndexIterator() = default;
+        MeshElementIndexIterator( const MeshElementIndex &first,
+                                  const MeshElementIndex &last,
+                                  const AMP::Mesh::BoxMesh *mesh,
+                                  size_t pos = 0 );
+        MeshElementIndexIterator &operator++();
+        MeshElementIndexIterator &operator--();
+        MeshElementIndexIterator &operator+=( int N );
+        MeshElementIndexIterator &operator+=( const MeshElementIndexIterator &it );
+        MeshElementIndexIterator &operator[]( int );
+        MeshElementIndexIterator begin() const;
+        MeshElementIndexIterator end() const;
+        MeshElementIndex operator*() const;
+        bool operator==( const MeshElementIndexIterator &rhs ) const;
+        bool operator!=( const MeshElementIndexIterator &rhs ) const;
+        bool empty() const { return d_size == 0; }
+        void set( uint32_t i ) { d_pos = i; }
+        size_t size() const { return d_size; }
+        size_t position() const { return d_pos; }
+        inline auto first() const { return d_first; }
+        inline auto last() const { return d_last; }
+
+    private:
+        // Data members
+        bool d_checkBoundary             = false;
+        std::array<bool, 3> d_isPeriodic = { false, false, false };
+        std::array<int, 3> d_globalSize  = { 0, 0, 0 };
+        uint32_t d_pos                   = { 0 };
+        uint32_t d_size                  = { 0 };
+        MeshElementIndex d_first;
+        MeshElementIndex d_last;
+    };
+
 
 public:
     /**
