@@ -199,7 +199,7 @@ int main( int argc, char *argv[] )
     AMP::Array<double> B;
     TestFunctionTable( &ut, A, B );
 
-#if AMP_USE_HIP
+#ifdef AMP_USE_HIP
     AMP::Array<double, AMP::GPUFunctionTable, AMP::HipManagedAllocator<void>> C;
     AMP::Array<double, AMP::GPUFunctionTable, AMP::HipManagedAllocator<void>> D;
     TestFunctionTable( &ut, C, D );
