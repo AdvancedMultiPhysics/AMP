@@ -14,7 +14,7 @@
 #endif
 
 
-static inline std::string getMemorySpace( void *ptr )
+static inline std::string_view getMemorySpace( void *ptr )
 {
     return AMP::Utilities::getString( AMP::Utilities::getMemoryType( ptr ) );
 }
