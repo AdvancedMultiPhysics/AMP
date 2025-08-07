@@ -24,6 +24,12 @@ public:
                             const AMP::Mesh::BoxMesh *mesh,
                             size_t pos = 0 );
 
+    //! Range base constructor
+    structuredMeshIterator( const BoxMesh::MeshElementIndexIterator &it,
+                            const AMP::Mesh::BoxMesh *mesh,
+                            size_t pos = 0 );
+
+
     //! Element list constructor
     structuredMeshIterator( std::shared_ptr<const std::vector<BoxMesh::MeshElementIndex>> elements,
                             const AMP::Mesh::BoxMesh *mesh,
@@ -80,21 +86,17 @@ protected:
     //! Clone the iterator
     MeshIterator *clone() const override;
 
-    // Get the index given the position
-    inline BoxMesh::MeshElementIndex getIndex( int pos ) const;
-
     // Get the elements in the iterator
     std::shared_ptr<const std::vector<BoxMesh::MeshElementIndex>> getElements() const;
+
+    // Get the current index
+    inline BoxMesh::MeshElementIndex getCurrentIndex() const;
 
     friend class AMP::Mesh::BoxMesh;
 
 private:
     // Data members
-    bool d_checkBoundary;
-    std::array<bool, 3> d_isPeriodic;
-    std::array<int, 3> d_globalSize;
-    BoxMesh::MeshElementIndex d_first;
-    BoxMesh::MeshElementIndex d_last;
+    BoxMesh::MeshElementIndexIterator d_it;
     std::shared_ptr<const std::vector<BoxMesh::MeshElementIndex>> d_elements;
     const AMP::Mesh::BoxMesh *d_mesh;
     mutable structuredMeshElement d_cur_element;
