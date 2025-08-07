@@ -206,8 +206,7 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
 
     // matrix blocks will not have correct ordering within rows and still
     // have their global indices present. Call g2l to fix that.
-    transposeData->globalToLocalColumns();
-    transposeData->resetDOFManagers( true );
+    transposeData->assemble( true );
 
     return transposeData;
 }
@@ -311,6 +310,13 @@ void CSRMatrixData<Config>::setNNZ( bool do_accum )
     // forward to internal blocks to get the internals allocated
     d_diag_matrix->setNNZ( do_accum );
     d_offd_matrix->setNNZ( do_accum );
+}
+
+template<typename Config>
+void CSRMatrixData<Config>::assemble( bool force_dm_reset )
+{
+    globalToLocalColumns();
+    resetDOFManagers( force_dm_reset );
 }
 
 template<typename Config>
