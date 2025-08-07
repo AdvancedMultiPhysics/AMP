@@ -141,8 +141,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_NonOverlapped()
         }
     }
 
-    C->globalToLocalColumns();
-    C->resetDOFManagers( true );
+    C->assemble( true );
 
     // set that comms need to be refreshed
     // assumes that user will only call multiply again if they have changed
@@ -185,8 +184,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_Overlapped()
         mergeOffd();
     }
 
-    C->globalToLocalColumns();
-    C->resetDOFManagers( true );
+    C->assemble( true );
 
     // set that comms need to be refreshed
     // assumes that user will only call multiply again if they have changed
@@ -238,8 +236,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiplyReuse()
         }
     }
 
-    C->globalToLocalColumns();
-    C->resetDOFManagers( true );
+    C->assemble( true );
 
     // set that comms need to be refreshed
     // assumes that user will only call multiply again if they have changed

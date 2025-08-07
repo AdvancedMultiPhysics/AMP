@@ -252,10 +252,17 @@ public:
     void globalToLocalColumns();
 
     /** \brief  Replace left/right DOFManagers and CommunicationLists to match NNZ structure
+     * \param[in] force_dm_reset Flag to force DOFManager/CommList resets
      * \details  This is necessary for matrices not created from pairs of vectors,
      * e.g. result matrices from SpGEMM and prolongators in AMG
      */
-    void resetDOFManagers( bool force_right = false );
+    void resetDOFManagers( bool force_dm_reset = false );
+
+    /** \brief  Convenience function to triger internal setup
+     * \param[in] force_dm_reset Flag to force DOFManager/CommList resets
+     * \details  This just calls globalToLocalColumns and resetDOFManagers in succession.
+     */
+    void assemble( bool force_dm_reset = false );
 
     /** \brief  Remove matrix entries within given range
      * \param[in] bnd_lo Lower bound of range to discard
