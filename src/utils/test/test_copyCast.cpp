@@ -1,8 +1,8 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 
 #include <cstdlib>
 #include <memory>

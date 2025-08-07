@@ -1,6 +1,6 @@
 #include "AMP/matrices/operations/device/DeviceMatrixOperations.h"
 #include "AMP/utils/UtilityMacros.h"
-#include "AMP/utils/device/device.h"
+#include "AMP/utils/device/Device.h"
 
 namespace AMP {
 namespace LinearAlgebra {

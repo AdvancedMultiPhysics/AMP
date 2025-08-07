@@ -1,8 +1,8 @@
 #ifndef included_AMP_CopyCast_serial_HPP_
 #define included_AMP_CopyCast_serial_HPP_
 
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 
 #include <limits>
 #include <memory>

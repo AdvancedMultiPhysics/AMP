@@ -6,7 +6,7 @@
 #include <hip/hip_runtime_api.h>
 
 #include "AMP/utils/hip/GPUFunctionTable.h"
-#include "AMP/utils/hip/helper_hip.h"
+#include "AMP/utils/hip/Helper_Hip.h"
 #include "GPUFunctionTable.h"
 
 namespace AMP {

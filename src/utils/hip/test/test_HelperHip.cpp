@@ -1,9 +1,9 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/hip/Helper_Hip.h"
 #include "AMP/utils/hip/HipAllocator.h"
-#include "AMP/utils/hip/helper_hip.h"
-#include "AMP/utils/memory.h"
 
 #include <iostream>
 #include <memory>

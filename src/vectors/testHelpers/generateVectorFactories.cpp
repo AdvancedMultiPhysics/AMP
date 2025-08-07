@@ -27,7 +27,7 @@
 #ifdef AMP_USE_DEVICE
     #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 #endif
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 
 #include <string>

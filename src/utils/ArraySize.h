@@ -11,7 +11,7 @@
 #include <initializer_list>
 #include <vector>
 
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #if defined( __CUDA_ARCH__ )
     #include <cuda.h>

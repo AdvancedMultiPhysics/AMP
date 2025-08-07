@@ -6,7 +6,7 @@
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/VectorBuilder.h"
 
 #ifdef AMP_USE_DEVICE

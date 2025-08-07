@@ -2,8 +2,8 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/kokkos/CSRMatrixOperationsKokkos.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/Vector.h"
 

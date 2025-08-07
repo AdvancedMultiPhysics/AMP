@@ -2,8 +2,8 @@
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 #include "AMP/vectors/Vector.h"
 
 #include <algorithm>

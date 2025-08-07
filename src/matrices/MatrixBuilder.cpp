@@ -9,8 +9,8 @@
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/data/DenseSerialMatrixData.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 
 #ifdef AMP_USE_PETSC
     #include "AMP/matrices/petsc/NativePetscMatrix.h"

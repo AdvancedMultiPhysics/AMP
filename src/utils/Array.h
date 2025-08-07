@@ -2,7 +2,7 @@
 #define included_AMP_ArrayClass
 
 #include "AMP/utils/ArraySize.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #include <array>
 #include <cstddef>

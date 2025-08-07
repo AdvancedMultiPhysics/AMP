@@ -1,8 +1,8 @@
 #include "AMP/geometry/GeometryHelpers.h"
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/DelaunayHelpers.h"
 #include "AMP/utils/MeshPoint.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/arrayHelpers.h"
 
 #include <algorithm>
 #include <cmath>

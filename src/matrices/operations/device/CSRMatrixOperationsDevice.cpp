@@ -3,7 +3,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.hpp"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 
 namespace AMP::LinearAlgebra {

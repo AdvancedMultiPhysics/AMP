@@ -19,11 +19,11 @@
 #ifdef AMP_USE_CUDA
     #include <cuda.h>
     #include <cuda_runtime_api.h>
-    #include "AMP/utils/cuda/helper_cuda.h"
+    #include "AMP/utils/cuda/Helper_Cuda.h"
 #endif
 #ifdef AMP_USE_HIP
     #include <hip/hip_runtime_api.h>
-    #include "AMP/utils/hip/helper_hip.h"
+    #include "AMP/utils/hip/Helper_Hip.h"
 #endif
 #ifdef AMP_USE_TIMER
     #include "MemoryApp.h"

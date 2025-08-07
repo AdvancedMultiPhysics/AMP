@@ -4,7 +4,7 @@
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/operations/default/CSRLocalMatrixOperationsDefault.hpp"
 #include "AMP/matrices/operations/default/spgemm/CSRMatrixSpGEMMDefault.hpp"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 namespace AMP::LinearAlgebra {
 #define CSR_INST( mode )                                                 \
