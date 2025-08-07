@@ -3,7 +3,7 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #ifdef AMP_USE_HYPRE
     #include "HYPRE_utilities.h"

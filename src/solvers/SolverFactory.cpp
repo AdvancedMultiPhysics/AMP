@@ -35,7 +35,7 @@ responsibility for the use of this software.
 #include "AMP/solvers/TFQMRSolver.h"
 #include "AMP/solvers/amg/SASolver.h"
 #include "AMP/solvers/amg/UASolver.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #ifdef AMP_USE_PETSC
     #include "AMP/solvers/petsc/PetscKrylovSolver.h"

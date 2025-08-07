@@ -1,4 +1,4 @@
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #include "AMP/utils/copycast/CopyCastHelper.h"
 #include "CopyCastHelper.hpp"

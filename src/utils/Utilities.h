@@ -5,8 +5,8 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Backend.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
-#include "AMP/utils/memory.h"
 
 #include "StackTrace/Utilities.h"
 

@@ -3,7 +3,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.hpp"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #ifdef AMP_USE_KOKKOS
 

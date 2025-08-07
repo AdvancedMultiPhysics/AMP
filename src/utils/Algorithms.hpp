@@ -3,8 +3,8 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/Algorithms.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 
 #ifdef AMP_USE_DEVICE
     #include <thrust/device_vector.h>

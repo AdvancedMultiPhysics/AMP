@@ -2,8 +2,8 @@
 #define included_AMP_CopyCast_HPP_
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 #include "CopyCastHelper.h"
 
 

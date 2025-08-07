@@ -1,6 +1,6 @@
-#include "AMP/utils/cuda/helper_cuda.h"
+#include "AMP/utils/cuda/Helper_Cuda.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 
 #include <cuda.h>
 #include <cuda_runtime.h>

@@ -3,7 +3,7 @@
 
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Backend.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"

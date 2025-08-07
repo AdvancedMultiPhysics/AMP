@@ -3,7 +3,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.hpp"
 #include "AMP/matrices/data/CSRMatrixCommunicator.hpp"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 namespace AMP::LinearAlgebra {
 #define CSR_INST( mode )                                       \

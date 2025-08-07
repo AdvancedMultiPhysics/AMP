@@ -1,5 +1,5 @@
 #include "AMP/vectors/data/VectorDataDefault.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/data/VectorDataDefault.hpp"
 
 

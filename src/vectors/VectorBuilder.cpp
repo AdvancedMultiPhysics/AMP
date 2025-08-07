@@ -1,7 +1,7 @@
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/MultiDOF_Manager.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/MultiVariable.h"
 #include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/VectorBuilder.hpp"
