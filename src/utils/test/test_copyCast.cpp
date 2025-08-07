@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <memory>
 #include <stdio.h>
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     #include <thrust/device_ptr.h>
 // #include <thrust/host_ptr.h>
 #endif
@@ -104,7 +104,7 @@ int main( int argc, char *argv[] )
                  AMP::Utilities::Backend::Serial>( ut, "Serial Host" );
 #endif
 
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
     // Test Host OpenMP
     runTest<double,
             float,
@@ -132,7 +132,7 @@ int main( int argc, char *argv[] )
 #endif
 
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
     // Test Host Kokkos
     runTest<double,
             float,
@@ -157,7 +157,7 @@ int main( int argc, char *argv[] )
                  AMP::HostAllocator<void>,
                  AMP::Utilities::Backend::Kokkos>( ut, "Kokkos Host" );
     #endif
-    #ifdef USE_DEVICE
+    #ifdef AMP_USE_DEVICE
     // Test Managed Kokkos
     runTest<double,
             float,
@@ -209,7 +209,7 @@ int main( int argc, char *argv[] )
     #endif
 #endif
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     // Test Host
     runTest<double,
             float,

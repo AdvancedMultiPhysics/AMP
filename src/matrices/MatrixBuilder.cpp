@@ -1,4 +1,5 @@
 #include "AMP/matrices/MatrixBuilder.h"
+#include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/AMPCSRMatrixParameters.h"
 #include "AMP/matrices/CSRConfig.h"
@@ -188,7 +189,7 @@ template std::shared_ptr<AMP::LinearAlgebra::Matrix> createCSRMatrix<DefaultCSRC
     const std::function<std::vector<size_t>( size_t )> &getRow,
     AMP::Utilities::Backend accelerationBackend );
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
 template std::shared_ptr<AMP::LinearAlgebra::Matrix>
 createCSRMatrix<DefaultCSRConfig<alloc::managed>>(
     AMP::LinearAlgebra::Vector::shared_ptr leftVec,
@@ -362,14 +363,14 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
             matrix = createCSRMatrix<DefaultCSRConfig<alloc::host>>(
                 leftVec, rightVec, useDefaultGetRow ? emptyGetRow : getRow, accelerationBackend );
         } else if ( memType == AMP::Utilities::MemoryType::managed ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
             matrix = createCSRMatrix<DefaultCSRConfig<alloc::managed>>(
                 leftVec, rightVec, useDefaultGetRow ? emptyGetRow : getRow, accelerationBackend );
 #else
             AMP_ERROR( "Creating CSRMatrix in managed memory requires HIP or CUDA support" );
 #endif
         } else if ( memType == AMP::Utilities::MemoryType::device ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
             matrix = createCSRMatrix<DefaultCSRConfig<alloc::device>>(
                 leftVec, rightVec, useDefaultGetRow ? emptyGetRow : getRow, accelerationBackend );
 #else

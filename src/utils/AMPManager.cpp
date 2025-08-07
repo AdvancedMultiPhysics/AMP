@@ -13,15 +13,15 @@
 
 // Include external packages for startup/shutdown
 // clang-format off
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
     #include <omp.h>
 #endif
-#ifdef USE_CUDA
+#ifdef AMP_USE_CUDA
     #include <cuda.h>
     #include <cuda_runtime_api.h>
     #include "AMP/utils/cuda/helper_cuda.h"
 #endif
-#ifdef USE_HIP
+#ifdef AMP_USE_HIP
     #include <hip/hip_runtime_api.h>
     #include "AMP/utils/hip/helper_hip.h"
 #endif
@@ -370,14 +370,14 @@ double AMPManager::start_CudaOrHip()
     if ( !d_properties.initialize_device )
         return 0;
     auto start = std::chrono::steady_clock::now();
-#if defined( USE_DEVICE )
+#ifdef AMP_USE_DEVICE
     if ( d_properties.bind_process_to_accelerator ) {
         AMP::Utilities::setenv( "RDMAV_FORK_SAFE", "1" );
         auto nodeComm = comm_world.splitByNode();
         auto nodeRank = nodeComm.getRank();
         int deviceCount;
 
-    #if defined( USE_CUDA )
+    #ifdef AMP_USE_CUDA
         checkCudaErrors( cudaGetDeviceCount( &deviceCount ) ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
         checkCudaErrors( cudaSetDevice( device_id ) ); // Map MPI-process to a GPU
@@ -389,7 +389,7 @@ double AMPManager::start_CudaOrHip()
     }
 
     void *tmp;
-    #if defined( USE_CUDA )
+    #ifdef AMP_USE_CUDA
     checkCudaErrors( cudaMallocManaged( &tmp, 10, cudaMemAttachGlobal ) );
     checkCudaErrors( cudaFree( tmp ) );
     #else
@@ -406,7 +406,7 @@ double AMPManager::start_CudaOrHip()
  ****************************************************************************/
 double AMPManager::start_OpenMP()
 {
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
     if ( AMP::Utilities::KokkosInitializedOpenMP() )
         return 0;
     auto start = std::chrono::steady_clock::now();

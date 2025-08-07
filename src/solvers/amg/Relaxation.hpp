@@ -1,6 +1,7 @@
 #ifndef included_AMP_AMG_Relaxation_hpp
 #define included_AMP_AMG_Relaxation_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/CSRVisit.h"
@@ -50,14 +51,14 @@ void HybridGS::deallocateGhosts()
             AMP::HostAllocator<std::byte> byteAlloc;
             byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
         } else if ( mem_loc == AMP::Utilities::MemoryType::managed ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
             AMP::ManagedAllocator<std::byte> byteAlloc;
             byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
 #else
             AMP_ERROR( "Non-host pointer on host only build" );
 #endif
         } else if ( mem_loc == AMP::Utilities::MemoryType::device ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
             AMP::DeviceAllocator<std::byte> byteAlloc;
             byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
 #else

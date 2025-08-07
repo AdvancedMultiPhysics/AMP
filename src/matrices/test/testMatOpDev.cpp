@@ -45,7 +45,7 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
     // clang-format off
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     // using  AMP::ManagedAllocator<void>;
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
@@ -75,7 +75,7 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     };
 
     // clang-format off
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     auto backend = AMP::Utilities::Backend::Hip_Cuda;
 #else
     auto backend = AMP::Utilities::Backend::Serial;
@@ -387,7 +387,7 @@ void testLinfNorm( AMP::UnitTest *ut,
 void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
 {
     // clang-format off
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
 	constexpr auto allocator =  AMP::LinearAlgebra::alloc::managed;
     bool testTransposeOp = false;
 #else

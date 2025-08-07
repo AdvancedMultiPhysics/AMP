@@ -21,10 +21,10 @@
     #include "AMP/vectors/testHelpers/sundials/SundialsVectorFactory.h"
 #endif
 
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
     #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
 #endif
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 #endif
 #include "AMP/utils/memory.h"
@@ -110,10 +110,10 @@ bool isValid( [[maybe_unused]] const std::string &name )
 #ifndef AMP_USE_SUNDIALS
     valid = valid && name.find( "Sundials" ) == std::string::npos;
 #endif
-#ifndef USE_OPENMP
+#ifndef AMP_USE_OPENMP
     valid = valid && name.find( "openmp" ) == std::string::npos;
 #endif
-#ifndef USE_DEVICE
+#ifndef AMP_USE_DEVICE
     valid = valid && name.find( "gpu" ) == std::string::npos;
 #endif
     return valid;
@@ -149,7 +149,7 @@ generateSimpleVectorFactory( const std::string &name, int N, bool global, const 
         using DATA = AMP::LinearAlgebra::VectorDataDefault<TYPE>;
         factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
     } else if ( data == "gpu" ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         using ALLOC = ManagedAllocator<void>;
         using DATA  = AMP::LinearAlgebra::VectorDataDefault<TYPE, ALLOC>;
         factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
@@ -169,13 +169,13 @@ std::shared_ptr<VectorFactory> generateSimpleVectorFactory(
             generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsDefault<TYPE>>(
                 name, N, global, data );
     } else if ( ops == "openmp" ) {
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
         factory =
             generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsOpenMP<TYPE>>(
                 name, N, global, data );
 #endif
     } else if ( ops == "gpu" ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         factory =
             generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsDevice<TYPE>>(
                 name, N, global, data );

@@ -244,15 +244,15 @@ int main( int argc, char *argv[] )
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
     backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
     backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
 #endif
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
 #endif
-#if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
+#ifdef AMP_USE_KOKKOS
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
-    #ifdef USE_DEVICE
+    #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
     #endif
 #endif

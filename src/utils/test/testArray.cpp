@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <vector>
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
@@ -276,7 +277,7 @@ void testArray( UnitTest &ut )
     // Note: testing the allocation failure causes issues on a MAC
     try {
         bool test_alloc = !AMP::Utilities::running_valgrind();
-#if defined( __APPLE__ ) || defined( USE_DEVICE )
+#if defined( __APPLE__ ) || defined( AMP_USE_DEVICE )
         test_alloc = false;
 #endif
         if ( test_alloc ) {

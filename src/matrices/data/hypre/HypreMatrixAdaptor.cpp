@@ -21,7 +21,7 @@ namespace AMP::LinearAlgebra {
     template void HypreMatrixAdaptor::initializeHypreMatrix<CSRMatrixData<HypreConfig<alloc>>>( \
         std::shared_ptr<CSRMatrixData<HypreConfig<alloc>>> );
 CSR_INST( alloc::host )
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
 CSR_INST( alloc::managed )
 CSR_INST( alloc::device )
 #endif
@@ -62,7 +62,7 @@ HypreMatrixAdaptor::HypreMatrixAdaptor( std::shared_ptr<MatrixData> matrixData )
     auto csrDataHost =
         std::dynamic_pointer_cast<CSRMatrixData<HypreConfig<alloc::host>>>( matrixData );
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     auto csrDataManaged =
         std::dynamic_pointer_cast<CSRMatrixData<HypreConfig<alloc::managed>>>( matrixData );
     auto csrDataDevice =

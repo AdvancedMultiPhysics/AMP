@@ -1,3 +1,6 @@
+#include "AMP/AMP_TPLs.h"
+
+
 #if defined( HYPRE_SINGLE )
 inline constexpr scalar hypre_real = scalar::f32;
 #elif defined( HYPRE_LONG_DOUBLE )
@@ -35,7 +38,7 @@ inline constexpr index hypre_big   = index::i32;
         F( G, csr_mode::hiid )
 #endif // Integer config
 
-#if defined( USE_DEVICE )
+#ifdef AMP_USE_DEVICE
     #if defined( HYPRE_BIGINT )
         #define CSR_CONFIG_FORALL_HYPRE_DEVICE( INST ) \
             INST( csr_mode::dllf )                     \

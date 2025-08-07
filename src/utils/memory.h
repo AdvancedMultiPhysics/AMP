@@ -1,15 +1,17 @@
 #ifndef included_AMP_MEMORY
 #define included_AMP_MEMORY
 
-#include <type_traits>
+#include "AMP/AMP_TPLs.h"
+#include "AMP/utils/UtilityMacros.h"
 
-#ifdef USE_CUDA
+#ifdef AMP_USE_CUDA
     #include "AMP/utils/cuda/CudaAllocator.h"
 #endif
-#ifdef USE_HIP
+#ifdef AMP_USE_HIP
     #include "AMP/utils/hip/HipAllocator.h"
 #endif
-#include "AMP/utils/UtilityMacros.h"
+
+#include <type_traits>
 
 
 namespace AMP::Utilities {
@@ -26,7 +28,7 @@ std::string getString( MemoryType );
 //! Return the memory type from a string
 static inline MemoryType memoryLocationFromString( const std::string &name )
 {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     if ( name == "managed" || name == "Managed" ) {
         return MemoryType::managed;
     } else if ( name == "device" || name == "Device" ) {
@@ -42,19 +44,19 @@ static inline MemoryType memoryLocationFromString( const std::string &name )
 
 namespace AMP {
 // managed allocators
-#ifdef USE_CUDA
+#ifdef AMP_USE_CUDA
 template<typename TYPE>
 using ManagedAllocator = AMP::CudaManagedAllocator<TYPE>;
-#elif defined( USE_HIP )
+#elif defined( AMP_USE_HIP )
 template<typename TYPE>
 using ManagedAllocator = AMP::HipManagedAllocator<TYPE>;
 #endif
 
 // device allocators
-#ifdef USE_CUDA
+#ifdef AMP_USE_CUDA
 template<typename TYPE>
 using DeviceAllocator = AMP::CudaDevAllocator<TYPE>;
-#elif defined( USE_HIP )
+#elif defined( AMP_USE_HIP )
 template<typename TYPE>
 using DeviceAllocator = AMP::HipDevAllocator<TYPE>;
 #endif
@@ -73,13 +75,13 @@ constexpr AMP::Utilities::MemoryType getAllocatorMemoryType()
     using intAllocator = typename std::allocator_traits<ALLOC>::template rebind_alloc<int>;
     if ( std::is_same_v<intAllocator, std::allocator<int>> ) {
         return AMP::Utilities::MemoryType::host;
-#ifdef USE_CUDA
+#ifdef AMP_USE_CUDA
     } else if ( std::is_same_v<intAllocator, AMP::CudaManagedAllocator<int>> ) {
         return AMP::Utilities::MemoryType::managed;
     } else if ( std::is_same_v<intAllocator, AMP::CudaDevAllocator<int>> ) {
         return AMP::Utilities::MemoryType::device;
 #endif
-#ifdef USE_HIP
+#ifdef AMP_USE_HIP
     } else if ( std::is_same_v<intAllocator, AMP::HipManagedAllocator<int>> ) {
         return AMP::Utilities::MemoryType::managed;
     } else if ( std::is_same_v<intAllocator, AMP::HipDevAllocator<int>> ) {

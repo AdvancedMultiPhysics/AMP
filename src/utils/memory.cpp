@@ -1,4 +1,5 @@
 #include "AMP/utils/memory.h"
+#include "AMP/AMP_TPLs.h"
 
 
 namespace AMP::Utilities {
@@ -10,12 +11,12 @@ namespace AMP::Utilities {
 MemoryType getMemoryType( [[maybe_unused]] const void *ptr )
 {
     [[maybe_unused]] auto type = MemoryType::host;
-#if defined( AMP_USE_CUDA ) || defined( USE_CUDA )
+#ifdef AMP_USE_CUDA
     type = getCudaMemoryType( ptr );
     if ( type != MemoryType::unregistered )
         return type;
 #endif
-#if defined( AMP_USE_HIP ) || defined( USE_HIP )
+#ifdef AMP_USE_HIP
     type = getHipMemoryType( ptr );
     if ( type != MemoryType::unregistered )
         return type;
