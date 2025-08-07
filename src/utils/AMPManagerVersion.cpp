@@ -45,7 +45,7 @@ int LIBMESH_MICRO_VERSION = 0;
     #undef HAVE_UNISTD_H
     #include "HYPRE_config.h"
 #endif
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
     #include "AMP/utils/KokkosManager.h"
 #endif
 

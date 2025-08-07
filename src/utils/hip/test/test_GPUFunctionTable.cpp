@@ -1,3 +1,4 @@
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
@@ -5,6 +6,7 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/hip/GPUFunctionTable.h"
 #include "AMP/utils/hip/HipAllocator.h"
+
 #include <hip/hip_runtime_api.h>
 
 template<class TYPE, class FUN, class ALLOC>
@@ -197,9 +199,9 @@ int main( int argc, char *argv[] )
     AMP::Array<double> B;
     TestFunctionTable( &ut, A, B );
 
-#if USE_HIP
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::HipManagedAllocator<void>> C;
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::HipManagedAllocator<void>> D;
+#ifdef AMP_USE_HIP
+    AMP::Array<double, AMP::GPUFunctionTable, AMP::HipManagedAllocator<double>> C;
+    AMP::Array<double, AMP::GPUFunctionTable, AMP::HipManagedAllocator<double>> D;
     TestFunctionTable( &ut, C, D );
 #endif
 

@@ -52,7 +52,7 @@ int main( int argc, char **argv )
                   AMP::LinearAlgebra::VectorOperationsDefault<double>,
                   AMP::LinearAlgebra::VectorOperationsDefault<float>>(
         N, var, globalComm, ut, "CPU" );
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     test_copyCast<AMP::ManagedAllocator<void>,
                   AMP::LinearAlgebra::VectorOperationsDevice<double>,
                   AMP::LinearAlgebra::VectorOperationsDevice<float>>(

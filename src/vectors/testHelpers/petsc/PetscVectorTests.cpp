@@ -57,6 +57,7 @@ void PetscVectorTests::testPetscVector( AMP::UnitTest *ut )
     VerifyExpPetscVector( ut );
     VerifyAYPXPetscVector( ut );
     VerifyAXPBYPCZPetscVector( ut );
+    Bug_612( ut );
 }
 
 

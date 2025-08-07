@@ -3,17 +3,18 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
-#ifdef USE_DEVICE
-    #include "AMP/utils/device/GPUFunctionTable.h"
-    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
-#else
-    #include "AMP/utils/FunctionTable.h"
-#endif
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/memory.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorDataDefault.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
+
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/GPUFunctionTable.h"
+    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
+#else
+    #include "AMP/utils/FunctionTable.h"
+#endif
 
 #include <string>
 
@@ -69,6 +70,17 @@ AMP::LinearAlgebra::Vector::shared_ptr
 createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
               std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
               bool split,
+              AMP::Utilities::MemoryType memType );
+
+/**
+ * \brief  This function will create a vector from a vector
+ * \details  This function is responsible for creating vectors from an existing vector.
+ * \param[in] vector        Vector we want to mimic
+ * \param[in] memoryType    Memory space in which to create vector
+ */
+template<typename TYPE = double>
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
               AMP::Utilities::MemoryType memType );
 
 /**

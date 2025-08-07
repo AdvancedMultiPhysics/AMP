@@ -1,18 +1,20 @@
 #ifndef included_AMP_VectorBuider_hpp
 #define included_AMP_VectorBuider_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
-#include "AMP/utils/Utilities.h"
-#include "AMP/vectors/data/ArrayVectorData.h"
-#ifdef USE_DEVICE
-    #include "AMP/utils/device/GPUFunctionTable.h"
-    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
-#endif
 #include "AMP/discretization/MultiDOF_Manager.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/memory.h"
 #include "AMP/vectors/MultiVariable.h"
 #include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/VectorBuilder.h"
+#include "AMP/vectors/data/ArrayVectorData.h"
+
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/GPUFunctionTable.h"
+    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
+#endif
 
 #include "math.h"
 
@@ -113,18 +115,17 @@ Vector::shared_ptr createVector( std::shared_ptr<AMP::Discretization::DOFManager
 }
 
 template<typename TYPE>
-AMP::LinearAlgebra::Vector::shared_ptr
-createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
-              std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
-              bool split,
-              AMP::Utilities::MemoryType memType )
+std::shared_ptr<Vector> createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                      std::shared_ptr<Variable> variable,
+                                      bool split,
+                                      AMP::Utilities::MemoryType memType )
 {
     PROFILE( "createVector" );
 
     if ( memType <= AMP::Utilities::MemoryType::host ) {
         return createVector<TYPE>( DOFs, variable, split );
     } else if ( memType == AMP::Utilities::MemoryType::managed ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         return createVector<TYPE,
                             VectorOperationsDevice<TYPE>,
                             VectorDataDefault<TYPE, AMP::ManagedAllocator<void>>>(
@@ -133,7 +134,7 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
         AMP_ERROR( "Creating Vector in managed memory requires HIP or CUDA support" );
 #endif
     } else if ( memType == AMP::Utilities::MemoryType::device ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         return createVector<TYPE,
                             VectorOperationsDevice<TYPE>,
                             VectorDataDefault<TYPE, AMP::DeviceAllocator<void>>>(
@@ -145,6 +146,26 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
         AMP_ERROR( "Unknown memory space in createVector" );
     }
 }
+template<typename TYPE>
+std::shared_ptr<Vector> createVector( std::shared_ptr<Vector> vector,
+                                      AMP::Utilities::MemoryType memType )
+{
+    if ( !vector )
+        return nullptr;
+    // Check if we are dealing with a multiVector
+    auto multiVector = std::dynamic_pointer_cast<MultiVector>( vector );
+    if ( multiVector ) {
+        std::vector<std::shared_ptr<Vector>> vecs;
+        for ( auto vec : *multiVector )
+            vecs.push_back( createVector<TYPE>( vec, memType ) );
+        auto multiVector = MultiVector::create( vector->getVariable(), vector->getComm() );
+        multiVector->addVector( vecs );
+        return multiVector;
+    }
+    // Create a vector that mimics the original vector
+    return createVector<TYPE>( vector->getDOFManager(), vector->getVariable(), false, memType );
+}
+
 
 /****************************************************************
  * SimpleVector                                                  *
@@ -244,15 +265,15 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
         vecOps  = std::make_shared<VectorOperationsDefault<T>>();
         vecData = ArrayVectorData<T>::create( DOFs->numLocalDOF(), commList, data );
     } else if ( memType == AMP::Utilities::MemoryType::managed ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         vecOps  = std::make_shared<VectorOperationsDevice<T>>();
-        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::ManagedAllocator<void>>::create(
+        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::ManagedAllocator<T>>::create(
             DOFs->numLocalDOF(), commList, data );
 #endif
     } else if ( memType == AMP::Utilities::MemoryType::device ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         vecOps  = std::make_shared<VectorOperationsDevice<T>>();
-        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::DeviceAllocator<void>>::create(
+        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::DeviceAllocator<T>>::create(
             DOFs->numLocalDOF(), commList, data );
 #endif
     } else {
@@ -260,7 +281,7 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
     }
 
     auto vec = std::make_shared<Vector>( vecData, vecOps, var, DOFs );
-    vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vec->makeConsistent( ScatterType::CONSISTENT_SET );
     return vec;
 }
 

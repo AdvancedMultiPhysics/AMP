@@ -1,4 +1,5 @@
-#include "CopyCast.hpp"
+#include "AMP/utils/copycast/CopyCast.hpp"
+#include "AMP/AMP_TPLs.h"
 
 namespace AMP::Utilities {
 
@@ -10,7 +11,7 @@ namespace AMP::Utilities {
 #define INSTANTIATE_CC( t1, t2, backend ) \
     template void copyCast<t1, t2, backend>( size_t len, const t1 *vec_in, t2 *vec_out );
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     #define INSTANTIATE_ALLOCATOR( t1, t2, backend )                     \
         INSTANTIATE_CC_M( t1, t2, backend, AMP::HostAllocator<void> )    \
         INSTANTIATE_CC_M( t1, t2, backend, AMP::ManagedAllocator<void> ) \
@@ -29,13 +30,13 @@ namespace AMP::Utilities {
     INSTANTIATE_ALLOCATOR( double, double, backend )
 
 INSTANTIATE_TYPES( AMP::Utilities::Backend::Serial )
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
 INSTANTIATE_TYPES( AMP::Utilities::Backend::OpenMP )
 #endif
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
 INSTANTIATE_TYPES( AMP::Utilities::Backend::Kokkos )
 #endif
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
 INSTANTIATE_TYPES( AMP::Utilities::Backend::Hip_Cuda )
 #endif
 

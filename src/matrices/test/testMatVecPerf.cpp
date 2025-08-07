@@ -44,7 +44,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(
@@ -71,7 +71,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     AMP::pout << type << " Global rows: " << nGlobalRows << " Local rows: " << nLocalRows
               << std::endl;
 
-#if defined( AMP_USE_HYPRE )
+#ifdef AMP_USE_HYPRE
     using scalar_t = typename AMP::LinearAlgebra::scalar_info<AMP::LinearAlgebra::hypre_real>::type;
 #else
     using scalar_t = double;
@@ -146,10 +146,10 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
         backends.emplace_back( input_db->getString( "MatrixAccelerationBackend" ) );
     } else {
         backends.emplace_back( "serial" );
-#if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
+#ifdef AMP_USE_KOKKOS
         backends.emplace_back( "kokkos" );
 #endif
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         backends.emplace_back( "hip_cuda" );
 #endif
     }
@@ -162,10 +162,10 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
         AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Vertex, 1, 1 );
 
     // Test on defined matrix types
-#if defined( AMP_USE_TRILINOS )
+#ifdef AMP_USE_TRILINOS
     matVecTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true, "serial" );
 #endif
-#if defined( AMP_USE_PETSC )
+#ifdef AMP_USE_PETSC
     matVecTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, true, "serial" );
 #endif
     size_t nGlobal = 0;

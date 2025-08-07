@@ -5,7 +5,7 @@
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.hpp"
 #include "AMP/utils/memory.h"
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
 
 namespace AMP::LinearAlgebra {
 
@@ -13,7 +13,7 @@ namespace AMP::LinearAlgebra {
         template class CSRLocalMatrixOperationsKokkos<config_mode_t<mode>, execspace, viewspace>; \
         template class CSRMatrixOperationsKokkos<config_mode_t<mode>, execspace, viewspace>;
 
-    #if defined( USE_DEVICE )
+    #ifdef AMP_USE_DEVICE
         #define CSR_INST( mode )                                                      \
             KOKKOS_INST( mode, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
             KOKKOS_INST( mode, Kokkos::DefaultExecutionSpace, Kokkos::SharedSpace )   \
@@ -38,7 +38,7 @@ CSR_CONFIG_FORALL( CSR_INST )
                     mode_in>::template set_alloc_t<config_mode_t<mode>::allocator>>>,             \
                 std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode>>> );
 
-    #if defined( USE_DEVICE )
+    #ifdef AMP_USE_DEVICE
         #define CC_INST( mode, mode_in )                                                          \
             KOKKOS_CC_INST( mode, mode_in, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
             KOKKOS_CC_INST( mode, mode_in, Kokkos::DefaultExecutionSpace, Kokkos::SharedSpace )   \

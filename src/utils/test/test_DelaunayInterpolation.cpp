@@ -199,6 +199,17 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
         return nullptr;
     }
 
+    // Check building using a predefined triangle list
+    auto data2 = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
+    data2->create_tessellation( x, data->get_tri() );
+    auto tri1 = data->get_tri();
+    auto tri2 = data2->get_tri();
+    auto nab1 = data->get_tri_nab();
+    auto nab2 = data2->get_tri_nab();
+    if ( tri1 != tri2 || nab1 != nab2 ) {
+        ut.failure( "Building triangles from exisitng failed " + msg );
+    }
+
     // Copy the tessellation
     {
         PROFILE( "Copy tessellation", 1 );

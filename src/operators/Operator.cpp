@@ -114,9 +114,10 @@ void Operator::setMemoryAndBackendParameters( std::shared_ptr<AMP::Database> db 
 {
     if ( d_memory_location != AMP::Utilities::MemoryType::none )
         db->putScalar<std::string>( "MemoryLocation",
-                                    AMP::Utilities::getString( d_memory_location ) );
+                                    AMP::Utilities::getString( d_memory_location ).data() );
     if ( d_backend != AMP::Utilities::Backend::Serial )
-        db->putScalar<std::string>( "AccelerationBackend", AMP::Utilities::getString( d_backend ) );
+        db->putScalar<std::string>( "AccelerationBackend",
+                                    AMP::Utilities::getString( d_backend ).data() );
 }
 
 /********************************************************

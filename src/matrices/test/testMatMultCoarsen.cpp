@@ -41,7 +41,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(

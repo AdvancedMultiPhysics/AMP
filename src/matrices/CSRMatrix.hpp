@@ -1,21 +1,21 @@
 #ifndef included_AMP_CSRMatrix_hpp
 #define included_AMP_CSRMatrix_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
+#include "AMP/utils/memory.h"
+#include "AMP/vectors/VectorBuilder.h"
 
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
 #endif
 
-#if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
+#ifdef AMP_USE_KOKKOS
     #include "AMP/matrices/operations/kokkos/CSRMatrixOperationsKokkos.h"
 #endif
-
-#include "AMP/utils/memory.h"
-#include "AMP/vectors/VectorBuilder.h"
 
 #include "ProfilerApp.h"
 
@@ -34,7 +34,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixParametersBase> params ) : M
     bool set_ops = false;
 
     if ( params->d_backend == AMP::Utilities::Backend::Hip_Cuda ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
         set_ops     = true;
 #else
@@ -43,7 +43,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixParametersBase> params ) : M
     }
 
     if ( params->d_backend == AMP::Utilities::Backend::Kokkos ) {
-#if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
+#ifdef AMP_USE_KOKKOS
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
         set_ops     = true;
 #else
@@ -66,7 +66,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixData> data ) : Matrix( data 
     bool set_ops = false;
 
     if ( backend == AMP::Utilities::Backend::Hip_Cuda ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
         set_ops     = true;
 #else
@@ -75,7 +75,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixData> data ) : Matrix( data 
     }
 
     if ( backend == AMP::Utilities::Backend::Kokkos ) {
-#if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
+#ifdef AMP_USE_KOKKOS
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
         set_ops     = true;
 #else

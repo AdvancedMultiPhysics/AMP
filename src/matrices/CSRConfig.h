@@ -1,21 +1,21 @@
 #ifndef included_AMP_CSRConfig
 #define included_AMP_CSRConfig
 
-#include <cstdint>
-#include <limits>
-#include <tuple>
+#include "AMP/AMP_TPLs.h"
+#include "AMP/IO/PIO.h"
+#include "AMP/utils/memory.h"
 
 #ifdef AMP_USE_HYPRE
     #include "HYPRE_utilities.h"
 #endif
-
-#include "AMP/IO/PIO.h"
-#include "AMP/utils/memory.h"
-
-#include "AMP/AMP_TPLs.h"
-#if defined( AMP_USE_HYPRE )
+#ifdef AMP_USE_HYPRE
     #include "HYPRE_utilities.h"
 #endif
+
+#include <cstdint>
+#include <limits>
+#include <tuple>
+
 
 namespace AMP::LinearAlgebra {
 
@@ -33,7 +33,7 @@ struct alloc_info<alloc::host> {
     static constexpr alloc id = alloc::host;
     static const char *name() { return "host"; }
 };
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
 template<>
 struct alloc_info<alloc::device> {
     using type                = DeviceAllocator<void>;
@@ -165,13 +165,13 @@ enum class csr_mode : std::uint16_t {
 
 #if defined( AMP_USE_HYPRE )
     #include "CSRConfigHypre.h"
-#else // !AMP_USE_HYPRE
+#else
     #define CSR_CONFIG_FORALL_HYPRE_HOST( INST )
-    #if defined( USE_DEVICE )
+    #ifdef AMP_USE_DEVICE
         #define CSR_CONFIG_FORALL_HYPRE_DEVICE( INST )
-    #endif // USE_DEVICE
+    #endif
     #define CSR_CONFIG_CC_FORALL_HYPRE( INST )
-#endif // AMP_USE_HYPRE
+#endif
 
 #define CSR_CONFIG_FORALL_HOST( INST ) \
     INST( csr_mode::hiIf )             \
@@ -181,7 +181,7 @@ enum class csr_mode : std::uint16_t {
     F( G, csr_mode::hiIf )                \
     F( G, csr_mode::hiId )
 
-#if defined( USE_DEVICE )
+#ifdef AMP_USE_DEVICE
     #define CSR_CONFIG_FORALL_DEVICE( INST ) \
         INST( csr_mode::diIf )               \
         INST( csr_mode::diId )               \
@@ -194,10 +194,10 @@ enum class csr_mode : std::uint16_t {
         F( G, csr_mode::diId )                  \
         F( G, csr_mode::miIf )                  \
         F( G, csr_mode::miId )
-#else // ! USE_DEVICE
+#else
     #define CSR_CONFIG_FORALL_DEVICE( INST )
     #define CSR_CONFIG_CC_FORALL_DEVICE( F, G )
-#endif // USE_DEVICE
+#endif
 
 #define CSR_CONFIG_FORALL( INST )  \
     CSR_CONFIG_FORALL_HOST( INST ) \

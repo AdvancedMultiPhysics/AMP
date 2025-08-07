@@ -35,7 +35,7 @@
 #include <string>
 
 
-static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName, const std::string &meshName )
+static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
 {
     // Tests diffusion Dirchlet BVP operator for temperature
 
@@ -46,19 +46,16 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName, const std::
     AMP::logOnlyNodeZero( log_file );
 
     // Input database
-
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
     //   Create the Mesh.
-    //--------------------------------------------------
     AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
-    auto mesh_db   = input_db->getDatabase( meshName.c_str() );
+    auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
     auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
-    //--------------------------------------------------
 
     // Create nonlinear diffusion BVP operator and access volume nonlinear Diffusion operator
     auto nlinBVPOperator = AMP::Operator::OperatorBuilder::createOperator(
@@ -68,16 +65,11 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName, const std::
     auto nlinOp = std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
         nlinBVPOp->getVolumeOperator() );
 
-    // use the linear BVP operator to create a linear diffusion operator with bc's
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> linearPhysicsModel;
-
     // Get source mass operator
     auto sourceOperator = AMP::Operator::OperatorBuilder::createOperator(
         mesh, "ManufacturedSourceOperator", input_db );
     auto sourceOp =
         std::dynamic_pointer_cast<AMP::Operator::MassLinearFEOperator>( sourceOperator );
-
-
     auto densityModel = sourceOp->getDensityModel();
     auto mfgSolution  = densityModel->getManufacturedSolution();
 
@@ -225,15 +217,15 @@ int testTensorDiffusionManufacturedSolution_1( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-    std::vector<std::string> files, meshes;
+    std::vector<std::string> files;
     files.emplace_back( "TensorDiffusion-Fick-MMS-1" );
-    meshes.emplace_back( "Mesh" );
     files.emplace_back( "TensorDiffusion-Fick-MMS-2" );
-    meshes.emplace_back( "Mesh" );
+    files.emplace_back( "TensorDiffusion-Fick-MMS-3" );
+    files.emplace_back( "TensorDiffusion-Fick-MMS-4" );
     // files.push_back("Diffusion-Fick-OxMSRZC09-MMS-1");
 
     for ( size_t i = 0; i < files.size(); i++ )
-        bvpTest1( &ut, files[i], meshes[i] );
+        bvpTest1( &ut, files[i] );
     ut.report();
 
     int num_failed = ut.NumFailGlobal();

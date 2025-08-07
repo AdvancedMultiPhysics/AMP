@@ -1,3 +1,4 @@
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
@@ -5,6 +6,7 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/cuda/CudaAllocator.h"
 #include "AMP/utils/cuda/GPUFunctionTable.h"
+
 #include <cuda.h>
 
 
@@ -197,9 +199,9 @@ int main( int argc, char *argv[] )
     AMP::Array<double> B;
     TestFunctionTable( &ut, A, B );
 
-#if USE_CUDA
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<void>> C;
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<void>> D;
+#ifdef AMP_USE_CUDA
+    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<double>> C;
+    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<double>> D;
     TestFunctionTable( &ut, C, D );
 #endif
 

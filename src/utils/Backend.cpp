@@ -12,7 +12,7 @@ namespace AMP::Utilities {
 Backend getDefaultBackend( const MemoryType memory_location )
 {
     if ( memory_location == MemoryType::unregistered || memory_location == MemoryType::host ) {
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
         return Backend::OpenMP;
 #else
         return Backend::Serial;
@@ -53,37 +53,37 @@ Backend backendFromString( const std::string &name )
     if ( lcname == "serial" ) {
         return Backend::Serial;
     } else if ( name == "hip_cuda" ) {
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
         return Backend::Hip_Cuda;
 #else
         AMP_ERROR( "HIP or CUDA need to be loaded to be able to use hip_cuda backend." );
 #endif
     } else if ( lcname == "kokkos" ) {
-#if ( defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS ) )
+#ifdef AMP_USE_KOKKOS
         return Backend::Kokkos;
 #else
         AMP_ERROR( "KOKKOS need to be loaded to be able to use kokkos backend." );
 #endif
     } else if ( lcname == "openmp" ) {
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
         return Backend::OpenMP;
 #else
         AMP_ERROR( "OpenMP need to be loaded to be able to use OpenMP backend." );
 #endif
     } else if ( lcname == "openacc" ) {
-#ifdef USE_OPENACC
+#ifdef AMP_USE_OPENACC
         return Backend::OpenACC;
 #else
         AMP_ERROR( "OpenACC need to be loaded to be able to use OpenACC backend." );
 #endif
     } else if ( lcname == "opencl" ) {
-#ifdef USE_OPENCL
+#ifdef AMP_USE_OPENCL
         return Backend::OpenCL;
 #else
         AMP_ERROR( "OpenCL need to be loaded to be able to use OpenCL backend." );
 #endif
     } else if ( lcname == "raja" ) {
-#ifdef USE_OPENCL
+#ifdef AMP_USE_OPENCL
         return Backend::RAJA;
 #else
         AMP_ERROR( "RAJA need to be loaded to be able to use RAJA backend." );

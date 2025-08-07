@@ -1,11 +1,13 @@
 #ifndef _DEVICE_H_INCLUDED_
 #define _DEVICE_H_INCLUDED_
 
-#ifdef USE_CUDA
+#include "AMP/AMP_TPLs.h"
+
+#ifdef AMP_USE_CUDA
     #include "AMP/utils/cuda/helper_cuda.h"
 #endif
 
-#ifdef USE_HIP
+#ifdef AMP_USE_HIP
     #include "AMP/utils/hip/helper_hip.h"
 #endif
 

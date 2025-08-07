@@ -41,7 +41,7 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
     // No SpGEMMs on device yet, but leaving this here to enable later
-#if 0 // ifdef USE_DEVICE
+#if 0 // ifdef AMP_USE_DEVICE
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(
@@ -67,7 +67,7 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     AMP::pout << type << " Global rows: " << nGlobalRows << " Local rows: " << nLocalRows
               << std::endl;
 
-#if defined( AMP_USE_HYPRE )
+#ifdef AMP_USE_HYPRE
     using scalar_t = typename AMP::LinearAlgebra::scalar_info<AMP::LinearAlgebra::hypre_real>::type;
 #else
     using scalar_t = double;
