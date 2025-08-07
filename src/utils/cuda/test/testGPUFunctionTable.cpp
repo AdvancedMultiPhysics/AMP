@@ -200,8 +200,8 @@ int main( int argc, char *argv[] )
     TestFunctionTable( &ut, A, B );
 
 #ifdef AMP_USE_CUDA
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<void>> C;
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<void>> D;
+    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<double>> C;
+    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<double>> D;
     TestFunctionTable( &ut, C, D );
 #endif
 

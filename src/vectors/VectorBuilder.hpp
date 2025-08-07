@@ -267,13 +267,13 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
     } else if ( memType == AMP::Utilities::MemoryType::managed ) {
 #ifdef AMP_USE_DEVICE
         vecOps  = std::make_shared<VectorOperationsDevice<T>>();
-        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::ManagedAllocator<void>>::create(
+        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::ManagedAllocator<T>>::create(
             DOFs->numLocalDOF(), commList, data );
 #endif
     } else if ( memType == AMP::Utilities::MemoryType::device ) {
 #ifdef AMP_USE_DEVICE
         vecOps  = std::make_shared<VectorOperationsDevice<T>>();
-        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::DeviceAllocator<void>>::create(
+        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::DeviceAllocator<T>>::create(
             DOFs->numLocalDOF(), commList, data );
 #endif
     } else {

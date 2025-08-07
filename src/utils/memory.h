@@ -11,6 +11,7 @@
     #include "AMP/utils/hip/HipAllocator.h"
 #endif
 
+#include <string_view>
 #include <type_traits>
 
 
@@ -23,21 +24,24 @@ enum class MemoryType : int8_t { none = -1, unregistered = 0, host = 1, managed 
 MemoryType getMemoryType( const void *ptr );
 
 //! Return a string for the memory type
-std::string getString( MemoryType );
+std::string_view getString( MemoryType );
 
 //! Return the memory type from a string
-static inline MemoryType memoryLocationFromString( const std::string &name )
-{
-#ifdef AMP_USE_DEVICE
-    if ( name == "managed" || name == "Managed" ) {
-        return MemoryType::managed;
-    } else if ( name == "device" || name == "Device" ) {
-        return MemoryType::device;
-    }
-#endif
-    (void) name;
-    return MemoryType::host;
-}
+MemoryType memoryLocationFromString( std::string_view name );
+
+//! Perform memory-memory copy (pointer may be in any memory space)
+void memcpy( void *dest, const void *src, std::size_t count );
+
+//! Perform memory set (pointer may be in any memory space)
+void memset( void *dest, int ch, std::size_t count );
+
+//! Perform memory zero (pointer may be in any memory space)
+void zero( void *dest, std::size_t count );
+
+//! Perform copy with conversion if necessary
+template<class T1, class T2>
+void copy( size_t N, const T1 *src, T2 *dst );
+
 
 } // namespace AMP::Utilities
 

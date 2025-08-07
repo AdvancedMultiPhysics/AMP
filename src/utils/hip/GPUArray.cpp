@@ -7,9 +7,9 @@ namespace AMP {
 /********************************************************
  *  Explicit instantiations of Array                     *
  ********************************************************/
-template class Array<double, AMP::GPUFunctionTable, HipDevAllocator<void>>;
-template class Array<double, AMP::GPUFunctionTable, HipManagedAllocator<void>>;
-template class Array<float, AMP::GPUFunctionTable, HipDevAllocator<void>>;
-template class Array<float, AMP::GPUFunctionTable, HipManagedAllocator<void>>;
+template class Array<double, AMP::GPUFunctionTable, HipDevAllocator<double>>;
+template class Array<double, AMP::GPUFunctionTable, HipManagedAllocator<double>>;
+template class Array<float, AMP::GPUFunctionTable, HipDevAllocator<float>>;
+template class Array<float, AMP::GPUFunctionTable, HipManagedAllocator<float>>;
 
 } // namespace AMP

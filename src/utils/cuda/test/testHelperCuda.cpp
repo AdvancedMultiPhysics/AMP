@@ -14,7 +14,7 @@
 #endif
 
 
-static inline std::string getMemorySpace( void *ptr )
+static inline std::string_view getMemorySpace( void *ptr )
 {
     return AMP::Utilities::getString( AMP::Utilities::getMemoryType( ptr ) );
 }
@@ -62,6 +62,10 @@ int main( int argc, char *argv[] )
     std::cout << "Device: " << getMemorySpace( device ) << std::endl;
     std::cout << "Managed: " << getMemorySpace( managed ) << std::endl;
     std::cout << "Host: " << getMemorySpace( host ) << std::endl;
+    std::cout << std::endl;
+    std::cout << "Device[10]: " << getMemorySpace( &device[10] ) << std::endl;
+    std::cout << "Managed[10]: " << getMemorySpace( &managed[10] ) << std::endl;
+    std::cout << "Host[10]: " << getMemorySpace( &host[10] ) << std::endl;
     devAllocator.deallocate( device, N );
     managedAllocator.deallocate( managed, N );
     hostAllocator.deallocate( host, N );

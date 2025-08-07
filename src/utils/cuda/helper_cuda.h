@@ -20,6 +20,7 @@
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
 #define deviceMalloc( ... ) checkCudaErrors( cudaMalloc( __VA_ARGS__ ) )
 #define deviceMemcpy( ... ) checkCudaErrors( cudaMemcpy( __VA_ARGS__ ) )
+#define deviceMemset( ... ) checkCudaErrors( cudaMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkCudaErrors( cudaFree( __VA_ARGS__ ) )
 
 

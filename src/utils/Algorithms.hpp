@@ -41,29 +41,8 @@ void Algorithms<TYPE>::fill_n( TYPE *x, const size_t N, const TYPE alpha )
 template<typename TYPE>
 void Algorithms<TYPE>::copy_n( const TYPE *x, const size_t N, TYPE *y )
 {
-    const auto xmtype = getMemoryType( x );
-    const auto ymtype = getMemoryType( y );
-    AMP_DEBUG_ASSERT( xmtype != MemoryType::none && ymtype != MemoryType::none );
-    if ( xmtype == MemoryType::managed && ymtype == MemoryType::managed ) {
-        // managed-managed operations can use device or CPU
-#ifdef AMP_USE_DEVICE
-        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice );
-#else
-        memcpy( y, x, N * sizeof( TYPE ) );
-#endif
-    } else if ( xmtype <= MemoryType::managed && ymtype <= MemoryType::managed ) {
-        // host-host
-        memcpy( y, x, N * sizeof( TYPE ) );
-    } else if ( ymtype <= MemoryType::host ) {
-        // device to host
-        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyDeviceToHost );
-    } else if ( xmtype <= MemoryType::host ) {
-        // host to device
-        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyHostToDevice );
-    } else {
-        // device to device
-        deviceMemcpy( y, x, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice );
-    }
+    static_assert( std::is_trivially_copyable_v<TYPE> );
+    AMP::Utilities::memcpy( y, x, N * sizeof( TYPE ) );
 }
 
 template<typename TYPE>
