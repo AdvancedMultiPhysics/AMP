@@ -3,37 +3,40 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+from spack_repo.builtin.build_systems.cmake import CMakePackage
 from spack.package import *
 
 
-class Stacktrace(CMakePackage):
-    """A library to enable easy debugging of an application."""
+class Timerutility(CMakePackage):
+    """A library for profiling and tracing."""
 
-    homepage = "https://github.com/AdvancedMultiPhysics/StackTrace"
-    git = "https://github.com/AdvancedMultiPhysics/StackTrace.git"
+    homepage = "https://github.com/AdvancedMultiPhysics/timerutility"
+    git = "https://github.com/AdvancedMultiPhysics/timerutility.git"
 
     maintainers("bobby-philip", "gllongo", "rbberger")
 
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("0.0.93", tag="0.0.93", commit="cb068ee7733825036bbd4f9fda89b4f6e12d73b5")
 
     variant("mpi", default=True, description="build with mpi")
     variant("shared", default=False, description="Build shared libraries")
     variant("pic", default=False, description="Produce position-independent code")
-    variant("timerutility", default=False, description="Build with support for TimerUtility")
+
+    depends_on("c", type="build")
+    depends_on("cxx", type="build")
+    depends_on("fortran", type="build")
 
     depends_on("cmake@3.26.0:", type="build")
     depends_on("mpi", when="+mpi")
-    depends_on("timerutility", when="+timerutility")
-    depends_on("timerutility+shared", when="+timerutility+shared")
 
     def cmake_args(self):
         args = [
-            self.define("StackTrace_INSTALL_DIR", self.prefix),
+            self.define("Timer_INSTALL_DIR", self.prefix),
             self.define_from_variant("USE_MPI", "mpi"),
             self.define_from_variant("BUILD_SHARED_LIBS", "shared"),
             self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "pic"),
         ]
+
         return args
+
