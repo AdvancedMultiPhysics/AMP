@@ -7,6 +7,7 @@
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/matrices/RawCSRMatrixParameters.h"
+#include "AMP/matrices/data/CSRMatrixCommunicator.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Utilities.h"
