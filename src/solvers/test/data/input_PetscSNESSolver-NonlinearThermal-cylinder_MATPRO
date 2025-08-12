@@ -150,7 +150,7 @@ DirichletMatrixCorrection2 {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
     absolute_tolerance = 1.0e-10
