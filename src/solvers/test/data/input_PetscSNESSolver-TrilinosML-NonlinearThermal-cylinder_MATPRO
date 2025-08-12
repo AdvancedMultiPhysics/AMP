@@ -150,7 +150,7 @@ DirichletMatrixCorrection2 {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
     absolute_tolerance = 1.0e-10
@@ -183,11 +183,18 @@ NonlinearSolver{
 }
 
 Preconditioner{
-    name = "BoomerAMGSolver"
-    print_info_level = 0
-    max_iterations = 3
-    max_levels = 5
-    max_error = 1e-15
+  name = "TrilinosMLSolver"
+  print_info_level = 0
+  max_iterations = 1
+  max_levels = 10
+  max_error = 1e-15
+  min_coarse_size = 10
+  strong_threshold = 0.5
+  cycle_type = 1
+  relax_type = 16
+  coarsen_type = 10
+  interp_type = 17
+  relax_order = 0
 }
 
 

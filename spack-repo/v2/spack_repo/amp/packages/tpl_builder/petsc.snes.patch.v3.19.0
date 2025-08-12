@@ -1,0 +1,50 @@
+diff -ruN petsc/src/snes/interface/snes.c petsc-v3.19.0/src/snes/interface/snes.c
+--- petsc/src/snes/interface/snes.c	2023-04-15 11:29:02.966944470 -0600
++++ petsc-v3.19.0/src/snes/interface/snes.c	2023-04-15 11:46:10.004609412 -0600
+@@ -4705,6 +4705,10 @@
+   PetscCall(SNESMonitorPauseFinal_Internal(snes));
+ 
+   PetscCall(VecDestroy(&xcreated));
++  /* BP: Fixing bug with PETSc holding a copy of an AMP vector as per M.B., changeset f548841 in v3.7.3 */
++  Vec xnew;
++  PetscCall(VecCreate(PetscObjectComm((PetscObject)snes->dm),&xnew));
++  PetscCall(DMShellSetGlobalVector(snes->dm,xnew));
+   PetscCall(PetscObjectSAWsBlock((PetscObject)snes));
+   PetscFunctionReturn(PETSC_SUCCESS);
+ }
+@@ -5308,13 +5312,17 @@
+       stol = kctx->gamma * PetscPowReal(kctx->rtol_last, kctx->alpha);
+       if (stol > kctx->threshold) rtol = PetscMax(rtol, stol);
+     } else if (kctx->version == 3) { /* contributed by Luis Chacon, June 2006. */
+-      rtol = kctx->gamma * PetscPowReal(snes->norm / kctx->norm_last, kctx->alpha);
++      rtol = kctx->gamma * pow(snes->norm/kctx->norm_last,kctx->alpha);
+       /* safeguard: avoid sharp decrease of rtol */
+-      stol = kctx->gamma * PetscPowReal(kctx->rtol_last, kctx->alpha);
+-      stol = PetscMax(rtol, stol);
+-      rtol = PetscMin(kctx->rtol_0, stol);
++      stol = kctx->gamma*pow(kctx->rtol_last,kctx->alpha);
++      if (stol<=0.1) {
++	rtol = PetscMin(kctx->rtol_0,rtol);
++      } else {
++        stol = PetscMax(rtol,stol);
++        rtol = PetscMin(kctx->rtol_0,stol);
++      }
+       /* safeguard: avoid oversolving */
+-      stol = kctx->gamma * (kctx->norm_first * snes->rtol) / snes->norm;
++      stol = 0.8*(snes->ttol)/snes->norm;
+       stol = PetscMax(rtol, stol);
+       rtol = PetscMin(kctx->rtol_0, stol);
+     } else /* if (kctx->version == 4) */ {
+diff -ruN petsc/src/snes/interface/snesut.c petsc-v3.19.0/src/snes/interface/snesut.c
+--- petsc/src/snes/interface/snesut.c	2023-04-15 11:29:02.966944470 -0600
++++ petsc-v3.19.0/src/snes/interface/snesut.c	2023-04-15 11:47:40.750530328 -0600
+@@ -758,7 +758,8 @@
+   *reason = SNES_CONVERGED_ITERATING;
+   if (!it) {
+     /* set parameter for default relative tolerance convergence test */
+-    snes->ttol   = fnorm * snes->rtol;
++    /* BP, 01/19/2013, changing to use a combination of rel and abs tols, important for EW */
++    snes->ttol = snes->abstol+fnorm*snes->rtol;
+     snes->rnorm0 = fnorm;
+   }
+   if (PetscIsInfOrNanReal(fnorm)) {

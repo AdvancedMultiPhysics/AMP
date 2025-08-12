@@ -153,7 +153,7 @@ DirichletMatrixCorrection2 {
 
 NonlinearSolver{
     name = "TrilinosNOXSolver"
-    print_info_level = 7
+    print_info_level = 2
     //solver = "Anderson"
     solver = "JFNK"
     max_iterations = 500
@@ -165,7 +165,7 @@ NonlinearSolver{
     usesJacobian=FALSE
 
     LinearSolver{
-        print_info_level = 7
+        print_info_level = 2
         linearSolverType = "Belos"
         linearSolver = "Pseudo Block GMRES"
         //linearSolver = "Block CG"
