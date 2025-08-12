@@ -609,9 +609,10 @@ void PetscSNESSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
         VecNorm( x, NORM_2, &petscNorm );
         AMP::pout << "Petsc L2 Norm of u after solve " << petscNorm << std::endl;
         AMP::pout << "AMP L2 Norm of u after solve " << u->L2Norm() << std::endl;
+    }
+    if ( d_iDebugPrintInfoLevel > 4 ) {
         AMP::pout << "Vector values" << u << std::endl;
     }
-
     u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
