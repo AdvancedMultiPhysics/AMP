@@ -13,7 +13,7 @@ namespace AMP::Geometry {
  * Constructor                                           *
  ********************************************************/
 Sphere::Sphere( std::shared_ptr<const AMP::Database> db )
-    : LogicalGeometry( 3, 3, { 4, 4, 4, 4, 2, 1 } )
+    : LogicalGeometry( 3, 3, { 1, 1, 1, 1, 1, 1 } )
 {
     d_offset[0] = 0;
     d_offset[1] = 0;
@@ -22,7 +22,7 @@ Sphere::Sphere( std::shared_ptr<const AMP::Database> db )
     AMP_INSIST( range.size() == 1u, "Range must be an array of length 1" );
     d_r = range[0];
 }
-Sphere::Sphere( double r ) : LogicalGeometry( 3, 3, { 4, 4, 4, 4, 2, 1 } ), d_r( r )
+Sphere::Sphere( double r ) : LogicalGeometry( 3, 3, { 1, 1, 1, 1, 1, 1 } ), d_r( r )
 {
     d_offset[0] = 0;
     d_offset[1] = 0;

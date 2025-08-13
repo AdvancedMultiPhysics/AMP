@@ -122,8 +122,21 @@ void VectorData::addValuesByLocalID( size_t N, const size_t *ndx, const TYPE *va
     addValuesByLocalID( N, ndx, vals, type );
 }
 template<typename TYPE>
-void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
+void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ ) const
 {
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    bool allocate_ndx  = false;
+    bool allocate_vals = false;
+    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+        ndx = new size_t[N];
+        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        allocate_ndx = true;
+    }
+    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+        vals          = new TYPE[N];
+        allocate_vals = true;
+    }
     constexpr size_t N_max = 128;
     while ( N > N_max ) {
         getValuesByGlobalID( N_max, ndx, vals );
@@ -159,10 +172,30 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) 
             N_ghost++;
         }
     }
+    if ( allocate_ndx )
+        delete[] ndx;
+    if ( allocate_vals ) {
+        AMP::Utilities::memcpy( vals_, vals, N * sizeof( TYPE ) );
+        delete[] vals;
+    }
 }
 template<typename TYPE>
-void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
+void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
 {
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    bool allocate_ndx  = false;
+    bool allocate_vals = false;
+    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+        ndx = new size_t[N];
+        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        allocate_ndx = true;
+    }
+    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+        vals = new TYPE[N];
+        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
+        allocate_vals = true;
+    }
     constexpr size_t N_max = 128;
     while ( N > N_max ) {
         setValuesByGlobalID( N_max, ndx, vals );
@@ -189,10 +222,28 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *v
         setValuesByLocalID( N_local, local_index, local_vals, type );
     if ( N_ghost > 0 )
         setGhostValuesByGlobalID( N_ghost, ghost_index, ghost_vals, type );
+    if ( allocate_ndx )
+        delete[] ndx;
+    if ( allocate_vals )
+        delete[] vals;
 }
 template<typename TYPE>
-void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
+void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
 {
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    bool allocate_ndx  = false;
+    bool allocate_vals = false;
+    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+        ndx = new size_t[N];
+        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        allocate_ndx = true;
+    }
+    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+        vals = new TYPE[N];
+        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
+        allocate_vals = true;
+    }
     constexpr size_t N_max = 128;
     while ( N > N_max ) {
         addValuesByGlobalID( N_max, ndx, vals );
@@ -219,6 +270,10 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *v
         addValuesByLocalID( N_local, local_index, local_vals, type );
     if ( N_ghost > 0 )
         addGhostValuesByGlobalID( N_ghost, ghost_index, ghost_vals, type );
+    if ( allocate_ndx )
+        delete[] ndx;
+    if ( allocate_vals )
+        delete[] vals;
 }
 
 

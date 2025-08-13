@@ -566,7 +566,7 @@ void MultiVectorData::partitionLocalValues( const int N,
 {
     if ( N == 0 )
         return;
-    PROFILE( "partitionGlobalValues", 2 );
+    PROFILE( "partitionLocalValues", 2 );
     out_indices.resize( d_data.size() );
     out_vals.resize( d_data.size() );
     if ( remap )

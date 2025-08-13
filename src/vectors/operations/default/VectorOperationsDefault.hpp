@@ -174,6 +174,7 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
                 AMP_ERROR( "copy only implemented for float or doubles" );
             }
         }
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         std::copy( x.begin<TYPE>(), x.end<TYPE>(), y.begin<TYPE>() );
         y.copyGhostValues( x );
