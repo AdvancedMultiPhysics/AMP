@@ -271,7 +271,7 @@ void BoxMesh::initialize( const std::array<int, 3> &boxSize,
         localIndex[2 * d + 1]++;
     }
     // Map any boundaries of -2
-    // createMaps();
+    createMaps();
 }
 void BoxMesh::createBoundingBox()
 {
@@ -493,7 +493,7 @@ MeshElement BoxMesh::getElement( const MeshElementID &id ) const
     AMP_DEBUG_ASSERT( tmp->globalID() == id );
     return tmp;
 }
-MeshElement BoxMesh::getElement( const MeshElementIndex &index ) const
+structuredMeshElement BoxMesh::getElement( const MeshElementIndex &index ) const
 {
     return structuredMeshElement( index, this );
 }
@@ -656,8 +656,6 @@ BoxMesh::getIteratorRange( std::array<int, 6> range, const GeomType type, const 
         return {};
     // Get the range of cells we care about
     bool isPeriodic[3] = { d_surfaceId[1] == -1, d_surfaceId[3] == -1, d_surfaceId[5] == -1 };
-    if ( std::find( d_surfaceId.begin(), d_surfaceId.end(), -2 ) != d_surfaceId.end() )
-        AMP_WARN_ONCE( "boundary ids == -2 are not yet supported, mesh may be incomplete" );
     if ( gcw != 0 ) {
         for ( int d = 0; d < static_cast<int>( GeomDim ); d++ ) {
             range[2 * d + 0] -= gcw;
@@ -852,11 +850,11 @@ BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw
         return {};
     AMP_ASSERT( index < 6 );
     // Build and cache the surface data
-    if ( (int) d_boundary[type2][index].size() < gcw + 1 )
-        d_boundary[type2][index].resize( gcw + 1 );
-    if ( !d_boundary[type2][index][gcw] ) {
-        d_boundary[type2][index][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
-        auto &boundary                = *d_boundary[type2][index][gcw];
+    if ( (int) d_bnd[type2][index].size() < gcw + 1 )
+        d_bnd[type2][index].resize( gcw + 1 );
+    if ( !d_bnd[type2][index][gcw] ) {
+        d_bnd[type2][index][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
+        auto &boundary           = *d_bnd[type2][index][gcw];
         for ( auto &elem : getIterator( type, gcw ) ) {
             auto elem2 = dynamic_cast<structuredMeshElement *>( elem.getRawElement() );
             if ( elem2->isOnBoundary( id ) )
@@ -864,13 +862,13 @@ BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw
         }
     }
     // Create the iterator
-    if ( !d_boundary[type2][index][gcw] )
+    if ( !d_bnd[type2][index][gcw] )
         return {};
-    if ( d_boundary[type2][index][gcw]->empty() )
+    if ( d_bnd[type2][index][gcw]->empty() )
         return {};
     if ( type == GeomType::Edge )
-        structuredMeshIterator( d_boundary[type2][index][gcw], this, 0 );
-    return structuredMeshIterator( d_boundary[type2][index][gcw], this, 0 );
+        structuredMeshIterator( d_bnd[type2][index][gcw], this, 0 );
+    return structuredMeshIterator( d_bnd[type2][index][gcw], this, 0 );
 }
 std::vector<int> BoxMesh::getBlockIDs() const { return { d_blockID }; }
 MeshIterator BoxMesh::getBlockIDIterator( const GeomType type, const int id, const int gcw ) const
@@ -948,15 +946,19 @@ BoxMesh::createMap( const std::vector<MeshElementIndex> x ) const
 {
     // Build the point map
     std::vector<std::array<double, NDIM>> p( x.size() );
-    for ( size_t i = 0; i < x.size(); i++ )
-        coord( x[i], p[i].data() );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        structuredMeshElement elem( x[i], this );
+        p[i] = elem.centroid();
+    }
     // Map the points
     kdtree2<NDIM, MeshElementIndex> map( p, x );
     double dist = 1e-8;
     std::vector<BoxMesh::MeshElementIndex> y( x.size() );
     for ( size_t i = 0; i < x.size(); i++ ) {
         auto tmp = map.findNearest( p[i], dist );
-        AMP_ASSERT( tmp.size() == 0 );
+        if ( tmp.size() == 1 )
+            continue;
+        AMP_ASSERT( tmp.size() == 2 );
         if ( std::get<1>( tmp[0] ) == x[i] )
             y[i] = std::get<1>( tmp[1] );
         else
@@ -972,13 +974,17 @@ void BoxMesh::createMaps()
             if ( d_surfaceId[s] != -2 )
                 continue;
             auto blocks = getSurface2( s, static_cast<GeomType>( t ) );
-            for ( [[maybe_unused]] auto block : blocks ) {
-                AMP_ERROR( "Not finished" );
+            for ( auto block : blocks ) {
+                auto it = MeshElementIndexIterator( block.first, block.second, this );
+                x.reserve( x.size() + it.size() );
+                for ( auto index : it )
+                    x.push_back( index );
             }
         }
         if ( x.empty() )
             continue;
-        [[maybe_unused]] std::vector<MeshElementIndex> y;
+        AMP::Utilities::unique( x );
+        std::vector<MeshElementIndex> y;
         if ( PhysicalDim == 1 ) {
             y = createMap<1>( x );
         } else if ( PhysicalDim == 2 ) {
@@ -986,7 +992,7 @@ void BoxMesh::createMaps()
         } else if ( PhysicalDim == 3 ) {
             y = createMap<3>( x );
         }
-        AMP_ERROR( "Not finished" );
+        d_surfaceMaps[t] = SurfaceMapStruct( std::move( x ), std::move( y ) );
     }
 }
 
