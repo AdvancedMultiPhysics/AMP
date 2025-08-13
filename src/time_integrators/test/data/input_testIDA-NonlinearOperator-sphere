@@ -15,7 +15,7 @@ Mesh_1{
   VolumeOperator{
 
      name = "DiffusionNonlinearFEOperator" 
-     print_info_level = 3
+     print_info_level = 2
      ActiveInputVariables {
          temperature = "temperature"
      }
@@ -55,7 +55,7 @@ BoundaryOperator {
    alpha          = 1.0
    beta           = -6
    gamma          = -6
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 4
    number_of_dofs_0 =   1
@@ -72,7 +72,7 @@ BoundaryOperator {
     name = "DiffusionLinearFEOperator"
     InputVariable = "temperature"
     OutputVariable = "temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = TRUE
     FixedBurnup = TRUE
@@ -110,7 +110,7 @@ BoundaryOperator {
    alpha          = 1.0
    beta           = -6
    gamma          = -6
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 4
    number_of_dofs_0 =   1
@@ -123,7 +123,7 @@ MassLinearOperator {
     name = "MassLinearFEOperator"
     InputVariable = "temperature"
     OutputVariable = "temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -132,7 +132,7 @@ MassLinearOperator {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+		print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -151,7 +151,7 @@ MassLinearOperator {
 //        UseBilogScaling = TRUE
 //        BilogVariable = "concentration"
        BilogScaleCoefficient = FALSE
-	   print_info_level = 3
+	   print_info_level = 2
   }
 }
 
@@ -175,7 +175,7 @@ IDATimeIntegrator{
 		bActiveSourceOperator		 = TRUE
 		iNumberOfSourceOperators  = 2
   Preconditioner{
-        print_info_level = 3
+        print_info_level = 2
         max_iterations = 1
         max_error = 1e-10
    }
@@ -192,7 +192,7 @@ VolumeIntegralOperator1{
     ActiveVariable_0 = "temperature"
   }
   OutputVariable = "temperature"
-  print_info_level = 3
+  print_info_level = 2
 
   SourcePhysicsModel {
     name = "SourcePhysicsModel"
@@ -203,7 +203,7 @@ VolumeIntegralOperator1{
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -222,7 +222,7 @@ InputVariableType = "NodalScalar"
     ActiveVariable_0 = "temperature"
   }
   OutputVariable = "temperature"
-  print_info_level = 3
+  print_info_level = 2
 
   SourcePhysicsModel {
     name = "SourcePhysicsModel"
@@ -233,7 +233,7 @@ InputVariableType = "NodalScalar"
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"

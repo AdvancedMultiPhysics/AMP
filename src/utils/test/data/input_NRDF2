@@ -127,7 +127,7 @@ curvature_threshold = 1.0
 gradient_threshold = 1.0
 front_threshold =            10.0
 front_viz                                                   = FALSE
-                //   print_info_level = 5
+                //   print_info_level = 2
 print_info_level = 0
 partial_refinement_level = 3
 

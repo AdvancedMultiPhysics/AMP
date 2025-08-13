@@ -20,7 +20,7 @@ NonlinearMechanicsOperator {
 PericElastoViscoPlasticModel {
     USE_MATERIALS_LIBRARY = FALSE
     Material = "UO2_MSRZC_09"
-    print_info_level = 6
+    print_info_level = 2
     USE_CONTINUUM_TANGENT = FALSE
     name="PericElastoViscoPlasticModel"
     //name="VonMisesElastoPlasticModel"

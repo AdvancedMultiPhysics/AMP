@@ -27,7 +27,7 @@ LinearSolver{
 }
 
 NonlinearSolver{
-  print_info_level = 4
+  print_info_level = 2
   max_iterations = 100
   max_error = 1e-10
   max_vectors = 10

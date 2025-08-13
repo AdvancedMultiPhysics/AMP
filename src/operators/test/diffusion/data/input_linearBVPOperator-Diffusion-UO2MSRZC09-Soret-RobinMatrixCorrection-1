@@ -49,7 +49,7 @@ RobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1

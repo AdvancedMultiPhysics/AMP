@@ -29,7 +29,7 @@ nonlinearMechanicsBVPOperator {
 
 VonMisesElastoPlasticModel {
   USE_MATERIALS_LIBRARY = FALSE
-    print_info_level = 6
+    print_info_level = 2
     Material = "UO2_MSRZC_09"
     name="VonMisesElastoPlasticModel"
     //name="IsotropicElasticModel"
@@ -146,7 +146,7 @@ Displacement_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 

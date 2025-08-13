@@ -2,7 +2,7 @@
 
 LinearSolver{
   name = "PetscKrylovSolver"
-  print_info_level = 3
+  print_info_level = 2
   max_iterations = 100
   max_error = 1e-10
   ksp_type = "bcgs"

@@ -13,7 +13,7 @@ NumberOfLoadingSteps = 1
 
 testNonlinearThermalOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "DiffusionNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
@@ -65,7 +65,7 @@ DirichletVectorCorrection1 {
 
 testLinearThermalOperator {
   name = "LinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "DiffusionLinearFEOperator2"
     BoundaryOperator = "DirichletMatrixCorrection2"
 }
@@ -121,7 +121,7 @@ ThermalInitialGuess {
 }
 
 NonlinearSolver{
-  print_info_level = 7
+  print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
 

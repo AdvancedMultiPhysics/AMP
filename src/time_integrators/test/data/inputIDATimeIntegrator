@@ -12,7 +12,7 @@ IDATimeIntegratorParams{
 }
 
 ThermalOperatorParams{
-  print_info_level = 3
+  print_info_level = 2
   isLinearOperator = TRUE
   buildConductivityAtGaussPoints = FALSE
   useConstantConductivity = TRUE
@@ -39,7 +39,7 @@ MassMatrixParams{
 }
 
 Preconditioner{
-		print_info_level = 3
+		print_info_level = 2
         max_iterations = 1
         max_error = 1e-15
 }

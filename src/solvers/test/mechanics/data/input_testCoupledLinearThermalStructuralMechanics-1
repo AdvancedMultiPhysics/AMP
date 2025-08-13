@@ -111,7 +111,7 @@ pellet_db {
   }
 
   NonlinearSolver{
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
@@ -148,20 +148,20 @@ pellet_db {
     timeSteps        = 1.0, 5.5, 5.6, 6.0, 8.0, 10.0, 12.0, 15.0, 80000, 90000, 100000, 110000.
     power            = 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0
     numOutputs       = 1
-    print_info_level = 3 
+    print_info_level = 2 
   }
 
   Diffusion_Transport_Model {
     Material = "Independent"
     Property = "ThermalConductivity"
-    print_info_level = 3
+    print_info_level = 2
     Default_Concentration = .1
     Default_Temperature   = 300.
     Default_Burnup   = 0.0
   }
 
   Diffusion_Linear_Element {
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -169,14 +169,14 @@ pellet_db {
   }
 
   Diffusion_Linear_FE_Operator {
-    print_info_level = 3
+    print_info_level = 2
     FixedTemperature = TRUE
     FixedConcentration = TRUE
     FixedBurnup   = TRUE
   }
 
   DirichletVectorCorrection {
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     number_of_ids = 1
     id_0         =  2050
@@ -186,7 +186,7 @@ pellet_db {
   }
 
   MassLinearElement {
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -197,18 +197,18 @@ pellet_db {
     FixedConcentration = .1
     FixedTemperature   = 300.
     FixedBurnup   = 0.0
-    print_info_level = 3
+    print_info_level = 2
   }
 
   MassDensityModel {
     Material = "Independent"
     Equation = "ThermalSource"
-    print_info_level = 3
+    print_info_level = 2
   }
 
   DirichletMatrixCorrection {
     skip_params = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 2050
     number_of_dofs_0 =   1
@@ -221,7 +221,7 @@ pellet_db {
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
     QRULE_ORDER = "DEFAULT"
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   2 
@@ -231,7 +231,7 @@ pellet_db {
   }
 
   LinearSolver{
-    print_info_level = 3
+    print_info_level = 2
     max_iterations = 10
     max_error = 1e-10
   }

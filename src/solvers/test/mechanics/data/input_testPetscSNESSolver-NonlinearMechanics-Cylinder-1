@@ -30,7 +30,7 @@ VonMises_IsotropicKinematicHardening{
     USE_MATERIALS_LIBRARY = FALSE
     USE_CONTINUUM_TANGENT = TRUE
     Material = "UO2_MSRZC_09"
-    print_info_level = 6
+    print_info_level = 2
     name="VonMises_IsotropicKinematicHardening"
     //name="VonMisesElastoPlasticModel"
     //name="IsotropicElasticModel"
@@ -156,7 +156,7 @@ DummyDatabase {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 

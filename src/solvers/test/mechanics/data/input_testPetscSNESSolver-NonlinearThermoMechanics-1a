@@ -133,7 +133,7 @@ LinearMechanicsElement {
 
 testNonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator3"
     BoundaryOperator = "DirichletVectorCorrection3"
 }
@@ -264,7 +264,7 @@ ThermalInitialGuess {
 }
 
 NonlinearSolver{
-  print_info_level = 7
+  print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

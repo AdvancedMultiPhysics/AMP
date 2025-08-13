@@ -108,7 +108,7 @@ ThermalDirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
@@ -142,7 +142,7 @@ FickDirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1

@@ -47,7 +47,7 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 
@@ -96,7 +96,7 @@ MechanicsMaterialModel {
 
 MechanicsNonlinearFEOperator{
       name = "MechanicsNonlinearFEOperator"
-        print_info_level = 3
+        print_info_level = 2
         ActiveInputVariables {
           DISPLACEMENT = "displacement"
         }

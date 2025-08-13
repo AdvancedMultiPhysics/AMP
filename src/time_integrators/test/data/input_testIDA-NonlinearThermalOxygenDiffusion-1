@@ -76,7 +76,7 @@ OxMassDensityModel{
     // UseBilogScaling = TRUE
     // BilogVariable = "concentration"
     BilogScaleCoefficient = FALSE
-    print_info_level = 3
+    print_info_level = 2
 }
 
 MassDensityModel{
@@ -90,7 +90,7 @@ MassDensityModel{
     // UseBilogScaling = TRUE
     // BilogVariable = "concentration"
     BilogScaleCoefficient = FALSE
-    print_info_level = 3
+    print_info_level = 2
 } 
 
 VolumeIntegralOperator{
@@ -103,12 +103,12 @@ VolumeIntegralOperator{
         ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
     }
     OutputVariable = "temperature"
-    print_info_level = 3
+    print_info_level = 2
     LocalModel = SourcePhysicsModel
 
     SourceElement {
         name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 2
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
@@ -118,7 +118,7 @@ VolumeIntegralOperator{
 
 NonlinearThermalOperator {
     name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator="DiffusionNonlinearFEOperator"
     BoundaryOperator="DirichletVectorCorrection"
 }
@@ -187,7 +187,7 @@ DirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -206,14 +206,14 @@ MassLinearFEOperator{
     name = "MassLinearFEOperator"
     InputVariable = "temperature"
     OutputVariable = "temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
     FixedBurnup   = 0.0
     MassElement {
         name = "MassLinearElement"
-        print_info_level = 3
+        print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -228,7 +228,7 @@ MassMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -238,7 +238,7 @@ MassMatrixCorrection{
 
 NonlinearOxygenOperator {
     name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator="FickSoretNonlinearFEOperator"
     BoundaryOperator="OxDirichletVectorCorrection"
 }
@@ -341,7 +341,7 @@ OxDirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -360,7 +360,7 @@ OxMassLinearFEOperator{
     name = "MassLinearFEOperator"
     InputVariable = "concentration"
     OutputVariable = "concentration"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -368,7 +368,7 @@ OxMassLinearFEOperator{
 
     MassElement {
         name = "MassLinearElement"
-        print_info_level = 3
+        print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -385,7 +385,7 @@ OxMassBoundaryOperator {
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1

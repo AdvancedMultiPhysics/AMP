@@ -12,7 +12,7 @@ OutputFileName = "checkMatrix.txt"
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
@@ -21,7 +21,7 @@ IsotropicElasticModel1 {
   USE_MATERIALS_LIBRARY = FALSE
     USE_UPDATED_LAGRANGIAN = TRUE
     USE_JAUMANN_RATE = TRUE
-    print_info_level = 6
+    print_info_level = 2
     Material = ""
     name = "IsotropicElasticModel"
     //name = "VonMisesElastoPlasticModel"
@@ -36,7 +36,7 @@ IsotropicElasticModel1 {
 
 MechanicsNonlinearFEOperator1 {
   name = "MechanicsNonlinearFEOperator"
-    print_info_level = 3
+    print_info_level = 2
     ActiveInputVariables {
       DISPLACEMENT = "displacement"
     }

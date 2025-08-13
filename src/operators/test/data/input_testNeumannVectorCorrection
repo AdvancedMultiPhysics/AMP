@@ -12,7 +12,7 @@ Mesh{
 
 NeumannVectorCorrection1 {
    name="NeumannVectorCorrection"
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    id_0         =   2 
@@ -23,7 +23,7 @@ NeumannVectorCorrection1 {
 
 NeumannVectorCorrection2 {
    name="NeumannVectorCorrection"
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    id_0         =   2 

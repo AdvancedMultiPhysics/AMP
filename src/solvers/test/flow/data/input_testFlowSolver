@@ -47,7 +47,7 @@ FlowFrapconJacobian{
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
@@ -86,7 +86,7 @@ NonlinearSolver{
 
 Flow1DSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

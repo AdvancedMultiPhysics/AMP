@@ -14,7 +14,7 @@ NumberOfLoadingSteps = 10
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
@@ -23,7 +23,7 @@ VonMisesElastoPlasticModel1 {
         USE_MATERIALS_LIBRARY = FALSE
         USE_UPDATED_LAGRANGIAN = TRUE
         USE_JAUMANN_RATE = FALSE
-        print_info_level = 6
+        print_info_level = 2
           Material = ""
           name = "VonMisesElastoPlasticModel"
           //name = "IsotropicElasticModel"
@@ -38,7 +38,7 @@ VonMisesElastoPlasticModel1 {
 
 MechanicsNonlinearFEOperator1 {
       name = "MechanicsNonlinearFEOperator"
-        print_info_level = 3
+        print_info_level = 2
         ActiveInputVariables {
           DISPLACEMENT = "displacement"
         }
@@ -157,7 +157,7 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 

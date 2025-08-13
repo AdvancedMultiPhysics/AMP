@@ -58,7 +58,7 @@ VolumeIntegralOperator{
     LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 2
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
@@ -106,7 +106,7 @@ RobinVectorCorrection1 {
     alpha          = 1.0
     beta           = 2920
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   4
@@ -152,7 +152,7 @@ RobinMatrixCorrection2 {
     alpha          = 1.0
     beta           = 2920
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   4

@@ -9,7 +9,7 @@ Mesh {
     static = TRUE
 }
 MyPowerShape{
-    print_info_level = 3
+    print_info_level = 2
     coordinateSystem = "cartesian"
     numXmoments = 1
        Xmoments = 0.1

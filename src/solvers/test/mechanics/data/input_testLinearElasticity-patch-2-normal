@@ -10,7 +10,7 @@ MechanicsBVPOperator {
 }
 
 LinearSolver{
-  print_info_level = 3
+  print_info_level = 2
     max_iterations = 50
     max_error = 1e-15
     PDE_equations = 3
