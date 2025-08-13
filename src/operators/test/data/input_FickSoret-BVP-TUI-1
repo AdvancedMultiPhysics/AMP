@@ -12,7 +12,7 @@ Mesh {
 
 testFickSoretBVPOperator {
   name="NonlinearBVPOperator"
-  print_info_level = 3
+  print_info_level = 2
 
   VolumeOperator = "FickSoretNonlinearFEOperator"
   BoundaryOperator = "DirichletVectorCorrection"
@@ -20,7 +20,7 @@ testFickSoretBVPOperator {
 
 testLinearFickBVPOperator {
     name = "LinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
 
     VolumeOperator = "LinearFickDiffusionLinearFEOperator"
     BoundaryOperator = "DirichletMatrixCorrection"

@@ -42,7 +42,7 @@ MassDensityModel{
 //        UseBilogScaling = TRUE
 //        BilogVariable = "concentration"
        BilogScaleCoefficient = FALSE
-       print_info_level = 3
+       print_info_level = 2
 }
 
 NeutronicsOperator{
@@ -66,13 +66,13 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
   }
   OutputVariable = "HeatSource"
-  print_info_level = 3
+  print_info_level = 2
 
   LocalModel = SourcePhysicsModel
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -82,7 +82,7 @@ VolumeIntegralOperator{
 
 NonlinearOperator {
    name="NonlinearBVPOperator"
-   print_info_level = 4
+   print_info_level = 2
    VolumeOperator = "DiffusionNonlinearFEOperator"
    BoundaryOperator="DirichletVectorCorrection"
 }
@@ -123,7 +123,7 @@ DirichletVectorCorrection{
 
 LinearOperator {
    name="LinearBVPOperator"
-   print_info_level = 4
+   print_info_level = 2
    VolumeOperator = "DiffusionLinearFEOperator"
    BoundaryOperator="DirichletMatrixCorrection"
 }
@@ -155,7 +155,7 @@ DirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = FALSE 
     skip_rhs_add_correction = FALSE 
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -165,7 +165,7 @@ DirichletMatrixCorrection{
 
 MassLinearOperator {
    name="LinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
    VolumeOperator = "MassLinearFEOperator"
    BoundaryOperator="MassMatrixCorrection"
 }
@@ -174,7 +174,7 @@ MassLinearFEOperator {
     name = "MassLinearFEOperator"
     InputVariable = "temperature"
     OutputVariable = "temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -183,7 +183,7 @@ MassLinearFEOperator {
 
     MassElement {
         name = "MassLinearElement"
-        print_info_level = 3
+        print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -200,7 +200,7 @@ MassMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1

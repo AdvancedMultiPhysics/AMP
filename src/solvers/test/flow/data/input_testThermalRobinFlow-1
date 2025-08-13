@@ -149,12 +149,12 @@ RobinMatrixCorrection2 {
       ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
     }
   OutputVariable = "heatsource"
-    print_info_level = 3
+    print_info_level = 2
     LocalModel = SourcePhysicsModel
 
   SourceElement {
     name="SourceNonlinearElement"
-      print_info_level = 3
+      print_info_level = 2
       FE_ORDER = "FIRST"  
       FE_FAMILY = "LAGRANGE"
       QRULE_TYPE = "QGAUSS"
@@ -271,7 +271,7 @@ NonlinearSolver{
 
 Flow1DSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

@@ -29,7 +29,7 @@ DiffusionTransportModel {
 	     name = "DiffusionTransportModel"
 	     Material = "Ox_MSRZC_09"
 	     Property = "FickCoefficient"
-	     print_info_level = 3 
+	     print_info_level = 2 
 	     Default_Concentration = .15
 	     Default_Temperature   = 300.
 	     Default_Burnup   = 0.0
@@ -45,7 +45,7 @@ MassDensityModel{
     Default_Concentration = .1
     Default_Temperature   = 750.
     Default_Burnup   = 0.0
-    print_info_level = 3
+    print_info_level = 2
  	ManufacturedSolution {
  		Geometry = "Brick"
  		Order = "Cubic"
@@ -87,11 +87,11 @@ DiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="concentration"
       OutputVariable="concentration"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
@@ -104,7 +104,7 @@ DiffusionLinearFEOperator{
 
 DirichletVectorCorrection{
    	 name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 2
      id_0         =   4
@@ -119,7 +119,7 @@ DirichletVectorCorrection{
 
 DirichletMatrixCorrection{
    	 name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 2
      id_0         =   4
@@ -136,7 +136,7 @@ ManufacturedSourceOperator {
     name = "MassLinearFEOperator"
     InputVariable = "concentration"
     OutputVariable = "manufactured"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -144,7 +144,7 @@ ManufacturedSourceOperator {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+		print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"

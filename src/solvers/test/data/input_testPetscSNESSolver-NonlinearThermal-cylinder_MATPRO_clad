@@ -44,7 +44,7 @@ SourcePhysicsModel {
 
 testNonlinearThermalOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "DiffusionNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
@@ -83,7 +83,7 @@ DirichletVectorCorrection1 {
 
 testLinearThermalOperator {
   name = "LinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "DiffusionLinearFEOperator2"
     BoundaryOperator = "DirichletMatrixCorrection2"
 }
@@ -141,11 +141,11 @@ VolumeIntegralOperator{
       ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
     }
   OutputVariable = "heatsource"
-    print_info_level = 3
+    print_info_level = 2
     LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 2
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
@@ -155,7 +155,7 @@ VolumeIntegralOperator{
 
 
 NonlinearSolver{
-  print_info_level = 7
+  print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
 

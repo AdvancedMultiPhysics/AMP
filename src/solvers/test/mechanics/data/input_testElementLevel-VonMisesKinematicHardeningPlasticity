@@ -101,7 +101,7 @@ LinearMechanicsElement {
 MechanicsMaterialModel {
     USE_MATERIALS_LIBRARY = FALSE
     Material = "UO2_MSRZC_09"
-    print_info_level = 6
+    print_info_level = 2
     name="VonMises_IsotropicKinematicHardening"
     Youngs_Modulus = 70.0
     Poissons_Ratio = 0.3333333

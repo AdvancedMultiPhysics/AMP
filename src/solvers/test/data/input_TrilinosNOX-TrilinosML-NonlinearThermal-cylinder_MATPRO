@@ -62,7 +62,7 @@ VolumeIntegralOperator{
     LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 2
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"

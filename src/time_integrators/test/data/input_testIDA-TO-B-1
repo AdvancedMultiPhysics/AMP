@@ -48,7 +48,7 @@ Preprocessor {
   useAverageDepletion = TRUE
 
   PowerShape_0{
-    print_info_level = 3
+    print_info_level = 2
     coordinateSystem = "cylindrical"
     type = "frapcon"
     frapconConstant = 3.45
@@ -57,7 +57,7 @@ Preprocessor {
   }
   
     PowerShape_1{
-    print_info_level = 3
+    print_info_level = 2
     coordinateSystem = "cylindrical"
     type = "frapcon"
     frapconConstant = 3.45
@@ -66,7 +66,7 @@ Preprocessor {
   }
 
     PowerShape_2{
-    print_info_level = 3
+    print_info_level = 2
     coordinateSystem = "cylindrical"
     type = "frapcon"
     frapconConstant = 3.45
@@ -97,11 +97,11 @@ BurnupVolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
   }
   OutputVariable = "Burnup"
-  print_info_level = 3
+  print_info_level = 2
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -132,7 +132,7 @@ NonlinearThermalOperator1 {
 
     VolumeOperator {
       name = "DiffusionNonlinearFEOperator" 
-        print_info_level = 6
+        print_info_level = 2
         ActiveInputVariables {
          temperature = "Temperature"
          concentration = "Concentration"
@@ -170,7 +170,7 @@ NonlinearThermalOperator1 {
       alpha          = 1.0
       beta           = 2920.0
       gamma          = 2920.0
-      print_info_level = 3
+      print_info_level = 2
       skip_params = FALSE
       number_of_ids = 1
       IsCoupledBoundary_0 = TRUE
@@ -183,7 +183,7 @@ NonlinearThermalOperator1 {
 
 LinearThermalOperator1 {
    name = "LinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
 
    VolumeOperator {
      name = "DiffusionLinearFEOperator"
@@ -223,7 +223,7 @@ LinearThermalOperator1 {
    alpha          = 1.0
    beta           = 2920.0
    gamma          = 2920.0
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    IsCoupledBoundary_0 = TRUE
@@ -257,7 +257,7 @@ NonlinearThermalOperator2 {
 
     VolumeOperator {
       name = "DiffusionNonlinearFEOperator" 
-        print_info_level = 6
+        print_info_level = 2
         ActiveInputVariables {
           temperature = "Temperature"
         }
@@ -297,7 +297,7 @@ NonlinearThermalOperator2 {
    alpha          = 1.0
    beta           = 2920.0
    gamma          = 2920.0
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    IsCoupledBoundary_0 = TRUE
@@ -313,7 +313,7 @@ NonlinearThermalOperator2 {
    isAttachedToVolumeOperator = TRUE
    skip_rhs_correction = FALSE
    skip_rhs_add_correction = FALSE
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids = 1
    id_0             =   4
    number_of_dofs_0 =   1
@@ -327,7 +327,7 @@ NonlinearThermalOperator2 {
 
 LinearThermalOperator2 {
    name = "LinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
 
    VolumeOperator {
      name = "DiffusionLinearFEOperator"
@@ -372,7 +372,7 @@ LinearThermalOperator2 {
    alpha          = 1.0
    beta           = 2920.0
    gamma          = 2920.0
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    IsCoupledBoundary_0 = TRUE
@@ -387,7 +387,7 @@ LinearThermalOperator2 {
    skip_params = FALSE
    skip_rhs_correction = FALSE
    skip_rhs_add_correction = FALSE
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids = 1
    id_0             =   4
    number_of_dofs_0 =   1
@@ -407,7 +407,7 @@ MassICThermalOperator1 {
     name = "MassLinearFEOperator"
     InputVariable = "Temperature"
     OutputVariable = "Temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -416,7 +416,7 @@ MassICThermalOperator1 {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+		print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -435,7 +435,7 @@ MassICThermalOperator1 {
 //        UseBilogScaling = TRUE
 //        BilogVariable = "concentration"
        BilogScaleCoefficient = FALSE
-	   print_info_level = 3
+	   print_info_level = 2
      } 
   }
 
@@ -446,7 +446,7 @@ BoundaryOperator {
     skip_params = TRUE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 0
     id_0             = 4
     number_of_dofs_0 =   1
@@ -465,7 +465,7 @@ MassThermalOperator1 {
     name = "MassLinearFEOperator"
     InputVariable = "Temperature"
     OutputVariable = "Temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -474,7 +474,7 @@ MassThermalOperator1 {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+		print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -493,7 +493,7 @@ MassThermalOperator1 {
 //        UseBilogScaling = TRUE
 //        BilogVariable = "concentration"
        BilogScaleCoefficient = FALSE
-	   print_info_level = 3
+	   print_info_level = 2
      } 
   }
 
@@ -503,7 +503,7 @@ BoundaryOperator {
     skip_params = TRUE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 4
     number_of_dofs_0 =   1
@@ -521,7 +521,7 @@ MassThermalOperator2 {
     name = "MassLinearFEOperator"
     InputVariable = "Temperature"
     OutputVariable = "Temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -530,7 +530,7 @@ MassThermalOperator2 {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+		print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -549,7 +549,7 @@ MassThermalOperator2 {
 //        UseBilogScaling = TRUE
 //        BilogVariable = "concentration"
        BilogScaleCoefficient = FALSE
-	   print_info_level = 3
+	   print_info_level = 2
      } 
   }
 
@@ -559,7 +559,7 @@ BoundaryOperator {
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 4
     number_of_dofs_0 =   1
@@ -571,7 +571,7 @@ BoundaryOperator {
 
 NonlinearOxygenOperator {
    name="NonlinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
   
    VolumeOperator {
      name = "DiffusionNonlinearFEOperator" 
@@ -659,7 +659,7 @@ BoundaryOperator {
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 4
     number_of_dofs_0 =   1
@@ -676,7 +676,7 @@ MassOxygenOperator {
     name = "MassLinearFEOperator"
     InputVariable = "Concentration"
     OutputVariable = "Concentration"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -684,7 +684,7 @@ MassOxygenOperator {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+		print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -703,7 +703,7 @@ MassOxygenOperator {
 //        UseBilogScaling = TRUE
 //        BilogVariable = "concentration"
        BilogScaleCoefficient = FALSE
-	   print_info_level = 3
+	   print_info_level = 2
      } 
   }
 
@@ -713,7 +713,7 @@ BoundaryOperator {
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -732,7 +732,7 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
   }
   OutputVariable = "heatsource"
-  print_info_level = 3
+  print_info_level = 2
 
   SourcePhysicsModel {
     name = "SourcePhysicsModel"
@@ -747,7 +747,7 @@ VolumeIntegralOperator{
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -772,16 +772,16 @@ ICLinearSolver {
     KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
     Preconditioner{
-       	               print_info_level = 3
+       	               print_info_level = 2
                        	 max_iterations = 1
                               max_error = 1e-10
                               pelletPreconditioner{
-                                             print_info_level = 3
+                                             print_info_level = 2
                                              max_iterations = 1
                                              max_error = 1e-10
                                    }
                                cladPreconditioner{
-                                             print_info_level = 3
+                                             print_info_level = 2
                                              max_iterations = 1
                                              max_error = 1e-10
                                    }
@@ -807,21 +807,21 @@ IDATimeIntegrator{
 	               usePreconditioner                 = TRUE
 
                              Preconditioner{
-                                    print_info_level = 3
+                                    print_info_level = 2
                                     max_iterations = 1
                                     max_error = 1e-10
                                     pelletPreconditioner{
-                                             print_info_level = 3
+                                             print_info_level = 2
                                              max_iterations = 1
                                              max_error = 1e-10
                                    }
                                     cladPreconditioner{
-                                             print_info_level = 3
+                                             print_info_level = 2
                                              max_iterations = 1
                                              max_error = 1e-10
                                    }
                                     oxygenPreconditioner{
-                                             print_info_level = 3
+                                             print_info_level = 2
                                              max_iterations = 1
                                              max_error = 1e-10
                                    }

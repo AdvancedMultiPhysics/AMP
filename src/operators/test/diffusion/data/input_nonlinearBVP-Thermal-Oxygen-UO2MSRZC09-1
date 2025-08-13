@@ -14,7 +14,7 @@ ThermalDiffusionTransportModel {
 	     name = "DiffusionTransportModel"
 	     Material = "UO2_MSRZC_09"
 	     Property = "ThermalConductivity"
-	     print_info_level = 3 
+	     print_info_level = 2 
 	     Default_Concentration = .1
 	     Default_Temperature   = 300.
 	     Default_Burnup   = 0.0
@@ -59,7 +59,7 @@ OxygenDiffusionTransportModel {
 	     name = "DiffusionTransportModel"
 	     Material = "Ox_MSRZC_09"
 	     Property = "FickCoefficient"
-	     print_info_level = 3 
+	     print_info_level = 2 
 	     Default_Concentration = .1
 	     Default_Temperature   = 300.
 	     Default_Burnup   = 0.0
@@ -91,7 +91,7 @@ ThermalDiffusionNonlinearFEOperator{
    
 ThermalDirichletVectorCorrection{
    	 name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 1
      id_0         =   1 
@@ -104,11 +104,11 @@ ThermalDiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="temperature"
       OutputVariable="temperature"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
@@ -124,7 +124,7 @@ ThermalDirichletMatrixCorrection{
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
     skip_params = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
@@ -159,7 +159,7 @@ OxygenDiffusionNonlinearFEOperator{
 
 OxygenDirichletVectorCorrection{
      name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 1
      id_0         =   1 
@@ -173,11 +173,11 @@ OxygenDiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="concentration"
       OutputVariable="concentration"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
@@ -193,7 +193,7 @@ OxygenDirichletMatrixCorrection{
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
     skip_params = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1

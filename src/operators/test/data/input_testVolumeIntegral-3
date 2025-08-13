@@ -18,7 +18,7 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "specificpower" 
   }
   OutputVariable = "heatsource"
-  print_info_level = 3
+  print_info_level = 2
 
   SourcePhysicsModel {
     name = "SourcePhysicsModel"
@@ -33,7 +33,7 @@ VolumeIntegralOperator{
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"

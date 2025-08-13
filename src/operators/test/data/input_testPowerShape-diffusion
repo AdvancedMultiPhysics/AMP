@@ -8,7 +8,7 @@ Mesh{
     static = TRUE
 }
 MyPowerShape{
-  print_info_level = 3
+  print_info_level = 2
     type = "diffusion"
     coordinateSystem = "cylindrical"
 }

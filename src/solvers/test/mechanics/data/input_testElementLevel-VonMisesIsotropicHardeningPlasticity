@@ -94,7 +94,7 @@ NonlinearSolver{
 MechanicsMaterialModel {
     USE_MATERIALS_LIBRARY = FALSE
     Material = "UO2_MSRZC_09"
-    print_info_level = 6
+    print_info_level = 2
     name="VonMisesElastoPlasticModel"
     //name="IsotropicElasticModel"
     Youngs_Modulus = 1.0e2

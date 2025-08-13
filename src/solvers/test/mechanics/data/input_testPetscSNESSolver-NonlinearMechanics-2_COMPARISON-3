@@ -36,7 +36,7 @@ FrapconCladThermalCreepPlasticModel {
     //name="FrapconCladThermalCreepPlasticModel"
     //name="ThermalStrainMaterialModel"
     name="ThermalVonMisesMatModel"
-    print_info_level = 6
+    print_info_level = 2
     USE_MATERIALS_LIBRARY = FALSE
     Material = "Steel316_MSRZC_09"
     Use_Thermal_Strain = TRUE
@@ -195,7 +195,7 @@ Displacement_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

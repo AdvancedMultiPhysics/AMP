@@ -97,7 +97,7 @@ MechanicsMaterialModel {
     name="GeneralCladThermalCreepPlasticModel"         // (Mandatory) Name of the material model to use for clad deformation.
     USE_MATERIALS_LIBRARY = TRUE                       // (Mandatory) Whether to use materials library or not?
     Material = "Steel316_MSRZC_09"                        // (Mandatory) Which material to use from the materials library.
-    print_info_level = 6
+    print_info_level = 2
     Use_Thermal_Strain = TRUE                          // (Optional, default - true) Thermal strain must be used inside the clad, otherwise no deformation occurs.
     Use_Creep_Strain = TRUE                            // (Optional, default - false) Whether to use creep strain or not.
     Youngs_Modulus = 2.08e11                           // (Optional, default - 2.08e11 Pa) Default value of the Young's Moduli to be used in the calculations (given in Pa units). Value must be greater than zero.

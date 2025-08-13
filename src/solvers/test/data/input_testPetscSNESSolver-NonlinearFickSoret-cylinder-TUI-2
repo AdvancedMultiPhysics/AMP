@@ -31,7 +31,7 @@ SoretDiffusionTransportModel{
 
 testNonlinearFickSoretBVPOperator {
   name="NonlinearBVPOperator"
-  print_info_level = 3
+  print_info_level = 2
   VolumeOperator = "FickSoretNonlinearFEOperator1"
   BoundaryOperator = "DirichletVectorCorrection1"
 }
@@ -46,7 +46,7 @@ testNonlinearFickSoretBVPOperator {
 
 FickDiffusionNonlinearFEOperator{
       name = "DiffusionNonlinearFEOperator" 
-        print_info_level = 3
+        print_info_level = 2
         ActiveInputVariables {
           temperature = "temperature"
           concentration = "concentration"
@@ -69,7 +69,7 @@ FickDiffusionNonlinearFEOperator{
 SoretDiffusionNonlinearFEOperator{
       name = "DiffusionNonlinearFEOperator" 
 
-      print_info_level = 3    
+      print_info_level = 2    
       ActiveInputVariables {
         temperature = "temperature"
         concentration = "concentration"
@@ -91,7 +91,7 @@ SoretDiffusionNonlinearFEOperator{
 
 DirichletVectorCorrection1 {
     name = "DirichletVectorCorrection"
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     isAttachedToVolumeOperator = TRUE
     number_of_ids = 1
@@ -103,7 +103,7 @@ DirichletVectorCorrection1 {
 
 testLinearFickBVPOperator {
     name = "LinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "DiffusionLinearFEOperator2"
     BoundaryOperator = "DirichletMatrixCorrection2"
 }
@@ -143,7 +143,7 @@ DirichletMatrixCorrection2 {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
 

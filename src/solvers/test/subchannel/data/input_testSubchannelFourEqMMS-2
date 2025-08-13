@@ -100,7 +100,7 @@ SubchannelFourEqLinearOperator{
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 1000
     max_error = 1e-10
 

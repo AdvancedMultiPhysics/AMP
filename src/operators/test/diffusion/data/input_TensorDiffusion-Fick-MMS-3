@@ -25,7 +25,7 @@ MassDensityModel{
     ManufacturedSourceEquation = "Fick"
     ManufacturedVariable = "Concentration"
     Property = "TensorFickCoefficient"
-    print_info_level = 3
+    print_info_level = 2
      ManufacturedSolution {
          MinX = -5.12000000001
          MinY = -5.12000000001
@@ -56,7 +56,7 @@ ManufacturedSourceOperator {
     name = "MassLinearFEOperator"
     InputVariable = "concentration"
     OutputVariable = "concentration"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -64,7 +64,7 @@ ManufacturedSourceOperator {
 
     MassElement {
         name = "MassLinearElement"
-        print_info_level = 3
+        print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -95,7 +95,7 @@ FickDiffusionNonlinearFEOperator{
 
 FickDirichletVectorCorrection{
     name = "DirichletVectorCorrection"
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     number_of_ids = 2
     id_0         =   4
@@ -112,11 +112,11 @@ FickDiffusionLinearFEOperator{
     name="DiffusionLinearFEOperator"
     InputVariable="concentration"
     OutputVariable="concentration"
-    print_info_level = 3
+    print_info_level = 2
 
     DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
@@ -128,7 +128,7 @@ FickDiffusionLinearFEOperator{
    
 FickDirichletMatrixCorrection{
         name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 2
      id_0         =   4
