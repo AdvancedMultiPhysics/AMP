@@ -133,7 +133,7 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ 
         AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
         allocate_ndx = true;
     }
-    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( vals ) == AMP::Utilities::MemoryType::device ) {
         vals          = new TYPE[N];
         allocate_vals = true;
     }
@@ -191,7 +191,7 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
         AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
         allocate_ndx = true;
     }
-    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( vals ) == AMP::Utilities::MemoryType::device ) {
         vals = new TYPE[N];
         AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
         allocate_vals = true;
@@ -239,7 +239,7 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
         AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
         allocate_ndx = true;
     }
-    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( vals ) == AMP::Utilities::MemoryType::device ) {
         vals = new TYPE[N];
         AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
         allocate_vals = true;
