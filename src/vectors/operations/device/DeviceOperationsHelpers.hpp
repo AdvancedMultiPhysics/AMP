@@ -8,18 +8,6 @@ namespace LinearAlgebra {
 
 
 template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::setToScalar( TYPE alpha, size_t N, TYPE *x )
-{
-    thrust::fill_n( thrust::device, x, N, alpha );
-}
-
-template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::copy( size_t N, const TYPE *x, TYPE *y )
-{
-    thrust::copy_n( thrust::device, x, N, y );
-}
-
-template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, TYPE *x )
 {
     auto lambda = [alpha] __host__ __device__( TYPE y ) { return y * alpha; };

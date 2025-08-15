@@ -34,6 +34,8 @@ public:
     template<typename C>
     friend class CSRMatrixData;
     template<typename C>
+    friend class CSRLocalMatrixData;
+    template<typename C>
     friend class CSRMatrixCommunicator;
     template<typename C>
     friend class CSRMatrixSpGEMMDefault;
@@ -242,6 +244,10 @@ protected:
 
     //! Make a clone of this matrix data
     std::shared_ptr<CSRLocalMatrixData> cloneMatrixData();
+
+    //! Migrate data to new memory space
+    template<typename ConfigOut>
+    std::shared_ptr<CSRLocalMatrixData<ConfigOut>> migrate() const;
 
     //! Make matrix data for transpose
     std::shared_ptr<CSRLocalMatrixData>

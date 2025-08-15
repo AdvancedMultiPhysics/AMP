@@ -16,8 +16,6 @@ class DeviceOperationsHelpers
 {
 public:
     //  functions that operate on VectorData
-    static void setToScalar( TYPE alpha, size_t N, TYPE *z );
-    static void copy( size_t N, const TYPE *x, TYPE *z );
     static void scale( TYPE alpha, size_t N, const TYPE *x, TYPE *y );
     static void scale( TYPE alpha, size_t N, TYPE *x );
     static void add( size_t N, const TYPE *x, const TYPE *y, TYPE *z );

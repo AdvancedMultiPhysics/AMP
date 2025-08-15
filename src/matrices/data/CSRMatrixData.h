@@ -19,15 +19,17 @@ class DOFManager;
 
 namespace AMP::LinearAlgebra {
 
-template<typename P>
+template<typename C>
 class CSRMatrixSpGEMMDefault;
 
 template<typename Config>
 class CSRMatrixData : public MatrixData
 {
 public:
-    template<typename P>
+    template<typename C>
     friend class CSRMatrixSpGEMMDefault;
+    template<typename C>
+    friend class CSRMatrixData;
 
     using gidx_t         = typename Config::gidx_t;
     using lidx_t         = typename Config::lidx_t;
@@ -61,6 +63,10 @@ public:
 
     //! Clone the data
     std::shared_ptr<MatrixData> cloneMatrixData() const override;
+
+    //! Migrate data to different configuration, mostly for moving memory spaces
+    template<typename ConfigOut>
+    std::shared_ptr<CSRMatrixData<ConfigOut>> migrate( AMP::Utilities::Backend backend ) const;
 
     //! Transpose
     std::shared_ptr<MatrixData> transpose() const override;
