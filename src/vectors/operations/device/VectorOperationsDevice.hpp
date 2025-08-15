@@ -86,7 +86,7 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
     if ( useGPU ) {
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::setToScalar( alpha, N, data );
+        AMP::Utilities::Algorithms<TYPE>::fill_n( data, N, alpha );
     } else {
         // Default to cpu version
         auto curMe = x.begin<TYPE>();

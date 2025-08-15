@@ -104,6 +104,45 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::clone() const
 }
 
 template<typename Config>
+std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType memType ) const
+{
+    return migrate( memType, AMP::Utilities::getDefaultBackend( memType ) );
+}
+
+template<typename Config>
+std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType memType,
+                                                    AMP::Utilities::Backend backend ) const
+{
+    using ConfigHost = typename Config::template set_alloc_t<alloc::host>;
+#ifdef AMP_USE_DEVICE
+    using ConfigManaged = typename Config::template set_alloc_t<alloc::managed>;
+    using ConfigDevice  = typename Config::template set_alloc_t<alloc::device>;
+#endif
+
+    auto data = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
+
+    if ( memType == AMP::Utilities::getAllocatorMemoryType<typename Config::allocator_type>() ) {
+        return this->clone();
+    } else if ( memType == AMP::Utilities::MemoryType::host ) {
+        auto dataHost = data->template migrate<ConfigHost>( backend );
+        return std::make_shared<CSRMatrix<ConfigHost>>( dataHost );
+    }
+
+#ifdef AMP_USE_DEVICE
+    if ( memType == AMP::Utilities::MemoryType::managed ) {
+        auto dataManaged = data->template migrate<ConfigManaged>( backend );
+        return std::make_shared<CSRMatrix<ConfigManaged>>( dataManaged );
+    } else if ( memType == AMP::Utilities::MemoryType::device ) {
+        auto dataDevice = data->template migrate<ConfigDevice>( backend );
+        return std::make_shared<CSRMatrix<ConfigDevice>>( dataDevice );
+    }
+#endif
+
+    AMP_ERROR( "CSRMatrix::migrate: Invalid memory type" );
+    return nullptr;
+}
+
+template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
 {
     PROFILE( "CSRMatrix<Config>::transpose" );

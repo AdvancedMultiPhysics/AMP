@@ -73,6 +73,9 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr right,
               std::function<std::vector<size_t>( size_t row )> getColumnIDs =
                   std::function<std::vector<size_t>( size_t )>() );
 
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
+              AMP::Utilities::MemoryType memType );
 
 #if defined( AMP_USE_PETSC )
 /**

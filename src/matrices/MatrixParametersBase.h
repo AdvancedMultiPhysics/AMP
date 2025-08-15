@@ -16,6 +16,8 @@ class MatrixParametersBase
 public:
     MatrixParametersBase() = delete;
 
+    MatrixParametersBase( const MatrixParametersBase &other ) = default;
+
     /** \brief Constructor, variable names set to default
      * \param[in] comm     Communicator for the matrix
      */

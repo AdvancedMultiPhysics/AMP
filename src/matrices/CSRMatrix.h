@@ -66,6 +66,20 @@ public:
      */
     shared_ptr clone() const override;
 
+    /** \brief  Return a copy of the matrix in the specified memory space
+     * \param[in] memType Memory space for the new matrix
+     * \return  The new matrix
+     * \detail This selects the operations backend from the default based on memType
+     */
+    shared_ptr migrate( AMP::Utilities::MemoryType memType ) const;
+
+    /** \brief  Return a copy of the matrix in the specified memory space
+     * \param[in] memType Memory space for the new matrix
+     * \param[in] backend Acceleration backend for operations
+     * \return  The new matrix
+     */
+    shared_ptr migrate( AMP::Utilities::MemoryType memType, AMP::Utilities::Backend backend ) const;
+
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the diagonal values

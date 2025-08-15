@@ -505,42 +505,66 @@ CSRLocalMatrixData<Config>::~CSRLocalMatrixData()
 template<typename Config>
 std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::cloneMatrixData()
 {
-    std::shared_ptr<CSRLocalMatrixData> cloneData;
+    return migrate<Config>();
+}
 
-    cloneData = std::make_shared<CSRLocalMatrixData>(
-        nullptr, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
+template<typename Config>
+template<typename ConfigOut>
+std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migrate() const
+{
+    using outdata_t = CSRLocalMatrixData<ConfigOut>;
+    static_assert( std::is_same_v<lidx_t, typename outdata_t::lidx_t> );
+    static_assert( std::is_same_v<gidx_t, typename outdata_t::gidx_t> );
+    static_assert( std::is_same_v<scalar_t, typename outdata_t::scalar_t> );
 
-    cloneData->d_is_empty = d_is_empty;
-    cloneData->d_nnz      = d_nnz;
+    using out_alloc_t = typename outdata_t::allocator_type;
+    using out_lidx_alloc_t =
+        typename std::allocator_traits<out_alloc_t>::template rebind_alloc<lidx_t>;
+    using out_gidx_alloc_t =
+        typename std::allocator_traits<out_alloc_t>::template rebind_alloc<gidx_t>;
+    using out_scalar_alloc_t =
+        typename std::allocator_traits<out_alloc_t>::template rebind_alloc<scalar_t>;
 
-    cloneData->d_cols     = nullptr;
-    cloneData->d_cols_loc = nullptr;
-    cloneData->d_coeffs   = nullptr;
+    auto memloc  = AMP::Utilities::getAllocatorMemoryType<out_alloc_t>();
+    auto outData = std::make_shared<outdata_t>(
+        nullptr, memloc, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
+
+    outData->d_is_empty = d_is_empty;
+    outData->d_nnz      = d_nnz;
+
+    outData->d_cols     = nullptr;
+    outData->d_cols_loc = nullptr;
+    outData->d_coeffs   = nullptr;
 
     if ( !d_is_empty ) {
-        cloneData->d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
-        cloneData->d_coeffs   = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        out_lidx_alloc_t lidx_alloc;
+        out_gidx_alloc_t gidx_alloc;
+        out_scalar_alloc_t scalar_alloc;
+
+        outData->d_cols_loc = sharedArrayBuilder( d_nnz, lidx_alloc );
+        outData->d_coeffs   = sharedArrayBuilder( d_nnz, scalar_alloc );
 
         AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            d_row_starts.get(), d_num_rows + 1, cloneData->d_row_starts.get() );
+            d_row_starts.get(), d_num_rows + 1, outData->d_row_starts.get() );
         AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            d_cols_loc.get(), d_nnz, cloneData->d_cols_loc.get() );
-        AMP::Utilities::Algorithms<scalar_t>::fill_n( cloneData->d_coeffs.get(), d_nnz, 0.0 );
+            d_cols_loc.get(), d_nnz, outData->d_cols_loc.get() );
+        AMP::Utilities::Algorithms<scalar_t>::copy_n(
+            d_coeffs.get(), d_nnz, outData->d_coeffs.get() );
 
         if ( d_cols.get() != nullptr ) {
-            cloneData->d_cols = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+            outData->d_cols = sharedArrayBuilder( d_nnz, gidx_alloc );
             AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                d_cols.get(), d_nnz, cloneData->d_cols.get() );
+                d_cols.get(), d_nnz, outData->d_cols.get() );
         }
         if ( d_cols_unq.get() != nullptr ) {
-            cloneData->d_ncols_unq = d_ncols_unq;
-            cloneData->d_cols_unq  = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
+            outData->d_ncols_unq = d_ncols_unq;
+            outData->d_cols_unq  = sharedArrayBuilder( d_ncols_unq, gidx_alloc );
             AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                d_cols_unq.get(), d_ncols_unq, cloneData->d_cols_unq.get() );
+                d_cols_unq.get(), d_ncols_unq, outData->d_cols_unq.get() );
         }
     }
 
-    return cloneData;
+    return outData;
 }
 
 template<typename Config>

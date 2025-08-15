@@ -4,6 +4,7 @@
 #include "AMP/matrices/AMPCSRMatrixParameters.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
+#include "AMP/matrices/CSRVisit.h"
 #include "AMP/matrices/DenseSerialMatrix.h"
 #include "AMP/matrices/GetRowHelper.h"
 #include "AMP/matrices/MatrixParameters.h"
@@ -320,6 +321,21 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
     auto memType = AMP::Utilities::getMemoryType( rightVec->getRawDataBlockAsVoid( 0 ) );
     auto accelerationBackend = AMP::Utilities::getDefaultBackend( memType );
     return createMatrix( rightVec, leftVec, accelerationBackend, type, getRow );
+}
+
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
+              AMP::Utilities::MemoryType memType )
+{
+    if ( matrix->mode() == std::numeric_limits<std::uint16_t>::max() ) {
+        AMP_ERROR( "createMatrix: migration to given memory space only supports CSRMatrix" );
+    }
+
+    auto matrix_out =
+        csrVisit( matrix, [=]( auto csr_ptr ) -> std::shared_ptr<AMP::LinearAlgebra::Matrix> {
+            return csr_ptr->migrate( memType );
+        } );
+    return matrix_out;
 }
 
 std::shared_ptr<AMP::LinearAlgebra::Matrix>

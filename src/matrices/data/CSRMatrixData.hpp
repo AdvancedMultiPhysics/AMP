@@ -37,10 +37,6 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
 
     AMPManager::incrementResource( "CSRMatrixData" );
 
-    AMP_INSIST(
-        d_memory_location != AMP::Utilities::MemoryType::device,
-        "CSRMatrixData and CSRSerialMatrixData do not support pure-device memory locations yet" );
-
     // Figure out what kind of parameters object we have
     // Note: matParams always true if ampCSRParams is by inheritance
     auto rawCSRParams = std::dynamic_pointer_cast<RawCSRMatrixParameters<Config>>( d_pParameters );
@@ -156,6 +152,34 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
     cloneData->d_offd_matrix = d_offd_matrix->cloneMatrixData();
 
     return cloneData;
+}
+
+template<typename Config>
+template<typename ConfigOut>
+std::shared_ptr<CSRMatrixData<ConfigOut>>
+CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
+{
+    using outdata_t = CSRMatrixData<ConfigOut>;
+    static_assert( std::is_same_v<lidx_t, typename outdata_t::lidx_t> );
+    static_assert( std::is_same_v<gidx_t, typename outdata_t::gidx_t> );
+    static_assert( std::is_same_v<scalar_t, typename outdata_t::scalar_t> );
+
+    auto outData = std::make_shared<outdata_t>();
+
+    outData->d_is_square              = d_is_square;
+    outData->d_first_row              = d_first_row;
+    outData->d_last_row               = d_last_row;
+    outData->d_first_col              = d_first_col;
+    outData->d_last_col               = d_last_col;
+    outData->d_leftDOFManager         = d_leftDOFManager;
+    outData->d_rightDOFManager        = d_rightDOFManager;
+    outData->d_pParameters            = std::make_shared<MatrixParametersBase>( *d_pParameters );
+    outData->d_pParameters->d_backend = backend;
+
+    outData->d_diag_matrix = d_diag_matrix->template migrate<ConfigOut>();
+    outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
+
+    return outData;
 }
 
 template<typename Config>
