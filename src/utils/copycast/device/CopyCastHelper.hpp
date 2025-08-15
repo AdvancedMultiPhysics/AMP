@@ -19,7 +19,7 @@ namespace AMP::Utilities {
 
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::HostAllocator<void>> {
-    void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
+    void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
         auto check_overflow = [] __host__ __device__( T1 x ) {
@@ -36,7 +36,7 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::HostAllocator<v
 
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::ManagedAllocator<void>> {
-    void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
+    void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
         auto check_overflow = [] __host__ __device__( T1 x ) {
@@ -53,7 +53,7 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::ManagedAllocato
 
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::DeviceAllocator<void>> {
-    void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
+    void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
         auto check_overflow = [] __host__ __device__( T1 x ) {

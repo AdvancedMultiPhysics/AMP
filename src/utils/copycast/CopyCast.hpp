@@ -32,7 +32,7 @@ namespace AMP::Utilities {
  *                        It is assumed that vec_out is properly allocated
  */
 template<typename T1, typename T2, AMP::Utilities::Backend backend, typename MemoryType>
-void copyCast( size_t len, const T1 *vec_in, T2 *vec_out )
+void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out )
 {
     AMP_DEBUG_ASSERT( getMemoryType( vec_in ) == getMemoryType( vec_out ) );
 
@@ -47,7 +47,7 @@ void copyCast( size_t len, const T1 *vec_in, T2 *vec_out )
  *                        It is assumed that vec_out is properly allocated
  */
 template<typename T1, typename T2, AMP::Utilities::Backend backend>
-void copyCast( size_t len, const T1 *vec_in, T2 *vec_out )
+void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out )
 {
     AMP_DEBUG_ASSERT( getMemoryType( vec_in ) == getMemoryType( vec_out ) );
     if ( ( getMemoryType( vec_in ) == AMP::Utilities::MemoryType::host ) ||

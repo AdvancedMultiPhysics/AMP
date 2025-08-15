@@ -8,6 +8,46 @@
 
 namespace AMP::Utilities {
 
+ExecutionSpace getDefaultExecutionSpace( const MemoryType memory_location )
+{
+    if ( memory_location == MemoryType::unregistered || memory_location == MemoryType::host ) {
+        return ExecutionSpace::cpu;
+    } else if ( memory_location == MemoryType::managed || memory_location == MemoryType::device ) {
+        return ExecutionSpace::device;
+    }
+    return ExecutionSpace::cpu;
+}
+
+std::string_view getString( const ExecutionSpace exec_space )
+{
+    if ( exec_space == ExecutionSpace::cpu ) {
+        return "cpu";
+    } else if ( exec_space == ExecutionSpace::device ) {
+        return "device";
+    }
+
+    AMP_ERROR( "Unknown exec_space" );
+}
+
+
+ExecutionSpace executionSpaceFromString( const std::string_view name )
+{
+    std::string lcname( name );
+    std::transform( lcname.begin(), lcname.end(), lcname.begin(), []( unsigned char c ) {
+        return std::tolower( c );
+    } );
+
+    if ( lcname == "cpu" ) {
+        return ExecutionSpace::cpu;
+    } else if ( name == "device" ) {
+#ifdef AMP_USE_DEVICE
+        return ExecutionSpace::device;
+#else
+        AMP_ERROR( "HIP or CUDA need to be loaded to be able to use device exec_space." );
+#endif
+    }
+    AMP_ERROR( "Unknown execution space" );
+}
 
 Backend getDefaultBackend( const MemoryType memory_location )
 {
@@ -23,7 +63,7 @@ Backend getDefaultBackend( const MemoryType memory_location )
     return Backend::Serial;
 }
 
-std::string getString( const Backend backend )
+std::string_view getString( const Backend backend )
 {
     if ( backend == Backend::Serial ) {
         return "Serial";
@@ -43,16 +83,16 @@ std::string getString( const Backend backend )
     AMP_ERROR( "Unknown backend" );
 }
 
-Backend backendFromString( const std::string &name )
+Backend backendFromString( const std::string_view name )
 {
-    auto lcname( name );
+    std::string lcname( name );
     std::transform( lcname.begin(), lcname.end(), lcname.begin(), []( unsigned char c ) {
         return std::tolower( c );
     } );
 
     if ( lcname == "serial" ) {
         return Backend::Serial;
-    } else if ( name == "hip_cuda" ) {
+    } else if ( lcname == "hip_cuda" ) {
 #ifdef AMP_USE_DEVICE
         return Backend::Hip_Cuda;
 #else

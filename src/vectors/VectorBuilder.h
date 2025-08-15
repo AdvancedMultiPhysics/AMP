@@ -83,6 +83,17 @@ AMP::LinearAlgebra::Vector::shared_ptr
 createVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
               AMP::Utilities::MemoryType memType );
 
+
+/**
+ * \brief  This function will create a vector from a vector
+ * \details  This function is responsible for creating vectors from an existing vector.
+ * \param[in] vector        Vector we want to mimic
+ * \param[in] memoryType    Memory space in which to create vector
+ */
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vector,
+              AMP::Utilities::MemoryType memType );
+
 /**
  * \brief  Create a vector from an arbitrary PETSc Vec
  * \details  This function creates a vector from an arbitrary PETSc Vec

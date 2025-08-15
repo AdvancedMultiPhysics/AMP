@@ -110,22 +110,10 @@ void VectorOperationsDevice<TYPE>::setRandomValues( VectorData &x )
     // Default to VectorOperationsDefault (on cpu)
     getDefaultOps()->setRandomValues( x );
 }
-
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::copy( const VectorData &x, VectorData &y )
 {
-    if ( checkData<TYPE>( x, y ) ) {
-        auto ydata = y.getRawDataBlock<TYPE>( 0 );
-        auto xdata = x.getRawDataBlock<TYPE>( 0 );
-        auto N     = y.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::copy( N, xdata, ydata );
-        deviceSynchronize();
-        y.copyGhostValues( x );
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
-    } else {
-        // Default to VectorOperationsDefault (on cpu)
-        getDefaultOps()->copy( x, y );
-    }
+    getDefaultOps()->copy( x, y );
 }
 
 template<typename TYPE>

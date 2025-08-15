@@ -28,24 +28,30 @@
 
 size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
                                  std::string type,
-                                 std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+                                 std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                                 const std::string &accelerationBackend,
+                                 const std::string &memoryLocation )
 {
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef AMP_USE_DEVICE
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-#else
-    auto inVec     = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec    = AMP::LinearAlgebra::createVector( dofManager, outVar );
-#endif
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
+
+    if ( memoryLocation == "host" ) {
+        inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
+        outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    } else {
+        AMP_ASSERT( memoryLocation == "managed" );
+        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+        inVec        = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
+        outVec       = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
+    }
 
     // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+    auto matrix = AMP::LinearAlgebra::createMatrix(
+        inVec, outVec, AMP::Utilities::backendFromString( accelerationBackend ), type );
     if ( matrix ) {
         ut->passes( type + ": Able to create a square matrix" );
     } else {
@@ -139,7 +145,21 @@ size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
     auto scalarDOFs =
         AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Vertex, 1, 1 );
 
-    return matTransposeTestWithDOFs( ut, "CSRMatrix", scalarDOFs );
+    std::vector<std::pair<std::string, std::string>> backendsAndMemory;
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef USE_OPENMP
+    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+#endif
+#if defined( AMP_USE_KOKKOS )
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    #ifdef AMP_USE_DEVICE
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    #endif
+#endif
+    size_t nGlobal = 0;
+    for ( auto &[backend, memory] : backendsAndMemory )
+        nGlobal += matTransposeTestWithDOFs( ut, "CSRMatrix", scalarDOFs, backend, memory );
+    return nGlobal;
 }
 
 int main( int argc, char *argv[] )

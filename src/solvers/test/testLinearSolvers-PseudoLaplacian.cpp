@@ -63,11 +63,9 @@ void linearThermalTest( AMP::UnitTest *ut,
         inVec  = AMP::LinearAlgebra::createVector( scalarDOFs, inVar );
         outVec = AMP::LinearAlgebra::createVector( scalarDOFs, outVar );
     } else {
-        AMP_ASSERT( memoryLocation == "managed" );
-        inVec = AMP::LinearAlgebra::createVector(
-            scalarDOFs, inVar, true, AMP::Utilities::MemoryType::managed );
-        outVec = AMP::LinearAlgebra::createVector(
-            scalarDOFs, outVar, true, AMP::Utilities::MemoryType::managed );
+        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+        inVec        = AMP::LinearAlgebra::createVector( scalarDOFs, inVar, true, mem_loc );
+        outVec       = AMP::LinearAlgebra::createVector( scalarDOFs, outVar, true, mem_loc );
     }
 
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
@@ -87,6 +85,8 @@ void linearThermalTest( AMP::UnitTest *ut,
     linearOperator->setMatrix( matrix );
     linearOperator->setVariables( inVar, outVar );
 
+    auto solver_db = input_db->getDatabase( "LinearSolver" );
+    solver_db->putScalar( "MemoryLocation", memoryLocation );
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, linearOperator );
 
@@ -148,10 +148,12 @@ int main( int argc, char *argv[] )
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    //    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
 
     for ( auto &file : files ) {

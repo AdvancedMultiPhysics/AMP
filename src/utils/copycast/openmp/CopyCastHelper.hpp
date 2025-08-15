@@ -19,7 +19,7 @@ namespace AMP::Utilities {
  */
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::OpenMP, AMP::HostAllocator<void>> {
-    static void apply( size_t len, const T1 *vec_in, T2 *vec_out )
+    static void apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
         int err = 0;

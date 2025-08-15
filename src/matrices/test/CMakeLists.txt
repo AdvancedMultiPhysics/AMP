@@ -29,9 +29,12 @@ ADD_AMP_TEST( test_getRow input_AMP_mesh_zoo_3D )
 ADD_AMP_TEST( test_getRow input_AMP_mesh_zoo_3D PROCS 4 )
 IF ( USE_DEVICE )
     SET_DEVICE_COMPILER( testMatCopyCast )
-    ADD_AMP_TEST_1_2_4( testCompareCSRMatOps GPU )
+IF ( USE_KOKKOS )
     SET_DEVICE_COMPILER( testCompareCSRMatOps )
+    ADD_AMP_TEST_1_2_4( testCompareCSRMatOps GPU )
 ENDIF()
+ENDIF()
+
 IF( USE_LIBMESH AND AMP_DATA )
     ADD_AMP_TEST_1_2_4( testMatCreate )
     # This fails for PETSc at present due to a missing interface to getvecs

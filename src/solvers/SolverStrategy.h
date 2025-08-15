@@ -3,6 +3,8 @@
 
 #include "AMP/operators/Operator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
+#include "AMP/utils/Backend.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/Vector.h"
 
 #include <memory>
@@ -169,10 +171,7 @@ public:
      * Register the operator that the solver will use during solves
      * @param [in] op shared pointer to operator \f$A()\f$ for equation \f$A(u) = f\f$
      */
-    virtual void registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
-    {
-        d_pOperator = op;
-    }
+    virtual void registerOperator( std::shared_ptr<AMP::Operator::Operator> op );
 
     /**
      * \brief  Registers a writer with the solver
@@ -200,7 +199,7 @@ public:
     /**
      * Return a shared pointer to the operator registered with the solver.
      */
-    virtual std::shared_ptr<AMP::Operator::Operator> getOperator( void ) { return d_pOperator; }
+    virtual std::shared_ptr<AMP::Operator::Operator> getOperator( void );
 
     AMP::Scalar getAbsoluteTolerance() const { return ( d_dAbsoluteTolerance ); }
 
@@ -263,6 +262,9 @@ public:
     std::shared_ptr<AMP::LinearAlgebra::Vector> getSolutionScaling() { return d_pSolutionScaling; }
     std::shared_ptr<AMP::LinearAlgebra::Vector> getFunctionScaling() { return d_pFunctionScaling; }
 
+    AMP::Utilities::ExecutionSpace getExecutionSpace() const { return d_exec_space; }
+    void setExecutionSpace( AMP::Utilities::ExecutionSpace space ) { d_exec_space = space; }
+
 protected:
     void getFromInput( std::shared_ptr<AMP::Database> db );
     virtual bool checkStoppingCriteria( AMP::Scalar res_norm, bool check_iters = true );
@@ -313,6 +315,11 @@ protected:
 
     std::shared_ptr<AMP::IO::Writer> d_writer = nullptr;
 
+    //! execution space for the solver
+    AMP::Utilities::ExecutionSpace d_exec_space = AMP::Utilities::ExecutionSpace::unspecified;
+
+    //! memory storage address space
+    AMP::Utilities::MemoryType d_memory_location = AMP::Utilities::MemoryType::none;
 
 private:
 };

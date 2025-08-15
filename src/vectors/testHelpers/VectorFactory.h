@@ -6,7 +6,6 @@
 #include "AMP/vectors/MultiVariable.h"
 #include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/Variable.h"
-#include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/VectorBuilder.hpp"
 #include "AMP/vectors/testHelpers/VectorTests.h"
 

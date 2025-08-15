@@ -29,7 +29,7 @@ typedef Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> dev_range_policy;
  */
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::HostAllocator<void>> {
-    void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
+    void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
         int err = 0;
@@ -54,7 +54,7 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::HostAllocator<voi
 
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::ManagedAllocator<void>> {
-    void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
+    void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
     #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
         int err = 0;
@@ -78,7 +78,7 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::ManagedAllocator<
 
 template<typename T1, typename T2>
 struct copyCast_<T1, T2, AMP::Utilities::Backend::Kokkos, AMP::DeviceAllocator<void>> {
-    void static apply( size_t len, const T1 *vec_in, T2 *vec_out )
+    void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
     #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
         int err = 0;

@@ -5,11 +5,17 @@
 #include "AMP/utils/Memory.h"
 
 #include <algorithm>
-#include <string>
+#include <string_view>
 
 
 namespace AMP::Utilities {
 
+// specifies where code should be executed
+enum class ExecutionSpace : int8_t { unspecified, cpu, device };
+
+ExecutionSpace getDefaultExecutionSpace( const MemoryType memory_location );
+std::string_view getString( const ExecutionSpace exec_space );
+ExecutionSpace executionSpaceFromString( const std::string_view name );
 
 //! Enum to store the backend used for gpu acceleration
 enum class Backend : int8_t {
@@ -24,11 +30,8 @@ enum class Backend : int8_t {
 
 
 Backend getDefaultBackend( const MemoryType memory_location );
-
-std::string getString( const Backend backend );
-
-Backend backendFromString( const std::string &name );
-
+std::string_view getString( const Backend backend );
+Backend backendFromString( const std::string_view name );
 
 } // namespace AMP::Utilities
 

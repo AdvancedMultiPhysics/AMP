@@ -8,6 +8,7 @@
 #ifndef AMP_USE_DEVICE
     #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
     #define deviceMemset( ... ) AMP_ERROR( "Device memset without device" )
+    #define deviceSynchronize() AMP_ERROR( "Device memset without device" )
 #endif
 
 
@@ -47,6 +48,8 @@ std::string_view getString( MemoryType type )
         return "device";
     else if ( type == MemoryType::managed )
         return "managed";
+    else if ( type == MemoryType::none )
+        return "none";
     else
         AMP_ERROR( "Unknown pointer type" );
 }
@@ -104,10 +107,13 @@ void memcpy( void *dst, const void *src, std::size_t count )
         std::memcpy( dst, src, count );
     } else if ( op == MemoryDirection::DEVICE_TO_HOST ) {
         deviceMemcpy( dst, src, count, deviceMemcpyDeviceToHost );
+        deviceSynchronize();
     } else if ( op == MemoryDirection::HOST_TO_DEVICE ) {
         deviceMemcpy( dst, src, count, deviceMemcpyHostToDevice );
+        deviceSynchronize();
     } else {
         deviceMemcpy( dst, src, count, deviceMemcpyDeviceToDevice );
+        deviceSynchronize(); // redundant now, but needed with streams
     }
 }
 void memset( void *dst, int ch, std::size_t count )
@@ -164,6 +170,7 @@ void copy( size_t N, const T1 *src, T2 *dst )
         }
     }
 }
+template void copy<size_t, size_t>( size_t N, const size_t *, size_t * );
 template void copy<float, float>( size_t N, const float *, float * );
 template void copy<double, double>( size_t N, const double *, double * );
 template void copy<float, double>( size_t N, const float *, double * );

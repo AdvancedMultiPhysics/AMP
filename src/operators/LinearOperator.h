@@ -45,7 +45,7 @@ public:
     /**
      * @return The matrix representation of this linear operator.
      */
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> getMatrix();
+    virtual std::shared_ptr<AMP::LinearAlgebra::Matrix> getMatrix();
 
     /**
      * Copies the shared pointer for the matrix representation of this linear operator.

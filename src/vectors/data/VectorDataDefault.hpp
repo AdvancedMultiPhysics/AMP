@@ -54,8 +54,7 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
     this->d_globalSize = globalSize;
     this->d_localStart = start;
     this->d_data       = d_alloc.allocate( localSize );
-    for ( size_t i = 0; i < localSize; ++i )
-        new ( this->d_data + i ) TYPE();
+    AMP::Utilities::memset( this->d_data, 0, localSize * sizeof( TYPE ) );
 }
 template<typename TYPE, class Allocator>
 VectorDataDefault<TYPE, Allocator>::~VectorDataDefault()
