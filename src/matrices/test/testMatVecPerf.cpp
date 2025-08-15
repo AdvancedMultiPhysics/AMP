@@ -38,21 +38,27 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
                            std::string type,
                            std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                            bool testTranspose,
-                           std::string accelerationBackend )
+                           const std::string &accelerationBackend,
+                           const std::string &memoryLocation )
 {
+    AMP::pout << "matVecTestWithDOFs with " << type << ", backend " << accelerationBackend
+              << ", memory " << memoryLocation << std::endl;
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef AMP_USE_DEVICE
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-#else
-    auto inVec     = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec    = AMP::LinearAlgebra::createVector( dofManager, outVar );
-#endif
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
+
+    if ( memoryLocation == "host" ) {
+        inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
+        outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    } else {
+        AMP_ASSERT( memoryLocation == "managed" );
+        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+        inVec        = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
+        outVec       = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
+    }
 
     // Create the matrix
     auto matrix = AMP::LinearAlgebra::createMatrix(
@@ -64,7 +70,11 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     }
 
     fillWithPseudoLaplacian( matrix, dofManager );
+
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+
+    //    AMP::pout << "Matrix after makeConsistent" << std::endl;
+    //    AMP::pout << *matrix << std::endl;
 
     size_t nGlobalRows = matrix->numGlobalRows();
     size_t nLocalRows  = matrix->numLocalRows();
@@ -104,7 +114,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     if ( testTranspose && NUM_PRODUCTS_TRANS ) {
         // Repeat test with transpose multiply (Laplacian is symmetric)
         y->setToScalar( 1.0 );
-        y->makeConsistent();
+        y->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         x->zero();
         for ( int nProd = 0; nProd < NUM_PRODUCTS_TRANS; ++nProd ) {
             matrix->multTranspose( y, x );
@@ -129,7 +139,8 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
 size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
 {
     std::string log_file = "output_testMatVecPerf";
-    AMP::logOnlyNodeZero( log_file );
+    //    AMP::logOnlyNodeZero( log_file );
+    AMP::logAllNodes( log_file );
 
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( input_file );
@@ -162,17 +173,32 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
         AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Vertex, 1, 1 );
 
     // Test on defined matrix types
-#ifdef AMP_USE_TRILINOS
-    matVecTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true, "serial" );
+#if defined( AMP_USE_TRILINOS )
+    matVecTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true, "serial", "host" );
 #endif
-#ifdef AMP_USE_PETSC
-    matVecTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, true, "serial" );
+#if defined( AMP_USE_PETSC )
+    matVecTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, true, "serial", "host" );
 #endif
+
+    std::vector<std::pair<std::string, std::string>> backendsAndMemory;
+    //    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef USE_OPENMP
+    //    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+#endif
+#if defined( AMP_USE_KOKKOS )
+    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    #ifdef AMP_USE_DEVICE
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    #endif
+#endif
+#ifdef AMP_USE_DEVICE
+    //    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+#endif
+
     size_t nGlobal = 0;
-    for ( auto &backend : backends ) {
-        nGlobal = matVecTestWithDOFs(
-            ut, "CSRMatrix", scalarDOFs, backend == "hip_cuda" ? false : true, backend );
-    }
+    for ( auto &[backend, memory] : backendsAndMemory )
+        nGlobal += matVecTestWithDOFs(
+            ut, "CSRMatrix", scalarDOFs, backend == "hip_cuda" ? false : true, backend, memory );
     return nGlobal;
 }
 

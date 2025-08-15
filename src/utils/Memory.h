@@ -42,7 +42,6 @@ void zero( void *dest, std::size_t count );
 template<class T1, class T2>
 void copy( size_t N, const T1 *src, T2 *dst );
 
-
 } // namespace AMP::Utilities
 
 

@@ -50,7 +50,6 @@ void HypreBiCGSTABSolver::setupHypreSolver(
 
     HYPRE_ParCSRMatrix parcsr_A;
     HYPRE_IJMatrixGetObject( d_ijMatrix, (void **) &parcsr_A );
-    hypre_ParCSRMatrixMigrate( parcsr_A, d_memory_location );
 
     auto op = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
     AMP_ASSERT( op );

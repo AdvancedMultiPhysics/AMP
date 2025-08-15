@@ -43,7 +43,6 @@ void BoomerAMGSolver::setupBoomerAMG()
     AMP_ASSERT( d_bMatrixInitialized );
     HYPRE_ParCSRMatrix parcsr_A;
     HYPRE_IJMatrixGetObject( d_ijMatrix, (void **) &parcsr_A );
-    hypre_ParCSRMatrixMigrate( parcsr_A, d_memory_location );
     PROFILE( "BoomerAMGSolver::BoomerAMGSolver(setup)" );
     HYPRE_BoomerAMGSetup( d_solver, parcsr_A, nullptr, nullptr );
 }

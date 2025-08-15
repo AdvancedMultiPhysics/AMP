@@ -131,6 +131,9 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::multTranspose(
         d_localops_diag->multTranspose( inDataBlock, diagMatrix, outDataBlock );
     }
 
+    // present in default ops, why not here?
+    //    out->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsKokkos::multTranspose (ghost)" );
 

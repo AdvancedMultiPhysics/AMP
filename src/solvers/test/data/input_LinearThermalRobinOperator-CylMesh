@@ -33,12 +33,12 @@ NeutronicsOperator{
   timeSteps          = 1, 10000.
   useFixedValue      = TRUE
   fixedValues        = 1.0, 2.0
-  MemoryLocation="managed"
+//  MemoryLocation="managed"
 }
 
 DiffusionBVPOperator {
   name="LinearBVPOperator"
-  MemoryLocation="managed"
+//  MemoryLocation="managed"
   VolumeOperator = "DiffusionLinearFEOperator1"
   BoundaryOperator = "ColumnBoundaryOperator1"
 }
@@ -99,7 +99,7 @@ DirichletMatrixCorrection{
 
 VolumeIntegralOperator{
   name="VolumeIntegralOperator"
-  MemoryLocation="managed"
+//  MemoryLocation="managed"
   InputVariableType = "IntegrationPointScalar"
   Number_Active_Variables = 1
   Number_Auxillary_Variables = 0

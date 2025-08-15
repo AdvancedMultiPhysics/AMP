@@ -13,15 +13,19 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+#define hostDeviceId cudaCpuDeviceId
+
 #define deviceMemcpyHostToDevice cudaMemcpyHostToDevice
 #define deviceMemcpyDeviceToHost cudaMemcpyDeviceToHost
 #define deviceMemcpyDeviceToDevice cudaMemcpyDeviceToDevice
 
+#define deviceId( ... ) checkCudaErrors( cudaGetDevice( __VA_ARGS__ ) )
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
 #define deviceMalloc( ... ) checkCudaErrors( cudaMalloc( __VA_ARGS__ ) )
 #define deviceMemcpy( ... ) checkCudaErrors( cudaMemcpy( __VA_ARGS__ ) )
 #define deviceMemset( ... ) checkCudaErrors( cudaMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkCudaErrors( cudaFree( __VA_ARGS__ ) )
+#define deviceMemPrefetchAsync( ... ) checkCudaErrors( cudaMemPrefetchAsync( __VA_ARGS__ ) )
 
 
 #ifndef EXIT_WAIVED

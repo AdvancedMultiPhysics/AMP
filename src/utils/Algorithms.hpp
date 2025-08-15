@@ -27,14 +27,16 @@ namespace Utilities {
 template<typename TYPE>
 void Algorithms<TYPE>::fill_n( TYPE *x, const size_t N, const TYPE alpha )
 {
-    if ( getMemoryType( x ) < MemoryType::device ) {
-        std::fill( x, x + N, alpha );
-    } else {
+    if ( N > 0 ) {
+        if ( getMemoryType( x ) < MemoryType::managed ) {
+            std::fill( x, x + N, alpha );
+        } else {
 #ifdef AMP_USE_DEVICE
-        thrust::fill_n( thrust::device, x, N, alpha );
+            thrust::fill_n( thrust::device, x, N, alpha );
 #else
-        AMP_ERROR( "Invalid memory type" );
+            AMP_ERROR( "Invalid memory type" );
 #endif
+        }
     }
 }
 
@@ -46,9 +48,9 @@ void Algorithms<TYPE>::copy_n( const TYPE *x, const size_t N, TYPE *y )
 }
 
 template<typename TYPE>
-void Algorithms<TYPE>::inclusive_scan( TYPE *x, const size_t N, TYPE *y )
+void Algorithms<TYPE>::inclusive_scan( const TYPE *x, const size_t N, TYPE *y )
 {
-    if ( getMemoryType( x ) < MemoryType::device ) {
+    if ( getMemoryType( x ) < MemoryType::managed ) {
         std::inclusive_scan( x, x + N, y );
     } else {
 #ifdef AMP_USE_DEVICE
@@ -60,9 +62,9 @@ void Algorithms<TYPE>::inclusive_scan( TYPE *x, const size_t N, TYPE *y )
 }
 
 template<typename TYPE>
-void Algorithms<TYPE>::exclusive_scan( TYPE *x, const size_t N, TYPE *y, TYPE alpha )
+void Algorithms<TYPE>::exclusive_scan( const TYPE *x, const size_t N, TYPE *y, TYPE alpha )
 {
-    if ( getMemoryType( x ) < MemoryType::device ) {
+    if ( getMemoryType( x ) < MemoryType::managed ) {
         std::exclusive_scan( x, x + N, y, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
@@ -74,9 +76,9 @@ void Algorithms<TYPE>::exclusive_scan( TYPE *x, const size_t N, TYPE *y, TYPE al
 }
 
 template<typename TYPE>
-TYPE Algorithms<TYPE>::max_element( TYPE *x, const size_t N )
+TYPE Algorithms<TYPE>::max_element( const TYPE *x, const size_t N )
 {
-    if ( getMemoryType( x ) < MemoryType::device ) {
+    if ( getMemoryType( x ) < MemoryType::managed ) {
         return *std::max_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
@@ -89,9 +91,9 @@ TYPE Algorithms<TYPE>::max_element( TYPE *x, const size_t N )
 }
 
 template<typename TYPE>
-TYPE Algorithms<TYPE>::accumulate( TYPE *x, const size_t N, TYPE alpha )
+TYPE Algorithms<TYPE>::accumulate( const TYPE *x, const size_t N, TYPE alpha )
 {
-    if ( getMemoryType( x ) < MemoryType::device ) {
+    if ( getMemoryType( x ) < MemoryType::managed ) {
         return std::accumulate( x, x + N, alpha );
     } else {
 #ifdef AMP_USE_DEVICE

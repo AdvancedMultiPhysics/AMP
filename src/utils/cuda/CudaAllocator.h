@@ -50,7 +50,9 @@ public:
     {
         T *ptr;
         auto err = cudaMallocManaged( &ptr, n * sizeof( T ), cudaMemAttachGlobal );
+        //        auto err = cudaMalloc( &ptr, n * sizeof( T ) );
         checkCudaErrors( err );
+        checkCudaErrors( cudaMemset( ptr, 0, n ) );
         return ptr;
     }
 

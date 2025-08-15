@@ -1,6 +1,8 @@
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/DiagonalSolver.h"
 #include "AMP/solvers/SolverFactory.h"
+#include "AMP/vectors/VectorBuilder.h"
+
 #include "ProfilerApp.h"
 
 namespace AMP::Solver {
@@ -30,7 +32,14 @@ void DiagonalSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operato
         AMP_ASSERT( linearOp );
         auto matrix        = linearOp->getMatrix();
         d_pDiagonalInverse = matrix->extractDiagonal();
+        if ( d_memory_location != d_pDiagonalInverse->getMemoryLocation() ) {
+            auto diag = AMP::LinearAlgebra::createVector( d_pDiagonalInverse, d_memory_location );
+            diag->copyVector( d_pDiagonalInverse );
+            d_pDiagonalInverse = diag;
+        }
         AMP_ASSERT( d_pDiagonalInverse );
+        AMP_ASSERT( d_memory_location == d_pDiagonalInverse->getMemoryLocation() );
+
         d_pDiagonalInverse->reciprocal( *d_pDiagonalInverse );
     }
 }

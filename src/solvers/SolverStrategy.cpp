@@ -1,4 +1,8 @@
 #include "AMP/solvers/SolverStrategy.h"
+#include "AMP/AMP_TPLs.h"
+#include "AMP/operators/MemorySpaceMigrationLinearOperator.h"
+#include "AMP/operators/MemorySpaceMigrationOperator.h"
+#include "AMP/operators/OperatorParameters.h"
 #include "AMP/utils/Utilities.h"
 
 #include <cmath>
@@ -27,9 +31,9 @@ SolverStrategy::SolverStrategy( std::shared_ptr<const SolverStrategyParameters> 
 {
     AMP_INSIST( parameters, "NULL SolverStrategyParameters object" );
     SolverStrategy::d_iInstanceId++;
-    d_pOperator     = parameters->d_pOperator;
-    d_pNestedSolver = parameters->d_pNestedSolver;
     SolverStrategy::getFromInput( parameters->d_db );
+    d_pNestedSolver = parameters->d_pNestedSolver;
+    SolverStrategy::registerOperator( parameters->d_pOperator );
 }
 
 
@@ -51,6 +55,14 @@ void SolverStrategy::getFromInput( std::shared_ptr<AMP::Database> db )
     d_dAbsoluteTolerance   = db->getWithDefault<double>( "absolute_tolerance", 1.0e-14 );
     d_dRelativeTolerance   = db->getWithDefault<double>( "relative_tolerance", 1.0e-09 );
     d_bComputeResidual     = db->getWithDefault<bool>( "compute_residual", false );
+    if ( db->keyExists( "execution_space" ) ) {
+        d_exec_space = AMP::Utilities::executionSpaceFromString(
+            db->getScalar<std::string>( "execution_space" ) );
+    }
+    if ( db->keyExists( "MemoryLocation" ) ) {
+        d_memory_location = AMP::Utilities::memoryLocationFromString(
+            db->getScalar<std::string>( "MemoryLocation" ) );
+    }
 }
 
 void SolverStrategy::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
@@ -58,10 +70,45 @@ void SolverStrategy::initialize( std::shared_ptr<const SolverStrategyParameters>
     AMP_INSIST( parameters, "SolverStrategyParameters object cannot be NULL" );
 }
 
+std::shared_ptr<AMP::Operator::Operator> SolverStrategy::getOperator( void ) { return d_pOperator; }
 
 /****************************************************************
- * Reset                                                         *
+ * register/reset                                                *
  ****************************************************************/
+void SolverStrategy::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
+{
+    if ( op ) {
+
+        // attempt to set to memory location from operator
+        if ( d_memory_location == AMP::Utilities::MemoryType::none ) {
+            d_memory_location = op->getMemoryLocation();
+        }
+
+        if ( d_exec_space == AMP::Utilities::ExecutionSpace::unspecified )
+            d_exec_space = AMP::Utilities::getDefaultExecutionSpace( d_memory_location );
+
+        if ( d_memory_location == op->getMemoryLocation() ) {
+            d_pOperator = op;
+        } else {
+            // this is experimental at present
+            // construct an adaptor based on memory address space
+            auto opdb = std::make_shared<AMP::Database>( "MemorySpaceOperator" );
+            std::string mem_str( AMP::Utilities::getString( d_memory_location ) );
+            opdb->putScalar<std::string>( "MemoryLocation", mem_str );
+            auto opParams         = std::make_shared<AMP::Operator::OperatorParameters>( opdb );
+            opParams->d_pOperator = op;
+
+            auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( op );
+            if ( linearOp )
+                d_pOperator =
+                    std::make_shared<AMP::Operator::MemorySpaceMigrationLinearOperator>( opParams );
+            else
+                d_pOperator =
+                    std::make_shared<AMP::Operator::MemorySpaceMigrationOperator>( opParams );
+        }
+    }
+}
+
 void SolverStrategy::resetOperator(
     std::shared_ptr<const AMP::Operator::OperatorParameters> params )
 {

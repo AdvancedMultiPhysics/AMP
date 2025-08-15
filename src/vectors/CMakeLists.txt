@@ -9,6 +9,8 @@ ENDIF()
 IF ( USE_DEVICE )
     ADD_PACKAGE_SUBDIRECTORY( operations/device )
     SET_DEVICE_COMPILER( operations/device )
+    ADD_PACKAGE_SUBDIRECTORY( data/device )
+    SET_DEVICE_COMPILER( data/device )
 ENDIF()
 
 IF ( USE_TRILINOS )

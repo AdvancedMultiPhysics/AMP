@@ -13,6 +13,7 @@
 
 #ifdef AMP_USE_DEVICE
     #include "AMP/utils/device/GPUFunctionTable.h"
+    #include "AMP/vectors/data/device/VectorDataDevice.h"
     #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 #endif
 
@@ -128,7 +129,7 @@ std::shared_ptr<Vector> createVector( std::shared_ptr<AMP::Discretization::DOFMa
 #ifdef AMP_USE_DEVICE
         return createVector<TYPE,
                             VectorOperationsDevice<TYPE>,
-                            VectorDataDefault<TYPE, AMP::ManagedAllocator<void>>>(
+                            VectorDataDevice<TYPE, AMP::ManagedAllocator<void>>>(
             DOFs, variable, split );
 #else
         AMP_ERROR( "Creating Vector in managed memory requires HIP or CUDA support" );
@@ -137,7 +138,7 @@ std::shared_ptr<Vector> createVector( std::shared_ptr<AMP::Discretization::DOFMa
 #ifdef AMP_USE_DEVICE
         return createVector<TYPE,
                             VectorOperationsDevice<TYPE>,
-                            VectorDataDefault<TYPE, AMP::DeviceAllocator<void>>>(
+                            VectorDataDevice<TYPE, AMP::DeviceAllocator<void>>>(
             DOFs, variable, split );
 #else
         AMP_ERROR( "Creating Vector in device memory requires HIP or CUDA support" );
@@ -309,6 +310,11 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
         std::shared_ptr<Variable>,                                                           \
         std::shared_ptr<AMP::Discretization::DOFManager>,                                    \
         std::shared_ptr<CommunicationList> )
+
+#define INSTANTIATE_CREATE_VECTOR( TYPE )                                                        \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector> AMP::LinearAlgebra::createVector<TYPE>( \
+        std::shared_ptr<AMP::LinearAlgebra::Vector>, AMP::Utilities::MemoryType );
+
 #define INSTANTIATE_ARRAY_VECTOR( TYPE )                                                         \
     template std::shared_ptr<AMP::LinearAlgebra::Vector>                                         \
     AMP::LinearAlgebra::createArrayVector<TYPE>( const ArraySize &, const std::string & );       \

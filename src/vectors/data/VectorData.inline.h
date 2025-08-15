@@ -128,12 +128,12 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ 
     auto vals          = vals_;
     bool allocate_ndx  = false;
     bool allocate_vals = false;
-    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
         ndx = new size_t[N];
         AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
         allocate_ndx = true;
     }
-    if ( AMP::Utilities::getMemoryType( vals ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
         vals          = new TYPE[N];
         allocate_vals = true;
     }
@@ -186,12 +186,12 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
     auto vals          = vals_;
     bool allocate_ndx  = false;
     bool allocate_vals = false;
-    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
         ndx = new size_t[N];
         AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
         allocate_ndx = true;
     }
-    if ( AMP::Utilities::getMemoryType( vals ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
         vals = new TYPE[N];
         AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
         allocate_vals = true;
@@ -234,12 +234,12 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
     auto vals          = vals_;
     bool allocate_ndx  = false;
     bool allocate_vals = false;
-    if ( AMP::Utilities::getMemoryType( ndx ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
         ndx = new size_t[N];
         AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
         allocate_ndx = true;
     }
-    if ( AMP::Utilities::getMemoryType( vals ) == AMP::Utilities::MemoryType::device ) {
+    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
         vals = new TYPE[N];
         AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
         allocate_vals = true;

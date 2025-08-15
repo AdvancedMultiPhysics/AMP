@@ -1,17 +1,10 @@
-#ifndef included_AMP_VectorDataDefault
-#define included_AMP_VectorDataDefault
+#ifndef included_AMP_VectorDataDevice
+#define included_AMP_VectorDataDevice
 
-#include "AMP/utils/Memory.h"
-#include "AMP/utils/UtilityMacros.h"
-#include "AMP/vectors/data/GhostDataHelper.hpp"
-#include "AMP/vectors/data/VectorData.h"
+#include "AMP/vectors/data/VectorDataDefault.h"
 
 
 namespace AMP::LinearAlgebra {
-
-
-template<typename TYPE>
-class VectorDataIterator;
 
 
 /**
@@ -20,38 +13,25 @@ class VectorDataIterator;
  * the local values as a single block of data on the CPU.
  */
 template<typename TYPE = double, class Allocator = AMP::HostAllocator<void>>
-class VectorDataDefault : public GhostDataHelper<TYPE, Allocator>
+class VectorDataDevice final : public VectorDataDefault<TYPE, Allocator>
 {
 public: // Member types
     using value_type = TYPE;
     using scalarAllocator_t =
         typename std::allocator_traits<Allocator>::template rebind_alloc<TYPE>;
+    using idxAllocator_t = typename std::allocator_traits<Allocator>::template rebind_alloc<size_t>;
 
 public: // Constructors
-    VectorDataDefault( size_t start, size_t localSize, size_t globalSize );
+    VectorDataDevice( size_t start, size_t localSize, size_t globalSize );
 
-    VectorDataDefault( const VectorDataDefault & ) = delete;
+    VectorDataDevice( const VectorDataDevice & ) = delete;
 
 public: // Virtual functions
     //! Virtual destructor
-    virtual ~VectorDataDefault();
+    virtual ~VectorDataDevice();
 
     //! Get the type name
     std::string VectorDataName() const override;
-
-    /** \brief Number of blocks of contiguous data in the Vector
-     * \return Number of blocks in the Vector
-     * \details  A vector is not necessarily contiguous in memory.  This method
-     * returns the number of contiguous blocks in memory used by this vector
-     */
-    size_t numberOfDataBlocks() const override;
-
-    /** \brief Number of elements in a data block
-     * \param[in] i  particular data block
-     * \return The size of a particular block
-     */
-    size_t sizeOfDataBlock( size_t i = 0 ) const override;
-
 
     /**\brief Copy data into this vector
      *\param[in] buf  Buffer to copy from
@@ -113,71 +93,43 @@ public: // Virtual functions
                              void *vals,
                              const typeID &id ) const override;
 
-
-public: // Advanced virtual functions
-    /**\brief  A unique id for the underlying data allocation
-     *\details This is a unique id that is associated with the data
-     *   data allocation.  Views of a vector should preserve the id of
-     *   the original vector.  Vectors that are not allocated, or contain
-     *   multiple vectors (such as Multivector) should return 0.
-     *   Note: this id is not consistent across multiple processors.
-     */
-    uint64_t getDataID() const override;
-
-    /** \brief Return a pointer to a particular block of memory in the vector
-     * \param i The block to return
-     */
-    void *getRawDataBlockAsVoid( size_t i ) override;
-
-    /** \brief Return a pointer to a particular block of memory in the
-     * vector
-     * \param i        The block to return
-     */
-    const void *getRawDataBlockAsVoid( size_t i ) const override;
-
-    /** \brief Return the result of sizeof(TYPE) for the given data block
-     * \param i The block to return
-     */
-    size_t sizeofDataBlockType( size_t i ) const override;
-
-    /** \brief Return the typeid of the given block
-     * \param block    The block id to check
-     */
-    typeID getType( size_t block ) const override;
-
-    /** \brief Swap the data with another VectorData object
-     * \param rhs      The VectorData to swap with
-     */
-    void swapData( VectorData &rhs ) override;
-
     /** \brief Clone the data
      */
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 
-    /** \brief returns the memory location for data
-     */
-    AMP::Utilities::MemoryType getMemoryLocation() const override;
+public: // Functions overloaded from GhostDataHelpers and in turn VectorData
+    void fillGhosts( const Scalar & ) override;
+    bool allGhostIndices( size_t N, const size_t *ndx ) const override;
+    bool containsGlobalElement( size_t ) const override;
+    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
+    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
+    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    void
+    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
 
-public: // Non-virtual functions
-    /** \brief Access the raw element
-     * \param i        The element to return (local index)
-     */
-    TYPE &operator[]( size_t i );
-
-    /** \brief Access the raw element
-     * \param i        The element to return (local index)
-     */
-    const TYPE &operator[]( size_t i ) const;
-
+    using VectorData::addGhostValuesByGlobalID;
+    using VectorData::getGhostAddValuesByGlobalID;
+    using VectorData::getGhostValuesByGlobalID;
+    using VectorData::setGhostValuesByGlobalID;
 
 public: // Write/read restart data
     void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
     void writeRestart( int64_t ) const override;
-    VectorDataDefault( int64_t, AMP::IO::RestartManager * );
+    VectorDataDevice( int64_t, AMP::IO::RestartManager * );
 
-protected:
-    TYPE *d_data = nullptr;
-    scalarAllocator_t d_alloc;
+private:
+    void setScratchSpace( size_t N ) const;
+    std::tuple<bool, size_t *, void *> copyToScratchSpace( size_t num,
+                                                           const size_t *indices_,
+                                                           const void *vals_,
+                                                           const typeID &id ) const;
+
+    mutable idxAllocator_t d_idx_alloc;
+    mutable scalarAllocator_t d_scalar_alloc;
+
+    mutable size_t d_scratchSize   = 0;
+    mutable size_t *d_idx_scratch  = nullptr;
+    mutable TYPE *d_scalar_scratch = nullptr;
 };
 
 

@@ -1,6 +1,7 @@
 #ifndef included_AMP_GhostDataHelper_hpp
 #define included_AMP_GhostDataHelper_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/data/GhostDataHelper.h"
@@ -49,15 +50,21 @@ void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
 {
     if ( len > 0 ) {
         d_ghostSize = len;
-        // allocate space for ghost buffer
-        this->d_Ghosts = d_alloc.allocate( d_ghostSize );
-        for ( size_t i = 0; i < d_ghostSize; ++i )
-            this->d_Ghosts[i] = 0;
 
-        // allocate space for add buffer
-        this->d_AddBuffer = d_alloc.allocate( d_ghostSize );
-        for ( size_t i = 0; i < d_ghostSize; ++i )
-            this->d_AddBuffer[i] = 0;
+        // allocate space for ghost and add buffers, cache ghost id's
+        this->d_Ghosts         = d_alloc.allocate( d_ghostSize );
+        this->d_AddBuffer      = d_alloc.allocate( d_ghostSize );
+        this->d_ReceiveDOFList = d_size_t_alloc.allocate( d_ghostSize );
+
+        AMP::Utilities::Algorithms<TYPE>::fill_n(
+            this->d_Ghosts, this->d_ghostSize, static_cast<TYPE>( 0.0 ) );
+
+        AMP::Utilities::Algorithms<TYPE>::fill_n(
+            this->d_AddBuffer, this->d_ghostSize, static_cast<TYPE>( 0.0 ) );
+
+        const auto &ghostIDs = this->d_CommList->getGhostIDList();
+        AMP::Utilities::Algorithms<size_t>::copy_n(
+            ghostIDs.data(), this->d_ghostSize, this->d_ReceiveDOFList );
     }
 }
 
@@ -77,31 +84,56 @@ void GhostDataHelper<TYPE, Allocator>::deallocateBuffers()
         this->d_SendRecv = nullptr;
     }
     if ( this->d_localRemote ) {
-        this->d_int_alloc.deallocate( this->d_localRemote, this->d_numRemote );
+        this->d_size_t_alloc.deallocate( this->d_localRemote, this->d_numRemote );
         this->d_localRemote = nullptr;
+    }
+    if ( this->d_ReceiveDOFList ) {
+        this->d_size_t_alloc.deallocate( this->d_ReceiveDOFList, this->d_ghostSize );
+        this->d_ReceiveDOFList = nullptr;
     }
     this->d_ghostSize = 0;
     this->d_numRemote = 0;
+
+
+    const int size = std::max( this->d_CommList ? this->d_CommList->getComm().getSize() : 1, 1 );
+    if ( d_sendSizes ) {
+        d_int_alloc.deallocate( d_sendSizes, size );
+        d_sendSizes = nullptr;
+    }
+    if ( d_recvSizes ) {
+        d_int_alloc.deallocate( d_recvSizes, size );
+        d_recvSizes = nullptr;
+    }
+    if ( d_sendDisplacements ) {
+        d_int_alloc.deallocate( d_sendDisplacements, size );
+        d_sendDisplacements = nullptr;
+    }
+    if ( d_recvDisplacements ) {
+        d_int_alloc.deallocate( d_recvDisplacements, size );
+        d_recvDisplacements = nullptr;
+    }
 }
 
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
-    std::shared_ptr<CommunicationList> comm )
+    std::shared_ptr<CommunicationList> commList )
 {
     // Verify CommunicationList and vector sizes
-    AMP_ASSERT( comm );
+    AMP_ASSERT( commList );
     if ( d_globalSize == 0 ) {
-        d_localSize  = comm->numLocalRows();
-        d_globalSize = comm->getTotalSize();
-        d_localStart = comm->getStartGID();
+        d_localSize  = commList->numLocalRows();
+        d_globalSize = commList->getTotalSize();
+        d_localStart = commList->getStartGID();
     } else {
-        AMP_ASSERT( comm->getTotalSize() == d_globalSize );
-        AMP_ASSERT( comm->getStartGID() == d_localStart );
-        AMP_ASSERT( comm->numLocalRows() == d_localSize );
+        AMP_ASSERT( commList->getTotalSize() == d_globalSize );
+        AMP_ASSERT( commList->getStartGID() == d_localStart );
+        AMP_ASSERT( commList->numLocalRows() == d_localSize );
     }
+
+    d_CommList = commList;
+
     // deallocate any existing buffers
     deallocateBuffers();
-    d_CommList = comm;
     // reallocate buffers based on new comm list
     const auto len = d_CommList->getVectorReceiveBufferSize();
     allocateBuffers( len );
@@ -112,18 +144,38 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
         N += size;
     if ( N > 0 )
         this->d_SendRecv = d_alloc.allocate( N );
+
     // Get a list of the local dofs that are remote
-    const auto &replicatedVec = d_CommList->getReplicatedIDList();
-    d_numRemote               = replicatedVec.size();
+    auto replicatedVec = d_CommList->getReplicatedIDList();
+    d_numRemote        = replicatedVec.size();
     AMP_ASSERT( d_numRemote == N );
-    if ( N > 0 ) {
-        this->d_localRemote = d_int_alloc.allocate( N );
-    }
     for ( size_t i = 0; i < d_numRemote; ++i ) {
-        d_localRemote[i] = replicatedVec[i];
-        AMP_DEBUG_ASSERT( d_localRemote[i] >= d_localStart &&
-                          d_localRemote[i] < d_localStart + d_localSize );
-        d_localRemote[i] -= d_localStart;
+        AMP_DEBUG_ASSERT( replicatedVec[i] >= d_localStart &&
+                          replicatedVec[i] < d_localStart + d_localSize );
+        replicatedVec[i] -= d_localStart;
+    }
+
+    if ( N > 0 ) {
+        this->d_localRemote = d_size_t_alloc.allocate( N );
+        AMP::Utilities::Algorithms<size_t>::copy_n(
+            replicatedVec.data(), d_numRemote, d_localRemote );
+    }
+
+    const auto &recvSizes = d_CommList->getReceiveSizes();
+    const auto &sendDisp  = d_CommList->getSendDisp();
+    const auto &recvDisp  = d_CommList->getReceiveDisp();
+
+    // cache some comm list data used by MPI routines
+    if ( hasGhosts() ) {
+        const int size      = std::max( this->d_CommList->getComm().getSize(), 1 );
+        d_sendSizes         = d_int_alloc.allocate( size );
+        d_recvSizes         = d_int_alloc.allocate( size );
+        d_sendDisplacements = d_int_alloc.allocate( size );
+        d_recvDisplacements = d_int_alloc.allocate( size );
+        AMP::Utilities::Algorithms<int>::copy_n( sendSizes.data(), size, d_sendSizes );
+        AMP::Utilities::Algorithms<int>::copy_n( recvSizes.data(), size, d_recvSizes );
+        AMP::Utilities::Algorithms<int>::copy_n( sendDisp.data(), size, d_sendDisplacements );
+        AMP::Utilities::Algorithms<int>::copy_n( recvDisp.data(), size, d_recvDisplacements );
     }
 }
 
@@ -196,15 +248,62 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     // Pack the set buffers
     if ( d_localRemote != nullptr )
         getValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type );
+
     // Communicate ghosts (directly fill ghost buffer)
-    comm.allToAll<TYPE>( d_SendRecv,
-                         sendSizes.data(),
-                         sendDisp.data(),
-                         d_Ghosts,
-                         const_cast<int *>( recvSizes.data() ),
-                         const_cast<int *>( recvDisp.data() ),
-                         true );
+    constexpr AMP::Utilities::MemoryType allocMemType =
+        AMP::Utilities::getAllocatorMemoryType<Allocator>();
+
+    // set defaults
+    TYPE *send_recv_p = d_SendRecv;
+    TYPE *ghosts_p    = d_Ghosts;
+    int *send_sizes_p = const_cast<int *>( sendSizes.data() );
+    int *send_disp_p  = const_cast<int *>( sendDisp.data() );
+    int *recv_sizes_p = const_cast<int *>( recvSizes.data() );
+    int *recv_disp_p  = const_cast<int *>( recvDisp.data() );
+
+    if constexpr ( allocMemType == AMP::Utilities::MemoryType::managed ) {
+
+        // we could prefetch to host here when not using gpu aware mpi
+        send_sizes_p = d_sendSizes;
+        send_disp_p  = d_sendDisplacements;
+        recv_sizes_p = d_recvSizes;
+        recv_disp_p  = d_recvDisplacements;
+
+    } else if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+
+#ifdef AMP_ENABLE_GPU_AWARE_MPI
+        send_sizes_p = d_sendSizes;
+        send_disp_p  = d_sendDisplacements;
+        recv_sizes_p = d_recvSizes;
+        recv_disp_p  = d_recvDisplacements;
+#else
+        // copy into host buffers
+        d_SendRecv_h.resize( this->d_numRemote );
+        d_Ghosts_h.resize( this->d_ghostSize );
+
+        AMP::Utilities::Algorithms<TYPE>::copy_n(
+            d_SendRecv, this->d_numRemote, d_SendRecv_h.data() );
+
+        AMP::Utilities::Algorithms<TYPE>::copy_n( d_Ghosts, this->d_ghostSize, d_Ghosts_h.data() );
+
+        send_recv_p = d_SendRecv_h.data();
+        ghosts_p    = d_Ghosts_h.data();
+
+#endif
+    }
+
+    comm.allToAll<TYPE>(
+        send_recv_p, send_sizes_p, send_disp_p, ghosts_p, recv_sizes_p, recv_disp_p, true );
+
+    // we only handle the device case at present though we could prefetch to device for managed
+    // memory (TODO)
+    if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+#ifndef AMP_ENABLE_GPU_AWARE_MPI
+        AMP::Utilities::Algorithms<TYPE>::copy_n( d_Ghosts_h.data(), this->d_ghostSize, d_Ghosts );
+#endif
+    }
 }
+
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::scatter_add()
 {
@@ -218,14 +317,64 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
     const auto &comm      = d_CommList->getComm();
     const auto &sendDisp  = d_CommList->getSendDisp();
     const auto &recvDisp  = d_CommList->getReceiveDisp();
-    // Communicate add buffers (use add buffer directly)
-    comm.allToAll<TYPE>( d_AddBuffer,
-                         recvSizes.data(),
-                         recvDisp.data(),
-                         d_SendRecv,
-                         const_cast<int *>( sendSizes.data() ),
-                         const_cast<int *>( sendDisp.data() ),
-                         true );
+
+
+    // Communicate ghosts (directly fill ghost buffer)
+    constexpr AMP::Utilities::MemoryType allocMemType =
+        AMP::Utilities::getAllocatorMemoryType<Allocator>();
+
+    // set defaults
+    TYPE *send_recv_p = d_SendRecv;
+    TYPE *ghost_add_p = d_AddBuffer;
+    int *send_sizes_p = const_cast<int *>( sendSizes.data() );
+    int *send_disp_p  = const_cast<int *>( sendDisp.data() );
+    int *recv_sizes_p = const_cast<int *>( recvSizes.data() );
+    int *recv_disp_p  = const_cast<int *>( recvDisp.data() );
+
+    if constexpr ( allocMemType == AMP::Utilities::MemoryType::managed ) {
+
+        // we could prefetch to host here when not using gpu aware mpi
+        send_sizes_p = d_sendSizes;
+        send_disp_p  = d_sendDisplacements;
+        recv_sizes_p = d_recvSizes;
+        recv_disp_p  = d_recvDisplacements;
+
+    } else if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+
+#ifdef AMP_ENABLE_GPU_AWARE_MPI
+        send_sizes_p = d_sendSizes;
+        send_disp_p  = d_sendDisplacements;
+        recv_sizes_p = d_recvSizes;
+        recv_disp_p  = d_recvDisplacements;
+#else
+        // copy into host buffers
+        d_SendRecv_h.resize( this->d_numRemote );
+        d_AddBuffer_h.resize( this->d_ghostSize );
+
+        AMP::Utilities::Algorithms<TYPE>::copy_n(
+            d_SendRecv, this->d_numRemote, d_SendRecv_h.data() );
+
+        AMP::Utilities::Algorithms<TYPE>::copy_n(
+            d_AddBuffer, this->d_ghostSize, d_AddBuffer_h.data() );
+
+        send_recv_p = d_SendRecv_h.data();
+        ghost_add_p = d_AddBuffer_h.data();
+#endif
+    }
+
+    comm.allToAll<TYPE>(
+        ghost_add_p, recv_sizes_p, recv_disp_p, send_recv_p, send_sizes_p, send_disp_p, true );
+
+    // we only handle the device case at present though we could prefetch to device for managed
+    // memory (TODO)
+    if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+#ifndef AMP_ENABLE_GPU_AWARE_MPI
+
+        AMP::Utilities::Algorithms<TYPE>::copy_n(
+            d_SendRecv_h.data(), this->d_numRemote, d_SendRecv );
+#endif
+    }
+
     // Unpack the add buffers
     if ( d_localRemote != nullptr )
         addValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type );
@@ -310,7 +459,7 @@ void GhostDataHelper<TYPE, Allocator>::setGhostValuesByGlobalID( size_t N,
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *d_UpdateState != UpdateState::ADDING );
         *d_UpdateState = UpdateState::SETTING;
-        AMP_INSIST( allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<const TYPE *>( vals );
         for ( size_t i = 0; i < N; i++ ) {
             this->d_Ghosts[d_CommList->getLocalGhostID( ndx[i] )] = data[i];
@@ -328,7 +477,7 @@ void GhostDataHelper<TYPE, Allocator>::addGhostValuesByGlobalID( size_t N,
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
         *d_UpdateState = UpdateState::ADDING;
-        AMP_INSIST( allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<const TYPE *>( vals );
         for ( size_t i = 0; i < N; i++ ) {
             this->d_AddBuffer[d_CommList->getLocalGhostID( ndx[i] )] += data[i];
@@ -344,7 +493,7 @@ void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
                                                                  const typeID &id ) const
 {
     if ( id == AMP::getTypeID<TYPE>() ) {
-        AMP_INSIST( allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
         for ( size_t i = 0; i < N; i++ ) {
             size_t k = d_CommList->getLocalGhostID( ndx[i] );
@@ -361,7 +510,7 @@ void GhostDataHelper<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
                                                                     const typeID &id ) const
 {
     if ( id == AMP::getTypeID<TYPE>() ) {
-        AMP_INSIST( allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
         for ( size_t i = 0; i < N; i++ ) {
             data[i] = this->d_AddBuffer[d_CommList->getLocalGhostID( ndx[i] )];
@@ -419,12 +568,7 @@ void GhostDataHelper<TYPE, Allocator>::copyGhostValues( const VectorData &rhs )
         // No ghosts to fill, copy the consistency state from the rhs
         *d_UpdateState = rhs.getLocalUpdateStatus();
     } else if ( getGhostSize() == rhs.getGhostSize() ) {
-        // The ghosts in the src vector match the current vector
-        // Copy the ghosts from the rhs
-        auto ghostIDs = getCommunicationList()->getGhostIDList();
-        std::vector<TYPE> values( ghostIDs.size() );
-        rhs.getGhostValuesByGlobalID( ghostIDs.size(), &ghostIDs[0], values.data() );
-        this->setGhostValuesByGlobalID( ghostIDs.size(), &ghostIDs[0], values.data() );
+        rhs.getAllGhostValues( this->d_Ghosts, AMP::getTypeID<TYPE>() );
         // Copy the consistency state from the rhs
         *d_UpdateState = rhs.getLocalUpdateStatus();
     } else {

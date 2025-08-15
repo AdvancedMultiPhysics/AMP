@@ -16,6 +16,7 @@ public:
         typename std::allocator_traits<Allocator>::template rebind_alloc<TYPE>;
     using sizetAllocator_t =
         typename std::allocator_traits<Allocator>::template rebind_alloc<size_t>;
+    using intAllocator_t = typename std::allocator_traits<Allocator>::template rebind_alloc<int>;
 
     GhostDataHelper();
     GhostDataHelper( std::shared_ptr<CommunicationList> );
@@ -61,7 +62,7 @@ protected:
     void scatter_add();
     void deallocateBuffers();
     void allocateBuffers( size_t len );
-    bool allGhostIndices( size_t N, const size_t *ndx ) const;
+    virtual bool allGhostIndices( size_t N, const size_t *ndx ) const;
 
 protected:
     std::shared_ptr<CommunicationList> d_CommList = nullptr;
@@ -72,17 +73,32 @@ protected:
 
     ScalarAllocator_t d_alloc;
 
+    std::vector<TYPE> d_Ghosts_h;
+    std::vector<TYPE> d_SendRecv_h;
+    std::vector<TYPE> d_AddBuffer_h;
+
     TYPE *d_Ghosts    = nullptr;
     TYPE *d_AddBuffer = nullptr;
     //! Buffers for sending/receiving data
     TYPE *d_SendRecv = nullptr;
 
+    // cache the receive dof list from CommunicationList
+    size_t *d_ReceiveDOFList = nullptr;
+
     //! number of local ids that are remote
     size_t d_numRemote = 0;
 
-    sizetAllocator_t d_int_alloc;
+    sizetAllocator_t d_size_t_alloc;
+    intAllocator_t d_int_alloc;
+
     //! list of local ids that are remote
     size_t *d_localRemote = nullptr;
+
+    // cache various communication buffers
+    int *d_sendSizes         = nullptr;
+    int *d_recvSizes         = nullptr;
+    int *d_sendDisplacements = nullptr;
+    int *d_recvDisplacements = nullptr;
 };
 
 
