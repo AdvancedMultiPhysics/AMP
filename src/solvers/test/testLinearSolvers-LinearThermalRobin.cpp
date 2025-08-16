@@ -113,13 +113,33 @@ void linearThermalTest( AMP::UnitTest *ut,
     auto &comm     = mesh->getComm();
     auto solver_db = input_db->getDatabase( "LinearSolver" );
     solver_db->putScalar( "MemoryLocation", memoryLocation );
+    auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
 
-    auto linearSolver = AMP::Solver::Test::buildSolver(
-        "LinearSolver", input_db, comm, nullptr, diffusionOperator );
+    std::shared_ptr<AMP::Operator::LinearOperator> migratedOperator = diffusionOperator;
+
+    if ( memoryLocation != "host" ) {
+
+        auto inVar  = migratedOperator->getInputVariable();
+        auto outVar = migratedOperator->getOutputVariable();
+
+        // Create operator to wrap matrix
+        auto op_db = std::make_shared<AMP::Database>( "LinearOperator" );
+        op_db->putScalar<std::string>( "AccelerationBackend", accelerationBackend );
+        op_db->putScalar<std::string>( "MemoryLocation", memoryLocation );
+
+        auto opParams       = std::make_shared<AMP::Operator::OperatorParameters>( op_db );
+        migratedOperator    = std::make_shared<AMP::Operator::LinearOperator>( opParams );
+        auto matrix         = diffusionOperator->getMatrix();
+        auto migratedMatrix = AMP::LinearAlgebra::createMatrix( matrix, mem_loc );
+        migratedOperator->setMatrix( migratedMatrix );
+        migratedOperator->setVariables( inVar, outVar );
+    }
+
+    auto linearSolver =
+        AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, migratedOperator );
 
     auto t1 = std::chrono::high_resolution_clock::now();
 
-    auto mem_loc    = AMP::Utilities::memoryLocationFromString( memoryLocation );
     auto op_mem_loc = diffusionOperator->getMemoryLocation();
     std::shared_ptr<AMP::LinearAlgebra::Vector> u, f;
     if ( op_mem_loc != mem_loc ) {

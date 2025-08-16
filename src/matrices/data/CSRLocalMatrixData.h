@@ -153,24 +153,15 @@ public:
             return;
         }
 
-        AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                    "Copies from device to host memory not implemented yet" );
-
         colMap.resize( d_is_diag ? ( d_last_col - d_first_col ) : d_ncols_unq );
 
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            if constexpr ( std::is_same_v<idx_t, gidx_t> ) {
-                std::copy( d_cols_unq.get(), d_cols_unq.get() + d_ncols_unq, colMap.begin() );
-            } else {
-                std::transform( d_cols_unq.get(),
-                                d_cols_unq.get() + d_ncols_unq,
-                                colMap.begin(),
-                                []( gidx_t c ) -> idx_t { return c; } );
-            }
+            AMP::Utilities::copy<gidx_t, idx_t>( d_ncols_unq, d_cols_unq.get(), colMap.data() );
         }
     }
+
 
     //! Set total number of nonzeros and allocate space accordingly
     void setNNZ( lidx_t tot_nnz );
