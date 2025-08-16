@@ -171,6 +171,8 @@ void copy( size_t N, const T1 *src, T2 *dst )
     }
 }
 template void copy<size_t, size_t>( size_t N, const size_t *, size_t * );
+template void copy<long long, unsigned long>( size_t N, const long long *, unsigned long * );
+template void copy<long long, long long>( size_t N, const long long *, long long * );
 template void copy<float, float>( size_t N, const float *, float * );
 template void copy<double, double>( size_t N, const double *, double * );
 template void copy<float, double>( size_t N, const float *, double * );

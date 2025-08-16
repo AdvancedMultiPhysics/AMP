@@ -23,10 +23,11 @@ namespace AMP::Utilities {
         INSTANTIATE_CC( t1, t2, backend )
 #endif
 
-#define INSTANTIATE_TYPES( backend )                \
-    INSTANTIATE_ALLOCATOR( float, double, backend ) \
-    INSTANTIATE_ALLOCATOR( double, float, backend ) \
-    INSTANTIATE_ALLOCATOR( float, float, backend )  \
+#define INSTANTIATE_TYPES( backend )                           \
+    INSTANTIATE_ALLOCATOR( long long, unsigned long, backend ) \
+    INSTANTIATE_ALLOCATOR( float, double, backend )            \
+    INSTANTIATE_ALLOCATOR( double, float, backend )            \
+    INSTANTIATE_ALLOCATOR( float, float, backend )             \
     INSTANTIATE_ALLOCATOR( double, double, backend )
 
 INSTANTIATE_TYPES( AMP::Utilities::Backend::Serial )
