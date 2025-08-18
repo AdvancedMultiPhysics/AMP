@@ -226,6 +226,18 @@ int main( int argc, char *argv[] )
         deviceInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
 
+#ifdef AMP_USE_PETSC
+        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscCG" );
+        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscFGMRES" );
+        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscBiCGSTAB" );
+        deviceInputs.emplace_back(
+            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscCG" );
+        deviceInputs.emplace_back(
+            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscFGMRES" );
+        deviceInputs.emplace_back(
+            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscBiCGSTAB" );
+#endif
+
 #ifdef AMP_USE_HYPRE
         managedAndHostInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG" );
         managedAndHostInputs.emplace_back(
@@ -297,20 +309,6 @@ int main( int argc, char *argv[] )
             hostOnlyInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG" );
         }
-
-
-#ifdef AMP_USE_PETSC
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscCG" );
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscFGMRES" );
-        //        hostOnlyInputs.emplace_back(
-        //        "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscBiCGSTAB" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscCG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscFGMRES" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscBiCGSTAB" );
-#endif
-
 
 #ifdef AMP_USE_TRILINOS_ML
         hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML" );
