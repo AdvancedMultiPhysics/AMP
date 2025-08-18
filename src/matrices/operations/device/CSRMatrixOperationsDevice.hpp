@@ -72,14 +72,19 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
         const auto nGhosts = offdMatrix->numUniqueColumns();
         scalarAllocator_t alloc;
         scalar_t *ghosts = alloc.allocate( nGhosts );
+        auto *colMap     = offdMatrix->getColumnMap();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
-            size_t *colMap = offdMatrix->getColumnMap();
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            std::vector<size_t> colMap;
-            offdMatrix->getColumnMap( colMap );
-            in->getGhostValuesByGlobalID( nGhosts, colMap.data(), ghosts );
+            // this is inefficient and we should figure out a better approach
+            using idxAllocator_t = typename std::allocator_traits<
+                typename Config::allocator_type>::template rebind_alloc<size_t>;
+            idxAllocator_t idx_alloc;
+            size_t *idxMap = idx_alloc.allocate( nGhosts );
+            AMP::Utilities::copy( nGhosts, colMap, idxMap );
+            in->getGhostValuesByGlobalID( nGhosts, idxMap, ghosts );
+            idx_alloc.deallocate( idxMap, nGhosts );
         }
 
         CSRLocalMatrixOperationsDevice<Config>::mult( ghosts, offdMatrix, outDataBlock );

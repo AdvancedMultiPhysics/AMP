@@ -96,7 +96,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     // actually migrate if device is available
 #ifdef AMP_USE_DEVICE
     test_space( AMP::Utilities::MemoryType::managed );
-    // test_space( AMP::Utilities::MemoryType::device );
+    test_space( AMP::Utilities::MemoryType::device );
 #endif
 
 
