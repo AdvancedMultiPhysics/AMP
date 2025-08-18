@@ -1,8 +1,7 @@
 variables:
   PROJECT: AMP
   GROUP: nerd-project
-  DEVOPS_CI_REF: glongo/adding_trilinos_env_to_ci
 include:
   - project: 'xcap/oss/solvers/dev-ops/ci'
-    ref: glongo/adding_trilinos_env_to_ci
+    ref: master
     file: 'amp-darwin.yml'
