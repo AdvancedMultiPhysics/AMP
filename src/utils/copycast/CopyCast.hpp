@@ -2,9 +2,10 @@
 #define included_AMP_CopyCast_HPP_
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/Backend.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "CopyCastHelper.h"
+#include "AMP/utils/copycast/CopyCastHelper.h"
 
 
 #ifdef AMP_USE_DEVICE
@@ -35,7 +36,6 @@ template<typename T1, typename T2, AMP::Utilities::Backend backend, typename Mem
 void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out )
 {
     AMP_DEBUG_ASSERT( getMemoryType( vec_in ) == getMemoryType( vec_out ) );
-
     copyCast_<T1, T2, backend, MemoryType>::apply( len, vec_in, vec_out );
 }
 
