@@ -4,7 +4,7 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "CopyCastHelper.h"
+#include "AMP/utils/copycast/CopyCastHelper.h"
 
 
 #ifdef AMP_USE_DEVICE
