@@ -1,6 +1,5 @@
 #include "AMP/utils/copycast/CopyCast.hpp"
 #include "AMP/AMP_TPLs.h"
-#include "AMP/utils/Backend.h"
 
 namespace AMP::Utilities {
 
