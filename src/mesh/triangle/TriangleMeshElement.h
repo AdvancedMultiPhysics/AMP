@@ -56,8 +56,7 @@ public:
                               std::vector<MeshElement> &elements ) const override;
 
     //! Return the IDs of the elements composing the current element
-    virtual void getElementsID( const GeomType type,
-                                std::vector<MeshElementID> &ID ) const override;
+    virtual int getElementsID( const GeomType type, MeshElementID *ID ) const override;
 
     //! Return the elements neighboring the current element
     void getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const override;

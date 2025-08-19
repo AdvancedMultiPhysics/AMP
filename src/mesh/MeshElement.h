@@ -188,7 +188,7 @@ public: // Advanced functions
     virtual void getElements( const GeomType type, std::vector<MeshElement> &elements ) const;
 
     //! Return the IDs of the elements composing the current element
-    virtual void getElementsID( const GeomType type, std::vector<MeshElementID> &ID ) const;
+    virtual int getElementsID( const GeomType type, MeshElementID *ID ) const;
 
     /**
      *  Return the elements neighboring the current element.
