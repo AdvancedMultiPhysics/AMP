@@ -49,10 +49,10 @@
 #include <iomanip>
 #include <filesystem>
 
-#include "utils.hpp"
-#include "discretization.hpp"
-#include "solver.hpp"
-#include "model.hpp"
+#include "AMP/operators/radiationDiffusionFD/discretization.hpp"
+#include "AMP/operators/radiationDiffusionFD/utils.hpp"
+#include "AMP/operators/radiationDiffusionFD/solver.hpp"
+#include "AMP/operators/radiationDiffusionFD/model.hpp"
 
 
 /*
