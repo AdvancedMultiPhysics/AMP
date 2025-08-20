@@ -195,17 +195,16 @@ unsigned int TriangleMeshElement<NG, NP, TYPE>::globalOwnerRank() const
  * Function to get the elements composing the current element    *
  ****************************************************************/
 template<uint8_t NG, uint8_t NP, uint8_t TYPE>
-void TriangleMeshElement<NG, NP, TYPE>::getElementsID( const GeomType type,
-                                                       std::vector<MeshElementID> &ID ) const
+int TriangleMeshElement<NG, NP, TYPE>::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
     // Number of elements composing a given type
     int N = n_Simplex_elements[TYPE][static_cast<uint8_t>( type )];
     // Get the element ids
     ElementID tmp[6];
     d_mesh->getElementsIDs( d_globalID.elemID(), type, tmp );
-    ID.resize( N );
     for ( int i = 0; i < N; i++ )
         ID[i] = MeshElementID( d_globalID.meshID(), tmp[i] );
+    return N;
 }
 template<uint8_t NG, uint8_t NP, uint8_t TYPE>
 void TriangleMeshElement<NG, NP, TYPE>::getElements( const GeomType type,

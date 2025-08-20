@@ -137,15 +137,15 @@ void MeshElement::getElements( const GeomType type, std::vector<MeshElement> &el
         AMP_ERROR( "getElements is not implemented for the base class (" + elementClass() + ")" );
     d_element->getElements( type, elements );
 }
-void MeshElement::getElementsID( const GeomType type, std::vector<MeshElementID> &ID ) const
+int MeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
     if ( d_element != nullptr )
         return d_element->getElementsID( type, ID );
     std::vector<MeshElement> d_elements;
     this->getElements( type, d_elements );
-    ID.resize( d_elements.size() );
     for ( size_t i = 0; i < d_elements.size(); i++ )
         ID[i] = d_elements[i].globalID();
+    return d_elements.size();
 }
 void MeshElement::getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const
 {

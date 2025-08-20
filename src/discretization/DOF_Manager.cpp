@@ -57,16 +57,17 @@ void DOFManager::getDOFs( const AMP::Mesh::MeshElementID &id, std::vector<size_t
         AMP_ASSERT( dofs[i] < d_global );
 #endif
 }
-void DOFManager::getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
+void DOFManager::getDOFs( int N_ids,
+                          const AMP::Mesh::MeshElementID *ids,
                           std::vector<size_t> &dofs ) const
 {
     size_t N = 0;
-    dofs.resize( ids.size() );
-    for ( auto id : ids ) {
-        size_t N2 = appendDOFs( id, dofs.data(), N, dofs.size() );
+    dofs.resize( N_ids );
+    for ( int i = 0; i < N_ids; i++ ) {
+        size_t N2 = appendDOFs( ids[i], dofs.data(), N, dofs.size() );
         if ( N + N2 >= dofs.size() ) {
             dofs.resize( std::max( N + N2, 2 * dofs.size() ) );
-            N2 = appendDOFs( id, dofs.data(), N, dofs.size() );
+            N2 = appendDOFs( ids[i], dofs.data(), N, dofs.size() );
         }
         N += N2;
     }
@@ -75,6 +76,11 @@ void DOFManager::getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
     for ( size_t i = 0; i < N; i++ )
         AMP_ASSERT( dofs[i] < d_global );
 #endif
+}
+void DOFManager::getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
+                          std::vector<size_t> &dofs ) const
+{
+    return getDOFs( ids.size(), ids.data(), dofs );
 }
 size_t DOFManager::appendDOFs( const AMP::Mesh::MeshElementID &, size_t *, size_t, size_t ) const
 {

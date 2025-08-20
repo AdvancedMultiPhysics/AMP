@@ -96,6 +96,16 @@ public:
                   std::vector<size_t> &dofs ) const;
 
 
+    /** \brief Get the entry indices of DOFs given a mesh element ID
+     * \details  This will return a vector of pointers into a Vector that are associated with which.
+     * \param[in]  N_ids    The number of element ids
+     * \param[in]  ids      The element IDs to collect nodal objects for.
+     *                      Note: the mesh element may be any type (include a vertex).
+     * \param[out] dofs     The entries in the vector associated with D.O.F.s on the nodes
+     */
+    void getDOFs( int N_ids, const AMP::Mesh::MeshElementID *ids, std::vector<size_t> &dofs ) const;
+
+
     /** \brief   Get the underlying mesh
      * \details  This will return the mesh(es) that underly the DOF manager (if they exist)
      */

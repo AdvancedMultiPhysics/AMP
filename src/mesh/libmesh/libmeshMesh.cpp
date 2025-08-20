@@ -362,11 +362,11 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
     std::vector<MeshElementID> nodes;
     auto it = localElements();
     nodes.reserve( 8 * it.size() );
-    std::vector<MeshElementID> nodes2;
+    MeshElementID nodes2[16];
     for ( auto &elem : it ) {
-        elem.getElementsID( GeomType::Vertex, nodes2 );
-        for ( auto &node : nodes2 )
-            nodes.push_back( node );
+        auto N = elem.getElementsID( GeomType::Vertex, nodes2 );
+        for ( int i = 0; i < N; i++ )
+            nodes.push_back( nodes2[i] );
     }
     AMP::Utilities::unique( nodes );
     // Loop through all global elements and keep any parents of the nodes
@@ -374,10 +374,10 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
     auto end   = d_libMesh->not_local_elements_end();
     it         = libmeshElemIterator( this, begin, end );
     for ( auto &elem : it ) {
-        elem.getElementsID( GeomType::Vertex, nodes2 );
+        auto N     = elem.getElementsID( GeomType::Vertex, nodes2 );
         bool found = false;
-        for ( auto &node : nodes2 )
-            found = found || binary_search( nodes.begin(), nodes.end(), node );
+        for ( int i = 0; i < N; i++ )
+            found = found || binary_search( nodes.begin(), nodes.end(), nodes[i] );
         if ( found )
             ghost.insert( *dynamic_cast<libmeshMeshElement *>( elem.getRawElement() ) );
     }

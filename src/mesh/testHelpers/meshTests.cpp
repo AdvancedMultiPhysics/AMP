@@ -742,13 +742,15 @@ void meshTests::VerifyBoundaryIterator( AMP::UnitTest &ut, std::shared_ptr<AMP::
         nodes.push_back( elem.globalID() );
     AMP::Utilities::unique( nodes );
     AMP_ASSERT( !nodes.empty() );
-    std::vector<AMP::Mesh::MeshElementID> tmp;
+    AMP::Mesh::MeshElementID tmp[32];
     for ( int type2 = 1; type2 <= (int) mesh->getGeomType() && type2 < mesh->getDim(); type2++ ) {
         bool pass = true;
         auto type = (AMP::Mesh::GeomType) type2;
         for ( auto &elem : mesh->getSurfaceIterator( type, 0 ) ) {
-            elem.getElementsID( AMP::Mesh::GeomType::Vertex, tmp );
-            for ( auto id : tmp ) {
+            int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, tmp );
+            AMP_ASSERT( N < 32 );
+            for ( int j = 0; j < N; j++ ) {
+                auto id  = tmp[j];
                 size_t i = std::min( AMP::Utilities::findfirst( nodes, id ), nodes.size() - 1 );
                 if ( nodes[i] != id )
                     pass = false;
@@ -1207,11 +1209,12 @@ void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Me
     } else {
         auto element_has_node = []( const AMP::Mesh::MeshElement &elem,
                                     const AMP::Mesh::MeshElement &n ) {
-            std::vector<MeshElementID> ids;
-            elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+            MeshElementID ids[32];
+            int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+            AMP_ASSERT( N < 32 );
             auto id0 = n.globalID();
-            for ( auto id : ids ) {
-                if ( id == id0 )
+            for ( int i = 0; i < N; i++ ) {
+                if ( ids[i] == id0 )
                     return true;
             }
             return false;
@@ -1252,11 +1255,12 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
             auto elements = mesh->getElementParents( node, mesh->getGeomType() );
             for ( const auto &elem : elements )
                 elems_from_node.insert( elem.globalID() );
-            std::vector<MeshElementID> ids;
+            MeshElementID ids[32];
             for ( const auto &elem : mesh->getIterator( mesh->getGeomType(), 1 ) ) {
-                elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
-                for ( const auto &id : ids )
-                    if ( id == node.globalID() )
+                int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+                AMP_ASSERT( N < 32 );
+                for ( int i = 0; i < N; i++ )
+                    if ( ids[i] == node.globalID() )
                         elems_from_mesh.insert( elem.globalID() );
             }
             return elems_from_node == elems_from_mesh;
@@ -1446,10 +1450,10 @@ static inline void getElementIDs( std::shared_ptr<AMP::Mesh::Mesh> mesh )
     auto type = mesh->getGeomType();
     if ( type > AMP::Mesh::GeomType::Vertex ) {
         bool pass = true;
-        std::vector<AMP::Mesh::MeshElementID> ids;
+        AMP::Mesh::MeshElementID ids[32];
         for ( const auto &elem : mesh->getIterator( type, 0 ) ) {
-            elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
-            pass = pass && !ids.empty();
+            auto N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+            pass   = pass && N > 0;
         }
         AMP_ASSERT( pass );
     }
