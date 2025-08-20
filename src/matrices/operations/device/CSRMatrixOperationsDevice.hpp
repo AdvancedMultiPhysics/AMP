@@ -86,7 +86,7 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
             in->getGhostValuesByGlobalID( nGhosts, idxMap, ghosts );
             idx_alloc.deallocate( idxMap, nGhosts );
         }
-
+        deviceSynchronize();
         CSRLocalMatrixOperationsDevice<Config>::mult( ghosts, offdMatrix, outDataBlock );
         alloc.deallocate( ghosts, nGhosts );
     }

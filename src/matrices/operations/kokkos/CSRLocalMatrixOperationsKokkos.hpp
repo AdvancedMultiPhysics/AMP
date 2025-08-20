@@ -442,9 +442,6 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::extractDiagon
 
     Kokkos::View<scalar_t *, Kokkos::LayoutRight> vvals( buf, nRows );
 
-    std::cout << "in extractDiag, have: " << nRows << ", " << rowstarts.extent( 0 ) << ", "
-              << coeffs.extent( 0 ) << ", " << vvals.extent( 0 ) << std::endl;
-
     Kokkos::parallel_for(
         "CSRMatrixOperationsKokkos::extractDiagonal",
         Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),

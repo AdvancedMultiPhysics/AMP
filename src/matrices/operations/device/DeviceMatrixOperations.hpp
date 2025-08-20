@@ -1,4 +1,5 @@
 #include "AMP/matrices/operations/device/DeviceMatrixOperations.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/device/Device.h"
 
@@ -26,48 +27,6 @@ void DeviceMatrixOperations<G, L, S>::mult(
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     mult_kernel<<<GridDim, BlockDim>>>( row_starts, cols_loc, coeffs, N, in, out );
-    deviceSynchronize();
-}
-
-template<typename G, typename L, typename S>
-void DeviceMatrixOperations<G, L, S>::mult( const L *row_starts,
-                                            const L *cols_loc,
-                                            const S *coeffs,
-                                            const size_t N,
-                                            const S *in_h,
-                                            const size_t Ng,
-                                            S *out )
-{
-    S *in;
-    deviceMalloc( &in, Ng * sizeof( S ) );
-    deviceMemcpy( in, in_h, Ng * sizeof( S ), deviceMemcpyHostToDevice );
-
-    const auto in_d = in;
-
-    dim3 BlockDim;
-    dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    mult_kernel<<<GridDim, BlockDim>>>( row_starts, cols_loc, coeffs, N, in_d, out );
-    deviceSynchronize();
-    deviceFree( in );
-}
-
-// set to scalar
-template<typename S>
-__global__ void setScalar_kernel( const size_t N, S *x, const S alpha )
-{
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
-        x[i] = alpha;
-    }
-}
-
-template<typename G, typename L, typename S>
-void DeviceMatrixOperations<G, L, S>::setScalar( const size_t N, S *x, const S alpha )
-{
-    dim3 BlockDim;
-    dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    setScalar_kernel<<<GridDim, BlockDim>>>( N, x, alpha );
     deviceSynchronize();
 }
 
@@ -132,6 +91,8 @@ void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
                                                        const size_t N,
                                                        S *diag )
 {
+    AMP_ASSERT( AMP::Utilities::getMemoryType( diag ) == AMP::Utilities::getMemoryType( coeffs ) );
+
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
@@ -155,6 +116,8 @@ void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
                                                    const size_t N,
                                                    const S *diag )
 {
+    AMP_ASSERT( AMP::Utilities::getMemoryType( diag ) == AMP::Utilities::getMemoryType( coeffs ) );
+
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
