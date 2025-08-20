@@ -644,15 +644,14 @@ void Writer::getNodeElemList( std::shared_ptr<const AMP::Mesh::Mesh> mesh,
     }
     elem_iterator = elements.begin();
     nodelist.resize( shapesize, elem_iterator.size() );
-    std::vector<AMP::Mesh::MeshElementID> nodeids;
+    AMP::Mesh::MeshElementID nodeids[32];
     size_t i = 0;
     for ( const auto &elem : elem_iterator ) {
-        elem.getElementsID( AMP::Mesh::GeomType::Vertex, nodeids );
-        AMP_INSIST( (int) nodeids.size() == shapesize,
-                    "Mixed element types is currently not supported" );
-        for ( auto &nodeid : nodeids ) {
-            int index = AMP::Utilities::findfirst( nodelist_ids, nodeid );
-            AMP_ASSERT( nodelist_ids[index] == nodeid );
+        auto N_nodes = elem.getElementsID( AMP::Mesh::GeomType::Vertex, nodeids );
+        AMP_INSIST( N_nodes == shapesize, "Mixed element types is currently not supported" );
+        for ( int j = 0; j < N_nodes; j++ ) {
+            int index = AMP::Utilities::findfirst( nodelist_ids, nodeids[j] );
+            AMP_ASSERT( nodelist_ids[index] == nodeids[j] );
             nodelist( i++ ) = index;
         }
         ++elem_iterator;

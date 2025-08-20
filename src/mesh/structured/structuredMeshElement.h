@@ -58,7 +58,7 @@ public: // Functions derived from MeshElement
     MeshElementID globalID() const override { return d_mesh->convert( d_index ); }
     inline std::string elementClass() const override { return "structuredMeshElement"; }
     virtual void getElements( const GeomType, std::vector<MeshElement> & ) const override;
-    virtual void getElementsID( const GeomType, std::vector<MeshElementID> & ) const override;
+    virtual int getElementsID( const GeomType, MeshElementID * ) const override;
     void getNeighbors( std::vector<std::unique_ptr<MeshElement>> & ) const override;
     Point centroid() const override;
     double volume() const override;

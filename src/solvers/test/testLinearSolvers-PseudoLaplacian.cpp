@@ -20,9 +20,12 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
+#include <chrono>
 #include <iomanip>
 #include <memory>
 #include <string>
+
+#define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
 void linearThermalTest( AMP::UnitTest *ut,
                         const std::string &inputFileName,
@@ -42,6 +45,8 @@ void linearThermalTest( AMP::UnitTest *ut,
 
     // Print from all cores into the output files
     AMP::logAllNodes( log_file );
+
+    auto nReps = input_db->getWithDefault<int>( "repetitions", 1 );
 
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
 
@@ -93,22 +98,35 @@ void linearThermalTest( AMP::UnitTest *ut,
     // Set initial guess and rhs
     auto sol = matrix->createInputVector();
     auto rhs = matrix->createOutputVector();
-    sol->setToScalar( 0.0 );
-    rhs->setRandomValues();
 
-    // Check the initial L2 norm of the solution
-    double initSolNorm = static_cast<double>( sol->L2Norm() );
-    AMP::pout << "Initial Solution Norm: " << initSolNorm << std::endl;
-    AMP::pout << "RHS Norm: " << rhs->L2Norm() << std::endl;
-    AMP::pout << "System size: " << rhs->getGlobalSize() << std::endl;
+    auto t1 = std::chrono::high_resolution_clock::now();
 
-    // Use a random initial guess?
-    linearSolver->setZeroInitialGuess( true );
+    for ( int i = 0; i < nReps; ++i ) {
 
-    // Solve the problem.
-    linearSolver->apply( rhs, sol );
+        AMP::pout << "Iteration " << i << ", system size: " << rhs->getGlobalSize() << std::endl;
+        sol->setToScalar( 0.0 );
+        rhs->setRandomValues();
+        // Check the initial L2 norm of the solution
+        double initSolNorm = static_cast<double>( sol->L2Norm() );
+        AMP::pout << "Initial Solution Norm: " << initSolNorm << std::endl;
+        AMP::pout << "RHS Norm: " << rhs->L2Norm() << std::endl;
+        AMP::pout << "System size: " << rhs->getGlobalSize() << std::endl;
 
-    checkConvergence( linearSolver.get(), input_db, inputFileName, *ut );
+
+        // Use a random initial guess?
+        linearSolver->setZeroInitialGuess( true );
+
+        // Solve the problem.
+        linearSolver->apply( rhs, sol );
+
+        checkConvergence( linearSolver.get(), input_db, inputFileName, *ut );
+    }
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    AMP::pout << std::endl
+              << "linearThermalTest with " << inputFileName << "  average time: ("
+              << 1e-3 * to_ms( t2 - t1 ) / nReps << " s)" << std::endl;
 }
 
 int main( int argc, char *argv[] )
@@ -140,22 +158,25 @@ int main( int argc, char *argv[] )
     }
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
-    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+    if ( argc == 4 ) {
+        backendsAndMemory.emplace_back( std::make_pair( argv[2], argv[3] ) );
+    } else {
+        backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
 #ifdef AMP_USE_OPENMP
-    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
 #endif
 #ifdef AMP_USE_KOKKOS
-    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
-    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
     //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
-    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
-    //    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+        //    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
-
+    }
     for ( auto &file : files ) {
         for ( auto &[backend, memory] : backendsAndMemory )
             linearThermalTest( &ut, file, backend, memory );
