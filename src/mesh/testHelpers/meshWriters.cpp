@@ -1087,12 +1087,12 @@ DatabasePtr createDatabase( const AMP::Mesh::Mesh &mesh )
     // Get the elements
     it = mesh.getIterator( AMP::Mesh::GeomType::Cell );
     std::vector<std::array<int, 8>> elem( it.size() );
-    std::vector<AMP::Mesh::MeshElementID> ids;
+    AMP::Mesh::MeshElementID ids[8];
     for ( size_t i = 0; i < it.size(); i++, ++it ) {
         auto id = it->globalID().local_id();
         AMP_ASSERT( id <= it.size() );
-        it->getElementsID( AMP::Mesh::GeomType::Vertex, ids );
-        AMP_ASSERT( ids.size() == 8 );
+        int N = it->getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+        AMP_ASSERT( N == 8 );
         for ( int j = 0; j < 8; j++ )
             elem[id][j] = ids[j].local_id();
     }

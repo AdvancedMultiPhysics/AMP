@@ -42,10 +42,10 @@ getElements( const Mesh &mesh, const CONTAINER &elements, AMP::Mesh::GeomType ty
 {
     // Function to get the composition elements
     std::set<AMP::Mesh::MeshElementID> ids;
-    std::vector<AMP::Mesh::MeshElementID> children;
+    AMP::Mesh::MeshElementID children[32];
     for ( const auto &elem : elements ) {
-        elem.getElementsID( type, children );
-        ids.insert( children.begin(), children.end() );
+        int N = elem.getElementsID( type, children );
+        ids.insert( children, children + N );
     }
     std::vector<AMP::Mesh::MeshElement> elements2;
     elements2.reserve( ids.size() );

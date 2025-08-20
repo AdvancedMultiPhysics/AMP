@@ -151,15 +151,14 @@ void structuredMeshElement::getElements( const GeomType type,
     for ( int i = 0; i < N; i++ )
         elements.emplace_back( structuredMeshElement( index[i], d_mesh ) );
 }
-void structuredMeshElement::getElementsID( const GeomType type,
-                                           std::vector<MeshElementID> &ID ) const
+int structuredMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
     int N = 0;
     BoxMesh::MeshElementIndex index[12];
     getElementIndex( type, N, index );
-    ID.resize( N );
     for ( int i = 0; i < N; i++ )
         ID[i] = d_mesh->convert( index[i] );
+    return N;
 }
 void structuredMeshElement::getElementIndex( const GeomType type,
                                              int &N,
