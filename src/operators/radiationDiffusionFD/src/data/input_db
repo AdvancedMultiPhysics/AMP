@@ -1,0 +1,272 @@
+Manufactured_Parameters{ 
+  model = "nonlinear"
+  #model = "linear"
+  z = 1.0
+  k11 = 1.0
+  k12 = 1.0
+  k21 = 0.1
+  k22 = 1.0
+  #k11 = 0.0
+  #k12 = 0.0
+  #k21 = 0.0
+  #k22 = 0.0
+  a1 = 0.25
+  b1 = 0.5
+  a2 = 0.25
+  b2 = 0.5
+  #
+  a3 = 0.6
+  b3 = 0.45
+  a4 = 0.5
+  b4 = 1.3
+}
+
+# Basic, model-independent, PDE parameters
+PDE {
+  print_info_level = 0
+
+  #dim = 1
+  dim = 2
+  
+  #problemID = "Manufactured"
+  problemID = "Mousseau_etal_2000"
+
+  #fluxLimited = FALSE
+  fluxLimited = TRUE
+}
+
+# Mesh size in each direction
+Mesh {
+  #n = 8
+  n = 64
+  #n = 128
+  #n = 256
+}
+
+Mousseau_etal_2000_Parameters{
+  # The temperature diffusion flux is k*T^{2.5}; eq. (16)
+  k = 1e-5
+  #k = 0.1
+  
+  # In initial tests this is constant 1 everywhere
+  z = 10.0
+}
+
+
+TimeIntegrator {
+    #outputSolution = TRUE # Write solution to file
+    outputSolution = FALSE
+
+    name = "BDF2"
+    implicit_integrator = "BDF2"
+    # name = "BDF1"
+    # implicit_integrator = "BDF1"
+    
+    variable_names = ["ENERGY", "TEMPERATURE"]
+
+    max_integrator_steps = 1000
+    #max_integrator_steps = 10
+
+    initial_time = 0.0
+    final_time = 3.0
+    print_info_level = 1
+    
+    user_managed_time_operator  = TRUE # User builds I + gamma*f
+    
+    # # My initial attempt (doesn't work)
+    # timestep_selection_strategy = "truncationErrorStrategy"
+    # pi_controller_type          = "PC.4.7"
+    # timeTruncationErrorNormType = "maxNorm"
+    # predictor_type              = "leapfrog"
+    # problem_fixed_scaling       = 1.0, 1.0
+
+    # # Bobby v1 (doesn't work):
+    # predictor_type              = "leapfrog"
+    # initial_dt            =  4.0e-04  
+    # max_dt                = 1.0
+    # timestep_selection_strategy =  "truncationErrorStrategy"     
+    # use_pi_controller        = TRUE
+    # pi_controller_type          = "PC.4.7"
+    # truncation_error_rtol       = 1.0e-03
+    # truncation_error_atol       = 1.0e-03
+    # problem_fixed_scaling       = 1.0e-04, 0.5623413251903490808
+    # #problem_fixed_scaling       = 1.0, 0.1
+
+    # Bobby v2 (seems to work fine):
+    timestep_selection_strategy = "final constant" 
+    use_predictor = TRUE
+    use_initial_predictor = FALSE
+    predictor_type = "leapfrog"
+    problem_fixed_scaling = 1.0, 1.0
+    #initial_dt = 1.0e-05
+    initial_dt = 1.0e-03
+    max_dt = 2e-2 # If I make this too big things crash
+
+    #number of time intervals before the final constant timestep is attained
+    number_of_time_intervals   = 50 # Default is 100
+    # number of initial steps to take with d_initial_dt
+    number_initial_fixed_steps = 10 # Default is 0
+
+    #timestep_selection_strategy = "constant"
+    #use_predictor = FALSE
+    
+    auto_component_scaling = FALSE # Turn off component scaling for multi-physics
+    solver_name   = "Solver"
+
+    # SNES (inexact Newton)
+    Solver{
+      name = "PetscSNESSolver"
+      max_iterations = 6
+      print_info_level = 0
+
+      #differencing_parameter_strategy  =  "ds"
+      forcing_term_strategy = "EWCHOICE3"
+      EW_choice2_alpha      = 2.0
+      EW_choice2_gamma      = 0.9
+
+      # Check if vector satisfies constraints before applying to it
+      # This line search check does help, but I still end up getting an crash sometimes---it could be from the Jacobian-FD, but as per below when I turn on that check it crashes.
+      enableLineSearchPreCheck           = TRUE
+      numberOfLineSearchPreCheckAttempts = 5
+
+      # Having this enabled is throwing an error in AMP::Solver::PetscSNESSolver::mffdCheckBounds (perhaps I don't have the operator set up properly at that point or something...)
+      enableMFFDBoundsCheck              = FALSE 
+
+      # Abs tol should track truncation error
+      absolute_tolerance = 1.0e-5 
+      relative_tolerance = 1.0e-10 
+      
+      stepTolerance        = 1.0e-10
+      maximumFunctionEvals = 1000
+      usesJacobian         = FALSE # Use Petsc FD-based approx of Jacobian
+
+      SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_linesearch_monitor"
+      # -snes_linesearch_monitor
+
+      # print_linear_residuals    = TRUE
+      # print_nonlinear_residuals = TRUE
+      print_linear_residuals    = FALSE
+      print_nonlinear_residuals = FALSE
+
+      # This is the Krylov solver for the Jacobian systems
+      LinearSolver{
+        name = "PetscKrylovSolver"
+        print_info_level = 0
+        max_iterations   = 40
+        ksp_type = "fgmres" # Could also use bicgstab (but Bobby said not robust here)
+        divergence_tolerance = 1.0e01
+        max_krylov_dimension = 300
+        #uses_preconditioner=FALSE
+        uses_preconditioner=TRUE
+        pc_type    = "shell"
+        pc_side    = "RIGHT"
+        KSPOptions = "-ksp_converged_reason"
+
+        # These tols should be ignored due to EW being turned on
+        absolute_tolerance   = 1.0e-5 
+        relative_tolerance   = 1.0e-10
+
+        #KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 20"
+
+        # Let L be the approx Jacobian, then:
+
+        # Use monolithic AMG prec to approximately apply inv(L)
+        Preconditioner{
+          name = "BERadDifOpJacMonolithic" # Name of the prec
+          absolute_tolerance = 0.0
+          relative_tolerance = 0.0
+          print_info_level   = 2
+          max_iterations     = 1 # Number of iterations of the preconditioner
+          #compute_residual   = FALSE # Compute final residual
+          compute_residual   = TRUE
+
+            # Preconditioner for approximately inverting diag diffusion blocks
+            MonolithicSolver{
+              name = "BoomerAMGSolver"
+              print_info_level   = 3
+              min_coarse_size    = 5
+              interp_type        = 17 # distance-two
+              cycle_type         = 1
+              relax_order        = 0
+              strong_threshold   = 0.25
+              absolute_tolerance = 0.0
+              relative_tolerance = 0.0
+              max_iterations     = 5
+              max_levels         = 10
+
+              #coarsen_type       = 10 # HMIS
+              coarsen_type       = 6  # Falgout
+
+              # If this is set, then it overwrites "smooth_type"
+              #relax_type         = 6 # Hybrid symmetric GS
+              #relax_type         = 0 # Jacobi (is this weighted?)
+
+              # Number of variables for systems AMG
+              num_functions        = 2 
+              
+              # Sets nodal-based coarsening for systems based on nodal matrix
+              nodal = 1 # Frobenius norm 
+              #nodal = 2 # sum of absolute values of elements in each block
+              #nodal = 3 # Largest element in block (not absolute value)
+              #nodal = 4 # row-sum norm
+              #nodal = 6 # sum of all values in each block
+
+              # Enable complicated smoothers
+              smooth_type          = 6 # Schwarz smoothing
+              # Number of levels complicated smoothers are used on
+              smooth_number_levels = 10
+              # How Schwarz patches are defined 
+              schwarz_domain_type  = 1 # Each node is a Schwarz domain
+              # Type of Schwarz method
+              schwarz_variant      = 0 # Multiplicative, no overlap at proc boundary
+            }
+        }
+
+        # # Use operator-split prec to approximately apply inv(L)
+        # Preconditioner{
+        #   name = "BERadDifOpJacOpSplitPrec" # Name of the prec
+        #   absolute_tolerance = 0.0
+        #   relative_tolerance = 0.0
+        #   print_info_level   = 0
+        #   max_iterations     = 1 # Number of iterations of the preconditioner
+        #   #compute_residual   = FALSE # Compute final residual
+        #   compute_residual   = TRUE
+
+        #     # Preconditioner for approximately inverting diag diffusion blocks
+        #     DiffusionBlocks{
+        #       name = "BoomerAMGSolver"
+        #       print_info_level   = 0
+        #       min_coarse_size    = 5
+        #       relax_type         = 6 # Hybrid GS/Jacobi
+        #       coarsen_type       = 10
+        #       interp_type        = 17 # distance-two
+        #       cycle_type         = 1
+        #       relax_order        = 0
+        #       strong_threshold   = 0.5
+        #       absolute_tolerance = 0.0
+        #       relative_tolerance = 0.0
+        #       max_iterations     = 1
+        #     }
+        # }
+
+        # # Use GMRES to "exactly apply" inv(L)
+        # Preconditioner{
+        #   name = "GMRESSolver"
+        #   uses_preconditioner = FALSE
+        #   flexible_gmres = FALSE
+        #   absolute_tolerance = 0
+        #   relative_tolerance = 1.0e-10
+        #   print_info_level = 0
+        #   max_iterations = 3
+        #   max_dimension  = 300
+        # }
+
+
+      }
+    }
+}
+
+
+
+
+
