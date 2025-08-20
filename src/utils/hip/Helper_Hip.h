@@ -41,8 +41,8 @@ void checkHipErrors( T result,
                      const StackTrace::source_location &source = SOURCE_LOCATION_CURRENT() );
 
 // Get the last hip error
-void getLastHipError( const char *errorMessage,
-                      const StackTrace::source_location &source = SOURCE_LOCATION_CURRENT() );
+void getLastDeviceError( const char *errorMessage,
+                         const StackTrace::source_location &source = SOURCE_LOCATION_CURRENT() );
 
 static void inline setKernelDims( size_t n, dim3 &BlockDim, dim3 &GridDim )
 {

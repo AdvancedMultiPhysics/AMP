@@ -14,8 +14,10 @@ public:
     static void copy_n( const TYPE *x, const size_t N, TYPE *y );
     static void exclusive_scan( const TYPE *x, const size_t N, TYPE *y, const TYPE alpha );
     static void inclusive_scan( const TYPE *x, const size_t N, TYPE *y );
+    static void sort( TYPE *x, const size_t N );
     static TYPE max_element( const TYPE *x, const size_t N );
     static TYPE accumulate( const TYPE *x, const size_t N, TYPE alpha );
+    static size_t unique( TYPE *x, const size_t N );
 };
 
 } // namespace Utilities

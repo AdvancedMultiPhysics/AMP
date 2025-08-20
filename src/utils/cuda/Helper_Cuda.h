@@ -62,8 +62,8 @@ void checkCudaErrors( T result,
                       const StackTrace::source_location &source = SOURCE_LOCATION_CURRENT() );
 
 // Get the last cuda error
-void getLastCudaError( const char *errorMessage,
-                       const StackTrace::source_location &source = SOURCE_LOCATION_CURRENT() );
+void getLastDeviceError( const char *errorMessage,
+                         const StackTrace::source_location &source = SOURCE_LOCATION_CURRENT() );
 
 #ifndef MAX
     #define MAX( a, b ) ( a > b ? a : b )

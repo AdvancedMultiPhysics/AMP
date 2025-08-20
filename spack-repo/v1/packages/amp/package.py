@@ -30,6 +30,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     variant("libmesh", default=False, description="Build with support for libmesh")
     variant("petsc", default=False, description="Build with support for petsc")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
+    variant("trilinos", default=False, description="Build with support for Trilinos")
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
@@ -39,7 +40,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("tpl-builder+stacktrace")
     depends_on("tpl-builder+stacktrace+timerutility", when="+timerutility")
 
-    tpl_depends = ["hypre", "kokkos", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc"]
+    tpl_depends = ["hypre", "kokkos", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc", "trilinos"]
 
     for v in tpl_depends:
         depends_on(f"tpl-builder+{v}", when=f"+{v}")

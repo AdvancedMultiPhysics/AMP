@@ -38,7 +38,7 @@ void checkHipErrors( T result, const StackTrace::source_location &source )
         exit( EXIT_FAILURE );
     }
 }
-void getLastHipError( const char *errorMessage, const StackTrace::source_location &source )
+void getLastDeviceError( const char *errorMessage, const StackTrace::source_location &source )
 {
     hipError_t err = hipGetLastError();
     if ( hipSuccess != err ) {

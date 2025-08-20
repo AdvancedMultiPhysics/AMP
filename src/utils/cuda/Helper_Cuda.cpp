@@ -41,7 +41,7 @@ void checkCudaErrors( T result, const StackTrace::source_location &source )
         exit( EXIT_FAILURE );
     }
 }
-void getLastCudaError( const char *errorMessage, const StackTrace::source_location &source )
+void getLastDeviceError( const char *errorMessage, const StackTrace::source_location &source )
 {
 #ifdef __DRIVER_TYPES_H__
     cudaError_t err = cudaGetLastError();

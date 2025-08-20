@@ -46,21 +46,20 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
     // clang-format off
 #ifdef AMP_USE_DEVICE
-    // using  AMP::ManagedAllocator<void>;
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(
         dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
 #else
-    // using AMP::HostAllocator<void>;
     auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
     auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
 #endif
     // clang-format on
 
     // Create the matrix
-    // auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-
+#if 0
+    auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+#else
     ///// Temporary before updating create matrix
     // Get the DOFs
     auto leftDOF  = inVec->getDOFManager();
@@ -94,6 +93,7 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     matrix->zero();
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     ///// END: Temporary before updating create matrix
+#endif
 
     if ( matrix ) {
         ut->passes( type + ": Able to create a square matrix" );

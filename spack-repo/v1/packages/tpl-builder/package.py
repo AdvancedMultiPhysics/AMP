@@ -22,6 +22,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("stacktrace", default=False, description="Build with support for Stacktrace")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
     variant("lapack", default=False, description="Build with support for lapack")
+    variant("lapackwrappers", default=False, description="Build with support for lapackwrappers")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
     variant("mpi", default=False, description="Build with MPI support")
@@ -29,6 +30,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("shared", default=False, description="Build shared libraries")
     variant("libmesh", default=False, description="Build with support for libmesh")
     variant("petsc", default=False, description="Build with support for petsc")
+    variant("trilinos", default=False, description="Build with support for trilinos")
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
@@ -45,6 +47,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("timerutility+shared", when="+shared+timerutility")
     depends_on("timerutility+mpi", when="+mpi+timerutility")
     depends_on("timerutility~mpi", when="~mpi+timerutility")
+
+    depends_on("lapackwrappers~shared", when="~shared+lapackwrappers")
+    depends_on("lapackwrappers+shared", when="+shared+lapackwrappers")
 
     depends_on("hypre+mixedint", when="+hypre")
     depends_on("kokkos", when="+kokkos")
@@ -64,14 +69,19 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("libmesh+exodusii+netcdf+metis", when="+libmesh")
 
     depends_on("petsc", when="+petsc")
+    depends_on("trilinos+epetra+epetraext+thyra+tpetra+ml+muelu+kokkos+amesos+ifpack+ifpack2+belos+nox+stratimikos gotype=int", when="+trilinos")
+
+    requires("+lapack", when="+trilinos")
 
     for _flag in list(CudaPackage.cuda_arch_values):
         depends_on(f"hypre cuda_arch={_flag}", when=f"+hypre+cuda cuda_arch={_flag}")
         depends_on(f"kokkos cuda_arch={_flag}", when=f"+kokkos+cuda cuda_arch={_flag}")
+        depends_on(f"trilinos cuda_arch={_flag}", when=f"+trilinos+cuda cuda_arch={_flag}")
 
     for _flag in ROCmPackage.amdgpu_targets:
         depends_on(f"hypre amdgpu_target={_flag}", when=f"+hypre+rocm amdgpu_target={_flag}")
         depends_on(f"kokkos amdgpu_target={_flag}", when=f"+kokkos+rocm amdgpu_target={_flag}")
+        depends_on(f"trilinos amdgpu_target={_flag}", when=f"+trilinos+rocm amdgpu_target={_flag}")
 
     # MPI related dependencies
     depends_on("mpi", when="+mpi")
@@ -164,10 +174,12 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     self.define("LAPACK_LIBRARY_DIRS", ";".join(lapack.directories)),
                 ]
             )
+        if spec.satisfies("+trilinos"):
+            options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Xpetra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
 
-        for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility"):
+        for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):
-                tpl_name = "TIMER" if vname == "timerutility" else vname.upper()
+                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else vname.upper()
                 tpl_list.append(tpl_name)
                 options.append(self.define(f"{tpl_name}_INSTALL_DIR", spec[vname].prefix))
 
