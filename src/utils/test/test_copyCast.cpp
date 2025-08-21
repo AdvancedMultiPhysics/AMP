@@ -68,7 +68,7 @@ void testOverflow( AMP::UnitTest &ut, const std::string &mem_type )
     // Perform copy-cast
     try {
         AMP::Utilities::copyCast<double, float, backend, ExecutionSpace>( 3, v1, v2 );
-        ut.failure( mem_type + " copyCast didn't catch an overflow." );
+        ut.expected_failure( mem_type + " copyCast didn't catch an overflow." );
     } catch ( ... ) {
         ut.passes( mem_type + " overflow test succeeded." );
     }
