@@ -1,12 +1,12 @@
 Mesh {
-  MeshType = "AMP"
-  MeshName = "cube_3d"
-  Generator = "cube"
-  Size = 8, 8, 17
-  Range = -5, 5, -5, 5, -10, 10
-  surfaceIds = 8, 8, 8, 8, 8, 8
-  dim = 3
-  static = TRUE
+    MeshType = "AMP"
+    MeshName = "cube_3d"
+    Generator = "cube"
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    dim = 3
+    static = FALSE
 }
 
 NumberOfLoadingSteps = 1
@@ -137,7 +137,7 @@ Displacement_Boundary {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 2
+    print_info_level = 1
     max_iterations = 100
     max_error = 1e-10
 
@@ -151,7 +151,7 @@ NonlinearSolver{
 
     LinearSolver{
         name = "PetscKrylovSolver"
-        print_info_level = 10
+        print_info_level = 0
         max_iterations = 100
         max_error = 1e-10
         ksp_type = "fgmres"
@@ -171,7 +171,7 @@ NonlinearSolver{
 
 Preconditioner{
     name = "TrilinosMLSolver"
-    print_info_level = 10
+    print_info_level = 0
     PDE_equations = 3
     max_levels = 1
     max_iterations = 1
