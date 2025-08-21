@@ -3,18 +3,18 @@
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/operators/BVPOperatorParameters.h"
-#include "AMP/operators/NonlinearBVPOperator.h"
 #include "AMP/operators/LinearBVPOperator.h"
+#include "AMP/operators/NonlinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
 #include "AMP/operators/mechanics/MechanicsNonlinearFEOperator.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
-#include "AMP/solvers/testHelpers/SolverTestParameters.h"
-#include "AMP/solvers/trilinos/ml/TrilinosMLSolver.h"
 #include "AMP/solvers/petsc/PetscKrylovSolver.h"
 #include "AMP/solvers/petsc/PetscSNESSolver.h"
+#include "AMP/solvers/testHelpers/SolverTestParameters.h"
+#include "AMP/solvers/trilinos/ml/TrilinosMLSolver.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
@@ -94,8 +94,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &inputName )
     // initialize the linear solver
     auto linearSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( linearSolver_db );
-    linearSolverParams->d_pOperator     = linBvpOperator;
-    linearSolverParams->d_comm          = globalComm;
+    linearSolverParams->d_pOperator = linBvpOperator;
+    linearSolverParams->d_comm      = globalComm;
     auto linearSolver = std::make_shared<AMP::Solver::PetscKrylovSolver>( linearSolverParams );
     auto nonlinearSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( nonlinearSolver_db );
