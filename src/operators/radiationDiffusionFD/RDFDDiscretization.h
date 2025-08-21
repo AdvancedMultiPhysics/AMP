@@ -1,6 +1,6 @@
 // Class definitions for discretizations, and implementation of some basic functions
-#ifndef RAD_DIF_DISCRETIZATION
-#define RAD_DIF_DISCRETIZATION
+#ifndef RAD_DIF_FD_DISCRETIZATION
+#define RAD_DIF_FD_DISCRETIZATION
 
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
@@ -43,7 +43,7 @@
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/petsc/PetscSNESSolver.h"
 
-#include "utils.hpp"
+#include "RDUtils.h"
 
 #include <iostream>
 #include <iomanip>

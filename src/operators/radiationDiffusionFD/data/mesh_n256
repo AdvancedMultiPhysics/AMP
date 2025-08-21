@@ -1,6 +1,0 @@
-#<<< ../src/disc_error_study2 >>>
-<<< ../src/disc_error_study2_adaptive_dt >>>
-
-Mesh{
-    n = 256
-}

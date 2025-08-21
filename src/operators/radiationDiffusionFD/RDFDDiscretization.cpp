@@ -1,6 +1,6 @@
 // Class implementations for discretizations and solvers
 
-#include "discretization.hpp"
+#include "RDFDDiscretization.h"
 
 
 

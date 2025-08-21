@@ -1,3 +1,9 @@
+"""
+This python script is used for generating maunfactured solutions to a class of radiation diffusion problems and translating them into cxx interpretable code. 
+
+It also symbolically solves for ghost values from certain discretized boundary conditions
+"""
+
 import sympy as sym
 import numpy as np
 
@@ -19,10 +25,10 @@ plt.rcParams.update(params)
 def main():
 
     #manufacturedLinearModel1D()
-    #manufacturedNonlinearModel1D()
+    manufacturedNonlinearModel1D()
     
+    #manufacturedLinearModel2D()
     #manufacturedNonlinearModel2D()
-    manufacturedLinearModel2D()
 
     #solveForGhostsFromRobinBC2D()
 
@@ -86,14 +92,17 @@ def solveForGhostsFromRobinBC2D():
     
 
 # Exact solutions
+# The equilibirum condition is E = T^4, let's set the manufactured solution to be E = T^3, so that the reaction terms in the PDE don't just evaluate to zero.
 def manufacturedSolutions1D(x, M_PI, t):
-    E = ( 2 + sym.sin(1.5 * M_PI * x) * sym.cos( 2 * M_PI * t ) )
-    T = E**(1/4)
+    kE0, kT, kX, kXPhi = sym.symbols('kE0 kT kX kXPhi')
+    E = ( kE0 + sym.sin( kX * M_PI * x + kXPhi ) * sym.cos( kT * M_PI * t ) )
+    T = E**sym.Rational(1, 3)
     return E, T
 
 def manufacturedSolutions2D(x, y, M_PI, t):
-    E = ( 2 + sym.sin(1.5 * M_PI * x) * sym.cos( 3.5 * M_PI * y ) * sym.cos( 2 * M_PI * t ) )
-    T = E**(1/4)
+    kE0, kT, kX, kXPhi, kY, kYPhi = sym.symbols('kE0 kT kX kXPhi kY kYPhi')
+    E = ( kE0 + sym.sin( kX * M_PI * x + kXPhi ) * sym.cos( kY * M_PI * y + kYPhi ) * sym.cos( kT * M_PI * t ) )
+    T = E**sym.Rational(1, 3)
     return E, T
 
 
@@ -101,25 +110,25 @@ def cxx_print(E, T, sE, sT):
     print("-----------------")
     print("exact solution E:")
     print("-----------------")
-    print( "E = ", sym.cxxcode( sym.simplify(E) ), ";" , sep = "")
+    print( "double E = ", sym.cxxcode( sym.simplify(E) ), ";" , sep = "")
     print("")
 
     print("-----------------")
     print("exact solution T:")
     print("-----------------")
-    print( "T = ", sym.cxxcode( sym.simplify(T) ), ";" , sep = "")
+    print( "double T = ", sym.cxxcode( sym.simplify(T) ), ";" , sep = "")
     print("")
     
     print("--------------")
     print("source term sE:")
     print("--------------")
-    print( "sE = ", sym.cxxcode( sym.simplify(sE) ), ";", sep = "" )
+    print( "double sE = ", sym.cxxcode( sym.simplify(sE) ), ";", sep = "" )
     print("")
 
     print("--------------")
     print("source term sT:")
     print("--------------")
-    print( "sT = ", sym.cxxcode( sym.simplify(sT) ), ";", sep = "" )
+    print( "double sT = ", sym.cxxcode( sym.simplify(sT) ), ";", sep = "" )
     print("")
 
 
@@ -153,13 +162,13 @@ def manufacturedLinearModel1D():
     print("--------------------------")
     print("gradient exact solution E:")
     print("--------------------------")
-    print( "dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
+    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
     print("")
 
     print("--------------------------")
     print("gradient exact solution T:")
     print("--------------------------")
-    print( "dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
+    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
     print("")
 
 
@@ -182,9 +191,9 @@ def manufacturedNonlinearModel1D():
     # Exact solutions
     E, T = manufacturedSolutions1D(x, M_PI, t)
 
-    sigma = (z/T)**3.0
-    DE = 1/(3.0*sigma)
-    DT = T**(2.5)
+    sigma = (z/T)**3
+    DE = 1/(3*sigma)
+    DT = T**sym.Rational(5, 2)
 
     R = sigma*( T**4 - E )
 
@@ -202,13 +211,13 @@ def manufacturedNonlinearModel1D():
     print("--------------------------")
     print("gradient exact solution E:")
     print("--------------------------")
-    print( "dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
+    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
     print("")
 
     print("--------------------------")
     print("gradient exact solution T:")
     print("--------------------------")
-    print( "dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
+    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
     print("")
 
 # A pair of linear PDEs of the form
@@ -244,17 +253,17 @@ def manufacturedLinearModel2D():
     print("--------------------------")
     print("gradient exact solution E:")
     print("--------------------------")
-    print( "dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
+    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
     print("")
-    print( "dEdy = ", sym.cxxcode( sym.simplify(sym.diff(E, y)) ), ";" , sep = "")
+    print( "double dEdy = ", sym.cxxcode( sym.simplify(sym.diff(E, y)) ), ";" , sep = "")
     print("")
 
     print("--------------------------")
     print("gradient exact solution T:")
     print("--------------------------")
-    print( "dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
+    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
     print("")
-    print( "dTdy = ", sym.cxxcode( sym.simplify(sym.diff(T, y)) ), ";" , sep = "")
+    print( "double dTdy = ", sym.cxxcode( sym.simplify(sym.diff(T, y)) ), ";" , sep = "")
     print("")
 
 
@@ -278,9 +287,9 @@ def manufacturedNonlinearModel2D():
     # Exact solutions
     E, T = manufacturedSolutions2D(x, y, M_PI, t)    
 
-    sigma = (z/T)**3.0
-    DE = 1/(3.0*sigma)
-    DT = T**(2.5)
+    sigma = (z/T)**3
+    DE = 1/(3*sigma)
+    DT = T**sym.Rational(5, 2)
 
     R = sigma*( T**4 - E )
 
@@ -300,17 +309,17 @@ def manufacturedNonlinearModel2D():
     print("--------------------------")
     print("gradient exact solution E:")
     print("--------------------------")
-    print( "dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
+    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
     print("")
-    print( "dEdy = ", sym.cxxcode( sym.simplify(sym.diff(E, y)) ), ";" , sep = "")
+    print( "double dEdy = ", sym.cxxcode( sym.simplify(sym.diff(E, y)) ), ";" , sep = "")
     print("")
 
     print("--------------------------")
     print("gradient exact solution T:")
     print("--------------------------")
-    print( "dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
+    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
     print("")
-    print( "dTdy = ", sym.cxxcode( sym.simplify(sym.diff(T, y)) ), ";" , sep = "")
+    print( "double dTdy = ", sym.cxxcode( sym.simplify(sym.diff(T, y)) ), ";" , sep = "")
     print("")
 
 

@@ -1,7 +1,6 @@
 // Some basic utility functions
-
-#ifndef UTILS_HPP_ // Checks if UTILS_HPP_ is NOT defined
-#define UTILS_HPP_ // Defines UTILS_HPP_ if it's not already defined
+#ifndef RD_UTILS_ 
+#define RD_UTILS_ 
 
 #include "AMP/IO/PIO.h"
 
@@ -125,4 +124,4 @@ inline std::vector<double> getDiscreteNorms(double h,
 
 
 
-#endif // UTILS_HPP_
+#endif // RD_UTILS_

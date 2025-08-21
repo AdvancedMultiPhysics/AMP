@@ -49,10 +49,11 @@
 #include <iomanip>
 #include <filesystem>
 
-#include "AMP/operators/radiationDiffusionFD/discretization.hpp"
-#include "AMP/operators/radiationDiffusionFD/utils.hpp"
-#include "AMP/operators/radiationDiffusionFD/solver.hpp"
-#include "AMP/operators/radiationDiffusionFD/model.hpp"
+#include "AMP/operators/radiationDiffusionFD/RDFDDiscretization.h"
+#include "AMP/operators/radiationDiffusionFD/RDUtils.h"
+#include "AMP/operators/radiationDiffusionFD/RDFDOpSplitPrec.h"
+#include "AMP/operators/radiationDiffusionFD/RDFDMonolithicPrec.h"
+#include "AMP/operators/radiationDiffusionFD/RDModel.h"
 
 
 /*
@@ -417,8 +418,7 @@ void driver(AMP::AMP_MPI comm,
 
 
 /*  Input usage is: >> <input_file>
-
-    e.g., >> mpirun -n 1 FD ../src/data/input_db
+    e.g., >> mpirun -n 1 FD input_db
 */
 int main( int argc, char **argv )
 {
@@ -440,33 +440,6 @@ int main( int argc, char **argv )
 
     //auto input_db = AMP::Database::parseInputFile( "../src/input_db" );
     auto input_db = AMP::Database::parseInputFile( input_db_name );
-     
-    // // Create DB with PDE- and mesh-related quantities
-    // auto PDE_db = input_db->getDatabase( "PDE" );
-    // PDE_db->putScalar( "n",   n );
-
-
-    // // Store the mesh size: There are n+1 points on the mesh covering the domain [-h/2, 1+h/2].
-    // // Eastiest to think about the case of n cells...
-    
-    // PDE_db->putScalar( "h",   h );
-
-    // // // Constant in PDE
-    // double z = 5.0; // todo: this is allowed to vary in the domain...
-    // PDE_db->putScalar( "z",   z );
-
-    //double h = 1.0 / (n-1); // n+1 points between -h/2,1+h/2
-    //auto mesh_db = AMP::Database::create( "n", n, "h", h );
-    //mesh_db->print( AMP::pout );
-
-    //input_db->putDatabase( "mesh", std::move(mesh_db) );
-
-    // // Print out input database
-    // AMP::pout << "Input database is:" << std::endl;
-    // AMP::pout << "-----------------" << std::endl;
-    // input_db->print( AMP::pout );
-    // AMP::pout << "-----------------" << std::endl;
-
 
     // Driver
     driver( comm, input_db );
@@ -475,166 +448,3 @@ int main( int argc, char **argv )
 
     return 0;
 }
-
-
-// Example of how to generate a multivector
-// ----------------------------------------
-// // Create vectors for E and T
-// auto E_var = std::make_shared<AMP::LinearAlgebra::Variable>( "E" );
-// auto T_var = std::make_shared<AMP::LinearAlgebra::Variable>( "T" );
-// auto E_vec = AMP::LinearAlgebra::createVector( this->d_multiDOFMan->getDOFManager(0), E_var );
-// auto T_vec = AMP::LinearAlgebra::createVector( this->d_multiDOFMan->getDOFManager(1), T_var );
-// // Create a multivector consisting of E and T vectors
-// auto tmp_var_in = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "inputVariable" );
-// auto ET_vec = AMP::LinearAlgebra::MultiVector::create( tmp_var_in, this->getMesh()->getComm() );
-// ET_vec->addVector( E_vec );
-// ET_vec->addVector( T_vec );
-// ET_vec->setToScalar( 1.0 );
-// ET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-
-
-// Some other code:
-
-// --- Example of how to read in mesh file from input
-// AMP_INSIST( argc == 2, "Usage is:  createmesh  inputFile" );
-// std::string filename( argv[1] );
-// AMP::pout << "the filename is " << filename << "\n";
-//createBoxMesh( filename );
-//void createBoxMesh( const std::string &input_file )
-// // Read the input file
-// auto input_db = AMP::Database::parseInputFile( input_file );
-// // Get the Mesh database and create the mesh parameters
-// auto database = input_db->getDatabase( "Mesh" )->getDatabase( "Mesh_1" );
-//auto params = std::make_shared<AMP::Mesh::MeshParameters>( database );
-//params->setComm( globalComm );
-// // Create the meshes from the input database
-// //auto mesh = AMP::Mesh::MeshFactory::create( params );
-
-
-// // --- Example of how to create a DB in on pass. 
-// std::vector<int> size = {4, 4};
-// std::vector<int> range = {0, 1, 0, 1};
-// auto myMeshDataBase = AMP::Database::create( 
-//     "name", "boxMeshData", 
-//     "MeshName", "mesh",
-//     "dim", 2,
-//     "Generator", "cube",
-//     "Size", size,
-//     "Range", range);
-// AMP::pout << "myDataBase = \n" << myMeshDataBase->print() << std::endl;
-// // Get the Mesh database and create the mesh parameters
-// //auto database = myMeshDataBase->getDatabase( "boxMeshData" );
-// // Create MeshParameters; note the input has to be a std::make_shared<AMP::DataBase>
-// auto myMeshParams   = std::make_shared<AMP::Mesh::MeshParameters>( database );
-// myMeshParams->setComm( comm );
-// // Create the mesh from the meshParameters
-// auto mesh = AMP::Mesh::BoxMesh( myMeshParams );
-
-
-// //--- Example showing how to iterate over elements on the mesh
-// int meshDim = static_cast<int>( mesh->getDim() );
-// elem is a pointer to a AMP::Mesh::MeshElement
-// for (auto elem = myMeshIterator.begin(); elem != myMeshIterator.end(); elem++) {
-
-//     //std::cout << "element class = " << elem->elementClass() << std::endl;
-
-//     // Get structure used to identify the mesh element
-//     AMP::Mesh::MeshElementID id = elem->globalID();
-
-//     // Understanding mesh object
-//     if (meshDim == 1) {
-//         std::cout << "Element " << id.local_id() << " on process " << elem->globalOwnerRank() << " has coord x=" << elem->coord(0) << std::endl;
-//     } else if (meshDim == 2) {
-//         std::cout << "Element " << id.local_id() << " on process " << elem->globalOwnerRank() << " has coords (x,y)=(" << elem->coord(0) << "," << elem->coord(1) << ")" << std::endl;
-//     }
-
-//     // TODO: I don't understand what this does... and it's influenced by gcw
-//     // std::cout << "\t rowDOFs are: ";
-//     // auto myRowDOFs = myDOFManager->getRowDOFs(id);
-//     // for (size_t DOF : myRowDOFs) {
-//     //    std::cout << DOF << " ";
-//     // }
-//     // std::cout << std::endl;
-// }
-
-
-
-// Example of function that returns col ids for a given row.. Note this isn't too robust because it relies on the assumption of how the underlying DOFs are ordered, and I don't really know this
-//auto getColumnIDs = std::bind(Laplacian1DColIDs, std::placeholders::_1, n);
-// Suppose there are n+1 DOFs, indexed 0, 1, ..., n. Here, DOF 0 and n are the boundary DOFs and will just have a non-zero diagonal.
-// std::vector<size_t> Laplacian1DColIDs(size_t row, size_t n) {
-//     std::vector<size_t> cols;
-//     if (row == 0) {
-//         cols.push_back(0);
-//     } else if (row == n) {
-//         cols.push_back(n);
-//     } else {
-//         cols.push_back(row-1);
-//         cols.push_back(row);
-//         cols.push_back(row+1);
-//     }
-//     return cols;
-// }
-
-
-// void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
-//                               std::shared_ptr<AMP::Discretization::DOFManager> dofmap )
-// {
-//     // Iterate through rows
-//     for ( size_t i = dofmap->beginDOF(); i != dofmap->endDOF(); i++ ) {
-//         std::cout << "i = " << i << std::endl;
-//         // Get pointer to cols
-//         auto cols        = matrix->getColumnIDs( i );
-//         const auto ncols = cols.size();
-//         std::vector<double> vals( ncols );
-//         for ( size_t j = 0; j != ncols; j++ ) {
-//             std::cout << "\tj = " << j << std::endl;
-//             if ( cols[j] == i )
-//                 vals[j] = static_cast<double>( ncols );
-//             else
-//                 vals[j] = -1;
-//         }
-//         if ( ncols ) {
-//             matrix->setValuesByGlobalID<double>( 1, ncols, &i, cols.data(), vals.data() );
-//         }
-//     }
-// }
-
-
-// // Create vectors for E and T
-    // auto E_var = std::make_shared<AMP::LinearAlgebra::Variable>( "E" );
-    // auto T_var = std::make_shared<AMP::LinearAlgebra::Variable>( "T" );
-    // auto E_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[0], E_var );
-    // auto T_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[1], T_var );
-    // // Ditto for manufactured solution
-    // auto Eman_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[0], E_var ); 
-    // auto Tman_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[1], T_var );
-    // // Ditto for residual vectors
-    // auto rE_var = std::make_shared<AMP::LinearAlgebra::Variable>( "rE" );
-    // auto rT_var = std::make_shared<AMP::LinearAlgebra::Variable>( "rT" );
-    // auto rE_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[0], rE_var );
-    // auto rT_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[1], rT_var );
-    // // Ditto for source vectors
-    // auto sE_var = std::make_shared<AMP::LinearAlgebra::Variable>( "sE" );
-    // auto sT_var = std::make_shared<AMP::LinearAlgebra::Variable>( "sT" );
-    // auto sE_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[0], sE_var );
-    // auto sT_vec = AMP::LinearAlgebra::createVector( DOFManagersVec[1], sT_var );
-
-    // // Create a multivector consisting of E and T vectors
-    // auto tmp_var_in = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "inputVariable" );
-    // auto ET_vec = AMP::LinearAlgebra::MultiVector::create( tmp_var_in, comm );
-    // ET_vec->addVector( E_vec );
-    // ET_vec->addVector( T_vec );
-    // auto ETman_vec = AMP::LinearAlgebra::MultiVector::create( tmp_var_in, comm );
-    // ETman_vec->addVector( Eman_vec );
-    // ETman_vec->addVector( Tman_vec );
-    // // Ditto for residual vectors
-    // auto tmp_var_out = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "outputVariable" );
-    // auto rET_vec = AMP::LinearAlgebra::MultiVector::create( tmp_var_out, comm );
-    // rET_vec->addVector( rE_vec );
-    // rET_vec->addVector( rT_vec );
-    // // Ditto for source vectors
-    // auto tmp_var_source = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "sourceVariable" );
-    // auto sET_vec = AMP::LinearAlgebra::MultiVector::create( tmp_var_source, comm );
-    // sET_vec->addVector( sE_vec );
-    // sET_vec->addVector( sT_vec );

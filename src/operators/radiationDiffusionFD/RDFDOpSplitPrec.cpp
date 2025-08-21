@@ -1,4 +1,4 @@
-#include "solver.hpp"
+#include "RDFDOpSplitPrec.h"
 
 /* --------------------------------------
     Implementation of BERadDifOpJacPrec 
