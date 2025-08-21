@@ -53,7 +53,7 @@
 #include "AMP/operators/radiationDiffusionFD/RDUtils.h"
 #include "AMP/operators/radiationDiffusionFD/RDFDOpSplitPrec.h"
 #include "AMP/operators/radiationDiffusionFD/RDFDMonolithicPrec.h"
-#include "AMP/operators/radiationDiffusionFD/RDModel.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
 
 
 /*

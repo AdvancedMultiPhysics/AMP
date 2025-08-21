@@ -25,10 +25,10 @@ plt.rcParams.update(params)
 def main():
 
     #manufacturedLinearModel1D()
-    manufacturedNonlinearModel1D()
+    #manufacturedNonlinearModel1D()
     
     #manufacturedLinearModel2D()
-    #manufacturedNonlinearModel2D()
+    manufacturedNonlinearModel2D()
 
     #solveForGhostsFromRobinBC2D()
 

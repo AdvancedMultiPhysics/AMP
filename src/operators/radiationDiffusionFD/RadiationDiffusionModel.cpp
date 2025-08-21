@@ -1,4 +1,4 @@
-#include "RDModel.h"
+#include "RadiationDiffusionModel.h"
 
 // Constructor
 RadDifModel::RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ ) : d_basic_db( basic_db_ ), d_mspecific_db( mspecific_db_ ) { 
@@ -106,7 +106,10 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
 
     d_general_db->putScalar<std::string>( "model", model );
 
+    // Restore default behavior
     d_general_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
+    // Flag that we've finalized this database
+    d_general_db_completed = true;
 }
 
 /* --------------------------------------------------------------------
@@ -139,7 +142,10 @@ void Manufactured_RadDifModel::finalizeGeneralPDEModel_db( ) {
 
     d_general_db->putScalar<std::string>( "model", d_mspecific_db->getScalar<std::string>( "model" ) );
 
+    // Restore default behavior
     d_general_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
+    // Flag that we've finalized this database
+    d_general_db_completed = true;
 }
 
 // Implementation of pure virtual function
@@ -466,7 +472,7 @@ double Manufactured_RadDifModel::sourceTerm_( int component, double x, double y 
 
     } else if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         if ( component == 0 ) {
-            double sE = std::pow(z*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.5), -6.0)*1.0/(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi))*(-std::pow(M_PI, 2)*k11*std::pow(z*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.5), 3.0)*(-0.33333333333333331*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 1.0)*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) + 0.5*(std::pow(kX, 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) + std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2))*std::cos(M_PI*kT*t))*std::cos(M_PI*kT*t) + std::pow(z*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.5), 6.0)*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 1.0)*(-M_PI*kT*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) + k12*std::pow(z*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.5), 3.0)*(kE0 - std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 2.0) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi))));
+            double sE = (1.0/3.0)*(std::pow(M_PI, 2)*k11*kE0*std::pow(kX, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi) + std::pow(M_PI, 2)*k11*kE0*std::pow(kY, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi) + std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) - std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) - std::pow(M_PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2) + std::pow(M_PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) - 3*M_PI*kT*std::pow(z, 3)*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) - 3*k12*std::pow(z, 6)*std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)) + 3*k12*std::pow(z, 6))/std::pow(z, 3);
             return sE;
         } else if ( component == 1 ) {
             double sT = -std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.75)*(std::pow(M_PI, 2)*k21*std::sqrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi))*(0.375*std::pow(kX, 2)*std::cos(M_PI*kT*t)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) + 0.375*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2)*std::cos(M_PI*kT*t) - 0.5*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 1.0)*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi))*std::cos(M_PI*kT*t) + 0.5*M_PI*kT*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 0.25)*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) + k22*std::pow(z*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.5), 3.0)*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 0.75)*(kE0 - std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 2.0) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)));

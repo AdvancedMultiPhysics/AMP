@@ -38,6 +38,7 @@
         1. For T, "Pseudo Neumann" boundary conditions are specified on boundary k in the form of:
                 n \dot dT/dn = nk
             for outward facing normal n. Note these are not actually Neumann BCs unless nk=0 since they don't involve the flux, except in the special case of nk=0.
+    The class is reponsible for providing the constants ak, bk, rk, nk
 
     In glorious detail, we have:
     1D. Robin on E:
@@ -81,7 +82,9 @@ public:
     // Parameters specific to a model
     std::shared_ptr<AMP::Database> d_mspecific_db;
     // Database of parameters used to describe general PDE formulation; this is a merger and possible re-interpretation of the above two databases
-    std::shared_ptr<AMP::Database> d_general_db;
+    std::shared_ptr<AMP::Database> d_general_db = nullptr;
+    // Flag derived classes must overwrite indicating they have constructed the above database
+    bool d_general_db_completed = false;
 
     // Constructor
     RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ );
@@ -102,8 +105,8 @@ public:
     }
 
     // Get general database
-    std::shared_ptr<AMP::Database> getGeneralPDEModelParameters( ) { 
-        AMP_INSIST( d_general_db, "General PDE database is null; it should have been build during construction of derived class" );
+    std::shared_ptr<AMP::Database> getGeneralPDEModelParameters( ) const { 
+        AMP_INSIST( d_general_db_completed, "The derived class has not completed the construction of this database." );
         return d_general_db; };
 
 //
@@ -164,10 +167,14 @@ private:
 };
 
 
-/* -------------------------------------------------------------------------
-    Class implementing manufactured radiation-diffusion equation equation 
-------------------------------------------------------------------------- */
-/* A source term and exact solution are provided, as well as functions to get the Robin and pseudo Neumann BC values
+/* ------------------------------------------------------------------
+    Class representing a manufactured radiation diffusion equation
+------------------------------------------------------------------ */
+/* In particular:
+    1. An initial condition is provided
+    2. An exact solution is provided
+    3. A corresponding source term is provided
+    4. Function handles for the corresponding E Robin values rk, and the T pseudo Neumann values nk are provided which accept the boundary id and spatial location on the boundary. (The manufactured solution is not constant along along any boundary) 
 
 */
 class Manufactured_RadDifModel : public RadDifModel {
