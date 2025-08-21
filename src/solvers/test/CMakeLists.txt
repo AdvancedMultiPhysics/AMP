@@ -20,6 +20,10 @@ COPY_TEST_FILE( PC-MueLuParameters )
 COPY_TEST_FILE( PC-DiagParameters )
 
 # Copy test inputs
+COPY_TEST_FILE( input_DiffusionFDOperator-1D )
+COPY_TEST_FILE( input_DiffusionFDOperator-2D )
+COPY_TEST_FILE( input_DiffusionFDOperator-3D )
+
 COPY_TEST_FILE( input_LinearElasticityOperator-1 )
 
 COPY_TEST_FILE( input_LinearFickOperator-bar )
@@ -91,6 +95,8 @@ COPY_TEST_FILE( input_testBoomerAMGSolver-LinearFickOperator-bar )
 COPY_TEST_FILE( input_testBoomerAMGSolver-LinearElasticityOperator-1 )
 COPY_TEST_FILE( input_testSolversForUserMatrix-BoomerAMG )
 
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-1D-SASolver-HybridGS-FCG )
+
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG )
 
@@ -134,6 +140,10 @@ COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-MueLu-PetscBiCGSTAB )
 ENDIF()
 
 IF ( USE_HYPRE )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-1D-BoomerAMG-CG )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG )
+
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-BoomerAMG )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-BoomerAMG-IPCG )
@@ -196,6 +206,10 @@ COPY_TEST_FILE( input_testLinearSolvers-PL-CylMesh-CG )
 COPY_TEST_FILE( input_testPetscSNESSolver-NonlinearThermalOxygenDiffusion-2 )
 
 ADD_AMP_TEST( testSolversWithRhsOptions )
+
+ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 1 )
+ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 2 )
+ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 4 )
 
 ADD_AMP_TEST( testLinearSolvers-PseudoLaplacian PROCS 1 GPU )
 ADD_AMP_TEST( testLinearSolvers-PseudoLaplacian PROCS 2 GPU )
