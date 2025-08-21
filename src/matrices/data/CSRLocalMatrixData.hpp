@@ -92,9 +92,6 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         d_cols       = sharedArrayWrapper( blParams.d_cols );
         d_coeffs     = sharedArrayWrapper( blParams.d_coeffs );
     } else if ( matParams ) {
-        // Getting device memory support in this constructor mode will be very challenging
-        AMP_ASSERT( d_memory_location != AMP::Utilities::MemoryType::device );
-
         // can always allocate row starts without external information
         d_row_starts = sharedArrayBuilder( d_num_rows + 1, d_lidxAllocator );
         AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
@@ -108,6 +105,10 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
             d_is_empty = true;
             return;
         }
+
+        AMP_INSIST( d_memory_location != AMP::Utilities::MemoryType::device,
+                    "CSRLocalMatrixData: construction from MatrixParameters on device not yet "
+                    "supported. Try building from AMPCSRMatrixParameters." );
 
         // Count number of nonzeros per row and total
         d_nnz = 0;

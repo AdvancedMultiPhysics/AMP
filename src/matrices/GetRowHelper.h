@@ -25,6 +25,9 @@ public:
     //! Destructor
     ~GetRowHelper();
 
+    //! Release all internal storage
+    void deallocate();
+
     /** \brief  Get the number of non-zeros
      * \details  This will return the number of non-zeros for the row as [local,remote]
      * \param[in]  row          The row
@@ -47,8 +50,11 @@ public:
      * \param[out] remote       The remote non-zero entries (may be null)
      */
     template<class INT>
-    void getRow( INT row, INT *local, INT *remote ) const;
+    void getRow( size_t row, INT *local, INT *remote ) const;
 
+    const size_t *getLocals() const { return d_local; }
+
+    const size_t *getRemotes() const { return d_remote; }
 
 private: // Private routines
     std::array<size_t *, 2> getRow2( size_t row ) const;
@@ -56,6 +62,7 @@ private: // Private routines
 
 
 private: // Member data
+    bool d_hasFields;
     std::shared_ptr<const AMP::Discretization::DOFManager> d_leftDOF;
     std::shared_ptr<const AMP::Discretization::DOFManager> d_rightDOF;
     std::array<size_t, 2> *d_NNZ = nullptr;

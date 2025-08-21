@@ -18,7 +18,7 @@ void GetRowHelper::NNZ( size_t row, INT &N_local, INT &N_remote ) const
     N_remote = N[1];
 }
 template<class INT>
-void GetRowHelper::getRow( INT row, INT *local, INT *remote ) const
+void GetRowHelper::getRow( size_t row, INT *local, INT *remote ) const
 {
     auto [N_local, N_remote] = NNZ( row );
     auto [p_local, p_remote] = getRow2( row );
