@@ -94,13 +94,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &inputName )
     // initialize the linear solver
     auto linearSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( linearSolver_db );
-<<<<<<< HEAD
     linearSolverParams->d_pOperator = linBvpOperator;
     linearSolverParams->d_comm      = globalComm;
-=======
-    linearSolverParams->d_pOperator = linBvpOperator;
-    linearSolverParams->d_comm      = globalComm;
->>>>>>> 08692f394d6ca48210017d83b50793eed6934821
     auto linearSolver = std::make_shared<AMP::Solver::PetscKrylovSolver>( linearSolverParams );
     auto nonlinearSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( nonlinearSolver_db );
