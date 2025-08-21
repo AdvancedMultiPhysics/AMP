@@ -10,7 +10,9 @@
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/copycast/CopyCastHelper.h"
 
 #include "ProfilerApp.h"
 
@@ -82,35 +84,32 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
 
         // If, more specifically, have ampCSRParams then blocks are not yet
         // filled. This consolidates calls to getRow{NNZ,Cols} for both blocks
-        if ( ampCSRParams && ampCSRParams->getRowNNZFunction() ) {
-            AMP_INSIST( ampCSRParams->getRowColsFunction(),
-                        "ampCSRParams->getRowColsFunction() must give valid function" );
-
+        if ( ampCSRParams ) {
             // number of local rows
             const lidx_t nrows = static_cast<lidx_t>( d_last_row - d_first_row );
 
-            // pull out row functions
-            auto getRowNNZ  = ampCSRParams->getRowNNZFunction();
-            auto getRowCols = ampCSRParams->getRowColsFunction();
+            // pull out row helper
+            auto rowHelper = ampCSRParams->d_getRowHelper;
 
             // get NNZ counts and trigger allocations in blocks
             std::vector<lidx_t> nnz_diag( nrows ), nnz_offd( nrows );
             for ( lidx_t n = 0; n < nrows; ++n ) {
-                getRowNNZ( d_first_row + n, nnz_diag[n], nnz_offd[n] );
+                rowHelper->NNZ( d_first_row + n, nnz_diag[n], nnz_offd[n] );
             }
             d_diag_matrix->setNNZ( nnz_diag );
             d_offd_matrix->setNNZ( nnz_offd );
 
+            auto diag_cols = rowHelper->getLocals();
+            auto offd_cols = rowHelper->getRemotes();
 
-            // Fill in column indices
-            for ( lidx_t n = 0; n < nrows; ++n ) {
-                const auto rs_diag = d_diag_matrix->d_row_starts[n];
-                auto cols_diag     = &( d_diag_matrix->d_cols[rs_diag] );
-                const auto rs_offd = d_offd_matrix->d_row_starts[n];
-                auto cols_offd =
-                    d_offd_matrix->d_is_empty ? nullptr : &( d_offd_matrix->d_cols[rs_offd] );
-                getRowCols( d_first_row + n, cols_diag, cols_offd );
+            AMP::Utilities::copy( d_diag_matrix->d_nnz, diag_cols, d_diag_matrix->d_cols.get() );
+            if ( !d_offd_matrix->d_is_empty ) {
+                AMP::Utilities::copy(
+                    d_offd_matrix->d_nnz, offd_cols, d_offd_matrix->d_cols.get() );
             }
+
+            // contents of rowHelper no longer useful, trigger deallocation
+            rowHelper->deallocate();
 
             // trigger re-packing of columns and convert to local cols
             globalToLocalColumns();
