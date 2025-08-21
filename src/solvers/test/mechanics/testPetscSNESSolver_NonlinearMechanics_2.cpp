@@ -91,9 +91,6 @@ static void myTest( AMP::UnitTest *ut )
         nonlinBvpOperator->getVolumeOperator() )
         ->setVector( AMP::Operator::Mechanics::TEMPERATURE, finalTempVec );
 
-    auto linBvpOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
-        nonlinBvpOperator->getParameters( "Jacobian", nullptr ) );
-
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
@@ -113,14 +110,14 @@ static void myTest( AMP::UnitTest *ut )
     auto mechNlResVec = mechNlSolVec->clone();
     auto mechNlScaledRhsVec = mechNlSolVec->clone();
 
-
     // Initial guess for NL solver must satisfy the displacement boundary conditions
     mechNlSolVec->setToScalar( 0.0 );
     dirichletDispInVecOp->apply( nullVec, mechNlSolVec );
     mechNlSolVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     nonlinBvpOperator->apply( mechNlSolVec, mechNlResVec );
-    linBvpOperator->reset( nonlinBvpOperator->getParameters( "Jacobian", mechNlSolVec ) );
+    auto linBvpOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
+        nonlinBvpOperator->getParameters( "Jacobian", nullptr ) );
 
     mechNlRhsVec->setToScalar( 0.0 );
     dirichletLoadVecOp->apply( nullVec, mechNlRhsVec );
@@ -135,9 +132,6 @@ static void myTest( AMP::UnitTest *ut )
     auto pcSolverParams = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcSolver_db );
     pcSolverParams->d_pOperator = linBvpOperator;
     auto pcSolver               = std::make_shared<AMP::Solver::TrilinosMLSolver>( pcSolverParams );
-
-    // HACK to prevent a double delete on Petsc Vec
-    std::shared_ptr<AMP::Solver::PetscSNESSolver> nonlinearSolver;
 
     // initialize the linear solver
     auto linearSolverParams =
@@ -155,7 +149,7 @@ static void myTest( AMP::UnitTest *ut )
     nonlinearSolverParams->d_pNestedSolver = linearSolver;
     nonlinearSolverParams->d_pInitialGuess = mechNlSolVec;
 
-    nonlinearSolver.reset( new AMP::Solver::PetscSNESSolver( nonlinearSolverParams ) );
+    auto nonlinearSolver = std::make_shared<AMP::Solver::PetscSNESSolver>( nonlinearSolverParams );
 
     nonlinearSolver->setZeroInitialGuess( false );
 
