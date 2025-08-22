@@ -1,8 +1,9 @@
 #ifndef RAD_DIF_MODEL
 #define RAD_DIF_MODEL
 
-#include "RDFDDiscretization.h"
-
+#include "AMP/mesh/Mesh.h"
+#include "AMP/utils/Database.h"
+#include "AMP/mesh/MeshElement.h"
 
 
 /* ----------------------------------------------------

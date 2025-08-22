@@ -1,114 +1,8 @@
 // Class implementations for discretizations and solvers
 
-#include "RDFDDiscretization.h"
+#include "RadiationDiffusionFDDiscretization.h"
 
 
-
-
-
-
-
-
-#if 1
-
-    // MultiDofManager does have a getGlocalDof which converts DOFs from a sub-manager to their global values.---there is some "local" language here that's a big confusing, but I think that's probably the function I want. I.e, we use this to re-map column indices. Potentially the "getSubDOF" does the reverse of this, giving us a local DOF based on a global one. This is how we could map from the global row into the local rows of the matrix. 
-
-    // std::vector<size_t> multiDOFManager::getGlobalDOF( const int manager,
-    //                                                const std::vector<   size_t> &dofs )
-    // std::vector<size_t> multiDOFManager::getSubDOF( const int manager,
-    //                                                 const std::vector<size_t> &dofs )
-
-
-
-/* Build a monolithic matrix representing the BERadDifOpJac. I.e., we build the matrix:
-[A B]
-[C D]  
-
-But we need to do it in nodal ordering, where as the simplest thing is to get it in variable ordering.
-
-[(E0,T0), (E1,T1), ..., (Ek, Tk)]
-
-Given a row index in the nodal matrix, return the corresponding cols and data values. 
-*/
-void BERadDifOpJac::monolithicNodalJacGetRow( size_t rowNodal, std::vector<size_t> &cols, std::vector<double> &data ) const {
-
-    // TODO: Need to sort out what I'm doing here in terms of resizing, pre-allocation, etc.
-    // it's a bit hard because I have to extract CSR data from a matrix.
-    std::vector<size_t> aux_dof1(1, 0);
-    std::vector<size_t> aux_dof2(1, 0);
-    std::vector<size_t> aux_cols;
-    std::vector<double> aux_vals;
-    cols = {};
-    data = {};
-
-    // Unpack DOF manager
-    auto multiDOF = d_RadDifOpJac->d_RadDifOp->d_multiDOFMan;
-
-    // Number of local DOFs in each variable 
-    auto nLocalDOFs = multiDOF->numLocalDOF() / 2;
-
-    // We're given a nodal row index, we need to convert it to a variable row index so we can extract the correct variable rows of the submatrices (these live in variable index space)
-    aux_dof1[0] = rowNodal;
-    nodalOrderingToVariableOrdering( nLocalDOFs, aux_dof1, aux_dof2 );
-    size_t rowIndVar = aux_dof2[0];
-
-    // E variables live in even nodal rows
-    // Strip out corresponding variable row of [A, B]. B is diagonal.
-    if ( rowNodal % 2 == 0 ) {
-
-        // Convert the global variable row index into an E variable index space
-        // This is the row in [A, B] we need to extract
-        aux_dof1[0] = rowIndVar;
-        std::vector<size_t> rowIndEVar = multiDOF->getSubDOF( 0, aux_dof1 );
-        
-        // Get row of A in aux_cols and data.
-        A->getRowByGlobalID( rowIndEVar[0], aux_cols, data );
-
-        // Map cols of A from EVar index space into global variable index space
-        cols = multiDOF->getGlobalDOF( 0, aux_cols );
-
-        // Now concatenate single entry from diag matrix B
-        // Get entry of B in current E var row
-        data.push_back( B->getValueByGlobalID( rowIndEVar[0] ) ); 
-        // Get index of T connection in global index space
-        cols.push_back( multiDOF->getGlobalDOF( 1, rowIndEVar )[0] );
-
-    // T variables live in odd nodal rows
-    // Strip out corresponding variable row of [C, D]. C is diagonal
-    } else {
-        
-        // Convert the global variable row index into a T variable index space
-        // This is the row in [C, D] we need to extract
-        aux_dof1[0] = rowIndVar;
-        std::vector<size_t> rowIndTVar = multiDOF->getSubDOF( 1, aux_dof1 );
-        
-        // Get row of D in aux_cols and data.
-        D->getRowByGlobalID( rowIndTVar[0], aux_cols, data );
-
-        // Map cols of D from TVar index space into global variable index space
-        cols = multiDOF->getGlobalDOF( 1, aux_cols );
-
-        // Now concatenate single entry from diag matrix C
-        // Get entry of C in current T var row
-        data.push_back( C->getValueByGlobalID( rowIndTVar[0] ) ); 
-        // Get index of E connection in global index space
-        cols.push_back( multiDOF->getGlobalDOF( 0, rowIndTVar )[0] );
-
-    }
-
-    #if 0
-    std::cout << "\tVariable ordering:\n"; 
-    for ( auto i = 0; i < cols.size(); i++ ) {
-        std::cout << "\t\tcol=" << cols[i] << ", data=" << data[i] << "\n";
-    }
-    #endif
-
-    // Convert cols from variable ordering into nodal ordering.
-    std::vector<size_t> cols_nodal;
-    variableOrderingToNodalOrdering( nLocalDOFs, cols, cols_nodal );
-    cols = cols_nodal;
-}
-#endif
 
 
 
@@ -132,19 +26,68 @@ I should have a flag in the jacobian that checks somehow whether we have overwri
 
 
 /* --------------------------------------
-    Implementation of RadDifOpJac 
+    Implementation of RadDifOpPJac 
 ----------------------------------------- */
 
-std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpJac::createInputVector() const {
+RadDifOpPJac::RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParameters> params_) : 
+        AMP::Operator::LinearOperator( params_ ) {
+
+    if ( d_iDebugPrintInfoLevel > 0 )
+        AMP::pout << "RadDifOpPJac::RadDifOpPJac() " << std::endl;
+
+    auto params = std::dynamic_pointer_cast<const RadDifOpPJacParameters>( params_ );
+    AMP_INSIST( params, "params must be of type RadDifOpPJacParameters" );
+
+    // Unpack parameters
+    d_frozenVec = params->d_frozenSolution;
+    d_RadDifOp  = params->d_RadDifOp;
+
+    setData( );
+};
+
+void RadDifOpPJac::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET ) {
+
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "RadDifOpPJac::apply() " << std::endl;
+
+    // If the data has been overwritten by a BEOper, then this apply will be an apply of that operator. That's fine, but so as to not cause any confusion about the state of the data the BEOper must acknowledge before every apply that's indeed what they're trying to do.
+    if ( d_data->overwrittenByBEOper ) {
+        AMP_INSIST( applyWithOverwrittenBEOperDataIsValid, "This apply is invalid because the data has been mutated by a BEOper; you must first set the flag 'applyWithOverwrittenBEOperDataIsValid' to true if you really want to do an apply" );
+    }
+
+    applyFromData( ET, rET );
+
+    // Reset flag
+    applyWithOverwrittenBEOperDataIsValid = false;
+};
+
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJac::createInputVector() const {
     return d_RadDifOp->createInputVector();
 };
+
+
+void RadDifOpPJac::setData( ) {
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "BERadDifOpJac::setData() " << std::endl;    
+
+    auto meshDim = this->getMesh()->getDim();
+    if ( meshDim == 1 ) {
+        setData1D( );
+    } else if ( meshDim == 2 ) {
+        setData2D( );
+    } else {
+        AMP_ERROR( "Invalid dimension" );
+    }
+}
+
 
 // Apply action of the operator utilizing its representation in d_data
 /* Picard linearization of a RadDifOp. This LinearOperator has the following structure: 
 [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
 [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
 */
-void RadDifOpJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  ) {
+void RadDifOpPJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  ) {
 
     if ( d_iDebugPrintInfoLevel > 1 )
         AMP::pout << "BERadDifOpJac::applyFromData() " << std::endl;
@@ -202,7 +145,7 @@ The underlying LinearOperator has the following structure:
 [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
 [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
 */
-void RadDifOpJac::setData1D(  ) 
+void RadDifOpPJac::setData1D(  ) 
 {
     // --- Unpack parameters ---
     std::shared_ptr<const AMP::Database> PDE_db  = d_RadDifOp->d_db->getDatabase( "PDE" );
@@ -227,7 +170,7 @@ void RadDifOpJac::setData1D(  )
     // Initialize+allocate d_data if it's not been done already
     // We don't allocate matrices here since they're going to be created below... Possibly there's an option to do something smarter where we just reset the values because the sparsity structure is always identical, including for both matrices...
     if ( !d_data ) {
-        d_data       = std::make_shared<RadDifOpJacData>();
+        d_data       = std::make_shared<RadDifOpPJacData>();
         d_data->r_EE = E_vec->clone( );
         d_data->r_ET = E_vec->clone( );
         d_data->r_TE = E_vec->clone( );
@@ -412,7 +355,7 @@ void RadDifOpJac::setData1D(  )
 
 
 
-void RadDifOpJac::setData2D(  ) 
+void RadDifOpPJac::setData2D(  ) 
 {
     // --- Unpack parameters ---
     std::shared_ptr<const AMP::Database> PDE_db  = d_RadDifOp->d_db->getDatabase( "PDE" );
@@ -437,7 +380,7 @@ void RadDifOpJac::setData2D(  )
     // Initialize+allocate d_data if it's not been done already
     // We don't allocate matrices here since they're going to be created below... Possibly there's an option to do something smarter where we just reset the values because the sparsity structure is always identical, including for both matrices...
     if ( !d_data ) {
-        d_data       = std::make_shared<RadDifOpJacData>();
+        d_data       = std::make_shared<RadDifOpPJacData>();
         d_data->r_EE = E_vec->clone( );
         d_data->r_ET = E_vec->clone( );
         d_data->r_TE = E_vec->clone( );
@@ -705,16 +648,14 @@ void RadDifOpJac::setData2D(  )
 /* Updates frozen value of current solution. I.e., when this is called, the d_frozenSolution vector in params is the current approximation to the outer nonlinear problem.
     Also direct d_data to null, indicating it's out of date
 */
-void RadDifOpJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ ) {
+void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ ) {
 
     if ( d_iDebugPrintInfoLevel > 1 )
-            AMP::pout << "RadDifOpJac::reset() " << std::endl;
-
-    //AMP_WARNING( "Come back here... Either is this or the BE wrapper I need to implement a check to see if the vector has actually changed since multiple resets per Newton iteration are called... Maybe in the BEWrapper makes more sense, since there I could check if the time-step has changed too? Well. How am I going to check if the solution vector has been updated because it's pointer is probably always the same..." );
+            AMP::pout << "RadDifOpPJac::reset() " << std::endl;
 
     AMP_ASSERT( params_ );
     // Downcast OperatorParameters to their derived class
-    auto params = std::dynamic_pointer_cast<const RadDifOpJacParameters>( params_ );
+    auto params = std::dynamic_pointer_cast<const RadDifOpPJacParameters>( params_ );
     AMP_INSIST( ( params.get() ) != nullptr, "NULL parameters" );
     AMP_INSIST( ( ( params->d_db ).get() ) != nullptr, "NULL database" );
     AMP_INSIST( ( ( params->d_frozenSolution ).get() ) != nullptr, "NULL frozen solution" );
@@ -730,9 +671,101 @@ void RadDifOpJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameters
 }; 
 
 
-/* --------------------------------------
-        Implementation of RadDifOp 
------------------------------------------ */
+/* --------------------------------------------------------------------------------
+                          Implementation of RadDifOp 
+--------------------------------------------------------------------------------- */
+
+RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params) : 
+        AMP::Operator::Operator( params ) {
+
+    if ( d_iDebugPrintInfoLevel > 0 )
+        AMP::pout << "RadDifOp::RadDifOp() " << std::endl; 
+
+    // Keep a pointer to my BoxMesh to save having to do this downcast repeatedly 
+    d_BoxMesh = std::dynamic_pointer_cast<AMP::Mesh::BoxMesh>( this->getMesh() );
+    AMP_INSIST( d_BoxMesh, "Mesh must be a AMP::Mesh::BoxMesh" );
+
+    // Set PDE parameters
+    d_db = params->d_db;
+    AMP_INSIST(  d_db, "Requires non-null db" );
+
+    // Set DOFManagers
+    this->setDOFManagers();
+    AMP_INSIST(  d_multiDOFMan, "Requires non-null multiDOF" );
+
+    AMP_INSIST( d_db->getDatabase( "PDE" ),  "PDE_db is null" );
+    AMP_INSIST( d_db->getDatabase( "mesh" ), "mesh_db is null" );
+
+    auto model = d_db->getDatabase( "PDE" )->getWithDefault<std::string>( "model", "" );
+    AMP_INSIST( model == "linear" || model == "nonlinear", "model must be 'linear' or 'nonlinear'" );
+
+    // Specify default Robin return function for E
+    std::function<double( int, double, double, AMP::Mesh::MeshElement & )> wrapperE = [&]( int boundary, double, double, AMP::Mesh::MeshElement & ) { return robinFunctionEDefault( boundary ); };
+    this->setRobinFunctionE( wrapperE );
+    // Specify default Neumann return function for T
+    std::function<double( int, AMP::Mesh::MeshElement & )> wrapperT = [&]( int boundary,  AMP::Mesh::MeshElement & ) { return pseudoNeumannFunctionTDefault( boundary ); };
+    this->setPseudoNeumannFunctionT( wrapperT );
+};
+
+void RadDifOp::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> LET) {
+
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "RadDifOp::apply() " << std::endl;
+
+    auto meshDim = d_BoxMesh->getDim();
+    if ( meshDim == 1 ) {
+        apply1D(ET, LET);
+    } else {
+        apply2D(ET, LET);
+    }
+};
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const {
+    auto ET_var = std::make_shared<AMP::LinearAlgebra::Variable>( "ET" );
+    // auto E_var = std::make_shared<AMP::LinearAlgebra::Variable>( "E" );
+    // auto T_var = std::make_shared<AMP::LinearAlgebra::Variable>( "T" );
+    // std::vector<std::shared_ptr<AMP::LinearAlgebra::Variable>> vec = { E_var, T_var };
+    // auto ET_var = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "ET", vec );
+    auto ET_vec = AMP::LinearAlgebra::createVector<double>( this->d_multiDOFMan, ET_var );
+    return ET_vec;
+};
+
+void RadDifOp::setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::MeshElement &)> fn_ ) { d_pseudoNeumannFunctionT = fn_; };
+void RadDifOp::setRobinFunctionE( std::function<double(int, double, double, AMP::Mesh::MeshElement &)> fn_ ) { d_robinFunctionE = fn_; };
+
+AMP::Mesh::MeshElement RadDifOp::gridIndsToMeshElement( int i, int j, int k ) {
+    AMP::Mesh::BoxMesh::MeshElementIndex ind(
+                    AMP::Mesh::GeomType::Vertex, 0, i, j, k );
+    return d_BoxMesh->getElement( ind );
+};
+
+size_t RadDifOp::gridIndsToScalarDOF( int i, int j, int k ) {
+    AMP::Mesh::BoxMesh::MeshElementIndex ind(
+                    AMP::Mesh::GeomType::Vertex, 0, i, j, k );
+    AMP::Mesh::MeshElementID id = d_BoxMesh->convert( ind );
+    std::vector<size_t> dof;
+    d_scalarDOFMan->getDOFs(id, dof);
+    return dof[0];
+};
+
+std::shared_ptr<AMP::Operator::OperatorParameters> RadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in ) {
+
+    // Create a copy of d_db using Database copy constructor
+    auto db = std::make_shared<AMP::Database>( *d_db );
+    //auto db = std::make_shared<AMP::Database>( "JacobianParametersDB" );
+    // OperatorParameters database must contain the "name" of the Jacobian operator that will be created from this
+    db->putScalar( "name", "RadDifOpPJac");
+    //db->putScalar<int>( "print_info_level", d_db->getScalar<int>( "print_info_level" ) );
+    // Create derived OperatorParameters for Jacobian
+    auto jacOpParams    = std::make_shared<RadDifOpPJacParameters>( db );
+    // Set its mesh
+    jacOpParams->d_Mesh = this->getMesh();
+
+    jacOpParams->d_frozenSolution = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( u_in );
+    jacOpParams->d_RadDifOp = this;
+
+    return jacOpParams;
+}
 
 /* Populate vector with function that takes an int representing the component and a reference to a MeshElement and returns a double.  */
 void RadDifOp::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun ) {

@@ -1,0 +1,175 @@
+#include "RadiationDiffusionFDBEWrappers.h"
+
+/* Overwrites the above data structure to create the BEOperator 
+([I 0]         [ d_E 0   ])         [ diag(r_EE) diag(r_ET) ]
+([0 I] + gamma*[ 0   d_T ]) + gamma*[ diag(r_TE) diag(r_TT) ]
+==
+[ d_E_BE  0    ]   [ diag(r_EE_BE) diag(r_ET_BE) ]
+[ 0      d_T_BE] + [ diag(r_TE_BE) diag(r_TT_BE) ]
+*/
+BERadDifOpPJacData::BERadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data, double gamma ) {
+    AMP_INSIST( data, "Non-null data required" );
+
+    data->overwrittenByBEOper = true;
+
+    // Unpack vectors
+    r_EE_BE = data->r_EE;
+    r_ET_BE = data->r_ET;
+    r_TE_BE = data->r_TE;
+    r_TT_BE = data->r_TT;
+    // Scale them by gamma
+    r_EE_BE->scale( gamma );
+    r_ET_BE->scale( gamma );
+    r_TE_BE->scale( gamma );
+    r_TT_BE->scale( gamma );
+    // Make everything consistent
+    r_EE_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    r_ET_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    r_TE_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    r_TT_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+    // Unpack matrices
+    d_E_BE  = data->d_E;
+    d_T_BE  = data->d_T;
+    // Scale by gamma
+    d_E_BE->scale( gamma );
+    d_T_BE->scale( gamma );
+    // Add identity perturbations 
+    auto DOFMan_E = d_E_BE->getRightDOFManager(  );
+    for ( auto dof = DOFMan_E->beginDOF(); dof != DOFMan_E->endDOF(); dof++ ) {
+        d_E_BE->addValueByGlobalID(dof, dof, 1.0);
+    }
+    auto DOFMan_T = d_T_BE->getRightDOFManager(  );
+    for ( auto dof = DOFMan_T->beginDOF(); dof != DOFMan_T->endDOF(); dof++ ) {
+        d_T_BE->addValueByGlobalID(dof, dof, 1.0);
+    }
+    // Make everything consistent
+    d_E_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    d_T_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+};
+
+
+/* --------------------------------------------------------------------------------
+                          Implementation of BERadDifOp 
+--------------------------------------------------------------------------------- */
+
+
+BERadDifOp::BERadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ ) : 
+        AMP::Operator::Operator( params_ ) 
+{
+    if ( d_iDebugPrintInfoLevel > 0 )
+        AMP::pout << "BERadDifOp::BERadDifOp() " << std::endl;   
+
+    // Create my RadDifOp
+    d_RadDifOp = std::make_shared<RadDifOp>( params_ );
+}
+
+void BERadDifOp::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
+            AMP::LinearAlgebra::Vector::shared_ptr r )
+{
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "BERadDifOp::apply() " << std::endl;  
+    AMP_INSIST( d_RadDifOp, "RadDifOp not set!" );
+    d_RadDifOp->apply( u_in, r );
+    r->axpby (1.0, d_gamma, *u_in); // r <- 1.0*u + d_gamma * r
+}
+
+std::shared_ptr<AMP::Operator::OperatorParameters> BERadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in ) {
+
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "BERadDifOp::getJacobianParameters() " << std::endl;  
+
+    // Get RadDifOp params
+    auto jacOpParams = d_RadDifOp->getJacobianParameters( u_in );
+
+    // Update the name from "RadDifOpPJac"
+    jacOpParams->d_db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, true );
+    jacOpParams->d_db->putScalar<std::string>( "name", "BERadDifOpPJac" );
+
+    // Specify time-step size
+    jacOpParams->d_db->putScalar<double>( "gamma", d_gamma );
+
+    return jacOpParams;
+}
+
+/* --------------------------------------------------------------------------------
+                          Implementation of BERadDifOpPJac 
+--------------------------------------------------------------------------------- */
+
+BERadDifOpPJac::BERadDifOpPJac( std::shared_ptr<AMP::Operator::OperatorParameters> params ) : AMP::Operator::LinearOperator( params ) {
+
+    if ( d_iDebugPrintInfoLevel > 0 )
+        AMP::pout << "BERadDifOpPJac::BERadDifOpPJac() " << std::endl;
+
+    // Create my RadDifOpPJac
+    d_RadDifOpJac = std::make_shared<RadDifOpPJac>( params );
+
+    // Set the time step-size
+    d_gamma = params->d_db->getScalar<double>( "gamma" );   
+
+    setData();
+
+    // 
+    //setLocalPermutationArrays();
+}
+
+void BERadDifOpPJac::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
+                AMP::LinearAlgebra::Vector::shared_ptr r )
+{
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "BERadDifOpPJac::apply() " << std::endl;  
+    AMP_INSIST( d_RadDifOpJac, "RadDifOpPJac not set!" );
+
+    d_RadDifOpJac->applyWithOverwrittenBEOperDataIsValid = true;
+    d_RadDifOpJac->apply( u_in, r );
+
+    // d_RadDifOpJac->apply( u_in, r );
+    // r->axpby (1.0, d_gamma, *u_in); // r <- 1.0*u + d_gamma * r
+
+
+
+    #if 0
+    /* Test apply to check nodal ordering...
+        Seems to be working in 1D and 2D....
+    */
+    auto r_test = d_RadDifOpJac->createInputVector();
+    applyNodalToVariableVectors( u_in, r_test );
+    std::cout << "+++Apply comparison: Variable vs nodal ordering\n";
+    auto dof = d_RadDifOpJac->d_RadDifOp->d_multiDOFMan; 
+    for ( auto i = dof->beginDOF(); i != dof->endDOF(); i++ ) {
+        auto ri = r->getValueByGlobalID( i );
+        auto riTemp = r_test->getValueByGlobalID( i );
+        std::cout << "dof=" << i << ": dr=" << 1e-16+std::fabs(ri - riTemp)/std::fabs( ri ) << ",\tr=" << ri << ",rt=" << riTemp << "\n";
+    }
+    //AMP_ERROR( "Halt...." );
+    #endif
+}
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> BERadDifOpPJac::createInputVector() const { return d_RadDifOpJac->createInputVector( ); };
+
+void BERadDifOpPJac::reset(std::shared_ptr<const AMP::Operator::OperatorParameters> params) {
+
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "BERadDifOpPJac::reset()  " << std::endl;
+
+    // Calls with empty parameters are to be ignored
+    if ( !params ) { 
+        if ( d_iDebugPrintInfoLevel > 1 )
+            AMP::pout << "  Called with empty parameters...  not resetting anything" << std::endl;
+        return; 
+    }
+
+    AMP::Operator::LinearOperator::reset( params );
+
+    // Reset my RadDifOpPJac
+    d_RadDifOpJac->reset( params );
+
+    // Reset time step-size
+    d_gamma = params->d_db->getScalar<double>( "gamma" );  
+
+    // Reset my data
+    setData( );
+
+    // Reset my monolithic Jacobian
+    //d_JNodal = createMonolithicJac( );
+}  

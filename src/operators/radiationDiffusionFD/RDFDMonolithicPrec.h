@@ -42,12 +42,17 @@
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/petsc/PetscSNESSolver.h"
 
+
 #include "RDUtils.h"
-#include "RDFDDiscretization.h"
+#include "RadiationDiffusionFDBEWrappers.h"
+#include "RadiationDiffusionFDDiscretization.h"
 
 #include <iostream>
 #include <iomanip>
 
+//class BERadDifOpPJac;
+
+#if 0
 
 /*
 6.8.6 AMG for systems of PDEs
@@ -138,12 +143,12 @@ Smoothing:
 
 
 
-class BERadDifOpJacMonolithic : public AMP::Solver::SolverStrategy {
+class BERadDifOpPJacMonolithic : public AMP::Solver::SolverStrategy {
 
 public:
 
     // Keep a pointer to this to save having to down cast more than once 
-    std::shared_ptr<BERadDifOpJac> d_BERadDifOpJac = nullptr;
+    std::shared_ptr<BERadDifOpPJac> d_BERadDifOpPJac = nullptr;
 
     // Solver
     std::shared_ptr<AMP::Solver::SolverStrategy> d_solver = nullptr;
@@ -156,26 +161,26 @@ public:
     // d_dRelativeTolerance   = "relative_tolerance"
     // d_bComputeResidual     = "compute_residual"
 
-    BERadDifOpJacMonolithic( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
+    BERadDifOpPJacMonolithic( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
     : SolverStrategy( params ) {
 
         if ( d_iDebugPrintInfoLevel > 1 )
-            AMP::pout << "BERadDifOpJacMonolithic::BERadDifOpJacMonolithic() " << std::endl;
+            AMP::pout << "BERadDifOpPJacMonolithic::BERadDifOpPJacMonolithic() " << std::endl;
     };  
 
-    // Used by SolverFactory to create a BERadDifOpJacMonolithic
+    // Used by SolverFactory to create a BERadDifOpPJacMonolithic
     static std::unique_ptr<AMP::Solver::SolverStrategy> create( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params ) {  
-        return std::make_unique<BERadDifOpJacMonolithic>( params ); };
+        return std::make_unique<BERadDifOpPJacMonolithic>( params ); };
 
     // Implementation of pure virtual function
-    std::string type() const { return "BERadDifOpJacMonolithic"; };
+    std::string type() const { return "BERadDifOpPJacMonolithic"; };
 
     // Apply preconditioner 
     // Incoming vectors are in variable ordering
     void apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> bET_, std::shared_ptr< AMP::LinearAlgebra::Vector> ET_) override {
 
         if ( d_iDebugPrintInfoLevel > 2 )
-            AMP::pout << "BERadDifOpJacMonolithic::apply() " << std::endl;
+            AMP::pout << "BERadDifOpPJacMonolithic::apply() " << std::endl;
 
 
         // I don't think it makes sense to use a non-zero initial guess, does it?
@@ -191,16 +196,16 @@ public:
 
         // Convert variable-ordered vectors into nodal ordering
         // Create vectors for nodal ordering
-        auto bET_ndl = d_BERadDifOpJac->createNodalInputVector();
-        auto ET_ndl  = d_BERadDifOpJac->createNodalInputVector();
-        d_BERadDifOpJac->createNodalOrderedCopy( bET_, bET_ndl );
-        d_BERadDifOpJac->createNodalOrderedCopy( ET_, ET_ndl );
+        auto bET_ndl = d_BERadDifOpPJac->createNodalInputVector();
+        auto ET_ndl  = d_BERadDifOpPJac->createNodalInputVector();
+        d_BERadDifOpPJac->createNodalOrderedCopy( bET_, bET_ndl );
+        d_BERadDifOpPJac->createNodalOrderedCopy( ET_, ET_ndl );
         ET_ndl->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         bET_ndl->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
         // Create a residual and correction vectors 
-        auto rET_ndl = d_BERadDifOpJac->createNodalInputVector();
-        auto dET_ndl = d_BERadDifOpJac->createNodalInputVector();
+        auto rET_ndl = d_BERadDifOpPJac->createNodalInputVector();
+        auto dET_ndl = d_BERadDifOpPJac->createNodalInputVector();
 
 
         // Assemble solver
@@ -215,10 +220,10 @@ public:
             if ( iter == 0 ) {
                 rET_ndl->copyVector( bET_ndl ); // Zero initial iterate means r0 = b - A*x0 = b
             } else {
-                d_BERadDifOpJac->residualNodal( bET_ndl, ET_ndl, rET_ndl );
+                d_BERadDifOpPJac->residualNodal( bET_ndl, ET_ndl, rET_ndl );
             }
             if ( d_iDebugPrintInfoLevel > 1 ) {
-                AMP::pout << "BERadDifOpJacMonolithic::apply(): iteration " << iter << ":" << std::endl;
+                AMP::pout << "BERadDifOpPJacMonolithic::apply(): iteration " << iter << ":" << std::endl;
                 auto rnorms = getDiscreteNorms( 1.0, rET_ndl );
                 AMP::pout << "||r||=(" << rnorms[0] << "," << rnorms[1] << "," << rnorms[2] << ")" << std::endl;
             }
@@ -233,14 +238,14 @@ public:
 
         // Display final residual; note that this residual calculation is unnecessary because the final iterate is calculated already, hence the flag 
         if ( d_bComputeResidual ) {
-            AMP::pout << "BERadDifOpJacMonolithic::apply(): final residual" << ":" << std::endl;
-            d_BERadDifOpJac->residualNodal( bET_ndl, ET_ndl, rET_ndl );
+            AMP::pout << "BERadDifOpPJacMonolithic::apply(): final residual" << ":" << std::endl;
+            d_BERadDifOpPJac->residualNodal( bET_ndl, ET_ndl, rET_ndl );
             auto rnorms = getDiscreteNorms( 1.0, rET_ndl );
             AMP::pout << "||r||=(" << rnorms[0] << "," << rnorms[1] << "," << rnorms[2] << ")" << std::endl;
         }
 
         // Copy output vector back to variable ordering
-        d_BERadDifOpJac->createVariableOrderedCopy( ET_ndl, ET_ );
+        d_BERadDifOpPJac->createVariableOrderedCopy( ET_ndl, ET_ );
     }
 
     // Create solvers for diffusion blocks if they don't exist already
@@ -253,11 +258,11 @@ public:
         auto db    = AMP::Database::create( "name", "Operator", "print_info_level", 0 );
         auto params = std::make_shared<AMP::Operator::OperatorParameters>( std::move(db) );
         auto JacNodal = std::make_shared<AMP::Operator::LinearOperator>( params );
-        JacNodal->setMatrix( d_BERadDifOpJac->d_JNodal );
+        JacNodal->setMatrix( d_BERadDifOpPJac->d_JNodal );
         AMP_INSIST( JacNodal->getMatrix(), "Jac Matrix is null" );
 
         // Create solver parameters
-        auto comm        = d_BERadDifOpJac->getMesh()->getComm(); 
+        auto comm        = d_BERadDifOpPJac->getMesh()->getComm(); 
         auto solver_db   = d_db->getDatabase( "MonolithicSolver" );
         auto solverParams = std::make_shared<AMP::Solver::SolverStrategyParameters>( solver_db );
         solverParams->d_pOperator = JacNodal;
@@ -273,23 +278,89 @@ public:
     void reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params ) override {
         
         if ( d_iDebugPrintInfoLevel > 1 )
-            AMP::pout << "BERadDifOpJacMonolithic::reset() " << std::endl;
+            AMP::pout << "BERadDifOpPJacMonolithic::reset() " << std::endl;
 
         d_solver = nullptr;
     }
 
     void registerOperator( std::shared_ptr<AMP::Operator::Operator> op ) override {
         if ( d_iDebugPrintInfoLevel > 1 )
-            AMP::pout << "BERadDifOpJacMonolithic::registerOperator() " << std::endl;
+            AMP::pout << "BERadDifOpPJacMonolithic::registerOperator() " << std::endl;
 
         AMP_INSIST( op, "A null operator cannot be registered" );
 
         d_pOperator = op;
-        auto myBEOp = std::dynamic_pointer_cast<BERadDifOpJac>( op );
-        AMP_INSIST( myBEOp, "Operator must be of BERadDifOpJac type" );
-        d_BERadDifOpJac = myBEOp;
+        auto myBEOp = std::dynamic_pointer_cast<BERadDifOpPJac>( op );
+        AMP_INSIST( myBEOp, "Operator must be of BERadDifOpPJac type" );
+        d_BERadDifOpPJac = myBEOp;
     }
 };
 
+
+
+
+/*
+Maybe it's just easiest to create a map from a nodal index to a variable index and vice versa
+
+Say we have 2*n values on process (n for T) and (n for E), indices a,a+1, ..., a+2*n-1, where a is an even integer
+
+Then variable ordering is
+[a,a+1,a+2,a+3,   ...,a+(n-1)],  [a+n,a+1+n,...a+n-1+(n-1),a+n+(n-1)]
+And the nodal ordering is
+ a,a+n,a+1,a+1+n, ...,                      a+(n-1),a+n+(n-1) 
+
+
+// This is only going to work if I know a... or for local DOFs where a=0
+but that's an issue because sometimes I have connections to non-local DOFs...
+
+For a given index, I need to know the first index on that process and how many dofs are on that process...
+
+
+# Consider the following variably-ordered indices mapped to nodally-ordered indices
+# Variable ordering
+P0: [0 1 2 3 4] [5 6 7 8 9 10]
+P1: [11 12 13 14] [16 17 18 19]
+
+# Nodal ordering
+P0: [0 5 1 6 2 7 3 8 4 9 5 10]
+P1: [11 16 12 17 13 18 14 19]
+
+So say I'm given DOFs [0 16] then I have an issue because they're on different proccesses with different starting points and different numbers of DOFs on each...
+
+Just assume serial for the moment.... 
+*/
+
+// 0->0, 1->n, 2->1, 3->n+1 ...
+// So even nodal indices get divided by 2
+// and odd nodal indices get subtract 1, divide by 2 and add n  
+inline void nodalOrderingToVariableOrdering( size_t n, const std::vector<size_t> &ndl, std::vector<size_t> &var ) {
+    var.resize( ndl.size() );
+    for ( auto i = 0; i < ndl.size(); i++ ) {
+        auto dof = ndl[i];
+        if ( dof % 2 == 0 ) {
+            var[i] = dof/2;
+        } else {
+            var[i] = (dof-1)/2 + n;
+        }
+    }
+}
+
+// 0->0, 1->2, 2->4, ..., n->1, 1+n->3, 2+n->5
+// So variable indices  <n get doubled
+// and variable indices >= subtract n, double and add 1
+inline void variableOrderingToNodalOrdering( size_t n, const std::vector<size_t> &var, std::vector<size_t> &ndl ) {
+    ndl.resize( var.size() );
+    for ( auto i = 0; i < var.size(); i++ ) {
+        auto dof = var[i];
+        if ( dof < n ) {
+            ndl[i] = dof * 2;
+        } else {
+            ndl[i] = (dof-n) * 2 + 1;
+        }
+    }
+}
+
+
+#endif
 
 #endif

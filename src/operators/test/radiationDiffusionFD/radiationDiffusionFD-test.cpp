@@ -49,11 +49,14 @@
 #include <iomanip>
 #include <filesystem>
 
-#include "AMP/operators/radiationDiffusionFD/RDFDDiscretization.h"
-#include "AMP/operators/radiationDiffusionFD/RDUtils.h"
-#include "AMP/operators/radiationDiffusionFD/RDFDOpSplitPrec.h"
-#include "AMP/operators/radiationDiffusionFD/RDFDMonolithicPrec.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
+
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
+#include "AMP/operators/radiationDiffusionFD/RDUtils.h"
+
+#include "AMP/operators/radiationDiffusionFD/RDFDOpSplitPrec.h"
+//#include "AMP/operators/radiationDiffusionFD/RDFDMonolithicPrec.h"
 
 
 /*
@@ -69,6 +72,7 @@ I'll also need to understand what exactly this is doing because if there are con
 
 Test routines to map between different orderings
 */
+#if 0
 void orderingTest( std::shared_ptr<AMP::Discretization::DOFManager> scalarDOF, 
                     std::shared_ptr<AMP::Discretization::multiDOFManager> multiDOF ) {
 
@@ -106,6 +110,7 @@ void orderingTest( std::shared_ptr<AMP::Discretization::DOFManager> scalarDOF,
     }
 
 }
+#endif
 
 /*
 I'm going to need to map multiVectors to Vectors that are nodally ordered. 
@@ -205,12 +210,12 @@ void driver(AMP::AMP_MPI comm,
 
     // Create an OperatorFactory and register Jacobian of BERadDifOp in it 
     auto & operatorFactory = AMP::Operator::OperatorFactory::getFactory();
-    operatorFactory.registerFactory( "BERadDifOpJac", BERadDifOpJac::create );
+    operatorFactory.registerFactory( "BERadDifOpPJac", BERadDifOpPJac::create );
 
     // Create a SolverFactory and register preconditioner(s) of the above operator in it 
     auto & solverFactory = AMP::Solver::SolverFactory::getFactory();
-    solverFactory.registerFactory( "BERadDifOpJacOpSplitPrec", BERadDifOpJacOpSplitPrec::create );
-    solverFactory.registerFactory( "BERadDifOpJacMonolithic", BERadDifOpJacMonolithic::create );
+    solverFactory.registerFactory( "BERadDifOpPJacOpSplitPrec", BERadDifOpPJacOpSplitPrec::create );
+    //solverFactory.registerFactory( "BERadDifOpJacMonolithic", BERadDifOpJacMonolithic::create );
     
     // Create hassle-free wrappers around ic, source term and exact solution
     auto icFun        = std::bind( &RadDifModel::initialCondition, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
