@@ -4,24 +4,33 @@
 
 
 
-
-
-
-
-
-
-/*
-next thing to do is neaten up setData1D in terms of how i overwrite the exiting data etc... then i could make the 2D version, or i could work on the operator split prec. it is probably best to do the operator split stuff in case it requires coming back to rework the stuff implementation of setData (e.g., this business of the dt...)
-
-I + dt*L + dt*R = (I + dt*L)*( I + dt*R ) + O(dt^2)
-
-Suppose I write create 
-    A == (I + dt*L) 
-    B == dt*R
-Then I can still apply A + B, and I can still apply A^{-1} and (I + B)^{-1}
-
-I should have a flag in the jacobian that checks somehow whether we have overwritten L with I + dt*L such that it's apply is not going to work any longer or only if we call it in a special way or something.
-*/
+/** ---------------------------------------------------------
+ *          Implementation of RadDifOpPJacData
+ *  ------------------------------------------------------ */
+std::shared_ptr<AMP::LinearAlgebra::Matrix> RadDifOpPJacData::get_d_E() {
+    d_dataMaybeOverwritten = true;
+    return d_E;
+}
+std::shared_ptr<AMP::LinearAlgebra::Matrix> RadDifOpPJacData::get_d_T() {
+    d_dataMaybeOverwritten = true;
+    return d_T;
+}
+std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_EE() {
+    d_dataMaybeOverwritten = true;
+    return r_EE;
+}
+std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_ET() {
+    d_dataMaybeOverwritten = true;
+    return r_ET;
+}
+std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_TE() {
+    d_dataMaybeOverwritten = true;
+    return r_TE;
+}
+std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_TT() {
+    d_dataMaybeOverwritten = true;
+    return r_TT;
+}
 
 
 
@@ -51,14 +60,14 @@ void RadDifOpPJac::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, 
         AMP::pout << "RadDifOpPJac::apply() " << std::endl;
 
     // If the data has been overwritten by a BEOper, then this apply will be an apply of that operator. That's fine, but so as to not cause any confusion about the state of the data the BEOper must acknowledge before every apply that's indeed what they're trying to do.
-    if ( d_data->overwrittenByBEOper ) {
-        AMP_INSIST( applyWithOverwrittenBEOperDataIsValid, "This apply is invalid because the data has been mutated by a BEOper; you must first set the flag 'applyWithOverwrittenBEOperDataIsValid' to true if you really want to do an apply" );
+    if ( d_data->d_dataMaybeOverwritten ) {
+        AMP_INSIST( d_applyWithOverwrittenDataIsValid, "This apply is invalid because the data has been mutated by a BEOper; you must first set the flag 'applyWithOverwrittenBEOperDataIsValid' to true if you really want to do an apply" );
     }
 
     applyFromData( ET, rET );
 
     // Reset flag
-    applyWithOverwrittenBEOperDataIsValid = false;
+    d_applyWithOverwrittenDataIsValid = false;
 };
 
 
@@ -82,15 +91,22 @@ void RadDifOpPJac::setData( ) {
 }
 
 
-// Apply action of the operator utilizing its representation in d_data
+
 /* Picard linearization of a RadDifOp. This LinearOperator has the following structure: 
 [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
 [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
 */
 void RadDifOpPJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  ) {
 
-    if ( d_iDebugPrintInfoLevel > 1 )
+    if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "BERadDifOpJac::applyFromData() " << std::endl;
+    }
+
+
+    // Check that if Jacobian data has been modified that the caller of this function really intends to do the apply with modified data.
+    if ( d_data->d_dataMaybeOverwritten ) {
+        AMP_INSIST( d_applyWithOverwrittenDataIsValid, "Jacobian data may have been modified. If you understand what that means for an apply with it, you must first call RadDifOpPJac::applyWithOverwrittenDataIsValid()" );
+    }
 
     // Downcast input Vectors to MultiVectors 
     auto ET  = std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( ET_ );
@@ -135,6 +151,9 @@ void RadDifOpPJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vect
     LT->add( *temp1, *temp2 );
     d_T->mult( T, temp1 );
     LT->axpby( 1.0, 1.0, *temp1 );
+
+    // Reset flag indicating apply with overwritten Jacobian data is invalid
+    d_applyWithOverwrittenDataIsValid = false;
 }
 
 

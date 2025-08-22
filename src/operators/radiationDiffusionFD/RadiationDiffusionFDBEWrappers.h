@@ -49,19 +49,34 @@
 
 #include "RadiationDiffusionFDDiscretization.h"
 
-// These shouldn't need to be forward declared since the above header is included.
-// class RadDifOp;
-// class RadDifOpPJac;
-// class RadDifOpPJacData;
+/** The classes in this file either are (or are associated with) wrapping spatial radiation 
+ * diffusion operators as backward Euler operators, i.e., multiplying them by some time-step size 
+ * and adding an identity. These operators here are closely related to 
+ * AMP::TimeIntegrator::TimeOperator  
+ */
 
 
-/* Overwrites the above data structure to create the BEOperator 
-([I 0]         [ d_E 0   ])         [ diag(r_EE) diag(r_ET) ]
-([0 I] + gamma*[ 0   d_T ]) + gamma*[ diag(r_TE) diag(r_TT) ]
-==
-[ d_E_BE  0    ]   [ diag(r_EE_BE) diag(r_ET_BE) ]
-[ 0      d_T_BE] + [ diag(r_TE_BE) diag(r_TT_BE) ]
-*/
+/** Data structure for storing the 2x2 block matrix associated with the BERadDifOpPJac, I + 
+ * gamma*hat{L}, where hat{L} is a RadDifOpPJac.
+ * 
+ * Specifically, the constructor here takes in the data structure used to store the 2x2 block matrix associated with hat{L}, i.e., 
+ *  [ d_E 0   ] + [ diag(r_EE) diag(r_ET) ]
+ *  [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
+ * and overwrites it to create
+ *  ([I 0]         [ d_E 0   ])         [ diag(r_EE) diag(r_ET) ]
+ *  ([0 I] + gamma*[ 0   d_T ]) + gamma*[ diag(r_TE) diag(r_TT) ]
+ *      ==
+ *  [ d_E_BE  0    ]   [ diag(r_EE_BE) diag(r_ET_BE) ]
+ *  [ 0      d_T_BE] + [ diag(r_TE_BE) diag(r_TT_BE) ]
+ * 
+ * Note: We store the data in the above format for two reasons:
+ * 1. It allows an operator-split preconditioner to be build, wherein the diffusion blocks must
+ * contain the identity perturbation since AMG is applied to them, and it's easy enough to add an
+ * identity perturbation on the fly to the reaction blocks when decoupled 2x2 solves are done there
+ * 2. The modification that we make to the data means that our underlying RadDifOpPJac's apply will 
+ * actually be an apply of a BERadDifOpPJac (we would have to write another apply routine if we 
+ * also added an identity perturbation into the reaction block).
+ */
 struct BERadDifOpPJacData {
     std::shared_ptr<AMP::LinearAlgebra::Matrix> d_E_BE  = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Matrix> d_T_BE  = nullptr;
@@ -76,93 +91,108 @@ struct BERadDifOpPJacData {
 
 
 
-/* ------------------------------------------------
-    Class implementing a backward Euler operator 
-------------------------------------------------- */
-/* Implements the Operator I + gamma*L where L is a RadDifOp. 
-    This operator arises from the BDF discretization of the ODEs 
-        u'(t) + L*u = s(t). 
-
-    The incoming OperatorParameters are used to create operator L. */ 
+/** ----------------------------------------------------------------
+ *      Class wrapping a RadDifOp as a backward Euler operator 
+----------------------------------------------------------------- */
+/** Implements the Operator I + gamma*L where L is a RadDifOp. 
+ * This operator arises from the BDF discretization of the ODEs 
+ *      u'(t) + L*u = s(t). 
+ * The incoming OperatorParameters are used to create operator L. 
+ */ 
 class BERadDifOp : public AMP::Operator::Operator {
 
 public:
-    // Time-step size (up to scaling by BDF constants)
+    //! Time-step size (up to scaling by BDF constants)
     double                    d_gamma    = -1.0;
-    // The underlying spatial operator
+    //! The underlying radiation diffusion spatial operator
     std::shared_ptr<RadDifOp> d_RadDifOp = nullptr;
     
 
-    // Constructor
+    //! Constructor
     BERadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ );
 
+    //! Destructor
     virtual ~BERadDifOp() {};
 
-    // Compute r <- (I + gamma*L)*u
+    //! Compute r <- (I + gamma*L)*u
     void apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
                 AMP::LinearAlgebra::Vector::shared_ptr r ) override;
 
-    // Used to register this operator in a factory
+    //! Used to register this operator in a factory
     std::string type() const override {
         return "BERadDifOp";
     }
 
-    // Returns RadDifOp's isValidVector
+    //! Returns RadDifOp's isValidVector
     bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) override {
         return d_RadDifOp->isValidVector( ET );
     }
 
-    // Set the scaled time-step size of the operator
-    void setGamma( AMP::Scalar gamma_ ) { 
-        if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << "BERadDifOp::setGamma() " << std::endl;
-        }
-        d_gamma = double( gamma_ );
-    }
+    //! Set the scaled time-step size of the operator
+    void setGamma( AMP::Scalar gamma_ ); 
+
 
 protected:
 
-    /** virtual function returning a parameter object that may be used to reset the corresponding
-    RadDifPJacOp operator. Note that in the base class's getParameters get's redirected to this function. 
-    u_in is the current nonlinear iterate. */
+    /** \brief Returns a parameter object that may be used to reset the associated RadDifPJacOp
+     * operator. 
+     * \param[in] u_in The current nonlinear iterate. 
+     * \details Note that the base class's getParameters() get's redirected to this function. 
+     */
     std::shared_ptr<AMP::Operator::OperatorParameters> getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in ) override;
 
 };
 
 
-/* ------------------------------------------------
-    Class implementing a backward Euler operator 
-------------------------------------------------- */
-/* Implements the Operator I + gamma*hat{L} where hat{L} is a RadDifOpPJac. */
+/** ----------------------------------------------------------------
+ *      Class wrapping a RadDifOp as a backward Euler operator 
+----------------------------------------------------------------- */
+/** Implements the Operator I + gamma*hat{L} where hat{L} is a 
+ * RadDifOpPJac, i.e., a Picard linearization of a radiation diffusion 
+ * operator, RadDifOp  
+ */
 class BERadDifOpPJac : public AMP::Operator::LinearOperator {
 
 public:
 
-    double                              d_gamma;
-    std::shared_ptr<RadDifOpPJac>       d_RadDifOpJac;
+    //! Time-step size (up to scaling by BDF constants)
+    double                              d_gamma    = -1.0;
+    //! The underlying linearized radiation diffusion spatial operator
+    std::shared_ptr<RadDifOpPJac>       d_RadDifOpPJac;
+    //! Data structure for storing block 2x2 matrix
     std::shared_ptr<BERadDifOpPJacData> d_data = nullptr;
 
-    // Monolithic Jacobian in nodal ordering
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_JNodal;
 
+    //! Constructor
     BERadDifOpPJac( std::shared_ptr<AMP::Operator::OperatorParameters> params );
 
-    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override; 
-    
+    //! Destructor
+    virtual ~BERadDifOpPJac() {};
 
-    // Used by OperatorFactory to create a BERadDifOpPJac
+    //! Used by OperatorFactory to create a BERadDifOpPJac
     static std::unique_ptr<AMP::Operator::Operator> create( std::shared_ptr<AMP::Operator::OperatorParameters> params ) {  
         return std::make_unique<BERadDifOpPJac>( params ); };
 
-    // Compute r <- (I + gamma*hat{L})*u
+    //! Compute r <- (I + gamma*hat{L})*u
     void apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
                 AMP::LinearAlgebra::Vector::shared_ptr r ) override;
     
-    // Virtual function. This re-initializes/updates the operator. 
+    //! Reset the operator based on the incoming parameters 
     void reset(std::shared_ptr<const AMP::Operator::OperatorParameters> params) override;
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override; 
+
     
+private:
+    //! Create new d_data based on my RadDifOpPJac's d_data
+    void setData() {
+        d_data = std::make_shared<BERadDifOpPJacData>( d_RadDifOpPJac->d_data, d_gamma );
+    }
 
     #if 0
+    // Monolithic Jacobian in nodal ordering
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_JNodal;
+
     // Copy contents of variable-ordered vector into nodal-ordered vector 
     void createNodalOrderedCopy( std::shared_ptr<const AMP::LinearAlgebra::Vector> inVar, std::shared_ptr<AMP::LinearAlgebra::Vector> outNdl ) {
         for ( size_t i = 0; i < d_ndlInds.size(); i++ ) {
@@ -177,7 +207,7 @@ public:
     }
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> createNodalInputVector() {
-        return d_RadDifOpJac->d_RadDifOp->createNodalInputVector();
+        return d_RadDifOpPJac->d_RadDifOp->createNodalInputVector();
     }
 
     // Compute r <- (I + gamma*hat{L})*u
@@ -187,7 +217,7 @@ public:
     {
         if ( d_iDebugPrintInfoLevel > 1 )
             AMP::pout << "BERadDifOpPJac::apply() " << std::endl;  
-        AMP_INSIST( d_RadDifOpJac, "RadDifOpPJac not set!" );
+        AMP_INSIST( d_RadDifOpPJac, "RadDifOpPJac not set!" );
 
         // Create vectors for nodal ordering
         auto u_inNodal = createNodalInputVector();
@@ -210,7 +240,7 @@ public:
     {
         if ( d_iDebugPrintInfoLevel > 1 )
             AMP::pout << "BERadDifOpPJac::apply() " << std::endl;  
-        AMP_INSIST( d_RadDifOpJac, "RadDifOpPJac not set!" );
+        AMP_INSIST( d_RadDifOpPJac, "RadDifOpPJac not set!" );
 
         // Do the apply
         d_JNodal->mult( u_in_ndl, r_ndl );
@@ -240,12 +270,6 @@ public:
         rInternal->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     }
     #endif
-    
-private:
-    // Create new d_data based on my RadDifOpPJac's d_data
-    void setData() {
-        d_data = std::make_shared<BERadDifOpPJacData>( d_RadDifOpJac->d_data, d_gamma );
-    }
 
     
     #if 0
@@ -259,7 +283,7 @@ private:
         std::function<void( size_t dof )> setColsAndData = [&]( size_t dof ) { monolithicNodalJacGetRow( dof, cols, data ); }; 
 
         // Iterate through local rows in matrix
-        auto multiDOF = d_RadDifOpJac->d_RadDifOp->d_multiDOFMan;
+        auto multiDOF = d_RadDifOpPJac->d_RadDifOp->d_multiDOFMan;
         size_t nrows = 1;
         for ( size_t dof = multiDOF->beginDOF(); dof != multiDOF->endDOF(); dof++ ) {
             setColsAndData( dof );
@@ -275,7 +299,7 @@ private:
     std::vector<size_t> d_varInds;
     // Set the above arrays
     void setLocalPermutationArrays() {
-        auto N = d_RadDifOpJac->d_RadDifOp->d_multiDOFMan->numLocalDOF();
+        auto N = d_RadDifOpPJac->d_RadDifOp->d_multiDOFMan->numLocalDOF();
         d_ndlInds.resize( N );
         d_varInds.resize( N );
         for ( size_t i = 0; i < N; i++ ) {
@@ -331,7 +355,7 @@ private:
 
         // This is a test (for small n) to check the index conversion all works properly inside the get row function. Looks OK for 1D with e.g., n = 8.
         # if 0
-        auto multiDOF = d_RadDifOpJac->d_RadDifOp->d_multiDOFMan;
+        auto multiDOF = d_RadDifOpPJac->d_RadDifOp->d_multiDOFMan;
         for ( auto dof = multiDOF->beginDOF(); dof != multiDOF->endDOF(); dof++ ) {
             std::cout << "Nodal dof=" << dof << "\n";
             monolithicNodalJacGetRow( dof, cols, data );
@@ -343,12 +367,12 @@ private:
         AMP_ERROR( "Halt...." );   
         #endif 
 
-        auto inVec = d_RadDifOpJac->d_RadDifOp->createNodalInputVector();
-        auto outVec = d_RadDifOpJac->d_RadDifOp->createNodalInputVector();
+        auto inVec = d_RadDifOpPJac->d_RadDifOp->createNodalInputVector();
+        auto outVec = d_RadDifOpPJac->d_RadDifOp->createNodalInputVector();
         
         // I don't know why, but the below is not working... 
-        // auto inVec  = d_RadDifOpJac->d_RadDifOp->createInputVector( );
-        // auto outVec = d_RadDifOpJac->d_RadDifOp->createInputVector( );
+        // auto inVec  = d_RadDifOpPJac->d_RadDifOp->createInputVector( );
+        // auto outVec = d_RadDifOpPJac->d_RadDifOp->createInputVector( );
 
         // Create wrapper around CSR data function that sets cols and data
         std::function<void( size_t dof )> setColsAndData = [&]( size_t dof ) { monolithicNodalJacGetRow( dof, cols, data ); }; 

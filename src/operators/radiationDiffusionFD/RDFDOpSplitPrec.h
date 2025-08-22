@@ -244,7 +244,7 @@ private:
         double a, b, c, d, e, f, x, y;
 
         // Iterate through all local rows
-        auto scalarDOFMan = d_BERadDifOpPJac->d_RadDifOpJac->d_RadDifOp->d_scalarDOFMan;
+        auto scalarDOFMan = d_BERadDifOpPJac->d_RadDifOpPJac->d_RadDifOp->d_scalarDOFMan;
         for (auto dof = scalarDOFMan->beginDOF(); dof != scalarDOFMan->endDOF(); dof++) {
             // LHS matrix
             a = data->r_EE_BE->getValueByGlobalID<double>( dof ) + 1.0; // Add identity 
