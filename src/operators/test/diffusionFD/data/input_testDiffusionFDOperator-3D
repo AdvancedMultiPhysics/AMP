@@ -1,0 +1,23 @@
+# 3D Example
+
+# Mesh data
+Mesh {
+    MeshName = "mesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 64, 64, 64
+    Range = -1, 1, -1, 1, -1, 1
+    surfaceIds = 1, 2, 3, 4, 5, 6
+    static = TRUE
+}
+
+# Rotation and anisotropy coefficients
+RACoefficients{
+    dim   = 3
+    alpha = 0.1234
+    beta  = 0.5462
+    gamma = 0.9843
+    epsy  = 1e-2
+    epsz  = 1e-1
+}

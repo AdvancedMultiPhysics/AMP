@@ -11,21 +11,10 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
     std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
     const AMP_MPI &comm,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
-    : MatrixParameters( dofLeft, dofRight, comm ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm ), d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 template<typename Config>
@@ -34,21 +23,10 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
     const AMP_MPI &comm,
     AMP::Utilities::Backend backend,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
-    : MatrixParameters( dofLeft, dofRight, comm, backend ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm, backend ), d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 template<typename Config>
@@ -58,21 +36,10 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     const AMP_MPI &comm,
     std::shared_ptr<Variable> varLeft,
     std::shared_ptr<Variable> varRight,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
-    : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight ), d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 template<typename Config>
@@ -83,21 +50,11 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<Variable> varLeft,
     std::shared_ptr<Variable> varRight,
     AMP::Utilities::Backend backend,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
     : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight, backend ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+      d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 template<typename Config>
@@ -107,21 +64,11 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     const AMP_MPI &comm,
     std::shared_ptr<CommunicationList> commListLeft,
     std::shared_ptr<CommunicationList> commListRight,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
     : MatrixParameters( dofLeft, dofRight, comm, commListLeft, commListRight ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+      d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 template<typename Config>
@@ -132,21 +79,11 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<CommunicationList> commListLeft,
     std::shared_ptr<CommunicationList> commListRight,
     AMP::Utilities::Backend backend,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
     : MatrixParameters( dofLeft, dofRight, comm, commListLeft, commListRight, backend ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+      d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 template<typename Config>
@@ -158,21 +95,11 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<Variable> varRight,
     std::shared_ptr<CommunicationList> commListLeft,
     std::shared_ptr<CommunicationList> commListRight,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
     : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight, commListLeft, commListRight ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+      d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 template<typename Config>
@@ -185,22 +112,12 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<CommunicationList> commListLeft,
     std::shared_ptr<CommunicationList> commListRight,
     AMP::Utilities::Backend backend,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::lidx_t &,
-                              typename Config::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Config::gidx_t,
-                              typename Config::gidx_t *,
-                              typename Config::gidx_t * )> getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
     : MatrixParameters(
           dofLeft, dofRight, comm, varLeft, varRight, commListLeft, commListRight, backend ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+      d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
 } // namespace AMP::LinearAlgebra

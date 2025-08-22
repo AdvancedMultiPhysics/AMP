@@ -92,10 +92,11 @@ struct prospect {
 
     lidx_t pop()
     {
-        auto selected            = prio_node.cbegin();
-        chosen[selected->second] = true;
+        auto selected   = prio_node.cbegin();
+        const auto node = selected->second;
+        chosen[node]    = true;
         prio_node.erase( selected );
-        return selected->second;
+        return node;
     }
 
     void remove( lidx_t e )

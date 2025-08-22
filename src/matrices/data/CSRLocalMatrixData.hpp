@@ -7,6 +7,7 @@
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
+#include "AMP/matrices/data/CSRMatrixDataHelpers.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
@@ -17,11 +18,11 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Policy>
-bool isColValid( typename Policy::gidx_t col,
+template<typename Config>
+bool isColValid( typename Config::gidx_t col,
                  bool is_diag,
-                 typename Policy::gidx_t first_col,
-                 typename Policy::gidx_t last_col )
+                 typename Config::gidx_t first_col,
+                 typename Config::gidx_t last_col )
 {
     bool dValid  = is_diag && ( first_col <= col && col < last_col );
     bool odValid = !is_diag && ( col < first_col || last_col <= col );
@@ -91,9 +92,6 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         d_cols       = sharedArrayWrapper( blParams.d_cols );
         d_coeffs     = sharedArrayWrapper( blParams.d_coeffs );
     } else if ( matParams ) {
-        // Getting device memory support in this constructor mode will be very challenging
-        AMP_ASSERT( d_memory_location != AMP::Utilities::MemoryType::device );
-
         // can always allocate row starts without external information
         d_row_starts = sharedArrayBuilder( d_num_rows + 1, d_lidxAllocator );
         AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
@@ -107,6 +105,10 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
             d_is_empty = true;
             return;
         }
+
+        AMP_INSIST( d_memory_location != AMP::Utilities::MemoryType::device,
+                    "CSRLocalMatrixData: construction from MatrixParameters on device not yet "
+                    "supported. Try building from AMPCSRMatrixParameters." );
 
         // Count number of nonzeros per row and total
         d_nnz = 0;
@@ -183,8 +185,10 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     // Verify that all have matching row/col starts/stops
     // Blocks must have valid global columns present
     // Count total number of non-zeros in each row from combination.
-    auto block           = ( *blocks.begin() ).second;
-    const auto mem_loc   = block->d_memory_location;
+    auto block         = ( *blocks.begin() ).second;
+    const auto mem_loc = block->d_memory_location;
+    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
+                "CSRLocalMatrixData::ConcatHorizontal not implemented on device yet" );
     const auto first_row = block->d_first_row;
     const auto last_row  = block->d_last_row;
     const auto nrows     = static_cast<lidx_t>( last_row - first_row );
@@ -210,7 +214,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     concat_matrix->setNNZ( row_nnz );
 
     // set row_nnz back to zeros to use as counters while appending entries
-    std::fill( row_nnz.begin(), row_nnz.end(), 0 );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( row_nnz.data(), last_row - first_row, 0 );
 
     // loop back over blocks and write into new matrix
     for ( auto it : blocks ) {
@@ -244,8 +248,10 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     // count number of rows and check compatibility of blocks
     auto block         = ( *blocks.begin() ).second;
     const auto mem_loc = block->d_memory_location;
-    lidx_t num_rows    = 0;
-    bool all_empty     = block->isEmpty();
+    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
+                "CSRLocalMatrixData::ConcatVertical not implemented on device yet" );
+    lidx_t num_rows = 0;
+    bool all_empty  = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
         AMP_DEBUG_INSIST( mem_loc == block->d_memory_location,
@@ -342,9 +348,6 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
         return;
     }
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::globalToLocalColumns not implemented on device yet" );
-
     // Columns easier to sort before converting to local
     // and defining unq cols in offd easier if globals are sorted
     sortColumns();
@@ -353,68 +356,27 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
     d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
 
     if ( d_is_diag ) {
-        for ( lidx_t n = 0; n < d_nnz; ++n ) {
-            d_cols_loc[n] = static_cast<lidx_t>( d_cols[n] - d_first_col );
-        }
+        CSRMatrixDataHelpers<Config>::GlobalToLocalDiag(
+            d_cols.get(), d_nnz, d_first_col, d_cols_loc.get() );
     } else {
         // for offd setup column map as part of the process
 
         // first make a copy of the global columns and sort them
         // as a whole. This is different from the sortColumns call
-        // above that acts within a row, where this jumbles rows
-        // together.
+        // that acts within a row. This jumbles all rows together.
         auto cols_tmp = sharedArrayBuilder( d_nnz, d_gidxAllocator );
         AMP::Utilities::Algorithms<gidx_t>::copy_n( d_cols.get(), d_nnz, cols_tmp.get() );
-        std::sort( cols_tmp.get(), cols_tmp.get() + d_nnz );
+        AMP::Utilities::Algorithms<gidx_t>::sort( cols_tmp.get(), d_nnz );
 
-        // count unique entries, allocate uniques, fill uniques
-        auto col_curr = cols_tmp[0];
-        lidx_t pos    = 1;
-        for ( lidx_t n = 1; n < d_nnz; ++n ) {
-            if ( cols_tmp[n] != col_curr ) {
-                col_curr = cols_tmp[n];
-                ++pos;
-            }
-        }
-        d_ncols_unq   = pos;
-        d_cols_unq    = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
-        col_curr      = cols_tmp[0];
-        d_cols_unq[0] = col_curr;
-        pos           = 1;
-        for ( lidx_t n = 1; n < d_nnz; ++n ) {
-            if ( cols_tmp[n] != col_curr ) {
-                col_curr        = cols_tmp[n];
-                d_cols_unq[pos] = col_curr;
-                ++pos;
-            }
-        }
+        // make sorted entries unique and copy
+        d_ncols_unq = static_cast<lidx_t>(
+            AMP::Utilities::Algorithms<gidx_t>::unique( cols_tmp.get(), d_nnz ) );
+        d_cols_unq = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
+        AMP::Utilities::Algorithms<gidx_t>::copy_n( cols_tmp.get(), d_ncols_unq, d_cols_unq.get() );
         cols_tmp.reset();
 
-        // copy and modify from AMP::Utilities::findfirst to suit task
-        const gidx_t *cols_unq = d_cols_unq.get();
-        const lidx_t ncols_unq = d_ncols_unq;
-        auto bsearch           = [cols_unq, ncols_unq]( gidx_t gc ) -> lidx_t {
-            AMP_DEBUG_ASSERT( cols_unq[0] <= gc && gc <= cols_unq[ncols_unq - 1] );
-            lidx_t lower = 0, upper = ncols_unq - 1, idx;
-            while ( ( upper - lower ) > 1 ) {
-                idx = ( upper + lower ) / 2;
-                if ( cols_unq[idx] == gc ) {
-                    return idx;
-                } else if ( cols_unq[idx] > gc ) {
-                    upper = idx - 1;
-                } else {
-                    lower = idx + 1;
-                }
-            }
-            return gc == cols_unq[upper] ? upper : lower;
-        };
-
-        // find all local column indices from set
-        for ( lidx_t n = 0; n < d_nnz; ++n ) {
-            d_cols_loc[n] = bsearch( d_cols[n] );
-            AMP_DEBUG_ASSERT( d_cols_loc[n] < d_ncols_unq );
-            AMP_DEBUG_ASSERT( d_cols_unq[d_cols_loc[n]] == d_cols[n] );
-        }
+        CSRMatrixDataHelpers<Config>::GlobalToLocalOffd(
+            d_cols.get(), d_nnz, d_cols_unq.get(), d_ncols_unq, d_cols_loc.get() );
     }
 
     // free global cols as they should not be used from here on out
@@ -437,9 +399,6 @@ void CSRLocalMatrixData<Config>::sortColumns()
 {
     PROFILE( "CSRLocalMatrixData::sortColumns" );
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRSerialMatrixData::sortColumns not implemented for device memory" );
-
     if ( d_is_empty ) {
         return;
     }
@@ -447,52 +406,12 @@ void CSRLocalMatrixData<Config>::sortColumns()
     AMP_DEBUG_INSIST( d_cols.get() != nullptr,
                       "CSRLocalMatrixData::sortColumns Access to global columns required" );
 
-    std::vector<lidx_t> row_indices;
-    std::vector<gidx_t> cols_tmp;
-    std::vector<scalar_t> coeffs_tmp;
-    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
-        const auto rs      = d_row_starts[row];
-        const auto row_len = d_row_starts[row + 1] - rs;
-        if ( row_len == 0 )
-            continue;
-
-        row_indices.resize( row_len );
-        cols_tmp.resize( row_len );
-        coeffs_tmp.resize( row_len );
-
-        // initial row numbers
-        std::iota( row_indices.begin(), row_indices.end(), 0 );
-
-        // sort row_indices using column indices
-        // slightly different sorting criteria for on and off diagonal blocks
-        const auto cols_ptr = &d_cols[rs];
-        if ( d_is_diag ) {
-            PROFILE( "CSRLocalMatrixData::sortColumns:diag" );
-            const gidx_t diag_idx = d_first_col + static_cast<gidx_t>( row );
-            // diag block puts diag entry first, then ascending order on local col
-            std::sort( row_indices.begin(),
-                       row_indices.end(),
-                       [diag_idx, cols_ptr]( const lidx_t &a, const lidx_t &b ) -> bool {
-                           return diag_idx != cols_ptr[b] &&
-                                  ( cols_ptr[a] < cols_ptr[b] || cols_ptr[a] == diag_idx );
-                       } );
-        } else {
-            PROFILE( "CSRLocalMatrixData::sortColumns:offdiag" );
-            // offd block is plain ascending order on local col
-            std::sort( row_indices.begin(),
-                       row_indices.end(),
-                       [cols_ptr]( const lidx_t &a, const lidx_t &b ) -> bool {
-                           return cols_ptr[a] < cols_ptr[b];
-                       } );
-        }
-
-        // use row_indices to fill sorted col and coeff vectors
-        for ( lidx_t k = 0; k < row_len; ++k ) {
-            cols_tmp[k]   = d_cols[rs + row_indices[k]];
-            coeffs_tmp[k] = d_coeffs[rs + row_indices[k]];
-        }
-        std::copy( cols_tmp.begin(), cols_tmp.end(), &d_cols[rs] );
-        std::copy( coeffs_tmp.begin(), coeffs_tmp.end(), &d_coeffs[rs] );
+    if ( d_is_diag ) {
+        CSRMatrixDataHelpers<Config>::SortColumnsDiag(
+            d_row_starts.get(), d_cols.get(), d_coeffs.get(), d_num_rows, d_first_col );
+    } else {
+        CSRMatrixDataHelpers<Config>::SortColumnsOffd(
+            d_row_starts.get(), d_cols.get(), d_coeffs.get(), d_num_rows );
     }
 }
 
@@ -505,6 +424,7 @@ CSRLocalMatrixData<Config>::~CSRLocalMatrixData()
 template<typename Config>
 std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::cloneMatrixData()
 {
+    // cloning is just migration with the input/output configurations being the same
     return migrate<Config>();
 }
 
@@ -571,6 +491,9 @@ template<typename Config>
 std::shared_ptr<CSRLocalMatrixData<Config>>
 CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> params ) const
 {
+    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+                "CSRLocalMatrixData::transpose not implemented for device memory" );
+
     // create new data, note swapped rows and cols
     auto transposeData = std::make_shared<CSRLocalMatrixData>(
         params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, d_is_diag );
@@ -627,9 +550,6 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
 template<typename Config>
 void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
 {
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::setNNZ not implemented on device yet" );
-
     d_nnz = tot_nnz;
 
     if ( d_nnz == 0 ) {
@@ -644,17 +564,17 @@ void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
     d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
     d_coeffs   = sharedArrayBuilder( d_nnz, d_scalarAllocator );
 
-    std::fill( d_cols.get(), d_cols.get() + d_nnz, 0 );
-    std::fill( d_cols_loc.get(), d_cols_loc.get() + d_nnz, 0 );
-    std::fill( d_coeffs.get(), d_coeffs.get() + d_nnz, static_cast<scalar_t>( 0.0 ) );
+    AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( d_cols_loc.get(), d_nnz, 0 );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
 }
 
 template<typename Config>
 void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
 {
     if ( do_accum ) {
-        std::exclusive_scan(
-            d_row_starts.get(), d_row_starts.get() + d_num_rows + 1, d_row_starts.get(), 0 );
+        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
+            d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0 );
     }
 
     // total nnz in all rows of block is last entry
@@ -672,19 +592,16 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
     d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
     d_coeffs   = sharedArrayBuilder( d_nnz, d_scalarAllocator );
 
-    std::fill( d_cols.get(), d_cols.get() + d_nnz, 0 );
-    std::fill( d_cols_loc.get(), d_cols_loc.get() + d_nnz, 0 );
-    std::fill( d_coeffs.get(), d_coeffs.get() + d_nnz, static_cast<scalar_t>( 0.0 ) );
+    AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( d_cols_loc.get(), d_nnz, 0 );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
 }
 
 template<typename Config>
 void CSRLocalMatrixData<Config>::setNNZ( const std::vector<lidx_t> &nnz )
 {
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::setNNZ not implemented on device yet" );
-
     // copy passed nnz vector into row_starts and call internal setNNZ
-    std::copy( nnz.begin(), nnz.end(), d_row_starts.get() );
+    AMP::Utilities::Algorithms<lidx_t>::copy_n( nnz.data(), d_num_rows, d_row_starts.get() );
     setNNZ( true );
 }
 
@@ -697,7 +614,7 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
         return;
     }
 
-    // count coeffs that lie outside of range and zero them along the way
+    // count coeffs that lie within range and zero them along the way
     lidx_t num_delete = 0;
     std::vector<lidx_t> delete_per_row( d_num_rows, 0 );
     for ( lidx_t row = 0; row < d_num_rows; ++row ) {
@@ -783,7 +700,7 @@ template<typename Config>
 void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
 {
     AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::setNNZ not implemented on device yet" );
+                "CSRLocalMatrixData::getColPtrs not implemented on device yet" );
 
     if ( !d_is_empty ) {
         for ( lidx_t row = 0; row < d_num_rows; ++row ) {

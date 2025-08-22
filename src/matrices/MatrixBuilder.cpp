@@ -117,9 +117,6 @@ createCSRMatrix( AMP::LinearAlgebra::Vector::shared_ptr leftVec,
                  const std::function<std::vector<size_t>( size_t )> &getRow,
                  AMP::Utilities::Backend accelerationBackend )
 {
-    using gidx_t = typename Config::gidx_t;
-    using lidx_t = typename Config::lidx_t;
-
     // Get the DOFs
     auto leftDOF  = leftVec->getDOFManager();
     auto rightDOF = rightVec->getDOFManager();
@@ -149,14 +146,6 @@ createCSRMatrix( AMP::LinearAlgebra::Vector::shared_ptr leftVec,
         // Use GetRowHelper class to build a usable default
         auto rowHelper = std::make_shared<GetRowHelper>( leftDOF, rightDOF );
 
-        std::function<void( const gidx_t, lidx_t &, lidx_t & )> getRowNNZ =
-            [rowHelper]( const gidx_t row, lidx_t &nnz_local, lidx_t &nnz_remote ) {
-                rowHelper->NNZ( row, nnz_local, nnz_remote );
-            };
-        std::function<void( const gidx_t, gidx_t *, gidx_t * )> getRowCols =
-            [rowHelper]( const gidx_t row, gidx_t *cols_local, gidx_t *cols_remote ) {
-                rowHelper->getRow( row, cols_local, cols_remote );
-            };
         params = std::make_shared<AMP::LinearAlgebra::AMPCSRMatrixParameters<Config>>(
             leftDOF,
             rightDOF,
@@ -166,8 +155,7 @@ createCSRMatrix( AMP::LinearAlgebra::Vector::shared_ptr leftVec,
             leftVec->getCommunicationList(),
             rightVec->getCommunicationList(),
             accelerationBackend,
-            getRowNNZ,
-            getRowCols );
+            rowHelper );
     }
 
     // Create the matrix

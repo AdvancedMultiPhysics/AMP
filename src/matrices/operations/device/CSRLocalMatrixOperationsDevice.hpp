@@ -4,14 +4,14 @@
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
 #include "AMP/matrices/operations/device/DeviceMatrixOperations.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 
-#include <algorithm>
+#include <type_traits>
 
 #include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
-
 
 template<typename Config, class LocalMatrixData>
 void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::mult(
@@ -43,7 +43,6 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::multTranspose(
     AMP_WARNING( "multTranspose not enabled for device." );
 }
 
-
 template<typename Config, class LocalMatrixData>
 void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::scale(
     typename Config::scalar_t alpha, std::shared_ptr<LocalMatrixData> A )
@@ -54,6 +53,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::scale(
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::scale( tnnz_d, coeffs_d, alpha );
 }
+
 template<typename Config, class LocalMatrixData>
 void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::matMatMult(
     std::shared_ptr<LocalMatrixData>,
@@ -87,7 +87,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setScalar(
 
     const auto tnnz_d = A->numberOfNonZeros();
 
-    DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setScalar( tnnz_d, coeffs_d, alpha );
+    AMP::Utilities::Algorithms<typename Config::scalar_t>::fill_n( coeffs_d, tnnz_d, alpha );
 }
 
 template<typename Config, class LocalMatrixData>

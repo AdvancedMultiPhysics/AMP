@@ -10,7 +10,6 @@
 #include "StackTrace/StackTrace.h"
 #include "StackTrace/Utilities.h"
 
-
 // Include external packages for startup/shutdown
 // clang-format off
 #ifdef AMP_USE_OPENMP
