@@ -2,8 +2,8 @@ from spack.package import *
 
 
 class Lapackwrappers(CMakePackage):
-    homepage = "https://asc-git.lanl.gov/xcap/oss/solvers/lapackwrappers"
-    git = "ssh://git@re-git.lanl.gov:10022/xcap/oss/solvers/lapackwrappers.git"
+    homepage = "https://github.com/AdvancedMultiPhysics/LapackWrappers"
+    git = "https://github.com/AdvancedMultiPhysics/LapackWrappers.git"
 
     version("main", branch="main")
 
