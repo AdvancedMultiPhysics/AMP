@@ -46,7 +46,7 @@ inline AMP::Mesh::BoxMesh::Box getLocalNodeBox( std::shared_ptr<AMP::Mesh::BoxMe
     auto global = mesh->getGlobalBox();
     for ( int d = 0; d < 3; d++ ) {
         if ( local.last[d] == global.last[d] ) {
-            // An empty box in dimension d has a last index of 0; we don't should preserve that behavior
+            // An empty box in dimension d has a last index of 0; we should preserve that behavior
             if ( local.last[d] > 0 ) { 
                 local.last[d]++;
             }

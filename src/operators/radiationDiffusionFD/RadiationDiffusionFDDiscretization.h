@@ -82,6 +82,7 @@ class BERadDifOp;
 class BERadDifOpPJac;
 
 
+
 /** Data structure for storing the 2x2 block matrix hat{L} associated with the RadDifOpPJac
  * Specifically, this Picard Linearization is a LinearOperator with the following block structure: 
  * [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
@@ -260,30 +261,21 @@ public:
     // The user can specify any pseudo Neumann return function for T with this signature; if they do then this will overwrite the default.
     void setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::MeshElement &)> fn_ ); 
 
-
-
-private:
+private:    
     // Set d_multiDOFManagers after creating it from this Operators's mesh
     void setDOFManagers();
 
-    // Prototype of function returning value of Robin BC of E on given boundary at given node. The user can specify any function with this signature
-    std::function<double( int boundary, double a, double b, AMP::Mesh::MeshElement & node )> d_robinFunctionE;
+    //! Energy diffusion coefficient D_E given temperature T
+    double diffusionCoefficientE( double T, bool nonlinearModel, double z ) const;
 
-    // Prototype of function returning value of pseudo-Neumann BC of T on given boundary at given node. The user can specify any function with this signature
-    std::function<double( int boundary, AMP::Mesh::MeshElement & node )> d_pseudoNeumannFunctionT;
+    //! Temperature diffusion coefficient D_E given temperature T
+    double diffusionCoefficientT( double T, bool nonlinearModel ) const;
 
-    // Default function for returning Robin values; this can be overridden by the user
-    double robinFunctionEDefault( int boundary ); 
+    //! Compute quasi-linear reaction coefficients REE, RET, RTE, REE
+    void quasiLinearReactionCoefficients( double T, double z, bool nonlinearModel, double &REE, double &RET, double &RTE, double &RTT ) const;
+
     
-    // Default function for returning pseudo-Neumann values; this can be overridden by the user
-    double pseudoNeumannFunctionTDefault( int boundary ); 
-    
-    std::vector<double> getGhostValues( int boundary, AMP::Mesh::MeshElement &node, double Eint, double Tint );    
-    std::vector<double> ghostValuesSolve( double a, double b, double r, double n, double Eint, double Tint ); 
     double energyDiffusionCoefficientAtMidPoint( double T_left, double T_right);
-    double ghostValuePseudoNeumannTSolve( double n, double Tint );
-    double ghostValueRobinESolve( double a, double b, double r, double c, double Eint );
-    double ghostValueRobinEPicardCoefficient( double ck, size_t boundary ) const;
 
     void unpackLocalStencilData( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
@@ -323,7 +315,88 @@ private:
     AMP::Mesh::BoxMesh::Box getGlobalNodeBox() const;
 
 
+// Boundary-related data and routines
+private:
 
+    // Defines a boundary in a given dimension 
+    enum class BoundarySide { LOWER, UPPER };
+
+    /** Return the boundary in {1,...,6} corresponding to a dim in {0,1,2}, given the corresponding
+     * side.
+     */
+    size_t getBoundaryIDFromDim(size_t dim, BoundarySide side) const;
+
+    /** Assuming a boundaryID in {1,...,6}, get the dimension of the boundary, i.e., boundaries 1
+     * and 2 live in the first dimension, 3 and 4 the second, and 5 and 6 the third. 
+     */
+    size_t getDimFromBoundaryID(size_t boundaryID) const;
+
+    //! Ghost values for E and T; set via ''setGhostData''
+    std::array<double, 2> d_ghostData;
+
+    /** Set values in the member ghost values array, d_ghostData, corresponding to the given
+     * boundary at the given node given the interior value Eint and Tint. 
+     * This routine assumes Robin on E and pseudo-Neumann on T 
+     */
+    void setGhostData( size_t boundaryID, AMP::Mesh::MeshElement &node, double Eint, double Tint );    
+    
+
+    /** Prototype of function returning value of Robin BC of E on given boundary at given node. The
+     * user can specify any function with this signature.
+     */
+    std::function<double( size_t boundaryID, double a, double b, AMP::Mesh::MeshElement & node )> d_robinFunctionE;
+
+    /** Prototype of function returning value of pseudo-Neumann BC of T on given boundary at given
+     * node. The user can specify any function with this signature
+     */
+    std::function<double( size_t boundaryID, AMP::Mesh::MeshElement & node )> d_pseudoNeumannFunctionT;
+
+
+    //! Return database constant rk for boundary k
+    double robinFunctionEFromDB( size_t boundaryID ); 
+
+    //! Return database constant nk for boundary k
+    double pseudoNeumannFunctionTFromDB( size_t boundaryID ); 
+    
+    
+    /** Suppose on boundary k we have the two equations:
+     *     ak*E + bk * \hat{n}_k \dot k11 D_E(T) \grad E = rk
+     *                 \hat{n}_k \dot            \grad T = nK,
+     * where ak, bk, rk, and nk are all known constants; \hat{n}_k is the outward-facing normal
+     * vector at the boundary.
+     * The discretization of these conditions involves one ghost point for E and T (Eg and Tg), and
+     * one interior point (Eint and Tint). Here we solve for the ghost points and return them. Note
+     * that this system, although nonlinear, can be solved by forward substitution. 
+     * NOTE: that the actual boundary does not matter here once the constants a, b, r, and n have
+     * been specified.
+     */
+    void ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ); 
+
+
+    /** Suppose on boundary k we have the equation:
+     *      \hat{n}_k \dot \grad T = nK,
+     * where nk is a known constant and \hat{n}_k is the outward-facing normal vector at the
+     * boundary. The discretization of this conditions involves one ghost point for T (Tg), and one
+     * interior point (Tint). Here we solve for the ghost point and return it
+     */
+    double ghostValuePseudoNeumannTSolve( double n, double h, double Tint );
+    
+    /** Suppose on boundary k we have the equation:
+     *      ak*E + bk * \hat{n}_k \dot ck \grad E = rk
+     * where ak, bk, rk, nk, and ck are all known constants; \hat{n}_k is the outward-facing normal
+     * vector at the boundary.
+     * The discretization of these conditions involves one ghost point for E (Eg), and one interior
+     * point (Eint). Here we solve for the ghost point and return it.
+     */
+    double ghostValueRobinESolve( double a, double b, double r, double c, double h, double Eint );
+    
+    /** In the Robin BC for energy we get Eghost = alpha*Eint + beta, this function returns the
+     * coefficient alpha, which is the Picard linearization of this equation w.r.t Eint, where ck
+     * is the energy flux in the BC.
+     */
+    double ghostValueRobinEPicardCoefficient( double ck, size_t boundary ) const;
+
+    
     
     #if 0
     void apply1D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);

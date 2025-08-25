@@ -742,6 +742,8 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
                     "Mesh must be generated with 'cube generator'!" );
     }
 
+    // TODO: Add a check on boundary IDs. There are multiple places that assume they are 1,...,6. Perhaps actually just have a "meshCheck" function rather than putting all in the constructor.
+
     // Discretization assumes Dirichlet boundaries in all directions
     for ( auto periodic : d_BoxMesh->periodic() ) {
         AMP_INSIST( periodic == false, "Mesh cannot be periodic in any direction" );
@@ -764,10 +766,10 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
 
 
     // Specify default Robin return function for E
-    std::function<double( int, double, double, AMP::Mesh::MeshElement & )> wrapperE = [&]( int boundary, double, double, AMP::Mesh::MeshElement & ) { return robinFunctionEDefault( boundary ); };
+    std::function<double( int, double, double, AMP::Mesh::MeshElement & )> wrapperE = [&]( size_t boundaryID, double, double, AMP::Mesh::MeshElement & ) { return robinFunctionEFromDB( boundaryID ); };
     this->setRobinFunctionE( wrapperE );
     // Specify default Neumann return function for T
-    std::function<double( int, AMP::Mesh::MeshElement & )> wrapperT = [&]( int boundary,  AMP::Mesh::MeshElement & ) { return pseudoNeumannFunctionTDefault( boundary ); };
+    std::function<double( int, AMP::Mesh::MeshElement & )> wrapperT = [&]( size_t boundaryID,  AMP::Mesh::MeshElement & ) { return pseudoNeumannFunctionTFromDB( boundaryID ); };
     this->setPseudoNeumannFunctionT( wrapperT );
 };
 
@@ -778,7 +780,7 @@ AMP::Mesh::BoxMesh::Box RadDifOp::getGlobalNodeBox() const
 {
     auto global = d_BoxMesh->getGlobalBox();
     for ( int d = 0; d < 3; d++ ) {
-        // An empty box in dimension d has a last index of 0; we don't should preserve that behavior
+        // An empty box in dimension d has a last index of 0; we should preserve that behavior
         if ( global.last[d] > 0 ) { 
             global.last[d]++;
         }
@@ -1013,7 +1015,7 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                 ijk[0] = i;
 
                 /** --- Compute coefficients to apply stencil in a quasi-linear fashion */
-                // Diffusion coefficients: Loop over each dimension, adding in its contribution
+                // Action of diffusion operator: Loop over each dimension, adding in its contribution to the total
                 double dif_E = 0.0;  
                 double dif_T = 0.0; 
                 for ( size_t dim = 0; dim < d_dim; dim++ ) {
@@ -1021,33 +1023,24 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                     // Get lower, origin, and upper ET data for the given dimension
                     unpackLocalStencilData(E_vec, T_vec, ijk, dim, Eloc, Tloc);        
                     
-                    // Diffusion coefficients at cell faces
-                    double Dr_WO, Dr_OE; 
-                    double DT_WO, DT_OE; 
-                    // Nonlinear PDE
-                    if ( nonlinearModel ) {
-                        // Temp at mid points             
-                        double T_WO = 0.5*( Tloc[0] + Tloc[1] ); // T_{i-1/2}
-                        double T_OE = 0.5*( Tloc[1] + Tloc[2] ); // T_{i+1/2}
-                        // Unlimited energy flux
-                        Dr_WO = pow( T_WO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
-                        Dr_OE = pow( T_OE, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) ); 
-                        // Limit the energy flux if need be, eq. (17)
-                        if ( fluxLimited ) {
-                            double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( Eloc[1] - Eloc[0] )/( d_h[dim]*0.5*(Eloc[1] + Eloc[0]) ) ) );
-                            double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( Eloc[2] - Eloc[1] )/( d_h[dim]*0.5*(Eloc[2] + Eloc[1]) ) ) );
-                            Dr_WO = DE_WO;
-                            Dr_OE = DE_OE;
-                        }
-                        // Create face values of D_T coefficient, analogous to those for D_E
-                        DT_WO = pow( T_WO, 2.5 );
-                        DT_OE = pow( T_OE, 2.5 ); 
+                    // Compute temp at mid points             
+                    double T_WO = 0.5*( Tloc[0] + Tloc[1] ); // T_{i-1/2}
+                    double T_OE = 0.5*( Tloc[1] + Tloc[2] ); // T_{i+1/2}
+                    // Get diffusion coefficients at cell faces, i.e., mid points
+                    // Energy
+                    double Dr_WO = diffusionCoefficientE( T_WO, nonlinearModel, z );
+                    double Dr_OE = diffusionCoefficientE( T_OE, nonlinearModel, z );
+                    // Temperature
+                    double DT_WO = diffusionCoefficientT( T_WO, nonlinearModel );
+                    double DT_OE = diffusionCoefficientT( T_OE, nonlinearModel );    
 
-                    // Linear PDE
-                    } else {
-                        Dr_WO = Dr_OE = 1.0;
-                        DT_WO = DT_OE = 1.0;
-                    }    
+                    // Limit the energy flux if need be, eq. (17)
+                    if ( fluxLimited ) {
+                        double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( Eloc[1] - Eloc[0] )/( d_h[dim]*0.5*(Eloc[1] + Eloc[0]) ) ) );
+                        double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( Eloc[2] - Eloc[1] )/( d_h[dim]*0.5*(Eloc[2] + Eloc[1]) ) ) );
+                        Dr_WO = DE_WO;
+                        Dr_OE = DE_OE;
+                    }
                     
                     // Scale coefficients by constants in PDE
                     Dr_WO *= -k11, Dr_OE *= -k11;
@@ -1060,20 +1053,9 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                 // Finished looping over dimensions for diffusion discretizations
                 AMP_INSIST( Tloc[1] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
 
-                // Compute reaction coefficients; this uses E and T values set in the last iteration of the above loop
-                // Reaction coefficients at cell centers
-                double REE, RET;
-                double RTE, RTT;
-                // Nonlinear PDE
-                if ( nonlinearModel ) {
-                    double sigma = std::pow( z/Tloc[1], 3.0 );
-                    REE = RTE = -sigma;
-                    RET = RTT = +sigma * pow( Tloc[1], 3.0 );
-                // Linear PDE
-                } else {
-                    REE = RTE = -1.0;
-                    RET = RTT = +1.0;
-                }
+                // Compute quasi-linear reaction coefficients at cell centers using T value set in the last iteration of the above loop
+                double REE, RET, RTE, RTT;
+                quasiLinearReactionCoefficients( Tloc[1], z, nonlinearModel, REE, RET, RTE, RTT );
                 // Scale coefficients by constants in PDE
                 REE *= -k12, RET *= -k12;
                 RTE *=  k22, RTT *=  k22;
@@ -1093,78 +1075,101 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
 }
 
 
-/* Get the ghost values on the given boundary at the given node given the interior value Eint and Tint. This is assuming Robin on E and pseudo-Neumann on T */
-std::vector<double> RadDifOp::getGhostValues( int boundary, AMP::Mesh::MeshElement &node, double Eint, double Tint )
+
+void RadDifOp::setGhostData( size_t boundaryID, AMP::Mesh::MeshElement &node, double Eint, double Tint )
 {
 
-    // Get the Robin constants for the given boundary
+    // Get the Robin constants for the given boundaryID
     double ak, bk; 
-    if ( boundary == 1 ) {
+    if ( boundaryID == 1 ) {
         ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a1" );
         bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b1" );
-    } else if ( boundary == 2 ) {
+    } else if ( boundaryID == 2 ) {
         ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a2" );
         bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b2" );
-    } else if ( boundary == 3 ) {
+    } else if ( boundaryID == 3 ) {
         ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a3" );
         bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b3" );
-    } else if ( boundary == 4 ) {
+    } else if ( boundaryID == 4 ) {
         ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a4" );
         bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b4" );
+    } else if ( boundaryID == 5 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a5" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b5" );
+    } else if ( boundaryID == 6 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a6" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b6" );
     } else {
-        AMP_ERROR( "Invalid boundary" );
+        AMP_ERROR( "Invalid boundaryID" );
     }
     // Now get the corresponding Robin value
-    double rk = d_robinFunctionE( boundary, ak, bk, node );
+    double rk = d_robinFunctionE( boundaryID, ak, bk, node );
     // Get Neumann value
-    double nk = d_pseudoNeumannFunctionT( boundary, node );
+    double nk = d_pseudoNeumannFunctionT( boundaryID, node );
     
-    // Solve for ghost values given these constants
-    return ghostValuesSolve( ak, bk, rk, nk, Eint, Tint );
+    // Spatial mesh size
+    double hk = d_h[getDimFromBoundaryID(boundaryID)]; 
+
+    // Solve for ghost values given these constants, storing results in member array
+    ghostValuesSolve( ak, bk, rk, nk, hk, Eint, Tint, d_ghostData[0], d_ghostData[1] );
 }
 
 
-double RadDifOp::pseudoNeumannFunctionTDefault( int boundary ){
-    if ( boundary == 1 ) {
+size_t RadDifOp::getDimFromBoundaryID(size_t boundaryID) const {
+    AMP_INSIST( boundaryID >= 1 && boundaryID <= 6, "boundaryID not recognised" );
+    return (boundaryID-1)/2; // Note the integer division
+}
+
+
+size_t RadDifOp::getBoundaryIDFromDim(size_t dim, BoundarySide side) const {
+    if ( side == BoundarySide::LOWER ) {
+        return 2*dim + 1;
+    } else if ( side == BoundarySide::UPPER ) {
+        return 2*dim + 2; 
+    } else {
+        AMP_ERROR( "Invalid side" );
+    }
+}
+
+double RadDifOp::pseudoNeumannFunctionTFromDB( size_t boundaryID ){
+    if ( boundaryID == 1 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "n1" );
-    } else if ( boundary == 2 ) {
+    } else if ( boundaryID == 2 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "n2" );
-    } else if ( boundary == 3 ) {
+    } else if ( boundaryID == 3 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "n3" );
-    } else if ( boundary == 4 ) {
+    } else if ( boundaryID == 4 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "n4" );
+    } else if ( boundaryID == 5 ) {
+        return d_db->getDatabase( "PDE" )->getScalar<double>( "n5" );
+    } else if ( boundaryID == 6 ) {
+        return d_db->getDatabase( "PDE" )->getScalar<double>( "n6" );
     } else { 
-        AMP_ERROR( "Invalid boundary" );
+        AMP_ERROR( "Invalid boundaryID" );
     }
 }
 
-double RadDifOp::robinFunctionEDefault( int boundary ){
-    if ( boundary == 1 ) {
+
+double RadDifOp::robinFunctionEFromDB( size_t boundaryID ){
+    if ( boundaryID == 1 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "r1" );
-    } else if ( boundary == 2 ) {
+    } else if ( boundaryID == 2 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "r2" );
-    } else if ( boundary == 3 ) {
+    } else if ( boundaryID == 3 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "r3" );
-    } else if ( boundary == 4 ) {
+    } else if ( boundaryID == 4 ) {
         return d_db->getDatabase( "PDE" )->getScalar<double>( "r4" );
+    } else if ( boundaryID == 5 ) {
+        return d_db->getDatabase( "PDE" )->getScalar<double>( "r5" );
+    } else if ( boundaryID == 6 ) {
+        return d_db->getDatabase( "PDE" )->getScalar<double>( "r6" );
     } else { 
-        AMP_ERROR( "Invalid boundary" );
+        AMP_ERROR( "Invalid boundaryID" );
     }
 }
 
 
-/* Suppose on boundary k we have the two equations:
-
-    ak*E + bk * \hat{n}_k \dot k11 D_E(T) \grad E = rk
-                \hat{n}_k \dot            \grad T = nK,
-
-where ak, bk, rk, and nk are all known constants; \hat{n}_k is the outward-facing normal vector at the boundary.
-
-The discretization of these conditions involves one ghost point for E and T (Eg and Tg), and one interior point (Eint and Tint). Here we solve for the ghost points and return them. Note that this system, although nonlinear, can be solved by forward substitution 
-
-Note that the actual boundary does not matter here once the constants a, b, r, and n have been specified.
-    */
-std::vector<double> RadDifOp::ghostValuesSolve( double a, double b, double r, double n, double Eint, double Tint ){
+void RadDifOp::ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ){
 
     // Unpack parameters
     auto PDE_db = d_db->getDatabase( "PDE" );
@@ -1172,18 +1177,66 @@ std::vector<double> RadDifOp::ghostValuesSolve( double a, double b, double r, do
     double z    = PDE_db->getScalar<double>( "z" );
 
     // Solve for Tg
-    double Tg = ghostValuePseudoNeumannTSolve( n, Tint );
+    Tg = ghostValuePseudoNeumannTSolve( n, h, Tint );
 
     // Compute energy diffusion coefficient on the boundary
     double D_E = energyDiffusionCoefficientAtMidPoint( Tg, Tint );
     double c   = k11 * D_E;  
 
     // Solve for Eg
-    double Eg = ghostValueRobinESolve( a, b, r, c, Eint );
-
-    std::vector<double> ETg = { Eg, Tg };
-    return ETg;
+    Eg = ghostValueRobinESolve( a, b, r, c, h, Eint );
 }
+
+
+double RadDifOp::ghostValuePseudoNeumannTSolve( double n, double h, double Tint ) {
+    /* Independent of the boundary we're on, we get 
+        Tg = Tint * h*n. 
+    For example:
+    West boundary: \hat{n}_k = -\hat{x} 
+    -( T1j - Tg )/h = n ---> Tg = Ti1 + h*n;
+    East boundary: \hat{n}_k = +\hat{x}
+    +( Tg - T2j )/h = n ---> Tg = Ti2 + h*n;
+    South boundary: \hat{n}_k = -\hat{y}
+    -( Ti3 - Tg )/h = n ---> Tg = Ti3 + h*n;
+    North boundary: \hat{n}_k = +\hat{y}
+    -( Ti4 - Tg )/h = n ---> Tg = Ti4 + h*n; */
+    return Tint + h*n;
+}
+
+
+// Independent of the boundary we are on, we get the same result
+double RadDifOp::ghostValueRobinESolve( double a, double b, double r, double c, double h, double Eint ) {
+    return (2*Eint*c*b - Eint*a*h + 2*h*r)/(2*c*b + a*h);
+}
+
+
+double RadDifOp::ghostValueRobinEPicardCoefficient( double ck, size_t boundaryID ) const {
+
+    // Get the Robin constants for the given boundaryID
+    double ak, bk; 
+    if ( boundaryID == 1 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a1" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b1" );
+    } else if ( boundaryID == 2 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a2" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b2" );
+    } else if ( boundaryID == 3 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a3" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b3" );
+    } else if ( boundaryID == 4 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a4" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b4" );
+    } else {
+        AMP_ERROR( "Invalid boundaryID" );
+    }
+
+    // Spatial mesh size
+    double hk = d_h[getDimFromBoundaryID(boundaryID)]; 
+
+    double alpha = ( 2 * ck * bk - ak * hk ) / ( 2 * ck * bk + ak * hk );
+    return alpha;
+}
+
 
 /* Compute the energy diffusion coefficient D_E at the mid-point between T_left and T_right.
 For the nonlinear problem:
@@ -1205,76 +1258,44 @@ double RadDifOp::energyDiffusionCoefficientAtMidPoint( double T_left, double T_r
     return D_E; 
 }
 
-/* Suppose on boundary k we have the equation:
-        \hat{n}_k \dot \grad T = nK,
-where nk is a known constant and \hat{n}_k is the outward-facing normal vector at the boundary.
 
-The discretization of this conditions involves one ghost point for T (Tg), and one interior point (Tint). Here we solve for the ghost point and return it
-*/
-double RadDifOp::ghostValuePseudoNeumannTSolve( double n, double Tint ) {
-    // Unpack parameters
-    double h = d_db->getDatabase( "mesh" )->getScalar<double>( "h" );
-    /* Independent of the boundary, we get Tg = Tint * h*n, as follows:
-    West boundary: \hat{n}_k = -\hat{x} 
-    -( T1j - Tg )/h = n ---> Tg = Ti1 + h*n;
-    East boundary: \hat{n}_k = +\hat{x}
-    +( Tg - T2j )/h = n ---> Tg = Ti2 + h*n;
-    South boundary: \hat{n}_k = -\hat{y}
-    -( Ti3 - Tg )/h = n ---> Tg = Ti3 + h*n;
-    North boundary: \hat{n}_k = +\hat{y}
-    -( Ti4 - Tg )/h = n ---> Tg = Ti4 + h*n; */
-    return Tint + h*n;
-}
-
-/* Suppose on boundary k we have the equation:
-    ak*E + bk * \hat{n}_k \dot ck \grad E = rk
-where ak, bk, rk, nk, and ck are all known constants; \hat{n}_k is the outward-facing normal vector at the boundary.
-
-The discretization of these conditions involves one ghost point for E (Eg), and one interior point (Eint). Here we solve for the ghost point and return it.
-*/
-double RadDifOp::ghostValueRobinESolve( double a, double b, double r, double c, double Eint ) {
-
-    /* Independent of the boundary we get the same result */
-    double h  = d_db->getDatabase( "mesh" )->getScalar<double>( "h" );
-    double Eg = (2*Eint*c*b - Eint*a*h + 2*h*r)/(2*c*b + a*h);
-    return Eg;
-}
-
-/* In the Robin BC for energy we get Eghost = alpha*Eint + beta, this function returns the coefficient alpha, which is the Picard linearization of this equation w.r.t Eint */
-// ck = k11*DE( 0.5*( Tghost + Tint ) )
-double RadDifOp::ghostValueRobinEPicardCoefficient( double ck, size_t boundary ) const {
-
-    double h  = d_db->getDatabase( "mesh" )->getScalar<double>( "h" );
-    // Get the Robin constants for the given boundary
-    double ak, bk; 
-    if ( boundary == 1 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a1" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b1" );
-    } else if ( boundary == 2 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a2" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b2" );
-    } else if ( boundary == 3 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a3" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b3" );
-    } else if ( boundary == 4 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a4" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b4" );
+double RadDifOp::diffusionCoefficientE( double T, bool nonlinearModel, double z ) const {
+    if ( nonlinearModel ) {
+        double sigma = std::pow( z/T, 3.0 ); 
+        return 1.0/(3*sigma);
     } else {
-        AMP_ERROR( "Invalid boundary" );
+        return 1.0;
     }
-
-    double alpha = ( 2 * ck * bk - ak * h ) / ( 2 * ck * bk + ak * h );
-    return alpha;
 }
 
 
-/**
- * Pack local 3-point stencil data into the arrays E_local and T_local for the given dimension
- * Boundaries are assumed to be 
- *      1,2,3,4,5,6 == 
- *      2*dim + 1 for LOWER boundary
- *      2*dim + 2 for UPPER boundary
- * for dim = 0, 1, 2
+double RadDifOp::diffusionCoefficientT( double T, bool nonlinearModel ) const {
+    if ( nonlinearModel ) {
+        return pow( T, 2.5 );
+    } else {
+        return 1.0;
+    }
+}
+
+
+/** Compute quasi-linear reaction coefficients REE, RET, RTE, REE */
+void RadDifOp::quasiLinearReactionCoefficients( double T, double z, bool nonlinearModel, double &REE, double &RET, double &RTE, double &RTT ) const {
+    if ( nonlinearModel ) {
+        double sigma = std::pow( z/T, 3.0 );
+        REE = RTE = -sigma;
+        RET = RTT = +sigma * pow( T, 3.0 );
+    } else {
+        REE = RTE = -1.0;
+        RET = RTT = +1.0;
+    }
+}
+
+
+
+
+
+/** Pack local 3-point stencil data into the arrays E_local and T_local for the given dimension. 
+ * This involves a ghost-point solve if the stencil extends to a ghost point.
  */
 void RadDifOp::unpackLocalStencilData( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
@@ -1293,11 +1314,11 @@ void RadDifOp::unpackLocalStencilData(
     // Get WEST (or LOWER) neighboring value
     // At WEST (or LOWER) boundary, so WEST (or LOWER) neighbor is a ghost
     if ( ijk[dim] == d_globalBox->first[dim] ) {
-        size_t boundaryID = 2*dim + 1; // Lower boundary
         auto node = gridIndsToMeshElement( ijk );
-        auto ETg  = getGhostValues( boundaryID, node, E_local[1], T_local[1] );
-        E_local[0]       = ETg[0]; 
-        T_local[0]       = ETg[1];
+        // Set member array holding ghost data
+        setGhostData( getBoundaryIDFromDim(dim, BoundarySide::LOWER), node, E_local[1], T_local[1] );
+        E_local[0] = d_ghostData[0]; 
+        T_local[0] = d_ghostData[1];
 
     // At interior DOF; WEST (or LOWER) neighbor is an interior DOF
     } else {
@@ -1311,11 +1332,11 @@ void RadDifOp::unpackLocalStencilData(
     // Get EAST (or UPPER) neighboring value
     // At EAST (or UPPER) boundary, so EAST (or UPPER) neighbor is a ghost
     if ( ijk[dim] == d_globalBox->last[dim] ) {
-        size_t boundaryID = 2*dim + 2; // Upper boundary
         auto node  = gridIndsToMeshElement( ijk );
-        auto ETg   = getGhostValues( boundaryID, node, E_local[1], T_local[1] );
-        E_local[2] = ETg[0]; 
-        T_local[2] = ETg[1];
+        // Set member array holding ghost data
+        setGhostData( getBoundaryIDFromDim(dim, BoundarySide::UPPER), node, E_local[1], T_local[1] );
+        E_local[2] = d_ghostData[0]; 
+        T_local[2] = d_ghostData[1];
 
     // At interior DOF; EAST (or UPPER) neighbor is an interior DOF
     } else {
@@ -1351,9 +1372,9 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     if ( i == d_globalBox->first[0] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i );
-        auto ETg   = getGhostValues( 1, node, E_O, T_O );
-        E_W        = ETg[0]; 
-        T_W        = ETg[1];
+        setGhostData( 1, node, E_O, T_O );
+        E_W        = d_ghostData[0]; 
+        T_W        = d_ghostData[1];
         
 
     // At interior DOF; WEST neighbor is an interior DOF
@@ -1367,9 +1388,9 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     if ( i == d_globalBox->last[0] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i );
-        auto ETg   = getGhostValues( 2, node, E_O, T_O );
-        E_E        = ETg[0]; 
-        T_E        = ETg[1];
+        setGhostData( 2, node, E_O, T_O );
+        E_E        = d_ghostData[0]; 
+        T_E        = d_ghostData[1];
 
     // At interior DOF; EAST neighbor is an interior DOF
     } else {
@@ -1406,9 +1427,9 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     if ( i == d_globalBox->first[0] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 1, node, E_O, T_O );
-        E_W        = ETg[0];
-        T_W        = ETg[1];
+        setGhostData( 1, node, E_O, T_O );
+        E_W        = d_ghostData[0];
+        T_W        = d_ghostData[1];
 
     // At interior DOF; WEST neighbor is an interior DOF
     } else {
@@ -1422,9 +1443,9 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     if ( i == d_globalBox->last[0] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 2, node, E_O, T_O );
-        E_E        = ETg[0]; 
-        T_E        = ETg[1];
+        setGhostData( 2, node, E_O, T_O );
+        E_E        = d_ghostData[0]; 
+        T_E        = d_ghostData[1];
 
     // At interior DOF; EAST neighbor is an interior DOF
     } else {
@@ -1438,9 +1459,9 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     if ( j == d_globalBox->first[1] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 3, node, E_O, T_O );
-        E_S        = ETg[0]; 
-        T_S        = ETg[1];
+        setGhostData( 3, node, E_O, T_O );
+        E_S        = d_ghostData[0]; 
+        T_S        = d_ghostData[1];
 
     // At interior DOF; SOUTH neighbor is an interior DOF
     } else {
@@ -1454,9 +1475,9 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     if ( j == d_globalBox->last[1] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 4, node, E_O, T_O );
-        E_N        = ETg[0]; 
-        T_N        = ETg[1];
+        setGhostData( 4, node, E_O, T_O );
+        E_N        = d_ghostData[0]; 
+        T_N        = d_ghostData[1];
 
     // At interior DOF; NORTH neighbor is an interior DOF
     } else {
