@@ -1,0 +1,49 @@
+# Basic, model-independent, PDE parameters
+PDE {
+  print_info_level = 0
+
+  #dim = 1
+  dim = 2
+  
+  #fluxLimited = FALSE
+  fluxLimited = TRUE
+}
+
+# Mesh size in each direction
+Mesh {
+  #n = 8
+  #n = 64
+  n = 128
+  #n = 256
+}
+
+# Parameters for computing BDF1 truncation error
+TruncationError {
+  CFL = 1e-3 # CFL = dt/h, determines dt
+  time = 0.3245 # Time to evaluate truncation error
+}
+
+# Parameters for manufactured problem
+Manufactured_Parameters{ 
+  model = "nonlinear"
+  #model = "linear"
+  z = 1.0
+  k11 = 1.0
+  k12 = 1.0
+  k21 = 0.1
+  k22 = 1.0
+  #
+  a1 = 0.25
+  b1 = 0.5
+  a2 = 0.25
+  b2 = 0.5
+  #
+  a3 = 0.6
+  b3 = 0.45
+  a4 = 0.5
+  b4 = 1.3
+}
+
+
+
+

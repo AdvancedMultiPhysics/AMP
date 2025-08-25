@@ -162,7 +162,7 @@ public:
     //! Reset the operator based on the incoming parameters. 
     void reset( std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override;
 
-    std::string type() const { return "RadDifOpPJac"; };
+    std::string type() const override { return "RadDifOpPJac"; };
 
     //! Compute LET = L(ET)
     void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> LET );
@@ -195,43 +195,53 @@ class RadDifOp : public AMP::Operator::Operator {
 
 //
 public: 
-    // I + gamma*L, where L is a RadDifOp
+    #if 1
+    std::shared_ptr<AMP::Discretization::DOFManager>      d_nodalDOFMan;
+    #endif
+
+    //! I + gamma*L, where L is a RadDifOp
     friend class BERadDifOp; 
-    // hat{L}, where hat{L} is a Picard linearization of L
+    //! hat{L}, where hat{L} is a Picard linearization of L
     friend class RadDifOpPJac; 
 
-    // MultiDOFManager for collectively managing E and T, and scalar for each separately
+    //! MultiDOFManager for managing [E,T] multivectors
     std::shared_ptr<AMP::Discretization::multiDOFManager> d_multiDOFMan;
+    //! DOFManager for E and T individually
     std::shared_ptr<AMP::Discretization::DOFManager>      d_scalarDOFMan;
-    //std::shared_ptr<AMP::Discretization::DOFManager>      d_nodalDOFMan;
-    // Parameters required by the discretization
+    //! Parameters required by the discretization
     std::shared_ptr<AMP::Database>                        d_db;
-    // Vertex-based geomety
-    AMP::Mesh::GeomType                                   d_geomType = AMP::Mesh::GeomType::Vertex;
+    //! Mesh; keep a pointer to save having to downcast repeatedly
     std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
+    //! Mesh spacing; we compute this based on this incoming mesh
+    double d_h = -1.0;
+    //! Convenience member
+    static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
 
-    // Constructor call's base class's constructor
+
+    //! Constructor
     RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params);
-
+    //! Destructor
     virtual ~RadDifOp() {};
     
-    // Pure virtual function
-    std::string type() const { return "RadDifOp"; };
+    std::string type() const override { return "RadDifOp"; };
     
-    // Pure virtual function
+    //! Compute LET = L(ET)
     void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> LET) override;
 
-    // E and T must be non-negative
+    //! E and T must be positive
     bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) override;
 
     // Create a multiVector of E and T over the mesh.
     std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const; 
 
+    double getMeshSize() { return d_h; };
 
-    // std::shared_ptr<AMP::LinearAlgebra::Vector> createNodalInputVector() const {
-    //     auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "" );
-    //     return AMP::LinearAlgebra::createVector<double>( d_nodalDOFMan, var );
-    // };
+    #if 0
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createNodalInputVector() const {
+        auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "" );
+        return AMP::LinearAlgebra::createVector<double>( d_nodalDOFMan, var );
+    };
+    #endif
 
 
     void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun );

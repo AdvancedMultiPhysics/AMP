@@ -119,9 +119,7 @@ public:
                 AMP::LinearAlgebra::Vector::shared_ptr r ) override;
 
     //! Used to register this operator in a factory
-    std::string type() const override {
-        return "BERadDifOp";
-    }
+    std::string type() const override { return "BERadDifOp"; }
 
     //! Returns RadDifOp's isValidVector
     bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) override {

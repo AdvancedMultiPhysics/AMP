@@ -796,7 +796,7 @@ void RadDifOp::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::
     auto vec1 = vec->getVector(1);
 
     double u0, u1;
-    auto it = d_BoxMesh->getIterator( d_geomType ); // Mesh iterator
+    auto it = d_BoxMesh->getIterator( VertexGeom ); // Mesh iterator
     for ( auto elem = it.begin(); elem != it.end(); elem++ ) {
         u0 = fun( 0, *elem );
         u1 = fun( 1, *elem );
@@ -884,16 +884,9 @@ void RadDifOp::setDOFManagers() {
     #endif
 }
 
-/*
-I could get an index, map it to a MeshElementID, and then get DOFs from that MeshElementID
-*/
-
-
-// E and T must be non-negative
+// E and T must be positive
 bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) {
-    // auto min = ET->min();
-    // AMP::pout << "RadDifOp::isValidVector: min=" << min << "\n";
-    return ( ET->min() >= 0.0 ); 
+    return ( ET->min() > 0.0 ); 
 }
 
 
@@ -1157,6 +1150,8 @@ void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_
     }
     LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
+
+
 
 /* Get the ghost values on the given boundary at the given node given the interior value Eint and Tint. This is assuming Robin on E and pseudo-Neumann on T */
 std::vector<double> RadDifOp::getGhostValues( int boundary, AMP::Mesh::MeshElement &node, double Eint, double Tint )
