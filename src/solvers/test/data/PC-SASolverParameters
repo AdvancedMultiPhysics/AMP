@@ -9,7 +9,6 @@ Preconditioner{
   min_coarse_global = 40
   kappa = 3
   agg_type = "simple"
-  agg_weak_thresh = 0.0
   prol_trunc = 0.1
   
   pre_relaxation{
