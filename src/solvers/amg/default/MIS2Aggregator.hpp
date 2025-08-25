@@ -202,15 +202,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         agg_size[small_agg_id]++;
     }
 
-    double avg_size = 0;
-    for ( lidx_t na = 0; na < num_agg; ++na ) {
-        avg_size += static_cast<double>( agg_size[na] );
-    }
-    avg_size /= static_cast<double>( num_agg );
-
-    AMP::pout << "assignLocalAggregates found " << num_agg << " aggregates, with avg size "
-              << avg_size << std::endl;
-
     return num_agg;
 }
 

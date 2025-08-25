@@ -12,7 +12,6 @@ LinearSolver{
   min_coarse_global = 40
   kappa = 3
   agg_type = "simple"
-  agg_weak_thresh = 0.0
   prol_trunc = 0.1
 
   pre_relaxation{
@@ -35,7 +34,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 20 
+  iterations = 20
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE
