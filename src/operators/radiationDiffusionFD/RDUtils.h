@@ -45,20 +45,16 @@ inline AMP::Mesh::BoxMesh::Box getLocalNodeBox( std::shared_ptr<AMP::Mesh::BoxMe
     auto local  = mesh->getLocalBox();
     auto global = mesh->getGlobalBox();
     for ( int d = 0; d < 3; d++ ) {
-        if ( local.last[d] == global.last[d] )
-            local.last[d]++;
+        if ( local.last[d] == global.last[d] ) {
+            // An empty box in dimension d has a last index of 0; we don't should preserve that behavior
+            if ( local.last[d] > 0 ) { 
+                local.last[d]++;
+            }
+        }
     }
     return local;
 };
 
-// As above, but just gets a GlobalNodeBox from the mesh
-inline AMP::Mesh::BoxMesh::Box getGlobalNodeBox( std::shared_ptr<AMP::Mesh::BoxMesh> mesh ) {
-    auto global = mesh->getGlobalBox();
-    for ( int d = 0; d < 3; d++ ) {
-        global.last[d]++;
-    }
-    return global;
-};
 
 /* Fill CSR matrix with data from CSRData */
 inline void fillMatWithLocalCSRData( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
@@ -109,19 +105,6 @@ inline static std::shared_ptr<AMP::Mesh::BoxMesh> createBoxMesh( AMP::AMP_MPI co
 
     return boxMesh;
 }
-
-/* Compute discrete norms of vector u */
-inline std::vector<double> getDiscreteNorms(double h,  
-                    std::shared_ptr<const AMP::LinearAlgebra::Vector> u) {
-    // Compute norms
-    double uL1Norm  = static_cast<double>( u->L1Norm()  ) * h*h;
-    double uL2Norm  = static_cast<double>( u->L2Norm()  ) * h;
-    double uMaxNorm = static_cast<double>( u->maxNorm() );
-
-    std::vector<double> unorms = { uL1Norm, uL2Norm, uMaxNorm }; 
-    return unorms;
-}
-
 
 
 #endif // RD_UTILS_

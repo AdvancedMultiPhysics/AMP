@@ -27,7 +27,7 @@ BERadDifOpPJacData::BERadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data, 
     r_ET_BE->scale( gamma );
     r_TE_BE->scale( gamma );
     r_TT_BE->scale( gamma );
-    // Make everything consistent
+    // Make consistent
     r_EE_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     r_ET_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     r_TE_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -48,7 +48,7 @@ BERadDifOpPJacData::BERadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data, 
     for ( auto dof = DOFMan_T->beginDOF(); dof != DOFMan_T->endDOF(); dof++ ) {
         d_T_BE->addValueByGlobalID( dof, dof, 1.0 );
     }
-    // Make everything consistent
+    // Make consistent
     d_E_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     d_T_BE->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 };
@@ -125,8 +125,9 @@ BERadDifOpPJac::BERadDifOpPJac( std::shared_ptr<AMP::Operator::OperatorParameter
     // Set data for needed for storing block 2x2 matrix
     setData();
 
-    // 
-    //setLocalPermutationArrays();
+    #if 0
+    setLocalPermutationArrays();
+    #endif
 }
 
 void BERadDifOpPJac::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
@@ -140,9 +141,6 @@ void BERadDifOpPJac::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
     // We have modified the Jacobian data of our RadDifOpPJac operator in such a way that its apply will in fact be an apply of a BERadDifOpPJac, but we need to explicitly let it know that we really do intend to do an apply with the current state of its data
     d_RadDifOpPJac->applyWithOverwrittenDataIsValid();
     d_RadDifOpPJac->apply( u_in, r );
-
-    // d_RadDifOpPJac->apply( u_in, r );
-    // r->axpby (1.0, d_gamma, *u_in); // r <- 1.0*u + d_gamma * r
 
     #if 0
     /* Test apply to check nodal ordering...
@@ -161,7 +159,9 @@ void BERadDifOpPJac::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
     #endif
 }
 
+
 std::shared_ptr<AMP::LinearAlgebra::Vector> BERadDifOpPJac::createInputVector() const { return d_RadDifOpPJac->createInputVector( ); };
+
 
 void BERadDifOpPJac::reset(std::shared_ptr<const AMP::Operator::OperatorParameters> params) {
 
@@ -171,7 +171,7 @@ void BERadDifOpPJac::reset(std::shared_ptr<const AMP::Operator::OperatorParamete
     // Calls with empty parameters are to be ignored
     if ( !params ) { 
         if ( d_iDebugPrintInfoLevel > 1 )
-            AMP::pout << "  Called with empty parameters...  not resetting anything" << std::endl;
+            AMP::pout << "Called with empty parameters...  not resetting anything" << std::endl;
         return; 
     }
 
@@ -186,6 +186,8 @@ void BERadDifOpPJac::reset(std::shared_ptr<const AMP::Operator::OperatorParamete
     // Reset my data
     setData( );
 
+    #if 0
     // Reset my monolithic Jacobian
-    //d_JNodal = createMonolithicJac( );
+    d_JNodal = createMonolithicJac( );
+    #endif
 }  

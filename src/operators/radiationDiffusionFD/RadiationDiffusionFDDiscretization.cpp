@@ -222,13 +222,12 @@ void RadDifOpPJac::setData1D(  )
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
     auto localBox  = getLocalNodeBox( d_RadDifOp->d_BoxMesh );
-    auto globalBox = getGlobalNodeBox( d_RadDifOp->d_BoxMesh );
 
     // Iterate over local box
     for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
 
         // Get values in the stencil
-        auto   ET  = d_RadDifOp->unpackLocalData( E_vec, T_vec, globalBox, i, dofs, onBoundary );
+        auto   ET  = d_RadDifOp->unpackLocalData( E_vec, T_vec, i, dofs, onBoundary );
         double E_W = ET[0], E_O = ET[1], E_E = ET[2]; 
         double T_W = ET[3], T_O = ET[4], T_E = ET[5]; 
         size_t dof_O = dofs[1];
@@ -309,7 +308,7 @@ void RadDifOpPJac::setData1D(  )
         // The current DOF is on a boundary. The ghost connection in the stencil gets added into the into the diagonal. In the temperature operator it's with coefficient 1, and in the energy operator it's with coefficient alpha_k 
         if ( onBoundary ) {
             // On WEST boundary; DOF to our WEST is a ghost. 
-            if ( i == globalBox.first[0] ) {
+            if ( i == d_RadDifOp->d_globalBox->first[0] ) {
                 // Compute energy diffusion coefficient on boundary
                 double Dr_WO  = d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_W , T_O ); // T_{i-1/2}
                 double c1     = k11 * Dr_WO;
@@ -325,7 +324,7 @@ void RadDifOpPJac::setData1D(  )
             }
 
             // On EAST boundary; DOF to our EAST is ghost.
-            if ( i == globalBox.last[0] ) {
+            if ( i == d_RadDifOp->d_globalBox->last[0] ) {
                 // Compute energy diffusion coefficient on boundary
                 double Dr_OE  = d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_O , T_E ); // T_{i+1/2}
                 double c2     = k11 * Dr_OE;
@@ -432,14 +431,13 @@ void RadDifOpPJac::setData2D(  )
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
     auto localBox  = getLocalNodeBox( d_RadDifOp->d_BoxMesh );
-    auto globalBox = getGlobalNodeBox( d_RadDifOp->d_BoxMesh );
 
     // Iterate over local box
     for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
         for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
 
             // Get values in the stencil; S, W, O, E, N
-            auto   ET  = d_RadDifOp->unpackLocalData( E_vec, T_vec, globalBox, i, j, dofs, onBoundary );
+            auto   ET  = d_RadDifOp->unpackLocalData( E_vec, T_vec, i, j, dofs, onBoundary );
             double E_S = ET[0], E_W = ET[1], E_O = ET[2], E_E = ET[3], E_N = ET[4]; 
             double T_S = ET[5], T_W = ET[6], T_O = ET[7], T_E = ET[8], T_N = ET[9];
             size_t dof_O = dofs[2];
@@ -555,17 +553,17 @@ void RadDifOpPJac::setData2D(  )
                 // On WEST boundary; DOF to our WEST is a ghost. 
                 // S, W, O, E, N
                 // 0, 1, 2, 3, 4
-                if ( i == globalBox.first[0] ) {
+                if ( i == d_RadDifOp->d_globalBox->first[0] ) {
                     // At SOUTH-WEST corner; our WEST and SOUTH neighbors are ghosts
                     // So, stencil entries 0,1 get lumped in with stencil entry 2
-                    if ( j == globalBox.first[1] ) {
+                    if ( j == d_RadDifOp->d_globalBox->first[1] ) {
                         cols.assign(  {                           dofs[2], dofs[3], dofs[4] } );
                         valsE.assign( { aS*stnE[0] + aW*stnE[1] + stnE[2], stnE[3], stnE[4] } );
                         valsT.assign( {    stnT[0] +    stnT[1] + stnT[2], stnT[3], stnT[4] } );
 
                     // At NORTH-WEST corner; our WEST and NORTH neighbors are ghosts
                     // So, stencil entries 1,4 get lumped in with stencil entry 2
-                    } else if ( j == globalBox.last[1] ) {
+                    } else if ( j == d_RadDifOp->d_globalBox->last[1] ) {
                         cols.assign(  { dofs[0],              dofs[2],              dofs[3] } );
                         valsE.assign( { stnE[0], aW*stnE[1] + stnE[2] + aN*stnE[4], stnE[3] } );
                         valsT.assign( { stnT[0],    stnT[1] + stnT[2] +    stnT[4], stnT[3] } );
@@ -581,17 +579,17 @@ void RadDifOpPJac::setData2D(  )
                 // On EAST boundary; DOF to our EAST is a ghost.
                 // S, W, O, E, N
                 // 0, 1, 2, 3, 4
-                } else if ( i == globalBox.last[0] ) {
+                } else if ( i == d_RadDifOp->d_globalBox->last[0] ) {
                     // At SOUTH-EAST corner; our EAST and SOUTH neighbors are ghosts
                     // So, stencil entries 0,3 get lumped in with stencil entry 2
-                    if ( j == globalBox.first[1] ) {
+                    if ( j == d_RadDifOp->d_globalBox->first[1] ) {
                         cols.assign(  { dofs[1],              dofs[2],              dofs[4] } );
                         valsE.assign( { stnE[1], aS*stnE[0] + stnE[2] + aE*stnE[3], stnE[4] } );
                         valsT.assign( { stnT[1],    stnT[0] + stnT[2] +    stnT[3], stnT[4] } );
 
                     // At NORTH-EAST corner; our EAST and NORTH neighbors are ghosts
                     // So, stencil entries 3,4 get lumped in with stencil entry 2
-                    } else if ( j == globalBox.last[1] ) {
+                    } else if ( j == d_RadDifOp->d_globalBox->last[1] ) {
                         cols.assign(  { dofs[0], dofs[1], dofs[2]                           } );
                         valsE.assign( { stnE[0], stnE[1], stnE[2] + aE*stnE[3] + aN*stnE[4] } );
                         valsT.assign( { stnT[0], stnT[1], stnT[2] +    stnT[3] +    stnT[4] } );
@@ -607,7 +605,7 @@ void RadDifOpPJac::setData2D(  )
                 // On SOUTH *interior* boundary; DOF to our SOUTH is a ghost.
                 // S, W, O, E, N
                 // 0, 1, 2, 3, 4
-                } else if ( j == globalBox.first[1] ) {
+                } else if ( j == d_RadDifOp->d_globalBox->first[1] ) {
                     // On interior of SOUTH boundary; our SOUTH neighbor is a ghost
                     // So, stencil entry 0 gets lumped in with stencil entry 2
                     cols.assign(  { dofs[1],              dofs[2], dofs[3], dofs[4] } );
@@ -617,7 +615,7 @@ void RadDifOpPJac::setData2D(  )
                 // On NORTH *interior* boundary; DOF to our NORTH is a ghost.
                 // S, W, O, E, N
                 // 0, 1, 2, 3, 4
-                } else if ( j == globalBox.last[1] ) {
+                } else if ( j == d_RadDifOp->d_globalBox->last[1] ) {
                     // On interior of NORTH boundary; our NORTH neighbor is a ghost
                     // So, stencil entry 4 gets lumped in with stencil entry 2
                     cols.assign(  { dofs[0], dofs[1], dofs[2],              dofs[3] } );
@@ -697,26 +695,73 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
 RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params) : 
         AMP::Operator::Operator( params ) {
 
-    if ( d_iDebugPrintInfoLevel > 0 )
+    if ( d_iDebugPrintInfoLevel > 0 ) {
         AMP::pout << "RadDifOp::RadDifOp() " << std::endl; 
+    }
 
-    // Keep a pointer to my BoxMesh to save having to do this downcast repeatedly 
-    d_BoxMesh = std::dynamic_pointer_cast<AMP::Mesh::BoxMesh>( this->getMesh() );
-    AMP_INSIST( d_BoxMesh, "Mesh must be a AMP::Mesh::BoxMesh" );
-
-    // Set PDE parameters
+    // Unpack parameter database
     d_db = params->d_db;
     AMP_INSIST(  d_db, "Requires non-null db" );
+
+    // Some basic input checking on the incoming database
+    AMP_INSIST( d_db->getDatabase( "PDE" ),  "PDE_db is null" );
+    AMP_INSIST( d_db->getDatabase( "mesh" ), "mesh_db is null" );
+    auto model = d_db->getDatabase( "PDE" )->getWithDefault<std::string>( "model", "" );
+    AMP_INSIST( model == "linear" || model == "nonlinear", "model must be 'linear' or 'nonlinear'" );
+
 
     // Set DOFManagers
     this->setDOFManagers();
     AMP_INSIST(  d_multiDOFMan, "Requires non-null multiDOF" );
 
-    AMP_INSIST( d_db->getDatabase( "PDE" ),  "PDE_db is null" );
-    AMP_INSIST( d_db->getDatabase( "mesh" ), "mesh_db is null" );
+    // Keep a pointer to my BoxMesh to save having to do this downcast repeatedly
+    d_BoxMesh = std::dynamic_pointer_cast<AMP::Mesh::BoxMesh>( this->getMesh() );
+    AMP_INSIST( d_BoxMesh, "Mesh must be a AMP::Mesh::BoxMesh" );
 
-    auto model = d_db->getDatabase( "PDE" )->getWithDefault<std::string>( "model", "" );
-    AMP_INSIST( model == "linear" || model == "nonlinear", "model must be 'linear' or 'nonlinear'" );
+    d_dim = d_BoxMesh->getDim();
+    AMP_INSIST( d_dim == 1 || d_dim == 2 || d_dim == 3,
+                "Invalid dimension: dim=" + std::to_string( d_dim ) +
+                    std::string( " !in {1,2,3}" ) );
+
+    /** Now ensure that the geometry of the Mesh is a Box, which is what happens only when a "cube"
+     * generator is used, as opposed to any other generator; see the function:
+     *      std::shared_ptr<AMP::Geometry::Geometry>
+     *          Geometry::buildGeometry( std::shared_ptr<const AMP::Database> db )
+     *  I.e., check whether down casting the geometry to a Box passes. Note that Box is a
+     * dimension-templated class, so we need to resolve each case separately.
+    */
+    auto meshGeom = d_BoxMesh->getGeometry();
+    if ( d_dim == 1 ) {
+        AMP_INSIST( std::dynamic_pointer_cast<AMP::Geometry::Box<1>>( meshGeom ),
+                    "Mesh must be generated with 'cube generator'!" );
+    } else if ( d_dim == 2 ) {
+        AMP_INSIST( std::dynamic_pointer_cast<AMP::Geometry::Box<2>>( meshGeom ),
+                    "Mesh must be generated with 'cube generator'!" );
+    } else if ( d_dim == 3 ) {
+        AMP_INSIST( std::dynamic_pointer_cast<AMP::Geometry::Box<3>>( meshGeom ),
+                    "Mesh must be generated with 'cube generator'!" );
+    }
+
+    // Discretization assumes Dirichlet boundaries in all directions
+    for ( auto periodic : d_BoxMesh->periodic() ) {
+        AMP_INSIST( periodic == false, "Mesh cannot be periodic in any direction" );
+    }
+
+    // Compute mesh spacings in each dimension
+    // [ x_min x_max y_min y_max z_min z_max ]
+    auto range = d_BoxMesh->getBoundingBox();
+    // Set d_globalBox
+    d_globalBox = std::make_shared<AMP::Mesh::BoxMesh::Box>( getGlobalNodeBox() );
+
+    // There are nk+1 grid points in dimension k, nk = d_globalBox.last[k] - d_globalBox.first[k], such
+    // that the mesh spacing is hk = (xkMax - xkMin)/nk
+    for ( size_t k = 0; k < d_dim; k++ ) {
+        auto nk    = d_globalBox->last[k] - d_globalBox->first[k];
+        auto xkMin = range[2 * k];
+        auto xkMax = range[2 * k + 1];
+        d_h.push_back( ( xkMax - xkMin ) / nk );
+    }
+
 
     // Specify default Robin return function for E
     std::function<double( int, double, double, AMP::Mesh::MeshElement & )> wrapperE = [&]( int boundary, double, double, AMP::Mesh::MeshElement & ) { return robinFunctionEDefault( boundary ); };
@@ -726,18 +771,20 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     this->setPseudoNeumannFunctionT( wrapperT );
 };
 
-void RadDifOp::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> LET) {
+std::vector<double> RadDifOp::getMeshSize() const { return d_h; }
 
-    if ( d_iDebugPrintInfoLevel > 1 )
-        AMP::pout << "RadDifOp::apply() " << std::endl;
 
-    auto meshDim = d_BoxMesh->getDim();
-    if ( meshDim == 1 ) {
-        apply1D(ET, LET);
-    } else {
-        apply2D(ET, LET);
+AMP::Mesh::BoxMesh::Box RadDifOp::getGlobalNodeBox() const
+{
+    auto global = d_BoxMesh->getGlobalBox();
+    for ( int d = 0; d < 3; d++ ) {
+        // An empty box in dimension d has a last index of 0; we don't should preserve that behavior
+        if ( global.last[d] > 0 ) { 
+            global.last[d]++;
+        }
     }
-};
+    return global;
+}
 
 std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const {
     auto ET_var = std::make_shared<AMP::LinearAlgebra::Variable>( "ET" );
@@ -890,6 +937,10 @@ bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 }
 
 
+
+
+
+
 // Apply operator L to vector ET. This holds for both linear and nonlinear RadDifOp
 /* The operator is computed as
             diffusion + reaction == 
@@ -911,129 +962,16 @@ bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
             REE = RTE = -1
             RET = RTT = +1
 */
-void RadDifOp::apply1D(
-            std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
-            std::shared_ptr<      AMP::LinearAlgebra::Vector> LET_vec_) 
-{
-    // --- Unpack parameters ---
-    std::shared_ptr<const AMP::Database> PDE_db  = this->d_db->getDatabase( "PDE" );
-    std::shared_ptr<const AMP::Database> mesh_db = this->d_db->getDatabase( "mesh" );
-    double h   = mesh_db->getScalar<double>( "h" );
-    double rh2 = 1.0/(h*h); // Reciprocal h squared
-    double k11 = PDE_db->getScalar<double>( "k11" );
-    double k12 = PDE_db->getScalar<double>( "k12" );
-    double k21 = PDE_db->getScalar<double>( "k21" );
-    double k22 = PDE_db->getScalar<double>( "k22" );
-    double z   = PDE_db->getScalar<double>( "z" );  
-
-    bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
-    bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
-
-
-    // --- Unpack inputs ---
-    // Downcast input Vectors to MultiVectors 
-    auto ET_vec  = std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( ET_vec_ );
-    auto LET_vec = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( LET_vec_ );
-    // Check to see if this is a multivector
-    AMP_INSIST( ET_vec, "ET downcast to MultiVector unsuccessful" );
-    AMP_INSIST( LET_vec, "LET downcast to MultiVector unsuccessful" );
-    // Unpack vectors
-    auto E_vec  = ET_vec->getVector(0);
-    auto T_vec  = ET_vec->getVector(1);
-    auto LE_vec = LET_vec->getVector(0);
-    auto LT_vec = LET_vec->getVector(1);
-    
-
-    // --- Iterate over all local rows ---
-    // Get local grid index box w/ zero ghosts
-    auto localBox  = getLocalNodeBox( d_BoxMesh );
-    auto globalBox = getGlobalNodeBox( d_BoxMesh );
-
-    // Iterate over local box
-    for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
-
-        // Get values in the stencil
-        auto   ET  = unpackLocalData( E_vec, T_vec, globalBox, i );
-        double E_W = ET[0], E_O = ET[1], E_E = ET[2]; 
-        double T_W = ET[3], T_O = ET[4], T_E = ET[5]; 
-        size_t dof_O = gridIndsToScalarDOF( i );
-        AMP_INSIST( T_O > 1e-14, "PDE coefficients ill-defined for T <= 0 (T[" + std::to_string(dof_O) + std::string("]=") + std::to_string(T_O) + std::string(")") );
-
-        /* Compute coefficients to apply stencil in a quasi-linear fashion */
-        // Reaction coefficients at cell centers
-        double REE, RET;
-        double RTE, RTT;
-        // Diffusion coefficients at cell faces
-        double Dr_WO, Dr_OE; 
-        double DT_WO, DT_OE; 
-
-        // Nonlinear PDE
-        if ( nonlinearModel ) {
-            // --- Reaction coefficients
-            double sigma = std::pow( z/T_O, 3.0 );
-            REE = RTE = -sigma;
-            RET = RTT =  sigma * pow( T_O, 3.0 );
-            // --- Diffusion coefficients
-            // Temp at mid points             
-            double T_WO = 0.5*( T_W + T_O ); // T_{i-1/2}
-            double T_OE = 0.5*( T_O + T_E ); // T_{i+1/2}
-            // Unlimited energy flux = 1/(3*sigma). I moved the factor of 2 into Dr rather than DE (actually, I think Bobby's paper may be off somewhere by a factor of 2)
-            Dr_WO = pow( T_WO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
-            Dr_OE = pow( T_OE, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
-            // Limit the energy flux if need be, eq. (17)
-            // DE = 1/( 3*sigma + 1/E * dE/dx ) = 1/( 1/Dr + 1/E * dE/dx ) = Dr/( 1 + Dr/E * dE/dx )
-            if ( fluxLimited ) {
-                double DE_WO = Dr_WO / ( 1.0 + Dr_WO*( abs( E_O - E_W )/( h*0.5*( E_O + E_W ) ) ) );
-                double DE_OE = Dr_OE / ( 1.0 + Dr_OE*( abs( E_E - E_O )/( h*0.5*( E_E + E_O ) ) ) );
-                Dr_WO = DE_WO;
-                Dr_OE = DE_OE;
-            }
-            // Create face values of D_T coefficient, analogous to those for D_E
-            DT_WO = pow( T_WO, 2.5 );
-            DT_OE = pow( T_OE, 2.5 ); 
-
-        // Linear PDE
-        } else {
-            // --- Reaction coefficients
-            REE   = RTE = -1.0;
-            RET   = RTT =  1.0;
-            // --- Diffusion coefficients
-            Dr_WO = Dr_OE = 1.0;
-            DT_WO = DT_OE = 1.0;
-        }    
-        // Scale coefficients by constants
-        // Reaction
-        REE *= -k12, RET *= -k12;
-        RTE *=  k22, RTT *=  k22;
-        // Diffusion
-        Dr_WO *= -k11, Dr_OE *= -k11;
-        DT_WO *= -k21, DT_OE *= -k21;
-        
-        /* Apply the operators in a quasi-linear fashion */
-        // Apply diffusion operators
-        double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2;
-        double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2;
-        // Sum diffusion and reaction terms
-        double LE = dif_E + ( REE*E_O + RET*T_O );
-        double LT = dif_T + ( RTE*E_O + RTT*T_O );
-
-        // Insert values into the vectors
-        LE_vec->setValueByGlobalID<double>( dof_O, LE );
-        LT_vec->setValueByGlobalID<double>( dof_O, LT );
-    }
-    LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-}
-
-
-// Apply operator L to vector ET
-void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
+void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
             std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_) 
 {
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "RadDifOp::apply() " << std::endl;
+    }
+
     // --- Unpack parameters ---
     std::shared_ptr<const AMP::Database> PDE_db  = this->d_db->getDatabase( "PDE" );
     std::shared_ptr<const AMP::Database> mesh_db = this->d_db->getDatabase( "mesh" );
-    double h   = mesh_db->getScalar<double>( "h" );
-    double rh2 = 1.0/(h*h); // Reciprocal h squared
     double k11 = PDE_db->getScalar<double>( "k11" );
     double k12 = PDE_db->getScalar<double>( "k12" );
     double k21 = PDE_db->getScalar<double>( "k21" );
@@ -1042,7 +980,6 @@ void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_
 
     bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
     bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
-
 
     // --- Unpack inputs ---
     // Downcast input Vectors to MultiVectors 
@@ -1061,96 +998,99 @@ void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
     auto localBox  = getLocalNodeBox( d_BoxMesh );
-    auto globalBox = getGlobalNodeBox( d_BoxMesh );
+    // Place holder for current grid index
+    std::array<int, 3> ijk;
+    // Placeholder arrays for values used in 3-point stencils
+    std::array<double, 3> Eloc;
+    std::array<double, 3> Tloc;
 
     // Iterate over local box
-    for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
-        for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+    for ( auto k = localBox.first[2]; k <= localBox.last[2]; k++ ) {
+        ijk[2] = k;
+        for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
+            ijk[1] = j;
+            for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+                ijk[0] = i;
 
-            // Get values in the stencil
-            auto   ET  = unpackLocalData( E_vec, T_vec, globalBox, i, j );
-            double E_S = ET[0], E_W = ET[1], E_O = ET[2], E_E = ET[3], E_N = ET[4]; 
-            double T_S = ET[5], T_W = ET[6], T_O = ET[7], T_E = ET[8], T_N = ET[9];
-            size_t dof_O = gridIndsToScalarDOF( i, j );
-            AMP_INSIST( T_O > 1e-14, "PDE coefficients ill-defined for T <= 0" );
+                /** --- Compute coefficients to apply stencil in a quasi-linear fashion */
+                // Diffusion coefficients: Loop over each dimension, adding in its contribution
+                double dif_E = 0.0;  
+                double dif_T = 0.0; 
+                for ( size_t dim = 0; dim < d_dim; dim++ ) {
 
-            /* Compute coefficients to apply stencil in a quasi-linear fashion */
-            // Reaction coefficients at cell centers
-            double REE, RET;
-            double RTE, RTT;
-            // Diffusion coefficients at cell faces
-            double Dr_WO, Dr_OE, Dr_SO, Dr_ON; 
-            double DT_WO, DT_OE, DT_SO, DT_ON; 
+                    // Get lower, origin, and upper ET data for the given dimension
+                    unpackLocalStencilData(E_vec, T_vec, ijk, dim, Eloc, Tloc);        
+                    
+                    // Diffusion coefficients at cell faces
+                    double Dr_WO, Dr_OE; 
+                    double DT_WO, DT_OE; 
+                    // Nonlinear PDE
+                    if ( nonlinearModel ) {
+                        // Temp at mid points             
+                        double T_WO = 0.5*( Tloc[0] + Tloc[1] ); // T_{i-1/2}
+                        double T_OE = 0.5*( Tloc[1] + Tloc[2] ); // T_{i+1/2}
+                        // Unlimited energy flux
+                        Dr_WO = pow( T_WO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
+                        Dr_OE = pow( T_OE, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) ); 
+                        // Limit the energy flux if need be, eq. (17)
+                        if ( fluxLimited ) {
+                            double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( Eloc[1] - Eloc[0] )/( d_h[dim]*0.5*(Eloc[1] + Eloc[0]) ) ) );
+                            double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( Eloc[2] - Eloc[1] )/( d_h[dim]*0.5*(Eloc[2] + Eloc[1]) ) ) );
+                            Dr_WO = DE_WO;
+                            Dr_OE = DE_OE;
+                        }
+                        // Create face values of D_T coefficient, analogous to those for D_E
+                        DT_WO = pow( T_WO, 2.5 );
+                        DT_OE = pow( T_OE, 2.5 ); 
 
-            // Nonlinear PDE
-            if ( nonlinearModel ) {
-                // --- Reaction coefficients
-                double sigma = std::pow( z/T_O, 3.0 );
-                REE = RTE = -sigma;
-                RET = RTT =  sigma * pow( T_O, 3.0 );
-                // --- Diffusion coefficients
-                // Temp at mid points             
-                double T_WO = 0.5*( T_W + T_O ); // T_{i-1/2,j}
-                double T_OE = 0.5*( T_O + T_E ); // T_{i+1/2,j}
-                double T_SO = 0.5*( T_S + T_O ); // T_{i,j-1/2}
-                double T_ON = 0.5*( T_O + T_N ); // T_{i,j+1/2}
-                // Unlimited energy flux. I moved the factor of 2 into Dr rather than DE.
-                Dr_WO = pow( T_WO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
-                Dr_OE = pow( T_OE, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
-                Dr_SO = pow( T_SO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) ); 
-                Dr_ON = pow( T_ON, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) ); 
-                // Limit the energy flux if need be, eq. (17)
-                if ( fluxLimited ) {
-                    double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( E_O - E_W )/( h*0.5*(E_O + E_W) ) ) );
-                    double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( E_E - E_O )/( h*0.5*(E_E + E_O) ) ) );
-                    double DE_SO = Dr_SO/( 1.0 + Dr_SO*( abs( E_O - E_S )/( h*0.5*(E_O + E_S) ) ) );
-                    double DE_ON = Dr_ON/( 1.0 + Dr_ON*( abs( E_N - E_O )/( h*0.5*(E_N + E_O) ) ) );
-                    Dr_WO = DE_WO;
-                    Dr_OE = DE_OE;
-                    Dr_SO = DE_SO;
-                    Dr_ON = DE_ON;
+                    // Linear PDE
+                    } else {
+                        Dr_WO = Dr_OE = 1.0;
+                        DT_WO = DT_OE = 1.0;
+                    }    
+                    
+                    // Scale coefficients by constants in PDE
+                    Dr_WO *= -k11, Dr_OE *= -k11;
+                    DT_WO *= -k21, DT_OE *= -k21;
+                    
+                    // Apply diffusion operators in quasi-linear fashion
+                    dif_E += (Dr_OE*(Eloc[2] - Eloc[1]) - Dr_WO*(Eloc[1] - Eloc[0]))/(d_h[dim]*d_h[dim]);
+                    dif_T += (DT_OE*(Tloc[2] - Tloc[1]) - DT_WO*(Tloc[1] - Tloc[0]))/(d_h[dim]*d_h[dim]);
                 }
-                // Create face values of D_T coefficient, analogous to those for D_E
-                DT_WO = pow( T_WO, 2.5 );
-                DT_OE = pow( T_OE, 2.5 ); 
-                DT_SO = pow( T_SO, 2.5 );
-                DT_ON = pow( T_ON, 2.5 ); 
+                // Finished looping over dimensions for diffusion discretizations
+                AMP_INSIST( Tloc[1] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
 
-            // Linear PDE
-            } else {
-                // --- Reaction coefficients
-                REE   = RTE = -1.0;
-                RET   = RTT =  1.0;
-                // --- Diffusion coefficients
-                Dr_WO = Dr_OE = Dr_SO = Dr_ON = 1.0;
-                DT_WO = DT_OE = DT_SO = DT_ON = 1.0;
-            }    
-            // Scale coefficients by constants
-            // Reaction
-            REE *= -k12, RET *= -k12;
-            RTE *=  k22, RTT *=  k22;
-            // Diffusion
-            Dr_WO *= -k11, Dr_OE *= -k11, Dr_SO *= -k11, Dr_ON *= -k11;
-            DT_WO *= -k21, DT_OE *= -k21, DT_SO *= -k21, DT_ON *= -k21;
-            
-            /* Apply the operators in a quasi-linear fashion */
-            // Diffusion operators terms
-            double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2 \
-                    + Dr_ON*( E_N - E_O )*rh2 - Dr_SO*( E_O - E_S )*rh2;
-            double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2 \
-                    + DT_ON*( T_N - T_O )*rh2 - DT_SO*( T_O - T_S )*rh2;
-            // Sum diffusion and reaction terms
-            double LE = dif_E + ( REE*E_O + RET*T_O );
-            double LT = dif_T + ( RTE*E_O + RTT*T_O );
+                // Compute reaction coefficients; this uses E and T values set in the last iteration of the above loop
+                // Reaction coefficients at cell centers
+                double REE, RET;
+                double RTE, RTT;
+                // Nonlinear PDE
+                if ( nonlinearModel ) {
+                    double sigma = std::pow( z/Tloc[1], 3.0 );
+                    REE = RTE = -sigma;
+                    RET = RTT = +sigma * pow( Tloc[1], 3.0 );
+                // Linear PDE
+                } else {
+                    REE = RTE = -1.0;
+                    RET = RTT = +1.0;
+                }
+                // Scale coefficients by constants in PDE
+                REE *= -k12, RET *= -k12;
+                RTE *=  k22, RTT *=  k22;
 
-            // Insert values into the vectors
-            LE_vec->setValueByGlobalID<double>( dof_O, LE );
-            LT_vec->setValueByGlobalID<double>( dof_O, LT );
-        }
-    }
+                // Sum diffusion and reaction terms
+                double LE = dif_E + ( REE*Eloc[1] + RET*Tloc[1] );
+                double LT = dif_T + ( RTE*Eloc[1] + RTT*Tloc[1] );
+
+                // Insert values into the vectors
+                size_t dof_O = gridIndsToScalarDOF( ijk );
+                LE_vec->setValueByGlobalID<double>( dof_O, LE );
+                LT_vec->setValueByGlobalID<double>( dof_O, LT );
+            } // Loop over i
+        } // Loop over j
+    } // Loop over k
     LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
-
 
 
 /* Get the ghost values on the given boundary at the given node given the interior value Eint and Tint. This is assuming Robin on E and pseudo-Neumann on T */
@@ -1328,50 +1268,67 @@ double RadDifOp::ghostValueRobinEPicardCoefficient( double ck, size_t boundary )
 }
 
 
-
-// Get all values in the 3-point stencil centered at grid index i
-std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i ) {
-
-    double E_W, E_O, E_E; 
-    double T_W, T_O, T_E;
+/**
+ * Pack local 3-point stencil data into the arrays E_local and T_local for the given dimension
+ * Boundaries are assumed to be 
+ *      1,2,3,4,5,6 == 
+ *      2*dim + 1 for LOWER boundary
+ *      2*dim + 2 for UPPER boundary
+ * for dim = 0, 1, 2
+ */
+void RadDifOp::unpackLocalStencilData( 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+    std::array<int, 3> &ijk, // is modified locally, but returned in same state
+    int dim,
+    std::array<double, 3> &E_local, 
+    std::array<double, 3> &T_local) 
+{
 
     // The current DOF
-    size_t dof_O = gridIndsToScalarDOF( i );
-    E_O = E_vec->getValueByGlobalID<double>( dof_O );
-    T_O = T_vec->getValueByGlobalID<double>( dof_O );
+    size_t dof_O = gridIndsToScalarDOF( ijk );
+    E_local[1] = E_vec->getValueByGlobalID<double>( dof_O );
+    T_local[1] = T_vec->getValueByGlobalID<double>( dof_O );
 
-    // At WEST boundary (1), so WEST neighbor is a ghost
-    if ( i == globalBox.first[0] ) {
-        auto node = gridIndsToMeshElement( i );
-        auto ETg  = getGhostValues( 1, node, E_O, T_O );
-        E_W       = ETg[0]; 
-        T_W       = ETg[1];
+    // Get WEST (or LOWER) neighboring value
+    // At WEST (or LOWER) boundary, so WEST (or LOWER) neighbor is a ghost
+    if ( ijk[dim] == d_globalBox->first[dim] ) {
+        size_t boundaryID = 2*dim + 1; // Lower boundary
+        auto node = gridIndsToMeshElement( ijk );
+        auto ETg  = getGhostValues( boundaryID, node, E_local[1], T_local[1] );
+        E_local[0]       = ETg[0]; 
+        T_local[0]       = ETg[1];
 
-    // At interior DOF; WEST neighbor is an interior DOF
+    // At interior DOF; WEST (or LOWER) neighbor is an interior DOF
     } else {
-        size_t dof_W = gridIndsToScalarDOF( i-1 );
-        E_W          = E_vec->getValueByGlobalID( dof_W ); 
-        T_W          = T_vec->getValueByGlobalID( dof_W );
+        ijk[dim] -= 1;
+        size_t dof_W = gridIndsToScalarDOF( ijk );
+        ijk[dim] += 1; // reset to O
+        E_local[0] = E_vec->getValueByGlobalID( dof_W ); 
+        T_local[0] = T_vec->getValueByGlobalID( dof_W );
     }
 
-    // At EAST boundary (2), so EAST neighbor is a ghost
-    if ( i == globalBox.last[0] ) {
-        auto node = gridIndsToMeshElement( i );
-        auto ETg  = getGhostValues( 2, node, E_O, T_O );
-        E_E       = ETg[0]; 
-        T_E       = ETg[1];
+    // Get EAST (or UPPER) neighboring value
+    // At EAST (or UPPER) boundary, so EAST (or UPPER) neighbor is a ghost
+    if ( ijk[dim] == d_globalBox->last[dim] ) {
+        size_t boundaryID = 2*dim + 2; // Upper boundary
+        auto node  = gridIndsToMeshElement( ijk );
+        auto ETg   = getGhostValues( boundaryID, node, E_local[1], T_local[1] );
+        E_local[2] = ETg[0]; 
+        T_local[2] = ETg[1];
 
-    // At interior DOF; EAST neighbor is an interior DOF
+    // At interior DOF; EAST (or UPPER) neighbor is an interior DOF
     } else {
-        size_t dof_E = gridIndsToScalarDOF( i+1 );
-        E_E          = E_vec->getValueByGlobalID( dof_E ); 
-        T_E          = T_vec->getValueByGlobalID( dof_E );
+        ijk[dim] += 1;
+        size_t dof_E = gridIndsToScalarDOF( ijk );
+        ijk[dim] -= 1; // reset to O
+        E_local[2]   = E_vec->getValueByGlobalID( dof_E ); 
+        T_local[2]   = T_vec->getValueByGlobalID( dof_E );
     }
-
-    std::vector<double> ET = { E_W, E_O, E_E, //
-                               T_W, T_O, T_E };
-    return ET;
 }
+
+
+
 
 
 /* Get all values in the 3-point stencil centered at grid index i
@@ -1379,7 +1336,7 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
  onBoundary is a flag indicating whether the DOF is on a boundary. 
  In the case that it is on a boundary, values in dofs corresponding to the boundaries are not meaningful
  */
-std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i, std::vector<size_t> &dofs, bool &onBoundary ) {
+std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, std::vector<size_t> &dofs, bool &onBoundary ) {
 
     onBoundary = false;
     double E_W, E_O, E_E; 
@@ -1391,7 +1348,7 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     T_O = T_vec->getValueByGlobalID<double>( dofs[1] );
 
     // At WEST boundary (1), so WEST neighbor is a ghost
-    if ( i == globalBox.first[0] ) {
+    if ( i == d_globalBox->first[0] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i );
         auto ETg   = getGhostValues( 1, node, E_O, T_O );
@@ -1407,7 +1364,7 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
     }
 
     // At EAST boundary (2), so EAST neighbor is a ghost
-    if ( i == globalBox.last[0] ) {
+    if ( i == d_globalBox->last[0] ) {
         onBoundary = true;
         auto node  = gridIndsToMeshElement( i );
         auto ETg   = getGhostValues( 2, node, E_O, T_O );
@@ -1427,8 +1384,398 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
 }
 
 
+
+
+
 // Get all values in the 5-point stencil centered at grid index i,j
-std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i, int j ) {
+// S, W, O, E, N
+// 0, 1, 2, 3, 4
+std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j, std::vector<size_t> &dofs, bool &onBoundary ) {
+
+    onBoundary = false;
+    double E_S, E_W, E_O, E_E, E_N; 
+    double T_S, T_W, T_O, T_E, T_N;
+
+    // The current DOF
+    dofs[2] = gridIndsToScalarDOF( i, j );
+    E_O = E_vec->getValueByGlobalID<double>( dofs[2] );
+    T_O = T_vec->getValueByGlobalID<double>( dofs[2] );
+
+    // Get WEST neighboring value
+    // At WEST boundary (1), so WEST neighbor is a ghost
+    if ( i == d_globalBox->first[0] ) {
+        onBoundary = true;
+        auto node  = gridIndsToMeshElement( i, j );
+        auto ETg   = getGhostValues( 1, node, E_O, T_O );
+        E_W        = ETg[0];
+        T_W        = ETg[1];
+
+    // At interior DOF; WEST neighbor is an interior DOF
+    } else {
+        dofs[1] = gridIndsToScalarDOF( i-1, j );
+        E_W     = E_vec->getValueByGlobalID( dofs[1] ); 
+        T_W     = T_vec->getValueByGlobalID( dofs[1] );
+    }
+
+    // Get EAST neighboring value
+    // At EAST boundary (2), so EAST neighbor is a ghost
+    if ( i == d_globalBox->last[0] ) {
+        onBoundary = true;
+        auto node  = gridIndsToMeshElement( i, j );
+        auto ETg   = getGhostValues( 2, node, E_O, T_O );
+        E_E        = ETg[0]; 
+        T_E        = ETg[1];
+
+    // At interior DOF; EAST neighbor is an interior DOF
+    } else {
+        dofs[3] = gridIndsToScalarDOF( i+1, j );
+        E_E     = E_vec->getValueByGlobalID( dofs[3] ); 
+        T_E     = T_vec->getValueByGlobalID( dofs[3] );
+    }
+
+    // Get SOUTH neighboring value
+    // At SOUTH boundary (3), so SOUTH neighbor is a ghost
+    if ( j == d_globalBox->first[1] ) {
+        onBoundary = true;
+        auto node  = gridIndsToMeshElement( i, j );
+        auto ETg   = getGhostValues( 3, node, E_O, T_O );
+        E_S        = ETg[0]; 
+        T_S        = ETg[1];
+
+    // At interior DOF; SOUTH neighbor is an interior DOF
+    } else {
+        dofs[0] = gridIndsToScalarDOF( i, j-1 );
+        E_S     = E_vec->getValueByGlobalID( dofs[0] ); 
+        T_S     = T_vec->getValueByGlobalID( dofs[0] );
+    }
+
+    // Get NORTH neighboring value
+    // At NORTH boundary (4), so NORTH neighbor is a ghost
+    if ( j == d_globalBox->last[1] ) {
+        onBoundary = true;
+        auto node  = gridIndsToMeshElement( i, j );
+        auto ETg   = getGhostValues( 4, node, E_O, T_O );
+        E_N        = ETg[0]; 
+        T_N        = ETg[1];
+
+    // At interior DOF; NORTH neighbor is an interior DOF
+    } else {
+        dofs[4] = gridIndsToScalarDOF( i, j+1 );
+        E_N     = E_vec->getValueByGlobalID( dofs[4] ); 
+        T_N     = T_vec->getValueByGlobalID( dofs[4] );
+    }
+
+    std::vector<double> ET = { E_S, E_W, E_O, E_E, E_N, //
+                               T_S, T_W, T_O, T_E, T_N };
+    return ET;
+}
+
+
+
+#if 0
+void RadDifOp::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> LET) {
+
+    if ( d_iDebugPrintInfoLevel > 1 )
+        AMP::pout << "RadDifOp::apply() " << std::endl;
+
+    auto meshDim = d_BoxMesh->getDim();
+    if ( meshDim == 1 ) {
+        apply1D(ET, LET);
+    } else {
+        apply2D(ET, LET);
+    }
+
+    //applyDimAg(ET, LET);
+};
+
+
+
+void RadDifOp::apply1D(
+            std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
+            std::shared_ptr<      AMP::LinearAlgebra::Vector> LET_vec_) 
+{
+    // --- Unpack parameters ---
+    std::shared_ptr<const AMP::Database> PDE_db  = this->d_db->getDatabase( "PDE" );
+    std::shared_ptr<const AMP::Database> mesh_db = this->d_db->getDatabase( "mesh" );
+    double h   = mesh_db->getScalar<double>( "h" );
+    double rh2 = 1.0/(h*h); // Reciprocal h squared
+    double k11 = PDE_db->getScalar<double>( "k11" );
+    double k12 = PDE_db->getScalar<double>( "k12" );
+    double k21 = PDE_db->getScalar<double>( "k21" );
+    double k22 = PDE_db->getScalar<double>( "k22" );
+    double z   = PDE_db->getScalar<double>( "z" );  
+
+    bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
+    bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
+
+
+    // --- Unpack inputs ---
+    // Downcast input Vectors to MultiVectors 
+    auto ET_vec  = std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( ET_vec_ );
+    auto LET_vec = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( LET_vec_ );
+    // Check to see if this is a multivector
+    AMP_INSIST( ET_vec, "ET downcast to MultiVector unsuccessful" );
+    AMP_INSIST( LET_vec, "LET downcast to MultiVector unsuccessful" );
+    // Unpack vectors
+    auto E_vec  = ET_vec->getVector(0);
+    auto T_vec  = ET_vec->getVector(1);
+    auto LE_vec = LET_vec->getVector(0);
+    auto LT_vec = LET_vec->getVector(1);
+    
+
+    // --- Iterate over all local rows ---
+    // Get local grid index box w/ zero ghosts
+    auto localBox  = getLocalNodeBox( d_BoxMesh );
+
+    // Iterate over local box
+    for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+
+        // Get values in the stencil
+        auto   ET  = unpackLocalData( E_vec, T_vec, i );
+        double E_W = ET[0], E_O = ET[1], E_E = ET[2]; 
+        double T_W = ET[3], T_O = ET[4], T_E = ET[5]; 
+        size_t dof_O = gridIndsToScalarDOF( i );
+        AMP_INSIST( T_O > 1e-14, "PDE coefficients ill-defined for T <= 0 (T[" + std::to_string(dof_O) + std::string("]=") + std::to_string(T_O) + std::string(")") );
+
+        /* Compute coefficients to apply stencil in a quasi-linear fashion */
+        // Reaction coefficients at cell centers
+        double REE, RET;
+        double RTE, RTT;
+        // Diffusion coefficients at cell faces
+        double Dr_WO, Dr_OE; 
+        double DT_WO, DT_OE; 
+
+        // Nonlinear PDE
+        if ( nonlinearModel ) {
+            // --- Reaction coefficients
+            double sigma = std::pow( z/T_O, 3.0 );
+            REE = RTE = -sigma;
+            RET = RTT =  sigma * pow( T_O, 3.0 );
+            // --- Diffusion coefficients
+            // Temp at mid points             
+            double T_WO = 0.5*( T_W + T_O ); // T_{i-1/2}
+            double T_OE = 0.5*( T_O + T_E ); // T_{i+1/2}
+            // Unlimited energy flux = 1/(3*sigma). I moved the factor of 2 into Dr rather than DE (actually, I think Bobby's paper may be off somewhere by a factor of 2)
+            Dr_WO = pow( T_WO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
+            Dr_OE = pow( T_OE, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
+            // Limit the energy flux if need be, eq. (17)
+            // DE = 1/( 3*sigma + 1/E * dE/dx ) = 1/( 1/Dr + 1/E * dE/dx ) = Dr/( 1 + Dr/E * dE/dx )
+            if ( fluxLimited ) {
+                double DE_WO = Dr_WO / ( 1.0 + Dr_WO*( abs( E_O - E_W )/( h*0.5*( E_O + E_W ) ) ) );
+                double DE_OE = Dr_OE / ( 1.0 + Dr_OE*( abs( E_E - E_O )/( h*0.5*( E_E + E_O ) ) ) );
+                Dr_WO = DE_WO;
+                Dr_OE = DE_OE;
+            }
+            // Create face values of D_T coefficient, analogous to those for D_E
+            DT_WO = pow( T_WO, 2.5 );
+            DT_OE = pow( T_OE, 2.5 ); 
+
+        // Linear PDE
+        } else {
+            // --- Reaction coefficients
+            REE   = RTE = -1.0;
+            RET   = RTT =  1.0;
+            // --- Diffusion coefficients
+            Dr_WO = Dr_OE = 1.0;
+            DT_WO = DT_OE = 1.0;
+        }    
+        // Scale coefficients by constants
+        // Reaction
+        REE *= -k12, RET *= -k12;
+        RTE *=  k22, RTT *=  k22;
+        // Diffusion
+        Dr_WO *= -k11, Dr_OE *= -k11;
+        DT_WO *= -k21, DT_OE *= -k21;
+        
+        /* Apply the operators in a quasi-linear fashion */
+        // Apply diffusion operators
+        double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2;
+        double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2;
+        // Sum diffusion and reaction terms
+        double LE = dif_E + ( REE*E_O + RET*T_O );
+        double LT = dif_T + ( RTE*E_O + RTT*T_O );
+
+        // Insert values into the vectors
+        LE_vec->setValueByGlobalID<double>( dof_O, LE );
+        LT_vec->setValueByGlobalID<double>( dof_O, LT );
+    }
+    LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+}
+
+
+// Apply operator L to vector ET
+void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
+            std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_) 
+{
+    // --- Unpack parameters ---
+    std::shared_ptr<const AMP::Database> PDE_db  = this->d_db->getDatabase( "PDE" );
+    std::shared_ptr<const AMP::Database> mesh_db = this->d_db->getDatabase( "mesh" );
+    double h   = mesh_db->getScalar<double>( "h" );
+    double rh2 = 1.0/(h*h); // Reciprocal h squared
+    double k11 = PDE_db->getScalar<double>( "k11" );
+    double k12 = PDE_db->getScalar<double>( "k12" );
+    double k21 = PDE_db->getScalar<double>( "k21" );
+    double k22 = PDE_db->getScalar<double>( "k22" );
+    double z   = PDE_db->getScalar<double>( "z" );  
+
+    bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
+    bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
+
+
+    // --- Unpack inputs ---
+    // Downcast input Vectors to MultiVectors 
+    auto ET_vec  = std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( ET_vec_ );
+    auto LET_vec = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( LET_vec_ );
+    // Check to see if this is a multivector
+    AMP_INSIST( ET_vec, "ET downcast to MultiVector unsuccessful" );
+    AMP_INSIST( LET_vec, "LET downcast to MultiVector unsuccessful" );
+    // Unpack vectors
+    auto E_vec  = ET_vec->getVector(0);
+    auto T_vec  = ET_vec->getVector(1);
+    auto LE_vec = LET_vec->getVector(0);
+    auto LT_vec = LET_vec->getVector(1);
+
+
+    // --- Iterate over all local rows ---
+    // Get local grid index box w/ zero ghosts
+    auto localBox  = getLocalNodeBox( d_BoxMesh );
+
+    // Iterate over local box
+    for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
+        for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+
+            // Get values in the stencil
+            auto   ET  = unpackLocalData( E_vec, T_vec, i, j );
+            double E_S = ET[0], E_W = ET[1], E_O = ET[2], E_E = ET[3], E_N = ET[4]; 
+            double T_S = ET[5], T_W = ET[6], T_O = ET[7], T_E = ET[8], T_N = ET[9];
+            size_t dof_O = gridIndsToScalarDOF( i, j );
+            AMP_INSIST( T_O > 1e-14, "PDE coefficients ill-defined for T <= 0" );
+
+            /* Compute coefficients to apply stencil in a quasi-linear fashion */
+            // Reaction coefficients at cell centers
+            double REE, RET;
+            double RTE, RTT;
+            // Diffusion coefficients at cell faces
+            double Dr_WO, Dr_OE, Dr_SO, Dr_ON; 
+            double DT_WO, DT_OE, DT_SO, DT_ON; 
+
+            // Nonlinear PDE
+            if ( nonlinearModel ) {
+                // --- Reaction coefficients
+                double sigma = std::pow( z/T_O, 3.0 );
+                REE = RTE = -sigma;
+                RET = RTT =  sigma * pow( T_O, 3.0 );
+                // --- Diffusion coefficients
+                // Temp at mid points             
+                double T_WO = 0.5*( T_W + T_O ); // T_{i-1/2,j}
+                double T_OE = 0.5*( T_O + T_E ); // T_{i+1/2,j}
+                double T_SO = 0.5*( T_S + T_O ); // T_{i,j-1/2}
+                double T_ON = 0.5*( T_O + T_N ); // T_{i,j+1/2}
+                // Unlimited energy flux. I moved the factor of 2 into Dr rather than DE.
+                Dr_WO = pow( T_WO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
+                Dr_OE = pow( T_OE, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) );
+                Dr_SO = pow( T_SO, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) ); 
+                Dr_ON = pow( T_ON, 3.0 ) / ( 3.0*0.5*( z*z*z + z*z*z ) ); 
+                // Limit the energy flux if need be, eq. (17)
+                if ( fluxLimited ) {
+                    double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( E_O - E_W )/( h*0.5*(E_O + E_W) ) ) );
+                    double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( E_E - E_O )/( h*0.5*(E_E + E_O) ) ) );
+                    double DE_SO = Dr_SO/( 1.0 + Dr_SO*( abs( E_O - E_S )/( h*0.5*(E_O + E_S) ) ) );
+                    double DE_ON = Dr_ON/( 1.0 + Dr_ON*( abs( E_N - E_O )/( h*0.5*(E_N + E_O) ) ) );
+                    Dr_WO = DE_WO;
+                    Dr_OE = DE_OE;
+                    Dr_SO = DE_SO;
+                    Dr_ON = DE_ON;
+                }
+                // Create face values of D_T coefficient, analogous to those for D_E
+                DT_WO = pow( T_WO, 2.5 );
+                DT_OE = pow( T_OE, 2.5 ); 
+                DT_SO = pow( T_SO, 2.5 );
+                DT_ON = pow( T_ON, 2.5 ); 
+
+            // Linear PDE
+            } else {
+                // --- Reaction coefficients
+                REE   = RTE = -1.0;
+                RET   = RTT =  1.0;
+                // --- Diffusion coefficients
+                Dr_WO = Dr_OE = Dr_SO = Dr_ON = 1.0;
+                DT_WO = DT_OE = DT_SO = DT_ON = 1.0;
+            }    
+            // Scale coefficients by constants
+            // Reaction
+            REE *= -k12, RET *= -k12;
+            RTE *=  k22, RTT *=  k22;
+            // Diffusion
+            Dr_WO *= -k11, Dr_OE *= -k11, Dr_SO *= -k11, Dr_ON *= -k11;
+            DT_WO *= -k21, DT_OE *= -k21, DT_SO *= -k21, DT_ON *= -k21;
+            
+            /* Apply the operators in a quasi-linear fashion */
+            // Diffusion operators terms
+            double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2 \
+                    + Dr_ON*( E_N - E_O )*rh2 - Dr_SO*( E_O - E_S )*rh2;
+            double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2 \
+                    + DT_ON*( T_N - T_O )*rh2 - DT_SO*( T_O - T_S )*rh2;
+            // Sum diffusion and reaction terms
+            double LE = dif_E + ( REE*E_O + RET*T_O );
+            double LT = dif_T + ( RTE*E_O + RTT*T_O );
+
+            // Insert values into the vectors
+            LE_vec->setValueByGlobalID<double>( dof_O, LE );
+            LT_vec->setValueByGlobalID<double>( dof_O, LT );
+        }
+    }
+    LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+}
+
+
+
+// Get all values in the 3-point stencil centered at grid index i
+std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i ) {
+
+    double E_W, E_O, E_E; 
+    double T_W, T_O, T_E;
+
+    // The current DOF
+    size_t dof_O = gridIndsToScalarDOF( i );
+    E_O = E_vec->getValueByGlobalID<double>( dof_O );
+    T_O = T_vec->getValueByGlobalID<double>( dof_O );
+
+    // At WEST boundary (1), so WEST neighbor is a ghost
+    if ( i == d_globalBox->first[0] ) {
+        auto node = gridIndsToMeshElement( i );
+        auto ETg  = getGhostValues( 1, node, E_O, T_O );
+        E_W       = ETg[0]; 
+        T_W       = ETg[1];
+
+    // At interior DOF; WEST neighbor is an interior DOF
+    } else {
+        size_t dof_W = gridIndsToScalarDOF( i-1 );
+        E_W          = E_vec->getValueByGlobalID( dof_W ); 
+        T_W          = T_vec->getValueByGlobalID( dof_W );
+    }
+
+    // At EAST boundary (2), so EAST neighbor is a ghost
+    if ( i == d_globalBox->last[0] ) {
+        auto node = gridIndsToMeshElement( i );
+        auto ETg  = getGhostValues( 2, node, E_O, T_O );
+        E_E       = ETg[0]; 
+        T_E       = ETg[1];
+
+    // At interior DOF; EAST neighbor is an interior DOF
+    } else {
+        size_t dof_E = gridIndsToScalarDOF( i+1 );
+        E_E          = E_vec->getValueByGlobalID( dof_E ); 
+        T_E          = T_vec->getValueByGlobalID( dof_E );
+    }
+
+    std::vector<double> ET = { E_W, E_O, E_E, //
+                               T_W, T_O, T_E };
+    return ET;
+}
+
+// Get all values in the 5-point stencil centered at grid index i,j
+std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j ) {
 
     double E_S, E_W, E_O, E_E, E_N; 
     double T_S, T_W, T_O, T_E, T_N;
@@ -1440,7 +1787,7 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
 
     // Get WEST neighboring value
     // At WEST boundary (1), so WEST neighbor is a ghost
-    if ( i == globalBox.first[0] ) {
+    if ( i == d_globalBox->first[0] ) {
         auto node = gridIndsToMeshElement( i, j );
         auto ETg  = getGhostValues( 1, node, E_O, T_O );
         E_W       = ETg[0];
@@ -1455,7 +1802,7 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
 
     // Get EAST neighboring value
     // At EAST boundary (2), so EAST neighbor is a ghost
-    if ( i == globalBox.last[0] ) {
+    if ( i == d_globalBox->last[0] ) {
         auto node = gridIndsToMeshElement( i, j );
         auto ETg  = getGhostValues( 2, node, E_O, T_O );
         E_E       = ETg[0]; 
@@ -1470,7 +1817,7 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
 
     // Get SOUTH neighboring value
     // At SOUTH boundary (3), so SOUTH neighbor is a ghost
-    if ( j == globalBox.first[1] ) {
+    if ( j == d_globalBox->first[1] ) {
         auto node = gridIndsToMeshElement( i, j );
         auto ETg  = getGhostValues( 3, node, E_O, T_O );
         E_S       = ETg[0]; 
@@ -1485,7 +1832,7 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
 
     // Get NORTH neighboring value
     // At NORTH boundary (4), so NORTH neighbor is a ghost
-    if ( j == globalBox.last[1] ) {
+    if ( j == d_globalBox->last[1] ) {
         auto node = gridIndsToMeshElement( i, j );
         auto ETg  = getGhostValues( 4, node, E_O, T_O );
         E_N       = ETg[0]; 
@@ -1504,86 +1851,4 @@ std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::Linear
 }
 
 
-
-// Get all values in the 5-point stencil centered at grid index i,j
-// S, W, O, E, N
-// 0, 1, 2, 3, 4
-std::vector<double> RadDifOp::unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i, int j, std::vector<size_t> &dofs, bool &onBoundary ) {
-
-    onBoundary = false;
-    double E_S, E_W, E_O, E_E, E_N; 
-    double T_S, T_W, T_O, T_E, T_N;
-
-    // The current DOF
-    dofs[2] = gridIndsToScalarDOF( i, j );
-    E_O = E_vec->getValueByGlobalID<double>( dofs[2] );
-    T_O = T_vec->getValueByGlobalID<double>( dofs[2] );
-
-    // Get WEST neighboring value
-    // At WEST boundary (1), so WEST neighbor is a ghost
-    if ( i == globalBox.first[0] ) {
-        onBoundary = true;
-        auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 1, node, E_O, T_O );
-        E_W        = ETg[0];
-        T_W        = ETg[1];
-
-    // At interior DOF; WEST neighbor is an interior DOF
-    } else {
-        dofs[1] = gridIndsToScalarDOF( i-1, j );
-        E_W     = E_vec->getValueByGlobalID( dofs[1] ); 
-        T_W     = T_vec->getValueByGlobalID( dofs[1] );
-    }
-
-    // Get EAST neighboring value
-    // At EAST boundary (2), so EAST neighbor is a ghost
-    if ( i == globalBox.last[0] ) {
-        onBoundary = true;
-        auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 2, node, E_O, T_O );
-        E_E        = ETg[0]; 
-        T_E        = ETg[1];
-
-    // At interior DOF; EAST neighbor is an interior DOF
-    } else {
-        dofs[3] = gridIndsToScalarDOF( i+1, j );
-        E_E     = E_vec->getValueByGlobalID( dofs[3] ); 
-        T_E     = T_vec->getValueByGlobalID( dofs[3] );
-    }
-
-    // Get SOUTH neighboring value
-    // At SOUTH boundary (3), so SOUTH neighbor is a ghost
-    if ( j == globalBox.first[1] ) {
-        onBoundary = true;
-        auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 3, node, E_O, T_O );
-        E_S        = ETg[0]; 
-        T_S        = ETg[1];
-
-    // At interior DOF; SOUTH neighbor is an interior DOF
-    } else {
-        dofs[0] = gridIndsToScalarDOF( i, j-1 );
-        E_S     = E_vec->getValueByGlobalID( dofs[0] ); 
-        T_S     = T_vec->getValueByGlobalID( dofs[0] );
-    }
-
-    // Get NORTH neighboring value
-    // At NORTH boundary (4), so NORTH neighbor is a ghost
-    if ( j == globalBox.last[1] ) {
-        onBoundary = true;
-        auto node  = gridIndsToMeshElement( i, j );
-        auto ETg   = getGhostValues( 4, node, E_O, T_O );
-        E_N        = ETg[0]; 
-        T_N        = ETg[1];
-
-    // At interior DOF; NORTH neighbor is an interior DOF
-    } else {
-        dofs[4] = gridIndsToScalarDOF( i, j+1 );
-        E_N     = E_vec->getValueByGlobalID( dofs[4] ); 
-        T_N     = T_vec->getValueByGlobalID( dofs[4] );
-    }
-
-    std::vector<double> ET = { E_S, E_W, E_O, E_E, E_N, //
-                               T_S, T_W, T_O, T_E, T_N };
-    return ET;
-}
+#endif

@@ -20,6 +20,8 @@
 #include "AMP/discretization/MultiDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshID.h"
+#include "AMP/geometry/Geometry.h"
+#include "AMP/geometry/shapes/Box.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/mesh/structured/BoxMesh.h"
@@ -208,12 +210,17 @@ public:
     std::shared_ptr<AMP::Discretization::multiDOFManager> d_multiDOFMan;
     //! DOFManager for E and T individually
     std::shared_ptr<AMP::Discretization::DOFManager>      d_scalarDOFMan;
+    
     //! Parameters required by the discretization
     std::shared_ptr<AMP::Database>                        d_db;
+    //! Problem dimension
+    size_t d_dim                                  = 0;
     //! Mesh; keep a pointer to save having to downcast repeatedly
     std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
-    //! Mesh spacing; we compute this based on this incoming mesh
-    double d_h = -1.0;
+    // Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
+    std::vector<double> d_h;
+    // Global grid index box w/ zero ghosts
+    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox = nullptr;
     //! Convenience member
     static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
 
@@ -234,7 +241,8 @@ public:
     // Create a multiVector of E and T over the mesh.
     std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const; 
 
-    double getMeshSize() { return d_h; };
+    // Vector of hx, hy, hz
+    std::vector<double> getMeshSize() const;
 
     #if 0
     std::shared_ptr<AMP::LinearAlgebra::Vector> createNodalInputVector() const {
@@ -258,10 +266,6 @@ private:
     // Set d_multiDOFManagers after creating it from this Operators's mesh
     void setDOFManagers();
 
-    void apply1D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);
-
-    void apply2D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);
-
     // Prototype of function returning value of Robin BC of E on given boundary at given node. The user can specify any function with this signature
     std::function<double( int boundary, double a, double b, AMP::Mesh::MeshElement & node )> d_robinFunctionE;
 
@@ -281,21 +285,56 @@ private:
     double ghostValueRobinESolve( double a, double b, double r, double c, double Eint );
     double ghostValueRobinEPicardCoefficient( double ck, size_t boundary ) const;
 
-    // Values in the 3-point stencil
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i );
-    // Overloaded version of above also returning corresponding DOFs
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i, std::vector<size_t> &dofs, bool &onBoundary );
+    void unpackLocalStencilData( 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+    std::array<int, 3> &ijk, // is modified locally, but returned in same state
+    int dim,
+    std::array<double, 3> &E_local, 
+    std::array<double, 3> &T_local);
 
-    // Values in the 5-point stencil
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i, int j );
+    
     // Overloaded version of above also returning corresponding DOFs
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, AMP::Mesh::BoxMesh::Box &globalBox, int i, int j, std::vector<size_t> &dofs, bool &onBoundary );
+    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, std::vector<size_t> &dofs, bool &onBoundary );
+
+    
+    // Overloaded version of above also returning corresponding DOFs
+    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j, std::vector<size_t> &dofs, bool &onBoundary );
 
     // Map from grid index i, or i,j, or i,j,k to a MeshElementIndex to a MeshElementId and then to the corresponding DOF
     size_t gridIndsToScalarDOF( int i, int j = 0, int k = 0 ); 
 
+    size_t gridIndsToScalarDOF( std::array<int,3> ijk ) {
+        return gridIndsToScalarDOF( ijk[0], ijk[1], ijk[2] );
+    }
+
     // Map from grid index to a MeshElement
     AMP::Mesh::MeshElement gridIndsToMeshElement( int i, int j = 0, int k = 0 ); 
+
+    AMP::Mesh::MeshElement gridIndsToMeshElement( std::array<int,3> ijk ) {
+        return gridIndsToMeshElement( ijk[0], ijk[1], ijk[2] );
+    } 
+
+
+
+    // Convert a global element box to a global node box.
+    // Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
+    // grid dimensions being periodic.
+    AMP::Mesh::BoxMesh::Box getGlobalNodeBox() const;
+
+
+
+    
+    #if 0
+    void apply1D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);
+
+    void apply2D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);
+
+    // Values in the 3-point stencil
+    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i );
+    // Values in the 5-point stencil
+    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j );
+    #endif
 
 protected:
     

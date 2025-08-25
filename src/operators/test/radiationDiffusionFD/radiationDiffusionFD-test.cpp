@@ -58,6 +58,8 @@
 #include "AMP/operators/radiationDiffusionFD/RDFDOpSplitPrec.h"
 //#include "AMP/operators/radiationDiffusionFD/RDFDMonolithicPrec.h"
 
+#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+
 
 /*
 Try turning on the auto component scaling once everything is working. this means I have to change the apply functions in my BEOperators. Bobby mentioned that since one component is much bigger than the other, if you look at their relative convergence, one drops much more than the other.
@@ -382,7 +384,7 @@ void driver(AMP::AMP_MPI comm,
             errorVec->subtract( *sol_new, *manSolVec );
             AMP::pout << "----------------------------------------" << std::endl;
             AMP::pout << "Manufactured discretization error norms:" << std::endl;
-            auto enorms = getDiscreteNorms( disc_db->getDatabase( "mesh" )->getScalar<double>( "h" ), errorVec );
+            auto enorms = getDiscreteNorms( myRadDifOp->getMeshSize(), errorVec );
             AMP::pout << "||e||=(" << enorms[0] << "," << enorms[1] << "," << enorms[2] << ")" << std::endl;
             AMP::pout << "----------------------------------------" << std::endl;
 

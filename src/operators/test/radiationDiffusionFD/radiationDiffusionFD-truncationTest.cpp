@@ -65,6 +65,8 @@
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
 #include "AMP/operators/radiationDiffusionFD/RDUtils.h"
 
+#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+
 
 /** This is a test of a RadDifOp, which is a finite-difference discretization of a radiation 
  * diffusion operator.
@@ -220,7 +222,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     /* Get discrete norms of truncation vector and display them */
     AMP::pout << "----------------------------------------" << std::endl;
     AMP::pout << "Manufactured truncation error norms:" << std::endl;
-    auto enorms = getDiscreteNorms( disc_db->getDatabase( "mesh" )->getScalar<double>( "h" ), truncationErrorVec );
+    auto enorms = getDiscreteNorms( myRadDifOp->getMeshSize(), truncationErrorVec );
     AMP::pout << "||e||=(" << enorms[0] << "," << enorms[1] << "," << enorms[2] << ")" << std::endl;
     AMP::pout << "----------------------------------------" << std::endl;
 

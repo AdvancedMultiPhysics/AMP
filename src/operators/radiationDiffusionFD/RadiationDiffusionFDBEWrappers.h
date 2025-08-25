@@ -70,9 +70,10 @@
  *  [ 0      d_T_BE] + [ diag(r_TE_BE) diag(r_TT_BE) ]
  * 
  * Note: We store the data in the above format for two reasons:
- * 1. It allows an operator-split preconditioner to be build, wherein the diffusion blocks must
+ * 1. It allows an operator-split preconditioner to be built, wherein the diffusion blocks must
  * contain the identity perturbation since AMG is applied to them, and it's easy enough to add an
- * identity perturbation on the fly to the reaction blocks when decoupled 2x2 solves are done there
+ * identity perturbation on the fly to the reaction blocks when decoupled 2x2 solves are done on 
+ * them
  * 2. The modification that we make to the data means that our underlying RadDifOpPJac's apply will 
  * actually be an apply of a BERadDifOpPJac (we would have to write another apply routine if we 
  * also added an identity perturbation into the reaction block).

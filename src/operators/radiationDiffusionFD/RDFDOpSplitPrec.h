@@ -159,8 +159,9 @@ public:
             }
             if ( d_iDebugPrintInfoLevel > 1 ) {
                 AMP::pout << "BERadDifOpPJacOpSplitPrec::apply(): iteration " << iter << ":" << std::endl;
-                auto rnorms = getDiscreteNorms( 1.0, rET );
-                AMP::pout << "||r||=(" << rnorms[0] << "," << rnorms[1] << "," << rnorms[2] << ")" << std::endl;
+                AMP_ERROR( "no residual norm implemented..." );
+                // auto rnorms = getDiscreteNorms( 1.0, rET );
+                // AMP::pout << "||r||=(" << rnorms[0] << "," << rnorms[1] << "," << rnorms[2] << ")" << std::endl;
             }
 
             // Solve P_dif * [dE, dT] = [rE, rT], with residuals r
@@ -177,8 +178,9 @@ public:
         if ( d_bComputeResidual ) {
             d_BERadDifOpPJac->residual( bET, ET, rET );
             AMP::pout << "BERadDifOpPJacOpSplitPrec::apply(): final residual" << ":" << std::endl;
-                auto rnorms = getDiscreteNorms( 1.0, rET );
-                AMP::pout << "||r||=(" << rnorms[0] << "," << rnorms[1] << "," << rnorms[2] << ")" << std::endl;
+                AMP_ERROR( "no residual norm implemented..." );
+                // auto rnorms = getDiscreteNorms( 1.0, rET );
+                // AMP::pout << "||r||=(" << rnorms[0] << "," << rnorms[1] << "," << rnorms[2] << ")" << std::endl;
         }
     }
 
