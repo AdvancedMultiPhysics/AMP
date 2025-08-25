@@ -116,7 +116,9 @@ TYPE Algorithms<TYPE>::max_element( const TYPE *x, const size_t N )
         return *std::max_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        return *thrust::max_element( thrust::device, x, x + N );
+        return *thrust::max_element( thrust::device,
+                                     thrust::device_pointer_cast( x ),
+                                     thrust::device_pointer_cast( x ) + N );
 #else
         AMP_ERROR( "Invalid memory type" );
         return TYPE{ 0 };
