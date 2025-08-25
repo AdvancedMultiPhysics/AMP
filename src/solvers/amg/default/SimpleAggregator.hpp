@@ -29,7 +29,6 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     PROFILE( "SimpleAggregator::assignLocalAggregates" );
 
     using lidx_t       = typename Config::lidx_t;
-    using scalar_t     = typename Config::scalar_t;
     using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t = typename matrix_t::matrixdata_t;
 
@@ -42,9 +41,11 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     // fill initial ids with -1's to mark as not associated
     AMP::Utilities::Algorithms<int>::fill_n( agg_ids, A_nrows, -1 );
 
-    // Create temporary storage for aggregate sizes and row strengths
+    // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size;
-    std::vector<scalar_t> Sij;
+
+    // flags for isolated points, 0 undecided, 1 marked isolated, -1 marked un-isolated
+    std::vector<lidx_t> isolated_pts( A_nrows, 0 );
 
     // first pass initilizes aggregates from nodes that have no
     // neighbors that are already associated
@@ -54,62 +55,44 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         const auto rs = Ad_rs[row], re = Ad_rs[row + 1], row_len = re - rs;
 
-        // do not form aggregates from rows with only one entry
-        // or rows contained in a prior aggregate
-        if ( row_len == 1 || agg_ids[row] >= 0 ) {
+        // skip already aggregated rows
+        if ( agg_ids[row] >= 0 ) {
             continue;
         }
 
-        // Check if any members of this row are already associated
-        // and skip if so.
-        // Also find the strength-of-connection numerator.
-        bool have_nbr      = false;
-        scalar_t soc_numer = 0.0;
+        // mark single entry rows as isolated and do not aggregate
+        if ( row_len == 1 ) {
+            AMP_DEBUG_ASSERT( isolated_pts[row] == 0 ); // should be undecided if not agg'd
+            isolated_pts[row] = 1;
+            continue;
+        }
+
+        // Check if any members of this row are already associated and skip if so.
+        // Also check if row has only stored zeros away from diag entry
+        bool have_nbr = false, have_nz = false;
         for ( lidx_t c = rs + 1; c < re; ++c ) {
             have_nbr = have_nbr || agg_ids[Ad_cols_loc[c]] < 0;
-            soc_numer += std::fabs( Ad_coeffs[c] );
+            have_nz  = have_nz || Ad_coeffs[c] != 0.0;
         }
-
-        // skip if all nbrs are already aggregated, this should be very rare
         if ( !have_nbr ) {
+            // does not have all nbrs available for aggregation, skip
             continue;
         }
-
-        // fill in strength of connection and find minimum value
-        Sij.resize( row_len );
-        Sij[0]                 = 0.0;
-        const scalar_t scl_max = std::numeric_limits<scalar_t>::max();
-        scalar_t min_str       = std::sqrt( scl_max );
-        for ( lidx_t n = 1; n < row_len; ++n ) {
-            const bool do_soc = Ad_coeffs[rs + n] < 0.0 && agg_ids[Ad_cols_loc[rs + n]] < 0;
-            Sij[n]            = do_soc ? std::fabs( 1.0 + soc_numer / Ad_coeffs[rs + n] ) : scl_max;
-            min_str           = std::min( Sij[n], min_str );
+        if ( !have_nz ) {
+            // off of diagonal all entries are stored zeros, mark as isolated and skip
+            AMP_DEBUG_ASSERT( isolated_pts[row] == 0 ); // should be undecided if not agg'd
+            isolated_pts[row] = 1;
+            continue;
         }
-        auto Sij_sort = Sij;
-        std::sort( Sij_sort.data(), Sij_sort.data() + row_len );
 
         // create new aggregate from row
-        scalar_t thresh = Sij_sort[std::min( d_max_agg_size - 1, row_len - 1 )];
-        if ( d_weak_thresh > 0.0 ) {
-            thresh = std::fmin( d_weak_thresh * min_str, thresh );
-        }
-
         agg_size.push_back( 0 );
         for ( lidx_t n = 0; n < row_len; ++n ) {
-            if ( Ad_coeffs[rs + n] != 0.0 && Sij[n] <= thresh &&
-                 agg_size[num_agg] < d_max_agg_size ) {
-                agg_ids[Ad_cols_loc[rs + n]] = num_agg;
-                agg_size[num_agg]++;
-            }
-        }
-
-        // ignore rows with no strong connections, this happens with how
-        // Dirichlet conditions get applied in some problems and is not
-        // caught by row length check above
-        if ( agg_size[num_agg] <= 1 ) {
-            agg_size.pop_back();
-            agg_ids[Ad_cols_loc[rs]] = -1;
-            continue;
+            const auto col_idx = Ad_cols_loc[rs + n];
+            agg_ids[col_idx]   = num_agg;
+            agg_size[num_agg]++;
+            // steal any isolated points that can be lumped into this aggregate
+            isolated_pts[col_idx] = -1;
         }
 
         // increment current id to start working on next aggregate
@@ -117,11 +100,13 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     }
 
     // second pass adds unmarked entries to the smallest aggregate they are nbrs with
-    // entries are unmarked because they neigbored some aggregate in the above,
-    // thus every unmarked entry will neighbor some aggregate
+    // entries are unmarked because they neigbored some aggregate in the above or are
+    // isolated. Add entries to the smallest aggregate they neighbor and track if
+    // any remain isolated
+    bool have_isolated = false;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         if ( agg_ids[row] >= 0 ) {
-            // this row already assigned, skip ahead
+            // this row already assigned, skip
             continue;
         }
 
@@ -136,11 +121,28 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
             }
         }
 
-        // Possible that no nbr is found
+        // add to aggregate
         if ( small_agg_id >= 0 ) {
             agg_ids[row] = small_agg_id;
             agg_size[small_agg_id]++;
+            // steal if isolated
+            isolated_pts[row] = -1;
+        } else {
+            // no neighbor found, this must be an isolated point
+            AMP_DEBUG_ASSERT( isolated_pts[row] == 1 );
+            isolated_pts[row] = 1;
+            if ( !have_isolated ) {
+                agg_size.push_back( 0 );
+            }
+            have_isolated = true;
+            agg_ids[row]  = num_agg;
+            agg_size[num_agg]++;
         }
+    }
+
+    // account for lumped isolated rows in aggregate count
+    if ( have_isolated ) {
+        ++num_agg;
     }
 
     return num_agg;
