@@ -197,6 +197,14 @@ private:
 class RadDifOp : public AMP::Operator::Operator {
 
 //
+private:
+    // Constant scaling factors in the PDE
+    const double d_k11;
+    const double d_k12;
+    const double d_k21;
+    const double d_k22;
+
+//
 public: 
     #if 1
     std::shared_ptr<AMP::Discretization::DOFManager>      d_nodalDOFMan;
@@ -215,7 +223,10 @@ public:
     //! Parameters required by the discretization
     std::shared_ptr<AMP::Database>                        d_db;
     //! Problem dimension
-    size_t d_dim                                  = 0;
+    size_t d_dim  = 0;
+    //! Flag whether we consider the linear or nonlinear PDE
+    bool d_nonlinearModel;
+
     //! Mesh; keep a pointer to save having to downcast repeatedly
     std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
     // Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
@@ -266,16 +277,21 @@ private:
     void setDOFManagers();
 
     //! Energy diffusion coefficient D_E given temperature T
-    double diffusionCoefficientE( double T, bool nonlinearModel, double z ) const;
+    double diffusionCoefficientE( double T, double z ) const;
 
     //! Temperature diffusion coefficient D_E given temperature T
-    double diffusionCoefficientT( double T, bool nonlinearModel ) const;
+    double diffusionCoefficientT( double T ) const;
 
     //! Compute quasi-linear reaction coefficients REE, RET, RTE, REE
-    void quasiLinearReactionCoefficients( double T, double z, bool nonlinearModel, double &REE, double &RET, double &RTE, double &RTT ) const;
+    void getSemiLinearReactionCoefficients( double T, double z, double &REE, double &RET, double &RTE, double &RTT ) const;
 
-    
-    double energyDiffusionCoefficientAtMidPoint( double T_left, double T_right);
+    //! Scale semi-linear reaction coefficients by constants k_ij in PDE
+    void scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const;
+    //! Scale D_E by k11
+    void scaleDiffusionCoefficientEBy_kij( double &D_E ) const;
+    //! Scale D_T by k21
+    void scaleDiffusionCoefficientTBy_kij( double &D_T ) const;
+
 
     void unpackLocalStencilData( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 

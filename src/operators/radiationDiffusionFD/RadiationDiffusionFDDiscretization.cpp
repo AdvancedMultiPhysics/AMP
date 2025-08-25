@@ -285,11 +285,11 @@ void RadDifOpPJac::setData1D(  )
         The nonlinear discretization is then as follows
 
         // Apply diffusion operators
-        double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2;
-        double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2;
+        double dif_E_action = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2;
+        double dif_T_action = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2;
         // Sum diffusion and reaction terms
-        double LE = dif_E + ( REE*E_O + RET*T_O );
-        double LT = dif_T + ( RTE*E_O + RTT*T_O );
+        double LE = dif_E_action + ( REE*E_O + RET*T_O );
+        double LT = dif_T_action + ( RTE*E_O + RTT*T_O );
         */
 
         /* --- Reaction terms --- */
@@ -310,7 +310,7 @@ void RadDifOpPJac::setData1D(  )
             // On WEST boundary; DOF to our WEST is a ghost. 
             if ( i == d_RadDifOp->d_globalBox->first[0] ) {
                 // Compute energy diffusion coefficient on boundary
-                double Dr_WO  = d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_W , T_O ); // T_{i-1/2}
+                double Dr_WO  = d_RadDifOp->diffusionCoefficientE( 0.5*(T_W+T_O), z ); // T_{i-1/2}
                 double c1     = k11 * Dr_WO;
                 // Get Picard coefficient
                 double alpha1 = d_RadDifOp->ghostValueRobinEPicardCoefficient( c1, 1 );
@@ -326,7 +326,7 @@ void RadDifOpPJac::setData1D(  )
             // On EAST boundary; DOF to our EAST is ghost.
             if ( i == d_RadDifOp->d_globalBox->last[0] ) {
                 // Compute energy diffusion coefficient on boundary
-                double Dr_OE  = d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_O , T_E ); // T_{i+1/2}
+                double Dr_OE  = d_RadDifOp->diffusionCoefficientE( 0.5*(T_O+T_E), z ); // T_{i+1/2}
                 double c2     = k11 * Dr_OE;
                 // Get Picard coefficient
                 double alpha2 = d_RadDifOp->ghostValueRobinEPicardCoefficient( c2, 2 );
@@ -505,13 +505,13 @@ void RadDifOpPJac::setData2D(  )
             The nonlinear discretization is then as follows
 
             // Apply diffusion operators
-            double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2 \
+            double dif_E_action = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2 \
                     + Dr_ON*( E_N - E_O )*rh2 - Dr_SO*( E_O - E_S )*rh2;
-            double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2 \
+            double dif_T_action = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2 \
                     + DT_ON*( T_N - T_O )*rh2 - DT_SO*( T_O - T_S )*rh2;
             // Sum diffusion and reaction terms
-            double LE = dif_E + ( REE*E_O + RET*T_O );
-            double LT = dif_T + ( RTE*E_O + RTT*T_O );
+            double LE = dif_E_action + ( REE*E_O + RET*T_O );
+            double LT = dif_T_action + ( RTE*E_O + RTT*T_O );
             */
 
             /* --- Reaction terms --- */
@@ -535,10 +535,10 @@ void RadDifOpPJac::setData2D(  )
             if ( onBoundary ) {
 
                 // For readibility, just get Picard coefficients on all boundaries
-                double c1 = k11 * d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_W, T_O );
-                double c2 = k11 * d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_O, T_E );
-                double c3 = k11 * d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_S, T_O );
-                double c4 = k11 * d_RadDifOp->energyDiffusionCoefficientAtMidPoint( T_O, T_N );
+                double c1 = k11 * d_RadDifOp->diffusionCoefficientE( 0.5*(T_W+T_O), z );
+                double c2 = k11 * d_RadDifOp->diffusionCoefficientE( 0.5*(T_O+T_E), z );
+                double c3 = k11 * d_RadDifOp->diffusionCoefficientE( 0.5*(T_S+T_O), z );
+                double c4 = k11 * d_RadDifOp->diffusionCoefficientE( 0.5*(T_O+T_N), z );
                 // ak == alphak (abuse of notation; these are not the ak constants in Robin BCs)
                 double aW = d_RadDifOp->ghostValueRobinEPicardCoefficient( c1, 1 );
                 double aE = d_RadDifOp->ghostValueRobinEPicardCoefficient( c2, 2 );
@@ -692,8 +692,14 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
                           Implementation of RadDifOp 
 --------------------------------------------------------------------------------- */
 
+// Constants scaling factors k_ij in the PDE are declared const, so must be set in the initializer list. This makes some of the error checking below redundant
 RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params) : 
-        AMP::Operator::Operator( params ) {
+    AMP::Operator::Operator( params ),        
+    d_k11( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k11" ) ),
+    d_k12( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k12" ) ),
+    d_k21( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k21" ) ),
+    d_k22( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k22" ) )
+         {
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
         AMP::pout << "RadDifOp::RadDifOp() " << std::endl; 
@@ -704,11 +710,15 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     AMP_INSIST(  d_db, "Requires non-null db" );
 
     // Some basic input checking on the incoming database
-    AMP_INSIST( d_db->getDatabase( "PDE" ),  "PDE_db is null" );
-    AMP_INSIST( d_db->getDatabase( "mesh" ), "mesh_db is null" );
-    auto model = d_db->getDatabase( "PDE" )->getWithDefault<std::string>( "model", "" );
+    // PDE parameters
+    auto PDE_db = d_db->getDatabase( "PDE" ); 
+    AMP_INSIST( PDE_db,  "PDE_db is null" );
+    auto model = PDE_db->getWithDefault<std::string>( "model", "" );
     AMP_INSIST( model == "linear" || model == "nonlinear", "model must be 'linear' or 'nonlinear'" );
-
+    d_nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
+    // Mesh database
+    AMP_INSIST( d_db->getDatabase( "mesh" ), "mesh_db is null" );
+    
 
     // Set DOFManagers
     this->setDOFManagers();
@@ -790,10 +800,6 @@ AMP::Mesh::BoxMesh::Box RadDifOp::getGlobalNodeBox() const
 
 std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const {
     auto ET_var = std::make_shared<AMP::LinearAlgebra::Variable>( "ET" );
-    // auto E_var = std::make_shared<AMP::LinearAlgebra::Variable>( "E" );
-    // auto T_var = std::make_shared<AMP::LinearAlgebra::Variable>( "T" );
-    // std::vector<std::shared_ptr<AMP::LinearAlgebra::Variable>> vec = { E_var, T_var };
-    // auto ET_var = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "ET", vec );
     auto ET_vec = AMP::LinearAlgebra::createVector<double>( this->d_multiDOFMan, ET_var );
     return ET_vec;
 };
@@ -802,14 +808,12 @@ void RadDifOp::setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::M
 void RadDifOp::setRobinFunctionE( std::function<double(int, double, double, AMP::Mesh::MeshElement &)> fn_ ) { d_robinFunctionE = fn_; };
 
 AMP::Mesh::MeshElement RadDifOp::gridIndsToMeshElement( int i, int j, int k ) {
-    AMP::Mesh::BoxMesh::MeshElementIndex ind(
-                    AMP::Mesh::GeomType::Vertex, 0, i, j, k );
+    AMP::Mesh::BoxMesh::MeshElementIndex ind( VertexGeom, 0, i, j, k );
     return d_BoxMesh->getElement( ind );
 };
 
 size_t RadDifOp::gridIndsToScalarDOF( int i, int j, int k ) {
-    AMP::Mesh::BoxMesh::MeshElementIndex ind(
-                    AMP::Mesh::GeomType::Vertex, 0, i, j, k );
+    AMP::Mesh::BoxMesh::MeshElementIndex ind( VertexGeom, 0, i, j, k );
     AMP::Mesh::MeshElementID id = d_BoxMesh->convert( ind );
     std::vector<size_t> dof;
     d_scalarDOFMan->getDOFs(id, dof);
@@ -861,7 +865,7 @@ void RadDifOp::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::
 void RadDifOp::setDOFManagers() {
 
     // Specify mesh is to use cell-based geometry
-    AMP::Mesh::GeomType myGeomType = AMP::Mesh::GeomType::Vertex;
+    AMP::Mesh::GeomType myGeomType = VertexGeom;
     // Number of DOFs per mesh element (make 1, even though we have two variables. We'll create separate DOF managers for them)
     int myDOFsPerElement = 1; 
     int gcw   = 1; // Ghost-cell width. 
@@ -884,7 +888,7 @@ void RadDifOp::setDOFManagers() {
     comm.barrier();
     // This demonstrates how DOFs are organized on the mesh by multiDOFManager 
     // Iterate through the mesh, and pull out DOFs associated with each mesh element from the multiDOF
-    auto iter = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+    auto iter = mesh->getIterator( VertexGeom, 0 );
     AMP::pout << "multiDOF E and T global indices" << std::endl;
     for (auto elem = iter.begin(); elem != iter.end(); elem++ ) {
         auto id = elem->globalID();
@@ -933,37 +937,33 @@ void RadDifOp::setDOFManagers() {
     #endif
 }
 
-// E and T must be positive
+
 bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) {
     return ( ET->min() > 0.0 ); 
 }
 
 
 
-
-
-
-// Apply operator L to vector ET. This holds for both linear and nonlinear RadDifOp
-/* The operator is computed as
-            diffusion + reaction == 
-            [ d_E 0   ][E]   [ diag(r_EE) diag(r_ET) ][E]
-            [ 0   d_T ][T] + [ diag(r_TE) diag(r_TT) ][T]
-        where: 
-            1. d_E*E        = -k11 * div grad( DE*E ) 
-            2. diag(r_EE)*E = -k12 * diag(REE) * E
-            3. diag(r_ET)*T = -k12 * diag(RET) * T
-            
-            4. d_T*T        = -k21 * div grad( DT*T ) 
-            5. diag(r_TE)*E = +k22 * diag(RTE) * E
-            6. diag(r_TT)*T = +k22 * diag(RTT) * T
-
-        In the nonlinear model:
-            REE = RTE = -sigma
-            RET = RTT = +sigma*T^3
-        In the linear model:
-            REE = RTE = -1
-            RET = RTT = +1
-*/
+/**  The operator is computed as
+ *  diffusion + reaction == 
+ *      [ d_E 0   ][E]   [ diag(r_EE) diag(r_ET) ][E]
+ *      [ 0   d_T ][T] + [ diag(r_TE) diag(r_TT) ][T]
+ *  where: 
+ * 1. d_E*E        = -k11 * div grad( DE*E ) 
+ * 2. diag(r_EE)*E = -k12 * diag(REE) * E
+ * 3. diag(r_ET)*T = -k12 * diag(RET) * T
+ *      
+ * 4. d_T*T        = -k21 * div grad( DT*T ) 
+ * 5. diag(r_TE)*E = +k22 * diag(RTE) * E
+ * 6. diag(r_TT)*T = +k22 * diag(RTT) * T
+ * 
+ * In the nonlinear model:
+ *      REE = RTE = -sigma
+ *      RET = RTT = +sigma*T^3
+ * In the linear model:
+ *      REE = RTE = -1
+ *      RET = RTT = +1
+ */
 void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
             std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_) 
 {
@@ -973,15 +973,8 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
 
     // --- Unpack parameters ---
     std::shared_ptr<const AMP::Database> PDE_db  = this->d_db->getDatabase( "PDE" );
-    std::shared_ptr<const AMP::Database> mesh_db = this->d_db->getDatabase( "mesh" );
-    double k11 = PDE_db->getScalar<double>( "k11" );
-    double k12 = PDE_db->getScalar<double>( "k12" );
-    double k21 = PDE_db->getScalar<double>( "k21" );
-    double k22 = PDE_db->getScalar<double>( "k22" );
-    double z   = PDE_db->getScalar<double>( "z" );  
-
-    bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
-    bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
+    double z         = PDE_db->getScalar<double>( "z" );  
+    bool fluxLimited = PDE_db->getScalar<bool>( "fluxLimited" );
 
     // --- Unpack inputs ---
     // Downcast input Vectors to MultiVectors 
@@ -1000,7 +993,7 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
     auto localBox  = getLocalNodeBox( d_BoxMesh );
-    // Place holder for current grid index
+    // Placeholder for current grid index
     std::array<int, 3> ijk;
     // Placeholder arrays for values used in 3-point stencils
     std::array<double, 3> Eloc;
@@ -1014,10 +1007,10 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
             for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
                 ijk[0] = i;
 
-                /** --- Compute coefficients to apply stencil in a quasi-linear fashion */
+                /** --- Compute coefficients to apply stencil in a semi-linear fashion */
                 // Action of diffusion operator: Loop over each dimension, adding in its contribution to the total
-                double dif_E = 0.0;  
-                double dif_T = 0.0; 
+                double dif_E_action = 0.0; // d_E * E
+                double dif_T_action = 0.0; // d_T * T
                 for ( size_t dim = 0; dim < d_dim; dim++ ) {
 
                     // Get lower, origin, and upper ET data for the given dimension
@@ -1028,11 +1021,11 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                     double T_OE = 0.5*( Tloc[1] + Tloc[2] ); // T_{i+1/2}
                     // Get diffusion coefficients at cell faces, i.e., mid points
                     // Energy
-                    double Dr_WO = diffusionCoefficientE( T_WO, nonlinearModel, z );
-                    double Dr_OE = diffusionCoefficientE( T_OE, nonlinearModel, z );
+                    double Dr_WO = diffusionCoefficientE( T_WO, z );
+                    double Dr_OE = diffusionCoefficientE( T_OE, z );
                     // Temperature
-                    double DT_WO = diffusionCoefficientT( T_WO, nonlinearModel );
-                    double DT_OE = diffusionCoefficientT( T_OE, nonlinearModel );    
+                    double DT_WO = diffusionCoefficientT( T_WO );
+                    double DT_OE = diffusionCoefficientT( T_OE );    
 
                     // Limit the energy flux if need be, eq. (17)
                     if ( fluxLimited ) {
@@ -1043,37 +1036,38 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                     }
                     
                     // Scale coefficients by constants in PDE
-                    Dr_WO *= -k11, Dr_OE *= -k11;
-                    DT_WO *= -k21, DT_OE *= -k21;
+                    scaleDiffusionCoefficientEBy_kij( Dr_WO );
+                    scaleDiffusionCoefficientEBy_kij( Dr_OE );
+                    scaleDiffusionCoefficientTBy_kij( DT_WO );
+                    scaleDiffusionCoefficientTBy_kij( DT_OE );
                     
                     // Apply diffusion operators in quasi-linear fashion
-                    dif_E += (Dr_OE*(Eloc[2] - Eloc[1]) - Dr_WO*(Eloc[1] - Eloc[0]))/(d_h[dim]*d_h[dim]);
-                    dif_T += (DT_OE*(Tloc[2] - Tloc[1]) - DT_WO*(Tloc[1] - Tloc[0]))/(d_h[dim]*d_h[dim]);
+                    dif_E_action += -(Dr_OE*(Eloc[2] - Eloc[1]) - Dr_WO*(Eloc[1] - Eloc[0]))/(d_h[dim]*d_h[dim]);
+                    dif_T_action += -(DT_OE*(Tloc[2] - Tloc[1]) - DT_WO*(Tloc[1] - Tloc[0]))/(d_h[dim]*d_h[dim]);
                 }
                 // Finished looping over dimensions for diffusion discretizations
                 AMP_INSIST( Tloc[1] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
 
-                // Compute quasi-linear reaction coefficients at cell centers using T value set in the last iteration of the above loop
+                // Compute semi-linear reaction coefficients at cell centers using T value set in the last iteration of the above loop
                 double REE, RET, RTE, RTT;
-                quasiLinearReactionCoefficients( Tloc[1], z, nonlinearModel, REE, RET, RTE, RTT );
+                getSemiLinearReactionCoefficients( Tloc[1], z, REE, RET, RTE, RTT );
                 // Scale coefficients by constants in PDE
-                REE *= -k12, RET *= -k12;
-                RTE *=  k22, RTT *=  k22;
+                scaleReactionCoefficientsBy_kij( REE, RET, RTE, RTT );
 
                 // Sum diffusion and reaction terms
-                double LE = dif_E + ( REE*Eloc[1] + RET*Tloc[1] );
-                double LT = dif_T + ( RTE*Eloc[1] + RTT*Tloc[1] );
+                double LE = dif_E_action + ( REE*Eloc[1] + RET*Tloc[1] );
+                double LT = dif_T_action + ( RTE*Eloc[1] + RTT*Tloc[1] );
 
                 // Insert values into the vectors
                 size_t dof_O = gridIndsToScalarDOF( ijk );
                 LE_vec->setValueByGlobalID<double>( dof_O, LE );
                 LT_vec->setValueByGlobalID<double>( dof_O, LT );
+
             } // Loop over i
         } // Loop over j
     } // Loop over k
     LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
-
 
 
 void RadDifOp::setGhostData( size_t boundaryID, AMP::Mesh::MeshElement &node, double Eint, double Tint )
@@ -1172,16 +1166,17 @@ double RadDifOp::robinFunctionEFromDB( size_t boundaryID ){
 void RadDifOp::ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ){
 
     // Unpack parameters
-    auto PDE_db = d_db->getDatabase( "PDE" );
-    double k11  = PDE_db->getScalar<double>( "k11" );
-    double z    = PDE_db->getScalar<double>( "z" );
+    auto z = d_db->getDatabase( "PDE" )->getScalar<double>( "z" );
 
     // Solve for Tg
     Tg = ghostValuePseudoNeumannTSolve( n, h, Tint );
 
-    // Compute energy diffusion coefficient on the boundary
-    double D_E = energyDiffusionCoefficientAtMidPoint( Tg, Tint );
-    double c   = k11 * D_E;  
+    // Compute energy diffusion coefficient on the boundary, i.e., the mid-point between Tg and Tint
+    double T_midpoint = 0.5*( Tg + Tint );
+    double D_E = diffusionCoefficientE( T_midpoint, z );
+    // The below solve requires the finalized flux in the form of c = k11*D_E
+    scaleDiffusionCoefficientEBy_kij( D_E );  
+    auto c = D_E; 
 
     // Solve for Eg
     Eg = ghostValueRobinESolve( a, b, r, c, h, Eint );
@@ -1204,8 +1199,8 @@ double RadDifOp::ghostValuePseudoNeumannTSolve( double n, double h, double Tint 
 }
 
 
-// Independent of the boundary we are on, we get the same result
 double RadDifOp::ghostValueRobinESolve( double a, double b, double r, double c, double h, double Eint ) {
+    // Independent of the boundary we are on, we get the same result
     return (2*Eint*c*b - Eint*a*h + 2*h*r)/(2*c*b + a*h);
 }
 
@@ -1226,6 +1221,12 @@ double RadDifOp::ghostValueRobinEPicardCoefficient( double ck, size_t boundaryID
     } else if ( boundaryID == 4 ) {
         ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a4" );
         bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b4" );
+    } else if ( boundaryID == 5 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a5" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b5" );
+    } else if ( boundaryID == 6 ) {
+        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a6" );
+        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b6" );
     } else {
         AMP_ERROR( "Invalid boundaryID" );
     }
@@ -1238,29 +1239,9 @@ double RadDifOp::ghostValueRobinEPicardCoefficient( double ck, size_t boundaryID
 }
 
 
-/* Compute the energy diffusion coefficient D_E at the mid-point between T_left and T_right.
-For the nonlinear problem:
-    D_E = 1/3*sigma(T_midpoint), where sigma(T) = (z/T)^3
-For the linear    problem:
-    D_E = 1
-This function is not used everywhere in the code, but is in somplaces for readability.
-*/
-double RadDifOp::energyDiffusionCoefficientAtMidPoint( double T_left, double T_right) {
-    auto PDE_db = d_db->getDatabase( "PDE" );
-    double z    = PDE_db->getScalar<double>( "z" );
-    double D_E; 
-    if ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
-        double sigma = std::pow( z/( 0.5*( T_left + T_right ) ), 3.0 ); // Sample T at mid point, i.e., boundary
-        D_E = 1.0/(3*sigma);
-    } else {
-        D_E = 1.0;
-    }
-    return D_E; 
-}
 
-
-double RadDifOp::diffusionCoefficientE( double T, bool nonlinearModel, double z ) const {
-    if ( nonlinearModel ) {
+double RadDifOp::diffusionCoefficientE( double T, double z ) const {
+    if ( d_nonlinearModel ) {
         double sigma = std::pow( z/T, 3.0 ); 
         return 1.0/(3*sigma);
     } else {
@@ -1268,19 +1249,16 @@ double RadDifOp::diffusionCoefficientE( double T, bool nonlinearModel, double z 
     }
 }
 
-
-double RadDifOp::diffusionCoefficientT( double T, bool nonlinearModel ) const {
-    if ( nonlinearModel ) {
+double RadDifOp::diffusionCoefficientT( double T ) const {
+    if ( d_nonlinearModel ) {
         return pow( T, 2.5 );
     } else {
         return 1.0;
     }
 }
 
-
-/** Compute quasi-linear reaction coefficients REE, RET, RTE, REE */
-void RadDifOp::quasiLinearReactionCoefficients( double T, double z, bool nonlinearModel, double &REE, double &RET, double &RTE, double &RTT ) const {
-    if ( nonlinearModel ) {
+void RadDifOp::getSemiLinearReactionCoefficients( double T, double z, double &REE, double &RET, double &RTE, double &RTT ) const {
+    if ( d_nonlinearModel ) {
         double sigma = std::pow( z/T, 3.0 );
         REE = RTE = -sigma;
         RET = RTT = +sigma * pow( T, 3.0 );
@@ -1290,6 +1268,18 @@ void RadDifOp::quasiLinearReactionCoefficients( double T, double z, bool nonline
     }
 }
 
+void RadDifOp::scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const {
+    REE *= -d_k12, RET *= -d_k12; // Energy equation
+    RTE *=  d_k22, RTT *=  d_k22; // Temperature equation
+}
+
+void RadDifOp::scaleDiffusionCoefficientEBy_kij( double &D_E ) const {
+    D_E *= d_k11; // Energy equation
+}
+
+void RadDifOp::scaleDiffusionCoefficientTBy_kij( double &D_T ) const {
+    D_T *= d_k21; // Temperature equation
+}
 
 
 
@@ -1610,11 +1600,11 @@ void RadDifOp::apply1D(
         
         /* Apply the operators in a quasi-linear fashion */
         // Apply diffusion operators
-        double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2;
-        double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2;
+        double dif_E_action = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2;
+        double dif_T_action = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2;
         // Sum diffusion and reaction terms
-        double LE = dif_E + ( REE*E_O + RET*T_O );
-        double LT = dif_T + ( RTE*E_O + RTT*T_O );
+        double LE = dif_E_action + ( REE*E_O + RET*T_O );
+        double LT = dif_T_action + ( RTE*E_O + RTT*T_O );
 
         // Insert values into the vectors
         LE_vec->setValueByGlobalID<double>( dof_O, LE );
@@ -1733,13 +1723,13 @@ void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_
             
             /* Apply the operators in a quasi-linear fashion */
             // Diffusion operators terms
-            double dif_E = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2 \
+            double dif_E_action = Dr_OE*( E_E - E_O )*rh2 - Dr_WO*( E_O - E_W )*rh2 \
                     + Dr_ON*( E_N - E_O )*rh2 - Dr_SO*( E_O - E_S )*rh2;
-            double dif_T = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2 \
+            double dif_T_action = DT_OE*( T_E - T_O )*rh2 - DT_WO*( T_O - T_W )*rh2 \
                     + DT_ON*( T_N - T_O )*rh2 - DT_SO*( T_O - T_S )*rh2;
             // Sum diffusion and reaction terms
-            double LE = dif_E + ( REE*E_O + RET*T_O );
-            double LT = dif_T + ( RTE*E_O + RTT*T_O );
+            double LE = dif_E_action + ( REE*E_O + RET*T_O );
+            double LT = dif_T_action + ( RTE*E_O + RTT*T_O );
 
             // Insert values into the vectors
             LE_vec->setValueByGlobalID<double>( dof_O, LE );
