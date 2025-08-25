@@ -1,6 +1,9 @@
-#include "DiffusionRotatedAnisotropicModel.h"
+#include "AMP/operators/diffusionFD/DiffusionRotatedAnisotropicModel.h"
+#include "AMP/utils/Constants.h"
 
 namespace AMP::Operator {
+
+#define PI AMP::Constants::pi
 
 /* ----------------------------------------------------------------------------------
     Implementation of a rotated anisotropic constant-coefficient diffusion equation
@@ -169,35 +172,34 @@ ManufacturedRotatedAnisotropicDiffusionModel::exactSolution( AMP::Mesh::MeshElem
 // 1D
 double ManufacturedRotatedAnisotropicDiffusionModel::exactSolution_( double x ) const
 {
-    return std::sin( d_X_SHIFT + 2 * M_PI * x );
+    return std::sin( d_X_SHIFT + 2 * PI * x );
 }
 double ManufacturedRotatedAnisotropicDiffusionModel::sourceTerm_( double x ) const
 {
     double cxx = d_c_db->getScalar<double>( "cxx" );
-    return 4 * std::pow( M_PI, 2 ) * cxx * std::sin( d_X_SHIFT + 2 * M_PI * x );
+    return 4 * std::pow( PI, 2 ) * cxx * std::sin( d_X_SHIFT + 2 * PI * x );
 }
 // 2D
 double ManufacturedRotatedAnisotropicDiffusionModel::exactSolution_( double x, double y ) const
 {
-    return std::sin( d_X_SHIFT + 2 * M_PI * x ) * std::sin( d_Y_SHIFT + 4 * M_PI * y );
+    return std::sin( d_X_SHIFT + 2 * PI * x ) * std::sin( d_Y_SHIFT + 4 * PI * y );
 }
 double ManufacturedRotatedAnisotropicDiffusionModel::sourceTerm_( double x, double y ) const
 {
     double cxx = d_c_db->getScalar<double>( "cxx" );
     double cyy = d_c_db->getScalar<double>( "cyy" );
     double cyx = d_c_db->getScalar<double>( "cyx" );
-    return 4 * std::pow( M_PI, 2 ) *
-           ( cxx * std::sin( d_X_SHIFT + 2 * M_PI * x ) * std::sin( d_Y_SHIFT + 4 * M_PI * y ) -
-             2 * cyx * std::cos( d_X_SHIFT + 2 * M_PI * x ) * std::cos( d_Y_SHIFT + 4 * M_PI * y ) +
-             4 * cyy * std::sin( d_X_SHIFT + 2 * M_PI * x ) *
-                 std::sin( d_Y_SHIFT + 4 * M_PI * y ) );
+    return 4 * std::pow( PI, 2 ) *
+           ( cxx * std::sin( d_X_SHIFT + 2 * PI * x ) * std::sin( d_Y_SHIFT + 4 * PI * y ) -
+             2 * cyx * std::cos( d_X_SHIFT + 2 * PI * x ) * std::cos( d_Y_SHIFT + 4 * PI * y ) +
+             4 * cyy * std::sin( d_X_SHIFT + 2 * PI * x ) * std::sin( d_Y_SHIFT + 4 * PI * y ) );
 }
 // 3D
 double
 ManufacturedRotatedAnisotropicDiffusionModel::exactSolution_( double x, double y, double z ) const
 {
-    return std::sin( d_X_SHIFT + 2 * M_PI * x ) * std::sin( d_Y_SHIFT + 4 * M_PI * y ) *
-           std::sin( d_Z_SHIFT + 6 * M_PI * z );
+    return std::sin( d_X_SHIFT + 2 * PI * x ) * std::sin( d_Y_SHIFT + 4 * PI * y ) *
+           std::sin( d_Z_SHIFT + 6 * PI * z );
 }
 double
 ManufacturedRotatedAnisotropicDiffusionModel::sourceTerm_( double x, double y, double z ) const
@@ -208,18 +210,18 @@ ManufacturedRotatedAnisotropicDiffusionModel::sourceTerm_( double x, double y, d
     double cyx = d_c_db->getScalar<double>( "cyx" );
     double czx = d_c_db->getScalar<double>( "czx" );
     double czy = d_c_db->getScalar<double>( "czy" );
-    return 4 * std::pow( M_PI, 2 ) *
-           ( cxx * std::sin( d_X_SHIFT + 2 * M_PI * x ) * std::sin( d_Y_SHIFT + 4 * M_PI * y ) *
-                 std::sin( d_Z_SHIFT + 6 * M_PI * z ) -
-             2 * cyx * std::sin( d_Z_SHIFT + 6 * M_PI * z ) * std::cos( d_X_SHIFT + 2 * M_PI * x ) *
-                 std::cos( d_Y_SHIFT + 4 * M_PI * y ) -
-             3 * czx * std::sin( d_Y_SHIFT + 4 * M_PI * y ) * std::cos( d_X_SHIFT + 2 * M_PI * x ) *
-                 std::cos( d_Z_SHIFT + 6 * M_PI * z ) +
-             4 * cyy * std::sin( d_X_SHIFT + 2 * M_PI * x ) * std::sin( d_Y_SHIFT + 4 * M_PI * y ) *
-                 std::sin( d_Z_SHIFT + 6 * M_PI * z ) -
-             6 * czy * std::sin( d_X_SHIFT + 2 * M_PI * x ) * std::cos( d_Y_SHIFT + 4 * M_PI * y ) *
-                 std::cos( d_Z_SHIFT + 6 * M_PI * z ) +
-             9 * czz * std::sin( d_X_SHIFT + 2 * M_PI * x ) * std::sin( d_Y_SHIFT + 4 * M_PI * y ) *
-                 std::sin( d_Z_SHIFT + 6 * M_PI * z ) );
+    return 4 * std::pow( PI, 2 ) *
+           ( cxx * std::sin( d_X_SHIFT + 2 * PI * x ) * std::sin( d_Y_SHIFT + 4 * PI * y ) *
+                 std::sin( d_Z_SHIFT + 6 * PI * z ) -
+             2 * cyx * std::sin( d_Z_SHIFT + 6 * PI * z ) * std::cos( d_X_SHIFT + 2 * PI * x ) *
+                 std::cos( d_Y_SHIFT + 4 * PI * y ) -
+             3 * czx * std::sin( d_Y_SHIFT + 4 * PI * y ) * std::cos( d_X_SHIFT + 2 * PI * x ) *
+                 std::cos( d_Z_SHIFT + 6 * PI * z ) +
+             4 * cyy * std::sin( d_X_SHIFT + 2 * PI * x ) * std::sin( d_Y_SHIFT + 4 * PI * y ) *
+                 std::sin( d_Z_SHIFT + 6 * PI * z ) -
+             6 * czy * std::sin( d_X_SHIFT + 2 * PI * x ) * std::cos( d_Y_SHIFT + 4 * PI * y ) *
+                 std::cos( d_Z_SHIFT + 6 * PI * z ) +
+             9 * czz * std::sin( d_X_SHIFT + 2 * PI * x ) * std::sin( d_Y_SHIFT + 4 * PI * y ) *
+                 std::sin( d_Z_SHIFT + 6 * PI * z ) );
 }
 } // namespace AMP::Operator

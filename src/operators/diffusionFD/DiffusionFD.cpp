@@ -1,4 +1,4 @@
-#include "DiffusionFD.h"
+#include "AMP/operators/diffusionFD/DiffusionFD.h"
 
 namespace AMP::Operator {
 
