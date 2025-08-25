@@ -577,9 +577,14 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
             d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0 );
     }
 
-    // total nnz in all rows of block is last entry
-    d_nnz = d_row_starts[d_num_rows];
-
+    if ( AMP::Utilities::getMemoryType( d_row_starts.get() ) ==
+         AMP::Utilities::MemoryType::device ) {
+        const lidx_t *ptr_loc = d_row_starts.get() + d_num_rows;
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( ptr_loc, 1, &d_nnz );
+    } else {
+        // total nnz in all rows of block is last entry
+        d_nnz = d_row_starts[d_num_rows];
+    }
     if ( d_nnz == 0 ) {
         d_is_empty = true;
         // nothing to do, block stays empty

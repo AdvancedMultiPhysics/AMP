@@ -84,7 +84,7 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
 
         // If, more specifically, have ampCSRParams then blocks are not yet
         // filled. This consolidates calls to getRow{NNZ,Cols} for both blocks
-        if ( ampCSRParams ) {
+        if ( ampCSRParams && ampCSRParams->d_getRowHelper ) {
             // number of local rows
             const lidx_t nrows = static_cast<lidx_t>( d_last_row - d_first_row );
 
