@@ -64,21 +64,19 @@ void linearThermalTest( AMP::UnitTest *ut,
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
 
-    if ( memoryLocation == "host" ) {
-        inVec  = AMP::LinearAlgebra::createVector( scalarDOFs, inVar );
-        outVec = AMP::LinearAlgebra::createVector( scalarDOFs, outVar );
-    } else {
-        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-        inVec        = AMP::LinearAlgebra::createVector( scalarDOFs, inVar, true, mem_loc );
-        outVec       = AMP::LinearAlgebra::createVector( scalarDOFs, outVar, true, mem_loc );
-    }
-
-    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
+    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
+    inVec  = AMP::LinearAlgebra::createVector( scalarDOFs, inVar );
+    outVec = AMP::LinearAlgebra::createVector( scalarDOFs, outVar );
 
     // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, backend, "CSRMatrix" );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
+    fillWithPseudoLaplacian( matrix_h, scalarDOFs );
 
-    fillWithPseudoLaplacian( matrix, scalarDOFs );
+    auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+
+    auto matrix = ( memoryLocation == "host" ) ?
+                      matrix_h :
+                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
 
     // Create operator to wrap matrix
     auto op_db = input_db->getDatabase( "LinearOperator" );
@@ -169,7 +167,7 @@ int main( int argc, char *argv[] )
         backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
         backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
-    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
+            //        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE

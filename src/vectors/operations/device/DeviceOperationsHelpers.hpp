@@ -3,9 +3,32 @@
 
 #include "AMP/utils/device/Device.h"
 
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/random.h>
+
 namespace AMP {
 namespace LinearAlgebra {
 
+// the random value part suggested from google AI
+struct GenRand {
+    __host__ __device__ float operator()( const size_t idx ) const
+    {
+        thrust::random::default_random_engine randEng;
+        thrust::uniform_real_distribution<float> uniDist( 0.0f, 1.0f ); // Example: range [0.0, 1.0)
+
+        // Use the index to seed the engine for unique sequences
+        randEng.discard( idx );
+        return uniDist( randEng );
+    }
+};
+
+
+template<typename TYPE>
+void DeviceOperationsHelpers<TYPE>::setRandomValues( size_t N, TYPE *x )
+{
+    thrust::counting_iterator<unsigned int> index_begin( 0 );
+    thrust::transform( thrust::device, index_begin, index_begin + N, x, GenRand() );
+}
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, TYPE *x )
