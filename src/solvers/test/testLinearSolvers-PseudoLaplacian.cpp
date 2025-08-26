@@ -167,12 +167,12 @@ int main( int argc, char *argv[] )
         backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
         backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
-            //        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
         backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
-        //    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
     }
     for ( auto &file : files ) {
