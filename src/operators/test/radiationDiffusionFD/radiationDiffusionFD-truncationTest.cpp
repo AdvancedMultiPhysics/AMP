@@ -247,7 +247,7 @@ int main( int argc, char **argv )
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
 
     std::vector<std::string> exeNames;
-    exeNames.emplace_back( "input_testRadiationDiffusionFD" );
+    exeNames.emplace_back( "input_testRadiationDiffusionFD-truncation" );
     //exeNames.emplace_back( "input_testRadiationDiffusionFD-1D" );
     //exeNames.emplace_back( "input_testRadiationDiffusionFD-2D" );
 

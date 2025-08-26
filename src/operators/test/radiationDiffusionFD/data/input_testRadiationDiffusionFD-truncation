@@ -3,7 +3,8 @@ PDE {
   print_info_level = 0
 
   #dim = 1
-  dim = 2
+  #dim = 2
+  dim = 3
   
   #fluxLimited = FALSE
   fluxLimited = TRUE
@@ -42,6 +43,11 @@ Manufactured_Parameters{
   b3 = 0.45
   a4 = 0.5
   b4 = 1.3
+  #
+  a5 = 0.2
+  b5 = 0.25
+  a6 = 1.5
+  b6 = 0.3
 }
 
 

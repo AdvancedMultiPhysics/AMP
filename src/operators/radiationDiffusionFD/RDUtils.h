@@ -94,6 +94,9 @@ inline static std::shared_ptr<AMP::Mesh::BoxMesh> createBoxMesh( AMP::AMP_MPI co
     } else if ( dim == 2 ) {
         mesh_db_internal->putVector<int>( "Size", { n-1, n-1 } ); // mesh has n x n points
         mesh_db_internal->putVector<double>( "Range", { 0.5*h, 1.0 - 0.5*h, 0.5*h, 1.0 - 0.5*h } );
+    } else if ( dim == 3 ) {
+        mesh_db_internal->putVector<int>( "Size", { n-1, n-1, n-1 } ); // mesh has n x n x n points
+        mesh_db_internal->putVector<double>( "Range", { 0.5*h, 1.0 - 0.5*h, 0.5*h, 1.0 - 0.5*h, 0.5*h, 1.0 - 0.5*h } );
     }
 
     // Create MeshParameters

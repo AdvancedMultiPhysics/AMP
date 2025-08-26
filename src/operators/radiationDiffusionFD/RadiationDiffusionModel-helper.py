@@ -21,16 +21,16 @@ params = {'legend.fontsize': 18,
 plt.rcParams.update(params)
 
 
-# For radiation diffusion
 def main():
 
-    #manufacturedLinearModel1D()
-    #manufacturedNonlinearModel1D()
-    
-    #manufacturedLinearModel2D()
-    #manufacturedNonlinearModel2D()
+    # manufacturedModel( 1,  "linear" )
+    # manufacturedModel( 1,  "nonlinear" )
 
-    solveForGhostFromRobinBC()
+    # manufacturedModel( 2,  "linear" )
+    # manufacturedModel( 2,  "nonlinear" )
+
+    #manufacturedModel( 3,  "linear" )
+    manufacturedModel( 3,  "nonlinear" )
 
 
 def solveForGhostFromRobinBC():
@@ -53,18 +53,36 @@ def solveForGhostFromRobinBC():
 # The equilibirum condition is E = T^4, let's set the manufactured solution to be E = T^3, so that the reaction terms in the PDE don't just evaluate to zero.
 def manufacturedSolutions1D(x, M_PI, t):
     kE0, kT, kX, kXPhi = sym.symbols('kE0 kT kX kXPhi')
-    E = ( kE0 + sym.sin( kX * M_PI * x + kXPhi ) * sym.cos( kT * M_PI * t ) )
+    E = ( kE0 + 
+         sym.sin( kX * M_PI * x + kXPhi ) *
+         sym.cos( kT * M_PI * t ) 
+        )
     T = E**sym.Rational(1, 3)
     return E, T
 
 def manufacturedSolutions2D(x, y, M_PI, t):
     kE0, kT, kX, kXPhi, kY, kYPhi = sym.symbols('kE0 kT kX kXPhi kY kYPhi')
-    E = ( kE0 + sym.sin( kX * M_PI * x + kXPhi ) * sym.cos( kY * M_PI * y + kYPhi ) * sym.cos( kT * M_PI * t ) )
+    E = ( kE0 + 
+         sym.sin( kX * M_PI * x + kXPhi ) * 
+         sym.cos( kY * M_PI * y + kYPhi ) * 
+         sym.cos( kT * M_PI * t ) 
+        )
+    T = E**sym.Rational(1, 3)
+    return E, T
+
+def manufacturedSolutions3D(x, y, z, M_PI, t):
+    kE0, kT, kX, kXPhi, kY, kYPhi, kZ, kZPhi = sym.symbols('kE0 kT kX kXPhi kY kYPhi kZ kZPhi')
+    E = ( kE0 + 
+         sym.sin( kX * M_PI * x + kXPhi ) * 
+         sym.cos( kY * M_PI * y + kYPhi ) * 
+         sym.cos( kZ * M_PI * z + kZPhi ) * 
+         sym.cos( kT * M_PI * t ) 
+        )
     T = E**sym.Rational(1, 3)
     return E, T
 
 
-def cxx_print(E, T, sE, sT):
+def cxx_print(dim, x, y, z, E, T, sE, sT):
     print("-----------------")
     print("exact solution E:")
     print("-----------------")
@@ -76,217 +94,120 @@ def cxx_print(E, T, sE, sT):
     print("-----------------")
     print( "double T = ", sym.cxxcode( sym.simplify(T) ), ";" , sep = "")
     print("")
-    
+
+
+    print("--------------------------")
+    print("gradient exact solution E:")
+    print("--------------------------")
+    print( "double dEdx = ", sym.cxxcode( sym.diff(E, x) ), ";" , sep = "")
+    if dim >= 2:
+        print("")
+        print( "double dEdy = ", sym.cxxcode( sym.diff(E, y) ), ";" , sep = "")
+    if dim >= 3:
+        print("")
+        print( "double dEdz = ", sym.cxxcode( sym.diff(E, z) ), ";" , sep = "")
+        
+
+    print("--------------------------")
+    print("gradient exact solution T:")
+    print("--------------------------")
+    print( "double dTdx = ", sym.cxxcode( sym.diff(T, x) ), ";" , sep = "")
+    print("")
+    if dim >= 2:
+        print( "double dTdy = ", sym.cxxcode( sym.diff(T, y) ), ";" , sep = "")
+        print("")
+    if dim >= 3:
+        print( "double dTdz = ", sym.cxxcode( sym.diff(T, z) ), ";" , sep = "")
+        print("")
+    print("")
+
     print("--------------")
     print("source term sE:")
     print("--------------")
-    print( "double sE = ", sym.cxxcode( sym.simplify(sE) ), ";", sep = "" )
+    print( "double sE = ", sym.cxxcode( sE ), ";", sep = "" )
     print("")
 
     print("--------------")
     print("source term sT:")
     print("--------------")
-    print( "double sT = ", sym.cxxcode( sym.simplify(sT) ), ";", sep = "" )
+    print( "double sT = ", sym.cxxcode( sT ), ";", sep = "" )
     print("")
 
 
 
-# A pair of linear PDEs of the form
-# dE/dt - d/dx ( k11 * dE/dx ) - k12 * ( T - E ) = s_E
-# dT/dt - d/dx ( k21 * dT/dx ) + k22 * ( T - E ) = s_T
-# for constants k_ij
-#
-def manufacturedLinearModel1D():
-    print("--------------------------------------")
-    print("    Linear model 1D time dependent    ")
-    print("--------------------------------------", sep="\n")
 
-    x, M_PI, k11, k12, k21, k22, t = sym.symbols('x M_PI k11 k12 k21 k22 t')
-
-    # Exact solutions
-    E, T = manufacturedSolutions1D(x, M_PI, t)
-
-    # Differential operator applied to exact solution
-    LE = -sym.diff( k11 * sym.diff( E, x), x) - k12 * (T - E) 
-    LT = -sym.diff( k21 * sym.diff( T, x), x) + k22 * (T - E) 
-
-    # Add time derivative of solutions
-    LE += sym.diff( E, t )
-    LT += sym.diff( T, t )
-
-    # Translate into C++ code
-    cxx_print(E, T, LE, LT)
-
-    print("--------------------------")
-    print("gradient exact solution E:")
-    print("--------------------------")
-    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
-    print("")
-
-    print("--------------------------")
-    print("gradient exact solution T:")
-    print("--------------------------")
-    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
-    print("")
-
-
-
-# A pair of nonlinear PDEs of the form
-# dE/dt - d/dx ( k11 * DE * dE/dx ) - k12 * simga * ( T^4 - E ) = s_E
-# dE/dt - d/dx ( k21 * DT * dT/dx ) + k22 * simga * ( T^4 - E ) = s_T
-# for constants k_ij. 
-# PDEs in the paper correspond to:
-#   k11 = k12 = k22 = 1, k21 = k.
-# Also, the k in the paper corresponds to k21, the diffusion of T
-# Note we assume z is constant, while in the paper it can vary.
-def manufacturedNonlinearModel1D():
-    print("-----------------------------------------")
-    print("    Nonlinear model 1D time-dependent    ")
-    print("-----------------------------------------", sep="\n")
-
-    x, M_PI, z, k11, k12, k21, k22, t = sym.symbols('x M_PI z k11 k12 k21 k22 t')
-
-    # Exact solutions
-    E, T = manufacturedSolutions1D(x, M_PI, t)
-
-    sigma = (z/T)**3
-    DE = 1/(3*sigma)
-    DT = T**sym.Rational(5, 2)
-
-    R = sigma*( T**4 - E )
-
-    # Spatial differential operator applied to exact solution
-    LE = -k11 * sym.diff( DE * sym.diff(E, x), x ) - k12 * R
-    LT = -k21 * sym.diff( DT * sym.diff(T, x), x ) + k22 * R
-
-    # Add time derivative of solutions
-    LE += sym.diff( E, t )
-    LT += sym.diff( T, t )
-
-    # Translate into C++ code
-    cxx_print(E, T, LE, LT)
-
-    print("--------------------------")
-    print("gradient exact solution E:")
-    print("--------------------------")
-    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
-    print("")
-
-    print("--------------------------")
-    print("gradient exact solution T:")
-    print("--------------------------")
-    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
-    print("")
 
 # A pair of linear PDEs of the form
 # dE/dt - nabla dot ( k11 * nabla E ) - k12 * simga * ( T - E ) = s_E
 # dT/dt - nabla dot ( k21 * nabla T ) + k22 * simga * ( T - E ) = s_T
-# 
-def manufacturedLinearModel2D():
-    
-    print("-----------------------------------------")
-    print("      Linear model 2D time-dependent     ")
-    print("-----------------------------------------", sep="\n")
-
-    x, y, M_PI, z, k11, k12, k21, k22, t = sym.symbols('x y M_PI z k11 k12 k21 k22 t')
-
-    # Exact solutions
-    E, T = manufacturedSolutions2D(x, y, M_PI, t)    
-
-    R = ( T - E )
-
-    # Spatial differential operator applied to exact solution
-    LE = -k11 * ( sym.diff( sym.diff(E, x), x ) + sym.diff( sym.diff(E, y), y ) ) - k12 * R
-    LT = -k21 * ( sym.diff( sym.diff(T, x), x ) + sym.diff( sym.diff(T, y), y ) ) + k22 * R
-
-    # Add time derivative of solutions
-    LE += sym.diff( E, t )
-    LT += sym.diff( T, t )
-
-    # Translate into C++ code
-    cxx_print(E, T, LE, LT)
-
-    # Translate into C++ code
-
-    print("--------------------------")
-    print("gradient exact solution E:")
-    print("--------------------------")
-    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
-    print("")
-    print( "double dEdy = ", sym.cxxcode( sym.simplify(sym.diff(E, y)) ), ";" , sep = "")
-    print("")
-
-    print("--------------------------")
-    print("gradient exact solution T:")
-    print("--------------------------")
-    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
-    print("")
-    print( "double dTdy = ", sym.cxxcode( sym.simplify(sym.diff(T, y)) ), ";" , sep = "")
-    print("")
-
-
-
+#
+#
 # A pair of nonlinear PDEs of the form
-# dE/dt - nabla dot ( k11 * DE * nabla E ) - k12 * simga * ( T^4 - E ) = s_E
-# dT/dt - nabla dot ( k21 * DT * nabla T ) + k22 * simga * ( T^4 - E ) = s_T
+# dE/dt - nabla dot ( k11 * DE * nabla E ) - k12 * sigma * ( T^4 - E ) = s_E
+# dT/dt - nabla dot ( k21 * DT * nabla T ) + k22 * sigma * ( T^4 - E ) = s_T
 # for constants k_ij. 
-# PDEs in the paper correspond to:
-#   k11 = k12 = k22 = 1, k21 = k.
-# Also, the k in the paper corresponds to k21, the diffusion of T
-# Note we assume z is constant, while in the paper it can vary.
-def manufacturedNonlinearModel2D():
+#
+# Note we assume zatom is constant, while in the paper it can vary.
+def manufacturedModel( dim, model ):
     
-    print("-----------------------------------------")
-    print("    Nonlinear model 2D time-dependent    ")
-    print("-----------------------------------------", sep="\n")
+    print("-----------------------------")
+    print("    {} model {}D    ".format(model, dim))
+    print("-----------------------------", sep="\n")
 
-    x, y, M_PI, z, k11, k12, k21, k22, t = sym.symbols('x y M_PI z k11 k12 k21 k22 t')
+    x, y, z, M_PI, zatom, k11, k12, k21, k22, t = sym.symbols('x y z M_PI zatom k11 k12 k21 k22 t')
 
     # Exact solutions
-    E, T = manufacturedSolutions2D(x, y, M_PI, t)    
+    if dim == 1:
+        E, T = manufacturedSolutions1D(x, M_PI, t) 
+    elif dim == 2:
+        E, T = manufacturedSolutions2D(x, y, M_PI, t) 
+    elif dim == 3:
+        E, T = manufacturedSolutions3D(x, y, z, M_PI, t) 
 
-    sigma = (z/T)**3
-    DE = 1/(3*sigma)
-    DT = T**sym.Rational(5, 2)
+    if model == "nonlinear":
+        sigma = (zatom/T)**3
+        DE = 1/(3*sigma)
+        DT = T**sym.Rational(5, 2)
+        R = sigma*( T**4 - E )
+    elif model == "linear":
+        DE = 1
+        DT = 1
+        R = ( T - E )
+    else:
+        raise ValueError( "Invalid model" )
 
-    R = sigma*( T**4 - E )
+    # Reaction operator
+    LE = - k12 * R
+    LT = + k22 * R
 
     # Spatial differential operator applied to exact solution
-    LE = -k11 * ( sym.diff( DE * sym.diff(E, x), x ) + sym.diff( DE * sym.diff(E, y), y ) ) - k12 * R
-    LT = -k21 * ( sym.diff( DT * sym.diff(T, x), x ) + sym.diff( DT * sym.diff(T, y), y ) ) + k22 * R
+    LE += -k11*( sym.diff( DE*sym.diff(E, x), x ) ) 
+    LT += -k21*( sym.diff( DT*sym.diff(T, x), x ) )
+    if dim >= 2:
+        LE += -k11*( sym.diff( DE*sym.diff(E, y), y ) )
+        LT += -k21*( sym.diff( DT*sym.diff(T, y), y ) )
+    if dim >= 3:
+        LE += -k11*( sym.diff( DE*sym.diff(E, z), z ) )
+        LT += -k21*( sym.diff( DT*sym.diff(T, z), z ) )
 
     # Add time derivative of solutions
     LE += sym.diff( E, t )
     LT += sym.diff( T, t )
 
     # Translate into C++ code
-    cxx_print(E, T, LE, LT)
+    cxx_print(dim, x, y, z, E, T, LE, LT)
 
-    # Translate into C++ code
 
-    print("--------------------------")
-    print("gradient exact solution E:")
-    print("--------------------------")
-    print( "double dEdx = ", sym.cxxcode( sym.simplify(sym.diff(E, x)) ), ";" , sep = "")
-    print("")
-    print( "double dEdy = ", sym.cxxcode( sym.simplify(sym.diff(E, y)) ), ";" , sep = "")
-    print("")
 
-    print("--------------------------")
-    print("gradient exact solution T:")
-    print("--------------------------")
-    print( "double dTdx = ", sym.cxxcode( sym.simplify(sym.diff(T, x)) ), ";" , sep = "")
-    print("")
-    print( "double dTdy = ", sym.cxxcode( sym.simplify(sym.diff(T, y)) ), ";" , sep = "")
-    print("")
+
 
 
     # # Create lambda functions for sympy expressions
     # Epy = sym.lambdify((x, y, M_PI), E, modules=['numpy'])
     # Tpy = sym.lambdify((x, y, M_PI), T, modules=['numpy'])
 
-    # LEpy = sym.lambdify((x, y, M_PI, z, k11, k12), LE, modules=['numpy'])
-    # LTpy = sym.lambdify((x, y, M_PI, z, k21, k22), LT, modules=['numpy'])
+    # LEpy = sym.lambdify((x, y, M_PI, zatom, k11, k12), LE, modules=['numpy'])
+    # LTpy = sym.lambdify((x, y, M_PI, zatom, k21, k22), LT, modules=['numpy'])
 
 
     # xnum = np.linspace(0, 1)

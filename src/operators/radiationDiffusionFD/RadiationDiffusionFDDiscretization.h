@@ -65,7 +65,7 @@
  *      * if model == "linear": 
  *          D_E = D_T = 1.0
  *      * if model == "nonlinear": 
- *          D_E = 1/(3*sigma), D_T = T^2.5, and sigma = (z/T)^3
+ *          D_E = 1/(3*sigma), D_T = T^2.5, and sigma = (zatom/T)^3
  *      
  *  * if model == "linear":
  *      R(u) = [k12*(T - E), -k22*(T - E)]
@@ -315,29 +315,6 @@ public:
 // Boundary-related data and routines
 private:
 
-    //! Defines a boundary in a given dimension (WEST is the first boundary, and EAST the second) 
-    enum class BoundarySide { WEST, EAST };
-
-    /** Return the boundaryID in {1,...,6} corresponding to a dim in {0,1,2}, given the 
-     * corresponding side.
-     */
-    size_t getBoundaryIDFromDim(size_t dim, BoundarySide side) const;
-
-    /** Assuming a boundaryID in {1,...,6}, get the dimension of the boundary, i.e., boundaries 1
-     * and 2 live in the first dimension, 3 and 4 the second, and 5 and 6 the third. 
-     */
-    size_t getDimFromBoundaryID(size_t boundaryID) const;
-
-    //! Ghost values for E and T; set via ''setGhostData''
-    std::array<double, 2> d_ghostData;
-
-    /** Set values in the member ghost values array, d_ghostData, corresponding to the given
-     * boundary at the given node given the interior value Eint and Tint. 
-     * This routine assumes Robin on E and pseudo-Neumann on T 
-     */
-    void setGhostData( size_t boundaryID, AMP::Mesh::MeshElement &node, double Eint, double Tint );    
-    
-
     /** Prototype of function returning value of Robin BC of E on given boundary at given node. The
      * user can specify any function with this signature.
      */
@@ -349,59 +326,83 @@ private:
     std::function<double( size_t boundaryID, AMP::Mesh::MeshElement & node )> d_pseudoNeumannFunctionT;
 
 
+    //! Defines a boundary in a given dimension (WEST is the first boundary, and EAST the second) 
+    enum class BoundarySide { WEST, EAST };
+
+    //! Ghost values for E and T; set via ''setGhostData''
+    std::array<double, 2> d_ghostData;
+
+    /** Set values in the member ghost values array, d_ghostData, corresponding to the given
+     * boundary at the given node given the interior value Eint and Tint. 
+     * This routine assumes Robin on E and pseudo-Neumann on T 
+     */
+    void setGhostData( size_t boundaryID, AMP::Mesh::MeshElement &node, double Eint, double Tint );    
+    
+    /** Return the boundaryID in {1,...,6} corresponding to a dim in {0,1,2}, given the 
+     * corresponding side.
+     */
+    size_t getBoundaryIDFromDim(size_t dim, BoundarySide side) const;
+
+    /** Assuming a boundaryID in {1,...,6}, get the dimension of the boundary, i.e., boundaries 1
+     * and 2 live in the first dimension, 3 and 4 the second, and 5 and 6 the third. 
+     */
+    size_t getDimFromBoundaryID(size_t boundaryID) const;
+
+
+    //! Get the Robin constants ak and bk from the database for the given boundaryID
+    void getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk);
+
     //! Return database constant rk for boundary k
     double robinFunctionEFromDB( size_t boundaryID ); 
 
     //! Return database constant nk for boundary k
     double pseudoNeumannFunctionTFromDB( size_t boundaryID ); 
     
-    
-    /** Suppose on boundary k we have the two equations:
-     *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk
+    /** On boundary k we have the two equations:
+     *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk,
      *                 hat{nk} dot            grad T = nK,
      * where ak, bk, rk, and nk are all known constants qne hat{nk} is the outward-facing normal
      * vector at the boundary.
      * The discretization of these conditions involves one ghost point for E and T (Eg and Tg), and
      * one interior point (Eint and Tint). Here we solve for the ghost points and return them. Note
-     * that this system, although nonlinear, can be solved by forward substitution. 
-     * NOTE: that the actual boundary does not matter here once the constants a, b, r, and n have
-     * been specified.
+     * that this system, although nonlinear, can be solved directly by forward substitution. 
+     * @param[out] Eg ghost-point value for E that satisfies the discretized BCs
+     * @param[out] Tg ghost-point value for T that satisfies the discretized BCs
      */
     void ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ); 
 
-
-    /** Suppose on boundary k we have the equation:
+    /** On boundary k we have the equation:
      *      hat{nk} dot grad T = nk,
      * where nk is a known constant and hat{nk} is the outward-facing normal vector at the
      * boundary. This BC is discretized as
-     *      sign(hat{nk}) * [Tg_k - Tint_k]/h = nk
+     *      sign(hat{nk}) * [Tg_k - Tint_k]/h = nk.
      * Here we solve for the ghost point Tg_k and return it
-     * 
      * @param[out] Tg ghost-point value that satisfies the discretized BC
      */
-    double ghostValueSolvePseudoNeumannT( double n, double h, double Tint );
+    double ghostValueSolveT( double n, double h, double Tint );
     
-    /** Suppose on boundary k we have the equation:
-     *      ak*E + bk * hat{nk} dot ck grad E = rk
-     * where ak, bk, rk, nk, and ck are all known constants, and hat{n}_k is the outward-facing 
-     * normal vector at the boundary. This BC is discretized as
-     *      ak*0.5*[Eg_k + Eint_k] + bk*ck*sign(hat{nk}) *[Eg_k - Eint_k]/h = rk
+    /** On boundary k we have the equation:
+     *      ak*E + bk * hat{nk} dot ck grad E = rk,
+     * where ak, bk, rk, nk, and ck=+k11*D_E(T) are all known constants, and hat{nk} is the 
+     * outward-facing normal vector at the boundary. This BC is discretized as
+     *      ak*0.5*[Eg_k + Eint_k] + bk*ck*sign(hat{nk}) *[Eg_k - Eint_k]/h = rk.
      * Here we solve for the ghost point Eg_k and return it.
-     * 
      * @param[out] Eg ghost-point value that satisfies the discretized BC
+     * @note ck=+k11*D_E(T) and not -k11*D_E(T)
      */
-    double ghostValueSolveRobinE( double a, double b, double r, double c, double h, double Eint );
+    double ghostValueSolveE( double a, double b, double r, double c, double h, double Eint );
 
-
-    double PicardCorrectionCoefficient( size_t component, double ck, size_t boundaryID ) const;
-
-    /** In the Robin BC for energy we get Eghost = alpha*Eint + beta, this function returns the
-     * coefficient alpha, which is the Picard linearization of this equation w.r.t Eint, where ck
-     * is the energy flux in the BC.
+    /** We have ghost values that satisfy
+     * Eg = alpha_E*Eint + beta_E
+     * Tg = alpha_T*Tint + beta_T
+     * Here we return the coefficient alpha_
+     * 
+     * @param[in] component 0 (for energy), or 1 (for temperature)
+     * @param[in] boundaryID the boundary 
+     * @param[in] ck = +k11*D_E(T), but is ignored if component == 1.
      */
-    double PicardCorrectionRobinE( double ck, size_t boundary ) const;
+    double PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck );
 
-    
     
     #if 0
     void apply1D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);
@@ -425,26 +426,33 @@ private:
     // Set d_multiDOFManagers after creating it from this Operators's mesh
     void setDOFManagers();
 
-    void getLocalFDDiffusionCoefficients(
-    const std::array<double,3> &ELoc3,
-    const std::array<double,3> &TLoc3,
-    double z,
-    double h,
-    bool computeE,
-    double &Dr_WO, 
-    double &Dr_OE,
-    bool computeT,
-    double &DT_WO, 
-    double &DT_OE) const;
+    /** Given 3-point stencils compute FD diffusion coefficients 
+     * @param[in] computeE flag indicating whether to compute E diffusion coefficients
+     * @param[in] computeT flag indicating whether to compute T diffusion coefficients 
+     * @param[out] Dr_WO WEST coefficient in for energy
+     * @param[out] Dr_OE EAST coefficient in for energy
+     * @param[out] DT_WO WEST coefficient in for temperature
+     * @param[out] DT_OE EAST coefficient in for temperature
+    */
+    void getLocalFDDiffusionCoefficients( const std::array<double,3> &ELoc3,
+                                            const std::array<double,3> &TLoc3,
+                                            double zatom,
+                                            double h,
+                                            bool computeE,
+                                            double &Dr_WO, 
+                                            double &Dr_OE,
+                                            bool computeT,
+                                            double &DT_WO, 
+                                            double &DT_OE) const;
 
     //! Energy diffusion coefficient D_E given temperature T
-    double diffusionCoefficientE( double T, double z ) const;
+    double diffusionCoefficientE( double T, double zatom ) const;
 
     //! Temperature diffusion coefficient D_E given temperature T
     double diffusionCoefficientT( double T ) const;
 
     //! Compute quasi-linear reaction coefficients REE, RET, RTE, REE
-    void getSemiLinearReactionCoefficients( double T, double z, double &REE, double &RET, double &RTE, double &RTT ) const;
+    void getSemiLinearReactionCoefficients( double T, double zatom, double &REE, double &RET, double &RTE, double &RTT ) const;
 
     //! Scale semi-linear reaction coefficients by constants k_ij in PDE
     void scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const;
@@ -453,7 +461,15 @@ private:
     //! Scale D_T by k21
     void scaleDiffusionCoefficientTBy_kij( double &D_T ) const;
 
-
+    /** Pack local 3-point stencil data into the arrays ELoc3 and TLoc3 for the given dimension. 
+     * This involves a ghost-point solve if the stencil extends to a ghost point.
+     * @param[in] E_vec vector of all (local) E values
+     * @param[in] T_vec vector of all (local) T values
+     * @param[in] ijk grid indices of DOF for which 3-point stencil values are to be unpacked
+     * @param[in] dim dimension in which the 3-point extends
+     * @param[out] ELoc3 E values in the 3-point stencil (lower, origin, upper)
+     * @param[out] TLoc3 T values in the 3-point stencil (lower, origin, upper)
+     */
     void unpackLocalStencilData( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
@@ -462,6 +478,16 @@ private:
     std::array<double, 3> &ELoc3, 
     std::array<double, 3> &TLoc3);
 
+    /** Overloaded version of the above with two additional output parameters
+     * @param[out] dofs indices of the dofs in the 3-point stencil
+     * @param[out] boundaryIntersection flag indicating if the stencil touches a boundary (and in 
+     * which one if it does) 
+     * 
+     * @note if the stencil touches the boundary then the corresponding value in dofs is meaningless
+     * @note this function implicity assumes that the stencil does not touch both boundaries at 
+     * once (corresponding to the number of interior DOFs in the given dimension being larger than 
+     * one) 
+     */
     void unpackLocalStencilData( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
@@ -499,9 +525,11 @@ private:
 
 protected:
     
-/* virtual function returning a parameter object that can be used to reset the corresponding
-    RadDifOpPJac operator. Note that in the base class's getParameters get's redirected to this function. 
-    u_in is the current nonlinear iterate. */
+/** Returns a parameter object that can be used to reset the corresponding
+ * RadDifOpPJac operator. Note that in the base class's getParameters get's redirected to this
+ * function. 
+ * @param[in] u_in is the current nonlinear iterate. 
+ */
     std::shared_ptr<AMP::Operator::OperatorParameters> getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in ) override;
 
 };

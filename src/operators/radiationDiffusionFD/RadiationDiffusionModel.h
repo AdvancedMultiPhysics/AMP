@@ -188,6 +188,8 @@ private:
     const double kXPhi = 0.245;
     const double kY    = 3.5;
     const double kYPhi = 0.784;
+    const double kZ    = 2.5;
+    const double kZPhi = 0.154;
 
 //
 public:
@@ -201,8 +203,8 @@ public:
     double sourceTerm( int component, AMP::Mesh::MeshElement &node ) const override;
     double initialCondition( int component, AMP::Mesh::MeshElement &node ) const override;
     double exactSolution( int component, AMP::Mesh::MeshElement &node ) const override;
-    double getRobinValueE( int boundary, double a, double b, AMP::Mesh::MeshElement & node ) const;
-    double getPseudoNeumannValueT( int boundary, AMP::Mesh::MeshElement & node ) const;
+    double getRobinValueE( size_t boundaryID, double a, double b, AMP::Mesh::MeshElement & node ) const;
+    double getPseudoNeumannValueT( size_t boundaryID, AMP::Mesh::MeshElement & node ) const;
     
 //
 private:
@@ -211,21 +213,30 @@ private:
 
     void finalizeGeneralPDEModel_db( ) override;
 
+    void getNormalVector( size_t boundaryID, std::string &direction, double &sign, double &x, double &y, double &z ) const;
+
     // Exact solution, its gradient and corresponding source term
-    double exactSolution_( int component, double x ) const;
-    double exactSolutionGradient_( int component, double x ) const;
-    double sourceTerm_( int component, double x ) const;
+    double exactSolution1D( int component, double x ) const;
+    double exactSolutionGradient1D( int component, double x ) const;
+    double sourceTerm1D( int component, double x ) const;
     //
-    double exactSolution_( int component, double x, double y ) const;
-    double exactSolutionGradient_( int component, double x, double y, const std::string & grad_component ) const;
-    double sourceTerm_( int component, double x, double y ) const;
+    double exactSolution2D( int component, double x, double y ) const;
+    double exactSolutionGradient2D( int component, double x, double y, const std::string & grad_component ) const;
+    double sourceTerm2D( int component, double x, double y ) const;
+    //
+    double exactSolution3D( int component, double x, double y, double z ) const;
+    double exactSolutionGradient3D( int component, double x, double y, double z, const std::string & grad_component ) const;
+    double sourceTerm3D( int component, double x, double y, double z ) const;
 
     // Boundary-related functions
-    double getRobinValueE1D_( int boundary, double a, double b ) const;
-    double getPseudoNeumannValueT1D_( int boundary ) const;
+    double getRobinValueE1D_( size_t boundaryID, double a, double b ) const;
+    double getPseudoNeumannValueT1D_( size_t boundaryID ) const;
     //
-    double getRobinValueE2D_( int boundary, double a, double b, double x, double y ) const;
-    double getPseudoNeumannValueT2D_( int boundary, double x, double y ) const;
+    double getRobinValueE2D_( size_t boundaryID, double a, double b, double x, double y ) const;
+    double getPseudoNeumannValueT2D_( size_t boundaryID, double x, double y ) const;
+    //
+    double getRobinValueE3D_( size_t boundaryID, double a, double b, double x, double y, double z ) const;
+    double getPseudoNeumannValueT3D_( size_t boundaryID, double x, double y, double z ) const;
 }; 
 
 
