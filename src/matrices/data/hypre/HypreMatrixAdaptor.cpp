@@ -142,12 +142,7 @@ HypreMatrixAdaptor::HypreMatrixAdaptor( std::shared_ptr<MatrixData> matrixData )
     }
 }
 
-HypreMatrixAdaptor::~HypreMatrixAdaptor()
-{
-    hypre_ParCSRMatrix *par_matrix = static_cast<hypre_ParCSRMatrix *>( d_matrix->object );
-    // Now the standard IJMatrixDestroy can be called
-    HYPRE_IJMatrixDestroy( d_matrix );
-}
+HypreMatrixAdaptor::~HypreMatrixAdaptor() { HYPRE_IJMatrixDestroy( d_matrix ); }
 
 template<class csr_data_type>
 void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<csr_data_type> csrData,
