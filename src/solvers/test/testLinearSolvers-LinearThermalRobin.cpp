@@ -17,6 +17,9 @@
 #include <memory>
 #include <string>
 
+#ifdef AMP_USE_HYPRE
+    #include "HYPRE_config.h"
+#endif
 
 #define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
@@ -25,23 +28,6 @@ std::vector<std::pair<std::string, std::string>> getBackendsAndMemory( std::stri
     std::vector<std::pair<std::string, std::string>> rvec;
     AMP_INSIST( memory_space == "host" || memory_space == "managed" || memory_space == "device",
                 "Memory space has to be one of host, managed, or device" );
-
-    rvec.emplace_back( std::make_pair( "serial", "host" ) );
-#ifdef AMP_USE_OPENMP
-    rvec.emplace_back( std::make_pair( "openmp", "host" ) );
-#endif
-#ifdef AMP_USE_KOKKOS
-    rvec.emplace_back( std::make_pair( "kokkos", "host" ) );
-#endif
-
-    if ( memory_space == "managed" || memory_space == "device" ) {
-#ifdef AMP_USE_DEVICE
-        rvec.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
-    #if defined( AMP_USE_KOKKOS )
-        rvec.emplace_back( std::make_pair( "kokkos", "managed" ) );
-    #endif
-#endif
-    }
 
     if ( memory_space == "device" ) {
 #ifdef AMP_USE_DEVICE
@@ -52,8 +38,46 @@ std::vector<std::pair<std::string, std::string>> getBackendsAndMemory( std::stri
 #endif
     }
 
+    if ( memory_space == "managed" ) {
+#ifdef AMP_USE_DEVICE
+        rvec.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    #if defined( AMP_USE_KOKKOS )
+        rvec.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    #endif
+#endif
+    }
+
+    if ( memory_space == "host" ) {
+        rvec.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef AMP_USE_OPENMP
+        rvec.emplace_back( std::make_pair( "openmp", "host" ) );
+#endif
+#ifdef AMP_USE_KOKKOS
+        rvec.emplace_back( std::make_pair( "kokkos", "host" ) );
+#endif
+    }
+
     return rvec;
 }
+
+#ifdef AMP_USE_HYPRE
+std::vector<std::string> getHypreMemorySpaces()
+{
+    std::vector<std::string> memspaces;
+
+    #if defined( HYPRE_USING_HOST_MEMORY )
+    memspaces.emplace_back( "host" );
+    #elif defined( HYPRE_USING_DEVICE_MEMORY )
+    memspaces.emplace_back( "device" );
+    #elif defined( HYPRE_USING_UNIFIED_MEMORY )
+    memspaces.emplace_back( "host" );
+    memspaces.emplace_back( "managed" );
+    #else
+    memspaces.emplace_back( "host" );
+    #endif
+    return memspaces;
+}
+#endif
 
 void linearThermalTest( AMP::UnitTest *ut,
                         const std::string &inputFileName,
@@ -182,9 +206,10 @@ int main( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
+    std::vector<std::string> generalInputs;
     std::vector<std::string> deviceInputs;
     std::vector<std::string> hostOnlyInputs;
-    std::vector<std::string> managedAndHostInputs;
+    std::vector<std::string> managedInputs;
 
     PROFILE_ENABLE();
 
@@ -195,105 +220,110 @@ int main( int argc, char *argv[] )
 
     } else {
 
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CG" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-IPCG" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FCG" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-CG" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRES" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FGMRES" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BiCGSTAB" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-TFQMR" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CG" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-IPCG" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FCG" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-CG" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRES" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FGMRES" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BiCGSTAB" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-TFQMR" );
 
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
+            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG" );
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-IPCG" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-FCG" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG-FCG" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRES" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-FGMRES" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-GMRES" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-BiCGSTAB" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-TFQMR" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-BiCGSTAB" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
 
 #ifdef AMP_USE_PETSC
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscCG" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscFGMRES" );
-        deviceInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscBiCGSTAB" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscCG" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscFGMRES" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscBiCGSTAB" );
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscCG" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscFGMRES" );
-        deviceInputs.emplace_back(
+        generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscBiCGSTAB" );
 #endif
 
 #ifdef AMP_USE_HYPRE
-        managedAndHostInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-HypreBiCGSTAB" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-HypreGMRES" );
+        std::vector<std::string> hypreInputs;
 
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreCG" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreBiCGSTAB" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreGMRES" );
+
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreCG" );
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreGMRES" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreBiCGSTAB" );
 
-        managedAndHostInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG" );
 
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-IPCG" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FCG" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG-FCG" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-IPCG" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FCG" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG-FCG" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG" );
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG-CG" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRES" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FGMRES" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRES" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FGMRES" );
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-GCR" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-GMRES" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-BiCGSTAB" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-TFQMR" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-BiCGSTAB" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-TFQMR" );
-        managedAndHostInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-BiCGSTAB" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-TFQMR" );
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG" );
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES" );
-        managedAndHostInputs.emplace_back(
+        hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
+
+        auto hypre_memspaces = getHypreMemorySpaces();
+
+        if ( hypre_memspaces.size() == 1 ) {
+            if ( hypre_memspaces[0] == "device" ) {
+                deviceInputs.insert( deviceInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+            } else {
+                hostOnlyInputs.insert(
+                    hostOnlyInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+            }
+        } else {
+            managedInputs.insert( managedInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+        }
+
         if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
             hostOnlyInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
             hostOnlyInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG" );
         }
+
     #ifdef AMP_USE_PETSC
         hostOnlyInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );
@@ -350,7 +380,10 @@ int main( int argc, char *argv[] )
         PROFILE( "DRIVER::main(test loop for all backends on device memory)" );
         auto backendsAndMemory = getBackendsAndMemory( "device" );
 
-        for ( auto &file : deviceInputs ) {
+        auto inputs = deviceInputs;
+        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
+
+        for ( auto &file : inputs ) {
             for ( auto &[backend, memory] : backendsAndMemory )
                 linearThermalTest( &ut, file, backend, memory );
         }
@@ -358,10 +391,10 @@ int main( int argc, char *argv[] )
 
     {
         PROFILE( "DRIVER::main(test loop for backends on host and managed memory)" );
-        auto inputs = deviceInputs;
-        inputs.insert( inputs.end(), managedAndHostInputs.begin(), managedAndHostInputs.end() );
 
         auto backendsAndMemory = getBackendsAndMemory( "managed" );
+        auto inputs            = managedInputs;
+        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
 
         for ( auto &file : inputs ) {
             for ( auto &[backend, memory] : backendsAndMemory )
@@ -374,8 +407,8 @@ int main( int argc, char *argv[] )
         auto backendsAndMemory = getBackendsAndMemory( "host" );
 
         auto inputs = hostOnlyInputs;
-        inputs.insert( inputs.end(), managedAndHostInputs.begin(), managedAndHostInputs.end() );
-        inputs.insert( inputs.end(), deviceInputs.begin(), deviceInputs.end() );
+        inputs.insert( inputs.end(), managedInputs.begin(), managedInputs.end() );
+        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
 
         for ( auto &file : inputs ) {
             for ( auto &[backend, memory] : backendsAndMemory )
