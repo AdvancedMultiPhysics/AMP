@@ -30,12 +30,14 @@ public:
 private:
     //! Main internal routine for initializing the matrix
     template<class csr_data_type>
-    void initializeHypreMatrix( std::shared_ptr<csr_data_type> );
+    void initializeHypreMatrix( std::shared_ptr<csr_data_type>,
+                                HYPRE_MemoryLocation memory_location );
 
     //! hypre IJ matrix that this class wraps
     HYPRE_IJMatrix d_matrix;
 
-    std::vector<HYPRE_BigInt> d_colMap;
+    //! Storage for migrated matrix data
+    std::shared_ptr<MatrixData> d_csrdata_dev;
 };
 
 } // namespace AMP::LinearAlgebra
