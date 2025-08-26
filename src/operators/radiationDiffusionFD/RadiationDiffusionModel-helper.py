@@ -28,67 +28,25 @@ def main():
     #manufacturedNonlinearModel1D()
     
     #manufacturedLinearModel2D()
-    manufacturedNonlinearModel2D()
+    #manufacturedNonlinearModel2D()
 
-    #solveForGhostsFromRobinBC2D()
+    solveForGhostFromRobinBC()
 
 
-def solveForGhostsFromRobinBC2D():
-    """The continuous BCs are:
-        a1 * u - b1 * c * du/dx = r1 @ x = 0
-        a2 * u + b2 * c * du/dx = r2 @ x = 1
-        a3 * u - b3 * c * du/dy = r3 @ y = 0
-        a4 * u + b4 * c * du/dy = r4 @ y = 1
-
-    Otherwise, this is the same as the 1D case
-    """
-
-    print("2D boundaries")
-    print("-------------")
+def solveForGhostFromRobinBC():
     
     # First interior point on west, east, south, and north boundaries
-    E1j,   E2j,   Ei3,   Ei4   = sym.symbols("E1j,   E2j,   Ei3,   Ei4")
-    # Ghost point on west, east, south, and north boundaries
-    Eg_1j, Eg_2j, Eg_i3, Eg_i4 = sym.symbols("Eg_1j, Eg_2j, Eg_i3, Eg_i4")
+    Eint, Eg = sym.symbols("Eint, Eg")
     # PDE coefficients
     h, c = sym.symbols("h, c")
     # Robin values
-    a1, b1, r1  = sym.symbols("d_a1, d_b1, r1")
-    a2, b2, r2  = sym.symbols("d_a2, d_b2, r2")
-    a3, b3, r3  = sym.symbols("d_a3, d_b3, r3")
-    a4, b4, r4  = sym.symbols("d_a4, d_b4, r4")   
+    a, b, r  = sym.symbols("a, b, r")   
 
-    # 1
-    print("\n-------------")
-    print("Boundary 1")
     print("-------------")
-    eqn1 = sym.Eq(a1 * (Eg_1j + E1j)/2 - b1 * c * (E1j - Eg_1j)/h, r1 )
-    sol1 = sym.solve(eqn1, Eg_1j)[0]
-    print(f"Solution: Eg = {sol1}")
+    eqn = sym.Eq(a * (Eg + Eint)/2 + b * c * (Eg - Eint)/h, r )
+    sol = sym.solve(eqn, Eg)[0]
+    print(f"Solution: Eg = {sol}")
 
-    # 2
-    print("\n-------------")
-    print("Boundary 2")
-    print("-------------")
-    eqn2 = sym.Eq(a2 * (E2j + Eg_2j)/2 + b2 * c * (Eg_2j - E2j)/h, r2 )
-    sol2 = sym.solve(eqn2, Eg_2j)[0]
-    print(f"Solution: Eg = {sol2}")
-
-    # 3
-    print("\n-------------")
-    print("Boundary 3")
-    print("-------------")
-    eqn3 = sym.Eq(a3 * (Eg_i3 + Ei3)/2 - b3 * c * (Ei3 - Eg_i3)/h, r3 )
-    sol3 = sym.solve(eqn3, Eg_i3)[0]
-    print(f"Solution: Eg = {sol3}")
-
-    # 4
-    print("\n-------------")
-    print("Boundary 4")
-    print("-------------")
-    eqn4 = sym.Eq(a4 * (Ei4 + Eg_i4)/2 + b4 * c * (Eg_i4 - Ei4)/h, r4 )
-    sol4 = sym.solve(eqn4, Eg_i4)[0]
-    print(f"Solution: Eg = {sol4}")
     
 
 # Exact solutions

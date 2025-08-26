@@ -48,6 +48,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <optional>
 
 /** The classes in this file are (or are associated with) spatial finite-discretizations of  
  * radiation-diffusion problem:
@@ -138,6 +139,12 @@ public:
 /** Picard linearization of a RadDifOp. */
 class RadDifOpPJac : public AMP::Operator::LinearOperator {
 
+private:
+    // Indices used for referencing WEST, ORIGIN, and EAST entries in 3-point stencils
+    static constexpr size_t W = 0;
+    static constexpr size_t O = 1;
+    static constexpr size_t E = 2;
+
 //
 public:
     std::shared_ptr<AMP::Database>          d_db;
@@ -182,13 +189,35 @@ private:
     //! Apply action of the operator utilizing its representation in d_data
     void applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  );
 
-    //! New data is created only if the existing one is null (as after construction or a reset)
+    //! Set our d_data member
     void setData( );
 
-    void setData1D( );
-    void setData2D( );
+    /** Sets the reaction-related vectors in our d_data member. 
+     * This code is based on stripping out the reaction component of the apply of the nonlinear 
+     * operator.
+     * @param[in] T_vec T component of the frozen vector d_frozenVec
+     */
+    void setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec );
+
+    void getCSRDataDiffusionMatrix( 
+                                size_t component,
+                                std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
+                                std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+                                size_t row,
+                                std::vector<size_t> &cols,
+                                std::vector<double> &data );
+
+    /** Fill the given input diffusion matrix with CSR data
+     * @param[in] component 0 (for energy) or 1 (for temperature) 
+     */
+    void fillDiffusionMatrixWithData(size_t component, std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix);
+
+
+    // void setData1D( );
+    // void setData2D( );
 };
 // End of RadDifOpPJac
+
 
 
 
@@ -198,11 +227,30 @@ class RadDifOp : public AMP::Operator::Operator {
 
 //
 private:
+    // Indices used for referencing WEST, ORIGIN, and EAST entries in 3-point stencils
+    static constexpr size_t W = 0;
+    static constexpr size_t O = 1;
+    static constexpr size_t E = 2;
+
     // Constant scaling factors in the PDE
     const double d_k11;
     const double d_k12;
     const double d_k21;
     const double d_k22;
+
+    //! Problem dimension
+    size_t d_dim  = 0;
+    //! Flag whether we consider the linear or nonlinear PDE
+    bool d_nonlinearModel;
+    //! Flag whether flux limiting is used in the energy equation
+    bool d_fluxLimited;
+
+    // Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
+    std::vector<double> d_h;
+    // Global grid index box w/ zero ghosts
+    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox = nullptr;
+    //! Convenience member
+    static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
 
 //
 public: 
@@ -219,22 +267,11 @@ public:
     std::shared_ptr<AMP::Discretization::multiDOFManager> d_multiDOFMan;
     //! DOFManager for E and T individually
     std::shared_ptr<AMP::Discretization::DOFManager>      d_scalarDOFMan;
-    
     //! Parameters required by the discretization
     std::shared_ptr<AMP::Database>                        d_db;
-    //! Problem dimension
-    size_t d_dim  = 0;
-    //! Flag whether we consider the linear or nonlinear PDE
-    bool d_nonlinearModel;
-
     //! Mesh; keep a pointer to save having to downcast repeatedly
     std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
-    // Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
-    std::vector<double> d_h;
-    // Global grid index box w/ zero ghosts
-    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox = nullptr;
-    //! Convenience member
-    static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
+    
 
 
     //! Constructor
@@ -256,6 +293,17 @@ public:
     // Vector of hx, hy, hz
     std::vector<double> getMeshSize() const;
 
+    //! Populate the given multivector a function of the given type
+    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun );
+
+    //! Set the Robin return function for the energy. If the user does not use call this function then the Robin values rk from the input database will be used.
+    void setRobinFunctionE( std::function<double(int, double, double, AMP::Mesh::MeshElement &)> fn_ ); 
+    
+    //! Set the pseudo-Neumann return function for the temperature. If the user does not use call this function then the pseudo-Neumann values nk from the input database will be used.
+    void setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::MeshElement &)> fn_ ); 
+
+
+    
     #if 0
     std::shared_ptr<AMP::LinearAlgebra::Vector> createNodalInputVector() const {
         auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "" );
@@ -264,81 +312,14 @@ public:
     #endif
 
 
-    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun );
-
-    // The user can specify any Robin return function for E with this signature; if they do then this will overwrite the default.
-    void setRobinFunctionE( std::function<double(int, double, double, AMP::Mesh::MeshElement &)> fn_ ); 
-    
-    // The user can specify any pseudo Neumann return function for T with this signature; if they do then this will overwrite the default.
-    void setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::MeshElement &)> fn_ ); 
-
-private:    
-    // Set d_multiDOFManagers after creating it from this Operators's mesh
-    void setDOFManagers();
-
-    //! Energy diffusion coefficient D_E given temperature T
-    double diffusionCoefficientE( double T, double z ) const;
-
-    //! Temperature diffusion coefficient D_E given temperature T
-    double diffusionCoefficientT( double T ) const;
-
-    //! Compute quasi-linear reaction coefficients REE, RET, RTE, REE
-    void getSemiLinearReactionCoefficients( double T, double z, double &REE, double &RET, double &RTE, double &RTT ) const;
-
-    //! Scale semi-linear reaction coefficients by constants k_ij in PDE
-    void scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const;
-    //! Scale D_E by k11
-    void scaleDiffusionCoefficientEBy_kij( double &D_E ) const;
-    //! Scale D_T by k21
-    void scaleDiffusionCoefficientTBy_kij( double &D_T ) const;
-
-
-    void unpackLocalStencilData( 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
-    std::array<int, 3> &ijk, // is modified locally, but returned in same state
-    int dim,
-    std::array<double, 3> &E_local, 
-    std::array<double, 3> &T_local);
-
-    
-    // Overloaded version of above also returning corresponding DOFs
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, std::vector<size_t> &dofs, bool &onBoundary );
-
-    
-    // Overloaded version of above also returning corresponding DOFs
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j, std::vector<size_t> &dofs, bool &onBoundary );
-
-    // Map from grid index i, or i,j, or i,j,k to a MeshElementIndex to a MeshElementId and then to the corresponding DOF
-    size_t gridIndsToScalarDOF( int i, int j = 0, int k = 0 ); 
-
-    size_t gridIndsToScalarDOF( std::array<int,3> ijk ) {
-        return gridIndsToScalarDOF( ijk[0], ijk[1], ijk[2] );
-    }
-
-    // Map from grid index to a MeshElement
-    AMP::Mesh::MeshElement gridIndsToMeshElement( int i, int j = 0, int k = 0 ); 
-
-    AMP::Mesh::MeshElement gridIndsToMeshElement( std::array<int,3> ijk ) {
-        return gridIndsToMeshElement( ijk[0], ijk[1], ijk[2] );
-    } 
-
-
-
-    // Convert a global element box to a global node box.
-    // Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
-    // grid dimensions being periodic.
-    AMP::Mesh::BoxMesh::Box getGlobalNodeBox() const;
-
-
 // Boundary-related data and routines
 private:
 
-    // Defines a boundary in a given dimension 
-    enum class BoundarySide { LOWER, UPPER };
+    //! Defines a boundary in a given dimension (WEST is the first boundary, and EAST the second) 
+    enum class BoundarySide { WEST, EAST };
 
-    /** Return the boundary in {1,...,6} corresponding to a dim in {0,1,2}, given the corresponding
-     * side.
+    /** Return the boundaryID in {1,...,6} corresponding to a dim in {0,1,2}, given the 
+     * corresponding side.
      */
     size_t getBoundaryIDFromDim(size_t dim, BoundarySide side) const;
 
@@ -376,9 +357,9 @@ private:
     
     
     /** Suppose on boundary k we have the two equations:
-     *     ak*E + bk * \hat{n}_k \dot k11 D_E(T) \grad E = rk
-     *                 \hat{n}_k \dot            \grad T = nK,
-     * where ak, bk, rk, and nk are all known constants; \hat{n}_k is the outward-facing normal
+     *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk
+     *                 hat{nk} dot            grad T = nK,
+     * where ak, bk, rk, and nk are all known constants qne hat{nk} is the outward-facing normal
      * vector at the boundary.
      * The discretization of these conditions involves one ghost point for E and T (Eg and Tg), and
      * one interior point (Eint and Tint). Here we solve for the ghost points and return them. Note
@@ -390,27 +371,35 @@ private:
 
 
     /** Suppose on boundary k we have the equation:
-     *      \hat{n}_k \dot \grad T = nK,
-     * where nk is a known constant and \hat{n}_k is the outward-facing normal vector at the
-     * boundary. The discretization of this conditions involves one ghost point for T (Tg), and one
-     * interior point (Tint). Here we solve for the ghost point and return it
+     *      hat{nk} dot grad T = nk,
+     * where nk is a known constant and hat{nk} is the outward-facing normal vector at the
+     * boundary. This BC is discretized as
+     *      sign(hat{nk}) * [Tg_k - Tint_k]/h = nk
+     * Here we solve for the ghost point Tg_k and return it
+     * 
+     * @param[out] Tg ghost-point value that satisfies the discretized BC
      */
-    double ghostValuePseudoNeumannTSolve( double n, double h, double Tint );
+    double ghostValueSolvePseudoNeumannT( double n, double h, double Tint );
     
     /** Suppose on boundary k we have the equation:
-     *      ak*E + bk * \hat{n}_k \dot ck \grad E = rk
-     * where ak, bk, rk, nk, and ck are all known constants; \hat{n}_k is the outward-facing normal
-     * vector at the boundary.
-     * The discretization of these conditions involves one ghost point for E (Eg), and one interior
-     * point (Eint). Here we solve for the ghost point and return it.
+     *      ak*E + bk * hat{nk} dot ck grad E = rk
+     * where ak, bk, rk, nk, and ck are all known constants, and hat{n}_k is the outward-facing 
+     * normal vector at the boundary. This BC is discretized as
+     *      ak*0.5*[Eg_k + Eint_k] + bk*ck*sign(hat{nk}) *[Eg_k - Eint_k]/h = rk
+     * Here we solve for the ghost point Eg_k and return it.
+     * 
+     * @param[out] Eg ghost-point value that satisfies the discretized BC
      */
-    double ghostValueRobinESolve( double a, double b, double r, double c, double h, double Eint );
-    
+    double ghostValueSolveRobinE( double a, double b, double r, double c, double h, double Eint );
+
+
+    double PicardCorrectionCoefficient( size_t component, double ck, size_t boundaryID ) const;
+
     /** In the Robin BC for energy we get Eghost = alpha*Eint + beta, this function returns the
      * coefficient alpha, which is the Picard linearization of this equation w.r.t Eint, where ck
      * is the energy flux in the BC.
      */
-    double ghostValueRobinEPicardCoefficient( double ck, size_t boundary ) const;
+    double PicardCorrectionRobinE( double ck, size_t boundary ) const;
 
     
     
@@ -423,7 +412,90 @@ private:
     std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i );
     // Values in the 5-point stencil
     std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j );
+
+        // Overloaded version of above also returning corresponding DOFs
+    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, std::vector<size_t> &dofs, bool &onBoundary );
+
+    
+    // Overloaded version of above also returning corresponding DOFs
+    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j, std::vector<size_t> &dofs, bool &onBoundary );
     #endif
+
+private:    
+    // Set d_multiDOFManagers after creating it from this Operators's mesh
+    void setDOFManagers();
+
+    void getLocalFDDiffusionCoefficients(
+    const std::array<double,3> &ELoc3,
+    const std::array<double,3> &TLoc3,
+    double z,
+    double h,
+    bool computeE,
+    double &Dr_WO, 
+    double &Dr_OE,
+    bool computeT,
+    double &DT_WO, 
+    double &DT_OE) const;
+
+    //! Energy diffusion coefficient D_E given temperature T
+    double diffusionCoefficientE( double T, double z ) const;
+
+    //! Temperature diffusion coefficient D_E given temperature T
+    double diffusionCoefficientT( double T ) const;
+
+    //! Compute quasi-linear reaction coefficients REE, RET, RTE, REE
+    void getSemiLinearReactionCoefficients( double T, double z, double &REE, double &RET, double &RTE, double &RTT ) const;
+
+    //! Scale semi-linear reaction coefficients by constants k_ij in PDE
+    void scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const;
+    //! Scale D_E by k11
+    void scaleDiffusionCoefficientEBy_kij( double &D_E ) const;
+    //! Scale D_T by k21
+    void scaleDiffusionCoefficientTBy_kij( double &D_T ) const;
+
+
+    void unpackLocalStencilData( 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+    std::array<int, 3> &ijk, // is modified locally, but returned in same state
+    int dim,
+    std::array<double, 3> &ELoc3, 
+    std::array<double, 3> &TLoc3);
+
+    void unpackLocalStencilData( 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+    std::array<int, 3> &ijk, // is modified locally, but returned in same state
+    int dim,
+    std::array<double, 3> &ELoc3, 
+    std::array<double, 3> &TLoc3, 
+    std::array<size_t, 3> &dofs,
+    std::optional<BoundarySide> &boundaryIntersection);
+
+    
+    // Map from grid index i, or i,j, or i,j,k to a MeshElementIndex to a MeshElementId and then to the corresponding DOF
+    size_t gridIndsToScalarDOF( int i, int j = 0, int k = 0 ); 
+
+    size_t gridIndsToScalarDOF( std::array<int,3> ijk ) {
+        return gridIndsToScalarDOF( ijk[0], ijk[1], ijk[2] );
+    }
+
+    // Map from grid index to a MeshElement
+    AMP::Mesh::MeshElement gridIndsToMeshElement( int i, int j = 0, int k = 0 ); 
+
+    AMP::Mesh::MeshElement gridIndsToMeshElement( std::array<int,3> ijk ) {
+        return gridIndsToMeshElement( ijk[0], ijk[1], ijk[2] );
+    } 
+
+    //! Map from scalar DOF to grid indices i, j, k
+    std::array<int,3> scalarDOFToGridInds( size_t dof ) const;
+
+
+    // Convert a global element box to a global node box.
+    // Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
+    // grid dimensions being periodic.
+    AMP::Mesh::BoxMesh::Box getGlobalNodeBox() const;
+
 
 protected:
     
