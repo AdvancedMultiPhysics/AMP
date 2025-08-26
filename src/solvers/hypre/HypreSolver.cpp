@@ -148,69 +148,58 @@ void HypreSolver::copyToHypre( std::shared_ptr<const AMP::LinearAlgebra::Vector>
 
     // this can be optimized in future so that memory is allocated based on the location
     HYPRE_ParVector par_v;
-    HYPRE_IJVectorGetObject( hypre_v, (void **) &par_v );
-    hypre_ParVectorMigrate( par_v, d_memory_location );
-}
-
-template<typename T>
-static void copy_to_amp( std::shared_ptr<AMP::LinearAlgebra::Vector> amp_v, HYPRE_Real *values )
-{
-    AMP_ASSERT( amp_v && values );
-    size_t i = 0;
-    for ( auto it = amp_v->begin<T>(); it != amp_v->end<T>(); ++it ) {
-        *it = values[i];
-        ++i;
-    }
+    ierr = HYPRE_IJVectorGetObject( hypre_v, (void **) &par_v );
+    HYPRE_DescribeError( ierr, hypre_mesg );
+    ierr = hypre_ParVectorMigrate( par_v, d_memory_location );
+    HYPRE_DescribeError( ierr, hypre_mesg );
 }
 
 void HypreSolver::copyFromHypre( HYPRE_IJVector hypre_v,
                                  std::shared_ptr<AMP::LinearAlgebra::Vector> amp_v )
 {
-    char hypre_mesg[100];
-
-    int ierr;
-
     AMP_INSIST( amp_v, "vector cannot be NULL" );
     const auto &dofManager = amp_v->getDOFManager();
     AMP_INSIST( dofManager, "DOF_Manager cannot be NULL" );
-
     const auto nDOFS = dofManager->numLocalDOF();
 
-    auto block0  = amp_v->getRawDataBlock<HYPRE_Real>();
-    auto memType = AMP::Utilities::getMemoryType( block0 );
+    // hack here, placing directly into AMP
+    // memory. Should do it more safely
+    auto vals_p = amp_v->getRawDataBlock<HYPRE_Real>();
 
-    if ( memType != AMP::Utilities::MemoryType::device ) {
+    char hypre_mesg[100];
+    int ierr;
 
-        // this can be optimized in future so that there's less memory movement
-        // likewise we should distinguish between managed and host options
-        HYPRE_ParVector par_v;
-        HYPRE_IJVectorGetObject( hypre_v, (void **) &par_v );
-        hypre_ParVectorMigrate( par_v, HYPRE_MEMORY_HOST );
-        std::vector<HYPRE_Real> values( nDOFS, 0.0 );
-        auto values_p = values.data();
-        ierr =
-            HYPRE_IJVectorGetValues( hypre_v, static_cast<HYPRE_Int>( nDOFS ), nullptr, values_p );
-        HYPRE_DescribeError( ierr, hypre_mesg );
+    if ( amp_v->isType<HYPRE_Real>( 0 ) ) {
 
-        if ( amp_v->numberOfDataBlocks() == 1 ) {
-            const auto startingIndex = dofManager->beginDOF();
-            std::vector<size_t> indices( nDOFS, 0 );
-            std::iota( indices.begin(), indices.end(), startingIndex );
-            amp_v->setValuesByGlobalID( nDOFS, indices.data(), values_p );
+        auto memType = AMP::Utilities::getMemoryType( vals_p );
+        // see if memory spaces are compatible
+        // Note: this needs to be further modified to check for unified memory
+        auto compatible_mem = ( ( memType == AMP::Utilities::MemoryType::host &&
+                                  d_memory_location == HYPRE_MEMORY_HOST ) ||
+                                ( memType > AMP::Utilities::MemoryType::host &&
+                                  d_memory_location == HYPRE_MEMORY_DEVICE ) );
+        if ( !compatible_mem ) {
+            HYPRE_ParVector par_v;
+            ierr = HYPRE_IJVectorGetObject( hypre_v, (void **) &par_v );
+            HYPRE_DescribeError( ierr, hypre_mesg );
 
-        } else {
+            auto migration_loc = ( memType == AMP::Utilities::MemoryType::host ) ?
+                                     HYPRE_MEMORY_HOST :
+                                     HYPRE_MEMORY_DEVICE;
 
-            if ( amp_v->isType<double>( 0 ) ) {
-                copy_to_amp<double>( amp_v, values_p );
-            } else if ( amp_v->isType<float>( 0 ) ) {
-                copy_to_amp<float>( amp_v, values_p );
-            } else {
-                AMP_ERROR( "Implemented only for double and float" );
-            }
+            ierr = hypre_ParVectorMigrate( par_v, migration_loc );
+            HYPRE_DescribeError( ierr, hypre_mesg );
         }
 
     } else {
-        AMP_ERROR( "Not implemented for AMP vector with device memory" );
+        AMP_ERROR( "Copy from Hypre to AMP vectors of different precision not implemented" );
+    }
+
+    if ( amp_v->numberOfDataBlocks() == 1 ) {
+        ierr = HYPRE_IJVectorGetValues( hypre_v, static_cast<HYPRE_Int>( nDOFS ), nullptr, vals_p );
+        HYPRE_DescribeError( ierr, hypre_mesg );
+    } else {
+        AMP_ERROR( "Copy from Hypre to AMP vectors with more than one data block not implemented" );
     }
 }
 
