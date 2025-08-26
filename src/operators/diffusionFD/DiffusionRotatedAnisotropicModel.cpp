@@ -1,10 +1,12 @@
 #include "AMP/operators/diffusionFD/DiffusionRotatedAnisotropicModel.h"
 #include "AMP/utils/Constants.h"
 
+
 constexpr double pi = AMP::Constants::pi;
 
 
 namespace AMP::Operator {
+
 
 /* ----------------------------------------------------------------------------------
     Implementation of a rotated anisotropic constant-coefficient diffusion equation

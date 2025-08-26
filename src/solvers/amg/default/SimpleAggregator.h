@@ -9,8 +9,6 @@ namespace AMP::Solver::AMG {
 
 struct SimpleAggregator : Aggregator {
     SimpleAggregator() = default;
-    SimpleAggregator( float wt_ ) : Aggregator( wt_ ){};
-    SimpleAggregator( int ms_, float wt_ ) : Aggregator( ms_, wt_ ){};
 
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
 
