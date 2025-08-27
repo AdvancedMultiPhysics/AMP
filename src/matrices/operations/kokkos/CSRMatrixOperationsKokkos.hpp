@@ -39,9 +39,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
     auto outData                = out->getVectorData();
     scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-
     AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( inDataBlock ),
                       "Input vector from wrong memory space" );
 
@@ -110,9 +107,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::multTranspose(
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-
     auto inData                 = in->getVectorData();
     const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
     auto outData                = out->getVectorData();
@@ -165,9 +159,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scale( AMP::Scalar
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-
     auto alpha = static_cast<scalar_t>( alpha_in );
 
     d_localops_diag->scale( alpha, diagMatrix );
@@ -196,10 +187,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::axpy( AMP::Scalar 
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
 
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-    AMP_DEBUG_INSIST( csrDataY->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
     AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
                       "CSRMatrixOperationsKokkos::axpy X and Y must be in same memory space" );
 
@@ -234,9 +221,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setScalar( AMP::Sc
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-
     auto alpha = static_cast<scalar_t>( alpha_in );
 
     d_localops_diag->setScalar( alpha, diagMatrix );
@@ -270,9 +254,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setDiagonal(
 
     AMP_DEBUG_ASSERT( diagMatrix );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
-
     d_localops_diag->setDiagonal( vvals_p, diagMatrix );
 
     d_exec_space.fence();
@@ -290,10 +271,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setIdentity( Matri
     auto diagMatrix = csrData->getDiagMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
-
     d_localops_diag->setIdentity( diagMatrix );
 
     d_exec_space.fence();
@@ -310,9 +287,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::extractDiagonal(
     auto diagMatrix = csrData->getDiagMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
 
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     d_localops_diag->extractDiagonal( diagMatrix, buf_p );
@@ -332,9 +306,6 @@ CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::LinfNorm( MatrixData co
     auto offdMatrix = csrData->getOffdMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
 
     const auto nRows = csrData->numLocalRows();
     std::vector<scalar_t> rowSums( nRows, 0.0 );
@@ -361,11 +332,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copy( const Matrix
 
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
-
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-    AMP_DEBUG_INSIST( csrDataY->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
     AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
                       "CSRMatrixOperationsKokkos::axpy X and Y must be in same memory space" );
 
@@ -417,10 +383,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast(
     CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
 {
 
-    AMP_DEBUG_INSIST( X->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-    AMP_DEBUG_INSIST( Y->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
     AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
                       "CSRMatrixOperationsKokkos::copyCast X and Y must be in same memory space" );
 
