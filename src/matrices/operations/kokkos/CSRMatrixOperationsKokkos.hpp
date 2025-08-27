@@ -58,33 +58,40 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
 
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- all)" );
+        using scalarAllocator_t = typename std::allocator_traits<
+            typename Config::allocator_type>::template rebind_alloc<scalar_t>;
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        std::vector<scalar_t> ghosts( nGhosts );
+        scalarAllocator_t alloc;
+        scalar_t *ghosts = alloc.allocate( nGhosts );
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- match type)" );
             // column map can be passed to get ghosts function directly
-            size_t *colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            auto *colMap = offdMatrix->getColumnMap();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+        } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
+            auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- mismatch type)" );
-            // type mismatch, need to copy/cast into temporary vector
-            std::vector<size_t> colMap;
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- mismatch copy)" );
-            offdMatrix->getColumnMap( colMap );
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- mismatch get ghost)" );
-            in->getGhostValuesByGlobalID( nGhosts, colMap.data(), ghosts.data() );
+            // this is inefficient and we should figure out a better approach
+            AMP_WARN_ONCE(
+                "CSRMatrixOperationsKokkos::mult: Deep copy/cast of column map required" );
+            using idxAllocator_t = typename std::allocator_traits<
+                typename Config::allocator_type>::template rebind_alloc<size_t>;
+            idxAllocator_t idx_alloc;
+            size_t *idxMap = idx_alloc.allocate( nGhosts );
+            auto *colMap   = offdMatrix->getColumnMap();
+            AMP::Utilities::copy( nGhosts, colMap, idxMap );
+            in->getGhostValuesByGlobalID( nGhosts, idxMap, ghosts );
+            idx_alloc.deallocate( idxMap, nGhosts );
         }
 
         {
             PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- apply)" );
-            Kokkos::View<scalar_t *, Kokkos::LayoutRight, Kokkos::HostSpace> ghostView_h(
-                ghosts.data(), ghosts.size() );
-            auto ghostView_d = Kokkos::create_mirror_view_and_copy( d_exec_space, ghostView_h );
-            d_localops_offd->mult( ghostView_d.data(), 1.0, offdMatrix, 1.0, outDataBlock );
+            d_localops_offd->mult( ghosts, 1.0, offdMatrix, 1.0, outDataBlock );
         }
+        d_exec_space.fence(); // ensure that mult finishes before deallocating
+        alloc.deallocate( ghosts, nGhosts );
     }
-
-    d_exec_space.fence(); // get rid of this eventually
 }
 
 template<typename Config, class ExecSpace, class ViewSpace>
