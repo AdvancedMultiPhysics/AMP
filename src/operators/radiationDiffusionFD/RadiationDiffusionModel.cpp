@@ -131,6 +131,8 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
  * ------------- Implementation of Manufactured_RadDifModel ----------- *
  * -------------------------------------------------------------------- */
 
+// TODO: boundaries of 0 and 1 are hard coded. Need to fix this. 
+
 Manufactured_RadDifModel::Manufactured_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> specific_db_ ) : RadDifModel( basic_db_, specific_db_ ) { 
     // Set flag indicating this class does provide an implementation of exactSolution
     d_exactSolutionAvailable = true;

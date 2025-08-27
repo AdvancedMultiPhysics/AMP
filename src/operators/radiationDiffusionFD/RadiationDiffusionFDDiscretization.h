@@ -1,54 +1,23 @@
 #ifndef RAD_DIF_FD_DISCRETIZATION
 #define RAD_DIF_FD_DISCRETIZATION
 
+#include <optional>
+
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/IO/AsciiWriter.h"
-
-#include "AMP/vectors/CommunicationList.h"
-#include "AMP/matrices/petsc/NativePetscMatrix.h"
-#include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/MultiVector.h"
-#include "AMP/vectors/MultiVariable.h"
-#include "AMP/vectors/data/VectorData.h"
-#include "AMP/vectors/data/VectorDataNull.h"
-#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 #include "AMP/vectors/VectorBuilder.h"
-
 #include "AMP/discretization/boxMeshDOFManager.h"
 #include "AMP/discretization/MultiDOF_Manager.h"
-#include "AMP/mesh/Mesh.h"
-#include "AMP/mesh/MeshID.h"
-#include "AMP/geometry/Geometry.h"
 #include "AMP/geometry/shapes/Box.h"
-#include "AMP/mesh/MeshParameters.h"
-#include "AMP/mesh/MeshElement.h"
 #include "AMP/mesh/structured/BoxMesh.h"
 #include "AMP/mesh/structured/structuredMeshElement.h"
-
-#include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/MatrixBuilder.h"
-
-#include "AMP/operators/Operator.h"
 #include "AMP/operators/OperatorParameters.h"
+#include "AMP/operators/Operator.h"
 #include "AMP/operators/LinearOperator.h"
-#include "AMP/operators/petsc/PetscMatrixShellOperator.h"
-#include "AMP/operators/OperatorFactory.h"
-
-#include "AMP/solvers/SolverFactory.h"
-#include "AMP/solvers/SolverStrategy.h"
-#include "AMP/solvers/testHelpers/SolverTestParameters.h"
-#include "AMP/solvers/SolverStrategyParameters.h"
-#include "AMP/solvers/SolverStrategy.h"
-#include "AMP/solvers/SolverFactory.h"
-#include "AMP/solvers/petsc/PetscSNESSolver.h"
-
-#include "RDUtils.h"
-
-#include <iostream>
-#include <iomanip>
-#include <optional>
 
 namespace AMP::Operator {
 
@@ -151,12 +120,7 @@ class RadDifOp : public AMP::Operator::Operator {
 
 //
 private:
-    // Indices used for referencing WEST, ORIGIN, and EAST entries in 3-point stencils
-    static constexpr size_t W = 0;
-    static constexpr size_t O = 1;
-    static constexpr size_t E = 2;
-
-    // Constant scaling factors in the PDE
+    //! Constant scaling factors in the PDE
     const double d_k11;
     const double d_k12;
     const double d_k21;
@@ -178,7 +142,7 @@ private:
     
     //! Convenience member
     static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
-
+    
 //
 public: 
     #if 0
@@ -221,7 +185,7 @@ public:
     std::vector<double> getMeshSize() const;
 
     //! Populate the given multivector a function of the given type
-    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun );
+    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun ) const;
 
     //! Set the Robin return function for the energy. If the user does not use call this function then the Robin values rk from the input database will be used.
     void setRobinFunctionE( std::function<double(int, double, double, AMP::Mesh::MeshElement &)> fn_ ); 
@@ -256,7 +220,7 @@ private:
     //! Defines a boundary in a given dimension (WEST is the first boundary, and EAST the second) 
     enum class BoundarySide { WEST, EAST };
 
-    //! Ghost values for E and T; set via ''setGhostData''
+    //! Ghost values for E and T; set via "setGhostData"
     std::array<double, 2> d_ghostData;
 
     /** Set values in the member ghost values array, d_ghostData, corresponding to the given
@@ -277,13 +241,13 @@ private:
 
 
     //! Get the Robin constants ak and bk from the database for the given boundaryID
-    void getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk);
+    void getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk) const;
 
     //! Return database constant rk for boundary k
-    double robinFunctionEFromDB( size_t boundaryID ); 
+    double robinFunctionEFromDB( size_t boundaryID ) const; 
 
     //! Return database constant nk for boundary k
-    double pseudoNeumannFunctionTFromDB( size_t boundaryID ); 
+    double pseudoNeumannFunctionTFromDB( size_t boundaryID ) const; 
     
     /** On boundary k we have the two equations:
      *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk,
@@ -296,7 +260,7 @@ private:
      * @param[out] Eg ghost-point value for E that satisfies the discretized BCs
      * @param[out] Tg ghost-point value for T that satisfies the discretized BCs
      */
-    void ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ); 
+    void ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ) const; 
 
     /** On boundary k we have the equation:
      *      hat{nk} dot grad T = nk,
@@ -306,7 +270,7 @@ private:
      * Here we solve for the ghost point Tg_k and return it
      * @param[out] Tg ghost-point value that satisfies the discretized BC
      */
-    double ghostValueSolveT( double n, double h, double Tint );
+    double ghostValueSolveT( double n, double h, double Tint ) const;
     
     /** On boundary k we have the equation:
      *      ak*E + bk * hat{nk} dot ck grad E = rk,
@@ -317,7 +281,7 @@ private:
      * @param[out] Eg ghost-point value that satisfies the discretized BC
      * @note ck=+k11*D_E(T) and not -k11*D_E(T)
      */
-    double ghostValueSolveE( double a, double b, double r, double c, double h, double Eint );
+    double ghostValueSolveE( double a, double b, double r, double c, double h, double Eint ) const;
 
     /** We have ghost values that satisfy
      * Eg = alpha_E*Eint + beta_E
@@ -328,7 +292,7 @@ private:
      * @param[in] boundaryID the boundary 
      * @param[in] ck = +k11*D_E(T), but is ignored if component == 1.
      */
-    double PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck );
+    double PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const;
 
     
     #if 0
@@ -349,7 +313,18 @@ private:
     std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j, std::vector<size_t> &dofs, bool &onBoundary );
     #endif
 
-private:    
+private: 
+    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
+    static constexpr size_t W = 0;
+    static constexpr size_t O = 1;
+    static constexpr size_t E = 2;
+
+    //! Placeholder arrays for values used in 3-point stencils. Set by setLoc3Data
+    std::array<double, 3> d_ELoc3;
+    std::array<double, 3> d_TLoc3;
+    //! Placeholder array for dofs we connect to in 3-point stencil. Set by setLoc3Data
+    std::array<size_t, 3> d_dofsLoc3;
+
     //! Create and set member DOFManagers based on the mesh
     void setDOFManagers();
 
@@ -388,28 +363,26 @@ private:
     //! Scale D_T by k21
     void scaleDiffusionCoefficientTBy_kij( double &D_T ) const;
 
-    /** Pack local 3-point stencil data into the arrays ELoc3 and TLoc3 for the given dimension. 
-     * This involves a ghost-point solve if the stencil extends to a ghost point.
+    /** Pack local 3-point stencil data into the arrays d_ELoc3 and d_TLoc3 for the given 
+     * dimension. This involves a ghost-point solve if the stencil extends to a ghost point.
      * @param[in] E_vec vector of all (local) E values
      * @param[in] T_vec vector of all (local) T values
      * @param[in] ijk grid indices of DOF for which 3-point stencil values are to be unpacked
      * @param[in] dim dimension in which the 3-point extends
-     * @param[out] ELoc3 E values in the 3-point stencil (WEST, ORIGIN, UPPER)
-     * @param[out] TLoc3 T values in the 3-point stencil (WEST, ORIGIN, UPPER)
+     * @param[out] d_ELoc3 E values in the 3-point stencil (WEST, ORIGIN, UPPER)
+     * @param[out] d_TLoc3 T values in the 3-point stencil (WEST, ORIGIN, UPPER)
      * 
      * @note ijk is modified inside the function, but upon conclusion of the function is in its 
      * original state 
      */
-    void unpackLocalStencilData( 
+    void setLoc3Data( 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
         std::array<int, 3> &ijk, 
-        int dim,
-        std::array<double, 3> &ELoc3, 
-        std::array<double, 3> &TLoc3);
+        int dim);
 
     /** Overloaded version of the above with two additional output parameters
-     * @param[out] dofs indices of the dofs in the 3-point stencil
+     * @param[out] d_dofsLoc3 indices of the dofs in the 3-point stencil
      * @param[out] boundaryIntersection flag indicating if the stencil touches a boundary (and in 
      * which one if it does) 
      * 
@@ -418,34 +391,28 @@ private:
      * once (corresponding to the number of interior DOFs in the given dimension being larger than 
      * one) 
      */
-    void unpackLocalStencilData( 
+    void setLoc3Data( 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
         std::array<int, 3> &ijk, // is modified locally, but returned in same state
         int dim,
-        std::array<double, 3> &ELoc3, 
-        std::array<double, 3> &TLoc3, 
-        std::array<size_t, 3> &dofs,
         std::optional<BoundarySide> &boundaryIntersection);
 
     
-    // Map from grid index i, or i,j, or i,j,k to a MeshElementIndex to a MeshElementId and then to the corresponding DOF
-    size_t gridIndsToScalarDOF( int i, int j = 0, int k = 0 ); 
+    //! Map from grid index to a the corresponding DOF
+    size_t gridIndsToScalarDOF( int i, int j = 0, int k = 0 ) const; 
 
-    size_t gridIndsToScalarDOF( std::array<int,3> ijk ) {
-        return gridIndsToScalarDOF( ijk[0], ijk[1], ijk[2] );
-    }
+    //! Map from grid index to a the corresponding DOF
+    size_t gridIndsToScalarDOF( std::array<int,3> ijk ) const;
 
-    // Map from grid index to a MeshElement
-    AMP::Mesh::MeshElement gridIndsToMeshElement( int i, int j = 0, int k = 0 ); 
+    //! Map from grid index to a MeshElement
+    AMP::Mesh::MeshElement gridIndsToMeshElement( int i, int j = 0, int k = 0 ) const; 
 
-    AMP::Mesh::MeshElement gridIndsToMeshElement( std::array<int,3> ijk ) {
-        return gridIndsToMeshElement( ijk[0], ijk[1], ijk[2] );
-    } 
+    //! Map from grid index to a MeshElement
+    AMP::Mesh::MeshElement gridIndsToMeshElement( std::array<int,3> ijk ) const; 
 
     //! Map from scalar DOF to grid indices i, j, k
     std::array<int,3> scalarDOFToGridInds( size_t dof ) const;
-
 
     /** Gets a global node box (by converting global element box)
      * Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
@@ -490,13 +457,13 @@ private:
 
 //
 public:
-    std::shared_ptr<AMP::Database>          d_db;
+    std::shared_ptr<AMP::Database>          d_db        = nullptr;
     //! Representation of this operator as a block 2x2 matrix
     std::shared_ptr<RadDifOpPJacData>       d_data      = nullptr;
     //! Raw pointer to the underlying nonlinear operator
     RadDifOp *                              d_RadDifOp  = nullptr;
     //! The vector the above operator is linearized about
-    AMP::LinearAlgebra::Vector::shared_ptr  d_frozenVec;
+    AMP::LinearAlgebra::Vector::shared_ptr  d_frozenVec = nullptr;
 
     //! Constructor
     RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParameters> params_);
@@ -622,13 +589,6 @@ public:
     AMP::LinearAlgebra::Vector::shared_ptr d_frozenSolution = nullptr;
     RadDifOp *                                   d_RadDifOp = nullptr; 
 };
-
-
-
-
-
-
-
 
 } // namespace AMP::Operator
 

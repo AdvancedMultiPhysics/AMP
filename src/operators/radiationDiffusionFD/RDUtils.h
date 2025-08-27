@@ -1,4 +1,3 @@
-// Some basic utility functions
 #ifndef RD_UTILS_ 
 #define RD_UTILS_ 
 
@@ -16,45 +15,6 @@
 
 #include <iostream>
 #include <iomanip>
-
-
-// Object to hold column indices and associated data
-struct colsDataPair {
-    std::vector<size_t> cols;
-    std::vector<double> data;
-};
-
-/* --------------------------------------
-    Implementation of utility functions 
------------------------------------------ */
-
-/* Convert the grid index i to the corresponding DOF index */
-inline size_t grid_inds_to_DOF(int i,
-    std::shared_ptr<AMP::Mesh::BoxMesh> mesh, 
-    std::shared_ptr<AMP::Discretization::DOFManager> DOFMan) {
-    AMP::Mesh::BoxMesh::MeshElementIndex ind(
-                    AMP::Mesh::GeomType::Vertex, 0, i );
-    AMP::Mesh::MeshElementID id = mesh->convert( ind );
-    std::vector<size_t> dof;
-    DOFMan->getDOFs(id, dof);
-    return dof[0];
-};
-
-
-
-
-/* Fill CSR matrix with data from CSRData */
-inline void fillMatWithLocalCSRData( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
-                          std::shared_ptr<AMP::Discretization::DOFManager> DOFMan,
-                          std::map<size_t, colsDataPair> CSRData ) {
-
-    size_t nrows = 1;
-    // Iterate through local rows in matrix
-    for ( size_t dof = DOFMan->beginDOF(); dof != DOFMan->endDOF(); dof++ ) {
-        size_t ncols = CSRData[dof].cols.size();
-        matrix->setValuesByGlobalID<double>( nrows, ncols, &dof, CSRData[dof].cols.data(), CSRData[dof].data.data() );
-    }
-}
 
 
 /* In 1D: We want the computational vertices at the mid points of each cell. 

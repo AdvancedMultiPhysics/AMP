@@ -193,4 +193,8 @@ void BERadDifOpPJac::reset(std::shared_ptr<const AMP::Operator::OperatorParamete
     #endif
 }  
 
+void BERadDifOpPJac::setData() {
+    d_data = std::make_shared<AMP::Operator::BERadDifOpPJacData>( d_RadDifOpPJac->d_data, d_gamma );
+}
+
 } // namespace AMP::Operator
