@@ -4,33 +4,16 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/utils/Database.h"
 #include "AMP/mesh/MeshElement.h"
+#include "AMP/utils/Constants.h"
 
+namespace AMP::Operator {
+    
+#define PI AMP::Constants::pi
 
-/* ----------------------------------------------------
-    Class representing a Radiation diffusion equation 
----------------------------------------------------- */
-/* Abstract base class representing a radiation-diffusion problem:
-        u'(t) - L(u) - R(u)  = s(t), u(0) = u_0
-    over the spatial domain [0,1]^d, for d = 1 or d = 2.
-
-    where:
-        1. L(u) = [grad \dot ( D0 * \grad u0 ), grad \dot ( D1 * \grad u1 )] is a nonlinear diffusion operator
-        2. R(u) is a nonlinear reaction operator
-
-    The vector u = [u0, u1] = [E, T] is a block vector, holding E and T.
-
-    In more detail, the general PDE is of that discretizated by *TODO*:
-        * L(u) = [grad \dot (k11*D_E \grad E), grad \dot (k21*D_T \grad T)]
-            where:
-                * if model == "linear": 
-                    D_E = D_T = 1.0
-                * if model == "nonlinear": 
-                    D_E = 1/(3*sigma), D_T = T^2.5, and sigma = (z/T)^3
-        
-        * if model == "linear":
-            R(u) = [k12*(T - E), -k22*(T - E)]
-        * if model == "nonlinear":
-            R(u) = [k12*simga*(T^4 - E), -k22*simga*(T^4 - E)]
+/** -------------------------------------------------------- *
+ * --- Class representing a Radiation diffusion equation --- *
+ * --------------------------------------------------------- */
+/** Abstract base class representing the radiation-diffusion equation that's discretized by the class RadiationDiffusionFD.
 
     Boundary conditions come in two flavours:
         0. For E, Robin boundary conditions are specified on boundary k in the form of:
@@ -121,40 +104,49 @@ private:
 /* -----------------------------------------------------------------------------------------------
     Class representing certain Radiation diffusion equations considered by Mousseau et al. (2000)
 ------------------------------------------------------------------------------------------------ */
-/* In particular: 
-    1. The source term is zero
-    2. There is a specific initial condition
-    3. There are specific boundary conditions 
-
-For the 1D problem:
--------------------
-(58) at x=0: 1/4*E - 1/6*sigma * dE/dx = 1 -> a1 = 0.25, b1 = 0.5, r1 = 1
-(59) at x=1: 1/4*E + 1/6*sigma * dE/dx = 0 -> a2 = 0.25, b2 = 0.5, r2 = 0
-     at x=0: dT/dx = 0: -> n1 = 0
-     at x=1: dT/dx = 0: -> n2 = 0 
-
-For the 2D problem:
--------------------
-(61) == (58) at x=0:       -> a1 = 0.25, b1 = 0.5, r1 = 1
-(62) == (59) at x=1:       -> a2 = 0.25, b2 = 0.5, r2 = 0
-(63.1) at y = 0: dE/dy = 0 -> a3 = 0,    b3 = anything nonzero, r3 = 0
-(63.2) at y = 1: dE/dy = 0 -> a4 = 0,    b4 = anything nonzero, r4 = 0
-
-(64) at y=0: dT/dy = 0: -> n3 = 0
-     at y=1: dT/dy = 0: -> n4 = 0 
-
-(65) at x=0: dT/dx = 0: -> n1 = 0
-     at x=1: dT/dx = 0: -> n2 = 0 
-
-In working out the above constants, note that the energy diffusion flux is D_E = 1/3*sigma, so that 1/6*sigma = 0.5*D_E
-*/
+/** In particular: 
+ * 1. The source term is zero
+ * 2. There is a specific initial condition
+ * 3. There are specific boundary conditions (see below)
+ * 
+ * The boundary conditions are below, along with the calculations showing how they fit into the 
+ * general RadDifModel considered above.
+ * For the 1D problem:
+ * -------------------
+ * (58) at x=0: 1/4*E - 1/6*sigma * dE/dx = 1 -> a1 = 0.25, b1 = 0.5, r1 = 1
+ * (59) at x=1: 1/4*E + 1/6*sigma * dE/dx = 0 -> a2 = 0.25, b2 = 0.5, r2 = 0
+ *  at x=0: dT/dx = 0: -> n1 = 0
+ *  at x=1: dT/dx = 0: -> n2 = 0 
+ * 
+ * For the 2D problem:
+ * -------------------
+ * (61) == (58) at x=0:       -> a1 = 0.25, b1 = 0.5, r1 = 1
+ * (62) == (59) at x=1:       -> a2 = 0.25, b2 = 0.5, r2 = 0
+ * (63.1) at y = 0: dE/dy = 0 -> a3 = 0,    b3 = anything nonzero, r3 = 0
+ * (63.2) at y = 1: dE/dy = 0 -> a4 = 0,    b4 = anything nonzero, r4 = 0
+ * 
+ * (64) at y=0: dT/dy = 0: -> n3 = 0
+ *      at y=1: dT/dy = 0: -> n4 = 0 
+ * (65) at x=0: dT/dx = 0: -> n1 = 0
+ *      at x=1: dT/dx = 0: -> n2 = 0 
+ * 
+ * In working out the above constants, note that the energy diffusion flux is D_E = 1/3*sigma, so 
+ * that 1/6*sigma = 0.5*D_E
+ * The incoming mspecific_db should have the two parameters:
+ *  z -- atomic number
+ *  k -- coefficient in the temperature diffusion flux
+ * 
+ * See: Physics-Based Preconditioning and the Newton–Krylov Method for Non-equilibrium Radiation 
+ * Diffusion, V. A. Mousseau, D. A. Knoll, and W. J. Rider, Journal of Computational Physics 160, 
+ * 743–765 (2000)
+ */
 class Mousseau_etal_2000_RadDifModel : public RadDifModel {
 
 //
 public:
 
     // Constructor
-    Mousseau_etal_2000_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> specific_db_ );
+    Mousseau_etal_2000_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ );
 
     // Destructor
     virtual ~Mousseau_etal_2000_RadDifModel() {};
@@ -171,25 +163,26 @@ private:
 /* ------------------------------------------------------------------
     Class representing a manufactured radiation diffusion equation
 ------------------------------------------------------------------ */
-/* In particular:
-    1. An initial condition is provided
-    2. An exact solution is provided
-    3. A corresponding source term is provided
-    4. Function handles for the corresponding E Robin values rk, and the T pseudo Neumann values nk are provided which accept the boundary id and spatial location on the boundary. (The manufactured solution is not constant along along any boundary) 
-
-*/
+/** In particular:
+ * 1. An initial condition is provided
+ * 2. An exact solution is provided
+ * 3. A corresponding source term is provided
+ * 4. Function handles for the corresponding E Robin values rk, and the T pseudo Neumann values nk 
+ * are provided which accept the boundary id and spatial location on the boundary. (The 
+ * manufactured solution is not constant along along any boundary) 
+ */
 class Manufactured_RadDifModel : public RadDifModel {
 
 private:
     // Constants that the maufactured solutions depends on. 
-    const double kE0   = 2.0;
-    const double kT    = 1.7;
-    const double kX    = 1.5;
-    const double kXPhi = 0.245;
-    const double kY    = 3.5;
-    const double kYPhi = 0.784;
-    const double kZ    = 2.5;
-    const double kZPhi = 0.154;
+    constexpr static double kE0   = 2.0;
+    constexpr static double kT    = 1.7;
+    constexpr static double kX    = 1.5;
+    constexpr static double kXPhi = 0.245;
+    constexpr static double kY    = 3.5;
+    constexpr static double kYPhi = 0.784;
+    constexpr static double kZ    = 2.5;
+    constexpr static double kZPhi = 0.154;
 
 //
 public:
@@ -239,5 +232,7 @@ private:
     double getPseudoNeumannValueT3D_( size_t boundaryID, double x, double y, double z ) const;
 }; 
 
+
+} // namespace AMP::Operator
 
 #endif

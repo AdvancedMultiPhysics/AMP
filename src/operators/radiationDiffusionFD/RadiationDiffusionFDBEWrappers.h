@@ -49,6 +49,8 @@
 
 #include "RadiationDiffusionFDDiscretization.h"
 
+namespace AMP::Operator {
+
 /** The classes in this file either are (or are associated with) wrapping spatial radiation 
  * diffusion operators as backward Euler operators, i.e., multiplying them by some time-step size 
  * and adding an identity. These operators here are closely related to 
@@ -185,7 +187,7 @@ public:
 private:
     //! Create new d_data based on my RadDifOpPJac's d_data
     void setData() {
-        d_data = std::make_shared<BERadDifOpPJacData>( d_RadDifOpPJac->d_data, d_gamma );
+        d_data = std::make_shared<AMP::Operator::BERadDifOpPJacData>( d_RadDifOpPJac->d_data, d_gamma );
     }
 
     #if 0
@@ -507,6 +509,9 @@ void BERadDifOpJac::monolithicNodalJacGetRow( size_t rowNodal, std::vector<size_
     cols = cols_nodal;
 }
 #endif
+
+} // namespace AMP::Operator
+
 
 
 

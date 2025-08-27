@@ -2,9 +2,9 @@
 PDE {
   print_info_level = 0
 
-  #dim = 1
+  dim = 1
   #dim = 2
-  dim = 3
+  #dim = 3
   
   #fluxLimited = FALSE
   fluxLimited = TRUE
@@ -12,9 +12,9 @@ PDE {
 
 # Mesh size in each direction
 Mesh {
-  #n = 8
+  n = 8
   #n = 64
-  n = 128
+  #n = 128
   #n = 256
 }
 
@@ -28,7 +28,7 @@ TruncationError {
 Manufactured_Parameters{ 
   model = "nonlinear"
   #model = "linear"
-  z = 1.0
+  zatom = 1.0
   k11 = 1.0
   k12 = 1.0
   k21 = 0.1

@@ -40,20 +40,7 @@ inline size_t grid_inds_to_DOF(int i,
     return dof[0];
 };
 
-// As above, but just gets a localNodeBox from the mesh
-inline AMP::Mesh::BoxMesh::Box getLocalNodeBox( std::shared_ptr<AMP::Mesh::BoxMesh> mesh ) {
-    auto local  = mesh->getLocalBox();
-    auto global = mesh->getGlobalBox();
-    for ( int d = 0; d < 3; d++ ) {
-        if ( local.last[d] == global.last[d] ) {
-            // An empty box in dimension d has a last index of 0; we should preserve that behavior
-            if ( local.last[d] > 0 ) { 
-                local.last[d]++;
-            }
-        }
-    }
-    return local;
-};
+
 
 
 /* Fill CSR matrix with data from CSRData */

@@ -52,6 +52,9 @@
 
 //class BERadDifOpPJac;
 
+// todo: what's the correct name space here.
+namespace AMP::Operator {
+
 #if 0
 
 /*
@@ -362,5 +365,8 @@ inline void variableOrderingToNodalOrdering( size_t n, const std::vector<size_t>
 
 
 #endif
+
+} // namespace AMP::Operator
+
 
 #endif

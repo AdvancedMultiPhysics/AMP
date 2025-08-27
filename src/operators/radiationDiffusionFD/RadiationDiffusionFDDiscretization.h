@@ -50,32 +50,47 @@
 #include <iomanip>
 #include <optional>
 
+namespace AMP::Operator {
+
 /** The classes in this file are (or are associated with) spatial finite-discretizations of  
- * radiation-diffusion problem:
- *      u'(t) - L(u) - R(u)  = s(t), u(0) = u_0
- * over the spatial domain [0,1]^d, for d = 1 or d = 2. Where:
- * 1. L(u) = [grad dot ( D0 * grad u0 ), grad dot ( D1 * grad u1 )] is a (possibly) nonlinear
+ * the radiation-diffusion problem:
+ *      u'(t) - D(u) - R(u)  = s(t), u(0) = u_0
+ * over the spatial domain Omega subset R^d for d in {1,2,3}. Where:
+ *      1. u = [u0, u1] = [E, T] is a block vector, holding E and T.
+ *      2. D(u) = [grad dot ( D0 * grad u0 ), grad dot ( D1 * grad u1 )] is a (possibly) nonlinear
  * diffusion operator
- * 2. R(u) is a (possibly) nonlinear reaction operator
- *
- * The vector u = [u0, u1] = [E, T] is a block vector, holding E and T.
+ *      3. R(u) is a (possibly) nonlinear reaction operator
  * 
- * In more detail, the general PDE is:
- *  * L(u) = [grad dot (k11*D_E grad E), grad dot (k21*D_T grad T)], where:
- *      * if model == "linear": 
+ * In more detail, the diffusion operator is
+ *      D(u) = [grad dot (k11*D_E grad E), grad dot (k21*D_T grad T)], 
+ * where diffusive fluxes depend on the "model" parameter as:
+ *      1. if model == "linear": 
  *          D_E = D_T = 1.0
- *      * if model == "nonlinear": 
+ *      2. if model == "nonlinear": 
  *          D_E = 1/(3*sigma), D_T = T^2.5, and sigma = (zatom/T)^3
  *      
- *  * if model == "linear":
- *      R(u) = [k12*(T - E), -k22*(T - E)]
- *  * if model == "nonlinear":
- *      R(u) = [k12*simga*(T^4 - E), -k22*simga*(T^4 - E)]
+ * The reaction term is dependent on the "model" parameter as:
+ *      1. if model == "linear":
+ *          R(u) = [k12*(T - E), -k22*(T - E)]
+ *      2. if model == "nonlinear":
+ *          R(u) = [k12*simga*(T^4 - E), -k22*simga*(T^4 - E)]
+ * 
+ * On boundary k in {1,...,6} the spatial boundary conditions are as follows:
+ *      1. Robin on energy:
+ *          ak*E + bk*hat{nk} dot k11*D_E * grad(E) = rk on boundary k
+ *      2. ''pseudo'' Neumann on temperature (not genuine Neumann unless nk=0):
+ *          hat{nk} dot grad(T) = nk on boundary k
+ * where:
+ *      hat{nk} is the outward facing normal to the boundary
+ *      ak, bk are user-prescribed constants
+ *      rk, nk are user-prescribed constants or functions (that can vary on the boundary) 
  */
 
 
+// Classes declared here
 class RadDifOp;
 class RadDifOpPJac;
+struct RadDifOpPJacData;
 class RadDifOpPJacParameters;
 
 // Friend classes
@@ -83,146 +98,55 @@ class BERadDifOp;
 class BERadDifOpPJac;
 
 
-
-/** Data structure for storing the 2x2 block matrix hat{L} associated with the RadDifOpPJac
- * Specifically, this Picard Linearization is a LinearOperator with the following block structure: 
- * [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
- * [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
- * where the first block matrix contains diffusion terms and the second contains the reaction terms.
+/** Finite-difference discretization of the spatial operator in the above radiation-diffusion 
+ * equation. This discretization is based on that described in 
+ *      "Dynamic implicit 3D adaptive mesh refinement for non-equilibrium radiation diffusion"
+ * by B.Philipa, Z.Wangb, M.A.Berrilla, M.Birkeb, M.Pernice in Journal of Computational Physics 262
+ * (2014) 17–37. The primary difference is that this implementation does not use adaptive mesh 
+ * refiment, and instead assumes the mesh spacing in each dimension is constant.
+ * 
+ * The database in the incoming OperatorParameters must contain the following parameters:
+ * 1. ak, bk (for all boundaries k)
+ * doubles. Specify constants in Robin BCs on energy. 
+ * Optionally, the RHS boundary condition values of rk and nk can be provided. However, the user 
+ * can also specify these RHS values as boundary- and spatially-dependent functions via calls to 
+ * 'setRobinFunctionE' and 'setPseudoNeumannFunctionT', respectively, in which case whatever values
+ * of rk and nk exist in the database will be ignored.
+ * 
+ * 2. zatom:
+ * double. Atomic number constant in the nonlinear problem. Default value is 1.0.
+ * 
+ * 3. k11, k12, k21, k22
+ * doubles. Scaling constants in PDE
+ * 
+ * 4. model:
+ * must be either 'linear' or 'nonlinear'. Specifies which PDE is discretized.
+ * 
+ * 5. fluxLimited:
+ * bool. Flag indicating whether flux limiting is for diffusion of energy
+ * 
+ * 
+ * Mesh: The discretization expects a non-periodic AMP::Mesh::BoxMesh generated from the "cube" 
+ * generator. The boundaryIDs on the mesh must be: 
+ *      1,2 for xmin,xman, 
+ *      3,4 for ymin,ymax, 
+ *      5,6 for zmin,zmax.
+ * The mesh range and number of points in need not be the same in each dimension.
+ * 
+ * NOTES:
+ *      * There is no mass matrix: After integrating the PDEs over a spatial volumne, the discrete 
+ * equations are re-scaled such that the mesh volume appearing in front of the time derivative is 1.
+ *      * Each dimension [xmin, xmax] is divided into nx cells with centers xi = xmin + (i+1/2)*hx 
+ * with hx = (xmax-xmin)/nx, for i = 0,...,nx-1. The computational unknowns in each dimension that 
+ * we discretize are the point values of E and T at these nx cell centers. 
+ *      * Boundary conditions are implemented by placing one ghost cell at each end of the domain, 
+ * with corresponding unknowns at the centers of these ghost cells. These unknown ghost values are 
+ * then eliminated in terms of the interior point by discretizing the boundary conditions. 
+ * 
+ * 
+ * TODO: describe how incoming mesh must conform to boundaries... 
+ * The incoming mesh should have nodes placed at the cell centers... so that actually the [xmin,xmax] there correspond to the cell centers...
  */
-struct RadDifOpPJacData {
-    //! The apply of RadDifOpPJac uses our private data members
-    friend class RadDifOpPJac;
-
-public:
-    //! Getter routines; any external updates to the private data members below are done via these
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> get_d_E();
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> get_d_T();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_EE();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_ET();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_TE();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_TT();
-
-private:
-    //! Flag indicating whether our data has been accessed, and hence possibly modified, by a non-friend class (i.e., a BE wrapper of a RadDifOpPJac). This is set to true any time a getter is called.
-    bool d_dataMaybeOverwritten = false; 
-
-    //! Members used to store matrix components
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_E  = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_T  = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_EE = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_ET = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TE = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TT = nullptr;
-};
-
-
-
-/** OperatorParameters for creating the linearized operator RadDifOpPJac. This is just regular OperatorParameters appended with:
- * 1. a vector containg that the operator is to be linearized about
- * 2. a raw pointer to the outer nonlinear operator, since this has functionality that we require
- * access to (e.g., getting Robin BC data). We access all problem parameters of the outer nonlinear 
- * problem via this pointer rather than duplicating them when creating the linearized operator 
- */
-class RadDifOpPJacParameters : public AMP::Operator::OperatorParameters
-{
-public:
-    // Constructor
-    explicit RadDifOpPJacParameters( std::shared_ptr<AMP::Database> db )
-        : OperatorParameters( db ) { };
-    virtual ~RadDifOpPJacParameters() {};
-
-    AMP::LinearAlgebra::Vector::shared_ptr d_frozenSolution = nullptr;
-    RadDifOp *                                   d_RadDifOp = nullptr; 
-};
-
-/** Picard linearization of a RadDifOp. */
-class RadDifOpPJac : public AMP::Operator::LinearOperator {
-
-private:
-    // Indices used for referencing WEST, ORIGIN, and EAST entries in 3-point stencils
-    static constexpr size_t W = 0;
-    static constexpr size_t O = 1;
-    static constexpr size_t E = 2;
-
-//
-public:
-    std::shared_ptr<AMP::Database>          d_db;
-    //! Representation of this operator as a block 2x2 matrix
-    std::shared_ptr<RadDifOpPJacData>       d_data      = nullptr;
-    //! The underlying nonlinear operator
-    RadDifOp *                              d_RadDifOp  = nullptr;
-    //! The vector the above operator is linearized about
-    AMP::LinearAlgebra::Vector::shared_ptr  d_frozenVec;
-
-
-    //! Constructor
-    RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParameters> params_);
-
-    //! Destructor
-    virtual ~RadDifOpPJac() {};
-
-    //! Create a multiVector of E and T over the mesh.
-    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override;
-
-    //! Used by OperatorFactory to create a RadDifOpPJac
-    static std::unique_ptr<AMP::Operator::Operator> create( std::shared_ptr<AMP::Operator::OperatorParameters> params ) {  
-        return std::make_unique<RadDifOpPJac>( params ); };
-
-    //! Reset the operator based on the incoming parameters. 
-    void reset( std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override;
-
-    std::string type() const override { return "RadDifOpPJac"; };
-
-    //! Compute LET = L(ET)
-    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> LET );
-
-    //! Allows an apply from Jacobian data that's been modified by an outside class (this is an acknowledgement that the caller of the apply deeply understands what they're doing)
-    void applyWithOverwrittenDataIsValid() { d_applyWithOverwrittenDataIsValid = true; };
-
-//
-private:
-
-    //! Flag indicating whether apply with overwritten Jacobian data is valid. This is reset to false at the end of every apply call, and can be set t true by the public member function
-    bool d_applyWithOverwrittenDataIsValid = false;
-
-    //! Apply action of the operator utilizing its representation in d_data
-    void applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  );
-
-    //! Set our d_data member
-    void setData( );
-
-    /** Sets the reaction-related vectors in our d_data member. 
-     * This code is based on stripping out the reaction component of the apply of the nonlinear 
-     * operator.
-     * @param[in] T_vec T component of the frozen vector d_frozenVec
-     */
-    void setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec );
-
-    void getCSRDataDiffusionMatrix( 
-                                size_t component,
-                                std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
-                                std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
-                                size_t row,
-                                std::vector<size_t> &cols,
-                                std::vector<double> &data );
-
-    /** Fill the given input diffusion matrix with CSR data
-     * @param[in] component 0 (for energy) or 1 (for temperature) 
-     */
-    void fillDiffusionMatrixWithData(size_t component, std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix);
-
-
-    // void setData1D( );
-    // void setData2D( );
-};
-// End of RadDifOpPJac
-
-
-
-
-
-/** Finite-difference discretization of a radiation-diffusion operator */
 class RadDifOp : public AMP::Operator::Operator {
 
 //
@@ -247,14 +171,17 @@ private:
 
     // Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
-    // Global grid index box w/ zero ghosts
+    //! Global grid index box w/ zero ghosts
     std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox = nullptr;
+    //! Local grid index box w/ zero ghosts
+    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_localBox = nullptr;
+    
     //! Convenience member
     static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
 
 //
 public: 
-    #if 1
+    #if 0
     std::shared_ptr<AMP::Discretization::DOFManager>      d_nodalDOFMan;
     #endif
 
@@ -287,10 +214,10 @@ public:
     //! E and T must be positive
     bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) override;
 
-    // Create a multiVector of E and T over the mesh.
+    //! Create a multiVector of E and T over the mesh.
     std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const; 
 
-    // Vector of hx, hy, hz
+    //! Vector of hx, hy, hz
     std::vector<double> getMeshSize() const;
 
     //! Populate the given multivector a function of the given type
@@ -361,7 +288,7 @@ private:
     /** On boundary k we have the two equations:
      *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk,
      *                 hat{nk} dot            grad T = nK,
-     * where ak, bk, rk, and nk are all known constants qne hat{nk} is the outward-facing normal
+     * where ak, bk, rk, and nk are all known constants and hat{nk} is the outward-facing normal
      * vector at the boundary.
      * The discretization of these conditions involves one ghost point for E and T (Eg and Tg), and
      * one interior point (Eint and Tint). Here we solve for the ghost points and return them. Note
@@ -423,7 +350,7 @@ private:
     #endif
 
 private:    
-    // Set d_multiDOFManagers after creating it from this Operators's mesh
+    //! Create and set member DOFManagers based on the mesh
     void setDOFManagers();
 
     /** Given 3-point stencils compute FD diffusion coefficients 
@@ -467,16 +394,19 @@ private:
      * @param[in] T_vec vector of all (local) T values
      * @param[in] ijk grid indices of DOF for which 3-point stencil values are to be unpacked
      * @param[in] dim dimension in which the 3-point extends
-     * @param[out] ELoc3 E values in the 3-point stencil (lower, origin, upper)
-     * @param[out] TLoc3 T values in the 3-point stencil (lower, origin, upper)
+     * @param[out] ELoc3 E values in the 3-point stencil (WEST, ORIGIN, UPPER)
+     * @param[out] TLoc3 T values in the 3-point stencil (WEST, ORIGIN, UPPER)
+     * 
+     * @note ijk is modified inside the function, but upon conclusion of the function is in its 
+     * original state 
      */
     void unpackLocalStencilData( 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
-    std::array<int, 3> &ijk, // is modified locally, but returned in same state
-    int dim,
-    std::array<double, 3> &ELoc3, 
-    std::array<double, 3> &TLoc3);
+        std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+        std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+        std::array<int, 3> &ijk, 
+        int dim,
+        std::array<double, 3> &ELoc3, 
+        std::array<double, 3> &TLoc3);
 
     /** Overloaded version of the above with two additional output parameters
      * @param[out] dofs indices of the dofs in the 3-point stencil
@@ -489,14 +419,14 @@ private:
      * one) 
      */
     void unpackLocalStencilData( 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
-    std::array<int, 3> &ijk, // is modified locally, but returned in same state
-    int dim,
-    std::array<double, 3> &ELoc3, 
-    std::array<double, 3> &TLoc3, 
-    std::array<size_t, 3> &dofs,
-    std::optional<BoundarySide> &boundaryIntersection);
+        std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+        std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+        std::array<int, 3> &ijk, // is modified locally, but returned in same state
+        int dim,
+        std::array<double, 3> &ELoc3, 
+        std::array<double, 3> &TLoc3, 
+        std::array<size_t, 3> &dofs,
+        std::optional<BoundarySide> &boundaryIntersection);
 
     
     // Map from grid index i, or i,j, or i,j,k to a MeshElementIndex to a MeshElementId and then to the corresponding DOF
@@ -517,24 +447,190 @@ private:
     std::array<int,3> scalarDOFToGridInds( size_t dof ) const;
 
 
-    // Convert a global element box to a global node box.
-    // Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
-    // grid dimensions being periodic.
+    /** Gets a global node box (by converting global element box)
+     * Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
+     * grid dimensions being periodic.
+     */
     AMP::Mesh::BoxMesh::Box getGlobalNodeBox() const;
 
+    /** Gets a local node box (by converting local element box)
+     * Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
+     * grid dimensions being periodic.
+     */
+    AMP::Mesh::BoxMesh::Box getLocalNodeBox() const; 
 
+//
 protected:
     
-/** Returns a parameter object that can be used to reset the corresponding
- * RadDifOpPJac operator. Note that in the base class's getParameters get's redirected to this
- * function. 
- * @param[in] u_in is the current nonlinear iterate. 
- */
+    /** Returns a parameter object that can be used to reset the corresponding
+     * RadDifOpPJac operator. Note that in the base class's getParameters get's redirected to this
+     * function. 
+     * @param[in] u_in is the current nonlinear iterate. 
+     */
     std::shared_ptr<AMP::Operator::OperatorParameters> getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in ) override;
 
 };
 // End of RadDifOp
 
+
+
+/** Picard linearization of a RadDifOp. 
+ * Specifically, the spatial operators in the radiation-diffusion equation can be written as
+ *          L(u) = -D(u) -R(u) <==> hat{L}(u)*u = -hat{D}(u)*u -hat{R}(u)*u
+ * where hat{L}(u), hat{D}(u) and hat{R}(u) are block 2x2 matrices dependent upon the state u. This 
+ * class implements the LinearOperator hat{L}(u), which is a Picard linearization of L(u).   
+ */
+class RadDifOpPJac : public AMP::Operator::LinearOperator {
+
+private:
+    // Indices used for referencing WEST, ORIGIN, and EAST entries in 3-point stencils
+    static constexpr size_t W = 0;
+    static constexpr size_t O = 1;
+    static constexpr size_t E = 2;
+
+//
+public:
+    std::shared_ptr<AMP::Database>          d_db;
+    //! Representation of this operator as a block 2x2 matrix
+    std::shared_ptr<RadDifOpPJacData>       d_data      = nullptr;
+    //! Raw pointer to the underlying nonlinear operator
+    RadDifOp *                              d_RadDifOp  = nullptr;
+    //! The vector the above operator is linearized about
+    AMP::LinearAlgebra::Vector::shared_ptr  d_frozenVec;
+
+    //! Constructor
+    RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParameters> params_);
+
+    //! Destructor
+    virtual ~RadDifOpPJac() {};
+
+    //! Create a multiVector of E and T over the mesh.
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override;
+
+    //! Used by OperatorFactory to create a RadDifOpPJac
+    static std::unique_ptr<AMP::Operator::Operator> create( std::shared_ptr<AMP::Operator::OperatorParameters> params ) {  
+        return std::make_unique<RadDifOpPJac>( params ); };
+
+    //! Reset the operator based on the incoming parameters. 
+    void reset( std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override;
+
+    std::string type() const override { return "RadDifOpPJac"; };
+
+    //! Compute LET = L(ET)
+    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> LET );
+
+    //! Allows an apply from Jacobian data that's been modified by an outside class (this is an acknowledgement that the caller of the apply deeply understands what they're doing)
+    void applyWithOverwrittenDataIsValid() { d_applyWithOverwrittenDataIsValid = true; };
+
+//
+private:
+
+    //! Flag indicating whether apply with overwritten Jacobian data is valid. This is reset to false at the end of every apply call, and can be set t true by the public member function
+    bool d_applyWithOverwrittenDataIsValid = false;
+
+    //! Apply action of the operator utilizing its representation in d_data
+    void applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  );
+
+    //! Set our d_data member
+    void setData( );
+
+    /** Sets the reaction-related vectors in our d_data member. 
+     * This code is based on stripping out the reaction component of the apply of the nonlinear 
+     * operator.
+     * @param[in] T_vec T component of the frozen vector d_frozenVec
+     */
+    void setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec );
+
+    /** Get CSR data for a row of the Picard-linearized diffusion matrix dE or dT.
+     * @param[in] component 0 (energy) or 1 (temperature) to get CSR data for  
+     * @param[in] E_vec E component of the frozen vector d_frozenVec
+     * @param[in] T_vec T component of the frozen vector d_frozenVec
+     * @param[in] row the row to retrieve (a scalar index)
+     * @param[out] cols the column indices for the non-zeros in the given row, with the diagonal 
+     * entry first
+     * @param[out] data the data for the non-zeros in the given row
+     * 
+     * @note this function implicity assumes that the stencil does not touch both boundaries at 
+     * once (corresponding to the number of interior DOFs in the given dimension being larger than 
+     * one)
+     */
+    void getCSRDataDiffusionMatrix( 
+                                size_t component,
+                                std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
+                                std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+                                size_t row,
+                                std::vector<size_t> &cols,
+                                std::vector<double> &data );
+
+    /** Fill the given input diffusion matrix with CSR data
+     * @param[in] component 0 (for energy) or 1 (for temperature) 
+     */
+    void fillDiffusionMatrixWithData(size_t component, std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix);
+};
+// End of RadDifOpPJac
+
+
+/** Data structure for storing the 2x2 block matrix hat{L} associated with the RadDifOpPJac
+ * Specifically, this Picard Linearization is a LinearOperator with the following block structure: 
+ * [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
+ * [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
+ * where the first block matrix contains diffusion terms and the second contains the reaction terms.
+ */
+struct RadDifOpPJacData {
+    //! The apply of RadDifOpPJac uses our private data members
+    friend class RadDifOpPJac;
+
+public:
+    //! Getter routines; any external updates to the private data members below are done via these
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> get_d_E();
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> get_d_T();
+    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_EE();
+    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_ET();
+    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_TE();
+    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_TT();
+
+private:
+    //! Flag indicating whether our data has been accessed, and hence possibly modified, by a non-friend class (e.g., a BE wrapper of a RadDifOpPJac). This is set to true any time a getter is called.
+    bool d_dataMaybeOverwritten = false; 
+
+    //! Members used to store matrix components
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_E  = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_T  = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_EE = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_ET = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TE = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TT = nullptr;
+};
+
+
+
+/** OperatorParameters for creating the linearized operator RadDifOpPJac. This is just regular 
+ * OperatorParameters appended with:
+ * 1. a vector containg that the operator is to be linearized about
+ * 2. a raw pointer to the outer nonlinear operator, since this has functionality that we require
+ * access to (e.g., getting Robin BC data). We access all problem parameters of the outer nonlinear 
+ * problem via this pointer rather than duplicating them when creating the linearized operator 
+ */
+class RadDifOpPJacParameters : public AMP::Operator::OperatorParameters
+{
+public:
+    // Constructor
+    explicit RadDifOpPJacParameters( std::shared_ptr<AMP::Database> db )
+        : OperatorParameters( db ) { };
+    virtual ~RadDifOpPJacParameters() {};
+
+    AMP::LinearAlgebra::Vector::shared_ptr d_frozenSolution = nullptr;
+    RadDifOp *                                   d_RadDifOp = nullptr; 
+};
+
+
+
+
+
+
+
+
+} // namespace AMP::Operator
 
 
 #endif

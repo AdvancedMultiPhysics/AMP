@@ -1,5 +1,6 @@
-#include "RadiationDiffusionFDBEWrappers.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
 
+namespace AMP::Operator {
 
 /** --------------------------------------------------------------------------------
  *                        Implementation of BERadDifOpPJacData 
@@ -191,3 +192,5 @@ void BERadDifOpPJac::reset(std::shared_ptr<const AMP::Operator::OperatorParamete
     d_JNodal = createMonolithicJac( );
     #endif
 }  
+
+} // namespace AMP::Operator

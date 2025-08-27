@@ -152,14 +152,14 @@ void driver(AMP::AMP_MPI comm,
     /****************************************************************
     * Create radiation-diffusion model                              *
     ****************************************************************/
-    std::shared_ptr<RadDifModel> myRadDifModel;
+    std::shared_ptr<AMP::Operator::RadDifModel> myRadDifModel;
 
     if ( problemID == "Mousseau_etal_2000" ) {
-        auto myRadDifModel_ = std::make_shared<Mousseau_etal_2000_RadDifModel>( PDE_basic_db, PDE_mspecific_db );
+        auto myRadDifModel_ = std::make_shared<AMP::Operator::Mousseau_etal_2000_RadDifModel>( PDE_basic_db, PDE_mspecific_db );
         myRadDifModel       = myRadDifModel_;
 
     } else if ( problemID == "Manufactured" ) {
-        auto myRadDifModel_ = std::make_shared<Manufactured_RadDifModel>( PDE_basic_db, PDE_mspecific_db );
+        auto myRadDifModel_ = std::make_shared<AMP::Operator::Manufactured_RadDifModel>( PDE_basic_db, PDE_mspecific_db );
         myRadDifModel = myRadDifModel_; 
 
     } else {
@@ -203,7 +203,7 @@ void driver(AMP::AMP_MPI comm,
     OpParams->d_db   = disc_db; // Set DataBase of parameters.
 
     // Create BERadDifOp 
-    auto myBERadDifOp = std::make_shared<BERadDifOp>( OpParams );  
+    auto myBERadDifOp = std::make_shared<AMP::Operator::BERadDifOp>( OpParams );  
     // Extract the underlying RadDifOp
     auto myRadDifOp = myBERadDifOp->d_RadDifOp; 
 
@@ -212,30 +212,30 @@ void driver(AMP::AMP_MPI comm,
 
     // Create an OperatorFactory and register Jacobian of BERadDifOp in it 
     auto & operatorFactory = AMP::Operator::OperatorFactory::getFactory();
-    operatorFactory.registerFactory( "BERadDifOpPJac", BERadDifOpPJac::create );
+    operatorFactory.registerFactory( "BERadDifOpPJac", AMP::Operator::BERadDifOpPJac::create );
 
     // Create a SolverFactory and register preconditioner(s) of the above operator in it 
     auto & solverFactory = AMP::Solver::SolverFactory::getFactory();
-    solverFactory.registerFactory( "BERadDifOpPJacOpSplitPrec", BERadDifOpPJacOpSplitPrec::create );
+    solverFactory.registerFactory( "BERadDifOpPJacOpSplitPrec", AMP::Operator::BERadDifOpPJacOpSplitPrec::create );
     //solverFactory.registerFactory( "BERadDifOpJacMonolithic", BERadDifOpJacMonolithic::create );
     
     // Create hassle-free wrappers around ic, source term and exact solution
-    auto icFun        = std::bind( &RadDifModel::initialCondition, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
-    auto PDESourceFun = std::bind( &RadDifModel::sourceTerm, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
-    auto uexactFun    = std::bind( &RadDifModel::exactSolution, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
+    auto icFun        = std::bind( &AMP::Operator::RadDifModel::initialCondition, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
+    auto PDESourceFun = std::bind( &AMP::Operator::RadDifModel::sourceTerm, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
+    auto uexactFun    = std::bind( &AMP::Operator::RadDifModel::exactSolution, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
 
 
     // If using a manufactured model, overwrite the default RadDifOp boundary condition functions to point to those of the Manufactured model
     if ( problemID == "Manufactured" ) {
         AMP::pout << "Manufactured RadDif model BCs are being used" << std::endl;
-        auto myManufacturedRadDifModel = std::dynamic_pointer_cast<Manufactured_RadDifModel>( myRadDifModel );
+        auto myManufacturedRadDifModel = std::dynamic_pointer_cast<AMP::Operator::Manufactured_RadDifModel>( myRadDifModel );
         AMP_INSIST( myManufacturedRadDifModel, "Model is null" );
         
         // Point the Robin E BC values in the RadDifOp to those given by the manufactured problem
-        myRadDifOp->setRobinFunctionE( std::bind( &Manufactured_RadDifModel::getRobinValueE, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4 ) );
+        myRadDifOp->setRobinFunctionE( std::bind( &AMP::Operator::Manufactured_RadDifModel::getRobinValueE, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4 ) );
 
         // Point the pseudo Neumann T BC values in the radDifOp to those given by the manufactured problem
-        myRadDifOp->setPseudoNeumannFunctionT( std::bind( &Manufactured_RadDifModel::getPseudoNeumannValueT, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
+        myRadDifOp->setPseudoNeumannFunctionT( std::bind( &AMP::Operator::Manufactured_RadDifModel::getPseudoNeumannValueT, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
     }
 
 
@@ -287,7 +287,7 @@ void driver(AMP::AMP_MPI comm,
 
     // Tell implicitIntegrator how to tell our operator what the time step is
     implicitIntegrator->setTimeScalingFunction(
-        std::bind( &BERadDifOp::setGamma, &( *myBERadDifOp ), std::placeholders::_1 ) );
+        std::bind( &AMP::Operator::BERadDifOp::setGamma, &( *myBERadDifOp ), std::placeholders::_1 ) );
 
     
     int step = 0;

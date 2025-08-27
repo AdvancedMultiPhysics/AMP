@@ -120,11 +120,11 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     /****************************************************************
     * Create a manufactured radiation-diffusion model               *
     ****************************************************************/
-    auto myRadDifModel = std::make_shared<Manufactured_RadDifModel>( PDE_basic_db, manufactured_db );
+    auto myRadDifModel = std::make_shared<AMP::Operator::Manufactured_RadDifModel>( PDE_basic_db, manufactured_db );
 
     // Get general PDE model parameters to build the RadDifOp
     auto PDE_general_db = myRadDifModel->getGeneralPDEModelParameters( );
-    auto PDE_general_db_ = std::make_unique<AMP::Database>( *PDE_general_db );
+    auto RadDifOp_db    = std::make_shared<AMP::Database>( *PDE_general_db );
 
 
     /****************************************************************
@@ -134,16 +134,16 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     mesh_db->putScalar<int>( "dim", PDE_general_db->getScalar<int>( "dim" ) );
     std::shared_ptr<AMP::Mesh::BoxMesh> mesh = createBoxMesh( comm, mesh_db );
     
-    // Package PDE and mesh dbs into a discretization db
-    auto disc_db = std::make_shared<AMP::Database>( "disc_db" );
-    disc_db->putDatabase( "PDE",  std::move( PDE_general_db_ ) );
-    disc_db->putDatabase( "mesh", std::move( mesh_db ) );
-    //disc_db->putScalar<int>( "print_info_level", 1 );
-    disc_db->putScalar<int>( "print_info_level", disc_db->getDatabase( "PDE" )->getScalar<int>( "print_info_level" ) );
+    // // Package PDE and mesh dbs into a discretization db
+    // auto disc_db = std::make_shared<AMP::Database>( "disc_db" );
+    // disc_db->putDatabase( "PDE",  std::move( PDE_general_db_ ) );
+    // disc_db->putDatabase( "mesh", std::move( mesh_db ) );
+    // //disc_db->putScalar<int>( "print_info_level", 1 );
+    // disc_db->putScalar<int>( "print_info_level", disc_db->getDatabase( "PDE" )->getScalar<int>( "print_info_level" ) );
 
-    AMP::pout << "The discretization database is" << std::endl;
+    AMP::pout << "The RadDifOp database is" << std::endl;
     AMP::pout << "------------------------------" << std::endl;
-    disc_db->print( AMP::pout );
+    RadDifOp_db->print( AMP::pout );
     AMP::pout << "------------------------------" << std::endl;
     
 
@@ -153,34 +153,34 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // Create an OperatorParameters object, from a Database.
     auto Op_db = std::make_shared<AMP::Database>( "Op_db" );
     auto OpParams = std::make_shared<AMP::Operator::OperatorParameters>( Op_db );
-    // Operator parameters has: a mesh, an operator, and a memory location. We just set the mesh 
-    OpParams->d_Mesh = mesh;
-    OpParams->d_db   = disc_db; // Set DataBase of parameters.
+    OpParams->d_Mesh = mesh; // Set mesh of parameters
+    OpParams->d_db   = RadDifOp_db; // Set DataBase of parameters.
 
     // Create BERadDifOp 
-    auto myBERadDifOp = std::make_shared<BERadDifOp>( OpParams );  
+    auto myBERadDifOp = std::make_shared<AMP::Operator::BERadDifOp>( OpParams );  
     // Extract the underlying RadDifOp
     auto myRadDifOp = myBERadDifOp->d_RadDifOp; 
 
     // Create an OperatorFactory and register Jacobian of BERadDifOp in it 
     auto & operatorFactory = AMP::Operator::OperatorFactory::getFactory();
-    operatorFactory.registerFactory( "BERadDifOpPJac", BERadDifOpPJac::create );
+    operatorFactory.registerFactory( "BERadDifOpPJac", AMP::Operator::BERadDifOpPJac::create );
 
     // Create hassle-free wrappers around source term and exact solution
-    auto PDESourceFun = std::bind( &RadDifModel::sourceTerm, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
-    auto PDEManufacturedSolution = std::bind( &RadDifModel::exactSolution, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
+    auto PDESourceFun = std::bind( &AMP::Operator::RadDifModel::sourceTerm, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
+    auto PDEManufacturedSolution = std::bind( &AMP::Operator::RadDifModel::exactSolution, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
 
     // Overwrite the default RadDifOp boundary condition functions to point to those of the Manufactured model
-    myRadDifOp->setRobinFunctionE( std::bind( &Manufactured_RadDifModel::getRobinValueE, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4 ) );
+    myRadDifOp->setRobinFunctionE( std::bind( &AMP::Operator::Manufactured_RadDifModel::getRobinValueE, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4 ) );
 
     // Point the pseudo Neumann T BC values in the radDifOp to those given by the manufactured problem
-    myRadDifOp->setPseudoNeumannFunctionT( std::bind( &Manufactured_RadDifModel::getPseudoNeumannValueT, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
+    myRadDifOp->setPseudoNeumannFunctionT( std::bind( &AMP::Operator::Manufactured_RadDifModel::getPseudoNeumannValueT, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
 
 
     /****************************************************************
     * Set up relevant vectors                                       *
     ****************************************************************/
     // Create required vectors over the mesh
+    auto manSolVecOldOld = myRadDifOp->createInputVector();
     auto manSolVecOld = myRadDifOp->createInputVector();
     auto manSolVecNew = myRadDifOp->createInputVector();
     auto truncationErrorVec = myRadDifOp->createInputVector();
@@ -188,33 +188,39 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
     // We measure the truncation error in stepping from T - dt to T, so as to measure the truncation error at the same time, irrespective of dt. 
     double newTime = trunc_db->getScalar<double>( "time" );
-    double h       = disc_db->getDatabase( "mesh" )->getScalar<double>( "h" );
+    double h       = myRadDifOp->getMeshSize()[0];
     double dt      = h * trunc_db->getScalar<double>( "CFL" );
     double oldTime = newTime - dt;
+    double oldOldTime = oldTime - dt;
     // Populate vectors with manufactured solution
     myRadDifModel->setCurrentTime( newTime );
     myRadDifOp->fillMultiVectorWithFunction( manSolVecNew, PDEManufacturedSolution );
     myRadDifModel->setCurrentTime( oldTime );
     myRadDifOp->fillMultiVectorWithFunction( manSolVecOld, PDEManufacturedSolution );
+    myRadDifModel->setCurrentTime( oldOldTime );
+    myRadDifOp->fillMultiVectorWithFunction( manSolVecOldOld, PDEManufacturedSolution );
     
 
     /****************************************************************
     * Compute the truncation error                                  *
     ****************************************************************/
-    /**  Given the ODEs u'(t) + L(u, t) = s(t), a BE step from t_old -> t_new == t_old + dt is given
-     * by solving the nonlinear system 
-     *      [u_new + dt*L(u_new, t_new)] = [u_old + dt*s(t_new)]
-     * for u_new.
+    /**  Given the ODEs u'(t) + L(u, t) = s(t), a BDF step from t_old -> t_new == t_old + dt is 
+     * given by solving the nonlinear system 
+     *      [u_new + gamma*L(u_new, t_new)] = RHS,
+     * where RHS == [{4*u_old - u_oldOld}/3 + gamma*s(t_new)]
+     * for u_new, with gamma=2/3*dt.
      * 
      * As such, the truncation error is
-     *      e_new = [ u_new + dt*L(u_new, t_new) ] - [u_old + dt*s(t_new)]
+     *      e_new = [ u_new + dt*L(u_new, t_new) ] - RHS
      */
     // Compute RHS vector
     myRadDifModel->setCurrentTime( newTime ); // Set model to new time to ensure source term and Robin values are sampled at this time.
-    myRadDifOp->fillMultiVectorWithFunction( BDFSourceVec, PDESourceFun );
-    BDFSourceVec->axpby( 1.0, dt, *manSolVecOld ); // this <- 1.0*u_old + dt*this
+    myRadDifOp->fillMultiVectorWithFunction( BDFSourceVec, PDESourceFun ); // BDFSourceVec <- s
+    double gamma = 2.0/3.0 * dt;
+    BDFSourceVec->axpby(  4.0/3.0, gamma, *manSolVecOld    ); // this <- gamma*this + 4/3*u_old 
+    BDFSourceVec->axpby( -1.0/3.0,   1.0, *manSolVecOldOld ); // this <- 1.0*this - 1/3*u_oldOld
     // Compute LHS vector
-    myBERadDifOp->setGamma( dt );
+    myBERadDifOp->setGamma( gamma );
     myBERadDifOp->apply( manSolVecNew, truncationErrorVec ); // e <- u_new + dt*L(u_new)
     // Subtract over RHS vector
     truncationErrorVec->axpby( -1.0, 1.0, *BDFSourceVec ); // e <- e - BDFSourceVec

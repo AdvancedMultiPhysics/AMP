@@ -1,6 +1,11 @@
-#include "RadiationDiffusionModel.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
 
-// Constructor
+namespace AMP::Operator {
+
+/* -------------------------------------------------------------------- *
+ * -------------------- Implementation of RadDifModel ----------------- *
+ * -------------------------------------------------------------------- */
+
 RadDifModel::RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ ) : d_basic_db( basic_db_ ), d_mspecific_db( mspecific_db_ ) { 
 
     AMP_INSIST( basic_db_,     "Non-null input database required!" );
@@ -35,14 +40,14 @@ RadDifModel::RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_
     d_general_db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, false ); 
 }
 
-/* --------------------------------------------------------------------
------------------------------------------------------------------------
--------------------------------------------------------------------- */
 
-Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> specific_db_ ) : RadDifModel( basic_db_, specific_db_ )  { 
+/* -------------------------------------------------------------------- *
+ * -------- Implementation of Mousseau_etal_2000_RadDifModel ---------- *
+ * -------------------------------------------------------------------- */
+
+Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ ) : RadDifModel( basic_db_, mspecific_db_ )  { 
     finalizeGeneralPDEModel_db();
 }
-
 
 double Mousseau_etal_2000_RadDifModel::sourceTerm( int , AMP::Mesh::MeshElement & ) const { return 0.0; }
 double Mousseau_etal_2000_RadDifModel::initialCondition( int component, AMP::Mesh::MeshElement & ) const { 
@@ -58,18 +63,18 @@ double Mousseau_etal_2000_RadDifModel::initialCondition( int component, AMP::Mes
 }
 
 void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
-    /*
-    The specific_db will have:
+    /* The mpecific_db will have:
         z
         k
     */
     
     // Unpack parameters from model-specific database
     // Material atomic number
-    double zatom   = d_mspecific_db->getScalar<double>( "z" );
+    double zatom   = d_mspecific_db->getScalar<double>( "zatom" );
     // The temperature diffusion flux is k*T^{2.5}; eq. (16)
     double k21 = d_mspecific_db->getScalar<double>( "k" );
     
+    // These constants do not appear 
     double k11 = 1.0;
     double k12 = 1.0;
     double k22 = 1.0;
@@ -78,7 +83,7 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
     double n1 = 0.0;
     double a2 = 0.25, b2 = 0.5, r2 = 0;
     double n2 = 0.0;
-    // Set b constants to 1; they're arbitrary non-zero
+    // Set b constants to 1; they're arbitrary non-zero since only Neumann BCs are imposed on the y boundaries
     double a3 = 0.0, b3 = 1.0, r3 = 0.0;
     double n3 = 0.0;
     double a4 = 0.0, b4 = 1.0, r4 = 0.0;
@@ -107,7 +112,7 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
         d_general_db->putScalar<double>( "n4", n4 );
     }
     
-    d_general_db->putScalar<double>( "z",   zatom   );
+    d_general_db->putScalar<double>( "zatom",   zatom   );
     d_general_db->putScalar<double>( "k11", k11 );
     d_general_db->putScalar<double>( "k12", k12 );
     d_general_db->putScalar<double>( "k21", k21 );
@@ -121,9 +126,10 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
     d_general_db_completed = true;
 }
 
-/* --------------------------------------------------------------------
------------------------------------------------------------------------
--------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------- *
+ * ------------- Implementation of Manufactured_RadDifModel ----------- *
+ * -------------------------------------------------------------------- */
 
 Manufactured_RadDifModel::Manufactured_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> specific_db_ ) : RadDifModel( basic_db_, specific_db_ ) { 
     // Set flag indicating this class does provide an implementation of exactSolution
@@ -151,7 +157,7 @@ void Manufactured_RadDifModel::finalizeGeneralPDEModel_db( ) {
         d_general_db->putScalar<double>( "b6", d_mspecific_db->getScalar<double>( "b6" ) );
     }
 
-    d_general_db->putScalar<double>( "z",   d_mspecific_db->getScalar<double>( "z" )   );
+    d_general_db->putScalar<double>( "zatom",   d_mspecific_db->getScalar<double>( "zatom" )   );
     d_general_db->putScalar<double>( "k11", d_mspecific_db->getScalar<double>( "k11" ) );
     d_general_db->putScalar<double>( "k12", d_mspecific_db->getScalar<double>( "k12" ) );
     d_general_db->putScalar<double>( "k21", d_mspecific_db->getScalar<double>( "k21" ) );
@@ -298,7 +304,7 @@ double Manufactured_RadDifModel::getRobinValueE1D_( size_t boundaryID, double a,
 
     // Unpack parameters
     double k11   = d_general_db->getScalar<double>( "k11" );
-    double zatom = d_general_db->getScalar<double>( "z" );
+    double zatom = d_general_db->getScalar<double>( "zatom" );
     // Compute diffusive flux term D_E
     double D_E = 1.0; // For the linear model this is just constant
     if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
@@ -344,7 +350,7 @@ double Manufactured_RadDifModel::getRobinValueE2D_( size_t boundaryID, double a,
 
     // Unpack parameters
     double k11   = d_general_db->getScalar<double>( "k11" );
-    double zatom     = d_general_db->getScalar<double>( "z" );
+    double zatom     = d_general_db->getScalar<double>( "zatom" );
     // Compute diffusive flux term D_E
     double D_E = 1.0; // For the linear model this is just constant
     if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
@@ -381,7 +387,7 @@ double Manufactured_RadDifModel::getRobinValueE3D_( size_t boundaryID, double a,
 
     // Unpack parameters
     double k11   = d_general_db->getScalar<double>( "k11" );
-    double zatom     = d_general_db->getScalar<double>( "z" );
+    double zatom     = d_general_db->getScalar<double>( "zatom" );
     // Compute diffusive flux term D_E
     double D_E = 1.0; // For the linear model this is just constant
     if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
@@ -410,10 +416,10 @@ double Manufactured_RadDifModel::exactSolution1D( int component, double x ) cons
 
     double t = d_settingInitialCondition ? 0.0 : this->getCurrentTime();
     if ( component == 0 ) {
-        double E = kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t);
+        double E = kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t);
         return E;
     } else if ( component == 1 ) {
-        double T = std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t));
+        double T = std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
         return T;
     } else {
         AMP_ERROR( "Invalid component" );
@@ -423,10 +429,10 @@ double Manufactured_RadDifModel::exactSolution1D( int component, double x ) cons
 double Manufactured_RadDifModel::exactSolutionGradient1D( int component, double x ) const {
     double t = this->getCurrentTime();
     if ( component == 0 ) {
-        double dEdx = M_PI*kX*std::cos(M_PI*kT*t)*std::cos(M_PI*kX*x + kXPhi);
+        double dEdx = PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi);
         return dEdx;
     } else if ( component == 1 ) {
-        double dTdx = (1.0/3.0)*M_PI*kX*std::cos(M_PI*kT*t)*std::cos(M_PI*kX*x + kXPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 2.0/3.0);
+        double dTdx = (1.0/3.0)*PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0);
         return dTdx;
     } else {
         AMP_ERROR( "Invalid component" );
@@ -442,14 +448,14 @@ double Manufactured_RadDifModel::sourceTerm1D( int component, double x ) const {
     double k12  = d_general_db->getScalar<double>( "k12" );
     double k21  = d_general_db->getScalar<double>( "k21" );
     double k22  = d_general_db->getScalar<double>( "k22" );
-    double zatom = d_general_db->getScalar<double>( "z" );
+    double zatom = d_general_db->getScalar<double>( "zatom" );
 
     if ( d_general_db->getScalar<std::string>( "model" ) == "linear" ) {
         if ( component == 0 ) {
-            double sE = std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t) - M_PI*kT*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t));
+            double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sE;
         } else if ( component == 1 ) {
-            double sT = ((2.0/9.0)*std::pow(M_PI, 2)*k21*std::pow(kX, 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2) + (1.0/3.0)*M_PI*(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t))*(M_PI*k21*std::pow(kX, 2)*std::cos(M_PI*kT*t) - kT*std::sin(M_PI*kT*t))*std::sin(M_PI*kX*x + kXPhi) - k22*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 5.0/3.0)*(kE0 - std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)))/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 5.0/3.0);
+            double sT = ((2.0/9.0)*std::pow(PI, 2)*k21*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2) + (1.0/3.0)*PI*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t))*(PI*k21*std::pow(kX, 2)*std::cos(PI*kT*t) - kT*std::sin(PI*kT*t))*std::sin(PI*kX*x + kXPhi) - k22*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)))/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0);
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -457,10 +463,10 @@ double Manufactured_RadDifModel::sourceTerm1D( int component, double x ) const {
 
     } else if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         if ( component == 0 ) {
-            double sE = ((1.0/3.0)*std::pow(M_PI, 2)*k11*kE0*std::pow(kX, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t) + (1.0/3.0)*std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2) - 1.0/3.0*std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2) - M_PI*kT*std::pow(zatom, 3)*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi) - k12*std::pow(zatom, 6)*std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)) + k12*std::pow(zatom, 6))/std::pow(zatom, 3);
+            double sE = ((1.0/3.0)*std::pow(PI, 2)*k11*kE0*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) + (1.0/3.0)*std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kT*t), 2) - 1.0/3.0*std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2) - PI*kT*std::pow(zatom, 3)*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - k12*std::pow(zatom, 6)*std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) + k12*std::pow(zatom, 6))/std::pow(zatom, 3);
             return sE;
         } else if ( component == 1 ) {
-            double sT = ((1.0/72.0)*std::pow(M_PI, 2)*k21*std::pow(kX, 2)*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 5.0/3.0)*(24*kE0*std::sin(M_PI*kX*x + kXPhi) + 10*std::cos(M_PI*kT*t) - 7*std::cos(-M_PI*kT*t + 2*M_PI*kX*x + 2*kXPhi) - 7*std::cos(M_PI*kT*t + 2*M_PI*kX*x + 2*kXPhi))*std::cos(M_PI*kT*t) - 1.0/3.0*M_PI*kT*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 11.0/6.0)*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi) - k22*std::pow(zatom, 3)*(-std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 17.0/6.0) + std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 5.0/2.0)))/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t), 5.0/2.0);
+            double sT = ((1.0/72.0)*std::pow(PI, 2)*k21*std::pow(kX, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)*(24*kE0*std::sin(PI*kX*x + kXPhi) + 10*std::cos(PI*kT*t) - 7*std::cos(-PI*kT*t + 2*PI*kX*x + 2*kXPhi) - 7*std::cos(PI*kT*t + 2*PI*kX*x + 2*kXPhi))*std::cos(PI*kT*t) - 1.0/3.0*PI*kT*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 11.0/6.0)*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - k22*std::pow(zatom, 3)*(-std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 17.0/6.0) + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/2.0)))/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/2.0);
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -474,10 +480,10 @@ double Manufactured_RadDifModel::sourceTerm1D( int component, double x ) const {
 double Manufactured_RadDifModel::exactSolution2D( int component, double x, double y ) const {
     double t = d_settingInitialCondition ? 0.0 : this->getCurrentTime();
     if ( component == 0 ) {
-        double E = kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi);
+        double E = kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi);
         return E;
     } else if ( component == 1 ) {
-        double T = std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi));
+        double T = std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
         return T;
     } else {
         AMP_ERROR( "Invalid component" );
@@ -489,10 +495,10 @@ double Manufactured_RadDifModel::exactSolutionGradient2D( int component, double 
     double t = this->getCurrentTime();
     if ( component == 0 ) {
         if ( grad_component == "x" ) {
-            double dEdx = M_PI*kX*std::cos(M_PI*kT*t)*std::cos(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi);
+            double dEdx = PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi);
             return dEdx;
         } else if ( grad_component == "y" ) {
-            double dEdy = -M_PI*kY*std::sin(M_PI*kX*x + kXPhi)*std::sin(M_PI*kY*y + kYPhi)*std::cos(M_PI*kT*t);
+            double dEdy = -PI*kY*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kY*y + kYPhi)*std::cos(PI*kT*t);
             return dEdy;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -500,10 +506,10 @@ double Manufactured_RadDifModel::exactSolutionGradient2D( int component, double 
 
     } else if ( component == 1 ) {
         if ( grad_component == "x" ) {
-            double dTdx = (1.0/3.0)*M_PI*kX*std::cos(M_PI*kT*t)*std::cos(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 2.0/3.0);
+            double dTdx = (1.0/3.0)*PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0/3.0);
             return dTdx;
         } else if ( grad_component == "y" ) {
-            double dTdy = -1.0/3.0*M_PI*kY*std::sin(M_PI*kX*x + kXPhi)*std::sin(M_PI*kY*y + kYPhi)*std::cos(M_PI*kT*t)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 2.0/3.0);
+            double dTdy = -1.0/3.0*PI*kY*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kY*y + kYPhi)*std::cos(PI*kT*t)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0/3.0);
             return dTdy;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -523,14 +529,14 @@ double Manufactured_RadDifModel::sourceTerm2D( int component, double x, double y
     double k12  = d_general_db->getScalar<double>( "k12" );
     double k21  = d_general_db->getScalar<double>( "k21" );
     double k22  = d_general_db->getScalar<double>( "k22" );
-    double zatom    = d_general_db->getScalar<double>( "z" );
+    double zatom    = d_general_db->getScalar<double>( "zatom" );
 
     if ( d_general_db->getScalar<std::string>( "model" ) == "linear" ) {
         if ( component == 0 ) {
-            double sE = std::pow(M_PI, 2)*k11*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi) - M_PI*kT*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi));
+            double sE = std::pow(PI, 2)*k11*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
             return sE;
         } else if ( component == 1 ) {
-            double sT = ((1.0/9.0)*std::pow(M_PI, 2)*k21*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 4.0/3.0)*(3*(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi))*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) + 2*(std::pow(kX, 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) + std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2))*std::cos(M_PI*kT*t))*std::cos(M_PI*kT*t) - 1.0/3.0*M_PI*kT*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 7.0/3.0)*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) - k22*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 3)*(kE0 - std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)))/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 3);
+            double sT = ((1.0/9.0)*std::pow(PI, 2)*k21*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 4.0/3.0)*(3*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) + 2*(std::pow(kX, 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) + std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2))*std::cos(PI*kT*t))*std::cos(PI*kT*t) - 1.0/3.0*PI*kT*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 7.0/3.0)*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) - k22*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 3)*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)))/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 3);
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -538,10 +544,10 @@ double Manufactured_RadDifModel::sourceTerm2D( int component, double x, double y
 
     } else if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         if ( component == 0 ) {
-            double sE = (1.0/3.0)*(std::pow(M_PI, 2)*k11*kE0*std::pow(kX, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi) + std::pow(M_PI, 2)*k11*kE0*std::pow(kY, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi) + std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) - std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) - std::pow(M_PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2) + std::pow(M_PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) - 3*M_PI*kT*std::pow(zatom, 3)*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) - 3*k12*std::pow(zatom, 6)*std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)) + 3*k12*std::pow(zatom, 6))/std::pow(zatom, 3);
+            double sE = (1.0/3.0)*(std::pow(PI, 2)*k11*kE0*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + std::pow(PI, 2)*k11*kE0*std::pow(kY, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) - std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) - std::pow(PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2) + std::pow(PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) - 3*PI*kT*std::pow(zatom, 3)*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) - 3*k12*std::pow(zatom, 6)*std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)) + 3*k12*std::pow(zatom, 6))/std::pow(zatom, 3);
             return sE;
         } else if ( component == 1 ) {
-            double sT = -std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.75)*(std::pow(M_PI, 2)*k21*std::sqrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi))*(0.375*std::pow(kX, 2)*std::cos(M_PI*kT*t)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2) + 0.375*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2)*std::cos(M_PI*kT*t) - 0.5*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 1.0)*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi))*std::cos(M_PI*kT*t) + 0.5*M_PI*kT*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 0.25)*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi) + k22*std::pow(zatom*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), -0.5), 3.0)*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 0.75)*(kE0 - std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi), 2.0) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)));
+            double sT = -std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), -0.75)*(std::pow(PI, 2)*k21*std::sqrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*(0.375*std::pow(kX, 2)*std::cos(PI*kT*t)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) + 0.375*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::cos(PI*kT*t) - 0.5*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 1.0)*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi))*std::cos(PI*kT*t) + 0.5*PI*kT*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 0.25)*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) + k22*std::pow(zatom*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), -0.5), 3.0)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 0.75)*(kE0 - std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)));
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -556,10 +562,10 @@ double Manufactured_RadDifModel::sourceTerm2D( int component, double x, double y
 double Manufactured_RadDifModel::exactSolution3D( int component, double x, double y, double z ) const {
     double t = d_settingInitialCondition ? 0.0 : this->getCurrentTime();
     if ( component == 0 ) {
-        double E = kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi);
+        double E = kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi);
         return E;
     } else if ( component == 1 ) {
-        double T = std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi));
+        double T = std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi));
         return T;
     } else {
         AMP_ERROR( "Invalid component" );
@@ -571,13 +577,13 @@ double Manufactured_RadDifModel::exactSolutionGradient3D( int component, double 
     double t = this->getCurrentTime();
     if ( component == 0 ) {
         if ( grad_component == "x" ) {
-            double dEdx = M_PI*kX*std::cos(M_PI*kT*t)*std::cos(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi);
+            double dEdx = PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi);
             return dEdx;
         } else if ( grad_component == "y" ) {
-            double dEdy = -M_PI*kY*std::sin(M_PI*kX*x + kXPhi)*std::sin(M_PI*kY*y + kYPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kZ*z + kZPhi);
+            double dEdy = -PI*kY*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kY*y + kYPhi)*std::cos(PI*kT*t)*std::cos(PI*kZ*z + kZPhi);
             return dEdy;
         } else if ( grad_component == "z" ) {
-            double dEdz = -M_PI*kZ*std::sin(M_PI*kX*x + kXPhi)*std::sin(M_PI*kZ*z + kZPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi);
+            double dEdz = -PI*kZ*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kZ*z + kZPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi);
             return dEdz;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -585,13 +591,13 @@ double Manufactured_RadDifModel::exactSolutionGradient3D( int component, double 
 
     } else if ( component == 1 ) {
         if ( grad_component == "x" ) {
-            double dTdx = (1.0/3.0)*M_PI*kX*std::cos(M_PI*kT*t)*std::cos(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0);
+            double dTdx = (1.0/3.0)*PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0);
             return dTdx;
         } else if ( grad_component == "y" ) {
-            double dTdy = -1.0/3.0*M_PI*kY*std::sin(M_PI*kX*x + kXPhi)*std::sin(M_PI*kY*y + kYPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0);
+            double dTdy = -1.0/3.0*PI*kY*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kY*y + kYPhi)*std::cos(PI*kT*t)*std::cos(PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0);
             return dTdy;
         } else if ( grad_component == "z" ) {
-            double dTdz = -1.0/3.0*M_PI*kZ*std::sin(M_PI*kX*x + kXPhi)*std::sin(M_PI*kZ*z + kZPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0);
+            double dTdz = -1.0/3.0*PI*kZ*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kZ*z + kZPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0);
             return dTdz;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -611,14 +617,14 @@ double Manufactured_RadDifModel::sourceTerm3D( int component, double x, double y
     double k12   = d_general_db->getScalar<double>( "k12" );
     double k21   = d_general_db->getScalar<double>( "k21" );
     double k22   = d_general_db->getScalar<double>( "k22" );
-    double zatom = d_general_db->getScalar<double>( "z" );
+    double zatom = d_general_db->getScalar<double>( "zatom" );
 
     if ( d_general_db->getScalar<std::string>( "model" ) == "linear" ) {
         if ( component == 0 ) {
-            double sE = std::pow(M_PI, 2)*k11*std::pow(kX, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) + std::pow(M_PI, 2)*k11*std::pow(kY, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) + std::pow(M_PI, 2)*k11*std::pow(kZ, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) - M_PI*kT*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)) + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi));
+            double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + std::pow(PI, 2)*k11*std::pow(kY, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + std::pow(PI, 2)*k11*std::pow(kZ, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi));
             return sE;
         } else if ( component == 1 ) {
-            double sT = -1.0/3.0*M_PI*kT*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0) - k21*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kX, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0) - 2.0/9.0*std::pow(M_PI, 2)*std::pow(kX, 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 5.0/3.0)) - k21*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kY, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0) - 2.0/9.0*std::pow(M_PI, 2)*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 5.0/3.0)) - k21*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kZ, 2)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0) - 2.0/9.0*std::pow(M_PI, 2)*std::pow(kZ, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kZ*z + kZPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 5.0/3.0)) + k22*(-kE0 + std::cbrt(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)) - std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi));
+            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 5.0/3.0)) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 5.0/3.0)) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kZ, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kZ, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kZ*z + kZPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 5.0/3.0)) + k22*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi));
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -626,10 +632,10 @@ double Manufactured_RadDifModel::sourceTerm3D( int component, double x, double y
 
     } else if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         if ( component == 0 ) {
-            double sE = -M_PI*kT*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) - k11*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kX, 2)*(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(M_PI, 2)*std::pow(kX, 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kZ*z + kZPhi), 2)/std::pow(zatom, 3)) - k11*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kY, 2)*(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(M_PI, 2)*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kZ*z + kZPhi), 2)/std::pow(zatom, 3)) - k11*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kZ, 2)*(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi))*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(M_PI, 2)*std::pow(kZ, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kZ*z + kZPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2)/std::pow(zatom, 3)) - k12*std::pow(zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 4.0/3.0) - std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi))/(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi));
+            double sE = -PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(zatom, 3)) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(zatom, 3)) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kZ, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kZ, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kZ*z + kZPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(zatom, 3)) - k12*std::pow(zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi));
             return sE;
         } else if ( component == 1 ) {
-            double sT = -1.0/3.0*M_PI*kT*std::sin(M_PI*kT*t)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 2.0/3.0) - k21*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kX, 2)*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 1.0/6.0)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) + (1.0/18.0)*std::pow(M_PI, 2)*std::pow(kX, 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kX*x + kXPhi), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 5.0/6.0)) - k21*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kY, 2)*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 1.0/6.0)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) + (1.0/18.0)*std::pow(M_PI, 2)*std::pow(kY, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kY*y + kYPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 5.0/6.0)) - k21*(-1.0/3.0*std::pow(M_PI, 2)*std::pow(kZ, 2)*std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 1.0/6.0)*std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi) + (1.0/18.0)*std::pow(M_PI, 2)*std::pow(kZ, 2)*std::pow(std::sin(M_PI*kX*x + kXPhi), 2)*std::pow(std::sin(M_PI*kZ*z + kZPhi), 2)*std::pow(std::cos(M_PI*kT*t), 2)*std::pow(std::cos(M_PI*kY*y + kYPhi), 2)/std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 5.0/6.0)) + k22*std::pow(zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi), 4.0/3.0) - std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi))/(kE0 + std::sin(M_PI*kX*x + kXPhi)*std::cos(M_PI*kT*t)*std::cos(M_PI*kY*y + kYPhi)*std::cos(M_PI*kZ*z + kZPhi));
+            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 2.0/3.0) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 5.0/6.0)) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 5.0/6.0)) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kZ, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kZ, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kZ*z + kZPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 5.0/6.0)) + k22*std::pow(zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi));
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -638,3 +644,6 @@ double Manufactured_RadDifModel::sourceTerm3D( int component, double x, double y
         AMP_ERROR( "Invalid model" );
     } 
 }
+
+} // namespace AMP::Operator
+

@@ -1,7 +1,7 @@
 Manufactured_Parameters{ 
   model = "nonlinear"
   #model = "linear"
-  z = 1.0
+  zatom = 1.0
   k11 = 1.0
   k12 = 1.0
   k21 = 0.1
@@ -49,7 +49,7 @@ Mousseau_etal_2000_Parameters{
   #k = 0.1
   
   # In initial tests this is constant 1 everywhere
-  z = 10.0
+  zatom = 10.0
 }
 
 

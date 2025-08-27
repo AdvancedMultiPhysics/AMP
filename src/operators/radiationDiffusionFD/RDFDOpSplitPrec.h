@@ -51,6 +51,10 @@
 class BERadDifOpPJac;
 
 
+// todo: what is thre appropriate namespace here? Maybe none?
+
+
+namespace AMP::Operator {
 
 
 /* An operator-split, block-based preconditioner for the LinearOperator 
@@ -324,6 +328,9 @@ private:
     }
 
 };
+
+
+} // namespace AMP::Operator
 
 
 

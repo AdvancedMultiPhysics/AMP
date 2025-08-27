@@ -51,32 +51,32 @@ def solveForGhostFromRobinBC():
 
 # Exact solutions
 # The equilibirum condition is E = T^4, let's set the manufactured solution to be E = T^3, so that the reaction terms in the PDE don't just evaluate to zero.
-def manufacturedSolutions1D(x, M_PI, t):
+def manufacturedSolutions1D(x, PI, t):
     kE0, kT, kX, kXPhi = sym.symbols('kE0 kT kX kXPhi')
     E = ( kE0 + 
-         sym.sin( kX * M_PI * x + kXPhi ) *
-         sym.cos( kT * M_PI * t ) 
+         sym.sin( kX * PI * x + kXPhi ) *
+         sym.cos( kT * PI * t ) 
         )
     T = E**sym.Rational(1, 3)
     return E, T
 
-def manufacturedSolutions2D(x, y, M_PI, t):
+def manufacturedSolutions2D(x, y, PI, t):
     kE0, kT, kX, kXPhi, kY, kYPhi = sym.symbols('kE0 kT kX kXPhi kY kYPhi')
     E = ( kE0 + 
-         sym.sin( kX * M_PI * x + kXPhi ) * 
-         sym.cos( kY * M_PI * y + kYPhi ) * 
-         sym.cos( kT * M_PI * t ) 
+         sym.sin( kX * PI * x + kXPhi ) * 
+         sym.cos( kY * PI * y + kYPhi ) * 
+         sym.cos( kT * PI * t ) 
         )
     T = E**sym.Rational(1, 3)
     return E, T
 
-def manufacturedSolutions3D(x, y, z, M_PI, t):
+def manufacturedSolutions3D(x, y, z, PI, t):
     kE0, kT, kX, kXPhi, kY, kYPhi, kZ, kZPhi = sym.symbols('kE0 kT kX kXPhi kY kYPhi kZ kZPhi')
     E = ( kE0 + 
-         sym.sin( kX * M_PI * x + kXPhi ) * 
-         sym.cos( kY * M_PI * y + kYPhi ) * 
-         sym.cos( kZ * M_PI * z + kZPhi ) * 
-         sym.cos( kT * M_PI * t ) 
+         sym.sin( kX * PI * x + kXPhi ) * 
+         sym.cos( kY * PI * y + kYPhi ) * 
+         sym.cos( kZ * PI * z + kZPhi ) * 
+         sym.cos( kT * PI * t ) 
         )
     T = E**sym.Rational(1, 3)
     return E, T
@@ -154,15 +154,15 @@ def manufacturedModel( dim, model ):
     print("    {} model {}D    ".format(model, dim))
     print("-----------------------------", sep="\n")
 
-    x, y, z, M_PI, zatom, k11, k12, k21, k22, t = sym.symbols('x y z M_PI zatom k11 k12 k21 k22 t')
+    x, y, z, PI, zatom, k11, k12, k21, k22, t = sym.symbols('x y z PI zatom k11 k12 k21 k22 t')
 
     # Exact solutions
     if dim == 1:
-        E, T = manufacturedSolutions1D(x, M_PI, t) 
+        E, T = manufacturedSolutions1D(x, PI, t) 
     elif dim == 2:
-        E, T = manufacturedSolutions2D(x, y, M_PI, t) 
+        E, T = manufacturedSolutions2D(x, y, PI, t) 
     elif dim == 3:
-        E, T = manufacturedSolutions3D(x, y, z, M_PI, t) 
+        E, T = manufacturedSolutions3D(x, y, z, PI, t) 
 
     if model == "nonlinear":
         sigma = (zatom/T)**3
@@ -203,11 +203,11 @@ def manufacturedModel( dim, model ):
 
 
     # # Create lambda functions for sympy expressions
-    # Epy = sym.lambdify((x, y, M_PI), E, modules=['numpy'])
-    # Tpy = sym.lambdify((x, y, M_PI), T, modules=['numpy'])
+    # Epy = sym.lambdify((x, y, PI), E, modules=['numpy'])
+    # Tpy = sym.lambdify((x, y, PI), T, modules=['numpy'])
 
-    # LEpy = sym.lambdify((x, y, M_PI, zatom, k11, k12), LE, modules=['numpy'])
-    # LTpy = sym.lambdify((x, y, M_PI, zatom, k21, k22), LT, modules=['numpy'])
+    # LEpy = sym.lambdify((x, y, PI, zatom, k11, k12), LE, modules=['numpy'])
+    # LTpy = sym.lambdify((x, y, PI, zatom, k21, k22), LT, modules=['numpy'])
 
 
     # xnum = np.linspace(0, 1)

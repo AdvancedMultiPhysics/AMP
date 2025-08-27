@@ -1,12 +1,10 @@
-// Class implementations for discretizations and solvers
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
 
-#include "RadiationDiffusionFDDiscretization.h"
+namespace AMP::Operator {
 
-
-
-/** ---------------------------------------------------------
- *          Implementation of RadDifOpPJacData
- *  ------------------------------------------------------ */
+/** -------------------------------------------------------- *
+ *  ----------- Implementation of RadDifOpPJacData --------- *
+ *  -------------------------------------------------------- */
 std::shared_ptr<AMP::LinearAlgebra::Matrix> RadDifOpPJacData::get_d_E() {
     d_dataMaybeOverwritten = true;
     return d_E;
@@ -33,11 +31,9 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_TT() {
 }
 
 
-
-/* --------------------------------------
-    Implementation of RadDifOpPJac 
------------------------------------------ */
-
+/** -------------------------------------------------------- *
+ *  ------------ Implementation of RadDifOpPJac ------------ *
+ *  -------------------------------------------------------- */
 RadDifOpPJac::RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParameters> params_) : 
         AMP::Operator::LinearOperator( params_ ) {
 
@@ -76,19 +72,15 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJac::createInputVector() co
 };
 
 
-
-
-
-/* Picard linearization of a RadDifOp. This LinearOperator has the following structure: 
-[ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
-[ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
-*/
+/** Picard linearization of a RadDifOp. This LinearOperator has the following structure: 
+ * [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
+ * [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
+ */
 void RadDifOpPJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  ) {
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "BERadDifOpJac::applyFromData() " << std::endl;
     }
-
 
     // Check that if Jacobian data has been modified that the caller of this function really intends to do the apply with modified data.
     if ( d_data->d_dataMaybeOverwritten ) {
@@ -249,24 +241,21 @@ void RadDifOpPJac::fillDiffusionMatrixWithData(
 }
 
 
-
 void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec ) {
     
     // Unpack z
-    auto zatom = d_RadDifOp->d_db->getDatabase( "PDE" )->getScalar<double>( "z" ); 
+    auto zatom = d_RadDifOp->d_db->getWithDefault<double>( "zatom", 1.0 ); 
 
     // --- Iterate over all local rows ---
-    // Get local grid index box w/ zero ghosts
-    auto localBox  = getLocalNodeBox( d_RadDifOp->d_BoxMesh );
     // Placeholder for current grid index
     std::array<int, 3> ijk;
 
     // Iterate over local box
-    for ( auto k = localBox.first[2]; k <= localBox.last[2]; k++ ) {
+    for ( auto k = d_RadDifOp->d_localBox->first[2]; k <= d_RadDifOp->d_localBox->last[2]; k++ ) {
         ijk[2] = k;
-        for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
+        for ( auto j = d_RadDifOp->d_localBox->first[1]; j <= d_RadDifOp->d_localBox->last[1]; j++ ) {
             ijk[1] = j;
-            for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+            for ( auto i = d_RadDifOp->d_localBox->first[0]; i <= d_RadDifOp->d_localBox->last[0]; i++ ) {
                 ijk[0] = i;
 
                 // Get T at current node (reaction stencil doesn't depend on E) 
@@ -291,18 +280,7 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
     d_data->r_TT->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
-/**
- * Get CSR data for row of the Picard-linearized diffusion matrix dE or dT.
- * @param[in] component 0 (energy) or 1 (temperature) to get CSR data for  
- * @param[in] E_vec E component of the frozen vector d_frozenVec
- * @param[in] T_vec T component of the frozen vector d_frozenVec
- * @param[in] row the row to retrieve (a scalar index)
- * @param[out] cols the column indices for the non-zeros in the given row, with the diagonal entry first
- * @param[out] data the data for the non-zeros in the given row
- * 
- * @note this function implicity assumes that the stencil does not touch both boundaries at once 
- * (corresponding to the number of interior DOFs in the given dimension being larger than one)
- */
+
 void RadDifOpPJac::getCSRDataDiffusionMatrix( 
                                 size_t component,
                                 std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
@@ -314,7 +292,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     AMP_INSIST( component == 0 || component == 1, "Invalid component" );
 
     // Unpack z
-    auto zatom = d_RadDifOp->d_db->getDatabase( "PDE" )->getScalar<double>( "z" ); 
+    auto zatom = d_RadDifOp->d_db->getWithDefault<double>( "zatom", 1.0 ); 
 
     // Placeholder arrays for values used in 3-point stencils
     std::array<double, 3> ELoc3;
@@ -330,7 +308,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     /**
      * We sum over dimensions, resulting in columns ordered as
      * O, W, E, S, N, D, U
-     * But note that in boundary-adjacent some of these connections can disappear
+     * But note that in boundary-adjacent rows some of these connections can disappear
      * The number of DOFs per non-boundary row is 1 + 2*dim. 
      */
 
@@ -455,18 +433,17 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
 }; 
 
 
-/* --------------------------------------------------------------------------------
-                          Implementation of RadDifOp 
---------------------------------------------------------------------------------- */
-
-// Constants scaling factors k_ij in the PDE are declared const, so must be set in the initializer list. This makes some of the error checking below redundant
+/** -------------------------------------------------------- *
+ *  --------------- Implementation of RadDifOp ------------- *
+ *  -------------------------------------------------------- */
+// Constants scaling factors k_ij in the PDE are declared const, so must be set in the initializer list. Note that initializer list will fail if these constants do not exist (or their parent database does not)
 RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params) : 
     AMP::Operator::Operator( params ),        
-    d_k11( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k11" ) ),
-    d_k12( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k12" ) ),
-    d_k21( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k21" ) ),
-    d_k22( params->d_db->getDatabase( "PDE" )->getScalar<double>( "k22" ) )
-         {
+    d_k11( params->d_db->getScalar<double>( "k11" ) ),
+    d_k12( params->d_db->getScalar<double>( "k12" ) ),
+    d_k21( params->d_db->getScalar<double>( "k21" ) ),
+    d_k22( params->d_db->getScalar<double>( "k22" ) )
+{
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
         AMP::pout << "RadDifOp::RadDifOp() " << std::endl; 
@@ -474,23 +451,18 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
 
     // Unpack parameter database
     d_db = params->d_db;
-    AMP_INSIST(  d_db, "Requires non-null db" );
 
     // Some basic input checking on the incoming database
     // PDE parameters
-    auto PDE_db = d_db->getDatabase( "PDE" ); 
-    AMP_INSIST( PDE_db,  "PDE_db is null" );
-    auto model = PDE_db->getWithDefault<std::string>( "model", "" );
+    auto model = d_db->getWithDefault<std::string>( "model", "" );
     AMP_INSIST( model == "linear" || model == "nonlinear", "model must be 'linear' or 'nonlinear'" );
-    d_nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
-    d_fluxLimited = PDE_db->getScalar<bool>( "fluxLimited" );
+    d_nonlinearModel = ( d_db->getScalar<std::string>( "model" ) == "nonlinear" );
+    d_fluxLimited = d_db->getScalar<bool>( "fluxLimited" );
     // Mesh database
-    AMP_INSIST( d_db->getDatabase( "mesh" ), "mesh_db is null" );
-    
 
     // Set DOFManagers
     this->setDOFManagers();
-    AMP_INSIST(  d_multiDOFMan, "Requires non-null multiDOF" );
+    AMP_INSIST( d_multiDOFMan, "Requires non-null multiDOF" );
 
     // Keep a pointer to my BoxMesh to save having to do this downcast repeatedly
     d_BoxMesh = std::dynamic_pointer_cast<AMP::Mesh::BoxMesh>( this->getMesh() );
@@ -520,7 +492,7 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
                     "Mesh must be generated with 'cube generator'!" );
     }
 
-    // Ensure boundaryIDs are 1,2, 3,4, 5,6 for dim 0, 1, 2
+    // Ensure boundaryIDs are 1,2, 3,4, 5,6 for dims 0, 1, 2
     std::vector<int> boundaryIDs = d_BoxMesh->getBoundaryIDs();
     for ( size_t dim = 0; dim < d_dim; dim++ ) {
         AMP_INSIST(boundaryIDs[2*dim]   == int(2*dim+1), "Invalid boundaryID");
@@ -535,8 +507,9 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     // Compute mesh spacings in each dimension
     // [ x_min x_max y_min y_max z_min z_max ]
     auto range = d_BoxMesh->getBoundingBox();
-    // Set d_globalBox
+    // Set node boxes
     d_globalBox = std::make_shared<AMP::Mesh::BoxMesh::Box>( getGlobalNodeBox() );
+    d_localBox  = std::make_shared<AMP::Mesh::BoxMesh::Box>( getLocalNodeBox() );
 
     // There are nk+1 grid points in dimension k, nk = d_globalBox.last[k] - d_globalBox.first[k], such
     // that the mesh spacing is hk = (xkMax - xkMin)/nk
@@ -569,6 +542,20 @@ AMP::Mesh::BoxMesh::Box RadDifOp::getGlobalNodeBox() const
         }
     }
     return global;
+}
+
+AMP::Mesh::BoxMesh::Box RadDifOp::getLocalNodeBox() const {
+    auto local  = d_BoxMesh->getGlobalBox();
+    auto global = d_BoxMesh->getGlobalBox();
+    for ( int d = 0; d < 3; d++ ) {
+        if ( local.last[d] == global.last[d] ) {
+            // An empty box in dimension d has a last index of 0; we should preserve that behavior
+            if ( local.last[d] > 0 ) { 
+                local.last[d]++;
+            }
+        }
+    }
+    return local;
 }
 
 std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const {
@@ -667,7 +654,7 @@ void RadDifOp::setDOFManagers() {
     d_scalarDOFMan = scalarDOFManager;
     d_multiDOFMan  = multiDOFManager;
 
-    #if 0
+    #if 1
     comm.barrier();
     // This demonstrates how DOFs are organized on the mesh by multiDOFManager 
     // Iterate through the mesh, and pull out DOFs associated with each mesh element from the multiDOF
@@ -703,9 +690,10 @@ void RadDifOp::setDOFManagers() {
     #endif
 
 
+    
+    #if 0
     // This is how we get nodal ordering rather than variable ordering
     d_nodalDOFMan = AMP::Discretization::boxMeshDOFManager::create(mesh, myGeomType, gcw, 2);
-    #if 0
     AMP::pout << "2 DOFs per element: DOF E and T global indices" << std::endl;
     int count = 0;
     for (auto elem = iter.begin(); elem != iter.end(); elem++ ) {
@@ -755,7 +743,7 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
     }
 
     // --- Unpack parameters ---
-    double zatom         = this->d_db->getDatabase( "PDE" )->getScalar<double>( "z" );  
+    double zatom = this->d_db->getWithDefault<double>( "zatom", 1.0 );  
     
     // --- Unpack inputs ---
     // Downcast input Vectors to MultiVectors 
@@ -772,8 +760,6 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
 
 
     // --- Iterate over all local rows ---
-    // Get local grid index box w/ zero ghosts
-    auto localBox  = getLocalNodeBox( d_BoxMesh );
     // Placeholder for current grid index
     std::array<int, 3> ijk;
     // Placeholder arrays for values used in 3-point stencils
@@ -781,11 +767,11 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
     std::array<double, 3> TLoc3;
 
     // Iterate over local box
-    for ( auto k = localBox.first[2]; k <= localBox.last[2]; k++ ) {
+    for ( auto k = d_localBox->first[2]; k <= d_localBox->last[2]; k++ ) {
         ijk[2] = k;
-        for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
+        for ( auto j = d_localBox->first[1]; j <= d_localBox->last[1]; j++ ) {
             ijk[1] = j;
-            for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+            for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
                 ijk[0] = i;
 
                 /** --- Compute coefficients to apply stencil in a semi-linear fashion */
@@ -914,23 +900,23 @@ size_t RadDifOp::getBoundaryIDFromDim(size_t dim, BoundarySide side) const {
 void RadDifOp::getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk) 
 {
     if ( boundaryID == 1 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a1" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b1" );
+        ak = d_db->getScalar<double>( "a1" );
+        bk = d_db->getScalar<double>( "b1" );
     } else if ( boundaryID == 2 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a2" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b2" );
+        ak = d_db->getScalar<double>( "a2" );
+        bk = d_db->getScalar<double>( "b2" );
     } else if ( boundaryID == 3 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a3" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b3" );
+        ak = d_db->getScalar<double>( "a3" );
+        bk = d_db->getScalar<double>( "b3" );
     } else if ( boundaryID == 4 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a4" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b4" );
+        ak = d_db->getScalar<double>( "a4" );
+        bk = d_db->getScalar<double>( "b4" );
     } else if ( boundaryID == 5 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a5" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b5" );
+        ak = d_db->getScalar<double>( "a5" );
+        bk = d_db->getScalar<double>( "b5" );
     } else if ( boundaryID == 6 ) {
-        ak = d_db->getDatabase( "PDE" )->getScalar<double>( "a6" );
-        bk = d_db->getDatabase( "PDE" )->getScalar<double>( "b6" );
+        ak = d_db->getScalar<double>( "a6" );
+        bk = d_db->getScalar<double>( "b6" );
     } else {
         AMP_ERROR( "Invalid boundaryID" );
     }
@@ -938,17 +924,17 @@ void RadDifOp::getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double 
 
 double RadDifOp::robinFunctionEFromDB( size_t boundaryID ){
     if ( boundaryID == 1 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "r1" );
+        return d_db->getScalar<double>( "r1" );
     } else if ( boundaryID == 2 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "r2" );
+        return d_db->getScalar<double>( "r2" );
     } else if ( boundaryID == 3 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "r3" );
+        return d_db->getScalar<double>( "r3" );
     } else if ( boundaryID == 4 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "r4" );
+        return d_db->getScalar<double>( "r4" );
     } else if ( boundaryID == 5 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "r5" );
+        return d_db->getScalar<double>( "r5" );
     } else if ( boundaryID == 6 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "r6" );
+        return d_db->getScalar<double>( "r6" );
     } else { 
         AMP_ERROR( "Invalid boundaryID" );
     }
@@ -956,17 +942,17 @@ double RadDifOp::robinFunctionEFromDB( size_t boundaryID ){
 
 double RadDifOp::pseudoNeumannFunctionTFromDB( size_t boundaryID ) {
     if ( boundaryID == 1 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "n1" );
+        return d_db->getScalar<double>( "n1" );
     } else if ( boundaryID == 2 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "n2" );
+        return d_db->getScalar<double>( "n2" );
     } else if ( boundaryID == 3 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "n3" );
+        return d_db->getScalar<double>( "n3" );
     } else if ( boundaryID == 4 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "n4" );
+        return d_db->getScalar<double>( "n4" );
     } else if ( boundaryID == 5 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "n5" );
+        return d_db->getScalar<double>( "n5" );
     } else if ( boundaryID == 6 ) {
-        return d_db->getDatabase( "PDE" )->getScalar<double>( "n6" );
+        return d_db->getScalar<double>( "n6" );
     } else { 
         AMP_ERROR( "Invalid boundaryID" );
     }
@@ -976,7 +962,7 @@ double RadDifOp::pseudoNeumannFunctionTFromDB( size_t boundaryID ) {
 void RadDifOp::ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ) {
 
     // Unpack parameters
-    auto zatom = d_db->getDatabase( "PDE" )->getScalar<double>( "z" );
+    auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 );
 
     // Solve for Tg
     Tg = ghostValueSolveT( n, h, Tint );
@@ -1093,6 +1079,7 @@ void RadDifOp::unpackLocalStencilData(
 
     // The current DOF
     size_t dof_O = gridIndsToScalarDOF( ijk );
+    AMP::pout << "++ dof O=" << dof_O << "\n";
     ELoc3[1] = E_vec->getValueByGlobalID<double>( dof_O );
     TLoc3[1] = T_vec->getValueByGlobalID<double>( dof_O );
 
@@ -1109,6 +1096,7 @@ void RadDifOp::unpackLocalStencilData(
     } else {
         ijk[dim] -= 1;
         size_t dof_W = gridIndsToScalarDOF( ijk );
+        AMP::pout << "dof W=" << dof_W << "\n";
         ijk[dim] += 1; // reset to O
         ELoc3[0] = E_vec->getValueByGlobalID( dof_W ); 
         TLoc3[0] = T_vec->getValueByGlobalID( dof_W );
@@ -1127,6 +1115,7 @@ void RadDifOp::unpackLocalStencilData(
     } else {
         ijk[dim] += 1;
         size_t dof_E = gridIndsToScalarDOF( ijk );
+        AMP::pout << "dof E=" << dof_E << "\n";
         ijk[dim] -= 1; // reset to O
         ELoc3[2]   = E_vec->getValueByGlobalID( dof_E ); 
         TLoc3[2]   = T_vec->getValueByGlobalID( dof_E );
@@ -1200,6 +1189,8 @@ void RadDifOp::unpackLocalStencilData(
     }
 }
 
+} // namespace AMP::Operator
+
 
 
 
@@ -1237,7 +1228,7 @@ void RadDifOp::apply1D(
     double k12 = PDE_db->getScalar<double>( "k12" );
     double k21 = PDE_db->getScalar<double>( "k21" );
     double k22 = PDE_db->getScalar<double>( "k22" );
-    double z   = PDE_db->getScalar<double>( "z" );  
+    double z   = PDE_db->getWithDefault<double>( "zatom", 1.0 );  
 
     bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
     bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
@@ -1259,10 +1250,10 @@ void RadDifOp::apply1D(
 
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
-    auto localBox  = getLocalNodeBox( d_BoxMesh );
+    auto d_localBox  = getLocalNodeBox( d_BoxMesh );
 
     // Iterate over local box
-    for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+    for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
 
         // Get values in the stencil
         auto   ET  = unpackLocalData( E_vec, T_vec, i );
@@ -1350,7 +1341,7 @@ void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_
     double k12 = PDE_db->getScalar<double>( "k12" );
     double k21 = PDE_db->getScalar<double>( "k21" );
     double k22 = PDE_db->getScalar<double>( "k22" );
-    double z   = PDE_db->getScalar<double>( "z" );  
+    double z   = PDE_db->getWithDefault<double>( "zatom", 1.0 );  
 
     bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
     bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
@@ -1372,11 +1363,11 @@ void RadDifOp::apply2D(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_
 
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
-    auto localBox  = getLocalNodeBox( d_BoxMesh );
+    auto d_localBox  = getLocalNodeBox( d_BoxMesh );
 
     // Iterate over local box
-    for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
-        for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+    for ( auto j = d_localBox->first[1]; j <= d_localBox->last[1]; j++ ) {
+        for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
 
             // Get values in the stencil
             auto   ET  = unpackLocalData( E_vec, T_vec, i, j );
@@ -1753,7 +1744,7 @@ void RadDifOpPJac::setData1D(  )
     double k12 = PDE_db->getScalar<double>( "k12" );
     double k21 = PDE_db->getScalar<double>( "k21" );
     double k22 = PDE_db->getScalar<double>( "k22" );
-    double z   = PDE_db->getScalar<double>( "z" );  
+    double z   = PDE_db->getWithDefault<double>( "zatom", 1.0 );  
 
     bool nonlinearModel = ( PDE_db->getScalar<std::string>( "model" ) == "nonlinear" );
     bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
@@ -1799,10 +1790,10 @@ void RadDifOpPJac::setData1D(  )
 
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
-    auto localBox  = getLocalNodeBox( d_RadDifOp->d_BoxMesh );
+    auto d_localBox  = getLocalNodeBox( d_RadDifOp->d_BoxMesh );
 
     // Iterate over local box
-    for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+    for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
 
         // Get values in the stencil
         auto   ET  = d_RadDifOp->unpackLocalData( E_vec, T_vec, i, dofs, onBoundary );
@@ -1961,7 +1952,7 @@ void RadDifOpPJac::setData2D(  )
     double k12 = PDE_db->getScalar<double>( "k12" );
     double k21 = PDE_db->getScalar<double>( "k21" );
     double k22 = PDE_db->getScalar<double>( "k22" );
-    double z   = PDE_db->getScalar<double>( "z" );  
+    double z   = PDE_db->getWithDefault<double>( "zatom", 1.0 );  
 
     bool fluxLimited    = PDE_db->getScalar<bool>( "fluxLimited" );
 
@@ -2006,11 +1997,11 @@ void RadDifOpPJac::setData2D(  )
 
     // --- Iterate over all local rows ---
     // Get local grid index box w/ zero ghosts
-    auto localBox  = getLocalNodeBox( d_RadDifOp->d_BoxMesh );
+    auto d_localBox  = getLocalNodeBox( d_RadDifOp->d_BoxMesh );
 
     // Iterate over local box
-    for ( auto j = localBox.first[1]; j <= localBox.last[1]; j++ ) {
-        for ( auto i = localBox.first[0]; i <= localBox.last[0]; i++ ) {
+    for ( auto j = d_localBox->first[1]; j <= d_localBox->last[1]; j++ ) {
+        for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
 
             // Get values in the stencil; S, W, O, E, N
             auto   ET  = d_RadDifOp->unpackLocalData( E_vec, T_vec, i, j, dofs, onBoundary );
