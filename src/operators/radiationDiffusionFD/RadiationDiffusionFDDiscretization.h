@@ -21,6 +21,16 @@
 
 namespace AMP::Operator {
 
+// Classes declared here
+class RadDifOp;
+class RadDifOpPJac;
+struct RadDifOpPJacData;
+class RadDifOpPJacParameters;
+
+// Friend classes
+class BERadDifOp;
+class BERadDifOpPJac;
+
 /** The classes in this file are (or are associated with) spatial finite-discretizations of  
  * the radiation-diffusion problem:
  *      u'(t) - D(u) - R(u)  = s(t), u(0) = u_0
@@ -54,17 +64,6 @@ namespace AMP::Operator {
  *      ak, bk are user-prescribed constants
  *      rk, nk are user-prescribed constants or functions (that can vary on the boundary) 
  */
-
-
-// Classes declared here
-class RadDifOp;
-class RadDifOpPJac;
-struct RadDifOpPJacData;
-class RadDifOpPJacParameters;
-
-// Friend classes
-class BERadDifOp;
-class BERadDifOpPJac;
 
 
 /** Finite-difference discretization of the spatial operator in the above radiation-diffusion 
@@ -145,9 +144,6 @@ private:
     
 //
 public: 
-    #if 0
-    std::shared_ptr<AMP::Discretization::DOFManager>      d_nodalDOFMan;
-    #endif
 
     //! I + gamma*L, where L is a RadDifOp
     friend class BERadDifOp; 
@@ -192,15 +188,6 @@ public:
     
     //! Set the pseudo-Neumann return function for the temperature. If the user does not use call this function then the pseudo-Neumann values nk from the input database will be used.
     void setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::MeshElement &)> fn_ ); 
-
-
-    
-    #if 0
-    std::shared_ptr<AMP::LinearAlgebra::Vector> createNodalInputVector() const {
-        auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "" );
-        return AMP::LinearAlgebra::createVector<double>( d_nodalDOFMan, var );
-    };
-    #endif
 
 
 // Boundary-related data and routines
@@ -294,24 +281,6 @@ private:
      */
     double PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const;
 
-    
-    #if 0
-    void apply1D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);
-
-    void apply2D( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, std::shared_ptr<AMP::LinearAlgebra::Vector> rET);
-
-    // Values in the 3-point stencil
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i );
-    // Values in the 5-point stencil
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j );
-
-        // Overloaded version of above also returning corresponding DOFs
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, std::vector<size_t> &dofs, bool &onBoundary );
-
-    
-    // Overloaded version of above also returning corresponding DOFs
-    std::vector<double> unpackLocalData( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec, int i, int j, std::vector<size_t> &dofs, bool &onBoundary );
-    #endif
 
 private: 
     //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures

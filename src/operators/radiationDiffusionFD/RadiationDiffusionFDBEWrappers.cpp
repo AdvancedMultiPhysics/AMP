@@ -125,10 +125,6 @@ BERadDifOpPJac::BERadDifOpPJac( std::shared_ptr<AMP::Operator::OperatorParameter
 
     // Set data for needed for storing block 2x2 matrix
     setData();
-
-    #if 0
-    setLocalPermutationArrays();
-    #endif
 }
 
 void BERadDifOpPJac::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
@@ -142,22 +138,6 @@ void BERadDifOpPJac::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
     // We have modified the Jacobian data of our RadDifOpPJac operator in such a way that its apply will in fact be an apply of a BERadDifOpPJac, but we need to explicitly let it know that we really do intend to do an apply with the current state of its data
     d_RadDifOpPJac->applyWithOverwrittenDataIsValid();
     d_RadDifOpPJac->apply( u_in, r );
-
-    #if 0
-    /* Test apply to check nodal ordering...
-        Seems to be working in 1D and 2D....
-    */
-    auto r_test = d_RadDifOpPJac->createInputVector();
-    applyNodalToVariableVectors( u_in, r_test );
-    std::cout << "+++Apply comparison: Variable vs nodal ordering\n";
-    auto dof = d_RadDifOpPJac->d_RadDifOp->d_multiDOFMan; 
-    for ( auto i = dof->beginDOF(); i != dof->endDOF(); i++ ) {
-        auto ri = r->getValueByGlobalID( i );
-        auto riTemp = r_test->getValueByGlobalID( i );
-        std::cout << "dof=" << i << ": dr=" << 1e-16+std::fabs(ri - riTemp)/std::fabs( ri ) << ",\tr=" << ri << ",rt=" << riTemp << "\n";
-    }
-    //AMP_ERROR( "Halt...." );
-    #endif
 }
 
 
@@ -186,11 +166,6 @@ void BERadDifOpPJac::reset(std::shared_ptr<const AMP::Operator::OperatorParamete
 
     // Reset my data
     setData( );
-
-    #if 0
-    // Reset my monolithic Jacobian
-    d_JNodal = createMonolithicJac( );
-    #endif
 }  
 
 void BERadDifOpPJac::setData() {
