@@ -45,9 +45,6 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
     auto outData                = out->getVectorData();
     scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
-
     AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( inDataBlock ),
                       "Input vector from wrong memory space" );
 
@@ -139,10 +136,6 @@ void CSRMatrixOperationsDevice<Config>::axpy( AMP::Scalar alpha_in,
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
 
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
-    AMP_DEBUG_INSIST( csrDataY->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
     AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
                       "CSRMatrixOperationsDevice::axpy X and Y must be in same memory space" );
 
@@ -173,9 +166,6 @@ void CSRMatrixOperationsDevice<Config>::setScalar( AMP::Scalar alpha_in, MatrixD
     auto offdMatrix = csrData->getOffdMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
 
     auto alpha = static_cast<scalar_t>( alpha_in );
 
@@ -208,9 +198,6 @@ void CSRMatrixOperationsDevice<Config>::setDiagonal( std::shared_ptr<const Vecto
 
     AMP_DEBUG_ASSERT( diagMatrix );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
-
     CSRLocalMatrixOperationsDevice<Config>::setDiagonal( vvals_p, diagMatrix );
 }
 
@@ -226,9 +213,6 @@ void CSRMatrixOperationsDevice<Config>::extractDiagonal( MatrixData const &A,
     auto diagMatrix = csrData->getDiagMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
 
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     CSRLocalMatrixOperationsDevice<Config>::extractDiagonal( diagMatrix, buf_p );
@@ -246,10 +230,6 @@ void CSRMatrixOperationsDevice<Config>::setIdentity( MatrixData &A )
     auto diagMatrix = csrData->getDiagMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
-
     CSRLocalMatrixOperationsDevice<Config>::setIdentity( diagMatrix );
 }
 
@@ -265,9 +245,6 @@ AMP::Scalar CSRMatrixOperationsDevice<Config>::LinfNorm( MatrixData const &A ) c
     auto offdMatrix = csrData->getOffdMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
 
     const auto nRows = csrData->numLocalRows();
     thrust::device_vector<scalar_t> rowSums( nRows, 0.0 );
@@ -292,10 +269,6 @@ void CSRMatrixOperationsDevice<Config>::copy( const MatrixData &X, MatrixData &Y
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
 
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
-    AMP_DEBUG_INSIST( csrDataY->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
     AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
                       "CSRMatrixOperationsDevice::axpy X and Y must be in same memory space" );
 
@@ -344,10 +317,6 @@ void CSRMatrixOperationsDevice<Config>::copyCast(
     CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
 {
 
-    AMP_DEBUG_INSIST( X->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
-    AMP_DEBUG_INSIST( Y->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDevice is not implemented for device memory" );
     AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
                       "CSRMatrixOperationsDevice::copyCast X and Y must be in same memory space" );
 
