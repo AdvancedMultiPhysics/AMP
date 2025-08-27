@@ -545,7 +545,7 @@ AMP::Mesh::BoxMesh::Box RadDifOp::getGlobalNodeBox() const
 }
 
 AMP::Mesh::BoxMesh::Box RadDifOp::getLocalNodeBox() const {
-    auto local  = d_BoxMesh->getGlobalBox();
+    auto local  = d_BoxMesh->getLocalBox();
     auto global = d_BoxMesh->getGlobalBox();
     for ( int d = 0; d < 3; d++ ) {
         if ( local.last[d] == global.last[d] ) {
@@ -638,7 +638,7 @@ void RadDifOp::setDOFManagers() {
     AMP::Mesh::GeomType myGeomType = VertexGeom;
     // Number of DOFs per mesh element (make 1, even though we have two variables. We'll create separate DOF managers for them)
     int myDOFsPerElement = 1; 
-    int gcw   = 1; // Ghost-cell width. 
+    int gcw   = 1; // Ghost-cell width; stencils are 3-point
     auto mesh = this->getMesh();
     auto comm = mesh->getComm();
 
@@ -647,6 +647,17 @@ void RadDifOp::setDOFManagers() {
     auto T_DOFManager = scalarDOFManager;
     auto E_DOFManager = scalarDOFManager;
 
+    #if 0
+    auto rank = comm.getRank();
+    auto remotes = scalarDOFManager->getRemoteDOFs();
+    comm.barrier();
+    std::cout << "remotes=";
+    for ( auto r : remotes ) {
+        std::cout << r << " (P" << rank << ")" << ", ";
+    }
+    std::cout << std::endl;
+    #endif
+
     // Create a multiDOFManager that wraps both DOF managers
     std::vector<std::shared_ptr<AMP::Discretization::DOFManager>> DOFManagersVec = { E_DOFManager, T_DOFManager };
     auto multiDOFManager = std::make_shared<AMP::Discretization::multiDOFManager>(comm, DOFManagersVec, mesh);
@@ -654,25 +665,26 @@ void RadDifOp::setDOFManagers() {
     d_scalarDOFMan = scalarDOFManager;
     d_multiDOFMan  = multiDOFManager;
 
-    #if 1
-    comm.barrier();
+    #if 0
     // This demonstrates how DOFs are organized on the mesh by multiDOFManager 
     // Iterate through the mesh, and pull out DOFs associated with each mesh element from the multiDOF
     auto iter = mesh->getIterator( VertexGeom, 0 );
-    AMP::pout << "multiDOF E and T global indices" << std::endl;
+    comm.barrier();
+    std::cout << "*multiDOF E and T global indices" << std::endl;
     for (auto elem = iter.begin(); elem != iter.end(); elem++ ) {
         auto id = elem->globalID();
         std::vector<size_t> dofs;
         multiDOFManager->getDOFs(id, dofs);
         for (auto dof : dofs) {
-            std::cout << dof << " ";
+            std::cout << "*" << dof << " (P" << rank << ")" << " ";
         }
         std::cout << std::endl;
     }
+    std::cout << std::endl;
 
     // Iterate through the mesh, and pull out DOFs associated with each mesh element from their respective scalarDOFs 
     comm.barrier();
-    AMP::pout << "DOF E and T global indices" << std::endl;
+    std::cout << "+scalarDOF E and T global indices" << std::endl;
     for (auto elem = iter.begin(); elem != iter.end(); elem++ ) {
         auto id = elem->globalID();
         std::vector<size_t> dofs_E;
@@ -680,13 +692,14 @@ void RadDifOp::setDOFManagers() {
         scalarDOFManager->getDOFs(id, dofs_E);
         scalarDOFManager->getDOFs(id, dofs_T);
         for (auto dof : dofs_E) {
-            std::cout << dof << " ";
+            std::cout << "+" << dof << " (P" << rank << ")" << " ";
         }
         for (auto dof : dofs_T) {
-            std::cout << dof << " ";
+            std::cout << "+" << dof << " (P" << rank << ")" << " ";
         }
         std::cout << std::endl;
     }
+    std::cout << std::endl;
     #endif
 
 
@@ -1079,7 +1092,6 @@ void RadDifOp::unpackLocalStencilData(
 
     // The current DOF
     size_t dof_O = gridIndsToScalarDOF( ijk );
-    AMP::pout << "++ dof O=" << dof_O << "\n";
     ELoc3[1] = E_vec->getValueByGlobalID<double>( dof_O );
     TLoc3[1] = T_vec->getValueByGlobalID<double>( dof_O );
 
@@ -1096,7 +1108,6 @@ void RadDifOp::unpackLocalStencilData(
     } else {
         ijk[dim] -= 1;
         size_t dof_W = gridIndsToScalarDOF( ijk );
-        AMP::pout << "dof W=" << dof_W << "\n";
         ijk[dim] += 1; // reset to O
         ELoc3[0] = E_vec->getValueByGlobalID( dof_W ); 
         TLoc3[0] = T_vec->getValueByGlobalID( dof_W );
@@ -1115,7 +1126,6 @@ void RadDifOp::unpackLocalStencilData(
     } else {
         ijk[dim] += 1;
         size_t dof_E = gridIndsToScalarDOF( ijk );
-        AMP::pout << "dof E=" << dof_E << "\n";
         ijk[dim] -= 1; // reset to O
         ELoc3[2]   = E_vec->getValueByGlobalID( dof_E ); 
         TLoc3[2]   = T_vec->getValueByGlobalID( dof_E );
