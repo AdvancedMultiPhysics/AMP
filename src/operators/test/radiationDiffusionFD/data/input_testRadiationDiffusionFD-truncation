@@ -2,8 +2,8 @@
 PDE {
   print_info_level = 0
 
-  dim = 1
-  #dim = 2
+  #dim = 1
+  dim = 2
   #dim = 3
   
   #fluxLimited = FALSE

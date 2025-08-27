@@ -11,33 +11,51 @@ RadDifModel::RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_
     AMP_INSIST( basic_db_,     "Non-null input database required!" );
     AMP_INSIST( mspecific_db_, "Non-null input database required!" );
 
-    d_dim = d_basic_db->getScalar<int>( "dim" );
+    d_dim = d_basic_db->getScalar<size_t>( "dim" );
 
-    // Start the construction of d_general_db; it must be finished by the derived class
+    // Start the construction of d_RadiationDiffusionFD_input_db; it must be finished by the derived class
     // Pack basic_db parameters into general_db
-    d_general_db = std::make_shared<AMP::Database>( "GeneralPDEParams" );
-    d_general_db->putScalar<int>( "dim", d_basic_db->getScalar<int>( "dim" ) );
-    d_general_db->putScalar<bool>( "fluxLimited", d_basic_db->getScalar<bool>( "fluxLimited" ) );
-    d_general_db->putScalar<bool>( "print_info_level", d_basic_db->getScalar<int>( "print_info_level" ) );
+    d_RadiationDiffusionFD_input_db = std::make_shared<AMP::Database>( "GeneralPDEParams" );
+    d_RadiationDiffusionFD_input_db->putScalar<int>( "dim", d_basic_db->getScalar<int>( "dim" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<bool>( "fluxLimited", d_basic_db->getScalar<bool>( "fluxLimited" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<bool>( "print_info_level", d_basic_db->getScalar<int>( "print_info_level" ) );
 
     // Robin and Pseudo-Neumann values not necessarily used, so set to dummy values
-    d_general_db->putScalar<double>( "r1", std::nan("") );
-    d_general_db->putScalar<double>( "r2", std::nan("") );
-    d_general_db->putScalar<double>( "n1", std::nan("") );
-    d_general_db->putScalar<double>( "n2", std::nan("") );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "r1", std::nan("") );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "r2", std::nan("") );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "n1", std::nan("") );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "n2", std::nan("") );
     if ( d_dim >= 2 ) {
-        d_general_db->putScalar<double>( "r3", std::nan("") );
-        d_general_db->putScalar<double>( "r4", std::nan("") );
-        d_general_db->putScalar<double>( "n3", std::nan("") );
-        d_general_db->putScalar<double>( "n4", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "r3", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "r4", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "n3", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "n4", std::nan("") );
     }
     if ( d_dim >= 3 ) {
-        d_general_db->putScalar<double>( "r5", std::nan("") );
-        d_general_db->putScalar<double>( "r6", std::nan("") );
-        d_general_db->putScalar<double>( "n5", std::nan("") );
-        d_general_db->putScalar<double>( "n6", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "r5", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "r6", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "n5", std::nan("") );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "n6", std::nan("") );
     }
-    d_general_db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, false ); 
+    d_RadiationDiffusionFD_input_db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, false ); 
+}
+
+std::shared_ptr<AMP::Database> RadDifModel::getRadiationDiffusionFD_input_db( ) const
+{ 
+    AMP_INSIST( d_RadiationDiffusionFD_input_db_completed, "The derived class has not completed the construction of this database." );
+    return d_RadiationDiffusionFD_input_db; 
+};
+
+void RadDifModel::setCurrentTime(double currentTime_)  { 
+    d_currentTime = currentTime_; 
+};
+
+double RadDifModel::getCurrentTime() const {
+    return d_currentTime; 
+};
+
+double RadDifModel::exactSolution( size_t, AMP::Mesh::MeshElement & ) const {
+    AMP_ERROR( "Base class cannot provide a meaningful implementation of this function" );
 }
 
 
@@ -49,8 +67,8 @@ Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel( std::shared_ptr<
     finalizeGeneralPDEModel_db();
 }
 
-double Mousseau_etal_2000_RadDifModel::sourceTerm( int , AMP::Mesh::MeshElement & ) const { return 0.0; }
-double Mousseau_etal_2000_RadDifModel::initialCondition( int component, AMP::Mesh::MeshElement & ) const { 
+double Mousseau_etal_2000_RadDifModel::sourceTerm( size_t, AMP::Mesh::MeshElement & ) const { return 0.0; }
+double Mousseau_etal_2000_RadDifModel::initialCondition( size_t component, AMP::Mesh::MeshElement & ) const { 
     double E0 = 1e-5;
     double T0 = std::pow( E0, 0.25 );
     if ( component == 0 ) {
@@ -93,37 +111,37 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
     std::string model = "nonlinear";
 
     // Package into database
-    d_general_db->putScalar<double>( "a1", a1 );
-    d_general_db->putScalar<double>( "a2", a2 );
-    d_general_db->putScalar<double>( "b1", b1 );
-    d_general_db->putScalar<double>( "b2", b2 );
-    d_general_db->putScalar<double>( "r1", r1 );
-    d_general_db->putScalar<double>( "r2", r2 );
-    d_general_db->putScalar<double>( "n1", n1 );
-    d_general_db->putScalar<double>( "n2", n2 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "a1", a1 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "a2", a2 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "b1", b1 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "b2", b2 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "r1", r1 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "r2", r2 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "n1", n1 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "n2", n2 );
     if ( d_dim >= 2 ) {
-        d_general_db->putScalar<double>( "a3", a3 );
-        d_general_db->putScalar<double>( "a4", a4 );
-        d_general_db->putScalar<double>( "b3", b3 );
-        d_general_db->putScalar<double>( "b4", b4 );
-        d_general_db->putScalar<double>( "r3", r3 );
-        d_general_db->putScalar<double>( "r4", r4 );
-        d_general_db->putScalar<double>( "n3", n3 );
-        d_general_db->putScalar<double>( "n4", n4 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "a3", a3 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "a4", a4 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "b3", b3 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "b4", b4 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "r3", r3 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "r4", r4 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "n3", n3 );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "n4", n4 );
     }
     
-    d_general_db->putScalar<double>( "zatom",   zatom   );
-    d_general_db->putScalar<double>( "k11", k11 );
-    d_general_db->putScalar<double>( "k12", k12 );
-    d_general_db->putScalar<double>( "k21", k21 );
-    d_general_db->putScalar<double>( "k22", k22 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "zatom",   zatom   );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k11", k11 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k12", k12 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k21", k21 );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k22", k22 );
 
-    d_general_db->putScalar<std::string>( "model", model );
+    d_RadiationDiffusionFD_input_db->putScalar<std::string>( "model", model );
 
     // Restore default behavior
-    d_general_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
+    d_RadiationDiffusionFD_input_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
     // Flag that we've finalized this database
-    d_general_db_completed = true;
+    d_RadiationDiffusionFD_input_db_completed = true;
 }
 
 
@@ -142,40 +160,40 @@ Manufactured_RadDifModel::Manufactured_RadDifModel( std::shared_ptr<AMP::Databas
 
 void Manufactured_RadDifModel::finalizeGeneralPDEModel_db( ) {  
     // Package into database
-    d_general_db->putScalar<double>( "a1", d_mspecific_db->getScalar<double>( "a1" ) );
-    d_general_db->putScalar<double>( "a2", d_mspecific_db->getScalar<double>( "a2" ) );
-    d_general_db->putScalar<double>( "b1", d_mspecific_db->getScalar<double>( "b1" ) );
-    d_general_db->putScalar<double>( "b2", d_mspecific_db->getScalar<double>( "b2" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "a1", d_mspecific_db->getScalar<double>( "a1" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "a2", d_mspecific_db->getScalar<double>( "a2" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "b1", d_mspecific_db->getScalar<double>( "b1" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "b2", d_mspecific_db->getScalar<double>( "b2" ) );
     if ( d_dim >= 2 ) {
-        d_general_db->putScalar<double>( "a3", d_mspecific_db->getScalar<double>( "a3" ) );
-        d_general_db->putScalar<double>( "a4", d_mspecific_db->getScalar<double>( "a4" ) );
-        d_general_db->putScalar<double>( "b3", d_mspecific_db->getScalar<double>( "b3" ) );
-        d_general_db->putScalar<double>( "b4", d_mspecific_db->getScalar<double>( "b4" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "a3", d_mspecific_db->getScalar<double>( "a3" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "a4", d_mspecific_db->getScalar<double>( "a4" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "b3", d_mspecific_db->getScalar<double>( "b3" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "b4", d_mspecific_db->getScalar<double>( "b4" ) );
     }
     if ( d_dim >= 3 ) {
-        d_general_db->putScalar<double>( "a5", d_mspecific_db->getScalar<double>( "a5" ) );
-        d_general_db->putScalar<double>( "a6", d_mspecific_db->getScalar<double>( "a6" ) );
-        d_general_db->putScalar<double>( "b5", d_mspecific_db->getScalar<double>( "b5" ) );
-        d_general_db->putScalar<double>( "b6", d_mspecific_db->getScalar<double>( "b6" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "a5", d_mspecific_db->getScalar<double>( "a5" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "a6", d_mspecific_db->getScalar<double>( "a6" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "b5", d_mspecific_db->getScalar<double>( "b5" ) );
+        d_RadiationDiffusionFD_input_db->putScalar<double>( "b6", d_mspecific_db->getScalar<double>( "b6" ) );
     }
 
-    d_general_db->putScalar<double>( "zatom",   d_mspecific_db->getScalar<double>( "zatom" )   );
-    d_general_db->putScalar<double>( "k11", d_mspecific_db->getScalar<double>( "k11" ) );
-    d_general_db->putScalar<double>( "k12", d_mspecific_db->getScalar<double>( "k12" ) );
-    d_general_db->putScalar<double>( "k21", d_mspecific_db->getScalar<double>( "k21" ) );
-    d_general_db->putScalar<double>( "k22", d_mspecific_db->getScalar<double>( "k22" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "zatom",   d_mspecific_db->getScalar<double>( "zatom" )   );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k11", d_mspecific_db->getScalar<double>( "k11" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k12", d_mspecific_db->getScalar<double>( "k12" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k21", d_mspecific_db->getScalar<double>( "k21" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "k22", d_mspecific_db->getScalar<double>( "k22" ) );
 
-    d_general_db->putScalar<std::string>( "model", d_mspecific_db->getScalar<std::string>( "model" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<std::string>( "model", d_mspecific_db->getScalar<std::string>( "model" ) );
 
     // Restore default behavior
-    d_general_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
+    d_RadiationDiffusionFD_input_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
     // Flag that we've finalized this database
-    d_general_db_completed = true;
+    d_RadiationDiffusionFD_input_db_completed = true;
 }
 
 // Implementation of pure virtual function
 // Dimension-agnostic wrapper around the exact source term functions
-double Manufactured_RadDifModel::sourceTerm( int component, AMP::Mesh::MeshElement &node ) const {
+double Manufactured_RadDifModel::sourceTerm( size_t component, AMP::Mesh::MeshElement &node ) const {
     if ( d_dim == 1 ) {
         double x = ( node.coord() )[0];
         return sourceTerm1D( component, x );
@@ -194,7 +212,7 @@ double Manufactured_RadDifModel::sourceTerm( int component, AMP::Mesh::MeshEleme
 }
 
 // Implementation of pure virtual function
-double Manufactured_RadDifModel::initialCondition( int component, AMP::Mesh::MeshElement &node ) const {
+double Manufactured_RadDifModel::initialCondition( size_t component, AMP::Mesh::MeshElement &node ) const {
     // We must set turn on this flag and then turn it off
     d_settingInitialCondition = true;
     double ic = exactSolution( component, node );
@@ -203,7 +221,7 @@ double Manufactured_RadDifModel::initialCondition( int component, AMP::Mesh::Mes
 }
 
 // Dimension-agnostic wrapper around the exact solution functions
-double Manufactured_RadDifModel::exactSolution( int component, AMP::Mesh::MeshElement &node ) const {
+double Manufactured_RadDifModel::exactSolution( size_t component, AMP::Mesh::MeshElement &node ) const {
     if ( d_dim == 1 ) {
         double x = ( node.coord() )[0];
         return exactSolution1D( component, x );
@@ -305,11 +323,11 @@ double Manufactured_RadDifModel::getRobinValueE1D_( size_t boundaryID, double a,
     getNormalVector( boundaryID, normal_directiondummy, normal_sign, x, ydummy, zdummy );
 
     // Unpack parameters
-    double k11   = d_general_db->getScalar<double>( "k11" );
-    double zatom = d_general_db->getScalar<double>( "zatom" );
+    double k11   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
+    double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
     // Compute diffusive flux term D_E
     double D_E = 1.0; // For the linear model this is just constant
-    if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
+    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         double T     = exactSolution1D( 1, x );
         double sigma = std::pow( zatom/T, 3.0 );
         D_E = 1.0/(3*sigma);
@@ -351,11 +369,11 @@ double Manufactured_RadDifModel::getRobinValueE2D_( size_t boundaryID, double a,
     double dEdn = exactSolutionGradient2D( 0, x, y, normal_direction );
 
     // Unpack parameters
-    double k11   = d_general_db->getScalar<double>( "k11" );
-    double zatom     = d_general_db->getScalar<double>( "zatom" );
+    double k11   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
+    double zatom     = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
     // Compute diffusive flux term D_E
     double D_E = 1.0; // For the linear model this is just constant
-    if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
+    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         double T     = exactSolution2D( 1, x, y );
         double sigma = std::pow( zatom/T, 3.0 );
         D_E          = 1.0/(3*sigma);
@@ -388,11 +406,11 @@ double Manufactured_RadDifModel::getRobinValueE3D_( size_t boundaryID, double a,
     double dEdn = exactSolutionGradient3D( 0, x, y, z, normal_direction );
 
     // Unpack parameters
-    double k11   = d_general_db->getScalar<double>( "k11" );
-    double zatom     = d_general_db->getScalar<double>( "zatom" );
+    double k11   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
+    double zatom     = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
     // Compute diffusive flux term D_E
     double D_E = 1.0; // For the linear model this is just constant
-    if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
+    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         double T     = exactSolution3D( 1, x, y, z );
         double sigma = std::pow( zatom/T, 3.0 );
         D_E          = 1.0/(3*sigma);
@@ -414,7 +432,7 @@ double Manufactured_RadDifModel::getPseudoNeumannValueT3D_( size_t boundaryID, d
 }
 
 // Implementation of 1D functions
-double Manufactured_RadDifModel::exactSolution1D( int component, double x ) const {
+double Manufactured_RadDifModel::exactSolution1D( size_t component, double x ) const {
 
     double t = d_settingInitialCondition ? 0.0 : this->getCurrentTime();
     if ( component == 0 ) {
@@ -428,7 +446,7 @@ double Manufactured_RadDifModel::exactSolution1D( int component, double x ) cons
     }
 }
 
-double Manufactured_RadDifModel::exactSolutionGradient1D( int component, double x ) const {
+double Manufactured_RadDifModel::exactSolutionGradient1D( size_t component, double x ) const {
     double t = this->getCurrentTime();
     if ( component == 0 ) {
         double dEdx = PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi);
@@ -441,18 +459,18 @@ double Manufactured_RadDifModel::exactSolutionGradient1D( int component, double 
     }
 }
 
-double Manufactured_RadDifModel::sourceTerm1D( int component, double x ) const {
+double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) const {
     
     double t    = this->getCurrentTime();
 
     // Unpack parameters
-    double k11  = d_general_db->getScalar<double>( "k11" );
-    double k12  = d_general_db->getScalar<double>( "k12" );
-    double k21  = d_general_db->getScalar<double>( "k21" );
-    double k22  = d_general_db->getScalar<double>( "k22" );
-    double zatom = d_general_db->getScalar<double>( "zatom" );
+    double k11  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
+    double k12  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k12" );
+    double k21  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k21" );
+    double k22  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
+    double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
 
-    if ( d_general_db->getScalar<std::string>( "model" ) == "linear" ) {
+    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
         if ( component == 0 ) {
             double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sE;
@@ -463,7 +481,7 @@ double Manufactured_RadDifModel::sourceTerm1D( int component, double x ) const {
             AMP_ERROR( "Invalid component" );
         }
 
-    } else if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
+    } else if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         if ( component == 0 ) {
             double sE = ((1.0/3.0)*std::pow(PI, 2)*k11*kE0*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) + (1.0/3.0)*std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kT*t), 2) - 1.0/3.0*std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2) - PI*kT*std::pow(zatom, 3)*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - k12*std::pow(zatom, 6)*std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) + k12*std::pow(zatom, 6))/std::pow(zatom, 3);
             return sE;
@@ -479,7 +497,7 @@ double Manufactured_RadDifModel::sourceTerm1D( int component, double x ) const {
 }
 
 // Implementation of 2D functions
-double Manufactured_RadDifModel::exactSolution2D( int component, double x, double y ) const {
+double Manufactured_RadDifModel::exactSolution2D( size_t component, double x, double y ) const {
     double t = d_settingInitialCondition ? 0.0 : this->getCurrentTime();
     if ( component == 0 ) {
         double E = kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi);
@@ -492,7 +510,7 @@ double Manufactured_RadDifModel::exactSolution2D( int component, double x, doubl
     }
 }
 
-double Manufactured_RadDifModel::exactSolutionGradient2D( int component, double x, double y, const std::string & grad_component ) const {
+double Manufactured_RadDifModel::exactSolutionGradient2D( size_t component, double x, double y, const std::string & grad_component ) const {
 
     double t = this->getCurrentTime();
     if ( component == 0 ) {
@@ -522,18 +540,18 @@ double Manufactured_RadDifModel::exactSolutionGradient2D( int component, double 
     }
 }
 
-double Manufactured_RadDifModel::sourceTerm2D( int component, double x, double y ) const {
+double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, double y ) const {
 
     double t    = this->getCurrentTime();
 
     // Unpack parameters
-    double k11  = d_general_db->getScalar<double>( "k11" );
-    double k12  = d_general_db->getScalar<double>( "k12" );
-    double k21  = d_general_db->getScalar<double>( "k21" );
-    double k22  = d_general_db->getScalar<double>( "k22" );
-    double zatom    = d_general_db->getScalar<double>( "zatom" );
+    double k11  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
+    double k12  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k12" );
+    double k21  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k21" );
+    double k22  = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
+    double zatom    = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
 
-    if ( d_general_db->getScalar<std::string>( "model" ) == "linear" ) {
+    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
         if ( component == 0 ) {
             double sE = std::pow(PI, 2)*k11*(std::pow(kX, 2) + std::pow(kY, 2))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
             return sE;
@@ -544,7 +562,7 @@ double Manufactured_RadDifModel::sourceTerm2D( int component, double x, double y
             AMP_ERROR( "Invalid component" );
         }
 
-    } else if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
+    } else if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         if ( component == 0 ) {
             double sE = (1.0/3.0)*(std::pow(PI, 2)*k11*kE0*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + std::pow(PI, 2)*k11*kE0*std::pow(kY, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) - std::pow(PI, 2)*k11*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) - std::pow(PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2) + std::pow(PI, 2)*k11*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2) - 3*PI*kT*std::pow(zatom, 3)*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) - 3*k12*std::pow(zatom, 6)*std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)) + 3*k12*std::pow(zatom, 6))/std::pow(zatom, 3);
             return sE;
@@ -561,7 +579,7 @@ double Manufactured_RadDifModel::sourceTerm2D( int component, double x, double y
 
 
 // Implementation of 3D functions
-double Manufactured_RadDifModel::exactSolution3D( int component, double x, double y, double z ) const {
+double Manufactured_RadDifModel::exactSolution3D( size_t component, double x, double y, double z ) const {
     double t = d_settingInitialCondition ? 0.0 : this->getCurrentTime();
     if ( component == 0 ) {
         double E = kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi);
@@ -574,7 +592,7 @@ double Manufactured_RadDifModel::exactSolution3D( int component, double x, doubl
     }
 }
 
-double Manufactured_RadDifModel::exactSolutionGradient3D( int component, double x, double y, double z, const std::string & grad_component ) const {
+double Manufactured_RadDifModel::exactSolutionGradient3D( size_t component, double x, double y, double z, const std::string & grad_component ) const {
 
     double t = this->getCurrentTime();
     if ( component == 0 ) {
@@ -610,18 +628,18 @@ double Manufactured_RadDifModel::exactSolutionGradient3D( int component, double 
     }
 }
 
-double Manufactured_RadDifModel::sourceTerm3D( int component, double x, double y, double z ) const {
+double Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, double z ) const {
 
     double t    = this->getCurrentTime();
 
     // Unpack parameters
-    double k11   = d_general_db->getScalar<double>( "k11" );
-    double k12   = d_general_db->getScalar<double>( "k12" );
-    double k21   = d_general_db->getScalar<double>( "k21" );
-    double k22   = d_general_db->getScalar<double>( "k22" );
-    double zatom = d_general_db->getScalar<double>( "zatom" );
+    double k11   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
+    double k12   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k12" );
+    double k21   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k21" );
+    double k22   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
+    double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
 
-    if ( d_general_db->getScalar<std::string>( "model" ) == "linear" ) {
+    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
         if ( component == 0 ) {
             double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + std::pow(PI, 2)*k11*std::pow(kY, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + std::pow(PI, 2)*k11*std::pow(kZ, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi));
             return sE;
@@ -632,7 +650,7 @@ double Manufactured_RadDifModel::sourceTerm3D( int component, double x, double y
             AMP_ERROR( "Invalid component" );
         }
 
-    } else if ( d_general_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
+    } else if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
         if ( component == 0 ) {
             double sE = -PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(zatom, 3)) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kZ*z + kZPhi), 2)/std::pow(zatom, 3)) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kZ, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kZ, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kZ*z + kZPhi), 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(zatom, 3)) - k12*std::pow(zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)*std::cos(PI*kZ*z + kZPhi));
             return sE;

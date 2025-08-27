@@ -23,14 +23,17 @@ plt.rcParams.update(params)
 
 def main():
 
-    # manufacturedModel( 1,  "linear" )
+    # Just uncomment whichever one you want to use
+    manufacturedModel( 1,  "linear" )
     # manufacturedModel( 1,  "nonlinear" )
 
     # manufacturedModel( 2,  "linear" )
     # manufacturedModel( 2,  "nonlinear" )
 
     #manufacturedModel( 3,  "linear" )
-    manufacturedModel( 3,  "nonlinear" )
+    #manufacturedModel( 3,  "nonlinear" )
+
+    #solveForGhostFromRobinBC()
 
 
 def solveForGhostFromRobinBC():

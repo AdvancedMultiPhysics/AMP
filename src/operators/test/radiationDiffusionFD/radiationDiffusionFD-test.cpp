@@ -166,28 +166,19 @@ void driver(AMP::AMP_MPI comm,
         AMP_ERROR( "Invalid problemID" );
     }
 
-    // Get general PDE model parameters to build the RadDifOp
-    auto PDE_general_db = myRadDifModel->getGeneralPDEModelParameters( );
-    auto PDE_general_db_ = std::make_unique<AMP::Database>( *PDE_general_db );
+    // Get parameters needed to build the RadDifOp
+    auto RadDifOp_db = myRadDifModel->getRadiationDiffusionFD_input_db( );
 
     /****************************************************************
     * Create a mesh                                                 *
     ****************************************************************/
     // Put variable "dim" into mesh Database 
-    mesh_db->putScalar<int>( "dim", PDE_general_db->getScalar<int>( "dim" ) );
+    mesh_db->putScalar<int>( "dim", RadDifOp_db->getScalar<int>( "dim" ) );
     std::shared_ptr<AMP::Mesh::BoxMesh> mesh = createBoxMesh( comm, mesh_db );
     
-    // Package PDE and mesh dbs into a discretization db
-    auto disc_db = std::make_shared<AMP::Database>( "disc_db" );
-    disc_db->putDatabase( "PDE",  std::move( PDE_general_db_ ) );
-    disc_db->putDatabase( "mesh", std::move( mesh_db ) );
-    //disc_db->putScalar<int>( "print_info_level", 1 );
-    disc_db->putScalar<int>( "print_info_level", disc_db->getDatabase( "PDE" )->getScalar<int>( "print_info_level" ) );
-
-
     AMP::pout << "The discretization database is" << std::endl;
     AMP::pout << "------------------------------" << std::endl;
-    disc_db->print( AMP::pout );
+    RadDifOp_db->print( AMP::pout );
     AMP::pout << "------------------------------" << std::endl;
     
     
@@ -200,7 +191,7 @@ void driver(AMP::AMP_MPI comm,
     auto OpParams = std::make_shared<AMP::Operator::OperatorParameters>( Op_db );
     // Operator parameters has: a mesh, an operator, and a memory location. We just set the mesh 
     OpParams->d_Mesh = mesh;
-    OpParams->d_db   = disc_db; // Set DataBase of parameters.
+    OpParams->d_db   = RadDifOp_db; // Set DataBase of parameters.
 
     // Create BERadDifOp 
     auto myBERadDifOp = std::make_shared<AMP::Operator::BERadDifOp>( OpParams );  
@@ -269,7 +260,7 @@ void driver(AMP::AMP_MPI comm,
     AMP_INSIST( is_bdf, "Implementation assumes BDF integrator" );
 
     // Parameters for time integrator
-    auto h = disc_db->getDatabase( "mesh" )->getScalar<double>( "h" );
+    auto h = myRadDifOp->getMeshSize()[0];
     //double dt = 1.0 * h * h;
     //double dt = 0.5 * h;
     double dt = ti_db->getScalar<double>( "initial_dt" );
@@ -291,8 +282,9 @@ void driver(AMP::AMP_MPI comm,
 
     
     int step = 0;
-    int n = disc_db->getDatabase( "mesh" )->getScalar<int>( "n" );
-    std::string out_dir = "out/n" + std::to_string(n) + "_" + std::to_string(disc_db->getDatabase( "mesh" )->getScalar<int>( "dim" )) + "D/";
+    int n = -1;
+    //int n = disc_db->getDatabase( "mesh" )->getScalar<int>( "n" );
+    std::string out_dir = "out/n" + std::to_string(n) + "_" + std::to_string(RadDifOp_db->getScalar<int>( "dim" )) + "D/";
     std::string num_dir = out_dir + "ETnum";
     std::string man_dir = out_dir + "ETman";   
 

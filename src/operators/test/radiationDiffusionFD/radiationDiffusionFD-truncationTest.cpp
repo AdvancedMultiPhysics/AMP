@@ -121,25 +121,15 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     * Create a manufactured radiation-diffusion model               *
     ****************************************************************/
     auto myRadDifModel = std::make_shared<AMP::Operator::Manufactured_RadDifModel>( PDE_basic_db, manufactured_db );
-
-    // Get general PDE model parameters to build the RadDifOp
-    auto PDE_general_db = myRadDifModel->getGeneralPDEModelParameters( );
-    auto RadDifOp_db    = std::make_shared<AMP::Database>( *PDE_general_db );
-
+    // Get parameters needed to build the RadDifOp
+    auto RadDifOp_db   = myRadDifModel->getRadiationDiffusionFD_input_db( );
 
     /****************************************************************
     * Create a mesh                                                 *
     ****************************************************************/
     // Put variable "dim" into mesh Database 
-    mesh_db->putScalar<int>( "dim", PDE_general_db->getScalar<int>( "dim" ) );
+    mesh_db->putScalar<int>( "dim", RadDifOp_db->getScalar<int>( "dim" ) );
     std::shared_ptr<AMP::Mesh::BoxMesh> mesh = createBoxMesh( comm, mesh_db );
-    
-    // // Package PDE and mesh dbs into a discretization db
-    // auto disc_db = std::make_shared<AMP::Database>( "disc_db" );
-    // disc_db->putDatabase( "PDE",  std::move( PDE_general_db_ ) );
-    // disc_db->putDatabase( "mesh", std::move( mesh_db ) );
-    // //disc_db->putScalar<int>( "print_info_level", 1 );
-    // disc_db->putScalar<int>( "print_info_level", disc_db->getDatabase( "PDE" )->getScalar<int>( "print_info_level" ) );
 
     AMP::pout << "The RadDifOp database is" << std::endl;
     AMP::pout << "------------------------------" << std::endl;

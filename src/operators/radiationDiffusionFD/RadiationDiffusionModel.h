@@ -13,88 +13,72 @@ namespace AMP::Operator {
 /** -------------------------------------------------------- *
  * --- Class representing a Radiation diffusion equation --- *
  * --------------------------------------------------------- */
-/** Abstract base class representing the radiation-diffusion equation that's discretized by the class RadiationDiffusionFD.
-
-    Boundary conditions come in two flavours:
-        0. For E, Robin boundary conditions are specified on boundary k in the form of:
-                ak * E + bk * n \dot k11*D_E * dE/dn = rk 
-            for outward facing normal n
-        1. For T, "Pseudo Neumann" boundary conditions are specified on boundary k in the form of:
-                n \dot dT/dn = nk
-            for outward facing normal n. Note these are not actually Neumann BCs unless nk=0 since they don't involve the flux, except in the special case of nk=0.
-    The class is reponsible for providing the constants ak, bk, rk, nk
-
-    In glorious detail, we have:
-    1D. Robin on E:
-        a1 * E + b1 * - k11*D_E * dE/dx = r1 at x = 0...
-        a2 * E + b2 * + k11*D_E * dE/dx = r2 at x = 1...
-
-        Pseudo Neumann on T 
-                                -dT/dx = n1 at x = 0...
-                                +dT/dx = n2 at x = 1...
-        
-    2D. Robin on E:
-        a1 * E + b1 * -k11*D_E * dE/dx = r1 at x = 0...
-        a2 * E + b2 * +k11*D_E * dE/dx = r2 at x = 1...
-        a3 * E + b3 * -k11*D_E * dE/dy = r3 at y = 0...
-        a4 * E + b4 * +k11*D_E * dE/dy = r4 at y = 1...
-
-        Pseudo Neumann on T:
-                                -dT/dx = n1 at x = 0...
-                                +dT/dx = n2 at x = 1...
-                                -dT/dy = n3 at y = 0...
-                                +dT/dy = n4 at y = 1...
-
-
-    The class should be initialized with two databases: 
-        1. A basic PDE database
-        2. A model-specific database
-*/
+/** Abstract base class representing the radiation-diffusion equation that's spatially discretized
+ * by the class RadiationDiffusionFD.
+ * 
+ * The class should be initialized with two databases:
+ *  1. A basic PDE database, basic_db. This includes:
+ *      "dim", "fluxLimited", "print_info_level".
+ *  2. A model-specific database, mspecific_db. This should include any and all parameters that 
+ * when combined with basic_db provides sufficient context for the derived class to create a 
+ * RadiationDiffusionFD_input_db, which is a database suitable for creating an instance of a 
+ * RadiationDiffusionFD.   
+ * 
+ * The RadiationDiffusionFD_input_db database is obtained via getRadiationDiffusionFD_input_db()
+ * 
+ * Derived classes can provide additional functionality such as providing exact solutions to the 
+ * PDE.
+ */
 class RadDifModel {
 
-//
 public:
-    // The current time of the solution. 
-    double d_currentTime = 0.0;
-    // Does the derived class implement an exact solution?
+
+    //! Does the derived class implement an exact solution?
     bool d_exactSolutionAvailable = false;
-    // Shorthand for spatial dimension 
-    int  d_dim                    = -1;
 
-    // Basic parameter database (with model-agnostic parameters)
-    std::shared_ptr<AMP::Database> d_basic_db;
-    // Parameters specific to a model
-    std::shared_ptr<AMP::Database> d_mspecific_db;
-    // Database of parameters used to describe general PDE formulation; this is a merger and possible re-interpretation of the above two databases
-    std::shared_ptr<AMP::Database> d_general_db = nullptr;
-    // Flag derived classes must overwrite indicating they have constructed the above database
-    bool d_general_db_completed = false;
-
-    // Constructor
+    //! Constructor
     RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ );
 
-    // Destructor
+    //! Destructor
     virtual ~RadDifModel() {};
 
-    inline double getCurrentTime() const { return d_currentTime; };
-    inline void setCurrentTime(double currentTime_) { d_currentTime = currentTime_; };
+    //! Get current time of class (e.g., as may be used in sourceTerm)  
+    double getCurrentTime() const; 
+    
+    //! Set current time of class
+    void setCurrentTime(double currentTime_);
 
-    /* Pure virtual functions */
-    virtual double sourceTerm( int component, AMP::Mesh::MeshElement &node ) const = 0;
-    virtual double initialCondition( int component, AMP::Mesh::MeshElement &node ) const = 0;
+    //! Solution-independent source term in PDE
+    virtual double sourceTerm( size_t component, AMP::Mesh::MeshElement &node ) const = 0;
+    
+    //! Initial condition of PDE
+    virtual double initialCondition( size_t component, AMP::Mesh::MeshElement &node ) const = 0;
 
-    /* Virtual functions */
-    virtual double exactSolution( int , AMP::Mesh::MeshElement & ) const {
-        AMP_ERROR( "Base class cannot provide a meaningful implementation of this function" );
-    }
+    //! Exact solution of PDE (for given component and at the given MeshElement)
+    virtual double exactSolution( size_t component, AMP::Mesh::MeshElement &node ) const;
 
-    // Get general database
-    std::shared_ptr<AMP::Database> getGeneralPDEModelParameters( ) const { 
-        AMP_INSIST( d_general_db_completed, "The derived class has not completed the construction of this database." );
-        return d_general_db; };
+    //! Get database suitable for creating an instance of a RadDifOp
+    std::shared_ptr<AMP::Database> getRadiationDiffusionFD_input_db( ) const; 
 
 //
-private:
+protected:
+    //! The current time of the solution. 
+    double d_currentTime = 0.0;
+    
+    //! Shorthand for spatial dimension 
+    size_t d_dim                    = 0;
+    
+    //! Basic parameter database (with model-agnostic parameters)
+    std::shared_ptr<AMP::Database> d_basic_db;
+    
+    //! Parameters specific to a model
+    std::shared_ptr<AMP::Database> d_mspecific_db;
+    
+    //! Database of parameters required to create an instance of a RadiationDiffusionFD. 
+    std::shared_ptr<AMP::Database> d_RadiationDiffusionFD_input_db = nullptr;
+    
+    //! Flag derived classes must overwrite indicating they have constructed the above database
+    bool d_RadiationDiffusionFD_input_db_completed = false;
 
     /* Convert specific model parameters into parameters expected by the general formulation */ 
     virtual void finalizeGeneralPDEModel_db( ) = 0;
@@ -151,8 +135,8 @@ public:
     // Destructor
     virtual ~Mousseau_etal_2000_RadDifModel() {};
     
-    double sourceTerm( int , AMP::Mesh::MeshElement & ) const override;
-    double initialCondition( int component, AMP::Mesh::MeshElement & ) const override;
+    double sourceTerm( size_t component, AMP::Mesh::MeshElement &node ) const override;
+    double initialCondition( size_t component, AMP::Mesh::MeshElement & ) const override;
 
 //
 private:
@@ -193,9 +177,9 @@ public:
     // Destructor
     virtual ~Manufactured_RadDifModel() {};
 
-    double sourceTerm( int component, AMP::Mesh::MeshElement &node ) const override;
-    double initialCondition( int component, AMP::Mesh::MeshElement &node ) const override;
-    double exactSolution( int component, AMP::Mesh::MeshElement &node ) const override;
+    double sourceTerm( size_t component, AMP::Mesh::MeshElement &node ) const override;
+    double initialCondition( size_t component, AMP::Mesh::MeshElement &node ) const override;
+    double exactSolution( size_t component, AMP::Mesh::MeshElement &node ) const override;
     double getRobinValueE( size_t boundaryID, double a, double b, AMP::Mesh::MeshElement & node ) const;
     double getPseudoNeumannValueT( size_t boundaryID, AMP::Mesh::MeshElement & node ) const;
     
@@ -209,17 +193,17 @@ private:
     void getNormalVector( size_t boundaryID, std::string &direction, double &sign, double &x, double &y, double &z ) const;
 
     // Exact solution, its gradient and corresponding source term
-    double exactSolution1D( int component, double x ) const;
-    double exactSolutionGradient1D( int component, double x ) const;
-    double sourceTerm1D( int component, double x ) const;
+    double exactSolution1D( size_t component, double x ) const;
+    double exactSolutionGradient1D( size_t component, double x ) const;
+    double sourceTerm1D( size_t component, double x ) const;
     //
-    double exactSolution2D( int component, double x, double y ) const;
-    double exactSolutionGradient2D( int component, double x, double y, const std::string & grad_component ) const;
-    double sourceTerm2D( int component, double x, double y ) const;
+    double exactSolution2D( size_t component, double x, double y ) const;
+    double exactSolutionGradient2D( size_t component, double x, double y, const std::string & grad_component ) const;
+    double sourceTerm2D( size_t component, double x, double y ) const;
     //
-    double exactSolution3D( int component, double x, double y, double z ) const;
-    double exactSolutionGradient3D( int component, double x, double y, double z, const std::string & grad_component ) const;
-    double sourceTerm3D( int component, double x, double y, double z ) const;
+    double exactSolution3D( size_t component, double x, double y, double z ) const;
+    double exactSolutionGradient3D( size_t component, double x, double y, double z, const std::string & grad_component ) const;
+    double sourceTerm3D( size_t component, double x, double y, double z ) const;
 
     // Boundary-related functions
     double getRobinValueE1D_( size_t boundaryID, double a, double b ) const;

@@ -74,23 +74,23 @@ class BERadDifOpPJac;
  * refiment, and instead assumes the mesh spacing in each dimension is constant.
  * 
  * The database in the incoming OperatorParameters must contain the following parameters:
- * 1. ak, bk (for all boundaries k)
+ *  1. ak, bk (for all boundaries k)
  * doubles. Specify constants in Robin BCs on energy. 
  * Optionally, the RHS boundary condition values of rk and nk can be provided. However, the user 
  * can also specify these RHS values as boundary- and spatially-dependent functions via calls to 
  * 'setRobinFunctionE' and 'setPseudoNeumannFunctionT', respectively, in which case whatever values
  * of rk and nk exist in the database will be ignored.
- * 
- * 2. zatom:
+ *
+ *  2. zatom:
  * double. Atomic number constant in the nonlinear problem. Default value is 1.0.
  * 
- * 3. k11, k12, k21, k22
+ *  3. k11, k12, k21, k22
  * doubles. Scaling constants in PDE
  * 
- * 4. model:
+ *  4. model:
  * must be either 'linear' or 'nonlinear'. Specifies which PDE is discretized.
  * 
- * 5. fluxLimited:
+ *  5. fluxLimited:
  * bool. Flag indicating whether flux limiting is for diffusion of energy
  * 
  * 
@@ -108,9 +108,10 @@ class BERadDifOpPJac;
  * with hx = (xmax-xmin)/nx, for i = 0,...,nx-1. The computational unknowns in each dimension that 
  * we discretize are the point values of E and T at these nx cell centers. 
  *      * Boundary conditions are implemented by placing one ghost cell at each end of the domain, 
- * with corresponding unknowns at the centers of these ghost cells. These unknown ghost values are 
- * then eliminated in terms of the interior point by discretizing the boundary conditions. 
- * 
+ * with corresponding unknowns at the centers of those ghost cells. Where ghost values are required 
+ * (i.e., when evaluating the 3-point stencil of a boundary-adjacent DOF), the ghost value is 
+ * evaluated in terms the boundary-adjacent DOF using the discretized boundary condition. That is,
+ * ghost points are not active DOFs.
  * 
  * TODO: describe how incoming mesh must conform to boundaries... 
  * The incoming mesh should have nodes placed at the cell centers... so that actually the [xmin,xmax] there correspond to the cell centers...
@@ -132,7 +133,7 @@ private:
     //! Flag whether flux limiting is used in the energy equation
     bool d_fluxLimited;
 
-    // Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
+    //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
     //! Global grid index box w/ zero ghosts
     std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox = nullptr;
