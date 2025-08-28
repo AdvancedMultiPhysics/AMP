@@ -57,7 +57,7 @@ void ThyraVectorWrapper::initialize(
     AMP_ASSERT( !vecs.empty() );
     AMP_ASSERT( vecs.size() == cols.size() );
     for ( size_t i = 0; i < vecs.size(); i++ ) {
-        AMP_ASSERT( vecs[i] != nullptr );
+        AMP_ASSERT( vecs[i] );
         AMP_ASSERT( cols[i] < N_cols );
         /*for (size_t j=0; j<i; j++) {
             AMP_ASSERT(vecs[i]!=vecs[j]);
@@ -186,7 +186,7 @@ void ThyraVectorWrapper::applyImpl( const Thyra::EOpTransp M_trans,
     if ( M_trans == Thyra::NOTRANS || M_trans == Thyra::CONJ ) {
         // We are computing: Y = alpha*M*X + beta*Y
         const auto *y = dynamic_cast<const ThyraVectorWrapper *>( Y.get() );
-        AMP_ASSERT( y != nullptr );
+        AMP_ASSERT( y );
         AMP_ASSERT( M_dim[1] == X_dim[0] && M_dim[0] == Y_dim[0] && X_dim[1] == Y_dim[1] );
         AMP_ASSERT( M_dim[1] == d_vecs.size() && Y_dim[1] == y->d_vecs.size() );
         auto tmp = d_vecs[0]->clone();
@@ -206,9 +206,9 @@ void ThyraVectorWrapper::applyImpl( const Thyra::EOpTransp M_trans,
     } else if ( M_trans == Thyra::TRANS || M_trans == Thyra::CONJTRANS ) {
         // We are computing: Y = alpha*transpose(M)*X + beta*Y
         AMP_ASSERT( M_dim[0] == X_dim[0] && M_dim[1] == Y_dim[0] && X_dim[1] == Y_dim[1] );
-        if ( dynamic_cast<const ThyraVectorWrapper *>( &X ) != nullptr ) {
+        if ( dynamic_cast<const ThyraVectorWrapper *>( &X ) ) {
             const auto *x = dynamic_cast<const ThyraVectorWrapper *>( &X );
-            AMP_ASSERT( x != nullptr );
+            AMP_ASSERT( x );
             size_t N = d_vecs.size();    // Number of columns of M
             size_t M = x->d_vecs.size(); // Number of columns of X
             AMP_ASSERT( Y->domain()->dim() == (Teuchos::Ordinal) M );
@@ -433,7 +433,7 @@ void ThyraVectorWrapper::applyOpImpl(
         }
     }
     // Reduce the result
-    if ( reduct_obj.get() != nullptr ) {
+    if ( reduct_obj.get() ) {
         RTOpPack::SPMD_all_reduce<double>(
             d_comm,
             op,
@@ -572,7 +572,7 @@ void ThyraVectorWrapper::mvSingleReductApplyOpImpl(
         }
     }
     // Reduce the result
-    if ( reduct_obj.get() != nullptr ) {
+    if ( reduct_obj.get() ) {
         RTOpPack::SPMD_all_reduce<double>(
             d_comm,
             primary_op,
@@ -602,7 +602,7 @@ static std::vector<ThyraVectorWrapper *> getPtr( std::vector<size_t> block_size,
     std::vector<ThyraVectorWrapper *> ptr( n_vecs, nullptr );
     for ( int i = 0; i < n_vecs; i++ ) {
         ptr[i] = dynamic_cast<ThyraVectorWrapper *>( vecs[i].getRawPtr() );
-        AMP_INSIST( ptr[i] != nullptr,
+        AMP_INSIST( ptr[i],
                     "All vectors used in applyOpImpl must be of the type ThyraVectorWrapper" );
         for ( size_t j = 0; j < ptr[i]->numVecs(); j++ ) {
             auto tmp        = ptr[i]->getVec( j );
@@ -623,7 +623,7 @@ getConstPtr( std::vector<size_t> block_size,
     std::vector<const ThyraVectorWrapper *> ptr( n_vecs, nullptr );
     for ( int i = 0; i < n_vecs; i++ ) {
         ptr[i] = dynamic_cast<const ThyraVectorWrapper *>( vecs[i].getRawPtr() );
-        AMP_INSIST( ptr[i] != nullptr,
+        AMP_INSIST( ptr[i],
                     "All vectors used in applyOpImpl must be of the type ThyraVectorWrapper" );
         for ( size_t j = 0; j < ptr[i]->numVecs(); j++ ) {
             auto tmp = ptr[i]->getVec( j );

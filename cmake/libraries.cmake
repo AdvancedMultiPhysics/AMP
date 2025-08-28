@@ -1,11 +1,9 @@
 # Macro to configure AMP-specific options
 MACRO ( CONFIGURE_AMP )
     # Check if the compiler supports to_tuple properly
-MESSAGE("    TRY_COMPILE( TEST_TO_TUPLE ${AMP_BUILD_DIR} SOURCES ${AMP_SOURCE_DIR}/../cmake/test_brace_constructible.cpp )")
     TRY_COMPILE( TEST_TO_TUPLE ${AMP_BUILD_DIR} SOURCES ${AMP_SOURCE_DIR}/../cmake/test_brace_constructible.cpp OUTPUT_VARIABLE TEST_TO_TUPLE_OUTPUT )
     IF ( NOT TEST_TO_TUPLE )
-        MESSAGE( WARNING "Failed to compile test_brace_constructible.cpp" )
-        MESSAGE( "${TEST_TO_TUPLE_OUTPUT}" )
+        MESSAGE( WARNING "to_tuple not supported, failed to compile test_brace_constructible.cpp" )
         ADD_DEFINITIONS( -DDISABLE_TO_TUPLE )
     ENDIF()
     # Add the AMP install directory

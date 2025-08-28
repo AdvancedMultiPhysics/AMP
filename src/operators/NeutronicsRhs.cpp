@@ -156,9 +156,9 @@ void NeutronicsRhs::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     (void) u;
 
     // subsetOutputVector is from Operator.h
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal = this->subsetOutputVector( r );
+    auto rInternal = this->subsetOutputVector( r );
 
-    AMP_ASSERT( rInternal != nullptr );
+    AMP_ASSERT( rInternal );
 
     // determine the present time
     int this_step = d_timeStep;
@@ -199,7 +199,7 @@ void NeutronicsRhs::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                             }
                           }*/
             } // end for gauss-points
-        }     // end for elements
+        } // end for elements
         /*double nrm = rInternal->L2Norm();
         printf("%e\n",nrm);
         AMP_MPI(AMP_COMM_WORLD).barrier();

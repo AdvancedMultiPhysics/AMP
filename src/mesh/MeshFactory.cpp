@@ -12,7 +12,7 @@
 #include "AMP/utils/MeshPoint.h"
 
 #ifdef AMP_USE_TRILINOS_STKCLASSIC
-//#include "AMP/mesh/STKmesh/STKMesh.h"
+// #include "AMP/mesh/STKmesh/STKMesh.h"
 #endif
 #ifdef AMP_USE_LIBMESH
     #include "AMP/mesh/libmesh/libmeshMesh.h"
@@ -31,7 +31,7 @@ namespace AMP::Mesh {
 std::shared_ptr<Mesh> MeshFactory::create( std::shared_ptr<MeshParameters> params )
 {
     auto db = params->getDatabase();
-    AMP_ASSERT( db != nullptr );
+    AMP_ASSERT( db );
     AMP_INSIST( db->keyExists( "MeshType" ), "MeshType must exist in input database" );
     AMP_INSIST( db->keyExists( "MeshName" ), "MeshName must exist in input database" );
     auto MeshType = db->getString( "MeshType" );

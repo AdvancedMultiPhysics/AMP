@@ -292,7 +292,7 @@ MultiMesh::createDatabases( std::shared_ptr<const AMP::Database> database )
         return meshDatabases;
     }
     // Find all of the meshes in the database
-    AMP_ASSERT( database != nullptr );
+    AMP_ASSERT( database );
     if ( !database->keyExists( "MeshDatabasePrefix" ) ||
          !database->keyExists( "MeshArrayDatabasePrefix" ) ) {
         std::string msg = "Missing field MeshDatabasePrefix/MeshArrayDatabasePrefix in database:\n";
