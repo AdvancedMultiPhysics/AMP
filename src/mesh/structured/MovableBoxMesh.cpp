@@ -31,7 +31,7 @@ MovableBoxMesh::MovableBoxMesh( const AMP::Mesh::BoxMesh &mesh ) : BoxMesh( mesh
         d_index.reserve( nodeIterator.size() );
         for ( size_t i = 0; i < nodeIterator.size(); ++i, ++nodeIterator ) {
             auto element = dynamic_cast<structuredMeshElement *>( nodeIterator->getRawElement() );
-            AMP_ASSERT( element != nullptr );
+            AMP_ASSERT( element );
             d_index.emplace_back( element->getIndex() );
         }
         AMP::Utilities::quicksort( d_index );
@@ -84,7 +84,7 @@ void MovableBoxMesh::displaceMesh( const std::vector<double> &x )
         d_box_local[2 * d + 0] += x[d];
         d_box_local[2 * d + 1] += x[d];
     }
-    if ( d_geometry != nullptr )
+    if ( d_geometry )
         d_geometry->displace( x.data() );
     d_pos_hash++;
 }

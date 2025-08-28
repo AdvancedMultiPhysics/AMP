@@ -71,7 +71,7 @@ namespace AMP::Solver {
 std::unique_ptr<SolverStrategy>
 SolverFactory::create( std::shared_ptr<SolverStrategyParameters> parameters )
 {
-    AMP_ASSERT( parameters != nullptr );
+    AMP_ASSERT( parameters );
     auto inputDatabase = parameters->d_db;
     AMP_ASSERT( inputDatabase );
     auto objectName = inputDatabase->getString( "name" );

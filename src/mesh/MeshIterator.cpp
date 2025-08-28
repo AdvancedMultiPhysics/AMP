@@ -62,7 +62,7 @@ MeshIterator &MeshIterator::operator=( MeshIterator &&rhs )
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    if ( d_iterator != nullptr ) {
+    if ( d_iterator ) {
         // Delete the existing element
         delete d_iterator;
         d_iterator = nullptr;
@@ -86,7 +86,7 @@ MeshIterator &MeshIterator::operator=( const MeshIterator &rhs )
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    if ( d_iterator != nullptr ) {
+    if ( d_iterator ) {
         // Delete the existing element
         delete d_iterator;
         d_iterator = nullptr;
@@ -128,7 +128,7 @@ MeshIterator::MeshIterator( MeshIterator *rhs )
  ********************************************************/
 MeshIterator::~MeshIterator()
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         delete d_iterator;
     d_iterator = nullptr;
 }
@@ -139,7 +139,7 @@ MeshIterator::~MeshIterator()
  ********************************************************/
 std::string MeshIterator::className() const
 {
-    if ( d_iterator == nullptr )
+    if ( !d_iterator )
         return "MeshIterator";
     auto name = d_iterator->className();
     AMP_DEBUG_ASSERT( name != "MeshIterator" );
@@ -282,7 +282,7 @@ MeshIterator MeshIterator::operator--( int )
  ********************************************************/
 MeshIterator &MeshIterator::operator+=( int n )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator+=( n );
     if ( n >= 0 ) {
         for ( int i = 0; i < n; i++ ) {
@@ -317,19 +317,19 @@ MeshIterator MeshIterator::operator-( const MeshIterator &it ) const
 }
 MeshIterator &MeshIterator::operator+=( const MeshIterator &it )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator+=( (int) it.position() );
     return this->operator+=( (int) it.position() );
 }
 MeshIterator &MeshIterator::operator-=( int n )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator-=( n );
     return this->operator+=( -n );
 }
 MeshIterator &MeshIterator::operator-=( const MeshIterator &it )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator-=( (int) it.position() );
     return this->operator+=( -static_cast<int>( it.position() ) );
 }
@@ -340,7 +340,7 @@ MeshIterator &MeshIterator::operator-=( const MeshIterator &it )
  ********************************************************/
 MeshElement &MeshIterator::operator[]( int i )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator[]( i );
     AMP_ERROR( "Dereferencing d_iterator with offset is not supported by default" );
     return this->operator*(); // This line never executes and would return the wrong object

@@ -330,8 +330,8 @@ void myTest( AMP::UnitTest *ut,
     createThermalOperators(
         input_db, manager, nonlinearThermalColumnOperator, linearThermalColumnOperator );
 
-    AMP_ASSERT( nonlinearThermalColumnOperator != nullptr );
-    AMP_ASSERT( linearThermalColumnOperator != nullptr );
+    AMP_ASSERT( nonlinearThermalColumnOperator );
+    AMP_ASSERT( linearThermalColumnOperator );
 
     auto outputVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
 

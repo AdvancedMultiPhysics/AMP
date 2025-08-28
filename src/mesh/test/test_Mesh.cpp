@@ -166,7 +166,7 @@ void testSTKMesh( AMP::UnitTest &ut )
 
     // Create a STKMesh mesh
     auto mesh = AMP::Mesh::MeshFactory::create( params );
-    AMP_ASSERT( mesh != nullptr );
+    AMP_ASSERT( mesh );
 
     // Run the mesh tests
     AMP::Mesh::meshTests::MeshTestLoop( ut, mesh );
@@ -195,7 +195,7 @@ void testlibMesh( AMP::UnitTest &ut )
 
     // Create a libMesh mesh
     auto mesh = AMP::Mesh::MeshFactory::create( params );
-    AMP_ASSERT( mesh != nullptr );
+    AMP_ASSERT( mesh );
 
     // Run the mesh tests
     AMP::Mesh::meshTests::MeshTestLoop( ut, mesh );
@@ -223,7 +223,7 @@ void testMoabMesh( [[maybe_unused]] AMP::UnitTest &ut )
 
     // Create a MOAB mesh
     auto mesh = AMP::Mesh::MeshFactory::create( params );
-    AMP_ASSERT( mesh != nullptr );
+    AMP_ASSERT( mesh );
 
     // Run the mesh tests
     ut.expected_failure( "Mesh tests not working on a MOAB mesh yet" );
@@ -248,7 +248,7 @@ void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut, [[maybe_unused]] std::st
 
     // Create the meshes from the input database
     auto mesh = AMP::Mesh::MeshFactory::create( params );
-    AMP_ASSERT( mesh != nullptr );
+    AMP_ASSERT( mesh );
 
     // Run the mesh tests
     AMP::Mesh::meshTests::MeshTestLoop( ut, mesh );

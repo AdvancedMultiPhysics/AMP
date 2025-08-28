@@ -4,6 +4,7 @@
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 
+#include <cmath>
 #include <limits>
 #include <memory>
 

@@ -189,7 +189,7 @@ void SubsetVectorData::getValuesByLocalID( size_t N,
 void SubsetVectorData::swapData( VectorData &rhs )
 {
     auto s = dynamic_cast<SubsetVectorData *>( &rhs );
-    AMP_ASSERT( s != nullptr );
+    AMP_ASSERT( s );
     std::swap( d_ViewVector, s->d_ViewVector );
     std::swap( d_SubsetLocalIDToViewGlobalID, s->d_SubsetLocalIDToViewGlobalID );
     std::swap( d_dataBlockSize, s->d_dataBlockSize );

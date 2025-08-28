@@ -37,7 +37,7 @@ namespace AMP::TimeIntegrator {
 std::unique_ptr<TimeIntegrator>
 TimeIntegratorFactory::create( std::shared_ptr<TimeIntegratorParameters> parameters )
 {
-    AMP_ASSERT( parameters != nullptr );
+    AMP_ASSERT( parameters );
     auto inputDatabase = parameters->d_db;
     AMP_ASSERT( inputDatabase );
     auto objectName = inputDatabase->getString( "name" );

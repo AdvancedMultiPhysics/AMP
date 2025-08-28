@@ -124,7 +124,7 @@ void IDATimeIntegrator::initializeIDA()
     id = N_VClone( pSundials_sol->getNVector() );
 
     d_ida_mem = IDACreate();
-    AMP_ASSERT( d_ida_mem != nullptr );
+    AMP_ASSERT( d_ida_mem );
 
     int ierr = IDASetUserData( d_ida_mem, this );
     AMP_ASSERT( ierr == IDA_SUCCESS );

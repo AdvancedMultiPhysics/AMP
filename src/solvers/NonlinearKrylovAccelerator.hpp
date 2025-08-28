@@ -76,7 +76,7 @@ NonlinearKrylovAccelerator<T>::NonlinearKrylovAccelerator(
 template<typename T>
 NonlinearKrylovAccelerator<T>::~NonlinearKrylovAccelerator( void )
 {
-    if ( d_h != nullptr ) {
+    if ( d_h ) {
         delete[] d_h[0];
         delete[] d_h;
     }
@@ -385,9 +385,9 @@ void NonlinearKrylovAccelerator<T>::apply( std::shared_ptr<const AMP::LinearAlge
     std::shared_ptr<AMP::Operator::Operator> pc_operator;
     if ( d_uses_preconditioner ) {
         auto pc_parameters = d_pOperator->getParameters( "Jacobian", d_solution_vector );
-        AMP_ASSERT( pc_parameters.get() != nullptr );
+        AMP_ASSERT( pc_parameters );
         pc_operator = d_pNestedSolver->getOperator();
-        AMP_ASSERT( pc_operator.get() != nullptr );
+        AMP_ASSERT( pc_operator );
 
         // if using a frozen preconditioner set it up first
         if ( d_freeze_pc ) {

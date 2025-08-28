@@ -157,24 +157,22 @@ Vector::const_shared_ptr Vector::subsetVectorForComponent( size_t index ) const
 std::shared_ptr<Vector> Vector::clone() const { return clone( getVariable()->clone() ); }
 std::shared_ptr<Vector> Vector::clone( const std::string &name ) const
 {
-    std::unique_ptr<Vector> retVal;
-    if ( getVariable() ) {
-        retVal = rawClone( getVariable()->clone( name ) );
-    } else {
-        retVal = rawClone( std::make_shared<Variable>( name ) );
-    }
-    return retVal;
+    auto vec = rawClone();
+    vec->setName( name );
+    return vec;
 }
 Vector::shared_ptr Vector::clone( const std::shared_ptr<Variable> name ) const
 {
-    return rawClone( name );
+    auto vec = rawClone();
+    vec->setVariable( name );
+    return vec;
 }
-std::unique_ptr<Vector> Vector::rawClone( const std::shared_ptr<Variable> name ) const
+std::unique_ptr<Vector> Vector::rawClone() const
 {
     PROFILE( "Vector::clone" );
     auto vec          = std::make_unique<Vector>();
     vec->d_units      = d_units;
-    vec->d_Variable   = name;
+    vec->d_Variable   = vec->d_Variable->clone();
     vec->d_DOFManager = d_DOFManager;
     vec->d_VectorData = d_VectorData->cloneData();
     vec->d_VectorOps  = d_VectorOps->cloneOperations();

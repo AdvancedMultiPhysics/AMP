@@ -184,7 +184,7 @@ void getCladProperties( AMP::AMP_MPI comm,
 {
     // Get the center of each local clad
     std::set<std::array<double, 3>> center;
-    if ( clad != nullptr ) {
+    if ( clad ) {
         AMP_ASSERT( clad->getComm() <= comm );
         auto ids = clad->getLocalBaseMeshIDs();
         for ( auto &id : ids ) {
@@ -296,8 +296,8 @@ std::vector<double> getHeatFluxClad( std::vector<double> z,
         dz[i] = z[i + 1] - z[i];
     // const double pi = 3.1415926535897932;
     AMP_ASSERT( face_ids.size() == z.size() );
-    AMP_ASSERT( flow != nullptr );
-    AMP_ASSERT( clad_temp != nullptr );
+    AMP_ASSERT( flow );
+    AMP_ASSERT( clad_temp );
     auto flow_manager    = flow->getDOFManager();
     auto clad_manager    = clad_temp->getDOFManager();
     const double h_scale = 1.0 / Subchannel::scaleEnthalpy; // Scale to change to correct units
