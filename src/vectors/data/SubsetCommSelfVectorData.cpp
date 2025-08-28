@@ -122,7 +122,7 @@ size_t SubsetCommSelfVectorData::getAllGhostValues( void *, const typeID & ) con
 void SubsetCommSelfVectorData::swapData( VectorData &rhs )
 {
     auto s = dynamic_cast<SubsetCommSelfVectorData *>( &rhs );
-    AMP_ASSERT( s != nullptr );
+    AMP_ASSERT( s );
     std::swap( d_parentData, s->d_parentData );
     std::swap( d_localSize, s->d_localSize );
     std::swap( d_globalSize, s->d_globalSize );

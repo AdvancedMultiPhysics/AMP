@@ -310,7 +310,7 @@ void TrilinosNOXSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     const auto *tmp = dynamic_cast<const NOX::Thyra::Vector *>( &( nox_group->getX() ) );
     const auto *thyraVec =
         dynamic_cast<const AMP::LinearAlgebra::ThyraVectorWrapper *>( &( tmp->getThyraVector() ) );
-    AMP_ASSERT( thyraVec != nullptr );
+    AMP_ASSERT( thyraVec );
     AMP_ASSERT( thyraVec->numVecs() == 1 );
     u->copyVector( thyraVec->getVec( 0 ) );
 }
