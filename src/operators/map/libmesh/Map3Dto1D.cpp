@@ -87,10 +87,10 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     std::vector<int> numFaceGauss( numPoints, 0 );
 
     // Get the local contributions to the map
-    if ( d_MapMesh != nullptr ) {
-        AMP_ASSERT( u != nullptr );
+    if ( d_MapMesh ) {
+        AMP_ASSERT( u );
         AMP::LinearAlgebra::Vector::const_shared_ptr inputVec = subsetInputVector( u );
-        AMP_ASSERT( inputVec != nullptr );
+        AMP_ASSERT( inputVec );
         AMP_ASSERT( inputVec->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
         std::shared_ptr<AMP::Discretization::DOFManager> dof_map = inputVec->getDOFManager();
@@ -100,7 +100,7 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             AMP::pout << inputVec << std::endl;
         }
 
-        AMP_ASSERT( outputVec != nullptr );
+        AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
         AMP::Mesh::MeshIterator bnd =
@@ -222,12 +222,12 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     std::vector<int> numFaceNodes( numPoints, 0 );
 
     // Get the local contributions to the map
-    if ( d_MapMesh != nullptr ) {
-        AMP_ASSERT( u != nullptr );
+    if ( d_MapMesh ) {
+        AMP_ASSERT( u );
 
         // Subset u for the local vector of interest
         AMP::LinearAlgebra::Vector::const_shared_ptr inputVec = subsetInputVector( u );
-        AMP_ASSERT( inputVec != nullptr );
+        AMP_ASSERT( inputVec );
         AMP_ASSERT( inputVec->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
         std::shared_ptr<AMP::Discretization::DOFManager> dof_map = inputVec->getDOFManager();
@@ -237,7 +237,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             AMP::pout << inputVec << std::endl;
         }
 
-        AMP_ASSERT( outputVec != nullptr );
+        AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
         AMP::Mesh::MeshIterator bnd =

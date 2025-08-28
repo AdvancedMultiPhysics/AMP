@@ -344,17 +344,18 @@ void MultiVector::swapVectors( Vector &other )
     for ( size_t i = 0; i != d_vVectors.size(); i++ )
         d_vVectors[i]->swapVectors( getVector( other, i ) );
 }
-std::unique_ptr<Vector> MultiVector::rawClone( const std::shared_ptr<Variable> name ) const
+std::unique_ptr<Vector> MultiVector::rawClone() const
 {
-    std::unique_ptr<MultiVector> retVec( new MultiVector( name->getName(), getComm() ) );
-    std::vector<std::shared_ptr<Vector>> vecs;
-    vecs.resize( d_vVectors.size() );
+    std::unique_ptr<MultiVector> retVec( new MultiVector() );
+    retVec->d_vVectors.resize( d_vVectors.size() );
     for ( size_t i = 0; i != d_vVectors.size(); i++ )
-        vecs[i] = d_vVectors[i]->clone();
-    retVec->addVector( vecs );
+        retVec->d_vVectors[i] = d_vVectors[i]->clone();
+    retVec->d_units      = d_units;
+    retVec->d_Variable   = d_Variable->clone();
     retVec->d_DOFManager = d_DOFManager;
+    retVec->d_VectorData = std::make_shared<MultiVectorData>( getComm() );
     retVec->resetVectorData();
-    retVec->resetVectorOperations();
+    retVec->d_VectorOps = d_VectorOps->cloneOperations();
     return retVec;
 }
 
@@ -371,7 +372,7 @@ MultiVector::~MultiVector() = default;
 const Vector::shared_ptr &MultiVector::getVector( const Vector &rhs, size_t which ) const
 {
     auto x = dynamic_cast<const MultiVector *>( &rhs );
-    AMP_ASSERT( x != nullptr );
+    AMP_ASSERT( x );
     AMP_ASSERT( which < x->d_vVectors.size() );
     return x->d_vVectors[which];
 }
@@ -379,7 +380,7 @@ const Vector::shared_ptr &MultiVector::getVector( const Vector &rhs, size_t whic
 Vector::shared_ptr &MultiVector::getVector( Vector &rhs, size_t which ) const
 {
     auto x = dynamic_cast<MultiVector *>( &rhs );
-    AMP_ASSERT( x != nullptr );
+    AMP_ASSERT( x );
     AMP_ASSERT( which < x->d_vVectors.size() );
     return x->d_vVectors[which];
 }

@@ -8,9 +8,6 @@
 #ifdef AMP_USE_HYPRE
     #include "HYPRE_utilities.h"
 #endif
-#ifdef AMP_USE_HYPRE
-    #include "HYPRE_utilities.h"
-#endif
 
 #include <cstdint>
 #include <limits>

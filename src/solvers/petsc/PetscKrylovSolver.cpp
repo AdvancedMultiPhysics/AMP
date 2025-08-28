@@ -491,7 +491,7 @@ PetscErrorCode PetscKrylovSolver::matVec( Mat mat, Vec x, Vec y )
     int ierr  = 0;
     void *ctx = nullptr;
     checkErr( MatShellGetContext( mat, &ctx ) );
-    AMP_ASSERT( ctx != nullptr );
+    AMP_ASSERT( ctx );
     auto solver = reinterpret_cast<PetscKrylovSolver *>( ctx );
     auto op     = solver->getOperator();
     auto sp_x   = PETSC::getAMP( x );
@@ -511,7 +511,7 @@ PetscErrorCode PetscKrylovSolver::applyPreconditioner( PC pc, Vec r, Vec z )
     int ierr = 0;
     void *ctx;
     PCShellGetContext( pc, &ctx );
-    AMP_ASSERT( ctx != nullptr );
+    AMP_ASSERT( ctx );
     auto solver = reinterpret_cast<PetscKrylovSolver *>( ctx );
 
     auto sp_r = PETSC::getAMP( r );
@@ -531,7 +531,7 @@ PetscErrorCode PetscKrylovSolver::applyPreconditioner( PC pc, Vec r, Vec z )
 
     // Call the preconditioner
     auto preconditioner = solver->getNestedSolver();
-    if ( preconditioner != nullptr ) {
+    if ( preconditioner ) {
         preconditioner->apply( sp_r, sp_z );
     } else {
         // Use the identity preconditioner

@@ -84,13 +84,13 @@ void *NativeThyraVectorData::getRawDataBlockAsVoid( size_t i )
 {
     Thyra::VectorBase<double> *ptr = d_thyraVec.get();
     auto *spmdVector               = dynamic_cast<Thyra::DefaultSpmdVector<double> *>( ptr );
-    if ( spmdVector != nullptr ) {
+    if ( spmdVector ) {
         if ( i != 0 )
             AMP_ERROR( "Invalid block" );
         return spmdVector->getPtr();
     }
     auto *wrapperVector = dynamic_cast<ThyraVectorWrapper *>( ptr );
-    if ( wrapperVector != nullptr ) {
+    if ( wrapperVector ) {
         AMP_INSIST( wrapperVector->numVecs() == 1,
                     "Not ready for dealing with multiple copies of the vector yet" );
         return wrapperVector->getVec( 0 )->getRawDataBlock<double>( i );
@@ -104,13 +104,13 @@ const void *NativeThyraVectorData::getRawDataBlockAsVoid( size_t i ) const
 {
     const Thyra::VectorBase<double> *ptr = d_thyraVec.get();
     const auto *spmdVector = dynamic_cast<const Thyra::DefaultSpmdVector<double> *>( ptr );
-    if ( spmdVector != nullptr ) {
+    if ( spmdVector ) {
         if ( i != 0 )
             AMP_ERROR( "Invalid block" );
         return spmdVector->getPtr();
     }
     const auto *wrapperVector = dynamic_cast<const ThyraVectorWrapper *>( ptr );
-    if ( wrapperVector != nullptr ) {
+    if ( wrapperVector ) {
         AMP_INSIST( wrapperVector->numVecs() == 1,
                     "Not ready for dealing with multiple copies of the vector yet" );
         return wrapperVector->getVec( 0 )->getRawDataBlock<double>( i );
@@ -122,10 +122,10 @@ const void *NativeThyraVectorData::getRawDataBlockAsVoid( size_t i ) const
 size_t NativeThyraVectorData::numberOfDataBlocks() const
 {
     const Thyra::VectorBase<double> *ptr = d_thyraVec.get();
-    if ( dynamic_cast<const Thyra::DefaultSpmdVector<double> *>( ptr ) != nullptr )
+    if ( dynamic_cast<const Thyra::DefaultSpmdVector<double> *>( ptr ) )
         return 1;
     const auto *wrapperVector = dynamic_cast<const ThyraVectorWrapper *>( ptr );
-    if ( wrapperVector != nullptr )
+    if ( wrapperVector )
         return wrapperVector->getVec( 0 )->numberOfDataBlocks();
     AMP_ERROR( "not finished" );
     return 1;
@@ -136,10 +136,10 @@ size_t NativeThyraVectorData::sizeOfDataBlock( size_t i ) const
 {
     const Thyra::VectorBase<double> *ptr = d_thyraVec.get();
     const auto *spmdVector = dynamic_cast<const Thyra::DefaultSpmdVector<double> *>( ptr );
-    if ( spmdVector != nullptr )
+    if ( spmdVector )
         return d_localSize;
     const auto *wrapperVector = dynamic_cast<const ThyraVectorWrapper *>( ptr );
-    if ( wrapperVector != nullptr ) {
+    if ( wrapperVector ) {
         AMP_INSIST( wrapperVector->numVecs() == 1,
                     "Not ready for dealing with multiple copies of the vector yet" );
         return wrapperVector->getVec( 0 )->sizeOfDataBlock( i );
@@ -152,7 +152,7 @@ Teuchos::RCP<const Thyra::VectorBase<double>>
 NativeThyraVectorData::getThyraVec( std::shared_ptr<const VectorData> vec )
 {
     auto vec2 = std::dynamic_pointer_cast<const ThyraVector>( vec );
-    AMP_ASSERT( vec2 != nullptr );
+    AMP_ASSERT( vec2 );
     return vec2->getVec();
 }
 
@@ -160,14 +160,14 @@ Teuchos::RCP<const Thyra::VectorBase<double>>
 NativeThyraVectorData::getThyraVec( const VectorData &v )
 {
     auto vec2 = dynamic_cast<const ThyraVector *>( &v );
-    AMP_ASSERT( vec2 != nullptr );
+    AMP_ASSERT( vec2 );
     return vec2->getVec();
 }
 
 Teuchos::RCP<Thyra::VectorBase<double>> NativeThyraVectorData::getThyraVec( VectorData &v )
 {
     auto vec2 = dynamic_cast<ThyraVector *>( &v );
-    AMP_ASSERT( vec2 != nullptr );
+    AMP_ASSERT( vec2 );
     return vec2->getVec();
 }
 
