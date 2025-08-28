@@ -16,6 +16,7 @@ class DeviceOperationsHelpers
 {
 public:
     //  functions that operate on VectorData
+    static void setRandomValues( size_t N, TYPE *x );
     static void scale( TYPE alpha, size_t N, const TYPE *x, TYPE *y );
     static void scale( TYPE alpha, size_t N, TYPE *x );
     static void add( size_t N, const TYPE *x, const TYPE *y, TYPE *z );
