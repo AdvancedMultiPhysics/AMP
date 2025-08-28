@@ -53,12 +53,15 @@
 
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
-#include "AMP/operators/radiationDiffusionFD/RDUtils.h"
+#include "AMP/operators/radiationDiffusionFD/RDUtils.h" // oktodo: delete
 
-#include "AMP/operators/radiationDiffusionFD/RDFDOpSplitPrec.h"
 //#include "AMP/operators/radiationDiffusionFD/RDFDMonolithicPrec.h"
 
 #include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+
+#include "AMP/solvers/radiationDiffusionFDOpSplitPrec/RadiationDiffusionFDOpSplitPrec.h"
+
+// oktodo: clean up includes
 
 
 /*
@@ -207,8 +210,7 @@ void driver(AMP::AMP_MPI comm,
 
     // Create a SolverFactory and register preconditioner(s) of the above operator in it 
     auto & solverFactory = AMP::Solver::SolverFactory::getFactory();
-    solverFactory.registerFactory( "BERadDifOpPJacOpSplitPrec", AMP::Operator::BERadDifOpPJacOpSplitPrec::create );
-    //solverFactory.registerFactory( "BERadDifOpJacMonolithic", BERadDifOpJacMonolithic::create );
+    solverFactory.registerFactory( "BERadDifOpPJacOpSplitPrec", AMP::Solver::BERadDifOpPJacOpSplitPrec::create );
     
     // Create hassle-free wrappers around ic, source term and exact solution
     auto icFun        = std::bind( &AMP::Operator::RadDifModel::initialCondition, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
@@ -431,6 +433,9 @@ int main( int argc, char **argv )
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
     int myRank   = comm.getRank();
     int numRanks = comm.getSize();
+
+
+    // TODO: Add test file here that we want to parse in and put guards around it depending on hypre being included since boomer is used.
 
     // Unpack inputs
     //int n = atoi(argv[1]); // Grid size in each dimension
