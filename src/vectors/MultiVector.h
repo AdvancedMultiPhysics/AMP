@@ -155,7 +155,7 @@ public:
 
     std::string type() const override;
 
-    std::unique_ptr<Vector> rawClone( const std::shared_ptr<Variable> name ) const override;
+    std::unique_ptr<Vector> rawClone() const override;
 
     void swapVectors( Vector &other ) override;
 
@@ -200,8 +200,6 @@ public: // public constructor/destructors
                           const AMP_MPI &comm,
                           const std::vector<Vector::shared_ptr> &vecs );
 
-
-public: // private constructor/destructors
     /** Constructor:  create a multivector containing a single vector only
      * \param[in]  vec   The input vector
      */
@@ -209,9 +207,10 @@ public: // private constructor/destructors
 
 
 public: // default constructor/destructors
-    MultiVector( MultiVector && )      = delete;
-    MultiVector( const MultiVector & ) = delete;
-    MultiVector &operator=( MultiVector && ) = delete;
+    MultiVector()                                 = default;
+    MultiVector( MultiVector && )                 = delete;
+    MultiVector( const MultiVector & )            = delete;
+    MultiVector &operator=( MultiVector && )      = delete;
     MultiVector &operator=( const MultiVector & ) = delete;
     virtual ~MultiVector();
 

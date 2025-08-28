@@ -110,7 +110,7 @@ public: // Virtual functions
      * It will have the same number of blocks, each with the same engines and same number of
      * entries.
      */
-    virtual std::unique_ptr<Vector> rawClone( const std::shared_ptr<Variable> name ) const;
+    virtual std::unique_ptr<Vector> rawClone() const;
 
     /** \brief  Swap the data in this Vector for another
       * \param[in]  other  Vector to swap data with

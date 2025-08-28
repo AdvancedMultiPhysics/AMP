@@ -36,7 +36,7 @@ public:
     // These methods are adequately documented in a base class
     std::string type() const override;
 
-    std::unique_ptr<Vector> rawClone( const std::shared_ptr<Variable> var ) const override;
+    std::unique_ptr<Vector> rawClone() const override;
     void swapVectors( Vector &other ) override;
     void copyVector( Vector::const_shared_ptr vec ) override;
 

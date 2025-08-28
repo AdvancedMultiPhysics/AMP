@@ -13,12 +13,12 @@ TrilinosLinearOP::TrilinosLinearOP() = default;
 TrilinosLinearOP::TrilinosLinearOP( AMP::Operator::Operator::shared_ptr op )
 {
     this->d_operator = op;
-    AMP_ASSERT( d_operator != nullptr );
+    AMP_ASSERT( d_operator );
 }
 TrilinosLinearOP::TrilinosLinearOP( AMP::Solver::SolverStrategy::shared_ptr solver )
 {
     this->d_solver = solver;
-    AMP_ASSERT( d_solver != nullptr );
+    AMP_ASSERT( d_solver );
 }
 TrilinosLinearOP::~TrilinosLinearOP() = default;
 
@@ -49,14 +49,14 @@ void TrilinosLinearOP::applyImpl( const Thyra::EOpTransp M_trans,
 {
     // Compute Y = alpha*OP(M)*X + beta*Y
     AMP_ASSERT( M_trans == Thyra::NOTRANS );
-    AMP::LinearAlgebra::Vector::const_shared_ptr x0 = AMP::LinearAlgebra::ThyraVector::constView(
+    auto x0 = AMP::LinearAlgebra::ThyraVector::constView(
         dynamic_cast<const Thyra::VectorBase<double> *>( &X ) );
-    AMP::LinearAlgebra::Vector::shared_ptr y0 = AMP::LinearAlgebra::ThyraVector::view(
+    auto y0 = AMP::LinearAlgebra::ThyraVector::view(
         dynamic_cast<Thyra::VectorBase<double> *>( Y.get() ) );
-    if ( x0 != nullptr )
+    if ( x0 )
         const_cast<AMP::LinearAlgebra::Vector *>( x0.get() )
             ->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    if ( y0 != nullptr )
+    if ( y0 )
         y0->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     std::vector<AMP::LinearAlgebra::Vector::const_shared_ptr> x;
     std::vector<AMP::LinearAlgebra::Vector::shared_ptr> y;
@@ -68,7 +68,7 @@ void TrilinosLinearOP::applyImpl( const Thyra::EOpTransp M_trans,
             std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( x0 );
         std::shared_ptr<AMP::LinearAlgebra::MultiVector> y1 =
             std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( y0 );
-        AMP_ASSERT( x1 != nullptr && y1 != nullptr );
+        AMP_ASSERT( x1 && y1 );
         size_t N_vecs_x = x1->getNumberOfSubvectors();
         size_t N_vecs_y = y1->getNumberOfSubvectors();
         AMP_ASSERT( N_vecs_x != N_vecs_y );
@@ -81,7 +81,7 @@ void TrilinosLinearOP::applyImpl( const Thyra::EOpTransp M_trans,
         y.push_back( y0 );
     }
     for ( size_t i = 0; i < x.size(); i++ ) {
-        if ( d_operator != nullptr ) {
+        if ( d_operator ) {
             // Apply the AMP::Operator to compute f = OP(M)*X
             AMP::LinearAlgebra::Vector::shared_ptr f = y[i]->clone();
             d_operator->apply( x[i], f );

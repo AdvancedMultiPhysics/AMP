@@ -192,7 +192,7 @@ void computeL2Norm( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                 double computedAtNode = TemperatureVec->getValueByGlobalID( bndGlobalIds[j] );
                 computedAtGauss[qp] += computedAtNode * phi[j][qp];
             } // end for j
-        }     // end for qp
+        } // end for qp
 
         for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
             double px                  = coordinates[qp]( 0 );
@@ -330,8 +330,8 @@ void myTest( AMP::UnitTest *ut,
     createThermalOperators(
         input_db, manager, nonlinearThermalColumnOperator, linearThermalColumnOperator );
 
-    AMP_ASSERT( nonlinearThermalColumnOperator != nullptr );
-    AMP_ASSERT( linearThermalColumnOperator != nullptr );
+    AMP_ASSERT( nonlinearThermalColumnOperator );
+    AMP_ASSERT( linearThermalColumnOperator );
 
     auto outputVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
 

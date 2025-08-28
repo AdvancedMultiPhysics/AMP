@@ -21,7 +21,7 @@ namespace AMP::Solver {
 TrilinosThyraModelEvaluator::TrilinosThyraModelEvaluator(
     std::shared_ptr<TrilinosThyraModelEvaluatorParameters> params )
 {
-    AMP_ASSERT( params->d_nonlinearOp != nullptr );
+    AMP_ASSERT( params->d_nonlinearOp );
     d_nonlinearOp     = params->d_nonlinearOp;
     d_linearOp        = params->d_linearOp;
     d_icVec           = params->d_icVec;
@@ -58,12 +58,12 @@ void TrilinosThyraModelEvaluator::evalModelImpl(
     // const Thyra::ConstDetachedVectorView<double> x(inArgs.get_x());
     // const Teuchos::RCP< Thyra::VectorBase<double> > f_out = outArgs.get_f();
     // const Teuchos::RCP< Thyra::LinearOpBase<double> > W_out = outArgs.get_W_op();
-    AMP_ASSERT( x != nullptr );
+    AMP_ASSERT( x );
 
     // Temporary workaround to ensure x and rhs are consistent
     const_cast<AMP::LinearAlgebra::Vector *>( x.get() )->makeConsistent(
         AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    if ( d_rhs != nullptr ) {
+    if ( d_rhs ) {
         const_cast<AMP::LinearAlgebra::Vector *>( d_rhs.get() )
             ->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     }
@@ -77,7 +77,7 @@ void TrilinosThyraModelEvaluator::evalModelImpl(
         [[maybe_unused]] auto op_params = d_nonlinearOp->getParameters( "Jacobian", x2 );
     }
 
-    if ( f_out != nullptr ) {
+    if ( f_out ) {
         // Evaluate the residual:  r = A(u) - rhs
         f_out->zero();
         auto eval  = outArgs.get_f();
@@ -89,19 +89,19 @@ void TrilinosThyraModelEvaluator::evalModelImpl(
         } else if ( eval.getType() == ::Thyra::ModelEvaluatorBase::EVAL_TYPE_VERY_APPROX_DERIV ) {
             exact = false;
         }
-        if ( d_prePostOperator != nullptr )
+        if ( d_prePostOperator )
             d_prePostOperator->runPreApply( x, f_out, exact );
         // Apply the AMP::Operator to compute r = A(u) - rhs
         d_nonlinearOp->apply( x, f_out );
         if ( d_rhs )
             f_out->axpby( -1, 1, *d_rhs );
-        if ( d_prePostOperator != nullptr )
+        if ( d_prePostOperator )
             d_prePostOperator->runPostApply( x, f_out, exact );
     }
 
     if ( outArgs.supports( ::Thyra::ModelEvaluatorBase::OUT_ARG_W_op ) ) {
         Teuchos::RCP<Thyra::LinearOpBase<double>> W_out = outArgs.get_W_op();
-        if ( W_out.get() != nullptr ) {
+        if ( W_out ) {
             // Get the jacobian
             AMP_ERROR( "Not finished" );
         }
@@ -172,7 +172,7 @@ TrilinosThyraModelEvaluator::get_W_factory() const
 Teuchos::RCP<::Thyra::PreconditionerBase<double>> TrilinosThyraModelEvaluator::create_W_prec() const
 {
     Teuchos::RCP<Thyra::DefaultPreconditioner<double>> preconditioner;
-    if ( d_preconditioner != nullptr ) {
+    if ( d_preconditioner ) {
         Teuchos::RCP<Thyra::LinearOpBase<double>> leftPrec;
         Teuchos::RCP<Thyra::LinearOpBase<double>> rightPrec(
             new TrilinosLinearOP( d_preconditioner ) );
@@ -195,7 +195,7 @@ TrilinosThyraModelEvaluator::view( Teuchos::RCP<Thyra::LinearOpBase<double>> op 
     if ( op.is_null() )
         return std::shared_ptr<AMP::Solver::TrilinosLinearOP>();
     auto *tmp = dynamic_cast<AMP::Solver::TrilinosLinearOP *>( op.get() );
-    AMP_ASSERT( tmp != nullptr );
+    AMP_ASSERT( tmp );
     return std::shared_ptr<AMP::Solver::TrilinosLinearOP>(
         tmp, nullDeleter<AMP::Solver::TrilinosLinearOP> );
 }

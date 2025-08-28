@@ -256,7 +256,7 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 
     if ( d_bUseEpetra ) {
         // These functions throw exceptions if this cannot be performed.
-        AMP_ASSERT( f != nullptr );
+        AMP_ASSERT( f );
 
         auto f_epetra             = AMP::LinearAlgebra::EpetraVector::constView( f );
         auto u_epetra             = AMP::LinearAlgebra::EpetraVector::view( u );

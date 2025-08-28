@@ -142,7 +142,7 @@ void NeutronicsRhsExtras::reset( std::shared_ptr<const OperatorParameters> param
     AMP_ASSERT( parameters );
     auto params = std::dynamic_pointer_cast<const NeutronicsRhsExtrasParameters>( parameters );
     AMP_ASSERT( params );
-    AMP_ASSERT( ( ( params->d_db ).get() ) != nullptr );
+    AMP_ASSERT( params->d_db );
 
     if ( !d_useFixedValue ) {
         int numValues;
@@ -201,7 +201,7 @@ void NeutronicsRhsExtras::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                 rInternal->setValuesByGlobalID(
                     1, &gid[i], &d_values[this_extrasId][this_step][gp] );
             } // end for gauss-points
-        }     // end for elements
+        } // end for elements
     }
 }
 

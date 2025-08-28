@@ -78,7 +78,7 @@ PetscSNESSolver::~PetscSNESSolver() { destroyPetscObjects(); }
 void PetscSNESSolver::destroyPetscObjects( void )
 {
     // when we are using Matrix free delete the MF PETSc Jacobian
-    if ( ( !d_bUsesJacobian ) && ( d_Jacobian != nullptr ) ) {
+    if ( ( !d_bUsesJacobian ) && ( d_Jacobian ) ) {
         PETSC::matDestroy( &d_Jacobian );
         d_Jacobian = nullptr;
     }
@@ -948,7 +948,7 @@ int PetscSNESSolver::wrapperLineSearchPreCheck(
     int ierr         = 0;
 
     PROFILE( "wrapperLineSearchPreCheck" );
-    AMP_ASSERT( ctx != nullptr );
+    AMP_ASSERT( ctx );
     auto snesSolver = reinterpret_cast<PetscSNESSolver *>( ctx );
 
     auto xv = PETSC::getAMP( x );

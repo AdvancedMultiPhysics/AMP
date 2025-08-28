@@ -184,7 +184,7 @@ public:
                        bool & )>
     getLineSearchPreCheckAdaptor()
     {
-        AMP_ASSERT( d_lineSearchPreCheckPtr != nullptr );
+        AMP_ASSERT( d_lineSearchPreCheckPtr );
         return d_lineSearchPreCheckPtr;
     } //! pointer to line search function
 

@@ -54,13 +54,13 @@ std::string ManagedThyraVector::ManagedThyraVector::type() const
 /****************************************************************
  * Clone the vector                                              *
  ****************************************************************/
-std::unique_ptr<Vector> ManagedThyraVector::rawClone( const std::shared_ptr<Variable> var ) const
+std::unique_ptr<Vector> ManagedThyraVector::rawClone() const
 {
     auto vec    = getVectorEngine( getVectorData() );
     auto vec2   = vec->clone( "ManagedThyraVectorClone" );
     auto engine = std::dynamic_pointer_cast<Vector>( vec2 );
     auto retVal = std::make_unique<ManagedThyraVector>( engine );
-    retVal->setVariable( var );
+    retVal->setVariable( d_Variable );
     return retVal;
 }
 void ManagedThyraVector::swapVectors( Vector &other )

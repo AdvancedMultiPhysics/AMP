@@ -20,7 +20,7 @@ void StructuredMeshHelper::getXYZCoordinates( std::shared_ptr<AMP::Mesh::Mesh> m
                                               std::vector<double> &z_out,
                                               bool check )
 {
-    AMP_ASSERT( mesh != nullptr );
+    AMP_ASSERT( mesh );
     std::set<double> x, y, z;
     auto it = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     for ( size_t i = 0; i < it.size(); i++ ) {
