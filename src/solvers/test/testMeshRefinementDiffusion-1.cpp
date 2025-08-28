@@ -192,7 +192,7 @@ void computeL2Norm( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                 double computedAtNode = TemperatureVec->getValueByGlobalID( bndGlobalIds[j] );
                 computedAtGauss[qp] += computedAtNode * phi[j][qp];
             } // end for j
-        } // end for qp
+        }     // end for qp
 
         for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
             double px                  = coordinates[qp]( 0 );
