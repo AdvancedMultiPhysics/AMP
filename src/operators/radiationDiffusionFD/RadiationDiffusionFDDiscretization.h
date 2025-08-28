@@ -78,7 +78,7 @@ class BERadDifOpPJac;
  * doubles. Specify constants in Robin BCs on energy. 
  * Optionally, the RHS boundary condition values of rk and nk can be provided. However, the user 
  * can also specify these RHS values as boundary- and spatially-dependent functions via calls to 
- * 'setRobinFunctionE' and 'setPseudoNeumannFunctionT', respectively, in which case whatever values
+ * 'setBoundaryFunctionE' and 'setBoundaryFunctionT', respectively, in which case whatever values
  * of rk and nk exist in the database will be ignored.
  *
  *  2. zatom:
@@ -99,22 +99,20 @@ class BERadDifOpPJac;
  *      1,2 for xmin,xman, 
  *      3,4 for ymin,ymax, 
  *      5,6 for zmin,zmax.
- * The mesh range and number of points in need not be the same in each dimension.
+ * The mesh range and number of points in each dimension need not be the same.
  * 
  * NOTES:
- *      * There is no mass matrix: After integrating the PDEs over a spatial volumne, the discrete 
+ *      * There is no mass matrix: After integrating the PDEs over a spatial volume, the discrete 
  * equations are re-scaled such that the mesh volume appearing in front of the time derivative is 1.
  *      * Each dimension [xmin, xmax] is divided into nx cells with centers xi = xmin + (i+1/2)*hx 
  * with hx = (xmax-xmin)/nx, for i = 0,...,nx-1. The computational unknowns in each dimension that 
- * we discretize are the point values of E and T at these nx cell centers. 
+ * we discretize are the point values of E and T at these nx cell centers. The placement of DOFs at 
+ * cell centers is handled internally by the class.
  *      * Boundary conditions are implemented by placing one ghost cell at each end of the domain, 
  * with corresponding unknowns at the centers of those ghost cells. Where ghost values are required 
  * (i.e., when evaluating the 3-point stencil of a boundary-adjacent DOF), the ghost value is 
  * evaluated in terms the boundary-adjacent DOF using the discretized boundary condition. That is,
  * ghost points are not active DOFs.
- * 
- * TODO: describe how incoming mesh must conform to boundaries... 
- * The incoming mesh should have nodes placed at the cell centers... so that actually the [xmin,xmax] there correspond to the cell centers...
  */
 class RadDifOp : public AMP::Operator::Operator {
 
@@ -140,8 +138,8 @@ private:
     //! Local grid index box w/ zero ghosts
     std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_localBox = nullptr;
     
-    //! Convenience member
-    static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
+    //! Convenience member. Geometry type that results in cell centered data. In 1D: Line, 2D: Edge, 3D Cell
+    AMP::Mesh::GeomType CellCenteredGeom;
     
 //
 public: 
@@ -160,7 +158,6 @@ public:
     //! Mesh; keep a pointer to save having to downcast repeatedly
     std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
     
-
 
     //! Constructor
     RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params);
@@ -182,40 +179,49 @@ public:
     std::vector<double> getMeshSize() const;
 
     //! Populate the given multivector a function of the given type
-    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun ) const;
+    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( size_t component, AMP::Mesh::Point &point )> fun ) const;
 
     //! Set the Robin return function for the energy. If the user does not use call this function then the Robin values rk from the input database will be used.
-    void setRobinFunctionE( std::function<double(int, double, double, AMP::Mesh::MeshElement &)> fn_ ); 
+    void setBoundaryFunctionE( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
     
     //! Set the pseudo-Neumann return function for the temperature. If the user does not use call this function then the pseudo-Neumann values nk from the input database will be used.
-    void setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::MeshElement &)> fn_ ); 
+    void setBoundaryFunctionT( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
 
 
 // Boundary-related data and routines
 private:
 
     /** Prototype of function returning value of Robin BC of E on given boundary at given node. The
-     * user can specify any function with this signature.
+     * user can specify any function with this signature via 'setBoundaryFunctionE'
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
+     * be a point on the corresponding boundary) 
      */
-    std::function<double( size_t boundaryID, double a, double b, AMP::Mesh::MeshElement & node )> d_robinFunctionE;
+    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
 
     /** Prototype of function returning value of pseudo-Neumann BC of T on given boundary at given
-     * node. The user can specify any function with this signature
+     * node. The user can specify any function with this signature via 'setBoundaryFunctionT'
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
+     * be a point on the corresponding boundary) 
      */
-    std::function<double( size_t boundaryID, AMP::Mesh::MeshElement & node )> d_pseudoNeumannFunctionT;
+    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
 
 
     //! Defines a boundary in a given dimension (WEST is the first boundary, and EAST the second) 
     enum class BoundarySide { WEST, EAST };
 
-    //! Ghost values for E and T; set via "setGhostData"
+    //! Ghost values for E and T; set via "setGhostData". I.e., values of E and T at the centroid of the ghost cell that neighbors the interior cell considered with "setGhostData"
     std::array<double, 2> d_ghostData;
 
-    /** Set values in the member ghost values array, d_ghostData, corresponding to the given
-     * boundary at the given node given the interior value Eint and Tint. 
-     * This routine assumes Robin on E and pseudo-Neumann on T 
+    /** Set values in the member ghost values array, d_ghostData. 
+     * @param[in] boundaryID ID of the boundary being considered
+     * @param[in] boundaryPoint explicit point on the boundary being considered
+     * @param[in] Eint value of E at centroid immediately interior to the boundary
+     * @param[in] Tint value of T at centroid immediately interior to the boundary
+     * @param[out] d_ghostData array that computed ghost values are stored in  
      */
-    void setGhostData( size_t boundaryID, AMP::Mesh::MeshElement &node, double Eint, double Tint );    
+    void setGhostData( size_t boundaryID, AMP::Mesh::Point &boundaryPoint, double Eint, double Tint );    
     
     /** Return the boundaryID in {1,...,6} corresponding to a dim in {0,1,2}, given the 
      * corresponding side.
@@ -232,10 +238,10 @@ private:
     void getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk) const;
 
     //! Return database constant rk for boundary k
-    double robinFunctionEFromDB( size_t boundaryID ) const; 
+    double getBoundaryFunctionValueFromDBE( size_t boundaryID ) const; 
 
     //! Return database constant nk for boundary k
-    double pseudoNeumannFunctionTFromDB( size_t boundaryID ) const; 
+    double getBoundaryFunctionValueFromDBT( size_t boundaryID ) const; 
     
     /** On boundary k we have the two equations:
      *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk,
@@ -395,6 +401,15 @@ private:
      * grid dimensions being periodic.
      */
     AMP::Mesh::BoxMesh::Box getLocalNodeBox() const; 
+
+
+    /** Helper function that first checks the incoming mesh satisfies requirements from the 
+     * operator and then sets mesh-related member data 
+     */
+    void setAndCheckMeshData();
+
+    // oktodo: delete
+    void printMeshNodes();
 
 //
 protected:

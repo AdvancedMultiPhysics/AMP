@@ -48,14 +48,14 @@ public:
     //! Set current time of class
     void setCurrentTime(double currentTime_);
 
-    //! Solution-independent source term in PDE
-    virtual double sourceTerm( size_t component, AMP::Mesh::MeshElement &node ) const = 0;
+    //! Solution-independent source term in PDE at the given point
+    virtual double sourceTerm( size_t component, AMP::Mesh::Point &point ) const = 0;
     
-    //! Initial condition of PDE
-    virtual double initialCondition( size_t component, AMP::Mesh::MeshElement &node ) const = 0;
+    //! Initial condition of PDE at the given point
+    virtual double initialCondition( size_t component, AMP::Mesh::Point &point ) const = 0;
 
-    //! Exact solution of PDE (for given component and at the given MeshElement)
-    virtual double exactSolution( size_t component, AMP::Mesh::MeshElement &node ) const;
+    //! Exact solution of PDE for given component at the given point
+    virtual double exactSolution( size_t component, AMP::Mesh::Point &point ) const;
 
     //! Get database suitable for creating an instance of a RadDifOp
     std::shared_ptr<AMP::Database> getRadiationDiffusionFD_input_db( ) const; 
@@ -82,6 +82,12 @@ protected:
 
     /* Convert specific model parameters into parameters expected by the general formulation */ 
     virtual void finalizeGeneralPDEModel_db( ) = 0;
+
+    //! Get the Robin constants ak and bk from the d_RadiationDiffusionFD_input_db for the given boundaryID
+    void getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk) const;
+
+    //! Energy diffusion coefficient D_E given temperature T
+    double diffusionCoefficientE( double T, double zatom ) const;
 };
 
 
@@ -129,14 +135,13 @@ class Mousseau_etal_2000_RadDifModel : public RadDifModel {
 //
 public:
 
-    // Constructor
     Mousseau_etal_2000_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ );
 
-    // Destructor
     virtual ~Mousseau_etal_2000_RadDifModel() {};
     
-    double sourceTerm( size_t component, AMP::Mesh::MeshElement &node ) const override;
-    double initialCondition( size_t component, AMP::Mesh::MeshElement & ) const override;
+    double sourceTerm( size_t component, AMP::Mesh::Point &point ) const override;
+
+    double initialCondition( size_t component, AMP::Mesh::Point &point ) const override;
 
 //
 private:
@@ -171,17 +176,33 @@ private:
 //
 public:
 
-    // Constructor
     Manufactured_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> specific_db_ );
 
-    // Destructor
     virtual ~Manufactured_RadDifModel() {};
 
-    double sourceTerm( size_t component, AMP::Mesh::MeshElement &node ) const override;
-    double initialCondition( size_t component, AMP::Mesh::MeshElement &node ) const override;
-    double exactSolution( size_t component, AMP::Mesh::MeshElement &node ) const override;
-    double getRobinValueE( size_t boundaryID, double a, double b, AMP::Mesh::MeshElement & node ) const;
-    double getPseudoNeumannValueT( size_t boundaryID, AMP::Mesh::MeshElement & node ) const;
+    double sourceTerm( size_t component, AMP::Mesh::Point &point ) const override;
+    
+    double initialCondition( size_t component, AMP::Mesh::Point &point ) const override;
+    
+    double exactSolution( size_t component, AMP::Mesh::Point &point ) const override;
+
+    /** Return the value of the LHS of the Robin boundary equation on E. That is, 
+     *      ak*E + bk*k11*D_E * hat{nk}*grad(E) 
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] point point on the boundary where the expression is to be evaluated. 
+     * @note there is no redundancy here despite the boundaryID being specified because this class 
+     * does not know where a given boundary is located in space.
+     */
+    double getBoundaryFunctionValueE( size_t boundaryID, AMP::Mesh::Point &point ) const;
+
+    /** Return the value of the LHS of the pseudo Neumann boundary equation on T. That is, 
+     *      hat{nk}*grad(T) 
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] point point on the boundary where the expression is to be evaluated. 
+     * @note there is no redundancy here despite the boundaryID being specified because this class 
+     * does not know where a given boundary is located in space.
+     */
+    double getBoundaryFunctionValueT( size_t boundaryID, AMP::Mesh::Point &point ) const;
     
 //
 private:
@@ -190,7 +211,11 @@ private:
 
     void finalizeGeneralPDEModel_db( ) override;
 
-    void getNormalVector( size_t boundaryID, std::string &direction, double &sign, double &x, double &y, double &z ) const;
+    //! Get component and sign of normal vector given the boundaryID. 
+    void getNormalVector( size_t boundaryID, size_t &normalComponent, double &normalSign ) const;
+
+    /** Dimension-agnostic wrapper around exactSolutionGradient_ functions */
+    double exactSolutionGradient( size_t component, AMP::Mesh::Point &point, size_t gradComponent ) const;
 
     // Exact solution, its gradient and corresponding source term
     double exactSolution1D( size_t component, double x ) const;
@@ -198,22 +223,12 @@ private:
     double sourceTerm1D( size_t component, double x ) const;
     //
     double exactSolution2D( size_t component, double x, double y ) const;
-    double exactSolutionGradient2D( size_t component, double x, double y, const std::string & grad_component ) const;
+    double exactSolutionGradient2D( size_t component, double x, double y, size_t gradComponent ) const;
     double sourceTerm2D( size_t component, double x, double y ) const;
     //
     double exactSolution3D( size_t component, double x, double y, double z ) const;
-    double exactSolutionGradient3D( size_t component, double x, double y, double z, const std::string & grad_component ) const;
+    double exactSolutionGradient3D( size_t component, double x, double y, double z, size_t gradComponent ) const;
     double sourceTerm3D( size_t component, double x, double y, double z ) const;
-
-    // Boundary-related functions
-    double getRobinValueE1D_( size_t boundaryID, double a, double b ) const;
-    double getPseudoNeumannValueT1D_( size_t boundaryID ) const;
-    //
-    double getRobinValueE2D_( size_t boundaryID, double a, double b, double x, double y ) const;
-    double getPseudoNeumannValueT2D_( size_t boundaryID, double x, double y ) const;
-    //
-    double getRobinValueE3D_( size_t boundaryID, double a, double b, double x, double y, double z ) const;
-    double getPseudoNeumannValueT3D_( size_t boundaryID, double x, double y, double z ) const;
 }; 
 
 

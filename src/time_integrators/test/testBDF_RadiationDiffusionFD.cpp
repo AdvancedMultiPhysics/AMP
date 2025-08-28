@@ -225,10 +225,10 @@ void driver(AMP::AMP_MPI comm,
         AMP_INSIST( myManufacturedRadDifModel, "Model is null" );
         
         // Point the Robin E BC values in the RadDifOp to those given by the manufactured problem
-        myRadDifOp->setRobinFunctionE( std::bind( &AMP::Operator::Manufactured_RadDifModel::getRobinValueE, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4 ) );
+        myRadDifOp->setBoundaryFunctionE( std::bind( &AMP::Operator::Manufactured_RadDifModel::getBoundaryFunctionValueE, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
 
         // Point the pseudo Neumann T BC values in the radDifOp to those given by the manufactured problem
-        myRadDifOp->setPseudoNeumannFunctionT( std::bind( &AMP::Operator::Manufactured_RadDifModel::getPseudoNeumannValueT, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
+        myRadDifOp->setBoundaryFunctionT( std::bind( &AMP::Operator::Manufactured_RadDifModel::getBoundaryFunctionValueT, &( *myManufacturedRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
     }
 
 

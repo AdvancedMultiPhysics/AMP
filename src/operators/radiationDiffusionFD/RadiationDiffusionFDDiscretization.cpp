@@ -250,7 +250,6 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
     
     PROFILE( "RadDifOpPJac::setDataReaction" );
 
-
     // Unpack z
     auto zatom = d_RadDifOp->d_db->getWithDefault<double>( "zatom", 1.0 ); 
 
@@ -449,7 +448,6 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     d_k21( params->d_db->getScalar<double>( "k21" ) ),
     d_k22( params->d_db->getScalar<double>( "k22" ) )
 {
-
     if ( d_iDebugPrintInfoLevel > 0 ) {
         AMP::pout << "RadDifOp::RadDifOp() " << std::endl; 
     }
@@ -463,11 +461,21 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     AMP_INSIST( model == "linear" || model == "nonlinear", "model must be 'linear' or 'nonlinear'" );
     d_nonlinearModel = ( d_db->getScalar<std::string>( "model" ) == "nonlinear" );
     d_fluxLimited = d_db->getScalar<bool>( "fluxLimited" );
-    // Mesh database
 
-    // Set DOFManagers
-    this->setDOFManagers();
-    AMP_INSIST( d_multiDOFMan, "Requires non-null multiDOF" );
+    // Set mesh-related data
+    setAndCheckMeshData();
+
+    // Specify default Robin return function for E
+    std::function<double( size_t, AMP::Mesh::Point & )> wrapperE = [&]( size_t boundaryID, AMP::Mesh::Point & ) { return getBoundaryFunctionValueFromDBE( boundaryID ); };
+    this->setBoundaryFunctionE( wrapperE );
+    
+    // Specify default Neumann return function for T
+    std::function<double( size_t, AMP::Mesh::Point & )> wrapperT = [&]( size_t boundaryID,  AMP::Mesh::Point & ) { return getBoundaryFunctionValueFromDBT( boundaryID ); };
+    this->setBoundaryFunctionT( wrapperT );
+};
+
+
+void RadDifOp::setAndCheckMeshData() {
 
     // Keep a pointer to my BoxMesh to save having to do this downcast repeatedly
     d_BoxMesh = std::dynamic_pointer_cast<AMP::Mesh::BoxMesh>( this->getMesh() );
@@ -477,6 +485,19 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     AMP_INSIST( d_dim == 1 || d_dim == 2 || d_dim == 3,
                 "Invalid dimension: dim=" + std::to_string( d_dim ) +
                     std::string( " !in {1,2,3}" ) );
+
+    // Set the geometry type that gives us cell centered data
+    if ( d_dim == 1 ) {
+        CellCenteredGeom = AMP::Mesh::GeomType::Edge;
+    } else if ( d_dim == 2 ) {
+        CellCenteredGeom = AMP::Mesh::GeomType::Face;
+    } else {
+        CellCenteredGeom = AMP::Mesh::GeomType::Cell;
+    }
+
+    // Set DOFManagers
+    setDOFManagers();
+    AMP_INSIST( d_multiDOFMan, "Requires non-null multiDOF" );
 
     /** Now ensure that the geometry of the Mesh is a Box, which is what happens only when a "cube"
      * generator is used, as opposed to any other generator; see the function:
@@ -513,54 +534,61 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     // [ x_min x_max y_min y_max z_min z_max ]
     auto range = d_BoxMesh->getBoundingBox();
     // Set node boxes
-    d_globalBox = std::make_shared<AMP::Mesh::BoxMesh::Box>( getGlobalNodeBox() );
-    d_localBox  = std::make_shared<AMP::Mesh::BoxMesh::Box>( getLocalNodeBox() );
+    d_globalBox = std::make_shared<AMP::Mesh::BoxMesh::Box>( d_BoxMesh->getGlobalBox() );
+    d_localBox  = std::make_shared<AMP::Mesh::BoxMesh::Box>( d_BoxMesh->getLocalBox() );
 
-    // There are nk+1 grid points in dimension k, nk = d_globalBox.last[k] - d_globalBox.first[k], such that the mesh spacing is hk = (xkMax - xkMin)/nk
+    // There are nk cells in dimension k, nk = d_globalBox.last[k] - d_globalBox.first[k]+1, such that the mesh spacing is hk = (xkMax - xkMin)/nk
     for ( size_t k = 0; k < d_dim; k++ ) {
-        auto nk    = d_globalBox->last[k] - d_globalBox->first[k];
+        auto nk    = d_globalBox->last[k] - d_globalBox->first[k] + 1;
         auto xkMin = range[2 * k];
         auto xkMax = range[2 * k + 1];
         d_h.push_back( ( xkMax - xkMin ) / nk );
     }
 
-
-    // Specify default Robin return function for E
-    std::function<double( int, double, double, AMP::Mesh::MeshElement & )> wrapperE = [&]( size_t boundaryID, double, double, AMP::Mesh::MeshElement & ) { return robinFunctionEFromDB( boundaryID ); };
-    this->setRobinFunctionE( wrapperE );
-    // Specify default Neumann return function for T
-    std::function<double( int, AMP::Mesh::MeshElement & )> wrapperT = [&]( size_t boundaryID,  AMP::Mesh::MeshElement & ) { return pseudoNeumannFunctionTFromDB( boundaryID ); };
-    this->setPseudoNeumannFunctionT( wrapperT );
-};
-
-std::vector<double> RadDifOp::getMeshSize() const { return d_h; }
-
-
-AMP::Mesh::BoxMesh::Box RadDifOp::getGlobalNodeBox() const
-{
-    auto global = d_BoxMesh->getGlobalBox();
-    for ( int d = 0; d < 3; d++ ) {
-        // An empty box in dimension d has a last index of 0; we should preserve that behavior
-        if ( global.last[d] > 0 ) { 
-            global.last[d]++;
-        }
-    }
-    return global;
+    //printMeshNodes();
 }
 
-AMP::Mesh::BoxMesh::Box RadDifOp::getLocalNodeBox() const {
-    auto local  = d_BoxMesh->getLocalBox();
-    auto global = d_BoxMesh->getGlobalBox();
-    for ( int d = 0; d < 3; d++ ) {
-        if ( local.last[d] == global.last[d] ) {
-            // An empty box in dimension d has a last index of 0; we should preserve that behavior
-            if ( local.last[d] > 0 ) { 
-                local.last[d]++;
+// oktodo: remove the following once i've verifies accuracy
+void RadDifOp::printMeshNodes() {
+
+    AMP::pout << "h=";
+    for ( auto h : d_h ) {
+        AMP::pout << h << ", ";
+    }
+
+    AMP::pout << "\n\nprintMeshNodes()\n";
+    std::array<int, 3> ijk;
+
+    // Iterate over local box
+    for ( auto k = d_localBox->first[2]; k <= d_localBox->last[2]; k++ ) {
+        ijk[2] = k;
+        std::cout << "k=" << k << "\n";
+        for ( auto j = d_localBox->first[1]; j <= d_localBox->last[1]; j++ ) {
+            ijk[1] = j;
+            std::cout << "  j=" << j << "\n";
+            for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
+                ijk[0] = i;
+                std::cout << "    i=" << i << "\t";
+
+                auto node = gridIndsToMeshElement( ijk );
+                //auto coord = node.coord();
+                auto point = node.centroid();
+                std::cout << "x=" << point[0] << ", ";
+                if (d_dim >= 2)
+                    std::cout << "y=" << point[1] << ", ";
+                if ( d_dim >= 3 )
+                    std::cout << "z=" << point[2];
+                std::cout << "\n";
             }
         }
     }
-    return local;
+
+    this->getMesh()->getComm().barrier();
+    AMP_ERROR( "halt here pls" );
 }
+
+
+std::vector<double> RadDifOp::getMeshSize() const { return d_h; }
 
 std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const {
     auto ET_var = std::make_shared<AMP::LinearAlgebra::Variable>( "ET" );
@@ -568,11 +596,21 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const 
     return ET_vec;
 };
 
-void RadDifOp::setPseudoNeumannFunctionT( std::function<double(int, AMP::Mesh::MeshElement &)> fn_ ) { d_pseudoNeumannFunctionT = fn_; };
-void RadDifOp::setRobinFunctionE( std::function<double(int, double, double, AMP::Mesh::MeshElement &)> fn_ ) { d_robinFunctionE = fn_; };
+
+void RadDifOp::setBoundaryFunctionE( std::function<double( size_t, AMP::Mesh::Point &)> fn_ ) 
+{ 
+    d_robinFunctionE = fn_; 
+};
+
+
+void RadDifOp::setBoundaryFunctionT( std::function<double( size_t, AMP::Mesh::Point &)> fn_ ) 
+{ 
+    d_pseudoNeumannFunctionT = fn_; 
+};
+
 
 AMP::Mesh::MeshElement RadDifOp::gridIndsToMeshElement( int i, int j, int k ) const {
-    AMP::Mesh::BoxMesh::MeshElementIndex ind( VertexGeom, 0, i, j, k );
+    AMP::Mesh::BoxMesh::MeshElementIndex ind( CellCenteredGeom, 0, i, j, k );
     return d_BoxMesh->getElement( ind );
 };
 
@@ -581,7 +619,7 @@ AMP::Mesh::MeshElement RadDifOp::gridIndsToMeshElement( std::array<int,3> ijk ) 
 } 
 
 size_t RadDifOp::gridIndsToScalarDOF( int i, int j, int k ) const {
-    AMP::Mesh::BoxMesh::MeshElementIndex ind( VertexGeom, 0, i, j, k );
+    AMP::Mesh::BoxMesh::MeshElementIndex ind( CellCenteredGeom, 0, i, j, k );
     AMP::Mesh::MeshElementID id = d_BoxMesh->convert( ind );
     std::vector<size_t> dof;
     d_scalarDOFMan->getDOFs(id, dof);
@@ -611,7 +649,7 @@ std::shared_ptr<AMP::Operator::OperatorParameters> RadDifOp::getJacobianParamete
 }
 
 
-void RadDifOp::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( int, AMP::Mesh::MeshElement & )> fun ) const {
+void RadDifOp::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( size_t component, AMP::Mesh::Point &point )> fun ) const {
 
     // Unpack multiVector
     auto vec = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( vec_ );
@@ -620,10 +658,11 @@ void RadDifOp::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::
     auto vec1 = vec->getVector(1);
 
     double u0, u1;
-    auto it = d_BoxMesh->getIterator( VertexGeom ); // Mesh iterator
+    auto it = d_BoxMesh->getIterator( CellCenteredGeom ); // Mesh iterator
     for ( auto elem = it.begin(); elem != it.end(); elem++ ) {
-        u0 = fun( 0, *elem );
-        u1 = fun( 1, *elem );
+        auto point = elem->centroid();
+        u0 = fun( 0, point );
+        u1 = fun( 1, point );
         std::vector<size_t> i;
         d_scalarDOFMan->getDOFs( elem->globalID(), i );
         vec0->setValueByGlobalID( i[0], u0 );
@@ -654,7 +693,7 @@ void RadDifOp::setDOFManagers() {
     auto comm = mesh->getComm();
 
     // E and T use the same DOFManager under the hood
-    std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFManager = AMP::Discretization::boxMeshDOFManager::create(mesh, VertexGeom, gcw, myDOFsPerElement);
+    std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFManager = AMP::Discretization::boxMeshDOFManager::create(mesh, CellCenteredGeom, gcw, myDOFsPerElement);
     auto T_DOFManager = scalarDOFManager;
     auto E_DOFManager = scalarDOFManager;
 
@@ -816,17 +855,16 @@ void RadDifOp::getLocalFDDiffusionCoefficients(
 }
 
 
-void RadDifOp::setGhostData( size_t boundaryID, AMP::Mesh::MeshElement &node, double Eint, double Tint )
+void RadDifOp::setGhostData( size_t boundaryID, AMP::Mesh::Point &boundaryPoint, double Eint, double Tint )
 {
-
     // Get the Robin constants for the given boundaryID
     double ak, bk; 
     getLHSRobinConstantsFromDB(boundaryID, ak, bk);
     
     // Now get the corresponding Robin value
-    double rk = d_robinFunctionE( boundaryID, ak, bk, node );
+    double rk = d_robinFunctionE( boundaryID, boundaryPoint );
     // Get Neumann value
-    double nk = d_pseudoNeumannFunctionT( boundaryID, node );
+    double nk = d_pseudoNeumannFunctionT( boundaryID, boundaryPoint );
     
     // Spatial mesh size
     double hk = d_h[getDimFromBoundaryID(boundaryID)]; 
@@ -878,7 +916,7 @@ void RadDifOp::getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double 
     }
 }
 
-double RadDifOp::robinFunctionEFromDB( size_t boundaryID ) const {
+double RadDifOp::getBoundaryFunctionValueFromDBE( size_t boundaryID ) const {
     if ( boundaryID == 1 ) {
         return d_db->getScalar<double>( "r1" );
     } else if ( boundaryID == 2 ) {
@@ -896,7 +934,7 @@ double RadDifOp::robinFunctionEFromDB( size_t boundaryID ) const {
     }
 }
 
-double RadDifOp::pseudoNeumannFunctionTFromDB( size_t boundaryID ) const {
+double RadDifOp::getBoundaryFunctionValueFromDBT( size_t boundaryID ) const {
     if ( boundaryID == 1 ) {
         return d_db->getScalar<double>( "n1" );
     } else if ( boundaryID == 2 ) {
@@ -1030,16 +1068,19 @@ void RadDifOp::setLoc3Data(
     d_ELoc3[O] = E_vec->getValueByGlobalID<double>( dof_O );
     d_TLoc3[O] = T_vec->getValueByGlobalID<double>( dof_O );
 
-    // Get WEST (or WEST) neighboring value
-    // At WEST (or WEST) boundary, so WEST (or WEST) neighbor is a ghost
+    // Get WEST neighboring value
+    // At WEST boundary, so WEST neighbor is a ghost
     if ( ijk[dim] == d_globalBox->first[dim] ) {
-        auto node = gridIndsToMeshElement( ijk );
+        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::WEST);
+        // Get point on the boundary
+        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] -= d_h[dim]/2; // The boundary is h/2 WEST of the cell center
         // Set member array holding ghost data and unpack into local variables
-        setGhostData( getBoundaryIDFromDim(dim, BoundarySide::WEST), node, d_ELoc3[1], d_TLoc3[1] );
+        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
         d_ELoc3[E] = d_ghostData[0]; 
         d_TLoc3[W] = d_ghostData[1];
 
-    // At interior DOF; WEST (or WEST) neighbor is an interior DOF
+    // At interior DOF; WEST neighbor is an interior DOF
     } else {
         ijk[dim] -= 1;
         size_t dof_W = gridIndsToScalarDOF( ijk );
@@ -1048,16 +1089,19 @@ void RadDifOp::setLoc3Data(
         d_TLoc3[W] = T_vec->getValueByGlobalID( dof_W );
     }
 
-    // Get EAST (or EAST) neighboring value
-    // At EAST (or EAST) boundary, so EAST (or EAST) neighbor is a ghost
+    // Get EAST neighboring value
+    // At EAST boundary, so EAST neighbor is a ghost
     if ( ijk[dim] == d_globalBox->last[dim] ) {
-        auto node  = gridIndsToMeshElement( ijk );
+        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::EAST);
+        // Get point on the boundary
+        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] += d_h[dim]/2; // The boundary is h/2 EAST of the cell center
         // Set member array holding ghost data and unpack into local variables
-        setGhostData( getBoundaryIDFromDim(dim, BoundarySide::EAST), node, d_ELoc3[1], d_TLoc3[1] );
+        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
         d_ELoc3[E] = d_ghostData[0]; 
         d_TLoc3[E] = d_ghostData[1];
 
-    // At interior DOF; EAST (or EAST) neighbor is an interior DOF
+    // At interior DOF; EAST neighbor is an interior DOF
     } else {
         ijk[dim] += 1;
         size_t dof_E = gridIndsToScalarDOF( ijk );
@@ -1084,19 +1128,22 @@ void RadDifOp::setLoc3Data(
     //
     d_dofsLoc3[O] = dof_O;
 
-    // Get WEST (or WEST) neighboring value
-    // At WEST (or WEST) boundary, so WEST (or WEST) neighbor is a ghost
+    // Get WEST neighboring value
+    // At WEST boundary, so WEST neighbor is a ghost
     if ( ijk[dim] == d_globalBox->first[dim] ) {
-        auto node = gridIndsToMeshElement( ijk );
+        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::WEST);
+        // Get point on the boundary
+        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] -= d_h[dim]/2; // The boundary is h/2 WEST of the cell center
         // Set member array holding ghost data and unpack into local variables
-        setGhostData( getBoundaryIDFromDim(dim, BoundarySide::WEST), node, d_ELoc3[1], d_TLoc3[1] );
+        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
         d_ELoc3[W] = d_ghostData[0]; 
         d_TLoc3[W] = d_ghostData[1];
         //
         // Flag that we're on the WEST boundary
         boundaryIntersection = BoundarySide::WEST;
 
-    // At interior DOF; WEST (or WEST) neighbor is an interior DOF
+    // At interior DOF; WEST neighbor is an interior DOF
     } else {
         ijk[dim] -= 1;
         size_t dof_W = gridIndsToScalarDOF( ijk );
@@ -1107,19 +1154,22 @@ void RadDifOp::setLoc3Data(
         d_dofsLoc3[W] = dof_W;
     }
 
-    // Get EAST (or EAST) neighboring value
-    // At EAST (or EAST) boundary, so EAST (or EAST) neighbor is a ghost
+    // Get EAST neighboring value
+    // At EAST boundary, so EAST neighbor is a ghost
     if ( ijk[dim] == d_globalBox->last[dim] ) {
-        auto node  = gridIndsToMeshElement( ijk );
+        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::EAST);
+        // Get point on the boundary
+        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] += d_h[dim]/2; // The boundary is h/2 EAST of the cell center
         // Set member array holding ghost data and unpack into local variables
-        setGhostData( getBoundaryIDFromDim(dim, BoundarySide::EAST), node, d_ELoc3[1], d_TLoc3[1] );
+        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
         d_ELoc3[E] = d_ghostData[0]; 
         d_TLoc3[E] = d_ghostData[1];
         //
         // Flag that we're on the EAST boundary
         boundaryIntersection = BoundarySide::EAST;
 
-    // At interior DOF; EAST (or EAST) neighbor is an interior DOF
+    // At interior DOF; EAST neighbor is an interior DOF
     } else {
         ijk[dim] += 1;
         size_t dof_E = gridIndsToScalarDOF( ijk );

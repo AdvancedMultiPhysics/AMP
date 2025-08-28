@@ -105,8 +105,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     * Re-organize database input                                    *
     ****************************************************************/
     // Unpack databases
-    auto PDE_basic_db = input_db->getDatabase( "PDE" );
-    auto mesh_db      = input_db->getDatabase( "Mesh" )->cloneDatabase();
+    auto PDE_basic_db    = input_db->getDatabase( "PDE" );
+    auto mesh_db         = input_db->getDatabase( "Mesh" );
     auto trunc_db        = input_db->getDatabase( "TruncationError" );
     auto manufactured_db = input_db->getDatabase( "Manufactured_Parameters" );
     
@@ -127,11 +127,28 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     /****************************************************************
     * Create a mesh                                                 *
     ****************************************************************/
-    // Put variable "dim" into mesh Database 
-    mesh_db->putScalar<int>( "dim", RadDifOp_db->getScalar<int>( "dim" ) );
-    std::shared_ptr<AMP::Mesh::BoxMesh> mesh = createBoxMesh( comm, mesh_db );
+    // // Put variable "dim" into mesh Database 
+    // mesh_db->putScalar<int>( "dim", RadDifOp_db->getScalar<int>( "dim" ) );
+    // std::shared_ptr<AMP::Mesh::BoxMesh> mesh = createBoxMesh( comm, mesh_db );
 
-    AMP::pout << "The RadDifOp database is" << std::endl;
+    // Create MeshParameters
+    auto mesh_params = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
+    mesh_params->setComm( comm );
+    // Create Mesh
+    std::shared_ptr<AMP::Mesh::BoxMesh> mesh = AMP::Mesh::BoxMesh::generate( mesh_params );
+
+    // Print basic problem information
+    // AMP::plog << "--------------------------------------------------------------------------------"
+    //           << std::endl;
+    // AMP::plog << "Building " << static_cast<int>( mesh->getDim() )
+    //           << "D Poisson problem on mesh with "
+    //           << mesh->numGlobalElements( AMP::Mesh::GeomType::Vertex ) << " total DOFs across "
+    //           << mesh->getComm().getSize() << " ranks" << std::endl;
+    // AMP::plog << "--------------------------------------------------------------------------------"
+    //           << std::endl;
+
+
+    AMP::pout << "The database input to RadDifOp is" << std::endl;
     AMP::pout << "------------------------------" << std::endl;
     RadDifOp_db->print( AMP::pout );
     AMP::pout << "------------------------------" << std::endl;
@@ -160,10 +177,10 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     auto PDEManufacturedSolution = std::bind( &AMP::Operator::RadDifModel::exactSolution, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
 
     // Overwrite the default RadDifOp boundary condition functions to point to those of the Manufactured model
-    myRadDifOp->setRobinFunctionE( std::bind( &AMP::Operator::Manufactured_RadDifModel::getRobinValueE, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4 ) );
+    myRadDifOp->setBoundaryFunctionE( std::bind( &AMP::Operator::Manufactured_RadDifModel::getBoundaryFunctionValueE, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
 
     // Point the pseudo Neumann T BC values in the radDifOp to those given by the manufactured problem
-    myRadDifOp->setPseudoNeumannFunctionT( std::bind( &AMP::Operator::Manufactured_RadDifModel::getPseudoNeumannValueT, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
+    myRadDifOp->setBoundaryFunctionT( std::bind( &AMP::Operator::Manufactured_RadDifModel::getBoundaryFunctionValueT, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 ) );
 
 
     /****************************************************************

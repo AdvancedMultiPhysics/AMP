@@ -2,22 +2,52 @@
 PDE {
   print_info_level = 0
 
-  #dim = 1
-  dim = 2
+  dim = 1
+  #dim = 2
   #dim = 3
   
-  #fluxLimited = FALSE
-  fluxLimited = TRUE
+  fluxLimited = FALSE
+  #fluxLimited = TRUE
 }
 
-# Mesh size in each direction
+
+# Mesh data
 Mesh {
-  n = 8
-  #n = 16
-  #n = 64
-  #n = 128
-  #n = 256
+    MeshName = "mesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 1
+    Size = 8
+    Range = -1, 1
+    surfaceIds = 1, 2
+    static = TRUE
 }
+
+# # Mesh data
+# Mesh {
+#     MeshName = "mesh"
+#     MeshType = "AMP"
+#     Generator = "cube"
+#     dim = 2
+#     Size = 4, 4
+#     Range = -2, 2, -1, 1
+#     surfaceIds = 1, 2
+#     static = TRUE
+# }
+
+# # Mesh data
+# Mesh {
+#     MeshName = "mesh"
+#     MeshType = "AMP"
+#     Generator = "cube"
+#     dim = 3
+#     #Size = 16, 16, 16
+#     #Size = 32, 32, 32
+#     Size = 64, 64, 64
+#     Range = -1, 1, -1, 1, -1, 1
+#     surfaceIds = 1, 2, 3, 4, 5, 6
+#     static = TRUE
+# }
 
 # Parameters for computing BDF1 truncation error
 TruncationError {
