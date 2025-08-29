@@ -67,7 +67,10 @@ void testIntegrator( const std::string &name,
 
     // Check the answer
     double ans2 = static_cast<double>( solution->max() );
-    if ( AMP::Utilities::approx_equal( ans2, ans, 5.0e-10 ) )
+    double tol  = 5.0e-10;
+    if ( name == "ExplicitEuler" || name == "BDF1" )
+        tol = 5.0e-05;
+    if ( AMP::Utilities::approx_equal( ans2, ans, tol ) )
         ut.passes( name + " - " + test );
     else
         ut.failure(
@@ -166,9 +169,8 @@ int testSimpleTimeIntegration( int argc, char *argv[] )
     // We need to look at the errors for the first order -- whether they are acceptable
     // auto integrators = { "ExplicitEuler", "Backward Euler" "CN",
     //    "RK2", "RK23", "RK34", "RK4", "RK45", "BDF1", "BDF2", "BDF3", "BDF4", "BDF5" };
-    auto integrators = {
-        "CN", "RK2", "RK23", "RK34", "RK4", "RK45", "BDF2", "BDF3", "BDF4", "BDF5"
-    };
+    auto integrators = { "ExplicitEuler", "RK2",  "RK4",  "RK12", "RK23", "RK34", "RK45", "CN",
+                         "BDF1",          "BDF2", "BDF3", "BDF4", "BDF5" };
 
     // Run the tests
     for ( auto tmp : integrators )
