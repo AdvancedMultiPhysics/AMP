@@ -142,7 +142,10 @@ void testIntegratorRestart( const std::string &name,
         ans = 1.0;
     }
     double ans2 = static_cast<double>( solution->max() );
-    if ( AMP::Utilities::approx_equal( ans2, ans, 5.0e-10 ) )
+    double tol  = 5.0e-10;
+    if ( name == "ExplicitEuler" || name == "BDF1" )
+        tol = 5.0e-05;
+    if ( AMP::Utilities::approx_equal( ans2, ans, tol ) )
         ut.passes( name + " - " + test );
     else
         ut.failure(
@@ -197,6 +200,8 @@ createTimeIntegratorParameters( const std::string &name,
                                      20,
                                      "number_of_time_intervals",
                                      20,
+                                     "use_fixed_dt",
+                                     true,
                                      "print_info_level",
                                      2 );
 
@@ -269,10 +274,11 @@ int testSimpleRestartTimeIntegration( int argc, char *argv[] )
     AMP::UnitTest ut;
 
     // List of integrators
-    auto integrators = { "RK2", "RK4", "CN", "BDF2", "BDF3", "BDF4", "BDF5" };
+    auto integrators = { "ExplicitEuler", "RK12", "RK2",  "RK4",  "RK12", "RK23", "RK34",
+                         "RK45",          "CN",   "BDF1", "BDF2", "BDF3", "BDF4", "BDF5" };
     // Run the tests
-    for ( auto tmp : integrators )
-        runBasicIntegratorTestsRestart( tmp, ut );
+    for ( auto &integrator : integrators )
+        runBasicIntegratorTestsRestart( integrator, ut );
 
     ut.report();
 
