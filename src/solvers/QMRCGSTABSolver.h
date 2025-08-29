@@ -12,7 +12,7 @@ namespace AMP::Solver {
  *
  * The implementation here is mostly based on the MATLAB code at
  * https://link.springer.com/content/pdf/bbm%3A978-3-8348-8100-7%2F1.pdf
- * Currently no preconditioning
+ * In addition, corrections based on the PETSc implementation are incorporated
  */
 
 template<typename T = double>
@@ -38,7 +38,7 @@ public:
         side effect: if false sets string pc_type to "none"
 
      3. type: string, name : pc_side, default value "RIGHT",
-     acceptable values ("RIGHT", "LEFT", "SYMMETRIC" )
+         acceptable values ("RIGHT" )
          active only when uses_preconditioner set to true
      */
     explicit QMRCGSTABSolver( std::shared_ptr<SolverStrategyParameters> params );
