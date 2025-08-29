@@ -185,10 +185,8 @@ int RK23TimeIntegrator::advanceSolution( const double dt,
 */
 bool RK23TimeIntegrator::checkNewSolution()
 {
-    bool retcode = false;
-
-    auto l2Norm                 = d_z_vec->L2Norm();
-    auto l2NormOfEstimatedError = l2Norm.get<double>();
+    bool retcode                = false;
+    auto l2NormOfEstimatedError = static_cast<double>( d_z_vec->L2Norm() );
 
     // we flag the solution as being acceptable if the l2 norm of the error
     // is less than the required tolerance or we are at the minimum time step

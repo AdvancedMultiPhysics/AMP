@@ -69,10 +69,7 @@ public:
 
 protected:
 private:
-    // not implemented
-    // IDATimeIntegratorParameters(){}
-
-    explicit IDATimeIntegratorParameters(); // Just following ImplicitTimeIntegratorParameters();
+    explicit IDATimeIntegratorParameters() = delete;
     explicit IDATimeIntegratorParameters( const IDATimeIntegratorParameters & );
     void operator=( const IDATimeIntegratorParameters & );
 };
