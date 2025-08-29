@@ -177,8 +177,7 @@ bool RK12TimeIntegrator::checkNewSolution()
 {
     bool retcode = false;
 
-    auto l2Norm                 = d_z_vec->L2Norm();
-    auto l2NormOfEstimatedError = l2Norm.get<double>();
+    auto l2NormOfEstimatedError = static_cast<double>( d_z_vec->L2Norm() );
 
     // we flag the solution as being acceptable if the l2 norm of the error
     // is less than the required tolerance or we are at the minimum time step
@@ -230,7 +229,7 @@ void RK12TimeIntegrator::getFromInput( std::shared_ptr<AMP::Database> input_db )
 
     d_safety_factor = input_db->getWithDefault<double>( "safety_factor", 0.9 );
 
-    d_atol = input_db->getWithDefault<double>( "absolute_tolerance", 1.0e-09 );
+    d_atol = input_db->getWithDefault<double>( "absolute_tolerance", 6.0e-08 );
 
     d_use_fixed_dt = input_db->getWithDefault<bool>( "use_fixed_dt", false );
 }

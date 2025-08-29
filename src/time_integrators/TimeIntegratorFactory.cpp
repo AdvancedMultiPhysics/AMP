@@ -51,7 +51,9 @@ std::shared_ptr<TimeIntegrator> TimeIntegratorFactory::create( int64_t fid,
     std::string type;
     AMP::IO::readHDF5( fid, "type", type );
     std::shared_ptr<TimeIntegrator> ti;
-    if ( type == "RK12" )
+    if ( type == "ExplicitEuler" )
+        ti = std::make_shared<RK12TimeIntegrator>( fid, manager );
+    else if ( type == "RK12" )
         ti = std::make_shared<RK12TimeIntegrator>( fid, manager );
     else if ( type == "RK23" )
         ti = std::make_shared<RK23TimeIntegrator>( fid, manager );
