@@ -111,80 +111,72 @@ void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector
     d_dInitialResidual = res_norm;
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "QMRCGSTABSolver<T>::apply: initial L2Norm of solution vector: " << x->L2Norm()
-                  << std::endl;
-        AMP::pout << "QMRCGSTABSolver<T>::apply: initial L2Norm of rhs vector: " << f_norm
-                  << std::endl;
-        AMP::pout << "QMRCGSTABSolver<T>::apply: initial L2Norm of residual: " << res_norm
-                  << std::endl;
+        AMP::pout << "QMRCGSTAB: initial L2Norm of solution vector: " << x->L2Norm() << std::endl;
+        AMP::pout << "QMRCGSTAB: initial L2Norm of rhs vector: " << f_norm << std::endl;
+        AMP::pout << "QMRCGSTAB: initial L2Norm of residual: " << res_norm << std::endl;
     }
 
     // return if the residual is already low enough
     if ( checkStoppingCriteria( res_norm ) ) {
         if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "QMRCGSTABSolver<T>::apply: initial residual below tolerance" << std::endl;
+            AMP::pout << "QMRCGSTAB: initial residual below tolerance" << std::endl;
         }
         return;
     }
 
     // parameters in QMRCGSTAB
     T tau     = res_norm;
-    T eta     = 0.0;
-    T theta   = 0.0;
+    T eta     = 1.0;
+    T theta   = 1.0;
     auto rho1 = tau * tau;
 
-    auto p = f->clone();
-    p->copyVector( r0 );
-
-    auto v = f->clone();
-    v->zero();
-
-    auto d = f->clone();
-    d->zero();
-
+    auto p  = f->clone();
+    auto v  = f->clone();
+    auto d  = f->clone();
     auto d2 = f->clone();
-    d2->zero();
-
-    auto r = f->clone();
-    r->zero();
-
-    auto s = f->clone();
-    s->zero();
-
-    auto t = f->clone();
-    t->zero();
-
-    auto z = f->clone();
-    z->zero();
-
+    auto r  = f->clone();
+    auto s  = f->clone();
+    auto t  = f->clone();
+    auto z  = f->clone();
     auto x2 = f->clone();
+
+    p->copyVector( r0 );
+    v->zero();
+    d->zero();
+    d2->zero();
+    r->zero();
+    s->zero();
+    t->zero();
+    z->zero();
     x2->zero();
 
-    if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
-        d_pNestedSolver->apply( p, z );
-    } else {
-        z = p;
-    }
-
-    d_pOperator->apply( z, v );
-
-    bool converged = false;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
+
+        if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
+            d_pNestedSolver->apply( p, z );
+        } else {
+            z->copyVector( p );
+        }
+
+        z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+        d_pOperator->apply( z, v );
+
         int k     = d_iNumberIterations;
         auto rho2 = static_cast<T>( r0->dot( *v ) );
 
         // replace by soft-equal
         if ( rho2 == static_cast<T>( 0.0 ) ) {
             d_ConvergenceStatus = SolverStatus::DivergedOther;
-            AMP_WARNING( "QMRCGSTABSolver<T>::apply: Breakdown, rho2 == 0" );
+            AMP_WARNING( "QMRCGSTAB: Breakdown, rho2 == 0, division by zero" );
             break;
         }
 
         // replace by soft-equal
         if ( rho1 == static_cast<T>( 0.0 ) ) {
             d_ConvergenceStatus = SolverStatus::DivergedOther;
-            AMP_WARNING( "QMRCGSTABSolver<T>::apply: Breakdown, rho1 == 0" );
+            AMP_WARNING( "QMRCGSTAB: Breakdown, rho1 == 0, stagnated" );
             break;
         }
 
@@ -194,51 +186,84 @@ void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector
 
         // first quasi minimization and iterate update as per paper
         const auto theta2 = static_cast<T>( s->L2Norm() ) / tau;
-        T c = static_cast<T>( 1.0 ) / ( std::sqrt( static_cast<T>( 1.0 ) + theta2 * theta2 ) );
+        auto c = static_cast<T>( 1.0 ) / ( std::sqrt( static_cast<T>( 1.0 ) + theta2 * theta2 ) );
         const auto tau2 = tau * theta2 * c;
         const auto eta2 = c * c * alpha;
 
-        d2->axpy( theta * theta * eta / alpha, *d, *p );
+        d2->axpy( theta * theta * eta / alpha, *d, *z );
 
         x2->axpy( eta2, *d2, *x );
 
         if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
             d_pNestedSolver->apply( s, z );
         } else {
-            z = s;
+            z->copyVector( s );
         }
 
         z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
         d_pOperator->apply( z, t );
 
-        const auto uu = static_cast<T>( s->dot( *t ) );
+        auto uu       = static_cast<T>( s->dot( *t ) );
         const auto vv = static_cast<T>( t->dot( *t ) );
 
         if ( vv == static_cast<T>( 0.0 ) ) {
-            AMP_ERROR( "Matrix is singular" );
+            // Note this section is based on Petsc implementation
+            // Could be we have converged or have a breakdown
+            auto uu = static_cast<T>( s->dot( *s ) );
+            if ( uu != 0.0 ) {
+                d_ConvergenceStatus = SolverStatus::DivergedOther;
+                AMP_WARNING( "QMRCGSTAB: Breakdown, vv == 0, division by zero" );
+                break;
+            }
+            x->axpy( alpha, *z, *x );
+            res_norm            = 0.0;
+            d_ConvergenceStatus = SolverStatus::ConvergedOnRelTol;
+            break;
+        }
+
+        auto nv = static_cast<T>( v->L2Norm() );
+
+        // correction from Petsc implementation
+        if ( nv == static_cast<T>( 0.0 ) ) {
+            d_ConvergenceStatus = SolverStatus::DivergedOther;
+            AMP_WARNING( "QMRCGSTAB: Breakdown, singular system" );
+            break;
+        }
+
+        // correction from Petsc implementation
+        if ( uu == static_cast<T>( 0.0 ) ) {
+            d_ConvergenceStatus = SolverStatus::DivergedOther;
+            AMP_WARNING( "QMRCGSTAB: Breakdown, stagnation" );
+            break;
         }
 
         const auto omega = uu / vv;
 
-        if ( omega == static_cast<T>( 0.0 ) ) {
+        r->axpy( -omega, *t, *s );
+
+        // correction from Petsc implementation
+        if ( tau2 == static_cast<T>( 0.0 ) ) {
             d_ConvergenceStatus = SolverStatus::DivergedOther;
-            AMP_WARNING( "QMRCGSTABSolver<T>::apply: Breakdown, omega == 0" );
+            AMP_WARNING( "QMRCGSTAB: Breakdown, tau2 == 0" );
             break;
         }
 
-        r->axpy( omega, *t, *s );
-
         // second quasi minimization and iterate update as per paper
-        theta = static_cast<T>( s->L2Norm() ) / tau2;
-        c     = static_cast<T>( 1.0 ) / ( std::sqrt( static_cast<T>( 1.0 ) + theta * theta ) );
-        tau   = tau2 * theta * c;
-        eta   = c * c * omega;
+        const auto rn = static_cast<T>( r->L2Norm() );
+        theta         = static_cast<T>( rn ) / tau2;
+        c = static_cast<T>( 1.0 ) / ( std::sqrt( static_cast<T>( 1.0 ) + theta * theta ) );
 
-        d->axpy( theta2 * theta2 * eta2 / omega, *d2, *s );
+        tau = tau * c;
+        eta = c * c * omega;
+
+        d->axpy( theta2 * theta2 * eta2 / omega, *d2, *z );
 
         x->axpy( eta, *d, *x2 );
 
+        rho2 = static_cast<T>( r->dot( *r0 ) );
+
+#if 0
         // Use upper bound on residual norm to test convergence cheaply
         const auto res_bound = std::fabs( tau ) * std::sqrt( static_cast<T>( k + 1.0 ) );
 
@@ -247,44 +272,31 @@ void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector
                 AMP::pout << "QMRCGSTAB: iteration " << k << ", residual " << res_bound
                           << std::endl;
             }
-            res_norm  = res_bound; // this is likely an over-estimate
-            converged = true;
+            res_norm = res_bound; // this is likely an over-estimate
             break;
         }
-
-        rho2 = static_cast<T>( r->dot( *r0 ) );
-        // replace by soft-equal
-        if ( rho2 == static_cast<T>( 0.0 ) ) {
-            d_ConvergenceStatus = SolverStatus::DivergedOther;
-            AMP_WARNING( "QMRCGSTABSolver<T>::apply: Breakdown, rho2 == 0" );
-            break;
-        }
+#endif
 
         const auto beta = ( alpha * rho2 ) / ( omega * rho1 );
-        p->axpy( -omega, *v, *p );
         p->axpy( beta, *p, *r );
-
-        if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
-            d_pNestedSolver->apply( p, z );
-        } else {
-            z = p;
-        }
-
-        z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-        d_pOperator->apply( z, v );
+        p->axpy( -omega * beta, *v, *p );
         rho1 = rho2;
 
-        if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << "QMRCGSTAB: iteration " << k << ", residual " << tau << std::endl;
+        x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+        d_pOperator->residual( f, x, r );
+        // for now explicitly compute residual
+        res_norm = static_cast<T>( r->L2Norm() );
+        if ( checkStoppingCriteria( res_norm ) ) {
+            if ( d_iDebugPrintInfoLevel > 1 ) {
+                AMP::pout << "QMRCGSTAB: iteration " << k << ", residual " << res_norm << std::endl;
+            }
+            break;
         }
-    }
 
-    if ( converged ) {
-        // unwind the preconditioner if necessary
-        if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
-            z->copyVector( x );
-            d_pNestedSolver->apply( z, x );
-        }
+        //        if ( d_iDebugPrintInfoLevel > 1 ) {
+        //            AMP::pout << "QMRCGSTAB: iteration " << k << ", residual " << tau <<
+        //            std::endl;
+        //        }
     }
 
     x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -302,12 +314,10 @@ void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector
     d_dResidualNorm = res_norm;
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
-        AMP::pout << "QMRCGSTABSolver<T>::apply: final L2Norm of solution: " << x->L2Norm()
-                  << std::endl;
-        AMP::pout << "QMRCGSTABSolver<T>::apply: final L2Norm of residual: " << res_norm
-                  << std::endl;
-        AMP::pout << "QMRCGSTABSolver<T>::apply: iterations: " << d_iNumberIterations << std::endl;
-        AMP::pout << "QMRCGSTABSolver<T>::apply: convergence reason: "
+        AMP::pout << "QMRCGSTAB: final L2Norm of solution: " << x->L2Norm() << std::endl;
+        AMP::pout << "QMRCGSTAB: final L2Norm of residual: " << res_norm << std::endl;
+        AMP::pout << "QMRCGSTAB: iterations: " << d_iNumberIterations << std::endl;
+        AMP::pout << "QMRCGSTAB: convergence reason: "
                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
     }
 }
