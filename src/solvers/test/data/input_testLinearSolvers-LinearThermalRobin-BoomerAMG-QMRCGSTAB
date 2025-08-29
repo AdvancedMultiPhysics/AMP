@@ -1,0 +1,10 @@
+<<< "input_LinearThermalRobinOperator" >>>
+<<< "QMRCGSTABParameters" >>>
+<<< "PC-BoomerAMGParameters" >>>
+
+Reference{
+  iterations = 12
+  res_l2_norm = -1.0
+  tolerance = 0.0
+  strict = FALSE
+}
