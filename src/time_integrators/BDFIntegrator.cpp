@@ -160,8 +160,6 @@ void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
 
         if ( db->keyExists( "variable_names" ) ) {
             d_var_names = db->getVector<std::string>( "variable_names" );
-        } else {
-            //        AMP_ERROR( "For now variable names MUST be specified in input" );
         }
 
         if ( db->keyExists( "implicit_integrator" ) ) {
@@ -183,8 +181,6 @@ void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
             // first step the options are BE and CN
             d_bdf_starting_integrator =
                 db->getWithDefault<std::string>( "bdf_starting_integrator", "CN" );
-            //  d_bdf_starting_integrator = db->getStringWithDefault("bdf_starting_integrator",
-            //  "BE");
         }
 
         if ( ( d_bdf_starting_integrator != "BE" ) && ( d_bdf_starting_integrator != "CN" ) ) {
@@ -200,21 +196,15 @@ void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
         }
 
         d_use_predictor = db->getWithDefault<bool>( "use_predictor", true );
-        //        d_use_initial_predictor = db->getWithDefault<bool>( "use_initial_predictor", true
-        //        );
+
         d_use_initial_predictor =
             db->getWithDefault<bool>( "use_initial_predictor", d_use_predictor );
 
         if ( d_use_predictor ) {
-            if ( db->keyExists( "predictor_type" ) ) {
-                d_predictor_type = db->getString( "predictor_type" );
-            } else {
-                AMP_ERROR( "Time integrator parameters:: -- Required key `predictor_type' missing "
-                           "in input." );
-            }
-
+            d_predictor_type = db->getWithDefault<std::string>( "predictor_type", "" );
+            setPredictorType( d_predictor_type );
             // override and set to true if we are using the predictor
-            d_calculateTimeTruncError = true;
+            //            d_calculateTimeTruncError = true;
         }
 
         d_time_rtol = db->getWithDefault<double>( "truncation_error_rtol", 1e-09 );
@@ -315,6 +305,28 @@ void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
             }
         }
     }
+}
+
+void BDFIntegrator::setPredictorType( const std::string &predictor )
+{
+    d_predictor_type = predictor;
+    // set defaults if necessary
+    if ( d_predictor_type == "" ) {
+        if ( ( d_implicit_integrator == "BDF2" ) || ( d_implicit_integrator == "BDF3" ) ||
+             ( d_implicit_integrator == "BDF4" ) || ( d_implicit_integrator == "BDF5" ) ||
+             ( d_implicit_integrator == "BDF6" ) ) {
+            // this is the only predictor for these at present
+            d_predictor_type = "leapfrog";
+        } else if ( d_implicit_integrator == "CN" ) {
+            d_predictor_type = "ab2";
+        } else if ( d_implicit_integrator == "BE" ) {
+            d_predictor_type = "forward_euler";
+        } else {
+            d_predictor_type = "previous_solution";
+        }
+    }
+
+    d_initial_predictor_type = "forward_euler";
 }
 
 double BDFIntegrator::getGamma( void )
@@ -592,15 +604,6 @@ void BDFIntegrator::printVectorComponentNorms(
 /*
 *************************************************************************
 *                                                                       *
-* Return the time increment used for the first solution advance step.   *
-*                                                                       *
-*************************************************************************
-*/
-double BDFIntegrator::getInitialDt() { return d_initial_dt; }
-
-/*
-*************************************************************************
-*                                                                       *
 * Return the next time increment through which to advance the solution. *
 *                                                                       *
 *************************************************************************
@@ -773,33 +776,32 @@ void BDFIntegrator::evaluatePredictor()
         // the commented out version can be used if using BE at the first step after regrid
         //      if(d_first_step || ((!d_is_after_regrid)&& (d_timesteps_after_regrid<2)))
         if ( d_first_step ) {
-            if ( d_bdf_starting_integrator == "CN" ) {
-                // use forward Euler as a predictor
-                evaluateForwardEulerPredictor();
-            } else if ( d_bdf_starting_integrator == "BE" ) {
-                evaluateForwardEulerPredictor();
-            } else {
-                AMP_ERROR( "ERROR: Valid options for d_bdf_starting_integrator are CN or BE" );
-            }
+            AMP_INSIST( ( d_bdf_starting_integrator == "CN" ) ||
+                            ( d_bdf_starting_integrator == "BE" ),
+                        "ERROR: Valid options for d_bdf_starting_integrator are CN or BE" );
+            // use forward Euler as a predictor for both BE and CN for now
+            evaluateForwardEulerPredictor();
         } else {
             if ( d_predictor_type == "leapfrog" ) {
                 evaluateLeapFrogPredictor();
             } else if ( d_predictor_type == "bdf_interpolant" ) {
                 evaluateBDFInterpolantPredictor();
             } else {
-                AMP_ERROR( "ERROR: Valid option for BDF2 predictor is only leapfrog currently" );
+                AMP_ERROR( "ERROR: Valid options for BDF predictor are leapfrog  and  "
+                           "bdf_interpolant currently" );
             }
         }
     } else if ( d_implicit_integrator == "CN" ) {
-        if ( d_predictor_type == "ab2" ) {
+        AMP_INSIST( d_predictor_type == "ab2",
+                    "ERROR: Valid option for Crank-Nicolson predictor is only ab2 currently" );
+        if ( d_first_step )
+            evaluateForwardEulerPredictor();
+        else
             evaluateAB2Predictor();
-        } else {
-            AMP_ERROR( "ERROR: Valid option for Crank-Nicolson predictor is only ab2 currently" );
-        }
     } else if ( d_implicit_integrator == "BE" ) {
         evaluateForwardEulerPredictor();
     } else {
-        AMP_ERROR( "ERROR: Valid option for time integrator are BDF2, CN, or BE currently" );
+        AMP_ERROR( "ERROR: Valid option for time integrator are BDF2-6, CN, or BE currently" );
     }
 
     if ( !d_operator->isValidVector( d_predictor_vector ) ) {

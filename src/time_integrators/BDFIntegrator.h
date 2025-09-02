@@ -32,12 +32,6 @@ public:
     //! returns the total number of timestep rejections
     int getNumberOfStepRejections( void ) { return d_total_steprejects; }
 
-    /**
-     * Return time increment for advancing the solution at the first timestep.
-     */
-    using AMP::TimeIntegrator::TimeIntegrator::getInitialDt;
-    double getInitialDt() override;
-
     //! return the factor getGamma() used to scale the rhs operator
     double getTimeOperatorScaling( void );
 
@@ -257,6 +251,8 @@ protected:
 
     void setTimeHistoryScalings() override;
 
+    void setPredictorType( const std::string &predictor = "" );
+
     /**
      * Set solution and function scalings for multi-physics scalings automatically
      */
@@ -355,6 +351,9 @@ protected:
 
     //! predictor to use with predictor corrector approach
     std::string d_predictor_type = "leapfrog";
+
+    //! initial predictor type
+    std::string d_initial_predictor_type = "forward_euler";
 
     std::list<double> d_l2errorNorms_E;
     std::list<double> d_l2errorNorms_T;
