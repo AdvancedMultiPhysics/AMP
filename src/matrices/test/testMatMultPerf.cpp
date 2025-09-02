@@ -164,7 +164,7 @@ size_t matMatTest( AMP::UnitTest *ut, std::string input_file )
 
     // Test on defined matrix types
 #if defined( AMP_USE_TRILINOS )
-    matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true );
+    matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs );
 #endif
 #if defined( AMP_USE_PETSC )
     matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs );
