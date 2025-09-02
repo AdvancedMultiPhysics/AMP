@@ -191,8 +191,8 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     numFaceGauss[i] += 1;
                 }
             } // end for i
-        }     // end for bnd
-    }         // end if
+        } // end for bnd
+    } // end if
 
     // Gather the results from all processors
     std::vector<double> aggMapValues( numPoints );
@@ -321,7 +321,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     numFaceNodes[i] += 1;
                 }
             } // end for i
-        }     // end for bnd
+        } // end for bnd
     }
 
     // Gather the results from all processors

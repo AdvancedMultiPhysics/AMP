@@ -201,7 +201,7 @@ void NeutronicsRhsExtras::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                 rInternal->setValuesByGlobalID(
                     1, &gid[i], &d_values[this_extrasId][this_step][gp] );
             } // end for gauss-points
-        }     // end for elements
+        } // end for elements
     }
 }
 
