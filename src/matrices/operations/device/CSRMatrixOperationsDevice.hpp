@@ -128,7 +128,7 @@ void CSRMatrixOperationsDevice<Config>::matMatMult( std::shared_ptr<MatrixData>,
                                                     std::shared_ptr<MatrixData>,
                                                     std::shared_ptr<MatrixData> )
 {
-    AMP_WARNING( "matMatMult for CSRMatrixOperationsDevice not implemented" );
+    AMP_WARN_ONCE( "matMatMult for CSRMatrixOperationsDevice not implemented" );
 }
 
 template<typename Config>
