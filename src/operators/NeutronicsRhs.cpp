@@ -199,7 +199,7 @@ void NeutronicsRhs::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                             }
                           }*/
             } // end for gauss-points
-        } // end for elements
+        }     // end for elements
         /*double nrm = rInternal->L2Norm();
         printf("%e\n",nrm);
         AMP_MPI(AMP_COMM_WORLD).barrier();
