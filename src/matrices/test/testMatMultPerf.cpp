@@ -37,30 +37,28 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
                            std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
-    // Create the vectors
+
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-    // No SpGEMMs on device yet, but leaving this here to enable later
-#if 0 // ifdef AMP_USE_DEVICE
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
+
+    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
+    inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+    fillWithPseudoLaplacian( matrix_h, dofManager );
+
+    // migrate matrix if requested and possible
+#if 0
+    auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto A = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+                      matrix_h :
+                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
 #else
-    auto inVec     = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec    = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    // add in migration and device support later
+    auto A         = matrix_h;
 #endif
-
-    // Create the matrix
-    auto A = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-    if ( A ) {
-        ut->passes( type + ": Able to create a square matrix" );
-    } else {
-        ut->failure( type + ": Unable to create a square matrix" );
-    }
-
-    fillWithPseudoLaplacian( A, dofManager );
-    A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t nGlobalRows = A->numGlobalRows();
     size_t nLocalRows  = A->numLocalRows();
@@ -166,7 +164,7 @@ size_t matMatTest( AMP::UnitTest *ut, std::string input_file )
 
     // Test on defined matrix types
 #if defined( AMP_USE_TRILINOS )
-    // matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true );
+    matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true );
 #endif
 #if defined( AMP_USE_PETSC )
     matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs );

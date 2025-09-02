@@ -53,14 +53,14 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
     inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
     outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
-    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
     fillWithPseudoLaplacian( matrix_h, dofManager );
 
     //    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
 
-    auto matrix = ( memoryLocation == "host" ) ?
+    auto matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
                       matrix_h :
                       AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
 
