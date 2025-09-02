@@ -68,6 +68,7 @@ std::vector<std::string> getHypreMemorySpaces()
     #if defined( HYPRE_USING_HOST_MEMORY )
     memspaces.emplace_back( "host" );
     #elif defined( HYPRE_USING_DEVICE_MEMORY )
+    memspaces.emplace_back( "host" );
     memspaces.emplace_back( "device" );
     #elif defined( HYPRE_USING_UNIFIED_MEMORY )
     memspaces.emplace_back( "host" );
@@ -216,7 +217,7 @@ int main( int argc, char *argv[] )
     if ( argc > 1 ) {
 
         for ( int i = 1; i < argc; i++ )
-            deviceInputs.emplace_back( argv[i] );
+            generalInputs.emplace_back( argv[i] );
 
     } else {
 
