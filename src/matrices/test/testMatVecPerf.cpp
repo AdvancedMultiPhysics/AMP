@@ -50,28 +50,19 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
 
-    if ( memoryLocation == "host" ) {
-        inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-        outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
-    } else {
-        AMP_ASSERT( memoryLocation == "managed" );
-        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-        inVec        = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
-        outVec       = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
-    }
+    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
+    inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
+    fillWithPseudoLaplacian( matrix_h, dofManager );
 
-    // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix(
-        inVec, outVec, AMP::Utilities::backendFromString( accelerationBackend ), type );
-    if ( matrix ) {
-        ut->passes( type + ", " + accelerationBackend + ": Able to create a square matrix" );
-    } else {
-        ut->failure( type + ", " + accelerationBackend + ": Unable to create a square matrix" );
-    }
+    //    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
 
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    auto matrix = ( memoryLocation == "host" ) ?
+                      matrix_h :
+                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
 
     //    AMP::pout << "Matrix after makeConsistent" << std::endl;
     //    AMP::pout << *matrix << std::endl;
@@ -181,18 +172,20 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
 #endif
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
-    //    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
 #ifdef USE_OPENMP
-    //    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
 #endif
 #if defined( AMP_USE_KOKKOS )
-    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
-    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
-    //    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
 
     size_t nGlobal = 0;
