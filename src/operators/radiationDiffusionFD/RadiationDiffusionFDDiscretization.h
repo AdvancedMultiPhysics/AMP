@@ -291,9 +291,9 @@ private:
 
 private: 
     //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
-    static constexpr size_t W = 0;
-    static constexpr size_t O = 1;
-    static constexpr size_t E = 2;
+    static constexpr size_t WEST   = 0;
+    static constexpr size_t ORIGIN = 1;
+    static constexpr size_t EAST   = 2;
 
     //! Placeholder arrays for values used in 3-point stencils. Set by setLoc3Data
     std::array<double, 3> d_ELoc3;
@@ -436,9 +436,9 @@ class RadDifOpPJac : public AMP::Operator::LinearOperator {
 
 private:
     // Indices used for referencing WEST, ORIGIN, and EAST entries in 3-point stencils
-    static constexpr size_t W = 0;
-    static constexpr size_t O = 1;
-    static constexpr size_t E = 2;
+    static constexpr size_t WEST   = 0;
+    static constexpr size_t ORIGIN = 1;
+    static constexpr size_t EAST   = 2;
 
 //
 public:

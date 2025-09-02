@@ -214,7 +214,7 @@ private:
     //! Get component and sign of normal vector given the boundaryID. 
     void getNormalVector( size_t boundaryID, size_t &normalComponent, double &normalSign ) const;
 
-    /** Dimension-agnostic wrapper around exactSolutionGradient_ functions */
+    //! Dimension-agnostic wrapper around exactSolutionGradient_ functions
     double exactSolutionGradient( size_t component, AMP::Mesh::Point &point, size_t gradComponent ) const;
 
     // Exact solution, its gradient and corresponding source term

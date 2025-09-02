@@ -246,7 +246,7 @@ double Manufactured_RadDifModel::initialCondition( size_t component, AMP::Mesh::
     return ic;
 }
 
-// Dimension-agnostic wrapper around the exactSolution_ functions
+
 double Manufactured_RadDifModel::exactSolution( size_t component, AMP::Mesh::Point &point ) const {
     if ( d_dim == 1 ) {
         return exactSolution1D( component, point[0] );
@@ -259,7 +259,7 @@ double Manufactured_RadDifModel::exactSolution( size_t component, AMP::Mesh::Poi
     }
 }
 
-// Dimension-agnostic wrapper around the exactSolutionGradient_ functions
+
 double Manufactured_RadDifModel::exactSolutionGradient( size_t component, AMP::Mesh::Point &point, size_t gradComponent ) const 
 {
     if ( d_dim == 1 ) {
@@ -305,7 +305,7 @@ double Manufactured_RadDifModel::getBoundaryFunctionValueE( size_t boundaryID, A
     // Unpack constants
     double k11 = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
     double ak, bk;
-    getLHSRobinConstantsFromDB( boundaryID, ak, bk);
+    getLHSRobinConstantsFromDB( boundaryID, ak, bk );
 
     return ak*E + bk*k11*D_E * normalSign*dEdn;
 }

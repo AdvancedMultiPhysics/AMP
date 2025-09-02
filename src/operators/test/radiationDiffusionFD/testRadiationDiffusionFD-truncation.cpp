@@ -124,39 +124,26 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // Get parameters needed to build the RadDifOp
     auto RadDifOp_db   = myRadDifModel->getRadiationDiffusionFD_input_db( );
 
+
     /****************************************************************
     * Create a mesh                                                 *
     ****************************************************************/
-    // // Put variable "dim" into mesh Database 
-    // mesh_db->putScalar<int>( "dim", RadDifOp_db->getScalar<int>( "dim" ) );
-    // std::shared_ptr<AMP::Mesh::BoxMesh> mesh = createBoxMesh( comm, mesh_db );
-
     // Create MeshParameters
     auto mesh_params = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mesh_params->setComm( comm );
     // Create Mesh
     std::shared_ptr<AMP::Mesh::BoxMesh> mesh = AMP::Mesh::BoxMesh::generate( mesh_params );
 
-    // Print basic problem information
-    // AMP::plog << "--------------------------------------------------------------------------------"
-    //           << std::endl;
-    // AMP::plog << "Building " << static_cast<int>( mesh->getDim() )
-    //           << "D Poisson problem on mesh with "
-    //           << mesh->numGlobalElements( AMP::Mesh::GeomType::Vertex ) << " total DOFs across "
-    //           << mesh->getComm().getSize() << " ranks" << std::endl;
-    // AMP::plog << "--------------------------------------------------------------------------------"
-    //           << std::endl;
 
-
-    AMP::pout << "The database input to RadDifOp is" << std::endl;
+    /****************************************************************
+    * Create a BERadDifOperator                                     *
+    ****************************************************************/
+    AMP::pout << "Input database to RadDifOp is" << std::endl;
     AMP::pout << "------------------------------" << std::endl;
     RadDifOp_db->print( AMP::pout );
     AMP::pout << "------------------------------" << std::endl;
     
 
-    /****************************************************************
-    * Create a BERadDifOperator                                     *
-    ****************************************************************/
     // Create an OperatorParameters object, from a Database.
     auto Op_db = std::make_shared<AMP::Database>( "Op_db" );
     auto OpParams = std::make_shared<AMP::Operator::OperatorParameters>( Op_db );
@@ -239,7 +226,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     AMP::pout << "||e||=(" << enorms[0] << "," << enorms[1] << "," << enorms[2] << ")" << std::endl;
     AMP::pout << "----------------------------------------" << std::endl;
 
-
     ut->passes( inputFileName + ": truncation error calculation" );
 }
 // end of driver()
@@ -248,7 +234,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
 
 /** Input usage is e.g., 
- *  >> mpirun -n 1 radiationDiffusionFD-truncationTest
+ *  >> mpirun -n 1 testRadiationDiffusionFD-truncation
  */
 int main( int argc, char **argv )
 {
