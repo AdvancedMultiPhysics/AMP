@@ -246,12 +246,19 @@ int testSimpleTimeIntegration( int argc, char *argv[] )
 
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
+    std::vector<std::string> integrators;
 
-    // List of integrators
-    // We need to look at the errors for the first order -- whether they are acceptable
-    auto integrators = { "ExplicitEuler", "RK2",  "RK4",  "RK12", "RK23", "RK34", "RK45", "CN",
-                         "BDF1",          "BDF2", "BDF3", "BDF4", "BDF5" };
+    if ( argc > 1 ) {
 
+        for ( int i = 1; i < argc; i++ )
+            integrators.emplace_back( argv[i] );
+
+    } else {
+        // List of integrators
+        // We need to look at the errors for the first order -- whether they are acceptable
+        integrators = { "ExplicitEuler", "RK2",  "RK4",  "RK12", "RK23", "RK34", "RK45", "CN",
+                        "BDF1",          "BDF2", "BDF3", "BDF4", "BDF5" };
+    }
     // Run the tests
     for ( auto tmp : integrators )
         runBasicIntegratorTests( tmp, ut );

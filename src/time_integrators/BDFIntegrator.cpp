@@ -1015,7 +1015,7 @@ bool BDFIntegrator::integratorSpecificCheckNewSolution( const int solver_retcode
     // the first check is whether the solver passed or failed
     if ( solver_retcode == 1 ) {
         if ( d_iDebugPrintInfoLevel > 4 ) {
-            AMP::pout << "Nonlinear solver checks: PASSED" << std::endl;
+            AMP::pout << "Solver checks: PASSED" << std::endl;
         }
 
         if ( d_calculateTimeTruncError ) {
