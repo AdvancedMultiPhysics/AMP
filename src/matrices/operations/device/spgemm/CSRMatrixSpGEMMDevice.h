@@ -1,9 +1,19 @@
 #ifndef included_AMP_CSRMatrixSpGEMMDevice
 #define included_AMP_CSRMatrixSpGEMMDevice
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Memory.h"
+
+#ifdef AMP_USE_CUDA
+    #include "AMP/matrices/operations/device/spgemm/cuda/SpGEMM_Cuda.h"
+#endif
+
+#ifdef AMP_USE_HIP
+    #include "AMP/matrices/operations/device/spgemm/hip/SpGEMM_Hip.h"
+#endif
 
 #include <map>
 #include <memory>
@@ -12,7 +22,7 @@
 namespace AMP::LinearAlgebra {
 
 template<typename Config>
-class CSRMatrixSpGEMMHelperDevice
+class CSRMatrixSpGEMMDevice
 {
 public:
     using allocator_type    = typename Config::allocator_type;
@@ -25,10 +35,10 @@ public:
 
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );
 
-    CSRMatrixSpGEMMHelperDevice() = default;
-    CSRMatrixSpGEMMHelperDevice( std::shared_ptr<matrixdata_t> A_,
-                                 std::shared_ptr<matrixdata_t> B_,
-                                 std::shared_ptr<matrixdata_t> C_ )
+    CSRMatrixSpGEMMDevice() = default;
+    CSRMatrixSpGEMMDevice( std::shared_ptr<matrixdata_t> A_,
+                           std::shared_ptr<matrixdata_t> B_,
+                           std::shared_ptr<matrixdata_t> C_ )
         : A( A_ ),
           B( B_ ),
           C( C_ ),
@@ -44,10 +54,12 @@ public:
     {
         AMP_DEBUG_INSIST(
             comm == B->getComm() && comm == C->getComm(),
-            "CSRMatrixSpGEMMHelperDevice: All three matrices must have the same communicator" );
+            "CSRMatrixSpGEMMDevice: All three matrices must have the same communicator" );
+        // AMP_INSIST( std::is_same_v<allocator_type, AMP::Utilities::DeviceAllocator<void>>,
+        //             "CSRMatrixSpGEMMDevice: Only device memory supported" );
     }
 
-    ~CSRMatrixSpGEMMHelperDevice() = default;
+    ~CSRMatrixSpGEMMDevice() = default;
 
     void multiply();
 

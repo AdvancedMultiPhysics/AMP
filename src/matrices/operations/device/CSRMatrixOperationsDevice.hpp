@@ -124,11 +124,52 @@ void CSRMatrixOperationsDevice<Config>::scale( AMP::Scalar alpha_in, MatrixData 
 }
 
 template<typename Config>
-void CSRMatrixOperationsDevice<Config>::matMatMult( std::shared_ptr<MatrixData>,
-                                                    std::shared_ptr<MatrixData>,
-                                                    std::shared_ptr<MatrixData> )
+void CSRMatrixOperationsDevice<Config>::matMatMult( std::shared_ptr<MatrixData> A,
+                                                    std::shared_ptr<MatrixData> B,
+                                                    std::shared_ptr<MatrixData> C )
 {
-    AMP_WARN_ONCE( "matMatMult for CSRMatrixOperationsDevice not implemented" );
+    auto csrDataA = std::dynamic_pointer_cast<CSRMatrixData<Config>>( A );
+    auto csrDataB = std::dynamic_pointer_cast<CSRMatrixData<Config>>( B );
+    auto csrDataC = std::dynamic_pointer_cast<CSRMatrixData<Config>>( C );
+
+    AMP_DEBUG_ASSERT( csrDataA && csrDataB && csrDataC );
+
+    // Verify that A and B have compatible dimensions
+    const auto globalKa = csrDataA->numGlobalColumns();
+    const auto globalKb = csrDataB->numGlobalRows();
+    const auto localKa  = csrDataA->numLocalColumns();
+    const auto localKb  = csrDataB->numLocalRows();
+    AMP_INSIST( globalKa == globalKb,
+                "CSRMatrixOperationsDefault::matMatMult got incompatible global dimensions" );
+    AMP_INSIST( localKa == localKb,
+                "CSRMatrixOperationsDefault::matMatMult got incompatible local dimensions" );
+
+    // Verify that all matrices have the same memory space and that it isn't device
+    const auto memLocA = csrDataA->getMemoryLocation();
+    const auto memLocB = csrDataB->getMemoryLocation();
+    const auto memLocC = csrDataC->getMemoryLocation();
+    AMP_INSIST( memLocA == AMP::Utilities::MemoryType::device,
+                "CSRMatrixOperationsDevice::matMatMult only implemented for device matrices" );
+    AMP_INSIST( memLocA == memLocB,
+                "CSRMatrixOperationsDevice::matMatMult A and B must have the same memory type" );
+    AMP_INSIST( memLocA == memLocC,
+                "CSRMatrixOperationsDevice::matMatMult A and C must have the same memory type" );
+
+    // Check if an SpGEMM helper has already been constructed for this combination
+    // of matrices. If not create it first and do symbolic phase, otherwise skip
+    // ahead to numeric phase
+    auto bcPair = std::make_pair( csrDataB, csrDataC );
+    if ( d_SpGEMMHelpers.find( bcPair ) == d_SpGEMMHelpers.end() ) {
+        AMP_INSIST( csrDataC->isEmpty(),
+                    "CSRMatrixOperationsDevice::matMatMult A*B->C only applicable to non-empty C "
+                    "if it came from same A and B input matrices originally" );
+        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDevice( csrDataA, csrDataB, csrDataC );
+        d_SpGEMMHelpers[bcPair].multiply();
+    } else {
+        AMP_WARN_ONCE( "CSRMatrixOperationsDevice::matMatMult: Reuse of C not yet supported, "
+                       "falling back to full calculation" );
+        d_SpGEMMHelpers[bcPair].multiply();
+    }
 }
 
 template<typename Config>

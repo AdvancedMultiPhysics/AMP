@@ -6,9 +6,9 @@
 namespace AMP::LinearAlgebra {
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDevice<Config>::multiply()
+void CSRMatrixSpGEMMDevice<Config>::multiply()
 {
-    PROFILE( "CSRMatrixSpGEMMHelperDevice::multiply" );
+    PROFILE( "CSRMatrixSpGEMMDevice::multiply" );
 
     // start communication to build BRemote before doing anything
     if ( A->hasOffDiag() ) {
@@ -32,13 +32,13 @@ void CSRMatrixSpGEMMHelperDevice<Config>::multiply()
                                                        false );
 
     {
-        PROFILE( "CSRMatrixSpGEMMHelperDevice::multiply (local)" );
+        PROFILE( "CSRMatrixSpGEMMDevice::multiply (local)" );
         multiply<BlockType::DIAG>( A_diag, B_diag, C_diag_diag );
         multiply<BlockType::OFFD>( A_diag, B_offd, C_diag_offd );
     }
 
     if ( A->hasOffDiag() ) {
-        PROFILE( "CSRMatrixSpGEMMHelperDevice::multiply (remote)" );
+        PROFILE( "CSRMatrixSpGEMMDevice::multiply (remote)" );
         endBRemoteComm();
         if ( BR_diag.get() != nullptr ) {
             C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
@@ -71,15 +71,11 @@ void CSRMatrixSpGEMMHelperDevice<Config>::multiply()
 }
 
 template<typename Config>
-template<typename CSRMatrixSpGEMMHelperDevice<Config>::BlockType block_t>
-void CSRMatrixSpGEMMHelperDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t> A_data,
-                                                    std::shared_ptr<localmatrixdata_t> B_data,
-                                                    std::shared_ptr<localmatrixdata_t> C_data )
+template<typename CSRMatrixSpGEMMDevice<Config>::BlockType block_t>
+void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t> A_data,
+                                              std::shared_ptr<localmatrixdata_t> B_data,
+                                              std::shared_ptr<localmatrixdata_t> C_data )
 {
-    using acc_t = typename std::conditional<block_t == BlockType::DIAG,
-                                            DenseAccumulator<gidx_t>,
-                                            SparseAccumulator<gidx_t>>::type;
-
     AMP_DEBUG_ASSERT( A_data != nullptr );
     AMP_DEBUG_ASSERT( B_data != nullptr );
     AMP_DEBUG_ASSERT( C_data != nullptr );
@@ -89,6 +85,12 @@ void CSRMatrixSpGEMMHelperDevice<Config>::multiply( std::shared_ptr<localmatrixd
     }
 
     const bool is_diag = block_t == BlockType::DIAG;
+    AMP_INSIST( is_diag, "CSRMatrixSpGEMMDevice::multiply: only local multiplies supported" );
+
+    // shapes of A and B
+    const auto A_nrows = static_cast<int64_t>( A_data->numLocalRows() );
+    const auto A_ncols = static_cast<int64_t>( A_data->numLocalColumns() );
+    const auto B_ncols = static_cast<int64_t>( B_data->numLocalColumns() );
 
     // all fields from blocks involved
     lidx_t *A_rs = nullptr, *A_cols_loc = nullptr;
@@ -99,29 +101,49 @@ void CSRMatrixSpGEMMHelperDevice<Config>::multiply( std::shared_ptr<localmatrixd
     gidx_t *B_cols     = nullptr;
     scalar_t *B_coeffs = nullptr;
 
-    lidx_t *C_rs = nullptr, *C_cols_loc = nullptr;
-    gidx_t *C_cols     = nullptr;
-    scalar_t *C_coeffs = nullptr;
-
-    // Extract available fields
+    // Extract data fields from A and B
     std::tie( A_rs, A_cols, A_cols_loc, A_coeffs ) = A_data->getDataFields();
     std::tie( B_rs, B_cols, B_cols_loc, B_coeffs ) = B_data->getDataFields();
+    const auto A_nnz = static_cast<int64_t>( A_data->numberOfNonZeros() );
+    const auto B_nnz = static_cast<int64_t>( B_data->numberOfNonZeros() );
+
+    // C has row pointers allocated but unfilled
+    lidx_t *C_rs = C_data->getRowStarts();
+
+    // Create vendor SpGEMM object and trigger internal allocs
+    VendorSpGEMM<lidx_t, lidx_t, scalar_t> spgemm( A_nrows,
+                                                   B_ncols,
+                                                   A_ncols,
+                                                   A_nnz,
+                                                   A_rs,
+                                                   A_cols_loc,
+                                                   A_coeffs,
+                                                   B_nnz,
+                                                   B_rs,
+                                                   B_cols_loc,
+                                                   B_coeffs,
+                                                   C_rs );
+
+    // Get nnz for C and allocate internals
+    auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
+    C_data->setNNZ( C_nnz );
+
+    // pull out the now allocated C internals
+    lidx_t *C_cols_loc                             = nullptr;
+    gidx_t *C_cols                                 = nullptr;
+    scalar_t *C_coeffs                             = nullptr;
     std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_data->getDataFields();
 
-    AMP_ASSERT( A_cols_loc != nullptr );
-    if constexpr ( is_diag ) {
-        AMP_ASSERT( B_cols_loc != nullptr ); // dense needs local cols
-    }
-    AMP_ASSERT( B_cols != nullptr || B_cols_loc != nullptr ); // otherwise just need one of them
+    // Compute SpGEMM
+    spgemm.compute( C_rs, C_cols_loc, C_coeffs );
 
-    auto B_colmap        = B_data->getColumnMap();
-    const auto first_col = B_data->beginCol();
+    // exiting function destructs spgemm wrapper and frees its internals
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDevice<Config>::mergeDiag()
+void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
 {
-    PROFILE( "CSRMatrixSpGEMMHelperDevice::mergeDiag" );
+    PROFILE( "CSRMatrixSpGEMMDevice::mergeDiag" );
 
     const auto first_col = C_diag->beginCol();
 
@@ -146,9 +168,9 @@ void CSRMatrixSpGEMMHelperDevice<Config>::mergeDiag()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDevice<Config>::mergeOffd()
+void CSRMatrixSpGEMMDevice<Config>::mergeOffd()
 {
-    PROFILE( "CSRMatrixSpGEMMHelperDevice::mergeOffd" );
+    PROFILE( "CSRMatrixSpGEMMDevice::mergeOffd" );
 
     // handle special case where either C_diag_offd or C_offd_offd is empty
     if ( C_diag_offd.get() == nullptr && C_offd_offd.get() == nullptr ) {
@@ -178,7 +200,7 @@ void CSRMatrixSpGEMMHelperDevice<Config>::mergeOffd()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDevice<Config>::setupBRemoteComm()
+void CSRMatrixSpGEMMDevice<Config>::setupBRemoteComm()
 {
     /*
      * Setting up the comms is somewhat involved. A high level overview
@@ -192,7 +214,7 @@ void CSRMatrixSpGEMMHelperDevice<Config>::setupBRemoteComm()
      *  Step 4 uses non-blocking recvs and blocking sends.
      */
 
-    PROFILE( "CSRMatrixSpGEMMHelperDevice::setupBRemoteComm" );
+    PROFILE( "CSRMatrixSpGEMMDevice::setupBRemoteComm" );
 
     using lidx_t = typename Config::lidx_t;
 
@@ -258,7 +280,7 @@ void CSRMatrixSpGEMMHelperDevice<Config>::setupBRemoteComm()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDevice<Config>::startBRemoteComm()
+void CSRMatrixSpGEMMDevice<Config>::startBRemoteComm()
 {
     // check if the communicator information is available and create if needed
     if ( d_dest_info.empty() ) {
@@ -281,9 +303,9 @@ void CSRMatrixSpGEMMHelperDevice<Config>::startBRemoteComm()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDevice<Config>::endBRemoteComm()
+void CSRMatrixSpGEMMDevice<Config>::endBRemoteComm()
 {
-    PROFILE( "CSRMatrixSpGEMMHelperDevice::endBRemoteComm" );
+    PROFILE( "CSRMatrixSpGEMMDevice::endBRemoteComm" );
 
     d_recv_matrices = d_csr_comm.recvMatrices( 0, 0, 0, B->numGlobalColumns() );
     // BRemotes do not need any particular parameters object internally
