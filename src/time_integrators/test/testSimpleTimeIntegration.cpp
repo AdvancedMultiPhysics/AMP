@@ -93,6 +93,15 @@ bool isImplicitTI( std::shared_ptr<const AMP::Database> db )
     return ( std::find( imp_ti.begin(), imp_ti.end(), name ) != imp_ti.end() );
 }
 
+bool isAdaptiveRK( std::shared_ptr<const AMP::Database> db )
+{
+    AMP_ASSERT( db );
+    const auto adaptive_rk = { "RK12", "RK23", "RK34", "RK45" };
+    const auto name        = db->getScalar<std::string>( "name" );
+    AMP::pout << name << std::endl;
+    return ( std::find( adaptive_rk.begin(), adaptive_rk.end(), name ) != adaptive_rk.end() );
+}
+
 void updateDatabaseIfImplicit( std::shared_ptr<AMP::Database> db )
 {
     if ( isImplicitTI( db ) ) {
@@ -172,7 +181,39 @@ void runBasicIntegratorTests( const std::string &name, AMP::UnitTest &ut )
     params->d_operator = std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
     testIntegrator( name, "du/dt=-3u+3", params, 1.0, 5.0e-10, ut );
 
-    // retest with non-zero predictor
+    if ( isAdaptiveRK( db ) ) {
+
+        AMP::pout << "Test " << name << " with adaptive step" << std::endl;
+
+        db->putScalar<bool>( "use_fixed_dt", false );
+        db->putScalar<double>( "initial_dt", 0.0005 );
+        finalTime = 0.01;
+        db->putScalar<double>( "final_time", finalTime );
+
+        const double icval = 10.0;
+        ic->setToScalar( icval );
+
+        double tol = 8.0e-08;
+        // Test with no source and constant operator
+        params->d_pSourceTerm = nullptr;
+        params->d_operator =
+            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+        testIntegrator( name, "du/dt=-3u", params, icval * std::exp( -3.0 * finalTime ), tol, ut );
+
+        // Test with fixed source and constant operator
+        params->d_pSourceTerm = source;
+        params->d_operator =
+            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+        testIntegrator( name,
+                        "du/dt=-3u+3",
+                        params,
+                        icval * std::exp( -3.0 * finalTime ) +
+                            ( 1.0 - std::exp( -3.0 * finalTime ) ),
+                        tol,
+                        ut );
+    }
+
+    // retest with non-zero predictor for implicit
     if ( isImplicitTI( db ) ) {
 
         AMP::pout << "Test " << name << " with non-zero predictor" << std::endl;
