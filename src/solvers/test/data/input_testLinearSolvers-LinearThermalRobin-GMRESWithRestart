@@ -1,0 +1,21 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+// test restart 
+LinearSolver{
+  name = "GMRESSolver"
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  gmres_restart = TRUE
+  max_dimension = 20
+  print_info_level = 2
+  max_iterations = 100
+}
+
+<<< "PC-BoomerAMGParameters" >>>
+
+Reference{
+  iterations = 31
+  res_l2_norm = 3.7e-09
+  tolerance = 0.0
+  strict = FALSE
+}

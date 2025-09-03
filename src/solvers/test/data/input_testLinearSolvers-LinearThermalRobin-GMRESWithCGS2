@@ -1,0 +1,18 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+// CGS2 orthogonalization
+LinearSolver{
+  name = "GMRESSolver"
+  ortho_method = "CGS2"
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 2
+  max_iterations = 25
+}
+
+Reference{
+  iterations = 25
+  res_l2_norm = 2.4e-14
+  tolerance = 0.0
+  strict = FALSE
+}
