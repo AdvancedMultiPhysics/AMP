@@ -1,3 +1,66 @@
+# Basic, model-independent, PDE parameters
+PDE {
+  print_info_level = 0
+
+  dim = 1
+  #dim = 2
+  #dim = 3
+  
+  #fluxLimited = FALSE
+  fluxLimited = TRUE
+
+  #modelID = "Manufactured"
+  modelID = "Mousseau_etal_2000"
+}
+
+
+# Mesh data
+Mesh {
+    MeshName = "mesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 1
+    Size = 256
+    Range = -1, 1
+    surfaceIds = 1, 2
+    static = TRUE
+}
+
+# # Mesh data
+# Mesh {
+#     MeshName = "mesh"
+#     MeshType = "AMP"
+#     Generator = "cube"
+#     dim = 2
+#     Size = 8, 8
+#     Range = -2, 2, -1, 1
+#     surfaceIds = 1, 2
+#     static = TRUE
+# }
+
+# # Mesh data
+# Mesh {
+#     MeshName = "mesh"
+#     MeshType = "AMP"
+#     Generator = "cube"
+#     dim = 3
+#     #Size = 16, 16, 16
+#     #Size = 32, 32, 32
+#     Size = 64, 64, 64
+#     Range = -1, 1, -1, 1, -1, 1
+#     surfaceIds = 1, 2, 3, 4, 5, 6
+#     static = TRUE
+# }
+
+Mousseau_etal_2000_Parameters{
+  # The temperature diffusion flux is k*T^{2.5}; eq. (16)
+  k = 1e-5
+  #k = 0.1
+  
+  # In initial tests this is constant 1 everywhere
+  zatom = 10.0
+}
+
 Manufactured_Parameters{ 
   model = "nonlinear"
   #model = "linear"
@@ -6,10 +69,6 @@ Manufactured_Parameters{
   k12 = 1.0
   k21 = 0.1
   k22 = 1.0
-  #k11 = 0.0
-  #k12 = 0.0
-  #k21 = 0.0
-  #k22 = 0.0
   a1 = 0.25
   b1 = 0.5
   a2 = 0.25
@@ -19,37 +78,6 @@ Manufactured_Parameters{
   b3 = 0.45
   a4 = 0.5
   b4 = 1.3
-}
-
-# Basic, model-independent, PDE parameters
-PDE {
-  print_info_level = 0
-
-  #dim = 1
-  dim = 2
-  
-  #problemID = "Manufactured"
-  problemID = "Mousseau_etal_2000"
-
-  #fluxLimited = FALSE
-  fluxLimited = TRUE
-}
-
-# Mesh size in each direction
-Mesh {
-  #n = 8
-  n = 64
-  #n = 128
-  #n = 256
-}
-
-Mousseau_etal_2000_Parameters{
-  # The temperature diffusion flux is k*T^{2.5}; eq. (16)
-  k = 1e-5
-  #k = 0.1
-  
-  # In initial tests this is constant 1 everywhere
-  zatom = 10.0
 }
 
 
@@ -64,11 +92,11 @@ TimeIntegrator {
     
     variable_names = ["ENERGY", "TEMPERATURE"]
 
-    max_integrator_steps = 1000
-    #max_integrator_steps = 10
+    #max_integrator_steps = 1000
+    max_integrator_steps = 60
 
     initial_time = 0.0
-    final_time = 3.0
+    final_time = 0.1
     print_info_level = 1
     
     user_managed_time_operator  = TRUE # User builds I + gamma*f
@@ -133,7 +161,7 @@ TimeIntegrator {
       enableMFFDBoundsCheck              = FALSE 
 
       # Abs tol should track truncation error
-      absolute_tolerance = 1.0e-5 
+      absolute_tolerance = 1.0e-6 
       relative_tolerance = 1.0e-10 
       
       stepTolerance        = 1.0e-10
@@ -169,85 +197,32 @@ TimeIntegrator {
         #KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 20"
 
         # Let L be the approx Jacobian, then:
-
-        # Use monolithic AMG prec to approximately apply inv(L)
+        # Use operator-split prec to approximately apply inv(L)
         Preconditioner{
-          name = "BERadDifOpJacMonolithic" # Name of the prec
+          name = "BERadDifOpPJacOpSplitPrec" # Name of the prec
           absolute_tolerance = 0.0
           relative_tolerance = 0.0
-          print_info_level   = 2
+          print_info_level   = 0
           max_iterations     = 1 # Number of iterations of the preconditioner
-          #compute_residual   = FALSE # Compute final residual
-          compute_residual   = TRUE
+          compute_residual   = FALSE # Compute final residual
+          #compute_residual   = TRUE
 
             # Preconditioner for approximately inverting diag diffusion blocks
-            MonolithicSolver{
+            DiffusionBlocks{
               name = "BoomerAMGSolver"
-              print_info_level   = 3
+              print_info_level   = 0
               min_coarse_size    = 5
+              relax_type         = 6 # Hybrid GS/Jacobi
+              coarsen_type       = 10
               interp_type        = 17 # distance-two
               cycle_type         = 1
               relax_order        = 0
-              strong_threshold   = 0.25
+              strong_threshold   = 0.5
               absolute_tolerance = 0.0
               relative_tolerance = 0.0
-              max_iterations     = 5
-              max_levels         = 10
-
-              #coarsen_type       = 10 # HMIS
-              coarsen_type       = 6  # Falgout
-
-              # If this is set, then it overwrites "smooth_type"
-              #relax_type         = 6 # Hybrid symmetric GS
-              #relax_type         = 0 # Jacobi (is this weighted?)
-
-              # Number of variables for systems AMG
-              num_functions        = 2 
-              
-              # Sets nodal-based coarsening for systems based on nodal matrix
-              nodal = 1 # Frobenius norm 
-              #nodal = 2 # sum of absolute values of elements in each block
-              #nodal = 3 # Largest element in block (not absolute value)
-              #nodal = 4 # row-sum norm
-              #nodal = 6 # sum of all values in each block
-
-              # Enable complicated smoothers
-              smooth_type          = 6 # Schwarz smoothing
-              # Number of levels complicated smoothers are used on
-              smooth_number_levels = 10
-              # How Schwarz patches are defined 
-              schwarz_domain_type  = 1 # Each node is a Schwarz domain
-              # Type of Schwarz method
-              schwarz_variant      = 0 # Multiplicative, no overlap at proc boundary
+              max_iterations     = 1
             }
         }
-
-        # # Use operator-split prec to approximately apply inv(L)
-        # Preconditioner{
-        #   name = "BERadDifOpJacOpSplitPrec" # Name of the prec
-        #   absolute_tolerance = 0.0
-        #   relative_tolerance = 0.0
-        #   print_info_level   = 0
-        #   max_iterations     = 1 # Number of iterations of the preconditioner
-        #   #compute_residual   = FALSE # Compute final residual
-        #   compute_residual   = TRUE
-
-        #     # Preconditioner for approximately inverting diag diffusion blocks
-        #     DiffusionBlocks{
-        #       name = "BoomerAMGSolver"
-        #       print_info_level   = 0
-        #       min_coarse_size    = 5
-        #       relax_type         = 6 # Hybrid GS/Jacobi
-        #       coarsen_type       = 10
-        #       interp_type        = 17 # distance-two
-        #       cycle_type         = 1
-        #       relax_order        = 0
-        #       strong_threshold   = 0.5
-        #       absolute_tolerance = 0.0
-        #       relative_tolerance = 0.0
-        #       max_iterations     = 1
-        #     }
-        # }
 
         # # Use GMRES to "exactly apply" inv(L)
         # Preconditioner{
@@ -260,8 +235,6 @@ TimeIntegrator {
         #   max_iterations = 3
         #   max_dimension  = 300
         # }
-
-
       }
     }
 }

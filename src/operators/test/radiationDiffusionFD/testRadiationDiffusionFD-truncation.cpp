@@ -1,71 +1,18 @@
-// #if 0
-// #include "AMP/IO/PIO.h"
-// #include "AMP/IO/AsciiWriter.h"
-// #include "AMP/utils/AMPManager.h"
-
-// #include "AMP/vectors/CommunicationList.h"
-// #include "AMP/matrices/petsc/NativePetscMatrix.h"
-// #include "AMP/vectors/VectorBuilder.h"
-// #include "AMP/vectors/Vector.h"
-// #include "AMP/vectors/MultiVector.h"
-// #include "AMP/vectors/MultiVariable.h"
-// #include "AMP/vectors/data/VectorData.h"
-// #include "AMP/vectors/data/VectorDataNull.h"
-// #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
-// #include "AMP/vectors/VectorBuilder.h"
-
-// #include "AMP/discretization/boxMeshDOFManager.h"
-// #include "AMP/discretization/MultiDOF_Manager.h"
-// #include "AMP/mesh/Mesh.h"
-// #include "AMP/mesh/MeshID.h"
-// #include "AMP/mesh/MeshParameters.h"
-// #include "AMP/mesh/MeshElement.h"
-// #include "AMP/mesh/structured/BoxMesh.h"
-
-// #include "AMP/matrices/CSRMatrix.h"
-// #include "AMP/matrices/MatrixBuilder.h"
-
-// #include "AMP/operators/Operator.h"
-// #include "AMP/operators/OperatorParameters.h"
-// #include "AMP/operators/LinearOperator.h"
-// #include "AMP/operators/petsc/PetscMatrixShellOperator.h"
-// #include "AMP/operators/OperatorFactory.h"
-// #include "AMP/operators/NullOperator.h"
-
-// #include "AMP/solvers/SolverFactory.h"
-// #include "AMP/solvers/SolverStrategy.h"
-// #include "AMP/solvers/testHelpers/SolverTestParameters.h"
-// #include "AMP/solvers/SolverStrategyParameters.h"
-// #include "AMP/solvers/SolverStrategy.h"
-// #include "AMP/solvers/SolverFactory.h"
-// #include "AMP/solvers/petsc/PetscSNESSolver.h"
-//#endif
-
-//#include "AMP/time_integrators/TimeOperator.h"
-//#include "AMP/time_integrators/TimeIntegratorFactory.h"
-
-///// which of the below are needed?
-#include "AMP/operators/OperatorFactory.h"
-#include "AMP/time_integrators/TimeIntegratorParameters.h"
-//#include "AMP/time_integrators/TimeIntegrator.h"
-#include "AMP/time_integrators/BDFIntegrator.h"
-///////
-#include "AMP/IO/AsciiWriter.h"
-#include "AMP/mesh/MeshParameters.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/UnitTest.h"
+#include "AMP/mesh/MeshParameters.h"
+#include "AMP/operators/OperatorFactory.h"
+//
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
+#include "AMP/operators/radiationDiffusionFD/RDUtils.h"
+#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
 
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
-
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
-#include "AMP/operators/radiationDiffusionFD/RDUtils.h"
-
-#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
 
 
 /** This is a test of a RadDifOp, which is a finite-difference discretization of a radiation 
@@ -142,7 +89,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     AMP::pout << "------------------------------" << std::endl;
     RadDifOp_db->print( AMP::pout );
     AMP::pout << "------------------------------" << std::endl;
-    
 
     // Create an OperatorParameters object, from a Database.
     auto Op_db = std::make_shared<AMP::Database>( "Op_db" );
@@ -231,11 +177,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 // end of driver()
 
 
-
-
-/** Input usage is e.g., 
- *  >> mpirun -n 1 testRadiationDiffusionFD-truncation
- */
 int main( int argc, char **argv )
 {
 

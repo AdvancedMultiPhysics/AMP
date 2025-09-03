@@ -181,10 +181,10 @@ public:
     //! Populate the given multivector a function of the given type
     void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( size_t component, AMP::Mesh::Point &point )> fun ) const;
 
-    //! Set the Robin return function for the energy. If the user does not use call this function then the Robin values rk from the input database will be used.
+    //! Set the Robin return function for the energy. If the user does not use this function then the Robin values rk from the input database will be used.
     void setBoundaryFunctionE( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
     
-    //! Set the pseudo-Neumann return function for the temperature. If the user does not use call this function then the pseudo-Neumann values nk from the input database will be used.
+    //! Set the pseudo-Neumann return function for the temperature. If the user does not use this function then the pseudo-Neumann values nk from the input database will be used.
     void setBoundaryFunctionT( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
 
 

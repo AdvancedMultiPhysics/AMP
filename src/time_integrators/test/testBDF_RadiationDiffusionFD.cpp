@@ -1,189 +1,89 @@
-#include "AMP/IO/PIO.h"
-#include "AMP/IO/AsciiWriter.h"
 #include "AMP/utils/AMPManager.h"
-
-#include "AMP/vectors/CommunicationList.h"
-#include "AMP/matrices/petsc/NativePetscMatrix.h"
-#include "AMP/vectors/VectorBuilder.h"
-#include "AMP/vectors/Vector.h"
-#include "AMP/vectors/MultiVector.h"
-#include "AMP/vectors/MultiVariable.h"
-#include "AMP/vectors/data/VectorData.h"
-#include "AMP/vectors/data/VectorDataNull.h"
-#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
-#include "AMP/vectors/VectorBuilder.h"
-
-#include "AMP/discretization/boxMeshDOFManager.h"
-#include "AMP/discretization/MultiDOF_Manager.h"
-#include "AMP/mesh/Mesh.h"
-#include "AMP/mesh/MeshID.h"
+#include "AMP/utils/UnitTest.h"
 #include "AMP/mesh/MeshParameters.h"
-#include "AMP/mesh/MeshElement.h"
-#include "AMP/mesh/structured/BoxMesh.h"
-
-#include "AMP/matrices/CSRMatrix.h"
-#include "AMP/matrices/MatrixBuilder.h"
-
-#include "AMP/operators/Operator.h"
-#include "AMP/operators/OperatorParameters.h"
-#include "AMP/operators/LinearOperator.h"
-#include "AMP/operators/petsc/PetscMatrixShellOperator.h"
 #include "AMP/operators/OperatorFactory.h"
-#include "AMP/operators/NullOperator.h"
-
-#include "AMP/solvers/SolverFactory.h"
-#include "AMP/solvers/SolverStrategy.h"
-#include "AMP/solvers/testHelpers/SolverTestParameters.h"
-#include "AMP/solvers/SolverStrategyParameters.h"
-#include "AMP/solvers/SolverStrategy.h"
-#include "AMP/solvers/SolverFactory.h"
-#include "AMP/solvers/petsc/PetscSNESSolver.h"
-
 #include "AMP/time_integrators/TimeIntegratorParameters.h"
 #include "AMP/time_integrators/TimeIntegratorFactory.h"
 #include "AMP/time_integrators/TimeIntegrator.h"
-#include "AMP/time_integrators/TimeOperator.h"
 #include "AMP/time_integrators/ImplicitIntegrator.h"
-
+#include "AMP/solvers/SolverFactory.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
+#include "AMP/solvers/radiationDiffusionFDOpSplitPrec/RadiationDiffusionFDOpSplitPrec.h"
+#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
 #include <iostream>
 #include <iomanip>
 #include <filesystem>
 
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
 
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
-#include "AMP/operators/radiationDiffusionFD/RDUtils.h" // oktodo: delete
+/** This test applies BDF integration to a radiation-diffusion problem discretized with finite 
+ * differences. There is a manufactured solution available, which can be used to measure the 
+ * discretization error at each time step. */
 
-//#include "AMP/operators/radiationDiffusionFD/RDFDMonolithicPrec.h"
+void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileName ) {
 
-#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+    // Input and output file names
+    std::string input_file = inputFileName;
+    std::string log_file   = "output_" + inputFileName;
 
-#include "AMP/solvers/radiationDiffusionFDOpSplitPrec/RadiationDiffusionFDOpSplitPrec.h"
+    AMP::logOnlyNodeZero( log_file );
+    AMP::pout << "Running driver with input " << input_file << std::endl;
 
-// oktodo: clean up includes
+    auto input_db = AMP::Database::parseInputFile( input_file );
+    AMP::plog << "Input database:" << std::endl;
+    AMP::plog << "---------------" << std::endl;
+    input_db->print( AMP::plog );
 
-
-/*
-Try turning on the auto component scaling once everything is working. this means I have to change the apply functions in my BEOperators. Bobby mentioned that since one component is much bigger than the other, if you look at their relative convergence, one drops much more than the other.
-
-I'll also need to understand what exactly this is doing because if there are constants being scaling introduced, does that influence the linearization?
-*/
-
-
-
-
-/* In a multiVector, DOFs are ordered by variable on process.
-
-Test routines to map between different orderings
-*/
-#if 0
-void orderingTest( std::shared_ptr<AMP::Discretization::DOFManager> scalarDOF, 
-                    std::shared_ptr<AMP::Discretization::multiDOFManager> multiDOF ) {
-
-    std::vector<size_t> variableDOFs;
-
-    // This shows how global DOFs are ordered in a multiVector
-    std::cout << "Ordering of multiVector:" << "\n";
-    std::cout << "------------------------" << "\n";
-    for ( auto dof = scalarDOF->beginDOF(); dof != scalarDOF->endDOF(); dof++ ) {
-        std::vector<size_t> dof_ = { dof };
-        auto E_dof = multiDOF->getGlobalDOF( 0, dof_ );
-        auto T_dof = multiDOF->getGlobalDOF( 1, dof_ );
-        std::cout << "scalar_dof=" << dof << "\tglobal DOFs: E=" << E_dof[0] << ", T=" << T_dof[0] << std::endl; 
-
-        variableDOFs.push_back( E_dof[0] );
-        variableDOFs.push_back( T_dof[0] );
-    }
-
-
-    auto n = multiDOF->numLocalDOF() / 2;
-    std::vector<size_t> nodalDOFs;
-    std::cout << "\n\nTest: variable ordering --> nodal ordering\n";
-    std::cout << "-----------------------------------------\n";
-    variableOrderingToNodalOrdering( n, variableDOFs, nodalDOFs );
-    for ( auto i = 0; i < variableDOFs.size(); i++ ) {
-        std::cout << "var_idx=" << variableDOFs[i] << " --> ndl_idx=" << nodalDOFs[i] << "\n";
-    }
-
-    variableDOFs.clear();
-    std::cout << "\n\nTest: nodal ordering --> variable ordering\n";
-    std::cout << "-----------------------------------------\n";
-    nodalOrderingToVariableOrdering( n, nodalDOFs, variableDOFs );
-    for ( auto i = 0; i < nodalDOFs.size(); i++ ) {
-        std::cout << "ndl_idx=" << nodalDOFs[i] << " --> var_idx=" << variableDOFs[i] << "\n";
-    }
-
-}
-#endif
-
-/*
-I'm going to need to map multiVectors to Vectors that are nodally ordered. 
-
-Building the matrix is going to be a pain... Alternatively, I could try to set up an interface to HYPRE's "HYPRE_Int HYPRE_BoomerAMGSetDofFunc(HYPRE_Solver solver, HYPRE_Int *dof_func)"
-Hmm. That ordering is going to be weird though, because it's blocked by variable only on process...
-
-What if I have a mesh with 2 DOFs per node? But I'd be duplicating the mesh, and I don't know for sure that it'd be parallelized identially... Well actually. It's the DOFManager that's made aware of the number of DOFs per element, not the mesh...  
-*/
-
-
-
-void driver(AMP::AMP_MPI comm, 
-            std::shared_ptr<AMP::Database> input_db ) {
 
     /****************************************************************
     * Re-organize database input                                    *
     ****************************************************************/
-    // Basic error check the input has required things
-    AMP_INSIST( input_db, "Non-null input_db required" );
-    AMP_INSIST( input_db->getDatabase( "PDE" ), "PDE is null" );
-    AMP_INSIST( input_db->getDatabase( "Mesh" ), "Mesh is null" );
-    AMP_INSIST( input_db->getDatabase( "TimeIntegrator" ), "TimeIntegrator is null" );
-    //AMP_INSIST( input_db->getDatabase( "Solver" ), "Solver is null" );
-    
-    // Create a discretization and solver DB
+    // Unpack databases
     auto PDE_basic_db = input_db->getDatabase( "PDE" );
-    auto mesh_db      = input_db->getDatabase( "Mesh" )->cloneDatabase();
+    auto mesh_db      = input_db->getDatabase( "Mesh" );
     auto ti_db        = input_db->getDatabase( "TimeIntegrator" );
     
+    // Basic error check the input has required things
+    AMP_INSIST( PDE_basic_db, "PDE is null" );
+    AMP_INSIST( mesh_db, "Mesh is null" );
+    AMP_INSIST( ti_db, "TimeIntegrator is null" );
+    
     // Get PDE model-specific parameter database
-    auto problemID        = input_db->getDatabase( "PDE" )->getScalar<std::string>( "problemID" );
-    auto PDE_mspecific_db = input_db->getDatabase( problemID + "_Parameters" );
-    AMP_INSIST( PDE_mspecific_db, "Input must have the model-specific database: '" + problemID + "_Parameters'" );
-        
+    auto modelID        = PDE_basic_db->getScalar<std::string>( "modelID" );
+    auto PDE_mspecific_db = input_db->getDatabase( modelID + "_Parameters" );
+    AMP_INSIST( PDE_mspecific_db, "Input must have the model-specific database: '" + modelID + "_Parameters'" );
+
 
     /****************************************************************
     * Create radiation-diffusion model                              *
     ****************************************************************/
     std::shared_ptr<AMP::Operator::RadDifModel> myRadDifModel;
 
-    if ( problemID == "Mousseau_etal_2000" ) {
+    if ( modelID == "Mousseau_etal_2000" ) {
         auto myRadDifModel_ = std::make_shared<AMP::Operator::Mousseau_etal_2000_RadDifModel>( PDE_basic_db, PDE_mspecific_db );
         myRadDifModel       = myRadDifModel_;
 
-    } else if ( problemID == "Manufactured" ) {
+    } else if ( modelID == "Manufactured" ) {
         auto myRadDifModel_ = std::make_shared<AMP::Operator::Manufactured_RadDifModel>( PDE_basic_db, PDE_mspecific_db );
         myRadDifModel = myRadDifModel_; 
 
     } else {
-        AMP_ERROR( "Invalid problemID" );
+        AMP_ERROR( "Invalid modelID" );
     }
 
     // Get parameters needed to build the RadDifOp
     auto RadDifOp_db = myRadDifModel->getRadiationDiffusionFD_input_db( );
 
+
     /****************************************************************
     * Create a mesh                                                 *
     ****************************************************************/
-    // Put variable "dim" into mesh Database 
-    mesh_db->putScalar<int>( "dim", RadDifOp_db->getScalar<int>( "dim" ) );
-    std::shared_ptr<AMP::Mesh::BoxMesh> mesh = createBoxMesh( comm, mesh_db );
-    
-    AMP::pout << "The discretization database is" << std::endl;
-    AMP::pout << "------------------------------" << std::endl;
-    RadDifOp_db->print( AMP::pout );
-    AMP::pout << "------------------------------" << std::endl;
-    
+    // Create MeshParameters
+    auto mesh_params = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
+    mesh_params->setComm( comm );
+    // Create Mesh
+    std::shared_ptr<AMP::Mesh::BoxMesh> mesh = AMP::Mesh::BoxMesh::generate( mesh_params );
     
 
     /****************************************************************
@@ -201,9 +101,6 @@ void driver(AMP::AMP_MPI comm,
     // Extract the underlying RadDifOp
     auto myRadDifOp = myBERadDifOp->d_RadDifOp; 
 
-    // orderingTest( myRadDifOp->d_scalarDOFMan, myRadDifOp->d_multiDOFMan );
-    // AMP_ERROR( "Halt" );
-
     // Create an OperatorFactory and register Jacobian of BERadDifOp in it 
     auto & operatorFactory = AMP::Operator::OperatorFactory::getFactory();
     operatorFactory.registerFactory( "BERadDifOpPJac", AMP::Operator::BERadDifOpPJac::create );
@@ -219,7 +116,7 @@ void driver(AMP::AMP_MPI comm,
 
 
     // If using a manufactured model, overwrite the default RadDifOp boundary condition functions to point to those of the Manufactured model
-    if ( problemID == "Manufactured" ) {
+    if ( modelID == "Manufactured" ) {
         AMP::pout << "Manufactured RadDif model BCs are being used" << std::endl;
         auto myManufacturedRadDifModel = std::dynamic_pointer_cast<AMP::Operator::Manufactured_RadDifModel>( myRadDifModel );
         AMP_INSIST( myManufacturedRadDifModel, "Model is null" );
@@ -252,17 +149,18 @@ void driver(AMP::AMP_MPI comm,
     auto sol_new = ic->clone( );
     sol_new->copyVector( ic ); 
 
+
     /****************************************************************
     * Set up implicit time integrator                               *
     ****************************************************************/
     // Ensure BDF integrator is being used
-    auto bdf_ti = { "Backward Euler", "BDF1", "BDF2", "BDF3", "BDF4", "BDF5", "BDF6" };
-    auto ti_name   = ti_db->getScalar<std::string>( "name" );
-    auto is_bdf = ( std::find( bdf_ti.begin(), bdf_ti.end(), ti_name ) != bdf_ti.end() );
+    auto bdf_ti  = { "Backward Euler", "BDF1", "BDF2", "BDF3", "BDF4", "BDF5", "BDF6" };
+    auto ti_name = ti_db->getScalar<std::string>( "name" );
+    auto is_bdf  = ( std::find( bdf_ti.begin(), bdf_ti.end(), ti_name ) != bdf_ti.end() );
     AMP_INSIST( is_bdf, "Implementation assumes BDF integrator" );
 
     // Parameters for time integrator
-    auto h = myRadDifOp->getMeshSize()[0];
+    //auto h = myRadDifOp->getMeshSize()[0];
     //double dt = 1.0 * h * h;
     //double dt = 0.5 * h;
     double dt = ti_db->getScalar<double>( "initial_dt" );
@@ -339,9 +237,8 @@ void driver(AMP::AMP_MPI comm,
             myRadDifOp->fillMultiVectorWithFunction( BDFSourceVec, PDESourceFun );
 
             // Attempt to advance the solution with the current dt, getting return code from solver.
-            int solver_retcode = timeIntegrator->advanceSolution( dt, T == 0.0, sol_old, sol_new );
-            //AMP::pout << "step=" << step << ": solver_retcode=" << solver_retcode << "\n";
-
+            auto solver_retcode = timeIntegrator->advanceSolution( dt, T == 0.0, sol_old, sol_new );
+            
             // Check the computed solution (returns true if it is acceptable, and false otherwise) 
             good_solution = timeIntegrator->checkNewSolution( );
 
@@ -352,11 +249,9 @@ void driver(AMP::AMP_MPI comm,
                 T += dt; 
                 step++;
             } 
-            // else {
-            //     AMP_WARNING( "Something didn't pass with current dt=" + std::to_string(dt) + ", next dt=" + std::to_string(dt_next) + "\n" );
-            // }
 
-            /** Note that ImplicitIntegrator's getNextDt() will call BDF's integratorSpecificGetNextDt(), and parse it the solver_retcode
+            /** Note that ImplicitIntegrator's getNextDt() will call BDF's 
+             * integratorSpecificGetNextDt(), and parse it the solver_retcode
              * Return the next time increment through which to advance the solution.
              * The good_solution is the value returned by a call to checkNewSolution(),
              * which determines whether the computed solution is acceptable or not.
@@ -365,6 +260,10 @@ void driver(AMP::AMP_MPI comm,
              * consistant with the solver in use.
              */
             double dt_next = implicitIntegrator->getNextDt( good_solution );
+
+            if (!good_solution) {
+                AMP::pout << "Step with current dt=" + std::to_string(dt) + " did not pass, trying again with new dt=" + std::to_string(dt_next) + ". solver_retcode=" + std::to_string(solver_retcode) + "\n";
+            }
 
             // Set dt for the next step
             dt = dt_next;
@@ -416,39 +315,31 @@ void driver(AMP::AMP_MPI comm,
 // end of driver()
 
 
-
-
-/*  Input usage is: >> <input_file>
-    e.g., >> mpirun -n 1 FD input_db
-*/
 int main( int argc, char **argv )
 {
-    if (argc != 2) {
-        AMP_ERROR( "An input file must be specified through the command line" );
-    }
-
     AMP::AMPManager::startup( argc, argv );
+    AMP::UnitTest ut;
 
     // Create a global communicator
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
-    int myRank   = comm.getRank();
-    int numRanks = comm.getSize();
 
+    std::vector<std::string> exeNames;
+    exeNames.emplace_back( "input_testBDF_RadiationDiffusionFD-BoomerAMG" );
 
-    // TODO: Add test file here that we want to parse in and put guards around it depending on hypre being included since boomer is used.
+    for ( auto &exeName : exeNames ) {
+        PROFILE_ENABLE();
 
-    // Unpack inputs
-    //int n = atoi(argv[1]); // Grid size in each dimension
-    
-    std::string input_db_name = argv[1]; 
+        driver( comm, &ut, exeName );
 
-    //auto input_db = AMP::Database::parseInputFile( "../src/input_db" );
-    auto input_db = AMP::Database::parseInputFile( input_db_name );
+        // build unique profile name to avoid collisions
+        std::ostringstream ss;
+        ss << exeName << std::setw( 3 ) << std::setfill( '0' )
+           << AMP::AMPManager::getCommWorld().getSize();
+        PROFILE_SAVE( ss.str() );
+    }
+    ut.report();
 
-    // Driver
-    driver( comm, input_db );
-
+    int num_failed = ut.NumFailGlobal();
     AMP::AMPManager::shutdown();
-
-    return 0;
+    return num_failed;
 }
