@@ -142,20 +142,6 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
     auto comm     = AMP::AMP_MPI( AMP_COMM_WORLD );
     params->setComm( comm );
 
-    // Get the acceleration backend for the matrix
-    std::vector<std::string> backends;
-    if ( input_db->keyExists( "MatrixAccelerationBackend" ) ) {
-        backends.emplace_back( input_db->getString( "MatrixAccelerationBackend" ) );
-    } else {
-        backends.emplace_back( "serial" );
-#ifdef AMP_USE_KOKKOS
-        backends.emplace_back( "kokkos" );
-#endif
-#ifdef AMP_USE_DEVICE
-        backends.emplace_back( "hip_cuda" );
-#endif
-    }
-
     // Create the meshes from the input database
     auto mesh = AMP::Mesh::MeshFactory::create( params );
 
@@ -170,6 +156,20 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
 #if defined( AMP_USE_PETSC )
     matVecTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, true, "serial", "host" );
 #endif
+
+    // Get the acceleration backend for the matrix
+    std::vector<std::string> backends;
+    if ( input_db->keyExists( "MatrixAccelerationBackend" ) ) {
+        backends.emplace_back( input_db->getString( "MatrixAccelerationBackend" ) );
+    } else {
+        backends.emplace_back( "serial" );
+#ifdef AMP_USE_KOKKOS
+        backends.emplace_back( "kokkos" );
+#endif
+#ifdef AMP_USE_DEVICE
+        backends.emplace_back( "hip_cuda" );
+#endif
+    }
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
     backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );

@@ -30,12 +30,17 @@
 
 // Number of products to evaluate to average out timings
 #define NUM_PRODUCTS_NOREUSE 10
-#define NUM_PRODUCTS_REUSE 10
+#define NUM_PRODUCTS_REUSE 0
 
 size_t matMatTestWithDOFs( AMP::UnitTest *ut,
                            std::string type,
-                           std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+                           std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                           const std::string &accelerationBackend,
+                           const std::string &memoryLocation )
 {
+    AMP::pout << "matMatTestWithDOFs with " << type << ", backend " << accelerationBackend
+              << ", memory " << memoryLocation << std::endl;
+
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
 
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
@@ -50,15 +55,10 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     fillWithPseudoLaplacian( matrix_h, dofManager );
 
     // migrate matrix if requested and possible
-#if 0
     auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-    auto A = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+    auto A      = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
                       matrix_h :
                       AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
-#else
-    // add in migration and device support later
-    auto A         = matrix_h;
-#endif
 
     size_t nGlobalRows = A->numGlobalRows();
     size_t nLocalRows  = A->numLocalRows();
@@ -164,12 +164,36 @@ size_t matMatTest( AMP::UnitTest *ut, std::string input_file )
 
     // Test on defined matrix types
 #if defined( AMP_USE_TRILINOS )
-    matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs );
+    matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, "serial", "host" );
 #endif
 #if defined( AMP_USE_PETSC )
-    matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs );
+    matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, "serial", "host" );
 #endif
-    return matMatTestWithDOFs( ut, "CSRMatrix", scalarDOFs );
+
+    // Get the acceleration backend for the matrix
+    std::vector<std::string> backends;
+    if ( input_db->keyExists( "MatrixAccelerationBackend" ) ) {
+        backends.emplace_back( input_db->getString( "MatrixAccelerationBackend" ) );
+    } else {
+        backends.emplace_back( "serial" );
+#ifdef AMP_USE_KOKKOS
+        backends.emplace_back( "kokkos" );
+#endif
+#ifdef AMP_USE_DEVICE
+        backends.emplace_back( "hip_cuda" );
+#endif
+    }
+
+    std::vector<std::pair<std::string, std::string>> backendsAndMemory;
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef AMP_USE_DEVICE
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+#endif
+
+    size_t nGlobal = 0;
+    for ( auto &[backend, memory] : backendsAndMemory )
+        nGlobal += matMatTestWithDOFs( ut, "CSRMatrix", scalarDOFs, backend, memory );
+    return nGlobal;
 }
 
 int main( int argc, char *argv[] )

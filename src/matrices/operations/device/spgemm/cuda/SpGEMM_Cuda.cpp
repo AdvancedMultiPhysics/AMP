@@ -1,4 +1,4 @@
-#include "SpGEMM_Hip.h"
+#include "AMP/matrices/operations/device/spgemm/cuda/SpGEMM_Cuda.h"
 
 namespace AMP::LinearAlgebra {
 
