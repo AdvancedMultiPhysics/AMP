@@ -77,6 +77,11 @@ std::shared_ptr<AMP::LinearAlgebra::Matrix>
 createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
               AMP::Utilities::MemoryType memType );
 
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend accelerationBackend );
+
 #if defined( AMP_USE_PETSC )
 /**
  * \brief  Create a matrix from an arbitrary PETSc Mat

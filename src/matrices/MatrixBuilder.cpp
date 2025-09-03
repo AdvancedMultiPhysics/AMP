@@ -313,7 +313,8 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
 
 std::shared_ptr<AMP::LinearAlgebra::Matrix>
 createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
-              AMP::Utilities::MemoryType memType )
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend accelerationBackend )
 {
     if ( matrix->mode() == std::numeric_limits<std::uint16_t>::max() ) {
         AMP_ERROR( "createMatrix: migration to given memory space only supports CSRMatrix" );
@@ -321,9 +322,16 @@ createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
 
     auto matrix_out =
         csrVisit( matrix, [=]( auto csr_ptr ) -> std::shared_ptr<AMP::LinearAlgebra::Matrix> {
-            return csr_ptr->migrate( memType );
+            return csr_ptr->migrate( memType, accelerationBackend );
         } );
     return matrix_out;
+}
+
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
+              AMP::Utilities::MemoryType memType )
+{
+    return createMatrix( matrix, memType, AMP::Utilities::getDefaultBackend( memType ) );
 }
 
 std::shared_ptr<AMP::LinearAlgebra::Matrix>
