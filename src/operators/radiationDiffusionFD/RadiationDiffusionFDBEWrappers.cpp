@@ -84,8 +84,36 @@ void BERadDifOp::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
         AMP::pout << "BERadDifOp::apply() " << std::endl;  
     }
     AMP_INSIST( d_RadDifOp, "RadDifOp not set!" );
+
+
+    AMP::LinearAlgebra::Vector::const_shared_ptr u;
+    // Scale components of incoming vector if required
+    if ( d_pSolutionScaling ) {
+        AMP_ASSERT( d_pFunctionScaling );
+        if ( !d_pScratchSolVector ) {
+            d_pScratchSolVector = u_in->clone();
+        }
+        d_pScratchSolVector->multiply( *u_in, *d_pSolutionScaling );
+        d_pScratchSolVector->makeConsistent();
+        u = d_pScratchSolVector;
+    } else {
+        u = u_in;
+    }
+
     d_RadDifOp->apply( u_in, r );
     r->axpby(1.0, d_gamma, *u_in); // r <- 1.0*u + d_gamma * r
+
+    // Scale components of outgoing vector if required
+    if ( d_pFunctionScaling ) {
+        r->divide( *r, *d_pFunctionScaling );
+    }
+}
+
+void BERadDifOp::setComponentScalings( std::shared_ptr<AMP::LinearAlgebra::Vector> s,
+                               std::shared_ptr<AMP::LinearAlgebra::Vector> f ) 
+{
+    d_pSolutionScaling = s;
+    d_pFunctionScaling = f;
 }
 
 std::shared_ptr<AMP::Operator::OperatorParameters> BERadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in ) {

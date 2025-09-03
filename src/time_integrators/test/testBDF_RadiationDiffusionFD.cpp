@@ -19,7 +19,8 @@
 
 /** This test applies BDF integration to a radiation-diffusion problem discretized with finite 
  * differences. There is a manufactured solution available, which can be used to measure the 
- * discretization error at each time step. */
+ * discretization error at each time step. 
+ */
 
 void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileName ) {
 
@@ -179,6 +180,13 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // Tell implicitIntegrator how to tell our operator what the time step is
     implicitIntegrator->setTimeScalingFunction(
         std::bind( &AMP::Operator::BERadDifOp::setGamma, &( *myBERadDifOp ), std::placeholders::_1 ) );
+
+    // Tell implicitIntegrator how to tell our operator what the component scalings are
+    implicitIntegrator->setComponentScalingFunction(
+        std::bind( &AMP::Operator::BERadDifOp::setComponentScalings,
+                    &( *myBERadDifOp ),
+                    std::placeholders::_1,
+                    std::placeholders::_2 ) );
 
     
     int step = 0;

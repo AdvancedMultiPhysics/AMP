@@ -72,7 +72,17 @@ public:
     void setGamma( AMP::Scalar gamma_ ); 
 
 
+    //! Set multiphysics scalings
+    void setComponentScalings( std::shared_ptr<AMP::LinearAlgebra::Vector> s,
+                               std::shared_ptr<AMP::LinearAlgebra::Vector> f );
+
+    
 protected:
+
+    //! Vectors for multiphysics scaling
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_pSolutionScaling;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_pFunctionScaling;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_pScratchSolVector;
 
     /** \brief Returns a parameter object that may be used to reset the associated RadDifPJacOp
      * operator. 
