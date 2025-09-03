@@ -207,8 +207,8 @@ void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
             //            d_calculateTimeTruncError = true;
         }
 
-        d_time_rtol = db->getWithDefault<double>( "truncation_error_rtol", 1e-09 );
-        d_time_atol = db->getWithDefault<double>( "truncation_error_atol", 1e-15 );
+        d_time_atol = db->getWithDefault<double>( "truncation_error_rtol", 1e-09 );
+        d_time_rtol = db->getWithDefault<double>( "truncation_error_atol", 1e-06 );
 
         d_auto_component_scaling = db->getWithDefault<bool>( "auto_component_scaling", true );
 
@@ -1015,7 +1015,7 @@ bool BDFIntegrator::integratorSpecificCheckNewSolution( const int solver_retcode
     // the first check is whether the solver passed or failed
     if ( solver_retcode == 1 ) {
         if ( d_iDebugPrintInfoLevel > 4 ) {
-            AMP::pout << "Nonlinear solver checks: PASSED" << std::endl;
+            AMP::pout << "Solver checks: PASSED" << std::endl;
         }
 
         if ( d_calculateTimeTruncError ) {
@@ -1303,8 +1303,9 @@ double BDFIntegrator::estimateDtWithTruncationErrorEstimates( double current_dt,
 
     if ( ( d_implicit_integrator != "BE" ) && ( d_implicit_integrator != "BDF2" ) &&
          ( d_implicit_integrator != "BDF3" ) && ( d_implicit_integrator != "BDF4" ) &&
-         ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) ) {
-        AMP_ERROR( "Unknown time integrator, current implementation is for BDF1-6" );
+         ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) &&
+         ( d_implicit_integrator != "CN" ) ) {
+        AMP_ERROR( "Unknown time integrator, current implementation is for BDF1-6 and CN" );
     }
 
     // the truncation error estimate should already have been calculated while checking the
@@ -1499,6 +1500,8 @@ double BDFIntegrator::calculateLTEScalingFactor()
             } else if ( d_predictor_type == "ab2" ) {
                 // compute error factor from M. Pernice communication for AB2 and BDF2
                 errorFactor = 2.0 / ( 6.0 - 1.0 / ( std::pow( d_alpha + 1, 2.0 ) ) );
+            } else if ( d_predictor_type == "forward_euler" ) {
+                errorFactor = 0.5;
             } else {
                 AMP_ERROR( "ERROR: Unknown BDF2 predictor" );
             }
@@ -1588,8 +1591,10 @@ void BDFIntegrator::calculateTemporalTruncationError()
          */
         if ( ( d_implicit_integrator != "BE" ) && ( d_implicit_integrator != "BDF2" ) &&
              ( d_implicit_integrator != "BDF3" ) && ( d_implicit_integrator != "BDF4" ) &&
-             ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) ) {
-            AMP_ERROR( "Unknown time integrator, current implementation is for BDF1-6" );
+             ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) &&
+             ( d_implicit_integrator != "CN" ) ) {
+            AMP_ERROR(
+                "Unknown time integrator, current implementation is for BDF1-6, Crank-Nicolson" );
         }
 
         d_alpha            = d_current_dt / d_old_dt;
@@ -1635,12 +1640,6 @@ void BDFIntegrator::calculateTemporalTruncationError()
 
                 // use predictor and corrector solutions for E & T to estimate LTE
                 calculateScaledLTENorm( d_solution_vector, d_predictor_vector, normOfError );
-
-                if ( d_predictor_type == "leapfrog" ) {
-                    errorFactor = ( 1.0 + d_alpha ) / ( 2.0 + 3.0 * d_alpha );
-                } else {
-                    AMP_ERROR( "ERROR: Unknown BDF2 predictor" );
-                }
 
                 std::vector<double> t2( nComponents );
 
