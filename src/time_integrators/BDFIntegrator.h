@@ -32,12 +32,6 @@ public:
     //! returns the total number of timestep rejections
     int getNumberOfStepRejections( void ) { return d_total_steprejects; }
 
-    /**
-     * Return time increment for advancing the solution at the first timestep.
-     */
-    using AMP::TimeIntegrator::TimeIntegrator::getInitialDt;
-    double getInitialDt() override;
-
     //! return the factor getGamma() used to scale the rhs operator
     double getTimeOperatorScaling( void );
 
@@ -184,9 +178,6 @@ protected:
     //! term for the nonlinear equations at each timestep
     void computeIntegratorSourceTerm( void );
 
-    //! estimate timestep based on relative change in temperature and energy
-    double estimateDynamicalTimeScale( double current_dt );
-
     //! estimate timestep based on truncation error estimates
     double estimateDtWithTruncationErrorEstimates( double current_dt, bool good_solution );
 
@@ -249,13 +240,9 @@ protected:
                                     const std::string &postfix,
                                     const std::string &norm );
 
-    /**
-     * Returns on the max timestep that the predictor can use without energy or temperature going
-     * negative
-     */
-    double getPredictorTimestepBound( void );
-
     void setTimeHistoryScalings() override;
+
+    void setPredictorType( const std::string &predictor = "" );
 
     /**
      * Set solution and function scalings for multi-physics scalings automatically
@@ -355,6 +342,9 @@ protected:
 
     //! predictor to use with predictor corrector approach
     std::string d_predictor_type = "leapfrog";
+
+    //! initial predictor type
+    std::string d_initial_predictor_type = "forward_euler";
 
     std::list<double> d_l2errorNorms_E;
     std::list<double> d_l2errorNorms_T;

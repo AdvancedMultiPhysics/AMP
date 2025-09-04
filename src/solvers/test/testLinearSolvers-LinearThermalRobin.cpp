@@ -68,6 +68,7 @@ std::vector<std::string> getHypreMemorySpaces()
     #if defined( HYPRE_USING_HOST_MEMORY )
     memspaces.emplace_back( "host" );
     #elif defined( HYPRE_USING_DEVICE_MEMORY )
+    memspaces.emplace_back( "host" );
     memspaces.emplace_back( "device" );
     #elif defined( HYPRE_USING_UNIFIED_MEMORY )
     memspaces.emplace_back( "host" );
@@ -216,7 +217,7 @@ int main( int argc, char *argv[] )
     if ( argc > 1 ) {
 
         for ( int i = 1; i < argc; i++ )
-            deviceInputs.emplace_back( argv[i] );
+            generalInputs.emplace_back( argv[i] );
 
     } else {
 
@@ -228,6 +229,9 @@ int main( int argc, char *argv[] )
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FGMRES" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BiCGSTAB" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-TFQMR" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS2" );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithRestart" );
         //        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-QMRCGSTAB"
         //        );
 
@@ -255,6 +259,9 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
         generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB" );
+
+        generalInputs.emplace_back(
+            "input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES" );
 
 #ifdef AMP_USE_PETSC
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscCG" );

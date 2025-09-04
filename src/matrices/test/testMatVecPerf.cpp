@@ -50,31 +50,18 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
 
-    if ( memoryLocation == "host" ) {
-        inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-        outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
-    } else {
-        AMP_ASSERT( memoryLocation == "managed" );
-        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-        inVec        = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
-        outVec       = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
-    }
+    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
+    inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+    fillWithPseudoLaplacian( matrix_h, dofManager );
 
-    // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix(
-        inVec, outVec, AMP::Utilities::backendFromString( accelerationBackend ), type );
-    if ( matrix ) {
-        ut->passes( type + ", " + accelerationBackend + ": Able to create a square matrix" );
-    } else {
-        ut->failure( type + ", " + accelerationBackend + ": Unable to create a square matrix" );
-    }
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
-    fillWithPseudoLaplacian( matrix, dofManager );
-
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-
-    //    AMP::pout << "Matrix after makeConsistent" << std::endl;
-    //    AMP::pout << *matrix << std::endl;
+    auto matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+                      matrix_h :
+                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
 
     size_t nGlobalRows = matrix->numGlobalRows();
     size_t nLocalRows  = matrix->numLocalRows();
@@ -102,12 +89,12 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     auto yNorm = static_cast<scalar_t>( y->L1Norm() );
 
     if ( yNorm == static_cast<scalar_t>( matrix->numGlobalRows() ) ) {
-        ut->passes( type + ", " + accelerationBackend +
+        ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
                     ": Passes 1 norm test with pseudo Laplacian" );
     } else {
-        AMP::pout << "1 Norm " << yNorm << ", number of rows " << matrix->numGlobalRows()
-                  << std::endl;
-        ut->failure( type + ", " + accelerationBackend +
+        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend << ", 1 Norm "
+                  << yNorm << ", number of rows " << matrix->numGlobalRows() << std::endl;
+        ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
                      ": Fails 1 norm test with pseudo Laplacian" );
     }
 
@@ -123,12 +110,13 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
         auto xNorm = static_cast<scalar_t>( x->L1Norm() );
 
         if ( xNorm == static_cast<scalar_t>( matrix->numGlobalRows() ) ) {
-            ut->passes( type + ", " + accelerationBackend +
+            ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
                         ": Passes 1 norm test with pseudo Laplacian transpose" );
         } else {
-            AMP::pout << "Transpose 1 Norm " << xNorm << ", number of rows "
+            AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend
+                      << ", transpose 1 Norm " << xNorm << ", number of rows "
                       << matrix->numGlobalRows() << std::endl;
-            ut->failure( type + ", " + accelerationBackend +
+            ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
                          ": Fails 1 norm test with pseudo Laplacian transpose" );
         }
     }
@@ -181,24 +169,28 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
 #endif
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
-    //    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
 #ifdef USE_OPENMP
-    //    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
 #endif
 #if defined( AMP_USE_KOKKOS )
-    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
-    //    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
 
     size_t nGlobal = 0;
-    for ( auto &[backend, memory] : backendsAndMemory )
-        nGlobal += matVecTestWithDOFs(
-            ut, "CSRMatrix", scalarDOFs, backend == "hip_cuda" ? false : true, backend, memory );
+    for ( auto &[backend, memory] : backendsAndMemory ) {
+        const bool testTranspose = backend != "hip_cuda";
+        nGlobal +=
+            matVecTestWithDOFs( ut, "CSRMatrix", scalarDOFs, testTranspose, backend, memory );
+    }
     return nGlobal;
 }
 

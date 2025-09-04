@@ -25,7 +25,9 @@ struct MIS2Aggregator : Aggregator {
     // classify vertices as in or out of MIS-2
     template<typename Config>
     int classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixData<Config>> A,
-                          std::vector<uint64_t> &labels );
+                          std::vector<typename Config::lidx_t> &wl1,
+                          std::vector<uint64_t> &labels,
+                          int *agg_ids );
 
     // status labels such that IN < UNDECIDED < OUT
     // there is no ordering within the IN set so all are marked 0,
