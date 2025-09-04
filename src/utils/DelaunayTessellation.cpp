@@ -5,6 +5,7 @@
 #include "AMP/utils/NearestPairSearch.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/typeid.h"
 
 #include "ProfilerApp.h"
 
@@ -484,7 +485,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
     using Point    = std::array<int, NDIM>;
     using Triangle = std::array<int, NDIM + 1>;
 
-    PROFILE( "create_tessellation", 2 );
+    PROFILE2( AMP::Utilities::stringf( "create_tessellation<%i>", NDIM ), 1 );
 
     // First, get the two closest points
     auto index_pair = find_min_dist<NDIM, int>( N, x[0].data() );
@@ -1076,7 +1077,7 @@ int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
             return 0; // We are on the circumsphere
         if ( xi[0] > x1 && xi[0] < x2 )
             return 1; // We inside the circumsphere
-        return 0;     // We outside the circumsphere
+        return -1;     // We outside the circumsphere
     }
     // Solve the sub-determinants (requires N^NDIM precision)
     double R2 = 0.0;
@@ -2260,10 +2261,10 @@ static bool find_flip( const std::array<int, NDIM> *x,
 template<class TYPE>
 std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const Array<TYPE> &x )
 {
+    int NDIM = x.size( 0 );
     // Convert to integer with max 30 bits
     auto y = convert( x );
     // Run the problem
-    int NDIM = x.size( 0 );
     AMP::Array<int> tri, nab;
     if ( NDIM == 2 ) {
         auto x2           = DelaunayHelpers::convert<int, 2>( y );
@@ -2321,43 +2322,6 @@ double calc_volume( int ndim, const double x[] )
         throw std::logic_error( "Unsupported dimension" );
     }
     return vol;
-}
-template<size_t NDIM, class TYPE>
-static inline int test_in_circumsphere2( const TYPE x[], const TYPE xi[], const double TOL_VOL )
-{
-    std::array<TYPE, NDIM> x2[NDIM + 1], xi2;
-    copy_x2( x, x2 );
-    xi2.fill( 0 );
-    std::copy( xi, xi + NDIM, xi2.begin() );
-    return test_in_circumsphere<NDIM, TYPE>( x2, xi2, TOL_VOL );
-}
-int test_in_circumsphere( int ndim, const double x[], const double xi[], const double TOL_VOL )
-{
-    int test = -2;
-    if ( ndim == 1 ) {
-        test = test_in_circumsphere2<1, double>( x, xi, TOL_VOL );
-    } else if ( ndim == 2 ) {
-        test = test_in_circumsphere2<2, double>( x, xi, TOL_VOL );
-    } else if ( ndim == 3 ) {
-        test = test_in_circumsphere2<3, double>( x, xi, TOL_VOL );
-    } else {
-        throw std::logic_error( "Unsupported dimension" );
-    }
-    return test;
-}
-int test_in_circumsphere( int ndim, const int x[], const int xi[], const double TOL_VOL )
-{
-    int test = -2;
-    if ( ndim == 1 ) {
-        test = test_in_circumsphere2<1, int>( x, xi, TOL_VOL );
-    } else if ( ndim == 2 ) {
-        test = test_in_circumsphere2<2, int>( x, xi, TOL_VOL );
-    } else if ( ndim == 3 ) {
-        test = test_in_circumsphere2<3, int>( x, xi, TOL_VOL );
-    } else {
-        throw std::logic_error( "Unsupported dimension" );
-    }
-    return test;
 }
 
 
