@@ -304,7 +304,7 @@ private:
     //! Create and set member DOFManagers based on the mesh
     void setDOFManagers();
 
-    /** Given 3-point stencils compute FD diffusion coefficients 
+    /** Compute FD diffusion coefficients using 3-point stencil data in d_ELoc3 and d_TLoc3
      * @param[in] computeE flag indicating whether to compute E diffusion coefficients
      * @param[in] computeT flag indicating whether to compute T diffusion coefficients 
      * @param[out] Dr_WO WEST coefficient in for energy
@@ -312,9 +312,7 @@ private:
      * @param[out] DT_WO WEST coefficient in for temperature
      * @param[out] DT_OE EAST coefficient in for temperature
     */
-    void getLocalFDDiffusionCoefficients( const std::array<double,3> &ELoc3,
-                                            const std::array<double,3> &TLoc3,
-                                            double zatom,
+    void getLocalFDDiffusionCoefficients(   double zatom,
                                             double h,
                                             bool computeE,
                                             double &Dr_WO, 

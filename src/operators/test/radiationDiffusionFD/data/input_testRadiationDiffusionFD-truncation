@@ -2,23 +2,40 @@
 PDE {
   print_info_level = 0
 
-  dim = 1
-  #dim = 2
+  #dim = 1
+  dim = 2
   #dim = 3
   
   fluxLimited = FALSE
   #fluxLimited = TRUE
 }
 
+# ok. the truncation error is converging properly (at least second order) for the linear problem in all dimensions, but they're just stalling more-or-less for the nonlinear problem
+# i should turn on and off the various coefficients to see if i can track down where the issue originates.... it seems like the error increases by an order of magnitude if i turn on temperature diffusion... but i don't know if that's expected or not...
+# the limiting also really is not working and i don't know why... the correction differs by a factor of 0.5 from what's in Bobby's paper, but is consistent with Mousseau_etal_2000
+
+# # Mesh data
+# Mesh {
+#     MeshName = "mesh"
+#     MeshType = "AMP"
+#     Generator = "cube"
+#     dim = 1
+#     Size = 128
+#     Range = -1, 1
+#     surfaceIds = 1, 2
+#     static = TRUE
+# }
 
 # Mesh data
 Mesh {
     MeshName = "mesh"
     MeshType = "AMP"
     Generator = "cube"
-    dim = 1
-    Size = 32
-    Range = -1, 1
+    dim = 2
+    #Size = 32, 32
+    Size = 64, 64
+    #Size = 128, 128
+    Range = -1, 1, -1, 1
     surfaceIds = 1, 2
     static = TRUE
 }
@@ -28,22 +45,11 @@ Mesh {
 #     MeshName = "mesh"
 #     MeshType = "AMP"
 #     Generator = "cube"
-#     dim = 2
-#     Size = 4, 4
-#     Range = -2, 2, -1, 1
-#     surfaceIds = 1, 2
-#     static = TRUE
-# }
-
-# # Mesh data
-# Mesh {
-#     MeshName = "mesh"
-#     MeshType = "AMP"
-#     Generator = "cube"
 #     dim = 3
 #     #Size = 16, 16, 16
 #     #Size = 32, 32, 32
-#     Size = 64, 64, 64
+#     #Size = 64, 64, 64
+#     Size = 128, 128, 128
 #     Range = -1, 1, -1, 1, -1, 1
 #     surfaceIds = 1, 2, 3, 4, 5, 6
 #     static = TRUE
@@ -59,10 +65,16 @@ TruncationError {
 Manufactured_Parameters{ 
   model = "nonlinear"
   #model = "linear"
+  
   zatom = 1.0
+
+  # k11 = 1.0
+  # k12 = 1.0
+  # k21 = 0.1
+  # k22 = 1.0
   k11 = 1.0
   k12 = 1.0
-  k21 = 0.1
+  k21 = 1.0
   k22 = 1.0
   #
   a1 = 0.25

@@ -190,9 +190,9 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
     
     int step = 0;
-    int n = -1;
-    //int n = disc_db->getDatabase( "mesh" )->getScalar<int>( "n" );
-    std::string out_dir = "out/n" + std::to_string(n) + "_" + std::to_string(RadDifOp_db->getScalar<int>( "dim" )) + "D/";
+    //int n = mesh_db->getScalar<int>( "Size" );
+    int n = mesh_db->getArray<int>( "Size" )[0];
+    std::string out_dir = "out/n" + std::to_string(n) + "_" + std::to_string(mesh_db->getScalar<int>( "dim" )) + "D/";
     std::string num_dir = out_dir + "ETnum";
     std::string man_dir = out_dir + "ETman";   
 
@@ -269,7 +269,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
              */
             double dt_next = implicitIntegrator->getNextDt( good_solution );
 
-            if (!good_solution) {
+            // Print information about failed step
+            if ( !good_solution && ti_db->getWithDefault<int>( "print_info_level", 0 ) > 0 ) {
                 AMP::pout << "Step with current dt=" + std::to_string(dt) + " did not pass, trying again with new dt=" + std::to_string(dt_next) + ". solver_retcode=" + std::to_string(solver_retcode) + "\n";
             }
 
@@ -286,6 +287,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
             AMP::pout << "----------------------------------------" << std::endl;
             AMP::pout << "Manufactured discretization error norms:" << std::endl;
             auto enorms = getDiscreteNorms( myRadDifOp->getMeshSize(), errorVec );
+            AMP::pout.precision(3);
             AMP::pout << "||e||=(" << enorms[0] << "," << enorms[1] << "," << enorms[2] << ")" << std::endl;
             AMP::pout << "----------------------------------------" << std::endl;
 

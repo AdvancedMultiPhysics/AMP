@@ -2,41 +2,41 @@
 PDE {
   print_info_level = 0
 
-  dim = 1
-  #dim = 2
+  #dim = 1
+  dim = 2
   #dim = 3
   
-  #fluxLimited = FALSE
-  fluxLimited = TRUE
+  fluxLimited = FALSE
+  #fluxLimited = TRUE
 
-  #modelID = "Manufactured"
-  modelID = "Mousseau_etal_2000"
+  modelID = "Manufactured"
+  #modelID = "Mousseau_etal_2000"
 }
 
-
-# Mesh data
-Mesh {
-    MeshName = "mesh"
-    MeshType = "AMP"
-    Generator = "cube"
-    dim = 1
-    Size = 256
-    Range = -1, 1
-    surfaceIds = 1, 2
-    static = TRUE
-}
 
 # # Mesh data
 # Mesh {
 #     MeshName = "mesh"
 #     MeshType = "AMP"
 #     Generator = "cube"
-#     dim = 2
-#     Size = 8, 8
-#     Range = -2, 2, -1, 1
+#     dim = 1
+#     Size = 256
+#     Range = -1, 1
 #     surfaceIds = 1, 2
 #     static = TRUE
 # }
+
+# Mesh data
+Mesh {
+    MeshName = "mesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 2
+    Size = 64, 64
+    Range = -1, 1, -1, 1
+    surfaceIds = 1, 2, 3, 4
+    static = TRUE
+}
 
 # # Mesh data
 # Mesh {
@@ -58,7 +58,7 @@ Mousseau_etal_2000_Parameters{
   #k = 0.1
   
   # In initial tests this is constant 1 everywhere
-  zatom = 10.0
+  zatom = 1.0
 }
 
 Manufactured_Parameters{ 
@@ -69,6 +69,10 @@ Manufactured_Parameters{
   k12 = 1.0
   k21 = 0.1
   k22 = 1.0
+  # k11 = 1e-18
+  # k12 = 1.0
+  # k21 = 1e-18
+  # k22 = 1.0
   a1 = 0.25
   b1 = 0.5
   a2 = 0.25
@@ -82,8 +86,8 @@ Manufactured_Parameters{
 
 
 TimeIntegrator {
-    #outputSolution = TRUE # Write solution to file
-    outputSolution = FALSE
+    outputSolution = TRUE # Write solution to file
+    #outputSolution = FALSE
 
     name = "BDF2"
     implicit_integrator = "BDF2"
@@ -92,8 +96,8 @@ TimeIntegrator {
     
     variable_names = ["ENERGY", "TEMPERATURE"]
 
-    #max_integrator_steps = 1000
-    max_integrator_steps = 60
+    max_integrator_steps = 1000
+    #max_integrator_steps = 200
 
     initial_time = 0.0
     final_time = 0.1
@@ -126,9 +130,10 @@ TimeIntegrator {
     use_initial_predictor = FALSE
     predictor_type = "leapfrog"
     problem_fixed_scaling = 1.0, 1.0
-    #initial_dt = 1.0e-05
-    initial_dt = 1.0e-03
-    max_dt = 2e-2 # If I make this too big things crash
+    initial_dt = 1.0e-04
+    max_dt = 2e-2 
+    # initial_dt = 1.0e-04
+    # max_dt = 1e-4
 
     #number of time intervals before the final constant timestep is attained
     number_of_time_intervals   = 50 # Default is 100
@@ -147,10 +152,9 @@ TimeIntegrator {
       max_iterations = 6
       print_info_level = 0
 
-      #differencing_parameter_strategy  =  "ds"
-      forcing_term_strategy = "EWCHOICE3"
-      EW_choice2_alpha      = 2.0
-      EW_choice2_gamma      = 0.9
+      # forcing_term_strategy = "EWCHOICE3"
+      # EW_choice2_alpha      = 2.0
+      # EW_choice2_gamma      = 0.9
 
       # Check if vector satisfies constraints before applying to it
       # This line search check does help, but I still end up getting an crash sometimes---it could be from the Jacobian-FD, but as per below when I turn on that check it crashes.
@@ -161,20 +165,14 @@ TimeIntegrator {
       enableMFFDBoundsCheck              = FALSE 
 
       # Abs tol should track truncation error
-      absolute_tolerance = 1.0e-6 
-      relative_tolerance = 1.0e-10 
+      absolute_tolerance = 1.0e-6
+      relative_tolerance = 1.0e-12 
       
       stepTolerance        = 1.0e-10
       maximumFunctionEvals = 1000
       usesJacobian         = FALSE # Use Petsc FD-based approx of Jacobian
 
       SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_linesearch_monitor"
-      # -snes_linesearch_monitor
-
-      # print_linear_residuals    = TRUE
-      # print_nonlinear_residuals = TRUE
-      print_linear_residuals    = FALSE
-      print_nonlinear_residuals = FALSE
 
       # This is the Krylov solver for the Jacobian systems
       LinearSolver{
@@ -191,7 +189,7 @@ TimeIntegrator {
         KSPOptions = "-ksp_converged_reason"
 
         # These tols should be ignored due to EW being turned on
-        absolute_tolerance   = 1.0e-5 
+        absolute_tolerance   = 1.0e-8 
         relative_tolerance   = 1.0e-10
 
         #KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 20"

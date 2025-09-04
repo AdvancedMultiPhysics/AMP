@@ -145,6 +145,21 @@ void RadDifOpPJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vect
  * The underlying LinearOperator has the following structure: 
  *      [ d_E 0   ]   [ diag(r_EE) diag(r_ET) ]
  *      [ 0   d_T ] + [ diag(r_TE) diag(r_TT) ]
+ * 
+ * Some optimizations that can be done to this function in the future regarding the diffusion 
+ * matrices:
+ * 1. The diffusion matrices are built even if they're multipled by a zero coefficient (k11 in the 
+ * case of d_E and k21 in the case of d_T). Obviously there's no need to do this, but then one 
+ * needs to take care: 
+ *      i. when building the BERadDifOpPJacData because this just adds an identity perturbation to 
+ * these matrices (and hence assumes they exist)
+ *      ii. that the matrix doesn't exist during the apply (which has implications for the 
+ * BERadDifOpPJacData since this uses the apply)
+ *      iii. in the operator-split preconditioner since this assumes the matrices exist
+ * 2. The sparsity pattern of both matrices is the same, and is independent of the linearization 
+ * point. So, the sparsity pattern should be computed once, and then the values in the matrices 
+ * reset when ever the linearization point changes (currently fresh matrices are built every time 
+ * this function is called).
 */
 void RadDifOpPJac::setData() {
     
@@ -161,7 +176,7 @@ void RadDifOpPJac::setData() {
     auto T_vec = ET_vec->getVector(1);
 
     // Initialize+allocate d_data if it's not been done already
-    // We don't allocate matrices here since they're going to be created below. Possibly there's an option to do something smarter where we just reset the values because the sparsity structure of each matrix is always identical.
+    // We don't allocate matrices here since they're going to be created below. 
     if ( !d_data ) {
         d_data       = std::make_shared<RadDifOpPJacData>();
         d_data->r_EE = E_vec->clone();
@@ -170,8 +185,8 @@ void RadDifOpPJac::setData() {
         d_data->r_TT = E_vec->clone();
     // I believe the following should free the matrices d_E and d_T were pointing to
     } else {
-        d_data->d_E.reset();
-        d_data->d_T.reset();
+        d_data->d_E = nullptr;
+        d_data->d_T = nullptr;
     }
 
     // Set the reaction data members in d_data
@@ -266,8 +281,8 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
                 ijk[0] = i;
 
                 // Get T at current node (reaction stencil doesn't depend on E) 
-                size_t dof = d_RadDifOp->gridIndsToScalarDOF( ijk );
-                auto TLoc  = T_vec->getValueByGlobalID( dof ); 
+                size_t dof  = d_RadDifOp->gridIndsToScalarDOF( ijk );
+                double TLoc = T_vec->getValueByGlobalID( dof ); 
 
                 // Compute semi-linear reaction coefficients at cell centers using T
                 double REE, RET, RTE, RTT;
@@ -304,7 +319,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     auto zatom = d_RadDifOp->d_db->getWithDefault<double>( "zatom", 1.0 ); 
 
     // Flag indicating which boundary the 3-point stencil intersects with (unset by default)
-    std::optional<RadDifOp::BoundarySide> boundaryIntersection; // oktodo: do i need to reset this?
+    std::optional<RadDifOp::BoundarySide> boundaryIntersection;
     
     // Convert dof to a grid index
     std::array<int, 3> ijk = d_RadDifOp->scalarDOFToGridInds( row );
@@ -338,10 +353,10 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
         double dummy1, dummy2; // Dummy values for coefficients we don't set
         // Get energy coefficients
         if ( component == 0 ) {
-            d_RadDifOp->getLocalFDDiffusionCoefficients(d_RadDifOp->d_ELoc3, d_RadDifOp->d_TLoc3, zatom, h, true, D_WO, D_OE, false, dummy1, dummy2);
+            d_RadDifOp->getLocalFDDiffusionCoefficients( zatom, h, true, D_WO, D_OE, false, dummy1, dummy2 );
         // Get temperature coefficients
         } else {
-            d_RadDifOp->getLocalFDDiffusionCoefficients(d_RadDifOp->d_ELoc3, d_RadDifOp->d_TLoc3, zatom, h, false, dummy1, dummy2, true, D_WO, D_OE);
+            d_RadDifOp->getLocalFDDiffusionCoefficients( zatom, h, false, dummy1, dummy2, true, D_WO, D_OE );
         }
         
         /** Recall the stencil is applied in the following fashion:
@@ -773,7 +788,7 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
             for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
                 ijk[0] = i;
 
-                /** --- Compute coefficients to apply stencil in a semi-linear fashion */
+                /** --- Compute coefficients to apply stencil in a quasi-linear fashion */
                 // Action of diffusion operator: Loop over each dimension, adding in its contribution to the total
                 double dif_E_action = 0.0; // d_E * E
                 double dif_T_action = 0.0; // d_T * T
@@ -786,11 +801,13 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                     setLoc3Data(E_vec, T_vec, ijk, dim);        
                     // Get diffusion coefficients for both E and T
                     double Dr_WO, Dr_OE, DT_WO, DT_OE;
-                    getLocalFDDiffusionCoefficients(d_ELoc3, d_TLoc3, zatom, h, true, Dr_WO, Dr_OE, true, DT_WO, DT_OE);
+                    getLocalFDDiffusionCoefficients(zatom, h, true, Dr_WO, Dr_OE, true, DT_WO, DT_OE);
                     
                     // Apply diffusion operators in quasi-linear fashion
-                    dif_E_action += ( -Dr_OE*(d_ELoc3[EAST]-d_ELoc3[ORIGIN]) + Dr_WO*(d_ELoc3[ORIGIN]-d_ELoc3[WEST]) )*rh2;
-                    dif_T_action += ( -DT_OE*(d_TLoc3[EAST]-d_TLoc3[ORIGIN]) + DT_WO*(d_TLoc3[ORIGIN]-d_TLoc3[WEST]) )*rh2;
+                    dif_E_action += ( -Dr_OE*(d_ELoc3[EAST]-d_ELoc3[ORIGIN]) 
+                                        + Dr_WO*(d_ELoc3[ORIGIN]-d_ELoc3[WEST]) )*rh2;
+                    dif_T_action += ( -DT_OE*(d_TLoc3[EAST]-d_TLoc3[ORIGIN]) 
+                                        + DT_WO*(d_TLoc3[ORIGIN]-d_TLoc3[WEST]) )*rh2;
                 }
                 // Finished looping over dimensions for diffusion discretizations
                 AMP_INSIST( d_TLoc3[ORIGIN] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
@@ -816,8 +833,6 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
 
 
 void RadDifOp::getLocalFDDiffusionCoefficients(
-    const std::array<double,3> &ELoc3,
-    const std::array<double,3> &TLoc3,
     double zatom,
     double h,
     bool computeE,
@@ -829,8 +844,8 @@ void RadDifOp::getLocalFDDiffusionCoefficients(
 {
 
     // Compute temp at mid points             
-    double T_WO = 0.5*( TLoc3[WEST]   + TLoc3[ORIGIN] ); // T_{i-1/2}
-    double T_OE = 0.5*( TLoc3[ORIGIN] + TLoc3[EAST]   ); // T_{i+1/2}
+    double T_WO = 0.5*( d_TLoc3[WEST]   + d_TLoc3[ORIGIN] ); // T_{i-1/2}
+    double T_OE = 0.5*( d_TLoc3[ORIGIN] + d_TLoc3[EAST]   ); // T_{i+1/2}
 
     // Get diffusion coefficients at cell faces, i.e., mid points
     // Energy
@@ -839,10 +854,12 @@ void RadDifOp::getLocalFDDiffusionCoefficients(
         Dr_OE = diffusionCoefficientE( T_OE, zatom );
         // Limit the energy flux if need be, eq. (17)
         if ( d_fluxLimited ) {
-            double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( ELoc3[ORIGIN] - ELoc3[WEST] )/( h*0.5*(ELoc3[ORIGIN] + ELoc3[WEST]) ) ) );
-            double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( ELoc3[EAST] - ELoc3[ORIGIN] )/( h*0.5*(ELoc3[EAST] + ELoc3[ORIGIN]) ) ) );
+            double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( d_ELoc3[ORIGIN] - d_ELoc3[WEST] )/( h*0.5*(d_ELoc3[ORIGIN] + d_ELoc3[WEST]) ) ) );
+            double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( d_ELoc3[EAST] - d_ELoc3[ORIGIN] )/( h*0.5*(d_ELoc3[EAST] + d_ELoc3[ORIGIN]) ) ) );
             Dr_WO = DE_WO;
             Dr_OE = DE_OE;
+
+            AMP_WARNING("flux limiting is not working properly...");
         }
         // Scale coefficients by constants in PDE
         scaleDiffusionCoefficientEBy_kij( Dr_WO );

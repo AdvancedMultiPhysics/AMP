@@ -169,6 +169,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     AMP::pout << "----------------------------------------" << std::endl;
     AMP::pout << "Manufactured truncation error norms:" << std::endl;
     auto enorms = getDiscreteNorms( myRadDifOp->getMeshSize(), truncationErrorVec );
+    AMP::pout.precision(3);
     AMP::pout << "||e||=(" << enorms[0] << "," << enorms[1] << "," << enorms[2] << ")" << std::endl;
     AMP::pout << "----------------------------------------" << std::endl;
 

@@ -364,10 +364,10 @@ double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) cons
 
     if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
         if ( component == 0 ) {
-            double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) + k12*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
+            double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - k12*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sE;
         } else if ( component == 1 ) {
-            double sT = ((2.0/9.0)*std::pow(PI, 2)*k21*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2) + (1.0/3.0)*PI*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t))*(PI*k21*std::pow(kX, 2)*std::cos(PI*kT*t) - kT*std::sin(PI*kT*t))*std::sin(PI*kX*x + kXPhi) - k22*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)*(kE0 - std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)))/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0);
+            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)) + k22*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );

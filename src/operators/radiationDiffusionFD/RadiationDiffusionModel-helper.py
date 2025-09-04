@@ -54,32 +54,32 @@ def solveForGhostFromRobinBC():
 
 # Exact solutions
 # The equilibirum condition is E = T^4, let's set the manufactured solution to be E = T^3, so that the reaction terms in the PDE don't just evaluate to zero.
-def manufacturedSolutions1D(x, PI, t):
-    kE0, kT, kX, kXPhi = sym.symbols('kE0 kT kX kXPhi')
+def manufacturedSolutions1D(t, x):
+    PI, kE0, kT, kX, kXPhi = sym.symbols('PI kE0 kT kX kXPhi')
     E = ( kE0 + 
-         sym.sin( kX * PI * x + kXPhi ) *
-         sym.cos( kT * PI * t ) 
+         sym.cos( kT * PI * t ) *
+         sym.sin( kX * PI * x + kXPhi )
         )
     T = E**sym.Rational(1, 3)
     return E, T
 
-def manufacturedSolutions2D(x, y, PI, t):
-    kE0, kT, kX, kXPhi, kY, kYPhi = sym.symbols('kE0 kT kX kXPhi kY kYPhi')
+def manufacturedSolutions2D(t, x, y):
+    PI, kE0, kT, kX, kXPhi, kY, kYPhi = sym.symbols('PI kE0 kT kX kXPhi kY kYPhi')
     E = ( kE0 + 
+         sym.cos( kT * PI * t ) *
          sym.sin( kX * PI * x + kXPhi ) * 
-         sym.cos( kY * PI * y + kYPhi ) * 
-         sym.cos( kT * PI * t ) 
+         sym.cos( kY * PI * y + kYPhi )
         )
     T = E**sym.Rational(1, 3)
     return E, T
 
-def manufacturedSolutions3D(x, y, z, PI, t):
-    kE0, kT, kX, kXPhi, kY, kYPhi, kZ, kZPhi = sym.symbols('kE0 kT kX kXPhi kY kYPhi kZ kZPhi')
+def manufacturedSolutions3D(t, x, y, z):
+    PI, kE0, kT, kX, kXPhi, kY, kYPhi, kZ, kZPhi = sym.symbols('PI kE0 kT kX kXPhi kY kYPhi kZ kZPhi')
     E = ( kE0 + 
+         sym.cos( kT * PI * t ) *
          sym.sin( kX * PI * x + kXPhi ) * 
          sym.cos( kY * PI * y + kYPhi ) * 
-         sym.cos( kZ * PI * z + kZPhi ) * 
-         sym.cos( kT * PI * t ) 
+         sym.cos( kZ * PI * z + kZPhi )
         )
     T = E**sym.Rational(1, 3)
     return E, T
@@ -141,14 +141,17 @@ def cxx_print(dim, x, y, z, E, T, sE, sT):
 
 
 # A pair of linear PDEs of the form
-# dE/dt - nabla dot ( k11 * nabla E ) - k12 * simga * ( T - E ) = s_E
-# dT/dt - nabla dot ( k21 * nabla T ) + k22 * simga * ( T - E ) = s_T
-#
+# dE/dt - nabla dot ( k11 * nabla E ) - k12 * ( T - E ) = s_E
+# dT/dt - nabla dot ( k21 * nabla T ) + k22 * ( T - E ) = s_T
 #
 # A pair of nonlinear PDEs of the form
 # dE/dt - nabla dot ( k11 * DE * nabla E ) - k12 * sigma * ( T^4 - E ) = s_E
 # dT/dt - nabla dot ( k21 * DT * nabla T ) + k22 * sigma * ( T^4 - E ) = s_T
-# for constants k_ij. 
+# 
+# 
+# where:
+#   k_ij are constants.
+#   The source terms s_E and s_T are different for each system 
 #
 # Note we assume zatom is constant, while in the paper it can vary.
 def manufacturedModel( dim, model ):
@@ -161,12 +164,13 @@ def manufacturedModel( dim, model ):
 
     # Exact solutions
     if dim == 1:
-        E, T = manufacturedSolutions1D(x, PI, t) 
+        E, T = manufacturedSolutions1D(t, x) 
     elif dim == 2:
-        E, T = manufacturedSolutions2D(x, y, PI, t) 
+        E, T = manufacturedSolutions2D(t, x, y) 
     elif dim == 3:
-        E, T = manufacturedSolutions3D(x, y, z, PI, t) 
+        E, T = manufacturedSolutions3D(t, x, y, z) 
 
+    # Get reaction term R
     if model == "nonlinear":
         sigma = (zatom/T)**3
         DE = 1/(3*sigma)
@@ -179,6 +183,7 @@ def manufacturedModel( dim, model ):
     else:
         raise ValueError( "Invalid model" )
 
+    # Compute the LHS of the equations, LE and LT
     # Reaction operator
     LE = - k12 * R
     LT = + k22 * R
