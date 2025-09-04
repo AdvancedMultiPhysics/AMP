@@ -143,6 +143,8 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
     cloneData->d_last_row        = d_last_row;
     cloneData->d_first_col       = d_first_col;
     cloneData->d_last_col        = d_last_col;
+    cloneData->d_leftCommList    = d_leftCommList;
+    cloneData->d_rightCommList   = d_rightCommList;
     cloneData->d_leftDOFManager  = d_leftDOFManager;
     cloneData->d_rightDOFManager = d_rightDOFManager;
     cloneData->d_leftCommList    = d_leftCommList;
@@ -172,6 +174,8 @@ CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
     outData->d_last_row               = d_last_row;
     outData->d_first_col              = d_first_col;
     outData->d_last_col               = d_last_col;
+    outData->d_leftCommList           = d_leftCommList;
+    outData->d_rightCommList          = d_rightCommList;
     outData->d_leftDOFManager         = d_leftDOFManager;
     outData->d_rightDOFManager        = d_rightDOFManager;
     outData->d_leftCommList           = d_leftCommList;

@@ -56,16 +56,12 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
     fillWithPseudoLaplacian( matrix_h, dofManager );
 
-    //    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-
-    auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
     auto matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
                       matrix_h :
-                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
-
-    //    AMP::pout << "Matrix after makeConsistent" << std::endl;
-    //    AMP::pout << *matrix << std::endl;
+                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
 
     size_t nGlobalRows = matrix->numGlobalRows();
     size_t nLocalRows  = matrix->numLocalRows();
@@ -93,12 +89,12 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     auto yNorm = static_cast<scalar_t>( y->L1Norm() );
 
     if ( yNorm == static_cast<scalar_t>( matrix->numGlobalRows() ) ) {
-        ut->passes( type + ", " + accelerationBackend +
+        ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
                     ": Passes 1 norm test with pseudo Laplacian" );
     } else {
-        AMP::pout << "1 Norm " << yNorm << ", number of rows " << matrix->numGlobalRows()
-                  << std::endl;
-        ut->failure( type + ", " + accelerationBackend +
+        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend << ", 1 Norm "
+                  << yNorm << ", number of rows " << matrix->numGlobalRows() << std::endl;
+        ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
                      ": Fails 1 norm test with pseudo Laplacian" );
     }
 
@@ -114,12 +110,13 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
         auto xNorm = static_cast<scalar_t>( x->L1Norm() );
 
         if ( xNorm == static_cast<scalar_t>( matrix->numGlobalRows() ) ) {
-            ut->passes( type + ", " + accelerationBackend +
+            ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
                         ": Passes 1 norm test with pseudo Laplacian transpose" );
         } else {
-            AMP::pout << "Transpose 1 Norm " << xNorm << ", number of rows "
+            AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend
+                      << ", transpose 1 Norm " << xNorm << ", number of rows "
                       << matrix->numGlobalRows() << std::endl;
-            ut->failure( type + ", " + accelerationBackend +
+            ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
                          ": Fails 1 norm test with pseudo Laplacian transpose" );
         }
     }
@@ -179,8 +176,8 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
 #if defined( AMP_USE_KOKKOS )
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
-    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
-    //    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
@@ -189,9 +186,11 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
 #endif
 
     size_t nGlobal = 0;
-    for ( auto &[backend, memory] : backendsAndMemory )
-        nGlobal += matVecTestWithDOFs(
-            ut, "CSRMatrix", scalarDOFs, backend == "hip_cuda" ? false : true, backend, memory );
+    for ( auto &[backend, memory] : backendsAndMemory ) {
+        const bool testTranspose = backend != "hip_cuda";
+        nGlobal +=
+            matVecTestWithDOFs( ut, "CSRMatrix", scalarDOFs, testTranspose, backend, memory );
+    }
     return nGlobal;
 }
 

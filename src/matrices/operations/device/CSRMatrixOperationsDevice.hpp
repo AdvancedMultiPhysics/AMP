@@ -100,7 +100,7 @@ void CSRMatrixOperationsDevice<Config>::multTranspose( std::shared_ptr<const Vec
                                                        MatrixData const &A,
                                                        std::shared_ptr<Vector> out )
 {
-    AMP_WARNING( "multTranspose not enabled for device." );
+    AMP_ERROR( "multTranspose not enabled for device." );
 }
 
 template<typename Config>
