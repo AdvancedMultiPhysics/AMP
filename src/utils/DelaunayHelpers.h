@@ -6,9 +6,25 @@
 #include <stdlib.h>
 
 #include "AMP/utils/Array.h"
+#include "AMP/utils/extended_int.h"
 
 
 namespace AMP::DelaunayHelpers {
+
+
+// clang-format off
+template<int NDIM, class TYPE> struct getETYPE;
+template<> struct getETYPE<1,int> { typedef int ETYPE; };
+template<> struct getETYPE<2,int> { typedef int64_t ETYPE; };
+template<> struct getETYPE<3,int> { typedef AMP::extended::int128_t ETYPE; };
+template<> struct getETYPE<4,int> { typedef AMP::extended::int128_t ETYPE; };
+template<> struct getETYPE<5,int> { typedef AMP::extended::int256_t ETYPE; };
+template<> struct getETYPE<1,double> { typedef long double ETYPE; };
+template<> struct getETYPE<2,double> { typedef long double ETYPE; };
+template<> struct getETYPE<3,double> { typedef long double ETYPE; };
+template<> struct getETYPE<4,double> { typedef long double ETYPE; };
+template<> struct getETYPE<5,double> { typedef long double ETYPE; };
+// clang-format on
 
 
 /********************************************************************
@@ -148,14 +164,15 @@ void inverse( int NDIM, const double *M, double *M_inv );
 /****************************************************************
  * Function to compute the Barycentric coordinates               *
  * Note: we use exact math until we perform the normalization    *
- *    The exact math component requires N^(D-1) precision        *
+ *    The exact math component requires N^D precision            *
  ****************************************************************/
-template<int NDIM, class TYPE, class ETYPE = TYPE>
+template<int NDIM, class TYPE>
 std::array<double, NDIM + 1> computeBarycentric( const std::array<TYPE, NDIM> *x,
                                                  const std::array<TYPE, NDIM> &xi )
 {
     // Compute the barycentric coordinates T*L=r-r0
     // http://en.wikipedia.org/wiki/Barycentric_coordinate_system_(mathematics)
+    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
     ETYPE T[NDIM * NDIM];
     for ( int i = 0; i < NDIM; i++ ) {
         for ( int j = 0; j < NDIM; j++ )
@@ -197,9 +214,10 @@ static constexpr double inv_factorial( int N )
         x *= i;
     return 1.0 / x;
 }
-template<int NDIM, class TYPE, class ETYPE>
+template<int NDIM, class TYPE>
 double calcVolume( const std::array<TYPE, NDIM> *x )
 {
+    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
     if constexpr ( NDIM == 1 )
         return static_cast<double>( x[1][0] - x[0][0] );
     ETYPE M[NDIM * NDIM];
