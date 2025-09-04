@@ -40,7 +40,6 @@ void testIntegrator( const std::string &name,
                      double tol,
                      AMP::UnitTest &ut )
 {
-    AMP::pout << "Testing " << name << " with " << test << " operator" << std::endl;
     // Create the time integrator
     auto var            = std::make_shared<AMP::LinearAlgebra::Variable>( "x" );
     auto solution       = AMP::LinearAlgebra::createSimpleVector<double>( 1, var, AMP_COMM_WORLD );
@@ -128,9 +127,63 @@ void updateDatabaseIfImplicit( std::shared_ptr<AMP::Database> db )
     }
 }
 
+// 3 test cases to run
+void runTestCases( const std::string &name,
+                   std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> params,
+                   const std::array<bool, 3> &run_test,
+                   const double icval,
+                   double tol,
+                   double finalTime,
+                   AMP::UnitTest &ut )
+{
+    std::string test;
+    auto var    = std::make_shared<AMP::LinearAlgebra::Variable>( "x" );
+    auto source = AMP::LinearAlgebra::createSimpleVector<double>( 1, var, AMP_COMM_WORLD );
+    source->setToScalar( 3.0 );
+
+    if ( run_test[0] ) {
+        // Test with a fixed source and null operator
+        test = "du/dt=3";
+        AMP::pout << "Testing " << name << " with " << test
+                  << " no operator, fixed source and fixed timestep" << std::endl;
+
+        params->d_pSourceTerm = source;
+        params->d_operator    = std::make_shared<AMP::Operator::NullOperator>();
+        testIntegrator( name, test, params, icval + 3 * finalTime, tol, ut );
+    }
+
+    if ( run_test[1] ) {
+        // Test with no source and constant operator
+        test = "du/dt=-3u";
+        AMP::pout << "Testing " << name << " with " << test
+                  << " constant operator, no source and fixed timestep" << std::endl;
+        params->d_pSourceTerm = nullptr;
+        params->d_operator =
+            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+        testIntegrator( name, test, params, icval * std::exp( -3.0 * finalTime ), tol, ut );
+    }
+    if ( run_test[2] ) {
+        // Test with fixed source and constant operator
+        test = "du/dt=-3u+3";
+        AMP::pout << "Testing " << name << " with " << test
+                  << " constant operator, fixed source and fixed timestep" << std::endl;
+        params->d_pSourceTerm = source;
+        params->d_operator =
+            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+        testIntegrator( name,
+                        test,
+                        params,
+                        icval * std::exp( -3.0 * finalTime ) +
+                            ( 1.0 - std::exp( -3.0 * finalTime ) ),
+                        tol,
+                        ut );
+    }
+}
+
 void runBasicIntegratorTests( const std::string &name, AMP::UnitTest &ut )
 {
-    double finalTime = 0.001;
+    double finalTime   = 0.001;
+    const double icval = 10.0;
     // Create the vectors
     auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "x" );
     auto ic  = AMP::LinearAlgebra::createSimpleVector<double>( 1, var, AMP_COMM_WORLD );
@@ -152,8 +205,7 @@ void runBasicIntegratorTests( const std::string &name, AMP::UnitTest &ut )
 
     auto params         = std::make_shared<AMP::TimeIntegrator::TimeIntegratorParameters>( db );
     params->d_ic_vector = ic;
-
-    params->d_operator = std::make_shared<AMP::Operator::NullOperator>();
+    params->d_operator  = std::make_shared<AMP::Operator::NullOperator>();
     try {
         auto timeIntegrator = AMP::TimeIntegrator::TimeIntegratorFactory::create( params );
         ut.passes( name + " - created" );
@@ -163,121 +215,71 @@ void runBasicIntegratorTests( const std::string &name, AMP::UnitTest &ut )
     }
 
     db->putScalar<double>( "initial_dt", 0.0001 );
+    runTestCases( name, params, { true, true, true }, 1.0, 5.0e-10, finalTime, ut );
 
-    // Test with a fixed source and null operator
-    auto source = AMP::LinearAlgebra::createSimpleVector<double>( 1, var, AMP_COMM_WORLD );
-    source->setToScalar( 3.0 );
-    params->d_pSourceTerm = source;
-    params->d_operator    = std::make_shared<AMP::Operator::NullOperator>();
-    testIntegrator( name, "du/dt=3", params, 1.0 + 3 * finalTime, 5.0e-10, ut );
-
-    // Test with no source and constant operator
-    params->d_pSourceTerm = nullptr;
-    params->d_operator = std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-    testIntegrator( name, "du/dt=-3u", params, std::exp( -3.0 * finalTime ), 5.0e-10, ut );
-
-    // Test with fixed source and constant operator
-    params->d_pSourceTerm = source;
-    params->d_operator = std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-    testIntegrator( name, "du/dt=-3u+3", params, 1.0, 5.0e-10, ut );
+    finalTime  = 0.01;
+    double tol = 8.0e-08;
+    ic->setToScalar( icval );
 
     if ( isAdaptiveRK( db ) ) {
 
-        AMP::pout << "Test " << name << " with adaptive step" << std::endl;
-
         db->putScalar<bool>( "use_fixed_dt", false );
         db->putScalar<double>( "initial_dt", 0.0005 );
-        finalTime = 0.01;
         db->putScalar<double>( "final_time", finalTime );
 
-        const double icval = 10.0;
-        ic->setToScalar( icval );
-
-        double tol = 8.0e-08;
-        // Test with no source and constant operator
-        params->d_pSourceTerm = nullptr;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-        testIntegrator( name, "du/dt=-3u", params, icval * std::exp( -3.0 * finalTime ), tol, ut );
-
-        // Test with fixed source and constant operator
-        params->d_pSourceTerm = source;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-        testIntegrator( name,
-                        "du/dt=-3u+3",
-                        params,
-                        icval * std::exp( -3.0 * finalTime ) +
-                            ( 1.0 - std::exp( -3.0 * finalTime ) ),
-                        tol,
-                        ut );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
     }
 
-    // retest with non-zero predictor for implicit
     if ( isImplicitTI( db ) ) {
 
-        AMP::pout << "Test " << name << " with non-zero predictor" << std::endl;
-
+        //==============================================================================
+        std::string timestep_strategy = "constant";
+        db->putScalar<std::string>( "timestep_selection_strategy", timestep_strategy );
         db->putScalar<bool>( "use_predictor", true );
         db->putScalar<bool>( "auto_component_scaling", false );
         db->putScalar<double>( "initial_dt", 0.0005 );
-        finalTime = 0.01;
         db->putScalar<double>( "final_time", finalTime );
 
-        const double icval = 10.0;
-        ic->setToScalar( icval );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
 
-        double tol = 8.0e-08;
-        // Test with no source and constant operator
-        params->d_pSourceTerm = nullptr;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-        testIntegrator( name, "du/dt=-3u", params, icval * std::exp( -3.0 * finalTime ), tol, ut );
+        //==============================================================================
+        timestep_strategy = "final constant";
+        db->putScalar<std::string>( "timestep_selection_strategy", timestep_strategy );
+        db->putScalar<double>( "max_dt", 0.001 );
+        db->putScalar<int>( "number_of_time_intervals", 25 );
+        db->putScalar<int>( "number_initial_fixed_steps", 0 );
 
-        // Test with fixed source and constant operator
-        params->d_pSourceTerm = source;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-        testIntegrator( name,
-                        "du/dt=-3u+3",
-                        params,
-                        icval * std::exp( -3.0 * finalTime ) +
-                            ( 1.0 - std::exp( -3.0 * finalTime ) ),
-                        tol,
-                        ut );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
 
-        AMP::pout << "Test " << name << " with non-zero predictor and truncation error strategy"
-                  << std::endl;
-
+        //==============================================================================
+        // vary the PI controller
         tol = 2.0e-07;
-
-        db->putScalar<bool>( "use_predictor", true );
-        db->putScalar<std::string>( "timestep_selection_strategy", "truncationErrorStrategy" );
+        std::string pi_controller{ "PC.4.7" };
+        timestep_strategy = "truncationErrorStrategy";
+        db->putScalar<std::string>( "timestep_selection_strategy", timestep_strategy );
         db->putVector<double>( "problem_fixed_scaling", { icval } );
-        db->putScalar<bool>( "auto_component_scaling", false );
         db->putScalar<double>( "initial_dt", 1.0e-06 );
-        finalTime = 0.01;
-        db->putScalar<double>( "final_time", finalTime );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
 
-        ic->setToScalar( icval );
+        //==============================================================================
+        pi_controller = "H211b";
+        db->putScalar<std::string>( "pi_controller_type", pi_controller );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
 
-        // Test with no source and constant operator
-        params->d_pSourceTerm = nullptr;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-        testIntegrator( name, "du/dt=-3u", params, icval * std::exp( -3.0 * finalTime ), tol, ut );
+        //==============================================================================
+        pi_controller = "PC11";
+        db->putScalar<std::string>( "pi_controller_type", pi_controller );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
 
-        // Test with fixed source and constant operator
-        params->d_pSourceTerm = source;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
-        testIntegrator( name,
-                        "du/dt=-3u+3",
-                        params,
-                        icval * std::exp( -3.0 * finalTime ) +
-                            ( 1.0 - std::exp( -3.0 * finalTime ) ),
-                        tol,
-                        ut );
+        //==============================================================================
+        pi_controller = "Deadbeat";
+        db->putScalar<std::string>( "pi_controller_type", pi_controller );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
+
+        //==============================================================================
+        // turn off the controller
+        db->putScalar<bool>( "use_pi_controller", false );
+        runTestCases( name, params, { false, true, true }, icval, tol, finalTime, ut );
     }
 }
 
@@ -298,7 +300,7 @@ int testSimpleTimeIntegration( int argc, char *argv[] )
         // List of integrators
         // We need to look at the errors for the first order -- whether they are acceptable
         integrators = { "ExplicitEuler", "RK2",  "RK4",  "RK12", "RK23", "RK34", "RK45", "CN",
-                        "BDF1",          "BDF2", "BDF3", "BDF4", "BDF5" };
+                        "BDF1",          "BDF2", "BDF3", "BDF4", "BDF5", "BDF6" };
     }
     // Run the tests
     for ( auto tmp : integrators )
