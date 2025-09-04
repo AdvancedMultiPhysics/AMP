@@ -1077,7 +1077,7 @@ int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
             return 0; // We are on the circumsphere
         if ( xi[0] > x1 && xi[0] < x2 )
             return 1; // We inside the circumsphere
-        return -1;     // We outside the circumsphere
+        return -1;    // We outside the circumsphere
     }
     // Solve the sub-determinants (requires N^NDIM precision)
     double R2 = 0.0;
