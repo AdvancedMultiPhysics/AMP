@@ -36,6 +36,8 @@ void BERadDifOpPJacOpSplitPrec::scalar2x2Solve( double a, double b, double c, do
 void BERadDifOpPJacOpSplitPrec::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> bET_, std::shared_ptr<AMP::LinearAlgebra::Vector> ET_) 
 {
 
+    PROFILE( "BERadDifOpPJacOpSplitPrec::apply" );
+
     // A zero initial guess is hard-coded to avoid an apply of A for computing the initial residual
     AMP_INSIST( d_bUseZeroInitialGuess, "Zero initial guess is hard coded!" );
 
@@ -104,7 +106,9 @@ void BERadDifOpPJacOpSplitPrec::apply(std::shared_ptr<const AMP::LinearAlgebra::
 }
 
 
-void BERadDifOpPJacOpSplitPrec::setDiffusionSolvers( ) {
+void BERadDifOpPJacOpSplitPrec::setDiffusionSolvers() {
+
+    PROFILE( "BERadDifOpPJacOpSplitPrec::setDiffusionSolvers" );
 
     // Get underlying operator
     auto op = std::dynamic_pointer_cast<AMP::Operator::BERadDifOpPJac>( this->getOperator() );
@@ -151,6 +155,9 @@ void BERadDifOpPJacOpSplitPrec::diffusionSolve(
     std::shared_ptr<const AMP::LinearAlgebra::Vector> bT,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  E,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  T ) const {
+        
+        PROFILE( "BERadDifOpPJacOpSplitPrec::diffusionSolve" );
+
         AMP_INSIST( d_difSolverE, "Null diffusion solver for E block" );
         AMP_INSIST( d_difSolverT, "Null diffusion solver for T block" );
         d_difSolverE->apply( bE, E );
@@ -163,6 +170,8 @@ void BERadDifOpPJacOpSplitPrec::reactionSolve(
     std::shared_ptr<const AMP::LinearAlgebra::Vector> bT,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  E,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  T ) {
+
+    PROFILE( "BERadDifOpPJacOpSplitPrec::reactionSolve" );
 
     // Get underlying operator
     auto op = std::dynamic_pointer_cast<AMP::Operator::BERadDifOpPJac>( this->getOperator() );

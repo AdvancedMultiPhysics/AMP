@@ -304,7 +304,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     auto zatom = d_RadDifOp->d_db->getWithDefault<double>( "zatom", 1.0 ); 
 
     // Flag indicating which boundary the 3-point stencil intersects with (unset by default)
-    std::optional<RadDifOp::BoundarySide> boundaryIntersection;
+    std::optional<RadDifOp::BoundarySide> boundaryIntersection; // oktodo: do i need to reset this?
     
     // Convert dof to a grid index
     std::array<int, 3> ijk = d_RadDifOp->scalarDOFToGridInds( row );
@@ -379,6 +379,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
          */
         // Case 2a: Stencil intersects WEST boundary -> WEST neighbor is a ghost
         } else if ( boundaryIntersection.value() == RadDifOp::BoundarySide::WEST ) {
+            boundaryIntersection.reset(); // Reset to have no value
             // Add WEST connection into diagonal with weight alpha
             size_t boundaryID = d_RadDifOp->getBoundaryIDFromDim(dim, RadDifOp::BoundarySide::WEST);
             double alpha = d_RadDifOp->PicardCorrectionCoefficient( component, boundaryID, D_WO );
@@ -391,6 +392,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
 
         // Case 2b: Stencil intersects EAST boundary -> EAST neighbor is a ghost
         } else {
+            boundaryIntersection.reset(); // Reset to have no value
             // Add in WEST connection
             data[nnzOffDiag+1] = -D_WO*rh2;
             cols[nnzOffDiag+1] = d_RadDifOp->d_dofsLoc3[WEST];
@@ -400,6 +402,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
             size_t boundaryID = d_RadDifOp->getBoundaryIDFromDim(dim, RadDifOp::BoundarySide::EAST);
             double alpha = d_RadDifOp->PicardCorrectionCoefficient( component, boundaryID, D_OE );
             data[0] += alpha * -D_OE*rh2;
+
         }
     } // Loop over dimension
 
@@ -416,8 +419,9 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
  */
 void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ ) {
 
-    if ( d_iDebugPrintInfoLevel > 1 )
+    if ( d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "RadDifOpPJac::reset() " << std::endl;
+    }
 
     AMP_ASSERT( params_ );
     // Downcast OperatorParameters to their derived class

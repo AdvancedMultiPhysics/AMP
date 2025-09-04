@@ -484,7 +484,7 @@ private:
     void applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  );
 
     //! Set our d_data member
-    void setData( );
+    void setData();
 
     /** Sets the reaction-related vectors in our d_data member. 
      * This code is based on stripping out the reaction component of the apply of the nonlinear 
