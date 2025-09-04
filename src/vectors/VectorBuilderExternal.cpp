@@ -17,7 +17,7 @@
 DISABLE_WARNINGS
     #include "Thyra_VectorDefaultBase_decl.hpp"
 ENABLE_WARNINGS
-    #ifdef AMP_USE_TRILINOS_EPETRA
+    #ifdef AMP_USE_TRILINOS_TPETRA
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorData.h"
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorOperations.h"
     #endif
