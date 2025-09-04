@@ -255,10 +255,8 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
                     x2[d2 + d1 * ndim] = x( d2, k );
                 }
             }
-            AMP::DelaunayTessellation::get_circumsphere( ndim, x1, R, c );
-            if ( R < 0 ) {
-                pass = false;
-            }
+            get_circumsphere( ndim, x1, R, c );
+            AMP_ASSERT( R > 0 );
             for ( int j = 0; j < ndim + 1; j++ ) {
                 double dist = 0.0;
                 for ( int d = 0; d < ndim; d++ )
@@ -270,13 +268,13 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
                 for ( int d = 0; d < ndim; d++ )
                     xi[d] = c[d];
                 xi[j]     = c[j] - 10.0 * R;
-                int test1 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test1 = test_in_circumsphere( ndim, x2, xi, 0 );
                 xi[j]     = c[j] - 0.1 * R;
-                int test2 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test2 = test_in_circumsphere( ndim, x2, xi, 0 );
                 xi[j]     = c[j] + 10.0 * R;
-                int test3 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test3 = test_in_circumsphere( ndim, x2, xi, 0 );
                 xi[j]     = c[j] + 0.1 * R;
-                int test4 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test4 = test_in_circumsphere( ndim, x2, xi, 0 );
                 if ( test1 != -1 || test2 != 1 || test3 != -1 || test4 != 1 ) {
                     pass = false;
                 }
@@ -336,7 +334,7 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
             for ( size_t j = 0; j < N; j++ ) {
                 for ( int d = 0; d < ndim; d++ )
                     xi[d] = x( d, j );
-                int test = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 1e-8 );
+                int test = test_in_circumsphere( ndim, x2, xi, 1e-8 );
                 if ( test == 1 ) {
                     pass_circumsphere = false;
                     break;
