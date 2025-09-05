@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "AMP/utils/Array.h"
+#include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/extended_int.h"
 
 
@@ -16,14 +17,19 @@ namespace AMP::DelaunayHelpers {
 template<int NDIM, class TYPE> struct getETYPE;
 template<> struct getETYPE<1,int> { typedef int ETYPE; };
 template<> struct getETYPE<2,int> { typedef int64_t ETYPE; };
+#ifdef __SIZEOF_INT128__
+DISABLE_WARNINGS
+template<> struct getETYPE<3,int> { typedef __int128 ETYPE; };
+template<> struct getETYPE<4,int> { typedef __int128 ETYPE; };
+ENABLE_WARNINGS
+#else
 template<> struct getETYPE<3,int> { typedef AMP::extended::int128_t ETYPE; };
 template<> struct getETYPE<4,int> { typedef AMP::extended::int128_t ETYPE; };
-template<> struct getETYPE<5,int> { typedef AMP::extended::int256_t ETYPE; };
+#endif
 template<> struct getETYPE<1,double> { typedef long double ETYPE; };
 template<> struct getETYPE<2,double> { typedef long double ETYPE; };
 template<> struct getETYPE<3,double> { typedef long double ETYPE; };
 template<> struct getETYPE<4,double> { typedef long double ETYPE; };
-template<> struct getETYPE<5,double> { typedef long double ETYPE; };
 // clang-format on
 
 

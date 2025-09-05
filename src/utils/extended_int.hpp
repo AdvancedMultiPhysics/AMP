@@ -104,16 +104,48 @@ constexpr int64N<N>::int64N( const char *str ) : data{ 0 }
 
 
 /********************************************************************
+ * Create from non-standard int128                                   *
+ ********************************************************************/
+#ifdef __SIZEOF_INT128__
+DISABLE_WARNINGS
+template<uint8_t N>
+constexpr int64N<N>::int64N( __int128 x ) : data{ 0 }
+{
+    bool test = x < 0;
+    if ( test )
+        x = -x;
+    if ( N == 1 && x > std::numeric_limits<int64_t>::max() )
+        throw std::logic_error( "__int128 does not fit in integer" );
+    data[0] = ( x << 64 ) >> 64;
+    if ( N > 1 )
+        data[1] = x >> 64;
+    if ( test )
+        compliment();
+}
+template<uint8_t N>
+constexpr int64N<N>::int64N( unsigned __int128 x ) : data{ 0 }
+{
+    if ( N == 1 && x > std::numeric_limits<uint64_t>::max() )
+        throw std::logic_error( "__uint128 does not fit in integer" );
+    data[0] = ( x << 64 ) >> 64;
+    if ( N > 1 )
+        data[1] = x >> 64;
+}
+ENABLE_WARNINGS
+#endif
+
+
+/********************************************************************
  * Convert to a hex string                                           *
  ********************************************************************/
 template<uint8_t N>
 constexpr std::array<char, 16 * N + 3> int64N<N>::hex( bool fixedWidth ) const
 {
-    constexpr char hexmap[]         = "0123456789abcdef";
-    std::array<char, 16 *N + 3> hex = { 0 };
-    hex[0]                          = '0';
-    hex[1]                          = 'x';
-    size_t k                        = 2;
+    constexpr char hexmap[]          = "0123456789abcdef";
+    std::array<char, 16 * N + 3> hex = { 0 };
+    hex[0]                           = '0';
+    hex[1]                           = 'x';
+    size_t k                         = 2;
     for ( int i = N - 1; i >= 0; i-- ) {
         for ( int j = 60; j >= 0; j -= 4 ) {
             char c = hexmap[( data[i] >> j ) & 0x0F];

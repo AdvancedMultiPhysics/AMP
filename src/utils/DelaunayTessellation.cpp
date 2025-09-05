@@ -132,35 +132,175 @@ static inline double dot( int N, const long double *x, const long double *y )
     }
     return static_cast<double>( ans );
 }
-// Integer based dot products
-static inline double dot( int N, const int *x, const int *y )
+#ifdef __SIZEOF_INT128__
+DISABLE_WARNINGS
+static inline double dot3( const int64_t *x, const uint64_t *y )
 {
-    int64_t ans( 0 );
-    for ( int i = 0; i < N; i++ )
-        ans += int64_t( x[i] ) * int64_t( y[i] );
+    auto ans = __int128( x[0] ) * __int128( y[0] ) + __int128( x[1] ) * __int128( y[1] ) +
+               __int128( x[2] ) * __int128( y[2] );
     return static_cast<double>( ans );
 }
-static inline double dot( int N, const int64_t *x, const int64_t *y )
+static inline double dot4( const __int128 *x, const uint64_t *y )
 {
-    int128_t ans( 0 );
-    for ( int i = 0; i < N; i++ )
-        ans += int128_t( x[i] ) * int128_t( y[i] );
+    auto ans = int256_t( x[0] ) * int256_t( y[0] ) + int256_t( x[1] ) * int256_t( y[1] ) +
+               int256_t( x[2] ) * int256_t( y[2] ) + int256_t( x[3] ) * int256_t( y[3] );
     return static_cast<double>( ans );
 }
-static inline double dot( int N, const int128_t *x, const int128_t *y )
+ENABLE_WARNINGS
+#else
+static inline double dot3( const int64_t *x, const uint64_t *y )
 {
-    int256_t ans( 0 );
-    for ( int i = 0; i < N; i++ )
-        ans += int256_t( x[i] ) * int256_t( y[i] );
+    auto ans = int128_t( x[0] ) * int128_t( y[0] ) + int128_t( x[1] ) * int128_t( y[1] ) +
+               int128_t( x[2] ) * int128_t( y[2] );
     return static_cast<double>( ans );
 }
-static inline double dot( int N, const int256_t *x, const int256_t *y )
+static inline double dot4( const int128_t *x, const uint64_t *y )
 {
-    int512_t ans( 0 );
-    for ( int i = 0; i < N; i++ )
-        ans += int512_t( x[i] ) * int512_t( y[i] );
+    auto ans = int256_t( x[0] ) * int256_t( y[0] ) + int256_t( x[1] ) * int256_t( y[1] ) +
+               int256_t( x[2] ) * int256_t( y[2] ) + int256_t( x[3] ) * int256_t( y[3] );
     return static_cast<double>( ans );
 }
+#endif
+
+/************************************************************************
+ * This function tests if a point is inside the circumsphere of an       *
+ *    nd-simplex.                                                        *
+ * For performance, I assume the points are ordered properly such that   *
+ * the volume of the simplex (as calculated by calc_volume) is positive. *
+ *                                                                       *
+ * The point is inside the circumsphere if the determinant is positive   *
+ * for points stored in a clockwise manner.  If the order is not known,  *
+ * we can compare to a point we know is inside the cicumsphere.          *
+ *    |  x1-xi   y1-yi   z1-zi   (x1-xi)^2+(y1-yi)^2+(z1-yi)^2  |        *
+ *    |  x2-xi   y2-yi   z2-zi   (x2-xi)^2+(y2-yi)^2+(z2-yi)^2  |        *
+ *    |  x3-xi   y3-yi   z3-zi   (x3-xi)^2+(y3-yi)^2+(z3-yi)^2  |        *
+ *    |  x4-xi   y4-yi   z4-zi   (x4-xi)^2+(y4-yi)^2+(z4-yi)^2  |        *
+ * det(A) == 0:  We are on the circumsphere                              *
+ * det(A) > 0:   We are inside the circumsphere                          *
+ * det(A) < 0:   We are outside the circumsphere                         *
+ *                                                                       *
+ * Note: this implementation requires N^(D+2) precision                  *
+ ************************************************************************/
+static int test_in_circumsphere( const std::array<int, 2> x[], const std::array<int, 2> &xi )
+{
+    // Solve the sub-determinants (requires N^2 precision)
+    double R2 = 0.0;
+    int64_t det2[3];
+    uint64_t R[3] = { 0, 0, 0 };
+    for ( int d = 0; d <= 2; d++ ) {
+        int64_t A2[4];
+        for ( int j = 0; j < 2; j++ ) {
+            int64_t tmp = x[d][j] - xi[j];
+            R[d] += tmp * tmp;
+            for ( int i = 0; i < d; i++ )
+                A2[i + j * 2] = x[i][j] - xi[j];
+            for ( int i = d + 1; i <= 2; i++ )
+                A2[i - 1 + j * 2] = x[i][j] - xi[j];
+        }
+        R2 += static_cast<double>( R[d] );
+        det2[d] = DelaunayHelpers::det<int64_t, 2>( A2 );
+        if ( ( 2 + d ) % 2 == 1 )
+            det2[d] = -det2[d];
+    }
+    // Compute the determinate
+    double det_A = dot3( det2, R );
+    if ( fabs( det_A ) == 0 )
+        return 0; // We are on the circumsphere
+    else if ( det_A > 0 )
+        return 1; // We inside the circumsphere
+    else
+        return -1; // We outside the circumsphere
+}
+static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<int, 3> &xi )
+{
+    using ETYPE = typename getETYPE<3, int>::ETYPE;
+    // Solve the sub-determinants (requires N^3 precision)
+    double R2 = 0.0;
+    ETYPE det2[4];
+    uint64_t R[4] = { 0, 0, 0, 0 };
+    for ( int d = 0; d <= 3; d++ ) {
+        ETYPE A2[9];
+        for ( int j = 0; j < 3; j++ ) {
+            int64_t tmp = x[d][j] - xi[j];
+            R[d] += tmp * tmp;
+            for ( int i = 0; i < d; i++ )
+                A2[i + j * 3] = ETYPE( x[i][j] - xi[j] );
+            for ( int i = d + 1; i <= 3; i++ )
+                A2[i - 1 + j * 3] = ETYPE( x[i][j] - xi[j] );
+        }
+        R2 += static_cast<double>( R[d] );
+        det2[d] = DelaunayHelpers::det<ETYPE, 3>( A2 );
+        if ( ( 3 + d ) % 2 == 1 )
+            det2[d] = -det2[d];
+    }
+    // Compute the determinate
+    double det_A = dot4( det2, R );
+    if ( fabs( det_A ) == 0 )
+        return 0; // We are on the circumsphere
+    else if ( det_A > 0 )
+        return 1; // We inside the circumsphere
+    else
+        return -1; // We outside the circumsphere
+}
+template<int NDIM, class TYPE>
+int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
+                          const std::array<TYPE, NDIM> &xi,
+                          double TOL_VOL )
+{
+    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
+    if constexpr ( NDIM == 1 ) {
+        TYPE x1 = std::min( x[0][0], x[1][0] );
+        TYPE x2 = std::max( x[0][0], x[1][0] );
+        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x1 ) <= TOL_VOL )
+            return 0; // We are on the circumsphere
+        if ( xi[0] > x1 && xi[0] < x2 )
+            return 1; // We inside the circumsphere
+        return -1;    // We outside the circumsphere
+    } else if constexpr ( std::is_same_v<TYPE, int> ) {
+        return test_in_circumsphere( x, xi );
+    } else {
+        // Solve the sub-determinants (requires N^NDIM precision)
+        double R2 = 0.0;
+        const ETYPE one( 1 ), neg( -1 );
+        ETYPE det2[NDIM + 1], R[NDIM + 1];
+        for ( int d = 0; d <= NDIM; d++ ) {
+            ETYPE A2[NDIM * NDIM];
+            ETYPE sum( 0 );
+            for ( int j = 0; j < NDIM; j++ ) {
+                ETYPE tmp( x[d][j] - xi[j] );
+                sum += tmp * tmp;
+                for ( int i = 0; i < d; i++ )
+                    A2[i + j * NDIM] = ETYPE( x[i][j] - xi[j] );
+                for ( int i = d + 1; i <= NDIM; i++ )
+                    A2[i - 1 + j * NDIM] = ETYPE( x[i][j] - xi[j] );
+            }
+            R[d] = sum;
+            R2 += static_cast<double>( R[d] );
+            const ETYPE &sign = ( ( NDIM + d ) % 2 == 0 ) ? one : neg;
+            det2[d]           = sign * DelaunayHelpers::det<ETYPE, NDIM>( A2 );
+        }
+        // Compute the determinate
+        double det_A = dot( NDIM + 1, det2, R );
+        if ( fabs( det_A ) <= 0.1 * R2 * TOL_VOL ) {
+            // We are on the circumsphere
+            return 0;
+        } else if ( det_A > 0 ) {
+            // We inside the circumsphere
+            return 1;
+        } else {
+            // We outside the circumsphere
+            return -1;
+        }
+    }
+}
+// clang-format off
+template int test_in_circumsphere<1,int>( const std::array<int,1>[], const std::array<int,1> &, double );
+template int test_in_circumsphere<2,int>( const std::array<int,2>[], const std::array<int,2> &, double );
+template int test_in_circumsphere<3,int>( const std::array<int,3>[], const std::array<int,3> &, double );
+template int test_in_circumsphere<1,double>( const std::array<double,1>[], const std::array<double,1> &, double );
+template int test_in_circumsphere<2,double>( const std::array<double,2>[], const std::array<double,2> &, double );
+template int test_in_circumsphere<3,double>( const std::array<double,3>[], const std::array<double,3> &, double );
+// clang-format on
 
 
 /********************************************************************
@@ -594,7 +734,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
                     x2[j1] = x[m];
                 }
                 int m     = tri[elem.t2][elem.f2];
-                int test  = test_in_circumsphere<NDIM, int>( x2, x[m], 0 );
+                int test  = test_in_circumsphere( x2, x[m] );
                 elem.test = ( test != 1 ) ? 0xFF : 0x01;
             }
             // Remove all surfaces that are good
@@ -1232,7 +1372,7 @@ static bool flip_3D_22( const std::array<int, 3> x[],
                 int k = new_tri[j];
                 x2[j] = x[k];
             }
-            int test = test_in_circumsphere<3, int>( x2, x[v4], 0 );
+            int test = test_in_circumsphere( x2, x[v4] );
             if ( test == 1 ) {
                 // The flip did not fix the Delaunay condition
                 continue;
@@ -1412,7 +1552,7 @@ static bool flip_3D_32( const std::array<int, 3> x[],
             int k = new_tri[j];
             x2[j] = x[k];
         }
-        int test = test_in_circumsphere<3, int>( x2, x[nodes[1]], 0 );
+        int test = test_in_circumsphere( x2, x[nodes[1]] );
         if ( test == 1 ) {
             // The new triangles did not fixed the surface
             continue;
@@ -1554,7 +1694,7 @@ static bool flip_3D_23( const std::array<int, 3> x[],
         } else {
             k = is[0];
         }
-        int test = test_in_circumsphere<3, int>( x2, x[k], 0 );
+        int test = test_in_circumsphere( x2, x[k] );
         if ( test == 1 ) {
             // The new triangles did not fix the surface
             isvalid = false;
@@ -1882,7 +2022,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
                         k = new_tri[7];
                     else if ( it2 == 1 || it2 == 3 )
                         k = new_tri[3];
-                    int test = test_in_circumsphere<3, int>( x2, x[k], 0 );
+                    int test = test_in_circumsphere( x2, x[k] );
                     if ( test == 1 )
                         isvalid = false;
                 }
@@ -2237,83 +2377,6 @@ template void get_circumsphere<3,int>( const std::array<int,3> x0[], double &R, 
 template void get_circumsphere<1,double>( const std::array<double,1> x0[], double &R, double *center );
 template void get_circumsphere<2,double>( const std::array<double,2> x0[], double &R, double *center );
 template void get_circumsphere<3,double>( const std::array<double,3> x0[], double &R, double *center );
-// clang-format on
-
-
-/************************************************************************
- * This function tests if a point is inside the circumsphere of an       *
- *    nd-simplex.                                                        *
- * For performance, I assume the points are ordered properly such that   *
- * the volume of the simplex (as calculated by calc_volume) is positive. *
- *                                                                       *
- * The point is inside the circumsphere if the determinant is positive   *
- * for points stored in a clockwise manner.  If the order is not known,  *
- * we can compare to a point we know is inside the cicumsphere.          *
- *    |  x1-xi   y1-yi   z1-zi   (x1-xi)^2+(y1-yi)^2+(z1-yi)^2  |        *
- *    |  x2-xi   y2-yi   z2-zi   (x2-xi)^2+(y2-yi)^2+(z2-yi)^2  |        *
- *    |  x3-xi   y3-yi   z3-zi   (x3-xi)^2+(y3-yi)^2+(z3-yi)^2  |        *
- *    |  x4-xi   y4-yi   z4-zi   (x4-xi)^2+(y4-yi)^2+(z4-yi)^2  |        *
- * det(A) == 0:  We are on the circumsphere                              *
- * det(A) > 0:   We are inside the circumsphere                          *
- * det(A) < 0:   We are outside the circumsphere                         *
- *                                                                       *
- * Note: this implementation requires N^D precision                      *
- ************************************************************************/
-template<int NDIM, class TYPE>
-int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
-                          const std::array<TYPE, NDIM> &xi,
-                          double TOL_VOL )
-{
-    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
-    if constexpr ( NDIM == 1 ) {
-        TYPE x1 = std::min( x[0][0], x[1][0] );
-        TYPE x2 = std::max( x[0][0], x[1][0] );
-        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x1 ) <= TOL_VOL )
-            return 0; // We are on the circumsphere
-        if ( xi[0] > x1 && xi[0] < x2 )
-            return 1; // We inside the circumsphere
-        return -1;    // We outside the circumsphere
-    }
-    // Solve the sub-determinants (requires N^NDIM precision)
-    double R2 = 0.0;
-    const ETYPE one( 1 ), neg( -1 );
-    ETYPE det2[NDIM + 1], R[NDIM + 1];
-    for ( int d = 0; d <= NDIM; d++ ) {
-        ETYPE A2[NDIM * NDIM];
-        ETYPE sum( 0 );
-        for ( int j = 0; j < NDIM; j++ ) {
-            ETYPE tmp( x[d][j] - xi[j] );
-            sum += tmp * tmp;
-            for ( int i = 0; i < d; i++ )
-                A2[i + j * NDIM] = ETYPE( x[i][j] - xi[j] );
-            for ( int i = d + 1; i <= NDIM; i++ )
-                A2[i - 1 + j * NDIM] = ETYPE( x[i][j] - xi[j] );
-        }
-        R[d] = sum;
-        R2 += static_cast<double>( R[d] );
-        const ETYPE &sign = ( ( NDIM + d ) % 2 == 0 ) ? one : neg;
-        det2[d]           = sign * DelaunayHelpers::det<ETYPE, NDIM>( A2 );
-    }
-    // Compute the determinate
-    double det_A = dot( NDIM + 1, det2, R );
-    if ( fabs( det_A ) <= 0.1 * R2 * TOL_VOL ) {
-        // We are on the circumsphere
-        return 0;
-    } else if ( det_A > 0 ) {
-        // We inside the circumsphere
-        return 1;
-    } else {
-        // We outside the circumsphere
-        return -1;
-    }
-}
-// clang-format off
-template int test_in_circumsphere<1,int>( const std::array<int,1>[], const std::array<int,1> &, double );
-template int test_in_circumsphere<2,int>( const std::array<int,2>[], const std::array<int,2> &, double );
-template int test_in_circumsphere<3,int>( const std::array<int,3>[], const std::array<int,3> &, double );
-template int test_in_circumsphere<1,double>( const std::array<double,1>[], const std::array<double,1> &, double );
-template int test_in_circumsphere<2,double>( const std::array<double,2>[], const std::array<double,2> &, double );
-template int test_in_circumsphere<3,double>( const std::array<double,3>[], const std::array<double,3> &, double );
 // clang-format on
 
 
