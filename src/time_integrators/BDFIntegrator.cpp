@@ -240,8 +240,6 @@ void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
                 if ( d_use_pi_controller ) {
                     d_pi_controller_type =
                         db->getWithDefault<std::string>( "pi_controller_type", "PC.4.7" );
-                } else {
-                    d_pi_controller_type = "";
                 }
 
                 // override and set to true if we are using the truncation error strategy
@@ -267,16 +265,6 @@ void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
                 // can happen if the truncation error strategy is chosen
                 d_calculateTimeTruncError =
                     db->getWithDefault<bool>( "calculate_time_trunc_error", false );
-            }
-
-            if ( ( d_timestep_strategy == "limit relative change" ) ||
-                 ( d_combine_timestep_estimators ) ) {
-                if ( db->keyExists( "target_relative_change" ) ) {
-                    d_target_relative_change = db->getScalar<double>( "target_relative_change" );
-                } else {
-                    AMP_ERROR( d_object_name +
-                               " -- Key data `target_relative_change' missing in input." );
-                }
             }
         }
 
@@ -514,7 +502,7 @@ void BDFIntegrator::setTimeHistoryScalings( void )
                                           ( h5 - h4 ) * ( h6 - h4 ) );
         const double a5 = ( n5 * n5 ) / ( alpha * ( h1 - h5 ) * ( h2 - h5 ) * ( h3 - h5 ) *
                                           ( h4 - h5 ) * ( h6 - h5 ) );
-        const double a6 = ( n6 * n6 ) / ( alpha * ( h1 - h5 ) * ( h2 - h6 ) * ( h3 - h6 ) *
+        const double a6 = ( n6 * n6 ) / ( alpha * ( h1 - h6 ) * ( h2 - h6 ) * ( h3 - h6 ) *
                                           ( h4 - h6 ) * ( h5 - h6 ) );
 
         d_a.resize( 6 );
@@ -731,8 +719,6 @@ double BDFIntegrator::integratorSpecificGetNextDt( const bool good_solution,
                     d_current_dt = getNextDtConstant( good_solution, solver_retcode );
                 } else if ( d_timestep_strategy == "final constant" ) {
                     d_current_dt = getNextDtFinalConstant( good_solution, solver_retcode );
-                } else if ( d_timestep_strategy == "limit relative change" ) {
-                    d_current_dt = estimateDynamicalTimeScale( d_current_dt );
                 } else {
                     AMP_ERROR( "Unknown time step control strategy selected:  " +
                                d_timestep_strategy );
@@ -745,7 +731,7 @@ double BDFIntegrator::integratorSpecificGetNextDt( const bool good_solution,
                 // solution method failure, decrease step by d_DtCutLowerBound*d_current_dt
                 if ( d_iDebugPrintInfoLevel > 0 ) {
                     AMP::pout << std::setprecision( 16 )
-                              << "The solution process failed. Timestep is being decreased by "
+                              << "The implicit solver failed. Timestep is being decreased by "
                                  "max allowable factor:: "
                               << d_DtCutLowerBound << std::endl;
                 }
@@ -763,9 +749,6 @@ double BDFIntegrator::integratorSpecificGetNextDt( const bool good_solution,
 
     return ( d_current_dt );
 }
-
-
-double BDFIntegrator::getPredictorTimestepBound( void ) { return 0; }
 
 void BDFIntegrator::evaluatePredictor()
 {
@@ -1218,79 +1201,6 @@ void BDFIntegrator::integratorSpecificUpdateSolution( const double new_time )
 
 double BDFIntegrator::getTimeOperatorScaling( void ) { return d_gamma; }
 
-/*
-************************************************************************
-*                                                                      *
-*  Estimate dynamical time scale.  Implements time step control that   *
-*  limits relative change in the solution.                             *
-*                                                                      *
-*  N.B.  Currently an extra copy of u and f are kept, just to store    *
-*  absolute values.  This implementation can be changed to perform the *
-*  needed operation level-by-level, and storage for the absolute       *
-*  values can be dynamically managed here, to reduce storage costs.    *
-*  When that's done, don't forget to 'unregister' the indices from     *
-*  d_problem_data.                                                     *
-*                                                                      *
-************************************************************************
-*/
-double BDFIntegrator::estimateDynamicalTimeScale( double current_dt )
-{
-    PROFILE( "estimateDynamicalTimeScale" );
-
-    if ( d_implicit_integrator == "CN" ) {
-        AMP_ERROR( "Implemented only for BE and BDF2" );
-    }
-
-    d_scratch_vector->addScalar( *d_prev_solutions[0], std::numeric_limits<double>::epsilon() );
-    d_scratch_vector->divide( *d_prev_solutions[1], *d_scratch_vector );
-    d_scratch_vector->addScalar( *d_scratch_vector, -1 );
-    d_scratch_vector->abs( *d_scratch_vector );
-
-    std::vector<double> actual_relative_change_in_vars;
-
-    const size_t nComponents = d_scratch_vector->getNumberOfComponents();
-    for ( size_t i = 0u; i < nComponents; ++i ) {
-
-        // subset for each component (cheap)
-        auto component_vector = d_scratch_function_vector->subsetVectorForComponent( i );
-
-        // the L2 Norm tends to under-estimate the error for the AMR calculations
-        // but might be useful immediately after regrid as the max norm will probably
-        // over predict at that point.
-        if ( d_timeTruncationErrorNormType == "maxNorm" ) {
-            actual_relative_change_in_vars.push_back(
-                static_cast<double>( component_vector->maxNorm() ) );
-        } else {
-            actual_relative_change_in_vars.push_back(
-                static_cast<double>( component_vector->L2Norm() ) );
-        }
-    }
-
-    auto actual_relative_change = std::max_element( actual_relative_change_in_vars.begin(),
-                                                    actual_relative_change_in_vars.end() );
-
-    if ( d_iDebugPrintInfoLevel > 4 ) {
-        for ( size_t i = 0u; i < nComponents; ++i ) {
-            std::string var_name =
-                ( d_var_names.size() == (unsigned int) nComponents ) ? d_var_names[i] : "var";
-            AMP::plog << " Actual relative change in " << var_name << " = "
-                      << actual_relative_change_in_vars[i] << std::endl;
-        }
-    }
-
-    double factor = ( current_dt > 0.5 ) ? 1.05 : 1.1;
-    factor        = ( current_dt > 10.0 ) ? 1.03 : factor;
-
-    // this is the factor used in Dana's paper
-    double cfl_new_dt =
-        std::sqrt( d_target_relative_change / ( *actual_relative_change ) ) * d_current_dt;
-    //   double cfl_new_dt = (d_target_relative_change/actual_relative_change)*current_dt;
-
-    current_dt = std::min( cfl_new_dt, factor * current_dt );
-
-    return current_dt;
-}
-
 double BDFIntegrator::estimateDtWithTruncationErrorEstimates( double current_dt,
                                                               bool good_solution )
 {
@@ -1600,7 +1510,7 @@ void BDFIntegrator::calculateTemporalTruncationError()
         d_alpha            = d_current_dt / d_old_dt;
         double errorFactor = 0.0;
 
-        if ( d_scratch_vector.get() == nullptr ) {
+        if ( !d_scratch_vector ) {
             d_scratch_vector = d_solution_vector->clone();
         }
 

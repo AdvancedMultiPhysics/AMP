@@ -178,9 +178,6 @@ protected:
     //! term for the nonlinear equations at each timestep
     void computeIntegratorSourceTerm( void );
 
-    //! estimate timestep based on relative change in temperature and energy
-    double estimateDynamicalTimeScale( double current_dt );
-
     //! estimate timestep based on truncation error estimates
     double estimateDtWithTruncationErrorEstimates( double current_dt, bool good_solution );
 
@@ -242,12 +239,6 @@ protected:
                                     const std::string &prefix,
                                     const std::string &postfix,
                                     const std::string &norm );
-
-    /**
-     * Returns on the max timestep that the predictor can use without energy or temperature going
-     * negative
-     */
-    double getPredictorTimestepBound( void );
 
     void setTimeHistoryScalings() override;
 
