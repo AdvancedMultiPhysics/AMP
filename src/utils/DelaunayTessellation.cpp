@@ -54,8 +54,8 @@ static Array<int> convert( const Array<TYPE> &x )
             y( i ) = z;
         }
     } else {
-        int64_t int_max = pow( 2.0, 30 );
-        int shift       = 0;
+        constexpr int64_t int_max = 0x40000000; // 2^30
+        int shift                 = 0;
         while ( static_cast<int64_t>( max ) > int_max ) {
             shift++;
             max = max >> 1;
@@ -90,7 +90,6 @@ template<int NDIM>
 static bool find_flip( const std::array<int, NDIM> *x,
                        const std::array<int, NDIM + 1> *tri,
                        const std::array<int, NDIM + 1> *tri_nab,
-                       const double TOL_VOL,
                        std::vector<check_surface_struct> &check_surface,
                        int &N_tri_old,
                        int &N_tri_new,
@@ -203,13 +202,12 @@ static inline void checkClosest( const std::vector<std::array<int, NDIM>> &x,
     }
     r_min = std::sqrt( r_min );
     if ( r_min < 1e-8 * domain_size )
-        throw std::logic_error( "Duplicate or nearly duplicate points detected: " +
-                                std::to_string( r_min ) );
+        AMP_ERROR( "Duplicate or nearly duplicate points detected: " + std::to_string( r_min ) );
 }
 
 
 /********************************************************************
- * Test if 3 points are co-linear                                    *
+ * Test if 3 points are collinear                                    *
  ********************************************************************/
 template<int NDIM, class TYPE>
 static inline bool collinear( const std::array<TYPE, NDIM> *x, double tol )
@@ -239,7 +237,7 @@ static inline bool collinear( const std::array<TYPE, NDIM> *x, double tol )
 
 
 /********************************************************************
- * Test if all points are co-linear                                  *
+ * Test if all points are collinear                                  *
  ********************************************************************/
 template<int NDIM>
 static inline bool allCollinear( const Array<int> &x )
@@ -272,7 +270,7 @@ bool collinear( const Array<TYPE> &x )
     } else if ( NDIM == 3 ) {
         return allCollinear<3>( y );
     } else {
-        throw std::logic_error( "collinear is not supported for dimension > 5" );
+        AMP_ERROR( "collinear is not supported for dimension > 5" );
     }
 }
 template bool collinear<short>( const Array<short> & );
@@ -404,7 +402,7 @@ createInitialTriangle( const std::array<int, NDIM> &x0,
                 ik++;
                 if ( ik >= N ) {
                     // No 3 non-collinear points were found
-                    throw std::logic_error( "Error: All points are collinear" );
+                    AMP_ERROR( "Error: All points are collinear" );
                 }
             }
             break;
@@ -423,16 +421,15 @@ createInitialTriangle( const std::array<int, NDIM> &x0,
                     ik++;
                     if ( ik >= N ) {
                         // No 4 non-coplanar points were found
-                        throw std::logic_error( "Error: All points are coplanar" );
+                        AMP_ERROR( "Error: All points are coplanar" );
                     }
                 }
             } else {
-                throw std::logic_error(
-                    "Error: Co-planar check is not programmed for dimensions other than 3" );
+                AMP_ERROR( "Error: Co-planar check is not programmed for dimensions other than 3" );
             }
             break;
         default:
-            throw std::logic_error( "Error: Not programmed for this number of dimensions" );
+            AMP_ERROR( "Error: Not programmed for this number of dimensions" );
         }
         // Move the points if necessary
         if ( i != ik ) {
@@ -534,12 +531,6 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
             std::swap( tri_nab[neighbor[j]][face[j]], index_new );
             AMP_ASSERT( index_new == -1 );
         }
-#if DEBUG_CHECK == 2
-        bool all_valid =
-            check_current_triangles<NDIM>( N, x.data(), N_tri, tri, tri_nab, unused, TOL_VOL );
-        if ( !all_valid )
-            throw std::logic_error( "Failed internal triangle check" );
-#endif
         // Get a list of the surfaces we need to check for a valid tesselation
         for ( int j = 0; j < N_tri_new; j++ ) {
             int index_new = new_tri_id[j];
@@ -582,7 +573,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
         while ( !check_surface.empty() ) {
             PROFILE( "create-edge_flips", 4 );
             if ( it > std::max<size_t>( 500, N_tri ) )
-                throw std::logic_error( "Error: infinite loop detected" );
+                AMP_ERROR( "Error: infinite loop detected" );
             // First, lets eliminate all the surfaces that are fine
             for ( auto &elem : check_surface ) {
                 /* Check the surface to see if the triangle pairs need to undergo a flip
@@ -627,7 +618,6 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
             bool flipped_edge = find_flip<NDIM>( x.data(),
                                                  tri.data(),
                                                  tri_nab.data(),
-                                                 0,
                                                  check_surface,
                                                  N_tri_old,
                                                  N_tri_new,
@@ -641,7 +631,6 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
                 bool test = find_flip<NDIM>( x.data(),
                                              tri.data(),
                                              tri_nab.data(),
-                                             0,
                                              check_surface,
                                              N_tri_old,
                                              N_tri_new,
@@ -650,7 +639,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
                                              new_tri_nab );
                 if ( test )
                     printf( "   Valid flips were detected if we reset check_surface\n" );
-                throw std::logic_error( "Error: no valid flips detected" );
+                AMP_ERROR( "Error: no valid flips detected" );
             }
             // Check that we conserved the boundary triangles
             int old_tri_nab[( NDIM + 1 ) * 4]; // The maximum flip currently supported is a 4-4 flip
@@ -667,7 +656,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
             bool pass = conserved_neighbors(
                 N_tri_old * ( NDIM + 1 ), old_tri_nab, N_tri_new * ( NDIM + 1 ), new_tri_nab );
             if ( !pass )
-                throw std::logic_error( "Error: triangle neighbors not conserved" );
+                AMP_ERROR( "Error: triangle neighbors not conserved" );
             // Delete the old triangles, add the new ones, and update the structures
             // First get the indicies where we will store the new triangles
             int index_new[4];
@@ -781,26 +770,12 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
             // Update the faces on the convex hull
             if ( N_face_update != N_face_update2 ) {
                 printf( "N_face_update = %i, k = %i\n", N_face_update, N_face_update2 );
-                throw std::logic_error( "internal error" );
+                AMP_ERROR( "internal error" );
             }
             face_list.update_face(
                 N_face_update, old_tri_id, old_face_id, new_tri_id, new_face_id, tri.data() );
-// Check the current triangles for errors (Only when debug is set, very expensive)
-#if DEBUG_CHECK == 2
-            all_valid =
-                check_current_triangles<NDIM>( N, x.data(), N_tri, tri, tri_nab, unused, TOL_VOL );
-            if ( !all_valid )
-                throw std::logic_error( "Failed internal triangle check" );
-#endif
             it++;
         }
-// Check the current triangles for errors (Only when debug is set, very expensive)
-#if DEBUG_CHECK == 2
-        all_valid = check_current_triangles<NDIM>(
-            N, x.data(), N_tri, tri.data(), tri_nab.data(), unused, TOL_VOL );
-        if ( !all_valid )
-            throw std::logic_error( "Failed internal triangle check" );
-#endif
     }
     check_surface.clear();
     I = std::vector<int>();
@@ -838,8 +813,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
                     }
                 }
                 if ( !found )
-                    throw std::logic_error(
-                        "Error with internal structures (delete any unused triangles)" );
+                    AMP_ERROR( "Error with internal structures (delete any unused triangles)" );
             }
         }
         // Update the face list
@@ -859,7 +833,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
     }
     if ( test ) {
         // We should have removed all the NULL triangles in the previous step
-        throw std::logic_error( "Error with internal structures (NULL tri)\n" );
+        AMP_ERROR( "Error with internal structures (NULL tri)\n" );
     }
 
     // Remove triangles that are only likely to create problems
@@ -890,9 +864,9 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
 
     // Check the final set of triangles to make sure they are all valid
     bool all_valid =
-        check_current_triangles<NDIM>( N, x.data(), N_tri, tri.data(), tri_nab.data(), unused, 0 );
+        check_current_triangles<NDIM>( N, x.data(), N_tri, tri.data(), tri_nab.data(), unused );
     if ( !all_valid )
-        throw std::logic_error( "Final check of triangles failed" );
+        AMP_ERROR( "Final check of triangles failed" );
 
     // Resize the output vectors
     tri.resize( N_tri );
@@ -913,7 +887,7 @@ constexpr double vol_sphere( int NDIM, double r )
     else if ( NDIM == 3 )
         return 4.188790204786391 * r * r * r;
     else
-        throw std::logic_error( "vol_sphere is undefined for the NDIM" );
+        AMP_ERROR( "vol_sphere is undefined for the NDIM" );
 }
 template<int NDIM>
 static void clean_triangles( const int,
@@ -1045,83 +1019,6 @@ swap_triangles( int i1, int i2, std::array<int, NDIM + 1> *tri, std::array<int, 
 }
 
 
-/************************************************************************
- * This function tests if a point is inside the circumsphere of an       *
- *    nd-simplex.                                                        *
- * For performance, I assume the points are ordered properly such that   *
- * the volume of the simplex (as calculated by calc_volume) is positive. *
- *                                                                       *
- * The point is inside the circumsphere if the determinant is positive   *
- * for points stored in a clockwise manner.  If the order is not known,  *
- * we can compare to a point we know is inside the cicumsphere.          *
- *    |  x1-xi   y1-yi   z1-zi   (x1-xi)^2+(y1-yi)^2+(z1-yi)^2  |        *
- *    |  x2-xi   y2-yi   z2-zi   (x2-xi)^2+(y2-yi)^2+(z2-yi)^2  |        *
- *    |  x3-xi   y3-yi   z3-zi   (x3-xi)^2+(y3-yi)^2+(z3-yi)^2  |        *
- *    |  x4-xi   y4-yi   z4-zi   (x4-xi)^2+(y4-yi)^2+(z4-yi)^2  |        *
- * det(A) == 0:  We are on the circumsphere                              *
- * det(A) > 0:   We are inside the circumsphere                          *
- * det(A) < 0:   We are outside the circumsphere                         *
- *                                                                       *
- * Note: this implementation requires N^D precision                      *
- ************************************************************************/
-template<int NDIM, class TYPE>
-int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
-                          const std::array<TYPE, NDIM> &xi,
-                          double TOL_VOL )
-{
-    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
-    if constexpr ( NDIM == 1 ) {
-        TYPE x1 = std::min( x[0][0], x[1][0] );
-        TYPE x2 = std::max( x[0][0], x[1][0] );
-        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x1 ) <= TOL_VOL )
-            return 0; // We are on the circumsphere
-        if ( xi[0] > x1 && xi[0] < x2 )
-            return 1; // We inside the circumsphere
-        return -1;     // We outside the circumsphere
-    }
-    // Solve the sub-determinants (requires N^NDIM precision)
-    double R2 = 0.0;
-    const ETYPE one( 1 ), neg( -1 );
-    ETYPE det2[NDIM + 1], R[NDIM + 1];
-    for ( int d = 0; d <= NDIM; d++ ) {
-        ETYPE A2[NDIM * NDIM];
-        ETYPE sum( 0 );
-        for ( int j = 0; j < NDIM; j++ ) {
-            ETYPE tmp( x[d][j] - xi[j] );
-            sum += tmp * tmp;
-            for ( int i = 0; i < d; i++ )
-                A2[i + j * NDIM] = ETYPE( x[i][j] - xi[j] );
-            for ( int i = d + 1; i <= NDIM; i++ )
-                A2[i - 1 + j * NDIM] = ETYPE( x[i][j] - xi[j] );
-        }
-        R[d] = sum;
-        R2 += static_cast<double>( R[d] );
-        const ETYPE &sign = ( ( NDIM + d ) % 2 == 0 ) ? one : neg;
-        det2[d]           = sign * DelaunayHelpers::det<ETYPE, NDIM>( A2 );
-    }
-    // Compute the determinate (requires N^(NDIM+2) precision, used internally in dot)
-    double det_A = dot( NDIM + 1, det2, R );
-    if ( fabs( det_A ) <= 0.1 * R2 * TOL_VOL ) {
-        // We are on the circumsphere
-        return 0;
-    } else if ( det_A > 0 ) {
-        // We inside the circumsphere
-        return 1;
-    } else {
-        // We outside the circumsphere
-        return -1;
-    }
-}
-// clang-format off
-template int test_in_circumsphere<1,int>( const std::array<int,1>[], const std::array<int,1> &, double );
-template int test_in_circumsphere<2,int>( const std::array<int,2>[], const std::array<int,2> &, double );
-template int test_in_circumsphere<3,int>( const std::array<int,3>[], const std::array<int,3> &, double );
-template int test_in_circumsphere<1,double>( const std::array<double,1>[], const std::array<double,1> &, double );
-template int test_in_circumsphere<2,double>( const std::array<double,2>[], const std::array<double,2> &, double );
-template int test_in_circumsphere<3,double>( const std::array<double,3>[], const std::array<double,3> &, double );
-// clang-format on
-
-
 /********************************************************************
  * This function tests if the edge flip is valid.                    *
  * To be valid, the line between the two points that are not on the  *
@@ -1155,8 +1052,7 @@ static bool flip_2D( const std::array<int, 2> x[],
                      const int s2,
                      int *index_old,
                      int *new_tri,
-                     int *new_tri_nab,
-                     const double TOL_VOL )
+                     int *new_tri_nab )
 {
     // Check if the flip is valid (it should always be valid in 2D if it is necessary)
     std::array<int, 2> x2[3], xi;
@@ -1226,7 +1122,7 @@ static bool flip_2D( const std::array<int, 2> x[],
             x2[i] = x[k];
         }
         double volume = DelaunayHelpers::calcVolume<2, int>( x2 );
-        if ( fabs( volume ) <= TOL_VOL ) {
+        if ( fabs( volume ) <= 0 ) {
             // The triangle is invalid (collinear)
             isvalid = false;
         } else if ( volume < 0 ) {
@@ -1258,8 +1154,7 @@ static bool flip_3D_22( const std::array<int, 3> x[],
                         const int s2,
                         int *index_old,
                         int *new_tri,
-                        int *new_tri_nab,
-                        const double TOL_VOL )
+                        int *new_tri_nab )
 {
     // The 2-2 fip is only valid when 4 of the vertices lie on a plane on the convex hull
     // This is likely for structured grids
@@ -1294,7 +1189,7 @@ static bool flip_3D_22( const std::array<int, 3> x[],
             // Check if the 4 vertices are coplanar (the resulting simplex will have a volume of 0)
             std::array<int, 3> x2[4] = { x[v1], x[v2], x[v3], x[v4] };
             double vol               = fabs( DelaunayHelpers::calcVolume<3, int>( x2 ) );
-            if ( vol > TOL_VOL ) {
+            if ( vol > 0 ) {
                 // The points are not coplanar
                 continue;
             }
@@ -1318,7 +1213,7 @@ static bool flip_3D_22( const std::array<int, 3> x[],
                     x2[i] = x[k];
                 }
                 double volume = DelaunayHelpers::calcVolume<3, int>( x2 );
-                if ( fabs( volume ) <= TOL_VOL ) {
+                if ( fabs( volume ) <= 0 ) {
                     // The triangle is invalid (collinear)
                     isvalid = false;
                 } else if ( volume < 0 ) {
@@ -1337,7 +1232,7 @@ static bool flip_3D_22( const std::array<int, 3> x[],
                 int k = new_tri[j];
                 x2[j] = x[k];
             }
-            int test = test_in_circumsphere<3, int>( x2, x[v4], TOL_VOL );
+            int test = test_in_circumsphere<3, int>( x2, x[v4], 0 );
             if ( test == 1 ) {
                 // The flip did not fix the Delaunay condition
                 continue;
@@ -1404,8 +1299,7 @@ static bool flip_3D_32( const std::array<int, 3> x[],
                         const int,
                         int *index_old,
                         int *new_tri,
-                        int *new_tri_nab,
-                        const double TOL_VOL )
+                        int *new_tri_nab )
 {
     // Search for triangles that are neighbors to both t1 and t2
     int nab_list[4];
@@ -1500,7 +1394,7 @@ static bool flip_3D_32( const std::array<int, 3> x[],
                 x2[i] = x[k];
             }
             double volume = DelaunayHelpers::calcVolume<3, int>( x2 );
-            if ( fabs( volume ) <= TOL_VOL ) {
+            if ( fabs( volume ) <= 0 ) {
                 // The triangle is invalid (collinear)
                 isvalid = false;
             } else if ( volume < 0 ) {
@@ -1518,7 +1412,7 @@ static bool flip_3D_32( const std::array<int, 3> x[],
             int k = new_tri[j];
             x2[j] = x[k];
         }
-        int test = test_in_circumsphere<3, int>( x2, x[nodes[1]], TOL_VOL );
+        int test = test_in_circumsphere<3, int>( x2, x[nodes[1]], 0 );
         if ( test == 1 ) {
             // The new triangles did not fixed the surface
             continue;
@@ -1585,8 +1479,7 @@ static bool flip_3D_23( const std::array<int, 3> x[],
                         const int s2,
                         int *index_old,
                         int *new_tri,
-                        int *new_tri_nab,
-                        const double TOL_VOL )
+                        int *new_tri_nab )
 {
     // First lets check if the flip is valid
     std::array<int, 3> x2[4];
@@ -1634,7 +1527,7 @@ static bool flip_3D_23( const std::array<int, 3> x[],
             x2[i] = x[k];
         }
         double volume = DelaunayHelpers::calcVolume<3, int>( x2 );
-        if ( fabs( volume ) <= TOL_VOL ) {
+        if ( fabs( volume ) <= 0 ) {
             // The triangle is invalid (collinear)
             isvalid = false;
         } else if ( volume < 0 ) {
@@ -1661,7 +1554,7 @@ static bool flip_3D_23( const std::array<int, 3> x[],
         } else {
             k = is[0];
         }
-        int test = test_in_circumsphere<3, int>( x2, x[k], TOL_VOL );
+        int test = test_in_circumsphere<3, int>( x2, x[k], 0 );
         if ( test == 1 ) {
             // The new triangles did not fix the surface
             isvalid = false;
@@ -1728,8 +1621,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
                         const int s2,
                         int *index_old,
                         int *new_tri,
-                        int *new_tri_nab,
-                        const double TOL_VOL )
+                        int *new_tri_nab )
 {
     // Loop through the triangle neighbors for both t1 and t2, to find
     // a pair of triangles that form and octahedron
@@ -1832,7 +1724,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
             for ( int it = 0; it < 2; it++ ) { // Loop through the sets (2)
                 if ( it == 0 ) {
                     // Check set 1
-                    if ( vol1 > TOL_VOL ) {
+                    if ( vol1 > 0 ) {
                         // Set 1 is not coplanar
                         continue;
                     }
@@ -1858,7 +1750,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
                     }
                 } else if ( it == 1 ) {
                     // Check set 2
-                    if ( vol2 > TOL_VOL ) {
+                    if ( vol2 > 0 ) {
                         // Set 1 is not coplanar
                         continue;
                     }
@@ -1965,7 +1857,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
                         x2[i] = x[k];
                     }
                     double volume = DelaunayHelpers::calcVolume<3, int>( x2 );
-                    if ( fabs( volume ) <= TOL_VOL ) {
+                    if ( fabs( volume ) <= 0 ) {
                         // The triangle is invalid (coplanar)
                         isvalid = false;
                     } else if ( volume < 0 ) {
@@ -1990,7 +1882,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
                         k = new_tri[7];
                     else if ( it2 == 1 || it2 == 3 )
                         k = new_tri[3];
-                    int test = test_in_circumsphere<3, int>( x2, x[k], TOL_VOL );
+                    int test = test_in_circumsphere<3, int>( x2, x[k], 0 );
                     if ( test == 1 )
                         isvalid = false;
                 }
@@ -2054,16 +1946,16 @@ static bool flip_3D_44( const std::array<int, 3> x[],
  *      new_tri_nab -(i+1) - Triangle neighbor is the ith new triangle   *
  *      new_tri_nab ==-1   - Triangle face is on the convex hull         *
  ************************************************************************/
-static bool find_flip_2D( const std::array<int, 2> *x,
-                          const int *tri,
-                          const int *tri_nab,
-                          const double TOL_VOL,
-                          std::vector<check_surface_struct> &check_surface,
-                          int &N_tri_old,
-                          int &N_tri_new,
-                          int *index_old,
-                          int *new_tri,
-                          int *new_tri_nab )
+template<>
+bool find_flip<2>( const std::array<int, 2> *x,
+                   const std::array<int, 3> *tri,
+                   const std::array<int, 3> *tri_nab,
+                   std::vector<check_surface_struct> &check_surface,
+                   int &N_tri_old,
+                   int &N_tri_new,
+                   int *index_old,
+                   int *new_tri,
+                   int *new_tri_nab )
 {
     PROFILE( "find_flip<2>", 4 );
     // In 2D we only have one type of flip (2-2 flip)
@@ -2073,29 +1965,12 @@ static bool find_flip_2D( const std::array<int, 2> *x,
             // We already tried this flip
             continue;
         }
-        int s1 = elem.f1;
-        int s2 = elem.f2;
-        int t1 = elem.t1;
-        int t2 = elem.t2;
-#if DEBUG_CHECK >= 1
-        TYPE x1[6] = { 0 }, x2[6] = { 0 }, xi1[2] = { 0 }, xi2[2] = { 0 };
-        for ( int j = 0; j < 3; j++ ) {
-            int m1 = tri[j + t1 * 3];
-            int m2 = tri[j + t2 * 3];
-            x1[j]  = x[m1];
-            x2[j]  = x[m2];
-        }
-        xi1[0]    = x2[0 + 2 * s2];
-        xi1[1]    = x2[1 + 2 * s2];
-        xi2[0]    = x1[0 + 2 * s1];
-        xi2[1]    = x1[1 + 2 * s1];
-        int test1 = test_in_circumsphere<2, int>( x1, xi1, TOL_VOL );
-        int test2 = test_in_circumsphere<2, int>( x2, xi2, TOL_VOL );
-        if ( test1 != 1 || test2 != 1 )
-            throw std::logic_error( "Internal error" );
-#endif
-        bool flipped_edge =
-            flip_2D( x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab, TOL_VOL );
+        int s1            = elem.f1;
+        int s2            = elem.f2;
+        int t1            = elem.t1;
+        int t2            = elem.t2;
+        bool flipped_edge = flip_2D(
+            x, tri[0].data(), tri_nab[0].data(), t1, s1, t2, s2, index_old, new_tri, new_tri_nab );
         if ( flipped_edge ) {
             N_tri_old = 2;
             N_tri_new = 2;
@@ -2109,19 +1984,21 @@ static bool find_flip_2D( const std::array<int, 2> *x,
     }
     return found;
 }
-static bool find_flip_3D( const std::array<int, 3> *x,
-                          const int *tri,
-                          const int *tri_nab,
-                          const double TOL_VOL,
-                          std::vector<check_surface_struct> &check_surface,
-                          int &N_tri_old,
-                          int &N_tri_new,
-                          int *index_old,
-                          int *new_tri,
-                          int *new_tri_nab )
+template<>
+bool find_flip<3>( const std::array<int, 3> *x,
+                   const std::array<int, 4> *tri0,
+                   const std::array<int, 4> *tri_nab0,
+                   std::vector<check_surface_struct> &check_surface,
+                   int &N_tri_old,
+                   int &N_tri_new,
+                   int *index_old,
+                   int *new_tri,
+                   int *new_tri_nab )
 {
     PROFILE( "find_flip<3>", 4 );
-    bool found = false;
+    const int *tri     = tri0[0].data();
+    const int *tri_nab = tri_nab0[0].data();
+    bool found         = false;
     // In 3D there are several possible types of flips
     // First let's see if there are any valid 2-2 flips
     if ( !found ) {
@@ -2130,12 +2007,12 @@ static bool find_flip_3D( const std::array<int, 3> *x,
                 // We already tried this flip
                 continue;
             }
-            int s1            = elem.f1;
-            int s2            = elem.f2;
-            int t1            = elem.t1;
-            int t2            = elem.t2;
-            bool flipped_edge = flip_3D_22(
-                x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab, TOL_VOL );
+            int s1 = elem.f1;
+            int s2 = elem.f2;
+            int t1 = elem.t1;
+            int t2 = elem.t2;
+            bool flipped_edge =
+                flip_3D_22( x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab );
             if ( flipped_edge ) {
                 N_tri_old = 2;
                 N_tri_new = 2;
@@ -2154,12 +2031,12 @@ static bool find_flip_3D( const std::array<int, 3> *x,
                 // We already tried this flip
                 continue;
             }
-            int s1            = elem.f1;
-            int s2            = elem.f2;
-            int t1            = elem.t1;
-            int t2            = elem.t2;
-            bool flipped_edge = flip_3D_23(
-                x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab, TOL_VOL );
+            int s1 = elem.f1;
+            int s2 = elem.f2;
+            int t1 = elem.t1;
+            int t2 = elem.t2;
+            bool flipped_edge =
+                flip_3D_23( x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab );
             if ( flipped_edge ) {
                 N_tri_old = 2;
                 N_tri_new = 3;
@@ -2175,12 +2052,12 @@ static bool find_flip_3D( const std::array<int, 3> *x,
     // Note: we must recheck this if we modified a neighboring triangle
     if ( !found ) {
         for ( auto &elem : check_surface ) {
-            int s1            = elem.f1;
-            int s2            = elem.f2;
-            int t1            = elem.t1;
-            int t2            = elem.t2;
-            bool flipped_edge = flip_3D_32(
-                x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab, TOL_VOL );
+            int s1 = elem.f1;
+            int s2 = elem.f2;
+            int t1 = elem.t1;
+            int t2 = elem.t2;
+            bool flipped_edge =
+                flip_3D_32( x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab );
             if ( flipped_edge ) {
                 N_tri_old = 3;
                 N_tri_new = 2;
@@ -2196,12 +2073,12 @@ static bool find_flip_3D( const std::array<int, 3> *x,
     // Note: we must recheck this if we modified a neighboring triangle
     if ( !found ) {
         for ( auto &elem : check_surface ) {
-            int s1            = elem.f1;
-            int s2            = elem.f2;
-            int t1            = elem.t1;
-            int t2            = elem.t2;
-            bool flipped_edge = flip_3D_44(
-                x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab, TOL_VOL );
+            int s1 = elem.f1;
+            int s2 = elem.f2;
+            int t1 = elem.t1;
+            int t2 = elem.t2;
+            bool flipped_edge =
+                flip_3D_44( x, tri, tri_nab, t1, s1, t2, s2, index_old, new_tri, new_tri_nab );
             if ( flipped_edge ) {
                 N_tri_old = 4;
                 N_tri_new = 4;
@@ -2214,44 +2091,6 @@ static bool find_flip_3D( const std::array<int, 3> *x,
         }
     }
     return found;
-}
-template<int NDIM>
-static bool find_flip( const std::array<int, NDIM> *x,
-                       const std::array<int, NDIM + 1> *tri,
-                       const std::array<int, NDIM + 1> *tri_nab,
-                       const double TOL_VOL,
-                       std::vector<check_surface_struct> &check_surface,
-                       int &N_tri_old,
-                       int &N_tri_new,
-                       int *index_old,
-                       int *new_tri,
-                       int *new_tri_nab )
-{
-    bool valid = false;
-    if constexpr ( NDIM == 2 ) {
-        valid = find_flip_2D( x,
-                              tri[0].data(),
-                              tri_nab[0].data(),
-                              TOL_VOL,
-                              check_surface,
-                              N_tri_old,
-                              N_tri_new,
-                              index_old,
-                              new_tri,
-                              new_tri_nab );
-    } else if constexpr ( NDIM == 3 ) {
-        valid = find_flip_3D( x,
-                              tri[0].data(),
-                              tri_nab[0].data(),
-                              TOL_VOL,
-                              check_surface,
-                              N_tri_old,
-                              N_tri_new,
-                              index_old,
-                              new_tri,
-                              new_tri_nab );
-    }
-    return valid;
 }
 
 
@@ -2277,7 +2116,7 @@ std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const Array<TY
         tri               = DelaunayHelpers::convert<int, 4>( tri2 );
         nab               = DelaunayHelpers::convert<int, 4>( nab2 );
     } else {
-        throw std::logic_error( "Unsupported dimension" );
+        AMP_ERROR( "Unsupported dimension" );
     }
     return std::tie( tri, nab );
 }
@@ -2319,7 +2158,7 @@ double calc_volume( int ndim, const double x[] )
     } else if ( ndim == 4 ) {
         vol = calc_volume2<4>( x );
     } else {
-        throw std::logic_error( "Unsupported dimension" );
+        AMP_ERROR( "Unsupported dimension" );
     }
     return vol;
 }
@@ -2351,26 +2190,26 @@ double calc_volume( int ndim, const double x[] )
  *                                                                       *
  * c = 0                                                                 *
  *                                                                       *
- * Note: This version does not use exact math                            *
  ************************************************************************/
 template<int NDIM, class TYPE>
 void get_circumsphere( const std::array<TYPE, NDIM> x0[], double &R, double *center )
 {
+    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
     if constexpr ( NDIM == 1 ) {
         center[0] = 0.5 * ( x0[0][0] + x0[1][0] );
         R         = 0.5 * std::abs( x0[0][0] - x0[1][0] );
         return;
     }
-    long double x[NDIM * NDIM];
+    ETYPE x[NDIM * NDIM];
     for ( int i = 0; i < NDIM; i++ ) {
         for ( int j = 0; j < NDIM; j++ )
-            x[j + i * NDIM] = static_cast<double>( x0[i + 1][j] - x0[0][j] );
+            x[j + i * NDIM] = ETYPE( x0[i + 1][j] - x0[0][j] );
     }
-    long double A[NDIM * NDIM], D[NDIM][NDIM * NDIM];
+    ETYPE A[NDIM * NDIM], D[NDIM][NDIM * NDIM];
     for ( int i = 0; i < NDIM; i++ ) {
-        long double tmp( 0 );
+        ETYPE tmp( 0 );
         for ( int j = 0; j < NDIM; j++ ) {
-            long double x2 = static_cast<double>( x[j + i * NDIM] );
+            ETYPE x2 = ETYPE( x[j + i * NDIM] );
             tmp += x2 * x2;
             A[i + j * NDIM] = x2;
             for ( int k = j + 1; k < NDIM; k++ )
@@ -2381,12 +2220,12 @@ void get_circumsphere( const std::array<TYPE, NDIM> x0[], double &R, double *cen
         for ( auto &elem : D )
             elem[i] = tmp;
     }
-    long double a = static_cast<double>( DelaunayHelpers::det<long double, NDIM>( A ) );
-    R             = 0.0;
+    double a = static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( A ) );
+    R        = 0.0;
     for ( int i = 0; i < NDIM; i++ ) {
-        long double d = ( ( i % 2 == 0 ) ? 1 : -1 ) *
-                        static_cast<double>( DelaunayHelpers::det<long double, NDIM>( D[i] ) );
-        center[i] = static_cast<double>( d / ( 2 * a ) + static_cast<long double>( x0[0][i] ) );
+        double d = ( ( i % 2 == 0 ) ? 1 : -1 ) *
+                   static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( D[i] ) );
+        center[i] = d / ( 2 * a ) + static_cast<double>( x0[0][i] );
         R += d * d;
     }
     R = std::sqrt( R ) / fabs( static_cast<double>( 2 * a ) );
@@ -2398,6 +2237,83 @@ template void get_circumsphere<3,int>( const std::array<int,3> x0[], double &R, 
 template void get_circumsphere<1,double>( const std::array<double,1> x0[], double &R, double *center );
 template void get_circumsphere<2,double>( const std::array<double,2> x0[], double &R, double *center );
 template void get_circumsphere<3,double>( const std::array<double,3> x0[], double &R, double *center );
+// clang-format on
+
+
+/************************************************************************
+ * This function tests if a point is inside the circumsphere of an       *
+ *    nd-simplex.                                                        *
+ * For performance, I assume the points are ordered properly such that   *
+ * the volume of the simplex (as calculated by calc_volume) is positive. *
+ *                                                                       *
+ * The point is inside the circumsphere if the determinant is positive   *
+ * for points stored in a clockwise manner.  If the order is not known,  *
+ * we can compare to a point we know is inside the cicumsphere.          *
+ *    |  x1-xi   y1-yi   z1-zi   (x1-xi)^2+(y1-yi)^2+(z1-yi)^2  |        *
+ *    |  x2-xi   y2-yi   z2-zi   (x2-xi)^2+(y2-yi)^2+(z2-yi)^2  |        *
+ *    |  x3-xi   y3-yi   z3-zi   (x3-xi)^2+(y3-yi)^2+(z3-yi)^2  |        *
+ *    |  x4-xi   y4-yi   z4-zi   (x4-xi)^2+(y4-yi)^2+(z4-yi)^2  |        *
+ * det(A) == 0:  We are on the circumsphere                              *
+ * det(A) > 0:   We are inside the circumsphere                          *
+ * det(A) < 0:   We are outside the circumsphere                         *
+ *                                                                       *
+ * Note: this implementation requires N^D precision                      *
+ ************************************************************************/
+template<int NDIM, class TYPE>
+int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
+                          const std::array<TYPE, NDIM> &xi,
+                          double TOL_VOL )
+{
+    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
+    if constexpr ( NDIM == 1 ) {
+        TYPE x1 = std::min( x[0][0], x[1][0] );
+        TYPE x2 = std::max( x[0][0], x[1][0] );
+        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x1 ) <= TOL_VOL )
+            return 0; // We are on the circumsphere
+        if ( xi[0] > x1 && xi[0] < x2 )
+            return 1; // We inside the circumsphere
+        return -1;    // We outside the circumsphere
+    }
+    // Solve the sub-determinants (requires N^NDIM precision)
+    double R2 = 0.0;
+    const ETYPE one( 1 ), neg( -1 );
+    ETYPE det2[NDIM + 1], R[NDIM + 1];
+    for ( int d = 0; d <= NDIM; d++ ) {
+        ETYPE A2[NDIM * NDIM];
+        ETYPE sum( 0 );
+        for ( int j = 0; j < NDIM; j++ ) {
+            ETYPE tmp( x[d][j] - xi[j] );
+            sum += tmp * tmp;
+            for ( int i = 0; i < d; i++ )
+                A2[i + j * NDIM] = ETYPE( x[i][j] - xi[j] );
+            for ( int i = d + 1; i <= NDIM; i++ )
+                A2[i - 1 + j * NDIM] = ETYPE( x[i][j] - xi[j] );
+        }
+        R[d] = sum;
+        R2 += static_cast<double>( R[d] );
+        const ETYPE &sign = ( ( NDIM + d ) % 2 == 0 ) ? one : neg;
+        det2[d]           = sign * DelaunayHelpers::det<ETYPE, NDIM>( A2 );
+    }
+    // Compute the determinate
+    double det_A = dot( NDIM + 1, det2, R );
+    if ( fabs( det_A ) <= 0.1 * R2 * TOL_VOL ) {
+        // We are on the circumsphere
+        return 0;
+    } else if ( det_A > 0 ) {
+        // We inside the circumsphere
+        return 1;
+    } else {
+        // We outside the circumsphere
+        return -1;
+    }
+}
+// clang-format off
+template int test_in_circumsphere<1,int>( const std::array<int,1>[], const std::array<int,1> &, double );
+template int test_in_circumsphere<2,int>( const std::array<int,2>[], const std::array<int,2> &, double );
+template int test_in_circumsphere<3,int>( const std::array<int,3>[], const std::array<int,3> &, double );
+template int test_in_circumsphere<1,double>( const std::array<double,1>[], const std::array<double,1> &, double );
+template int test_in_circumsphere<2,double>( const std::array<double,2>[], const std::array<double,2> &, double );
+template int test_in_circumsphere<3,double>( const std::array<double,3>[], const std::array<double,3> &, double );
 // clang-format on
 
 

@@ -132,8 +132,7 @@ bool check_current_triangles( int N,
                               size_t N_tri,
                               const std::array<int, NDIM + 1> tri[],
                               const std::array<int, NDIM + 1> tri_nab[],
-                              const std::vector<size_t> &unused,
-                              double )
+                              const std::vector<size_t> &unused )
 {
     if ( N_tri == 0 )
         return false;
