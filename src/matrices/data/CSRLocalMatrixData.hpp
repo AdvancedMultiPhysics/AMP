@@ -272,8 +272,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     for ( auto it : blocks ) {
         block = it.second;
         CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
-            block->d_row_starts,
-            block->d_cols,
+            block->d_row_starts.get(),
+            block->d_cols.get(),
             block->d_num_rows,
             first_col,
             last_col,
@@ -291,9 +291,9 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
         block = it.second;
         if ( !block->d_is_empty ) {
             const auto offset = concat_matrix->d_row_starts[cat_row];
-            CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts,
-                                                              block->d_cols,
-                                                              block->d_coeffs,
+            CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts.get(),
+                                                              block->d_cols.get(),
+                                                              block->d_coeffs.get(),
                                                               block->d_num_rows,
                                                               first_col,
                                                               last_col,

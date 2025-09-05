@@ -86,11 +86,11 @@ sort_row_offd( const lidx_t *row_starts, gidx_t *cols, scalar_t *coeffs, const l
 }
 
 template<typename lidx_t, typename gidx_t>
-__global__ void row_sub_count( gidx_t *rows,
-                               lidx_t num_rows,
-                               gidx_t first_row,
-                               lidx_t *diag_row_starts,
-                               lidx_t *offd_row_starts,
+__global__ void row_sub_count( const gidx_t *rows,
+                               const lidx_t num_rows,
+                               const gidx_t first_row,
+                               const lidx_t *diag_row_starts,
+                               const lidx_t *offd_row_starts,
                                lidx_t *counts )
 {
     for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
@@ -103,27 +103,27 @@ __global__ void row_sub_count( gidx_t *rows,
 }
 
 template<typename lidx_t, typename gidx_t, typename scalar_t>
-__global__ void row_sub_fill( gidx_t *rows,
-                              lidx_t num_rows,
-                              gidx_t first_row,
-                              gidx_t first_col,
-                              lidx_t *diag_row_starts,
-                              lidx_t *offd_row_starts,
-                              lidx_t *diag_cols_loc,
-                              lidx_t *offd_cols_loc,
-                              scalar_t *diag_coeffs,
-                              scalar_t *offd_coeffs,
-                              gidx_t *offd_colmap,
-                              lidx_t *out_row_starts,
+__global__ void row_sub_fill( const gidx_t *rows,
+                              const lidx_t num_rows,
+                              const gidx_t first_row,
+                              const gidx_t first_col,
+                              const lidx_t *diag_row_starts,
+                              const lidx_t *offd_row_starts,
+                              const lidx_t *diag_cols_loc,
+                              const lidx_t *offd_cols_loc,
+                              const scalar_t *diag_coeffs,
+                              const scalar_t *offd_coeffs,
+                              const gidx_t *offd_colmap,
+                              const lidx_t *out_row_starts,
                               gidx_t *out_cols,
                               scalar_t *out_coeffs )
 {
     for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
           i += blockDim.x * gridDim.x ) {
-        const auto row_loc = static_cast<lidx_t>( rows[n] - first_row );
+        const auto row_loc = static_cast<lidx_t>( rows[i] - first_row );
         const auto diag_rs = diag_row_starts[row_loc], diag_re = diag_row_starts[row_loc + 1];
         const auto offd_rs = offd_row_starts[row_loc], offd_re = offd_row_starts[row_loc + 1];
-        lidx_t pos = out_row_starts[n];
+        lidx_t pos = out_row_starts[i];
 
         for ( lidx_t k = diag_rs; k < diag_re; ++k ) {
             out_cols[pos]   = static_cast<gidx_t>( diag_cols_loc[k] ) + first_col;
@@ -139,12 +139,12 @@ __global__ void row_sub_fill( gidx_t *rows,
 }
 
 template<typename lidx_t, typename gidx_t>
-__global__ void vert_cat_count( lidx_t *row_starts,
-                                gidx_t *cols,
-                                lidx_t num_rows,
-                                gidx_t first_col,
-                                gidx_t last_col,
-                                bool keep_inside,
+__global__ void vert_cat_count( const lidx_t *row_starts,
+                                const gidx_t *cols,
+                                const lidx_t num_rows,
+                                const gidx_t first_col,
+                                const gidx_t last_col,
+                                const bool keep_inside,
                                 lidx_t *counts )
 {
     for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
@@ -161,14 +161,14 @@ __global__ void vert_cat_count( lidx_t *row_starts,
 }
 
 template<typename lidx_t, typename gidx_t, typename scalar_t>
-__global__ void vert_cat_fill( lidx_t *in_row_starts,
-                               gidx_t *in_cols,
-                               scalar_t *in_coeffs,
-                               lidx_t num_rows,
-                               gidx_t first_col,
-                               gidx_t last_col,
-                               bool keep_inside,
-                               lidx_t *out_row_starts,
+__global__ void vert_cat_fill( const lidx_t *in_row_starts,
+                               const gidx_t *in_cols,
+                               const scalar_t *in_coeffs,
+                               const lidx_t num_rows,
+                               const gidx_t first_col,
+                               const gidx_t last_col,
+                               const bool keep_inside,
+                               const lidx_t *out_row_starts,
                                gidx_t *out_cols,
                                scalar_t *out_coeffs )
 {
@@ -390,12 +390,13 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalOffd( typename Config::gidx_t *c
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( typename Config::gidx_t *rows,
-                                                      typename Config::lidx_t num_rows,
-                                                      typename Config::gidx_t first_row,
-                                                      typename Config::lidx_t *diag_row_starts,
-                                                      typename Config::lidx_t *offd_row_starts,
-                                                      typename Config::lidx_t *counts )
+void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
+    const typename Config::gidx_t *rows,
+    const typename Config::lidx_t num_rows,
+    const typename Config::gidx_t first_row,
+    const typename Config::lidx_t *diag_row_starts,
+    const typename Config::lidx_t *offd_row_starts,
+    typename Config::lidx_t *counts )
 {
     PROFILE( "CSRMatrixDataHelpers::RowSubsetCountNNZ" );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
@@ -422,18 +423,18 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( typename Config::gidx_t *r
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::RowSubsetFill( typename Config::gidx_t *rows,
-                                                  typename Config::lidx_t num_rows,
-                                                  typename Config::gidx_t first_row,
-                                                  typename Config::gidx_t first_col,
-                                                  typename Config::lidx_t *diag_row_starts,
-                                                  typename Config::lidx_t *offd_row_starts,
-                                                  typename Config::lidx_t *diag_cols_loc,
-                                                  typename Config::lidx_t *offd_cols_loc,
-                                                  typename Config::scalar_t *diag_coeffs,
-                                                  typename Config::scalar_t *offd_coeffs,
-                                                  typename Config::gidx_t *offd_colmap,
-                                                  typename Config::lidx_t *out_row_starts,
+void CSRMatrixDataHelpers<Config>::RowSubsetFill( const typename Config::gidx_t *rows,
+                                                  const typename Config::lidx_t num_rows,
+                                                  const typename Config::gidx_t first_row,
+                                                  const typename Config::gidx_t first_col,
+                                                  const typename Config::lidx_t *diag_row_starts,
+                                                  const typename Config::lidx_t *offd_row_starts,
+                                                  const typename Config::lidx_t *diag_cols_loc,
+                                                  const typename Config::lidx_t *offd_cols_loc,
+                                                  const typename Config::scalar_t *diag_coeffs,
+                                                  const typename Config::scalar_t *offd_coeffs,
+                                                  const typename Config::gidx_t *offd_colmap,
+                                                  const typename Config::lidx_t *out_row_starts,
                                                   typename Config::gidx_t *out_cols,
                                                   typename Config::scalar_t *out_coeffs )
 {
@@ -485,13 +486,14 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill( typename Config::gidx_t *rows,
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ( typename Config::lidx_t *row_starts,
-                                                           typename Config::gidx_t *cols,
-                                                           typename Config::lidx_t num_rows,
-                                                           typename Config::gidx_t first_col,
-                                                           typename Config::gidx_t last_col,
-                                                           bool keep_inside,
-                                                           typename Config::lidx_t *counts )
+void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
+    const typename Config::lidx_t *row_starts,
+    const typename Config::gidx_t *cols,
+    const typename Config::lidx_t num_rows,
+    const typename Config::gidx_t first_col,
+    const typename Config::gidx_t last_col,
+    const bool keep_inside,
+    typename Config::lidx_t *counts )
 {
     PROFILE( "CSRMatrixDataHelpers::ConcatVerticalCountNNZ" );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
@@ -522,16 +524,17 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ( typename Config::lidx
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::ConcatVerticalFill( typename Config::lidx_t *in_row_starts,
-                                                       typename Config::gidx_t *in_cols,
-                                                       typename Config::scalar_t *in_coeffs,
-                                                       typename Config::lidx_t num_rows,
-                                                       typename Config::gidx_t first_col,
-                                                       typename Config::gidx_t last_col,
-                                                       bool keep_inside,
-                                                       typename Config::lidx_t *out_row_starts,
-                                                       typename Config::gidx_t *out_cols,
-                                                       typename Config::scalar_t *out_coeffs )
+void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
+    const typename Config::lidx_t *in_row_starts,
+    const typename Config::gidx_t *in_cols,
+    const typename Config::scalar_t *in_coeffs,
+    const typename Config::lidx_t num_rows,
+    const typename Config::gidx_t first_col,
+    const typename Config::gidx_t last_col,
+    bool const keep_inside,
+    const typename Config::lidx_t *out_row_starts,
+    typename Config::gidx_t *out_cols,
+    typename Config::scalar_t *out_coeffs )
 {
     PROFILE( "CSRMatrixDataHelpers::ConcatVerticalFill" );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {

@@ -9,6 +9,7 @@
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
+#include "AMP/matrices/data/CSRMatrixDataHelpers.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
@@ -447,14 +448,22 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                            numGlobalColumns(),
                                                            true );
 
+    // copy row selection to device if needed
+    bool rows_migrated = d_memory_location > AMP::Utilities::MemoryType::host;
+    gidx_t *rows_d;
+    if ( rows_migrated ) {
+        rows_d = d_gidxAllocator.allocate( rows.size() );
+        AMP::Utilities::copy( rows.size(), rows.data(), rows_d );
+    }
+
     // count nnz per row and write into sub matrix directly
     // also check that passed in rows are in ascending order and owned here
-    CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( rows.data(),
+    CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( rows_migrated ? rows_d : rows.data(),
                                                      static_cast<lidx_t>( rows.size() ),
                                                      d_first_row,
-                                                     d_diag_matrix->d_row_starts,
-                                                     d_offd_matrix->d_row_starts,
-                                                     sub_matrix->d_row_starts );
+                                                     d_diag_matrix->d_row_starts.get(),
+                                                     d_offd_matrix->d_row_starts.get(),
+                                                     sub_matrix->d_row_starts.get() );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
@@ -464,41 +473,23 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     }
 
     // Loop back over diag/offd and copy in marked rows
-    CSRMatrixDataHelpers<Config>::RowSubsetFill( rows.data(),
+    CSRMatrixDataHelpers<Config>::RowSubsetFill( rows_migrated ? rows_d : rows.data(),
                                                  static_cast<lidx_t>( rows.size() ),
                                                  d_first_row,
                                                  d_diag_matrix->d_first_col,
-                                                 d_diag_matrix->d_row_starts,
-                                                 d_offd_matrix->d_row_starts,
-                                                 d_diag_matrix->d_cols_loc,
-                                                 d_offd_matrix->d_cols_loc,
-                                                 d_diag_matrix->d_coeffs,
-                                                 d_offd_matrix->d_coeffs,
-                                                 d_offd_matrix->d_cols_unq,
-                                                 sub_matrix->d_row_starts,
-                                                 sub_matrix->d_cols,
-                                                 sub_matrix->d_coeffs );
+                                                 d_diag_matrix->d_row_starts.get(),
+                                                 d_offd_matrix->d_row_starts.get(),
+                                                 d_diag_matrix->d_cols_loc.get(),
+                                                 d_offd_matrix->d_cols_loc.get(),
+                                                 d_diag_matrix->d_coeffs.get(),
+                                                 d_offd_matrix->d_coeffs.get(),
+                                                 d_offd_matrix->d_cols_unq.get(),
+                                                 sub_matrix->d_row_starts.get(),
+                                                 sub_matrix->d_cols.get(),
+                                                 sub_matrix->d_coeffs.get() );
 
-    for ( size_t n = 0; n < rows.size(); ++n ) {
-        const auto row_loc = static_cast<lidx_t>( rows[n] - d_first_row );
-        lidx_t pos         = sub_matrix->d_row_starts[n];
-        for ( lidx_t k = d_diag_matrix->d_row_starts[row_loc];
-              k < d_diag_matrix->d_row_starts[row_loc + 1];
-              ++k ) {
-            sub_matrix->d_cols[pos] = d_diag_matrix->localToGlobal( d_diag_matrix->d_cols_loc[k] );
-            sub_matrix->d_coeffs[pos] = d_diag_matrix->d_coeffs[k];
-            ++pos;
-        }
-        if ( !d_offd_matrix->d_is_empty ) {
-            for ( lidx_t k = d_offd_matrix->d_row_starts[row_loc];
-                  k < d_offd_matrix->d_row_starts[row_loc + 1];
-                  ++k ) {
-                sub_matrix->d_cols[pos] =
-                    d_offd_matrix->localToGlobal( d_offd_matrix->d_cols_loc[k] );
-                sub_matrix->d_coeffs[pos] = d_offd_matrix->d_coeffs[k];
-                ++pos;
-            }
-        }
+    if ( rows_migrated ) {
+        d_gidxAllocator.deallocate( rows_d, rows.size() );
     }
 
     return sub_matrix;

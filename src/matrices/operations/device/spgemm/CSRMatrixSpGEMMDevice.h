@@ -17,6 +17,7 @@
 
 #include <map>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace AMP::LinearAlgebra {
@@ -55,8 +56,6 @@ public:
         AMP_DEBUG_INSIST(
             comm == B->getComm() && comm == C->getComm(),
             "CSRMatrixSpGEMMDevice: All three matrices must have the same communicator" );
-        // AMP_INSIST( std::is_same_v<allocator_type, AMP::Utilities::DeviceAllocator<void>>,
-        //             "CSRMatrixSpGEMMDevice: Only device memory supported" );
     }
 
     ~CSRMatrixSpGEMMDevice() = default;
