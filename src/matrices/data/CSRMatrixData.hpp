@@ -449,28 +449,36 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
 
     // count nnz per row and write into sub matrix directly
     // also check that passed in rows are in ascending order and owned here
-    [[maybe_unused]] gidx_t row_prev = rows[0];
-    for ( size_t n = 0; n < rows.size(); ++n ) {
-        AMP_DEBUG_ASSERT( n == 0 || rows[n] > row_prev );
-        AMP_DEBUG_ASSERT( d_first_row <= rows[n] && rows[n] < d_last_row );
-        const auto row_loc = static_cast<lidx_t>( rows[n] - d_first_row );
-        sub_matrix->d_row_starts[n] =
-            ( d_diag_matrix->d_row_starts[row_loc + 1] - d_diag_matrix->d_row_starts[row_loc] );
-        if ( !d_offd_matrix->d_is_empty ) {
-            sub_matrix->d_row_starts[n] +=
-                ( d_offd_matrix->d_row_starts[row_loc + 1] - d_offd_matrix->d_row_starts[row_loc] );
-        }
-        row_prev = rows[n];
-    }
+    CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( rows.data(),
+                                                     static_cast<lidx_t>( rows.size() ),
+                                                     d_first_row,
+                                                     d_diag_matrix->d_row_starts,
+                                                     d_offd_matrix->d_row_starts,
+                                                     sub_matrix->d_row_starts );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
     if ( sub_matrix->d_nnz == 0 ) {
-        std::cout << "Got zero nnz" << std::endl;
+        AMP_WARN_ONCE( "CSRMatrixData::subsetRows got zero NNZ in requested subset" );
         return sub_matrix;
     }
 
     // Loop back over diag/offd and copy in marked rows
+    CSRMatrixDataHelpers<Config>::RowSubsetFill( rows.data(),
+                                                 static_cast<lidx_t>( rows.size() ),
+                                                 d_first_row,
+                                                 d_diag_matrix->d_first_col,
+                                                 d_diag_matrix->d_row_starts,
+                                                 d_offd_matrix->d_row_starts,
+                                                 d_diag_matrix->d_cols_loc,
+                                                 d_offd_matrix->d_cols_loc,
+                                                 d_diag_matrix->d_coeffs,
+                                                 d_offd_matrix->d_coeffs,
+                                                 d_offd_matrix->d_cols_unq,
+                                                 sub_matrix->d_row_starts,
+                                                 sub_matrix->d_cols,
+                                                 sub_matrix->d_coeffs );
+
     for ( size_t n = 0; n < rows.size(); ++n ) {
         const auto row_loc = static_cast<lidx_t>( rows[n] - d_first_row );
         lidx_t pos         = sub_matrix->d_row_starts[n];

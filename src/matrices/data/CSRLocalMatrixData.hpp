@@ -248,10 +248,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     // count number of rows and check compatibility of blocks
     auto block         = ( *blocks.begin() ).second;
     const auto mem_loc = block->d_memory_location;
-    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::ConcatVertical not implemented on device yet" );
-    lidx_t num_rows = 0;
-    bool all_empty  = block->isEmpty();
+    lidx_t num_rows    = 0;
+    bool all_empty     = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
         AMP_DEBUG_INSIST( mem_loc == block->d_memory_location,
@@ -273,20 +271,15 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     lidx_t cat_row = 0; // counter for which row we are on in concat_matrix
     for ( auto it : blocks ) {
         block = it.second;
-        // loop over rows and count NZs that fall in/out of column range
-        for ( lidx_t brow = 0; brow < block->d_num_rows; ++brow ) {
-            lidx_t row_nnz = 0;
-            for ( lidx_t k = block->d_row_starts[brow]; k < block->d_row_starts[brow + 1]; ++k ) {
-                const auto c      = block->d_cols[k];
-                const bool inside = first_col <= c && c < last_col;
-                const bool valid  = ( is_diag && inside ) || ( !is_diag && !inside );
-                if ( valid ) {
-                    ++row_nnz;
-                }
-            }
-            concat_matrix->d_row_starts[cat_row] = row_nnz;
-            ++cat_row;
-        }
+        CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
+            block->d_row_starts,
+            block->d_cols,
+            block->d_num_rows,
+            first_col,
+            last_col,
+            is_diag,
+            &concat_matrix->d_row_starts[cat_row] );
+        cat_row += block->d_num_rows;
     }
 
     // Trigger allocations
@@ -297,20 +290,18 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     for ( auto it : blocks ) {
         block = it.second;
         if ( !block->d_is_empty ) {
-            for ( lidx_t brow = 0; brow < block->d_num_rows; ++brow ) {
-                lidx_t cat_pos = concat_matrix->d_row_starts[cat_row];
-                for ( auto k = block->d_row_starts[brow]; k < block->d_row_starts[brow + 1]; ++k ) {
-                    const auto c      = block->d_cols[k];
-                    const bool inside = first_col <= c && c < last_col;
-                    const bool valid  = ( is_diag && inside ) || ( !is_diag && !inside );
-                    if ( valid ) {
-                        concat_matrix->d_cols[cat_pos]   = c;
-                        concat_matrix->d_coeffs[cat_pos] = block->d_coeffs[k];
-                        ++cat_pos;
-                    }
-                }
-                ++cat_row;
-            }
+            const auto offset = concat_matrix->d_row_starts[cat_row];
+            CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts,
+                                                              block->d_cols,
+                                                              block->d_coeffs,
+                                                              block->d_num_rows,
+                                                              first_col,
+                                                              last_col,
+                                                              is_diag,
+                                                              &concat_matrix->d_row_starts[cat_row],
+                                                              &concat_matrix->d_cols[offset],
+                                                              &concat_matrix->d_coeffs[offset] );
+            cat_row += block->d_num_rows;
         }
     }
 
