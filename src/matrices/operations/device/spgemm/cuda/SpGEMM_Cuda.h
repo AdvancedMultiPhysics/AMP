@@ -50,8 +50,27 @@ private:
     const int64_t N;
     const int64_t K;
 
-    scalar_t alpha;
-    scalar_t beta;
+    const scalar_t alpha;
+    const scalar_t beta;
+
+    const cusparseIndexType_t itype;
+    const cusparseIndexType_t jtype;
+    const cudaDataType computeType;
+    const cusparseOperation_t opA;
+    const cusparseOperation_t opB;
+    const cusparseSpGEMMAlg_t alg;
+
+    cusparseHandle_t handle;
+    cusparseSpGEMMDescr_t spgemmDesc;
+
+    cusparseSpMatDescr_t matA;
+    cusparseSpMatDescr_t matB;
+    cusparseSpMatDescr_t matC;
+
+    size_t bufferSize1;
+    size_t bufferSize2;
+    void *dBuffer1;
+    void *dBuffer2;
 };
 
 } // namespace AMP::LinearAlgebra

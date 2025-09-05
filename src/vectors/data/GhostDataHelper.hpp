@@ -218,8 +218,7 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
         if ( t == ScatterType::CONSISTENT_ADD ) {
             AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
             scatter_add();
-            for ( size_t i = 0; i < d_ghostSize; ++i )
-                this->d_AddBuffer[i] = 0;
+            AMP::Utilities::Algorithms<TYPE>::fill_n( this->d_AddBuffer, this->d_ghostSize, 0 );
         }
         *d_UpdateState = UpdateState::SETTING;
         scatter_set();

@@ -55,10 +55,12 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     fillWithPseudoLaplacian( matrix_h, dofManager );
 
     // migrate matrix if requested and possible
-    auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-    auto A      = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
-                      matrix_h :
-                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
+
+    auto A = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+                 matrix_h :
+                 AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
 
     size_t nGlobalRows = A->numGlobalRows();
     size_t nLocalRows  = A->numLocalRows();
@@ -106,11 +108,13 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     }
 
     if ( allPass ) {
-        ut->passes( type + ": Passes 1 norm test with squared pseudo Laplacian, no re-use" );
+        ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
+                    ": Passes 1 norm test with squared pseudo Laplacian, no re-use" );
     } else {
-        AMP::pout << "1 Norm " << yNormFail << ", number of rows " << A->numGlobalRows()
-                  << std::endl;
-        ut->failure( type + ": Fails 1 norm test with squared pseudo Laplacian, no re-use" );
+        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend << ", 1 Norm "
+                  << yNormFail << ", number of rows " << A->numGlobalRows() << std::endl;
+        ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
+                     ": Fails 1 norm test with squared pseudo Laplacian, no re-use" );
     }
 
     // now do products where reuse of result matrix is supported
@@ -131,11 +135,13 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     }
 
     if ( allPass ) {
-        ut->passes( type + ": Passes 1 norm test with squared pseudo Laplacian, with re-use" );
+        ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
+                    ": Passes 1 norm test with squared pseudo Laplacian, with re-use" );
     } else {
-        AMP::pout << "1 Norm " << yNormFail << ", number of rows " << A->numGlobalRows()
-                  << std::endl;
-        ut->failure( type + ": Fails 1 norm test with squared pseudo Laplacian, with re-use" );
+        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend << ", 1 Norm "
+                  << yNormFail << ", number of rows " << A->numGlobalRows() << std::endl;
+        ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
+                     ": Fails 1 norm test with squared pseudo Laplacian, with re-use" );
     }
 
     return nGlobalRows;

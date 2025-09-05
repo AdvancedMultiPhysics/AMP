@@ -176,6 +176,7 @@ void CSRMatrix<Config>::multiply( std::shared_ptr<Matrix> other_op,
             getComm(),
             thisData->getLeftVariable(),
             otherData->getRightVariable(),
+            thisData->getBackend(),
             std::function<std::vector<size_t>( size_t )>() );
 
         // Create the matrix
