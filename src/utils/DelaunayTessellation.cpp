@@ -162,6 +162,7 @@ static inline double dot4( const int128_t *x, const uint64_t *y )
 }
 #endif
 
+
 /************************************************************************
  * This function tests if a point is inside the circumsphere of an       *
  *    nd-simplex.                                                        *
@@ -188,7 +189,7 @@ static int test_in_circumsphere( const std::array<int, 2> x[], const std::array<
     int64_t det2[3];
     uint64_t R[3] = { 0, 0, 0 };
     for ( int d = 0; d <= 2; d++ ) {
-        int64_t A2[4];
+        int A2[4];
         for ( int j = 0; j < 2; j++ ) {
             int64_t tmp = x[d][j] - xi[j];
             R[d] += tmp * tmp;
@@ -198,7 +199,7 @@ static int test_in_circumsphere( const std::array<int, 2> x[], const std::array<
                 A2[i - 1 + j * 2] = x[i][j] - xi[j];
         }
         R2 += static_cast<double>( R[d] );
-        det2[d] = DelaunayHelpers::det<int64_t, 2>( A2 );
+        det2[d] = DelaunayHelpers::det2<2>( A2 );
         if ( ( 2 + d ) % 2 == 1 )
             det2[d] = -det2[d];
     }
@@ -219,17 +220,17 @@ static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<
     ETYPE det2[4];
     uint64_t R[4] = { 0, 0, 0, 0 };
     for ( int d = 0; d <= 3; d++ ) {
-        ETYPE A2[9];
+        int A2[9];
         for ( int j = 0; j < 3; j++ ) {
             int64_t tmp = x[d][j] - xi[j];
             R[d] += tmp * tmp;
             for ( int i = 0; i < d; i++ )
-                A2[i + j * 3] = ETYPE( x[i][j] - xi[j] );
+                A2[i + j * 3] = x[i][j] - xi[j];
             for ( int i = d + 1; i <= 3; i++ )
-                A2[i - 1 + j * 3] = ETYPE( x[i][j] - xi[j] );
+                A2[i - 1 + j * 3] = x[i][j] - xi[j];
         }
         R2 += static_cast<double>( R[d] );
-        det2[d] = DelaunayHelpers::det<ETYPE, 3>( A2 );
+        det2[d] = DelaunayHelpers::det2<3>( A2 );
         if ( ( 3 + d ) % 2 == 1 )
             det2[d] = -det2[d];
     }
@@ -247,7 +248,6 @@ int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
                           const std::array<TYPE, NDIM> &xi,
                           double TOL_VOL )
 {
-    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
     if constexpr ( NDIM == 1 ) {
         TYPE x1 = std::min( x[0][0], x[1][0] );
         TYPE x2 = std::max( x[0][0], x[1][0] );
@@ -260,8 +260,8 @@ int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
         return test_in_circumsphere( x, xi );
     } else {
         // Solve the sub-determinants (requires N^NDIM precision)
-        double R2 = 0.0;
-        const ETYPE one( 1 ), neg( -1 );
+        using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
+        double R2   = 0.0;
         ETYPE det2[NDIM + 1], R[NDIM + 1];
         for ( int d = 0; d <= NDIM; d++ ) {
             ETYPE A2[NDIM * NDIM];
@@ -276,8 +276,9 @@ int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
             }
             R[d] = sum;
             R2 += static_cast<double>( R[d] );
-            const ETYPE &sign = ( ( NDIM + d ) % 2 == 0 ) ? one : neg;
-            det2[d]           = sign * DelaunayHelpers::det<ETYPE, NDIM>( A2 );
+            det2[d] = DelaunayHelpers::det<ETYPE, NDIM>( A2 );
+            if ( ( NDIM + d ) % 2 == 1 )
+                det2[d] = -det2[d];
         }
         // Compute the determinate
         double det_A = dot( NDIM + 1, det2, R );
@@ -428,33 +429,26 @@ template bool collinear<long double>( const Array<long double> & );
  *    |  x4  y4  z4  1 |                                             *
  * Note: for exact math this requires N^D precision                  *
  ********************************************************************/
-template<int NDIM, class TYPE>
-static inline bool coplanar( const std::array<TYPE, NDIM> *x, TYPE tol )
+static inline bool coplanar( const std::array<int, 3> *x )
 {
-    using ETYPE      = typename getETYPE<NDIM, TYPE>::ETYPE;
-    bool is_coplanar = true;
-    if constexpr ( NDIM == 3 ) {
-        ETYPE det( 0 ), one( 1 ), neg( -1 );
-        for ( int d = 0; d < NDIM + 1; d++ ) {
-            ETYPE M[9];
-            for ( int i1 = 0; i1 < d; i1++ ) {
-                for ( int i2 = 0; i2 < NDIM; i2++ ) {
-                    M[i1 + i2 * NDIM] = ETYPE( x[i1][i2] );
-                }
-            }
-            for ( int i1 = d + 1; i1 < NDIM + 1; i1++ ) {
-                for ( int i2 = 0; i2 < NDIM; i2++ ) {
-                    M[i1 - 1 + i2 * NDIM] = ETYPE( x[i1][i2] );
-                }
-            }
-            const ETYPE &sign = ( ( NDIM + d ) % 2 == 0 ) ? one : neg;
-            det += sign * DelaunayHelpers::det<ETYPE, NDIM>( M );
+    using ETYPE = typename getETYPE<3, int>::ETYPE;
+    ETYPE det( 0 );
+    for ( int d = 0; d < 4; d++ ) {
+        int M[9];
+        for ( int i1 = 0; i1 < d; i1++ ) {
+            for ( int i2 = 0; i2 < 3; i2++ )
+                M[i1 + i2 * 3] = x[i1][i2];
         }
-        is_coplanar = fabs( static_cast<double>( det ) ) <= tol;
-    } else {
-        AMP_ERROR( "Not programmed for dimensions != 3" );
+        for ( int i1 = d + 1; i1 < 4; i1++ ) {
+            for ( int i2 = 0; i2 < 3; i2++ )
+                M[i1 - 1 + i2 * 3] = x[i1][i2];
+        }
+        if ( ( 3 + d ) % 2 == 0 )
+            det += DelaunayHelpers::det2<3>( M );
+        else
+            det -= DelaunayHelpers::det2<3>( M );
     }
-    return is_coplanar;
+    return det == 0;
 }
 
 
@@ -555,7 +549,7 @@ createInitialTriangle( const std::array<int, NDIM> &x0,
                     x2[i1] = x[I[i1]];
                 while ( true ) {
                     x2[3]            = x[I[ik]];
-                    bool is_coplanar = coplanar<NDIM, int>( x2, 0 );
+                    bool is_coplanar = coplanar( x2 );
                     if ( !is_coplanar )
                         break;
                     ik++;
