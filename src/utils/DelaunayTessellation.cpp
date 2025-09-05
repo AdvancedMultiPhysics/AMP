@@ -47,15 +47,15 @@ static Array<int> convert( const Array<TYPE> &x )
         max = std::max<TYPE>( std::abs( y ), max );
     Array<int> y( x.size() );
     if constexpr ( std::is_floating_point_v<TYPE> ) {
-        auto scale = pow( 2.0, 30 - ceil( log2( max ) ) );
+        auto scale = pow( 2.0, floor( 30 - log2( max ) ) );
         for ( size_t i = 0; i < x.length(); i++ ) {
             auto z = scale * x( i );
             AMP_ASSERT( z < static_cast<TYPE>( std::numeric_limits<int>::max() ) );
             y( i ) = z;
         }
     } else {
-        constexpr int64_t int_max = pow( 2.0, 30 );
-        int shift                 = 0;
+        int64_t int_max = pow( 2.0, 30 );
+        int shift       = 0;
         while ( static_cast<int64_t>( max ) > int_max ) {
             shift++;
             max = max >> 1;
