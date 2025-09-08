@@ -160,6 +160,7 @@ static inline std::string operator+( std::string_view x, std::string_view y )
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
     #define AMP_DEBUG_ASSERT( EXP ) AMP_ASSERT( EXP )
     #define AMP_DEBUG_INSIST( EXP, MSG ) AMP_INSIST( EXP, MSG )
+    #define AMP_DEBUG
 #else
     #define AMP_DEBUG_ASSERT( EXP ) \
         do {                        \
