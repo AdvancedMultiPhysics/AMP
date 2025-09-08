@@ -1,3 +1,5 @@
+#include "AMP/IO/FileSystem.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/DelaunayInterpolation.h"
@@ -72,9 +74,9 @@ void writePoints<int>( const char *filename, const AMP::Array<int> &x )
 
 
 // Helper function to read points from a file
-AMP::Array<double> readPoints( const char *filename )
+AMP::Array<double> readPoints( const std::string &filename )
 {
-    auto fid = fopen( filename, "rb" );
+    auto fid = fopen( filename.data(), "rb" );
     AMP_INSIST( fid, "Input file not found" );
     char tline[200];
     char *tmp1 = fgets( tline, 200, fid );
@@ -888,14 +890,39 @@ void testConvergence( AMP::UnitTest &ut, int ndim )
 }
 
 
-// Main
-int main( int argc, char *argv[] )
+// Run an input
+void runInput( AMP::UnitTest &ut, const std::string &filename )
 {
-    AMP::AMPManager::startup( argc, argv );
-    AMP::UnitTest ut;
-    PROFILE_ENABLE( 5 ); // 0: code, 1: tests, 3: basic timers, 5: all timers
+    printp( "Running input: %s\n", filename.data() );
+    auto s = AMP::IO::getSuffix( filename );
+    if ( s == "h5" || s == "hdf" || s == "hdf5" ) {
+        auto fid  = AMP::IO::openHDF5( filename, "r" );
+        auto type = AMP::IO::getHDF5datatype( fid, "x" );
+        if ( type == AMP::IO::getHDF5datatype<int>() ) {
+            AMP::Array<int> x;
+            AMP::IO::readHDF5( fid, "x", x );
+            testInterpolation<int>( ut, filename, x, false );
+        } else {
+            AMP::Array<double> x;
+            AMP::IO::readHDF5( fid, "x", x );
+            testInterpolation<double>( ut, filename, x, false );
+        }
+        AMP::IO::closeDatatype( type );
+        AMP::IO::closeHDF5( fid );
+    } else {
+        auto x   = readPoints( filename );
+        int ndim = x.size( 0 );
+        if ( ndim <= NDIM_MAX )
+            testInterpolation<double>( ut, filename, x, false );
+        else
+            testPointSearch( ut, x );
+    }
+}
 
-    // Run some basic tests on the point search
+
+// Run default tests
+void runDefault( AMP::UnitTest &ut )
+{
     printp( "Running point search tests\n" );
     for ( int d = 1; d <= 5; d++ ) {
         testPointSearch( ut, createRandomPoints<double>( d, 10 ) );
@@ -933,14 +960,24 @@ int main( int argc, char *argv[] )
     }
 
     // Run any input file problems
-    for ( int i = 1; i < argc; i++ ) {
-        printp( "Running input: %s\n", argv[i] );
-        auto data = readPoints( argv[i] );
-        int ndim  = data.size( 0 );
-        if ( ndim <= NDIM_MAX )
-            testInterpolation<double>( ut, argv[i], data, false );
-        else
-            testPointSearch( ut, data );
+    auto inputs = { "point_set_2d", "point_set_2d_2", "point_set_2d_3", "point_set_2d_4" };
+    for ( auto input : inputs )
+        runInput( ut, input );
+}
+
+
+// Main
+int main( int argc, char *argv[] )
+{
+    AMP::AMPManager::startup( argc, argv );
+    AMP::UnitTest ut;
+    PROFILE_ENABLE( 5 ); // 0: code, 1: tests, 3: basic timers, 5: all timers
+
+    if ( argc == 1 ) {
+        runDefault( ut );
+    } else {
+        for ( int i = 1; i < argc; i++ )
+            runInput( ut, argv[i] );
     }
 
     PROFILE_SAVE( "test_DelaunayInterpolation" );

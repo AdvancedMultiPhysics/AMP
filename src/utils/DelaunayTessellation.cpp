@@ -1,4 +1,5 @@
 #include "AMP/utils/DelaunayTessellation.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/DelaunayFaceList.h"
 #include "AMP/utils/DelaunayFaceList.hpp"
 #include "AMP/utils/DelaunayHelpers.h"
@@ -38,6 +39,7 @@ struct check_surface_struct {
 /********************************************************************
  * Convert coordinates                                               *
  * We want to use int with a range of (-2^30:2^30)                   *
+ * Note all numbers must be strictly < 2^30                          *
  ********************************************************************/
 template<class TYPE>
 static Array<int> convert( const Array<TYPE> &x )
@@ -47,7 +49,7 @@ static Array<int> convert( const Array<TYPE> &x )
         max = std::max<TYPE>( std::abs( y ), max );
     Array<int> y( x.size() );
     if constexpr ( std::is_floating_point_v<TYPE> ) {
-        auto scale = pow( 2.0, floor( 30 - log2( max ) ) );
+        auto scale = pow( 2.0, ceil( 30 - log2( max ) ) - 1 );
         for ( size_t i = 0; i < x.length(); i++ ) {
             auto z = scale * x( i );
             AMP_ASSERT( z < static_cast<TYPE>( std::numeric_limits<int>::max() ) );
@@ -56,7 +58,7 @@ static Array<int> convert( const Array<TYPE> &x )
     } else {
         constexpr int64_t int_max = 0x40000000; // 2^30
         int shift                 = 0;
-        while ( static_cast<int64_t>( max ) > int_max ) {
+        while ( static_cast<int64_t>( max ) >= int_max ) {
             shift++;
             max = max >> 1;
         }
@@ -2239,18 +2241,26 @@ std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const Array<TY
     auto y = convert( x );
     // Run the problem
     AMP::Array<int> tri, nab;
-    if ( NDIM == 2 ) {
-        auto x2           = DelaunayHelpers::convert<int, 2>( y );
-        auto [tri2, nab2] = create_tessellation<2>( x2 );
-        tri               = DelaunayHelpers::convert<int, 3>( tri2 );
-        nab               = DelaunayHelpers::convert<int, 3>( nab2 );
-    } else if ( NDIM == 3 ) {
-        auto x2           = DelaunayHelpers::convert<int, 3>( y );
-        auto [tri2, nab2] = create_tessellation<3>( x2 );
-        tri               = DelaunayHelpers::convert<int, 4>( tri2 );
-        nab               = DelaunayHelpers::convert<int, 4>( nab2 );
-    } else {
-        AMP_ERROR( "Unsupported dimension" );
+    try {
+        if ( NDIM == 2 ) {
+            auto x2           = DelaunayHelpers::convert<int, 2>( y );
+            auto [tri2, nab2] = create_tessellation<2>( x2 );
+            tri               = DelaunayHelpers::convert<int, 3>( tri2 );
+            nab               = DelaunayHelpers::convert<int, 3>( nab2 );
+        } else if ( NDIM == 3 ) {
+            auto x2           = DelaunayHelpers::convert<int, 3>( y );
+            auto [tri2, nab2] = create_tessellation<3>( x2 );
+            tri               = DelaunayHelpers::convert<int, 4>( tri2 );
+            nab               = DelaunayHelpers::convert<int, 4>( nab2 );
+        } else {
+            AMP_ERROR( "Unsupported dimension" );
+        }
+    } catch ( const StackTrace::abort_error &e ) {
+        std::cout << "Failed to create tessellation\n";
+        auto fid = AMP::IO::openHDF5( "DelaunayTessellationFailed.hdf", "w" );
+        AMP::IO::writeHDF5( fid, "x", x );
+        AMP::IO::closeHDF5( fid );
+        throw e;
     }
     return std::tie( tri, nab );
 }
