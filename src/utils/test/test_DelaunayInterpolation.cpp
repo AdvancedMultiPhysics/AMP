@@ -1,3 +1,4 @@
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/FileSystem.h"
 #include "AMP/IO/HDF.h"
 #include "AMP/IO/PIO.h"
@@ -896,6 +897,7 @@ void runInput( AMP::UnitTest &ut, const std::string &filename )
     printp( "Running input: %s\n", filename.data() );
     auto s = AMP::IO::getSuffix( filename );
     if ( s == "h5" || s == "hdf" || s == "hdf5" ) {
+#ifdef USE_AMP_HDF5
         auto fid  = AMP::IO::openHDF5( filename, "r" );
         auto type = AMP::IO::getHDF5datatype( fid, "x" );
         if ( type == AMP::IO::getHDF5datatype<int>() ) {
@@ -909,6 +911,9 @@ void runInput( AMP::UnitTest &ut, const std::string &filename )
         }
         AMP::IO::closeDatatype( type );
         AMP::IO::closeHDF5( fid );
+#else
+        ut.expected_failure( filename + " - No HDF5" );
+#endif
     } else {
         auto x   = readPoints( filename );
         int ndim = x.size( 0 );

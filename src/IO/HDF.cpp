@@ -322,6 +322,10 @@ bool H5Dexists( hid_t, const std::string & ) { return false; }
 hid_t createGroup( hid_t, const std::string & ) { return 0; }
 hid_t openGroup( hid_t, const std::string & ) { return 0; }
 void closeGroup( hid_t ) {}
+void closeDataset( hid_t ) {}
+void closeDatatype( hid_t ) {}
+void closeDataspace( hid_t ) {}
+hid_t getHDF5datatype( hid_t, const std::string & ) { return 0; }
 void writeHDF5( hid_t, const std::string &, size_t, const std::byte * );
 void readHDF5( hid_t, const std::string &, size_t, std::byte * );
 std::tuple<std::vector<hid_t>,

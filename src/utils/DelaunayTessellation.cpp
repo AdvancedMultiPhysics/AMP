@@ -1,4 +1,5 @@
 #include "AMP/utils/DelaunayTessellation.h"
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/HDF.h"
 #include "AMP/utils/DelaunayFaceList.h"
 #include "AMP/utils/DelaunayFaceList.hpp"
@@ -2257,9 +2258,11 @@ std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const Array<TY
         }
     } catch ( const StackTrace::abort_error &e ) {
         std::cout << "Failed to create tessellation\n";
+#ifdef USE_AMP_HDF5
         auto fid = AMP::IO::openHDF5( "DelaunayTessellationFailed.hdf", "w" );
         AMP::IO::writeHDF5( fid, "x", x );
         AMP::IO::closeHDF5( fid );
+#endif
         throw e;
     }
     return std::tie( tri, nab );
