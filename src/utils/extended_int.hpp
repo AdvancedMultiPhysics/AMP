@@ -141,11 +141,11 @@ ENABLE_WARNINGS
 template<uint8_t N>
 constexpr std::array<char, 16 * N + 3> int64N<N>::hex( bool fixedWidth ) const
 {
-    constexpr char hexmap[]          = "0123456789abcdef";
-    std::array<char, 16 * N + 3> hex = { 0 };
-    hex[0]                           = '0';
-    hex[1]                           = 'x';
-    size_t k                         = 2;
+    constexpr char hexmap[]         = "0123456789abcdef";
+    std::array<char, 16 *N + 3> hex = { 0 };
+    hex[0]                          = '0';
+    hex[1]                          = 'x';
+    size_t k                        = 2;
     for ( int i = N - 1; i >= 0; i-- ) {
         for ( int j = 60; j >= 0; j -= 4 ) {
             char c = hexmap[( data[i] >> j ) & 0x0F];

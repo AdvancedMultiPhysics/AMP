@@ -73,13 +73,13 @@ void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *, const typeID & ) cons
 template<typename ST, typename LO, typename GO, typename NT>
 void *TpetraVectorData<ST, LO, GO, NT>::getRawDataBlockAsVoid( size_t )
 {
-    AMP_ERROR( "Not implemented" );
+    return this->getTpetraVector()->getDataNonConst( 0 ).get();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 const void *TpetraVectorData<ST, LO, GO, NT>::getRawDataBlockAsVoid( size_t ) const
 {
-    AMP_ERROR( "Not implemented" );
+    return this->getTpetraVector()->getData( 0 ).get();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
