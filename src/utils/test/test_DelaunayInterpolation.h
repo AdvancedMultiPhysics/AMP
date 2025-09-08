@@ -7,10 +7,6 @@
 #include "ProfilerApp.h"
 
 
-// #define R_INT 0x20000000
-#define R_INT 1000000
-
-
 // Compute the L2 norm of a vector ||x||
 inline double L2norm( const AMP::Array<double> &x, const bool *mask = nullptr )
 {
@@ -144,6 +140,9 @@ AMP::Array<TYPE> createRandomPoints( int ndim, int N );
 template<int NDIM>
 std::vector<PointInt<NDIM>> createRandomPointsInt( int N )
 {
+    int R_INT = 1000000;
+    if ( N > 1000 && NDIM == 1 )
+        R_INT = 0x20000000;
     std::vector<PointInt<NDIM>> points;
     if ( N == NDIM + 1 ) {
         points.resize( N );

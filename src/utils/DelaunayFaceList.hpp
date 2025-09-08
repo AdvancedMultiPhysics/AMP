@@ -132,8 +132,7 @@ bool check_current_triangles( int N,
                               size_t N_tri,
                               const std::array<int, NDIM + 1> tri[],
                               const std::array<int, NDIM + 1> tri_nab[],
-                              const std::vector<size_t> &unused,
-                              double )
+                              const std::vector<size_t> &unused )
 {
     if ( N_tri == 0 )
         return false;
@@ -384,9 +383,9 @@ void DelaunayTessellation::FaceList<NDIM>::add_node(
             int k  = new_tri[i][j1];
             x2[j1] = x0[k];
         }
-        volume = DelaunayHelpers::calcVolume<NDIM, int>( x2 );
-        if ( volume <= 0.0 )
-            printf( "Warning: volume is still negitive\n" );
+        auto volume2 = DelaunayHelpers::calcVolume<NDIM, int>( x2 );
+        if ( volume2 <= 0.0 )
+            printf( "Warning: volume is still negative\n" );
     }
     // Check if the current triangle shares a face with one of the other new triangles
     for ( size_t i1 = 0; i1 < ids.size(); i1++ ) {

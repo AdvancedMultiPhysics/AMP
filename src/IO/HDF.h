@@ -192,9 +192,47 @@ hid_t openGroup( hid_t fid, const std::string &name );
  */
 void closeGroup( hid_t fid );
 
+/**
+ * \brief Close a dataset
+ * \details This function closes an HDF5 dataset
+ * @param[in] fid       Dataset to close
+ */
+void closeDataset( hid_t fid );
 
 /**
- * \brief Close a group
+ * \brief Close a datatype
+ * \details This function closes an HDF5 datatype
+ * @param[in] fid       Datatype to close
+ */
+void closeDatatype( hid_t fid );
+
+/**
+ * \brief Close a dataspace
+ * \details This function closes an HDF5 dataspace
+ * @param[in] fid       closeDataspace to close
+ */
+void closeDataspace( hid_t fid );
+
+
+/**
+ * \brief Get the type of a dataset
+ * \details This function returns the type of a dataset
+ * @param[in] fid       File or group to write to
+ * @param[in] name      The name of the group
+ */
+hid_t getHDF5datatype( hid_t fid, const std::string &name );
+
+
+/**
+ * \brief Get HDF5 data type
+ * \details This function returns the id of the data type
+ */
+template<class T>
+hid_t getHDF5datatype();
+
+
+/**
+ * \brief list open objects
  * \details This function closes an HDF5 group
  * \return  Returns the list of open objects associated with the file:
  *          [files,datasets,groups,datatypes,attributes]
@@ -206,14 +244,6 @@ std::tuple<std::vector<hid_t>,
            std::vector<hid_t>,
            std::vector<hid_t>>
 openObjects( hid_t fid );
-
-
-/**
- * \brief Get HDF5 data type
- * \details This function returns the id of the data type
- */
-template<class T>
-hid_t getHDF5datatype();
 
 
 } // namespace AMP::IO

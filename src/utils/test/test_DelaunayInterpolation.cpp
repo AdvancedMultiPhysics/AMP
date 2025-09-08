@@ -1,3 +1,5 @@
+#include "AMP/IO/FileSystem.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/DelaunayInterpolation.h"
@@ -25,6 +27,9 @@
 
 
 #define printp printf
+
+
+using AMP::Utilities::stringf;
 
 
 constexpr int NDIM_MAX = 3; // The maximum number of dimensions supported (currently 3)
@@ -69,9 +74,9 @@ void writePoints<int>( const char *filename, const AMP::Array<int> &x )
 
 
 // Helper function to read points from a file
-AMP::Array<double> readPoints( const char *filename )
+AMP::Array<double> readPoints( const std::string &filename )
 {
-    auto fid = fopen( filename, "rb" );
+    auto fid = fopen( filename.data(), "rb" );
     AMP_INSIST( fid, "Input file not found" );
     char tline[200];
     char *tmp1 = fgets( tline, 200, fid );
@@ -142,19 +147,19 @@ void testPointSearch( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
             dist2 += tmp * tmp;
         }
     }
-    auto msg = AMP::Utilities::stringf(
-        "Test point search (%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
+    auto msg =
+        stringf( "Test point search (%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
     if ( approx_equal( dist1, dist2, 1e-12 ) ) {
         ut.passes( msg );
     } else {
-        auto msg2 = AMP::Utilities::stringf( "%s:  (%i,%i,%e) - (%i,%i,%e)",
-                                             msg.data(),
-                                             index1.first,
-                                             index1.second,
-                                             dist1,
-                                             index2.first,
-                                             index2.second,
-                                             dist2 );
+        auto msg2 = stringf( "%s:  (%i,%i,%e) - (%i,%i,%e)",
+                             msg.data(),
+                             index1.first,
+                             index1.second,
+                             dist1,
+                             index2.first,
+                             index2.second,
+                             dist2 );
         ut.failure( msg2 );
         writePoints( "failed_points", x );
     }
@@ -166,12 +171,11 @@ template<class TYPE>
 std::shared_ptr<AMP::DelaunayInterpolation<TYPE>>
 createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
 {
-    PROFILE( "createAndTestDelaunayInterpolation" );
     if ( x.empty() )
         return nullptr;
     int ndim = x.size( 0 );
     size_t N = x.size( 1 );
-    auto msg = AMP::Utilities::stringf( "(%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
+    auto msg = stringf( "(%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
 
     // Create the tessellation
     auto data = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
@@ -444,30 +448,24 @@ std::string initialize_problem( int p,
 
 
 template<class TYPE>
-std::vector<double> convert_to_double( const std::vector<TYPE> &x0 );
-template<>
-std::vector<double> convert_to_double<double>( const std::vector<double> &x0 )
+void testInterpolation( AMP::UnitTest &ut,
+                        const std::string &problem,
+                        const AMP::Array<TYPE> &x,
+                        bool check_extrap = true )
 {
-    return x0;
-}
-template<>
-std::vector<double> convert_to_double<int>( const std::vector<int> &x0 )
-{
-    std::vector<double> x( x0.size(), 0.0 );
-    for ( size_t i = 0; i < x0.size(); i++ )
-        x[i] = static_cast<double>( x0[i] ) / static_cast<double>( R_INT );
-    return x;
-}
-template<class TYPE>
-void testInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x, bool check_extrap = true )
-{
-    PROFILE( "testInterpolation" );
     check_extrap = false; // Extrapolation is having major issues (disable for now)
 
     int ndim = x.size( 0 );
     size_t N = x.size( 1 );
     if ( N == 0 )
         return;
+
+    std::string name;
+    if constexpr ( std::is_same_v<TYPE, int> )
+        name = stringf( "%s<%i,%i,int>", problem.data(), ndim, N );
+    else if constexpr ( std::is_same_v<TYPE, double> )
+        name = stringf( "%s<%i,%i,double>", problem.data(), ndim, N );
+    PROFILE2( name );
 
     // Check the points
     if ( N < 10000 )
@@ -570,11 +568,11 @@ void testInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x, bool check
             p, x2, xrange, f2, g2, tol_grad, tol_linear, tol_cubic, tol_c_grad, tol_ce1, tol_ce2 );
         problem = initialize_problem(
             p, x, xrange, f, g, tol_grad, tol_linear, tol_cubic, tol_c_grad, tol_ce1, tol_ce2 );
-        auto msg = AMP::Utilities::stringf( "%s (%i,%i,%s)",
-                                            problem.c_str(),
-                                            (int) x.size( 0 ),
-                                            (int) x.size( 1 ),
-                                            AMP::getTypeID<TYPE>().name );
+        auto msg = stringf( "%s (%i,%i,%s)",
+                            problem.c_str(),
+                            (int) x.size( 0 ),
+                            (int) x.size( 1 ),
+                            AMP::getTypeID<TYPE>().name );
 
         // Test the gradient
         AMP::Array<double> grad( ndim, N );
@@ -590,12 +588,12 @@ void testInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x, bool check
             }
             err               = std::sqrt( err / N );
             error[method - 1] = err;
-            auto message      = AMP::Utilities::stringf( "calc_gradient (%i,%s) (%i,%i) (%e)",
-                                                    method,
-                                                    problem.c_str(),
-                                                    (int) x.size( 0 ),
-                                                    (int) x.size( 1 ),
-                                                    err );
+            auto message      = stringf( "calc_gradient (%i,%s) (%i,%i) (%e)",
+                                    method,
+                                    problem.c_str(),
+                                    (int) x.size( 0 ),
+                                    (int) x.size( 1 ),
+                                    err );
             if ( err <= tol_grad )
                 ut.passes( message );
             else
@@ -711,7 +709,7 @@ void testInterpolationRandom( AMP::UnitTest &ut, int d, int N )
         }
     }
     // Run the tests
-    testInterpolation( ut, x );
+    testInterpolation( ut, "random", x );
 }
 
 
@@ -892,14 +890,39 @@ void testConvergence( AMP::UnitTest &ut, int ndim )
 }
 
 
-// Main
-int main( int argc, char *argv[] )
+// Run an input
+void runInput( AMP::UnitTest &ut, const std::string &filename )
 {
-    AMP::AMPManager::startup( argc, argv );
-    AMP::UnitTest ut;
-    PROFILE_ENABLE( 5 ); // 0: code, 1: tests, 3: basic timers, 5: all timers
+    printp( "Running input: %s\n", filename.data() );
+    auto s = AMP::IO::getSuffix( filename );
+    if ( s == "h5" || s == "hdf" || s == "hdf5" ) {
+        auto fid  = AMP::IO::openHDF5( filename, "r" );
+        auto type = AMP::IO::getHDF5datatype( fid, "x" );
+        if ( type == AMP::IO::getHDF5datatype<int>() ) {
+            AMP::Array<int> x;
+            AMP::IO::readHDF5( fid, "x", x );
+            testInterpolation<int>( ut, filename, x, false );
+        } else {
+            AMP::Array<double> x;
+            AMP::IO::readHDF5( fid, "x", x );
+            testInterpolation<double>( ut, filename, x, false );
+        }
+        AMP::IO::closeDatatype( type );
+        AMP::IO::closeHDF5( fid );
+    } else {
+        auto x   = readPoints( filename );
+        int ndim = x.size( 0 );
+        if ( ndim <= NDIM_MAX )
+            testInterpolation<double>( ut, filename, x, false );
+        else
+            testPointSearch( ut, x );
+    }
+}
 
-    // Run some basic tests on the point search
+
+// Run default tests
+void runDefault( AMP::UnitTest &ut )
+{
     printp( "Running point search tests\n" );
     for ( int d = 1; d <= 5; d++ ) {
         testPointSearch( ut, createRandomPoints<double>( d, 10 ) );
@@ -924,27 +947,37 @@ int main( int argc, char *argv[] )
         testInterpolationRandom<int>( ut, d, d + 1 ); // minimum # of points
         testInterpolationRandom<int>( ut, d, 10 );    // small # of points
         testInterpolationRandom<int>( ut, d, 1000 );  // medium # of points
-        // testInterpolationRandom<int>( ut, d, 10000 ); // large # of points
+        testInterpolationRandom<int>( ut, d, 10000 ); // large # of points
     }
 
     // Run some predefined tests
     for ( int i = 1; i <= 6; i++ ) {
         printp( "Running predefined test %i\n", i );
-        auto tmp = AMP::Utilities::stringf( "Problem %i", i );
+        auto tmp = stringf( "Problem %i", i );
         PROFILE2( tmp );
-        testInterpolation( ut, createProblem<int>( i ) );
-        testInterpolation( ut, createProblem<double>( i ) );
+        testInterpolation( ut, tmp, createProblem<int>( i ) );
+        testInterpolation( ut, tmp, createProblem<double>( i ) );
     }
 
     // Run any input file problems
-    for ( int i = 1; i < argc; i++ ) {
-        printp( "Running input: %s\n", argv[i] );
-        auto data = readPoints( argv[i] );
-        int ndim  = data.size( 0 );
-        if ( ndim <= NDIM_MAX )
-            testInterpolation<double>( ut, data, false );
-        else
-            testPointSearch( ut, data );
+    auto inputs = { "point_set_2d", "point_set_2d_2", "point_set_2d_3", "point_set_2d_4" };
+    for ( auto input : inputs )
+        runInput( ut, input );
+}
+
+
+// Main
+int main( int argc, char *argv[] )
+{
+    AMP::AMPManager::startup( argc, argv );
+    AMP::UnitTest ut;
+    PROFILE_ENABLE( 5 ); // 0: code, 1: tests, 3: basic timers, 5: all timers
+
+    if ( argc == 1 ) {
+        runDefault( ut );
+    } else {
+        for ( int i = 1; i < argc; i++ )
+            runInput( ut, argv[i] );
     }
 
     PROFILE_SAVE( "test_DelaunayInterpolation" );

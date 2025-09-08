@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "AMP/utils/Array.h"
+#include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/extended_int.h"
 
 
@@ -16,14 +17,19 @@ namespace AMP::DelaunayHelpers {
 template<int NDIM, class TYPE> struct getETYPE;
 template<> struct getETYPE<1,int> { typedef int ETYPE; };
 template<> struct getETYPE<2,int> { typedef int64_t ETYPE; };
+#ifdef __SIZEOF_INT128__
+DISABLE_WARNINGS
+template<> struct getETYPE<3,int> { typedef __int128 ETYPE; };
+template<> struct getETYPE<4,int> { typedef __int128 ETYPE; };
+ENABLE_WARNINGS
+#else
 template<> struct getETYPE<3,int> { typedef AMP::extended::int128_t ETYPE; };
 template<> struct getETYPE<4,int> { typedef AMP::extended::int128_t ETYPE; };
-template<> struct getETYPE<5,int> { typedef AMP::extended::int256_t ETYPE; };
+#endif
 template<> struct getETYPE<1,double> { typedef long double ETYPE; };
 template<> struct getETYPE<2,double> { typedef long double ETYPE; };
 template<> struct getETYPE<3,double> { typedef long double ETYPE; };
 template<> struct getETYPE<4,double> { typedef long double ETYPE; };
-template<> struct getETYPE<5,double> { typedef long double ETYPE; };
 // clang-format on
 
 
@@ -64,6 +70,37 @@ inline TYPE det( const TYPE *M )
     } else {
         throw std::logic_error( "Not programmed" );
     }
+}
+template<std::size_t NDIM>
+inline typename getETYPE<NDIM, int>::ETYPE det2( const int *M );
+template<>
+inline int det2<1>( const int *M )
+{
+    return M[0];
+}
+template<>
+inline int64_t det2<2>( const int *M )
+{
+    return int64_t( M[0] ) * int64_t( M[3] ) - int64_t( M[1] ) * int64_t( M[2] );
+}
+template<>
+inline typename getETYPE<3, int>::ETYPE det2<3>( const int *M )
+{
+    using int64  = int64_t;
+    using int128 = typename getETYPE<3, int>::ETYPE;
+    int128 t1    = int64( M[4] ) * int64( M[8] ) - int64( M[7] ) * int64( M[5] );
+    int128 t2    = int64( M[1] ) * int64( M[8] ) - int64( M[7] ) * int64( M[2] );
+    int128 t3    = int64( M[1] ) * int64( M[5] ) - int64( M[4] ) * int64( M[2] );
+    auto det     = int128( M[0] ) * t1 + int128( -M[3] ) * t2 + int128( M[6] ) * t3;
+    return det;
+}
+template<std::size_t NDIM>
+inline long double det2( const double *M )
+{
+    long double M2[NDIM * NDIM];
+    for ( size_t i = 0; i < NDIM * NDIM; i++ )
+        M2[i] = M[i];
+    return det<long double, NDIM>( M2 );
 }
 
 
@@ -217,17 +254,16 @@ static constexpr double inv_factorial( int N )
 template<int NDIM, class TYPE>
 double calcVolume( const std::array<TYPE, NDIM> *x )
 {
-    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
     if constexpr ( NDIM == 1 )
         return static_cast<double>( x[1][0] - x[0][0] );
-    ETYPE M[NDIM * NDIM];
+    TYPE M[NDIM * NDIM];
     for ( int d = 0; d < NDIM; d++ ) {
-        ETYPE tmp( x[NDIM][d] );
+        auto tmp = x[NDIM][d];
         for ( int j = 0; j < NDIM; j++ )
-            M[d + j * NDIM] = ETYPE( x[j][d] ) - tmp;
+            M[d + j * NDIM] = x[j][d] - tmp;
     }
     constexpr double C = inv_factorial( NDIM );
-    return C * static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( M ) );
+    return C * static_cast<double>( DelaunayHelpers::det2<NDIM>( M ) );
 }
 
 

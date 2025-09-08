@@ -2,10 +2,13 @@
 #define included_extended_int
 
 #include <array>
+#include <cstdint>
 #include <limits>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
+
+#include "AMP/utils/UtilityMacros.h"
 
 
 namespace AMP::extended {
@@ -42,6 +45,14 @@ public:
 
     //! Create from int64
     explicit constexpr int64N( uint64_t );
+
+    //! Create from int128
+#ifdef __SIZEOF_INT128__
+    DISABLE_WARNINGS
+    explicit constexpr int64N( __int128 );
+    explicit constexpr int64N( unsigned __int128 );
+    ENABLE_WARNINGS
+#endif
 
     //! Create from int64N<N>
     template<uint8_t N2>
