@@ -96,7 +96,7 @@ protected:
     void swapThyraVec( ThyraVector &rhs ) { std::swap( d_thyraVec, rhs.d_thyraVec ); }
 
     /**
-     *  \brief  Construct a PetscVector
+     *  \brief  Construct a ThyraVector
      *
      *  This can only be called by a derived class or the static function below.  There is
      *  no need to create this vector directly since it is virtual.
