@@ -72,6 +72,9 @@ public:
     //! Indicate an expected failed test (thread-safe)
     void expected_failure( std::string in );
 
+    //! Indicate a pass/fail test
+    void pass_fail( bool pass, std::string in );
+
     //! Return the number of passed tests locally
     inline size_t NumPassLocal() const { return d_pass.size(); }
 
