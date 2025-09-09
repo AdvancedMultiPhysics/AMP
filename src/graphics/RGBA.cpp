@@ -38,8 +38,8 @@ static_assert( runTests() );
 // clang-format off
 instantiateArrayConstructors( AMP::RGBA32 );
 instantiateArrayConstructors( AMP::ARGB32 );
-template AMP::Array<AMP::RGBA32> AMP::Array<AMP::RGBA32>::repmat( const std::vector<size_t> & ) const;
-template AMP::Array<AMP::ARGB32> AMP::Array<AMP::ARGB32>::repmat( const std::vector<size_t> & ) const;
+template AMP::Array<AMP::RGBA32> AMP::Array<AMP::RGBA32>::repmat( const AMP::ArraySize & ) const;
+template AMP::Array<AMP::ARGB32> AMP::Array<AMP::ARGB32>::repmat( const AMP::ArraySize & ) const;
 template AMP::Array<AMP::RGBA32> AMP::Array<AMP::RGBA32>::subset( const std::vector<size_t> & ) const;
 template AMP::Array<AMP::ARGB32> AMP::Array<AMP::ARGB32>::subset( const std::vector<size_t> & ) const;
 template void AMP::Array<AMP::RGBA32>::copySubset( const std::vector<size_t> &, const AMP::Array<AMP::RGBA32> & );

@@ -122,24 +122,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         static_cast<double>( linearMechanicsBVPoperator->getMatrix()->extractDiagonal()->L1Norm() );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
-    auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
-
-    // ---- first initialize the preconditioner
-    auto pcSolver_db    = linearSolver_db->getDatabase( "Preconditioner" );
-    auto pcSolverParams = std::make_shared<AMP::Solver::TrilinosMLSolverParameters>( pcSolver_db );
-    pcSolverParams->d_pOperator = linearMechanicsBVPoperator;
-    auto pcSolver               = std::make_shared<AMP::Solver::TrilinosMLSolver>( pcSolverParams );
 
     // HACK to prevent a double delete on Petsc Vec
     std::shared_ptr<AMP::Solver::PetscSNESSolver> nonlinearSolver;
-
-    // initialize the linear solver
-    auto linearSolverParams =
-        std::make_shared<AMP::Solver::SolverStrategyParameters>( linearSolver_db );
-    linearSolverParams->d_pOperator     = linearMechanicsBVPoperator;
-    linearSolverParams->d_comm          = globalComm;
-    linearSolverParams->d_pNestedSolver = pcSolver;
-    auto linearSolver = std::make_shared<AMP::Solver::PetscKrylovSolver>( linearSolverParams );
 
     // initialize the nonlinear solver
     auto nonlinearSolverParams =
@@ -147,7 +132,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     // change the next line to get the correct communicator out
     nonlinearSolverParams->d_comm          = globalComm;
     nonlinearSolverParams->d_pOperator     = nonlinearMechanicsBVPoperator;
-    nonlinearSolverParams->d_pNestedSolver = linearSolver;
     nonlinearSolverParams->d_pInitialGuess = solVec;
     nonlinearSolver.reset( new AMP::Solver::PetscSNESSolver( nonlinearSolverParams ) );
 
@@ -181,10 +165,15 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         AMP::pout << "Final Residual Norm for loading step " << ( step + 1 ) << " is "
                   << finalResidualNorm << std::endl;
 
-        if ( finalResidualNorm > ( 1.0e-9 * initialResidualNorm ) ) {
-            ut->failure( "Nonlinear solve for current loading step" );
-        } else {
+        const auto convReason = nonlinearSolver->getConvergenceStatus();
+        const bool accept =
+            convReason == AMP::Solver::SolverStrategy::SolverStatus::ConvergedOnRelTol ||
+            convReason == AMP::Solver::SolverStrategy::SolverStatus::ConvergedOnAbsTol;
+
+        if ( accept ) {
             ut->passes( "Nonlinear solve for current loading step" );
+        } else {
+            ut->failure( "Nonlinear solve for current loading step" );
         }
 
         double finalSolNorm = static_cast<double>( solVec->L2Norm() );
@@ -219,7 +208,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
-    AMP::pout << solVec << std::endl;
+    //    AMP::pout << solVec << std::endl;
 
     mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
 
@@ -234,7 +223,7 @@ int testPericElastoViscoPlasticity_LoadPrescribed( int argc, char *argv[] )
     std::vector<std::string> exeNames;
     // exeNames.push_back("testPericElastoViscoPlasticity-1");
     exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-1" );
-    // exeNames.push_back("testPericElastoViscoPlasticity-LoadPrescribed-2");
+    //    exeNames.push_back( "testPericElastoViscoPlasticity-LoadPrescribed-2" );
 
     for ( auto &exeName : exeNames )
         myTest( &ut, exeName );
