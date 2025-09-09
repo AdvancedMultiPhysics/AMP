@@ -105,41 +105,14 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         nonlinearMechanicsBVPoperator->getVolumeOperator() )
         ->setVector( AMP::Operator::Mechanics::TEMPERATURE, curTempVec );
 
-    // Create a Linear BVP operator for mechanics
-    auto linearMechanicsBVPoperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            mesh, "LinearMechanicsOperator", input_db ) );
-
     // We need to reset the linear operator before the solve since TrilinosML does
     // the factorization of the matrix during construction and so the matrix must
     // be correct before constructing the TrilinosML object.
     nonlinearMechanicsBVPoperator->apply( solVec, resVec );
-    linearMechanicsBVPoperator->reset(
-        nonlinearMechanicsBVPoperator->getParameters( "Jacobian", solVec ) );
-
-    double epsilon =
-        1.0e-13 *
-        static_cast<double>( linearMechanicsBVPoperator->getMatrix()->extractDiagonal()->L1Norm() );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
-    auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
-
-    // ---- first initialize the preconditioner
-    auto pcSolver_db    = linearSolver_db->getDatabase( "Preconditioner" );
-    auto pcSolverParams = std::make_shared<AMP::Solver::TrilinosMLSolverParameters>( pcSolver_db );
-    pcSolverParams->d_pOperator = linearMechanicsBVPoperator;
-    auto pcSolver               = std::make_shared<AMP::Solver::TrilinosMLSolver>( pcSolverParams );
-
     // HACK to prevent a double delete on Petsc Vec
     std::shared_ptr<AMP::Solver::PetscSNESSolver> nonlinearSolver;
-
-    // initialize the linear solver
-    auto linearSolverParams =
-        std::make_shared<AMP::Solver::SolverStrategyParameters>( linearSolver_db );
-    linearSolverParams->d_pOperator     = linearMechanicsBVPoperator;
-    linearSolverParams->d_comm          = globalComm;
-    linearSolverParams->d_pNestedSolver = pcSolver;
-    auto linearSolver = std::make_shared<AMP::Solver::PetscKrylovSolver>( linearSolverParams );
 
     // initialize the nonlinear solver
     auto nonlinearSolverParams =
@@ -147,7 +120,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     // change the next line to get the correct communicator out
     nonlinearSolverParams->d_comm          = globalComm;
     nonlinearSolverParams->d_pOperator     = nonlinearMechanicsBVPoperator;
-    nonlinearSolverParams->d_pNestedSolver = linearSolver;
     nonlinearSolverParams->d_pInitialGuess = solVec;
     nonlinearSolver.reset( new AMP::Solver::PetscSNESSolver( nonlinearSolverParams ) );
 
@@ -219,8 +191,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
             nonlinearSolver->setZeroInitialGuess( false );
         }
     }
-
-    AMP::pout << "epsilon = " << epsilon << std::endl;
 
     ut->passes( exeName );
 }

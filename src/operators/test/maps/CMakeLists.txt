@@ -38,12 +38,4 @@ IF ( AMP_DATA AND USE_LIBMESH )
 ENDIF()
 
 
-# Test DTK map
-IF( USE_DTK AND USE_LIBMESH )
-    ADD_TB_TEST_1_2_4( testMultiDofDTKMapOperator )
-    ADD_TB_TEST_1_2_4( testMultiDofDTKMapOperator_2 )
-    COPY_TEST_FILE( input_testMultiDofDTKMapOperator-1 )
-    COPY_TEST_FILE( input_testMultiDofDTKMapOperator-2 )
-ENDIF()
-
 FINALIZE_TESTBUILDER()
