@@ -41,10 +41,10 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
     {
         PROFILE( "CSRMatrixSpGEMMDevice::multiply (local)" );
         multiply<BlockType::DIAG>( A_diag, B_diag, C_diag_diag );
-        multiply<BlockType::OFFD>( A_diag, B_offd, C_diag_offd );
+        multiply<BlockType::DIAG>( A_diag, B_offd, C_diag_offd );
     }
 
-    if ( A->hasOffDiag() ) {
+    if ( A->hasOffDiag() && false ) {
         PROFILE( "CSRMatrixSpGEMMDevice::multiply (remote)" );
         if ( BR_diag.get() != nullptr ) {
             C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
@@ -54,7 +54,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
                                                                C->beginCol(),
                                                                C->endCol(),
                                                                true );
-            multiply<BlockType::DIAG>( A_offd, BR_diag, C_offd_diag );
+            multiply<BlockType::OFFD>( A_offd, BR_diag, C_offd_diag );
         }
         if ( BR_offd.get() != nullptr ) {
             C_offd_offd = std::make_shared<localmatrixdata_t>( nullptr,
@@ -206,6 +206,43 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
     // exiting function destructs spgemm wrapper and frees its internals
 }
 
+template<typename gidx_t, typename lidx_t>
+__global__ void merge_row_count_kernel( const lidx_t num_rows,
+                                        const lidx_t *A_rs,
+                                        const gidx_t *A_cols,
+                                        const lidx_t *B_rs,
+                                        const gidx_t *B_cols,
+                                        lidx_t *C_rs )
+{
+    for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
+          row += blockDim.x * gridDim.x ) {
+        // all of A counts in automatically
+        C_rs[row] = A_rs[row + 1] - A_rs[row];
+        // column values are sorted, so walk through A cols and B cols
+        // simultaneously to find matches
+        lidx_t num_repeats = 0, A_ptr = A_rs[row], B_ptr = B_rs[row];
+        for ( ; A_ptr < A_rs[row + 1] && B_ptr < B_rs[row + 1]; ) {
+            const auto Ac = A_cols[A_ptr], Bc = B_cols[B_ptr];
+            if ( Ac == Bc ) {
+                // entries match, increment counter and both ptrs
+                ++num_repeats;
+                ++A_ptr;
+                ++B_ptr;
+            } else if ( Ac < Bc ) {
+                // A lags B, increment A ptr to check further in row
+                ++A_ptr;
+            } else {
+                // B lags A, Bc not a repeat, so increment B ptr to check next
+                ++B_ptr;
+            }
+        }
+        // either all A cols or all B cols have been checked
+        // either way, all possible repeats accounted for
+        // add in length of B row, minus repeats
+        C_rs[row] += B_rs[row + 1] - B_rs[row] - num_repeats;
+    }
+}
+
 template<typename Config>
 void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
 {
@@ -214,7 +251,7 @@ void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
     const auto first_col = C_diag->beginCol();
 
     // handle special case where C_diag_offd is empty
-    if ( C_diag_offd.get() == nullptr || C_diag_offd->isEmpty() ) {
+    if ( C_diag_offd.get() == nullptr || C_diag_offd->isEmpty() || true ) {
         C_diag->swapDataFields( *C_diag_diag );
         return;
     }
@@ -244,7 +281,7 @@ void CSRMatrixSpGEMMDevice<Config>::mergeOffd()
     if ( C_diag_offd.get() == nullptr && C_offd_offd.get() == nullptr ) {
         return;
     }
-    if ( C_offd_offd.get() == nullptr || C_offd_offd->isEmpty() ) {
+    if ( C_offd_offd.get() == nullptr || C_offd_offd->isEmpty() || true ) {
         C_offd->swapDataFields( *C_diag_offd );
         return;
     }
@@ -296,7 +333,8 @@ void CSRMatrixSpGEMMDevice<Config>::setupBRemoteComm()
     auto rows_per_rank_send   = comm_list->getSendSizes();
     auto B_last_rows          = comm_list->getPartition();
     const auto A_col_map_size = A_offd->numUniqueColumns();
-    const auto A_col_map      = A_offd->getColumnMap();
+    std::vector<gidx_t> A_col_map;
+    A_offd->getColumnMap( A_col_map );
 
     // 2. the above rows per rank lists generally include lots of zeros
     // trim down to the ranks that actually need to communicate

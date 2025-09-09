@@ -449,8 +449,8 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                            true );
 
     // copy row selection to device if needed
-    bool rows_migrated = d_memory_location > AMP::Utilities::MemoryType::host;
-    gidx_t *rows_d;
+    bool rows_migrated = d_memory_location > AMP::Utilities::MemoryType::managed;
+    gidx_t *rows_d     = nullptr;
     if ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
         AMP::Utilities::copy( rows.size(), rows.data(), rows_d );

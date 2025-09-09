@@ -284,13 +284,21 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
 
     // Trigger allocations
     concat_matrix->setNNZ( true );
+    // copy row starts to host if needed
+    lidx_t *concat_rs = concat_matrix->d_row_starts.get();
+    std::vector<lidx_t> host_cat_rs;
+    if ( mem_loc == AMP::Utilities::MemoryType::device ) {
+        host_cat_rs.resize( num_rows + 1 );
+        AMP::Utilities::copy( num_rows + 1, concat_matrix->d_row_starts.get(), host_cat_rs.data() );
+        concat_rs = host_cat_rs.data();
+    }
 
     // loop over blocks again and write into new matrix
     cat_row = 0;
     for ( auto it : blocks ) {
         block = it.second;
         if ( !block->d_is_empty ) {
-            const auto offset = concat_matrix->d_row_starts[cat_row];
+            const auto offset = concat_rs[cat_row];
             CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts.get(),
                                                               block->d_cols.get(),
                                                               block->d_coeffs.get(),

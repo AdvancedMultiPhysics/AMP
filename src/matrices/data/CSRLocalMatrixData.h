@@ -193,7 +193,7 @@ public:
         scalar_t avg_nnz = static_cast<scalar_t>( tot_nnz ) / static_cast<scalar_t>( d_num_rows );
         std::cout << "    avg nnz per row: " << avg_nnz << std::endl;
         std::cout << "    tot nnz: " << tot_nnz << std::endl;
-        if ( verbose ) {
+        if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
             std::cout << "    row 0: ";
             for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
                 if ( d_coeffs[n] != 0 || show_zeros ) {
