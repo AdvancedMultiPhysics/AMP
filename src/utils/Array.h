@@ -749,14 +749,13 @@ public: // Math operations
     Array reverseDim() const;
 
     //! Replicate an array a given number of times in each direction
-    Array repmat( const std::vector<size_t> &N ) const;
+    Array repmat( const ArraySize &N ) const;
 
     //! Coarsen an array using the given filter
     Array coarsen( const Array &filter ) const;
 
     //! Coarsen an array using the given filter
-    Array coarsen( const std::vector<size_t> &ratio,
-                   std::function<TYPE( const Array & )> filter ) const;
+    Array coarsen( const ArraySize &ratio, std::function<TYPE( const Array & )> filter ) const;
 
     /*!
      * Perform a element-wise operation y = f(x)

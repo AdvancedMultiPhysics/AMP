@@ -730,36 +730,37 @@ void Array<TYPE, FUN, Allocator>::pow( const Array<TYPE, FUN, Allocator> &baseAr
  *  Replicate the array                                  *
  ********************************************************/
 template<class TYPE, class FUN, class Allocator>
-Array<TYPE, FUN, Allocator>
-Array<TYPE, FUN, Allocator>::repmat( const std::vector<size_t> &N_rep ) const
+Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::repmat( const ArraySize &N_rep ) const
 {
-    std::vector<size_t> N2( d_size.begin(), d_size.end() );
-    if ( N2.size() < N_rep.size() )
-        N2.resize( N_rep.size(), 1 );
+    auto N2 = N_rep * d_size;
     std::array<size_t, 5> N1, Nr;
     N1.fill( 1 );
     Nr.fill( 1 );
-    for ( size_t d = 0; d < N_rep.size(); d++ ) {
+    for ( size_t d = 0; d < N_rep.ndim(); d++ ) {
         N1[d] = d_size[d];
         Nr[d] = N_rep[d];
-        N2[d] *= N_rep[d];
     }
     Array<TYPE, FUN, Allocator> y( N2 );
     static_assert( ArraySize::maxDim() <= 5, "Not programmed for dimensions > 5" );
     TYPE *y2 = y.data();
-    for ( size_t i4 = 0, index = 0; i4 < N1[4]; i4++ ) {
-        for ( size_t j4 = 0; j4 < Nr[4]; j4++ ) {
-            for ( size_t i3 = 0; i3 < N1[3]; i3++ ) {
-                for ( size_t j3 = 0; j3 < Nr[3]; j3++ ) {
-                    for ( size_t i2 = 0; i2 < N1[2]; i2++ ) {
-                        for ( size_t j2 = 0; j2 < Nr[2]; j2++ ) {
-                            for ( size_t i1 = 0; i1 < N1[1]; i1++ ) {
-                                for ( size_t j1 = 0; j1 < Nr[1]; j1++ ) {
-                                    for ( size_t i0 = 0; i0 < N1[0]; i0++ ) {
-                                        size_t k = d_size.index( i0, i1, i2, i3, i4 );
-                                        TYPE x   = d_data[k];
-                                        for ( size_t j0 = 0; j0 < Nr[0]; j0++, index++ )
-                                            y2[index] = x;
+    for ( size_t i4 = 0; i4 < N1[4]; i4++ ) {
+        for ( size_t i3 = 0; i3 < N1[3]; i3++ ) {
+            for ( size_t i2 = 0; i2 < N1[2]; i2++ ) {
+                for ( size_t i1 = 0; i1 < N1[1]; i1++ ) {
+                    for ( size_t i0 = 0; i0 < N1[0]; i0++ ) {
+                        TYPE x = operator()( i0, i1, i2, i3, i4 );
+                        for ( size_t j4 = 0; j4 < Nr[4]; j4++ ) {
+                            for ( size_t j3 = 0; j3 < Nr[3]; j3++ ) {
+                                for ( size_t j2 = 0; j2 < Nr[2]; j2++ ) {
+                                    for ( size_t j1 = 0; j1 < Nr[1]; j1++ ) {
+                                        for ( size_t j0 = 0; j0 < Nr[0]; j0++ ) {
+                                            size_t index = N2.index( i0 + j0 * N1[0],
+                                                                     i1 + j1 * N1[1],
+                                                                     i2 + j2 * N1[2],
+                                                                     i3 + j3 * N1[3],
+                                                                     i4 + j4 * N1[4] );
+                                            y2[index]    = x;
+                                        }
                                     }
                                 }
                             }
@@ -1060,28 +1061,55 @@ void Array<TYPE, FUN, Allocator>::print( std::ostream &os,
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::reverseDim() const
 {
-    size_t N2[ArraySize::maxDim()];
-    for ( int d = 0; d < ArraySize::maxDim(); d++ )
-        N2[d] = d_size[ArraySize::maxDim() - d - 1];
-    ArraySize S2( ArraySize::maxDim(), N2 );
-    Array<TYPE, FUN, Allocator> y( S2 );
-    static_assert( ArraySize::maxDim() == 5, "Not programmed for dimensions other than 5" );
-    TYPE *y2 = y.data();
-    for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
-        for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
-            for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
-                for ( size_t i3 = 0; i3 < d_size[3]; i3++ ) {
-                    for ( size_t i4 = 0; i4 < d_size[4]; i4++ ) {
-                        y2[S2.index( i4, i3, i2, i1, i0 )] =
-                            d_data[d_size.index( i0, i1, i2, i3, i4 )];
+    if ( ndim() == 1 )
+        return *this;
+    auto &N = d_size;
+    Array<TYPE, FUN, Allocator> y;
+    if ( ndim() == 2 ) {
+        ArraySize N2( N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                y( i1, i0 ) = d_data[d_size.index( i0, i1 )];
+            }
+        }
+    } else if ( ndim() == 3 ) {
+        ArraySize N2( N[2], N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
+                    y( i2, i1, i0 ) = d_data[d_size.index( i0, i1, i2 )];
+                }
+            }
+        }
+    } else if ( ndim() == 4 ) {
+        ArraySize N2( N[3], N[2], N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
+                    for ( size_t i3 = 0; i3 < d_size[3]; i3++ ) {
+                        y( i3, i2, i1, i0 ) = d_data[d_size.index( i0, i1, i2, i3 )];
+                    }
+                }
+            }
+        }
+    } else if ( ndim() == 5 ) {
+        ArraySize N2( N[4], N[3], N[2], N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
+                    for ( size_t i3 = 0; i3 < d_size[3]; i3++ ) {
+                        for ( size_t i4 = 0; i4 < d_size[4]; i4++ ) {
+                            y( i4, i3, i2, i1, i0 ) = d_data[d_size.index( i0, i1, i2, i3, i4 )];
+                        }
                     }
                 }
             }
         }
     }
-    for ( int d = 0; d < d_size.ndim(); d++ )
-        N2[d] = d_size[d_size.ndim() - d - 1];
-    y.reshape( ArraySize( d_size.ndim(), N2 ) );
     return y;
 }
 
@@ -1129,7 +1157,7 @@ Array<TYPE, FUN, Allocator>::coarsen( const Array<TYPE, FUN, Allocator> &filter 
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::coarsen(
-    const std::vector<size_t> &ratio,
+    const ArraySize &ratio,
     std::function<TYPE( const Array<TYPE, FUN, Allocator> & )> filter ) const
 {
     if ( ratio.size() != d_size.ndim() )
@@ -1151,7 +1179,7 @@ Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::coarsen(
                     for ( size_t j2 = 0; j2 < ratio[1]; j2++ ) {
                         for ( size_t i2 = 0; i2 < ratio[0]; i2++ ) {
                             tmp( i2, j2, k2 ) = operator()(
-                                i1 *ratio[0] + i2, j1 * ratio[1] + j2, k1 * ratio[2] + k2 );
+                                i1 * ratio[0] + i2, j1 * ratio[1] + j2, k1 * ratio[2] + k2 );
                         }
                     }
                 }
