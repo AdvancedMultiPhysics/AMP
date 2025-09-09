@@ -56,6 +56,8 @@ public:
 
     void testEpetra( AMP::UnitTest *ut );
 
+    void testTpetra( AMP::UnitTest *ut );
+
 
 public:
     void InstantiateVector( AMP::UnitTest *utils );
