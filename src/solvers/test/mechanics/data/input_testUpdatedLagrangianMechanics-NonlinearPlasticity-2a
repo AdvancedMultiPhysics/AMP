@@ -154,7 +154,6 @@ NonlinearSolver{
     relative_tolerance = 1.0e-9
     stepTolerance = 1.0e-10
     maximumFunctionEvals = 1000
-    //usesJacobian=TRUE
     usesJacobian=FALSE
 
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.0001"

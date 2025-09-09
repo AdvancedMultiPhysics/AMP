@@ -55,8 +55,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     // Create a nonlinear BVP operator for mechanics
     AMP_INSIST( input_db->keyExists( "NonlinearMechanicsOperator" ), "key missing!" );
     auto nonlinearMechanicsDatabase = input_db->getDatabase( "NonlinearMechanicsOperator" );
-    auto dirichletVectorCorrectionDatabase =
-        nonlinearMechanicsDatabase->getDatabase( "BoundaryOperator" );
+    auto boundaryOpName = nonlinearMechanicsDatabase->getScalar<std::string>( "BoundaryOperator" );
+    auto dirichletVectorCorrectionDatabase = input_db->getDatabase( boundaryOpName );
     auto nonlinearMechanicsBVPoperator =
         std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
             AMP::Operator::OperatorBuilder::createOperator(
@@ -139,9 +139,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto nonlinearSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( nonlinearSolver_db );
     // change the next line to get the correct communicator out
-    nonlinearSolverParams->d_comm          = globalComm;
-    nonlinearSolverParams->d_pOperator     = nonlinearMechanicsBVPoperator;
-    nonlinearSolverParams->d_pNestedSolver = linearSolver;
+    nonlinearSolverParams->d_comm      = globalComm;
+    nonlinearSolverParams->d_pOperator = nonlinearMechanicsBVPoperator;
+    //    nonlinearSolverParams->d_pNestedSolver = linearSolver;
     nonlinearSolverParams->d_pInitialGuess = solVec;
     nonlinearSolver.reset( new AMP::Solver::PetscSNESSolver( nonlinearSolverParams ) );
 
@@ -175,10 +175,15 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         AMP::pout << "Final Residual Norm for loading step " << ( step + 1 ) << " is "
                   << finalResidualNorm << std::endl;
 
-        if ( finalResidualNorm > ( 1.0e-10 * initialResidualNorm ) ) {
-            ut->failure( "Nonlinear solve for current loading step" );
-        } else {
+        const auto convReason = nonlinearSolver->getConvergenceStatus();
+        const bool accept =
+            convReason == AMP::Solver::SolverStrategy::SolverStatus::ConvergedOnRelTol ||
+            convReason == AMP::Solver::SolverStrategy::SolverStatus::ConvergedOnAbsTol;
+
+        if ( accept ) {
             ut->passes( "Nonlinear solve for current loading step" );
+        } else {
+            ut->failure( "Nonlinear solve for current loading step" );
         }
 
         double finalSolNorm = static_cast<double>( solVec->L2Norm() );
@@ -218,7 +223,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
-    AMP::pout << solVec << std::endl;
+    //    AMP::pout << solVec << std::endl;
 
     mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
 
