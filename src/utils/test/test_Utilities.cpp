@@ -83,7 +83,7 @@ int main( int argc, char *argv[] )
 
         // Test the hash key
         unsigned int key = AMP::Utilities::hash_char( "test" );
-        PASS_FAIL( key == 2087956275, "hash 'test'" );
+        ut.pass_fail( key == 2087956275, "hash 'test'" );
 
         // Test the factor / primes function
         testPrimes( ut );
@@ -121,7 +121,7 @@ int main( int argc, char *argv[] )
         std::string exe = StackTrace::getExecutable();
         if ( rank == 0 )
             std::cout << "Executable: " << exe << std::endl;
-        PASS_FAIL( exe.find( "test_Utilities" ) != std::string::npos, "getExecutable" );
+        ut.pass_fail( exe.find( "test_Utilities" ) != std::string::npos, "getExecutable" );
 
         // Test filesystem routines
         testFileSystem( ut );
@@ -131,7 +131,7 @@ int main( int argc, char *argv[] )
             AMP_ERROR( "test_error" );
             ut.failure( "Failed to catch error" );
         } catch ( const StackTrace::abort_error &err ) {
-            PASS_FAIL( err.message == "test_error", "Catch error" );
+            ut.pass_fail( err.message == "test_error", "Catch error" );
         } catch ( std::exception &err ) {
             ut.failure( "Caught unknown exception type" );
         }
@@ -149,7 +149,7 @@ int main( int argc, char *argv[] )
         // Test errno
         errno         = ETXTBSY;
         auto errorMsg = AMP::Utilities::getLastErrnoString();
-        PASS_FAIL( errorMsg == "Text file busy", "errno" );
+        ut.pass_fail( errorMsg == "Text file busy", "errno" );
 
         // Test demangle
         auto mangled   = "_Z3fooPci";

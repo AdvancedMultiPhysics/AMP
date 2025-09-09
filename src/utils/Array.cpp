@@ -45,7 +45,7 @@ instantiateFull( long double );
 #define instantiateComplex( T )                                                                    \
     instantiateArrayConstructors( T );                                                             \
     template AMP::Array<T>::Array( const Range<T> &range );                                        \
-    template AMP::Array<T> AMP::Array<T>::repmat( std::vector<size_t> const & ) const;             \
+    template AMP::Array<T> AMP::Array<T>::repmat( AMP::ArraySize const & ) const;                  \
     template void AMP::Array<T>::copySubset( std::vector<size_t> const &, AMP::Array<T> const & ); \
     template AMP::Array<T> AMP::Array<T>::subset( std::vector<size_t> const & ) const;             \
     template bool AMP::Array<T>::NaNs() const;                                                     \

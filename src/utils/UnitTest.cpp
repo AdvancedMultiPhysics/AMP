@@ -62,6 +62,13 @@ void UnitTest::expected_failure( std::string in )
     d_expected.emplace_back( std::move( in ) );
     d_mutex.unlock();
 }
+void UnitTest::pass_fail( bool pass, std::string in )
+{
+    if ( pass )
+        passes( std::move( in ) );
+    else
+        failure( std::move( in ) );
+}
 
 
 /********************************************************************
