@@ -9,7 +9,7 @@ Mesh{
     static = TRUE
 }
 
-NumberOfLoadingSteps = 10
+NumberOfLoadingSteps = 8
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
@@ -74,6 +74,15 @@ MechanicsNonlinearFEOperator1 {
 
         MechanicsElement {
           name="MechanicsNonlinearElement"
+            USE_REDUCED_INTEGRATION = FALSE 
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }
+
+        MechanicsLinearElement {
+          name="MechanicsLinearElement"
             USE_REDUCED_INTEGRATION = FALSE 
             FE_ORDER = "FIRST"  
             FE_FAMILY = "LAGRANGE"
@@ -210,25 +219,28 @@ Load_Boundary {
 NonlinearSolver{
   print_info_level = 2 
     max_iterations = 100
-    max_error = 1e-10
-
     absolute_tolerance = 1.0e-15
-    relative_tolerance = 1.0e-10
-    stepTolerance = 1.0e-10
+    relative_tolerance = 1.0e-12
+    stepTolerance = 1.0e-18
     maximumFunctionEvals = 1000
-    usesJacobian=TRUE
+    usesJacobian=FALSE
+    forcing_term_strategy            =  "CONSTANT"
+    constant_forcing_term            =  0.01
+//    forcing_term_strategy            =  "EWCHOICE3"
+//    EW_choice2_alpha = 2.0
+//    EW_choice2_gamma = 0.9
 
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.0001"
 
     LinearSolver{
-      print_info_level = 1
-        max_iterations = 10
-        max_error = 1e-10
+        name = "PetscKrylovSolver"
+        print_info_level = 1
+        max_iterations = 100
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
-        relative_tolerance = 1.0e-11
+        relative_tolerance = 1.0e-15
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 100
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
@@ -236,14 +248,14 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
         Preconditioner{
-          print_info_level = 1
+            name = "TrilinosMLSolver"
+            print_info_level = 1
             PDE_equations = 3
             max_iterations = 1
-            max_error = 1.0e-15
-              max_levels = 1
-              aggregationtype = "Uncoupled"
-              smoothertype = "Chebyshev"
-              smoother_sweeps = 3
+            max_levels = 1
+            aggregationtype = "Uncoupled"
+            smoothertype = "Chebyshev"
+            smoother_sweeps = 3
         }
     }
 }
