@@ -454,6 +454,12 @@ CONSTEXPR ArraySize operator*( const ArraySize &x, size_t v )
     size_t N[5] = { v * x[0], v * x[1], v * x[2], v * x[3], v * x[4] };
     return ArraySize( x.ndim(), N );
 }
+CONSTEXPR ArraySize operator*( const ArraySize &x, const ArraySize &y )
+{
+    int ndim    = std::max( x.ndim(), y.ndim() );
+    size_t N[5] = { x[0] * y[0], x[1] * y[1], x[2] * y[2], x[3] * y[3], x[4] * y[4] };
+    return ArraySize( ndim, N );
+}
 CONSTEXPR ArraySize operator-( const ArraySize &x, size_t v )
 {
     size_t N[5] = { x[0] - v, x[1] - v, x[2] - v, x[3] - v, x[4] - v };
