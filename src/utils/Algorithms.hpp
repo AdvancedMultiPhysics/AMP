@@ -110,6 +110,23 @@ size_t Algorithms<TYPE>::unique( TYPE *x, const size_t N )
 }
 
 template<typename TYPE>
+TYPE Algorithms<TYPE>::min_element( const TYPE *x, const size_t N )
+{
+    if ( getMemoryType( x ) <= MemoryType::host ) {
+        return *std::min_element( x, x + N );
+    } else {
+#ifdef AMP_USE_DEVICE
+        return *thrust::min_element( thrust::device,
+                                     thrust::device_pointer_cast( x ),
+                                     thrust::device_pointer_cast( x ) + N );
+#else
+        AMP_ERROR( "Invalid memory type" );
+        return TYPE{ 0 };
+#endif
+    }
+}
+
+template<typename TYPE>
 TYPE Algorithms<TYPE>::max_element( const TYPE *x, const size_t N )
 {
     if ( getMemoryType( x ) <= MemoryType::host ) {

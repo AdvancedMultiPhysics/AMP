@@ -65,12 +65,12 @@ static_assert( std::is_trivially_copyable_v<Units> );
 static_assert( !std::is_arithmetic_v<Units> );
 static_assert( Units().isNull() );
 static_assert( Units( "" ).isNull() );
-static_assert( atoi( " 2303785 " ) == 2303785 );
-static_assert( atoi( " +2303785 " ) == 2303785 );
-static_assert( atoi( " -2303785 " ) == -2303785 );
-static_assert( strtod( " 2303785 " ) == 2303785 );
-static_assert( strtod( "2303785.42" ) - 2303785.42 < 1e-12 );
-static_assert( strtod( " -2303785.42E-4 " ) + 230.378542 < 1e-12 );
+static_assert( Units::atoi( " 2303785 " ) == 2303785 );
+static_assert( Units::atoi( " +2303785 " ) == 2303785 );
+static_assert( Units::atoi( " -2303785 " ) == -2303785 );
+static_assert( Units::strtod( " 2303785 " ) == 2303785 );
+static_assert( Units::strtod( "2303785.42" ) - 2303785.42 < 1e-12 );
+static_assert( Units::strtod( " -2303785.42E-4 " ) + 230.378542 < 1e-12 );
 static_assert( Units::convert( Units::getUnitPrefix( "q" ) ) == 1e-30 );
 static_assert( Units::convert( Units::getUnitPrefix( "r" ) ) == 1e-27 );
 static_assert( Units::convert( Units::getUnitPrefix( "y" ) ) == 1e-24 );
@@ -121,6 +121,7 @@ static_assert( approx_equal( Units( "oz" ).convert( Units( "g" ) ), 28.349523125
 static_assert( approx_equal( Units( "ton" ).convert( Units( "lb" ) ), 2240 ) );
 constexpr char microOhm[] = { (char) 206, (char) 188, (char) 206, (char) 169, (char) 0 }; // UTF-16
 static_assert( approx_equal( Units( "ohm" ).convert( Units( microOhm ) ), 1e6 ) );
+// static_assert( Units( "3.14159" ) == 3.14159 * Units() );
 } // namespace AMP
 
 

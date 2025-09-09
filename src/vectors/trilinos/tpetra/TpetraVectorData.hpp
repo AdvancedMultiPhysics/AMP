@@ -15,8 +15,9 @@ namespace AMP::LinearAlgebra {
 
 template<typename ST, typename LO, typename GO, typename NT>
 TpetraVectorData<ST, LO, GO, NT>::TpetraVectorData(
+    std::shared_ptr<CommunicationList> commList,
     std::shared_ptr<AMP::Discretization::DOFManager> dofManager )
-    : d_pDOFManager( dofManager )
+    : GhostDataHelper<ST>( commList ), d_pDOFManager( dofManager )
 {
     AMP_DEBUG_ASSERT( dofManager );
 #ifdef AMP_USE_MPI
@@ -59,27 +60,42 @@ void TpetraVectorData<ST, LO, GO, NT>::getValuesByLocalID( size_t,
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::putRawData( const void *, const typeID & )
+void TpetraVectorData<ST, LO, GO, NT>::putRawData( const void *in, const typeID &id )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_INSIST( id == getTypeID<ST>(), "Tpetra only supports putRawData for native type" );
+    const auto srcData = reinterpret_cast<const ST *>( in );
+    auto dstData       = this->getTpetraVector()->getDataNonConst( 0 );
+    AMP::Utilities::Algorithms<ST>::copy_n( srcData, dstData.size(), dstData.get() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *, const typeID & ) const
+void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *out, const typeID &id ) const
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_INSIST( id == getTypeID<ST>(), "Tpetra only supports getRawData for native type" );
+    auto dstData = reinterpret_cast<ST *>( out );
+    auto tVec    = this->getTpetraVector();
+    AMP_INSIST( tVec && tVec->getNumVectors() == 1,
+                "Only implemented for single data block vectors" );
+    const auto srcData = tVec->getData( 0 );
+    AMP::Utilities::Algorithms<ST>::copy_n( srcData.get(), srcData.size(), dstData );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 void *TpetraVectorData<ST, LO, GO, NT>::getRawDataBlockAsVoid( size_t )
 {
-    AMP_ERROR( "Not implemented" );
+    auto tVec = this->getTpetraVector();
+    AMP_INSIST( tVec && tVec->getNumVectors() == 1,
+                "Only implemented for single data block vectors" );
+    return tVec->getDataNonConst( 0 ).get();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 const void *TpetraVectorData<ST, LO, GO, NT>::getRawDataBlockAsVoid( size_t ) const
 {
-    AMP_ERROR( "Not implemented" );
+    auto tVec = this->getTpetraVector();
+    AMP_INSIST( tVec && tVec->getNumVectors() == 1,
+                "Only implemented for single data block vectors" );
+    return tVec->getData( 0 ).get();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -93,7 +109,8 @@ void TpetraVectorData<ST, LO, GO, NT>::swapData( VectorData &other )
 template<typename ST, typename LO, typename GO, typename NT>
 std::shared_ptr<VectorData> TpetraVectorData<ST, LO, GO, NT>::cloneData( const std::string & ) const
 {
-    return std::make_shared<TpetraVectorData<ST, LO, GO, NT>>( d_pDOFManager );
+    return std::make_shared<TpetraVectorData<ST, LO, GO, NT>>( this->getCommunicationList(),
+                                                               d_pDOFManager );
 }
 
 
