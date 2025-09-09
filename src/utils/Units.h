@@ -195,6 +195,9 @@ public:
     //! Operator *=
     constexpr void operator*=( const Units &rhs ) noexcept;
 
+    //! Operator *=
+    constexpr void operator*=( double x ) noexcept { d_scale *= x; }
+
     //! Operator /=
     constexpr void operator/=( const Units &rhs ) noexcept;
 
@@ -228,6 +231,12 @@ public:
 
     //! Get all supported units
     static inline std::vector<std::string> getAllUnits();
+
+    // Convert string to int
+    static constexpr int atoi( std::string_view, bool = true );
+
+    // Convert string to double
+    static constexpr double strtod( std::string_view );
 
 
 protected:
