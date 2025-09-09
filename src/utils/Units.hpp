@@ -70,7 +70,7 @@ constexpr size_t Units::findPar( const std::string_view &str, size_t i )
 /********************************************************************
  * constexpr atoi/strtod                                             *
  ********************************************************************/
-constexpr int atoi( std::string_view str, bool throw_error = true )
+constexpr int Units::atoi( std::string_view str, bool throw_error )
 {
     str = deblank( str );
     if ( str.empty() )
@@ -94,7 +94,7 @@ constexpr int atoi( std::string_view str, bool throw_error = true )
     }
     return neg ? -i : i;
 }
-constexpr double strtod( std::string_view str, bool throw_error = true )
+constexpr double Units::strtod( std::string_view str )
 {
     str = deblank( str );
     if ( str.empty() )
@@ -113,23 +113,20 @@ constexpr double strtod( std::string_view str, bool throw_error = true )
     if ( i2 != std::string::npos )
         s3 = str.substr( i2 + 1 );
     constexpr int errInt = std::numeric_limits<int>::min();
-    double x             = atoi( s1, throw_error );
+    double x             = Units::atoi( s1, false );
     if ( x == errInt )
         return std::numeric_limits<double>::quiet_NaN();
     if ( !s2.empty() ) {
         double f = 0.1;
         for ( size_t i = 0; i < s2.size(); i++, f *= 0.1 ) {
             if ( s2[i] < '0' || s2[i] > '9' ) {
-                if ( throw_error )
-                    throw std::logic_error( "Error calling strtod" );
-                else
-                    return std::numeric_limits<double>::quiet_NaN();
+                return std::numeric_limits<double>::quiet_NaN();
             }
             x += f * static_cast<int>( s2[i] - '0' );
         }
     }
     if ( !s3.empty() ) {
-        int p = atoi( s3, throw_error );
+        int p = Units::atoi( s3, false );
         if ( x == errInt )
             return std::numeric_limits<double>::quiet_NaN();
         double s = 10.0;
@@ -231,7 +228,7 @@ constexpr Units Units::read( std::string_view str )
     for ( int i = 0; i < N; i++ ) {
         Units u2 = read( v[i] );
         if ( op[i] == '^' ) {
-            u2 = u2.pow( atoi( v[i + 1] ) );
+            u2 = u2.pow( Units::atoi( v[i + 1] ) );
             i++;
         }
         if ( last_op == '*' ) {
@@ -488,13 +485,13 @@ constexpr Units Units::readUnit( const std::string_view &str, bool throwErr )
         return Units( UnitType::unitless, 0.01 );
     if ( str == "angstrom" )
         return Units( UnitType::length, 1e-10 );
-    // No success
+    // Try to interpret it as a double
     SI_type u = { 0 };
     double s  = 0;
-    if ( throwErr && s == 0 ) {
+    if ( throwErr ) {
         // We have an error interpreting the string, try to interpret it as a double
         // Note: this is only valid when we are not using constexpr (also true for throw)
-        s = strtod( str, false );
+        s = strtod( str );
         if ( s == s && s != 0 )
             return Units( u, s );
         // Still unable, throw an error
@@ -686,6 +683,12 @@ constexpr Units operator*( const Units &a, const Units &b )
 {
     Units c = a;
     c *= b;
+    return c;
+}
+constexpr Units operator*( double a, const Units &b )
+{
+    Units c = b;
+    c *= a;
     return c;
 }
 constexpr Units operator/( const Units &a, const Units &b )
