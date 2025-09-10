@@ -11,7 +11,7 @@
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBDFWrappers.h"
 #include "AMP/solvers/radiationDiffusionFDOpSplitPrec/RadiationDiffusionFDOpSplitPrec.h"
-#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+#include "AMP/operators/testHelpers/FDHelper.h"
 #include <iostream>
 #include <iomanip>
 #include <filesystem>

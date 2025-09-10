@@ -5,7 +5,7 @@
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBDFWrappers.h"
-#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+#include "AMP/operators/testHelpers/FDHelper.h"
 
 #include <iomanip>
 #include <iostream>

@@ -1,6 +1,6 @@
 #include "AMP/operators/diffusionFD/DiffusionFD.h"
 #include "AMP/operators/diffusionFD/DiffusionRotatedAnisotropicModel.h"
-#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+#include "AMP/operators/testHelpers/FDHelper.h"
 
 #include "AMP/IO/AsciiWriter.h"
 #include "AMP/mesh/MeshParameters.h"
