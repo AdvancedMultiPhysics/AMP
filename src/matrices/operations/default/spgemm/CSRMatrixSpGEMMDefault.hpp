@@ -143,6 +143,12 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_NonOverlapped()
 
     C->assemble( true );
 
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Host post-assemble";
+        C_diag->printStats( false, false );
+        C_offd->printStats( false, false );
+    }
+
     // set that comms need to be refreshed
     // assumes that user will only call multiply again if they have changed
     // the values in A and or B
@@ -263,6 +269,12 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiply( std::shared_ptr<localmatrix
         return;
     }
 
+    if ( comm.getRank() == 0 && mode_t == Mode::NUMERIC ) {
+        std::cout << "Host intermediate product inputs";
+        A_data->printStats( true, false );
+        B_data->printStats( true, false );
+    }
+
     const bool is_diag = block_t == BlockType::DIAG;
 
     // all fields from blocks involved
@@ -362,6 +374,11 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiply( std::shared_ptr<localmatrix
             // Clear accumulator to prepare for next row
             acc.clear();
         }
+    }
+
+    if ( comm.getRank() == 0 && mode_t == Mode::NUMERIC ) {
+        std::cout << "Host intermediate product";
+        C_data->printStats( true, false );
     }
 }
 
@@ -661,6 +678,11 @@ void CSRMatrixSpGEMMHelperDefault<Config>::mergeDiag()
         acc.clear();
     }
 
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Host C_diag merged";
+        C_diag->printStats( false, false );
+    }
+
     C_diag_diag.reset();
     C_offd_diag.reset();
 }
@@ -746,6 +768,11 @@ void CSRMatrixSpGEMMHelperDefault<Config>::mergeOffd()
         }
         // clear accumulator
         acc.clear();
+    }
+
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Host C_offd merged";
+        C_offd->printStats( false, false );
     }
 
     C_diag_offd.reset();

@@ -168,21 +168,22 @@ __global__ void vert_cat_fill( const lidx_t *in_row_starts,
                                const gidx_t first_col,
                                const gidx_t last_col,
                                const bool keep_inside,
+                               const lidx_t row_offset,
                                const lidx_t *out_row_starts,
                                gidx_t *out_cols,
                                scalar_t *out_coeffs )
 {
     for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
           i += blockDim.x * gridDim.x ) {
-        lidx_t row_nnz = 0, out_rs = out_row_starts[i];
+        lidx_t cat_pos = out_row_starts[i + row_offset];
         for ( lidx_t k = in_row_starts[i]; k < in_row_starts[i + 1]; ++k ) {
             const auto c      = in_cols[k];
             const auto v      = in_coeffs[k];
             const bool inside = first_col <= c && c < last_col;
             if ( ( keep_inside && inside ) || ( !keep_inside && !inside ) ) {
-                out_cols[out_rs + row_nnz]   = c;
-                out_coeffs[out_rs + row_nnz] = v;
-                ++row_nnz;
+                out_cols[cat_pos]   = c;
+                out_coeffs[cat_pos] = v;
+                ++cat_pos;
             }
         }
     }
@@ -495,7 +496,6 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
     const bool keep_inside,
     typename Config::lidx_t *counts )
 {
-    PROFILE( "CSRMatrixDataHelpers::ConcatVerticalCountNNZ" );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
             lidx_t row_nnz = 0;
@@ -532,22 +532,22 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
     const typename Config::gidx_t first_col,
     const typename Config::gidx_t last_col,
     bool const keep_inside,
+    const typename Config::lidx_t row_offset,
     const typename Config::lidx_t *out_row_starts,
     typename Config::gidx_t *out_cols,
     typename Config::scalar_t *out_coeffs )
 {
-    PROFILE( "CSRMatrixDataHelpers::ConcatVerticalFill" );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
-            lidx_t row_nnz = 0, out_rs = out_row_starts[row];
+            lidx_t cat_pos = out_row_starts[row + row_offset];
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto c      = in_cols[k];
                 const auto v      = in_coeffs[k];
                 const bool inside = first_col <= c && c < last_col;
                 if ( ( keep_inside && inside ) || ( !keep_inside && !inside ) ) {
-                    out_cols[out_rs + row_nnz]   = c;
-                    out_coeffs[out_rs + row_nnz] = v;
-                    ++row_nnz;
+                    out_cols[cat_pos]   = c;
+                    out_coeffs[cat_pos] = v;
+                    ++cat_pos;
                 }
             }
         }
@@ -564,6 +564,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
                                               first_col,
                                               last_col,
                                               keep_inside,
+                                              row_offset,
                                               out_row_starts,
                                               out_cols,
                                               out_coeffs );

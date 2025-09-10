@@ -28,8 +28,8 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
       K( K_ ),
       alpha( 1.0 ),
       beta( 0.0 ),
-      itype( std::is_same_v<rowidx_t, int> ? CUSPARSE_INDEX_32I : CUSPARSE_INDEX_32I ),
-      jtype( std::is_same_v<colidx_t, int> ? CUSPARSE_INDEX_32I : CUSPARSE_INDEX_32I ),
+      itype( std::is_same_v<rowidx_t, int> ? CUSPARSE_INDEX_32I : CUSPARSE_INDEX_64I ),
+      jtype( std::is_same_v<colidx_t, int> ? CUSPARSE_INDEX_32I : CUSPARSE_INDEX_64I ),
       computeType( std::is_same_v<scalar_t, float> ? CUDA_R_32F : CUDA_R_64F ),
       opA( CUSPARSE_OPERATION_NON_TRANSPOSE ),
       opB( CUSPARSE_OPERATION_NON_TRANSPOSE ),
@@ -170,13 +170,11 @@ void VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::compute( rowidx_t *C_rs,
 }
 
 // explicit instantiations, only two index types and two scalar types supported
-// note that 64 row pointers with 32 column indices is invalid,
-// so only 6 combinations instead of 8
 template class VendorSpGEMM<int, int, float>;
-template class VendorSpGEMM<int, long long, float>;
+// template class VendorSpGEMM<int, long long, float>;
 template class VendorSpGEMM<long long, long long, float>;
 template class VendorSpGEMM<int, int, double>;
-template class VendorSpGEMM<int, long long, double>;
+// template class VendorSpGEMM<int, long long, double>;
 template class VendorSpGEMM<long long, long long, double>;
 
 } // namespace AMP::LinearAlgebra

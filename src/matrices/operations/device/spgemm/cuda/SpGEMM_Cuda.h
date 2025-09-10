@@ -22,8 +22,12 @@ class VendorSpGEMM
     static_assert( std::is_same_v<scalar_t, float> || std::is_same_v<scalar_t, double> );
 
     // 64 bit row pointers with 32 bit column indices is invalid
-    static_assert( std::is_same_v<rowidx_t, int> ||
-                   (std::is_same_v<rowidx_t, long long> && std::is_same_v<colidx_t, long long>) );
+    // TODO: cusparse does *not* allow mixed types for these currently,
+    //       add this assert and remove the prior one if that ever changes
+    // static_assert( std::is_same_v<rowidx_t, int> ||
+    //                (std::is_same_v<rowidx_t, long long> && std::is_same_v<colidx_t, long long>)
+    //                );
+    static_assert( std::is_same_v<rowidx_t, colidx_t> );
 
 public:
     VendorSpGEMM( const int64_t M_,

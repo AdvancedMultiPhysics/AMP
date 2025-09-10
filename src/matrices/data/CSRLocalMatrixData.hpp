@@ -266,7 +266,6 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     // create output matrix
     auto concat_matrix = std::make_shared<CSRLocalMatrixData<Config>>(
         params, mem_loc, 0, num_rows, first_col, last_col, is_diag );
-
     // Count total number of non-zeros in each row from combination.
     lidx_t cat_row = 0; // counter for which row we are on in concat_matrix
     for ( auto it : blocks ) {
@@ -284,21 +283,12 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
 
     // Trigger allocations
     concat_matrix->setNNZ( true );
-    // copy row starts to host if needed
-    lidx_t *concat_rs = concat_matrix->d_row_starts.get();
-    std::vector<lidx_t> host_cat_rs;
-    if ( mem_loc == AMP::Utilities::MemoryType::device ) {
-        host_cat_rs.resize( num_rows + 1 );
-        AMP::Utilities::copy( num_rows + 1, concat_matrix->d_row_starts.get(), host_cat_rs.data() );
-        concat_rs = host_cat_rs.data();
-    }
 
     // loop over blocks again and write into new matrix
     cat_row = 0;
     for ( auto it : blocks ) {
         block = it.second;
         if ( !block->d_is_empty ) {
-            const auto offset = concat_rs[cat_row];
             CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts.get(),
                                                               block->d_cols.get(),
                                                               block->d_coeffs.get(),
@@ -306,9 +296,10 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
                                                               first_col,
                                                               last_col,
                                                               is_diag,
-                                                              &concat_matrix->d_row_starts[cat_row],
-                                                              &concat_matrix->d_cols[offset],
-                                                              &concat_matrix->d_coeffs[offset] );
+                                                              cat_row,
+                                                              concat_matrix->d_row_starts.get(),
+                                                              concat_matrix->d_cols.get(),
+                                                              concat_matrix->d_coeffs.get() );
             cat_row += block->d_num_rows;
         }
     }
@@ -715,6 +706,103 @@ void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
             col_ptrs[row] = nullptr;
         }
     }
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) const
+{
+    std::cout << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
+    if ( d_is_empty ) {
+        std::cout << "    EMPTY" << std::endl;
+        return;
+    }
+    std::cout << "    first | last row: " << d_first_row << " | " << d_last_row << std::endl;
+    std::cout << "    first | last col: " << d_first_col << " | " << d_last_col << std::endl;
+    std::cout << "    num unique: " << d_ncols_unq << std::endl;
+    scalar_t avg_nnz = static_cast<scalar_t>( d_nnz ) / static_cast<scalar_t>( d_num_rows );
+    std::cout << "    avg nnz per row: " << avg_nnz << std::endl;
+    std::cout << "    tot nnz: " << d_nnz << std::endl;
+    if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
+        std::cout << "    row 0: ";
+        for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
+            if ( d_coeffs[n] != 0 || show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << "," << d_coeffs[n] << "), ";
+            }
+        }
+        std::cout << "\n    row last: ";
+        for ( auto n = d_row_starts[d_num_rows - 1]; n < d_row_starts[d_num_rows]; ++n ) {
+            if ( d_coeffs[n] != 0 || show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << "," << d_coeffs[n] << "), ";
+            }
+        }
+    } else if ( verbose ) {
+        // copy row pointers back to host
+        std::vector<lidx_t> rs_h( d_num_rows + 1, 0 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), rs_h.data() );
+
+        // if first row is non-empty copy it back to host
+        // need to check if cols or cols_loc should be used
+        if ( rs_h[1] > rs_h[0] ) {
+            const auto fr_len = rs_h[1] - rs_h[0];
+            std::vector<scalar_t> fr_coeffs( fr_len, 0.0 );
+            AMP::Utilities::copy( fr_len, d_coeffs.get(), fr_coeffs.data() );
+            if ( d_cols.get() ) {
+                std::vector<gidx_t> fr_cols( fr_len, 0 );
+                AMP::Utilities::copy( fr_len, d_cols.get(), fr_cols.data() );
+                std::cout << "    row 0: ";
+                for ( lidx_t n = 0; n < fr_len; ++n ) {
+                    if ( fr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                    }
+                }
+                std::cout << std::endl;
+            } else {
+                std::vector<lidx_t> fr_cols( fr_len, 0 );
+                AMP::Utilities::copy( fr_len, d_cols_loc.get(), fr_cols.data() );
+                std::cout << "    row 0: ";
+                for ( lidx_t n = 0; n < fr_len; ++n ) {
+                    if ( fr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                    }
+                }
+                std::cout << std::endl;
+            }
+        }
+
+        // same as before but for the last row
+        if ( rs_h[d_num_rows] > rs_h[d_num_rows - 1] ) {
+            const auto lr_len = rs_h[d_num_rows] - rs_h[d_num_rows - 1];
+            std::vector<scalar_t> lr_coeffs( lr_len, 0.0 );
+            AMP::Utilities::copy( lr_len, d_coeffs.get() + rs_h[d_num_rows - 1], lr_coeffs.data() );
+            if ( d_cols.get() ) {
+                std::vector<gidx_t> lr_cols( lr_len, 0 );
+                AMP::Utilities::copy( lr_len, d_cols.get() + rs_h[d_num_rows - 1], lr_cols.data() );
+                std::cout << "    row last: ";
+                for ( lidx_t n = 0; n < lr_len; ++n ) {
+                    if ( lr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                    }
+                }
+            } else {
+                std::vector<lidx_t> lr_cols( lr_len, 0 );
+                AMP::Utilities::copy(
+                    lr_len, d_cols_loc.get() + rs_h[d_num_rows - 1], lr_cols.data() );
+                std::cout << "    row last: ";
+                for ( lidx_t n = 0; n < lr_len; ++n ) {
+                    if ( lr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                    }
+                }
+            }
+        }
+    }
+    std::cout << std::endl << std::endl;
 }
 
 template<typename Config>

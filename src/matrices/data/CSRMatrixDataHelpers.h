@@ -54,6 +54,7 @@ struct CSRMatrixDataHelpers {
                                     const gidx_t first_col,
                                     const gidx_t last_col,
                                     const bool keep_inside,
+                                    const lidx_t row_offset,
                                     const lidx_t *out_row_starts,
                                     gidx_t *out_cols,
                                     scalar_t *out_coeffs );

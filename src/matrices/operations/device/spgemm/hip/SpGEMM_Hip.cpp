@@ -118,13 +118,11 @@ void VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::compute( rowidx_t *C_rs,
 
 
 // explicit instantiations, only two index types and two scalar types supported
-// note that 64 row pointers with 32 column indices is invalid,
-// so only 6 combinations instead of 8
 template class VendorSpGEMM<int, int, float>;
-template class VendorSpGEMM<int, long long, float>;
+// template class VendorSpGEMM<int, long long, float>;
 template class VendorSpGEMM<long long, long long, float>;
 template class VendorSpGEMM<int, int, double>;
-template class VendorSpGEMM<int, long long, double>;
+// template class VendorSpGEMM<int, long long, double>;
 template class VendorSpGEMM<long long, long long, double>;
 
 } // namespace AMP::LinearAlgebra

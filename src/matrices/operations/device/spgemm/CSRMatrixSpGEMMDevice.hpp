@@ -20,7 +20,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
     // start communication to build BRemote before doing anything
     if ( A->hasOffDiag() ) {
         startBRemoteComm();
-        endBRemoteComm();
     }
 
     C_diag_diag = std::make_shared<localmatrixdata_t>( nullptr,
@@ -44,7 +43,8 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
         multiply<BlockType::DIAG>( A_diag, B_offd, C_diag_offd );
     }
 
-    if ( A->hasOffDiag() && false ) {
+    if ( A->hasOffDiag() ) {
+        endBRemoteComm();
         PROFILE( "CSRMatrixSpGEMMDevice::multiply (remote)" );
         if ( BR_diag.get() != nullptr ) {
             C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
@@ -74,6 +74,12 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
     deviceSynchronize();
 
     C->assemble();
+
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Device post-assemble";
+        C_diag->printStats( true, false );
+        C_offd->printStats( true, false );
+    }
 }
 
 template<typename Config>
@@ -90,10 +96,16 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
         return;
     }
 
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Device intermediate product inputs";
+        A_data->printStats( true, false );
+        B_data->printStats( true, false );
+    }
+
     // shapes of A and B
     const auto A_nrows = static_cast<int64_t>( A_data->numLocalRows() );
     const auto A_ncols = static_cast<int64_t>( A_data->numLocalColumns() );
-    const auto B_ncols = static_cast<int64_t>( B_data->numLocalColumns() );
+    auto B_ncols       = static_cast<int64_t>( B_data->numLocalColumns() );
 
     // all fields from blocks involved
     lidx_t *A_rs = nullptr, *A_cols_loc = nullptr;
@@ -172,22 +184,38 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
         long long *A_cols_loc_casted = alloc.allocate( A_nnz );
         AMP::Utilities::copy( A_nnz, A_cols_loc, A_cols_loc_casted );
 
-        // proceed as above, using gidx_t cols throughout
-        VendorSpGEMM<lidx_t, long long, scalar_t> spgemm( A_nrows,
-                                                          B_ncols,
-                                                          A_ncols,
-                                                          A_nnz,
-                                                          A_rs,
-                                                          A_cols_loc_casted,
-                                                          A_coeffs,
-                                                          B_nnz,
-                                                          B_rs,
-                                                          reinterpret_cast<long long *>( B_cols ),
-                                                          B_coeffs,
-                                                          C_rs );
+        // furthermore, cusparse doesn't allow mixing index types so we
+        // need to upcast the row pointers too
+        const auto B_nrows     = static_cast<int64_t>( B_data->numLocalRows() );
+        long long *A_rs_casted = alloc.allocate( A_nrows + 1 );
+        AMP::Utilities::copy( A_nrows + 1, A_rs, A_rs_casted );
+        long long *B_rs_casted = alloc.allocate( B_nrows + 1 );
+        AMP::Utilities::copy( B_nrows + 1, B_rs, B_rs_casted );
+
+        // This also means that we can't pass C_rs straight from its existing storage
+        long long *C_rs_casted = alloc.allocate( A_nrows + 1 );
+
+        B_ncols = static_cast<int64_t>( B->numGlobalColumns() );
+        AMP_ASSERT( sizeof( gidx_t ) == sizeof( long long ) );
+
+        // proceed as above, using long long cols throughout
+        VendorSpGEMM<long long, long long, scalar_t> spgemm(
+            A_nrows,
+            B_ncols,
+            A_ncols,
+            A_nnz,
+            A_rs_casted,
+            A_cols_loc_casted,
+            A_coeffs,
+            B_nnz,
+            B_rs_casted,
+            reinterpret_cast<long long *>( B_cols ),
+            B_coeffs,
+            C_rs_casted );
 
         // Get nnz for C and allocate internals
         auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
+        AMP::Utilities::copy( A_nrows + 1, C_rs_casted, C_rs );
         C_data->setNNZ( C_nnz );
 
         // pull out the now allocated C internals
@@ -197,22 +225,30 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
         std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_data->getDataFields();
 
         // Compute SpGEMM
-        spgemm.compute( C_rs, reinterpret_cast<long long *>( C_cols ), C_coeffs );
+        spgemm.compute( C_rs_casted, reinterpret_cast<long long *>( C_cols ), C_coeffs );
+        AMP::Utilities::copy( A_nrows + 1, C_rs, C_rs_casted );
 
-        // free upcasted A_cols_loc
+        // free upcasted arrays
         alloc.deallocate( A_cols_loc_casted, A_nnz );
+        alloc.deallocate( A_rs_casted, A_nrows + 1 );
+        alloc.deallocate( B_rs_casted, B_nrows + 1 );
+        alloc.deallocate( C_rs_casted, A_nrows + 1 );
     }
 
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Device intermediate product";
+        C_data->printStats( true, false );
+    }
     // exiting function destructs spgemm wrapper and frees its internals
 }
 
 template<typename gidx_t, typename lidx_t>
-__global__ void merge_row_count_kernel( const lidx_t num_rows,
-                                        const lidx_t *A_rs,
-                                        const gidx_t *A_cols,
-                                        const lidx_t *B_rs,
-                                        const gidx_t *B_cols,
-                                        lidx_t *C_rs )
+__global__ void merge_row_count( const lidx_t num_rows,
+                                 const lidx_t *A_rs,
+                                 const gidx_t *A_cols,
+                                 const lidx_t *B_rs,
+                                 const gidx_t *B_cols,
+                                 lidx_t *C_rs )
 {
     for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
           row += blockDim.x * gridDim.x ) {
@@ -243,6 +279,52 @@ __global__ void merge_row_count_kernel( const lidx_t num_rows,
     }
 }
 
+template<typename gidx_t, typename lidx_t, typename scalar_t>
+__global__ void merge_row_fill( const lidx_t num_rows,
+                                const lidx_t *A_rs,
+                                const gidx_t *A_cols,
+                                const scalar_t *A_coeffs,
+                                const lidx_t *B_rs,
+                                const gidx_t *B_cols,
+                                const scalar_t *B_coeffs,
+                                lidx_t *C_rs,
+                                gidx_t *C_cols,
+                                scalar_t *C_coeffs )
+{
+    for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
+          row += blockDim.x * gridDim.x ) {
+        const auto A_start = A_rs[row], A_len = A_rs[row + 1] - A_start;
+        const auto B_start = B_rs[row], B_len = B_rs[row + 1] - B_start;
+        const auto C_start = C_rs[row], C_len = C_rs[row + 1] - C_start;
+        // all of A counts in automatically
+        for ( lidx_t off = 0; off < A_len; ++off ) {
+            C_cols[C_start + off]   = A_cols[A_start + off];
+            C_coeffs[C_start + off] = A_coeffs[A_start + off];
+        }
+        // column values are sorted, so walk through A cols and B cols
+        // simultaneously to find matches
+        lidx_t B_off = 0, C_off = 0, C_app = A_len;
+        for ( ; B_off < B_len && C_off < C_len; ) {
+            const auto Bc = B_cols[B_start + B_off], Cc = C_cols[C_start + C_off];
+            if ( Bc == Cc ) {
+                // columns match, add in B coeff and increment offsets
+                C_coeffs[C_start + C_off] += B_coeffs[B_start + B_off];
+                ++B_off;
+                ++C_off;
+            } else if ( Cc < Bc ) {
+                // C lags B, increment C ptr to check further in row
+                ++C_off;
+            } else {
+                // B lags C, Bc not a repeat, so append to C row and increment
+                C_cols[C_start + C_app]   = B_cols[B_start + B_off];
+                C_coeffs[C_start + C_app] = B_coeffs[B_start + B_off];
+                ++C_app;
+                ++B_off;
+            }
+        }
+    }
+}
+
 template<typename Config>
 void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
 {
@@ -251,12 +333,12 @@ void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
     const auto first_col = C_diag->beginCol();
 
     // handle special case where C_diag_offd is empty
-    if ( C_diag_offd.get() == nullptr || C_diag_offd->isEmpty() || true ) {
+    if ( C_diag_offd.get() == nullptr || C_diag_offd->isEmpty() ) {
         C_diag->swapDataFields( *C_diag_diag );
         return;
     }
 
-    AMP_ERROR( "CSRMatrixSpGEMMDevice::mergeDiag: Not implemented yet" );
+    const auto num_rows = C_diag->numLocalRows();
 
     // pull out fields from blocks to merge and row pointers from C_diag
     lidx_t *C_dd_rs, *C_od_rs, *C_rs;
@@ -267,6 +349,52 @@ void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
     std::tie( C_dd_rs, C_dd_cols, C_dd_cols_loc, C_dd_coeffs ) = C_diag_diag->getDataFields();
     std::tie( C_od_rs, C_od_cols, C_od_cols_loc, C_od_coeffs ) = C_offd_diag->getDataFields();
     C_rs                                                       = C_diag->getRowStarts();
+
+    // count unique entries in each row
+    {
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        merge_row_count<<<GridDim, BlockDim>>>(
+            num_rows, C_dd_rs, C_dd_cols, C_od_rs, C_od_cols, C_rs );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
+    }
+
+    // trigger allocation of C_diag internals and set up row pointers
+    C_diag->setNNZ( true );
+
+    // get fields from C_diag
+    lidx_t *C_cols_loc;
+    gidx_t *C_cols;
+    scalar_t *C_coeffs;
+    std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_diag->getDataFields();
+
+    // fill rows of C_diag as sums of each block
+    {
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        merge_row_fill<gidx_t, lidx_t, scalar_t><<<GridDim, BlockDim>>>( num_rows,
+                                                                         C_dd_rs,
+                                                                         C_dd_cols,
+                                                                         C_dd_coeffs,
+                                                                         C_od_rs,
+                                                                         C_od_cols,
+                                                                         C_od_coeffs,
+                                                                         C_rs,
+                                                                         C_cols,
+                                                                         C_coeffs );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
+    }
+
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Device C_diag merged";
+        C_diag->printStats( true, false );
+    }
 
     C_diag_diag.reset();
     C_offd_diag.reset();
@@ -281,7 +409,7 @@ void CSRMatrixSpGEMMDevice<Config>::mergeOffd()
     if ( C_diag_offd.get() == nullptr && C_offd_offd.get() == nullptr ) {
         return;
     }
-    if ( C_offd_offd.get() == nullptr || C_offd_offd->isEmpty() || true ) {
+    if ( C_offd_offd.get() == nullptr || C_offd_offd->isEmpty() ) {
         C_offd->swapDataFields( *C_diag_offd );
         return;
     }
@@ -290,7 +418,7 @@ void CSRMatrixSpGEMMDevice<Config>::mergeOffd()
         return;
     }
 
-    AMP_ERROR( "CSRMatrixSpGEMMDevice::mergeOffd: Not implemented yet" );
+    const auto num_rows = C_offd->numLocalRows();
 
     // pull out fields from blocks to merge and row pointers from C_offd
     lidx_t *C_do_rs, *C_oo_rs, *C_rs;
@@ -301,6 +429,52 @@ void CSRMatrixSpGEMMDevice<Config>::mergeOffd()
     std::tie( C_do_rs, C_do_cols, C_do_cols_loc, C_do_coeffs ) = C_diag_offd->getDataFields();
     std::tie( C_oo_rs, C_oo_cols, C_oo_cols_loc, C_oo_coeffs ) = C_offd_offd->getDataFields();
     C_rs                                                       = C_offd->getRowStarts();
+
+    // count unique entries in each row
+    {
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        merge_row_count<<<GridDim, BlockDim>>>(
+            num_rows, C_do_rs, C_do_cols, C_oo_rs, C_oo_cols, C_rs );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeOffd::merge_row_count" );
+    }
+
+    // trigger allocation of C_offd internals and set up row pointers
+    C_offd->setNNZ( true );
+
+    // get fields from C_diag
+    lidx_t *C_cols_loc;
+    gidx_t *C_cols;
+    scalar_t *C_coeffs;
+    std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_offd->getDataFields();
+
+    // fill rows of C_diag as sums of each block
+    {
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        merge_row_fill<gidx_t, lidx_t, scalar_t><<<GridDim, BlockDim>>>( num_rows,
+                                                                         C_do_rs,
+                                                                         C_do_cols,
+                                                                         C_do_coeffs,
+                                                                         C_oo_rs,
+                                                                         C_oo_cols,
+                                                                         C_oo_coeffs,
+                                                                         C_rs,
+                                                                         C_cols,
+                                                                         C_coeffs );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeOffd::merge_row_count" );
+    }
+
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Device C_offd merged";
+        C_offd->printStats( true, false );
+    }
 
     C_diag_offd.reset();
     C_offd_offd.reset();

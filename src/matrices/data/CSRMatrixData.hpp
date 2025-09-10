@@ -449,7 +449,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                            true );
 
     // copy row selection to device if needed
-    bool rows_migrated = d_memory_location > AMP::Utilities::MemoryType::managed;
+    bool rows_migrated = d_memory_location == AMP::Utilities::MemoryType::device;
     gidx_t *rows_d     = nullptr;
     if ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
@@ -467,8 +467,14 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
+
+    // bail out if the requested rows all happened to be empty
+    // this is likely (but not assuredly) an error, so warn the user
     if ( sub_matrix->d_nnz == 0 ) {
         AMP_WARN_ONCE( "CSRMatrixData::subsetRows got zero NNZ in requested subset" );
+        if ( rows_migrated ) {
+            d_gidxAllocator.deallocate( rows_d, rows.size() );
+        }
         return sub_matrix;
     }
 

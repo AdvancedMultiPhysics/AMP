@@ -95,7 +95,7 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
     std::map<int, std::shared_ptr<localmatrixdata_t>> blocks;
     const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
 
-    // there are d_num_sources matrices to recieve
+    // there are d_num_sources matrices to receive
     // always sent in order row_starts, cols, coeffs
     // start with probe on any source with ROW_TAG
     for ( int ns = 0; ns < d_num_sources; ++ns ) {
