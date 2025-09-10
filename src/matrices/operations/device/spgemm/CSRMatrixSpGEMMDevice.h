@@ -36,8 +36,6 @@ public:
 
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );
 
-    enum class BlockType { DIAG, OFFD };
-
     CSRMatrixSpGEMMDevice() = default;
     CSRMatrixSpGEMMDevice( std::shared_ptr<matrixdata_t> A_,
                            std::shared_ptr<matrixdata_t> B_,
@@ -64,7 +62,6 @@ public:
 
     void multiply();
 
-    template<BlockType block_t>
     void multiply( std::shared_ptr<localmatrixdata_t> A_data,
                    std::shared_ptr<localmatrixdata_t> B_data,
                    std::shared_ptr<localmatrixdata_t> C_data );
@@ -74,8 +71,9 @@ protected:
     void startBRemoteComm();
     void endBRemoteComm();
 
-    void mergeDiag();
-    void mergeOffd();
+    void merge( std::shared_ptr<localmatrixdata_t> inL,
+                std::shared_ptr<localmatrixdata_t> inR,
+                std::shared_ptr<localmatrixdata_t> out );
 
     // Matrix data of operands and output
     std::shared_ptr<matrixdata_t> A;

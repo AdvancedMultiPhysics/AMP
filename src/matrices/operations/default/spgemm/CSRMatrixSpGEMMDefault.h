@@ -12,7 +12,7 @@
 namespace AMP::LinearAlgebra {
 
 template<typename Config>
-class CSRMatrixSpGEMMHelperDefault
+class CSRMatrixSpGEMMDefault
 {
 public:
     using allocator_type    = typename Config::allocator_type;
@@ -25,11 +25,11 @@ public:
 
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );
 
-    CSRMatrixSpGEMMHelperDefault() = default;
-    CSRMatrixSpGEMMHelperDefault( std::shared_ptr<matrixdata_t> A_,
-                                  std::shared_ptr<matrixdata_t> B_,
-                                  std::shared_ptr<matrixdata_t> C_,
-                                  bool overlap_comms_ )
+    CSRMatrixSpGEMMDefault() = default;
+    CSRMatrixSpGEMMDefault( std::shared_ptr<matrixdata_t> A_,
+                            std::shared_ptr<matrixdata_t> B_,
+                            std::shared_ptr<matrixdata_t> C_,
+                            bool overlap_comms_ )
         : A( A_ ),
           B( B_ ),
           C( C_ ),
@@ -47,10 +47,10 @@ public:
     {
         AMP_DEBUG_INSIST(
             comm == B->getComm() && comm == C->getComm(),
-            "CSRMatrixSpGEMMHelperDefault: All three matrices must have the same communicator" );
+            "CSRMatrixSpGEMMDefault: All three matrices must have the same communicator" );
     }
 
-    ~CSRMatrixSpGEMMHelperDefault() = default;
+    ~CSRMatrixSpGEMMDefault() = default;
 
     void symbolicMultiply();
     void numericMultiply();

@@ -237,8 +237,7 @@ void CSRMatrixOperationsDefault<Config>::matMatMult( std::shared_ptr<MatrixData>
         AMP_INSIST( csrDataC->isEmpty(),
                     "CSRMatrixOperationsDefault::matMatMult A*B->C only applicable to non-empty C "
                     "if it came from same A and B input matrices originally" );
-        d_SpGEMMHelpers[bcPair] =
-            CSRMatrixSpGEMMHelperDefault( csrDataA, csrDataB, csrDataC, true );
+        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDefault( csrDataA, csrDataB, csrDataC, false );
         d_SpGEMMHelpers[bcPair].symbolicMultiply();
         d_SpGEMMHelpers[bcPair].numericMultiply();
     } else {

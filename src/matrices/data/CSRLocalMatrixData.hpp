@@ -741,6 +741,12 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
                           << "," << d_coeffs[n] << "), ";
             }
         }
+        if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
+            std::cout << "\n    column map: ";
+            for ( auto n = 0; n < d_ncols_unq; ++n ) {
+                std::cout << "[" << n << "|" << d_cols_unq[n] << "], ";
+            }
+        }
     } else if ( verbose ) {
         // copy row pointers back to host
         std::vector<lidx_t> rs_h( d_num_rows + 1, 0 );
@@ -799,6 +805,16 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
                         std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
                     }
                 }
+            }
+        }
+
+        // copy down column map and print it
+        if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
+            std::vector<gidx_t> colmap_h( d_ncols_unq, 0 );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), colmap_h.data() );
+            std::cout << "\n    column map: ";
+            for ( auto n = 0; n < d_ncols_unq; ++n ) {
+                std::cout << "[" << n << "|" << colmap_h[n] << "], ";
             }
         }
     }

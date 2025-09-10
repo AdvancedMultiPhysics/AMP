@@ -39,8 +39,8 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
 
     {
         PROFILE( "CSRMatrixSpGEMMDevice::multiply (local)" );
-        multiply<BlockType::DIAG>( A_diag, B_diag, C_diag_diag );
-        multiply<BlockType::DIAG>( A_diag, B_offd, C_diag_offd );
+        multiply( A_diag, B_diag, C_diag_diag );
+        multiply( A_diag, B_offd, C_diag_offd );
     }
 
     if ( A->hasOffDiag() ) {
@@ -54,7 +54,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
                                                                C->beginCol(),
                                                                C->endCol(),
                                                                true );
-            multiply<BlockType::OFFD>( A_offd, BR_diag, C_offd_diag );
+            multiply( A_offd, BR_diag, C_offd_diag );
         }
         if ( BR_offd.get() != nullptr ) {
             C_offd_offd = std::make_shared<localmatrixdata_t>( nullptr,
@@ -64,16 +64,22 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
                                                                C->beginCol(),
                                                                C->endCol(),
                                                                false );
-            multiply<BlockType::OFFD>( A_offd, BR_offd, C_offd_offd );
+            multiply( A_offd, BR_offd, C_offd_offd );
         }
     }
     deviceSynchronize();
 
-    mergeDiag();
-    mergeOffd();
+    merge( C_diag_diag, C_offd_diag, C_diag );
+    C_diag_diag.reset();
+    C_offd_diag.reset();
+
+    merge( C_diag_offd, C_offd_offd, C_offd );
+    C_diag_offd.reset();
+    C_offd_offd.reset();
+
     deviceSynchronize();
 
-    C->assemble();
+    C->assemble( true );
 
     if ( comm.getRank() == 0 ) {
         std::cout << "Device post-assemble";
@@ -83,7 +89,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
 }
 
 template<typename Config>
-template<typename CSRMatrixSpGEMMDevice<Config>::BlockType block_t>
 void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t> A_data,
                                               std::shared_ptr<localmatrixdata_t> B_data,
                                               std::shared_ptr<localmatrixdata_t> C_data )
@@ -125,114 +130,51 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
     // C has row pointers allocated but unfilled
     lidx_t *C_rs = C_data->getRowStarts();
 
-    // specific SpGEMM types and inputs depend on bloct type of A
-    // if A is diag do everything with lidx_t indices, otherwise
-    // need gidx_t columns
-    if constexpr ( block_t == BlockType::DIAG ) {
-        // Create vendor SpGEMM object and trigger internal allocs
-        VendorSpGEMM<lidx_t, lidx_t, scalar_t> spgemm( A_nrows,
-                                                       B_ncols,
-                                                       A_ncols,
-                                                       A_nnz,
-                                                       A_rs,
-                                                       A_cols_loc,
-                                                       A_coeffs,
-                                                       B_nnz,
-                                                       B_rs,
-                                                       B_cols_loc,
-                                                       B_coeffs,
-                                                       C_rs );
+    // Create vendor SpGEMM object and trigger internal allocs
+    VendorSpGEMM<lidx_t, lidx_t, scalar_t> spgemm( A_nrows,
+                                                   B_ncols,
+                                                   A_ncols,
+                                                   A_nnz,
+                                                   A_rs,
+                                                   A_cols_loc,
+                                                   A_coeffs,
+                                                   B_nnz,
+                                                   B_rs,
+                                                   B_cols_loc,
+                                                   B_coeffs,
+                                                   C_rs );
 
-        // Get nnz for C and allocate internals
-        auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
-        C_data->setNNZ( C_nnz );
+    // Get nnz for C and allocate internals
+    auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
+    C_data->setNNZ( C_nnz );
 
-        // pull out the now allocated C internals
-        lidx_t *C_cols_loc                             = nullptr;
-        gidx_t *C_cols                                 = nullptr;
-        scalar_t *C_coeffs                             = nullptr;
-        std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_data->getDataFields();
+    // pull out the now allocated C internals
+    lidx_t *C_cols_loc                             = nullptr;
+    gidx_t *C_cols                                 = nullptr;
+    scalar_t *C_coeffs                             = nullptr;
+    std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_data->getDataFields();
 
-        // Compute SpGEMM
-        spgemm.compute( C_rs, C_cols_loc, C_coeffs );
+    // Compute SpGEMM
+    spgemm.compute( C_rs, C_cols_loc, C_coeffs );
 
-        // Convert the local indices to globals to make merges easier
-        if ( C_data->isDiag() ) {
-            const auto first_col = C_data->beginCol();
-            thrust::transform( thrust::device,
-                               C_cols_loc,
-                               C_cols_loc + C_nnz,
-                               C_cols,
-                               [first_col] __device__( const lidx_t lc ) -> gidx_t {
-                                   return static_cast<gidx_t>( lc ) + first_col;
-                               } );
-        } else {
-            const auto colmap = B_data->getColumnMap();
-            thrust::transform(
-                thrust::device,
-                C_cols_loc,
-                C_cols_loc + C_nnz,
-                C_cols,
-                [colmap] __device__( const lidx_t lc ) -> gidx_t { return colmap[lc]; } );
-        }
+    // Convert the local indices to globals to make merges easier
+    if ( C_data->isDiag() ) {
+        const auto first_col = C_data->beginCol();
+        thrust::transform( thrust::device,
+                           C_cols_loc,
+                           C_cols_loc + C_nnz,
+                           C_cols,
+                           [first_col] __device__( const lidx_t lc ) -> gidx_t {
+                               return static_cast<gidx_t>( lc ) + first_col;
+                           } );
     } else {
-        // For A being offd still want entries from A_cols_loc, but need
-        // to cast them up to gidx_t's
-        using llAllocator_t =
-            typename std::allocator_traits<allocator_type>::template rebind_alloc<long long>;
-        llAllocator_t alloc;
-        long long *A_cols_loc_casted = alloc.allocate( A_nnz );
-        AMP::Utilities::copy( A_nnz, A_cols_loc, A_cols_loc_casted );
-
-        // furthermore, cusparse doesn't allow mixing index types so we
-        // need to upcast the row pointers too
-        const auto B_nrows     = static_cast<int64_t>( B_data->numLocalRows() );
-        long long *A_rs_casted = alloc.allocate( A_nrows + 1 );
-        AMP::Utilities::copy( A_nrows + 1, A_rs, A_rs_casted );
-        long long *B_rs_casted = alloc.allocate( B_nrows + 1 );
-        AMP::Utilities::copy( B_nrows + 1, B_rs, B_rs_casted );
-
-        // This also means that we can't pass C_rs straight from its existing storage
-        long long *C_rs_casted = alloc.allocate( A_nrows + 1 );
-
-        B_ncols = static_cast<int64_t>( B->numGlobalColumns() );
-        AMP_ASSERT( sizeof( gidx_t ) == sizeof( long long ) );
-
-        // proceed as above, using long long cols throughout
-        VendorSpGEMM<long long, long long, scalar_t> spgemm(
-            A_nrows,
-            B_ncols,
-            A_ncols,
-            A_nnz,
-            A_rs_casted,
-            A_cols_loc_casted,
-            A_coeffs,
-            B_nnz,
-            B_rs_casted,
-            reinterpret_cast<long long *>( B_cols ),
-            B_coeffs,
-            C_rs_casted );
-
-        // Get nnz for C and allocate internals
-        auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
-        AMP::Utilities::copy( A_nrows + 1, C_rs_casted, C_rs );
-        C_data->setNNZ( C_nnz );
-
-        // pull out the now allocated C internals
-        lidx_t *C_cols_loc                             = nullptr;
-        gidx_t *C_cols                                 = nullptr;
-        scalar_t *C_coeffs                             = nullptr;
-        std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_data->getDataFields();
-
-        // Compute SpGEMM
-        spgemm.compute( C_rs_casted, reinterpret_cast<long long *>( C_cols ), C_coeffs );
-        AMP::Utilities::copy( A_nrows + 1, C_rs, C_rs_casted );
-
-        // free upcasted arrays
-        alloc.deallocate( A_cols_loc_casted, A_nnz );
-        alloc.deallocate( A_rs_casted, A_nrows + 1 );
-        alloc.deallocate( B_rs_casted, B_nrows + 1 );
-        alloc.deallocate( C_rs_casted, A_nrows + 1 );
+        const auto colmap = B_data->getColumnMap();
+        thrust::transform(
+            thrust::device,
+            C_cols_loc,
+            C_cols_loc + C_nnz,
+            C_cols,
+            [colmap] __device__( const lidx_t lc ) -> gidx_t { return colmap[lc]; } );
     }
 
     if ( comm.getRank() == 0 ) {
@@ -289,7 +231,8 @@ __global__ void merge_row_fill( const lidx_t num_rows,
                                 const scalar_t *B_coeffs,
                                 lidx_t *C_rs,
                                 gidx_t *C_cols,
-                                scalar_t *C_coeffs )
+                                scalar_t *C_coeffs,
+                                const bool gz )
 {
     for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
           row += blockDim.x * gridDim.x ) {
@@ -322,33 +265,44 @@ __global__ void merge_row_fill( const lidx_t num_rows,
                 ++B_off;
             }
         }
+        if ( gz ) {
+            for ( lidx_t off = 0; off < C_len; ++off ) {
+                assert( C_cols[C_start + off] > 0 );
+            }
+        }
     }
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
+void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> inL,
+                                           std::shared_ptr<localmatrixdata_t> inR,
+                                           std::shared_ptr<localmatrixdata_t> out )
 {
-    PROFILE( "CSRMatrixSpGEMMDevice::mergeDiag" );
+    PROFILE( "CSRMatrixSpGEMMDevice::merge" );
 
-    const auto first_col = C_diag->beginCol();
-
-    // handle special case where C_diag_offd is empty
-    if ( C_diag_offd.get() == nullptr || C_diag_offd->isEmpty() ) {
-        C_diag->swapDataFields( *C_diag_diag );
+    // handle special case where either (or both) inputs are empty/null
+    if ( inL.get() == nullptr && inR.get() == nullptr ) {
+        return;
+    }
+    if ( inR.get() == nullptr || inR->isEmpty() ) {
+        C_offd->swapDataFields( *inL );
+        return;
+    }
+    if ( inL.get() == nullptr || inL->isEmpty() ) {
+        C_offd->swapDataFields( *inR );
         return;
     }
 
-    const auto num_rows = C_diag->numLocalRows();
+    // pull out fields from blocks to merge and row pointers from output
+    const auto num_rows = out->numLocalRows();
+    lidx_t *inL_rs, *inR_rs, *out_rs;
+    lidx_t *inL_cols_loc, *inR_cols_loc;
+    gidx_t *inL_cols, *inR_cols;
+    scalar_t *inL_coeffs, *inR_coeffs;
 
-    // pull out fields from blocks to merge and row pointers from C_diag
-    lidx_t *C_dd_rs, *C_od_rs, *C_rs;
-    lidx_t *C_dd_cols_loc, *C_od_cols_loc;
-    gidx_t *C_dd_cols, *C_od_cols;
-    scalar_t *C_dd_coeffs, *C_od_coeffs;
-
-    std::tie( C_dd_rs, C_dd_cols, C_dd_cols_loc, C_dd_coeffs ) = C_diag_diag->getDataFields();
-    std::tie( C_od_rs, C_od_cols, C_od_cols_loc, C_od_coeffs ) = C_offd_diag->getDataFields();
-    C_rs                                                       = C_diag->getRowStarts();
+    std::tie( inL_rs, inL_cols, inL_cols_loc, inL_coeffs ) = inL->getDataFields();
+    std::tie( inR_rs, inR_cols, inR_cols_loc, inR_coeffs ) = inR->getDataFields();
+    out_rs                                                 = out->getRowStarts();
 
     // count unique entries in each row
     {
@@ -357,127 +311,46 @@ void CSRMatrixSpGEMMDevice<Config>::mergeDiag()
         setKernelDims( num_rows, BlockDim, GridDim );
         deviceSynchronize();
         merge_row_count<<<GridDim, BlockDim>>>(
-            num_rows, C_dd_rs, C_dd_cols, C_od_rs, C_od_cols, C_rs );
+            num_rows, inL_rs, inL_cols, inR_rs, inR_cols, out_rs );
         deviceSynchronize();
         getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
     }
 
-    // trigger allocation of C_diag internals and set up row pointers
-    C_diag->setNNZ( true );
+    // trigger allocation of output internals and set up row pointers
+    out->setNNZ( true );
 
-    // get fields from C_diag
-    lidx_t *C_cols_loc;
-    gidx_t *C_cols;
-    scalar_t *C_coeffs;
-    std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_diag->getDataFields();
+    // get fields from output
+    lidx_t *out_cols_loc;
+    gidx_t *out_cols;
+    scalar_t *out_coeffs;
+    std::tie( out_rs, out_cols, out_cols_loc, out_coeffs ) = out->getDataFields();
 
-    // fill rows of C_diag as sums of each block
+    // fill rows of output as sums of each block
     {
+        bool gz = comm.getRank() == 0 && !out->isDiag();
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
         deviceSynchronize();
         merge_row_fill<gidx_t, lidx_t, scalar_t><<<GridDim, BlockDim>>>( num_rows,
-                                                                         C_dd_rs,
-                                                                         C_dd_cols,
-                                                                         C_dd_coeffs,
-                                                                         C_od_rs,
-                                                                         C_od_cols,
-                                                                         C_od_coeffs,
-                                                                         C_rs,
-                                                                         C_cols,
-                                                                         C_coeffs );
+                                                                         inL_rs,
+                                                                         inL_cols,
+                                                                         inL_coeffs,
+                                                                         inR_rs,
+                                                                         inR_cols,
+                                                                         inR_coeffs,
+                                                                         out_rs,
+                                                                         out_cols,
+                                                                         out_coeffs,
+                                                                         gz );
         deviceSynchronize();
         getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
     }
 
     if ( comm.getRank() == 0 ) {
-        std::cout << "Device C_diag merged";
-        C_diag->printStats( true, false );
+        std::cout << "Device out merged";
+        out->printStats( true, false );
     }
-
-    C_diag_diag.reset();
-    C_offd_diag.reset();
-}
-
-template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::mergeOffd()
-{
-    PROFILE( "CSRMatrixSpGEMMDevice::mergeOffd" );
-
-    // handle special case where either C_diag_offd or C_offd_offd is empty
-    if ( C_diag_offd.get() == nullptr && C_offd_offd.get() == nullptr ) {
-        return;
-    }
-    if ( C_offd_offd.get() == nullptr || C_offd_offd->isEmpty() ) {
-        C_offd->swapDataFields( *C_diag_offd );
-        return;
-    }
-    if ( C_diag_offd.get() == nullptr || C_diag_offd->isEmpty() ) {
-        C_offd->swapDataFields( *C_offd_offd );
-        return;
-    }
-
-    const auto num_rows = C_offd->numLocalRows();
-
-    // pull out fields from blocks to merge and row pointers from C_offd
-    lidx_t *C_do_rs, *C_oo_rs, *C_rs;
-    lidx_t *C_do_cols_loc, *C_oo_cols_loc;
-    gidx_t *C_do_cols, *C_oo_cols;
-    scalar_t *C_do_coeffs, *C_oo_coeffs;
-
-    std::tie( C_do_rs, C_do_cols, C_do_cols_loc, C_do_coeffs ) = C_diag_offd->getDataFields();
-    std::tie( C_oo_rs, C_oo_cols, C_oo_cols_loc, C_oo_coeffs ) = C_offd_offd->getDataFields();
-    C_rs                                                       = C_offd->getRowStarts();
-
-    // count unique entries in each row
-    {
-        dim3 BlockDim;
-        dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
-        deviceSynchronize();
-        merge_row_count<<<GridDim, BlockDim>>>(
-            num_rows, C_do_rs, C_do_cols, C_oo_rs, C_oo_cols, C_rs );
-        deviceSynchronize();
-        getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeOffd::merge_row_count" );
-    }
-
-    // trigger allocation of C_offd internals and set up row pointers
-    C_offd->setNNZ( true );
-
-    // get fields from C_diag
-    lidx_t *C_cols_loc;
-    gidx_t *C_cols;
-    scalar_t *C_coeffs;
-    std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_offd->getDataFields();
-
-    // fill rows of C_diag as sums of each block
-    {
-        dim3 BlockDim;
-        dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
-        deviceSynchronize();
-        merge_row_fill<gidx_t, lidx_t, scalar_t><<<GridDim, BlockDim>>>( num_rows,
-                                                                         C_do_rs,
-                                                                         C_do_cols,
-                                                                         C_do_coeffs,
-                                                                         C_oo_rs,
-                                                                         C_oo_cols,
-                                                                         C_oo_coeffs,
-                                                                         C_rs,
-                                                                         C_cols,
-                                                                         C_coeffs );
-        deviceSynchronize();
-        getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeOffd::merge_row_count" );
-    }
-
-    if ( comm.getRank() == 0 ) {
-        std::cout << "Device C_offd merged";
-        C_offd->printStats( true, false );
-    }
-
-    C_diag_offd.reset();
-    C_offd_offd.reset();
 }
 
 template<typename Config>
@@ -583,11 +456,23 @@ void CSRMatrixSpGEMMDevice<Config>::endBRemoteComm()
     PROFILE( "CSRMatrixSpGEMMDevice::endBRemoteComm" );
 
     d_recv_matrices = d_csr_comm.recvMatrices( 0, 0, 0, B->numGlobalColumns() );
+
     // BRemotes do not need any particular parameters object internally
     BR_diag = localmatrixdata_t::ConcatVertical(
         nullptr, d_recv_matrices, B->beginCol(), B->endCol(), true );
     BR_offd = localmatrixdata_t::ConcatVertical(
         nullptr, d_recv_matrices, B->beginCol(), B->endCol(), false );
+
+    // trigger remotes to build local indices
+    BR_diag->globalToLocalColumns();
+    BR_offd->globalToLocalColumns();
+
+
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Device BRemote blocks";
+        BR_diag->printStats( true, false );
+        BR_offd->printStats( true, false );
+    }
 
     // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
     d_send_matrices.clear();
