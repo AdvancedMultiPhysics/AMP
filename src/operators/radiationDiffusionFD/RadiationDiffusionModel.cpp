@@ -75,6 +75,10 @@ double RadDifModel::diffusionCoefficientE( double T, double zatom ) const {
     }
 }
 
+bool RadDifModel::exactSolutionAvailable() const {
+    return d_exactSolutionAvailable;
+}
+
 /* -------------------------------------------------------------------- *
  * -------- Implementation of Mousseau_etal_2000_RadDifModel ---------- *
  * -------------------------------------------------------------------- */

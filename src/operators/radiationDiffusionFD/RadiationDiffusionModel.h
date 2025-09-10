@@ -33,9 +33,6 @@ class RadDifModel {
 
 public:
 
-    //! Does the derived class implement an exact solution?
-    bool d_exactSolutionAvailable = false;
-
     //! Constructor
     RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ );
 
@@ -60,6 +57,9 @@ public:
     //! Get database suitable for creating an instance of a RadDifOp
     std::shared_ptr<AMP::Database> getRadiationDiffusionFD_input_db( ) const; 
 
+    //! Does the derived class implement an exact solution?
+    bool exactSolutionAvailable() const;
+
 //
 protected:
     //! The current time of the solution. 
@@ -82,6 +82,9 @@ protected:
 
     /* Convert specific model parameters into parameters expected by the general formulation */ 
     virtual void finalizeGeneralPDEModel_db( ) = 0;
+
+    //! Does the derived class implement an exact solution?
+    bool d_exactSolutionAvailable = false;
 
     //! Get the Robin constants ak and bk from the d_RadiationDiffusionFD_input_db for the given boundaryID
     void getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk) const;

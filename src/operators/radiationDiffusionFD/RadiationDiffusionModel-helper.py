@@ -1,7 +1,20 @@
-"""
-This python script is used for generating maunfactured solutions to a class of radiation diffusion problems and translating them into cxx interpretable code. 
+""" This is a simple python script to generating maunfactured solutions to a class of radiation diffusion problems and then translate those solutions (and related quantities) into C++ interpretable code. 
 
-It also symbolically solves for ghost values from certain discretized boundary conditions
+To run this script from the command line:
+    >> python3 RadiationDiffusionModel-helper.py
+
+This will run the "main" function, outputting to the console C++ expressions for
+    1. the exact solution
+    2. the gradient of the exact solutions
+    3. the corresponding source term in the PDE
+for the given problem dimension, and PDE model that's uncommented in the main function.
+
+For dimension X, these C++ expressions are then copy pasted into the (model-appropriate places of the) following functions
+    1. Manufactured_RadDifModel::exactSolutionXD
+    2. Manufactured_RadDifModel::exactSolutionGradientXD
+    3. Manufactured_RadDifModel::sourceTermXD
+
+Dependencies: sympy (used for symbolic computation, including differentiation)
 """
 
 import sympy as sym
@@ -36,8 +49,9 @@ def main():
     #solveForGhostFromRobinBC()
 
 
-
-
+# Generates manufactured solution for a problem in "dim" spatial dimensions and to a "model" PDE 
+# that is either "linear" or "nonlinear"
+#
 # A pair of linear PDEs of the form
 # dE/dt - nabla dot ( k11 * nabla E ) - k12 * ( T - E ) = s_E
 # dT/dt - nabla dot ( k21 * nabla T ) + k22 * ( T - E ) = s_T
@@ -46,12 +60,11 @@ def main():
 # dE/dt - nabla dot ( k11 * DE * nabla E ) - k12 * sigma * ( T^4 - E ) = s_E
 # dT/dt - nabla dot ( k21 * DT * nabla T ) + k22 * sigma * ( T^4 - E ) = s_T
 # 
-# 
 # where:
 #   k_ij are constants.
 #   The source terms s_E and s_T are different for each system 
 #
-# Note we assume zatom is constant, while in the paper it can vary.
+# Note we assume zatom is constant.
 def manufacturedModel( dim, model ):
     
     print("-----------------------------")

@@ -269,7 +269,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
         
 
         /* Compare numerical solution with manufactured solution */
-        if ( myRadDifModel->d_exactSolutionAvailable ) {
+        if ( myRadDifModel->exactSolutionAvailable() ) {
             myRadDifModel->setCurrentTime( T );
             myRadDifOp->fillMultiVectorWithFunction( manSolVec, uexactFun );
             errorVec->subtract( *sol_new, *manSolVec );
