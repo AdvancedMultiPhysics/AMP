@@ -3,21 +3,21 @@
 namespace AMP::Solver {
 
 
-BERadDifOpPJacOpSplitPrec::BERadDifOpPJacOpSplitPrec( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
+BDFRadDifOpPJacOpSplitPrec::BDFRadDifOpPJacOpSplitPrec( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
     : SolverStrategy( params ) {
 
         if ( d_iDebugPrintInfoLevel > 1 )
-            AMP::pout << "BERadDifOpPJacOpSplitPrec::BERadDifOpPJacOpSplitPrec() " << std::endl;
+            AMP::pout << "BDFRadDifOpPJacOpSplitPrec::BDFRadDifOpPJacOpSplitPrec() " << std::endl;
         
         // Ensure DiffusionBlocks Database was parsed.
         AMP_INSIST(  d_db->getDatabase( "DiffusionBlocks" ), "Solver requires a 'DiffusionBlocks' database" );
     };  
 
 
-void BERadDifOpPJacOpSplitPrec::reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> ) {
+void BDFRadDifOpPJacOpSplitPrec::reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> ) {
     
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "BERadDifOpPJacOpSplitPrec::reset() " << std::endl;
+        AMP::pout << "BDFRadDifOpPJacOpSplitPrec::reset() " << std::endl;
     }
 
     // Reset solvers for diffusion blocks
@@ -25,7 +25,7 @@ void BERadDifOpPJacOpSplitPrec::reset( std::shared_ptr<AMP::Solver::SolverStrate
 }
 
 
-void BERadDifOpPJacOpSplitPrec::scalar2x2Solve( double a, double b, double c, double d, double e, double f, double &x, double &y ) const {
+void BDFRadDifOpPJacOpSplitPrec::scalar2x2Solve( double a, double b, double c, double d, double e, double f, double &x, double &y ) const {
     double det = a*d - b*c;
     AMP_INSIST( fabs( det ) > SINGULAR_TOL, "2x2 linear system is singular" );
     x = (e*d - b*f) / det;
@@ -33,10 +33,10 @@ void BERadDifOpPJacOpSplitPrec::scalar2x2Solve( double a, double b, double c, do
 }
 
 
-void BERadDifOpPJacOpSplitPrec::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> bET_, std::shared_ptr<AMP::LinearAlgebra::Vector> ET_) 
+void BDFRadDifOpPJacOpSplitPrec::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> bET_, std::shared_ptr<AMP::LinearAlgebra::Vector> ET_) 
 {
 
-    PROFILE( "BERadDifOpPJacOpSplitPrec::apply" );
+    PROFILE( "BDFRadDifOpPJacOpSplitPrec::apply" );
 
     // A zero initial guess is hard-coded to avoid an apply of A for computing the initial residual
     AMP_INSIST( d_bUseZeroInitialGuess, "Zero initial guess is hard coded!" );
@@ -45,8 +45,8 @@ void BERadDifOpPJacOpSplitPrec::apply(std::shared_ptr<const AMP::LinearAlgebra::
     AMP_INSIST( d_dAbsoluteTolerance == 0.0 && d_dRelativeTolerance == 0.0, "Non-zero tolerances not implemented; only fixed number of iterations" );
 
     // Get underlying operator
-    auto op = std::dynamic_pointer_cast<AMP::Operator::BERadDifOpPJac>( this->getOperator() );
-    AMP_INSIST( op, "Operator must be of BERadDifOpPJac type" );
+    auto op = std::dynamic_pointer_cast<AMP::Operator::BDFRadDifOpPJac>( this->getOperator() );
+    AMP_INSIST( op, "Operator must be of BDFRadDifOpPJac type" );
 
     // Ensure diffusion solvers exists
     AMP_INSIST( d_difSolverE && d_difSolverT, "Solvers for diffusion blocks are null" );
@@ -85,7 +85,7 @@ void BERadDifOpPJacOpSplitPrec::apply(std::shared_ptr<const AMP::LinearAlgebra::
             op->residual( bET, ET, rET );
         }
         if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << "BERadDifOpPJacOpSplitPrec::apply(): iteration " << iter << ":" << ", residual norm=" << rET->L2Norm() << std::endl;
+            AMP::pout << "BDFRadDifOpPJacOpSplitPrec::apply(): iteration " << iter << ":" << ", residual norm=" << rET->L2Norm() << std::endl;
         }
 
         // Solve P_dif * [dE, dT] = [rE, rT], with residuals r
@@ -101,32 +101,32 @@ void BERadDifOpPJacOpSplitPrec::apply(std::shared_ptr<const AMP::LinearAlgebra::
     // Display final residual; note that this residual calculation is unnecessary because the final iterate is calculated already, hence the flag 
     if ( d_bComputeResidual ) {
         op->residual( bET, ET, rET );
-        AMP::pout << "BERadDifOpPJacOpSplitPrec::apply(): final residual norm=" << rET->L2Norm() << std::endl;
+        AMP::pout << "BDFRadDifOpPJacOpSplitPrec::apply(): final residual norm=" << rET->L2Norm() << std::endl;
     }
 }
 
 
-void BERadDifOpPJacOpSplitPrec::setDiffusionSolvers() {
+void BDFRadDifOpPJacOpSplitPrec::setDiffusionSolvers() {
 
-    PROFILE( "BERadDifOpPJacOpSplitPrec::setDiffusionSolvers" );
+    PROFILE( "BDFRadDifOpPJacOpSplitPrec::setDiffusionSolvers" );
 
     // Get underlying operator
-    auto op = std::dynamic_pointer_cast<AMP::Operator::BERadDifOpPJac>( this->getOperator() );
-    AMP_INSIST( op, "Operator must be of BERadDifOpPJac type" );
+    auto op = std::dynamic_pointer_cast<AMP::Operator::BDFRadDifOpPJac>( this->getOperator() );
+    AMP_INSIST( op, "Operator must be of BDFRadDifOpPJac type" );
 
     // Wrap diffusion matrices as LinearOperators 
     // E
     auto E_db    = AMP::Database::create( "name", "EOperator", "print_info_level", 0 );
     auto EParams = std::make_shared<AMP::Operator::OperatorParameters>( std::move(E_db) );
     auto E       = std::make_shared<AMP::Operator::LinearOperator>( EParams );
-    AMP_INSIST( op->d_data->d_E_BE, "E diffusion matrix is null" );
-    E->setMatrix( op->d_data->d_E_BE );
+    AMP_INSIST( op->d_data->d_E_BDF, "E diffusion matrix is null" );
+    E->setMatrix( op->d_data->d_E_BDF );
     
     // T
     auto T_db    = AMP::Database::create( "name", "TOperator", "print_info_level", 0 );
     auto TParams = std::make_shared<AMP::Operator::OperatorParameters>( std::move(T_db) );
     auto T       = std::make_shared<AMP::Operator::LinearOperator>( TParams );
-    T->setMatrix( op->d_data->d_T_BE );
+    T->setMatrix( op->d_data->d_T_BDF );
     AMP_INSIST( T->getMatrix(), "T diffusion matrix is null" );
 
     // Create solver parameters
@@ -150,13 +150,13 @@ void BERadDifOpPJacOpSplitPrec::setDiffusionSolvers() {
 }
 
 
-void BERadDifOpPJacOpSplitPrec::diffusionSolve(  
+void BDFRadDifOpPJacOpSplitPrec::diffusionSolve(  
     std::shared_ptr<const AMP::LinearAlgebra::Vector> bE,
     std::shared_ptr<const AMP::LinearAlgebra::Vector> bT,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  E,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  T ) const {
         
-        PROFILE( "BERadDifOpPJacOpSplitPrec::diffusionSolve" );
+        PROFILE( "BDFRadDifOpPJacOpSplitPrec::diffusionSolve" );
 
         AMP_INSIST( d_difSolverE, "Null diffusion solver for E block" );
         AMP_INSIST( d_difSolverT, "Null diffusion solver for T block" );
@@ -165,17 +165,17 @@ void BERadDifOpPJacOpSplitPrec::diffusionSolve(
 }
 
 
-void BERadDifOpPJacOpSplitPrec::reactionSolve(  
+void BDFRadDifOpPJacOpSplitPrec::reactionSolve(  
     std::shared_ptr<const AMP::LinearAlgebra::Vector> bE,
     std::shared_ptr<const AMP::LinearAlgebra::Vector> bT,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  E,
     std::shared_ptr<      AMP::LinearAlgebra::Vector>  T ) {
 
-    PROFILE( "BERadDifOpPJacOpSplitPrec::reactionSolve" );
+    PROFILE( "BDFRadDifOpPJacOpSplitPrec::reactionSolve" );
 
     // Get underlying operator
-    auto op = std::dynamic_pointer_cast<AMP::Operator::BERadDifOpPJac>( this->getOperator() );
-    AMP_INSIST( op, "Operator must be of BERadDifOpPJac type" );
+    auto op = std::dynamic_pointer_cast<AMP::Operator::BDFRadDifOpPJac>( this->getOperator() );
+    AMP_INSIST( op, "Operator must be of BDFRadDifOpPJac type" );
 
     // Get Operator's data
     auto data = op->d_data;
@@ -184,13 +184,13 @@ void BERadDifOpPJacOpSplitPrec::reactionSolve(
     double a, b, c, d, e, f, x, y;
 
     // Iterate through all local rows
-    auto DOFMan = data->r_EE_BE->getDOFManager();
+    auto DOFMan = data->r_EE_BDF->getDOFManager();
     for (auto dof = DOFMan->beginDOF(); dof != DOFMan->endDOF(); dof++) {
         // LHS matrix
-        a = data->r_EE_BE->getValueByGlobalID<double>( dof ) + 1.0; // Add identity 
-        b = data->r_ET_BE->getValueByGlobalID<double>( dof );
-        c = data->r_TE_BE->getValueByGlobalID<double>( dof );
-        d = data->r_TT_BE->getValueByGlobalID<double>( dof ) + 1.0; // Add identity 
+        a = data->r_EE_BDF->getValueByGlobalID<double>( dof ) + 1.0; // Add identity 
+        b = data->r_ET_BDF->getValueByGlobalID<double>( dof );
+        c = data->r_TE_BDF->getValueByGlobalID<double>( dof );
+        d = data->r_TT_BDF->getValueByGlobalID<double>( dof ) + 1.0; // Add identity 
         // RHS
         e = bE->getValueByGlobalID<double>( dof );
         f = bT->getValueByGlobalID<double>( dof );

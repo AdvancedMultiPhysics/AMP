@@ -9,7 +9,7 @@
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBDFWrappers.h"
 #include "AMP/solvers/radiationDiffusionFDOpSplitPrec/RadiationDiffusionFDOpSplitPrec.h"
 #include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
 #include <iostream>
@@ -88,7 +88,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     
 
     /****************************************************************
-    * Create a BERadDifOperator                                     *
+    * Create a BDFRadDifOperator                                     *
     ****************************************************************/
     // Create an OperatorParameters object, from a Database.
     auto Op_db = std::make_shared<AMP::Database>( "Op_db" );
@@ -97,18 +97,18 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     OpParams->d_Mesh = mesh;
     OpParams->d_db   = RadDifOp_db; // Set DataBase of parameters.
 
-    // Create BERadDifOp 
-    auto myBERadDifOp = std::make_shared<AMP::Operator::BERadDifOp>( OpParams );  
+    // Create BDFRadDifOp 
+    auto myBDFRadDifOp = std::make_shared<AMP::Operator::BDFRadDifOp>( OpParams );  
     // Extract the underlying RadDifOp
-    auto myRadDifOp = myBERadDifOp->d_RadDifOp; 
+    auto myRadDifOp = myBDFRadDifOp->d_RadDifOp; 
 
-    // Create an OperatorFactory and register Jacobian of BERadDifOp in it 
+    // Create an OperatorFactory and register Jacobian of BDFRadDifOp in it 
     auto & operatorFactory = AMP::Operator::OperatorFactory::getFactory();
-    operatorFactory.registerFactory( "BERadDifOpPJac", AMP::Operator::BERadDifOpPJac::create );
+    operatorFactory.registerFactory( "BDFRadDifOpPJac", AMP::Operator::BDFRadDifOpPJac::create );
 
     // Create a SolverFactory and register preconditioner(s) of the above operator in it 
     auto & solverFactory = AMP::Solver::SolverFactory::getFactory();
-    solverFactory.registerFactory( "BERadDifOpPJacOpSplitPrec", AMP::Solver::BERadDifOpPJacOpSplitPrec::create );
+    solverFactory.registerFactory( "BDFRadDifOpPJacOpSplitPrec", AMP::Solver::BDFRadDifOpPJacOpSplitPrec::create );
     
     // Create hassle-free wrappers around ic, source term and exact solution
     auto icFun        = std::bind( &AMP::Operator::RadDifModel::initialCondition, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
@@ -167,7 +167,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     double dt = ti_db->getScalar<double>( "initial_dt" );
     auto tiParams           = std::make_shared<AMP::TimeIntegrator::TimeIntegratorParameters>( ti_db );
     tiParams->d_ic_vector   = ic;
-    tiParams->d_operator    = myBERadDifOp;
+    tiParams->d_operator    = myBDFRadDifOp;
     tiParams->d_pSourceTerm = BDFSourceVec; // Point source vector to our source vector
 
     // Create timeIntegrator from factory
@@ -179,12 +179,12 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
     // Tell implicitIntegrator how to tell our operator what the time step is
     implicitIntegrator->setTimeScalingFunction(
-        std::bind( &AMP::Operator::BERadDifOp::setGamma, &( *myBERadDifOp ), std::placeholders::_1 ) );
+        std::bind( &AMP::Operator::BDFRadDifOp::setGamma, &( *myBDFRadDifOp ), std::placeholders::_1 ) );
 
     // Tell implicitIntegrator how to tell our operator what the component scalings are
     implicitIntegrator->setComponentScalingFunction(
-        std::bind( &AMP::Operator::BERadDifOp::setComponentScalings,
-                    &( *myBERadDifOp ),
+        std::bind( &AMP::Operator::BDFRadDifOp::setComponentScalings,
+                    &( *myBDFRadDifOp ),
                     std::placeholders::_1,
                     std::placeholders::_2 ) );
 
@@ -321,6 +321,9 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // End of ti loop
 
     timeIntegrator->printClassData( AMP::pout );
+
+    
+    ut->passes( inputFileName + ": BDF time integration" );
 }
 // end of driver()
 

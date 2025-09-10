@@ -12,7 +12,7 @@
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverFactory.h"
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBDFWrappers.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
 
 #include <iostream>
@@ -22,7 +22,7 @@ namespace AMP::Solver {
 
 
 /** A solver based on an operator-split, block-based preconditioner for the LinearOperator 
- *     BERadDifOpPJac = A == I + gamma*D + gamma*R,
+ *     BDFRadDifOpPJac = A == I + gamma*D + gamma*R,
  * where D is a 2x2 block-diagonal diffusion matrix, and R is a 2x2 block matrix with diagonal 
  * blocks.
  * The preconditioner matrix arises in factored form as
@@ -42,20 +42,20 @@ namespace AMP::Solver {
  * each of its diagonal blocks. The incoming Database must contain a 'DiffusionBlocks' Database
  * with sufficient information for the corresponding solvers to be created from a Solverfactory.
  * 
- * The incoming operator is assumed to be a AMP::Operator::BERadDifOpPJac. Our operator's d_data
+ * The incoming operator is assumed to be a AMP::Operator::BDFRadDifOpPJac. Our operator's d_data
  * member variable is utilized by this class.
  */
-class BERadDifOpPJacOpSplitPrec : public AMP::Solver::SolverStrategy {
+class BDFRadDifOpPJacOpSplitPrec : public AMP::Solver::SolverStrategy {
 
 //
 public:
 
-    BERadDifOpPJacOpSplitPrec( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params );
+    BDFRadDifOpPJacOpSplitPrec( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params );
 
     static std::unique_ptr<AMP::Solver::SolverStrategy> create( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params ) {  
-        return std::make_unique<BERadDifOpPJacOpSplitPrec>( params ); };
+        return std::make_unique<BDFRadDifOpPJacOpSplitPrec>( params ); };
 
-    std::string type() const override { return "BERadDifOpPJacOpSplitPrec"; };
+    std::string type() const override { return "BDFRadDifOpPJacOpSplitPrec"; };
     
     /** Apply the preconditioner in the form of a stationary linear iteration */
     void apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> bET_, std::shared_ptr< AMP::LinearAlgebra::Vector> ET_) override;
@@ -86,9 +86,9 @@ private:
         std::shared_ptr<      AMP::LinearAlgebra::Vector>  T ) const; 
     
     /** Solve the reaction system P_react*[E,T] = [bE, bT] for [E,T].
-     * Here we directly apply P_react^{-1}, where P_react == I + R_BE
-     *      where R_BE = [ diag(r_EE_BE) diag(r_ET_BE) ]
-     *                   [ diag(r_TE_BE) diag(r_TT_BE) ] 
+     * Here we directly apply P_react^{-1}, where P_react == I + R_BDF
+     *      where R_BDF = [ diag(r_EE_BDF) diag(r_ET_BDF) ]
+     *                   [ diag(r_TE_BDF) diag(r_TT_BDF) ] 
      * is a subset of the data stored in our opertor's d_data variable 
      */
     void reactionSolve(  

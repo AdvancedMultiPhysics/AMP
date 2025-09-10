@@ -28,8 +28,8 @@ struct RadDifOpPJacData;
 class RadDifOpPJacParameters;
 
 // Friend classes
-class BERadDifOp;
-class BERadDifOpPJac;
+class BDFRadDifOp;
+class BDFRadDifOpPJac;
 
 /** The classes in this file are (or are associated with) spatial finite-discretizations of  
  * the radiation-diffusion problem:
@@ -145,7 +145,7 @@ private:
 public: 
 
     //! I + gamma*L, where L is a RadDifOp
-    friend class BERadDifOp; 
+    friend class BDFRadDifOp; 
     //! hat{L}, where hat{L} is a Picard linearization of L
     friend class RadDifOpPJac; 
 
@@ -540,7 +540,7 @@ public:
     std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_TT();
 
 private:
-    //! Flag indicating whether our data has been accessed, and hence possibly modified, by a non-friend class (e.g., a BE wrapper of a RadDifOpPJac). This is set to true any time a getter is called.
+    //! Flag indicating whether our data has been accessed, and hence possibly modified, by a non-friend class (e.g., a BDF wrapper of a RadDifOpPJac). This is set to true any time a getter is called.
     bool d_dataMaybeOverwritten = false; 
 
     //! Members used to store matrix components

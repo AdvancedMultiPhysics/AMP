@@ -2,11 +2,9 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/operators/OperatorFactory.h"
-//
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
-#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBEWrappers.h"
-#include "AMP/operators/radiationDiffusionFD/RDUtils.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDBDFWrappers.h"
 #include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
 
 #include <iomanip>
@@ -17,18 +15,9 @@
 
 /** This is a test of a RadDifOp, which is a finite-difference discretization of a radiation 
  * diffusion operator.
- * A manufactured solution is provided, and this is used to compute a truncation error for a BE/BDF1
+ * A manufactured solution is provided, and this is used to compute a truncation error for a BDF 
  * step. This tests that the operator performs as expected, and it provides a consistency check on
  * the discretization that it converges with the correct order of accuracy. 
- * 
- * Given the ODEs u'(t) + L(u, t) = s(t), a BE step from t_old -> t_new == t_old + dt is given by solving the nonlinear system 
- *      [u_new + dt*L(u_new, t_new)] = [u_old + dt*s(t_new)]
- * for u_new.
- * 
- * As such, the truncation error is
- *      e_new = [ u_new + dt*L(u_new, t_new) ] - [u_old + dt*s(t_new)]
- * 
- * Note: The local truncation error of BE is second order, i.e. O(dt^2)
  */
 
 
@@ -83,7 +72,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
 
     /****************************************************************
-    * Create a BERadDifOperator                                     *
+    * Create a BDFRadDifOperator                                     *
     ****************************************************************/
     AMP::pout << "Input database to RadDifOp is" << std::endl;
     AMP::pout << "------------------------------" << std::endl;
@@ -96,14 +85,14 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     OpParams->d_Mesh = mesh; // Set mesh of parameters
     OpParams->d_db   = RadDifOp_db; // Set DataBase of parameters.
 
-    // Create BERadDifOp 
-    auto myBERadDifOp = std::make_shared<AMP::Operator::BERadDifOp>( OpParams );  
+    // Create BDFRadDifOp 
+    auto myBDFRadDifOp = std::make_shared<AMP::Operator::BDFRadDifOp>( OpParams );  
     // Extract the underlying RadDifOp
-    auto myRadDifOp = myBERadDifOp->d_RadDifOp; 
+    auto myRadDifOp = myBDFRadDifOp->d_RadDifOp; 
 
-    // Create an OperatorFactory and register Jacobian of BERadDifOp in it 
+    // Create an OperatorFactory and register Jacobian of BDFRadDifOp in it 
     auto & operatorFactory = AMP::Operator::OperatorFactory::getFactory();
-    operatorFactory.registerFactory( "BERadDifOpPJac", AMP::Operator::BERadDifOpPJac::create );
+    operatorFactory.registerFactory( "BDFRadDifOpPJac", AMP::Operator::BDFRadDifOpPJac::create );
 
     // Create hassle-free wrappers around source term and exact solution
     auto PDESourceFun = std::bind( &AMP::Operator::RadDifModel::sourceTerm, &( *myRadDifModel ), std::placeholders::_1, std::placeholders::_2 );
@@ -160,8 +149,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     BDFSourceVec->axpby(  4.0/3.0, gamma, *manSolVecOld    ); // this <- gamma*this + 4/3*u_old 
     BDFSourceVec->axpby( -1.0/3.0,   1.0, *manSolVecOldOld ); // this <- 1.0*this - 1/3*u_oldOld
     // Compute LHS vector
-    myBERadDifOp->setGamma( gamma );
-    myBERadDifOp->apply( manSolVecNew, truncationErrorVec ); // e <- u_new + dt*L(u_new)
+    myBDFRadDifOp->setGamma( gamma );
+    myBDFRadDifOp->apply( manSolVecNew, truncationErrorVec ); // e <- u_new + dt*L(u_new)
     // Subtract over RHS vector
     truncationErrorVec->axpby( -1.0, 1.0, *BDFSourceVec ); // e <- e - BDFSourceVec
 

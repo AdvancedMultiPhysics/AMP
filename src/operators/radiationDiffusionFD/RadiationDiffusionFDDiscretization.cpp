@@ -57,9 +57,9 @@ void RadDifOpPJac::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, 
     if ( d_iDebugPrintInfoLevel > 1 )
         AMP::pout << "RadDifOpPJac::apply() " << std::endl;
 
-    // If the data has been overwritten by a BEOper, then this apply will be an apply of that operator. That's fine, but so as to not cause any confusion about the state of the data the BEOper must acknowledge before every apply that's indeed what they're trying to do.
+    // If the data has been overwritten by a BDFOper, then this apply will be an apply of that operator. That's fine, but so as to not cause any confusion about the state of the data the BDFOper must acknowledge before every apply that's indeed what they're trying to do.
     if ( d_data->d_dataMaybeOverwritten ) {
-        AMP_INSIST( d_applyWithOverwrittenDataIsValid, "This apply is invalid because the data has been mutated by a BEOper; you must first set the flag 'applyWithOverwrittenBEOperDataIsValid' to true if you really want to do an apply" );
+        AMP_INSIST( d_applyWithOverwrittenDataIsValid, "This apply is invalid because the data has been mutated by a BDFOper; you must first set the flag 'applyWithOverwrittenBDFOperDataIsValid' to true if you really want to do an apply" );
     }
 
     applyFromData( ET, rET );
@@ -81,7 +81,7 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJac::createInputVector() co
 void RadDifOpPJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  ) {
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "BERadDifOpJac::applyFromData() " << std::endl;
+        AMP::pout << "RadDifOpJac::applyFromData() " << std::endl;
     }
 
     // Check that if Jacobian data has been modified that the caller of this function really intends to do the apply with modified data.
@@ -151,10 +151,10 @@ void RadDifOpPJac::applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vect
  * 1. The diffusion matrices are built even if they're multipled by a zero coefficient (k11 in the 
  * case of d_E and k21 in the case of d_T). Obviously there's no need to do this, but then one 
  * needs to take care: 
- *      i. when building the BERadDifOpPJacData because this just adds an identity perturbation to 
+ *      i. when building the BDFRadDifOpPJacData because this just adds an identity perturbation to 
  * these matrices (and hence assumes they exist)
  *      ii. that the matrix doesn't exist during the apply (which has implications for the 
- * BERadDifOpPJacData since this uses the apply)
+ * BDFRadDifOpPJacData since this uses the apply)
  *      iii. in the operator-split preconditioner since this assumes the matrices exist
  * 2. The sparsity pattern of both matrices is the same, and is independent of the linearization 
  * point. So, the sparsity pattern should be computed once, and then the values in the matrices 
@@ -166,7 +166,7 @@ void RadDifOpPJac::setData() {
     PROFILE( "RadDifOpPJac::setData" );
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "BERadDifOpJac::setData() " << std::endl; 
+        AMP::pout << "RadDifOpJac::setData() " << std::endl; 
     }
 
     // --- Unpack frozen vector ---

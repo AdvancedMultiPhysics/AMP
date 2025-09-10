@@ -86,8 +86,8 @@ Manufactured_Parameters{
 
 
 TimeIntegrator {
-    outputSolution = TRUE # Write solution to file
-    #outputSolution = FALSE
+    #outputSolution = TRUE # Write solution to file
+    outputSolution = FALSE
 
     name = "BDF2"
     implicit_integrator = "BDF2"
@@ -197,7 +197,7 @@ TimeIntegrator {
         # Let L be the approx Jacobian, then:
         # Use operator-split prec to approximately apply inv(L)
         Preconditioner{
-          name = "BERadDifOpPJacOpSplitPrec" # Name of the prec
+          name = "BDFRadDifOpPJacOpSplitPrec" # Name of the prec
           absolute_tolerance = 0.0
           relative_tolerance = 0.0
           print_info_level   = 0

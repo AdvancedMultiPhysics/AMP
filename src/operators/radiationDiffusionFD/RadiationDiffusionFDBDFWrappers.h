@@ -1,5 +1,5 @@
-#ifndef RAD_DIF_FD_BE_WRAPPERS
-#define RAD_DIF_FD_BE_WRAPPERS
+#ifndef RAD_DIF_FD_BDF_WRAPPERS
+#define RAD_DIF_FD_BDF_WRAPPERS
 
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
@@ -22,9 +22,9 @@
 namespace AMP::Operator {
 
 // Classes declared here
-class BERadDifOpPJac;
-class BERadDifOp;
-struct BERadDifOpPJacData;
+class BDFRadDifOpPJac;
+class BDFRadDifOp;
+struct BDFRadDifOpPJacData;
 
 
 /** The classes in this file either are (or are associated with) wrapping spatial radiation 
@@ -35,14 +35,14 @@ struct BERadDifOpPJacData;
 
 
 /** ---------------------------------------------------------------- *
- *  ---- Class wrapping a RadDifOp as a backward Euler operator ---- *
+ *  --------- Class wrapping a RadDifOp as a BDF operator ---------- *
  * ----------------------------------------------------------------- */
 /** Implements the Operator u + gamma*L(u) where L is a RadDifOp. 
  * This operator arises from the BDF discretization of the ODEs 
  *      u'(t) + L(u) = s(t). 
  * The incoming OperatorParameters are used to create operator L. 
  */ 
-class BERadDifOp : public AMP::Operator::Operator {
+class BDFRadDifOp : public AMP::Operator::Operator {
 
 public:
     //! Time-step size (up to scaling by BDF constants)
@@ -51,17 +51,17 @@ public:
     std::shared_ptr<RadDifOp> d_RadDifOp = nullptr;
 
     //! Constructor
-    BERadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ );
+    BDFRadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ );
 
     //! Destructor
-    virtual ~BERadDifOp() {};
+    virtual ~BDFRadDifOp() {};
 
     //! Compute r <- u + gamma*L(u)
     void apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
                 AMP::LinearAlgebra::Vector::shared_ptr r ) override;
 
     //! Used to register this operator in a factory
-    std::string type() const override { return "BERadDifOp"; }
+    std::string type() const override { return "BDFRadDifOp"; }
 
     //! Returns RadDifOp's isValidVector
     bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) override {
@@ -95,13 +95,13 @@ protected:
 
 
 /** ------------------------------------------------------------------ *
- *  --- Class wrapping a RadDifOpPJac as a backward Euler operator --- *
+ *  --------- Class wrapping a RadDifOpPJac as a BDF operator -------- *
  * ------------------------------------------------------------------- */
 /** Implements the Operator I + gamma*hat{L} where hat{L} is a 
  * RadDifOpPJac, i.e., a Picard linearization of a radiation diffusion 
  * operator, RadDifOp  
  */
-class BERadDifOpPJac : public AMP::Operator::LinearOperator {
+class BDFRadDifOpPJac : public AMP::Operator::LinearOperator {
 
 public:
 
@@ -110,18 +110,18 @@ public:
     //! The underlying linearized radiation diffusion spatial operator
     std::shared_ptr<RadDifOpPJac>       d_RadDifOpPJac;
     //! Data structure for storing block 2x2 matrix
-    std::shared_ptr<BERadDifOpPJacData> d_data = nullptr;
+    std::shared_ptr<BDFRadDifOpPJacData> d_data = nullptr;
 
 
     //! Constructor
-    BERadDifOpPJac( std::shared_ptr<AMP::Operator::OperatorParameters> params );
+    BDFRadDifOpPJac( std::shared_ptr<AMP::Operator::OperatorParameters> params );
 
     //! Destructor
-    virtual ~BERadDifOpPJac() {};
+    virtual ~BDFRadDifOpPJac() {};
 
-    //! Used by OperatorFactory to create a BERadDifOpPJac
+    //! Used by OperatorFactory to create a BDFRadDifOpPJac
     static std::unique_ptr<AMP::Operator::Operator> create( std::shared_ptr<AMP::Operator::OperatorParameters> params ) {  
-        return std::make_unique<BERadDifOpPJac>( params ); };
+        return std::make_unique<BDFRadDifOpPJac>( params ); };
 
     //! Compute r <- (I + gamma*hat{L})*u
     void apply( AMP::LinearAlgebra::Vector::const_shared_ptr u_in,
@@ -140,7 +140,7 @@ private:
 };
 
 
-/** Data structure for storing the 2x2 block matrix associated with the BERadDifOpPJac, I + 
+/** Data structure for storing the 2x2 block matrix associated with the BDFRadDifOpPJac, I + 
  * gamma*hat{L}, where hat{L} is a RadDifOpPJac.
  * 
  * Specifically, the constructor here takes in the data structure used to store the 2x2 block matrix associated with hat{L}, i.e., 
@@ -150,8 +150,8 @@ private:
  *  ([I 0]         [ d_E 0   ])         [ diag(r_EE) diag(r_ET) ]
  *  ([0 I] + gamma*[ 0   d_T ]) + gamma*[ diag(r_TE) diag(r_TT) ]
  *      ==
- *  [ d_E_BE  0    ]   [ diag(r_EE_BE) diag(r_ET_BE) ]
- *  [ 0      d_T_BE] + [ diag(r_TE_BE) diag(r_TT_BE) ]
+ *  [ d_E_BDF  0    ]   [ diag(r_EE_BDF) diag(r_ET_BDF) ]
+ *  [ 0      d_T_BDF] + [ diag(r_TE_BDF) diag(r_TT_BDF) ]
  * 
  * Note: We store the data in the above format for two reasons:
  * 1. It allows an operator-split preconditioner to be built, wherein the diffusion blocks must
@@ -159,19 +159,19 @@ private:
  * identity perturbation on the fly to the reaction blocks when decoupled 2x2 solves are done on 
  * them
  * 2. The modification that we make to the data means that our underlying RadDifOpPJac's apply will 
- * actually be an apply of a BERadDifOpPJac (we would have to write another apply routine if we 
+ * actually be an apply of a BDFRadDifOpPJac (we would have to write another apply routine if we 
  * also added an identity perturbation into the reaction block).
  */
-struct BERadDifOpPJacData {
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_E_BE  = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_T_BE  = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_EE_BE = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_ET_BE = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TE_BE = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TT_BE = nullptr;
+struct BDFRadDifOpPJacData {
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_E_BDF  = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_T_BDF  = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_EE_BDF = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_ET_BDF = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TE_BDF = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> r_TT_BDF = nullptr;
 
-    BERadDifOpPJacData( ) { };
-    BERadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data, double gamma );
+    BDFRadDifOpPJacData( ) { };
+    BDFRadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data, double gamma );
 };
 
 } // namespace AMP::Operator

@@ -36,19 +36,72 @@ def main():
     #solveForGhostFromRobinBC()
 
 
-def solveForGhostFromRobinBC():
-    
-    # First interior point on west, east, south, and north boundaries
-    Eint, Eg = sym.symbols("Eint, Eg")
-    # PDE coefficients
-    h, c = sym.symbols("h, c")
-    # Robin values
-    a, b, r  = sym.symbols("a, b, r")   
 
-    print("-------------")
-    eqn = sym.Eq(a * (Eg + Eint)/2 + b * c * (Eg - Eint)/h, r )
-    sol = sym.solve(eqn, Eg)[0]
-    print(f"Solution: Eg = {sol}")
+
+# A pair of linear PDEs of the form
+# dE/dt - nabla dot ( k11 * nabla E ) - k12 * ( T - E ) = s_E
+# dT/dt - nabla dot ( k21 * nabla T ) + k22 * ( T - E ) = s_T
+#
+# A pair of nonlinear PDEs of the form
+# dE/dt - nabla dot ( k11 * DE * nabla E ) - k12 * sigma * ( T^4 - E ) = s_E
+# dT/dt - nabla dot ( k21 * DT * nabla T ) + k22 * sigma * ( T^4 - E ) = s_T
+# 
+# 
+# where:
+#   k_ij are constants.
+#   The source terms s_E and s_T are different for each system 
+#
+# Note we assume zatom is constant, while in the paper it can vary.
+def manufacturedModel( dim, model ):
+    
+    print("-----------------------------")
+    print("    {} model {}D    ".format(model, dim))
+    print("-----------------------------", sep="\n")
+
+    x, y, z, PI, zatom, k11, k12, k21, k22, t = sym.symbols('x y z PI zatom k11 k12 k21 k22 t')
+
+    # Exact solutions
+    if dim == 1:
+        E, T = manufacturedSolutions1D(t, x) 
+    elif dim == 2:
+        E, T = manufacturedSolutions2D(t, x, y) 
+    elif dim == 3:
+        E, T = manufacturedSolutions3D(t, x, y, z) 
+
+    # Get reaction term R
+    if model == "nonlinear":
+        sigma = (zatom/T)**3
+        DE = 1/(3*sigma)
+        DT = T**sym.Rational(5, 2)
+        R = sigma*( T**4 - E )
+    elif model == "linear":
+        DE = 1
+        DT = 1
+        R = ( T - E )
+    else:
+        raise ValueError( "Invalid model" )
+
+    # Compute the LHS of the equations, LE and LT
+    # Reaction operator
+    LE = - k12 * R
+    LT = + k22 * R
+
+    # Spatial differential operator applied to exact solution
+    LE += -k11*( sym.diff( DE*sym.diff(E, x), x ) ) 
+    LT += -k21*( sym.diff( DT*sym.diff(T, x), x ) )
+    if dim >= 2:
+        LE += -k11*( sym.diff( DE*sym.diff(E, y), y ) )
+        LT += -k21*( sym.diff( DT*sym.diff(T, y), y ) )
+    if dim >= 3:
+        LE += -k11*( sym.diff( DE*sym.diff(E, z), z ) )
+        LT += -k21*( sym.diff( DT*sym.diff(T, z), z ) )
+
+    # Add time derivative of solutions
+    LE += sym.diff( E, t )
+    LT += sym.diff( T, t )
+
+    # Translate into C++ code
+    cxx_print(dim, x, y, z, E, T, LE, LT)
 
     
 
@@ -137,132 +190,19 @@ def cxx_print(dim, x, y, z, E, T, sE, sT):
     print("")
 
 
-
-
-
-# A pair of linear PDEs of the form
-# dE/dt - nabla dot ( k11 * nabla E ) - k12 * ( T - E ) = s_E
-# dT/dt - nabla dot ( k21 * nabla T ) + k22 * ( T - E ) = s_T
-#
-# A pair of nonlinear PDEs of the form
-# dE/dt - nabla dot ( k11 * DE * nabla E ) - k12 * sigma * ( T^4 - E ) = s_E
-# dT/dt - nabla dot ( k21 * DT * nabla T ) + k22 * sigma * ( T^4 - E ) = s_T
-# 
-# 
-# where:
-#   k_ij are constants.
-#   The source terms s_E and s_T are different for each system 
-#
-# Note we assume zatom is constant, while in the paper it can vary.
-def manufacturedModel( dim, model ):
+def solveForGhostFromRobinBC():
     
-    print("-----------------------------")
-    print("    {} model {}D    ".format(model, dim))
-    print("-----------------------------", sep="\n")
+    # First interior point on west, east, south, and north boundaries
+    Eint, Eg = sym.symbols("Eint, Eg")
+    # PDE coefficients
+    h, c = sym.symbols("h, c")
+    # Robin values
+    a, b, r  = sym.symbols("a, b, r")   
 
-    x, y, z, PI, zatom, k11, k12, k21, k22, t = sym.symbols('x y z PI zatom k11 k12 k21 k22 t')
-
-    # Exact solutions
-    if dim == 1:
-        E, T = manufacturedSolutions1D(t, x) 
-    elif dim == 2:
-        E, T = manufacturedSolutions2D(t, x, y) 
-    elif dim == 3:
-        E, T = manufacturedSolutions3D(t, x, y, z) 
-
-    # Get reaction term R
-    if model == "nonlinear":
-        sigma = (zatom/T)**3
-        DE = 1/(3*sigma)
-        DT = T**sym.Rational(5, 2)
-        R = sigma*( T**4 - E )
-    elif model == "linear":
-        DE = 1
-        DT = 1
-        R = ( T - E )
-    else:
-        raise ValueError( "Invalid model" )
-
-    # Compute the LHS of the equations, LE and LT
-    # Reaction operator
-    LE = - k12 * R
-    LT = + k22 * R
-
-    # Spatial differential operator applied to exact solution
-    LE += -k11*( sym.diff( DE*sym.diff(E, x), x ) ) 
-    LT += -k21*( sym.diff( DT*sym.diff(T, x), x ) )
-    if dim >= 2:
-        LE += -k11*( sym.diff( DE*sym.diff(E, y), y ) )
-        LT += -k21*( sym.diff( DT*sym.diff(T, y), y ) )
-    if dim >= 3:
-        LE += -k11*( sym.diff( DE*sym.diff(E, z), z ) )
-        LT += -k21*( sym.diff( DT*sym.diff(T, z), z ) )
-
-    # Add time derivative of solutions
-    LE += sym.diff( E, t )
-    LT += sym.diff( T, t )
-
-    # Translate into C++ code
-    cxx_print(dim, x, y, z, E, T, LE, LT)
-
-
-
-
-
-
-    # # Create lambda functions for sympy expressions
-    # Epy = sym.lambdify((x, y, PI), E, modules=['numpy'])
-    # Tpy = sym.lambdify((x, y, PI), T, modules=['numpy'])
-
-    # LEpy = sym.lambdify((x, y, PI, zatom, k11, k12), LE, modules=['numpy'])
-    # LTpy = sym.lambdify((x, y, PI, zatom, k21, k22), LT, modules=['numpy'])
-
-
-    # xnum = np.linspace(0, 1)
-    # ynum = np.linspace(0, 1)
-    # Xnum, Ynum = np.meshgrid(xnum, ynum)
-
-    # znum = 5 # If this is 1 then it really amplifies S_E
-    # # k11num = 1
-    # # k12num = 1
-    # # k21num = 0.01
-    # # k22num = 1
-
-    # k11num = 1
-    # k12num = 1
-    # k21num = 0.01  
-    # k22num = 1
-
-    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    # surf = ax.plot_surface(Xnum, Ynum, Epy(Xnum, Ynum, np.pi).T, cmap=cm.coolwarm)
-    # ax.set_title("$E(x, y)$: $(k_{{11}},k_{{12}},k_{{21}},k_{{22}})=({},{},{},{})$".format(k11num, k12num, k21num, k22num))
-    # ax.set_xlabel( "$x$" )
-    # ax.set_ylabel( "$y$" )
-
-    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    # surf = ax.plot_surface(Xnum, Ynum, Tpy(Xnum, Ynum, np.pi).T, cmap=cm.coolwarm)
-    # ax.set_title("$T(x, y)$: $(k_{{11}},k_{{12}},k_{{21}},k_{{22}})=({},{},{},{})$".format(k11num, k12num, k21num, k22num))
-    # ax.set_xlabel( "$x$" )
-    # ax.set_ylabel( "$y$" )
-    
-    
-
-    # # ax.plot( xnum, LEpy(xnum, np.pi, znum, k11num, k12num), '--g', label = "$S_E(x)$" ) 
-    # # ax.plot( xnum, LTpy(xnum, np.pi, znum, k21num, k22num), 'm', label = "$S_T(x)$" ) 
-    
-    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    # surf = ax.plot_surface(Xnum, Ynum, LEpy(Xnum, Ynum, np.pi, znum, k11num, k12num).T, cmap=cm.coolwarm)
-    # ax.set_title("$s_E(x, y)$: $(k_{{11}},k_{{12}},k_{{21}},k_{{22}})=({},{},{},{})$".format(k11num, k12num, k21num, k22num))
-    # ax.set_xlabel( "$x$" )
-    # ax.set_ylabel( "$y$" )
-
-    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    # surf = ax.plot_surface(Xnum, Ynum, LTpy(Xnum, Ynum, np.pi, znum, k21num, k22num).T, cmap=cm.coolwarm)
-    # ax.set_title("$s_T(x, y)$: $(k_{{11}},k_{{12}},k_{{21}},k_{{22}})=({},{},{},{})$".format(k11num, k12num, k21num, k22num))
-    # ax.set_xlabel( "$x$" )
-    # ax.set_ylabel( "$y$" )
-
-    # plt.show()
+    print("-------------")
+    eqn = sym.Eq(a * (Eg + Eint)/2 + b * c * (Eg - Eint)/h, r )
+    sol = sym.solve(eqn, Eg)[0]
+    print(f"Solution: Eg = {sol}")
 
 
 # Call the main method!
