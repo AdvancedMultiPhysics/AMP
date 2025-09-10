@@ -29,8 +29,8 @@
 // profiling information regarding SpGEMMs with different matrix classes
 
 // Number of products to evaluate to average out timings
-#define NUM_PRODUCTS_NOREUSE 1
-#define NUM_PRODUCTS_REUSE 0
+#define NUM_PRODUCTS_NOREUSE 10
+#define NUM_PRODUCTS_REUSE 10
 
 size_t matMatTestWithDOFs( AMP::UnitTest *ut,
                            std::string type,
@@ -118,30 +118,33 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     }
 
     // now do products where reuse of result matrix is supported
-    yNormFail = 0.0;
-    allPass   = true;
-    for ( int nProd = 0; nProd < NUM_PRODUCTS_REUSE; ++nProd ) {
-        PROFILE( "SpGEMM test reuse" );
-        AMP::LinearAlgebra::Matrix::matMatMult( A, A, Asq );
-        x->setToScalar( 1.0 );
-        x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-        y->zero();
-        Asq->mult( x, y );
-        const auto yNorm = static_cast<scalar_t>( y->L1Norm() );
-        if ( yNorm != yNormExpect ) {
-            allPass   = false;
-            yNormFail = yNorm;
+    if ( NUM_PRODUCTS_REUSE > 0 && memoryLocation == "host" ) {
+        yNormFail = 0.0;
+        allPass   = true;
+        for ( int nProd = 0; nProd < NUM_PRODUCTS_REUSE; ++nProd ) {
+            PROFILE( "SpGEMM test reuse" );
+            AMP::LinearAlgebra::Matrix::matMatMult( A, A, Asq );
+            x->setToScalar( 1.0 );
+            x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+            y->zero();
+            Asq->mult( x, y );
+            const auto yNorm = static_cast<scalar_t>( y->L1Norm() );
+            if ( yNorm != yNormExpect ) {
+                allPass   = false;
+                yNormFail = yNorm;
+            }
         }
-    }
 
-    if ( allPass ) {
-        ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
-                    ": Passes 1 norm test with squared pseudo Laplacian, with re-use" );
-    } else {
-        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend << ", 1 Norm "
-                  << yNormFail << ", number of rows " << A->numGlobalRows() << std::endl;
-        ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
-                     ": Fails 1 norm test with squared pseudo Laplacian, with re-use" );
+        if ( allPass ) {
+            ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
+                        ": Passes 1 norm test with squared pseudo Laplacian, with re-use" );
+        } else {
+            AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend
+                      << ", 1 Norm " << yNormFail << ", number of rows " << A->numGlobalRows()
+                      << std::endl;
+            ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
+                         ": Fails 1 norm test with squared pseudo Laplacian, with re-use" );
+        }
     }
 
     return nGlobalRows;

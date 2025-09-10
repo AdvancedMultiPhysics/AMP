@@ -718,6 +718,14 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
     }
     std::cout << "    first | last row: " << d_first_row << " | " << d_last_row << std::endl;
     std::cout << "    first | last col: " << d_first_col << " | " << d_last_col << std::endl;
+
+    if ( d_cols.get() ) {
+        std::cout << "    min | max col: "
+                  << AMP::Utilities::Algorithms<gidx_t>::min_element( d_cols.get(), d_nnz ) << " | "
+                  << AMP::Utilities::Algorithms<gidx_t>::max_element( d_cols.get(), d_nnz )
+                  << std::endl;
+    }
+
     std::cout << "    num unique: " << d_ncols_unq << std::endl;
     scalar_t avg_nnz = static_cast<scalar_t>( d_nnz ) / static_cast<scalar_t>( d_num_rows );
     std::cout << "    avg nnz per row: " << avg_nnz << std::endl;

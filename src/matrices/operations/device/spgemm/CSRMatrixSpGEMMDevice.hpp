@@ -80,12 +80,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
     deviceSynchronize();
 
     C->assemble( true );
-
-    if ( comm.getRank() == 0 ) {
-        std::cout << "Device post-assemble";
-        C_diag->printStats( true, false );
-        C_offd->printStats( true, false );
-    }
 }
 
 template<typename Config>
@@ -99,12 +93,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
 
     if ( A_data->isEmpty() || B_data->isEmpty() ) {
         return;
-    }
-
-    if ( comm.getRank() == 0 ) {
-        std::cout << "Device intermediate product inputs";
-        A_data->printStats( true, false );
-        B_data->printStats( true, false );
     }
 
     // shapes of A and B
@@ -176,11 +164,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
             C_cols,
             [colmap] __device__( const lidx_t lc ) -> gidx_t { return colmap[lc]; } );
     }
-
-    if ( comm.getRank() == 0 ) {
-        std::cout << "Device intermediate product";
-        C_data->printStats( true, false );
-    }
     // exiting function destructs spgemm wrapper and frees its internals
 }
 
@@ -231,8 +214,7 @@ __global__ void merge_row_fill( const lidx_t num_rows,
                                 const scalar_t *B_coeffs,
                                 lidx_t *C_rs,
                                 gidx_t *C_cols,
-                                scalar_t *C_coeffs,
-                                const bool gz )
+                                scalar_t *C_coeffs )
 {
     for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
           row += blockDim.x * gridDim.x ) {
@@ -244,30 +226,26 @@ __global__ void merge_row_fill( const lidx_t num_rows,
             C_cols[C_start + off]   = A_cols[A_start + off];
             C_coeffs[C_start + off] = A_coeffs[A_start + off];
         }
-        // column values are sorted, so walk through A cols and B cols
-        // simultaneously to find matches
-        lidx_t B_off = 0, C_off = 0, C_app = A_len;
-        for ( ; B_off < B_len && C_off < C_len; ) {
-            const auto Bc = B_cols[B_start + B_off], Cc = C_cols[C_start + C_off];
-            if ( Bc == Cc ) {
-                // columns match, add in B coeff and increment offsets
-                C_coeffs[C_start + C_off] += B_coeffs[B_start + B_off];
-                ++B_off;
-                ++C_off;
-            } else if ( Cc < Bc ) {
-                // C lags B, increment C ptr to check further in row
-                ++C_off;
-            } else {
-                // B lags C, Bc not a repeat, so append to C row and increment
-                C_cols[C_start + C_app]   = B_cols[B_start + B_off];
-                C_coeffs[C_start + C_app] = B_coeffs[B_start + B_off];
-                ++C_app;
-                ++B_off;
+
+        lidx_t C_app = A_len, search_start = C_start;
+        for ( lidx_t B_ptr = B_start; B_ptr < B_rs[row + 1]; ++B_ptr ) {
+            const auto Bc = B_cols[B_ptr];
+            bool matched  = false;
+            for ( lidx_t C_ptr = search_start; C_ptr < C_rs[row + 1]; ++C_ptr ) {
+                const auto Cc = C_cols[C_ptr];
+                if ( Cc == Bc ) {
+                    C_coeffs[C_ptr] += B_coeffs[B_ptr];
+                    matched      = true;
+                    search_start = C_ptr + 1;
+                    break;
+                } else if ( Cc > Bc ) {
+                    break;
+                }
             }
-        }
-        if ( gz ) {
-            for ( lidx_t off = 0; off < C_len; ++off ) {
-                assert( C_cols[C_start + off] > 0 );
+            if ( !matched ) {
+                C_cols[C_start + C_app]   = Bc;
+                C_coeffs[C_start + C_app] = B_coeffs[B_ptr];
+                ++C_app;
             }
         }
     }
@@ -285,11 +263,11 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
         return;
     }
     if ( inR.get() == nullptr || inR->isEmpty() ) {
-        C_offd->swapDataFields( *inL );
+        out->swapDataFields( *inL );
         return;
     }
     if ( inL.get() == nullptr || inL->isEmpty() ) {
-        C_offd->swapDataFields( *inR );
+        out->swapDataFields( *inR );
         return;
     }
 
@@ -327,7 +305,6 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
 
     // fill rows of output as sums of each block
     {
-        bool gz = comm.getRank() == 0 && !out->isDiag();
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
@@ -341,15 +318,9 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                                                                          inR_coeffs,
                                                                          out_rs,
                                                                          out_cols,
-                                                                         out_coeffs,
-                                                                         gz );
+                                                                         out_coeffs );
         deviceSynchronize();
         getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
-    }
-
-    if ( comm.getRank() == 0 ) {
-        std::cout << "Device out merged";
-        out->printStats( true, false );
     }
 }
 
@@ -466,13 +437,6 @@ void CSRMatrixSpGEMMDevice<Config>::endBRemoteComm()
     // trigger remotes to build local indices
     BR_diag->globalToLocalColumns();
     BR_offd->globalToLocalColumns();
-
-
-    if ( comm.getRank() == 0 ) {
-        std::cout << "Device BRemote blocks";
-        BR_diag->printStats( true, false );
-        BR_offd->printStats( true, false );
-    }
 
     // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
     d_send_matrices.clear();
