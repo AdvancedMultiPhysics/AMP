@@ -1,0 +1,8 @@
+COPY_TEST_FILE( TimeIntegrator-Parameters )
+COPY_TEST_FILE( Mousseau_etal_2000-Parameters )
+COPY_TEST_FILE( Manufactured-Parameters )
+COPY_TEST_FILE( input_RadiationDiffusionFD-1D )
+COPY_TEST_FILE( input_RadiationDiffusionFD-2D )
+COPY_TEST_FILE( input_testBDF_RadiationDiffusionFD-1D-BoomerAMG )
+COPY_TEST_FILE( input_testBDF_RadiationDiffusionFD-2D-BoomerAMG )
+ADD_AMP_TEST( testBDF_RadiationDiffusionFD )

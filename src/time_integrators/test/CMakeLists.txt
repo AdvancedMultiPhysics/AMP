@@ -3,7 +3,6 @@
 ############################################################################
 
 # Copy test inputs
-COPY_TEST_FILE( input_testBDF_RadiationDiffusionFD-BoomerAMG )
 COPY_TEST_FILE( input_testIDA-LinearBVPOperator-1 )
 COPY_TEST_FILE( input_testIDA-NonlinearBVPOperator-1 )
 COPY_TEST_FILE( input_testIDA-NonlinearColumnOperator-1 )
@@ -15,7 +14,6 @@ COPY_TEST_FILE( input_testImplicitIntegrationWithUserOperator )
 
 # Add the tests
 ADD_AMP_TEST( testImplicitIntegrationWithUserOperator )
-ADD_AMP_TEST( testBDF_RadiationDiffusionFD )
 
 INITIALIZE_TESTBUILDER()
 ADD_TB_TEST( testSimpleTimeIntegration )
@@ -41,4 +39,6 @@ IF ( USE_SUNDIALS AND USE_LIBMESH AND USE_TRILINOS AND USE_PETSC AND AMP_DATA )
     ADD_TB_TEST( testIDA_NonlinearThermalOxygenDiffusion )
 ENDIF()
 FINALIZE_TESTBUILDER()
+
+ADD_SUBDIRECTORY( radiationDiffusionFD )
 

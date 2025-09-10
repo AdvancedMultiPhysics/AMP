@@ -1,0 +1,26 @@
+# Basic, model-independent, PDE parameters
+PDE {
+  print_info_level = 0
+  
+  fluxLimited = FALSE
+  #fluxLimited = TRUE
+
+  modelID = "Manufactured"
+  #modelID = "Mousseau_etal_2000"
+}
+
+<<< TimeIntegrator-Parameters >>>
+<<< Mousseau_etal_2000-Parameters >>>
+<<< Manufactured-Parameters >>>
+
+<<< input_RadiationDiffusionFD-1D >>>
+
+
+
+
+
+
+
+
+
+

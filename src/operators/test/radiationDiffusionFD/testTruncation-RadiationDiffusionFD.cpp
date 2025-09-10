@@ -52,6 +52,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     AMP_INSIST( trunc_db, "TruncationError is null" );
     AMP_INSIST( manufactured_db, "Manufactured_Parameters is null" );
 
+    // Push problem dimension into PDE_basic_db
+    PDE_basic_db->putScalar<int>( "dim", mesh_db->getScalar<int>( "dim" ) );
 
     /****************************************************************
     * Create a manufactured radiation-diffusion model               *
@@ -177,9 +179,9 @@ int main( int argc, char **argv )
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
 
     std::vector<std::string> exeNames;
-    exeNames.emplace_back( "input_testRadiationDiffusionFD-truncation" );
-    //exeNames.emplace_back( "input_testRadiationDiffusionFD-1D" );
-    //exeNames.emplace_back( "input_testRadiationDiffusionFD-2D" );
+    exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-1D" );
+    exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-2D" );
+    exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-3D" );
 
     for ( auto &exeName : exeNames ) {
         PROFILE_ENABLE();

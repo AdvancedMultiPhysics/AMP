@@ -1,0 +1,5 @@
+# Parameters for computing BDF truncation error
+TruncationError {
+  CFL = 1e-3 # CFL = dt/h, determines dt
+  time = 0.3245 # Time to evaluate truncation error
+}
