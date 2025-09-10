@@ -60,10 +60,15 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
         std::vector<scalar_t> ghosts( nGhosts );
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
-            size_t *colMap = offdMatrix->getColumnMap();
+            auto colMap = offdMatrix->getColumnMap();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+        } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
+            auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
         } else {
             // type mismatch, need to copy/cast into temporary vector
+            AMP_WARN_ONCE(
+                "CSRMatrixOperationsDefault::mult: Deep copy/cast of column map required" );
             std::vector<size_t> colMap;
             offdMatrix->getColumnMap( colMap );
             in->getGhostValuesByGlobalID( nGhosts, colMap.data(), ghosts.data() );

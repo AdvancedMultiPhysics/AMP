@@ -17,6 +17,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("2.1.2", tag="2.1.2", commit="cdb270395e1512da2f18a34a7fa6b60f1bcb790d")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
     variant("stacktrace", default=False, description="Build with support for Stacktrace")
@@ -31,6 +32,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("libmesh", default=False, description="Build with support for libmesh")
     variant("petsc", default=False, description="Build with support for petsc")
     variant("trilinos", default=False, description="Build with support for trilinos")
+    variant("test_gpus", default=-1, values=int, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
@@ -176,6 +178,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             )
         if spec.satisfies("+trilinos"):
             options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Xpetra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
+
+        if spec.variants["test_gpus"].value != "-1":
+            options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))
 
         for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):

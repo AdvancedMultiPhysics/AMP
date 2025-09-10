@@ -4,7 +4,6 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/operators/Operator.h"
 
-
 namespace AMP::Operator {
 
 
@@ -114,9 +113,9 @@ private:
     // Constants to translate the exact solutions (trig functions), so as to avoid cases of these
     // functions being zero (and or constant) along boundaries (providing better opportunities for
     // identifying bugs in boundary computations).
-    const double d_X_SHIFT = -0.325;
-    const double d_Y_SHIFT = +0.987;
-    const double d_Z_SHIFT = -0.478;
+    constexpr static double d_X_SHIFT = -0.325;
+    constexpr static double d_Y_SHIFT = +0.987;
+    constexpr static double d_Z_SHIFT = -0.478;
 };
 } // namespace AMP::Operator
 

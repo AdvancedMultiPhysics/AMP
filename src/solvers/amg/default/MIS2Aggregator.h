@@ -14,8 +14,6 @@ namespace AMP::Solver::AMG {
 // Rajamanickam
 struct MIS2Aggregator : Aggregator {
     MIS2Aggregator() = default;
-    MIS2Aggregator( float wt_ ) : Aggregator( wt_ ){};
-    MIS2Aggregator( int ms_, float wt_ ) : Aggregator( ms_, wt_ ){};
 
     // Necessary overrides from base class
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
@@ -27,7 +25,9 @@ struct MIS2Aggregator : Aggregator {
     // classify vertices as in or out of MIS-2
     template<typename Config>
     int classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixData<Config>> A,
-                          std::vector<uint64_t> &labels );
+                          std::vector<typename Config::lidx_t> &wl1,
+                          std::vector<uint64_t> &labels,
+                          int *agg_ids );
 
     // status labels such that IN < UNDECIDED < OUT
     // there is no ordering within the IN set so all are marked 0,

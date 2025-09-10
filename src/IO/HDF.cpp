@@ -254,6 +254,16 @@ hid_t openGroup( hid_t fid, const std::string &name )
     return H5Gopen2( fid, name.data(), H5P_DEFAULT );
 }
 void closeGroup( hid_t gid ) { H5Gclose( gid ); }
+void closeDataset( hid_t fid ) { H5Dclose( fid ); }
+void closeDatatype( hid_t fid ) { H5Tclose( fid ); }
+void closeDataspace( hid_t fid ) { H5Sclose( fid ); }
+hid_t getHDF5datatype( hid_t fid, const std::string &name )
+{
+    hid_t dataset  = H5Dopen2( fid, name.data(), H5P_DEFAULT );
+    hid_t datatype = H5Dget_type( dataset );
+    H5Dclose( dataset );
+    return datatype;
+}
 
 
 /************************************************************************
@@ -312,6 +322,10 @@ bool H5Dexists( hid_t, const std::string & ) { return false; }
 hid_t createGroup( hid_t, const std::string & ) { return 0; }
 hid_t openGroup( hid_t, const std::string & ) { return 0; }
 void closeGroup( hid_t ) {}
+void closeDataset( hid_t ) {}
+void closeDatatype( hid_t ) {}
+void closeDataspace( hid_t ) {}
+hid_t getHDF5datatype( hid_t, const std::string & ) { return 0; }
 void writeHDF5( hid_t, const std::string &, size_t, const std::byte * );
 void readHDF5( hid_t, const std::string &, size_t, std::byte * );
 std::tuple<std::vector<hid_t>,

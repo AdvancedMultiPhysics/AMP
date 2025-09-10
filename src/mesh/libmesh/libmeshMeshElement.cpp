@@ -37,7 +37,7 @@ libmeshMeshElement::libmeshMeshElement( int dim,
                                         MeshID meshID,
                                         const libmeshMesh *mesh )
 {
-    AMP_ASSERT( libmesh_element != nullptr );
+    AMP_ASSERT( libmesh_element );
     d_typeHash      = elementTypeID;
     d_element       = nullptr;
     d_dim           = dim;

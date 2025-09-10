@@ -23,7 +23,9 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix
 
 template<typename Config>
 int MIS2Aggregator::classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixData<Config>> A,
-                                      std::vector<uint64_t> &Tv )
+                                      std::vector<typename Config::lidx_t> &wl1,
+                                      std::vector<uint64_t> &Tv,
+                                      int *agg_ids )
 {
     using lidx_t = typename Config::lidx_t;
 
@@ -52,15 +54,13 @@ int MIS2Aggregator::classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixDa
         return x * 0x2545F4914F6CDD1D;
     };
 
-    std::vector<uint64_t> Mv( A_nrows, 0 );
+    std::vector<uint64_t> Mv( A_nrows, OUT );
 
-    // worklists are all vertices initially
-    std::vector<lidx_t> wl1( A_nrows ), wl2( A_nrows );
-    std::iota( wl1.begin(), wl1.end(), 0 );
-    std::iota( wl2.begin(), wl2.end(), 0 );
+    // copy input worklist to wl2
+    std::vector<lidx_t> wl2( wl1 );
 
     // now loop until worklists are empty
-    const lidx_t max_iters = A_nrows; // this is the absolute worst case
+    const lidx_t max_iters = A_nrows;
     int num_iters          = 0;
     while ( wl1.size() > 0 ) {
         const auto iter_hash = hash( num_iters );
@@ -79,7 +79,9 @@ int MIS2Aggregator::classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixDa
             Mv[n] = OUT;
             for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
                 const auto c = Ad_cols_loc[k];
-                Mv[n]        = Tv[c] < Mv[n] ? Tv[c] : Mv[n];
+                if ( agg_ids[c] < 0 ) {
+                    Mv[n] = Tv[c] < Mv[n] ? Tv[c] : Mv[n];
+                }
             }
             // if smallest is marked IN mark this as OUT
             if ( Mv[n] == IN ) {
@@ -93,6 +95,9 @@ int MIS2Aggregator::classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixDa
             bool mark_out = false, mark_in = true;
             for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
                 const auto c = Ad_cols_loc[k];
+                if ( agg_ids[c] >= 0 ) {
+                    continue;
+                }
                 if ( Mv[c] == OUT ) {
                     mark_out = true;
                     break;
@@ -152,20 +157,22 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     auto A_diag        = A_data->getDiagMatrix();
     auto [Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs] = A_diag->getDataFields();
 
-    // Classify vertices as in/out of MIS-2
-    std::vector<uint64_t> labels( A_nrows );
-    const auto niter = classifyVertices<Config>( A_data, labels );
-    AMP::pout << "Classify verts took " << niter << " iterations" << std::endl;
-
     // initially un-aggregated
     AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_ids, A_nrows, -1 );
 
     // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size;
 
-    // first pass initilizes aggregates from nodes flagged as in
-    // and all of their neighbors
-    lidx_t num_agg = 0;
+    // label each vertex as in or out of MIS-2
+    std::vector<uint64_t> labels( A_nrows, OUT );
+
+    // Classify vertices, first pass considers all rows
+    std::vector<lidx_t> wl1( A_nrows );
+    std::iota( wl1.begin(), wl1.end(), 0 );
+    auto niter = classifyVertices<Config>( A_data, wl1, labels, agg_ids );
+
+    // initilize aggregates from nodes flagged as in and all of their neighbors
+    lidx_t num_agg = 0, num_unagg = A_nrows;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         if ( labels[row] == OUT ) {
             continue;
@@ -174,14 +181,53 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         for ( lidx_t c = Ad_rs[row]; c < Ad_rs[row + 1]; ++c ) {
             agg_ids[Ad_cols_loc[c]] = num_agg;
             agg_size[num_agg]++;
+            --num_unagg;
         }
         // increment current id to start working on next aggregate
         ++num_agg;
     }
 
-    // second pass adds unmarked entries to the smallest aggregate they are nbrs with
-    // entries are unmarked because they neigbored some aggregate in the above,
-    // thus every unmarked entry will neighbor some aggregate
+    // do a second pass of classification and aggregation
+    // reset worklist to be all vertices that are not part of an aggregate
+    wl1.resize( num_unagg );
+    lidx_t n = 0;
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        if ( agg_ids[row] < 0 ) {
+            wl1[n] = row;
+            ++n;
+        }
+    }
+    AMP_DEBUG_ASSERT( n == num_unagg );
+    AMP::Utilities::Algorithms<uint64_t>::fill_n( labels.data(), A_nrows, OUT );
+    niter += classifyVertices<Config>( A_data, wl1, labels, agg_ids );
+
+    // on second pass only allow IN vertex to be root of agg if it has
+    // at least 2 un-agg nbrs
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        if ( labels[row] == OUT || agg_ids[row] >= 0 ) {
+            continue;
+        }
+        int n_nbrs = 0;
+        for ( lidx_t c = Ad_rs[row] + 1; c < Ad_rs[row + 1]; ++c ) {
+            if ( agg_ids[Ad_cols_loc[c]] < 0 ) {
+                ++n_nbrs;
+            }
+        }
+        if ( n_nbrs < 2 ) {
+            continue;
+        }
+        agg_size.push_back( 0 );
+        for ( lidx_t c = Ad_rs[row]; c < Ad_rs[row + 1]; ++c ) {
+            if ( agg_ids[Ad_cols_loc[c]] < 0 ) {
+                agg_ids[Ad_cols_loc[c]] = num_agg;
+                agg_size[num_agg]++;
+            }
+        }
+        // increment current id to start working on next aggregate
+        ++num_agg;
+    }
+
+    // final pass adds unmarked entries to the smallest aggregate they are nbrs with
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         if ( agg_ids[row] >= 0 ) {
             // this row already assigned, skip ahead
@@ -201,15 +247,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         agg_ids[row] = small_agg_id;
         agg_size[small_agg_id]++;
     }
-
-    double avg_size = 0;
-    for ( lidx_t na = 0; na < num_agg; ++na ) {
-        avg_size += static_cast<double>( agg_size[na] );
-    }
-    avg_size /= static_cast<double>( num_agg );
-
-    AMP::pout << "assignLocalAggregates found " << num_agg << " aggregates, with avg size "
-              << avg_size << std::endl;
 
     return num_agg;
 }

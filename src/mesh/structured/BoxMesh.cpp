@@ -286,7 +286,7 @@ void BoxMesh::createBoundingBox()
     double x[3] = { 0, 0, 0 };
     for ( auto &node : getIterator( GeomType::Vertex, 0 ) ) {
         auto element = dynamic_cast<structuredMeshElement *>( node.getRawElement() );
-        AMP_ASSERT( element != nullptr );
+        AMP_ASSERT( element );
         coord( element->getIndex(), x );
         for ( int d = 0; d < PhysicalDim; d++ ) {
             if ( x[d] != x[d] )
@@ -597,7 +597,7 @@ std::vector<MeshElement> BoxMesh::getElementParents( const MeshElement &meshelem
     //            "Cannot get the parents of the given type for the current element" );
     // Get the element of interest
     const auto *elem = dynamic_cast<const structuredMeshElement *>( meshelem.getRawElement() );
-    AMP_ASSERT( elem != nullptr );
+    AMP_ASSERT( elem );
     return elem->getParents( type );
 }
 

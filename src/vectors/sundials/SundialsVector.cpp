@@ -61,7 +61,7 @@ const N_Vector &SundialsVector::getNVector() const { return d_n_vector; }
 std::shared_ptr<AMP::LinearAlgebra::Vector> getAMP( N_Vector t )
 {
     auto ptr = static_cast<AMP::LinearAlgebra::ManagedSundialsVector *>( t->content );
-    AMP_ASSERT( ptr != nullptr );
+    AMP_ASSERT( ptr );
     std::shared_ptr<AMP::LinearAlgebra::Vector> vec( ptr, []( auto ) {} );
     return vec;
 }

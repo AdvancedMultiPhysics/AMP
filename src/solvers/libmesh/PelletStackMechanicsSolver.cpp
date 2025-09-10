@@ -57,8 +57,8 @@ void PelletStackMechanicsSolver::solveSerial( std::shared_ptr<const AMP::LinearA
         auto currOp     = currSolver->getOperator();
         auto subUvec    = currOp->subsetInputVector( u );
         auto subFvec    = currOp->subsetOutputVector( f );
-        AMP_ASSERT( subUvec != nullptr );
-        AMP_ASSERT( subFvec != nullptr );
+        AMP_ASSERT( subUvec );
+        AMP_ASSERT( subFvec );
         currSolver->apply( subFvec, subUvec );
     }
 
@@ -75,8 +75,8 @@ void PelletStackMechanicsSolver::solveSerial( std::shared_ptr<const AMP::LinearA
             auto currOp     = currSolver->getOperator();
             auto subUvec    = currOp->subsetInputVector( u );
             auto subFvec    = currOp->subsetOutputVector( d_fbuffer2 );
-            AMP_ASSERT( subUvec != nullptr );
-            AMP_ASSERT( subFvec != nullptr );
+            AMP_ASSERT( subUvec );
+            AMP_ASSERT( subFvec );
             currSolver->apply( subFvec, subUvec );
         }
     } // end for pellId

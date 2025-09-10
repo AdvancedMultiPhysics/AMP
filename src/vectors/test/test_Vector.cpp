@@ -207,6 +207,14 @@ int main( int argc, char **argv )
         tests.testEpetra( &ut );
     }
 
+    // Run the Tpetra vector tests
+    AMP::pout << std::endl << "Running tpetra vector tests:" << std::endl;
+    for ( auto name : getAllFactories() ) {
+        auto factory = generateVectorFactory( name );
+        VectorTests tests( factory );
+        tests.testTpetra( &ut );
+    }
+
     // Run the sundials vector tests
     AMP::pout << std::endl << "Running sundials vector tests:" << std::endl;
     for ( auto name : getAllFactories() ) {

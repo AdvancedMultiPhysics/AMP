@@ -119,6 +119,15 @@ std::shared_ptr<Vector> createEpetraVector( std::shared_ptr<CommunicationList> c
 
 
 /**
+ * \brief  Create a Tpetra vector
+ * \param[in] var           Optional
+ */
+std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> commList,
+                                            std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                            std::shared_ptr<VectorData> p = nullptr );
+
+
+/**
  * \brief  Create a vector from an arbitrary Thyra Vector
  * \details  This function creates a vector from an arbitrary Thyra Vector
  * \param[in] vec           PETSc Vec

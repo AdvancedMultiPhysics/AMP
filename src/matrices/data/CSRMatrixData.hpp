@@ -84,7 +84,7 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
 
         // If, more specifically, have ampCSRParams then blocks are not yet
         // filled. This consolidates calls to getRow{NNZ,Cols} for both blocks
-        if ( ampCSRParams ) {
+        if ( ampCSRParams && ampCSRParams->d_getRowHelper ) {
             // number of local rows
             const lidx_t nrows = static_cast<lidx_t>( d_last_row - d_first_row );
 
@@ -143,6 +143,8 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
     cloneData->d_last_row        = d_last_row;
     cloneData->d_first_col       = d_first_col;
     cloneData->d_last_col        = d_last_col;
+    cloneData->d_leftCommList    = d_leftCommList;
+    cloneData->d_rightCommList   = d_rightCommList;
     cloneData->d_leftDOFManager  = d_leftDOFManager;
     cloneData->d_rightDOFManager = d_rightDOFManager;
     cloneData->d_pParameters     = d_pParameters;
@@ -170,6 +172,8 @@ CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
     outData->d_last_row               = d_last_row;
     outData->d_first_col              = d_first_col;
     outData->d_last_col               = d_last_col;
+    outData->d_leftCommList           = d_leftCommList;
+    outData->d_rightCommList          = d_rightCommList;
     outData->d_leftDOFManager         = d_leftDOFManager;
     outData->d_rightDOFManager        = d_rightDOFManager;
     outData->d_pParameters            = std::make_shared<MatrixParametersBase>( *d_pParameters );

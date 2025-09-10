@@ -8,7 +8,7 @@
 #include "AMP/utils/MeshPoint.h"
 
 #ifdef AMP_USE_TRILINOS_STKCLASSIC
-//#include "AMP/mesh/STKmesh/STKMesh.h"
+// #include "AMP/mesh/STKmesh/STKMesh.h"
 #endif
 #ifdef AMP_USE_LIBMESH
     #include "AMP/mesh/libmesh/libmeshMesh.h"
@@ -30,7 +30,7 @@ namespace AMP::Mesh {
 size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
 {
     auto db = params->d_db;
-    AMP_ASSERT( db != nullptr );
+    AMP_ASSERT( db );
     size_t meshSize = 0;
     if ( db->keyExists( "NumberOfElements" ) ) {
         // User specified the number of elements, this should override everything
@@ -98,7 +98,7 @@ size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
 size_t Mesh::maxProcs( std::shared_ptr<const MeshParameters> params )
 {
     auto db = params->d_db;
-    AMP_ASSERT( db != nullptr );
+    AMP_ASSERT( db );
     // Check if the user is specifying the maximum number of processors
     if ( db->keyExists( "maxProcs" ) )
         return db->getScalar<int64_t>( "maxProcs" );

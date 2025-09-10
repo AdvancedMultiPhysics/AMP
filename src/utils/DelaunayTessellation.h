@@ -68,23 +68,21 @@ double calc_volume( int ndim, const double x[] );
  * @param xi        The coordinates of the vertex to check
  * @param TOL_VOL   A tolerance on the volume to use
  */
-int test_in_circumsphere( const int ndim,
-                          const double x[],
-                          const double xi[],
-                          const double TOL_VOL );
-int test_in_circumsphere( const int ndim, const int x[], const int xi[], const double TOL_VOL );
+template<int NDIM, class TYPE>
+int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
+                          const std::array<TYPE, NDIM> &xi,
+                          double TOL_VOL );
 
 
 //! Function to return the circumsphere containing a simplex
 /*!
  * This function computes the circumsphere that contains a simplex
- * @param[in]  ndim     The number of dimensions
- * @param[in]  x        The coordinates of the vertices of the simplex
+ * @param[in]  x0       The coordinates of the vertices of the simplex
  * @param[out] R        The radius of the circumsphere
- * @param[out] c        The center of the circumsphere
+ * @param[out] center   The center of the circumsphere
  */
-void get_circumsphere( const int ndim, const double x[], double &R, double *c );
-void get_circumsphere( const int ndim, const int x[], double &R, double *c );
+template<int NDIM, class TYPE>
+void get_circumsphere( const std::array<TYPE, NDIM> x0[], double &R, double *center );
 
 
 //! Subroutine to compute the Barycentric coordinates

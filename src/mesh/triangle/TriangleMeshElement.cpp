@@ -281,7 +281,7 @@ double TriangleMeshElement<NG, NP, TYPE>::volume() const
     } else if constexpr ( TYPE == NP ) {
         // Calculate the volume of a N-dimensional simplex
         auto x = getVertexCoord();
-        auto V = DelaunayHelpers::calcVolume<TYPE, double, double>( x.data() );
+        auto V = DelaunayHelpers::calcVolume<TYPE, double>( x.data() );
         AMP_ASSERT( V > 0.0 );
         return V;
     } else {

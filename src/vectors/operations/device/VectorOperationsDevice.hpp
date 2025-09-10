@@ -107,9 +107,12 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::setRandomValues( VectorData &x )
 {
-    // Default to VectorOperationsDefault (on cpu)
-    getDefaultOps()->setRandomValues( x );
+    AMP_ASSERT( x.numberOfDataBlocks() == 1 );
+    TYPE *data     = x.getRawDataBlock<TYPE>( 0 );
+    const size_t N = x.sizeOfDataBlock( 0 );
+    DeviceOperationsHelpers<TYPE>::setRandomValues( N, data );
 }
+
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::copy( const VectorData &x, VectorData &y )
 {
