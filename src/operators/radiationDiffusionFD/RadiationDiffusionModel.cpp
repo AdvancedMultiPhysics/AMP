@@ -19,25 +19,6 @@ RadDifModel::RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_
     d_RadiationDiffusionFD_input_db->putScalar<int>( "dim", d_basic_db->getScalar<int>( "dim" ) );
     d_RadiationDiffusionFD_input_db->putScalar<bool>( "fluxLimited", d_basic_db->getScalar<bool>( "fluxLimited" ) );
     d_RadiationDiffusionFD_input_db->putScalar<bool>( "print_info_level", d_basic_db->getScalar<int>( "print_info_level" ) );
-
-    // Robin and Pseudo-Neumann values not necessarily used, so set to dummy values
-    d_RadiationDiffusionFD_input_db->putScalar<double>( "r1", std::nan("") );
-    d_RadiationDiffusionFD_input_db->putScalar<double>( "r2", std::nan("") );
-    d_RadiationDiffusionFD_input_db->putScalar<double>( "n1", std::nan("") );
-    d_RadiationDiffusionFD_input_db->putScalar<double>( "n2", std::nan("") );
-    if ( d_dim >= 2 ) {
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "r3", std::nan("") );
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "r4", std::nan("") );
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "n3", std::nan("") );
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "n4", std::nan("") );
-    }
-    if ( d_dim >= 3 ) {
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "r5", std::nan("") );
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "r6", std::nan("") );
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "n5", std::nan("") );
-        d_RadiationDiffusionFD_input_db->putScalar<double>( "n6", std::nan("") );
-    }
-    d_RadiationDiffusionFD_input_db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, false ); 
 }
 
 std::shared_ptr<AMP::Database> RadDifModel::getRadiationDiffusionFD_input_db( ) const
@@ -99,6 +80,7 @@ double RadDifModel::diffusionCoefficientE( double T, double zatom ) const {
  * -------------------------------------------------------------------- */
 
 Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel( std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ ) : RadDifModel( basic_db_, mspecific_db_ )  { 
+    AMP_INSIST( d_dim < 3, "Mousseau_etal_2000_RadDifModel only implemented in 1D and 2D" );
     finalizeGeneralPDEModel_db();
 }
 
@@ -172,9 +154,6 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db( ) {
     d_RadiationDiffusionFD_input_db->putScalar<double>( "k22", k22 );
 
     d_RadiationDiffusionFD_input_db->putScalar<std::string>( "model", model );
-
-    // Restore default behavior
-    d_RadiationDiffusionFD_input_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
     // Flag that we've finalized this database
     d_RadiationDiffusionFD_input_db_completed = true;
 }
@@ -210,7 +189,7 @@ void Manufactured_RadDifModel::finalizeGeneralPDEModel_db( ) {
         d_RadiationDiffusionFD_input_db->putScalar<double>( "b6", d_mspecific_db->getScalar<double>( "b6" ) );
     }
 
-    d_RadiationDiffusionFD_input_db->putScalar<double>( "zatom",   d_mspecific_db->getScalar<double>( "zatom" )   );
+    d_RadiationDiffusionFD_input_db->putScalar<double>( "zatom", d_mspecific_db->getScalar<double>( "zatom" )   );
     d_RadiationDiffusionFD_input_db->putScalar<double>( "k11", d_mspecific_db->getScalar<double>( "k11" ) );
     d_RadiationDiffusionFD_input_db->putScalar<double>( "k12", d_mspecific_db->getScalar<double>( "k12" ) );
     d_RadiationDiffusionFD_input_db->putScalar<double>( "k21", d_mspecific_db->getScalar<double>( "k21" ) );
@@ -218,8 +197,6 @@ void Manufactured_RadDifModel::finalizeGeneralPDEModel_db( ) {
 
     d_RadiationDiffusionFD_input_db->putScalar<std::string>( "model", d_mspecific_db->getScalar<std::string>( "model" ) );
 
-    // Restore default behavior
-    d_RadiationDiffusionFD_input_db->setDefaultAddKeyBehavior( AMP::Database::Check::Error, false ); 
     // Flag that we've finalized this database
     d_RadiationDiffusionFD_input_db_completed = true;
 }

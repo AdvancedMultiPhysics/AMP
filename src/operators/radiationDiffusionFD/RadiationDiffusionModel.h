@@ -66,7 +66,7 @@ protected:
     double d_currentTime = 0.0;
     
     //! Shorthand for spatial dimension 
-    size_t d_dim                    = 0;
+    size_t d_dim                    = -1;
     
     //! Basic parameter database (with model-agnostic parameters)
     std::shared_ptr<AMP::Database> d_basic_db;
