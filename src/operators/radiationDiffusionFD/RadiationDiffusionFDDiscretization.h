@@ -19,6 +19,44 @@
 #include "AMP/operators/Operator.h"
 #include "AMP/operators/LinearOperator.h"
 
+
+
+/** The classes in this file are (or are associated with) spatial finite-discretizations of  
+ * the radiation-diffusion problem:
+ *      u'(t) - D(u) - R(u)  = s(t), u(0) = u_0
+ * over the spatial domain Omega subset R^d for d in {1,2,3}. Where:
+ *      1. u = [u0, u1] = [E, T] is a block vector, holding E and T.
+ *      2. D(u) = [grad dot ( D0 * grad u0 ), grad dot ( D1 * grad u1 )] is a (possibly) nonlinear
+ * diffusion operator
+ *      3. R(u) is a (possibly) nonlinear reaction operator
+ * 
+ * In more detail, the diffusion operator is
+ *      D(u) = [grad dot (k11*D_E grad E), grad dot (k21*D_T grad T)], 
+ * where diffusive fluxes depend on the "model" parameter as:
+ *      1. if model == "linear": 
+ *          D_E = D_T = 1.0
+ *      2. if model == "nonlinear": 
+ *          D_E = 1/(3*sigma), D_T = T^2.5, and sigma = (zatom/T)^3
+ *      
+ * The reaction term is dependent on the "model" parameter as:
+ *      1. if model == "linear":
+ *          R(u) = [k12*(T - E), -k22*(T - E)]
+ *      2. if model == "nonlinear":
+ *          R(u) = [k12*simga*(T^4 - E), -k22*simga*(T^4 - E)]
+ * 
+ * On boundary k in {1,...,6} the spatial boundary conditions are as follows:
+ *      1. Robin on energy:
+ *          ak*E + bk*hat{nk} dot k11*D_E * grad(E) = rk on boundary k
+ *      2. ''pseudo'' Neumann on temperature (not genuine Neumann unless nk=0):
+ *          hat{nk} dot grad(T) = nk on boundary k
+ * where:
+ *      hat{nk} is the outward facing normal to the boundary
+ *      ak, bk are user-prescribed constants
+ *      rk, nk are user-prescribed constants or functions (that can vary on the boundary) 
+ */
+
+
+
 namespace AMP::Operator {
 
 // Foward declaration of classes declared in this file
@@ -26,14 +64,15 @@ class FDBoundaryUtils;
 class PDECoefficients;
 class FDMeshOps;
 class FDStencilOps;
-class RadDifOp;
-class RadDifOpPJac;
-struct RadDifOpPJacData;
-class RadDifOpPJacParameters;
+//
+class RadDifOp; // The main operator
+class RadDifOpPJac; // Its linearization
+class RadDifOpPJacParameters; // Operator parameters for linearization
+struct RadDifOpPJacData; // Data structure for storing the linearization
+
 
 // Friend classes
 class BDFRadDifOp;
-class BDFRadDifOpPJac;
 
 
 /** Static class bundling together boundary-related utility data structures and functionality */
@@ -41,7 +80,6 @@ class FDBoundaryUtils {
 
 //
 public:
-
     //! Prevent instantiation
     FDBoundaryUtils() = delete;
 
@@ -231,13 +269,12 @@ class FDStencilOps {
 
 // Data
 private:
-
     //! Coefficients used in the PDE. Required here to evaluate FD diffusion coeffs, and ghost data)
     std::shared_ptr<PDECoefficients> d_PDECoeffs = nullptr;
     //! Mesh-related functions
-    std::shared_ptr<FDMeshOps>       d_meshOps      = nullptr;
+    std::shared_ptr<FDMeshOps>       d_meshOps   = nullptr;
     //! Contains problem constants such as ak, bk, and zatom 
-    std::shared_ptr<AMP::Database>  d_db            = nullptr;
+    std::shared_ptr<AMP::Database>   d_db        = nullptr;
     //! Flag whether flux limiting is used in the energy equation
     const bool d_fluxLimited;
     
@@ -249,7 +286,6 @@ private:
 
 // Methods
 private:
-
     /** Prototype of function returning value of Robin BC of E on given boundary at given node. The
      * user can specify any function with this signature via 'setBoundaryFunctionE'
      * @param[in] boundaryID ID of the boundary
@@ -270,7 +306,7 @@ private:
 public:
 
     FDStencilOps( std::shared_ptr<PDECoefficients> &coefficients,
-        std::shared_ptr<FDMeshOps> meshOp, std::shared_ptr<AMP::Database> db, bool fluxLimited ) : d_PDECoeffs(coefficients), d_meshOps(meshOp), d_db(db), d_fluxLimited(fluxLimited) {}; 
+        std::shared_ptr<FDMeshOps> meshOp, std::shared_ptr<AMP::Database> db, bool fluxLimited );
 
     /** Pack local 3-point stencil data into the arrays d_ELoc3 and d_TLoc3 for the given 
      * dimension. This involves a ghost-point solve if the stencil extends to a ghost point.
@@ -348,43 +384,14 @@ public:
     //! Set the pseudo-Neumann return function for the temperature. If the user does not use this function then the pseudo-Neumann values nk from the input database will be used.
     void setBoundaryFunctionT( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
 
+    //! Get the Robin return function for the energy. 
+    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> getBoundaryFunctionE( ); 
+    
+    //! Get the pseudo-Neumann return function for the temperature. 
+    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> getBoundaryFunctionT( ); 
 };
 
 
-
-/** The classes in this file are (or are associated with) spatial finite-discretizations of  
- * the radiation-diffusion problem:
- *      u'(t) - D(u) - R(u)  = s(t), u(0) = u_0
- * over the spatial domain Omega subset R^d for d in {1,2,3}. Where:
- *      1. u = [u0, u1] = [E, T] is a block vector, holding E and T.
- *      2. D(u) = [grad dot ( D0 * grad u0 ), grad dot ( D1 * grad u1 )] is a (possibly) nonlinear
- * diffusion operator
- *      3. R(u) is a (possibly) nonlinear reaction operator
- * 
- * In more detail, the diffusion operator is
- *      D(u) = [grad dot (k11*D_E grad E), grad dot (k21*D_T grad T)], 
- * where diffusive fluxes depend on the "model" parameter as:
- *      1. if model == "linear": 
- *          D_E = D_T = 1.0
- *      2. if model == "nonlinear": 
- *          D_E = 1/(3*sigma), D_T = T^2.5, and sigma = (zatom/T)^3
- *      
- * The reaction term is dependent on the "model" parameter as:
- *      1. if model == "linear":
- *          R(u) = [k12*(T - E), -k22*(T - E)]
- *      2. if model == "nonlinear":
- *          R(u) = [k12*simga*(T^4 - E), -k22*simga*(T^4 - E)]
- * 
- * On boundary k in {1,...,6} the spatial boundary conditions are as follows:
- *      1. Robin on energy:
- *          ak*E + bk*hat{nk} dot k11*D_E * grad(E) = rk on boundary k
- *      2. ''pseudo'' Neumann on temperature (not genuine Neumann unless nk=0):
- *          hat{nk} dot grad(T) = nk on boundary k
- * where:
- *      hat{nk} is the outward facing normal to the boundary
- *      ak, bk are user-prescribed constants
- *      rk, nk are user-prescribed constants or functions (that can vary on the boundary) 
- */
 
 
 /** Finite-difference discretization of the spatial operator in the above radiation-diffusion 
@@ -439,37 +446,27 @@ class RadDifOp : public AMP::Operator::Operator {
 
 // Data
 private:
-    
     //! Problem dimension
     size_t d_dim  = -1;
-
     //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
-    
     //! Coefficients used in the PDE
     std::shared_ptr<PDECoefficients> d_PDECoeffs = nullptr;
     //! Finite-difference stencil-related functions
     std::shared_ptr<FDStencilOps>    d_StencilOps   = nullptr;
 
-//
+// Data
 public: 
-
     //! I + gamma*L, where L is a RadDifOp
     friend class BDFRadDifOp; 
-
-    //! MultiDOFManager for managing [E,T] multivectors
-    std::shared_ptr<AMP::Discretization::multiDOFManager> d_multiDOFMan;
-    //! DOFManager for E and T individually
-    std::shared_ptr<AMP::Discretization::DOFManager>      d_scalarDOFMan;
     //! Parameters required by the discretization
-    std::shared_ptr<AMP::Database>                        d_db;
-    //! Mesh; keep a pointer to save having to downcast repeatedly
-    std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
-
+    std::shared_ptr<AMP::Database> d_db      = nullptr;
     //! Mesh-related functions
-    std::shared_ptr<FDMeshOps>       d_meshOps      = nullptr;
+    std::shared_ptr<FDMeshOps>     d_meshOps = nullptr;
     
 
+// Methods
+public:
     //! Constructor
     RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params);
     //! Destructor
@@ -489,10 +486,10 @@ public:
     //! Vector of hx, hy, hz
     std::vector<double> getMeshSize() const;
 
-    //! Set the Robin return function for the energy. If the user does not use this function then the Robin values rk from the input database will be used.
+    //! Set the Robin return function for the energy. This function is just a wrapper around that of FDStencilOps
     void setBoundaryFunctionE( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
     
-    //! Set the pseudo-Neumann return function for the temperature. If the user does not use this function then the pseudo-Neumann values nk from the input database will be used.
+    //! Set the pseudo-Neumann return function for the temperature. This function is just a wrapper around that of FDStencilOps
     void setBoundaryFunctionT( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
 
 // Data
@@ -688,9 +685,9 @@ private:
 /** OperatorParameters for creating the linearized operator RadDifOpPJac. This is just regular 
  * OperatorParameters appended with:
  * 1. a vector containg that the operator is to be linearized about
- * 2. pointers to functions that return boundary values of E and T. These pointers are optional; if 
+ * 2. std::functions that return boundary values of E and T. These values are optional; if 
  * they are set the linearized operator will use them, otherwise it will default to using the 
- * constant values in the incoming database.
+ * constant boudnary rk and nk values in the incoming database.
  */
 class RadDifOpPJacParameters : public AMP::Operator::OperatorParameters
 {
@@ -702,8 +699,8 @@ public:
 
     AMP::LinearAlgebra::Vector::shared_ptr d_frozenSolution = nullptr; 
 
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE = nullptr;
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT = nullptr;
+    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
+    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
 
 };
 

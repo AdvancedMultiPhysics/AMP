@@ -389,6 +389,18 @@ void FDMeshOps::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra:
  *  ----------- Implementation of FDStencilOps --------- *
  *  -------------------------------------------------------- */
 
+FDStencilOps::FDStencilOps( std::shared_ptr<PDECoefficients> &coefficients,
+        std::shared_ptr<FDMeshOps> meshOp, std::shared_ptr<AMP::Database> db, bool fluxLimited ) : d_PDECoeffs(coefficients), d_meshOps(meshOp), d_db(db), d_fluxLimited(fluxLimited) {
+
+    // Specify default Robin return function for E
+    std::function<double( size_t, AMP::Mesh::Point & )> wrapperE = [&]( size_t boundaryID, AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBE( *d_db, boundaryID ); };
+    this->setBoundaryFunctionE( wrapperE );
+    
+    // Specify default Neumann return function for T
+    std::function<double( size_t, AMP::Mesh::Point & )> wrapperT = [&]( size_t boundaryID,  AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBT( *d_db, boundaryID ); };
+    this->setBoundaryFunctionT( wrapperT );
+}; 
+
 void FDStencilOps::setLoc3Data( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
@@ -397,7 +409,7 @@ void FDStencilOps::setLoc3Data(
     std::array<double, 3> &ELoc3,
     std::array<double, 3> &TLoc3) 
 {
-    
+
     // The current DOF
     size_t dof_O = d_meshOps->gridIndsToScalarDOF( ijk );
     ELoc3[ORIGIN] = E_vec->getValueByGlobalID<double>( dof_O );
@@ -590,6 +602,13 @@ void FDStencilOps::setBoundaryFunctionT( std::function<double( size_t, AMP::Mesh
     d_pseudoNeumannFunctionT = fn_; 
 };
 
+std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> FDStencilOps::getBoundaryFunctionE( ) {
+    return d_robinFunctionE;
+}
+
+std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> FDStencilOps::getBoundaryFunctionT( ) {
+    return d_pseudoNeumannFunctionT;
+}
 
 
 
@@ -648,6 +667,7 @@ RadDifOpPJac::RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParamete
     d_dim = d_meshOps->d_dim;
     // Create our FDStencilOps
     d_StencilOps = std::make_shared<FDStencilOps>( d_PDECoeffs, d_meshOps, d_db, d_db->getScalar<bool>( "fluxLimited" ) );
+
     // Update boundary functions for our stencil operations if boundary functions were given
     if ( params->d_robinFunctionE ) {
         d_StencilOps->setBoundaryFunctionE( params->d_robinFunctionE );
@@ -1107,15 +1127,6 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     d_dim = d_meshOps->d_dim;
     // Create our FDStencilOps
     d_StencilOps = std::make_shared<FDStencilOps>( d_PDECoeffs, d_meshOps, d_db, d_db->getScalar<bool>( "fluxLimited" ) );
-
-
-    // Specify default Robin return function for E
-    std::function<double( size_t, AMP::Mesh::Point & )> wrapperE = [&]( size_t boundaryID, AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBE( *d_db, boundaryID ); };
-    this->setBoundaryFunctionE( wrapperE );
-    
-    // Specify default Neumann return function for T
-    std::function<double( size_t, AMP::Mesh::Point & )> wrapperT = [&]( size_t boundaryID,  AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBT( *d_db, boundaryID ); };
-    this->setBoundaryFunctionT( wrapperT );
 };
 
 
@@ -1150,6 +1161,10 @@ std::shared_ptr<AMP::Operator::OperatorParameters> RadDifOp::getJacobianParamete
     jacOpParams->d_Mesh = this->getMesh();
     // Get frozen solution vector
     jacOpParams->d_frozenSolution = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( u_in );
+
+    // Copy boundary functions from our FDStencilOps
+    jacOpParams->d_robinFunctionE = d_StencilOps->getBoundaryFunctionE();
+    jacOpParams->d_pseudoNeumannFunctionT = d_StencilOps->getBoundaryFunctionT();
     
     return jacOpParams;
 }
