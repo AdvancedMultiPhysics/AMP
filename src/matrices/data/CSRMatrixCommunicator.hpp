@@ -170,9 +170,10 @@ void CSRMatrixCommunicator<Config>::migrateToHost(
 template<typename Config>
 std::map<int, std::shared_ptr<CSRLocalMatrixData<Config>>>
 CSRMatrixCommunicator<Config>::migrateFromHost(
-    const std::
-        map<int, std::shared_ptr<CSRLocalMatrixData<typename Config::set_alloc<alloc::host>::type>>>
-            &matrices )
+    const std::map<
+        int,
+        std::shared_ptr<CSRLocalMatrixData<typename Config::template set_alloc<alloc::host>::type>>>
+        &matrices )
 {
     std::map<int, std::shared_ptr<localmatrixdata_t>> blocks;
     for ( auto it : matrices ) {

@@ -32,7 +32,7 @@ public:
         typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
 
     // create a host config for cases where DtoH migration is required
-    using ConfigHost = typename Config::set_alloc<alloc::host>::type;
+    using ConfigHost = typename Config::template set_alloc<alloc::host>::type;
 
     CSRMatrixCommunicator() = default;
     CSRMatrixCommunicator( std::shared_ptr<CommunicationList> comm_list,
