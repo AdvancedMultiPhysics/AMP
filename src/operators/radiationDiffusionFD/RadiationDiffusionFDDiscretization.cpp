@@ -2,6 +2,389 @@
 
 namespace AMP::Operator {
 
+
+
+/** -------------------------------------------------------- *
+ *  ----------- Implementation of PDECoefficients --------- *
+ *  -------------------------------------------------------- */
+PDECoefficients::PDECoefficients( std::shared_ptr<AMP::Database> db ) : 
+    d_k11( db->getScalar<double>( "k11" ) ),
+    d_k12( db->getScalar<double>( "k12" ) ),
+    d_k21( db->getScalar<double>( "k21" ) ),
+    d_k22( db->getScalar<double>( "k22" ) ),
+    d_nonlinearModel( db->getScalar<std::string>( "model" ) == "nonlinear" ),
+    d_fluxLimited( db->getScalar<bool>( "fluxLimited" ) ) {}
+
+double PDECoefficients::diffusionCoefficientE( double T, double zatom ) const {
+    if ( d_nonlinearModel ) {
+        double sigma = std::pow( zatom/T, 3.0 ); 
+        return 1.0/(3*sigma);
+    } else {
+        return 1.0;
+    }
+}
+
+double PDECoefficients::diffusionCoefficientT( double T ) const {
+    if ( d_nonlinearModel ) {
+        return pow( T, 2.5 );
+    } else {
+        return 1.0;
+    }
+}
+
+void PDECoefficients::getSemiLinearReactionCoefficients( double T, double zatom, double &REE, double &RET, double &RTE, double &RTT ) const {
+    if ( d_nonlinearModel ) {
+        double sigma = std::pow( zatom/T, 3.0 );
+        REE = RTE = -sigma;
+        RET = RTT = +sigma * pow( T, 3.0 );
+    } else {
+        REE = RTE = -1.0;
+        RET = RTT = +1.0;
+    }
+
+    // Scale coefficients by constants in PDE
+    scaleReactionCoefficientsBy_kij( REE, RET, RTE, RTT );
+}
+
+void PDECoefficients::scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const {
+    REE *= -d_k12, RET *= -d_k12; // Energy equation
+    RTE *=  d_k22, RTT *=  d_k22; // Temperature equation
+}
+
+void PDECoefficients::scaleDiffusionCoefficientEBy_kij( double &D_E ) const {
+    D_E *= d_k11; // Energy equation
+}
+
+void PDECoefficients::scaleDiffusionCoefficientTBy_kij( double &D_T ) const {
+    D_T *= d_k21; // Temperature equation
+}
+
+
+
+
+
+/** -------------------------------------------------------- *
+ *  ----------- Implementation of FDMeshOps --------- *
+ *  -------------------------------------------------------- */
+FDMeshOps::FDMeshOps( std::shared_ptr<AMP::Mesh::Mesh> mesh )
+{
+    setAndCheckMeshData( mesh );
+};
+
+
+void FDMeshOps::setAndCheckMeshData( std::shared_ptr<AMP::Mesh::Mesh> mesh ) {
+
+    // Keep a pointer to my BoxMesh to save having to do this downcast repeatedly
+    d_BoxMesh = std::dynamic_pointer_cast<AMP::Mesh::BoxMesh>( mesh );
+    AMP_INSIST( d_BoxMesh, "Mesh must be a AMP::Mesh::BoxMesh" );
+
+    d_dim = d_BoxMesh->getDim();
+    AMP_INSIST( d_dim == 1 || d_dim == 2 || d_dim == 3,
+                "Invalid dimension: dim=" + std::to_string( d_dim ) +
+                    std::string( " !in {1,2,3}" ) );
+
+    // Set the geometry type that gives us cell centered data
+    if ( d_dim == 1 ) {
+        CellCenteredGeom = AMP::Mesh::GeomType::Edge;
+    } else if ( d_dim == 2 ) {
+        CellCenteredGeom = AMP::Mesh::GeomType::Face;
+    } else {
+        CellCenteredGeom = AMP::Mesh::GeomType::Cell;
+    }
+
+    // Set DOFManagers
+    setDOFManagers();
+    AMP_INSIST( d_multiDOFMan, "Requires non-null multiDOF" );
+
+    /** Now ensure that the geometry of the Mesh is a Box, which is what happens only when a "cube"
+     * generator is used, as opposed to any other generator; see the function:
+     *      std::shared_ptr<AMP::Geometry::Geometry>
+     *          Geometry::buildGeometry( std::shared_ptr<const AMP::Database> db )
+     *  I.e., check whether down casting the geometry to a Box passes. Note that Box is a
+     * dimension-templated class, so we need to resolve each case separately.
+     */
+    auto meshGeom = d_BoxMesh->getGeometry();
+    if ( d_dim == 1 ) {
+        AMP_INSIST( std::dynamic_pointer_cast<AMP::Geometry::Box<1>>( meshGeom ),
+                    "Mesh must be generated with 'cube generator'!" );
+    } else if ( d_dim == 2 ) {
+        AMP_INSIST( std::dynamic_pointer_cast<AMP::Geometry::Box<2>>( meshGeom ),
+                    "Mesh must be generated with 'cube generator'!" );
+    } else if ( d_dim == 3 ) {
+        AMP_INSIST( std::dynamic_pointer_cast<AMP::Geometry::Box<3>>( meshGeom ),
+                    "Mesh must be generated with 'cube generator'!" );
+    }
+
+    // Ensure boundaryIDs are 1,2, 3,4, 5,6 for dims 0, 1, 2
+    std::vector<int> boundaryIDs = d_BoxMesh->getBoundaryIDs();
+    for ( size_t dim = 0; dim < d_dim; dim++ ) {
+        AMP_INSIST(boundaryIDs[2*dim]   == int(2*dim+1), "Invalid boundaryID");
+        AMP_INSIST(boundaryIDs[2*dim+1] == int(2*dim+2), "Invalid boundaryID");  
+    }
+
+    // Discretization assumes Dirichlet boundaries in all directions
+    for ( auto periodic : d_BoxMesh->periodic() ) {
+        AMP_INSIST( periodic == false, "Mesh cannot be periodic in any direction" );
+    }
+
+    // Compute mesh spacings in each dimension
+    // [ x_min x_max y_min y_max z_min z_max ]
+    auto range = d_BoxMesh->getBoundingBox();
+    // Set node boxes
+    d_globalBox = std::make_shared<AMP::Mesh::BoxMesh::Box>( d_BoxMesh->getGlobalBox() );
+    d_localBox  = std::make_shared<AMP::Mesh::BoxMesh::Box>( d_BoxMesh->getLocalBox() );
+
+    // There are nk cells in dimension k, nk = d_globalBox.last[k] - d_globalBox.first[k]+1, such that the mesh spacing is hk = (xkMax - xkMin)/nk
+    for ( size_t k = 0; k < d_dim; k++ ) {
+        auto nk    = d_globalBox->last[k] - d_globalBox->first[k] + 1;
+        auto xkMin = range[2 * k];
+        auto xkMax = range[2 * k + 1];
+        d_h.push_back( ( xkMax - xkMin ) / nk );
+    }
+
+    //printMeshNodes();
+}
+
+
+/* Build and set d_multiDOFMan and d_scalarDOFMan */
+void FDMeshOps::setDOFManagers() {
+
+    // Number of DOFs per mesh element (make 1, even though we have two variables. We'll create separate DOF managers for them)
+    int myDOFsPerElement = 1; 
+    int gcw   = 1; // Ghost-cell width; stencils are 3-point
+    auto mesh = d_BoxMesh;
+    auto comm = mesh->getComm();
+
+    // E and T use the same DOFManager under the hood
+    std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFManager = AMP::Discretization::boxMeshDOFManager::create(mesh, CellCenteredGeom, gcw, myDOFsPerElement);
+    auto T_DOFManager = scalarDOFManager;
+    auto E_DOFManager = scalarDOFManager;
+
+    // Create a multiDOFManager that wraps both DOF managers
+    std::vector<std::shared_ptr<AMP::Discretization::DOFManager>> DOFManagersVec = { E_DOFManager, T_DOFManager };
+    auto multiDOFManager = std::make_shared<AMP::Discretization::multiDOFManager>(comm, DOFManagersVec, mesh);
+
+    d_scalarDOFMan = scalarDOFManager;
+    d_multiDOFMan  = multiDOFManager;
+}
+
+
+//! Map from grid index to a the corresponding DOF
+size_t FDMeshOps::gridIndsToScalarDOF( int i, int j, int k ) const {
+    AMP::Mesh::BoxMesh::MeshElementIndex ind( CellCenteredGeom, 0, i, j, k );
+    AMP::Mesh::MeshElementID id = d_BoxMesh->convert( ind );
+    std::vector<size_t> dof;
+    d_scalarDOFMan->getDOFs(id, dof);
+    return dof[0];
+}
+
+//! Map from grid index to a the corresponding DOF
+size_t FDMeshOps::gridIndsToScalarDOF( std::array<int,3> ijk ) const {
+    return gridIndsToScalarDOF( ijk[0], ijk[1], ijk[2] );
+}
+
+//! Map from grid index to a MeshElement
+AMP::Mesh::MeshElement FDMeshOps::gridIndsToMeshElement( int i, int j, int k ) const {
+    AMP::Mesh::BoxMesh::MeshElementIndex ind( CellCenteredGeom, 0, i, j, k );
+    return d_BoxMesh->getElement( ind );
+}
+
+//! Map from grid index to a MeshElement
+AMP::Mesh::MeshElement FDMeshOps::gridIndsToMeshElement( std::array<int,3> &ijk ) const {
+    return gridIndsToMeshElement( ijk[0], ijk[1], ijk[2] );
+} 
+
+//! Map from scalar DOF to grid indices i, j, k
+std::array<int,3> FDMeshOps::scalarDOFToGridInds( size_t dof ) const {
+    // Get ElementID
+    AMP::Mesh::MeshElementID id = d_scalarDOFMan->getElementID( dof );
+    // Convert ElementID into a MeshElementIndex
+    AMP::Mesh::BoxMesh::MeshElementIndex ind = d_BoxMesh->convert( id );
+    // Get grid index along each component direction
+    return { ind.index( 0 ), ind.index( 1 ), ind.index( 2 ) };
+}
+
+
+/** -------------------------------------------------------- *
+ *  ----------- Implementation of FDStencilOps --------- *
+ *  -------------------------------------------------------- */
+
+void FDStencilOps::setBoundaryFunctionE( std::function<double( size_t, AMP::Mesh::Point &)> fn_ ) 
+{ 
+    d_robinFunctionE = fn_; 
+};
+
+
+void FDStencilOps::setBoundaryFunctionT( std::function<double( size_t, AMP::Mesh::Point &)> fn_ ) 
+{ 
+    d_pseudoNeumannFunctionT = fn_; 
+};
+
+void FDStencilOps::setLoc3Data( 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+    std::array<int, 3> &ijk,
+    int dim, 
+    std::array<double, 3> &ELoc3,
+    std::array<double, 3> &TLoc3) 
+{
+
+    // The current DOF
+    size_t dof_O = d_meshOps->gridIndsToScalarDOF( ijk );
+    ELoc3[ORIGIN] = E_vec->getValueByGlobalID<double>( dof_O );
+    TLoc3[ORIGIN] = T_vec->getValueByGlobalID<double>( dof_O );
+
+    // Get WEST neighboring value
+    // At WEST boundary, so WEST neighbor is a ghost
+    if ( ijk[dim] == d_meshOps->d_globalBox->first[dim] ) {
+        auto boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::WEST);
+        // Get point on the boundary
+        auto boundaryPoint =  d_meshOps->gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] -=  d_meshOps->d_h[dim]/2; // The boundary is h/2 WEST of the cell center
+        getGhostData( boundaryID, boundaryPoint, ELoc3[ORIGIN], TLoc3[ORIGIN], ELoc3[WEST], TLoc3[WEST] );
+
+    // At interior DOF; WEST neighbor is an interior DOF
+    } else {
+        ijk[dim] -= 1;
+        size_t dof_W = d_meshOps->gridIndsToScalarDOF( ijk );
+        ijk[dim] += 1; // reset to ORIGIN
+        ELoc3[WEST] = E_vec->getValueByGlobalID( dof_W ); 
+        TLoc3[WEST] = T_vec->getValueByGlobalID( dof_W );
+    }
+
+    // Get EAST neighboring value
+    // At EAST boundary, so EAST neighbor is a ghost
+    if ( ijk[dim] ==  d_meshOps->d_globalBox->last[dim] ) {
+        auto boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::EAST);
+        // Get point on the boundary
+        auto boundaryPoint = d_meshOps->gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] +=  d_meshOps->d_h[dim]/2; // The boundary is h/2 EAST of the cell center
+        getGhostData( boundaryID, boundaryPoint, ELoc3[ORIGIN], TLoc3[ORIGIN], ELoc3[EAST], TLoc3[EAST] );
+
+    // At interior DOF; EAST neighbor is an interior DOF
+    } else {
+        ijk[dim] += 1;
+        size_t dof_E = d_meshOps->gridIndsToScalarDOF( ijk );
+        ijk[dim] -= 1; // reset to ORIGIN
+        ELoc3[EAST]   = E_vec->getValueByGlobalID( dof_E ); 
+        TLoc3[EAST]   = T_vec->getValueByGlobalID( dof_E );
+    }
+}
+
+
+
+void FDStencilOps::setLoc3Data( 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
+    std::array<int, 3> &ijk, 
+    int dim,
+    std::array<double, 3> &ELoc3,
+    std::array<double, 3> &TLoc3,
+    std::array<size_t, 3> &dofsLoc3,
+    std::optional<FDBoundaryUtils::BoundarySide> &boundaryIntersection) 
+{
+
+    // The current DOF
+    size_t dof_O = d_meshOps->gridIndsToScalarDOF( ijk );
+    ELoc3[ORIGIN] = E_vec->getValueByGlobalID<double>( dof_O );
+    TLoc3[ORIGIN] = T_vec->getValueByGlobalID<double>( dof_O );
+    //
+    dofsLoc3[ORIGIN] = dof_O;
+
+    // Get WEST neighboring value
+    // At WEST boundary, so WEST neighbor is a ghost
+    if ( ijk[dim] ==  d_meshOps->d_globalBox->first[dim] ) {
+        auto boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::WEST);
+        // Get point on the boundary
+        auto boundaryPoint = d_meshOps->gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] -=  d_meshOps->d_h[dim]/2; // The boundary is h/2 WEST of the cell center
+        getGhostData( boundaryID, boundaryPoint, ELoc3[ORIGIN], TLoc3[ORIGIN], ELoc3[WEST], TLoc3[WEST] );
+        // Flag that we're on the WEST boundary
+        boundaryIntersection = FDBoundaryUtils::BoundarySide::WEST;
+
+    // At interior DOF; WEST neighbor is an interior DOF
+    } else {
+        ijk[dim] -= 1;
+        size_t dof_W = d_meshOps->gridIndsToScalarDOF( ijk );
+        ijk[dim] += 1; // reset to ORIGIN
+        ELoc3[WEST] = E_vec->getValueByGlobalID( dof_W ); 
+        TLoc3[WEST] = T_vec->getValueByGlobalID( dof_W );
+        //
+        dofsLoc3[WEST] = dof_W;
+    }
+
+    // Get EAST neighboring value
+    // At EAST boundary, so EAST neighbor is a ghost
+    if ( ijk[dim] ==  d_meshOps->d_globalBox->last[dim] ) {
+        auto boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::EAST);
+        // Get point on the boundary
+        auto boundaryPoint = d_meshOps->gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
+        boundaryPoint[dim] += d_meshOps->d_h[dim]/2; // The boundary is h/2 EAST of the cell center
+        getGhostData( boundaryID, boundaryPoint, ELoc3[ORIGIN], TLoc3[ORIGIN], ELoc3[EAST], TLoc3[EAST] );
+        // Flag that we're on the EAST boundary
+        boundaryIntersection = FDBoundaryUtils::BoundarySide::EAST;
+
+    // At interior DOF; EAST neighbor is an interior DOF
+    } else {
+        ijk[dim] += 1;
+        size_t dof_E = d_meshOps->gridIndsToScalarDOF( ijk );
+        ijk[dim] -= 1; // reset to ORIGIN
+        ELoc3[EAST]   = E_vec->getValueByGlobalID( dof_E ); 
+        TLoc3[EAST]   = T_vec->getValueByGlobalID( dof_E );
+        //
+        dofsLoc3[EAST] = dof_E;
+    }
+}
+
+
+void FDStencilOps::getLocalFDDiffusionCoefficients(
+        std::array<double, 3> &ELoc3,
+        std::array<double, 3> &TLoc3,
+        double zatom,
+        double h,
+        bool computeE,
+        double &Dr_WO, 
+        double &Dr_OE,
+        bool computeT,
+        double &DT_WO, 
+        double &DT_OE) const
+    {
+
+        // Compute temp at mid points             
+        double T_WO = 0.5*( TLoc3[WEST]   + TLoc3[ORIGIN] ); // T_{i-1/2}
+        double T_OE = 0.5*( TLoc3[ORIGIN] + TLoc3[EAST]   ); // T_{i+1/2}
+
+        // Get diffusion coefficients at cell faces, i.e., mid points
+        // Energy
+        if ( computeE ) {
+            Dr_WO = d_coefficients->diffusionCoefficientE( T_WO, zatom );
+            Dr_OE = d_coefficients->diffusionCoefficientE( T_OE, zatom );
+            // Limit the energy flux if need be, eq. (17)
+            if ( d_fluxLimited ) {
+                double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( ELoc3[ORIGIN] - ELoc3[WEST] )/( h*0.5*(ELoc3[ORIGIN] + ELoc3[WEST]) ) ) );
+                double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( ELoc3[EAST] - ELoc3[ORIGIN] )/( h*0.5*(ELoc3[EAST] + ELoc3[ORIGIN]) ) ) );
+                Dr_WO = DE_WO;
+                Dr_OE = DE_OE;
+
+                AMP_WARNING("flux limiting is not working properly...");
+            }
+            // Scale coefficients by constants in PDE
+            d_coefficients->scaleDiffusionCoefficientEBy_kij( Dr_WO );
+            d_coefficients->scaleDiffusionCoefficientEBy_kij( Dr_OE );
+        }
+        
+        // Temperature
+        if ( computeT ) {
+            DT_WO = d_coefficients->diffusionCoefficientT( T_WO );
+            DT_OE = d_coefficients->diffusionCoefficientT( T_OE );
+            d_coefficients->scaleDiffusionCoefficientTBy_kij( DT_WO );
+            d_coefficients->scaleDiffusionCoefficientTBy_kij( DT_OE );
+        }
+    }
+
+
+
+
 /** -------------------------------------------------------- *
  *  ----------- Implementation of RadDifOpPJacData --------- *
  *  -------------------------------------------------------- */
@@ -35,17 +418,36 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_TT() {
  *  ------------ Implementation of RadDifOpPJac ------------ *
  *  -------------------------------------------------------- */
 RadDifOpPJac::RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParameters> params_) : 
-        AMP::Operator::LinearOperator( params_ ) {
-
-    if ( d_iDebugPrintInfoLevel > 0 )
-        AMP::pout << "RadDifOpPJac::RadDifOpPJac() " << std::endl;
+        AMP::Operator::LinearOperator( params_ ),
+    d_k11( params_->d_db->getScalar<double>( "k11" ) ),
+    d_k12( params_->d_db->getScalar<double>( "k12" ) ),
+    d_k21( params_->d_db->getScalar<double>( "k21" ) ),
+    d_k22( params_->d_db->getScalar<double>( "k22" ) )
+{
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "RadDifOpPJac::RadDifOpPJac() " << std::endl; 
+    }
 
     auto params = std::dynamic_pointer_cast<const RadDifOpPJacParameters>( params_ );
     AMP_INSIST( params, "params must be of type RadDifOpPJacParameters" );
 
-    // Unpack parameters
+    // Unpack parameter database
+    d_db = params->d_db;
+
+    // Some basic input checking on the incoming database
+    d_fluxLimited = d_db->getScalar<bool>( "fluxLimited" );
+
+    // Create our PDECoefficients
+    d_Coeffs = std::make_shared<PDECoefficients>( d_db );
+    // Create our FDMeshOps
+    d_meshOps = std::make_shared<FDMeshOps>( this->getMesh() );
+    // Create our FDStencilOps
+    d_StencilOps = std::make_shared<FDStencilOps>( d_Coeffs, d_meshOps, d_db, d_fluxLimited );
+
+    
+    
+    // Unpack frozen vector
     d_frozenVec = params->d_frozenSolution;
-    d_RadDifOp  = params->d_RadDifOp;
 
     setData( );
 };
@@ -70,7 +472,9 @@ void RadDifOpPJac::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET, 
 
 
 std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJac::createInputVector() const {
-    return d_RadDifOp->createInputVector();
+    auto ET_var = std::make_shared<AMP::LinearAlgebra::Variable>( "ET" );
+    auto ET_vec = AMP::LinearAlgebra::createVector<double>( d_meshOps->d_multiDOFMan, ET_var );
+    return ET_vec;
 };
 
 
@@ -254,7 +658,7 @@ void RadDifOpPJac::fillDiffusionMatrixWithData(
 
     // Iterate through local rows in matrix
     size_t nrows = 1;
-    for ( size_t dof = d_RadDifOp->d_scalarDOFMan->beginDOF(); dof != d_RadDifOp->d_scalarDOFMan->endDOF(); dof++ ) {
+    for ( size_t dof = d_meshOps->d_scalarDOFMan->beginDOF(); dof != d_meshOps->d_scalarDOFMan->endDOF(); dof++ ) {
         setColsAndData( dof );
         matrix->setValuesByGlobalID<double>( nrows, cols.size(), &dof, cols.data(), data.data() );
     }
@@ -266,27 +670,27 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
     PROFILE( "RadDifOpPJac::setDataReaction" );
 
     // Unpack z
-    auto zatom = d_RadDifOp->d_db->getWithDefault<double>( "zatom", 1.0 ); 
+    auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 ); 
 
     // --- Iterate over all local rows ---
     // Placeholder for current grid index
     std::array<int, 3> ijk;
 
     // Iterate over local box
-    for ( auto k = d_RadDifOp->d_localBox->first[2]; k <= d_RadDifOp->d_localBox->last[2]; k++ ) {
+    for ( auto k = d_meshOps->d_localBox->first[2]; k <= d_meshOps->d_localBox->last[2]; k++ ) {
         ijk[2] = k;
-        for ( auto j = d_RadDifOp->d_localBox->first[1]; j <= d_RadDifOp->d_localBox->last[1]; j++ ) {
+        for ( auto j = d_meshOps->d_localBox->first[1]; j <= d_meshOps->d_localBox->last[1]; j++ ) {
             ijk[1] = j;
-            for ( auto i = d_RadDifOp->d_localBox->first[0]; i <= d_RadDifOp->d_localBox->last[0]; i++ ) {
+            for ( auto i = d_meshOps->d_localBox->first[0]; i <= d_meshOps->d_localBox->last[0]; i++ ) {
                 ijk[0] = i;
 
                 // Get T at current node (reaction stencil doesn't depend on E) 
-                size_t dof  = d_RadDifOp->gridIndsToScalarDOF( ijk );
+                size_t dof  = d_meshOps->gridIndsToScalarDOF( ijk );
                 double TLoc = T_vec->getValueByGlobalID( dof ); 
 
                 // Compute semi-linear reaction coefficients at cell centers using T
                 double REE, RET, RTE, RTT;
-                d_RadDifOp->getSemiLinearReactionCoefficients( TLoc, zatom, REE, RET, RTE, RTT );
+                d_Coeffs->getSemiLinearReactionCoefficients( TLoc, zatom, REE, RET, RTE, RTT );
 
                 // Insert values into the vectors
                 d_data->r_EE->setValueByGlobalID<double>( dof, REE );
@@ -316,13 +720,13 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     AMP_INSIST( component == 0 || component == 1, "Invalid component" );
 
     // Unpack z
-    auto zatom = d_RadDifOp->d_db->getWithDefault<double>( "zatom", 1.0 ); 
+    auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 ); 
 
     // Flag indicating which boundary the 3-point stencil intersects with (unset by default)
-    std::optional<RadDifOp::BoundarySide> boundaryIntersection;
+    std::optional<FDBoundaryUtils::BoundarySide> boundaryIntersection;
     
     // Convert dof to a grid index
-    std::array<int, 3> ijk = d_RadDifOp->scalarDOFToGridInds( row );
+    std::array<int, 3> ijk = d_meshOps->scalarDOFToGridInds( row );
                 
     /**
      * We sum over dimensions, resulting in columns ordered as
@@ -332,31 +736,31 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
      */
 
     // Initial resize here (and one at the end based on how many nnz were added)
-    cols.resize( 1 + 2*d_RadDifOp->d_dim );
-    data.resize( 1 + 2*d_RadDifOp->d_dim );
+    cols.resize( 1 + 2*d_meshOps->d_dim );
+    data.resize( 1 + 2*d_meshOps->d_dim );
     // Initialize ORIGIN connection to zero since it's incremented in each dimension
     data[0] = 0.0;
     // Counter for actual number of off-diag connections set
     size_t nnzOffDiag = 0;
 
     // Loop over each dimension, adding in its contribution to the total stencil
-    for ( size_t dim = 0; dim < d_RadDifOp->d_dim; dim++ ) {
+    for ( size_t dim = 0; dim < d_meshOps->d_dim; dim++ ) {
 
-        double h   = d_RadDifOp->d_h[dim];
+        double h   = d_meshOps->d_h[dim];
         double rh2 = 1.0/(h*h); // Reciprocal h squared
 
         // Get WEST, ORIGIN, and EAST ET data for the given dimension
-        d_RadDifOp->setLoc3Data(E_vec, T_vec, ijk, dim, boundaryIntersection); 
+        d_StencilOps->setLoc3Data(E_vec, T_vec, ijk, dim, d_ELoc3, d_TLoc3, d_dofsLoc3,  boundaryIntersection); 
 
         // Compute diffusion coefficients for E or T
         double D_WO, D_OE;
         double dummy1, dummy2; // Dummy values for coefficients we don't set
         // Get energy coefficients
         if ( component == 0 ) {
-            d_RadDifOp->getLocalFDDiffusionCoefficients( zatom, h, true, D_WO, D_OE, false, dummy1, dummy2 );
+            d_StencilOps->getLocalFDDiffusionCoefficients( d_ELoc3, d_TLoc3, zatom, h, true, D_WO, D_OE, false, dummy1, dummy2 );
         // Get temperature coefficients
         } else {
-            d_RadDifOp->getLocalFDDiffusionCoefficients( zatom, h, false, dummy1, dummy2, true, D_WO, D_OE );
+            d_StencilOps->getLocalFDDiffusionCoefficients( d_ELoc3, d_TLoc3, zatom, h, false, dummy1, dummy2, true, D_WO, D_OE );
         }
         
         /** Recall the stencil is applied in the following fashion:
@@ -369,17 +773,17 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
         //--- Pack stencil and column data
         // Set diagonal connection
         data[0] += ( D_OE + D_WO )*rh2;
-        cols[0]  = d_RadDifOp->d_dofsLoc3[ORIGIN]; 
+        cols[0]  = d_dofsLoc3[ORIGIN]; 
 
         // Set off-diagonal connections
         // Case 1: Stencil does not intersect boundary
         if ( !boundaryIntersection.has_value() ) {
             // WEST connection
             data[nnzOffDiag+1] = -D_WO*rh2;
-            cols[nnzOffDiag+1] = d_RadDifOp->d_dofsLoc3[WEST];
+            cols[nnzOffDiag+1] = d_dofsLoc3[WEST];
             // EAST connection
             data[nnzOffDiag+2] = -D_OE*rh2;
-            cols[nnzOffDiag+2] = d_RadDifOp->d_dofsLoc3[EAST];
+            cols[nnzOffDiag+2] = d_dofsLoc3[EAST];
             nnzOffDiag += 2;
 
         /** Case 2: Stencil intersects a boundary. This means that one of the stencil connections 
@@ -393,16 +797,16 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
          * the ORIGIN connection with weight alpha.
          */
         // Case 2a: Stencil intersects WEST boundary -> WEST neighbor is a ghost
-        } else if ( boundaryIntersection.value() == RadDifOp::BoundarySide::WEST ) {
+        } else if ( boundaryIntersection.value() == FDBoundaryUtils::BoundarySide::WEST ) {
             boundaryIntersection.reset(); // Reset to have no value
             // Add WEST connection into diagonal with weight alpha
-            size_t boundaryID = d_RadDifOp->getBoundaryIDFromDim(dim, RadDifOp::BoundarySide::WEST);
-            double alpha = d_RadDifOp->PicardCorrectionCoefficient( component, boundaryID, D_WO );
+            size_t boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::WEST);
+            double alpha = PicardCorrectionCoefficient( component, boundaryID, D_WO );
             data[0] += alpha * -D_WO*rh2;
 
             // Add in EAST connection
             data[nnzOffDiag+1] = -D_OE*rh2;
-            cols[nnzOffDiag+1] = d_RadDifOp->d_dofsLoc3[EAST];
+            cols[nnzOffDiag+1] = d_dofsLoc3[EAST];
             nnzOffDiag += 1;
 
         // Case 2b: Stencil intersects EAST boundary -> EAST neighbor is a ghost
@@ -410,12 +814,12 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
             boundaryIntersection.reset(); // Reset to have no value
             // Add in WEST connection
             data[nnzOffDiag+1] = -D_WO*rh2;
-            cols[nnzOffDiag+1] = d_RadDifOp->d_dofsLoc3[WEST];
+            cols[nnzOffDiag+1] = d_dofsLoc3[WEST];
             nnzOffDiag += 1;
 
             // Add EAST connection into diagonal with weight alpha
-            size_t boundaryID = d_RadDifOp->getBoundaryIDFromDim(dim, RadDifOp::BoundarySide::EAST);
-            double alpha = d_RadDifOp->PicardCorrectionCoefficient( component, boundaryID, D_OE );
+            size_t boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::EAST);
+            double alpha = PicardCorrectionCoefficient( component, boundaryID, D_OE );
             data[0] += alpha * -D_OE*rh2;
 
         }
@@ -444,11 +848,12 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
     AMP_INSIST( ( params.get() ) != nullptr, "NULL parameters" );
     AMP_INSIST( ( ( params->d_db ).get() ) != nullptr, "NULL database" );
     AMP_INSIST( ( ( params->d_frozenSolution ).get() ) != nullptr, "NULL frozen solution" );
-    AMP_INSIST( params->d_RadDifOp != nullptr, "NULL RadDifOp" );
-
+    
     // Update my data based on these parameters
     d_frozenVec = params->d_frozenSolution;
-    d_RadDifOp  = params->d_RadDifOp;
+    d_db = params->d_db;
+
+    // todo: reset value of FDMeshOps
 
     // Point data to null, that way it will be reconstructed from new data during the next apply call
     d_data = nullptr;
@@ -481,18 +886,47 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     d_nonlinearModel = ( d_db->getScalar<std::string>( "model" ) == "nonlinear" );
     d_fluxLimited = d_db->getScalar<bool>( "fluxLimited" );
 
-    // Set mesh-related data
-    setAndCheckMeshData();
+    // Create coefficients
+    d_Coeffs = std::make_shared<PDECoefficients>( d_db );
+    // Create our FDMeshOps
+    d_meshOps = std::make_shared<FDMeshOps>( this->getMesh() );
+    // Create our FDStencilOps
+    d_StencilOps = std::make_shared<FDStencilOps>( d_Coeffs, d_meshOps, d_db, d_fluxLimited );
+
 
     // Specify default Robin return function for E
-    std::function<double( size_t, AMP::Mesh::Point & )> wrapperE = [&]( size_t boundaryID, AMP::Mesh::Point & ) { return getBoundaryFunctionValueFromDBE( boundaryID ); };
+    std::function<double( size_t, AMP::Mesh::Point & )> wrapperE = [&]( size_t boundaryID, AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBE( *d_db, boundaryID ); };
     this->setBoundaryFunctionE( wrapperE );
     
     // Specify default Neumann return function for T
-    std::function<double( size_t, AMP::Mesh::Point & )> wrapperT = [&]( size_t boundaryID,  AMP::Mesh::Point & ) { return getBoundaryFunctionValueFromDBT( boundaryID ); };
+    std::function<double( size_t, AMP::Mesh::Point & )> wrapperT = [&]( size_t boundaryID,  AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBT( *d_db, boundaryID ); };
     this->setBoundaryFunctionT( wrapperT );
 };
 
+
+
+#if 0
+/* Build and set d_multiDOFMan and d_scalarDOFMan */
+void RadDifOp::setDOFManagers() {
+
+    // Number of DOFs per mesh element (make 1, even though we have two variables. We'll create separate DOF managers for them)
+    int myDOFsPerElement = 1; 
+    int gcw   = 1; // Ghost-cell width; stencils are 3-point
+    auto mesh = this->getMesh();
+    auto comm = mesh->getComm();
+
+    // E and T use the same DOFManager under the hood
+    std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFManager = AMP::Discretization::boxMeshDOFManager::create(mesh, CellCenteredGeom, gcw, myDOFsPerElement);
+    auto T_DOFManager = scalarDOFManager;
+    auto E_DOFManager = scalarDOFManager;
+
+    // Create a multiDOFManager that wraps both DOF managers
+    std::vector<std::shared_ptr<AMP::Discretization::DOFManager>> DOFManagersVec = { E_DOFManager, T_DOFManager };
+    auto multiDOFManager = std::make_shared<AMP::Discretization::multiDOFManager>(comm, DOFManagersVec, mesh);
+
+    d_scalarDOFMan = scalarDOFManager;
+    d_multiDOFMan  = multiDOFManager;
+}
 
 void RadDifOp::setAndCheckMeshData() {
 
@@ -524,7 +958,7 @@ void RadDifOp::setAndCheckMeshData() {
      *          Geometry::buildGeometry( std::shared_ptr<const AMP::Database> db )
      *  I.e., check whether down casting the geometry to a Box passes. Note that Box is a
      * dimension-templated class, so we need to resolve each case separately.
-    */
+     */
     auto meshGeom = d_BoxMesh->getGeometry();
     if ( d_dim == 1 ) {
         AMP_INSIST( std::dynamic_pointer_cast<AMP::Geometry::Box<1>>( meshGeom ),
@@ -605,35 +1039,49 @@ void RadDifOp::printMeshNodes() {
     this->getMesh()->getComm().barrier();
     AMP_ERROR( "halt here pls" );
 }
+#endif
 
 
 std::vector<double> RadDifOp::getMeshSize() const { return d_h; }
 
 std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const {
     auto ET_var = std::make_shared<AMP::LinearAlgebra::Variable>( "ET" );
-    auto ET_vec = AMP::LinearAlgebra::createVector<double>( this->d_multiDOFMan, ET_var );
+    auto ET_vec = AMP::LinearAlgebra::createVector<double>( d_meshOps->d_multiDOFMan, ET_var );
     return ET_vec;
 };
 
 
 void RadDifOp::setBoundaryFunctionE( std::function<double( size_t, AMP::Mesh::Point &)> fn_ ) 
 { 
-    d_robinFunctionE = fn_; 
+    //d_robinFunctionE = fn_; 
+    d_StencilOps->setBoundaryFunctionE( fn_ );
 };
 
 
 void RadDifOp::setBoundaryFunctionT( std::function<double( size_t, AMP::Mesh::Point &)> fn_ ) 
 { 
-    d_pseudoNeumannFunctionT = fn_; 
+    //d_pseudoNeumannFunctionT = fn_; 
+    d_StencilOps->setBoundaryFunctionT( fn_ );
 };
 
+#if 0
+
+std::array<int,3> RadDifOp::scalarDOFToGridInds( size_t dof ) const
+{
+    // Get ElementID
+    AMP::Mesh::MeshElementID id = d_scalarDOFMan->getElementID( dof );
+    // Convert ElementID into a MeshElementIndex
+    AMP::Mesh::BoxMesh::MeshElementIndex ind = d_BoxMesh->convert( id );
+    // Get grid index along each component direction
+    return { ind.index( 0 ), ind.index( 1 ), ind.index( 2 ) };
+}
 
 AMP::Mesh::MeshElement RadDifOp::gridIndsToMeshElement( int i, int j, int k ) const {
     AMP::Mesh::BoxMesh::MeshElementIndex ind( CellCenteredGeom, 0, i, j, k );
     return d_BoxMesh->getElement( ind );
 };
 
-AMP::Mesh::MeshElement RadDifOp::gridIndsToMeshElement( std::array<int,3> ijk ) const {
+AMP::Mesh::MeshElement RadDifOp::gridIndsToMeshElement( std::array<int,3> &ijk ) const {
     return gridIndsToMeshElement( ijk[0], ijk[1], ijk[2] );
 } 
 
@@ -648,6 +1096,7 @@ size_t RadDifOp::gridIndsToScalarDOF( int i, int j, int k ) const {
 size_t RadDifOp::gridIndsToScalarDOF( std::array<int,3> ijk ) const {
     return gridIndsToScalarDOF( ijk[0], ijk[1], ijk[2] );
 }
+#endif
 
 
 std::shared_ptr<AMP::Operator::OperatorParameters> RadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in ) {
@@ -660,10 +1109,9 @@ std::shared_ptr<AMP::Operator::OperatorParameters> RadDifOp::getJacobianParamete
     auto jacOpParams    = std::make_shared<RadDifOpPJacParameters>( db );
     // Set its mesh
     jacOpParams->d_Mesh = this->getMesh();
-
+    // Get frozen solution vector
     jacOpParams->d_frozenSolution = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( u_in );
-    jacOpParams->d_RadDifOp = this;
-
+    
     return jacOpParams;
 }
 
@@ -691,38 +1139,6 @@ void RadDifOp::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::
 }
 
 
-std::array<int,3> RadDifOp::scalarDOFToGridInds( size_t dof ) const
-{
-    // Get ElementID
-    AMP::Mesh::MeshElementID id = d_scalarDOFMan->getElementID( dof );
-    // Convert ElementID into a MeshElementIndex
-    AMP::Mesh::BoxMesh::MeshElementIndex ind = d_BoxMesh->convert( id );
-    // Get grid index along each component direction
-    return { ind.index( 0 ), ind.index( 1 ), ind.index( 2 ) };
-}
-
-
-/* Build and set d_multiDOFMan and d_scalarDOFMan */
-void RadDifOp::setDOFManagers() {
-
-    // Number of DOFs per mesh element (make 1, even though we have two variables. We'll create separate DOF managers for them)
-    int myDOFsPerElement = 1; 
-    int gcw   = 1; // Ghost-cell width; stencils are 3-point
-    auto mesh = this->getMesh();
-    auto comm = mesh->getComm();
-
-    // E and T use the same DOFManager under the hood
-    std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFManager = AMP::Discretization::boxMeshDOFManager::create(mesh, CellCenteredGeom, gcw, myDOFsPerElement);
-    auto T_DOFManager = scalarDOFManager;
-    auto E_DOFManager = scalarDOFManager;
-
-    // Create a multiDOFManager that wraps both DOF managers
-    std::vector<std::shared_ptr<AMP::Discretization::DOFManager>> DOFManagersVec = { E_DOFManager, T_DOFManager };
-    auto multiDOFManager = std::make_shared<AMP::Discretization::multiDOFManager>(comm, DOFManagersVec, mesh);
-
-    d_scalarDOFMan = scalarDOFManager;
-    d_multiDOFMan  = multiDOFManager;
-}
 
 
 bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) {
@@ -781,11 +1197,11 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
     std::array<int, 3> ijk;
 
     // Iterate over local box
-    for ( auto k = d_localBox->first[2]; k <= d_localBox->last[2]; k++ ) {
+    for ( auto k = d_meshOps->d_localBox->first[2]; k <= d_meshOps->d_localBox->last[2]; k++ ) {
         ijk[2] = k;
-        for ( auto j = d_localBox->first[1]; j <= d_localBox->last[1]; j++ ) {
+        for ( auto j = d_meshOps->d_localBox->first[1]; j <= d_meshOps->d_localBox->last[1]; j++ ) {
             ijk[1] = j;
-            for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
+            for ( auto i = d_meshOps->d_localBox->first[0]; i <= d_meshOps->d_localBox->last[0]; i++ ) {
                 ijk[0] = i;
 
                 /** --- Compute coefficients to apply stencil in a quasi-linear fashion */
@@ -798,10 +1214,10 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                     double rh2 = 1.0/(h*h); // Reciprocal h squared
 
                     // Get WEST, ORIGIN, EAST ET data for the given dimension
-                    setLoc3Data(E_vec, T_vec, ijk, dim);        
+                    d_StencilOps->setLoc3Data(E_vec, T_vec, ijk, dim, d_ELoc3, d_TLoc3);        
                     // Get diffusion coefficients for both E and T
                     double Dr_WO, Dr_OE, DT_WO, DT_OE;
-                    getLocalFDDiffusionCoefficients(zatom, h, true, Dr_WO, Dr_OE, true, DT_WO, DT_OE);
+                    d_StencilOps->getLocalFDDiffusionCoefficients(d_ELoc3, d_TLoc3, zatom, h, true, Dr_WO, Dr_OE, true, DT_WO, DT_OE);
                     
                     // Apply diffusion operators in quasi-linear fashion
                     dif_E_action += ( -Dr_OE*(d_ELoc3[EAST]-d_ELoc3[ORIGIN]) 
@@ -814,14 +1230,14 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
 
                 // Compute semi-linear reaction coefficients at cell centers using T value set in the last iteration of the above loop
                 double REE, RET, RTE, RTT;
-                getSemiLinearReactionCoefficients( d_TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
+                d_Coeffs->getSemiLinearReactionCoefficients( d_TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
                 
                 // Sum diffusion and reaction terms
                 double LE = dif_E_action + ( REE*d_ELoc3[ORIGIN] + RET*d_TLoc3[ORIGIN] );
                 double LT = dif_T_action + ( RTE*d_ELoc3[ORIGIN] + RTT*d_TLoc3[ORIGIN] );
 
                 // Insert values into the vectors
-                size_t dof_O = gridIndsToScalarDOF( ijk );
+                size_t dof_O = d_meshOps->gridIndsToScalarDOF( ijk );
                 LE_vec->setValueByGlobalID<double>( dof_O, LE );
                 LT_vec->setValueByGlobalID<double>( dof_O, LT );
 
@@ -832,198 +1248,24 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
 }
 
 
-void RadDifOp::getLocalFDDiffusionCoefficients(
-    double zatom,
-    double h,
-    bool computeE,
-    double &Dr_WO, 
-    double &Dr_OE,
-    bool computeT,
-    double &DT_WO, 
-    double &DT_OE) const
-{
 
-    // Compute temp at mid points             
-    double T_WO = 0.5*( d_TLoc3[WEST]   + d_TLoc3[ORIGIN] ); // T_{i-1/2}
-    double T_OE = 0.5*( d_TLoc3[ORIGIN] + d_TLoc3[EAST]   ); // T_{i+1/2}
-
-    // Get diffusion coefficients at cell faces, i.e., mid points
-    // Energy
-    if ( computeE ) {
-        Dr_WO = diffusionCoefficientE( T_WO, zatom );
-        Dr_OE = diffusionCoefficientE( T_OE, zatom );
-        // Limit the energy flux if need be, eq. (17)
-        if ( d_fluxLimited ) {
-            double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( d_ELoc3[ORIGIN] - d_ELoc3[WEST] )/( h*0.5*(d_ELoc3[ORIGIN] + d_ELoc3[WEST]) ) ) );
-            double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( d_ELoc3[EAST] - d_ELoc3[ORIGIN] )/( h*0.5*(d_ELoc3[EAST] + d_ELoc3[ORIGIN]) ) ) );
-            Dr_WO = DE_WO;
-            Dr_OE = DE_OE;
-
-            AMP_WARNING("flux limiting is not working properly...");
-        }
-        // Scale coefficients by constants in PDE
-        scaleDiffusionCoefficientEBy_kij( Dr_WO );
-        scaleDiffusionCoefficientEBy_kij( Dr_OE );
-    }
-    
-    // Temperature
-    if ( computeT ) {
-        DT_WO = diffusionCoefficientT( T_WO );
-        DT_OE = diffusionCoefficientT( T_OE );
-        scaleDiffusionCoefficientTBy_kij( DT_WO );
-        scaleDiffusionCoefficientTBy_kij( DT_OE );
-    }
-}
-
-
-void RadDifOp::setGhostData( size_t boundaryID, AMP::Mesh::Point &boundaryPoint, double Eint, double Tint )
-{
-    // Get the Robin constants for the given boundaryID
-    double ak, bk; 
-    getLHSRobinConstantsFromDB(boundaryID, ak, bk);
-    
-    // Now get the corresponding Robin value
-    double rk = d_robinFunctionE( boundaryID, boundaryPoint );
-    // Get Neumann value
-    double nk = d_pseudoNeumannFunctionT( boundaryID, boundaryPoint );
-    
-    // Spatial mesh size
-    double hk = d_h[getDimFromBoundaryID(boundaryID)]; 
-
-    // Solve for ghost values given these constants, storing results in member array
-    ghostValuesSolve( ak, bk, rk, nk, hk, Eint, Tint, d_ghostData[0], d_ghostData[1] );
-}
-
-
-size_t RadDifOp::getDimFromBoundaryID(size_t boundaryID) const {
-    AMP_INSIST( boundaryID >= 1 && boundaryID <= 6, "boundaryID not recognised" );
-    return (boundaryID-1)/2; // Note the integer division
-}
-
-
-size_t RadDifOp::getBoundaryIDFromDim(size_t dim, BoundarySide side) const {
-    if ( side == BoundarySide::WEST ) {
-        return 2*dim + 1;
-    } else if ( side == BoundarySide::EAST ) {
-        return 2*dim + 2; 
-    } else {
-        AMP_ERROR( "Invalid side" );
-    }
-}
-
-
-void RadDifOp::getLHSRobinConstantsFromDB(size_t boundaryID, double &ak, double &bk) const
-{
-    if ( boundaryID == 1 ) {
-        ak = d_db->getScalar<double>( "a1" );
-        bk = d_db->getScalar<double>( "b1" );
-    } else if ( boundaryID == 2 ) {
-        ak = d_db->getScalar<double>( "a2" );
-        bk = d_db->getScalar<double>( "b2" );
-    } else if ( boundaryID == 3 ) {
-        ak = d_db->getScalar<double>( "a3" );
-        bk = d_db->getScalar<double>( "b3" );
-    } else if ( boundaryID == 4 ) {
-        ak = d_db->getScalar<double>( "a4" );
-        bk = d_db->getScalar<double>( "b4" );
-    } else if ( boundaryID == 5 ) {
-        ak = d_db->getScalar<double>( "a5" );
-        bk = d_db->getScalar<double>( "b5" );
-    } else if ( boundaryID == 6 ) {
-        ak = d_db->getScalar<double>( "a6" );
-        bk = d_db->getScalar<double>( "b6" );
-    } else {
-        AMP_ERROR( "Invalid boundaryID" );
-    }
-}
-
-double RadDifOp::getBoundaryFunctionValueFromDBE( size_t boundaryID ) const {
-    if ( boundaryID == 1 ) {
-        return d_db->getScalar<double>( "r1" );
-    } else if ( boundaryID == 2 ) {
-        return d_db->getScalar<double>( "r2" );
-    } else if ( boundaryID == 3 ) {
-        return d_db->getScalar<double>( "r3" );
-    } else if ( boundaryID == 4 ) {
-        return d_db->getScalar<double>( "r4" );
-    } else if ( boundaryID == 5 ) {
-        return d_db->getScalar<double>( "r5" );
-    } else if ( boundaryID == 6 ) {
-        return d_db->getScalar<double>( "r6" );
-    } else { 
-        AMP_ERROR( "Invalid boundaryID" );
-    }
-}
-
-double RadDifOp::getBoundaryFunctionValueFromDBT( size_t boundaryID ) const {
-    if ( boundaryID == 1 ) {
-        return d_db->getScalar<double>( "n1" );
-    } else if ( boundaryID == 2 ) {
-        return d_db->getScalar<double>( "n2" );
-    } else if ( boundaryID == 3 ) {
-        return d_db->getScalar<double>( "n3" );
-    } else if ( boundaryID == 4 ) {
-        return d_db->getScalar<double>( "n4" );
-    } else if ( boundaryID == 5 ) {
-        return d_db->getScalar<double>( "n5" );
-    } else if ( boundaryID == 6 ) {
-        return d_db->getScalar<double>( "n6" );
-    } else { 
-        AMP_ERROR( "Invalid boundaryID" );
-    }
-}
-
-
-void RadDifOp::ghostValuesSolve( double a, double b, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ) const {
-
-    // Unpack parameters
-    auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 );
-
-    // Solve for Tg
-    Tg = ghostValueSolveT( n, h, Tint );
-
-    // Compute energy diffusion coefficient on the boundary, i.e., the mid-point between Tg and Tint
-    double T_midpoint = 0.5*( Tg + Tint );
-    double D_E = diffusionCoefficientE( T_midpoint, zatom );
-    // The below solve requires the finalized flux in the form of c = k11*D_E
-    scaleDiffusionCoefficientEBy_kij( D_E );  
-    auto c = D_E; 
-
-    // Solve for Eg
-    Eg = ghostValueSolveE( a, b, r, c, h, Eint );
-}
-
-double RadDifOp::ghostValueSolveT( double n, double h, double Tint ) const {
-    double alpha = 1.0;
-    double beta  = h*n; 
-    double Tg = alpha*Tint + beta;
-    return Tg;
-}
-
-double RadDifOp::ghostValueSolveE( double a, double b, double r, double c, double h, double Eint ) const {
-    double alpha = (2*c*b - a*h)/(2*c*b + a*h);
-    double beta  = 2*h*r/(2*c*b + a*h);
-    double Eg = alpha*Eint + beta;
-    return Eg;
-}
-
-double RadDifOp::PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const {
+double RadDifOpPJac::PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const {
     // Energy
     if ( component == 0 ) {
         // Get the Robin constants for the given boundaryID
         double ak, bk; 
-        getLHSRobinConstantsFromDB(boundaryID, ak, bk);
+        FDBoundaryUtils::getLHSRobinConstantsFromDB(*d_db, boundaryID, ak, bk);
         // Spatial mesh size
-        double hk = d_h[getDimFromBoundaryID(boundaryID)];
+        double hk = d_h[FDBoundaryUtils::getDimFromBoundaryID(boundaryID)];
 
         // The value we require coincides with r=0 and Eint=1 in "ghostValueSolveE"
-        return ghostValueSolveE( ak, bk, 0.0, ck, hk, 1.0 );
+        return FDBoundaryUtils::ghostValueSolveE( ak, bk, 0.0, ck, hk, 1.0 );
     
     // Temperature; correction coefficient is 1.0, because we get Tg = 1.0*Tint + blah
     } else if ( component == 1 ) {
 
         // The value we require coincides with any n and h in "ghostValueSolveT"
-        return ghostValueSolveT( 0.0, 0.0, 1.0 );
+        return FDBoundaryUtils::ghostValueSolveT( 0.0, 0.0, 1.0 );
 
     } else {
         AMP_ERROR( "Invalid component" );
@@ -1031,175 +1273,7 @@ double RadDifOp::PicardCorrectionCoefficient( size_t component, size_t boundaryI
 }
 
 
-double RadDifOp::diffusionCoefficientE( double T, double zatom ) const {
-    if ( d_nonlinearModel ) {
-        double sigma = std::pow( zatom/T, 3.0 ); 
-        return 1.0/(3*sigma);
-    } else {
-        return 1.0;
-    }
-}
-
-double RadDifOp::diffusionCoefficientT( double T ) const {
-    if ( d_nonlinearModel ) {
-        return pow( T, 2.5 );
-    } else {
-        return 1.0;
-    }
-}
-
-void RadDifOp::getSemiLinearReactionCoefficients( double T, double zatom, double &REE, double &RET, double &RTE, double &RTT ) const {
-    if ( d_nonlinearModel ) {
-        double sigma = std::pow( zatom/T, 3.0 );
-        REE = RTE = -sigma;
-        RET = RTT = +sigma * pow( T, 3.0 );
-    } else {
-        REE = RTE = -1.0;
-        RET = RTT = +1.0;
-    }
-
-    // Scale coefficients by constants in PDE
-    scaleReactionCoefficientsBy_kij( REE, RET, RTE, RTT );
-}
-
-void RadDifOp::scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const {
-    REE *= -d_k12, RET *= -d_k12; // Energy equation
-    RTE *=  d_k22, RTT *=  d_k22; // Temperature equation
-}
-
-void RadDifOp::scaleDiffusionCoefficientEBy_kij( double &D_E ) const {
-    D_E *= d_k11; // Energy equation
-}
-
-void RadDifOp::scaleDiffusionCoefficientTBy_kij( double &D_T ) const {
-    D_T *= d_k21; // Temperature equation
-}
 
 
-
-void RadDifOp::setLoc3Data( 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
-    std::array<int, 3> &ijk,
-    int dim) 
-{
-
-    // The current DOF
-    size_t dof_O = gridIndsToScalarDOF( ijk );
-    d_ELoc3[ORIGIN] = E_vec->getValueByGlobalID<double>( dof_O );
-    d_TLoc3[ORIGIN] = T_vec->getValueByGlobalID<double>( dof_O );
-
-    // Get WEST neighboring value
-    // At WEST boundary, so WEST neighbor is a ghost
-    if ( ijk[dim] == d_globalBox->first[dim] ) {
-        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::WEST);
-        // Get point on the boundary
-        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
-        boundaryPoint[dim] -= d_h[dim]/2; // The boundary is h/2 WEST of the cell center
-        // Set member array holding ghost data and unpack into local variables
-        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
-        d_ELoc3[WEST] = d_ghostData[0]; 
-        d_TLoc3[WEST] = d_ghostData[1];
-
-    // At interior DOF; WEST neighbor is an interior DOF
-    } else {
-        ijk[dim] -= 1;
-        size_t dof_W = gridIndsToScalarDOF( ijk );
-        ijk[dim] += 1; // reset to ORIGIN
-        d_ELoc3[WEST] = E_vec->getValueByGlobalID( dof_W ); 
-        d_TLoc3[WEST] = T_vec->getValueByGlobalID( dof_W );
-    }
-
-    // Get EAST neighboring value
-    // At EAST boundary, so EAST neighbor is a ghost
-    if ( ijk[dim] == d_globalBox->last[dim] ) {
-        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::EAST);
-        // Get point on the boundary
-        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
-        boundaryPoint[dim] += d_h[dim]/2; // The boundary is h/2 EAST of the cell center
-        // Set member array holding ghost data and unpack into local variables
-        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
-        d_ELoc3[EAST] = d_ghostData[0]; 
-        d_TLoc3[EAST] = d_ghostData[1];
-
-    // At interior DOF; EAST neighbor is an interior DOF
-    } else {
-        ijk[dim] += 1;
-        size_t dof_E = gridIndsToScalarDOF( ijk );
-        ijk[dim] -= 1; // reset to ORIGIN
-        d_ELoc3[EAST]   = E_vec->getValueByGlobalID( dof_E ); 
-        d_TLoc3[EAST]   = T_vec->getValueByGlobalID( dof_E );
-    }
-}
-
-
-
-void RadDifOp::setLoc3Data( 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
-    std::array<int, 3> &ijk, 
-    int dim,
-    std::optional<BoundarySide> &boundaryIntersection) 
-{
-
-    // The current DOF
-    size_t dof_O = gridIndsToScalarDOF( ijk );
-    d_ELoc3[ORIGIN] = E_vec->getValueByGlobalID<double>( dof_O );
-    d_TLoc3[ORIGIN] = T_vec->getValueByGlobalID<double>( dof_O );
-    //
-    d_dofsLoc3[ORIGIN] = dof_O;
-
-    // Get WEST neighboring value
-    // At WEST boundary, so WEST neighbor is a ghost
-    if ( ijk[dim] == d_globalBox->first[dim] ) {
-        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::WEST);
-        // Get point on the boundary
-        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
-        boundaryPoint[dim] -= d_h[dim]/2; // The boundary is h/2 WEST of the cell center
-        // Set member array holding ghost data and unpack into local variables
-        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
-        d_ELoc3[WEST] = d_ghostData[0]; 
-        d_TLoc3[WEST] = d_ghostData[1];
-        //
-        // Flag that we're on the WEST boundary
-        boundaryIntersection = BoundarySide::WEST;
-
-    // At interior DOF; WEST neighbor is an interior DOF
-    } else {
-        ijk[dim] -= 1;
-        size_t dof_W = gridIndsToScalarDOF( ijk );
-        ijk[dim] += 1; // reset to ORIGIN
-        d_ELoc3[WEST] = E_vec->getValueByGlobalID( dof_W ); 
-        d_TLoc3[WEST] = T_vec->getValueByGlobalID( dof_W );
-        //
-        d_dofsLoc3[WEST] = dof_W;
-    }
-
-    // Get EAST neighboring value
-    // At EAST boundary, so EAST neighbor is a ghost
-    if ( ijk[dim] == d_globalBox->last[dim] ) {
-        auto boundaryID = getBoundaryIDFromDim(dim, BoundarySide::EAST);
-        // Get point on the boundary
-        auto boundaryPoint = gridIndsToMeshElement( ijk ).centroid(); // Point in cell center
-        boundaryPoint[dim] += d_h[dim]/2; // The boundary is h/2 EAST of the cell center
-        // Set member array holding ghost data and unpack into local variables
-        setGhostData( boundaryID, boundaryPoint, d_ELoc3[1], d_TLoc3[1] );
-        d_ELoc3[EAST] = d_ghostData[0]; 
-        d_TLoc3[EAST] = d_ghostData[1];
-        //
-        // Flag that we're on the EAST boundary
-        boundaryIntersection = BoundarySide::EAST;
-
-    // At interior DOF; EAST neighbor is an interior DOF
-    } else {
-        ijk[dim] += 1;
-        size_t dof_E = gridIndsToScalarDOF( ijk );
-        ijk[dim] -= 1; // reset to ORIGIN
-        d_ELoc3[EAST]   = E_vec->getValueByGlobalID( dof_E ); 
-        d_TLoc3[EAST]   = T_vec->getValueByGlobalID( dof_E );
-        //
-        d_dofsLoc3[EAST] = dof_E;
-    }
-}
 
 } // namespace AMP::Operator
