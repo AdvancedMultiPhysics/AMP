@@ -5,7 +5,7 @@ Mesh{
     Generator = "cylinder"
     Size = 4, 8
     Range = 1, -2, 2
-    surfaceIds = 1, 1, 1, 1, 2, 3
+    surfaceIds = 2, 2, 4, 4, 3, 3
     static = TRUE
 }
 
@@ -35,6 +35,16 @@ VonMisesElastoPlasticModel1 {
     Default_Oxygen_Concentration = 0.0
 }
 
+MechanicsLinearUpdatedLagrangianElement{
+    name="MechanicsLinearUpdatedLagrangianElement"
+    USE_REDUCED_INTEGRATION = FALSE 
+    USE_JAUMANN_RATE = TRUE
+    FE_ORDER = "FIRST"  
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
+}
+
 MechanicsNonlinearFEOperator1 {
     name = "MechanicsNonlinearFEOperator"
     print_info_level = 2
@@ -56,7 +66,8 @@ MechanicsNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }
 
-	LocalModel = VonMisesElastoPlasticModel1
+    MechanicsLinearElement = MechanicsLinearUpdatedLagrangianElement
+    LocalModel = VonMisesElastoPlasticModel1
 }
 
 DirichletVectorCorrection1 {
@@ -95,15 +106,7 @@ MechanicsLinearFEOperator2 {
         InputVariable = "displacement"
         OutputVariable = "displacement"
 
-        MechanicsElement {
-          name="MechanicsLinearUpdatedLagrangianElement"
-            USE_REDUCED_INTEGRATION = FALSE 
-            USE_JAUMANN_RATE = TRUE
-            FE_ORDER = "FIRST"  
-            FE_FAMILY = "LAGRANGE"
-            QRULE_TYPE = "QGAUSS"
-            QRULE_ORDER = "DEFAULT"
-        }
+        MechanicsElement = MechanicsLinearUpdatedLagrangianElement
 }
 
 DirichletMatrixCorrection2 {
