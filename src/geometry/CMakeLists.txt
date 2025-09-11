@@ -4,4 +4,3 @@ ADD_PACKAGE_SUBDIRECTORY( testHelpers )
 INSTALL_AMP_TARGET( geometry )
 
 ADD_SUBDIRECTORY( test )
-
