@@ -1,5 +1,5 @@
 # Macro to configure AMP-specific options
-MACRO ( CONFIGURE_AMP )
+MACRO( CONFIGURE_AMP )
     # Check if the compiler supports to_tuple properly
     TRY_COMPILE( TEST_TO_TUPLE ${AMP_BUILD_DIR} SOURCES ${AMP_SOURCE_DIR}/../cmake/test_brace_constructible.cpp OUTPUT_VARIABLE TEST_TO_TUPLE_OUTPUT )
     IF ( NOT TEST_TO_TUPLE )
@@ -7,12 +7,12 @@ MACRO ( CONFIGURE_AMP )
         ADD_DEFINITIONS( -DDISABLE_TO_TUPLE )
     ENDIF()
     # Add the AMP install directory
-    INCLUDE_DIRECTORIES ( ${AMP_INSTALL_DIR}/include )
-    # Set the data directory for AMP (needed to find the meshes)
+    INCLUDE_DIRECTORIES( ${AMP_INSTALL_DIR}/include )
+    # Set the data directory for AMP ( needed to find the meshes )
     IF ( AMP_DATA OR AMP_DATA_URL )
         IF ( AMP_DATA_URL )
             MESSAGE( STATUS "Downloading AMP Data - ${AMP_DATA_URL}" )
-            GET_FILENAME_COMPONENT( AMP_DATA "${AMP_DATA_URL}" NAME)
+            GET_FILENAME_COMPONENT( AMP_DATA "${AMP_DATA_URL}" NAME )
             SET( AMP_DATA "${CMAKE_CURRENT_BINARY_DIR}/${AMP_DATA}" )
             FILE( DOWNLOAD "${AMP_DATA_URL}" "${AMP_DATA}" )
         ENDIF()
@@ -23,14 +23,11 @@ MACRO ( CONFIGURE_AMP )
             # AMP_DATA is a directory
         ELSEIF ( EXISTS "${AMP_DATA}" )
             # AMP_DATA is a file, try to unpack it
-            EXECUTE_PROCESS(
-                COMMAND ${CMAKE_COMMAND} -E tar xzf "${AMP_DATA}"
-                WORKING_DIRECTORY "${AMP_INSTALL_DIR}"
-            )
+            EXECUTE_PROCESS( COMMAND ${CMAKE_COMMAND} -E tar xzf "${AMP_DATA}" WORKING_DIRECTORY "${AMP_INSTALL_DIR}" )
             IF ( EXISTS "${AMP_INSTALL_DIR}/AMP-Data" )
                 SET( AMP_DATA "${AMP_INSTALL_DIR}/AMP-Data" )
-            ELSE()
-                MESSAGE(FATAL_ERROR "Error unpacking tar file ${AMP_DATA}")
+            ELSE ()
+                MESSAGE( FATAL_ERROR "Error unpacking tar file ${AMP_DATA}" )
             ENDIF()
         ENDIF()
     ENDIF()
@@ -40,7 +37,7 @@ MACRO ( CONFIGURE_AMP )
         MESSAGE( WARNING "AMP_DATA is not set, some tests will be disabled" )
     ENDIF()
     # Fix LDFLAGS if it is a CMake list
-    STRING(REPLACE ";" " " LDFLAGS "${LDFLAGS}")
+    STRING( REPLACE ";" " " LDFLAGS "${LDFLAGS}" )
     # Check the user configure flags
     IF ( DEFINED USE_AMP_UTILS )
         MESSAGE( WARNING "Setting USE_AMP_UTILS/USE_AMP_MESH/... is deprecated" )
@@ -57,6 +54,3 @@ MACRO ( CONFIGURE_AMP )
     SET( AMP_DOC_DIRS "${AMP_DOC_DIRS}  \"${AMP_SOURCE_DIR}/utils\"" )
     SET( AMP_DOC_DIRS "${AMP_DOC_DIRS}  \"${AMP_SOURCE_DIR}/vectors\"" )
 ENDMACRO()
-
-
-

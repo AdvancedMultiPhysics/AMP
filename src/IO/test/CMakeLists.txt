@@ -1,8 +1,8 @@
 # Copy test inputs
-COPY_TEST_FILE( input_SiloIO-1        data )
-COPY_TEST_FILE( input_SiloIO-2        data )
-COPY_TEST_FILE( input_crystal         ${AMP_SOURCE_DIR}/mesh/test/data )
-COPY_TEST_FILE( input_stl             ${AMP_SOURCE_DIR}/mesh/test/data )
+COPY_TEST_FILE( input_SiloIO-1 data )
+COPY_TEST_FILE( input_SiloIO-2 data )
+COPY_TEST_FILE( input_crystal ${AMP_SOURCE_DIR}/mesh/test/data )
+COPY_TEST_FILE( input_stl ${AMP_SOURCE_DIR}/mesh/test/data )
 COPY_TEST_FILE( input_AMP_mesh_zoo_1D ${AMP_SOURCE_DIR}/mesh/test/data )
 COPY_TEST_FILE( input_AMP_mesh_zoo_2D ${AMP_SOURCE_DIR}/mesh/test/data )
 COPY_TEST_FILE( input_AMP_mesh_zoo_3D ${AMP_SOURCE_DIR}/mesh/test/data )
@@ -16,7 +16,6 @@ IF ( AMP_DATA )
     COPY_MESH_FILE( Utah_teapot.stl )
 ENDIF()
 
-
 # Add Writer tests
 ADD_AMP_TEST( test_Writer input_crystal )
 ADD_AMP_TEST( test_Writer input_AMP_mesh_zoo_2D )
@@ -29,7 +28,6 @@ IF ( USE_LIBMESH AND AMP_DATA )
     ADD_AMP_TEST_1_2_4( test_Writer input_SiloIO-1 )
 ENDIF()
 ADD_AMP_TEST_1_2_4( test_Writer input_SiloIO-2 )
-
 
 # Add HDF5 tests
 IF ( USE_HDF5 )
@@ -45,6 +43,3 @@ IF ( USE_HDF5 )
     ADD_AMP_TEST( test_RestartManagerComms PROCS 4 )
     ADD_AMP_TEST( test_RestartManager input_RK12-1 )
 ENDIF()
-
-
-
