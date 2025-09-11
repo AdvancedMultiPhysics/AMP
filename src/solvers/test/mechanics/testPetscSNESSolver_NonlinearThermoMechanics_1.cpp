@@ -106,21 +106,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     referenceTemperatureVec->setToScalar( 300.0 );
     mechanicsVolumeOperator->setReferenceTemperature( referenceTemperatureVec );
 
-    // now construct the linear BVP operator for mechanics
-    AMP_INSIST( input_db->keyExists( "testLinearMechanicsOperator" ), "key missing!" );
-    auto linearMechanicsOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
-        nonlinearMechanicsOperator->getParameters( "Jacobian", nullptr ) );
-
-    // now construct the linear BVP operator for thermal
-    AMP_INSIST( input_db->keyExists( "testLinearThermalOperator" ), "key missing!" );
-    auto linearThermalOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
-        nonlinearThermalOperator->getParameters( "Jacobian", nullptr ) );
-
-    // create a column operator object for linear thermomechanics
-    auto linearThermoMechanicsOperator = std::make_shared<AMP::Operator::ColumnOperator>();
-    linearThermoMechanicsOperator->append( linearMechanicsOperator );
-    linearThermoMechanicsOperator->append( linearThermalOperator );
-
     // Initial-Guess for mechanics
     auto dirichletDispInVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator( mesh, "MechanicsInitialGuess", input_db ) );
@@ -136,9 +121,10 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     // Random initial guess
     //    solVec->setRandomValues();
     solVec->setToScalar( 0.0 );
-    const double referenceTemperature = 301.0;
-    //    temperatureVec->addScalar( *temperatureVec, referenceTemperature );
-    temperatureVec->addScalar( *temperatureVec, 1.0 );
+    const double initialTemperature = 301.0;
+    temperatureVec->addScalar( *temperatureVec, initialTemperature );
+    const double initialDisplacement = 1.0e-04;
+    displacementVec->addScalar( *displacementVec, initialDisplacement );
 
     // Initial guess for mechanics must satisfy the displacement boundary conditions
     dirichletDispInVecOp->apply( nullVec, solVec );
@@ -152,13 +138,11 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     // getJacobianParams and so it need not be called. So, any of the following
     // apply calls will work:
     nonlinearThermoMechanicsOperator->apply( solVec, resVec );
-    linearThermoMechanicsOperator->reset(
-        nonlinearThermoMechanicsOperator->getParameters( "Jacobian", solVec ) );
 
+    resVec->setToScalar( 0.0 );
     rhsVec->setToScalar( 0.0 );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
-    auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
 
     // initialize the nonlinear solver
     auto nonlinearSolverParams =
