@@ -13,6 +13,13 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
 {
     PROFILE( "CSRMatrixCommunicator::sendMatrices" );
 
+    if ( MIGRATE_DEV ) {
+        migrateToHost( matrices );
+        d_migrate_comm->sendMatrices( d_send_mat_migrate );
+        d_send_called = true;
+        return;
+    }
+
     // At present we allow that the held communication list refer to a
     // super-set of the communications that need to be sent. First count
     // how many sources we actually expect
@@ -92,6 +99,14 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
     AMP_INSIST( d_send_called,
                 "CSRMatrixCommunicator::sendMatrices must be called before recvMatrices" );
 
+    if ( MIGRATE_DEV ) {
+        const auto host_blocks =
+            d_migrate_comm->recvMatrices( first_row, last_row, first_col, last_col );
+        d_send_called = false;
+        d_send_mat_migrate.clear();
+        return migrateFromHost( host_blocks );
+    }
+
     std::map<int, std::shared_ptr<localmatrixdata_t>> blocks;
     const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
 
@@ -138,6 +153,33 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
     // comm done, reset send flag in case this gets re-used
     d_send_called = false;
 
+    return blocks;
+}
+
+template<typename Config>
+void CSRMatrixCommunicator<Config>::migrateToHost(
+    const std::map<int, std::shared_ptr<CSRLocalMatrixData<Config>>> &matrices )
+{
+    for ( auto it : matrices ) {
+        const int dest = it.first;
+        auto matrix    = it.second;
+        d_send_mat_migrate.insert( { dest, matrix->template migrate<ConfigHost>() } );
+    }
+}
+
+template<typename Config>
+std::map<int, std::shared_ptr<CSRLocalMatrixData<Config>>>
+CSRMatrixCommunicator<Config>::migrateFromHost(
+    const std::
+        map<int, std::shared_ptr<CSRLocalMatrixData<typename Config::set_alloc<alloc::host>::type>>>
+            &matrices )
+{
+    std::map<int, std::shared_ptr<localmatrixdata_t>> blocks;
+    for ( auto it : matrices ) {
+        const int src = it.first;
+        auto matrix   = it.second;
+        blocks.insert( { src, matrix->template migrate<Config>() } );
+    }
     return blocks;
 }
 
