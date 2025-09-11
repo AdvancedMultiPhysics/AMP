@@ -8,4 +8,3 @@ ENDIF()
 INSTALL_AMP_TARGET( time_integrators )
 
 ADD_SUBDIRECTORY( test )
-
