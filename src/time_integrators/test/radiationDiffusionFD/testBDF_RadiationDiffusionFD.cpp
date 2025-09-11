@@ -144,7 +144,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
     // Create initial condition vector
     auto ic = myRadDifOp->createInputVector();
-    myRadDifOp->fillMultiVectorWithFunction( ic, icFun );
+    myRadDifOp->d_meshOps->fillMultiVectorWithFunction( ic, icFun );
     ic->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // Create vectors to hold current and new solution (when integrating)
@@ -245,7 +245,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
             // Set the solution-independent source term; note that this approach only works for implicit multistep methods
             myRadDifModel->setCurrentTime( T + dt ); // Set model to new time---this ensures the source term and Robin values are sampled at the new time.
             // Fill BDF source vector with sol-independent PDE source term
-            myRadDifOp->fillMultiVectorWithFunction( BDFSourceVec, PDESourceFun );
+            myRadDifOp->d_meshOps->fillMultiVectorWithFunction( BDFSourceVec, PDESourceFun );
 
             // Attempt to advance the solution with the current dt, getting return code from solver.
             auto solver_retcode = timeIntegrator->advanceSolution( dt, T == 0.0, sol_old, sol_new );
@@ -271,7 +271,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
         /* Compare numerical solution with manufactured solution */
         if ( myRadDifModel->exactSolutionAvailable() ) {
             myRadDifModel->setCurrentTime( T );
-            myRadDifOp->fillMultiVectorWithFunction( manSolVec, uexactFun );
+            myRadDifOp->d_meshOps->fillMultiVectorWithFunction( manSolVec, uexactFun );
             errorVec->subtract( *sol_new, *manSolVec );
             AMP::pout << "----------------------------------------" << std::endl;
             AMP::pout << "Manufactured discretization error norms:" << std::endl;
