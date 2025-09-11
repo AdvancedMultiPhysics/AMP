@@ -39,6 +39,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
+    AMP::pout << "Running test for input " << input_file << std::endl;
 
     AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
     auto mesh_db    = input_db->getDatabase( "Mesh" );
@@ -105,21 +106,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     referenceTemperatureVec->setToScalar( 300.0 );
     mechanicsVolumeOperator->setReferenceTemperature( referenceTemperatureVec );
 
-    // now construct the linear BVP operator for mechanics
-    AMP_INSIST( input_db->keyExists( "testLinearMechanicsOperator" ), "key missing!" );
-    auto linearMechanicsOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
-        nonlinearMechanicsOperator->getParameters( "Jacobian", nullptr ) );
-
-    // now construct the linear BVP operator for thermal
-    AMP_INSIST( input_db->keyExists( "testLinearThermalOperator" ), "key missing!" );
-    auto linearThermalOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
-        nonlinearThermalOperator->getParameters( "Jacobian", nullptr ) );
-
-    // create a column operator object for linear thermomechanics
-    auto linearThermoMechanicsOperator = std::make_shared<AMP::Operator::ColumnOperator>();
-    linearThermoMechanicsOperator->append( linearMechanicsOperator );
-    linearThermoMechanicsOperator->append( linearThermalOperator );
-
     // Initial-Guess for mechanics
     auto dirichletDispInVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator( mesh, "MechanicsInitialGuess", input_db ) );
@@ -133,9 +119,12 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     dirichletThermalInVecOp->setVariable( temperatureVar );
 
     // Random initial guess
+    //    solVec->setRandomValues();
     solVec->setToScalar( 0.0 );
-    const double referenceTemperature = 301.0;
-    temperatureVec->addScalar( *temperatureVec, referenceTemperature );
+    const double initialTemperature = 301.0;
+    temperatureVec->addScalar( *temperatureVec, initialTemperature );
+    const double initialDisplacement = 1.0e-04;
+    displacementVec->addScalar( *displacementVec, initialDisplacement );
 
     // Initial guess for mechanics must satisfy the displacement boundary conditions
     dirichletDispInVecOp->apply( nullVec, solVec );
@@ -148,16 +137,12 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     // The thermal operator does not expect an apply to be called before calling
     // getJacobianParams and so it need not be called. So, any of the following
     // apply calls will work:
-    // mechanicsVolumeOperator->apply(nullVec, solVec, resVec, 1.0, 0.0);
-    // nonlinearMechanicsOperator->apply(nullVec, solVec, resVec, 1.0, 0.0);
     nonlinearThermoMechanicsOperator->apply( solVec, resVec );
-    linearThermoMechanicsOperator->reset(
-        nonlinearThermoMechanicsOperator->getParameters( "Jacobian", solVec ) );
 
+    resVec->setToScalar( 0.0 );
     rhsVec->setToScalar( 0.0 );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
-    auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
 
     // initialize the nonlinear solver
     auto nonlinearSolverParams =
@@ -168,37 +153,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     nonlinearSolverParams->d_pOperator     = nonlinearThermoMechanicsOperator;
     nonlinearSolverParams->d_pInitialGuess = solVec;
     auto nonlinearSolver = std::make_shared<AMP::Solver::PetscSNESSolver>( nonlinearSolverParams );
-
-    // initialize the column preconditioner which is a diagonal block preconditioner
-    auto columnPreconditioner_db = linearSolver_db->getDatabase( "Preconditioner" );
-    auto columnPreconditionerParams =
-        std::make_shared<AMP::Solver::SolverStrategyParameters>( columnPreconditioner_db );
-    columnPreconditionerParams->d_pOperator = linearThermoMechanicsOperator;
-    auto columnPreconditioner =
-        std::make_shared<AMP::Solver::ColumnSolver>( columnPreconditionerParams );
-
-    auto mechanicsPreconditioner_db =
-        columnPreconditioner_db->getDatabase( "mechanicsPreconditioner" );
-    auto mechanicsPreconditionerParams =
-        std::make_shared<AMP::Solver::SolverStrategyParameters>( mechanicsPreconditioner_db );
-    mechanicsPreconditionerParams->d_pOperator = linearMechanicsOperator;
-    auto linearMechanicsPreconditioner =
-        std::make_shared<AMP::Solver::TrilinosMLSolver>( mechanicsPreconditionerParams );
-
-    auto thermalPreconditioner_db = columnPreconditioner_db->getDatabase( "thermalPreconditioner" );
-    auto thermalPreconditionerParams =
-        std::make_shared<AMP::Solver::SolverStrategyParameters>( thermalPreconditioner_db );
-    thermalPreconditionerParams->d_pOperator = linearThermalOperator;
-    auto linearThermalPreconditioner =
-        std::make_shared<AMP::Solver::TrilinosMLSolver>( thermalPreconditionerParams );
-
-    columnPreconditioner->append( linearMechanicsPreconditioner );
-    columnPreconditioner->append( linearThermalPreconditioner );
-
-    // register the preconditioner with the Jacobian free Krylov solver
-    auto linearSolver = nonlinearSolver->getKrylovSolver();
-
-    linearSolver->setNestedSolver( columnPreconditioner );
 
     nonlinearThermoMechanicsOperator->residual( rhsVec, solVec, resVec );
     double initialResidualNorm = static_cast<double>( resVec->L2Norm() );
