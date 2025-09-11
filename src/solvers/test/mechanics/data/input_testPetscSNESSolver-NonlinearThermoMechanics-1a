@@ -3,7 +3,7 @@ Mesh{
     MeshName = "cylinder"
     MeshType = "AMP"
     Generator = "cylinder"
-    Size = 1, 8
+    Size = 16, 8
     Range = 1, -2, 2
     surfaceIds = 1, 1, 1, 1, 2, 3
     static = TRUE
@@ -266,10 +266,8 @@ ThermalInitialGuess {
 NonlinearSolver{
   print_info_level = 2
     max_iterations = 100
-    max_error = 1e-10
-
-    absolute_tolerance = 1.0e-16
-    relative_tolerance = 1.0e-16
+    absolute_tolerance = 1.0e-12
+    relative_tolerance = 1.0e-09
     stepTolerance = 1.0e-16
     maximumFunctionEvals = 1000
     usesJacobian=FALSE
@@ -280,9 +278,8 @@ NonlinearSolver{
         name = "PetscKrylovSolver"
         print_info_level = 10
         max_iterations = 100
-        max_error = 1e-10
         ksp_type = "fgmres"
-        absolute_tolerance = 1.0e-9
+        absolute_tolerance = 1.0e-12
         relative_tolerance = 0.1
         divergence_tolerance = 1.0e03
         max_krylov_dimension = 40
@@ -296,7 +293,6 @@ NonlinearSolver{
             name = "ColumnSolver"
             print_info_level = 1
             max_iterations = 1
-            max_error = 1e-10
             absolute_tolerance = 1.0e-16
             relative_tolerance = 1.0e-02
             divergence_tolerance = 1.0e03
@@ -306,7 +302,6 @@ NonlinearSolver{
                 name = "TrilinosMLSolver"
                 print_info_level = 1
                 max_iterations = 1
-                max_error = 1.0e-15
             }
 
             mechanicsPreconditioner{
@@ -314,7 +309,6 @@ NonlinearSolver{
               print_info_level = 1
               PDE_equations = 3
               max_iterations = 1
-              max_error = 1.0e-15
               aggregationtype = "Uncoupled"
               smoothertype = "Chebyshev"
               smoother_sweeps = 3

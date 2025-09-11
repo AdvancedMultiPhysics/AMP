@@ -3,7 +3,7 @@ Mesh{
     MeshName = "cylinder"
     MeshType = "AMP"
     Generator = "cylinder"
-    Size = 1, 8
+    Size = 16, 8
     Range = 1, -2, 2
     surfaceIds = 1, 1, 1, 1, 2, 3
     static = TRUE
