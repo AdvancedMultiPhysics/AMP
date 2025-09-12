@@ -3,7 +3,7 @@ Mesh{
     MeshName = "cylinder"
     MeshType = "AMP"
     Generator = "cylinder"
-    Size = 1, 8
+    Size = 16, 8
     Range = 1, -2, 2
     surfaceIds = 1, 1, 1, 1, 2, 3
     static = TRUE
@@ -261,7 +261,7 @@ NonlinearSolver{
     max_error = 1e-10
 
     absolute_tolerance = 1.0e-16
-    relative_tolerance = 1.0e-11
+    relative_tolerance = 1.0e-9
     stepTolerance = 1.0e-16
     maximumFunctionEvals = 1000
     usesJacobian=FALSE

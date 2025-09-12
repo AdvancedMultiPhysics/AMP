@@ -29,7 +29,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
     std::string log_file   = "log_" + exeName;
-
+    AMP::pout << "Running test with input " << input_file << std::endl;
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
@@ -209,7 +209,7 @@ int testUpdatedLagrangianMechanics_LinearElasticity_2( int argc, char *argv[] )
     AMP::UnitTest ut;
 
     std::vector<std::string> exeNames;
-    // exeNames.push_back("testUpdatedLagrangianMechanics-LinearElasticity-2");
+    //    exeNames.emplace_back( "testUpdatedLagrangianMechanics-LinearElasticity-2" );
     exeNames.emplace_back( "testUpdatedLagrangianMechanics-LinearElasticity-3" );
 
     for ( auto &exeName : exeNames )
