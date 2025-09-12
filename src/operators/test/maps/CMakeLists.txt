@@ -1,15 +1,12 @@
 INITIALIZE_TESTBUILDER()
 
-
 # Add node-node tests
 ADD_TB_TEST_1_2_4( testNodeToNodeMap inputNodeToNodeMap-1 )
 COPY_TEST_FILE( inputNodeToNodeMap-1 )
 
-
 # Test strided z axis map
 ADD_TB_TEST( testStridedZAxisMap )
 COPY_TEST_FILE( input_testStridedZAxisMap )
-
 
 # Test maps that use libmesh
 IF ( AMP_DATA AND USE_LIBMESH )
@@ -36,6 +33,5 @@ IF ( AMP_DATA AND USE_LIBMESH )
     COPY_TEST_FILE( inputSubchannelToCladMap-1 )
 
 ENDIF()
-
 
 FINALIZE_TESTBUILDER()

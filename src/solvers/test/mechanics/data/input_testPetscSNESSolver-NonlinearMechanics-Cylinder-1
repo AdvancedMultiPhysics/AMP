@@ -156,20 +156,19 @@ DummyDatabase {
 }
 
 NonlinearSolver{
-  print_info_level = 2 
+    print_info_level = 2 
     max_iterations = 100
-    max_error = 1e-10
-
     absolute_tolerance = 1.0e-12
     relative_tolerance = 1.0e-12
     stepTolerance = 1.0e-13
     maximumFunctionEvals = 10000
     usesJacobian=FALSE
 
-    SNESOptions = "-snes_monitor -snes_type ls -snes_ksp_ew -snes_converged_reason -snes_ls_alpha 1.0e-4"
+    SNESOptions = "-snes_monitor -snes_type ls -snes_ksp_ew -snes_converged_reason -snes_ls_alpha 1.0e-2"
 
     LinearSolver{
-      print_info_level = 1
+        name = "PetscKrylovSolver"
+        print_info_level = 1
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-12
         relative_tolerance = 1.0e-12
@@ -182,10 +181,10 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100"
 
         Preconditioner {
-          print_info_level = 1
+            name = "TrilinosMLSolver"
+            print_info_level = 1
             PDE_equations = 3
             max_iterations = 1
-            max_error = 1.0e-15
         }
     }
 }
