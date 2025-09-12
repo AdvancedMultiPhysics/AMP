@@ -188,7 +188,6 @@ static inline double dot4( const int128_t *x, const uint64_t *y )
 static int test_in_circumsphere( const std::array<int, 2> x[], const std::array<int, 2> &xi )
 {
     // Solve the sub-determinants (requires N^2 precision)
-    double R2 = 0.0;
     int64_t det2[3];
     uint64_t R[3] = { 0, 0, 0 };
     for ( int d = 0; d <= 2; d++ ) {
@@ -201,7 +200,6 @@ static int test_in_circumsphere( const std::array<int, 2> x[], const std::array<
             for ( int i = d + 1; i <= 2; i++ )
                 A2[i - 1 + j * 2] = x[i][j] - xi[j];
         }
-        R2 += static_cast<double>( R[d] );
         det2[d] = DelaunayHelpers::det2<2>( A2 );
         if ( ( 2 + d ) % 2 == 1 )
             det2[d] = -det2[d];
@@ -219,7 +217,6 @@ static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<
 {
     using ETYPE = typename getETYPE<3, int>::ETYPE;
     // Solve the sub-determinants (requires N^3 precision)
-    double R2 = 0.0;
     ETYPE det2[4];
     uint64_t R[4] = { 0, 0, 0, 0 };
     for ( int d = 0; d <= 3; d++ ) {
@@ -232,7 +229,6 @@ static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<
             for ( int i = d + 1; i <= 3; i++ )
                 A2[i - 1 + j * 3] = x[i][j] - xi[j];
         }
-        R2 += static_cast<double>( R[d] );
         det2[d] = DelaunayHelpers::det2<3>( A2 );
         if ( ( 3 + d ) % 2 == 1 )
             det2[d] = -det2[d];
