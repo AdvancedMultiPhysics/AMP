@@ -3,7 +3,7 @@ Mesh{
     MeshName = "cylinder"
     MeshType = "AMP"
     Generator = "cylinder"
-    Size = 1, 8
+    Size = 16, 8
     Range = 1, -2, 2
     surfaceIds = 1, 1, 1, 1, 2, 3
     static = TRUE
@@ -256,12 +256,12 @@ ThermalInitialGuess {
 }
 
 NonlinearSolver{
-  print_info_level = 2
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
     absolute_tolerance = 1.0e-16
-    relative_tolerance = 1.0e-11
+    relative_tolerance = 1.0e-9
     stepTolerance = 1.0e-16
     maximumFunctionEvals = 1000
     usesJacobian=FALSE
@@ -269,7 +269,8 @@ NonlinearSolver{
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
 
     LinearSolver{
-      print_info_level = 10
+        name = "PetscKrylovSolver"
+        print_info_level = 10
         max_iterations = 100
         max_error = 1e-10
         ksp_type = "fgmres"
@@ -284,24 +285,24 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100"
 
         Preconditioner{
-          print_info_level = 1
+            name = "ColumnSolver"
+            print_info_level = 1
             max_iterations = 1
-            max_error = 1e-10
             absolute_tolerance = 1.0e-16
             relative_tolerance = 1.0e-01
             divergence_tolerance = 1.0e03
-
+            solvers = "thermalPreconditioner", "mechanicsPreconditioner"
             thermalPreconditioner{
+              name = "TrilinosMLSolver"
               print_info_level = 1
-                max_iterations = 1
-                max_error = 1.0e-15
+              max_iterations = 1
             }
 
-          mechanicsPreconditioner{
-            print_info_level = 1
+            mechanicsPreconditioner{
+              name = "TrilinosMLSolver"
+              print_info_level = 1
               PDE_equations = 3
               max_iterations = 1
-              max_error = 1.0e-15
               aggregationtype = "Uncoupled"
               smoothertype = "Chebyshev"
               smoother_sweeps = 3
