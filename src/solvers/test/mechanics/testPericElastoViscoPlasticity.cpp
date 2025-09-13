@@ -228,7 +228,7 @@ int testPericElastoViscoPlasticity( int argc, char *argv[] )
     AMP::UnitTest ut;
 
     std::vector<std::string> exeNames;
-    exeNames.push_back( "testPericElastoViscoPlasticity-1" );
+    exeNames.emplace_back( "testPericElastoViscoPlasticity-1" );
     exeNames.emplace_back( "testPericElastoViscoPlasticity-2" );
 
     for ( auto &exeName : exeNames )

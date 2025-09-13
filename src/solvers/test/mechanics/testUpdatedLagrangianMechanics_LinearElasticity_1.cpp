@@ -36,6 +36,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
+    AMP::pout << "Running test with input " << input_file << std::endl;
+
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
