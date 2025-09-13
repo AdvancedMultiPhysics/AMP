@@ -166,13 +166,13 @@ NonlinearSolver{
     LinearSolver{
         name = "PetscKrylovSolver"
         print_info_level = 1
-        max_iterations = 10
+        max_iterations = 100
         max_error = 1e-10
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
         relative_tolerance = 1.0e-13
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 100
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
