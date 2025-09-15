@@ -41,6 +41,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     std::string output_file = "output_" + exeName + ".txt";
     std::string log_file    = "log_" + exeName;
 
+    AMP::pout << "Running test with input " << input_file << std::endl;
+
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
@@ -51,12 +53,17 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     //--------------------------------------------------
     //   Create the Mesh.
     //--------------------------------------------------
-    AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
-    auto mesh_db    = input_db->getDatabase( "Mesh" );
-    auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
-    meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
-
+    std::shared_ptr<AMP::Mesh::Mesh> mesh;
+    if ( input_db->keyExists( "mesh_file" ) ) {
+        auto mesh_file = input_db->getString( "mesh_file" );
+        mesh           = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
+    } else {
+        AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
+        auto mesh_db    = input_db->getDatabase( "Mesh" );
+        auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
+        meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
+        mesh = AMP::Mesh::MeshFactory::create( meshParams );
+    }
     AMP_INSIST( input_db->keyExists( "NumberOfLoadingSteps" ),
                 "Key ''NumberOfLoadingSteps'' is missing!" );
     int NumberOfLoadingSteps = input_db->getScalar<int>( "NumberOfLoadingSteps" );
@@ -106,20 +113,10 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     dirichletLoadVecOp->apply( nullVec, rhsVec );
     nonlinearMechanicsBVPoperator->modifyRHSvector( rhsVec );
 
-    // Create a Linear BVP operator for mechanics
-    auto linearMechanicsBVPoperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
-        nonlinearMechanicsBVPoperator->getParameters( "Jacobian", nullptr ) );
-
     // We need to reset the linear operator before the solve since TrilinosML does
     // the factorization of the matrix during construction and so the matrix must
     // be correct before constructing the TrilinosML object.
     nonlinearMechanicsBVPoperator->apply( solVec, resVec );
-    linearMechanicsBVPoperator->reset(
-        nonlinearMechanicsBVPoperator->getParameters( "Jacobian", solVec ) );
-
-    double epsilon =
-        1.0e-13 *
-        static_cast<double>( linearMechanicsBVPoperator->getMatrix()->extractDiagonal()->L1Norm() );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
 
@@ -206,10 +203,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         mesh->displaceMesh( solVec );
     }
 
-    AMP::pout << "epsilon = " << epsilon << std::endl;
-
-    //    AMP::pout << solVec << std::endl;
-
     mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
 
     ut->passes( exeName );
@@ -223,7 +216,7 @@ int testPericElastoViscoPlasticity_LoadPrescribed( int argc, char *argv[] )
     std::vector<std::string> exeNames;
     // exeNames.push_back("testPericElastoViscoPlasticity-1");
     exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-1" );
-    //    exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-2" );
+    exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-2" );
 
     for ( auto &exeName : exeNames )
         myTest( &ut, exeName );
