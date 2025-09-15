@@ -133,9 +133,9 @@ void linearThermalTest( AMP::UnitTest *ut,
     input_db->print( AMP::plog );
 
     // Print from all cores into the output files
-    auto logFile = AMP::Utilities::stringf( "output_testLinSolveRobin_r%03i",
-                                            AMP::AMPManager::getCommWorld().getSize() );
-    AMP::logAllNodes( logFile );
+    // auto logFile = AMP::Utilities::stringf( "output_testLinSolveRobin_r%03i",
+    //                                         AMP::AMPManager::getCommWorld().getSize() );
+    // AMP::logAllNodes( logFile );
 
     auto nReps = input_db->getWithDefault<int>( "repetitions", 1 );
     AMP::pout << std::endl
