@@ -10,8 +10,7 @@ IF ( USE_MOAB )
     ADD_PACKAGE_SUBDIRECTORY( moab )
 ENDIF()
 IF ( USE_TRILINOS_STKCLASSIC )
-    # stk interface is broken due to extensive changes in Trilinos
-    # ADD_PACKAGE_SUBDIRECTORY( STKmesh )
+    # stk interface is broken due to extensive changes in Trilinos ADD_PACKAGE_SUBDIRECTORY( STKmesh )
 ENDIF()
 INSTALL_AMP_TARGET( mesh )
 
@@ -20,4 +19,3 @@ ADD_SUBDIRECTORY( test )
 
 # Add the examples
 ADD_SUBDIRECTORY( examples )
-

@@ -80,8 +80,49 @@ std::vector<std::string> getHypreMemorySpaces()
 }
 #endif
 
+std::tuple<std::shared_ptr<AMP::Operator::LinearOperator>,
+           std::shared_ptr<AMP::LinearAlgebra::Vector>,
+           std::shared_ptr<AMP::LinearAlgebra::Vector>>
+constructLinearSystem( std::string physicsFileName )
+{
+    PROFILE( "DRIVER::linearThermalPhysics" );
+
+    // Fill the database from the input file.
+    auto input_db = AMP::Database::parseInputFile( physicsFileName );
+
+    auto neutronicsOp_db = input_db->getDatabase( "NeutronicsOperator" );
+    auto volumeOp_db     = input_db->getDatabase( "VolumeIntegralOperator" );
+
+    // Create the Mesh
+    const auto mesh = createMesh( input_db );
+
+    auto PowerInWattsVec = constructNeutronicsPowerSource( input_db, mesh );
+
+    // Set appropriate acceleration backend
+    auto op_db = input_db->getDatabase( "DiffusionBVPOperator" );
+    // Create the Thermal BVP Operator
+    auto diffusionOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "DiffusionBVPOperator", input_db ) );
+
+    auto linearOp               = diffusionOperator->getVolumeOperator();
+    auto TemperatureInKelvinVec = linearOp->createOutputVector();
+    auto RightHandSideVec       = linearOp->createInputVector();
+
+    auto boundaryOpCorrectionVec = RightHandSideVec->clone();
+
+    // Add the boundary conditions corrections
+    auto boundaryOp = diffusionOperator->getBoundaryOperator();
+    boundaryOp->addRHScorrection( boundaryOpCorrectionVec );
+    RightHandSideVec->subtract( *PowerInWattsVec, *boundaryOpCorrectionVec );
+
+    return std::make_tuple( linearOp, TemperatureInKelvinVec, RightHandSideVec );
+}
+
 void linearThermalTest( AMP::UnitTest *ut,
                         const std::string &inputFileName,
+                        std::tuple<std::shared_ptr<AMP::Operator::LinearOperator>,
+                                   std::shared_ptr<AMP::LinearAlgebra::Vector>,
+                                   std::shared_ptr<AMP::LinearAlgebra::Vector>> linearSystem,
                         std::string &accelerationBackend,
                         std::string &memoryLocation )
 {
@@ -110,37 +151,14 @@ void linearThermalTest( AMP::UnitTest *ut,
         return;
     }
 
-    auto neutronicsOp_db = input_db->getDatabase( "NeutronicsOperator" );
-    auto volumeOp_db     = input_db->getDatabase( "VolumeIntegralOperator" );
+    auto [linearOperator, sol, rhs] = linearSystem;
 
-    // Create the Mesh
-    const auto mesh = createMesh( input_db );
-
-    auto PowerInWattsVec = constructNeutronicsPowerSource( input_db, mesh );
-
-    // Set appropriate acceleration backend
-    auto op_db = input_db->getDatabase( "DiffusionBVPOperator" );
-    // Create the Thermal BVP Operator
-    auto diffusionOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator( mesh, "DiffusionBVPOperator", input_db ) );
-
-    auto linearOp               = diffusionOperator->getVolumeOperator();
-    auto TemperatureInKelvinVec = linearOp->createOutputVector();
-    auto RightHandSideVec       = linearOp->createInputVector();
-
-    auto boundaryOpCorrectionVec = RightHandSideVec->clone();
-
-    // Add the boundary conditions corrections
-    auto boundaryOp = diffusionOperator->getBoundaryOperator();
-    boundaryOp->addRHScorrection( boundaryOpCorrectionVec );
-    RightHandSideVec->subtract( *PowerInWattsVec, *boundaryOpCorrectionVec );
-
-    auto &comm     = mesh->getComm();
+    auto &comm     = rhs->getComm();
     auto solver_db = input_db->getDatabase( "LinearSolver" );
     solver_db->putScalar( "MemoryLocation", memoryLocation );
     auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
 
-    std::shared_ptr<AMP::Operator::LinearOperator> migratedOperator = diffusionOperator;
+    std::shared_ptr<AMP::Operator::LinearOperator> migratedOperator = linearOperator;
 
     if ( memoryLocation != "host" ) {
 
@@ -154,7 +172,7 @@ void linearThermalTest( AMP::UnitTest *ut,
 
         auto opParams       = std::make_shared<AMP::Operator::OperatorParameters>( op_db );
         migratedOperator    = std::make_shared<AMP::Operator::LinearOperator>( opParams );
-        auto matrix         = diffusionOperator->getMatrix();
+        auto matrix         = linearOperator->getMatrix();
         auto migratedMatrix = AMP::LinearAlgebra::createMatrix( matrix, mem_loc );
         migratedOperator->setMatrix( migratedMatrix );
         migratedOperator->setVariables( inVar, outVar );
@@ -165,15 +183,15 @@ void linearThermalTest( AMP::UnitTest *ut,
 
     auto t1 = std::chrono::high_resolution_clock::now();
 
-    auto op_mem_loc = diffusionOperator->getMemoryLocation();
+    auto op_mem_loc = linearOperator->getMemoryLocation();
     std::shared_ptr<AMP::LinearAlgebra::Vector> u, f;
     if ( op_mem_loc != mem_loc ) {
-        u = AMP::LinearAlgebra::createVector( TemperatureInKelvinVec, mem_loc );
-        f = AMP::LinearAlgebra::createVector( RightHandSideVec, mem_loc );
-        f->copyVector( RightHandSideVec );
+        u = AMP::LinearAlgebra::createVector( sol, mem_loc );
+        f = AMP::LinearAlgebra::createVector( rhs, mem_loc );
+        f->copyVector( rhs );
     } else {
-        u = TemperatureInKelvinVec;
-        f = RightHandSideVec;
+        u = sol;
+        f = rhs;
     }
 
 
@@ -202,6 +220,57 @@ void linearThermalTest( AMP::UnitTest *ut,
               << 1e-3 * to_ms( t2 - t1 ) / nReps << " s)" << std::endl;
 }
 
+void runTestOnInputs( AMP::UnitTest *ut,
+                      const std::string &physicsInput,
+                      std::vector<std::string> generalInputs,
+                      std::vector<std::string> deviceInputs,
+                      std::vector<std::string> hostOnlyInputs,
+                      std::vector<std::string> managedInputs )
+{
+
+    auto linearSystem = constructLinearSystem( physicsInput );
+
+    {
+        PROFILE( "DRIVER::main(test loop for all backends on device memory)" );
+        auto backendsAndMemory = getBackendsAndMemory( "device" );
+
+        auto inputs = deviceInputs;
+        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
+
+        for ( auto &file : inputs ) {
+            for ( auto &[backend, memory] : backendsAndMemory )
+                linearThermalTest( ut, file, linearSystem, backend, memory );
+        }
+    }
+
+    {
+        PROFILE( "DRIVER::main(test loop for backends on host and managed memory)" );
+
+        auto backendsAndMemory = getBackendsAndMemory( "managed" );
+        auto inputs            = managedInputs;
+        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
+
+        for ( auto &file : inputs ) {
+            for ( auto &[backend, memory] : backendsAndMemory )
+                linearThermalTest( ut, file, linearSystem, backend, memory );
+        }
+    }
+
+    {
+        PROFILE( "DRIVER::main(test loop for host backends and memory)" );
+        auto backendsAndMemory = getBackendsAndMemory( "host" );
+
+        auto inputs = hostOnlyInputs;
+        inputs.insert( inputs.end(), managedInputs.begin(), managedInputs.end() );
+        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
+
+        for ( auto &file : inputs ) {
+            for ( auto &[backend, memory] : backendsAndMemory )
+                linearThermalTest( ut, file, linearSystem, backend, memory );
+        }
+    }
+}
+
 int main( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
@@ -211,20 +280,26 @@ int main( int argc, char *argv[] )
     std::vector<std::string> deviceInputs;
     std::vector<std::string> hostOnlyInputs;
     std::vector<std::string> managedInputs;
+    std::vector<std::string> hypreInputs;
+
+    std::string physicsInput;
 
     PROFILE_ENABLE();
 
-    if ( argc > 1 ) {
+    auto hypre_memspaces = getHypreMemorySpaces();
 
-        for ( int i = 1; i < argc; i++ )
+    if ( argc > 2 ) {
+        physicsInput = argv[1];
+        for ( int i = 2; i < argc; i++ )
             generalInputs.emplace_back( argv[i] );
 
     } else {
 
+        physicsInput = "input_LinearThermalRobinOperator";
+
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CG" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-IPCG" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FCG" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-CG" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRES" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FGMRES" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BiCGSTAB" );
@@ -276,8 +351,6 @@ int main( int argc, char *argv[] )
 #endif
 
 #ifdef AMP_USE_HYPRE
-        std::vector<std::string> hypreInputs;
-
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreBiCGSTAB" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreGMRES" );
@@ -294,9 +367,6 @@ int main( int argc, char *argv[] )
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-IPCG" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FCG" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG-FCG" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG-CG" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRES" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FGMRES" );
         hypreInputs.emplace_back(
@@ -318,8 +388,6 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES" );
         hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
-
-        auto hypre_memspaces = getHypreMemorySpaces();
 
         if ( hypre_memspaces.size() == 1 ) {
             if ( hypre_memspaces[0] == "device" ) {
@@ -389,46 +457,41 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-MueLu-PetscBiCGSTAB" );
     #endif
 #endif
+        runTestOnInputs(
+            &ut, physicsInput, generalInputs, deviceInputs, hostOnlyInputs, managedInputs );
     }
 
     {
-        PROFILE( "DRIVER::main(test loop for all backends on device memory)" );
-        auto backendsAndMemory = getBackendsAndMemory( "device" );
+        generalInputs.clear();
+        deviceInputs.clear();
+        managedInputs.clear();
+        hostOnlyInputs.clear();
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-CG" );
 
-        auto inputs = deviceInputs;
-        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
+#ifdef AMP_USE_HYPRE
+        hypreInputs.clear();
+        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG" );
+        hypreInputs.emplace_back(
+            "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG-CG" );
 
-        for ( auto &file : inputs ) {
-            for ( auto &[backend, memory] : backendsAndMemory )
-                linearThermalTest( &ut, file, backend, memory );
+        if ( hypre_memspaces.size() == 1 ) {
+            if ( hypre_memspaces[0] == "device" ) {
+                deviceInputs.insert( deviceInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+            } else {
+                hostOnlyInputs.insert(
+                    hostOnlyInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+            }
+        } else {
+            managedInputs.insert( managedInputs.end(), hypreInputs.begin(), hypreInputs.end() );
         }
-    }
+#endif
 
-    {
-        PROFILE( "DRIVER::main(test loop for backends on host and managed memory)" );
-
-        auto backendsAndMemory = getBackendsAndMemory( "managed" );
-        auto inputs            = managedInputs;
-        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
-
-        for ( auto &file : inputs ) {
-            for ( auto &[backend, memory] : backendsAndMemory )
-                linearThermalTest( &ut, file, backend, memory );
-        }
-    }
-
-    {
-        PROFILE( "DRIVER::main(test loop for host backends and memory)" );
-        auto backendsAndMemory = getBackendsAndMemory( "host" );
-
-        auto inputs = hostOnlyInputs;
-        inputs.insert( inputs.end(), managedInputs.begin(), managedInputs.end() );
-        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
-
-        for ( auto &file : inputs ) {
-            for ( auto &[backend, memory] : backendsAndMemory )
-                linearThermalTest( &ut, file, backend, memory );
-        }
+        runTestOnInputs( &ut,
+                         "input_LinearThermalRobinOperator-CylMesh",
+                         generalInputs,
+                         deviceInputs,
+                         hostOnlyInputs,
+                         managedInputs );
     }
 
     ut.report();

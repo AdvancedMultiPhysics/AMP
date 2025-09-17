@@ -8,12 +8,10 @@ COPY_TEST_FILE( input_testMatVec-2 )
 FILE( COPY "${AMP_SOURCE_DIR}/mesh/test/data/input_AMP_mesh_zoo_3D" DESTINATION . )
 FILE( COPY "${AMP_SOURCE_DIR}/mesh/test/data/input_AMP_mesh_zoo_3D_hires" DESTINATION . )
 
-
 # Copy meshes
 IF ( AMP_DATA )
     COPY_MESH_FILE( pellet_1x.e )
 ENDIF()
-
 
 # Add matrix test
 ADD_AMP_TEST_1_2_4( test_Matrix )
@@ -30,21 +28,19 @@ ADD_AMP_TEST( test_getRow input_AMP_mesh_zoo_3D )
 ADD_AMP_TEST( test_getRow input_AMP_mesh_zoo_3D PROCS 4 )
 IF ( USE_DEVICE )
     SET_DEVICE_COMPILER( testMatCopyCast )
-IF ( USE_KOKKOS )
-    SET_DEVICE_COMPILER( testCompareCSRMatOps )
-    ADD_AMP_TEST_1_2_4( testCompareCSRMatOps GPU )
-ENDIF()
+    IF ( USE_KOKKOS )
+        SET_DEVICE_COMPILER( testCompareCSRMatOps )
+        ADD_AMP_TEST_1_2_4( testCompareCSRMatOps GPU )
+    ENDIF()
 ENDIF()
 
-IF( USE_LIBMESH AND AMP_DATA )
+IF ( USE_LIBMESH AND AMP_DATA )
     ADD_AMP_TEST_1_2_4( testMatCreate )
-    # This fails for PETSc at present due to a missing interface to getvecs
-    #    IF ( USE_TRILINOS OR USE_PETSC ) 
-    IF ( USE_TRILINOS ) 
+    # This fails for PETSc at present due to a missing interface to getvecs IF ( USE_TRILINOS OR USE_PETSC )
+    IF ( USE_TRILINOS )
         ADD_AMP_TEST_1_2_4( testMatVec )
     ENDIF()
 ENDIF()
-IF ( USE_TRILINOS ) 
+IF ( USE_TRILINOS )
     ADD_AMP_TEST( test_Epetra_FECrsMatrix_bug PROCS 2 )
 ENDIF()
-
