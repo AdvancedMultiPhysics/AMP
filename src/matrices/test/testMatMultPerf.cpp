@@ -29,8 +29,8 @@
 // profiling information regarding SpGEMMs with different matrix classes
 
 // Number of products to evaluate to average out timings
-#define NUM_PRODUCTS_NOREUSE 10
-#define NUM_PRODUCTS_REUSE 10
+#define NUM_PRODUCTS_NOREUSE 1
+#define NUM_PRODUCTS_REUSE 0
 
 size_t matMatTestWithDOFs( AMP::UnitTest *ut,
                            std::string type,

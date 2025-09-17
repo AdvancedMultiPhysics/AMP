@@ -26,6 +26,8 @@ template<typename C>
 class CSRMatrixCommunicator;
 template<typename C>
 class CSRMatrixSpGEMMDefault;
+template<typename C>
+class CSRMatrixSpGEMMDevice;
 
 template<typename Config>
 class CSRLocalMatrixData : public AMP::enable_shared_from_this<CSRLocalMatrixData<Config>>
@@ -39,6 +41,8 @@ public:
     friend class CSRMatrixCommunicator;
     template<typename C>
     friend class CSRMatrixSpGEMMDefault;
+    template<typename C>
+    friend class CSRMatrixSpGEMMDevice;
 
     using gidx_t         = typename Config::gidx_t;
     using lidx_t         = typename Config::lidx_t;

@@ -27,6 +27,12 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiply()
     } else {
         numericMultiply_NonOverlapped();
     }
+
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Default SpGEMM assembled" << std::endl;
+        C_diag->printStats( true, false );
+        C_offd->printStats( true, false );
+    }
 }
 
 template<typename Config>
@@ -861,6 +867,12 @@ void CSRMatrixSpGEMMDefault<Config>::endBRemoteComm()
     // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
     d_send_matrices.clear();
     d_recv_matrices.clear();
+
+    if ( comm.getRank() == 0 ) {
+        std::cout << "Default SpGEMM BRemote" << std::endl;
+        BR_diag->printStats( true, false );
+        BR_offd->printStats( true, false );
+    }
 
     // set flag that recv'd matrices are valid
     d_need_comms = false;
