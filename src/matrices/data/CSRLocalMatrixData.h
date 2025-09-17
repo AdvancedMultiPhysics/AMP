@@ -185,6 +185,9 @@ public:
     //! Print information about matrix block
     void printStats( bool verbose, bool show_zeros ) const;
 
+    //! Print all information in a matrix block
+    void printAll( bool force = false ) const;
+
     static std::shared_ptr<CSRLocalMatrixData>
     ConcatHorizontal( std::shared_ptr<MatrixParametersBase> params,
                       std::map<int, std::shared_ptr<CSRLocalMatrixData>> blocks );

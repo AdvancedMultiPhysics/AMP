@@ -82,10 +82,10 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
 
     C->assemble( true );
 
-    if ( comm.getRank() == 0 ) {
+    if ( comm.getRank() == 0 && false ) {
         std::cout << "Device SpGEMM assembled" << std::endl;
-        C_diag->printStats( true, false );
-        C_offd->printStats( true, false );
+        // C_diag->printStats( true, false );
+        C_offd->printAll();
     }
 }
 
@@ -105,7 +105,8 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
     // shapes of A and B
     const auto A_nrows = static_cast<int64_t>( A_data->numLocalRows() );
     const auto A_ncols = static_cast<int64_t>( A_data->numLocalColumns() );
-    auto B_ncols       = static_cast<int64_t>( B_data->numLocalColumns() );
+    const auto B_ncols = B_data->isDiag() ? static_cast<int64_t>( B_data->numLocalColumns() ) :
+                                            static_cast<int64_t>( B_data->numUniqueColumns() );
 
     // all fields from blocks involved
     lidx_t *A_rs = nullptr, *A_cols_loc = nullptr;
@@ -363,6 +364,12 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
         return;
     }
 
+    if ( !out->isDiag() && comm.getRank() == 0 && false ) {
+        std::cout << "Offd merge blocks:" << std::endl;
+        // inL->printAll();
+        inR->printAll();
+    }
+
     // pull out fields from blocks to merge and row pointers from output
     const auto num_rows = out->numLocalRows();
     AMP_ASSERT( num_rows == inL->numLocalRows() && num_rows == inR->numLocalRows() );
@@ -414,67 +421,6 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                                                                          out_coeffs );
         deviceSynchronize();
         getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
-    }
-
-    //// DEBUG
-    // migrate inputs and output all to host and walk through them piece by piece
-    using ConfigHost = typename Config::template set_alloc<alloc::host>::type;
-    auto inL_h       = inL->template migrate<ConfigHost>();
-    auto inR_h       = inR->template migrate<ConfigHost>();
-    auto out_h       = out->template migrate<ConfigHost>();
-
-    lidx_t *inL_h_rs, *inR_h_rs, *out_h_rs;
-    lidx_t *inL_h_cols_loc, *inR_h_cols_loc, *out_h_cols_loc;
-    gidx_t *inL_h_cols, *inR_h_cols, *out_h_cols;
-    scalar_t *inL_h_coeffs, *inR_h_coeffs, *out_h_coeffs;
-
-    std::tie( inL_h_rs, inL_h_cols, inL_h_cols_loc, inL_h_coeffs ) = inL_h->getDataFields();
-    std::tie( inR_h_rs, inR_h_cols, inR_h_cols_loc, inR_h_coeffs ) = inR_h->getDataFields();
-    std::tie( out_h_rs, out_h_cols, out_h_cols_loc, out_h_coeffs ) = out_h->getDataFields();
-
-    lidx_t num_missing = 0;
-    for ( lidx_t row = 0; row < num_rows; ++row ) {
-        // loop over A entries and check that they all exist in row
-        bool A_all_matched = true;
-        for ( auto A_ptr = inL_h_rs[row]; A_ptr < inL_h_rs[row + 1]; ++A_ptr ) {
-            const auto Ac = inL_h_cols[A_ptr];
-            bool matched  = false;
-            for ( auto C_ptr = out_h_rs[row]; C_ptr < out_h_rs[row + 1]; ++C_ptr ) {
-                const auto Cc = out_h_cols[C_ptr];
-                if ( Ac == Cc ) {
-                    matched = true;
-                    break;
-                }
-            }
-            A_all_matched = A_all_matched && matched;
-            if ( !matched ) {
-                ++num_missing;
-                AMP::pout << "Failed to match A col " << Ac << " in row " << row << std::endl;
-            }
-        }
-
-        // loop over B entries and check that they all exist in row
-        bool B_all_matched = true;
-        for ( auto B_ptr = inR_h_rs[row]; B_ptr < inR_h_rs[row + 1]; ++B_ptr ) {
-            const auto Bc = inR_h_cols[B_ptr];
-            bool matched  = false;
-            for ( auto C_ptr = out_h_rs[row]; C_ptr < out_h_rs[row + 1]; ++C_ptr ) {
-                const auto Cc = out_h_cols[C_ptr];
-                if ( Bc == Cc ) {
-                    matched = true;
-                    break;
-                }
-            }
-            B_all_matched = B_all_matched && matched;
-            if ( !matched ) {
-                ++num_missing;
-                AMP::pout << "Failed to match B col " << Bc << " in row " << row << std::endl;
-            }
-        }
-    }
-    AMP::pout << "Num missing is " << num_missing << std::endl;
-    if ( comm.getRank() == 0 ) {
-        AMP_ASSERT( num_missing == 0 );
     }
 }
 
@@ -595,12 +541,6 @@ void CSRMatrixSpGEMMDevice<Config>::endBRemoteComm()
     // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
     d_send_matrices.clear();
     d_recv_matrices.clear();
-
-    if ( comm.getRank() == 0 ) {
-        std::cout << "Device SpGEMM BRemote" << std::endl;
-        BR_diag->printStats( true, false );
-        BR_offd->printStats( true, false );
-    }
 }
 
 } // namespace AMP::LinearAlgebra

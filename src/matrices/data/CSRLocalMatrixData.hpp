@@ -829,6 +829,83 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
     std::cout << std::endl << std::endl;
 }
 
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::printAll( bool force ) const
+{
+    printStats( false, false );
+
+    // bail if total entries too large and force output not enabled
+    if ( d_nnz > 5000 && !force ) {
+        AMP_WARN_ONCE( "CSRLocalMatrixData::printAll: Skipping print due to to many non-zeros. "
+                       "Re-run with force=true to print anyway." );
+        return;
+    }
+
+    // bail if empty, no warning needed
+    if ( d_is_empty ) {
+        return;
+    }
+
+    const bool have_loc = ( d_cols_loc.get() != nullptr );
+    const bool have_gbl = ( d_cols.get() != nullptr );
+
+    // migrate fields to host if needed
+    std::vector<lidx_t> row_starts_h, cols_loc_h;
+    std::vector<gidx_t> cols_h, cols_unq_h;
+    std::vector<scalar_t> coeffs_h;
+    lidx_t *row_starts = nullptr, *cols_loc = nullptr;
+    gidx_t *cols = nullptr, *cols_unq = nullptr;
+    scalar_t *coeffs = nullptr;
+    if ( d_memory_location < AMP::Utilities::MemoryType::device ) {
+        row_starts = d_row_starts.get();
+        cols_loc   = d_cols_loc.get();
+        cols       = d_cols.get();
+        cols_unq   = d_cols_unq.get();
+        coeffs     = d_coeffs.get();
+    } else {
+        row_starts_h.resize( d_num_rows + 1, 0 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts_h.data() );
+        row_starts = row_starts_h.data();
+        if ( have_gbl ) {
+            cols_h.resize( d_nnz, 0 );
+            AMP::Utilities::copy( d_nnz, d_cols.get(), cols_h.data() );
+            cols = cols_h.data();
+        } else if ( !d_is_diag ) {
+            cols_unq_h.resize( d_ncols_unq, 0 );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq_h.data() );
+            cols_unq = cols_unq_h.data();
+        }
+        if ( have_loc ) {
+            cols_loc_h.resize( d_nnz, 0 );
+            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc_h.data() );
+            cols_loc = cols_loc_h.data();
+        }
+        coeffs_h.resize( d_nnz, 0 );
+        AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs_h.data() );
+        coeffs = coeffs_h.data();
+    }
+
+    // print all global columns and values row-by-row
+    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
+        // skip empty rows to avoid a bunch of blank newlines
+        if ( row_starts[row] < row_starts[row + 1] ) {
+            std::cout << "Row " << row << ": ";
+            for ( lidx_t c = row_starts[row]; c < row_starts[row + 1]; ++c ) {
+                lidx_t cl = have_loc ? cols_loc[c] : -1;
+                gidx_t cg;
+                if ( d_is_diag ) {
+                    cg = have_gbl ? cols[c] : d_first_col + static_cast<gidx_t>( cols_loc[c] );
+                } else {
+                    cg = have_gbl ? cols[c] : cols_unq[cols_loc[c]];
+                }
+                std::cout << "[" << cl << "|" << cg << "|" << coeffs[c] << "] ";
+            }
+            std::cout << std::endl;
+        }
+    }
+}
+
 template<typename Config>
 void CSRLocalMatrixData<Config>::getRowByGlobalID( const size_t local_row,
                                                    std::vector<size_t> &cols,
