@@ -78,6 +78,13 @@ class BDFRadDifOp;
 /** Static class bundling together boundary-related utility data structures and functionality */
 class FDBoundaryUtils {
 
+private:    
+    //! Keys used to access db constants
+    static constexpr std::string_view a_keys[] = {"a1", "a2", "a3", "a4", "a5", "a6"};
+    static constexpr std::string_view b_keys[] = {"b1", "b2", "b3", "b4", "b5", "b6"};
+    static constexpr std::string_view r_keys[] = {"r1", "r2", "r3", "r4", "r5", "r6"};
+    static constexpr std::string_view n_keys[] = {"n1", "n2", "n3", "n4", "n5", "n6"};
+
 //
 public:
     //! Prevent instantiation
@@ -117,7 +124,7 @@ public:
      * @param[out] Eg ghost-point value for E that satisfies the discretized BCs
      * @param[out] Tg ghost-point value for T that satisfies the discretized BCs
      */
-    static void ghostValuesSolve( double a, double b, std::function<double( double T )> cHandle, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ); 
+    static void ghostValuesSolve( double a, double b, const std::function<double( double T )> &cHandle, double r, double n, double h, double Eint, double Tint, double &Eg, double &Tg ); 
 
     /** On boundary k we have the equation:
      *      hat{nk} dot grad T = nk,
@@ -143,43 +150,30 @@ public:
 
 
 
-/** Abstract class defining coefficients in a radiation-diffusion PDE */
+/** Static class defining coefficients in a radiation-diffusion PDE */
 class PDECoefficients {
 
-private:
-    //! Constant scaling factors in the PDE
-    const double d_k11;
-    const double d_k12;
-    const double d_k21;
-    const double d_k22;
-
-    //! Flag whether we consider the linear or nonlinear PDE
-    const bool d_nonlinearModel;
-
-    // Indices used for referencing WEST, ORIGIN, and EAST entries in 3-point stencils
-    static constexpr size_t WEST   = 0;
-    static constexpr size_t ORIGIN = 1;
-    static constexpr size_t EAST   = 2;
-
 public:
+    //! Prevent instantiation
+    PDECoefficients() = delete;
 
-    PDECoefficients( std::shared_ptr<AMP::Database> db );
+    //! Energy diffusion coefficient k11*D_E, with D_E = 1/3*sigma, sigma=(z/T)^3, given constant k11, temperature T, and atomic number zatom
+    static double diffusionCoefficientENonlinear( double k11, double T, double zatom );
 
-    //! Energy diffusion coefficient D_E given temperature T
-    double diffusionCoefficientE( double T, double zatom ) const;
+    //! Energy diffusion coefficient k11*D_E, D_E = 1.0, given constant k11, temperature T, and atomic number zatom
+    static double diffusionCoefficientELinear( double k11, double T, double zatom );
 
-    //! Temperature diffusion coefficient D_E given temperature T
-    double diffusionCoefficientT( double T ) const;
+    //! Temperature diffusion coefficient k21*D_T, with D_T = T^2.5, given constant k21, and temperature T
+    static double diffusionCoefficientTNonlinear( double k21, double T );
 
-    //! Compute quasi-linear reaction coefficients REE, RET, RTE, REE
-    void getSemiLinearReactionCoefficients( double T, double zatom, double &REE, double &RET, double &RTE, double &RTT ) const;
+    //! Temperature diffusion coefficient k21*D_T, with D_T = 1.0, given constant k21, and temperature T
+    static double diffusionCoefficientTLinear( double k21, double T );
 
-    //! Scale semi-linear reaction coefficients by constants k_ij in PDE
-    void scaleReactionCoefficientsBy_kij( double &REE, double &RET, double &RTE, double &RTT ) const;
-    //! Scale D_E by k11
-    void scaleDiffusionCoefficientEBy_kij( double &D_E ) const;
-    //! Scale D_T by k21
-    void scaleDiffusionCoefficientTBy_kij( double &D_T ) const;
+    //! Compute reaction coefficients REE, RET, RTE, REE
+    static void reactionCoefficientsNonlinear( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
+
+    //! Compute reaction coefficients REE, RET, RTE, REE
+    static void reactionCoefficientsLinear( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
 };
 
 
@@ -255,7 +249,7 @@ public:
     std::array<int,3> scalarDOFToGridInds( size_t dof ) const;
 
     //! Populate the given multivector a function of the given type
-    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, std::function<double( size_t component, AMP::Mesh::Point &point )> fun ) const;
+    void fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_, const std::function<double( size_t component, AMP::Mesh::Point &point )> &fun ) const;
 };
 
 
@@ -269,8 +263,6 @@ class FDStencilOps {
 
 // Data
 private:
-    //! Coefficients used in the PDE. Required here to evaluate FD diffusion coeffs, and ghost data)
-    std::shared_ptr<PDECoefficients> d_PDECoeffs = nullptr;
     //! Mesh-related functions
     std::shared_ptr<FDMeshOps>       d_meshOps   = nullptr;
     //! Contains problem constants such as ak, bk, and zatom 
@@ -292,7 +284,7 @@ private:
      * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
      * be a point on the corresponding boundary) 
      */
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
 
     /** Prototype of function returning value of pseudo-Neumann BC of T on given boundary at given
      * node. The user can specify any function with this signature via 'setBoundaryFunctionT'
@@ -300,13 +292,12 @@ private:
      * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
      * be a point on the corresponding boundary) 
      */
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
 
 //
 public:
 
-    FDStencilOps( std::shared_ptr<PDECoefficients> &coefficients,
-        std::shared_ptr<FDMeshOps> meshOp, std::shared_ptr<AMP::Database> db, bool fluxLimited );
+    FDStencilOps( std::shared_ptr<FDMeshOps> meshOp, std::shared_ptr<AMP::Database> db, bool fluxLimited );
 
     /** Pack local 3-point stencil data into the arrays d_ELoc3 and d_TLoc3 for the given 
      * dimension. This involves a ghost-point solve if the stencil extends to a ghost point.
@@ -357,8 +348,14 @@ public:
      * @param[out] DT_WO WEST coefficient in for temperature
      * @param[out] DT_OE EAST coefficient in for temperature
     */
-    void getLocalFDDiffusionCoefficients( std::array<double, 3> &ELoc3,
-                                          std::array<double, 3> &TLoc3,
+    template<typename FunE, typename FunT>
+void getLocalFDDiffusionCoefficients(
+        FunE diffusionCoefficientE,
+        FunT diffusionCoefficientT,
+        std::array<double, 3> &ELoc3,
+        std::array<double, 3> &TLoc3,
+        double k11,
+        double k21,
                                             double zatom,
                                             double h,
                                             bool computeE,
@@ -376,19 +373,19 @@ public:
      * @param[out] Eg  values of E at the centroid of the ghost cell
      * @param[out] Tg  values of T at the centroid of the ghost cell
      */
-    void getGhostData( size_t boundaryID, AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg ); 
+    void getGhostData( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg ); 
 
     //! Set the Robin return function for the energy. If the user does not use this function then the Robin values rk from the input database will be used.
-    void setBoundaryFunctionE( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
+    void setBoundaryFunctionE( const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &fn_ ); 
     
     //! Set the pseudo-Neumann return function for the temperature. If the user does not use this function then the pseudo-Neumann values nk from the input database will be used.
-    void setBoundaryFunctionT( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
+    void setBoundaryFunctionT( const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &fn_ ); 
 
     //! Get the Robin return function for the energy. 
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> getBoundaryFunctionE( ); 
+    const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> & getBoundaryFunctionE( ); 
     
     //! Get the pseudo-Neumann return function for the temperature. 
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> getBoundaryFunctionT( ); 
+    const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> & getBoundaryFunctionT( ); 
 };
 
 
@@ -450,8 +447,6 @@ private:
     size_t d_dim  = -1;
     //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
-    //! Coefficients used in the PDE
-    std::shared_ptr<PDECoefficients> d_PDECoeffs = nullptr;
     //! Finite-difference stencil-related functions
     std::shared_ptr<FDStencilOps>    d_StencilOps   = nullptr;
 
@@ -487,13 +482,19 @@ public:
     std::vector<double> getMeshSize() const;
 
     //! Set the Robin return function for the energy. This function is just a wrapper around that of FDStencilOps
-    void setBoundaryFunctionE( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
+    void setBoundaryFunctionE( const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &fn_ ); 
     
     //! Set the pseudo-Neumann return function for the temperature. This function is just a wrapper around that of FDStencilOps
-    void setBoundaryFunctionT( std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> fn_ ); 
+    void setBoundaryFunctionT( const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &fn_ ); 
 
 // Data
 private: 
+    //! Constant scaling factors in the PDE
+    const double d_k11;
+    const double d_k12;
+    const double d_k21;
+    const double d_k22;
+
     //! Placeholder arrays for values used in 3-point stencils.
     std::array<double, 3> d_ELoc3;
     std::array<double, 3> d_TLoc3;
@@ -502,6 +503,12 @@ private:
     static constexpr size_t WEST   = 0;
     static constexpr size_t ORIGIN = 1;
     static constexpr size_t EAST   = 2;
+
+private:
+    //! Function pointers for PDE coefficients, manually dispatched based on linearity
+    double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
+    double (*d_diffusionCoefficientT)( double k21, double T );
+    void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
 
 //
 protected:
@@ -534,8 +541,6 @@ private:
     //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
     
-    //! Coefficients used in the PDE
-    std::shared_ptr<PDECoefficients> d_PDECoeffs  = nullptr;
     //! Mesh-related functions
     std::shared_ptr<FDMeshOps>       d_meshOps    = nullptr;
     //! Finite-difference stencil-related functions
@@ -577,6 +582,12 @@ public:
 
 // Data
 private:
+    //! Constant scaling factors in the PDE
+    const double d_k11;
+    const double d_k12;
+    const double d_k21;
+    const double d_k22;
+
     //! Placeholder arrays for values used in 3-point stencils
     std::array<double, 3> d_ELoc3;
     std::array<double, 3> d_TLoc3;
@@ -593,6 +604,11 @@ private:
 
 //
 private:
+
+    //! Function pointers for PDE coefficients, manually dispatched based on linearity
+    double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
+    double (*d_diffusionCoefficientT)( double k21, double T );
+    void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
 
     //! Apply action of the operator utilizing its representation in d_data
     void applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  );
@@ -699,8 +715,8 @@ public:
 
     AMP::LinearAlgebra::Vector::shared_ptr d_frozenSolution = nullptr; 
 
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
-    std::function<double( size_t boundaryID, AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
 
 };
 

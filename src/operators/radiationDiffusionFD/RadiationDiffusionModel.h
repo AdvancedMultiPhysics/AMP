@@ -46,13 +46,13 @@ public:
     void setCurrentTime(double currentTime_);
 
     //! Solution-independent source term in PDE at the given point
-    virtual double sourceTerm( size_t component, AMP::Mesh::Point &point ) const = 0;
+    virtual double sourceTerm( size_t component, const AMP::Mesh::Point &point ) const = 0;
     
     //! Initial condition of PDE at the given point
-    virtual double initialCondition( size_t component, AMP::Mesh::Point &point ) const = 0;
+    virtual double initialCondition( size_t component, const AMP::Mesh::Point &point ) const = 0;
 
     //! Exact solution of PDE for given component at the given point
-    virtual double exactSolution( size_t component, AMP::Mesh::Point &point ) const;
+    virtual double exactSolution( size_t component, const AMP::Mesh::Point &point ) const;
 
     //! Get database suitable for creating an instance of a RadDifOp
     std::shared_ptr<AMP::Database> getRadiationDiffusionFD_input_db( ) const; 
@@ -142,9 +142,9 @@ public:
 
     virtual ~Mousseau_etal_2000_RadDifModel() {};
     
-    double sourceTerm( size_t component, AMP::Mesh::Point &point ) const override;
+    double sourceTerm( size_t component, const AMP::Mesh::Point &point ) const override;
 
-    double initialCondition( size_t component, AMP::Mesh::Point &point ) const override;
+    double initialCondition( size_t component, const AMP::Mesh::Point &point ) const override;
 
 //
 private:
@@ -183,11 +183,11 @@ public:
 
     virtual ~Manufactured_RadDifModel() {};
 
-    double sourceTerm( size_t component, AMP::Mesh::Point &point ) const override;
+    double sourceTerm( size_t component, const AMP::Mesh::Point &point ) const override;
     
-    double initialCondition( size_t component, AMP::Mesh::Point &point ) const override;
+    double initialCondition( size_t component, const AMP::Mesh::Point &point ) const override;
     
-    double exactSolution( size_t component, AMP::Mesh::Point &point ) const override;
+    double exactSolution( size_t component, const AMP::Mesh::Point &point ) const override;
 
     /** Return the value of the LHS of the Robin boundary equation on E. That is, 
      *      ak*E + bk*k11*D_E * hat{nk}*grad(E) 
@@ -196,7 +196,7 @@ public:
      * @note there is no redundancy here despite the boundaryID being specified because this class 
      * does not know where a given boundary is located in space.
      */
-    double getBoundaryFunctionValueE( size_t boundaryID, AMP::Mesh::Point &point ) const;
+    double getBoundaryFunctionValueE( size_t boundaryID, const AMP::Mesh::Point &point ) const;
 
     /** Return the value of the LHS of the pseudo Neumann boundary equation on T. That is, 
      *      hat{nk}*grad(T) 
@@ -205,7 +205,7 @@ public:
      * @note there is no redundancy here despite the boundaryID being specified because this class 
      * does not know where a given boundary is located in space.
      */
-    double getBoundaryFunctionValueT( size_t boundaryID, AMP::Mesh::Point &point ) const;
+    double getBoundaryFunctionValueT( size_t boundaryID, const AMP::Mesh::Point &point ) const;
     
 //
 private:
@@ -218,7 +218,7 @@ private:
     void getNormalVector( size_t boundaryID, size_t &normalComponent, double &normalSign ) const;
 
     //! Dimension-agnostic wrapper around exactSolutionGradient_ functions
-    double exactSolutionGradient( size_t component, AMP::Mesh::Point &point, size_t gradComponent ) const;
+    double exactSolutionGradient( size_t component, const AMP::Mesh::Point &point, size_t gradComponent ) const;
 
     // Exact solution, its gradient and corresponding source term
     double exactSolution1D( size_t component, double x ) const;

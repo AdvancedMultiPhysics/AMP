@@ -35,7 +35,7 @@ double RadDifModel::getCurrentTime() const {
     return d_currentTime; 
 };
 
-double RadDifModel::exactSolution( size_t, AMP::Mesh::Point & ) const {
+double RadDifModel::exactSolution( size_t, const AMP::Mesh::Point & ) const {
     AMP_ERROR( "Base class cannot provide a meaningful implementation of this function" );
 }
 
@@ -88,8 +88,8 @@ Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel( std::shared_ptr<
     finalizeGeneralPDEModel_db();
 }
 
-double Mousseau_etal_2000_RadDifModel::sourceTerm( size_t, AMP::Mesh::Point & ) const { return 0.0; }
-double Mousseau_etal_2000_RadDifModel::initialCondition( size_t component, AMP::Mesh::Point & ) const { 
+double Mousseau_etal_2000_RadDifModel::sourceTerm( size_t, const AMP::Mesh::Point & ) const { return 0.0; }
+double Mousseau_etal_2000_RadDifModel::initialCondition( size_t component, const AMP::Mesh::Point & ) const { 
     double E0 = 1e-5;
     double T0 = std::pow( E0, 0.25 );
     if ( component == 0 ) {
@@ -207,7 +207,7 @@ void Manufactured_RadDifModel::finalizeGeneralPDEModel_db( ) {
 
 
 // Dimension-agnostic wrapper around the sourceTerm_ functions
-double Manufactured_RadDifModel::sourceTerm( size_t component, AMP::Mesh::Point &point ) const {
+double Manufactured_RadDifModel::sourceTerm( size_t component, const AMP::Mesh::Point &point ) const {
     if ( d_dim == 1 ) {
         return sourceTerm1D( component, point[0] );
     } else if ( d_dim == 2 ) {
@@ -219,7 +219,7 @@ double Manufactured_RadDifModel::sourceTerm( size_t component, AMP::Mesh::Point 
     }
 }
 
-double Manufactured_RadDifModel::initialCondition( size_t component, AMP::Mesh::Point &point ) const {
+double Manufactured_RadDifModel::initialCondition( size_t component, const AMP::Mesh::Point &point ) const {
     // We must set turn on this flag and then turn it off
     d_settingInitialCondition = true;
     double ic = exactSolution( component, point );
@@ -228,7 +228,7 @@ double Manufactured_RadDifModel::initialCondition( size_t component, AMP::Mesh::
 }
 
 
-double Manufactured_RadDifModel::exactSolution( size_t component, AMP::Mesh::Point &point ) const {
+double Manufactured_RadDifModel::exactSolution( size_t component, const AMP::Mesh::Point &point ) const {
     if ( d_dim == 1 ) {
         return exactSolution1D( component, point[0] );
     } else if ( d_dim == 2 ) {
@@ -241,7 +241,7 @@ double Manufactured_RadDifModel::exactSolution( size_t component, AMP::Mesh::Poi
 }
 
 
-double Manufactured_RadDifModel::exactSolutionGradient( size_t component, AMP::Mesh::Point &point, size_t gradComponent ) const 
+double Manufactured_RadDifModel::exactSolutionGradient( size_t component, const AMP::Mesh::Point &point, size_t gradComponent ) const 
 {
     if ( d_dim == 1 ) {
         return exactSolutionGradient1D( component, point[0] );
@@ -264,7 +264,7 @@ void Manufactured_RadDifModel::getNormalVector( size_t boundaryID, size_t &norma
 }
 
 
-double Manufactured_RadDifModel::getBoundaryFunctionValueE( size_t boundaryID, AMP::Mesh::Point &point ) const 
+double Manufactured_RadDifModel::getBoundaryFunctionValueE( size_t boundaryID, const AMP::Mesh::Point &point ) const 
 {
 
     // Get sign and component direction of the normal vector
@@ -291,7 +291,7 @@ double Manufactured_RadDifModel::getBoundaryFunctionValueE( size_t boundaryID, A
     return ak*E + bk*k11*D_E * normalSign*dEdn;
 }
 
-double Manufactured_RadDifModel::getBoundaryFunctionValueT( size_t boundaryID, AMP::Mesh::Point &point ) const {
+double Manufactured_RadDifModel::getBoundaryFunctionValueT( size_t boundaryID, const AMP::Mesh::Point &point ) const {
 
     // Get sign and component direction of the normal vector
     double normalSign;
