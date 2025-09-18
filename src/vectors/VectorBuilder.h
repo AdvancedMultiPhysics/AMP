@@ -63,7 +63,7 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
  * \param[in] variable      Variable for the vector
  * \param[in] split         If we are given a multiDOFManager, do we want to split the vector
  *                              based on the individual DOFManagers to create a MultiVector
- * \param[in] memoryType    Memory space in which to create vector
+ * \param[in] memType       Memory space in which to create vector
  */
 template<typename TYPE = double>
 AMP::LinearAlgebra::Vector::shared_ptr
@@ -76,7 +76,7 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
  * \brief  This function will create a vector from a vector
  * \details  This function is responsible for creating vectors from an existing vector.
  * \param[in] vector        Vector we want to mimic
- * \param[in] memoryType    Memory space in which to create vector
+ * \param[in] memType       Memory space in which to create vector
  */
 template<typename TYPE = double>
 AMP::LinearAlgebra::Vector::shared_ptr
@@ -88,7 +88,7 @@ createVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
  * \brief  This function will create a vector from a vector
  * \details  This function is responsible for creating vectors from an existing vector.
  * \param[in] vector        Vector we want to mimic
- * \param[in] memoryType    Memory space in which to create vector
+ * \param[in] memType       Memory space in which to create vector
  */
 AMP::LinearAlgebra::Vector::shared_ptr
 createVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vector,
@@ -110,8 +110,9 @@ std::shared_ptr<Vector> createVector( Vec v,
 
 /**
  * \brief  Create an epetra vector
- * \param[in] params        Epetra vector parameters
- * \param[in] var           Optional
+ * \param[in] commList      Communication list
+ * \param[in] DOFs          DOF manager
+ * \param[in] p             Optional VectorData object
  */
 std::shared_ptr<Vector> createEpetraVector( std::shared_ptr<CommunicationList> commList,
                                             std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
@@ -120,7 +121,9 @@ std::shared_ptr<Vector> createEpetraVector( std::shared_ptr<CommunicationList> c
 
 /**
  * \brief  Create a Tpetra vector
- * \param[in] var           Optional
+ * \param[in] commList      Communication list
+ * \param[in] DOFs          DOF manager
+ * \param[in] p             Optional VectorData object
  */
 std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> commList,
                                             std::shared_ptr<AMP::Discretization::DOFManager> DOFs,

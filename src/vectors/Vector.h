@@ -104,7 +104,6 @@ public: // Virtual functions
 
     //@{
     /** \brief Allocate space in the same fashion as <i>this</i>
-     * \param[in] name  The variable to associate with the new vector
      * \details  This will allocate new space with identical layout as <i>this</i>.
      * \return  A Vector shared pointer
      * It will have the same number of blocks, each with the same engines and same number of
@@ -348,7 +347,6 @@ public: // the next set of functions defines the public math. interface for vect
      * \details Returns \f[\sum_i this_i^2 \f] and  \f[\sum_i x_i\mathit{this}_i\f].
      *    Note that this is an unoptimized version purely meant to provide functionality
      * \param[in] x        a vector
-     * \param[in] y a vector
      * \return std::pair of L2Norm of vector and dot in that order
      */
     std::pair<Scalar, Scalar> L2NormAndDot( const Vector &x ) const;
@@ -396,6 +394,7 @@ public: // Up/down-cast vectors
     /** \brief Copy up/down-casting  <i>this</i>
      * \details  The vector will be associated with the same Variable, and will contain
      *    a copy of the data in x after up/down-casting it.
+     * \param[in] x        a vector
      * \return  A Vector shared pointer
      */
     void copyCast( std::shared_ptr<const Vector> x );
@@ -463,7 +462,6 @@ public: // Subset/Select
      *    To use:
      *        auto disp = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
      * \param[in]  criterion  The method for deciding inclusion in the view
-     * \param[in]  name       The name of the vector to be created
      */
     shared_ptr select( const VectorSelector &criterion );
 
@@ -473,7 +471,6 @@ public: // Subset/Select
      *    To use:
      *        auto disp = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
      * \param[in]  criterion  The method for deciding inclusion in the view
-     * \param[in]  name       The name of the vector to be created
      */
     const_shared_ptr select( const VectorSelector &criterion ) const;
 
