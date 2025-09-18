@@ -14,6 +14,20 @@ MACRO( CHECK_ENABLE_FLAG FLAG DEFAULT )
 ENDMACRO()
 
 
+# Dummy use to prevent unused cmake variable warning
+MACRO( NULL_USE VAR )
+    FOREACH( var ${VAR} )
+        IF ( "${${var}}" STREQUAL "dummy_string" )
+            MESSAGE( FATAL_ERROR "NULL_USE fail" )
+        ENDIF()
+    ENDFOREACH()
+ENDMACRO()
+NULL_USE( AMP_DATA )
+NULL_USE( ENABLE_GCOV )
+NULL_USE( USE_CUDA )
+NULL_USE( EXCLUDE_TESTS_FROM_ALL )
+
+
 # Dummy functions
 FUNCTION( WRITE_REPO_VERSION )
 ENDFUNCTION()
