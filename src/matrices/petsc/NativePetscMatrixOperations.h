@@ -41,10 +41,7 @@ class NativePetscMatrixOperations : public MatrixOperations
      * \param[in] A The input matrix A
      * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}\mathbf{A}\f$
      */
-    void scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void scale( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
 
     /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
      * \param[in] alpha  The value to scale by
@@ -52,10 +49,7 @@ class NativePetscMatrixOperations : public MatrixOperations
      * \param[in] A The input matrix A
      * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}^{-1}\mathbf{A}\f$
      */
-    void scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void scaleInv( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
 
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
@@ -92,8 +86,8 @@ class NativePetscMatrixOperations : public MatrixOperations
     void setDiagonal( std::shared_ptr<const Vector> in, MatrixData &A ) override;
 
     /** \brief Extract the diagonal values into a vector
-     * \param[in] in The values to set the diagonal to
-     * \param[in] A The matrix to set
+     * \param[in] A The matrix to extract
+     * \param[out] buf The buffer to store diagonals
      */
     void extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
 
@@ -101,19 +95,13 @@ class NativePetscMatrixOperations : public MatrixOperations
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSums( MatrixData const &, std::shared_ptr<Vector> ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void getRowSums( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
 
     /** \brief Extract the absolute row sums into a vector
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void getRowSumsAbsolute( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
 
     /** \brief  Set the matrix to the identity matrix
      */

@@ -1,5 +1,3 @@
-INCLUDE( "cmake/WriteRepoVersion.cmake" )
-
 # Check if a flag is enabled
 MACRO( CHECK_ENABLE_FLAG FLAG DEFAULT )
     IF ( NOT DEFINED ${FLAG} )
@@ -14,3 +12,11 @@ MACRO( CHECK_ENABLE_FLAG FLAG DEFAULT )
         MESSAGE( "Bad value for ${FLAG} ( ${${FLAG}} ); use true or false" )
     ENDIF()
 ENDMACRO()
+
+
+# Dummy functions
+FUNCTION( WRITE_REPO_VERSION )
+ENDFUNCTION()
+FUNCTION( CREATE_RELEASE )
+ENDFUNCTION()
+
