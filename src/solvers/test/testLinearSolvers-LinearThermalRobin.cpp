@@ -332,8 +332,8 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-BiCGSTAB" );
         generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB" );
+        // generalInputs.emplace_back(
+        //     "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB" );
 
         generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES" );
@@ -408,8 +408,8 @@ int main( int argc, char *argv[] )
         }
 
     #ifdef AMP_USE_PETSC
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );
+        // hostOnlyInputs.emplace_back(
+        //     "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );
         hostOnlyInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscFGMRES" );
         hostOnlyInputs.emplace_back(

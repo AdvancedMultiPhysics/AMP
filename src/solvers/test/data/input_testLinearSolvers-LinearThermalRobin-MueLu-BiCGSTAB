@@ -4,7 +4,7 @@
 
 Reference{
   iterations = 5
-  res_l2_norm = 3.0e-09
+  res_l2_norm = 1.432077710970585e-09
   tolerance = 2.0e-09
   strict = FALSE
 }

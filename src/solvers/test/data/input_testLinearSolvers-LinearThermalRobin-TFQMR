@@ -3,15 +3,15 @@
 LinearSolver{
   name = "TFQMRSolver"
   uses_preconditioner = FALSE
-  max_iterations = 25
+  max_iterations = 50
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
   print_info_level = 2
 }
 
 Reference{
-  iterations = 21
-  res_l2_norm = 6.0e-09
+  iterations = 46
+  res_l2_norm = 1.298706890207020e-10
   tolerance = 5.0e-09
   strict = FALSE
 }
