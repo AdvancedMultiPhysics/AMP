@@ -395,7 +395,6 @@ public: // Up/down-cast vectors
      * \details  The vector will be associated with the same Variable, and will contain
      *    a copy of the data in x after up/down-casting it.
      * \param[in] x        a vector
-     * \return  A Vector shared pointer
      */
     void copyCast( std::shared_ptr<const Vector> x );
 

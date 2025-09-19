@@ -83,20 +83,14 @@ public:
 
     /**
       This function is used to update the equilibrium values of stress, strain, temperature, burnup
-      etc that are
-      stored in the material model class. This is typically required at the end of each loading
-      step. This function is
-      typically
-      called from within the MechanicsNonlinearFEOperator's reset function, which is evaluated at
-      the end of each
-      loading step.
-      This function also gets called from within the MechanicsNonlinearFEOperator's
-      getJacobianParameters
-      function if the jacobian is evaluated at a state (displacement, temperature etc) different
-      from
+      etc that are stored in the material model class. This is typically required at the end of each
+      loading step. This function is typically called from within the MechanicsNonlinearFEOperator's
+      reset function, which is evaluated at the end of each loading step.  This function also gets
+      called from within the MechanicsNonlinearFEOperator's getJacobianParameters function if the
+      jacobian is evaluated at a state (displacement, temperature etc) different from
       that of the last call to MechanicsNonlinearFEOperator's apply function.
+      @param [in] type Update type
       @param [in] elementInputVectors Field (Displacement, Temperature, Burnup etc) values at the
-      nodes of the current element.
      */
     void updateMaterialModel( MaterialUpdateType type,
                               const std::vector<std::vector<double>> &elementInputVectors );

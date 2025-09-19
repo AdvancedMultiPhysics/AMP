@@ -215,6 +215,8 @@ Vector::shared_ptr createArrayVector( const ArraySize &localSize, std::shared_pt
 /** \brief    Create a ArrayVector
  * \details  This is the factory method for the ArrayVector.
  * \param    localSize  The number of elements in the vector on this processor
+ * \param    blockIndex  The block index for the current rank
+ * \param    comm  The communicator for the vector
  * \param    var The variable associated with the new vector
  */
 template<typename T, typename FUN = FunctionTable, typename Allocator = AMP::HostAllocator<void>>
