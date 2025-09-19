@@ -1,8 +1,6 @@
 #ifndef RAD_DIF_FD_DISCRETIZATION
 #define RAD_DIF_FD_DISCRETIZATION
 
-#include <optional>
-
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/IO/AsciiWriter.h"
@@ -19,6 +17,19 @@
 #include "AMP/operators/Operator.h"
 #include "AMP/operators/LinearOperator.h"
 
+#include <optional>
+#include <variant>
+
+
+
+// ok... maybe template the operator on the coefficients... but this requires passing in the coefficients to the operator at construction time, so I'd be required to make a derived operator parameters...
+// // Then the user must implement (inside some coefficient class):
+// double diffusionCoefficientE(double T, double zatom) const;
+// double diffusionCoefficientT(double T) const;
+// void reactionCoefficients(double T, double zatom,
+//                           double& REE, double& RET,
+//                           double& RTE, double& RTT) const;
+// and I think these functions then get inlined
 
 
 /** The classes in this file are (or are associated with) spatial finite-discretizations of  
@@ -61,7 +72,7 @@ namespace AMP::Operator {
 
 // Foward declaration of classes declared in this file
 class FDBoundaryUtils;
-class PDECoefficients;
+//class PDECoefficients;
 class FDMeshOps;
 class FDStencilOps;
 //
@@ -73,6 +84,10 @@ struct RadDifOpPJacData; // Data structure for storing the linearization
 
 // Friend classes
 class BDFRadDifOp;
+
+
+
+
 
 
 /** Static class bundling together boundary-related utility data structures and functionality */
@@ -149,14 +164,23 @@ public:
 };
 
 
-
+#if 1
 /** Static class defining coefficients in a radiation-diffusion PDE */
+template<bool IsNonlinear>
 class PDECoefficients {
 
 public:
     //! Prevent instantiation
     PDECoefficients() = delete;
 
+    static double diffusionCoefficientE(double k11, double T, double zatom);
+    static double diffusionCoefficientT(double k21, double T);
+    
+    static void reactionCoefficients(
+        double k12, double k22, double T, double zatom,
+        double& REE, double& RET, double& RTE, double& RTT);
+
+    #if 0
     //! Energy diffusion coefficient k11*D_E, with D_E = 1/3*sigma, sigma=(z/T)^3, given constant k11, temperature T, and atomic number zatom
     static double diffusionCoefficientENonlinear( double k11, double T, double zatom );
 
@@ -174,7 +198,9 @@ public:
 
     //! Compute reaction coefficients REE, RET, RTE, REE
     static void reactionCoefficientsLinear( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
+    #endif
 };
+#endif
 
 
 /** Abstract class providing mesh-related operations and utilities that are required for 
@@ -278,21 +304,7 @@ private:
 
 // Methods
 private:
-    /** Prototype of function returning value of Robin BC of E on given boundary at given node. The
-     * user can specify any function with this signature via 'setBoundaryFunctionE'
-     * @param[in] boundaryID ID of the boundary
-     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
-     * be a point on the corresponding boundary) 
-     */
-    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
 
-    /** Prototype of function returning value of pseudo-Neumann BC of T on given boundary at given
-     * node. The user can specify any function with this signature via 'setBoundaryFunctionT'
-     * @param[in] boundaryID ID of the boundary
-     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
-     * be a point on the corresponding boundary) 
-     */
-    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
 
 //
 public:
@@ -311,11 +323,12 @@ public:
      * @note ijk is modified inside the function, but upon conclusion of the function is in its 
      * original state 
      */
-    void setLoc3Data( 
+    void getLoc3Data( 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
         std::array<int, 3> &ijk, 
         int dim, 
+        const std::function<void( size_t, const AMP::Mesh::Point &, double, double, double&, double&)> &getGhostData,
         std::array<double, 3> &ELoc3,
         std::array<double, 3> &TLoc3);
 
@@ -329,11 +342,12 @@ public:
      * once (corresponding to the number of interior DOFs in the given dimension being larger than 
      * one) 
      */
-    void setLoc3Data( 
+    void getLoc3Data( 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
         std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
         std::array<int, 3> &ijk, // is modified locally, but returned in same state
         int dim,
+        const std::function<void( size_t, const AMP::Mesh::Point &, double, double, double&, double&)> &getGhostData,
         std::array<double, 3> &ELoc3,
         std::array<double, 3> &TLoc3,
         std::array<size_t, 3> &dofsLoc3,
@@ -348,22 +362,18 @@ public:
      * @param[out] DT_WO WEST coefficient in for temperature
      * @param[out] DT_OE EAST coefficient in for temperature
     */
-    template<typename FunE, typename FunT>
-void getLocalFDDiffusionCoefficients(
-        FunE diffusionCoefficientE,
-        FunT diffusionCoefficientT,
+    template<bool IsNonlinear, bool computeE, bool computeT, bool IsFluxLimited>
+    static void getLocalFDDiffusionCoefficients(
         std::array<double, 3> &ELoc3,
         std::array<double, 3> &TLoc3,
         double k11,
         double k21,
                                             double zatom,
                                             double h,
-                                            bool computeE,
                                             double &Dr_WO, 
                                             double &Dr_OE,
-                                            bool computeT,
                                             double &DT_WO, 
-                                            double &DT_OE) const;
+                                            double &DT_OE);
 
     /** Get values in the member ghost values array, d_ghostData. 
      * @param[in] boundaryID ID of the boundary being considered
@@ -374,12 +384,6 @@ void getLocalFDDiffusionCoefficients(
      * @param[out] Tg  values of T at the centroid of the ghost cell
      */
     void getGhostData( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg ); 
-
-    //! Set the Robin return function for the energy. If the user does not use this function then the Robin values rk from the input database will be used.
-    void setBoundaryFunctionE( const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &fn_ ); 
-    
-    //! Set the pseudo-Neumann return function for the temperature. If the user does not use this function then the pseudo-Neumann values nk from the input database will be used.
-    void setBoundaryFunctionT( const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &fn_ ); 
 
     //! Get the Robin return function for the energy. 
     const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> & getBoundaryFunctionE( ); 
@@ -443,10 +447,16 @@ class RadDifOp : public AMP::Operator::Operator {
 
 // Data
 private:
+    
+    static constexpr bool IsNonlinear = true; // hack for the moment...
+    static constexpr bool IsFluxLimited = false; // hack for the moment...
+
     //! Problem dimension
     size_t d_dim  = -1;
     //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
+    //! Reciprocal squares of mesh sizes
+    std::vector<double> d_rh2;
     //! Finite-difference stencil-related functions
     std::shared_ptr<FDStencilOps>    d_StencilOps   = nullptr;
 
@@ -463,7 +473,7 @@ public:
 // Methods
 public:
     //! Constructor
-    RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> params);
+    RadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> params );
     //! Destructor
     virtual ~RadDifOp() {};
     
@@ -505,10 +515,41 @@ private:
     static constexpr size_t EAST   = 2;
 
 private:
-    //! Function pointers for PDE coefficients, manually dispatched based on linearity
-    double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
-    double (*d_diffusionCoefficientT)( double k21, double T );
-    void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
+    // //! Function pointers for PDE coefficients, manually dispatched based on linearity
+    // double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
+    // double (*d_diffusionCoefficientT)( double k21, double T );
+    // void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
+
+    void applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
+                            std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LE_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LT_vec);
+
+    void applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
+                            std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LE_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LT_vec);
+
+
+    // Hack: This is a wrapper around ghostValuesSolve which passes it our specific constants and boundary-function evaluations (it's the boundary function evaluations that's causing me the the issue because the nonlinear and linear operator each have their own...)
+    void ghostValuesSolveWrapper( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg );
+
+
+    /** Prototype of function returning value of Robin BC of E on given boundary at given node. The
+     * user can specify any function with this signature via 'setBoundaryFunctionE'
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
+     * be a point on the corresponding boundary) 
+     */
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
+
+    /** Prototype of function returning value of pseudo-Neumann BC of T on given boundary at given
+     * node. The user can specify any function with this signature via 'setBoundaryFunctionT'
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
+     * be a point on the corresponding boundary) 
+     */
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
 
 //
 protected:
@@ -535,11 +576,16 @@ class RadDifOpPJac : public AMP::Operator::LinearOperator {
 
 // Data
 private:
+    static constexpr bool IsNonlinear = true; // hack for the moment...
+    static constexpr bool IsFluxLimited = false; // hack for the moment...
+
     //! Problem dimension
     size_t d_dim  = -1;
 
     //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
+    //! Reciprocal squares of mesh sizes
+    std::vector<double> d_rh2;
     
     //! Mesh-related functions
     std::shared_ptr<FDMeshOps>       d_meshOps    = nullptr;
@@ -605,10 +651,10 @@ private:
 //
 private:
 
-    //! Function pointers for PDE coefficients, manually dispatched based on linearity
-    double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
-    double (*d_diffusionCoefficientT)( double k21, double T );
-    void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
+    // //! Function pointers for PDE coefficients, manually dispatched based on linearity
+    // double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
+    // double (*d_diffusionCoefficientT)( double k21, double T );
+    // void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
 
     //! Apply action of the operator utilizing its representation in d_data
     void applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  );
@@ -659,6 +705,25 @@ private:
      * @param[in] ck = +k11*D_E(T), but is ignored if component == 1.
      */
     double PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const;
+
+    // Hack: This is a wrapper around ghostValuesSolve which passes it our specific constants and boundary-function evaluations (it's the boundary function evaluations that's causing me the the issue because the nonlinear and linear operator each have their own...)
+    void ghostValuesSolveWrapper( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg );
+
+    /** Prototype of function returning value of Robin BC of E on given boundary at given node. The
+     * user can specify any function with this signature via 'setBoundaryFunctionE'
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
+     * be a point on the corresponding boundary) 
+     */
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_robinFunctionE;
+
+    /** Prototype of function returning value of pseudo-Neumann BC of T on given boundary at given
+     * node. The user can specify any function with this signature via 'setBoundaryFunctionT'
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will 
+     * be a point on the corresponding boundary) 
+     */
+    std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> d_pseudoNeumannFunctionT;
 
 };
 // End of RadDifOpPJac

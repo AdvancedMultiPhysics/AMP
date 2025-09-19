@@ -75,7 +75,7 @@ double FDBoundaryUtils::getBoundaryFunctionValueFromDBT( const AMP::Database &db
 /** -------------------------------------------------------- *
  *  ----------- Implementation of PDECoefficients --------- *
  *  -------------------------------------------------------- */
-
+#if 0
 double PDECoefficients::diffusionCoefficientENonlinear( double k11, double T, double zatom ) {
     double zbyT = zatom/T;
     double sigma = zbyT * zbyT * zbyT; // (z/T)^3
@@ -114,6 +114,59 @@ void PDECoefficients::reactionCoefficientsLinear( double k12, double k22, double
     REE *= -k12, RET *= -k12; // Energy equation
     RTE *=  k22, RTT *=  k22; // Temperature equation
 }
+#endif
+
+// ------------------ Specialization: NONLINEAR ------------------
+template<>
+inline double PDECoefficients<true>::diffusionCoefficientE(double k11, double T, double zatom) {
+    double zByT = zatom / T;
+    double sigma = zByT * zByT * zByT;
+    return k11 / (3.0 * sigma);
+}
+
+template<>
+inline double PDECoefficients<true>::diffusionCoefficientT(double k21, double T) {
+    return k21 * T * T * std::sqrt(T); // T^2.5
+}
+
+template<>
+inline void PDECoefficients<true>::reactionCoefficients(
+    double k12, double k22, double T, double zatom,
+    double& REE, double& RET, double& RTE, double& RTT)
+{
+    double Tcube = T * T * T;
+    double sigma = std::pow(zatom / T, 3.0);
+    
+    REE = RTE = -sigma;
+    RET = RTT = +sigma * Tcube;
+
+    REE *= -k12; RET *= -k12;
+    RTE *=  k22; RTT *=  k22;
+}
+
+// ------------------ Specialization: LINEAR ------------------
+template<>
+inline double PDECoefficients<false>::diffusionCoefficientE(double k11, double, double) {
+    return k11;
+}
+
+template<>
+inline double PDECoefficients<false>::diffusionCoefficientT(double k21, double) {
+    return k21;
+}
+
+template<>
+inline void PDECoefficients<false>::reactionCoefficients(
+    double k12, double k22, double, double,
+    double& REE, double& RET, double& RTE, double& RTT)
+{
+    REE = RTE = -1.0;
+    RET = RTT = +1.0;
+
+    REE *= -k12; RET *= -k12;
+    RTE *=  k22; RTT *=  k22;
+}
+
 
 
 /** -------------------------------------------------------- *
@@ -336,6 +389,7 @@ void FDMeshOps::fillMultiVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra:
 
 FDStencilOps::FDStencilOps( std::shared_ptr<FDMeshOps> meshOp, std::shared_ptr<AMP::Database> db, bool fluxLimited ) : d_meshOps(meshOp), d_db(db), d_fluxLimited(fluxLimited) {
 
+    #if 0
     // Specify default Robin return function for E
     std::function<double( size_t, const AMP::Mesh::Point & )> wrapperE = [&]( size_t boundaryID, const AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBE( *d_db, boundaryID ); };
     this->setBoundaryFunctionE( wrapperE );
@@ -343,13 +397,15 @@ FDStencilOps::FDStencilOps( std::shared_ptr<FDMeshOps> meshOp, std::shared_ptr<A
     // Specify default Neumann return function for T
     std::function<double( size_t, const AMP::Mesh::Point & )> wrapperT = [&]( size_t boundaryID,  const AMP::Mesh::Point & ) { return FDBoundaryUtils::getBoundaryFunctionValueFromDBT( *d_db, boundaryID ); };
     this->setBoundaryFunctionT( wrapperT );
+    #endif
 }; 
 
-void FDStencilOps::setLoc3Data( 
+void FDStencilOps::getLoc3Data( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
     std::array<int, 3> &ijk,
     int dim, 
+    const std::function<void( size_t, const AMP::Mesh::Point &, double, double, double&, double&)> &getGhostData,
     std::array<double, 3> &ELoc3,
     std::array<double, 3> &TLoc3) 
 {
@@ -396,11 +452,12 @@ void FDStencilOps::setLoc3Data(
     }
 }
 
-void FDStencilOps::setLoc3Data( 
+void FDStencilOps::getLoc3Data( 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec, 
     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,  
     std::array<int, 3> &ijk, 
     int dim,
+    const std::function<void( size_t, const AMP::Mesh::Point &, double, double, double&, double&)> &getGhostData,
     std::array<double, 3> &ELoc3,
     std::array<double, 3> &TLoc3,
     std::array<size_t, 3> &dofsLoc3,
@@ -459,22 +516,19 @@ void FDStencilOps::setLoc3Data(
     }
 }
 
-template<typename FunE, typename FunT>
+
+template<bool IsNonlinear, bool computeE, bool computeT, bool IsFluxLimited>
 void FDStencilOps::getLocalFDDiffusionCoefficients(
-        FunE diffusionCoefficientE,
-        FunT diffusionCoefficientT,
         std::array<double, 3> &ELoc3,
         std::array<double, 3> &TLoc3,
         double k11,
         double k21,
         double zatom,
         double h,
-        bool computeE,
         double &Dr_WO, 
         double &Dr_OE,
-        bool computeT,
         double &DT_WO, 
-        double &DT_OE) const
+        double &DT_OE)
 {
 
     // Compute temp at mid points             
@@ -483,11 +537,11 @@ void FDStencilOps::getLocalFDDiffusionCoefficients(
 
     // Get diffusion coefficients at cell faces, i.e., mid points
     // Energy
-    if ( computeE ) {
-        Dr_WO = diffusionCoefficientE( k11, T_WO, zatom );
-        Dr_OE = diffusionCoefficientE( k11, T_OE, zatom );
+    if constexpr ( computeE ) {
+        Dr_WO = PDECoefficients<IsNonlinear>::diffusionCoefficientE( k11, T_WO, zatom );
+        Dr_OE = PDECoefficients<IsNonlinear>::diffusionCoefficientE( k11, T_OE, zatom );
         // Limit the energy flux if need be, eq. (17)
-        if ( d_fluxLimited ) {
+        if constexpr ( IsFluxLimited ) {
             double DE_WO = Dr_WO/( 1.0 + Dr_WO*( abs( ELoc3[ORIGIN] - ELoc3[WEST] )/( h*0.5*(ELoc3[ORIGIN] + ELoc3[WEST]) ) ) );
             double DE_OE = Dr_OE/( 1.0 + Dr_OE*( abs( ELoc3[EAST] - ELoc3[ORIGIN] )/( h*0.5*(ELoc3[EAST] + ELoc3[ORIGIN]) ) ) );
             Dr_WO = DE_WO;
@@ -498,32 +552,21 @@ void FDStencilOps::getLocalFDDiffusionCoefficients(
     }
     
     // Temperature
-    if ( computeT ) {
-        DT_WO = diffusionCoefficientT( k21, T_WO );
-        DT_OE = diffusionCoefficientT( k21, T_OE );
+    if constexpr ( computeT ) {
+        DT_WO = PDECoefficients<IsNonlinear>::diffusionCoefficientT( k21, T_WO );
+        DT_OE = PDECoefficients<IsNonlinear>::diffusionCoefficientT( k21, T_OE );
     }
 }
 
 
-void FDStencilOps::getGhostData( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg )
+void RadDifOp::ghostValuesSolveWrapper( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg )
 {
 
-    #if 0
-    // Create a handle for evaluating the scaled diffusion coefficient
+    auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 );
+    // Create a handle for evaluating the diffusion coefficient
     auto cHandle = [&] (double T_midpoint) {
-        auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 );
-        double D_E = d_PDECoeffs->diffusionCoefficientE( T_midpoint, zatom );
-        // The below solve requires the finalized flux in the form of c = k11*D_E
-        d_PDECoeffs->scaleDiffusionCoefficientEBy_kij( D_E );  
-        auto c = D_E; 
-        return c;
+        return PDECoefficients<IsNonlinear>::diffusionCoefficientE( d_k11, T_midpoint, zatom );
     };
-    #endif
-    auto cHandle = [&] (double) {
-        return 1.0;
-    };
-
-    AMP_ERROR("fix the above...");
 
     // Get the Robin constants for the given boundaryID
     double ak, bk; 
@@ -541,25 +584,31 @@ void FDStencilOps::getGhostData( size_t boundaryID, const AMP::Mesh::Point &boun
     FDBoundaryUtils::ghostValuesSolve( ak, bk, cHandle, rk, nk, hk, Eint, Tint, Eg, Tg );
 }
 
-void FDStencilOps::setBoundaryFunctionE( const std::function<double( size_t, const AMP::Mesh::Point &)> &fn_ ) 
-{ 
-    d_robinFunctionE = fn_; 
-};
 
+void RadDifOpPJac::ghostValuesSolveWrapper( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg )
+{
 
-void FDStencilOps::setBoundaryFunctionT( const std::function<double( size_t, const AMP::Mesh::Point &)> &fn_ ) 
-{ 
-    d_pseudoNeumannFunctionT = fn_; 
-};
+    auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 );
+    // Create a handle for evaluating the diffusion coefficient
+    auto cHandle = [&] (double T_midpoint) {
+        return PDECoefficients<IsNonlinear>::diffusionCoefficientE( d_k11, T_midpoint, zatom );
+    };
 
-const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &FDStencilOps::getBoundaryFunctionE( ) {
-    return d_robinFunctionE;
+    // Get the Robin constants for the given boundaryID
+    double ak, bk; 
+    FDBoundaryUtils::getLHSRobinConstantsFromDB( *d_db, boundaryID, ak, bk );
+    
+    // Now get the corresponding Robin value
+    double rk = d_robinFunctionE( boundaryID, boundaryPoint );
+    // Get Neumann value
+    double nk = d_pseudoNeumannFunctionT( boundaryID, boundaryPoint );
+    
+    // Spatial mesh size
+    double hk = d_meshOps->d_h[FDBoundaryUtils::getDimFromBoundaryID( boundaryID )]; 
+
+    // Solve for ghost values given these constants, storing results in Eg and Tg
+    FDBoundaryUtils::ghostValuesSolve( ak, bk, cHandle, rk, nk, hk, Eint, Tint, Eg, Tg );
 }
-
-const std::function<double( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint )> &FDStencilOps::getBoundaryFunctionT( ) {
-    return d_pseudoNeumannFunctionT;
-}
-
 
 
 /** -------------------------------------------------------- *
@@ -616,30 +665,20 @@ RadDifOpPJac::RadDifOpPJac(std::shared_ptr<const AMP::Operator::OperatorParamete
     // Create our FDMeshOps
     d_meshOps = std::make_shared<FDMeshOps>( this->getMesh() );
     d_h = d_meshOps->d_h;
+    // Compute reciprocal square of mesh spacing
+    for (auto h : d_h) {
+        d_rh2.push_back( 1.0/(h * h) );
+    }
     d_dim = d_meshOps->d_dim;
     // Create our FDStencilOps
     d_StencilOps = std::make_shared<FDStencilOps>( d_meshOps, d_db, d_db->getScalar<bool>( "fluxLimited" ) );
 
     // Update boundary functions for our stencil operations if boundary functions were given
     if ( params->d_robinFunctionE ) {
-        d_StencilOps->setBoundaryFunctionE( params->d_robinFunctionE );
+        d_robinFunctionE = params->d_robinFunctionE;
     }
     if ( params->d_pseudoNeumannFunctionT ) {
-        d_StencilOps->setBoundaryFunctionT( params->d_pseudoNeumannFunctionT );
-    }
-
-    // Manually dispatch coefficient functions based on linearity of PDE
-    auto model = d_db->getWithDefault<std::string>( "model", "" );
-    if ( model == "nonlinear" ) {
-        d_diffusionCoefficientE = &PDECoefficients::diffusionCoefficientENonlinear;
-        d_diffusionCoefficientT = &PDECoefficients::diffusionCoefficientTNonlinear;
-        d_reactionCoefficients  = &PDECoefficients::reactionCoefficientsNonlinear;
-    } else if ( model == "linear" ) {
-        d_diffusionCoefficientE = &PDECoefficients::diffusionCoefficientELinear;
-        d_diffusionCoefficientT = &PDECoefficients::diffusionCoefficientTLinear;
-        d_reactionCoefficients  = &PDECoefficients::reactionCoefficientsLinear;
-    } else {
-        AMP_ERROR( "Invalid 'model'" );
+        d_pseudoNeumannFunctionT = params->d_pseudoNeumannFunctionT;
     }
 
     setData( );
@@ -881,7 +920,7 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
 
                 // Compute semi-linear reaction coefficients at cell centers using T
                 double REE, RET, RTE, RTT;
-                d_reactionCoefficients( d_k21, d_k22, TLoc, zatom, REE, RET, RTE, RTT );
+                PDECoefficients<IsNonlinear>::reactionCoefficients( d_k21, d_k22, TLoc, zatom, REE, RET, RTE, RTT );
 
                 // Insert values into the vectors
                 d_data->r_EE->setValueByGlobalID<double>( dof, REE );
@@ -934,24 +973,30 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     // Counter for actual number of off-diag connections set
     size_t nnzOffDiag = 0;
 
+
+    // Package ghost solve wrapper to pass to this function.
+    std::function<void( size_t, const AMP::Mesh::Point &, double, double, double&, double&)> getGhostData = [this]( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg ) {
+        this->ghostValuesSolveWrapper( boundaryID, boundaryPoint, Eint, Tint, Eg, Tg );
+    }; 
+
+
     // Loop over each dimension, adding in its contribution to the total stencil
     for ( size_t dim = 0; dim < d_meshOps->d_dim; dim++ ) {
 
         double h   = d_meshOps->d_h[dim];
-        double rh2 = 1.0/(h*h); // Reciprocal h squared
 
         // Get WEST, ORIGIN, and EAST ET data for the given dimension
-        d_StencilOps->setLoc3Data(E_vec, T_vec, ijk, dim, d_ELoc3, d_TLoc3, d_dofsLoc3,  boundaryIntersection); 
+        d_StencilOps->getLoc3Data(E_vec, T_vec, ijk, dim, getGhostData, d_ELoc3, d_TLoc3, d_dofsLoc3,  boundaryIntersection); 
 
         // Compute diffusion coefficients for E or T
         double D_WO, D_OE;
         double dummy1, dummy2; // Dummy values for coefficients we don't set
         // Get energy coefficients
         if ( component == 0 ) {
-            d_StencilOps->getLocalFDDiffusionCoefficients( d_diffusionCoefficientE, d_diffusionCoefficientT, d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, h, true, D_WO, D_OE, false, dummy1, dummy2 );
+            FDStencilOps::getLocalFDDiffusionCoefficients<IsNonlinear, true, false, IsFluxLimited>( d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, h, D_WO, D_OE, dummy1, dummy2 );
         // Get temperature coefficients
         } else {
-            d_StencilOps->getLocalFDDiffusionCoefficients( d_diffusionCoefficientE, d_diffusionCoefficientT, d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, h, false, dummy1, dummy2, true, D_WO, D_OE );
+            FDStencilOps::getLocalFDDiffusionCoefficients<IsNonlinear, false, true, IsFluxLimited>( d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, h, dummy1, dummy2, D_WO, D_OE );
         }
         
         /** Recall the stencil is applied in the following fashion:
@@ -963,17 +1008,17 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
 
         //--- Pack stencil and column data
         // Set diagonal connection
-        data[0] += ( D_OE + D_WO )*rh2;
+        data[0] += ( D_OE + D_WO )*d_rh2[dim];
         cols[0]  = d_dofsLoc3[ORIGIN]; 
 
         // Set off-diagonal connections
         // Case 1: Stencil does not intersect boundary
         if ( !boundaryIntersection.has_value() ) {
             // WEST connection
-            data[nnzOffDiag+1] = -D_WO*rh2;
+            data[nnzOffDiag+1] = -D_WO*d_rh2[dim];
             cols[nnzOffDiag+1] = d_dofsLoc3[WEST];
             // EAST connection
-            data[nnzOffDiag+2] = -D_OE*rh2;
+            data[nnzOffDiag+2] = -D_OE*d_rh2[dim];
             cols[nnzOffDiag+2] = d_dofsLoc3[EAST];
             nnzOffDiag += 2;
 
@@ -993,10 +1038,10 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
             // Add WEST connection into diagonal with weight alpha
             size_t boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::WEST);
             double alpha = PicardCorrectionCoefficient( component, boundaryID, D_WO );
-            data[0] += alpha * -D_WO*rh2;
+            data[0] += alpha * -D_WO*d_rh2[dim];
 
             // Add in EAST connection
-            data[nnzOffDiag+1] = -D_OE*rh2;
+            data[nnzOffDiag+1] = -D_OE*d_rh2[dim];
             cols[nnzOffDiag+1] = d_dofsLoc3[EAST];
             nnzOffDiag += 1;
 
@@ -1004,14 +1049,14 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
         } else {
             boundaryIntersection.reset(); // Reset to have no value
             // Add in WEST connection
-            data[nnzOffDiag+1] = -D_WO*rh2;
+            data[nnzOffDiag+1] = -D_WO*d_rh2[dim];
             cols[nnzOffDiag+1] = d_dofsLoc3[WEST];
             nnzOffDiag += 1;
 
             // Add EAST connection into diagonal with weight alpha
             size_t boundaryID = FDBoundaryUtils::getBoundaryIDFromDim(dim, FDBoundaryUtils::BoundarySide::EAST);
             double alpha = PicardCorrectionCoefficient( component, boundaryID, D_OE );
-            data[0] += alpha * -D_OE*rh2;
+            data[0] += alpha * -D_OE*d_rh2[dim];
 
         }
     } // Loop over dimension
@@ -1048,21 +1093,27 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
     // Create our FDMeshOps
     d_meshOps = std::make_shared<FDMeshOps>( this->getMesh() );
     d_h = d_meshOps->d_h;
+    // Compute reciprocal square of mesh spacing
+    for (auto h : d_h) {
+        d_rh2.push_back( 1.0/(h * h) );
+    }
     d_dim = d_meshOps->d_dim;
     // Create our FDStencilOps
     d_StencilOps = std::make_shared<FDStencilOps>( d_meshOps, d_db, d_db->getScalar<bool>( "fluxLimited" ) );
-    // Update boundary functions for our stencil operations if boundary functions were given
+    // Update our boundary functions if boundary functions were given
     if ( params->d_robinFunctionE ) {
-        d_StencilOps->setBoundaryFunctionE( params->d_robinFunctionE );
+        d_robinFunctionE = params->d_robinFunctionE;
     }
     if ( params->d_pseudoNeumannFunctionT ) {
-        d_StencilOps->setBoundaryFunctionT( params->d_pseudoNeumannFunctionT );
+        d_pseudoNeumannFunctionT = params->d_pseudoNeumannFunctionT;
     }
 
     // Point data to null, that way it will be reconstructed from new data during the next apply call
     d_data = nullptr;
     setData( );
 }; 
+
+
 
 
 /** -------------------------------------------------------- *
@@ -1082,24 +1133,31 @@ RadDifOp::RadDifOp(std::shared_ptr<const AMP::Operator::OperatorParameters> para
     // Unpack parameter database
     d_db = params->d_db;
 
-    // Manually dispatch coefficient functions based on linearity of PDE
-    auto model = d_db->getWithDefault<std::string>( "model", "" );
-    if ( model == "nonlinear" ) {
-        d_diffusionCoefficientE = &PDECoefficients::diffusionCoefficientENonlinear;
-        d_diffusionCoefficientT = &PDECoefficients::diffusionCoefficientTNonlinear;
-        d_reactionCoefficients  = &PDECoefficients::reactionCoefficientsNonlinear;
-    } else if ( model == "linear" ) {
-        d_diffusionCoefficientE = &PDECoefficients::diffusionCoefficientELinear;
-        d_diffusionCoefficientT = &PDECoefficients::diffusionCoefficientTLinear;
-        d_reactionCoefficients  = &PDECoefficients::reactionCoefficientsLinear;
-    } else {
-        AMP_ERROR( "Invalid 'model'" );
-    }
+    // // Manually dispatch coefficient functions based on linearity of PDE
+    // auto model = d_db->getWithDefault<std::string>( "model", "" );
+    // if ( model == "nonlinear" ) {
+    //     d_diffusionCoefficientE = &PDECoefficients::diffusionCoefficientENonlinear;
+    //     d_diffusionCoefficientT = &PDECoefficients::diffusionCoefficientTNonlinear;
+    //     //d_reactionCoefficients  = &PDECoefficients::reactionCoefficientsNonlinear;
+    //     d_reactionFunctor = ReactionCoefficientsNonlinear{ d_k12, d_k22 };
+    // } else if ( model == "linear" ) {
+    //     d_diffusionCoefficientE = &PDECoefficients::diffusionCoefficientELinear;
+    //     d_diffusionCoefficientT = &PDECoefficients::diffusionCoefficientTLinear;
+    //     //d_reactionCoefficients  = &PDECoefficients::reactionCoefficientsLinear;
+    //     d_reactionFunctor = ReactionCoefficientsLinear{ d_k12, d_k22 };
+    // } else {
+    //     AMP_ERROR( "Invalid 'model'" );
+    // }
 
 
     // Create our FDMeshOps
     d_meshOps = std::make_shared<FDMeshOps>( this->getMesh() );
     d_h = d_meshOps->d_h;
+    // Compute reciprocal square of mesh spacing
+    d_rh2.resize(0);
+    for (auto h : d_h) {
+        d_rh2.push_back( 1.0/(h * h) );
+    }
     d_dim = d_meshOps->d_dim;
     // Create our FDStencilOps
     d_StencilOps = std::make_shared<FDStencilOps>( d_meshOps, d_db, d_db->getScalar<bool>( "fluxLimited" ) );
@@ -1115,13 +1173,13 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const 
 
 void RadDifOp::setBoundaryFunctionE( const std::function<double( size_t, const AMP::Mesh::Point &)> &fn_ ) 
 {  
-    d_StencilOps->setBoundaryFunctionE( fn_ );
+    d_robinFunctionE = fn_;
 };
 
 
 void RadDifOp::setBoundaryFunctionT( const std::function<double( size_t, const AMP::Mesh::Point &)> &fn_ ) 
 { 
-    d_StencilOps->setBoundaryFunctionT( fn_ );
+    d_pseudoNeumannFunctionT = fn_;
 };
 
 
@@ -1139,8 +1197,8 @@ std::shared_ptr<AMP::Operator::OperatorParameters> RadDifOp::getJacobianParamete
     jacOpParams->d_frozenSolution = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( u_in );
 
     // Copy boundary functions from our FDStencilOps
-    jacOpParams->d_robinFunctionE = d_StencilOps->getBoundaryFunctionE();
-    jacOpParams->d_pseudoNeumannFunctionT = d_StencilOps->getBoundaryFunctionT();
+    jacOpParams->d_robinFunctionE = d_robinFunctionE; 
+    jacOpParams->d_pseudoNeumannFunctionT = d_pseudoNeumannFunctionT; 
     
     return jacOpParams;
 }
@@ -1173,6 +1231,7 @@ bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
  *      REE = RTE = -1
  *      RET = RTT = +1
  */
+#if 0
 void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
             std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_) 
 {
@@ -1218,19 +1277,18 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                 for ( size_t dim = 0; dim < d_dim; dim++ ) {
 
                     double h   = d_h[dim];
-                    double rh2 = 1.0/(h*h); // Reciprocal h squared
 
                     // Get WEST, ORIGIN, EAST ET data for the given dimension
-                    d_StencilOps->setLoc3Data(E_vec, T_vec, ijk, dim, d_ELoc3, d_TLoc3);        
+                    d_StencilOps->getLoc3Data(E_vec, T_vec, ijk, dim, d_ELoc3, d_TLoc3);        
                     // Get diffusion coefficients for both E and T
                     double Dr_WO, Dr_OE, DT_WO, DT_OE;
                     d_StencilOps->getLocalFDDiffusionCoefficients( d_diffusionCoefficientE, d_diffusionCoefficientT, d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, h, true, Dr_WO, Dr_OE, true, DT_WO, DT_OE);
                     
                     // Apply diffusion operators in quasi-linear fashion
                     dif_E_action += ( -Dr_OE*(d_ELoc3[EAST]-d_ELoc3[ORIGIN]) 
-                                        + Dr_WO*(d_ELoc3[ORIGIN]-d_ELoc3[WEST]) )*rh2;
+                                        + Dr_WO*(d_ELoc3[ORIGIN]-d_ELoc3[WEST]) )*d_rh2[dim];
                     dif_T_action += ( -DT_OE*(d_TLoc3[EAST]-d_TLoc3[ORIGIN]) 
-                                        + DT_WO*(d_TLoc3[ORIGIN]-d_TLoc3[WEST]) )*rh2;
+                                        + DT_WO*(d_TLoc3[ORIGIN]-d_TLoc3[WEST]) )*d_rh2[dim];
                 }
                 // Finished looping over dimensions for diffusion discretizations
                 AMP_INSIST( d_TLoc3[ORIGIN] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
@@ -1253,21 +1311,106 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
     } // Loop over k
     LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
+#endif
 
-
-
-
+#if 0
 void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
             std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_) 
 {
+    
+
+    auto d_localBox = d_meshOps->d_localBox;
+
+    std::array<size_t, 3> ijk;
+
+
+    // Determine first and last interior indices in each dimension. If a dimension is empty we require start and end indices of 0 to enter into the loop.
+    auto iLast = std::max( d_localBox->last[0]-1, 0 );
+    auto jLast = std::max( d_localBox->last[1]-1, 0 );
+    auto kLast = std::max( d_localBox->last[2]-1, 0 );
+    auto iFirst = ( iLast > 0 ) ? 1 : 0;
+    auto jFirst = ( jLast > 0 ) ? 1 : 0;
+    auto kFirst = ( kLast > 0 ) ? 1 : 0;
+
+    
+    std::cout << "\n\nINTERIOR\n";
+    // Iterate over local box
+    for ( auto k = kFirst; k <= kLast; k++ ) {
+        ijk[2] = k;
+        for ( auto j = jFirst; j <= jLast; j++ ) {
+            ijk[1] = j;
+            for ( auto i = iFirst; i <= iLast; i++ ) {
+                ijk[0] = i;
+
+                std::cout << "i=" << ijk[0] << ",j=" << ijk[1] << ",k=" << ijk[2] << "\n";
+            }
+        }
+    }
+
+
+    /** Loop over processor boundary. Note that DOFs are touched a number of times equal to the 
+     * number of boundaries they live on 
+     */
+    std::cout << "\n\nBOUNDARY\n";
+    std::array<size_t, 3> dims = {0, 1, 2};
+    // Loop over each dimension
+    for ( auto boundaryDim : dims ) {
+
+        std::cout << "\n\nboundaryDim=" << boundaryDim << "\n";
+
+        // If length of domain in current dimension is zero there's no boundary to consider
+        auto west   = d_localBox->first[boundaryDim];
+        auto east   = d_localBox->last[boundaryDim];
+        auto domLen = east - west;
+        if ( domLen == 0 ) {
+            continue;
+        }
+
+        // Create vector of free dimensions to loop over with current dim fixed
+        std::vector<size_t> freeDims = {};
+        for ( auto dim : dims ) {
+            if ( dim != boundaryDim ) {
+                freeDims.push_back( dim );
+            }
+        }
+
+        // Loop over both boundaries of current dimension
+        for (auto boundaryInd : { west, east } ) {
+            ijk[boundaryDim] = boundaryInd;
+
+            std::cout << "boundaryIndex=" << boundaryInd << "\n";
+
+            // Loop over all of second free dimension
+            for ( auto freeInd2 = d_localBox->first[freeDims[1]]; freeInd2 <= d_localBox->last[freeDims[1]]; freeInd2++ ) {
+                ijk[freeDims[1]] = freeInd2;
+
+                // Loop over all of first free dimension
+                for ( auto freeInd1 = d_localBox->first[freeDims[0]]; freeInd1 <= d_localBox->last[freeDims[0]]; freeInd1++ ) {
+                        ijk[freeDims[0]] = freeInd1;
+
+                    std::cout << "i=" << ijk[0] << ",j=" << ijk[1] << ",k=" << ijk[2] << "\n";
+                }
+            }
+        }
+    }
+
+    AMP_ERROR("halt....");
+
+}
+#endif
+
+
+#if 1
+void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
+            std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_) 
+{
+    
     PROFILE( "RadDifOp::apply" );
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "RadDifOp::apply() " << std::endl;
     }
 
-    // --- Unpack parameters ---
-    double zatom = this->d_db->getWithDefault<double>( "zatom", 1.0 );  
     
     // --- Unpack inputs ---
     // Downcast input Vectors to MultiVectors 
@@ -1282,64 +1425,220 @@ void RadDifOp::apply(std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
     auto LE_vec = LET_vec->getVector(0);
     auto LT_vec = LET_vec->getVector(1);
 
+    applyInterior( E_vec, T_vec, LE_vec, LT_vec );
+    applyBoundary( E_vec, T_vec, LE_vec, LT_vec );
 
-    // --- Iterate over all local rows ---
-    // Placeholder for current grid index
+    LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+}
+#endif
+
+
+void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
+                            std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LE_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LT_vec) 
+{
+    
+    PROFILE( "RadDifOp::applyInterior" );
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "RadDifOp::applyInterior() " << std::endl;
+    }
+
+    // --- Unpack parameters ---
+    double zatom = this->d_db->getWithDefault<double>( "zatom", 1.0 );  
+    
+
+    auto d_localBox = d_meshOps->d_localBox;
+    // Set local size
+    auto d_localArraySize = std::make_shared<AMP::ArraySize>( d_localBox->size() );
     std::array<int, 3> ijk;
 
-    // Iterate over local box
-    for ( auto k = d_meshOps->d_localBox->first[2]; k <= d_meshOps->d_localBox->last[2]; k++ ) {
+
+    auto iDomLen = d_localBox->last[0] - d_localBox->first[0];
+    auto jDomLen = d_localBox->last[1] - d_localBox->first[1];
+    auto kDomLen = d_localBox->last[2] - d_localBox->first[2];
+    
+    // Determine first and last interior indices in each dimension. If a dimension is empty we require start and end indices of 0 to enter into the loop.
+    auto iLast = std::max( iDomLen-1, 0 );
+    auto jLast = std::max( jDomLen-1, 0 );
+    auto kLast = std::max( kDomLen-1, 0 );
+    auto iFirst = ( iLast > 0 ) ? 1 : 0;
+    auto jFirst = ( jLast > 0 ) ? 1 : 0;
+    auto kFirst = ( kLast > 0 ) ? 1 : 0;
+    
+    // Iterate over interior of local box
+    for ( auto k = kFirst; k <= kLast; k++ ) {
         ijk[2] = k;
-        for ( auto j = d_meshOps->d_localBox->first[1]; j <= d_meshOps->d_localBox->last[1]; j++ ) {
+        for ( auto j = jFirst; j <= jLast; j++ ) {
             ijk[1] = j;
-            for ( auto i = d_meshOps->d_localBox->first[0]; i <= d_meshOps->d_localBox->last[0]; i++ ) {
+            for ( auto i = iFirst; i <= iLast; i++ ) {
                 ijk[0] = i;
 
                 /** --- Compute coefficients to apply stencil in a quasi-linear fashion */
                 // Action of diffusion operator: Loop over each dimension, adding in its contribution to the total
                 double dif_E_action = 0.0; // d_E * E
                 double dif_T_action = 0.0; // d_T * T
+
+                // Get O dofs
+                auto indORIGIN = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
+                d_ELoc3[ORIGIN] = E_vec->getValueByLocalID<double>( indORIGIN );
+                d_TLoc3[ORIGIN] = T_vec->getValueByLocalID<double>( indORIGIN );
+
                 for ( size_t dim = 0; dim < d_dim; dim++ ) {
 
-                    double h   = d_h[dim];
-                    double rh2 = 1.0/(h*h); // Reciprocal h squared
+                    // Get WEST and EAST ET data for given dimension
+                    ijk[dim] -= 1;
+                    auto indWEST = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
+                    ijk[dim] += 2;
+                    auto indEAST = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
+                    ijk[dim] -= 1; // Reset to O
 
-                    // Get WEST, ORIGIN, EAST ET data for the given dimension
-                    d_StencilOps->setLoc3Data(E_vec, T_vec, ijk, dim, d_ELoc3, d_TLoc3);        
+                    d_ELoc3[WEST] = E_vec->getValueByLocalID<double>( indWEST );
+                    d_TLoc3[WEST] = T_vec->getValueByLocalID<double>( indWEST );
+                    d_ELoc3[EAST] = E_vec->getValueByLocalID<double>( indEAST );
+                    d_TLoc3[EAST] = T_vec->getValueByLocalID<double>( indEAST );
+
                     // Get diffusion coefficients for both E and T
                     double Dr_WO, Dr_OE, DT_WO, DT_OE;
-                    d_StencilOps->getLocalFDDiffusionCoefficients( d_diffusionCoefficientE, d_diffusionCoefficientT, d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, h, true, Dr_WO, Dr_OE, true, DT_WO, DT_OE);
+                    FDStencilOps::getLocalFDDiffusionCoefficients<IsNonlinear, true, true, IsFluxLimited>( d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, d_h[dim], Dr_WO, Dr_OE, DT_WO, DT_OE);
                     
                     // Apply diffusion operators in quasi-linear fashion
                     dif_E_action += ( -Dr_OE*(d_ELoc3[EAST]-d_ELoc3[ORIGIN]) 
-                                        + Dr_WO*(d_ELoc3[ORIGIN]-d_ELoc3[WEST]) )*rh2;
+                                        + Dr_WO*(d_ELoc3[ORIGIN]-d_ELoc3[WEST]) )*d_rh2[dim];
                     dif_T_action += ( -DT_OE*(d_TLoc3[EAST]-d_TLoc3[ORIGIN]) 
-                                        + DT_WO*(d_TLoc3[ORIGIN]-d_TLoc3[WEST]) )*rh2;
+                                        + DT_WO*(d_TLoc3[ORIGIN]-d_TLoc3[WEST]) )*d_rh2[dim];
                 }
                 // Finished looping over dimensions for diffusion discretizations
                 AMP_INSIST( d_TLoc3[ORIGIN] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
 
-                // Compute semi-linear reaction coefficients at cell centers using T value set in the last iteration of the above loop
+                // Compute reaction coefficients at cell centers 
                 double REE, RET, RTE, RTT;
-                d_reactionCoefficients( d_k12, d_k22, d_TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
+                //d_reactionCoefficients( d_k12, d_k22, d_TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
                 
+                PDECoefficients<IsNonlinear>::reactionCoefficients( d_k12, d_k22, d_TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
+
                 // Sum diffusion and reaction terms
                 double LE = dif_E_action + ( REE*d_ELoc3[ORIGIN] + RET*d_TLoc3[ORIGIN] );
                 double LT = dif_T_action + ( RTE*d_ELoc3[ORIGIN] + RTT*d_TLoc3[ORIGIN] );
 
                 // Insert values into the vectors
-                size_t dof_O = d_meshOps->gridIndsToScalarDOF( ijk );
-                LE_vec->setValueByGlobalID<double>( dof_O, LE );
-                LT_vec->setValueByGlobalID<double>( dof_O, LT );
+                LE_vec->setValuesByLocalID<double>( 1, &indORIGIN, &LE );
+                LT_vec->setValuesByLocalID<double>( 1, &indORIGIN, &LT );
 
             } // Loop over i
         } // Loop over j
     } // Loop over k
-    LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 
-I need to separate the interior from the boundary. Where I have a localBox I can just decrement each dimensions bounding box by 1. how then do i loop over the complement?
+void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
+                            std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LE_vec,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> LT_vec) 
+{
+    
+    PROFILE( "RadDifOp::applyBoundary" );
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "RadDifOp::applyBoundary() " << std::endl;
+    }
+
+    // --- Unpack parameters ---
+    double zatom = this->d_db->getWithDefault<double>( "zatom", 1.0 );  
+    
+    auto d_localBox = d_meshOps->d_localBox;
+    std::array<int, 3> ijk;
+
+        // Package ghost solve wrapper to pass to this function.
+    std::function<void( size_t, const AMP::Mesh::Point &, double, double, double&, double&)> getGhostData = [this]( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg ) {
+        this->ghostValuesSolveWrapper( boundaryID, boundaryPoint, Eint, Tint, Eg, Tg );
+    }; 
+
+
+    /** Loop over processor boundary. Note that DOFs are touched a number of times equal to the 
+     * number of boundaries they live on 
+     */
+    //std::cout << "\n\nBOUNDARY\n";
+    std::array<size_t, 3> dims = {0, 1, 2};
+    // Loop over each dimension
+    for ( auto boundaryDim : dims ) {
+
+        //std::cout << "\n\nboundaryDim=" << boundaryDim << "\n";
+
+        // If length of domain in current dimension is zero there's no boundary to consider
+        auto west   = d_localBox->first[boundaryDim];
+        auto east   = d_localBox->last[boundaryDim];
+        auto domLen = east - west;
+        if ( domLen == 0 ) {
+            continue;
+        }
+
+        // Create vector of free dimensions to loop over with current dim fixed
+        std::vector<size_t> freeDims = {};
+        for ( auto dim : dims ) {
+            if ( dim != boundaryDim ) {
+                freeDims.push_back( dim );
+            }
+        }
+
+        // Loop over both boundaries of current dimension
+        for (auto boundaryInd : { west, east } ) {
+            ijk[boundaryDim] = boundaryInd;
+
+            // Loop over all of second free dimension
+            for ( auto freeInd2 = d_localBox->first[freeDims[1]]; freeInd2 <= d_localBox->last[freeDims[1]]; freeInd2++ ) {
+                ijk[freeDims[1]] = freeInd2;
+
+                // Loop over all of first free dimension
+                for ( auto freeInd1 = d_localBox->first[freeDims[0]]; freeInd1 <= d_localBox->last[freeDims[0]]; freeInd1++ ) {
+                        ijk[freeDims[0]] = freeInd1;
+
+                    
+                    /** --- Compute coefficients to apply stencil in a quasi-linear fashion */
+                    // Action of diffusion operator: Loop over each dimension, adding in its contribution to the total
+                    double dif_E_action = 0.0; // d_E * E
+                    double dif_T_action = 0.0; // d_T * T
+                    for ( size_t dim = 0; dim < d_dim; dim++ ) {
+
+                        double h   = d_h[dim];
+
+                        // Get WEST, ORIGIN, EAST ET data for the given dimension
+                        d_StencilOps->getLoc3Data(E_vec, T_vec, ijk, dim, getGhostData, d_ELoc3, d_TLoc3);        
+                        // Get diffusion coefficients for both E and T
+                        double Dr_WO, Dr_OE, DT_WO, DT_OE;
+                        FDStencilOps::getLocalFDDiffusionCoefficients<IsNonlinear, true, true, IsFluxLimited>( d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, h, Dr_WO, Dr_OE, DT_WO, DT_OE);
+                        
+                        // Apply diffusion operators in quasi-linear fashion
+                        dif_E_action += ( -Dr_OE*(d_ELoc3[EAST]-d_ELoc3[ORIGIN]) 
+                                            + Dr_WO*(d_ELoc3[ORIGIN]-d_ELoc3[WEST]) )*d_rh2[dim];
+                        dif_T_action += ( -DT_OE*(d_TLoc3[EAST]-d_TLoc3[ORIGIN]) 
+                                            + DT_WO*(d_TLoc3[ORIGIN]-d_TLoc3[WEST]) )*d_rh2[dim];
+                    }
+                    // Finished looping over dimensions for diffusion discretizations
+                    AMP_INSIST( d_TLoc3[ORIGIN] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
+
+                    // Compute semi-linear reaction coefficients at cell centers using T value set in the last iteration of the above loop
+                    double REE, RET, RTE, RTT;
+                    // d_reactionCoefficients( d_k12, d_k22, d_TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
+                    
+                    PDECoefficients<IsNonlinear>::reactionCoefficients( d_k12, d_k22, d_TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
+                    
+                    // Sum diffusion and reaction terms
+                    double LE = dif_E_action + ( REE*d_ELoc3[ORIGIN] + RET*d_TLoc3[ORIGIN] );
+                    double LT = dif_T_action + ( RTE*d_ELoc3[ORIGIN] + RTT*d_TLoc3[ORIGIN] );
+
+                    // Insert values into the vectors
+                    size_t dof_O = d_meshOps->gridIndsToScalarDOF( ijk );
+                    LE_vec->setValueByGlobalID<double>( dof_O, LE );
+                    LT_vec->setValueByGlobalID<double>( dof_O, LT );
+
+                } // Loop first free dim
+            } // Loop over second free dim
+        } // Loop over boundary in frozen dim
+    } // Loop over frozen dim
+}
+
 
 
 double RadDifOpPJac::PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const {
