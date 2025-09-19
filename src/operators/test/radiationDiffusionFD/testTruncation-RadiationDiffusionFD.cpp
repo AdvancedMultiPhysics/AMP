@@ -125,11 +125,11 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     double oldOldTime = oldTime - dt;
     // Populate vectors with manufactured solution
     myRadDifModel->setCurrentTime( newTime );
-    myRadDifOp->d_meshOps->fillMultiVectorWithFunction( manSolVecNew, PDEManufacturedSolution );
+    fillMultiVectorWithFunction( myRadDifOp->getMesh(), myRadDifOp->getGeomType(), myRadDifOp->getScalarDOFManager(), manSolVecNew, PDEManufacturedSolution );
     myRadDifModel->setCurrentTime( oldTime );
-    myRadDifOp->d_meshOps->fillMultiVectorWithFunction( manSolVecOld, PDEManufacturedSolution );
+    fillMultiVectorWithFunction( myRadDifOp->getMesh(), myRadDifOp->getGeomType(), myRadDifOp->getScalarDOFManager(), manSolVecOld, PDEManufacturedSolution );
     myRadDifModel->setCurrentTime( oldOldTime );
-    myRadDifOp->d_meshOps->fillMultiVectorWithFunction( manSolVecOldOld, PDEManufacturedSolution );
+    fillMultiVectorWithFunction( myRadDifOp->getMesh(), myRadDifOp->getGeomType(), myRadDifOp->getScalarDOFManager(), manSolVecOldOld, PDEManufacturedSolution );
     
 
     /****************************************************************
@@ -146,7 +146,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
      */
     // Compute RHS vector
     myRadDifModel->setCurrentTime( newTime ); // Set model to new time to ensure source term and Robin values are sampled at this time.
-    myRadDifOp->d_meshOps->fillMultiVectorWithFunction( BDFSourceVec, PDESourceFun ); // BDFSourceVec <- s
+    fillMultiVectorWithFunction( myRadDifOp->getMesh(), myRadDifOp->getGeomType(), myRadDifOp->getScalarDOFManager(), BDFSourceVec, PDESourceFun ); // BDFSourceVec <- s
     double gamma = 2.0/3.0 * dt;
     BDFSourceVec->axpby(  4.0/3.0, gamma, *manSolVecOld    ); // this <- gamma*this + 4/3*u_old 
     BDFSourceVec->axpby( -1.0/3.0,   1.0, *manSolVecOldOld ); // this <- 1.0*this - 1/3*u_oldOld
