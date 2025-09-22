@@ -141,4 +141,21 @@ void EpetraMatrixOperations::copy( const MatrixData &X, MatrixData &Y )
         getEpetra_CrsMatrix( X ), false, 1.0, getEpetra_CrsMatrix( Y ), 0.0 );
 }
 
+void EpetraMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+
 } // namespace AMP::LinearAlgebra

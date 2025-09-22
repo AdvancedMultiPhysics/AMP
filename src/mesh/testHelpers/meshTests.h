@@ -331,16 +331,7 @@ public: // Matrix based tests
     static void GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh );
 
 
-private: // Private data
-         /**
-          * \brief Check a mesh iterator
-          * \details  This test performs a series of simple tests on a single mesh element iterator
-          * \param[out] ut           Unit test class to report the results
-          * \param[in] mesh          mesh for the iterator
-          * \param[in] iterator      local iterator over elements
-          * \param[in] type          Geometric type
-          * \param[in] name          Name of test
-          */
+private:
     static std::pair<size_t, size_t> ElementIteratorTest( AMP::UnitTest &ut,
                                                           std::shared_ptr<AMP::Mesh::Mesh> mesh,
                                                           const AMP::Mesh::MeshIterator &iterator,

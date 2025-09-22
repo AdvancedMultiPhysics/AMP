@@ -63,7 +63,6 @@ double calc_volume( int ndim, const double x[] );
  * Note:  If we are checking the surface between 2 simplicies and they are both valid
  *    (have a positive, non-zero volume), it is suffcient to check the vertix of 1 volume
  *    against the circumcircle of the other.  We do not need to perform both checks.
- * @param ndim      The number of dimensions
  * @param x         The coordinates of the vertices of the simplex
  * @param xi        The coordinates of the vertex to check
  * @param TOL_VOL   A tolerance on the volume to use

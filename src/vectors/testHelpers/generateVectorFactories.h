@@ -61,6 +61,5 @@ std::vector<std::string> getManagedVectorFactories();
 
 } // namespace AMP::LinearAlgebra
 
-/// \endcond
 
 #endif

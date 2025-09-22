@@ -35,6 +35,5 @@ private:
 
 } // namespace AMP::LinearAlgebra
 
-/// \endcond
 
 #endif
