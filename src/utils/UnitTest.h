@@ -116,7 +116,7 @@ public:
      *                     Report all failures,
      *                     Report all expected
      *                  3: Report all passed, failed, and expected failed tests.
-     * @param level     Remove duplicate messages.
+     * @param removeDuplicates  Remove duplicate messages.
      *                  If set, the total number of message will be unchanged but if printed
      *                  duplicate messages will be removed
      */
