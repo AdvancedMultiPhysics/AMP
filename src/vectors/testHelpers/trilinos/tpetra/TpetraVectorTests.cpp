@@ -53,4 +53,3 @@ void TpetraVectorTests::VerifyNorms( AMP::UnitTest *ut )
 
 
 } // namespace AMP::LinearAlgebra
-

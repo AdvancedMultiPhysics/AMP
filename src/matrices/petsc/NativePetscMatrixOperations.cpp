@@ -147,7 +147,9 @@ void NativePetscMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vect
 {
     AMP_ERROR( "Not implemented" );
 }
-void NativePetscMatrixOperations::scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+void NativePetscMatrixOperations::scaleInv( AMP::Scalar,
+                                            std::shared_ptr<const Vector>,
+                                            MatrixData & )
 {
     AMP_ERROR( "Not implemented" );
 }

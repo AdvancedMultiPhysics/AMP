@@ -128,4 +128,3 @@ void testBelosThyraVector( AMP::UnitTest &ut, const VectorFactory &factory )
 
 #endif
 } // namespace AMP::LinearAlgebra
-

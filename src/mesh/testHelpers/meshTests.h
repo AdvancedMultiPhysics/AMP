@@ -332,7 +332,6 @@ public: // Matrix based tests
 
 
 private:
-
     static std::pair<size_t, size_t> ElementIteratorTest( AMP::UnitTest &ut,
                                                           std::shared_ptr<AMP::Mesh::Mesh> mesh,
                                                           const AMP::Mesh::MeshIterator &iterator,
