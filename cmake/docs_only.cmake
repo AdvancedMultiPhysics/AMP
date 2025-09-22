@@ -8,11 +8,10 @@ MACRO( CHECK_ENABLE_FLAG FLAG DEFAULT )
         SET( ${FLAG} 0 )
     ELSEIF ( (${${FLAG}} STREQUAL "TRUE" ) OR ( ${${FLAG}} STREQUAL "true" ) OR ( ${${FLAG}} STREQUAL "1" ) OR ( ${${FLAG}} STREQUAL "ON" ))
         SET( ${FLAG} 1 )
-    ELSE ()
+    ELSE()
         MESSAGE( "Bad value for ${FLAG} ( ${${FLAG}} ); use true or false" )
     ENDIF()
 ENDMACRO()
-
 
 # Dummy use to prevent unused cmake variable warning
 MACRO( NULL_USE VAR )
@@ -27,10 +26,10 @@ NULL_USE( ENABLE_GCOV )
 NULL_USE( USE_CUDA )
 NULL_USE( EXCLUDE_TESTS_FROM_ALL )
 
-
 # Dummy functions
 FUNCTION( WRITE_REPO_VERSION )
+
 ENDFUNCTION()
 FUNCTION( CREATE_RELEASE )
-ENDFUNCTION()
 
+ENDFUNCTION()

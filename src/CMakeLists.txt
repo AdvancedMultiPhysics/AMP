@@ -15,7 +15,7 @@ FUNCTION( SET_DEVICE_COMPILER )
                 FILE( GLOB TMP "${CMAKE_CURRENT_SOURCE_DIR}/${tmp}/*.cc" "${CMAKE_CURRENT_SOURCE_DIR}/${tmp}/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/${tmp}/*.cxx"
                      "${CMAKE_CURRENT_SOURCE_DIR}/${tmp}/*.C" )
                 SET_SOURCE_FILES_PROPERTIES( ${TMP} PROPERTIES LANGUAGE ${DEVICE_LANG} )
-            ELSE ()
+            ELSE()
                 SET_SOURCE_FILES_PROPERTIES( ${tmp} PROPERTIES LANGUAGE ${DEVICE_LANG} )
             ENDIF()
         ENDFOREACH()
