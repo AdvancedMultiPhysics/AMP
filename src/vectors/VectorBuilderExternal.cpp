@@ -112,7 +112,7 @@ std::shared_ptr<Vector> createEpetraVector( std::shared_ptr<CommunicationList>,
 #if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_TPETRA )
 std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> commList,
                                             std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
-                                            std::shared_ptr<VectorData> buf )
+                                            [[maybe_unused]] std::shared_ptr<VectorData> buf )
 {
     auto var  = std::make_shared<Variable>( "vec" );
     auto ops  = std::make_shared<TpetraVectorOperations<>>();

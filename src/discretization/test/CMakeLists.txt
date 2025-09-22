@@ -1,7 +1,4 @@
-############################################################################
-#  Configure tests
-############################################################################
-
+# Configure tests
 ADD_AMP_TEST_1_2_4( test_Discretization )
 ADD_AMP_TEST_1_2_4( test_Neighbors )
 IF ( USE_LIBMESH )

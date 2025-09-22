@@ -75,6 +75,15 @@ MechanicsNonlinearFEOperator1 {
             QRULE_ORDER = "DEFAULT"
         }
 
+        MechanicsLinearElement {
+          name="MechanicsLinearElement"
+            USE_REDUCED_INTEGRATION = FALSE 
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }
+
 	LocalModel = PericElastoViscoPlasticModel
 }
 
@@ -174,25 +183,23 @@ Load_Boundary {
 NonlinearSolver{
   print_info_level = 2 
     max_iterations = 100
-    max_error = 1e-10
-
     absolute_tolerance = 1.0e-15
     relative_tolerance = 1.0e-12
     stepTolerance = 1.0e-10
     maximumFunctionEvals = 1000
-    usesJacobian=TRUE
+    usesJacobian=FALSE
 
     SNESOptions = "-snes_monitor -snes_type ls -snes_ksp_ew -snes_converged_reason -snes_ls_alpha 0.001"
 
     LinearSolver{
-      print_info_level = 1
+        name = "PetscKrylovSolver"
+        print_info_level = 1
         max_iterations = 1000
-        max_error = 1e-10
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
         relative_tolerance = 1.0e-13
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 100
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
@@ -200,10 +207,10 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
         Preconditioner{
-          print_info_level = 1
+            name = "TrilinosMLSolver"
+            print_info_level = 1
             PDE_equations = 3
             max_iterations = 1
-            max_error = 1.0e-15
         }
     }
 }
