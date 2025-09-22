@@ -62,6 +62,7 @@ public:
      * initialized (using initializeLibMesh), and that the mesh is created properly.
      * \param mesh The mesh in libmesh we want to use to construct the new mesh object
      * \param name The name of the new mesh object
+     * \param libMeshComm Optional libMesh communicator to use
      */
     explicit libmeshMesh( std::shared_ptr<libMesh::Mesh> mesh,
                           const std::string &name,

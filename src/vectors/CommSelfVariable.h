@@ -16,7 +16,6 @@ class CommSelfVariable final : public SubsetVariable
 public:
     /** \brief Constructor
      * \param[in] name  The name of the new variable
-     * \param[in] comm  The AMP_MPI communicator of the new variable
      */
     CommSelfVariable( const std::string &name );
 

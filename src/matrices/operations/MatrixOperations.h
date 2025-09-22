@@ -130,7 +130,7 @@ public:
      * \param[in] x matrix data to copy from
      * \param[in] y matrix data to copy to after up/down casting the coefficients
      */
-    virtual void copyCast( const MatrixData &, MatrixData & ) { AMP_ERROR( "NOT IMPLEMENTED" ); }
+    virtual void copyCast( const MatrixData &x, MatrixData &y );
 };
 
 } // namespace AMP::LinearAlgebra

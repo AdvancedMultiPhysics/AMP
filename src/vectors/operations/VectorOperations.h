@@ -189,14 +189,14 @@ public:
     /**
      * \brief modify vector to set \f$x_i = max(x_i, val)\f$.
      * \param[in] x a vector
-     * \param[in] alpha a scalar
+     * \param[in] val a scalar
      */
     virtual void setMax( const Scalar &val, VectorData &x ) = 0;
 
     /**
      * \brief modify vector to set \f$x_i = min(x_i, val)\f$.
      * \param[in] x a vector
-     * \param[in] alpha a scalar
+     * \param[in] val a scalar
      */
     virtual void setMin( const Scalar &val, VectorData &x ) = 0;
 
