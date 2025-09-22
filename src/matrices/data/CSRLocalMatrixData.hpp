@@ -837,7 +837,7 @@ void CSRLocalMatrixData<Config>::printAll( bool force ) const
 
     // bail if total entries too large and force output not enabled
     if ( d_nnz > 5000 && !force ) {
-        AMP_WARN_ONCE( "CSRLocalMatrixData::printAll: Skipping print due to to many non-zeros. "
+        AMP_WARN_ONCE( "CSRLocalMatrixData::printAll: Skipping print due to too many non-zeros. "
                        "Re-run with force=true to print anyway." );
         return;
     }
@@ -884,6 +884,15 @@ void CSRLocalMatrixData<Config>::printAll( bool force ) const
         coeffs_h.resize( d_nnz, 0 );
         AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs_h.data() );
         coeffs = coeffs_h.data();
+    }
+
+    // print all unique columns
+    if ( cols_unq ) {
+        std::cout << "Unique cols: ";
+        for ( lidx_t n = 0; n < d_ncols_unq; ++n ) {
+            std::cout << "[" << n << "|" << cols_unq[n] << "] ";
+        }
+        std::cout << std::endl << std::endl;
     }
 
     // print all global columns and values row-by-row

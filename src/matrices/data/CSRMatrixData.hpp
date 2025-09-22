@@ -382,7 +382,7 @@ void CSRMatrixData<Config>::resetDOFManagers( bool force_right )
             std::make_shared<Discretization::DOFManager>( d_last_row - d_first_row, comm );
     }
 
-    // Right DOFManager and CommList used mre often. Replacing DOFManager has
+    // Right DOFManager and CommList used more often. Replacing DOFManager has
     // poor side effects and is only done if necessary. The CommList on the other
     // hand must contain only the minimal set of remote DOFs to avoid useless
     // communication

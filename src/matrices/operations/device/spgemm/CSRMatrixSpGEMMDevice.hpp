@@ -81,12 +81,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
     deviceSynchronize();
 
     C->assemble( true );
-
-    if ( comm.getRank() == 0 && false ) {
-        std::cout << "Device SpGEMM assembled" << std::endl;
-        // C_diag->printStats( true, false );
-        C_offd->printAll();
-    }
 }
 
 template<typename Config>
@@ -104,7 +98,8 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
 
     // shapes of A and B
     const auto A_nrows = static_cast<int64_t>( A_data->numLocalRows() );
-    const auto A_ncols = static_cast<int64_t>( A_data->numLocalColumns() );
+    const auto A_ncols = A_data->isDiag() ? static_cast<int64_t>( A_data->numLocalColumns() ) :
+                                            static_cast<int64_t>( A_data->numUniqueColumns() );
     const auto B_ncols = B_data->isDiag() ? static_cast<int64_t>( B_data->numLocalColumns() ) :
                                             static_cast<int64_t>( B_data->numUniqueColumns() );
 
@@ -175,7 +170,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
     // exiting function destructs spgemm wrapper and frees its internals
 }
 
-#if 0
 template<typename gidx_t, typename lidx_t>
 __global__ void merge_row_count( const lidx_t num_rows,
                                  const lidx_t *A_rs,
@@ -212,42 +206,7 @@ __global__ void merge_row_count( const lidx_t num_rows,
         C_rs[row] += B_rs[row + 1] - B_rs[row] - num_repeats;
     }
 }
-#else
-template<typename gidx_t, typename lidx_t>
-__global__ void merge_row_count( const lidx_t num_rows,
-                                 const lidx_t *A_rs,
-                                 const gidx_t *A_cols,
-                                 const lidx_t *B_rs,
-                                 const gidx_t *B_cols,
-                                 lidx_t *C_rs )
-{
-    for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
-          row += blockDim.x * gridDim.x ) {
-        const auto A_start = A_rs[row], A_end = A_rs[row + 1], A_len = A_end - A_start;
-        const auto B_start = B_rs[row], B_end = B_rs[row + 1], B_len = B_end - B_start;
-        const auto C_start = C_rs[row], C_end = C_rs[row + 1], C_len = C_end - C_start;
 
-        C_rs[row] = A_len;
-
-        for ( lidx_t B_ptr = B_start; B_ptr < B_end; ++B_ptr ) {
-            const auto Bc = B_cols[B_ptr];
-            bool matched  = false;
-            for ( lidx_t A_ptr = A_start; A_ptr < A_end; ++A_ptr ) {
-                const auto Ac = A_cols[A_ptr];
-                if ( Ac == Bc ) {
-                    matched = true;
-                    break;
-                }
-            }
-            if ( !matched ) {
-                C_rs[row]++;
-            }
-        }
-    }
-}
-#endif
-
-#if 0
 template<typename gidx_t, typename lidx_t, typename scalar_t>
 __global__ void merge_row_fill( const lidx_t num_rows,
                                 const lidx_t *A_rs,
@@ -279,10 +238,17 @@ __global__ void merge_row_fill( const lidx_t num_rows,
             for ( lidx_t C_ptr = search_start; C_ptr < C_rs[row + 1]; ++C_ptr ) {
                 const auto Cc = C_cols[C_ptr];
                 if ( Cc == Bc ) {
+                    // have a matching column index, add to the current coeff,
+                    // flag that a match was found
                     C_coeffs[C_ptr] += Bv;
                     matched = true;
+                    // column idxs are ordered, so no need to look at any
+                    // entries from here back in later searches
+                    search_start = C_ptr + 1;
                     break;
-                } else if ( Cc > Bc && false ) {
+                } else if ( Cc > Bc ) {
+                    // C column is larger than the B column we are looking
+                    // for, no need to look any further
                     break;
                 }
             }
@@ -294,55 +260,6 @@ __global__ void merge_row_fill( const lidx_t num_rows,
         }
     }
 }
-#else
-template<typename gidx_t, typename lidx_t, typename scalar_t>
-__global__ void merge_row_fill( const lidx_t num_rows,
-                                const lidx_t *A_rs,
-                                const gidx_t *A_cols,
-                                const scalar_t *A_coeffs,
-                                const lidx_t *B_rs,
-                                const gidx_t *B_cols,
-                                const scalar_t *B_coeffs,
-                                lidx_t *C_rs,
-                                gidx_t *C_cols,
-                                scalar_t *C_coeffs )
-{
-    for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
-          row += blockDim.x * gridDim.x ) {
-        const auto A_start = A_rs[row], A_end = A_rs[row + 1], A_len = A_end - A_start;
-        const auto B_start = B_rs[row], B_end = B_rs[row + 1], B_len = B_end - B_start;
-        const auto C_start = C_rs[row], C_end = C_rs[row + 1], C_len = C_end - C_start;
-
-        // all of A counts in automatically
-        lidx_t C_app = C_start;
-        for ( lidx_t A_ptr = A_start; A_ptr < A_end; ++A_ptr ) {
-            C_cols[C_app]   = A_cols[A_ptr];
-            C_coeffs[C_app] = A_coeffs[A_ptr];
-            ++C_app;
-        }
-
-        // append B entries if not present, add coeff otherwise
-        for ( lidx_t B_ptr = B_start; B_ptr < B_end; ++B_ptr ) {
-            const auto Bc = B_cols[B_ptr];
-            const auto Bv = B_coeffs[B_ptr];
-            bool matched  = false;
-            for ( lidx_t C_ptr = C_start; C_ptr < C_end; ++C_ptr ) {
-                const auto Cc = C_cols[C_ptr];
-                if ( Cc == Bc ) {
-                    C_coeffs[C_ptr] += Bv;
-                    matched = true;
-                    break;
-                }
-            }
-            if ( !matched ) {
-                C_cols[C_app]   = Bc;
-                C_coeffs[C_app] = Bv;
-                ++C_app;
-            }
-        }
-    }
-}
-#endif
 
 template<typename Config>
 void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> inL,
@@ -362,12 +279,6 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
     if ( inL.get() == nullptr || inL->isEmpty() ) {
         out->swapDataFields( *inR );
         return;
-    }
-
-    if ( !out->isDiag() && comm.getRank() == 0 && false ) {
-        std::cout << "Offd merge blocks:" << std::endl;
-        // inL->printAll();
-        inR->printAll();
     }
 
     // pull out fields from blocks to merge and row pointers from output
