@@ -26,6 +26,8 @@ template<typename C>
 class CSRMatrixCommunicator;
 template<typename C>
 class CSRMatrixSpGEMMDefault;
+template<typename C>
+class CSRMatrixSpGEMMDevice;
 
 template<typename Config>
 class CSRLocalMatrixData : public AMP::enable_shared_from_this<CSRLocalMatrixData<Config>>
@@ -39,6 +41,8 @@ public:
     friend class CSRMatrixCommunicator;
     template<typename C>
     friend class CSRMatrixSpGEMMDefault;
+    template<typename C>
+    friend class CSRMatrixSpGEMMDevice;
 
     using gidx_t         = typename Config::gidx_t;
     using lidx_t         = typename Config::lidx_t;
@@ -179,36 +183,10 @@ public:
     void getColPtrs( std::vector<gidx_t *> &col_ptrs );
 
     //! Print information about matrix block
-    void printStats( bool verbose, bool show_zeros ) const
-    {
-        std::cout << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
-        if ( d_is_empty ) {
-            std::cout << "    EMPTY" << std::endl;
-            return;
-        }
-        std::cout << "    first | last row: " << d_first_row << " | " << d_last_row << std::endl;
-        std::cout << "    first | last col: " << d_first_col << " | " << d_last_col << std::endl;
-        std::cout << "    num unique: " << d_ncols_unq << std::endl;
-        auto tot_nnz     = d_row_starts[d_num_rows];
-        scalar_t avg_nnz = static_cast<scalar_t>( tot_nnz ) / static_cast<scalar_t>( d_num_rows );
-        std::cout << "    avg nnz per row: " << avg_nnz << std::endl;
-        std::cout << "    tot nnz: " << tot_nnz << std::endl;
-        if ( verbose ) {
-            std::cout << "    row 0: ";
-            for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
-                if ( d_coeffs[n] != 0 || show_zeros ) {
-                    std::cout << "(" << d_cols[n] << "," << d_coeffs[n] << "), ";
-                }
-            }
-            std::cout << "    row last: ";
-            for ( auto n = d_row_starts[d_num_rows - 1]; n < d_row_starts[d_num_rows]; ++n ) {
-                if ( d_coeffs[n] != 0 || show_zeros ) {
-                    std::cout << "(" << d_cols[n] << "," << d_coeffs[n] << "), ";
-                }
-            }
-        }
-        std::cout << std::endl << std::endl;
-    }
+    void printStats( bool verbose, bool show_zeros ) const;
+
+    //! Print all information in a matrix block
+    void printAll( bool force = false ) const;
 
     static std::shared_ptr<CSRLocalMatrixData>
     ConcatHorizontal( std::shared_ptr<MatrixParametersBase> params,

@@ -10,7 +10,7 @@
 namespace AMP::LinearAlgebra {
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::symbolicMultiply()
+void CSRMatrixSpGEMMDefault<Config>::symbolicMultiply()
 {
     if ( d_overlap_comms ) {
         symbolicMultiply_Overlapped();
@@ -20,7 +20,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::symbolicMultiply()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply()
+void CSRMatrixSpGEMMDefault<Config>::numericMultiply()
 {
     if ( d_overlap_comms ) {
         numericMultiply_Overlapped();
@@ -30,9 +30,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::symbolicMultiply_NonOverlapped()
+void CSRMatrixSpGEMMDefault<Config>::symbolicMultiply_NonOverlapped()
 {
-    PROFILE( "symbolicMultiply_NonOverlapped" );
+    PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply_NonOverlapped" );
 
     // non-overlapped, so do full comms first
     if ( A->hasOffDiag() ) {
@@ -58,9 +58,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::symbolicMultiply_NonOverlapped()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::symbolicMultiply_Overlapped()
+void CSRMatrixSpGEMMDefault<Config>::symbolicMultiply_Overlapped()
 {
-    PROFILE( "symbolicMultiply_Overlapped" );
+    PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply_Overlapped" );
 
     // start communication to build BRemote before doing anything
     if ( A->hasOffDiag() ) {
@@ -83,13 +83,13 @@ void CSRMatrixSpGEMMHelperDefault<Config>::symbolicMultiply_Overlapped()
                                                        false );
 
     {
-        PROFILE( "symbolicMultiply_Overlapped (local)" );
+        PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply_Overlapped (local)" );
         multiply<Mode::SYMBOLIC, BlockType::DIAG>( A_diag, B_diag, C_diag_diag );
         multiply<Mode::SYMBOLIC, BlockType::OFFD>( A_diag, B_offd, C_diag_offd );
     }
 
     if ( A->hasOffDiag() ) {
-        PROFILE( "symbolicMultiply_Overlapped (remote)" );
+        PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply_Overlapped (remote)" );
         endBRemoteComm();
         if ( BR_diag.get() != nullptr ) {
             C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
@@ -115,9 +115,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::symbolicMultiply_Overlapped()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_NonOverlapped()
+void CSRMatrixSpGEMMDefault<Config>::numericMultiply_NonOverlapped()
 {
-    PROFILE( "numericMultiply_NonOverlapped" );
+    PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_NonOverlapped" );
 
     // non-overlapped comms so do full set first if needed
     if ( A->hasOffDiag() && d_need_comms ) {
@@ -150,9 +150,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_NonOverlapped()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_Overlapped()
+void CSRMatrixSpGEMMDefault<Config>::numericMultiply_Overlapped()
 {
-    PROFILE( "numericMultiply_Overlapped" );
+    PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_Overlapped" );
 
     // start communication to build BRemote before doing anything
     if ( A->hasOffDiag() && d_need_comms ) {
@@ -160,13 +160,13 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_Overlapped()
     }
 
     {
-        PROFILE( "numericMultiply_Overlapped (local)" );
+        PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_Overlapped (local)" );
         multiply<Mode::NUMERIC, BlockType::DIAG>( A_diag, B_diag, C_diag_diag );
         multiply<Mode::NUMERIC, BlockType::OFFD>( A_diag, B_offd, C_diag_offd );
     }
 
     if ( A->hasOffDiag() ) {
-        PROFILE( "numericMultiply_Overlapped (remote)" );
+        PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_Overlapped (remote)" );
         if ( d_need_comms ) {
             endBRemoteComm();
         }
@@ -179,7 +179,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_Overlapped()
     }
 
     {
-        PROFILE( "numericMultiply_Overlapped (merge)" );
+        PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_Overlapped (merge)" );
         mergeDiag();
         mergeOffd();
     }
@@ -193,9 +193,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiply_Overlapped()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiplyReuse()
+void CSRMatrixSpGEMMDefault<Config>::numericMultiplyReuse()
 {
-    PROFILE( "numericMultiplyReuse" );
+    PROFILE( "CSRMatrixSpGEMMDefault::numericMultiplyReuse" );
 
     // start communication to build BRemote before doing anything
     if ( A->hasOffDiag() && d_need_comms ) {
@@ -218,13 +218,13 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiplyReuse()
     }
 
     {
-        PROFILE( "numericMultiplyReuse (A_diag)" );
+        PROFILE( "CSRMatrixSpGEMMDefault::numericMultiplyReuse (A_diag)" );
         multiplyReuse<BlockType::DIAG>( A_diag, B_diag, C_diag );
         multiplyReuse<BlockType::OFFD>( A_diag, B_offd, C_offd );
     }
 
     if ( A->hasOffDiag() ) {
-        PROFILE( "numericMultiplyReuse (A_offd)" );
+        PROFILE( "CSRMatrixSpGEMMDefault::numericMultiplyReuse (A_offd)" );
         if ( d_need_comms ) {
             endBRemoteComm();
         }
@@ -245,11 +245,11 @@ void CSRMatrixSpGEMMHelperDefault<Config>::numericMultiplyReuse()
 }
 
 template<typename Config>
-template<typename CSRMatrixSpGEMMHelperDefault<Config>::Mode mode_t,
-         typename CSRMatrixSpGEMMHelperDefault<Config>::BlockType block_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::multiply( std::shared_ptr<localmatrixdata_t> A_data,
-                                                     std::shared_ptr<localmatrixdata_t> B_data,
-                                                     std::shared_ptr<localmatrixdata_t> C_data )
+template<typename CSRMatrixSpGEMMDefault<Config>::Mode mode_t,
+         typename CSRMatrixSpGEMMDefault<Config>::BlockType block_t>
+void CSRMatrixSpGEMMDefault<Config>::multiply( std::shared_ptr<localmatrixdata_t> A_data,
+                                               std::shared_ptr<localmatrixdata_t> B_data,
+                                               std::shared_ptr<localmatrixdata_t> C_data )
 {
     using acc_t = typename std::conditional<block_t == BlockType::DIAG,
                                             DenseAccumulator<gidx_t>,
@@ -310,7 +310,8 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiply( std::shared_ptr<localmatrix
 
     // Finally, after all the setup do the actual computation
     if constexpr ( mode_t == Mode::SYMBOLIC ) {
-        PROFILE( is_diag ? "multiply (symbolic -- C_diag)" : "multiply (symbolic -- C_offd)" );
+        PROFILE( is_diag ? "CSRMatrixSpGEMMDefault::multiply (symbolic -- C_diag)" :
+                           "CSRMatrixSpGEMMDefault::multiply (symbolic -- C_offd)" );
         // If this is a symbolic call just count NZ and write to
         // rs field in C
         for ( lidx_t row = 0; row < d_num_rows; ++row ) {
@@ -340,7 +341,8 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiply( std::shared_ptr<localmatrix
         }
 #endif
     } else {
-        PROFILE( is_diag ? "multiply (numeric -- C_diag)" : "multiply (numeric -- C_offd)" );
+        PROFILE( is_diag ? "CSRMatrixSpGEMMDefault::multiply (numeric -- C_diag)" :
+                           "CSRMatrixSpGEMMDefault::multiply (numeric -- C_offd)" );
         // Otherwise, for numeric call write directly into C by
         // passing pointers into cols and coeffs fields as workspace
         // for the accumulator
@@ -364,12 +366,11 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiply( std::shared_ptr<localmatrix
 }
 
 template<typename Config>
-template<typename CSRMatrixSpGEMMHelperDefault<Config>::Mode mode_t,
-         typename CSRMatrixSpGEMMHelperDefault<Config>::BlockType block_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::multiplyFused(
-    std::shared_ptr<localmatrixdata_t> B_data,
-    std::shared_ptr<localmatrixdata_t> BR_data,
-    std::shared_ptr<localmatrixdata_t> C_data )
+template<typename CSRMatrixSpGEMMDefault<Config>::Mode mode_t,
+         typename CSRMatrixSpGEMMDefault<Config>::BlockType block_t>
+void CSRMatrixSpGEMMDefault<Config>::multiplyFused( std::shared_ptr<localmatrixdata_t> B_data,
+                                                    std::shared_ptr<localmatrixdata_t> BR_data,
+                                                    std::shared_ptr<localmatrixdata_t> C_data )
 {
     using acc_t = typename std::conditional<block_t == BlockType::DIAG,
                                             DenseAccumulator<gidx_t>,
@@ -423,7 +424,8 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiplyFused(
     acc_t acc( acc_cap, first_col );
 
     if constexpr ( mode_t == Mode::SYMBOLIC ) {
-        PROFILE( is_diag ? "multiplyFusedSymbolic(C_diag)" : "multiplyFusedSymbolic(C_offd)" );
+        PROFILE( is_diag ? "CSRMatrixSpGEMMDefault::multiplyFusedSymbolic(C_diag)" :
+                           "CSRMatrixSpGEMMDefault::multiplyFusedSymbolic(C_offd)" );
         // If this is a symbolic call just count NZ and write to
         // rs field in C
         for ( lidx_t row = 0; row < d_num_rows; ++row ) {
@@ -460,7 +462,8 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiplyFused(
         }
 #endif
     } else {
-        PROFILE( is_diag ? "multiplyFusedNumeric(C_diag)" : "multiplyFusedNumeric(C_offd)" );
+        PROFILE( is_diag ? "CSRMatrixSpGEMMDefault::multiplyFusedNumeric(C_diag)" :
+                           "CSRMatrixSpGEMMDefault::multiplyFusedNumeric(C_offd)" );
         // Otherwise, for numeric call write directly into C by
         // passing pointers into cols and coeffs fields as workspace
         // for the accumulator
@@ -492,11 +495,10 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiplyFused(
 }
 
 template<typename Config>
-template<typename CSRMatrixSpGEMMHelperDefault<Config>::BlockType block_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::multiplyReuse(
-    std::shared_ptr<localmatrixdata_t> A_data,
-    std::shared_ptr<localmatrixdata_t> B_data,
-    std::shared_ptr<localmatrixdata_t> C_data )
+template<typename CSRMatrixSpGEMMDefault<Config>::BlockType block_t>
+void CSRMatrixSpGEMMDefault<Config>::multiplyReuse( std::shared_ptr<localmatrixdata_t> A_data,
+                                                    std::shared_ptr<localmatrixdata_t> B_data,
+                                                    std::shared_ptr<localmatrixdata_t> C_data )
 {
     constexpr bool is_diag = block_t == BlockType::DIAG;
     using acc_t            = typename std::
@@ -553,7 +555,8 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiplyReuse(
 
     // Finally, after all the setup do the actual computation
     {
-        PROFILE( is_diag ? "multiplyReuse (C_diag)" : "multiplyReuse (C_offd)" );
+        PROFILE( is_diag ? "CSRMatrixSpGEMMDefault::multiplyReuse (C_diag)" :
+                           "CSRMatrixSpGEMMDefault::multiplyReuse (C_offd)" );
         // Otherwise, for numeric call write directly into C by
         // passing pointers into cols and coeffs fields as workspace
         // for the accumulator
@@ -590,9 +593,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::multiplyReuse(
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::mergeDiag()
+void CSRMatrixSpGEMMDefault<Config>::mergeDiag()
 {
-    PROFILE( "mergeDiag" );
+    PROFILE( "CSRMatrixSpGEMMDefault::mergeDiag" );
 
     const auto first_col = C_diag->beginCol();
 
@@ -661,9 +664,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::mergeDiag()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::mergeOffd()
+void CSRMatrixSpGEMMDefault<Config>::mergeOffd()
 {
-    PROFILE( "mergeOffd" );
+    PROFILE( "CSRMatrixSpGEMMDefault::mergeOffd" );
 
     // handle special case where either C_diag_offd or C_offd_offd is empty
     if ( C_diag_offd.get() == nullptr && C_offd_offd.get() == nullptr ) {
@@ -748,7 +751,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::mergeOffd()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::setupBRemoteComm()
+void CSRMatrixSpGEMMDefault<Config>::setupBRemoteComm()
 {
     /*
      * Setting up the comms is somewhat involved. A high level overview
@@ -762,7 +765,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::setupBRemoteComm()
      *  Step 4 uses non-blocking recvs and blocking sends.
      */
 
-    PROFILE( "setupBRemoteComm" );
+    PROFILE( "CSRMatrixSpGEMMDefault::setupBRemoteComm" );
 
     using lidx_t = typename Config::lidx_t;
 
@@ -828,7 +831,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::setupBRemoteComm()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::startBRemoteComm()
+void CSRMatrixSpGEMMDefault<Config>::startBRemoteComm()
 {
     // check if the communicator information is available and create if needed
     if ( d_dest_info.empty() ) {
@@ -837,13 +840,6 @@ void CSRMatrixSpGEMMHelperDefault<Config>::startBRemoteComm()
 
     // subset matrices by rows that other ranks need and send them out
     for ( auto it = d_dest_info.begin(); it != d_dest_info.end(); ++it ) {
-        if ( false ) {
-            AMP::pout << "\nSubsetting over: ";
-            for ( const auto &rid : it->second.rowids ) {
-                AMP::pout << rid << " ";
-            }
-            AMP::pout << std::endl;
-        }
         auto block = B->subsetRows( it->second.rowids );
         d_send_matrices.insert( { it->first, block } );
     }
@@ -851,9 +847,9 @@ void CSRMatrixSpGEMMHelperDefault<Config>::startBRemoteComm()
 }
 
 template<typename Config>
-void CSRMatrixSpGEMMHelperDefault<Config>::endBRemoteComm()
+void CSRMatrixSpGEMMDefault<Config>::endBRemoteComm()
 {
-    PROFILE( "endBRemoteComm" );
+    PROFILE( "CSRMatrixSpGEMMDefault::endBRemoteComm" );
 
     d_recv_matrices = d_csr_comm.recvMatrices( 0, 0, 0, B->numGlobalColumns() );
     // BRemotes do not need any particular parameters object internally
@@ -873,7 +869,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::endBRemoteComm()
 template<typename Config>
 template<typename col_t>
 typename Config::lidx_t
-CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::contains( col_t col_idx ) const
+CSRMatrixSpGEMMDefault<Config>::DenseAccumulator<col_t>::contains( col_t col_idx ) const
 {
     const auto loc = IsGlobal ? static_cast<lidx_t>( col_idx - offset ) : col_idx;
     return flags[loc];
@@ -881,8 +877,8 @@ CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::contains( col_t c
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::set_flag(
-    col_t col_idx, typename Config::lidx_t k )
+void CSRMatrixSpGEMMDefault<Config>::DenseAccumulator<col_t>::set_flag( col_t col_idx,
+                                                                        typename Config::lidx_t k )
 {
     const auto loc      = IsGlobal ? static_cast<lidx_t>( col_idx - offset ) : col_idx;
     const auto old_flag = flags[loc];
@@ -899,8 +895,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::set_flag(
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::insert_or_append(
-    col_t col_idx )
+void CSRMatrixSpGEMMDefault<Config>::DenseAccumulator<col_t>::insert_or_append( col_t col_idx )
 {
     const auto loc = IsGlobal ? static_cast<lidx_t>( col_idx - offset ) : col_idx;
     const auto k   = flags[loc];
@@ -919,7 +914,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::insert_or_ap
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::insert_or_append(
+void CSRMatrixSpGEMMDefault<Config>::DenseAccumulator<col_t>::insert_or_append(
     col_t col_idx,
     typename Config::scalar_t val,
     col_t *col_space,
@@ -946,7 +941,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::insert_or_ap
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::clear()
+void CSRMatrixSpGEMMDefault<Config>::DenseAccumulator<col_t>::clear()
 {
     for ( lidx_t n = 0; n < num_inserted; ++n ) {
         flags[flag_inv[n]] = -1;
@@ -956,7 +951,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::DenseAccumulator<col_t>::clear()
 
 template<typename Config>
 template<typename col_t>
-uint16_t CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::hash( col_t col_idx ) const
+uint16_t CSRMatrixSpGEMMDefault<Config>::SparseAccumulator<col_t>::hash( col_t col_idx ) const
 {
     const uint16_t c0 = ( 506999 * col_idx ) & 0xFFFF;
     const uint16_t c1 = ( col_idx >> 16 ) & 0xFFFF;
@@ -966,7 +961,7 @@ uint16_t CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::hash( c
 template<typename Config>
 template<typename col_t>
 typename Config::lidx_t
-CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::contains( col_t col_idx ) const
+CSRMatrixSpGEMMDefault<Config>::SparseAccumulator<col_t>::contains( col_t col_idx ) const
 {
     auto pos = hash( col_idx ), flag = flags[pos];
     if ( flag == 0xFFFF ) {
@@ -988,8 +983,8 @@ CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::contains( col_t 
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::set_flag(
-    col_t col_idx, typename Config::lidx_t k )
+void CSRMatrixSpGEMMDefault<Config>::SparseAccumulator<col_t>::set_flag( col_t col_idx,
+                                                                         typename Config::lidx_t k )
 {
     auto pos = hash( col_idx ), flag = flags[pos];
     if ( flag == 0xFFFF ) {
@@ -1020,8 +1015,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::set_flag(
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::insert_or_append(
-    col_t col_idx )
+void CSRMatrixSpGEMMDefault<Config>::SparseAccumulator<col_t>::insert_or_append( col_t col_idx )
 {
     if ( num_inserted == capacity ) {
         grow( cols.data() );
@@ -1073,7 +1067,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::insert_or_a
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::insert_or_append(
+void CSRMatrixSpGEMMDefault<Config>::SparseAccumulator<col_t>::insert_or_append(
     col_t col_idx,
     typename Config::scalar_t val,
     col_t *col_space,
@@ -1110,7 +1104,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::insert_or_a
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::grow( col_t *col_space )
+void CSRMatrixSpGEMMDefault<Config>::SparseAccumulator<col_t>::grow( col_t *col_space )
 {
 #if CSRSPGEMM_REPORT_SPACC_STATS
     ++total_grows;
@@ -1145,7 +1139,7 @@ void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::grow( col_t
 
 template<typename Config>
 template<typename col_t>
-void CSRMatrixSpGEMMHelperDefault<Config>::SparseAccumulator<col_t>::clear()
+void CSRMatrixSpGEMMDefault<Config>::SparseAccumulator<col_t>::clear()
 {
 #if CSRSPGEMM_REPORT_SPACC_STATS
     total_clears++;
