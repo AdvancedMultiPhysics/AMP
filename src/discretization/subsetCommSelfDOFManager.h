@@ -26,9 +26,6 @@ public:
     /** \brief Default constructor
      * \details  This is the default constructor for creating a subset DOF manager.
      * \param[in] parentDOFManager  The parent DOF manager
-     * \param[in] dofs      The DOFs that will be part of the subset (may be a local list)
-     * \param[in] iterator  The iterator over the subset of elements in the subsetCommSelfDOFManager
-     * \param[in] comm      The new comm for the subset DOF Manager
      */
     subsetCommSelfDOFManager( std::shared_ptr<const DOFManager> parentDOFManager );
 

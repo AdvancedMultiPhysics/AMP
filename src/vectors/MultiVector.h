@@ -195,6 +195,7 @@ public: // public constructor/destructors
     /** Constructor:  create a MultiVector
      * \param[in]  name  The name of the multivector
      * \param[in]  comm  The communicator over which the vector exists
+     * \param[in]  vecs  The list of vectors in the multvector
      */
     explicit MultiVector( const std::string &name,
                           const AMP_MPI &comm,
@@ -207,10 +208,10 @@ public: // public constructor/destructors
 
 
 public: // default constructor/destructors
-    MultiVector()                      = default;
-    MultiVector( MultiVector && )      = delete;
-    MultiVector( const MultiVector & ) = delete;
-    MultiVector &operator=( MultiVector && ) = delete;
+    MultiVector()                                 = default;
+    MultiVector( MultiVector && )                 = delete;
+    MultiVector( const MultiVector & )            = delete;
+    MultiVector &operator=( MultiVector && )      = delete;
     MultiVector &operator=( const MultiVector & ) = delete;
     virtual ~MultiVector();
 

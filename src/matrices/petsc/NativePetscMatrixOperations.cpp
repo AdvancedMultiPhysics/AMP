@@ -143,4 +143,21 @@ void NativePetscMatrixOperations::copy( const MatrixData &X, MatrixData &Y )
     MatCopy( getMat( X ), getMat( Y ), SAME_NONZERO_PATTERN );
 }
 
+void NativePetscMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void NativePetscMatrixOperations::scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void NativePetscMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void NativePetscMatrixOperations::getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+
 } // namespace AMP::LinearAlgebra

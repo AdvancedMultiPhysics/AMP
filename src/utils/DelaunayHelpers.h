@@ -88,9 +88,9 @@ inline typename getETYPE<3, int>::ETYPE det2<3>( const int *M )
 {
     using int64  = int64_t;
     using int128 = typename getETYPE<3, int>::ETYPE;
-    int128 t1    = int64( M[4] ) * int64( M[8] ) - int64( M[7] ) * int64( M[5] );
-    int128 t2    = int64( M[1] ) * int64( M[8] ) - int64( M[7] ) * int64( M[2] );
-    int128 t3    = int64( M[1] ) * int64( M[5] ) - int64( M[4] ) * int64( M[2] );
+    int128 t1    = int128( int64( M[4] ) * int64( M[8] ) - int64( M[7] ) * int64( M[5] ) );
+    int128 t2    = int128( int64( M[1] ) * int64( M[8] ) - int64( M[7] ) * int64( M[2] ) );
+    int128 t3    = int128( int64( M[1] ) * int64( M[5] ) - int64( M[4] ) * int64( M[2] ) );
     auto det     = int128( M[0] ) * t1 + int128( -M[3] ) * t2 + int128( M[6] ) * t3;
     return det;
 }

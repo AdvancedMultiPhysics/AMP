@@ -30,12 +30,23 @@ public: // Functions overloaded from VectorData
     void fillGhosts( const Scalar & ) override;
     void setNoGhosts() override;
     bool containsGlobalElement( size_t ) const override;
-    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void
-    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    size_t getAllGhostValues( void *, const typeID & ) const override;
+    void setGhostValuesByGlobalID( size_t num,
+                                   const size_t *indices,
+                                   const void *vals,
+                                   const typeID &id ) override;
+    void addGhostValuesByGlobalID( size_t num,
+                                   const size_t *indices,
+                                   const void *vals,
+                                   const typeID &id ) override;
+    void getGhostValuesByGlobalID( size_t num,
+                                   const size_t *indices,
+                                   void *vals,
+                                   const typeID &id ) const override;
+    void getGhostAddValuesByGlobalID( size_t num,
+                                      const size_t *indices,
+                                      void *vals,
+                                      const typeID &id ) const override;
+    size_t getAllGhostValues( void *vals, const typeID &id ) const override;
     UpdateState getLocalUpdateStatus() const override;
     void setUpdateStatus( UpdateState state ) override;
     void setUpdateStatusPtr( std::shared_ptr<UpdateState> rhs ) override;

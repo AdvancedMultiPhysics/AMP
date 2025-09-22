@@ -66,9 +66,6 @@ protected:
      * \param mesh      Pointer to the libMesh mesh
      * \param begin     Pointer to iterator with the begining position
      * \param end       Pointer to iterator with the end position
-     * \param pos       Pointer to iterator with the current position
-     * \param size      Number of elements in the iterator (-1: unknown)
-     * \param pos2      Index of the current position in the iterator (-1: unknown)
      */
     libmeshElemIterator( const AMP::Mesh::libmeshMesh *mesh,
                          const libMesh::Mesh::element_iterator &begin,
