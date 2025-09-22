@@ -22,7 +22,7 @@ namespace AMP {
 namespace LinearAlgebra {
 
 #ifdef AMP_USE_DEVICE
-    // function to sort a single row in-place
+// function to sort a single row in-place
 template<typename lidx_t, typename gidx_t, typename scalar_t>
 __device__ void sort_row( gidx_t *cols, scalar_t *coeffs, const lidx_t row_len )
 {
