@@ -1,0 +1,14 @@
+LinearSolver{
+    max_iterations      = 200
+    name = "BiCGSTABSolver"
+    uses_preconditioner = TRUE
+    absolute_tolerance  = 1.0e-8
+    relative_tolerance  = 1.0e-8
+    print_info_level    = 1
+
+    Preconditioner{
+        name = "DiagonalSolver"
+        print_info_level = 0
+        max_iterations = 1
+    }
+}

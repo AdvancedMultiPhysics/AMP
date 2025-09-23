@@ -60,11 +60,10 @@ std::vector<std::pair<std::string, std::string>> getBackendsAndMemory( std::stri
     return rvec;
 }
 
-#ifdef AMP_USE_HYPRE
 std::vector<std::string> getHypreMemorySpaces()
 {
+#ifdef AMP_USE_HYPRE
     std::vector<std::string> memspaces;
-
     #if defined( HYPRE_USING_HOST_MEMORY )
     memspaces.emplace_back( "host" );
     #elif defined( HYPRE_USING_DEVICE_MEMORY )
@@ -77,8 +76,10 @@ std::vector<std::string> getHypreMemorySpaces()
     memspaces.emplace_back( "host" );
     #endif
     return memspaces;
-}
+#else
+    return { "host" };
 #endif
+}
 
 std::tuple<std::shared_ptr<AMP::Operator::LinearOperator>,
            std::shared_ptr<AMP::LinearAlgebra::Vector>,

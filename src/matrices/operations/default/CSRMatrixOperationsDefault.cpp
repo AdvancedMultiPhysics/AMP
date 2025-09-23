@@ -10,7 +10,7 @@ namespace AMP::LinearAlgebra {
 #define CSR_INST( mode )                                                 \
     template class CSRLocalMatrixOperationsDefault<config_mode_t<mode>>; \
     template class CSRMatrixOperationsDefault<config_mode_t<mode>>;      \
-    template class CSRMatrixSpGEMMHelperDefault<config_mode_t<mode>>;
+    template class CSRMatrixSpGEMMDefault<config_mode_t<mode>>;
 
 CSR_CONFIG_FORALL( CSR_INST )
 #undef CSR_INST

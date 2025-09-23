@@ -1220,12 +1220,6 @@ public: // Member functions
      *                          it is an optional output that will return the starting location
      *                          (relative to the start of the array) for the received data from
      *                          processor i.
-     * \param[in] known_recv    Are the received counts and displacements known.
-     *                          If the received sizes are known, then they must be provided,
-     *                          and an extra communication step is not necessary.
-     *                          If the received sizes are not know, then an extra communication
-     *                          step will occur internally and the sizes and displacements will
-     *                          be returned (if desired).
      */
     template<class type, class int_type>
     std::vector<type> allToAll( const std::vector<type> &send_data,

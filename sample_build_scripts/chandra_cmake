@@ -5,7 +5,7 @@ cmake                                                                      \
       -D TPL_DIRECTORY=${TPL_INSTALL_DIR}                                  \
       -D AMP_DATA=/Users/qbp/projects/amp/AMP-Data                         \
       -D USE_MPI_FOR_SERIAL_TESTS=1                                        \
-      -D USE_EXT_DOXYGEN=0                                                 \
+      -D USE_DOXYGEN=0                                                     \
       -D USE_LATEX=0                                                       \
       -D PREFIX=/Users/qbp/projects/amp/install/openmpi-1.10.1-gcc-5.2-opt \
       ${AMP_SOURCE_DIR}

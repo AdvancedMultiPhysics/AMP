@@ -49,7 +49,7 @@ std::shared_ptr<libmeshMesh> readBinaryTestMeshLibMesh( const std::string &filen
 /**
  * \brief Generate a test mesh
  * \details  This generates a known test mesh.
- * \param[in] Name          Name of mesh to generate
+ * \param[in] name          Name of mesh to generate
  */
 DatabasePtr generateTestMesh( const std::string &name );
 

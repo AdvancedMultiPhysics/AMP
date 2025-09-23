@@ -268,4 +268,24 @@ void DenseSerialMatrixOperations::copy( const MatrixData &X, MatrixData &Y )
     }
 }
 
+void DenseSerialMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::scaleInv( AMP::Scalar,
+                                            std::shared_ptr<const Vector>,
+                                            MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+
+
 } // namespace AMP::LinearAlgebra

@@ -11,8 +11,6 @@
 #include "petscvec.h"
 
 
-/// \cond UNDOCUMENTED
-
 namespace AMP::LinearAlgebra {
 
 
@@ -124,5 +122,4 @@ public:
 
 } // namespace AMP::LinearAlgebra
 
-/// \endcond
 #endif
