@@ -77,7 +77,7 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
         auto is_strong     = StrengthPolicy::is_strong( strongest_connection, threshold );
         auto fill_strength = [&]( auto vals, auto strength ) {
             for ( std::size_t i = 0; i < vals.size(); ++i )
-                strength[i] = is_strong( vals[i] );
+                strength[i] = is_strong( vals[i] ) ? 1 : 0;
         };
         fill_strength( diag_values, S.diag_row( r ) );
         // fill_strength(offd_values, S.offd_row(r));

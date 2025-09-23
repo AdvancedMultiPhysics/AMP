@@ -51,13 +51,15 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
                                                 typename Config::gidx_t last_row,
                                                 typename Config::gidx_t first_col,
                                                 typename Config::gidx_t last_col,
-                                                bool is_diag )
+                                                bool is_diag,
+                                                bool is_symbolic )
     : d_memory_location( memory_location ),
       d_first_row( first_row ),
       d_last_row( last_row ),
       d_first_col( first_col ),
       d_last_col( last_col ),
       d_is_diag( is_diag ),
+      d_is_symbolic( is_symbolic ),
       d_num_rows( last_row - first_row )
 {
     AMPManager::incrementResource( "CSRLocalMatrixData" );
@@ -69,6 +71,9 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
     auto matParams    = std ::dynamic_pointer_cast<MatrixParameters>( params );
 
     if ( rawCSRParams ) {
+        AMP_INSIST( !d_is_symbolic,
+                    "CSRLocalMatrixData: Can not construct symbolic matrix from raw parameters" );
+
         // Pull out block specific parameters
         auto &blParams = d_is_diag ? rawCSRParams->d_diag : rawCSRParams->d_off_diag;
 
@@ -132,8 +137,10 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         d_is_empty = false;
 
         // Allocate internal arrays
-        d_cols   = sharedArrayBuilder( d_nnz, d_gidxAllocator );
-        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        d_cols = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+        if ( !d_is_symbolic ) {
+            d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        }
 
         // Fill cols and nnz based on local row extents and on/off diag status
         lidx_t nnzFilled = 0;
@@ -148,8 +155,10 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
             auto cols = getRow( d_first_row + row );
             for ( auto &&col : cols ) {
                 if ( isColValid<Config>( col, d_is_diag, d_first_col, d_last_col ) ) {
-                    d_cols[nnzFilled]   = col;
-                    d_coeffs[nnzFilled] = 0.0;
+                    d_cols[nnzFilled] = col;
+                    if ( !d_is_symbolic ) {
+                        d_coeffs[nnzFilled] = 0.0;
+                    }
                     ++nnzFilled;
                 }
             }
@@ -203,6 +212,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
         AMP_INSIST( block->d_cols.get(), "Blocks to concatenate must have global columns" );
         AMP_INSIST( mem_loc == block->d_memory_location,
                     "Blocks to concatenate must be in same memory space" );
+        AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
         for ( lidx_t row = 0; row < nrows; ++row ) {
             row_nnz[row] += ( block->d_row_starts[row + 1] - block->d_row_starts[row] );
         }
@@ -254,6 +264,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
         block = it.second;
         AMP_DEBUG_INSIST( mem_loc == block->d_memory_location,
                           "Blocks to concatenate must be in same memory space" );
+        AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
         num_rows += block->d_num_rows;
         all_empty = all_empty && block->isEmpty();
     }
@@ -310,6 +321,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
 template<typename Config>
 void CSRLocalMatrixData<Config>::swapDataFields( CSRLocalMatrixData<Config> &other )
 {
+    AMP_ASSERT( d_is_symbolic == other.d_is_symbolic );
     // swap metadata
     const auto o_is_empty  = other.d_is_empty;
     const auto o_nnz       = other.d_nnz;
@@ -331,6 +343,9 @@ void CSRLocalMatrixData<Config>::swapDataFields( CSRLocalMatrixData<Config> &oth
 template<typename Config>
 void CSRLocalMatrixData<Config>::globalToLocalColumns()
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::globalToLocalColumns not implemented for symbolic matrices" );
+
     PROFILE( "CSRLocalMatrixData::globalToLocalColumns" );
 
     if ( d_is_empty || d_cols.get() == nullptr ) {
@@ -387,6 +402,9 @@ CSRLocalMatrixData<Config>::localToGlobal( const typename Config::lidx_t loc_id 
 template<typename Config>
 void CSRLocalMatrixData<Config>::sortColumns()
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::sortColumns not implemented for symbolic matrices" );
+
     PROFILE( "CSRLocalMatrixData::sortColumns" );
 
     if ( d_is_empty ) {
@@ -419,6 +437,59 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::cloneMat
 }
 
 template<typename Config>
+std::shared_ptr<CSRLocalMatrixData<Config>>
+CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Config>::mask_t *mask,
+                                            const bool is_symbolic ) const
+{
+    using outdata_t = CSRLocalMatrixData<Config>;
+
+    AMP_INSIST( d_is_diag,
+                "CSRLocalMatrixData::maskMatrixData not implemented for off-diag blocks" );
+
+    AMP_INSIST( d_cols.get() == nullptr,
+                "CSRLocalMatrixData::maskMatrixData can only be applied to assembpled matrices" );
+
+    if ( !is_symbolic ) {
+        AMP_INSIST( !d_is_symbolic,
+                    "CSRLocalMatrixData::maskMatrixData can not produce a numeric matrix from a "
+                    "symbolic matrix" );
+    }
+
+    // create matrix with same layout and location, possibly now symbolic
+    auto outData = std::make_shared<outdata_t>( nullptr,
+                                                d_memory_location,
+                                                d_first_row,
+                                                d_last_row,
+                                                d_first_col,
+                                                d_last_col,
+                                                d_is_diag,
+                                                is_symbolic );
+
+    // count entries in mask and allocate output
+    const auto num_rows = numLocalRows();
+    auto rs_out         = outData->d_row_starts.get();
+    CSRMatrixDataHelpers<Config>::MaskCountNNZ( d_row_starts.get(), mask, num_rows, rs_out );
+    outData->setNNZ( true );
+
+    // get output data fields and copy over masked out information
+    if ( d_is_diag ) {
+        CSRMatrixDataHelpers<Config>::MaskFillDiag( d_row_starts.get(),
+                                                    d_cols_loc.get(),
+                                                    d_coeffs.get(),
+                                                    mask,
+                                                    num_rows,
+                                                    rs_out,
+                                                    outData->d_cols_loc.get(),
+                                                    outData->d_coeffs.get() );
+        outData->d_cols.reset();
+    } else {
+        // unreachable for now
+    }
+
+    return outData;
+}
+
+template<typename Config>
 template<typename ConfigOut>
 std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migrate() const
 {
@@ -434,6 +505,8 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
         typename std::allocator_traits<out_alloc_t>::template rebind_alloc<gidx_t>;
     using out_scalar_alloc_t =
         typename std::allocator_traits<out_alloc_t>::template rebind_alloc<scalar_t>;
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::migrate not implemented for symbolic matrices" );
 
     auto memloc  = AMP::Utilities::getAllocatorMemoryType<out_alloc_t>();
     auto outData = std::make_shared<outdata_t>(
@@ -481,6 +554,8 @@ template<typename Config>
 std::shared_ptr<CSRLocalMatrixData<Config>>
 CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> params ) const
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::transpose not implemented for symbolic matrices" );
     AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
                 "CSRLocalMatrixData::transpose not implemented for device memory" );
 
@@ -552,11 +627,15 @@ void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
     d_is_empty = false;
     d_cols     = sharedArrayBuilder( d_nnz, d_gidxAllocator );
     d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
-    d_coeffs   = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+    if ( !d_is_symbolic ) {
+        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+    }
 
     AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
     AMP::Utilities::Algorithms<lidx_t>::fill_n( d_cols_loc.get(), d_nnz, 0 );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
+    if ( !d_is_symbolic ) {
+        AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
+    }
 }
 
 template<typename Config>
@@ -585,11 +664,15 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
     d_is_empty = false;
     d_cols     = sharedArrayBuilder( d_nnz, d_gidxAllocator );
     d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
-    d_coeffs   = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+    if ( !d_is_symbolic ) {
+        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+    }
 
     AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
     AMP::Utilities::Algorithms<lidx_t>::fill_n( d_cols_loc.get(), d_nnz, 0 );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
+    if ( !d_is_symbolic ) {
+        AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
+    }
 }
 
 template<typename Config>
@@ -603,6 +686,9 @@ void CSRLocalMatrixData<Config>::setNNZ( const std::vector<lidx_t> &nnz )
 template<typename Config>
 void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scalar_t bnd_up )
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::removeRange not defined for symbolic matrices" );
+
     AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
                 "CSRLocalMatrixData::removeRange not implemented on device yet" );
     if ( d_is_empty ) {
@@ -711,6 +797,9 @@ void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
 template<typename Config>
 void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) const
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::printStats not implemented for symbolic matrices" );
+
     std::cout << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
     if ( d_is_empty ) {
         std::cout << "    EMPTY" << std::endl;
@@ -833,6 +922,9 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
 template<typename Config>
 void CSRLocalMatrixData<Config>::printAll( bool force ) const
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::printAll not implemented for symbolic matrices" );
+
     printStats( false, false );
 
     // bail if total entries too large and force output not enabled
@@ -920,6 +1012,9 @@ void CSRLocalMatrixData<Config>::getRowByGlobalID( const size_t local_row,
                                                    std::vector<size_t> &cols,
                                                    std::vector<double> &values ) const
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::getRowByGlobalId not implemented for symbolic matrices" );
+
     // Don't do anything on empty matrices
     if ( d_is_empty ) {
         return;
@@ -964,6 +1059,9 @@ void CSRLocalMatrixData<Config>::getValuesByGlobalID( const size_t local_row,
                                                       size_t *cols,
                                                       scalar_t *values ) const
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::getValuesByGlobalId not defined for symbolic matrices" );
+
     // Don't do anything on empty matrices
     if ( d_is_empty ) {
         return;
@@ -993,6 +1091,9 @@ void CSRLocalMatrixData<Config>::addValuesByGlobalID( const size_t num_cols,
                                                       const size_t *cols,
                                                       const scalar_t *vals )
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::addValuesByGlobalId not defined for symbolic matrices" );
+
     if ( d_is_empty ) {
         return;
     }
@@ -1030,6 +1131,9 @@ void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t num_cols,
                                                       const size_t *cols,
                                                       const scalar_t *vals )
 {
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::setValuesByGlobalId not defined for symbolic matrices" );
+
     if ( d_is_empty ) {
         return;
     }

@@ -6,6 +6,7 @@ namespace LinearAlgebra {
 
 template<typename Config>
 struct CSRMatrixDataHelpers {
+    using mask_t   = unsigned char;
     using gidx_t   = typename Config::gidx_t;
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
@@ -58,6 +59,20 @@ struct CSRMatrixDataHelpers {
                                     const lidx_t *out_row_starts,
                                     gidx_t *out_cols,
                                     scalar_t *out_coeffs );
+
+    static void MaskCountNNZ( const lidx_t *in_row_starts,
+                              const mask_t *mask,
+                              const lidx_t num_rows,
+                              lidx_t *out_row_starts );
+
+    static void MaskFillDiag( const lidx_t *in_row_starts,
+                              const lidx_t *in_cols_loc,
+                              const scalar_t *in_coeffs,
+                              const mask_t *mask,
+                              const lidx_t num_rows,
+                              const lidx_t *out_row_starts,
+                              lidx_t *out_cols_loc,
+                              scalar_t *out_coeffs );
 };
 
 } // namespace LinearAlgebra

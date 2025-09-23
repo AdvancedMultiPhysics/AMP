@@ -44,6 +44,7 @@ public:
     template<typename C>
     friend class CSRMatrixSpGEMMDevice;
 
+    using mask_t         = unsigned char;
     using gidx_t         = typename Config::gidx_t;
     using lidx_t         = typename Config::lidx_t;
     using scalar_t       = typename Config::scalar_t;
@@ -72,7 +73,8 @@ public:
                                  typename Config::gidx_t last_row,
                                  typename Config::gidx_t first_col,
                                  typename Config::gidx_t last_col,
-                                 bool is_diag );
+                                 bool is_diag,
+                                 bool is_symbolic = false );
 
     //! Destructor
     virtual ~CSRLocalMatrixData();
@@ -188,6 +190,10 @@ public:
     //! Print all information in a matrix block
     void printAll( bool force = false ) const;
 
+    //! Apply a mask to the entries of the matrix and return a new one
+    std::shared_ptr<CSRLocalMatrixData> maskMatrixData( const mask_t *mask,
+                                                        const bool is_symbolic ) const;
+
     static std::shared_ptr<CSRLocalMatrixData>
     ConcatHorizontal( std::shared_ptr<MatrixParametersBase> params,
                       std::map<int, std::shared_ptr<CSRLocalMatrixData>> blocks );
@@ -287,10 +293,12 @@ protected:
     //! Global index of last column of diagonal block
     const gidx_t d_last_col;
 
-    //! Flag to indicate if this a diagonal block or not
+    //! Flag to indicate if this is a diagonal block or not
     const bool d_is_diag;
     //! Flag to indicate if this is empty
     bool d_is_empty = true;
+    //! Flag to indicate if this is a symbolic matrix
+    const bool d_is_symbolic;
 
     //! Allocator for gidx_t matched to template parameter
     gidxAllocator_t d_gidxAllocator;

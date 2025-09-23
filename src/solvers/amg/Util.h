@@ -231,6 +231,7 @@ struct csr_view<LinearAlgebra::CSRMatrix<Config>> {
     using reference      = const value_type &;
     using pointer        = const value_type *;
 
+    using mask_t   = typename csr_data_type::mask_t;
     using lidx_t   = typename csr_policy::lidx_t;
     using gidx_t   = typename csr_policy::gidx_t;
     using scalar_t = typename csr_policy::scalar_t;
@@ -291,6 +292,8 @@ template<class Config, class ColID>
 struct csr_view<par_csr<Config, ColID>> {
     using allocator_type = typename Config::allocator_type;
     using csr_policy     = Config;
+    using csr_data_type  = LinearAlgebra::CSRMatrixData<Config>;
+    using mask_t         = typename csr_data_type::mask_t;
     using lidx_t         = typename Config::lidx_t;
     using scalar_t       = typename Config::scalar_t;
     using value_type     = par_csr<Config>;
