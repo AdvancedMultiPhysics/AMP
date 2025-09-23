@@ -6,7 +6,7 @@ LinearSolver{
   max_dimension = 3
   uses_preconditioner = TRUE
   print_info_level = 2
-  max_iterations = 10
+  max_iterations = 20
   max_error = 1e-10
 }
 

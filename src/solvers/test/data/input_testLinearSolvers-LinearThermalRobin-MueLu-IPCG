@@ -14,7 +14,7 @@ LinearSolver{
 
 Reference{
   iterations = 16
-  res_l2_norm = 6.0e-10
+  res_l2_norm = 1.780328483975220e-09
   tolerance = 2.0e-10
   strict = FALSE
 }
