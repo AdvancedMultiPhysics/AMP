@@ -248,10 +248,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     // count number of rows and check compatibility of blocks
     auto block         = ( *blocks.begin() ).second;
     const auto mem_loc = block->d_memory_location;
-    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::ConcatVertical not implemented on device yet" );
-    lidx_t num_rows = 0;
-    bool all_empty  = block->isEmpty();
+    lidx_t num_rows    = 0;
+    bool all_empty     = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
         AMP_DEBUG_INSIST( mem_loc == block->d_memory_location,
@@ -268,25 +266,19 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     // create output matrix
     auto concat_matrix = std::make_shared<CSRLocalMatrixData<Config>>(
         params, mem_loc, 0, num_rows, first_col, last_col, is_diag );
-
     // Count total number of non-zeros in each row from combination.
     lidx_t cat_row = 0; // counter for which row we are on in concat_matrix
     for ( auto it : blocks ) {
         block = it.second;
-        // loop over rows and count NZs that fall in/out of column range
-        for ( lidx_t brow = 0; brow < block->d_num_rows; ++brow ) {
-            lidx_t row_nnz = 0;
-            for ( lidx_t k = block->d_row_starts[brow]; k < block->d_row_starts[brow + 1]; ++k ) {
-                const auto c      = block->d_cols[k];
-                const bool inside = first_col <= c && c < last_col;
-                const bool valid  = ( is_diag && inside ) || ( !is_diag && !inside );
-                if ( valid ) {
-                    ++row_nnz;
-                }
-            }
-            concat_matrix->d_row_starts[cat_row] = row_nnz;
-            ++cat_row;
-        }
+        CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
+            block->d_row_starts.get(),
+            block->d_cols.get(),
+            block->d_num_rows,
+            first_col,
+            last_col,
+            is_diag,
+            &concat_matrix->d_row_starts[cat_row] );
+        cat_row += block->d_num_rows;
     }
 
     // Trigger allocations
@@ -297,20 +289,18 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     for ( auto it : blocks ) {
         block = it.second;
         if ( !block->d_is_empty ) {
-            for ( lidx_t brow = 0; brow < block->d_num_rows; ++brow ) {
-                lidx_t cat_pos = concat_matrix->d_row_starts[cat_row];
-                for ( auto k = block->d_row_starts[brow]; k < block->d_row_starts[brow + 1]; ++k ) {
-                    const auto c      = block->d_cols[k];
-                    const bool inside = first_col <= c && c < last_col;
-                    const bool valid  = ( is_diag && inside ) || ( !is_diag && !inside );
-                    if ( valid ) {
-                        concat_matrix->d_cols[cat_pos]   = c;
-                        concat_matrix->d_coeffs[cat_pos] = block->d_coeffs[k];
-                        ++cat_pos;
-                    }
-                }
-                ++cat_row;
-            }
+            CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts.get(),
+                                                              block->d_cols.get(),
+                                                              block->d_coeffs.get(),
+                                                              block->d_num_rows,
+                                                              first_col,
+                                                              last_col,
+                                                              is_diag,
+                                                              cat_row,
+                                                              concat_matrix->d_row_starts.get(),
+                                                              concat_matrix->d_cols.get(),
+                                                              concat_matrix->d_coeffs.get() );
+            cat_row += block->d_num_rows;
         }
     }
 
@@ -714,6 +704,213 @@ void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
     } else {
         for ( lidx_t row = 0; row < d_num_rows; ++row ) {
             col_ptrs[row] = nullptr;
+        }
+    }
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) const
+{
+    std::cout << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
+    if ( d_is_empty ) {
+        std::cout << "    EMPTY" << std::endl;
+        return;
+    }
+    std::cout << "    first | last row: " << d_first_row << " | " << d_last_row << std::endl;
+    std::cout << "    first | last col: " << d_first_col << " | " << d_last_col << std::endl;
+
+    if ( d_cols.get() ) {
+        std::cout << "    min | max col: "
+                  << AMP::Utilities::Algorithms<gidx_t>::min_element( d_cols.get(), d_nnz ) << " | "
+                  << AMP::Utilities::Algorithms<gidx_t>::max_element( d_cols.get(), d_nnz )
+                  << std::endl;
+    }
+
+    std::cout << "    num unique: " << d_ncols_unq << std::endl;
+    scalar_t avg_nnz = static_cast<scalar_t>( d_nnz ) / static_cast<scalar_t>( d_num_rows );
+    std::cout << "    avg nnz per row: " << avg_nnz << std::endl;
+    std::cout << "    tot nnz: " << d_nnz << std::endl;
+    if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
+        std::cout << "    row 0: ";
+        for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
+            if ( d_coeffs[n] != 0 || show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << "," << d_coeffs[n] << "), ";
+            }
+        }
+        std::cout << "\n    row last: ";
+        for ( auto n = d_row_starts[d_num_rows - 1]; n < d_row_starts[d_num_rows]; ++n ) {
+            if ( d_coeffs[n] != 0 || show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << "," << d_coeffs[n] << "), ";
+            }
+        }
+        if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
+            std::cout << "\n    column map: ";
+            for ( auto n = 0; n < d_ncols_unq; ++n ) {
+                std::cout << "[" << n << "|" << d_cols_unq[n] << "], ";
+            }
+        }
+    } else if ( verbose ) {
+        // copy row pointers back to host
+        std::vector<lidx_t> rs_h( d_num_rows + 1, 0 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), rs_h.data() );
+
+        // if first row is non-empty copy it back to host
+        // need to check if cols or cols_loc should be used
+        if ( rs_h[1] > rs_h[0] ) {
+            const auto fr_len = rs_h[1] - rs_h[0];
+            std::vector<scalar_t> fr_coeffs( fr_len, 0.0 );
+            AMP::Utilities::copy( fr_len, d_coeffs.get(), fr_coeffs.data() );
+            if ( d_cols.get() ) {
+                std::vector<gidx_t> fr_cols( fr_len, 0 );
+                AMP::Utilities::copy( fr_len, d_cols.get(), fr_cols.data() );
+                std::cout << "    row 0: ";
+                for ( lidx_t n = 0; n < fr_len; ++n ) {
+                    if ( fr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                    }
+                }
+                std::cout << std::endl;
+            } else {
+                std::vector<lidx_t> fr_cols( fr_len, 0 );
+                AMP::Utilities::copy( fr_len, d_cols_loc.get(), fr_cols.data() );
+                std::cout << "    row 0: ";
+                for ( lidx_t n = 0; n < fr_len; ++n ) {
+                    if ( fr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                    }
+                }
+                std::cout << std::endl;
+            }
+        }
+
+        // same as before but for the last row
+        if ( rs_h[d_num_rows] > rs_h[d_num_rows - 1] ) {
+            const auto lr_len = rs_h[d_num_rows] - rs_h[d_num_rows - 1];
+            std::vector<scalar_t> lr_coeffs( lr_len, 0.0 );
+            AMP::Utilities::copy( lr_len, d_coeffs.get() + rs_h[d_num_rows - 1], lr_coeffs.data() );
+            if ( d_cols.get() ) {
+                std::vector<gidx_t> lr_cols( lr_len, 0 );
+                AMP::Utilities::copy( lr_len, d_cols.get() + rs_h[d_num_rows - 1], lr_cols.data() );
+                std::cout << "    row last: ";
+                for ( lidx_t n = 0; n < lr_len; ++n ) {
+                    if ( lr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                    }
+                }
+            } else {
+                std::vector<lidx_t> lr_cols( lr_len, 0 );
+                AMP::Utilities::copy(
+                    lr_len, d_cols_loc.get() + rs_h[d_num_rows - 1], lr_cols.data() );
+                std::cout << "    row last: ";
+                for ( lidx_t n = 0; n < lr_len; ++n ) {
+                    if ( lr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                    }
+                }
+            }
+        }
+
+        // copy down column map and print it
+        if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
+            std::vector<gidx_t> colmap_h( d_ncols_unq, 0 );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), colmap_h.data() );
+            std::cout << "\n    column map: ";
+            for ( auto n = 0; n < d_ncols_unq; ++n ) {
+                std::cout << "[" << n << "|" << colmap_h[n] << "], ";
+            }
+        }
+    }
+    std::cout << std::endl << std::endl;
+}
+
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::printAll( bool force ) const
+{
+    printStats( false, false );
+
+    // bail if total entries too large and force output not enabled
+    if ( d_nnz > 5000 && !force ) {
+        AMP_WARN_ONCE( "CSRLocalMatrixData::printAll: Skipping print due to too many non-zeros. "
+                       "Re-run with force=true to print anyway." );
+        return;
+    }
+
+    // bail if empty, no warning needed
+    if ( d_is_empty ) {
+        return;
+    }
+
+    const bool have_loc = ( d_cols_loc.get() != nullptr );
+    const bool have_gbl = ( d_cols.get() != nullptr );
+
+    // migrate fields to host if needed
+    std::vector<lidx_t> row_starts_h, cols_loc_h;
+    std::vector<gidx_t> cols_h, cols_unq_h;
+    std::vector<scalar_t> coeffs_h;
+    lidx_t *row_starts = nullptr, *cols_loc = nullptr;
+    gidx_t *cols = nullptr, *cols_unq = nullptr;
+    scalar_t *coeffs = nullptr;
+    if ( d_memory_location < AMP::Utilities::MemoryType::device ) {
+        row_starts = d_row_starts.get();
+        cols_loc   = d_cols_loc.get();
+        cols       = d_cols.get();
+        cols_unq   = d_cols_unq.get();
+        coeffs     = d_coeffs.get();
+    } else {
+        row_starts_h.resize( d_num_rows + 1, 0 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts_h.data() );
+        row_starts = row_starts_h.data();
+        if ( have_gbl ) {
+            cols_h.resize( d_nnz, 0 );
+            AMP::Utilities::copy( d_nnz, d_cols.get(), cols_h.data() );
+            cols = cols_h.data();
+        } else if ( !d_is_diag ) {
+            cols_unq_h.resize( d_ncols_unq, 0 );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq_h.data() );
+            cols_unq = cols_unq_h.data();
+        }
+        if ( have_loc ) {
+            cols_loc_h.resize( d_nnz, 0 );
+            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc_h.data() );
+            cols_loc = cols_loc_h.data();
+        }
+        coeffs_h.resize( d_nnz, 0 );
+        AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs_h.data() );
+        coeffs = coeffs_h.data();
+    }
+
+    // print all unique columns
+    if ( cols_unq ) {
+        std::cout << "Unique cols: ";
+        for ( lidx_t n = 0; n < d_ncols_unq; ++n ) {
+            std::cout << "[" << n << "|" << cols_unq[n] << "] ";
+        }
+        std::cout << std::endl << std::endl;
+    }
+
+    // print all global columns and values row-by-row
+    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
+        // skip empty rows to avoid a bunch of blank newlines
+        if ( row_starts[row] < row_starts[row + 1] ) {
+            std::cout << "Row " << row << ": ";
+            for ( lidx_t c = row_starts[row]; c < row_starts[row + 1]; ++c ) {
+                lidx_t cl = have_loc ? cols_loc[c] : -1;
+                gidx_t cg;
+                if ( d_is_diag ) {
+                    cg = have_gbl ? cols[c] : d_first_col + static_cast<gidx_t>( cols_loc[c] );
+                } else {
+                    cg = have_gbl ? cols[c] : cols_unq[cols_loc[c]];
+                }
+                std::cout << "[" << cl << "|" << cg << "|" << coeffs[c] << "] ";
+            }
+            std::cout << std::endl;
         }
     }
 }

@@ -164,7 +164,7 @@ protected:
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
     std::map<std::pair<std::shared_ptr<matrixdata_t>, std::shared_ptr<matrixdata_t>>,
-             CSRMatrixSpGEMMHelperDefault<Config>>
+             CSRMatrixSpGEMMDefault<Config>>
         d_SpGEMMHelpers;
 };
 
