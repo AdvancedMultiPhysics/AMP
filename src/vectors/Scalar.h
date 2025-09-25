@@ -91,7 +91,7 @@ public:
             constexpr double tol = 10 * std::numeric_limits<TYPE>::epsilon();
             return tol;
         } else if constexpr ( AMP::is_complex_v<TYPE> ) {
-            constexpr double tol = std::numeric_limits<TYPE>::epsilon().real();
+            constexpr double tol = 10 * std::numeric_limits<TYPE>::epsilon().real();
             return tol;
         } else {
             constexpr double tol = 10 * std::numeric_limits<TYPE>::epsilon();
