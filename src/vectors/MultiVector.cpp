@@ -328,6 +328,22 @@ bool MultiVector::containsPointer( const Vector::shared_ptr p ) const
 
 
 /****************************************************************
+ * Get vectors                                                   *
+ ****************************************************************/
+Vector::shared_ptr MultiVector::getVector( size_t i ) { return d_vVectors[i]; }
+Vector::const_shared_ptr MultiVector::getVector( size_t i ) const { return d_vVectors[i]; }
+std::vector<std::shared_ptr<Vector>> MultiVector::getVecs() { return d_vVectors; }
+std::vector<std::shared_ptr<const Vector>> MultiVector::getVecs() const
+{
+    std::vector<std::shared_ptr<const Vector>> vecs( d_vVectors.size() );
+    for ( size_t i = 0; i < d_vVectors.size(); i++ )
+        vecs[i] = d_vVectors[i];
+    return vecs;
+}
+size_t MultiVector::getNumberOfSubvectors() const { return d_vVectors.size(); }
+
+
+/****************************************************************
  * Misc functions                                                *
  ****************************************************************/
 void MultiVector::reset()
@@ -358,12 +374,6 @@ std::unique_ptr<Vector> MultiVector::rawClone() const
     retVec->d_VectorOps = d_VectorOps->cloneOperations();
     return retVec;
 }
-
-Vector::shared_ptr MultiVector::getVector( size_t i ) { return d_vVectors[i]; }
-
-Vector::const_shared_ptr MultiVector::getVector( size_t i ) const { return d_vVectors[i]; }
-
-size_t MultiVector::getNumberOfSubvectors() const { return d_vVectors.size(); }
 
 std::string MultiVector::type() const { return "MultiVector"; }
 
