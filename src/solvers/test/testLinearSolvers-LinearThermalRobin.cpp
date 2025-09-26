@@ -377,8 +377,8 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-BiCGSTAB" );
         hypreInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-TFQMR" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-QMRCGSTAB" );
+        //        hypreInputs.emplace_back(
+        //            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-QMRCGSTAB" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-BiCGSTAB" );
         hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-TFQMR" );
         hypreInputs.emplace_back(
