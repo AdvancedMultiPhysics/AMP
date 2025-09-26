@@ -262,29 +262,29 @@ void PetscKrylovSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     // since Petsc tracks this internally
     // Can we get that value from Petsc and remove one global reduce?
     std::shared_ptr<AMP::LinearAlgebra::Vector> r;
-    PetscReal current_res;
     if ( d_bUseZeroInitialGuess ) {
+        KSPConvergedDefaultSetUIRNorm( d_KrylovSolver );
         u->zero();
-        current_res = f_norm;
+        r->copyVector( f );
     } else {
         r = f->clone();
         d_pOperator->residual( f, u, r );
-        current_res = static_cast<PetscReal>( r->L2Norm() );
     }
-    d_dInitialResidual = current_res;
+    d_dResidualNorm    = r->L2Norm();
+    d_dInitialResidual = d_dResidualNorm;
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "PetscKrylovSolverSolver::apply: initial L2Norm of solution vector: "
                   << u->L2Norm() << std::endl;
         AMP::pout << "PetscKrylovSolverSolver::apply: initial L2Norm of rhs vector: " << f_norm
                   << std::endl;
-        AMP::pout << "PetscKrylovSolverSolver::apply: initial L2Norm of residual: " << current_res
-                  << std::endl;
+        AMP::pout << "PetscKrylovSolverSolver::apply: initial L2Norm of residual: "
+                  << d_dResidualNorm << std::endl;
     }
 
     // return if the residual is already low enough
     // checkStoppingCriteria responsible for setting flags on convergence reason
-    if ( checkStoppingCriteria( current_res ) ) {
+    if ( checkStoppingCriteria( d_dResidualNorm ) ) {
         if ( d_iDebugPrintInfoLevel > 0 ) {
             AMP::pout << "PetscKrylovSolverSolver::apply: initial residual below tolerance"
                       << std::endl;
@@ -312,19 +312,20 @@ void PetscKrylovSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     // Re-compute or query final residual
     if ( d_bComputeResidual ) {
         d_pOperator->residual( f, u, r );
-        current_res = static_cast<PetscReal>( r->L2Norm() );
+        d_dResidualNorm = r->L2Norm();
     } else {
+        PetscReal current_res;
         KSPGetResidualNorm( d_KrylovSolver, &current_res );
+        d_dResidualNorm = current_res;
     }
 
-    // Store final residual norm and update convergence flags
-    d_dResidualNorm = current_res;
-    checkStoppingCriteria( current_res );
+    // Update convergence status
+    checkStoppingCriteria( d_dResidualNorm );
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
         AMP::pout << "PetscKrylovSolver::apply: final L2Norm of solution: " << u->L2Norm()
                   << std::endl;
-        AMP::pout << "PetscKrylovSolver::apply: final L2Norm of residual: " << current_res
+        AMP::pout << "PetscKrylovSolver::apply: final L2Norm of residual: " << d_dResidualNorm
                   << std::endl;
         AMP::pout << "PetscKrylovSolver::apply: iterations: " << d_iNumberIterations << std::endl;
         AMP::pout << "PetscKrylovSolver::apply: convergence reason: "
