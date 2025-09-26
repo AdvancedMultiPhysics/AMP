@@ -308,8 +308,7 @@ int main( int argc, char *argv[] )
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS2" );
         generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithRestart" );
-        //        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-QMRCGSTAB"
-        //        );
+        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-QMRCGSTAB" );
 
         generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG" );
@@ -333,8 +332,8 @@ int main( int argc, char *argv[] )
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-BiCGSTAB" );
         generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
-        // generalInputs.emplace_back(
-        //     "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB" );
+        generalInputs.emplace_back(
+            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB" );
 
         generalInputs.emplace_back(
             "input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES" );
