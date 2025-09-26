@@ -101,6 +101,12 @@ public:
     //! Return one past the last vector in the MultiVector
     inline auto end() const { return d_vVectors.end(); }
 
+    //! Return one past the last vector in the MultiVector
+    std::vector<std::shared_ptr<Vector>> getVecs();
+
+    //! Return one past the last vector in the MultiVector
+    std::vector<std::shared_ptr<const Vector>> getVecs() const;
+
 
     /** \brief Determine if a Vector is a constituent
      * \param[in]  p  The vector to look for

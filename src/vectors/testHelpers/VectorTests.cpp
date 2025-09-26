@@ -6,6 +6,7 @@
 #include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
+#include "AMP/vectors/VectorHelpers.h"
 #ifdef AMP_USE_SUNDIALS
     #include "AMP/vectors/sundials/ManagedSundialsVector.h"
     #include "AMP/vectors/sundials/SundialsVector.h"
@@ -235,18 +236,38 @@ void VectorTests::DotProductVector( AMP::UnitTest *ut )
 void VectorTests::L2NormVector( AMP::UnitTest *ut )
 {
     PROFILE( "L2NormVector" );
-    auto vector = d_factory->getVector();
-    vector->setToScalar( 1. );
-    auto norm  = static_cast<double>( vector->L2Norm() );
-    auto norm2 = static_cast<double>( vector->dot( *vector ) );
+    auto vec = d_factory->getVector();
+    vec->setToScalar( 1. );
+    auto norm  = static_cast<double>( vec->L2Norm() );
+    auto norm2 = static_cast<double>( vec->dot( *vec ) );
     double tol = 0.000001;
-    if ( vector->getVectorData()->isType<float>() )
+    if ( vec->getVectorData()->isType<float>() )
         tol = 0.00001;
     PASS_FAIL( fabs( static_cast<double>( norm * norm - norm2 ) ) < tol, "L2 norm 1" );
-    vector->setRandomValues();
-    norm  = static_cast<double>( vector->L2Norm() );
-    norm2 = static_cast<double>( vector->dot( *vector ) );
+    vec->setRandomValues();
+    norm  = static_cast<double>( vec->L2Norm() );
+    norm2 = static_cast<double>( vec->dot( *vec ) );
     PASS_FAIL( fabs( static_cast<double>( norm * norm - norm2 ) ) < tol, "L2 norm 2" );
+    norm      = static_cast<double>( vec->L2Norm() );
+    norm2     = static_cast<double>( VectorHelpers::L2Norm( vec, { vec->getName() } )[0] );
+    bool pass = fabs( norm - norm2 ) < tol;
+    if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
+        auto vec2 = vec->clone();
+        vec2->setRandomValues();
+        vec->setName( "a" );
+        vec2->setName( "b" );
+        norm2         = static_cast<double>( vec2->L2Norm() );
+        auto multivec = MultiVector::create(
+            std::make_shared<Variable>( "multivec" ), vec->getComm(), { vec, vec2 } );
+        auto norms  = VectorHelpers::L2Norm( multivec, { "a", "b", "c" } );
+        double n[3] = { static_cast<double>( norms[0] ),
+                        static_cast<double>( norms[1] ),
+                        static_cast<double>( norms[2] ) };
+        pass        = pass && fabs( n[0] - norm ) < tol;
+        pass        = pass && fabs( n[1] - norm2 ) < tol;
+        pass        = pass && n[2] == 0;
+    }
+    PASS_FAIL( pass, "VectorHelpers" );
 }
 
 
@@ -266,51 +287,92 @@ void VectorTests::AbsVector( AMP::UnitTest *ut )
 void VectorTests::L1NormVector( AMP::UnitTest *ut )
 {
     PROFILE( "L1NormVector" );
-    auto vector = d_factory->getVector();
-    auto vector_1( d_factory->getVector() );
-    vector->setRandomValues();
-    vector_1->setToScalar( 1. );
-    auto norm = static_cast<double>( vector->L1Norm() );
-    vector->abs( *vector );
-    auto norm2 = static_cast<double>( vector->dot( *vector_1 ) );
-    double tol = 50 * norm * getTol( *vector );
+    auto vec = d_factory->getVector();
+    auto vec1( d_factory->getVector() );
+    vec->setRandomValues();
+    vec1->setToScalar( 1. );
+    auto norm = static_cast<double>( vec->L1Norm() );
+    vec->abs( *vec );
+    auto norm2 = static_cast<double>( vec->dot( *vec1 ) );
+    double tol = 50 * norm * getTol( *vec );
     if ( fabs( norm - norm2 ) < tol )
         ut->passes( "L1 norm" );
     else
         ut->failure( AMP::Utilities::stringf( "L1 norm (%e) (%e)", fabs( norm - norm2 ), tol ) );
+    norm      = static_cast<double>( vec->L1Norm() );
+    norm2     = static_cast<double>( VectorHelpers::L1Norm( vec, { vec->getName() } )[0] );
+    bool pass = fabs( norm - norm2 ) < tol;
+    if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
+        auto vec2 = vec->clone();
+        vec2->setRandomValues();
+        vec->setName( "a" );
+        vec2->setName( "b" );
+        norm2         = static_cast<double>( vec2->L1Norm() );
+        auto multivec = MultiVector::create(
+            std::make_shared<Variable>( "multivec" ), vec->getComm(), { vec, vec2 } );
+        auto norms  = VectorHelpers::L1Norm( multivec, { "a", "b", "c" } );
+        double n[3] = { static_cast<double>( norms[0] ),
+                        static_cast<double>( norms[1] ),
+                        static_cast<double>( norms[2] ) };
+        pass        = pass && fabs( n[0] - norm ) < tol;
+        pass        = pass && fabs( n[1] - norm2 ) < tol;
+        pass        = pass && n[2] == 0;
+    }
+    PASS_FAIL( pass, "VectorHelpers" );
 }
 
 
 void VectorTests::MaxNormVector( AMP::UnitTest *ut )
 {
     PROFILE( "MaxNormVector" );
-    auto vector = d_factory->getVector();
-    vector->setRandomValues();
-    auto infNorm = vector->maxNorm();
-    vector->abs( *vector );
-    if ( vector->getVectorData()->isType<double>() ) {
-        auto curData   = vector->begin();
-        auto endData   = vector->end();
+    auto vec = d_factory->getVector();
+    vec->setRandomValues();
+    auto infNorm = vec->maxNorm();
+    vec->abs( *vec );
+    if ( vec->getVectorData()->isType<double>() ) {
+        auto curData   = vec->begin();
+        auto endData   = vec->end();
         auto local_ans = *curData;
         while ( curData != endData ) {
             local_ans = std::max( local_ans, *curData );
             ++curData;
         }
-        auto global_ans = vector->getComm().maxReduce( local_ans );
+        auto global_ans = vec->getComm().maxReduce( local_ans );
         PASS_FAIL( global_ans == infNorm, "Inf norm" );
-    } else if ( vector->getVectorData()->isType<float>() ) {
-        auto curData   = vector->begin<float>();
-        auto endData   = vector->end<float>();
+    } else if ( vec->getVectorData()->isType<float>() ) {
+        auto curData   = vec->begin<float>();
+        auto endData   = vec->end<float>();
         auto local_ans = *curData;
         while ( curData != endData ) {
             local_ans = std::max( local_ans, *curData );
             ++curData;
         }
-        auto global_ans = vector->getComm().maxReduce( local_ans );
+        auto global_ans = vec->getComm().maxReduce( local_ans );
         PASS_FAIL( global_ans == infNorm, "Inf norm" );
     } else {
         AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
     }
+    auto norm  = static_cast<double>( vec->maxNorm() );
+    auto norm2 = static_cast<double>( VectorHelpers::maxNorm( vec, { vec->getName() } )[0] );
+    double tol = 2 * getTol( *vec );
+    bool pass  = fabs( norm - norm2 ) < tol;
+    if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
+        auto vec2 = vec->clone();
+        vec2->setRandomValues();
+        vec->setName( "a" );
+        vec2->setName( "b" );
+        norm2         = static_cast<double>( vec2->maxNorm() );
+        auto multivec = MultiVector::create(
+            std::make_shared<Variable>( "multivec" ), vec->getComm(), { vec, vec2 } );
+        auto norms  = VectorHelpers::maxNorm( multivec, { "a", "b", "c" } );
+        double n[3] = { static_cast<double>( norms[0] ),
+                        static_cast<double>( norms[1] ),
+                        static_cast<double>( norms[2] ) };
+        pass        = pass && fabs( n[0] - norm ) < tol;
+        pass        = pass && fabs( n[1] - norm2 ) < tol;
+        pass        = pass && n[2] == 0;
+    }
+    PASS_FAIL( pass, "VectorHelpers" );
 }
 
 template<typename TYPE>

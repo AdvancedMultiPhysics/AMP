@@ -268,6 +268,7 @@ void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector
 
         rho2 = static_cast<T>( r->dot( *r0 ) );
 
+        // The commented section is from the original paper and should be re-enabled if possible
 #if 0
         // Use upper bound on residual norm to test convergence cheaply
         const auto res_bound = std::fabs( tau ) * std::sqrt( static_cast<T>( k + 1.0 ) );
