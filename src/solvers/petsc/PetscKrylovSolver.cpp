@@ -263,13 +263,12 @@ void PetscKrylovSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     // Compute initial residual, used mostly for reporting in this case
     // since Petsc tracks this internally
     // Can we get that value from Petsc and remove one global reduce?
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r;
+    auto r = f->clone();
     if ( d_bUseZeroInitialGuess ) {
         u->zero();
         r->copyVector( f );
     } else {
         checkErr( KSPConvergedDefaultSetUIRNorm( d_KrylovSolver ) );
-        r = f->clone();
         d_pOperator->residual( f, u, r );
     }
     d_dResidualNorm    = r->L2Norm();
