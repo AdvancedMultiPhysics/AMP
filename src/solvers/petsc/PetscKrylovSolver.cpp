@@ -130,6 +130,8 @@ void PetscKrylovSolver::initialize( std::shared_ptr<const SolverStrategyParamete
     } else if ( d_sKspType == "bcgs" ) {
     } else if ( d_sKspType == "cg" ) {
         d_PcSide = "LEFT";
+        // BP, I prefer to see the unpreconditioned norms for uniformity
+        checkErr( KSPSetNormType( d_KrylovSolver, KSP_NORM_UNPRECONDITIONED ) );
     } else if ( d_sKspType == "preonly" ) {
         // if only preconditioner, override preconditioner side
         d_PcSide = "LEFT";
@@ -263,10 +265,10 @@ void PetscKrylovSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     // Can we get that value from Petsc and remove one global reduce?
     std::shared_ptr<AMP::LinearAlgebra::Vector> r;
     if ( d_bUseZeroInitialGuess ) {
-        KSPConvergedDefaultSetUIRNorm( d_KrylovSolver );
         u->zero();
         r->copyVector( f );
     } else {
+        checkErr( KSPConvergedDefaultSetUIRNorm( d_KrylovSolver ) );
         r = f->clone();
         d_pOperator->residual( f, u, r );
     }

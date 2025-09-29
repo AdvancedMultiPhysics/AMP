@@ -4,7 +4,7 @@ LinearSolver{
   print_info_level = 2
   max_iterations = 100
   absolute_tolerance = 1.0e-12
-  relative_tolerance = 5.0e-13
+  relative_tolerance = 1.0e-12
   divergence_tolerance = 1.0e03
   uses_preconditioner=TRUE
   pc_type = "shell"
