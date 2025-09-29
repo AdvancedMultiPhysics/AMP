@@ -423,24 +423,21 @@ template<typename ConfigOut>
 std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migrate() const
 {
     using outdata_t = CSRLocalMatrixData<ConfigOut>;
-    static_assert( std::is_same_v<lidx_t, typename outdata_t::lidx_t> );
-    static_assert( std::is_same_v<gidx_t, typename outdata_t::gidx_t> );
-    static_assert( std::is_same_v<scalar_t, typename outdata_t::scalar_t> );
 
-    using out_alloc_t = typename outdata_t::allocator_type;
-    using out_lidx_alloc_t =
-        typename std::allocator_traits<out_alloc_t>::template rebind_alloc<lidx_t>;
-    using out_gidx_alloc_t =
-        typename std::allocator_traits<out_alloc_t>::template rebind_alloc<gidx_t>;
-    using out_scalar_alloc_t =
-        typename std::allocator_traits<out_alloc_t>::template rebind_alloc<scalar_t>;
+    using out_alloc_t      = typename outdata_t::allocator_type;
+    using out_lidx_alloc_t = typename std::allocator_traits<out_alloc_t>::template rebind_alloc<
+        typename ConfigOut::lidx_t>;
+    using out_gidx_alloc_t = typename std::allocator_traits<out_alloc_t>::template rebind_alloc<
+        typename ConfigOut::gidx_t>;
+    using out_scalar_alloc_t = typename std::allocator_traits<out_alloc_t>::template rebind_alloc<
+        typename ConfigOut::scalar_t>;
 
     auto memloc  = AMP::Utilities::getAllocatorMemoryType<out_alloc_t>();
     auto outData = std::make_shared<outdata_t>(
         nullptr, memloc, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
 
     outData->d_is_empty = d_is_empty;
-    outData->d_nnz      = d_nnz;
+    outData->d_nnz      = static_cast<typename outdata_t::lidx_t>( d_nnz );
 
     outData->d_cols     = nullptr;
     outData->d_cols_loc = nullptr;
@@ -454,23 +451,26 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
         outData->d_cols_loc = sharedArrayBuilder( d_nnz, lidx_alloc );
         outData->d_coeffs   = sharedArrayBuilder( d_nnz, scalar_alloc );
 
-        AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            d_row_starts.get(), d_num_rows + 1, outData->d_row_starts.get() );
-        AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            d_cols_loc.get(), d_nnz, outData->d_cols_loc.get() );
-        AMP::Utilities::Algorithms<scalar_t>::copy_n(
-            d_coeffs.get(), d_nnz, outData->d_coeffs.get() );
+        /****************************************************
+         * Potential performance improvement:
+         * If config::alloc == configout::alloc  &&
+         *   config::lidx_t == configout::lidx_t &&
+         *   config::gidx_t == configout::gidx_t
+         * then it's not required to create copies of the index arrays pointers would suffice
+         ****************************************************/
+
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
+        AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
+        AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
 
         if ( d_cols.get() != nullptr ) {
             outData->d_cols = sharedArrayBuilder( d_nnz, gidx_alloc );
-            AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                d_cols.get(), d_nnz, outData->d_cols.get() );
+            AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
         }
         if ( d_cols_unq.get() != nullptr ) {
             outData->d_ncols_unq = d_ncols_unq;
             outData->d_cols_unq  = sharedArrayBuilder( d_ncols_unq, gidx_alloc );
-            AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                d_cols_unq.get(), d_ncols_unq, outData->d_cols_unq.get() );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
         }
     }
 
