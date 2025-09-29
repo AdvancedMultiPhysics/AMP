@@ -164,17 +164,13 @@ std::shared_ptr<CSRMatrixData<ConfigOut>>
 CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
 {
     using outdata_t = CSRMatrixData<ConfigOut>;
-    static_assert( std::is_same_v<lidx_t, typename outdata_t::lidx_t> );
-    static_assert( std::is_same_v<gidx_t, typename outdata_t::gidx_t> );
-    static_assert( std::is_same_v<scalar_t, typename outdata_t::scalar_t> );
-
-    auto outData = std::make_shared<outdata_t>();
+    auto outData    = std::make_shared<outdata_t>();
 
     outData->d_is_square              = d_is_square;
-    outData->d_first_row              = d_first_row;
-    outData->d_last_row               = d_last_row;
-    outData->d_first_col              = d_first_col;
-    outData->d_last_col               = d_last_col;
+    outData->d_first_row              = static_cast<typename outdata_t::gidx_t>( d_first_row );
+    outData->d_last_row               = static_cast<typename outdata_t::gidx_t>( d_last_row );
+    outData->d_first_col              = static_cast<typename outdata_t::gidx_t>( d_first_col );
+    outData->d_last_col               = static_cast<typename outdata_t::gidx_t>( d_last_col );
     outData->d_leftCommList           = d_leftCommList;
     outData->d_rightCommList          = d_rightCommList;
     outData->d_leftDOFManager         = d_leftDOFManager;

@@ -168,6 +168,7 @@ enum class csr_mode : std::uint16_t {
         #define CSR_CONFIG_FORALL_HYPRE_DEVICE( INST )
     #endif
     #define CSR_CONFIG_CC_FORALL_HYPRE( INST )
+    #define CSR_CONFIG_CC_FORALL0_HYPRE( F, G )
 #endif
 
 #define CSR_CONFIG_FORALL_HOST( INST ) \
@@ -208,6 +209,63 @@ enum class csr_mode : std::uint16_t {
 #define CSR_CONFIG_CC_FORALL( INST )                               \
     EXPAND( CSR_CONFIG_CC_FORALL0( CSR_CONFIG_CC_FORALL2, INST ) ) \
     CSR_CONFIG_CC_FORALL_HYPRE( INST )
+
+
+/******************************************************************************
+ * Helpers for defining the instantiations for the rutines supporting migration
+ * of csr matrices between host / managed / device memories, between global
+ * indexing using ill / i64, and between float and double scalar types.
+ *
+ * There are two main macros supposed to be used externally:
+ * \brief instantiate migrate routines templated againt both in and out
+ *        csr_config's
+ * \param[in] INST macro with config_in and config_out arguments
+ * \detail As oposed to CSR_CONFIG_CC_FORALL, the permutations include hypre
+ *         and AMP configurations
+ * CSR_INOUT_CONFIG_MIGRATE ( INST )
+ *
+ * There are several inner helper macros with the following naming convention:
+ * 1.- OUTLIST_(HOST/DEVICE/HYPRE_HOST/HYPRE_DEVICE)**
+ *     Perform a list of calls to the subsequent macros for
+ *     host/device/hypre_host/hypre_device apropriate csr configurations.
+ * 2.- CSR_INOUT_CONFIG_MIGRATE_LOOP
+ *     Given an in csr_config and the INST macro it calls through the list of
+ *     of host/device/hypre_host/hypre_device CSR_CONFIG_CC* macros which
+ *     define the out csr_config.
+ *
+ * These instantiations add the possibility to migrate between different
+ * global index types, not needed (for the moment) in CSR_CONFIG_CC_FORALL
+ ******************************************************************************/
+
+#define CSR_INOUT_CONFIG_MIGRATE_LOOP( mode_in, INST ) \
+    CSR_CONFIG_CC_FORALL0( INST, mode_in )             \
+    CSR_CONFIG_CC_FORALL0_HYPRE( INST, mode_in )
+
+#define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HOST( INST )     \
+    CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hiIf, INST ) \
+    CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hiId, INST )
+
+#if defined( AMP_USE_DEVICE )
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_DEVICE( INST )   \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::miIf, INST ) \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::miId, INST ) \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::diIf, INST ) \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::diId, INST )
+#else
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_DEVICE( INST )
+#endif
+
+#ifndef AMP_USE_HYPRE
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_HOST( INST )
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST )
+#endif
+
+#define CSR_INOUT_CONFIG_MIGRATE( INST )                \
+    CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HOST( INST )       \
+    CSR_INOUT_CONFIG_MIGRATE_OUTLIST_DEVICE( INST )     \
+    CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_HOST( INST ) \
+    CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST )
+
 
 template<alloc Alloc, index LocalInd, index GlobalInd, scalar Scalar>
 struct CSRConfig {

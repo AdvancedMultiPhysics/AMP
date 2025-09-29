@@ -29,6 +29,61 @@
 // This test is adapted from testMatVecPerf.cpp
 // In this case the matrix and vectors are created on host
 // then migrated to different spaces before doing the product
+template<typename Config>
+void test_space_n_precision_migration( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
+                                       std::shared_ptr<AMP::LinearAlgebra::Vector> inVec,
+                                       std::shared_ptr<AMP::LinearAlgebra::Vector> outVec,
+                                       AMP::UnitTest *ut )
+{
+    auto mat_migrate = AMP::LinearAlgebra::createMatrix<Config>( matrix );
+    auto mem_loc     = AMP::Utilities::getAllocatorMemoryType<typename Config::allocator_type>();
+    auto x = AMP::LinearAlgebra::createVector<typename Config::scalar_t>( inVec, mem_loc );
+    auto y = AMP::LinearAlgebra::createVector<typename Config::scalar_t>( outVec, mem_loc );
+    x->copy( *inVec );
+    y->copy( *outVec );
+    x->makeConsistent();
+    y->makeConsistent();
+    mat_migrate->mult( x, y );
+    auto yNorm = static_cast<typename Config::scalar_t>( y->L1Norm() );
+
+    if ( yNorm == static_cast<typename Config::scalar_t>( mat_migrate->numGlobalRows() ) ) {
+        ut->passes( "Passes 1 norm test with pseudo Laplacian" );
+    } else {
+        AMP::pout << "1 Norm " << yNorm << ", number of rows " << mat_migrate->numGlobalRows()
+                  << std::endl;
+        std::string space_name( AMP::Utilities::getString( mem_loc ) );
+        ut->failure( "Migrate to " + space_name + ": Fails 1 norm test with pseudo Laplacian" );
+    }
+}
+
+template<typename ConfigIn, typename ConfigTo>
+void test_accuracy_loss( std::shared_ptr<AMP::LinearAlgebra::Matrix> &matrix,
+                         std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                         AMP::UnitTest *ut )
+{
+    auto mat_migrate      = AMP::LinearAlgebra::createMatrix<ConfigTo>( matrix );
+    auto mat_migrate_back = AMP::LinearAlgebra::createMatrix<ConfigIn>( mat_migrate );
+
+    auto X = std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrix<ConfigIn>>( matrix );
+    auto Y = std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrix<ConfigIn>>( mat_migrate_back );
+
+    for ( size_t i = dofManager->beginDOF(); i != dofManager->endDOF(); i++ ) {
+        std::vector<size_t> cols_X, cols_Y;
+        std::vector<double> vals_X, vals_Y;
+        X->getRowByGlobalID( i, cols_X, vals_X );
+        Y->getRowByGlobalID( i, cols_Y, vals_Y );
+        for ( size_t j = 0; j != cols_X.size(); j++ ) {
+            if ( std::abs( vals_X[j] - vals_Y[j] ) >
+                 std::numeric_limits<typename ConfigTo::scalar_t>::epsilon() ) {
+                ut->failure( "Failed. Precision loss higher than expected. " +
+                             AMP::Utilities::stringf( "Difference of %e found between entries.",
+                                                      std::abs( vals_X[j] - vals_Y[j] ) ) );
+                return;
+            }
+        }
+    }
+    ut->passes( "Able to migrate with precision change" );
+}
 
 size_t matVecTestWithDOFs( AMP::UnitTest *ut,
                            std::string type,
@@ -69,7 +124,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
 #endif
 
     // migrate to space and test
-    auto test_space = [=]( AMP::Utilities::MemoryType mem_loc ) -> void {
+    auto test_space_migration = [=]( AMP::Utilities::MemoryType mem_loc ) -> void {
         auto mat_migrate = AMP::LinearAlgebra::createMatrix( matrix, mem_loc );
         auto x           = AMP::LinearAlgebra::createVector( inVec, mem_loc );
         auto y           = AMP::LinearAlgebra::createVector( outVec, mem_loc );
@@ -90,16 +145,73 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
         }
     };
 
-    // testing on host is really a clone
-    test_space( AMP::Utilities::MemoryType::host );
-
-    // actually migrate if device is available
+    /*
+     TESTING MEMORY MIGRATION
+    */
+    test_space_migration( AMP::Utilities::MemoryType::host );
 #ifdef AMP_USE_DEVICE
-    test_space( AMP::Utilities::MemoryType::managed );
-    test_space( AMP::Utilities::MemoryType::device );
+    test_space_migration( AMP::Utilities::MemoryType::managed );
+    test_space_migration( AMP::Utilities::MemoryType::device );
 #endif
 
+    using AMP::LinearAlgebra::alloc;
+    using AMP::LinearAlgebra::index;
+    using AMP::LinearAlgebra::scalar;
 
+    /*
+    TESTING MEMORY MIGRATION AND SCALAR_T PRECISION CHANGE
+    */
+    using Config_hf =
+        AMP::LinearAlgebra::CSRConfig<alloc::host, index::i32, index::i64, scalar::f32>;
+    test_space_n_precision_migration<Config_hf>( matrix, inVec, outVec, ut );
+#ifdef AMP_USE_HYPRE
+    using Config_H_hf =
+        AMP::LinearAlgebra::CSRConfig<alloc::host, index::i32, index::ill, scalar::f32>;
+    test_space_n_precision_migration<Config_H_hf>( matrix, inVec, outVec, ut );
+#endif
+
+// actually migrate if device is available
+#ifdef AMP_USE_DEVICE
+    using Config_mf =
+        AMP::LinearAlgebra::CSRConfig<alloc::managed, index::i32, index::i64, scalar::f32>;
+    test_space_n_precision_migration<Config_mf>( matrix, inVec, outVec, ut );
+
+    using Config_df =
+        AMP::LinearAlgebra::CSRConfig<alloc::device, index::i32, index::i64, scalar::f32>;
+    test_space_n_precision_migration<Config_df>( matrix, inVec, outVec, ut );
+
+    #ifdef AMP_USE_HYPRE
+    using Config_H_mf =
+        AMP::LinearAlgebra::CSRConfig<alloc::managed, index::i32, index::ill, scalar::f32>;
+    test_space_n_precision_migration<Config_H_mf>( matrix, inVec, outVec, ut );
+
+    using Config_H_df =
+        AMP::LinearAlgebra::CSRConfig<alloc::device, index::i32, index::ill, scalar::f32>;
+    test_space_n_precision_migration<Config_H_df>( matrix, inVec, outVec, ut );
+    #endif
+#endif
+
+    /*
+     TESTING ACCURACY LOSS ON SCALAR_T PRECISION CHANGE
+    */
+    test_accuracy_loss<AMP::LinearAlgebra::DefaultHostCSRConfig, Config_hf>(
+        matrix, dofManager, ut );
+#ifdef AMP_USE_HYPRE
+    test_accuracy_loss<AMP::LinearAlgebra::DefaultHostCSRConfig, Config_H_hf>(
+        matrix, dofManager, ut );
+#endif
+#ifdef AMP_USE_DEVICE
+    test_accuracy_loss<AMP::LinearAlgebra::DefaultHostCSRConfig, Config_mf>(
+        matrix, dofManager, ut );
+    test_accuracy_loss<AMP::LinearAlgebra::DefaultHostCSRConfig, Config_df>(
+        matrix, dofManager, ut );
+    #ifdef AMP_USE_HYPRE
+    test_accuracy_loss<AMP::LinearAlgebra::DefaultHostCSRConfig, Config_H_mf>(
+        matrix, dofManager, ut );
+    test_accuracy_loss<AMP::LinearAlgebra::DefaultHostCSRConfig, Config_H_df>(
+        matrix, dofManager, ut );
+    #endif
+#endif
     return nGlobalRows;
 }
 

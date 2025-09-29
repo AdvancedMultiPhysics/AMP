@@ -73,6 +73,15 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr right,
               std::function<std::vector<size_t>( size_t row )> getColumnIDs =
                   std::function<std::vector<size_t>( size_t )>() );
 
+template<typename ConfigOut>
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix );
+
+template<typename ConfigOut>
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
+              AMP::Utilities::Backend accelerationBackend );
+
 std::shared_ptr<AMP::LinearAlgebra::Matrix>
 createMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
               AMP::Utilities::MemoryType memType );
