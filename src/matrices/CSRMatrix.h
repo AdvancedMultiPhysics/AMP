@@ -80,6 +80,20 @@ public:
      */
     shared_ptr migrate( AMP::Utilities::MemoryType memType, AMP::Utilities::Backend backend ) const;
 
+    /** \brief  Return a copy of the matrix with the specified ConfigOut
+     * \return  The new matrix
+     * \detail This selects the operations backend from the default based on memType
+     */
+    template<typename ConfigOut>
+    shared_ptr migrate() const;
+
+    /** \brief  Return a copy of the matrix with the specified ConfigOut
+     * \param[in] backend Acceleration backend for operations
+     * \return  The new matrix
+     */
+    template<typename ConfigOut>
+    shared_ptr migrate( AMP::Utilities::Backend backend ) const;
+
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the diagonal values
