@@ -31,7 +31,7 @@ NodeToNodeMap::NodeToNodeMap( std::shared_ptr<const AMP::Operator::OperatorParam
     : AMP::Operator::AsyncMapOperator( params )
 {
     // Cast the params appropriately
-    d_OutputVector = AMP::LinearAlgebra::Vector::shared_ptr();
+    d_OutputVector = nullptr;
     AMP_ASSERT( params );
     auto &Params = *std::dynamic_pointer_cast<const NodeToNodeMapParameters>( params );
 

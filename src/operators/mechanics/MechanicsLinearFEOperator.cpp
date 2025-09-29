@@ -72,8 +72,8 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
             d_inDofMap, d_inputVariable, true, d_memory_location );
         d_refXYZ->zero();
 
-        AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-        AMP::Mesh::MeshIterator end_el = el.end();
+        auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+        auto end_el = el.end();
 
         for ( ; el != end_el; ++el ) {
             d_currNodes               = el->getElements( AMP::Mesh::GeomType::Vertex );
@@ -94,7 +94,7 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
                     d_refXYZ->setValuesByGlobalID(
                         1, &d_dofIndices[j][i], &elementRefXYZ[( 3 * j ) + i] );
                 } // end of i
-            }     // end of j
+            } // end of j
 
             destroyCurrentLibMeshElement();
         } // end of el
@@ -111,9 +111,9 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
         if ( isNonlinearOperatorInitialized ) {
             reset( params );
         } else {
-            AMP::LinearAlgebra::Vector::shared_ptr tmpInVec = AMP::LinearAlgebra::createVector(
+            auto tmpInVec = AMP::LinearAlgebra::createVector(
                 d_inDofMap, d_inputVariable, true, d_memory_location );
-            AMP::LinearAlgebra::Vector::shared_ptr tmpOutVec = AMP::LinearAlgebra::createVector(
+            auto tmpOutVec = AMP::LinearAlgebra::createVector(
                 d_outDofMap, d_outputVariable, true, d_memory_location );
             d_matrix = AMP::LinearAlgebra::createMatrix( tmpInVec, tmpOutVec );
         }
@@ -161,7 +161,7 @@ void MechanicsLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
         for ( size_t c = 0; c < num_local_dofs; c++ ) {
             d_elementStiffnessMatrix[r][c] = 0.0;
         } // end for c
-    }     // end for r
+    } // end for r
 
     if ( d_useUpdatedLagrangian ) {
         std::vector<std::vector<double>> elementInputVectors(
@@ -179,7 +179,7 @@ void MechanicsLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
                 }
                 elementRefXYZ[( 3 * r ) + d] = d_refXYZ->getValueByGlobalID( d_dofIndices[r][d] );
             } // end for d
-        }     // end for r
+        } // end for r
         d_mechLinULElem->initializeForCurrentElement( d_currElemPtr, d_materialModel );
         d_mechLinULElem->setElementVectors( elementInputVectors );
         d_mechLinULElem->setElementStiffnessMatrix( d_elementStiffnessMatrix );
@@ -203,9 +203,9 @@ void MechanicsLinearFEOperator::postElementOperation()
                         d_dofIndices[c][dc],
                         d_elementStiffnessMatrix[( 3 * r ) + dr][( 3 * c ) + dc] );
                 } // end for dc
-            }     // end for c
-        }         // end for dr
-    }             // end for r
+            } // end for c
+        } // end for dr
+    } // end for r
     destroyCurrentLibMeshElement();
 }
 
@@ -225,8 +225,8 @@ void MechanicsLinearFEOperator::printStressAndStrain( AMP::LinearAlgebra::Vector
     disp->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     d_materialModel->preLinearAssembly();
 
-    AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    AMP::Mesh::MeshIterator end_el = el.end();
+    auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto end_el = el.end();
 
     for ( ; el != end_el; ++el ) {
         d_currNodes               = el->getElements( AMP::Mesh::GeomType::Vertex );
@@ -241,7 +241,7 @@ void MechanicsLinearFEOperator::printStressAndStrain( AMP::LinearAlgebra::Vector
             for ( size_t d = 0; d < 3; d++ ) {
                 elementInputVector[( 3 * r ) + d] = disp->getValueByGlobalID( d_dofIndices[r][d] );
             } // end for d
-        }     // end for r
+        } // end for r
 
         d_mechLinElem->initializeForCurrentElement( d_currElemPtr, d_materialModel );
         d_mechLinElem->printStressAndStrain( fp, elementInputVector );

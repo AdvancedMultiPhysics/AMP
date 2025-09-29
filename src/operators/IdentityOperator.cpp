@@ -42,8 +42,8 @@ void IdentityOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     AMP_INSIST( ( ( u.get() ) != nullptr ), "NULL Solution Vector" );
     AMP_INSIST( ( ( r.get() ) != nullptr ), "NULL Residual Vector" );
 
-    AMP::LinearAlgebra::Vector::const_shared_ptr uInternal = subsetInputVector( u );
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal       = subsetOutputVector( r );
+    auto uInternal = subsetInputVector( u );
+    auto rInternal = subsetOutputVector( r );
 
     AMP_INSIST( ( uInternal ), "uInternal is NULL" );
     AMP_INSIST( ( rInternal ), "rInternal is NULL" );
@@ -72,7 +72,7 @@ IdentityOperator::getParameters( const std::string &type,
 {
     std::shared_ptr<OperatorParameters> params;
     if ( type == "Jacobian" ) {
-        std::shared_ptr<AMP::Database> db = AMP::Database::create( "name", "IdentityOperator" );
+        std::shared_ptr<Database> db = AMP::Database::create( "name", "IdentityOperator" );
         Operator::setMemoryAndBackendParameters( db );
 
         params = std::make_shared<OperatorParameters>( db );

@@ -216,7 +216,7 @@ void DirichletMatrixCorrection::initRhsCorrectionSet()
                 snprintf( key, sizeof key, "value_%d_%d", j, i );
                 tmp_db->putScalar( key, d_dirichletValues[j][i] );
             } // end for i
-        }     // end for j
+        } // end for j
 
         auto setDispOpParams = std::make_shared<DirichletVectorCorrectionParameters>( tmp_db );
         setDispOpParams->d_variable = d_variable;
@@ -266,7 +266,7 @@ void DirichletMatrixCorrection::addRHScorrection( AMP::LinearAlgebra::Vector::sh
             initRhsCorrectionAdd( rhs );
             applyMatrixCorrection();
         } // end if
-        AMP::LinearAlgebra::Vector::shared_ptr myRhs = subsetOutputVector( rhs );
+        auto myRhs = subsetOutputVector( rhs );
         myRhs->add( *myRhs, *d_rhsCorrectionAdd );
     }
 }
@@ -275,8 +275,7 @@ void DirichletMatrixCorrection::addRHScorrection( AMP::LinearAlgebra::Vector::sh
 void DirichletMatrixCorrection::setRHScorrection( AMP::LinearAlgebra::Vector::shared_ptr rhs )
 {
     if ( !d_skipRHSsetCorrection ) {
-        AMP::LinearAlgebra::Vector::shared_ptr emptyVec;
-        d_rhsCorrectionSet->apply( emptyVec, rhs );
+        d_rhsCorrectionSet->apply( nullptr, rhs );
     }
 }
 } // namespace AMP::Operator
