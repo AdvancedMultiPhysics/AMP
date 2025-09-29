@@ -321,7 +321,7 @@ void SubchannelToCladMap::setVector( AMP::LinearAlgebra::Vector::shared_ptr resu
     if ( result )
         d_OutputVector = subsetOutputVector( result );
     else
-        d_OutputVector = AMP::LinearAlgebra::Vector::shared_ptr();
+        d_OutputVector = nullptr;
     if ( d_mesh2 )
         AMP_ASSERT( d_OutputVector );
 }

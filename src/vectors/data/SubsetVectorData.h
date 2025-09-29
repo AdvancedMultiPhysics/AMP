@@ -36,8 +36,9 @@ public:
     This class provides a factory method called view:
     \code
       AMP::LinearAlgebra::Vector::shared_ptr  vec1;
-      AMP::LinearAlgebra::Vector::shared_pt   vec2 = AMP::SubsetVector( vec1 , subsetVar );
-      AMP::LinearAlgebra::Vector::shared_ptr  vec3 = vec2->clone( "subset2" );
+      auto vec2 = AMP::SubsetVector( vec1 , subsetVar );
+      auto vec3 = vec2->clone();
+      vec3->setName( "subset2" );
     \code
 
     Since this is a view, any change to vec2 will be reflected on vec1 and

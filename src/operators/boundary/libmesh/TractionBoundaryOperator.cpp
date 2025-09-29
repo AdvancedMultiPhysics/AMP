@@ -40,7 +40,7 @@ TractionBoundaryOperator::TractionBoundaryOperator(
 void TractionBoundaryOperator::addRHScorrection( AMP::LinearAlgebra::Vector::shared_ptr rhs )
 {
     if ( !d_residualMode ) {
-        AMP::LinearAlgebra::Vector::shared_ptr myRhs = mySubsetVector( rhs, d_var );
+        auto myRhs = mySubsetVector( rhs, d_var );
         if ( d_correction == nullptr ) {
             d_correction = myRhs->clone();
         }
@@ -54,7 +54,7 @@ void TractionBoundaryOperator::apply( AMP::LinearAlgebra::Vector::const_shared_p
                                       AMP::LinearAlgebra::Vector::shared_ptr r )
 {
     if ( d_residualMode ) {
-        AMP::LinearAlgebra::Vector::shared_ptr rInternal = mySubsetVector( r, d_var );
+        auto rInternal = mySubsetVector( r, d_var );
         if ( d_correction == nullptr ) {
             d_correction = rInternal->clone();
         }

@@ -18,14 +18,10 @@ RowOperator::RowOperator( std::shared_ptr<const OperatorParameters> params ) : O
 void RowOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                          AMP::LinearAlgebra::Vector::shared_ptr r )
 {
-
-    AMP::LinearAlgebra::Vector::shared_ptr fNull;
-
     d_OutputVariable = ( d_Operators[0] )->getOutputVariable();
 
     std::vector<AMP::LinearAlgebra::Vector::shared_ptr> rInternal( d_Operators.size() );
-    AMP::LinearAlgebra::Vector::shared_ptr rOriginal =
-        r->subsetVectorForVariable( d_OutputVariable );
+    auto rOriginal = r->subsetVectorForVariable( d_OutputVariable );
 
     rOriginal->zero();
 
@@ -48,9 +44,9 @@ void RowOperator::reset( std::shared_ptr<const OperatorParameters> params )
     AMP_ASSERT( params );
     auto fParams = std::dynamic_pointer_cast<const ColumnOperatorParameters>( params );
 
-    AMP_INSIST( ( fParams ), "RowOperator::reset parameter object is NULL" );
+    AMP_INSIST( fParams, "RowOperator::reset parameter object is NULL" );
 
-    AMP_INSIST( ( ( ( fParams->d_OperatorParameters ).size() ) == ( d_Operators.size() ) ),
+    AMP_INSIST( fParams->d_OperatorParameters.size() == d_Operators.size(),
                 " std::vector sizes do not match! " );
 
     for ( unsigned int i = 0; i < d_Operators.size(); i++ ) {
@@ -85,17 +81,17 @@ RowOperator::getParameters( const std::string &type,
             ( opParameters->d_OperatorParameters ).resize( d_Operators.size() );
 
             for ( unsigned int i = 0; i < d_Operators.size(); i++ ) {
-                ( opParameters->d_OperatorParameters )[i] =
-                    ( d_Operators[i]->getParameters( type, u, params ) );
+                opParameters->d_OperatorParameters[i] =
+                    d_Operators[i]->getParameters( type, u, params );
             }
 
             rtParameters = std::dynamic_pointer_cast<OperatorParameters>( opParameters );
         } else {
-            ( opParameters->d_OperatorParameters ).resize( d_paramsize );
+            opParameters->d_OperatorParameters.resize( d_paramsize );
 
             for ( int i = 0; i < d_paramsize; i++ ) {
-                ( opParameters->d_OperatorParameters )[i] =
-                    ( d_Operators[i]->getParameters( type, u, params ) );
+                opParameters->d_OperatorParameters[i] =
+                    d_Operators[i]->getParameters( type, u, params );
             }
 
             rtParameters = std::dynamic_pointer_cast<OperatorParameters>( opParameters );

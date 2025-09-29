@@ -166,13 +166,10 @@ void NeutronicsRhsExtras::reset( std::shared_ptr<const OperatorParameters> param
  * Provide the Apply function
  *************************************************************************
  */
-void NeutronicsRhsExtras::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
+void NeutronicsRhsExtras::apply( AMP::LinearAlgebra::Vector::const_shared_ptr,
                                  AMP::LinearAlgebra::Vector::shared_ptr r )
 {
-    (void) u;
-
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal =
-        r->subsetVectorForVariable( d_outputVariable );
+    auto rInternal = r->subsetVectorForVariable( d_outputVariable );
 
     // determine the present time and extras
     int this_step     = d_timeStep;
@@ -183,15 +180,14 @@ void NeutronicsRhsExtras::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
         double value = d_fixedValues[this_step];
         rInternal->setToScalar( value );
     } else {
-        AMP::Mesh::MeshIterator elem      = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 1 );
-        AMP::Mesh::MeshIterator end_elems = elem.begin();
+        auto elem      = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 1 );
+        auto end_elems = elem.begin();
 
         int DOFsPerElement = 8;
         int ghostWidth     = 1;
         bool split         = true;
-        std::shared_ptr<AMP::Discretization::DOFManager> dof_map =
-            AMP::Discretization::simpleDOFManager::create(
-                d_Mesh, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerElement, split );
+        auto dof_map       = AMP::Discretization::simpleDOFManager::create(
+            d_Mesh, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerElement, split );
 
         int gp = 0;
         for ( ; elem != end_elems; ++elem ) {
@@ -201,7 +197,7 @@ void NeutronicsRhsExtras::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                 rInternal->setValuesByGlobalID(
                     1, &gid[i], &d_values[this_extrasId][this_step][gp] );
             } // end for gauss-points
-        }     // end for elements
+        } // end for elements
     }
 }
 

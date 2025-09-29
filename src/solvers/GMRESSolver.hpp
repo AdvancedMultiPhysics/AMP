@@ -150,7 +150,7 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
         allocateBasis( u );
 
     // residual vector
-    AMP::LinearAlgebra::Vector::shared_ptr res = d_vBasis[0];
+    auto res = d_vBasis[0];
 
     // compute the initial residual
     computeInitialResidual( d_bUseZeroInitialGuess, f, u, d_z, res );
@@ -193,14 +193,12 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
           ++d_iNumberIterations ) {
         PROFILE( "GMRESSolver<T>::apply: main loop" );
 
-        AMP::LinearAlgebra::Vector::shared_ptr v;
-        AMP::LinearAlgebra::Vector::shared_ptr zb;
-
         // reuse basis vectors for restarts in order to avoid a clone
         if ( static_cast<int>( d_vBasis.size() ) <= k + 1 )
             allocateBasis( u );
 
-        v = d_vBasis[k + 1];
+        auto v = d_vBasis[k + 1];
+        AMP::LinearAlgebra::Vector::shared_ptr zb;
         if ( d_bFlexibleGMRES )
             zb = d_zBasis[k];
 

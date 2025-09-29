@@ -6,11 +6,11 @@ namespace AMP::Operator {
 void ContactResidualCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_ptr,
                                        AMP::LinearAlgebra::Vector::shared_ptr r )
 {
-    AMP::LinearAlgebra::Vector::shared_ptr rMaster = r->subsetVectorForVariable( d_masterVariable );
-    AMP::LinearAlgebra::Vector::shared_ptr rSlave  = r->subsetVectorForVariable( d_slaveVariable );
+    auto rMaster = r->subsetVectorForVariable( d_masterVariable );
+    auto rSlave  = r->subsetVectorForVariable( d_slaveVariable );
 
-    std::shared_ptr<AMP::Discretization::DOFManager> master_dof_map = rMaster->getDOFManager();
-    std::shared_ptr<AMP::Discretization::DOFManager> slave_dof_map  = rSlave->getDOFManager();
+    auto master_dof_map = rMaster->getDOFManager();
+    auto slave_dof_map  = rSlave->getDOFManager();
 
     for ( size_t i = 0; i < d_masterNodes.size(); i++ ) {
         std::vector<size_t> masterGlobalIds;
@@ -24,6 +24,6 @@ void ContactResidualCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_
             rSlave->setValuesByGlobalID( 1, &slaveGlobalIds[elem], &zero );
             slaveVal = rSlave->getLocalValueByGlobalID( slaveGlobalIds[elem] );
         } // end for j
-    }     // end for i
+    } // end for i
 }
 } // namespace AMP::Operator
