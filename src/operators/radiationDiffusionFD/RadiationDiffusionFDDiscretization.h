@@ -24,20 +24,14 @@
 // todo: I have a couple global parameters floating around (nonlinear, flux limiting), I really
 // should template against these...
 
-// todo: to be dimension agnostic most of the dimension-dependent code loops over dim = 0 up to
-// d_dim-1. Perhaps I should template on the dimension such that (there's some chance of) the
-// compiler flattening out these (hot) loops.
-
-// todo: update setDataReaction to use ArraySize... and set the data with "setValueByLocalID" and
-// "getValueByLocalID"
 
 // ok... maybe template the operator on the coefficients... but this requires passing in the
 // coefficients to the operator at construction time, so I'd be required to make a derived operator
 // parameters...
 // // Then the user must implement (inside some coefficient class):
-// double diffusionCoefficientE(double T, double zatom) const;
-// double diffusionCoefficientT(double T) const;
-// void reactionCoefficients(double T, double zatom,
+// double diffusionE(double T, double zatom) const;
+// double diffusionT(double T) const;
+// void reaction(double T, double zatom,
 //                           double& REE, double& RET,
 //                           double& RTE, double& RTT) const;
 // and I think these functions then get inlined
@@ -92,11 +86,6 @@ class RadDifOpPJac;           // Its linearization
 class RadDifOpPJacParameters; // Operator parameters for linearization
 struct RadDifOpPJacData;      // Data structure for storing the linearization data
 
-
-// Friend classes
-class BDFRadDifOp;
-
-
 /** Static class defining coefficients in a radiation-diffusion PDE */
 template<bool IsNonlinear>
 class PDECoefficients
@@ -111,16 +100,16 @@ public:
      * nonlinear: D_E = 1/3*sigma, sigma=(z/T)^3
      * linear: D_E = 1.0
      */
-    static double diffusionCoefficientE( double k11, double T, double zatom );
+    static double diffusionE( double k11, double T, double zatom );
 
     /** Temperature diffusion coefficient k21*D_T, given constant k21, and temperature T:
      * nonlinear: D_T = T^2.5
      * linear: D_T = 1.0
      */
-    static double diffusionCoefficientT( double k21, double T );
+    static double diffusionT( double k21, double T );
 
     //! Compute reaction coefficients REE, RET, RTE, REE
-    static void reactionCoefficients( double k12,
+    static void reaction( double k12,
                                       double k22,
                                       double T,
                                       double zatom,
@@ -386,8 +375,6 @@ private:
 
     // Data
 public:
-    //! I + gamma*L, where L is a RadDifOp
-    friend class BDFRadDifOp;
     //! Parameters required by the discretization
     std::shared_ptr<AMP::Database> d_db = nullptr;
 
@@ -460,10 +447,6 @@ private:
     std::vector<double> d_h;
     //! Reciprocal squares of mesh sizes
     std::vector<double> d_rh2;
-
-    //! Placeholder arrays for values used in 3-point stencils.
-    std::array<double, 3> d_ELoc3;
-    std::array<double, 3> d_TLoc3;
 
     //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
     static constexpr size_t WEST   = 0;
@@ -747,7 +730,7 @@ private:
 
     /** Closely related to RadDifOp::getNNDataBoundary, except there are two additional outputs:
      * @param[out] d_dofsLoc3 indices of the dofs in the 3-point stencil
-     * @param[out] boundaryIntersection flag indicating if the stencil touches a physcial boundary
+     * @param[out] boundaryIntersection flag indicating if the stencil touches a physical boundary
      * (and which one if it does)
      *
      * @note if the stencil touches a physical boundary then the corresponding value in dofs is

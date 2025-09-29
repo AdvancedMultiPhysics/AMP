@@ -126,7 +126,7 @@ BDFRadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr
     }
 
     // Get RadDifOp parameters
-    auto jacOpParams = d_RadDifOp->getJacobianParameters( u_in );
+    auto jacOpParams = d_RadDifOp->getParameters( "Jacobian", u_in );
 
     // Update the name in these parameters from "RadDifOpPJac"
     jacOpParams->d_db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, true );
