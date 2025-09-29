@@ -25,8 +25,7 @@
 
 // todo: to be dimension agnostic most of the dimension-dependent code loops over dim = 0 up to d_dim-1. Perhaps I should template on the dimension such that (there's some chance of) the compiler flattening out these (hot) loops.
 
-// todo: all comments completely out of date now...
-
+// todo: update setDataReaction to use ArraySize... and set the data with "setValueByLocalID" and "getValueByLocalID"
 
 // ok... maybe template the operator on the coefficients... but this requires passing in the coefficients to the operator at construction time, so I'd be required to make a derived operator parameters...
 // // Then the user must implement (inside some coefficient class):
@@ -36,10 +35,6 @@
 //                           double& REE, double& RET,
 //                           double& RTE, double& RTT) const;
 // and I think these functions then get inlined
-
-
-
-
 
 
 
@@ -83,18 +78,157 @@
 namespace AMP::Operator {
 
 // Foward declaration of classes declared in this file
-class FDBoundaryUtils;
-//class PDECoefficients;
-class FDMeshOps;
+template<bool IsNonlinear> class PDECoefficients; // Static class defining PDE coefficients
+class FDMeshOps;       // Static class for creating mesh-related data and FD coefficients
+class FDMeshGlobalIndexingOps; // Class for index conversions on global DOFs
+class FDBoundaryUtils; // Static class for boundary-related utilities
 //
-class RadDifOp; // The main operator
-class RadDifOpPJac; // Its linearization
+class RadDifOp;               // The main, nonlinear operator
+class RadDifOpPJac;           // Its linearization
 class RadDifOpPJacParameters; // Operator parameters for linearization
-struct RadDifOpPJacData; // Data structure for storing the linearization
+struct RadDifOpPJacData;      // Data structure for storing the linearization data
 
 
 // Friend classes
 class BDFRadDifOp;
+
+
+
+/** Static class defining coefficients in a radiation-diffusion PDE */
+template<bool IsNonlinear>
+class PDECoefficients {
+
+public:
+    //! Prevent instantiation
+    PDECoefficients() = delete;
+
+    /** Energy diffusion coefficient k11*D_E, given constant k11, temperature T, and atomic number 
+     * zatom:
+     * nonlinear: D_E = 1/3*sigma, sigma=(z/T)^3
+     * linear: D_E = 1.0
+     */
+    static double diffusionCoefficientE(double k11, double T, double zatom);
+
+    /** Temperature diffusion coefficient k21*D_T, given constant k21, and temperature T:
+     * nonlinear: D_T = T^2.5 
+     * linear: D_T = 1.0
+     */
+    static double diffusionCoefficientT(double k21, double T);
+    
+    //! Compute reaction coefficients REE, RET, RTE, REE
+    static void reactionCoefficients(
+        double k12, double k22, double T, double zatom,
+        double& REE, double& RET, double& RTE, double& RTT);
+};
+
+
+/** Static class providing mesh-related operations and utilities that are required for 
+ * finite-difference discretizations.
+ */
+class FDMeshOps {
+    
+private:
+    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
+    static constexpr size_t WEST   = 0;
+    static constexpr size_t ORIGIN = 1;
+    static constexpr size_t EAST   = 2;
+
+public:
+    //! Prevent instantiation
+    FDMeshOps() = delete;
+
+    //! Create mesh-related data given the mesh
+    static void createMeshData( std::shared_ptr<AMP::Mesh::Mesh> mesh, 
+    std::shared_ptr<AMP::Mesh::BoxMesh> &d_BoxMesh,
+    size_t &d_dim,
+    AMP::Mesh::GeomType &d_CellCenteredGeom,
+    std::shared_ptr<AMP::Discretization::DOFManager> &d_scalarDOFMan, 
+    std::shared_ptr<AMP::Discretization::multiDOFManager> &d_multiDOFMan,
+    std::shared_ptr<AMP::Mesh::BoxMesh::Box> &d_globalBox,
+    std::shared_ptr<AMP::Mesh::BoxMesh::Box> &d_localBox,
+    std::shared_ptr<AMP::ArraySize> &d_localArraySize,
+    std::vector<double> &d_h,
+    std::vector<double> &d_rh2 );
+
+    /** Compute diffusion coefficients at two cell faces using 3-point stencil data in ELoc3 and 
+     * TLoc3
+     * @param[in] IsNonlinear template parameter for diffusion coefficients
+     * @param[in] IsFluxLimited flag indicating whether to use flux limiting
+     * @param[in] computeE flag indicating whether to compute E diffusion coefficients
+     * @param[in] computeT flag indicating whether to compute T diffusion coefficients 
+     * @param[out] Dr_WO WEST coefficient in for energy
+     * @param[out] Dr_OE EAST coefficient in for energy
+     * @param[out] DT_WO WEST coefficient in for temperature
+     * @param[out] DT_OE EAST coefficient in for temperature
+    */
+    template<bool IsNonlinear, bool IsFluxLimited, bool computeE, bool computeT>
+    static void FaceDiffusionCoefficients(std::array<double, 3> &ELoc3,
+                                                std::array<double, 3> &TLoc3,
+                                                double k11,
+                                                double k21,
+                                                double zatom,
+                                                double h,
+                                                double *Dr_WO, 
+                                                double *Dr_OE,
+                                                double *DT_WO, 
+                                                double *DT_OE);
+
+// Helper function
+private:
+    //! Create DOFManagers given the geometry and mesh. 
+    static void createDOFManagers(
+        const AMP::Mesh::GeomType &Geom,
+        std::shared_ptr<AMP::Mesh::BoxMesh> &mesh,
+        std::shared_ptr<AMP::Discretization::DOFManager> &scalarDOFMan, 
+        std::shared_ptr<AMP::Discretization::multiDOFManager> &multiDOFMan );
+
+};
+
+
+/** Abstract class providing mesh-indexing-related operations given some mesh and geometry. In 
+ * particular, this class provides grid index conversions for global indices, but for interior 
+ * indices these utilites are slower than those based on ArraySize.
+ */
+class FDMeshGlobalIndexingOps {
+   
+// Data
+private:
+    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
+    static constexpr size_t WEST   = 0;
+    static constexpr size_t ORIGIN = 1;
+    static constexpr size_t EAST   = 2;
+
+    //! Mesh; keep a pointer to save having to downcast repeatedly
+    std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
+    //! Geometry type
+    AMP::Mesh::GeomType d_geom;
+    //! DOFManager for E and T individually
+    std::shared_ptr<AMP::Discretization::DOFManager>      d_scalarDOFMan;
+    //! MultiDOFManager for managing [E,T] multivectors
+    std::shared_ptr<AMP::Discretization::multiDOFManager> d_multiDOFMan;
+
+
+public:
+
+    FDMeshGlobalIndexingOps( std::shared_ptr<AMP::Mesh::BoxMesh> BoxMesh,
+    AMP::Mesh::GeomType &geom,
+    std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFMan, 
+    std::shared_ptr<AMP::Discretization::multiDOFManager> multiDOFMan);
+    
+    //! Map from grid index to a the corresponding DOF
+    size_t gridIndsToScalarDOF( const std::array<size_t,3>&ijk ) const;
+
+    //! Map from scalar DOF to grid indices i, j, k
+    std::array<size_t,3>scalarDOFToGridInds( size_t dof ) const;
+
+    //! Map from grid index to a MeshElement
+    AMP::Mesh::MeshElement gridIndsToMeshElement( const std::array<size_t,3>&ijk ) const; 
+
+    // oktodo: delete
+    #if 0
+    void printMeshNodes();
+    #endif
+};
 
 
 /** Static class bundling together boundary-related utility data structures and functionality */
@@ -171,146 +305,10 @@ public:
 };
 
 
-/** Static class defining coefficients in a radiation-diffusion PDE */
-template<bool IsNonlinear>
-class PDECoefficients {
-
-public:
-    //! Prevent instantiation
-    PDECoefficients() = delete;
-
-    /** Energy diffusion coefficient k11*D_E, given constant k11, temperature T, and atomic number 
-     * zatom:
-     * nonlinear: D_E = 1/3*sigma, sigma=(z/T)^3
-     * linear: D_E = 1.0
-     */
-    static double diffusionCoefficientE(double k11, double T, double zatom);
-
-    /** Temperature diffusion coefficient k21*D_T, given constant k21, and temperature T:
-     * nonlinear: D_T = T^2.5 
-     * linear: D_T = 1.0
-     */
-    static double diffusionCoefficientT(double k21, double T);
-    
-    //! Compute reaction coefficients REE, RET, RTE, REE
-    static void reactionCoefficients(
-        double k12, double k22, double T, double zatom,
-        double& REE, double& RET, double& RTE, double& RTT);
-};
-
-
-/** Abstract class providing mesh-related operations and utilities that are required for 
- * finite-difference discretizations.
- */
-class FDMeshOps {
-    
-private:
-    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
-    static constexpr size_t WEST   = 0;
-    static constexpr size_t ORIGIN = 1;
-    static constexpr size_t EAST   = 2;
-
-public:
-    //! Prevent instantiation
-    FDMeshOps() = delete;
-
-    //! Create mesh-related data given the mesh
-    static void createMeshData( std::shared_ptr<AMP::Mesh::Mesh> mesh, 
-    std::shared_ptr<AMP::Mesh::BoxMesh> d_BoxMesh,
-    size_t &d_dim,
-    AMP::Mesh::GeomType &d_CellCenteredGeom,
-    std::shared_ptr<AMP::Discretization::DOFManager> d_scalarDOFMan, 
-    std::shared_ptr<AMP::Discretization::multiDOFManager> d_multiDOFMan,
-    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox,
-    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_localBox,
-    std::shared_ptr<AMP::ArraySize> d_localArraySize,
-    std::vector<double> &d_h,
-    std::vector<double> &d_rh2 );
-
-    //! Create DOFManagers given the geometry and mesh
-    static void createDOFManagers(
-        AMP::Mesh::GeomType Geom,
-        std::shared_ptr<const AMP::Mesh::BoxMesh> mesh,
-        std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFMan, 
-        std::shared_ptr<AMP::Discretization::multiDOFManager> multiDOFMan );
-
-    /** Compute diffusion coefficients at two cell faces using 3-point stencil data in d_ELoc3 and 
-     * d_TLoc3
-     * @param[in] IsNonlinear template parameter for diffusion coefficients
-     * @param[in] IsFluxLimited flag indicating whether to use flux limiting
-     * @param[in] computeE flag indicating whether to compute E diffusion coefficients
-     * @param[in] computeT flag indicating whether to compute T diffusion coefficients 
-     * @param[out] Dr_WO WEST coefficient in for energy
-     * @param[out] Dr_OE EAST coefficient in for energy
-     * @param[out] DT_WO WEST coefficient in for temperature
-     * @param[out] DT_OE EAST coefficient in for temperature
-    */
-    template<bool IsNonlinear, bool IsFluxLimited, bool computeE, bool computeT>
-    static void FaceDiffusionCoefficients(std::array<double, 3> &ELoc3,
-                                                std::array<double, 3> &TLoc3,
-                                                double k11,
-                                                double k21,
-                                                double zatom,
-                                                double h,
-                                                double *Dr_WO, 
-                                                double *Dr_OE,
-                                                double *DT_WO, 
-                                                double *DT_OE);
-
-};
-
-
-/** Abstract class providing mesh-indexing-related operations given some mesh and geometry
- */
-class FDMeshIndexingOps {
-   
-// Data
-private:
-    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
-    static constexpr size_t WEST   = 0;
-    static constexpr size_t ORIGIN = 1;
-    static constexpr size_t EAST   = 2;
-
-    //! Mesh; keep a pointer to save having to downcast repeatedly
-    std::shared_ptr<AMP::Mesh::BoxMesh>                   d_BoxMesh;
-    //! Geometry type
-    AMP::Mesh::GeomType d_geom;
-    //! DOFManager for E and T individually
-    std::shared_ptr<AMP::Discretization::DOFManager>      d_scalarDOFMan;
-    //! MultiDOFManager for managing [E,T] multivectors
-    std::shared_ptr<AMP::Discretization::multiDOFManager> d_multiDOFMan;
-
-
-public:
-
-    FDMeshIndexingOps( std::shared_ptr<AMP::Mesh::BoxMesh> BoxMesh,
-    AMP::Mesh::GeomType &geom,
-    std::shared_ptr<AMP::Discretization::DOFManager> scalarDOFMan, 
-    std::shared_ptr<AMP::Discretization::multiDOFManager> multiDOFMan);
-    
-    //! Map from grid index to a the corresponding DOF
-    size_t gridIndsToScalarDOF( const std::array<size_t,3>&ijk ) const;
-
-    //! Map from grid index to a MeshElement
-    AMP::Mesh::MeshElement gridIndsToMeshElement( const std::array<size_t,3>&ijk ) const; 
-
-    //! Map from scalar DOF to grid indices i, j, k
-    std::array<size_t,3>scalarDOFToGridInds( size_t dof ) const;
-
-    // oktodo: delete
-    #if 0
-    void printMeshNodes();
-    #endif
-};
-
-
-
-
-
 /** Finite-difference discretization of the spatial operator in the above radiation-diffusion 
  * equation. This discretization is based on that described in 
  *      "Dynamic implicit 3D adaptive mesh refinement for non-equilibrium radiation diffusion"
- * by B.Philip, Z.Wangb, M.A.Berrilla, M.Birkeb, M.Pernice in Journal of Computational Physics 262
+ * by B.Philip, Z.Wangb, M.A.Berrill, M.Birkeb, M.Pernice in Journal of Computational Physics 262
  * (2014) 17–37. The primary difference is that this implementation does not use adaptive mesh 
  * refiment, and instead assumes the mesh spacing in each dimension is constant.
  * 
@@ -369,9 +367,7 @@ public:
     friend class BDFRadDifOp; 
     //! Parameters required by the discretization
     std::shared_ptr<AMP::Database> d_db      = nullptr;
-    //! Mesh-indexing functions
-    std::shared_ptr<FDMeshIndexingOps> d_meshIndexingOps = nullptr;
-    
+
 
 // Methods
 public:
@@ -414,15 +410,6 @@ private:
     const double d_k21;
     const double d_k22;
 
-    //! Placeholder arrays for values used in 3-point stencils.
-    std::array<double, 3> d_ELoc3;
-    std::array<double, 3> d_TLoc3;
-
-    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
-    static constexpr size_t WEST   = 0;
-    static constexpr size_t ORIGIN = 1;
-    static constexpr size_t EAST   = 2;
-
 //! Mesh-related data
 private:
     //! MultiDOFManager for managing [E,T] multivectors
@@ -446,36 +433,50 @@ private:
     //! Reciprocal squares of mesh sizes
     std::vector<double> d_rh2;
 
-private:
-    // //! Function pointers for PDE coefficients, manually dispatched based on linearity
-    // double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
-    // double (*d_diffusionCoefficientT)( double k21, double T );
-    // void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
+    //! Placeholder arrays for values used in 3-point stencils.
+    std::array<double, 3> d_ELoc3;
+    std::array<double, 3> d_TLoc3;
 
+    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
+    static constexpr size_t WEST   = 0;
+    static constexpr size_t ORIGIN = 1;
+    static constexpr size_t EAST   = 2;
+
+    //! Mesh-indexing functions
+    std::shared_ptr<FDMeshGlobalIndexingOps> d_meshIndexingOps = nullptr;
+
+
+private:
+    //! Apply operator over DOFs living on the interior of process   
     void applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                             std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
                             std::shared_ptr<AMP::LinearAlgebra::Vector> LE_vec,
                             std::shared_ptr<AMP::LinearAlgebra::Vector> LT_vec);
-
+    
+    //! Apply operator over DOFs living on the boundary of process
     void applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                             std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
                             std::shared_ptr<AMP::LinearAlgebra::Vector> LE_vec,
                             std::shared_ptr<AMP::LinearAlgebra::Vector> LT_vec);
 
 
-    // Hack: This is a wrapper around ghostValuesSolve which passes it our specific constants and boundary-function evaluations (it's the boundary function evaluations that's causing me the the issue because the nonlinear and linear operator each have their own...)
+    /** This is a wrapper around FDBoundaryUtils::ghostValuesSolve to pass our specific constants 
+     * and boundary-function evaluations.
+     * @param[out] Eg value of E at the ghost point
+     * @param[out] Tg value of T at the ghost point
+     */
     void ghostValuesSolveWrapper( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg );
 
-
-    // todo: below comment out of date
-    /** Pack local 3-point stencil data into the arrays d_ELoc3 and d_TLoc3 for the given 
-     * dimension. This involves a ghost-point solve if the stencil extends to a ghost point.
-     * @param[in] E_vec vector of all (local) E values
-     * @param[in] T_vec vector of all (local) T values
+    /** Get nearest neighbor data, i.e., WEST and EAST values. This is valid in the case that 
+     * ORIGIN is a boundary point, either process (hence requiring ghost data) or physical (hence 
+     * requiring a ghost-point solve). 
+     * the latter case.
+     * @param[in] E_vec vector of all E values
+     * @param[in] T_vec vector of all T values
      * @param[in] ijk grid indices of DOF for which 3-point stencil values are to be unpacked
      * @param[in] dim dimension in which the 3-point extends
-     * @param[out] d_ELoc3 E values in the 3-point stencil (WEST, ORIGIN, UPPER)
-     * @param[out] d_TLoc3 T values in the 3-point stencil (WEST, ORIGIN, UPPER)
+     * @param[out] ELoc3 E values in the 3-point stencil (WEST, ORIGIN, UPPER)
+     * @param[out] TLoc3 T values in the 3-point stencil (WEST, ORIGIN, UPPER)
      * 
      * @note ijk is modified inside the function, but upon conclusion of the function is in its 
      * original state 
@@ -533,9 +534,6 @@ private:
     static constexpr bool IsNonlinear = true; // hack for the moment...
     static constexpr bool IsFluxLimited = false; // hack for the moment...
 
-    //! Mesh indexing functions
-    std::shared_ptr<FDMeshIndexingOps> d_meshIndexingOps = nullptr;
-
 //
 public:
     std::shared_ptr<AMP::Database>          d_db        = nullptr;
@@ -581,19 +579,6 @@ private:
     const double d_k21;
     const double d_k22;
 
-    //! Placeholder for grid indices. Size 5 is because ArraySize deals with 5 grid indcies
-    size_t d_ijk[5]; 
-    //! Placeholder arrays for values used in 3-point stencils
-    std::array<double, 3> d_ELoc3;
-    std::array<double, 3> d_TLoc3;
-    //! Placeholder array for dofs we connect to in 3-point stencil
-    std::array<size_t, 3> d_dofsLoc3;
-
-    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
-    static constexpr size_t WEST   = 0;
-    static constexpr size_t ORIGIN = 1;
-    static constexpr size_t EAST   = 2;
-
     //! Flag indicating whether apply with overwritten Jacobian data is valid. This is reset to false at the end of every apply call, and can be set t true by the public member function
     bool d_applyWithOverwrittenDataIsValid = false;
 
@@ -621,13 +606,24 @@ private:
     std::vector<double> d_h;
     //! Reciprocal squares of mesh sizes
     std::vector<double> d_rh2;
+
+    //! Placeholder for grid indices. Size 5 is because ArraySize deals with 5 grid indcies
+    std::array<size_t, 5> d_ijk; 
+    //! Placeholder arrays for values used in 3-point stencils
+    std::array<double, 3> d_ELoc3;
+    std::array<double, 3> d_TLoc3;
+    //! Placeholder array for dofs we connect to in 3-point stencil
+    std::array<size_t, 3> d_dofsLoc3;
+
+    //! Indices used for referencing WEST, ORIGIN, and EAST entries in Loc3 data structures
+    static constexpr size_t WEST   = 0;
+    static constexpr size_t ORIGIN = 1;
+    static constexpr size_t EAST   = 2;
+
+    //! Mesh indexing functions
+    std::shared_ptr<FDMeshGlobalIndexingOps> d_meshIndexingOps = nullptr;
 //
 private:
-
-    // //! Function pointers for PDE coefficients, manually dispatched based on linearity
-    // double (*d_diffusionCoefficientE)( double k11, double T, double zatom );
-    // double (*d_diffusionCoefficientT)( double k21, double T );
-    // void (*d_reactionCoefficients)( double k12, double k22, double T, double zatom, double &REE, double &RET, double &RTE, double &RTT );
 
     //! Apply action of the operator utilizing its representation in d_data
     void applyFromData( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_, std::shared_ptr<AMP::LinearAlgebra::Vector> LET_  );
@@ -641,6 +637,12 @@ private:
      * @param[in] T_vec T component of the frozen vector d_frozenVec
      */
     void setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec );
+
+    /** Fill the given input diffusion matrix with CSR data
+     * @param[in] component 0 (for energy) or 1 (for temperature) 
+     */
+    template<size_t Component>
+    void fillDiffusionMatrixWithData( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix);
 
     /** Get CSR data for a row of the Picard-linearized diffusion matrix dE or dT.
      * @param[in] component 0 (energy) or 1 (temperature) to get CSR data for  
@@ -663,15 +665,19 @@ private:
                                 std::vector<size_t> &cols,
                                 std::vector<double> &data );
 
+    /** Get cols and data for given row, when the row lives on the interior of a process
+     * @note ijkLocal is modified internally, but returned in its original state
+     */
     template<size_t Component>
     void getCSRDataDiffusionMatrixInterior( 
                                 std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                                 std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
                                 size_t rowLocal,
-                                size_t *ijk,
-                                std::vector<size_t> &cols,
+                                std::array<size_t, 5> &ijkLocal,
+                                std::vector<size_t> &colsLocal,
                                 std::vector<double> &data );
 
+    //! Get cols and data for given row, when the row lives on a process boundary
     template<size_t Component>
     void getCSRDataDiffusionMatrixBoundary( 
                                 std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
@@ -680,11 +686,6 @@ private:
                                 std::vector<size_t> &cols,
                                 std::vector<double> &data );
 
-    /** Fill the given input diffusion matrix with CSR data
-     * @param[in] component 0 (for energy) or 1 (for temperature) 
-     */
-    template<size_t Component>
-    void fillDiffusionMatrixWithData( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix);
 
     /** We have ghost values that satisfy
      * Eg = alpha_E*Eint + beta_E
@@ -697,16 +698,20 @@ private:
      */
     double PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const;
 
-    // Hack: This is a wrapper around ghostValuesSolve which passes it our specific constants and boundary-function evaluations (it's the boundary function evaluations that's causing me the the issue because the nonlinear and linear operator each have their own...)
+    /** This is a wrapper around FDBoundaryUtils::ghostValuesSolve to pass our specific constants 
+     * and boundary-function evaluations.
+     * @param[out] Eg value of E at the ghost point
+     * @param[out] Tg value of T at the ghost point
+     */
     void ghostValuesSolveWrapper( size_t boundaryID, const AMP::Mesh::Point &boundaryPoint, double Eint, double Tint, double &Eg, double &Tg );
 
-    // todo: below comment no longer make sense
-    /** Overloaded version of the above with two additional output parameters
+    /** Closely related to RadDifOp::getNNDataBoundary, except there are two additional outputs:
      * @param[out] d_dofsLoc3 indices of the dofs in the 3-point stencil
-     * @param[out] boundaryIntersection flag indicating if the stencil touches a boundary (and in 
-     * which one if it does) 
+     * @param[out] boundaryIntersection flag indicating if the stencil touches a physcial boundary 
+     * (and which one if it does) 
      * 
-     * @note if the stencil touches the boundary then the corresponding value in dofs is meaningless
+     * @note if the stencil touches a physical boundary then the corresponding value in dofs is 
+     * meaningless
      * @note this function implicity assumes that the stencil does not touch both boundaries at 
      * once (corresponding to the number of interior DOFs in the given dimension being larger than 
      * one) 

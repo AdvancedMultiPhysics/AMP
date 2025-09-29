@@ -4,7 +4,7 @@ Mesh {
     MeshType = "AMP"
     Generator = "cube"
     dim = 2
-    Size = 4,4
+    Size = 8,8
     #Size = 32, 32
     #Size = 64, 64
     #Size = 128, 128

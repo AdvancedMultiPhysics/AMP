@@ -180,8 +180,8 @@ int main( int argc, char **argv )
 
     std::vector<std::string> exeNames;
     //exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-1D" );
-    //exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-2D" );
-    exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-3D" );
+    exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-2D" );
+    //exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-3D" );
 
     for ( auto &exeName : exeNames ) {
         PROFILE_ENABLE();
