@@ -93,6 +93,7 @@ public:
       getJacobianParameters function if the jacobian is evaluated at a state
       (displacement, temperature etc) different from that of the last call to
       MechanicsNonlinearFEOperator's apply function.
+      @param [in] type Update type
       @param [in] elementInputVectors Field (Displacement, Temperature, Burnup etc) values at the
          nodes of the current element.
       @param [in] elementInputVectors_pre Field (Displacement, Temperature, Burnup etc) values at

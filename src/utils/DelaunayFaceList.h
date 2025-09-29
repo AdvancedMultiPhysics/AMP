@@ -36,7 +36,6 @@ public:
      *                  FaceList.
      * @param tri_id    The initial triangle id
      * @param tri       The triangle list (NDIM+1)
-     * @param TOL_VOL   The tolerance to use
      */
     FaceList( const int N, const Point *x, const int tri_id, const Triangle &tri );
 

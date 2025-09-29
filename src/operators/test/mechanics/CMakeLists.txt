@@ -1,7 +1,3 @@
-############################################################################
-#  Configure tests
-############################################################################
-
 # Copy test inputs
 COPY_TEST_FILE( input_testLinearMechanics-reset-1 )
 COPY_TEST_FILE( input_testNonlinearMechanics-1-normal )
@@ -41,9 +37,8 @@ COPY_TEST_FILE( input_linearBVP-Mechanics+Dirichlet+Thermal+Robin+Fick+Dirichlet
 COPY_TEST_FILE( input_linearBVP-Mechanics+Dirichlet+Thermal+Robin+Fick+Dirichlet-UO2MSRZC09-1 )
 COPY_TEST_FILE( input_linearBVP-Mechanics+Thermal+Fick+Dirichlet-TUI-1 )
 COPY_TEST_FILE( input_linearBVP-Mechanics+Thermal+Fick+Dirichlet-UO2MSRZC09-1 )
-COPY_TEST_FILE(input_testMaterialModels_ElasticDamageThermalStrain-1 )
+COPY_TEST_FILE( input_testMaterialModels_ElasticDamageThermalStrain-1 )
 COPY_TEST_FILE( input_testConstraintsEliminationOperator )
-
 
 # Add the tests
 INITIALIZE_TESTBUILDER()
@@ -59,10 +54,7 @@ IF ( AMP_DATA )
     ADD_TB_TEST_1_2_4( testNonlinearMechanics_reset )
     ADD_TB_TEST_1_2_4( testMaterialModels_ElasticDamageThermalStrain )
     IF ( USE_PETSC )
-        ADD_TB_TEST_1_2_4 ( testConstraintsEliminationOperator )
+        ADD_TB_TEST_1_2_4( testConstraintsEliminationOperator )
     ENDIF()
 ENDIF()
 FINALIZE_TESTBUILDER()
-
-
-

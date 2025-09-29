@@ -4,9 +4,9 @@ Mesh {
   Generator = "cube"
   Size = 8, 8, 17
   Range = -5, 5, -5, 5, -10, 10
-  surfaceIds = 8, 8, 8, 8, 8, 8
+  surfaceIds = 1, 2, 8, 8, 8, 8
   dim = 3
-  static = TRUE
+  static = FALSE
 }
 
 NumberOfLoadingSteps = 50
@@ -37,25 +37,15 @@ PericElastoViscoPlasticModel {
     Default_Temperature = 310.0
     Default_Burnup = 0.0
     Default_Oxygen_Concentration = 0.0
-    //name="VonMises_IsotropicKinematicHardening"
-    //Youngs_Modulus = 70.0
-    //Poissons_Ratio = 0.3333333
-    //Cook_Membrane_Plasticity_Test = TRUE
-    //Thick_Walled_Cylinder_Plasticity_Test = FALSE
-    // The following parameters are used for the Thick Walled cylinder test
-    //Linear_Strain_Hardening = 0.15
-    //Exponent_Delta = 0.1
-    //Value_K_0 = 0.2437
-    //K_Infinity = 0.343
-    //Fraction_Beta = 0.1
-    // The following parameters are used for the Cook's Membrane Plasticity test
-    //Isotropic_Linear_Hardening = 0.015
-    //Kinematic_Linear_Hardening = 0.135
-    //Initial_Yield_Strength = 0.243
-    // Parameters for the benchmark test ends here
-    //Default_Temperature = 310.0
-    //Default_Burnup = 0.0
-    //Default_Oxygen_Concentration = .1
+}
+
+MechanicsLinearElementDB {
+         name="MechanicsLinearElement"
+         USE_REDUCED_INTEGRATION = FALSE 
+         FE_ORDER = "FIRST"  
+         FE_FAMILY = "LAGRANGE"
+         QRULE_TYPE = "QGAUSS"
+         QRULE_ORDER = "DEFAULT"
 }
 
 MechanicsNonlinearFEOperator1 {
@@ -76,7 +66,8 @@ MechanicsNonlinearFEOperator1 {
             QRULE_TYPE = "QGAUSS"
             QRULE_ORDER = "DEFAULT"
         }
-
+        
+        MechanicsLinearElement=MechanicsLinearElementDB
 	LocalModel = PericElastoViscoPlasticModel
 }
 	
@@ -114,20 +105,13 @@ LinearMechanicsOperator {
 
 MechanicsLinearFEOperator2 {
       name = "MechanicsLinearFEOperator"
-        print_info_level = 1
-        reset_reuses_matrix = TRUE
-        InputVariable = "displacement"
-        OutputVariable = "displacement"
+      print_info_level = 1
+      reset_reuses_matrix = TRUE
+      InputVariable = "displacement"
+      OutputVariable = "displacement"
 
-        MechanicsElement {
-          name="MechanicsLinearElement"
-            USE_REDUCED_INTEGRATION = FALSE 
-            FE_ORDER = "FIRST"  
-            FE_FAMILY = "LAGRANGE"
-            QRULE_TYPE = "QGAUSS"
-            QRULE_ORDER = "DEFAULT"
-        }
-    }
+      MechanicsElement=MechanicsLinearElementDB
+}
 
 DirichletMatrixCorrection2 {
     name = "DirichletMatrixCorrection"
@@ -175,19 +159,20 @@ NonlinearSolver{
     relative_tolerance = 1.0e-12
     stepTolerance = 1.0e-10
     maximumFunctionEvals = 1000
-    usesJacobian=TRUE
+    usesJacobian=FALSE
 
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.001"
 
     LinearSolver{
-      print_info_level = 1
-        max_iterations = 10
+        name = "PetscKrylovSolver"
+        print_info_level = 1
+        max_iterations = 100
         max_error = 1e-10
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
         relative_tolerance = 1.0e-13
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 100
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
@@ -195,7 +180,8 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
         Preconditioner{
-          print_info_level = 1
+            name = "TrilinosMLSolver"
+            print_info_level = 1
             PDE_equations = 3
             max_iterations = 1
             max_error = 1.0e-15

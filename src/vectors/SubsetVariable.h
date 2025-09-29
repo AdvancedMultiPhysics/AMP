@@ -30,7 +30,7 @@ public:
 
     /** \brief Return the comm for the subset
      * \return The comm
-     * \param[in]  manager  The comm of the original vector / DOFManager
+     * \param[in]  comm  The comm of the original vector / DOFManager
      */
     virtual AMP::AMP_MPI getComm( const AMP::AMP_MPI &comm ) const = 0;
 

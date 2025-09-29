@@ -34,33 +34,33 @@
 
 size_t matMatTestWithDOFs( AMP::UnitTest *ut,
                            std::string type,
-                           std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+                           std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                           const std::string &accelerationBackend,
+                           const std::string &memoryLocation )
 {
+    AMP::pout << "matMatTestWithDOFs with " << type << ", backend " << accelerationBackend
+              << ", memory " << memoryLocation << std::endl;
+
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
-    // Create the vectors
+
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-    // No SpGEMMs on device yet, but leaving this here to enable later
-#if 0 // ifdef AMP_USE_DEVICE
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-#else
-    auto inVec     = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec    = AMP::LinearAlgebra::createVector( dofManager, outVar );
-#endif
 
-    // Create the matrix
-    auto A = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-    if ( A ) {
-        ut->passes( type + ": Able to create a square matrix" );
-    } else {
-        ut->failure( type + ": Unable to create a square matrix" );
-    }
+    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
 
-    fillWithPseudoLaplacian( A, dofManager );
-    A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
+    inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+    fillWithPseudoLaplacian( matrix_h, dofManager );
+
+    // migrate matrix if requested and possible
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
+
+    auto A = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+                 matrix_h :
+                 AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
 
     size_t nGlobalRows = A->numGlobalRows();
     size_t nLocalRows  = A->numLocalRows();
@@ -108,36 +108,43 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     }
 
     if ( allPass ) {
-        ut->passes( type + ": Passes 1 norm test with squared pseudo Laplacian, no re-use" );
+        ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
+                    ": Passes 1 norm test with squared pseudo Laplacian, no re-use" );
     } else {
-        AMP::pout << "1 Norm " << yNormFail << ", number of rows " << A->numGlobalRows()
-                  << std::endl;
-        ut->failure( type + ": Fails 1 norm test with squared pseudo Laplacian, no re-use" );
+        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend << ", 1 Norm "
+                  << yNormFail << ", number of rows " << A->numGlobalRows() << std::endl;
+        ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
+                     ": Fails 1 norm test with squared pseudo Laplacian, no re-use" );
     }
 
     // now do products where reuse of result matrix is supported
-    yNormFail = 0.0;
-    allPass   = true;
-    for ( int nProd = 0; nProd < NUM_PRODUCTS_REUSE; ++nProd ) {
-        PROFILE( "SpGEMM test reuse" );
-        AMP::LinearAlgebra::Matrix::matMatMult( A, A, Asq );
-        x->setToScalar( 1.0 );
-        x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-        y->zero();
-        Asq->mult( x, y );
-        const auto yNorm = static_cast<scalar_t>( y->L1Norm() );
-        if ( yNorm != yNormExpect ) {
-            allPass   = false;
-            yNormFail = yNorm;
+    if ( NUM_PRODUCTS_REUSE > 0 && memoryLocation == "host" ) {
+        yNormFail = 0.0;
+        allPass   = true;
+        for ( int nProd = 0; nProd < NUM_PRODUCTS_REUSE; ++nProd ) {
+            PROFILE( "SpGEMM test reuse" );
+            AMP::LinearAlgebra::Matrix::matMatMult( A, A, Asq );
+            x->setToScalar( 1.0 );
+            x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+            y->zero();
+            Asq->mult( x, y );
+            const auto yNorm = static_cast<scalar_t>( y->L1Norm() );
+            if ( yNorm != yNormExpect ) {
+                allPass   = false;
+                yNormFail = yNorm;
+            }
         }
-    }
 
-    if ( allPass ) {
-        ut->passes( type + ": Passes 1 norm test with squared pseudo Laplacian, with re-use" );
-    } else {
-        AMP::pout << "1 Norm " << yNormFail << ", number of rows " << A->numGlobalRows()
-                  << std::endl;
-        ut->failure( type + ": Fails 1 norm test with squared pseudo Laplacian, with re-use" );
+        if ( allPass ) {
+            ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
+                        ": Passes 1 norm test with squared pseudo Laplacian, with re-use" );
+        } else {
+            AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend
+                      << ", 1 Norm " << yNormFail << ", number of rows " << A->numGlobalRows()
+                      << std::endl;
+            ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
+                         ": Fails 1 norm test with squared pseudo Laplacian, with re-use" );
+        }
     }
 
     return nGlobalRows;
@@ -166,12 +173,36 @@ size_t matMatTest( AMP::UnitTest *ut, std::string input_file )
 
     // Test on defined matrix types
 #if defined( AMP_USE_TRILINOS )
-    // matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true );
+    matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, "serial", "host" );
 #endif
 #if defined( AMP_USE_PETSC )
-    matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs );
+    matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, "serial", "host" );
 #endif
-    return matMatTestWithDOFs( ut, "CSRMatrix", scalarDOFs );
+
+    // Get the acceleration backend for the matrix
+    std::vector<std::string> backends;
+    if ( input_db->keyExists( "MatrixAccelerationBackend" ) ) {
+        backends.emplace_back( input_db->getString( "MatrixAccelerationBackend" ) );
+    } else {
+        backends.emplace_back( "serial" );
+#ifdef AMP_USE_KOKKOS
+        backends.emplace_back( "kokkos" );
+#endif
+#ifdef AMP_USE_DEVICE
+        backends.emplace_back( "hip_cuda" );
+#endif
+    }
+
+    std::vector<std::pair<std::string, std::string>> backendsAndMemory;
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef AMP_USE_DEVICE
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+#endif
+
+    size_t nGlobal = 0;
+    for ( auto &[backend, memory] : backendsAndMemory )
+        nGlobal += matMatTestWithDOFs( ut, "CSRMatrix", scalarDOFs, backend, memory );
+    return nGlobal;
 }
 
 int main( int argc, char *argv[] )

@@ -1,7 +1,3 @@
-############################################################################
-#  Configure tests
-############################################################################
-
 # Add the data files needed for the tests
 COPY_TEST_FILE( point_set_2d )
 COPY_TEST_FILE( point_set_2d_2 )
@@ -36,7 +32,7 @@ ADD_AMP_TEST( test_copyCast )
 IF ( USE_DEVICE )
     SET_DEVICE_COMPILER( test_copyCast )
 ENDIF()
-IF( NOT ( ${CMAKE_CXX_COMPILER_ID} MATCHES "Intel" ) )
+IF ( NOT ( ${CMAKE_CXX_COMPILER_ID} MATCHES "Intel" ))
     ADD_AMP_TEST( testArray )
 ENDIF()
 IF ( CMAKE_Fortran_COMPILER AND NOT DISABLE_FORTRAN )
@@ -44,5 +40,4 @@ IF ( CMAKE_Fortran_COMPILER AND NOT DISABLE_FORTRAN )
     SET_TARGET_PROPERTIES( test_Fortran PROPERTIES LINKER_LANGUAGE Fortran )
 ENDIF()
 ADD_AMP_PROVISIONAL_TEST( test_crash )
-#ADD_AMP_PROVISIONAL_TEST( test_crash_log )
-
+# ADD_AMP_PROVISIONAL_TEST( test_crash_log )

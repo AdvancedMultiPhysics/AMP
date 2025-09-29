@@ -158,6 +158,7 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::extractDiagonal( std::shared_ptr<localmatrixdata_t> A,
                                                                typename Config::scalar_t *buf )
 {
+    AMP_DEBUG_INSIST( A, "Local Diagonal Matrix is NULL" );
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
 

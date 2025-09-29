@@ -1,0 +1,15 @@
+TimeIntegrator{
+    name = "BDF2"
+    implicit_integrator = "BDF2"
+    print_info_level = 1
+    user_managed_time_operator = TRUE 
+    #timestep_selection_strategy = "constant"
+    timestep_selection_strategy = "final constant"
+    initial_dt = 1e-3
+    max_dt = 0.1
+    use_predictor = TRUE
+    max_integrator_steps = 300
+    initial_time = 0.0
+    final_time = 0.2
+    solver_name = "LinearSolver"
+}

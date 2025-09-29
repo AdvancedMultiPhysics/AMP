@@ -315,7 +315,6 @@ protected: // Virtual function to override to load the property
      * scalar evaluation function for a single argument set
      *  \param result       Output result (N)
      *  \param args         Input arguments (MxN)
-     * \return scalar value of property
      */
     virtual void eval( AMP::Array<double> &result, const AMP::Array<double> &args ) const = 0;
 

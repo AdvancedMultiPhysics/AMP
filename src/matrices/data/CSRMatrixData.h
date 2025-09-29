@@ -317,11 +317,11 @@ protected:
     gidx_t d_last_col = 0;
 
     //! Allocator for gidx_t matched to template parameter
-    gidxAllocator_t d_gidxAllocator;
+    mutable gidxAllocator_t d_gidxAllocator;
     //! Allocator for lidx_t matched to template parameter
-    lidxAllocator_t d_lidxAllocator;
+    mutable lidxAllocator_t d_lidxAllocator;
     //! Allocator for scalar_t matched to template parameter
-    scalarAllocator_t d_scalarAllocator;
+    mutable scalarAllocator_t d_scalarAllocator;
 
     //! Diagonal matrix block [d_first_row,d_last_row] x [d_first_col,d_last_col]
     std::shared_ptr<localmatrixdata_t> d_diag_matrix;
