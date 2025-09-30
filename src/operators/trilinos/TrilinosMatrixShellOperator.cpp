@@ -78,7 +78,6 @@ int TrilinosMatrixShellOperator::matVec(
 
     inVec->putRawData( in );
 
-    AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     op->d_operator->apply( inVec, outVec );
 
     outVec->getRawData( out );
@@ -126,10 +125,8 @@ void TrilinosMatrixShellOperator::getColumn( int column,
                                              std::vector<size_t> &rows,
                                              std::vector<double> &values )
 {
-    AMP::LinearAlgebra::Vector::shared_ptr inVec =
-        AMP::LinearAlgebra::createVector( d_nodalDofMap, getInputVariable(), false );
-    AMP::LinearAlgebra::Vector::shared_ptr outVec =
-        AMP::LinearAlgebra::createVector( d_nodalDofMap, getOutputVariable(), false );
+    auto inVec  = AMP::LinearAlgebra::createVector( d_nodalDofMap, getInputVariable(), false );
+    auto outVec = AMP::LinearAlgebra::createVector( d_nodalDofMap, getOutputVariable(), false );
 
     inVec->zero();
     auto idx         = size_t( column );
@@ -137,7 +134,6 @@ void TrilinosMatrixShellOperator::getColumn( int column,
     inVec->setValuesByGlobalID( 1, &idx, &val );
     inVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
-    AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     d_operator->apply( inVec, outVec );
 
     size_t outLength = outVec->getLocalSize();
