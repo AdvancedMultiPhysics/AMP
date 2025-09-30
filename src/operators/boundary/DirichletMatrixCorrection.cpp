@@ -266,7 +266,7 @@ void DirichletMatrixCorrection::addRHScorrection( AMP::LinearAlgebra::Vector::sh
             initRhsCorrectionAdd( rhs );
             applyMatrixCorrection();
         } // end if
-        AMP::LinearAlgebra::Vector::shared_ptr myRhs = subsetOutputVector( rhs );
+        auto myRhs = subsetOutputVector( rhs );
         myRhs->add( *myRhs, *d_rhsCorrectionAdd );
     }
 }
@@ -275,8 +275,7 @@ void DirichletMatrixCorrection::addRHScorrection( AMP::LinearAlgebra::Vector::sh
 void DirichletMatrixCorrection::setRHScorrection( AMP::LinearAlgebra::Vector::shared_ptr rhs )
 {
     if ( !d_skipRHSsetCorrection ) {
-        AMP::LinearAlgebra::Vector::shared_ptr emptyVec;
-        d_rhsCorrectionSet->apply( emptyVec, rhs );
+        d_rhsCorrectionSet->apply( nullptr, rhs );
     }
 }
 } // namespace AMP::Operator

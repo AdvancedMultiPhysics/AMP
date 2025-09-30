@@ -58,10 +58,10 @@ public:
     virtual ~RotatedAnisotropicDiffusionModel() {}
 
     /* Pure virtual functions */
-    virtual double sourceTerm( AMP::Mesh::MeshElement &node ) const = 0;
+    virtual double sourceTerm( const AMP::Mesh::Point &p ) const = 0;
 
     /* Virtual functions */
-    virtual double exactSolution( AMP::Mesh::MeshElement & ) const
+    virtual double exactSolution( const AMP::Mesh::Point & ) const
     {
         AMP_ERROR( "Base class cannot provide an implementation of this function" );
     }
@@ -94,8 +94,8 @@ public:
     // Destructor
     virtual ~ManufacturedRotatedAnisotropicDiffusionModel() {}
 
-    double sourceTerm( AMP::Mesh::MeshElement &node ) const override;
-    double exactSolution( AMP::Mesh::MeshElement &node ) const override;
+    double sourceTerm( const AMP::Mesh::Point &p ) const override;
+    double exactSolution( const AMP::Mesh::Point &p ) const override;
 
     //
 private:
