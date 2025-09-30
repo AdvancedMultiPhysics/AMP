@@ -1151,6 +1151,31 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
     setData();
 };
 
+double
+RadDifOpPJac::PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const
+{
+    // Energy
+    if ( component == 0 ) {
+        // Get the Robin constants for the given boundaryID
+        double ak, bk;
+        FDBoundaryUtils::getLHSRobinConstantsFromDB( *d_db, boundaryID, ak, bk );
+        // Spatial mesh size
+        double hk = d_h[FDBoundaryUtils::getDimFromBoundaryID( boundaryID )];
+
+        // The value we require coincides with r=0 and Eint=1 in "ghostValueSolveE"
+        return FDBoundaryUtils::ghostValueSolveE( ak, bk, 0.0, ck, hk, 1.0 );
+
+        // Temperature; correction coefficient is 1.0, because we get Tg = 1.0*Tint + blah
+    } else if ( component == 1 ) {
+
+        // The value we require coincides with any n and h in "ghostValueSolveT"
+        return FDBoundaryUtils::ghostValueSolveT( 0.0, 0.0, 1.0 );
+
+    } else {
+        AMP_ERROR( "Invalid component" );
+    }
+}
+
 
 /** -------------------------------------------------------- *
  *  --------------- Implementation of RadDifOp ------------- *
@@ -1203,20 +1228,17 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const
     return ET_vec;
 };
 
-
 void RadDifOp::setBoundaryFunctionE(
     const std::function<double( size_t, const AMP::Mesh::Point & )> &fn_ )
 {
     d_robinFunctionE = fn_;
 };
 
-
 void RadDifOp::setBoundaryFunctionT(
     const std::function<double( size_t, const AMP::Mesh::Point & )> &fn_ )
 {
     d_pseudoNeumannFunctionT = fn_;
 };
-
 
 std::shared_ptr<AMP::Operator::OperatorParameters>
 RadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in )
@@ -1240,7 +1262,6 @@ RadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_
 
     return jacOpParams;
 }
-
 
 void RadDifOp::ghostValuesSolveWrapper( size_t boundaryID,
                                         const AMP::Mesh::Point &boundaryPoint,
@@ -1272,7 +1293,6 @@ void RadDifOp::ghostValuesSolveWrapper( size_t boundaryID,
     FDBoundaryUtils::ghostValuesSolve( ak, bk, cHandle, rk, nk, hk, Eint, Tint, Eg, Tg );
 }
 
-
 bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET )
 {
     return ( ET->min() > 0.0 );
@@ -1299,7 +1319,6 @@ bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
  *      REE = RTE = -1
  *      RET = RTT = +1
  */
-#if 1
 void RadDifOp::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                       std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_ )
 {
@@ -1328,8 +1347,6 @@ void RadDifOp::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
 
     LET_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
-#endif
-
 
 void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                               std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
@@ -1439,7 +1456,6 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
         }     // Loop over j
     }         // Loop over k
 }
-
 
 void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                               std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
@@ -1560,7 +1576,6 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
     }             // Loop over frozen dim
 }
 
-
 void RadDifOp::getNNDataBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                                   std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
                                   std::array<size_t, 3> &ijk,
@@ -1611,30 +1626,10 @@ void RadDifOp::getNNDataBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vect
         TLoc3[EAST] = T_vec->getValueByGlobalID( indEAST );
     }
 }
+/** ------------------------------------------------------- *
+ *  ----------- End of Implementation of RadDifOp --------- *
+ *  ------------------------------------------------------- */
 
-double
-RadDifOpPJac::PicardCorrectionCoefficient( size_t component, size_t boundaryID, double ck ) const
-{
-    // Energy
-    if ( component == 0 ) {
-        // Get the Robin constants for the given boundaryID
-        double ak, bk;
-        FDBoundaryUtils::getLHSRobinConstantsFromDB( *d_db, boundaryID, ak, bk );
-        // Spatial mesh size
-        double hk = d_h[FDBoundaryUtils::getDimFromBoundaryID( boundaryID )];
 
-        // The value we require coincides with r=0 and Eint=1 in "ghostValueSolveE"
-        return FDBoundaryUtils::ghostValueSolveE( ak, bk, 0.0, ck, hk, 1.0 );
-
-        // Temperature; correction coefficient is 1.0, because we get Tg = 1.0*Tint + blah
-    } else if ( component == 1 ) {
-
-        // The value we require coincides with any n and h in "ghostValueSolveT"
-        return FDBoundaryUtils::ghostValueSolveT( 0.0, 0.0, 1.0 );
-
-    } else {
-        AMP_ERROR( "Invalid component" );
-    }
-}
 
 } // namespace AMP::Operator

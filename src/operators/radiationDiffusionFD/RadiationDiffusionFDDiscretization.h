@@ -23,6 +23,8 @@
 
 // todo: I have a couple global parameters floating around (nonlinear, flux limiting), I really
 // should template against these...
+// actually. i should set the fluxlimiting one as a constexpr inside the class where the function that does fluxlimiting is described (since limting should be on in general, it's just that I have some bug right now...)
+// Not sure about the coefficients one --- will ask Bobby.
 
 
 // ok... maybe template the operator on the coefficients... but this requires passing in the
