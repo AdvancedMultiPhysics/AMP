@@ -64,10 +64,8 @@ void TrilinosLinearOP::applyImpl( const Thyra::EOpTransp M_trans,
         // We are dealing with a column thyra multivector
         if ( x0->getName() != "ThyraMultiVec" || y0->getName() != "ThyraMultiVec" )
             AMP_ERROR( "Not finished" );
-        std::shared_ptr<const AMP::LinearAlgebra::MultiVector> x1 =
-            std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( x0 );
-        std::shared_ptr<AMP::LinearAlgebra::MultiVector> y1 =
-            std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( y0 );
+        auto x1 = std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( x0 );
+        auto y1 = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( y0 );
         AMP_ASSERT( x1 && y1 );
         size_t N_vecs_x = x1->getNumberOfSubvectors();
         size_t N_vecs_y = y1->getNumberOfSubvectors();
@@ -83,7 +81,7 @@ void TrilinosLinearOP::applyImpl( const Thyra::EOpTransp M_trans,
     for ( size_t i = 0; i < x.size(); i++ ) {
         if ( d_operator ) {
             // Apply the AMP::Operator to compute f = OP(M)*X
-            AMP::LinearAlgebra::Vector::shared_ptr f = y[i]->clone();
+            auto f = y[i]->clone();
             d_operator->apply( x[i], f );
             // Compute Y = alpha*OP(M)*X + beta*Y
             y[i]->axpby( alpha, beta, *f );
