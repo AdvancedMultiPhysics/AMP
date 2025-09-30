@@ -86,6 +86,20 @@ inline constexpr index hypre_big   = index::i32;
 #define CSR_CONFIG_CC_FORALL_HYPRE( INST ) \
     EXPAND( CSR_CONFIG_CC_FORALL0_HYPRE( CSR_CONFIG_CC_FORALL2_HYPRE, INST ) )
 
+
+#define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_HOST( INST ) \
+    CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hilf, INST )   \
+    CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hild, INST )
+#if defined( AMP_USE_DEVICE )
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST ) \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::milf, INST )     \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::mild, INST )     \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dilf, INST )     \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dild, INST )
+#else
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST )
+#endif
+
 template<alloc, index, index, scalar>
 struct CSRConfig;
 template<alloc Alloc>
