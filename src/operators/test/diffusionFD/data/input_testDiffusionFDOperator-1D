@@ -6,8 +6,8 @@ Mesh {
     MeshType = "AMP"
     Generator = "cube"
     dim = 1
-    Size = 262144
-    Range = -5, 5
+    Size = 32768
+    Range = -1, 1
     surfaceIds = 1, 2
     static = TRUE
 }
