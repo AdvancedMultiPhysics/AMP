@@ -14,7 +14,7 @@ namespace AMP::Solver::AMG {
 
 // Base class for all aggregators
 struct Aggregator {
-    Aggregator() {}
+    Aggregator( const float strength_threshold ) : d_strength_threshold( strength_threshold ) {}
 
     virtual ~Aggregator() {}
 
@@ -31,6 +31,8 @@ struct Aggregator {
     std::shared_ptr<LinearAlgebra::Matrix>
     getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                         std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
+
+    const float d_strength_threshold;
 };
 
 } // namespace AMP::Solver::AMG

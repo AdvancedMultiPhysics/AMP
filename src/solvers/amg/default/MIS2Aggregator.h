@@ -13,7 +13,7 @@ namespace AMP::Solver::AMG {
 //  set and graph coarsening" by Brian Kelley and Sivasankaran
 // Rajamanickam
 struct MIS2Aggregator : Aggregator {
-    MIS2Aggregator() = default;
+    MIS2Aggregator( const float strength_threshold ) : Aggregator( strength_threshold ) {}
 
     // Necessary overrides from base class
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
@@ -24,9 +24,10 @@ struct MIS2Aggregator : Aggregator {
 
     // classify vertices as in or out of MIS-2
     template<typename Config>
-    int classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixData<Config>> A,
+    int classifyVertices( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
                           std::vector<typename Config::lidx_t> &wl1,
                           std::vector<uint64_t> &labels,
+                          const uint64_t num_gbl,
                           int *agg_ids );
 
     // status labels such that IN < UNDECIDED < OUT

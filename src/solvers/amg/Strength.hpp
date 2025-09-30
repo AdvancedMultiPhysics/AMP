@@ -11,6 +11,9 @@ struct classical_strength {
     template<class T>
     static constexpr T strongest( span<T> s )
     {
+        if ( s.size() == 0 || s.begin() == nullptr ) {
+            return 0;
+        }
         if constexpr ( norm_type == norm::min ) {
             auto el = std::min_element( s.begin(), s.end() );
             return el == s.end() ? std::numeric_limits<T>::lowest() : -*el;
@@ -75,12 +78,13 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
             strongest_connection =
                 std::max( strongest_connection, StrengthPolicy::strongest( offd_rows( r ) ) );
         auto is_strong     = StrengthPolicy::is_strong( strongest_connection, threshold );
-        auto fill_strength = [&]( auto vals, auto strength ) {
-            for ( std::size_t i = 0; i < vals.size(); ++i )
-                strength[i] = is_strong( vals[i] ) ? 1 : 0;
+        auto fill_strength = [&]( auto vals, auto strength, bool keep_first ) {
+            for ( std::size_t i = 0; i < vals.size(); ++i ) {
+                strength[i] = ( i == 0 && keep_first ) ? 1 : ( is_strong( vals[i] ) ? 1 : 0 );
+            }
         };
-        fill_strength( diag_values, S.diag_row( r ) );
-        // fill_strength(offd_values, S.offd_row(r));
+        fill_strength( diag_values, S.diag_row( r ), true );
+        // fill_strength(offd_values, S.offd_row(r), false);
     }
 
     return S;

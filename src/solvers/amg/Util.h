@@ -97,6 +97,8 @@ struct span {
     constexpr span<T, dynamic_extent> subspan( size_t offset,
                                                size_t count = dynamic_extent ) const noexcept
     {
+        if ( offset >= size() )
+            return { nullptr, 0 };
         if ( count == dynamic_extent )
             count = size() - offset;
         AMP_INSIST( offset + count <= size(), "span: invalid subset" );

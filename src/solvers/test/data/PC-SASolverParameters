@@ -2,7 +2,7 @@ Preconditioner{
   name = "SASolver"
   absolute_tolerance = 0.0
   relative_tolerance = 0.0
-  print_info_level = 2
+  print_info_level = 3
   max_iterations = 1
   max_levels = 10
   min_coarse_local = 10
@@ -10,6 +10,7 @@ Preconditioner{
   kappa = 3
   agg_type = "simple"
   prol_trunc = 0.1
+  strength_threshold = 0.0
   
   pre_relaxation{
     name = "HybridGS"

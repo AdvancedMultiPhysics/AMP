@@ -42,11 +42,13 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
-        d_aggregator = std::make_shared<AMG::SimpleAggregator>();
+        d_aggregator =
+            std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings.strength_threshold );
     } else if ( agg_type == "pairwise" ) {
         d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
     } else {
-        d_aggregator = std::make_shared<AMG::MIS2Aggregator>();
+        d_aggregator =
+            std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings.strength_threshold );
     }
 
     auto pre_db        = db->getDatabase( "pre_relaxation" );
