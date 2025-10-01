@@ -5,7 +5,7 @@ LinearSolver{
   max_iterations = 25
   relative_tolerance = 1.0e-12
   absolute_tolerance = 1.0e-12
-  print_info_level = 0
+  print_info_level = 2
   max_coarse_size = 25
   strong_threshold = 0.5
   cycle_type = 1
