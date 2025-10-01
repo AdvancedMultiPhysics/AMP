@@ -92,10 +92,6 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
         if ( db->keyExists( "coarsen_type" ) ) {
             d_coarsen_type = db->getScalar<int>( "coarsen_type" );
-#if defined( HYPRE_USING_DEVICE_MEMORY ) || defined( HYPRE_USING_UNIFIED_MEMORY )
-            AMP_INSIST( d_coarsen_type == 8,
-                        "BoomerAMGSolver:: on device coarsen_type can only be 8" );
-#endif
             HYPRE_BoomerAMGSetCoarsenType( d_solver, d_coarsen_type );
         }
 
@@ -136,12 +132,7 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
         if ( db->keyExists( "interp_type" ) ) {
             d_interp_type = db->getScalar<int>( "interp_type" );
-#if defined( HYPRE_USING_DEVICE_MEMORY ) || defined( HYPRE_USING_UNIFIED_MEMORY )
-            AMP_INSIST(
-                d_interp_type == 3 || d_interp_type == 6 || d_interp_type == 14 ||
-                    d_interp_type == 15 || d_interp_type == 18,
-                "BoomerAMGSolver:: on device interp_type can only be one of 3, 6, 14, 15, 18" );
-#endif
+            if ( d_memory_location != HYPRE_MEMORY_HOST ) {}
             HYPRE_BoomerAMGSetInterpType( d_solver, d_interp_type );
         }
 
@@ -162,10 +153,6 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
         if ( db->keyExists( "agg_interp_type" ) ) {
             d_agg_interp_type = db->getScalar<int>( "agg_interp_type" );
-#if defined( HYPRE_USING_DEVICE_MEMORY ) || defined( HYPRE_USING_UNIFIED_MEMORY )
-            AMP_INSIST( d_agg_interp_type == 5 || d_agg_interp_type == 7,
-                        "BoomerAMGSolver:: on device agg_interp_type can only be one of 5, 7" );
-#endif
             HYPRE_BoomerAMGSetAggInterpType( d_solver, d_agg_interp_type );
         }
 
@@ -231,13 +218,6 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
         if ( db->keyExists( "relax_type" ) ) {
             d_relax_type = db->getScalar<int>( "relax_type" );
-#if defined( HYPRE_USING_DEVICE_MEMORY ) || defined( HYPRE_USING_UNIFIED_MEMORY )
-            AMP_INSIST( d_relax_type == 3 || d_relax_type == 4 || d_relax_type == 6 ||
-                            d_relax_type == 7 || d_relax_type == 11 || d_relax_type == 12 ||
-                            d_relax_type == 16 || d_relax_type == 18,
-                        "BoomerAMGSolver:: on device relax_type can only be one of 3, 4, 6, 7, 11, "
-                        "12, 16, 18" );
-#endif
             HYPRE_BoomerAMGSetRelaxType( d_solver, d_relax_type );
         }
 
@@ -332,6 +312,19 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
     HYPRE_BoomerAMGSetConvergeType( d_solver, static_cast<HYPRE_Int>( 1 ) );
     HYPRE_BoomerAMGSetMaxIter( d_solver, d_iMaxIterations );
     HYPRE_BoomerAMGSetPrintLevel( d_solver, d_iDebugPrintInfoLevel );
+    if ( d_memory_location != HYPRE_MEMORY_HOST ) {
+        AMP_INSIST( d_coarsen_type == 8, "BoomerAMGSolver:: on device coarsen_type can only be 8" );
+        AMP_INSIST( d_interp_type == 3 || d_interp_type == 6 || d_interp_type == 14 ||
+                        d_interp_type == 15 || d_interp_type == 18,
+                    "BoomerAMGSolver:: on device interp_type can only be one of 3, 6, 14, 15, 18" );
+        AMP_INSIST( d_agg_interp_type == 5 || d_agg_interp_type == 7,
+                    "BoomerAMGSolver:: on device agg_interp_type can only be one of 5, 7" );
+        AMP_INSIST( d_relax_type == 3 || d_relax_type == 4 || d_relax_type == 6 ||
+                        d_relax_type == 7 || d_relax_type == 11 || d_relax_type == 12 ||
+                        d_relax_type == 16 || d_relax_type == 18,
+                    "BoomerAMGSolver:: on device relax_type can only be one of 3, 4, 6, 7, 11, "
+                    "12, 16, 18" );
+    }
 }
 
 void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
