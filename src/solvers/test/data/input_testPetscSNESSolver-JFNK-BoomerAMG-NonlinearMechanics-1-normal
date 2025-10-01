@@ -159,9 +159,9 @@ Preconditioner{
   cycle_type = 2  // W cycle
   relax_type = 3
   number_sweeps = 2
-  coarsen_type = 10
+  coarsen_type = 8
   interp_type = 6
-  agg_interp_type = 1
+  agg_interp_type = 5
   nodal = 0
   strong_threshold = 0.9
   P_max_elements = 0
