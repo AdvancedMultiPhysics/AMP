@@ -423,35 +423,15 @@ double FDBoundaryUtils::getBoundaryFunctionValueFromDBT( const AMP::Database &db
 /** -------------------------------------------------------- *
  *  ----------- Implementation of RadDifOpPJacData --------- *
  *  -------------------------------------------------------- */
-std::shared_ptr<AMP::LinearAlgebra::Matrix> RadDifOpPJacData::get_d_E()
-{
+std::tuple<
+    std::shared_ptr<AMP::LinearAlgebra::Matrix>,std::shared_ptr<AMP::LinearAlgebra::Matrix>,
+    std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>
+    > RadDifOpPJacData::get() {
+
+    AMP_INSIST( d_E, "E is null before packing" );
+
     d_dataMaybeOverwritten = true;
-    return d_E;
-}
-std::shared_ptr<AMP::LinearAlgebra::Matrix> RadDifOpPJacData::get_d_T()
-{
-    d_dataMaybeOverwritten = true;
-    return d_T;
-}
-std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_EE()
-{
-    d_dataMaybeOverwritten = true;
-    return r_EE;
-}
-std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_ET()
-{
-    d_dataMaybeOverwritten = true;
-    return r_ET;
-}
-std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_TE()
-{
-    d_dataMaybeOverwritten = true;
-    return r_TE;
-}
-std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOpPJacData::get_r_TT()
-{
-    d_dataMaybeOverwritten = true;
-    return r_TT;
+    return std::make_tuple( d_E, d_T, r_EE, r_ET, r_TE, r_TT );
 }
 
 

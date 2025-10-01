@@ -783,13 +783,11 @@ struct RadDifOpPJacData {
     friend class RadDifOpPJac;
 
 public:
-    //! Getter routines; any external updates to the private data members below are done via these
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> get_d_E();
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> get_d_T();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_EE();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_ET();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_TE();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> get_r_TT();
+    //! Getter routine; any external updates to the private data members below done via this
+    std::tuple<
+    std::shared_ptr<AMP::LinearAlgebra::Matrix>,std::shared_ptr<AMP::LinearAlgebra::Matrix>,
+    std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>
+    > get();
 
 private:
     //! Flag indicating whether our data has been accessed, and hence possibly modified, by a

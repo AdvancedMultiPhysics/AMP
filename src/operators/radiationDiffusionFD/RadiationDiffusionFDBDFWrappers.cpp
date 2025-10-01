@@ -19,11 +19,15 @@ BDFRadDifOpPJacData::BDFRadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data
 {
     AMP_INSIST( data, "Non-null data required" );
 
-    // Unpack reaction vectors
-    r_EE_BDF = data->get_r_EE();
-    r_ET_BDF = data->get_r_ET();
-    r_TE_BDF = data->get_r_TE();
-    r_TT_BDF = data->get_r_TT();
+    // Unpack diffusion matrices and reaction vectors
+    auto t = data->get();
+    d_E_BDF  = std::get<0>(t);
+    d_T_BDF  = std::get<1>(t);
+    r_EE_BDF = std::get<2>(t);
+    r_ET_BDF = std::get<3>(t);
+    r_TE_BDF = std::get<4>(t);
+    r_TT_BDF = std::get<5>(t);
+
     // Scale them by gamma
     r_EE_BDF->scale( gamma );
     r_ET_BDF->scale( gamma );
@@ -35,9 +39,6 @@ BDFRadDifOpPJacData::BDFRadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data
     r_TE_BDF->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     r_TT_BDF->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
-    // Unpack diffusion matrices
-    d_E_BDF = data->get_d_E();
-    d_T_BDF = data->get_d_T();
     // Scale them by gamma
     d_E_BDF->scale( gamma );
     d_T_BDF->scale( gamma );
