@@ -1,4 +1,4 @@
-#include "AMP/solvers/radiationDiffusionFDOpSplitPrec/RadiationDiffusionFDOpSplitPrec.h"
+#include "AMP/applications/radiationDiffusionFD/RadiationDiffusionFDOpSplitPrec.h"
 
 namespace AMP::Solver {
 

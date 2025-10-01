@@ -5,7 +5,7 @@
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionModel.h"
 #include "AMP/operators/testHelpers/FDHelper.h"
 #include "AMP/solvers/SolverFactory.h"
-#include "AMP/solvers/radiationDiffusionFDOpSplitPrec/RadiationDiffusionFDOpSplitPrec.h"
+#include "AMP/applications/radiationDiffusionFD/RadiationDiffusionFDOpSplitPrec.h"
 #include "AMP/time_integrators/ImplicitIntegrator.h"
 #include "AMP/time_integrators/TimeIntegrator.h"
 #include "AMP/time_integrators/TimeIntegratorFactory.h"
