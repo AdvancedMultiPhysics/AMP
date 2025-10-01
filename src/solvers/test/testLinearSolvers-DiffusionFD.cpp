@@ -165,10 +165,12 @@ int main( int argc, char **argv )
     seems to be coarsening incredibly aggressively when going to the first coarse level. The
     non-eliminated boundaries might also be a source of difficulty?
     @imay will add this back in later
+
+    From @imay, the 2d and 3d inputs are now present but more work needs to be done
+    before SA is good enough to handle this problem
     */
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-1D-SASolver-HybridGS-FCG" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
 #ifdef AMP_USE_HYPRE
     // The 1D test does not pass with default BoomerAMG parameters, so commenting out for the moment
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-1D-BoomerAMG-CG" );

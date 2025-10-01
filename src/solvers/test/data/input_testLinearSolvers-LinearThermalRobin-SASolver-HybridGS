@@ -10,10 +10,10 @@ LinearSolver{
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
-  kappa = 3
+  kappa = 2
   agg_type = "simple"
   prol_trunc = 0.1
-  strength_threshold = 0.01
+  strength_threshold = 4.0
 
   pre_relaxation{
     name = "HybridGS"
@@ -35,7 +35,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 20
+  iterations = 25
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

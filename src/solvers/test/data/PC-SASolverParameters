@@ -7,10 +7,10 @@ Preconditioner{
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
-  kappa = 3
+  kappa = 2
   agg_type = "simple"
   prol_trunc = 0.1
-  strength_threshold = 0.0
+  strength_threshold = 4.0
   
   pre_relaxation{
     name = "HybridGS"
@@ -26,7 +26,7 @@ Preconditioner{
 
   coarse_solver{
     name = "HybridGS"
-    num_sweeps = 1
+    num_sweeps = 2
     sweep_type = "symmetric"
   }
 }

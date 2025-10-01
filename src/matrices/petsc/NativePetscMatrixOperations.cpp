@@ -157,7 +157,9 @@ void NativePetscMatrixOperations::getRowSums( MatrixData const &, std::shared_pt
 {
     AMP_ERROR( "Not implemented" );
 }
-void NativePetscMatrixOperations::getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> )
+void NativePetscMatrixOperations::getRowSumsAbsolute( MatrixData const &,
+                                                      std::shared_ptr<Vector>,
+                                                      const bool )
 {
     AMP_ERROR( "Not implemented" );
 }

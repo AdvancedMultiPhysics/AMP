@@ -1,7 +1,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/CSRVisit.h"
-#include "AMP/solvers/amg/Strength.h"
+#include "AMP/solvers/amg/Strength.hpp"
 #include "AMP/solvers/amg/default/SimpleAggregator.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
@@ -34,7 +34,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     using matrixdata_t = typename matrix_t::matrixdata_t;
 
     // get strength information
-    auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+    auto S = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );

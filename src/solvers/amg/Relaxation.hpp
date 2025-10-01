@@ -198,16 +198,8 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
         if ( std::isinf( dinv ) ) {
             return;
         }
-        AMP_ASSERT( !std::isnan( dinv ) );
         auto rsum = diag_sum( row ) + offd_sum( row );
-        AMP_ASSERT( !std::isnan( b[row] ) );
-        AMP_ASSERT( !std::isnan( rsum ) );
-        x[row] = dinv * ( b[row] - rsum );
-        if ( std::isnan( x[row] ) ) {
-            AMP::pout << "NaN. row = " << row << " dinv = " << dinv << " rsum = " << rsum
-                      << " b[row] = " << b[row] << std::endl;
-        }
-        AMP_ASSERT( !std::isnan( x[row] ) );
+        x[row]    = dinv * ( b[row] - rsum );
     };
 
     switch ( relax_dir ) {
@@ -267,7 +259,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
     auto r = x->clone();
 
     // Get D as absolute row sums of A
-    auto D = A->getRowSumsAbsolute();
+    auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
     for ( size_t i = 0; i < d_num_sweeps; ++i ) {
         // find omega

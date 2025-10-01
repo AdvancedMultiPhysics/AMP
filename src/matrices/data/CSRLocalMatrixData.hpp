@@ -468,7 +468,8 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
     // count entries in mask and allocate output
     const auto num_rows = numLocalRows();
     auto rs_out         = outData->d_row_starts.get();
-    CSRMatrixDataHelpers<Config>::MaskCountNNZ( d_row_starts.get(), mask, num_rows, rs_out );
+    CSRMatrixDataHelpers<Config>::MaskCountNNZ(
+        d_row_starts.get(), mask, d_is_diag, num_rows, rs_out );
     outData->setNNZ( true );
 
     // get output data fields and copy over masked out information
@@ -477,6 +478,7 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
                                                     d_cols_loc.get(),
                                                     d_coeffs.get(),
                                                     mask,
+                                                    d_is_diag,
                                                     num_rows,
                                                     rs_out,
                                                     outData->d_cols_loc.get(),

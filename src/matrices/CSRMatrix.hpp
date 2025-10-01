@@ -246,7 +246,8 @@ Vector::shared_ptr CSRMatrix<Config>::getRowSums( Vector::shared_ptr buf ) const
 }
 
 template<typename Config>
-Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf ) const
+Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf,
+                                                          const bool remove_zeros ) const
 {
     Vector::shared_ptr out = buf;
     if ( !buf ) {
@@ -254,7 +255,7 @@ Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf
     }
     out->setNoGhosts();
 
-    d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out );
+    d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out, remove_zeros );
 
     return out;
 }

@@ -132,7 +132,7 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
 
     // Get D as absolute row sums of A
-    auto D = A->getRowSumsAbsolute();
+    auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
     // then apply -Dinv in-place
     // omega hardcoded via linear Chebyshev over top 75% of evals

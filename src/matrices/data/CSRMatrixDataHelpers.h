@@ -62,6 +62,7 @@ struct CSRMatrixDataHelpers {
 
     static void MaskCountNNZ( const lidx_t *in_row_starts,
                               const mask_t *mask,
+                              const bool keep_first,
                               const lidx_t num_rows,
                               lidx_t *out_row_starts );
 
@@ -69,6 +70,7 @@ struct CSRMatrixDataHelpers {
                               const lidx_t *in_cols_loc,
                               const scalar_t *in_coeffs,
                               const mask_t *mask,
+                              const bool keep_first,
                               const lidx_t num_rows,
                               const lidx_t *out_row_starts,
                               lidx_t *out_cols_loc,

@@ -282,7 +282,9 @@ void DenseSerialMatrixOperations::getRowSums( MatrixData const &, std::shared_pt
 {
     AMP_ERROR( "Not implemented" );
 }
-void DenseSerialMatrixOperations::getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> )
+void DenseSerialMatrixOperations::getRowSumsAbsolute( MatrixData const &,
+                                                      std::shared_ptr<Vector>,
+                                                      const bool )
 {
     AMP_ERROR( "Not implemented" );
 }
