@@ -397,7 +397,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 1.e-12 );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {

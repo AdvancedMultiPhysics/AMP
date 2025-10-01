@@ -195,8 +195,19 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
     auto update = [&]( lidx_t row ) {
         auto diag = Ad_coeffs[Ad_rs[row]];
         auto dinv = 1.0 / diag;
+        if ( std::isinf( dinv ) ) {
+            return;
+        }
+        AMP_ASSERT( !std::isnan( dinv ) );
         auto rsum = diag_sum( row ) + offd_sum( row );
-        x[row]    = dinv * ( b[row] - rsum );
+        AMP_ASSERT( !std::isnan( b[row] ) );
+        AMP_ASSERT( !std::isnan( rsum ) );
+        x[row] = dinv * ( b[row] - rsum );
+        if ( std::isnan( x[row] ) ) {
+            AMP::pout << "NaN. row = " << row << " dinv = " << dinv << " rsum = " << rsum
+                      << " b[row] = " << b[row] << std::endl;
+        }
+        AMP_ASSERT( !std::isnan( x[row] ) );
     };
 
     switch ( relax_dir ) {

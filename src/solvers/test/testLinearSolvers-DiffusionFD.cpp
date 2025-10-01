@@ -167,6 +167,8 @@ int main( int argc, char **argv )
     @imay will add this back in later
     */
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-1D-SASolver-HybridGS-FCG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
 #ifdef AMP_USE_HYPRE
     // The 1D test does not pass with default BoomerAMG parameters, so commenting out for the moment
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-1D-BoomerAMG-CG" );

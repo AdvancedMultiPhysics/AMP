@@ -126,6 +126,9 @@ COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR 
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES )
 
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG )
+
 IF ( USE_TRILINOS )
     COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-ML )
     COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-ML-CG )

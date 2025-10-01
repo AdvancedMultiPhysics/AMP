@@ -1,4 +1,4 @@
-<<< "input_DiffusionFDOperator-1D" >>>
+<<< input_DiffusionFDOperator-2D >>>
 
 LinearSolver{
   name = "CGSolver"
