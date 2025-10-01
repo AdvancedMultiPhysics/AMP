@@ -329,6 +329,7 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
     }
 
     HYPRE_BoomerAMGSetTol( d_solver, static_cast<HYPRE_Real>( d_dRelativeTolerance ) );
+    HYPRE_BoomerAMGSetConvergeType( d_solver, static_cast<HYPRE_Int>( 1 ) );
     HYPRE_BoomerAMGSetMaxIter( d_solver, d_iMaxIterations );
     HYPRE_BoomerAMGSetPrintLevel( d_solver, d_iDebugPrintInfoLevel );
 }
@@ -349,46 +350,36 @@ void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     HYPRE_SetMemoryLocation( d_memory_location );
     HYPRE_SetExecutionPolicy( d_exec_policy );
 
-    const auto f_norm = static_cast<HYPRE_Real>( f->L2Norm() );
-
-    // Zero rhs implies zero solution, bail out early
-    if ( f_norm == static_cast<HYPRE_Real>( 0.0 ) ) {
-        u->zero();
-        d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
-        d_dResidualNorm     = 0.0;
-        if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "BoomerAMGSolver::apply: solution is zero" << std::endl;
-        }
-        return;
-    }
-
     // Compute initial residual, used mostly for reporting in this case
     // since Hypre tracks this internally
     // Can we get that value from Hypre and remove one global reduce?
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r;
-    HYPRE_Real current_res;
+    auto r = f->clone();
     if ( d_bUseZeroInitialGuess ) {
         u->zero();
-        current_res = f_norm;
+        r->copyVector( f );
     } else {
-        r = f->clone();
         d_pOperator->residual( f, u, r );
-        current_res = static_cast<HYPRE_Real>( r->L2Norm() );
     }
-    d_dInitialResidual = current_res;
+
+    d_dResidualNorm = static_cast<HYPRE_Real>( r->L2Norm() );
+
+    d_dInitialResidual = d_dResidualNorm;
+
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of residual: " << d_dResidualNorm
+                  << std::endl;
+    }
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of solution vector: " << u->L2Norm()
                   << std::endl;
-        AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of rhs vector: " << f_norm
-                  << std::endl;
-        AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of residual: " << current_res
+        AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of rhs vector: " << f->L2Norm()
                   << std::endl;
     }
 
     // return if the residual is already low enough
     // checkStoppingCriteria responsible for setting flags on convergence reason
-    if ( checkStoppingCriteria( current_res ) ) {
+    if ( checkStoppingCriteria( d_dResidualNorm ) ) {
         if ( d_iDebugPrintInfoLevel > 0 ) {
             AMP::pout << "BoomerAMGSolver::apply: initial residual below tolerance" << std::endl;
         }
@@ -420,35 +411,24 @@ void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     HYPRE_Int hypre_iters;
     HYPRE_BoomerAMGGetNumIterations( d_solver, &hypre_iters );
     d_iNumberIterations = hypre_iters;
-    HYPRE_Real hypre_res;
-    HYPRE_BoomerAMGGetFinalRelativeResidualNorm( d_solver, &hypre_res );
 
-    // Check for NaNs
-    if ( std::isnan( hypre_res ) ) {
-        d_ConvergenceStatus = SolverStatus::DivergedOther;
-        AMP_WARNING( "HyprePCGSolver::apply: Residual norm is NaN" );
-    }
-
-    // Re-compute or query final residual
-    if ( d_bComputeResidual ) {
-        d_pOperator->residual( f, u, r );
-        current_res = static_cast<HYPRE_Real>( r->L2Norm() );
-    } else {
-        current_res = hypre_res;
-    }
-
+    // Re-compute final residual, hypre only returns relative residual
+    d_pOperator->residual( f, u, r );
+    d_dResidualNorm = static_cast<HYPRE_Real>( r->L2Norm() );
     // Store final residual norm and update convergence flags
-    d_dResidualNorm = current_res;
-    checkStoppingCriteria( current_res );
+    checkStoppingCriteria( d_dResidualNorm );
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
-        AMP::pout << "BoomerAMGSolver::apply: final L2Norm of solution: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "BoomerAMGSolver::apply: final L2Norm of residual: " << current_res
+        AMP::pout << "BoomerAMGSolver::apply: final L2Norm of residual: " << d_dResidualNorm
                   << std::endl;
         AMP::pout << "BoomerAMG::apply: iterations: " << d_iNumberIterations << std::endl;
         AMP::pout << "BoomerAMG::apply: convergence reason: "
                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+    }
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "BoomerAMGSolver::apply: final L2Norm of solution: " << u->L2Norm()
+                  << std::endl;
     }
 }
 
