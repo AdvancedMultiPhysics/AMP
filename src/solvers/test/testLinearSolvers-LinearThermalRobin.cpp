@@ -64,16 +64,11 @@ std::vector<std::string> getHypreMemorySpaces()
 {
 #ifdef AMP_USE_HYPRE
     std::vector<std::string> memspaces;
-    #if defined( HYPRE_USING_HOST_MEMORY )
     memspaces.emplace_back( "host" );
-    #elif defined( HYPRE_USING_DEVICE_MEMORY )
-    memspaces.emplace_back( "host" );
+    #if defined( HYPRE_USING_DEVICE_MEMORY )
     memspaces.emplace_back( "device" );
     #elif defined( HYPRE_USING_UNIFIED_MEMORY )
-    memspaces.emplace_back( "host" );
     memspaces.emplace_back( "managed" );
-    #else
-    memspaces.emplace_back( "host" );
     #endif
     return memspaces;
 #else
@@ -226,7 +221,8 @@ void runTestOnInputs( AMP::UnitTest *ut,
                       std::vector<std::string> generalInputs,
                       std::vector<std::string> deviceInputs,
                       std::vector<std::string> hostOnlyInputs,
-                      std::vector<std::string> managedInputs )
+                      std::vector<std::string> managedInputs,
+                      const bool strict = false )
 {
 
     auto linearSystem = constructLinearSystem( physicsInput );
@@ -262,8 +258,10 @@ void runTestOnInputs( AMP::UnitTest *ut,
         auto backendsAndMemory = getBackendsAndMemory( "host" );
 
         auto inputs = hostOnlyInputs;
-        inputs.insert( inputs.end(), managedInputs.begin(), managedInputs.end() );
-        inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
+        if ( !strict ) {
+            inputs.insert( inputs.end(), managedInputs.begin(), managedInputs.end() );
+            inputs.insert( inputs.end(), generalInputs.begin(), generalInputs.end() );
+        }
 
         for ( auto &file : inputs ) {
             for ( auto &[backend, memory] : backendsAndMemory )
@@ -289,209 +287,243 @@ int main( int argc, char *argv[] )
 
     auto hypre_memspaces = getHypreMemorySpaces();
 
-    if ( argc > 2 ) {
-        physicsInput = argv[1];
-        for ( int i = 2; i < argc; i++ )
-            generalInputs.emplace_back( argv[i] );
+    if ( argc > 1 ) {
+        if ( argc > 3 ) {
+            std::string memory_space( argv[1] );
+            physicsInput = argv[2];
+            if ( memory_space == "host" ) {
+                for ( int i = 3; i < argc; i++ )
+                    hostOnlyInputs.emplace_back( argv[i] );
+            } else if ( memory_space == "device" ) {
+                for ( int i = 3; i < argc; i++ )
+                    deviceInputs.emplace_back( argv[i] );
+            } else if ( memory_space == "managed" ) {
+                for ( int i = 3; i < argc; i++ )
+                    managedInputs.emplace_back( argv[i] );
+            }
+        } else {
+            AMP_ERROR( "Usage: testLinearSolvers-LinearThermalRobin "
+                       "[host|device|managed] input_physics input_solver" );
+        }
 
+        runTestOnInputs(
+            &ut, physicsInput, generalInputs, deviceInputs, hostOnlyInputs, managedInputs, true );
     } else {
+        {
+            physicsInput = "input_LinearThermalRobinOperator";
 
-        physicsInput = "input_LinearThermalRobinOperator";
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CG" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-IPCG" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FCG" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRES" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FGMRES" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BiCGSTAB" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-TFQMR" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS2" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-GMRESWithRestart" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-QMRCGSTAB" );
 
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CG" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-IPCG" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FCG" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRES" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-FGMRES" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BiCGSTAB" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-TFQMR" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithCGS2" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-GMRESWithRestart" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-QMRCGSTAB" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-IPCG" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-FCG" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG-FCG" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRES" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-FGMRES" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-GMRES" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-BiCGSTAB" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-TFQMR" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-BiCGSTAB" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB" );
 
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-IPCG" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-FCG" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-CG-FCG" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRES" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-FGMRES" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-GMRES" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-BiCGSTAB" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-GMRESR-TFQMR" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-BiCGSTAB" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB" );
-
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES" );
 
 #ifdef AMP_USE_PETSC
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscCG" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscFGMRES" );
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscBiCGSTAB" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscCG" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscFGMRES" );
-        generalInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscBiCGSTAB" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscCG" );
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-PetscFGMRES" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-PetscBiCGSTAB" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscCG" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscFGMRES" );
+            generalInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-PetscBiCGSTAB" );
 #endif
 
 #ifdef AMP_USE_HYPRE
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreBiCGSTAB" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreGMRES" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreBiCGSTAB" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreGMRES" );
 
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreCG" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreGMRES" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreBiCGSTAB" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreCG" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreGMRES" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreBiCGSTAB" );
 
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG" );
 
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-IPCG" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FCG" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG-FCG" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRES" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FGMRES" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-GCR" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-GMRES" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-BiCGSTAB" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-TFQMR" );
-        //        hypreInputs.emplace_back(
-        //            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-QMRCGSTAB" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-BiCGSTAB" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-TFQMR" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-QMRCGSTAB" );
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-IPCG" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FCG" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG-FCG" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRES" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FGMRES" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-GCR" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-GMRES" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-BiCGSTAB" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-TFQMR" );
+            //        hypreInputs.emplace_back(
+            //            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-GMRESR-QMRCGSTAB" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-BiCGSTAB" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-TFQMR" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-QMRCGSTAB" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
 
-        if ( hypre_memspaces.size() == 1 ) {
-            if ( hypre_memspaces[0] == "device" ) {
-                deviceInputs.insert( deviceInputs.end(), hypreInputs.begin(), hypreInputs.end() );
-            } else {
-                hostOnlyInputs.insert(
-                    hostOnlyInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+            hostOnlyInputs.insert( hostOnlyInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+
+            if ( hypre_memspaces.size() > 1 ) {
+                if ( hypre_memspaces[1] == "device" ) {
+                    deviceInputs.insert(
+                        deviceInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+                } else {
+                    managedInputs.insert(
+                        managedInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+                }
             }
-        } else {
-            managedInputs.insert( managedInputs.end(), hypreInputs.begin(), hypreInputs.end() );
-        }
 
-        if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
-            hostOnlyInputs.emplace_back(
-                "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
-            hostOnlyInputs.emplace_back(
-                "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG" );
-        }
+            if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
+                hostOnlyInputs.emplace_back(
+                    "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
+                hostOnlyInputs.emplace_back(
+                    "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG" );
+            }
 
     #ifdef AMP_USE_PETSC
-        // hostOnlyInputs.emplace_back(
-        //     "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscFGMRES" );
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscBiCGSTAB" );
+            // hostOnlyInputs.emplace_back(
+            //     "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscCG" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscFGMRES" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-PetscBiCGSTAB" );
     #endif
 #endif
-        if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
-            hostOnlyInputs.emplace_back(
-                "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS" );
-            hostOnlyInputs.emplace_back(
-                "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG" );
-        }
+            if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
+                hostOnlyInputs.emplace_back(
+                    "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS" );
+                hostOnlyInputs.emplace_back(
+                    "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG" );
+            }
 
 #ifdef AMP_USE_TRILINOS_ML
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-CG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-IPCG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-FCG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-GMRES" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-FGMRES" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-BiCGSTAB" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-TFQMR" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-CG" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-IPCG" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-FCG" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-GMRES" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-FGMRES" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-BiCGSTAB" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-TFQMR" );
     #ifdef AMP_USE_PETSC
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-PetscCG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-PetscFGMRES" );
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-ML-PetscBiCGSTAB" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-ML-PetscCG" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-ML-PetscFGMRES" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-ML-PetscBiCGSTAB" );
     #endif
 #endif
 
 #ifdef AMP_USE_TRILINOS_MUELU
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-CG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-IPCG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-FCG" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-GMRES" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-FGMRES" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-BiCGSTAB" );
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-TFQMR" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-CG" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-IPCG" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-FCG" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-GMRES" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-MueLu-FGMRES" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-MueLu-BiCGSTAB" );
+            hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-TFQMR" );
     #ifdef AMP_USE_PETSC
-        hostOnlyInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-MueLu-PetscCG" );
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-MueLu-PetscFGMRES" );
-        hostOnlyInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-MueLu-PetscBiCGSTAB" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-MueLu-PetscCG" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-MueLu-PetscFGMRES" );
+            hostOnlyInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-MueLu-PetscBiCGSTAB" );
     #endif
 #endif
-        runTestOnInputs(
-            &ut, physicsInput, generalInputs, deviceInputs, hostOnlyInputs, managedInputs );
-    }
+            runTestOnInputs(
+                &ut, physicsInput, generalInputs, deviceInputs, hostOnlyInputs, managedInputs );
+        }
 
-    {
-        generalInputs.clear();
-        deviceInputs.clear();
-        managedInputs.clear();
-        hostOnlyInputs.clear();
-        generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-CG" );
+        {
+            generalInputs.clear();
+            deviceInputs.clear();
+            managedInputs.clear();
+            hostOnlyInputs.clear();
+            generalInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-CG" );
 
 #ifdef AMP_USE_HYPRE
-        hypreInputs.clear();
-        hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG" );
-        hypreInputs.emplace_back(
-            "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG-CG" );
+            hypreInputs.clear();
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG-CG" );
 
-        if ( hypre_memspaces.size() == 1 ) {
-            if ( hypre_memspaces[0] == "device" ) {
-                deviceInputs.insert( deviceInputs.end(), hypreInputs.begin(), hypreInputs.end() );
-            } else {
-                hostOnlyInputs.insert(
-                    hostOnlyInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+            hostOnlyInputs.insert( hostOnlyInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+
+            if ( hypre_memspaces.size() > 1 ) {
+                if ( hypre_memspaces[1] == "device" ) {
+                    deviceInputs.insert(
+                        deviceInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+                } else {
+                    managedInputs.insert(
+                        managedInputs.end(), hypreInputs.begin(), hypreInputs.end() );
+                }
             }
-        } else {
-            managedInputs.insert( managedInputs.end(), hypreInputs.begin(), hypreInputs.end() );
-        }
 #endif
 
-        runTestOnInputs( &ut,
-                         "input_LinearThermalRobinOperator-CylMesh",
-                         generalInputs,
-                         deviceInputs,
-                         hostOnlyInputs,
-                         managedInputs );
+            runTestOnInputs( &ut,
+                             "input_LinearThermalRobinOperator-CylMesh",
+                             generalInputs,
+                             deviceInputs,
+                             hostOnlyInputs,
+                             managedInputs );
+        }
     }
 
     ut.report();
