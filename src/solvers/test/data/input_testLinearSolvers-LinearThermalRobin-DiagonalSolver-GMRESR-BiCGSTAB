@@ -22,7 +22,7 @@ BiCGSTAB{
 <<< "PC-DiagParameters" >>>
 
 Reference{
-  iterations = 5
+  iterations = 10
   res_l2_norm = -1.0
   tolerance = 0.0
   strict = FALSE
