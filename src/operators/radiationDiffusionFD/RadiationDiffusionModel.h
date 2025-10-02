@@ -63,6 +63,9 @@ public:
 
     //
 protected:
+    //! Flag indicating whether linear or nonlinear PDE coefficients are used
+    bool d_isNonlinear;
+
     //! The current time of the solution.
     double d_currentTime = 0.0;
 

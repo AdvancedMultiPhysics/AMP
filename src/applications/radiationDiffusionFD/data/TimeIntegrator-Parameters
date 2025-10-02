@@ -10,7 +10,7 @@ TimeIntegrator {
     
     variable_names = ["ENERGY", "TEMPERATURE"]
 
-    max_integrator_steps = 1000
+    max_integrator_steps = 1
     #max_integrator_steps = 200
 
     initial_time = 0.0
@@ -18,25 +18,6 @@ TimeIntegrator {
     print_info_level = 1
     
     user_managed_time_operator  = TRUE # User builds I + gamma*f
-    
-    # # My initial attempt (doesn't work)
-    # timestep_selection_strategy = "truncationErrorStrategy"
-    # pi_controller_type          = "PC.4.7"
-    # timeTruncationErrorNormType = "maxNorm"
-    # predictor_type              = "leapfrog"
-    # problem_fixed_scaling       = 1.0, 1.0
-
-    # # Bobby v1 (doesn't work):
-    # predictor_type              = "leapfrog"
-    # initial_dt            =  4.0e-04  
-    # max_dt                = 1.0
-    # timestep_selection_strategy =  "truncationErrorStrategy"     
-    # use_pi_controller        = TRUE
-    # pi_controller_type          = "PC.4.7"
-    # truncation_error_rtol       = 1.0e-03
-    # truncation_error_atol       = 1.0e-03
-    # problem_fixed_scaling       = 1.0e-04, 0.5623413251903490808
-    # #problem_fixed_scaling       = 1.0, 0.1
 
     # Bobby v2 (seems to work fine):
     timestep_selection_strategy = "final constant" 
@@ -102,7 +83,7 @@ TimeIntegrator {
         pc_side    = "RIGHT"
         KSPOptions = "-ksp_converged_reason"
 
-        # These tols should be ignored due to EW being turned on
+        # These tols should be ignored when EW is turned on
         absolute_tolerance   = 1.0e-8 
         relative_tolerance   = 1.0e-10
 
@@ -135,18 +116,6 @@ TimeIntegrator {
               max_iterations     = 1
             }
         }
-
-        # # Use GMRES to "exactly apply" inv(L)
-        # Preconditioner{
-        #   name = "GMRESSolver"
-        #   uses_preconditioner = FALSE
-        #   flexible_gmres = FALSE
-        #   absolute_tolerance = 0
-        #   relative_tolerance = 1.0e-10
-        #   print_info_level = 0
-        #   max_iterations = 3
-        #   max_dimension  = 300
-        # }
       }
     }
 }

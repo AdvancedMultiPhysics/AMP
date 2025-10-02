@@ -69,13 +69,11 @@ void RadDifModel::getLHSRobinConstantsFromDB( size_t boundaryID, double &ak, dou
 
 double RadDifModel::diffusionCoefficientE( double T, double zatom ) const
 {
-    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "nonlinear" ) {
+    if ( d_isNonlinear ) {
         double sigma = std::pow( zatom / T, 3.0 );
         return 1.0 / ( 3 * sigma );
-    } else if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
-        return 1.0;
     } else {
-        AMP_ERROR( "Invalid model" );
+        return 1.0;
     }
 }
 
@@ -89,6 +87,9 @@ Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel(
     std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ )
     : RadDifModel( basic_db_, mspecific_db_ )
 {
+    // This PDE uses nonlinear coefficients
+    d_isNonlinear = true;
+
     AMP_INSIST( d_dim < 3, "Mousseau_etal_2000_RadDifModel only implemented in 1D and 2D" );
     finalizeGeneralPDEModel_db();
 }
@@ -140,9 +141,6 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db()
     double a4 = 0.0, b4 = 1.0, r4 = 0.0;
     double n4 = 0.0;
 
-    // This PDE is nonlinear
-    std::string model = "nonlinear";
-
     // Package into database
     d_RadiationDiffusionFD_input_db->putScalar<double>( "a1", a1 );
     d_RadiationDiffusionFD_input_db->putScalar<double>( "a2", a2 );
@@ -169,7 +167,7 @@ void Mousseau_etal_2000_RadDifModel::finalizeGeneralPDEModel_db()
     d_RadiationDiffusionFD_input_db->putScalar<double>( "k21", k21 );
     d_RadiationDiffusionFD_input_db->putScalar<double>( "k22", k22 );
 
-    d_RadiationDiffusionFD_input_db->putScalar<std::string>( "model", model );
+    d_RadiationDiffusionFD_input_db->putScalar<bool>( "isNonlinear", d_isNonlinear );
     // Flag that we've finalized this database
     d_RadiationDiffusionFD_input_db_completed = true;
 }
@@ -185,6 +183,9 @@ Manufactured_RadDifModel::Manufactured_RadDifModel( std::shared_ptr<AMP::Databas
 {
     // Set flag indicating this class does provide an implementation of exactSolution
     d_exactSolutionAvailable = true;
+
+    // 
+    d_isNonlinear = specific_db_->getScalar<bool>( "isNonlinear" );
 
     finalizeGeneralPDEModel_db();
 }
@@ -232,8 +233,7 @@ void Manufactured_RadDifModel::finalizeGeneralPDEModel_db()
     d_RadiationDiffusionFD_input_db->putScalar<double>(
         "k22", d_mspecific_db->getScalar<double>( "k22" ) );
 
-    d_RadiationDiffusionFD_input_db->putScalar<std::string>(
-        "model", d_mspecific_db->getScalar<std::string>( "model" ) );
+    d_RadiationDiffusionFD_input_db->putScalar<bool>( "isNonlinear", d_isNonlinear );
 
     // Flag that we've finalized this database
     d_RadiationDiffusionFD_input_db_completed = true;
@@ -395,43 +395,21 @@ double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) cons
     double k22   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
     double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
 
-    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
+    // Linear case
+    if ( !d_isNonlinear ) {
+        
         if ( component == 0 ) {
-            double sE =
-                std::pow( PI, 2 ) * k11 * std::pow( kX, 2 ) * std::sin( PI * kX * x + kXPhi ) *
-                    std::cos( PI * kT * t ) -
-                PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) -
-                k12 *
-                    ( -kE0 +
-                      std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) ) -
-                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) );
+            double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - k12*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sE;
         } else if ( component == 1 ) {
-            double sT =
-                -1.0 / 3.0 * PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) /
-                    std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
-                              2.0 / 3.0 ) -
-                k21 *
-                    ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                          std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) /
-                          std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
-                                    2.0 / 3.0 ) -
-                      2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                          std::pow( std::cos( PI * kT * t ), 2 ) *
-                          std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) /
-                          std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
-                                    5.0 / 3.0 ) ) +
-                k22 *
-                    ( -kE0 +
-                      std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) ) -
-                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) );
+            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)) + k22*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
         }
 
-    } else if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) ==
-                "nonlinear" ) {
+    // Nonlinear case
+    } else {
         if ( component == 0 ) {
             double sE =
                 ( ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * k11 * kE0 * std::pow( kX, 2 ) *
@@ -473,8 +451,6 @@ double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) cons
         } else {
             AMP_ERROR( "Invalid component" );
         }
-    } else {
-        AMP_ERROR( "Invalid model" );
     }
 }
 
@@ -554,7 +530,8 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
     double k22   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
     double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
 
-    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
+    // Linear case
+    if ( !d_isNonlinear ) {
         if ( component == 0 ) {
             double sE =
                 std::pow( PI, 2 ) * k11 * ( std::pow( kX, 2 ) + std::pow( kY, 2 ) ) *
@@ -609,8 +586,8 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
             AMP_ERROR( "Invalid component" );
         }
 
-    } else if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) ==
-                "nonlinear" ) {
+    // Nonlinear case
+    } else {
         if ( component == 0 ) {
             double sE =
                 ( 1.0 / 3.0 ) *
@@ -691,8 +668,6 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
         } else {
             AMP_ERROR( "Invalid component" );
         }
-    } else {
-        AMP_ERROR( "Invalid model" );
     }
 }
 
@@ -793,7 +768,8 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
     double k22   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
     double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
 
-    if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) == "linear" ) {
+    // Linear case
+    if (  !d_isNonlinear  ) {
         if ( component == 0 ) {
             double sE =
                 std::pow( PI, 2 ) * k11 * std::pow( kX, 2 ) * std::sin( PI * kX * x + kXPhi ) *
@@ -887,8 +863,8 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
             AMP_ERROR( "Invalid component" );
         }
 
-    } else if ( d_RadiationDiffusionFD_input_db->getScalar<std::string>( "model" ) ==
-                "nonlinear" ) {
+    // Nonlinear case
+    } else {
         if ( component == 0 ) {
             double sE =
                 -PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
@@ -1019,8 +995,6 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
         } else {
             AMP_ERROR( "Invalid component" );
         }
-    } else {
-        AMP_ERROR( "Invalid model" );
     }
 }
 

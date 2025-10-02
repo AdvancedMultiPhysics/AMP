@@ -21,24 +21,6 @@
 #include <variant>
 
 
-// todo: I have a couple global parameters floating around (nonlinear, flux limiting), I really
-// should template against these...
-// actually. i should set the fluxlimiting one as a constexpr inside the class where the function that does fluxlimiting is described (since limting should be on in general, it's just that I have some bug right now...)
-// Not sure about the coefficients one --- will ask Bobby.
-
-
-// ok... maybe template the operator on the coefficients... but this requires passing in the
-// coefficients to the operator at construction time, so I'd be required to make a derived operator
-// parameters...
-// // Then the user must implement (inside some coefficient class):
-// double diffusionE(double T, double zatom) const;
-// double diffusionT(double T) const;
-// void reaction(double T, double zatom,
-//                           double& REE, double& RET,
-//                           double& RTE, double& RTT) const;
-// and I think these functions then get inlined
-
-
 /** The classes in this file are (or are associated with) spatial finite-discretizations of
  * the radiation-diffusion problem:
  *      u'(t) - D(u) - R(u)  = s(t), u(0) = u_0
@@ -77,8 +59,7 @@
 namespace AMP::Operator {
 
 // Foward declaration of classes declared in this file
-template<bool IsNonlinear>
-class PDECoefficients;         // Static class defining PDE coefficients
+class RadDifCoefficients;      // Static class defining PDE coefficients
 class FDMeshOps;               // Static class for creating mesh-related data and FD coefficients
 class FDMeshGlobalIndexingOps; // Class for index conversions on global DOFs
 class FDBoundaryUtils;         // Static class for boundary-related utilities
@@ -89,17 +70,20 @@ class RadDifOpPJacParameters; // Operator parameters for linearization
 struct RadDifOpPJacData;      // Data structure for storing the linearization data
 
 /** Static class defining coefficients in a radiation-diffusion PDE */
-template<bool IsNonlinear>
-class PDECoefficients
+class RadDifCoefficients
 {
 
 public:
+    // Hack. This should really be templated against. Realistically the operator RadDifOp, and its linearization, should be templated against a coefficient class, and a non-templated base class added.
+    //! Flag indicating whether nonlinear or linear PDE coefficients are used
+    static constexpr bool IsNonlinear = true; 
+
     //! Prevent instantiation
-    PDECoefficients() = delete;
+    RadDifCoefficients() = delete;
 
     /** Energy diffusion coefficient k11*D_E, given constant k11, temperature T, and atomic number
      * zatom:
-     * nonlinear: D_E = 1/3*sigma, sigma=(z/T)^3
+     * nonlinear: D_E = 1/(3*sigma), sigma=(zatom/T)^3
      * linear: D_E = 1.0
      */
     static double diffusionE( double k11, double T, double zatom );
@@ -135,6 +119,10 @@ private:
     static constexpr size_t EAST   = 2;
 
 public:
+    // Hack. This should really be templated against. That said, for applications flux limiting is usually required.
+    //! Flag indicating whether energy diffusion coefficient is limited
+    static constexpr bool IsFluxLimited = true; 
+
     //! Prevent instantiation
     FDMeshOps() = delete;
 
@@ -154,8 +142,6 @@ public:
 
     /** Compute diffusion coefficients at two cell faces using 3-point stencil data in ELoc3 and
      * TLoc3
-     * @param[in] IsNonlinear template parameter for diffusion coefficients
-     * @param[in] IsFluxLimited flag indicating whether to use flux limiting
      * @param[in] computeE flag indicating whether to compute E diffusion coefficients
      * @param[in] computeT flag indicating whether to compute T diffusion coefficients
      * @param[out] Dr_WO WEST coefficient in for energy
@@ -163,7 +149,7 @@ public:
      * @param[out] DT_WO WEST coefficient in for temperature
      * @param[out] DT_OE EAST coefficient in for temperature
      */
-    template<bool IsNonlinear, bool IsFluxLimited, bool computeE, bool computeT>
+    template<bool computeE, bool computeT>
     static void FaceDiffusionCoefficients( std::array<double, 3> &ELoc3,
                                            std::array<double, 3> &TLoc3,
                                            double k11,
@@ -371,11 +357,6 @@ class RadDifOp : public AMP::Operator::Operator
 {
 
     // Data
-private:
-    static constexpr bool IsNonlinear   = true;  // hack for the moment...
-    static constexpr bool IsFluxLimited = false; // hack for the moment...
-
-    // Data
 public:
     //! Parameters required by the discretization
     std::shared_ptr<AMP::Database> d_db = nullptr;
@@ -546,11 +527,6 @@ protected:
  */
 class RadDifOpPJac : public AMP::Operator::LinearOperator
 {
-
-    // Data
-private:
-    static constexpr bool IsNonlinear   = true;  // hack for the moment...
-    static constexpr bool IsFluxLimited = false; // hack for the moment...
 
     //
 public:

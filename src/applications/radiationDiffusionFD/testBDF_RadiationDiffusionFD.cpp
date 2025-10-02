@@ -72,6 +72,9 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
         myRadDifModel = myRadDifModel_;
 
     } else if ( modelID == "Manufactured" ) {
+        // Get static isNonlinear value from raddif code, ensuring manufactured model is the same
+        PDE_mspecific_db->putScalar<bool>( "isNonlinear", AMP::Operator::RadDifCoefficients::IsNonlinear );
+
         auto myRadDifModel_ = std::make_shared<AMP::Operator::Manufactured_RadDifModel>(
             PDE_basic_db, PDE_mspecific_db );
         myRadDifModel = myRadDifModel_;
@@ -286,8 +289,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
                                          BDFSourceVec,
                                          PDESourceFun );
 
-            // Attempt to advance the solution with the current dt, getting return code from solver.
-            auto solver_retcode = timeIntegrator->advanceSolution( dt, T == 0.0, sol_old, sol_new );
+            // Attempt to advance the solution with the current dt
+            timeIntegrator->advanceSolution( dt, T == 0.0, sol_old, sol_new );
 
             // Check the computed solution (returns true if it is acceptable, and false otherwise)
             good_solution = timeIntegrator->checkNewSolution();

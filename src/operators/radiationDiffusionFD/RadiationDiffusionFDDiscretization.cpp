@@ -3,70 +3,44 @@
 namespace AMP::Operator {
 
 
-/** -------------------------------------------------------- *
- *  ----------- Implementation of PDECoefficients --------- *
- *  -------------------------------------------------------- */
+/** ---------------------------------------------------------- *
+ *  ----------- Implementation of RadDifCoefficients --------- *
+ *  ---------------------------------------------------------- */
 
-// NONLINEAR specialization
-template<>
-inline double PDECoefficients<true>::diffusionE( double k11, double T, double zatom )
+inline double RadDifCoefficients::diffusionE( double k11, double T, double zatom )
 {
-    double zByT  = zatom / T;
-    double sigma = zByT * zByT * zByT;
-    return k11 / ( 3.0 * sigma );
+    if constexpr ( IsNonlinear ) {
+        double zByT  = zatom / T;
+        double sigma = zByT * zByT * zByT;
+        return k11 / ( 3.0 * sigma );
+    } else {
+        return k11;
+    }
+    
 }
 
-// NONLINEAR specialization
-template<>
-inline double PDECoefficients<true>::diffusionT( double k21, double T )
+inline double RadDifCoefficients::diffusionT( double k21, double T )
 {
-    return k21 * T * T * std::sqrt( T ); // T^2.5
+    if constexpr ( IsNonlinear ) {
+        return k21 * T * T * std::sqrt( T ); // T^2.5
+    } else {
+        return k21;
+    }
 }
 
-// NONLINEAR specialization
-template<>
-inline void PDECoefficients<true>::reaction( double k12,
-                                                         double k22,
-                                                         double T,
-                                                         double zatom,
-                                                         double &REE,
-                                                         double &RET,
-                                                         double &RTE,
-                                                         double &RTT )
+inline void RadDifCoefficients::reaction( double k12, double k22, double T,
+                                        double zatom, double &REE, double &RET,
+                                        double &RTE, double &RTT )
 {
-    double Tcube = T * T * T;
-    double sigma = std::pow( zatom / T, 3.0 );
-
-    REE = RTE = -sigma;
-    RET = RTT = +sigma * Tcube;
-
-    REE *= -k12;
-    RET *= -k12;
-    RTE *= k22;
-    RTT *= k22;
-}
-
-// LINEAR specialization
-template<>
-inline double PDECoefficients<false>::diffusionE( double k11, double, double )
-{
-    return k11;
-}
-
-// LINEAR specialization
-template<>
-inline double PDECoefficients<false>::diffusionT( double k21, double )
-{
-    return k21;
-}
-
-// LINEAR specialization
-template<>
-inline void PDECoefficients<false>::reaction(
-    double k12, double k22, double, double, double &REE, double &RET, double &RTE, double &RTT )
-{
-    REE = RTE = -1.0;
-    RET = RTT = +1.0;
+    if constexpr ( IsNonlinear ) {
+        double Tcube = T * T * T;
+        double sigma = std::pow( zatom / T, 3.0 );
+        REE = RTE = -sigma;
+        RET = RTT = +sigma * Tcube;
+    } else {
+        REE = RTE = -1.0;
+        RET = RTT = +1.0;
+    }
 
     REE *= -k12;
     RET *= -k12;
@@ -202,7 +176,7 @@ void FDMeshOps::createDOFManagers(
         std::make_shared<AMP::Discretization::multiDOFManager>( comm, DOFManagersVec, mesh );
 }
 
-template<bool IsNonlinear, bool IsFluxLimited, bool computeE, bool computeT>
+template<bool computeE, bool computeT>
 void FDMeshOps::FaceDiffusionCoefficients( std::array<double, 3> &ELoc3,
                                            std::array<double, 3> &TLoc3,
                                            double k11,
@@ -222,9 +196,10 @@ void FDMeshOps::FaceDiffusionCoefficients( std::array<double, 3> &ELoc3,
     // Get diffusion coefficients at cell faces, i.e., mid points
     // Energy
     if constexpr ( computeE ) {
-        *Dr_WO = PDECoefficients<IsNonlinear>::diffusionE( k11, T_WO, zatom );
-        *Dr_OE = PDECoefficients<IsNonlinear>::diffusionE( k11, T_OE, zatom );
+        *Dr_WO = RadDifCoefficients::diffusionE( k11, T_WO, zatom );
+        *Dr_OE = RadDifCoefficients::diffusionE( k11, T_OE, zatom );
         // Limit the energy flux if need be, eq. (17)
+        // This is also the same as eq. (9) in "An efficient nonlinear solution method for non-equilibrium radiation diffusion by D.A. Knoll, W.J. Rider, G.L. Olson"
         if constexpr ( IsFluxLimited ) {
             double DE_WO =
                 *Dr_WO / ( 1.0 + *Dr_WO * ( abs( ELoc3[ORIGIN] - ELoc3[WEST] ) /
@@ -235,14 +210,16 @@ void FDMeshOps::FaceDiffusionCoefficients( std::array<double, 3> &ELoc3,
             *Dr_WO = DE_WO;
             *Dr_OE = DE_OE;
 
+        #if 0
             AMP_WARNING( "flux limiting is not working properly..." );
+        #endif
         }
     }
 
     // Temperature
     if constexpr ( computeT ) {
-        *DT_WO = PDECoefficients<IsNonlinear>::diffusionT( k21, T_WO );
-        *DT_OE = PDECoefficients<IsNonlinear>::diffusionT( k21, T_OE );
+        *DT_WO = RadDifCoefficients::diffusionT( k21, T_WO );
+        *DT_OE = RadDifCoefficients::diffusionT( k21, T_OE );
     }
 }
 
@@ -452,6 +429,12 @@ RadDifOpPJac::RadDifOpPJac( std::shared_ptr<const AMP::Operator::OperatorParamet
     auto params = std::dynamic_pointer_cast<const RadDifOpPJacParameters>( params_ );
     AMP_INSIST( params, "params must be of type RadDifOpPJacParameters" );
 
+    // Unpack parameter database
+    d_db = params->d_db;
+
+    // Ensure that the model is using consistent coefficients with the hard-coded value in RadDifCoefficients
+    AMP_INSIST( d_db->getScalar<bool>( "isNonlinear") == RadDifCoefficients::IsNonlinear, "'isNonlinear' in incoming database inconsistent with 'RadDifCoefficients::IsNonlinear'");
+
     // Create all of our required mesh data
     FDMeshOps::createMeshData( this->getMesh(),
                                d_BoxMesh,
@@ -468,8 +451,6 @@ RadDifOpPJac::RadDifOpPJac( std::shared_ptr<const AMP::Operator::OperatorParamet
     d_meshIndexingOps = std::make_shared<FDMeshGlobalIndexingOps>(
         d_BoxMesh, CellCenteredGeom, d_scalarDOFMan, d_multiDOFMan );
 
-    // Unpack parameter database
-    d_db = params->d_db;
     // Unpack frozen vector
     d_frozenVec = params->d_frozenSolution;
 
@@ -599,7 +580,7 @@ void RadDifOpPJac::ghostValuesSolveWrapper( size_t boundaryID,
     auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 );
     // Create a handle for evaluating the diffusion coefficient
     auto cHandle = [&]( double T_midpoint ) {
-        return PDECoefficients<IsNonlinear>::diffusionE( d_k11, T_midpoint, zatom );
+        return RadDifCoefficients::diffusionE( d_k11, T_midpoint, zatom );
     };
 
     // Get the Robin constants for the given boundaryID
@@ -840,7 +821,7 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
                 T   = T_vec->getValueByLocalID<double>( dof );
 
                 // Compute reaction coefficients at cell centers
-                PDECoefficients<IsNonlinear>::reaction(
+                RadDifCoefficients::reaction(
                     d_k12, d_k22, T, zatom, REE, RET, RTE, RTT );
 
                 // Insert values into the vectors
@@ -946,11 +927,11 @@ void RadDifOpPJac::getCSRDataDiffusionMatrixInterior(
 
         // Get energy coefficients
         if constexpr ( Component == 0 ) {
-            FDMeshOps::FaceDiffusionCoefficients<IsNonlinear, IsFluxLimited, true, false>(
+            FDMeshOps::FaceDiffusionCoefficients<true, false>(
                 d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, d_h[dim], &D_WO, &D_OE, nullptr, nullptr );
             // Get temperature coefficients
         } else if constexpr ( Component == 1 ) {
-            FDMeshOps::FaceDiffusionCoefficients<IsNonlinear, IsFluxLimited, false, true>(
+            FDMeshOps::FaceDiffusionCoefficients<false, true>(
                 d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, d_h[dim], nullptr, nullptr, &D_WO, &D_OE );
         }
 
@@ -1028,11 +1009,11 @@ void RadDifOpPJac::getCSRDataDiffusionMatrixBoundary(
         // Compute diffusion coefficients for E or T
         // Get energy coefficients
         if constexpr ( Component == 0 ) {
-            FDMeshOps::FaceDiffusionCoefficients<IsNonlinear, IsFluxLimited, true, false>(
+            FDMeshOps::FaceDiffusionCoefficients<true, false>(
                 d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, d_h[dim], &D_WO, &D_OE, nullptr, nullptr );
             // Get temperature coefficients
         } else if constexpr ( Component == 1 ) {
-            FDMeshOps::FaceDiffusionCoefficients<IsNonlinear, IsFluxLimited, false, true>(
+            FDMeshOps::FaceDiffusionCoefficients<false, true>(
                 d_ELoc3, d_TLoc3, d_k11, d_k21, zatom, d_h[dim], nullptr, nullptr, &D_WO, &D_OE );
         }
 
@@ -1254,7 +1235,7 @@ void RadDifOp::ghostValuesSolveWrapper( size_t boundaryID,
     auto zatom = d_db->getWithDefault<double>( "zatom", 1.0 );
     // Create a handle for evaluating the diffusion coefficient
     auto cHandle = [&]( double T_midpoint ) {
-        return PDECoefficients<IsNonlinear>::diffusionE( d_k11, T_midpoint, zatom );
+        return RadDifCoefficients::diffusionE( d_k11, T_midpoint, zatom );
     };
 
     // Get the Robin constants for the given boundaryID
@@ -1396,7 +1377,7 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 
                     // Get diffusion coefficients for both E and T
                     double Dr_WO, Dr_OE, DT_WO, DT_OE;
-                    FDMeshOps::FaceDiffusionCoefficients<IsNonlinear, IsFluxLimited, true, true>(
+                    FDMeshOps::FaceDiffusionCoefficients<true, true>(
                         ELoc3,
                         TLoc3,
                         d_k11,
@@ -1421,7 +1402,7 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 
                 // Compute reaction coefficients at cell centers
                 double REE, RET, RTE, RTT;
-                PDECoefficients<IsNonlinear>::reaction(
+                RadDifCoefficients::reaction(
                     d_k12, d_k22, TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
 
                 // Sum diffusion and reaction terms
@@ -1512,7 +1493,7 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                         // Get diffusion coefficients for both E and T
                         double Dr_WO, Dr_OE, DT_WO, DT_OE;
                         FDMeshOps::
-                            FaceDiffusionCoefficients<IsNonlinear, IsFluxLimited, true, true>(
+                            FaceDiffusionCoefficients<true, true>(
                                 ELoc3,
                                 TLoc3,
                                 d_k11,
@@ -1539,7 +1520,7 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                     // Compute reaction coefficients at cell centers using T value set in the last
                     // iteration of the above loop
                     double REE, RET, RTE, RTT;
-                    PDECoefficients<IsNonlinear>::reaction(
+                    RadDifCoefficients::reaction(
                         d_k12, d_k22, TLoc3[ORIGIN], zatom, REE, RET, RTE, RTT );
 
                     // Sum diffusion and reaction terms

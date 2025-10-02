@@ -1,6 +1,4 @@
 Manufactured_Parameters{ 
-  #model = "nonlinear"
-  model = "linear"
   zatom = 1.0
   k11 = 1.0
   k12 = 1.0
