@@ -522,8 +522,7 @@ template<class TYPE, class Allocator>
 size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const typeID &id ) const
 {
     if ( id == getTypeID<TYPE>() ) {
-        auto dst = reinterpret_cast<TYPE *>( vals );
-        AMP::Utilities::Algorithms<TYPE>::copy_n( d_Ghosts, d_ghostSize, dst );
+        AMP::Utilities::memcpy( vals, d_Ghosts, d_ghostSize * sizeof( TYPE ) );
     } else {
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
@@ -573,7 +572,7 @@ void GhostDataHelper<TYPE, Allocator>::copyGhostValues( const VectorData &rhs )
     } else {
         // We can't copy the ghosts from the rhs
         // Use makeConsistent to fill the ghosts
-        // Note: this will insure global communication
+        // Note: this will ensure global communication
         *d_UpdateState = rhs.getLocalUpdateStatus();
         if ( *d_UpdateState == UpdateState::UNCHANGED )
             *d_UpdateState = UpdateState::LOCAL_CHANGED;

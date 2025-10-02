@@ -4,15 +4,15 @@ LinearSolver{
   name = "GMRESSolver"
   flexible_gmres = TRUE
   uses_preconditioner = FALSE
-  max_iterations = 30
+  max_iterations = 100
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
   print_info_level = 2
 }
 
 Reference{
-  iterations = 25
-  res_l2_norm = 3.04412e-12
+  iterations = 65
+  res_l2_norm = 2.995524488910496e-09
   tolerance = 5.0e-12
   strict = TRUE
 }

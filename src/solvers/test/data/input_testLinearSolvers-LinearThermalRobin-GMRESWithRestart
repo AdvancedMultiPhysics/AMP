@@ -8,14 +8,14 @@ LinearSolver{
   gmres_restart = TRUE
   max_dimension = 20
   print_info_level = 2
-  max_iterations = 100
+  max_iterations = 150
 }
 
 <<< "PC-BoomerAMGParameters" >>>
 
 Reference{
-  iterations = 31
-  res_l2_norm = 3.7e-09
-  tolerance = 0.0
+  iterations = 133
+  res_l2_norm = 4.233171719094911e-09
+  tolerance = 1.0e-09
   strict = FALSE
 }

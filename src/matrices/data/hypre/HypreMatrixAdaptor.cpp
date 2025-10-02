@@ -231,7 +231,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<csr_data_type> c
     off_diag->data  = coeffs_od;
     off_diag->j     = cols_loc_od;
 
-    // Update metadata fields to match what we've inserted
+    // Update metadata fields to match what we've inserted!
     diag->num_nonzeros     = nnz_total_d;
     off_diag->num_nonzeros = nnz_total_od;
 
@@ -249,8 +249,6 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<csr_data_type> c
 
         // and do device map if needed
         if ( memory_location == HYPRE_MEMORY_DEVICE ) {
-            // Important: Hypre always stores this in pure device memory
-            //            even if the rest is in unified (managed in amp lingo)
             par_matrix->device_col_map_offd =
                 hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_DEVICE );
             AMP::Utilities::copy( static_cast<size_t>( off_diag->num_cols ),
