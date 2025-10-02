@@ -66,7 +66,7 @@ private:
  * \class TriangleMesh
  * \brief A class used to represent an unstructured mesh of Triangles/Tetrahedrals
  */
-template<uint8_t NG, uint8_t NP>
+template<uint8_t NG, uint8_t NP = NG + 1>
 class TriangleMesh : public AMP::Mesh::Mesh
 {
 public: // Convenience typedefs
@@ -78,21 +78,15 @@ public: // Convenience typedefs
 
 public:
     /**
-     * \brief Read in mesh files, partition domain, and prepare environment for simulation
-     * \details Create triangle mesh data from the given parameters
-     * \param params  Parameters for constructing a mesh from an input database
-     */
-    static std::shared_ptr<TriangleMesh<NG, NP>>
-    generate( std::shared_ptr<const MeshParameters> params );
-
-    /**
      * \brief Generate a triangle mesh from local triangle coordinates
      * \details  Create a triangle mesh from the local triangle coordinates.
-     *    Note: Triangle list should be unique for each rank, load balance will be automatically
-     * adjusted. \param triangles  List of triangles (each rank may contribute a unique list) \param
-     * comm       Communicator to use (load balance wil be automatically generated on this comm)
-     * \param tol        Relative tolerance (based on range of points) to use to determine if two
-     * points are the same
+     *    Note: Triangle list should be unique for each rank, load balance
+     *    will be automatically adjusted.
+     * \param triangles  List of triangles (each rank may contribute a unique list)
+     * \param comm       Communicator to use
+     *                   (load balance will be automatically generated on this comm)
+     * \param tol        Relative tolerance (based on range of points) to use to determine
+     *                   if two points are the same
      */
     static std::shared_ptr<TriangleMesh<NG, NP>>
     generate( const std::vector<std::array<Point, NG + 1>> &triangles,
@@ -104,12 +98,13 @@ public:
      * \details  Create a triangle mesh from the local triangle coordinates.
      *    Note: Triangle list should be unique for each rank,
      *          load balance will be automatically adjusted.
-     * \param vertices  List of vertices
+     * \param vertices   List of vertices
      * \param triangles  List of triangles (each rank may contribute a unique list)
      * \param tri_nab    List of triangles neighbors
-     * \param comm       Communicator to use (load balance wil be automatically generated on this
-     * comm) \param geom       Optional geometry to associate with the mesh \param blockID Optional
-     * vector with the block id for each triangle
+     * \param comm       Communicator to use
+     *                   (load balance will be automatically generated on this comm)
+     * \param geom       Optional geometry to associate with the mesh
+     * \param blockID    Optional vector with the block id for each triangle
      */
     static std::shared_ptr<TriangleMesh<NG, NP>>
     generate( std::vector<std::array<double, NP>> vertices,
@@ -132,32 +127,12 @@ public:
     bool operator==( const Mesh &mesh ) const override;
 
 
-    /**
-     * \brief   Estimate the number of elements in the mesh
-     * \details  This function will estimate the number of elements in the mesh.
-     *   This is used so that we can properly balance the meshes across multiple processors.
-     *   Ideally this should be both an accurate estimate and very fast.  It should not require
-     *   any communication and should not have to actually load a mesh.
-     * \param params Parameters for constructing a mesh from an input database
-     */
-    static size_t estimateMeshSize( std::shared_ptr<const MeshParameters> params );
-
-
-    /**
-     * \brief   Return the maximum number of processors that can be used with the mesh
-     * \details  This function will return the maximum number of processors that can
-     *   be used with the mesh.
-     * \param params Parameters for constructing a mesh from an input database
-     */
-    static size_t maxProcs( std::shared_ptr<const MeshParameters> params );
-
-
     // Copy/move constructors
     TriangleMesh( const TriangleMesh & );
     TriangleMesh( TriangleMesh && ) = default;
 
     TriangleMesh &operator=( const TriangleMesh & ) = delete;
-    TriangleMesh &operator=( TriangleMesh && ) = default;
+    TriangleMesh &operator=( TriangleMesh && )      = default;
 
     //! Deconstructor
     virtual ~TriangleMesh();

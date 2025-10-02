@@ -56,19 +56,13 @@ size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
         auto suffix   = IO::getSuffix( filename );
         if ( suffix == "stl" ) {
             // We are reading an stl file
-            meshSize = AMP::Mesh::TriangleHelpers::readSTLHeader( filename );
+            meshSize = AMP::Mesh::TriangleHelpers::estimateMeshSize( params );
         } else {
             meshSize = AMP::Mesh::BoxMesh::estimateMeshSize( params );
         }
     } else if ( MeshType == "TriangleGeometryMesh" ) {
         // We will build a triangle mesh from a geometry
-        auto geom_db    = db->getDatabase( "Geometry" );
-        auto geometry   = AMP::Geometry::Geometry::buildGeometry( geom_db );
-        auto [lb, ub]   = geometry->box();
-        auto resolution = db->getScalar<double>( "Resolution" );
-        meshSize        = 1;
-        for ( int d = 0; d < lb.ndim(); d++ )
-            meshSize *= std::max<int64_t>( ( ub[d] - lb[d] ) / resolution, 1 );
+        meshSize = AMP::Mesh::TriangleHelpers::estimateMeshSize( params );
     } else if ( MeshType == "libMesh" ) {
 // The mesh is a libmesh mesh
 #ifdef AMP_USE_LIBMESH
@@ -117,20 +111,13 @@ size_t Mesh::maxProcs( std::shared_ptr<const MeshParameters> params )
         auto suffix   = IO::getSuffix( filename );
         if ( suffix == "stl" ) {
             // We are reading an stl file
-            maxSize = AMP::Mesh::TriangleHelpers::readSTLHeader( filename );
+            maxSize = AMP::Mesh::TriangleHelpers::maxProcs( params );
         } else {
             maxSize = AMP::Mesh::BoxMesh::maxProcs( params );
         }
     } else if ( MeshType == "TriangleGeometryMesh" ) {
         // We will build a triangle mesh from a geometry
-        /*auto geom_db  = db->getDatabase( "Geometry" );
-        auto geometry   = AMP::Geometry::Geometry::buildGeometry( geom_db );
-        auto [lb, ub]   = geometry->box();
-        auto resolution = db->getScalar<double>( "Resolution" );
-        meshSize        = 1;
-        for ( int d = 0; d < lb.ndim(); d++ )
-            meshSize *= std::max<int64_t>( ( ub[d] - lb[d] ) / resolution, 1 ); */
-        maxSize = 1;
+        maxSize = AMP::Mesh::TriangleHelpers::maxProcs( params );
     } else if ( MeshType == std::string( "libMesh" ) ) {
 // The mesh is a libmesh mesh
 #ifdef AMP_USE_LIBMESH

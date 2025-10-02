@@ -48,8 +48,19 @@ std::shared_ptr<AMP::Mesh::Mesh>
 generateSTL( std::shared_ptr<const AMP::Mesh::MeshParameters> params );
 
 //! Generate a triangle mesh (or multi-mesh) from a geometry
-std::shared_ptr<AMP::Mesh::Mesh>
-generate( std::shared_ptr<AMP::Geometry::Geometry> geom, const AMP_MPI &comm, double resolution );
+std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Geometry> geom,
+                                               const AMP_MPI &comm,
+                                               double resolution );
+
+//! Generate a triangle mesh (or multi-mesh) from parameters
+std::shared_ptr<AMP::Mesh::Mesh> generate( std::shared_ptr<const MeshParameters> params );
+
+//! Estimate Mesh size
+size_t estimateMeshSize( std::shared_ptr<const MeshParameters> params );
+
+//! Maximum processor size
+size_t maxProcs( std::shared_ptr<const MeshParameters> params );
+
 
 } // namespace AMP::Mesh::TriangleHelpers
 
