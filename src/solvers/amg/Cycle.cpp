@@ -24,6 +24,10 @@ void kappa_kcycle( size_t lvl,
     auto r = flevel.r;
     A->residual( b, x, r );
 
+    if ( !comm_free_interp ) {
+        r->makeConsistent();
+    }
+
     auto coarse_b = clevel.b;
     auto coarse_x = clevel.x;
 
