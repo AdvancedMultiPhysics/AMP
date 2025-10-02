@@ -165,7 +165,7 @@ static void removeUnusedVerticies( std::vector<std::array<double, NP>> &vertices
 template<size_t NP>
 static std::vector<size_t> splitDomain( const std::vector<std::array<double, NP>> &center )
 {
-    AMP_WARN_ONCE( "Not finished" );
+    AMP_ERROR( "Not finished" );
     return std::vector<size_t>( center.size(), 0 );
 }
 static std::vector<size_t> mapOwner( const std::vector<size_t> &rank, const AMP_MPI &comm )
@@ -208,7 +208,7 @@ sendData( const std::vector<TYPE> &data, const std::vector<size_t> &rank, const 
         comm.waitAll( request.size(), request.data() );
         out = std::move( data2[0] );
     } else {
-        // Recieve the data
+        // Receive the data
         std::vector<size_t> count( comm.getSize(), 0 );
         comm.bcast( count.data(), count.size(), 0 );
         if ( count[comm.getRank()] > 0 ) {
@@ -332,37 +332,6 @@ static void sortData( std::vector<TYPE> &data,
  ****************************************************************/
 template<uint8_t NG, uint8_t NP>
 std::shared_ptr<TriangleMesh<NG, NP>>
-TriangleMesh<NG, NP>::generate( std::shared_ptr<const MeshParameters> params )
-{
-    auto db = params->getDatabase();
-    // Create the mesh
-    auto filename = db->getWithDefault<std::string>( "FileName", "" );
-    auto suffix   = IO::getSuffix( filename );
-    std::shared_ptr<TriangleMesh<NG, NP>> mesh;
-    if ( suffix == "stl" ) {
-        AMP_ERROR( "Use AMP::Mesh::TriangleHelpers::generateSTL to load stl meshes" );
-    } else {
-        AMP_ERROR( "Not finished" );
-    }
-    // Displace the mesh
-    std::vector<double> displacement( NP, 0.0 );
-    if ( db->keyExists( "x_offset" ) && NP >= 1 )
-        displacement[0] = db->getScalar<double>( "x_offset" );
-    if ( db->keyExists( "y_offset" ) && NP >= 2 )
-        displacement[1] = db->getScalar<double>( "y_offset" );
-    if ( db->keyExists( "z_offset" ) && NP >= 3 )
-        displacement[2] = db->getScalar<double>( "z_offset" );
-    bool test = false;
-    for ( auto &elem : displacement ) {
-        if ( elem != 0.0 )
-            test = true;
-    }
-    if ( test )
-        mesh->displaceMesh( displacement );
-    return mesh;
-}
-template<uint8_t NG, uint8_t NP>
-std::shared_ptr<TriangleMesh<NG, NP>>
 TriangleMesh<NG, NP>::generate( std::vector<std::array<double, NP>> vert,
                                 std::vector<std::array<int64_t, NG + 1>> tri,
                                 std::vector<std::array<int64_t, NG + 1>> tri_nab,
@@ -371,12 +340,13 @@ TriangleMesh<NG, NP>::generate( std::vector<std::array<double, NP>> vert,
                                 std::vector<int> block )
 {
     if ( comm.getRank() != 0 )
-        AMP_ASSERT( vert.empty() && tri.empty() && tri_nab.empty() );
+        AMP_INSIST( vert.empty() && tri.empty() && tri_nab.empty(),
+                    "Initial triangle list must only be on rank 0" );
     std::shared_ptr<TriangleMesh<NG, NP>> mesh( new TriangleMesh<NG, NP>( std::move( vert ),
                                                                           std::move( tri ),
                                                                           std::move( tri_nab ),
                                                                           comm,
-                                                                          std::move( geom ),
+                                                                          geom,
                                                                           std::move( block ) ) );
     return mesh;
 }
@@ -845,26 +815,6 @@ std::string TriangleMesh<NG, NP>::meshClass() const
 
 
 /****************************************************************
- * Estimate the mesh size                                        *
- ****************************************************************/
-template<uint8_t NG, uint8_t NP>
-size_t TriangleMesh<NG, NP>::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
-{
-    size_t N      = 0;
-    auto db       = params->getDatabase();
-    auto filename = db->getWithDefault<std::string>( "FileName", "" );
-    auto suffix   = IO::getSuffix( filename );
-    if ( suffix == "stl" ) {
-        // We are reading an stl file
-        N = TriangleHelpers::readSTLHeader( filename );
-    } else {
-        AMP_ERROR( "Not finished" );
-    }
-    return N;
-}
-
-
-/****************************************************************
  * Constructor                                                   *
  ****************************************************************/
 template<uint8_t NG, uint8_t NP>
@@ -916,16 +866,6 @@ std::unique_ptr<Mesh> TriangleMesh<NG, NP>::clone() const
  ****************************************************************/
 template<uint8_t NG, uint8_t NP>
 TriangleMesh<NG, NP>::~TriangleMesh() = default;
-
-
-/****************************************************************
- * Estimate the maximum number of processors                     *
- ****************************************************************/
-template<uint8_t NG, uint8_t NP>
-size_t TriangleMesh<NG, NP>::maxProcs( std::shared_ptr<const MeshParameters> params )
-{
-    return estimateMeshSize( params );
-}
 
 
 /****************************************************************

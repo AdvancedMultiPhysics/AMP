@@ -1,4 +1,5 @@
 #include "AMP/mesh/triangle/TriangleHelpers.h"
+#include "AMP/IO/FileSystem.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/geometry/MeshGeometry.h"
 #include "AMP/geometry/MultiGeometry.h"
@@ -25,6 +26,19 @@
 
 
 namespace AMP::Mesh::TriangleHelpers {
+
+
+// Factorial
+static inline size_t factorial( int x )
+{
+    if ( x <= 1 )
+        return 1;
+    size_t y  = 0;
+    size_t x2 = x;
+    for ( size_t i = 2; i <= x2; i++ )
+        y *= x;
+    return y;
+}
 
 
 // Helper function to create constexpr std::array with a single value
@@ -647,32 +661,36 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
             }
         }
     }
-    // Send the triangle data to all ranks
     int N_domains = comm.bcast( tri.size(), 0 );
-    vert          = comm.bcast( std::move( vert ), 0 );
-    tri.resize( N_domains );
-    tri_nab.resize( N_domains );
-    for ( int i = 0; i < N_domains; i++ ) {
-        tri[i]     = comm.bcast( std::move( tri[i] ), 0 );
-        tri_nab[i] = comm.bcast( std::move( tri_nab[i] ), 0 );
-    }
-    // Create the block ids
-    std::vector<std::vector<int>> blocks( N_domains );
-    for ( int i = 0; i < N_domains; i++ )
-        blocks[i] = createBlockIDs<2, 3>( vert, tri[i], tri_nab[i] );
     // Create the mesh
     std::shared_ptr<AMP::Mesh::Mesh> mesh;
     if ( N_domains == 1 ) {
-        mesh = TriangleMesh<2, 3>::generate( vert, tri[0], tri_nab[0], comm, nullptr, blocks[0] );
+        auto id = createBlockIDs<2, 3>( vert, tri[0], tri_nab[0] );
+        mesh    = TriangleMesh<2, 3>::generate( vert, tri[0], tri_nab[0], comm, nullptr, id );
     } else {
         // We are dealing with multiple sub-domains, choose the load balance method
         int method = db->getWithDefault<int>( "LoadBalanceMethod", 1 );
         auto comm2 = loadbalance( tri, comm, method );
+        // Send the triangle data to all ranks
+        vert = comm.bcast( std::move( vert ), 0 );
+        tri.resize( N_domains );
+        tri_nab.resize( N_domains );
+        for ( int i = 0; i < N_domains; i++ ) {
+            tri[i]     = comm.bcast( std::move( tri[i] ), 0 );
+            tri_nab[i] = comm.bcast( std::move( tri_nab[i] ), 0 );
+        }
+        // Build the sub meshes
         std::vector<std::shared_ptr<AMP::Mesh::Mesh>> submeshes;
         for ( size_t i = 0; i < tri.size(); i++ ) {
             if ( !comm2[i].isNull() ) {
-                auto mesh2 = TriangleMesh<2, 3>::generate(
-                    vert, tri[i], tri_nab[i], comm2[i], nullptr, blocks[i] );
+                std::shared_ptr<AMP::Mesh::Mesh> mesh2;
+                if ( comm2[i].getRank() == 0 ) {
+                    auto id = createBlockIDs<2, 3>( vert, tri[i], tri_nab[i] );
+                    mesh2   = TriangleMesh<2, 3>::generate(
+                        vert, tri[i], tri_nab[i], comm2[i], nullptr, id );
+                } else {
+                    mesh2 = TriangleMesh<2, 3>::generate( {}, {}, {}, comm2[i], nullptr, {} );
+                }
                 mesh2->setName( name + "_" + std::to_string( i + 1 ) );
                 submeshes.push_back( mesh2 );
             }
@@ -908,10 +926,13 @@ createTessellation( const Point &lb, const Point &ub, const std::vector<Point> &
     return std::tie( tri2, nab2 );
 }
 template<uint8_t NDIM>
-static std::shared_ptr<AMP::Mesh::Mesh> generate( std::shared_ptr<AMP::Geometry::Geometry> geom,
-                                                  const std::vector<Point> &points,
-                                                  const AMP_MPI &comm )
+static std::shared_ptr<AMP::Mesh::Mesh>
+generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
+               const std::vector<Point> &points,
+               const AMP_MPI &comm )
 {
+    if ( comm.getRank() != 0 )
+        TriangleMesh<NDIM, NDIM>::generate( {}, {}, {}, comm, geom );
     // Tessellate
     auto [lb, ub]       = geom->box();
     auto [tri, tri_nab] = createTessellation<NDIM>( lb, ub, points );
@@ -990,16 +1011,18 @@ static std::shared_ptr<AMP::Mesh::Mesh> generate( std::shared_ptr<AMP::Geometry:
             x1[i][d] = points[i][d];
     }
     return TriangleMesh<NDIM, NDIM>::generate(
-        std::move( x1 ), std::move( tri2 ), std::move( tri_nab2 ), comm, std::move( geom ) );
+        std::move( x1 ), std::move( tri2 ), std::move( tri_nab2 ), comm, geom );
 }
-std::shared_ptr<AMP::Mesh::Mesh>
-generate( std::shared_ptr<AMP::Geometry::Geometry> geom, const AMP_MPI &comm, double resolution )
+std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Geometry> geom,
+                                               const AMP_MPI &comm,
+                                               double resolution )
 {
+    AMP_ASSERT( geom );
     auto multigeom = std::dynamic_pointer_cast<AMP::Geometry::MultiGeometry>( geom );
     if ( multigeom ) {
         std::vector<std::shared_ptr<AMP::Mesh::Mesh>> submeshes;
         for ( auto &geom2 : multigeom->getGeometries() )
-            submeshes.push_back( generate( geom2, comm, resolution ) );
+            submeshes.push_back( generateGeom( geom2, comm, resolution ) );
         return std::make_shared<MultiMesh>( "name", comm, submeshes );
     }
     // Perform some basic checks
@@ -1033,9 +1056,9 @@ generate( std::shared_ptr<AMP::Geometry::Geometry> geom, const AMP_MPI &comm, do
     // Tessellate and generate the mesh
     std::shared_ptr<AMP::Mesh::Mesh> mesh;
     if ( ndim == 2 ) {
-        mesh = generate<2>( geom, points, comm );
+        mesh = generateGeom2<2>( geom, points, comm );
     } else if ( ndim == 3 ) {
-        mesh = generate<3>( geom, points, comm );
+        mesh = generateGeom2<3>( geom, points, comm );
     } else {
         AMP_ERROR( "Not supported yet" );
     }
@@ -1043,6 +1066,59 @@ generate( std::shared_ptr<AMP::Geometry::Geometry> geom, const AMP_MPI &comm, do
         mesh->setName( meshGeom->getMesh().getName() );
     return mesh;
 }
+std::shared_ptr<AMP::Mesh::Mesh> generate( std::shared_ptr<const MeshParameters> params )
+{
+    auto db = params->getDatabase();
+    if ( db->keyExists( "FileName" ) ) {
+        auto filename = db->getWithDefault<std::string>( "FileName", "" );
+        auto suffix   = IO::getSuffix( filename );
+        if ( suffix == "stl" ) {
+            // We are reading an stl file
+            return generateSTL( params );
+        } else {
+            AMP_ERROR( "Unknown format for TriangleMesh" );
+        }
+    } else if ( db->keyExists( "Geometry" ) ) {
+        // We will build a triangle mesh from a geometry
+        auto geom_db   = db->getDatabase( "Geometry" );
+        double dist[3] = { db->getWithDefault<double>( "x_offset", 0.0 ),
+                           db->getWithDefault<double>( "y_offset", 0.0 ),
+                           db->getWithDefault<double>( "z_offset", 0.0 ) };
+        auto geom      = AMP::Geometry::Geometry::buildGeometry( geom_db );
+        geom->displace( dist );
+        auto res = db->getScalar<double>( "Resolution" );
+        return generateGeom( geom, params->getComm(), res );
+    } else {
+        AMP_ERROR( "Unknown parameters for TriangleMesh" );
+    }
+    return nullptr;
+}
+size_t estimateMeshSize( std::shared_ptr<const MeshParameters> params )
+{
+    auto db = params->getDatabase();
+    if ( db->keyExists( "FileName" ) ) {
+        auto filename = db->getScalar<std::string>( "FileName", "" );
+        auto suffix   = IO::getSuffix( filename );
+        if ( suffix == "stl" ) {
+            // We are reading an stl file
+            return TriangleHelpers::readSTLHeader( filename );
+        } else {
+            AMP_ERROR( "Unknown format for TriangleMesh" );
+        }
+    } else if ( db->keyExists( "Geometry" ) ) {
+        auto geom_db    = db->getDatabase( "Geometry" );
+        auto geometry   = AMP::Geometry::Geometry::buildGeometry( geom_db );
+        double volume   = geometry->volume();
+        int geomDim     = geometry->getDim();
+        auto resolution = db->getScalar<double>( "Resolution" );
+        double triVol   = std::pow( resolution, geomDim ) / factorial( geomDim );
+        return std::max<size_t>( 1, volume / triVol );
+    } else {
+        AMP_ERROR( "Unknown method for TriangleMesh" );
+    }
+    return 0;
+}
+size_t maxProcs( std::shared_ptr<const MeshParameters> ) { return 1; }
 
 
 /********************************************************
