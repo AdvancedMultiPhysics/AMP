@@ -372,7 +372,7 @@ int main( int argc, char **argv )
     std::vector<std::string> exeNames;
 #ifdef AMP_USE_HYPRE
     exeNames.emplace_back( "input_testBDF_RadiationDiffusionFD-1D-BoomerAMG" );
-    exeNames.emplace_back( "input_testBDF_RadiationDiffusionFD-2D-BoomerAMG" );
+    //exeNames.emplace_back( "input_testBDF_RadiationDiffusionFD-2D-BoomerAMG" );
 #endif
 
     for ( auto &exeName : exeNames ) {

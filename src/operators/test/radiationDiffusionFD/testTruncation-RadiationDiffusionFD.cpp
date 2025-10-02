@@ -14,10 +14,13 @@
 
 
 /** This is a test of a RadDifOp, which is a finite-difference discretization of a radiation
- * diffusion operator.
- * A manufactured solution is provided, and this is used to compute a truncation error for a BDF
+ * diffusion operator. There are two tests:
+ * 
+ * 1. A manufactured solution is provided, and this is used to compute a truncation error for a BDF
  * step. This tests that the operator performs as expected, and it provides a consistency check on
  * the discretization that it converges with the correct order of accuracy.
+ * 
+ * 2. The associated linearized operator is constructed, and its apply() is tested.
  */
 
 
@@ -162,7 +165,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
 
     /****************************************************************
-     * Compute the truncation error                                  *
+     * Compute the truncation error                                 *
      ****************************************************************/
     /**  Given the ODEs u'(t) + L(u, t) = s(t), a BDF step from t_old -> t_new == t_old + dt is
      * given by solving the nonlinear system
@@ -171,7 +174,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
      * for u_new, with gamma=2/3*dt.
      *
      * As such, the truncation error is
-     *      e_new = [ u_new + dt*L(u_new, t_new) ] - RHS
+     *      e_new = [ u_new + gamma*L(u_new, t_new) ] - RHS
      */
     // Compute RHS vector
     myRadDifModel->setCurrentTime( newTime ); // Set model to new time to ensure source term and
@@ -199,6 +202,26 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     AMP::pout << "----------------------------------------" << std::endl;
 
     ut->passes( inputFileName + ": truncation error calculation" );
+
+
+    /****************************************************************
+     * Test 2: Build linearized operator and test its apply         *
+     ****************************************************************/
+    // Get linearized parameters about manufactured solution 
+    auto linearizedOpParams = myBDFRadDifOp->getParameters( "Jacobian", manSolVecNew );
+    auto myBDFRadDifOpPJac = std::make_shared<AMP::Operator::BDFRadDifOpPJac>( linearizedOpParams );
+    // Extract underlying RadDifOpPJac
+    auto myRadDifOpPJac = myBDFRadDifOpPJac->d_RadDifOpPJac;
+    // Create input and output vectors
+    auto inVec  = myRadDifOpPJac->createInputVector();
+    inVec->setRandomValues();
+    auto outVec = inVec->clone();
+    // Apply 
+    myBDFRadDifOpPJac->apply( inVec, outVec );
+
+    ut->passes( inputFileName + ": apply of linearized operator" );
+    
+
 }
 // end of driver()
 
@@ -213,9 +236,9 @@ int main( int argc, char **argv )
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
 
     std::vector<std::string> exeNames;
-    // exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-1D" );
+    exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-1D" );
     exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-2D" );
-    // exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-3D" );
+    exeNames.emplace_back( "input_testTruncation-RadiationDiffusionFD-3D" );
 
     for ( auto &exeName : exeNames ) {
         PROFILE_ENABLE();

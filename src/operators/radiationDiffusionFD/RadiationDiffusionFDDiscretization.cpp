@@ -967,11 +967,11 @@ void RadDifOpPJac::getCSRDataDiffusionMatrixInterior(
 
         // WEST connection
         data[nnz]      = -D_WO * d_rh2[dim];
-        colsLocal[nnz] = d_dofsLoc3[WEST];
+        colsLocal[nnz] = indWEST;
         nnz++;
         // EAST connection
         data[nnz]      = -D_OE * d_rh2[dim];
-        colsLocal[nnz] = d_dofsLoc3[EAST];
+        colsLocal[nnz] = indEAST;
         nnz++;
 
     } // Loop over dimension

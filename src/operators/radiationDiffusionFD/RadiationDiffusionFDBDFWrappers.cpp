@@ -140,9 +140,9 @@ BDFRadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr
 }
 
 
-/** --------------------------------------------------------------------------------
- *                        Implementation of BDFRadDifOpPJac
- *  ----------------------------------------------------------------------------- */
+/** ------------------------------------------------------------- *
+ *  ------------- Implementation of BDFRadDifOpPJac ------------- *
+ *  ------------------------------------------------------------- */
 BDFRadDifOpPJac::BDFRadDifOpPJac( std::shared_ptr<AMP::Operator::OperatorParameters> params )
     : AMP::Operator::LinearOperator( params )
 {
