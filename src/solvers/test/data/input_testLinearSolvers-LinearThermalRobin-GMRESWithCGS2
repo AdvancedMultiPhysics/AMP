@@ -7,12 +7,12 @@ LinearSolver{
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
   print_info_level = 2
-  max_iterations = 25
+  max_iterations = 100
 }
 
 Reference{
-  iterations = 25
-  res_l2_norm = 2.4e-14
-  tolerance = 0.0
+  iterations = 65
+  res_l2_norm = 2.992749810286323e-09
+  tolerance = 5.0e-12
   strict = FALSE
 }

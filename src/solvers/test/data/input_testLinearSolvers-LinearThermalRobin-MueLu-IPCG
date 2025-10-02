@@ -13,8 +13,8 @@ LinearSolver{
 <<< "PC-MueLuParameters" >>>
 
 Reference{
-  iterations = 10
-  res_l2_norm = 6.0e-10
+  iterations = 16
+  res_l2_norm = 0.0
   tolerance = 2.0e-10
   strict = FALSE
 }

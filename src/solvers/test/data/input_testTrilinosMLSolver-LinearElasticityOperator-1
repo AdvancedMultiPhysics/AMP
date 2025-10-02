@@ -1,0 +1,11 @@
+<<< "input_LinearElasticityOperator-1" >>>
+
+LinearSolver{
+  name = "TrilinosMLSolver"
+  PDE_equations = 3
+  print_info_level = 2
+  max_iterations = 10
+  max_error = 1e-10
+}
+
+

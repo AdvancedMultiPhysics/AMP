@@ -24,7 +24,7 @@ GMRES{
 <<< "PC-DiagParameters" >>>
 
 Reference{
-  iterations = 4
+  iterations = 13
   res_l2_norm = -1.0
   tolerance = 0.0
   strict = FALSE

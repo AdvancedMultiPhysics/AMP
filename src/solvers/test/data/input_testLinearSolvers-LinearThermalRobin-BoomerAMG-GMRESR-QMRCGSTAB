@@ -5,7 +5,7 @@ LinearSolver{
   variant = "gmresr"
   nested_solver = "QMRCGSTAB"
   absolute_tolerance = 1.0e-12
-  relative_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-09
   print_info_level = 2
   max_iterations = 100
   max_dimension  = 100
@@ -14,7 +14,7 @@ LinearSolver{
 QMRCGSTAB{
   name = "QMRCGSTABSolver"
   uses_preconditioner = TRUE
-  relative_tolerance = 1.0e-2
+  relative_tolerance = 1.0e-6
   print_info_level = 1
   max_iterations = 3
 }

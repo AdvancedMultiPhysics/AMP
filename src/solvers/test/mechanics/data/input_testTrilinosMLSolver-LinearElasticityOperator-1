@@ -66,6 +66,7 @@ Load_Boundary {
 }
 
 LinearSolver{
+  name = "TrilinosMLSolver"
   PDE_equations = 3
   print_info_level = 2
   max_iterations = 10

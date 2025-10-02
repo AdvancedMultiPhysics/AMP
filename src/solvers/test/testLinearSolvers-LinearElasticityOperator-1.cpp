@@ -106,6 +106,9 @@ int main( int argc, char *argv[] )
 #ifdef AMP_USE_HYPRE
         files.emplace_back( "input_testBoomerAMGSolver-LinearElasticityOperator-1" );
 #endif
+#ifdef AMP_USE_TRILINOS_ML
+        files.emplace_back( "input_testTrilinosMLSolver-LinearElasticityOperator-1" );
+#endif
 #ifdef AMP_USE_TRILINOS_MUELU
         files.emplace_back( "input_testTrilinosMueLuSolver-LinearElasticityOperator-1" );
 #endif
