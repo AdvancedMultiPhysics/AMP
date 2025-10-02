@@ -396,7 +396,7 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
         resVec->makeConsistent();
         mapFlowToClad->apply( resVec, robinRHSVec );
 
-        robinRHSVec->scale( hclad );
+        robinRHSVec->scale( -hclad );
         correctionParameters3->d_variableFlux = robinRHSVec;
         robinBoundaryOp3->reset( correctionParameters3 );
 
