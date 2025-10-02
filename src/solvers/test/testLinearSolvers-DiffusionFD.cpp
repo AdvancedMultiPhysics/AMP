@@ -13,11 +13,13 @@
 #include "AMP/solvers/testHelpers/SolverTestParameters.h"
 #include "AMP/solvers/testHelpers/testSolverHelpers.h"
 
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
 
+#define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
 void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileName )
 {
@@ -122,6 +124,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, myPoissonOp );
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     // Use zero initial iterate and apply solver
     // linearSolver->setZeroInitialGuess( true );
     linearSolver->apply( rhsVec, unumVec );
@@ -142,6 +146,12 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // No specific solution is implemented for this problem, so this will just check that the solver
     // converged.
     checkConvergence( linearSolver.get(), input_db, input_file, *ut );
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    AMP::pout << std::endl
+              << "DiffusionFD test with " << inputFileName << "  average time: ("
+              << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;
 }
 // end of driver()
 
