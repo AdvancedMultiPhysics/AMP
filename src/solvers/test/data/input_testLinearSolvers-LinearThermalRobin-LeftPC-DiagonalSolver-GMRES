@@ -14,8 +14,8 @@ LinearSolver{
 <<< "PC-DiagParameters" >>>
 
 Reference{
-  iterations = 5
-  res_l2_norm = 3.55e-12
+  iterations = 17
+  res_l2_norm = 2.208254791206066e-10
   tolerance = 0.0
   strict = FALSE
 }

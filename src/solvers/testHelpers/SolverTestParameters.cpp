@@ -186,8 +186,8 @@ std::unique_ptr<AMP::Database> SolverParameters::getBoomerAMGParameters( bool us
     db->putScalar<int>( "max_iterations", use_nested ? 1 : 25 );
     db->putScalar<int>( "min_coarse_size", 10 );
     db->putScalar<int>( "relax_type", 16 );
-    db->putScalar<int>( "coarsen_type", 10 );
-    db->putScalar<int>( "interp_type", 17 );
+    db->putScalar<int>( "coarsen_type", 8 );
+    db->putScalar<int>( "interp_type", 18 );
     db->putScalar<int>( "cycle_type", 1 );
     db->putScalar<int>( "relax_order", 0 );
     db->putScalar<double>( "strong_threshold", 0.5 );

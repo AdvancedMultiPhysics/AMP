@@ -61,19 +61,4 @@ Load_Boundary {
   value_0_0 = 1.0
 }
 
-LinearSolver{
-  num_functions = 3
-  cycle_type = 2  // W cycle
-  relax_type = 3
-  number_sweeps = 2
-  coarsen_type = 10
-  interp_type = 6
-  agg_interp_type = 1
-  nodal = 0
-  strong_threshold = 0.9
-  P_max_elements = 0
-  max_iterations = 40
-  max_error = 1e-10
-}
-
 

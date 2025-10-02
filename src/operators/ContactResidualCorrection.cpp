@@ -24,6 +24,6 @@ void ContactResidualCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_
             rSlave->setValuesByGlobalID( 1, &slaveGlobalIds[elem], &zero );
             slaveVal = rSlave->getLocalValueByGlobalID( slaveGlobalIds[elem] );
         } // end for j
-    } // end for i
+    }     // end for i
 }
 } // namespace AMP::Operator

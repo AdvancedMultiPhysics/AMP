@@ -106,7 +106,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     auto unumVec = myPoissonOp->createInputVector();
 
     // Wrap exact solution function so that it also takes an int
-    auto DirichletValue = [&]( AMP::Mesh::MeshElement &node, int ) { return uexactFun( node ); };
+    auto DirichletValue = [&]( const AMP::Mesh::Point &p, int ) { return uexactFun( p ); };
     // Create RHS vector
     auto rhsVec = myPoissonOp->createRHSVector( PDESourceFun, DirichletValue );
     rhsVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );

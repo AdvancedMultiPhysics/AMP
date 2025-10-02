@@ -3,7 +3,7 @@
 <<< "PC-DiagParameters" >>>
 
 Reference{
-  iterations = 5
+  iterations = 17
   res_l2_norm = 0.0
   tolerance = 2.0e-09
   strict = FALSE

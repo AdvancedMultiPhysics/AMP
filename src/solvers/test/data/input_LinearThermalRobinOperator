@@ -3,7 +3,7 @@ MeshName = "cube_3d"
 MeshType = "AMP"
 dim = 3
 Generator = "cube"
-Size = 4, 4, 4
+Size = 16, 16, 16
 Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
 static = TRUE
 }

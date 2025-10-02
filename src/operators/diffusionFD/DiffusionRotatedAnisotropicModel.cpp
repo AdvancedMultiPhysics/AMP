@@ -130,20 +130,16 @@ std::vector<double> RotatedAnisotropicDiffusionModel::getSecondOrderPDECoefficie
 ---------------------------------------------------------------------------------------------- */
 // Implementation of pure virtual function
 // Dimension-agnostic wrapper around the exact source term functions
-double
-ManufacturedRotatedAnisotropicDiffusionModel::sourceTerm( AMP::Mesh::MeshElement &node ) const
+double ManufacturedRotatedAnisotropicDiffusionModel::sourceTerm( const AMP::Mesh::Point &p ) const
 {
+    double x = p.x();
+    double y = p.y();
+    double z = p.z();
     if ( d_dim == 1 ) {
-        double x = ( node.coord() )[0];
         return sourceTerm_( x );
     } else if ( d_dim == 2 ) {
-        double x = ( node.coord() )[0];
-        double y = ( node.coord() )[1];
         return sourceTerm_( x, y );
     } else if ( d_dim == 3 ) {
-        double x = ( node.coord() )[0];
-        double y = ( node.coord() )[1];
-        double z = ( node.coord() )[2];
         return sourceTerm_( x, y, z );
     } else {
         AMP_ERROR( "Invalid dimension" );
@@ -152,19 +148,16 @@ ManufacturedRotatedAnisotropicDiffusionModel::sourceTerm( AMP::Mesh::MeshElement
 
 // Dimension-agnostic wrapper around the exact solution functions
 double
-ManufacturedRotatedAnisotropicDiffusionModel::exactSolution( AMP::Mesh::MeshElement &node ) const
+ManufacturedRotatedAnisotropicDiffusionModel::exactSolution( const AMP::Mesh::Point &p ) const
 {
+    double x = p.x();
+    double y = p.y();
+    double z = p.z();
     if ( d_dim == 1 ) {
-        double x = ( node.coord() )[0];
         return exactSolution_( x );
     } else if ( d_dim == 2 ) {
-        double x = ( node.coord() )[0];
-        double y = ( node.coord() )[1];
         return exactSolution_( x, y );
     } else if ( d_dim == 3 ) {
-        double x = ( node.coord() )[0];
-        double y = ( node.coord() )[1];
-        double z = ( node.coord() )[2];
         return exactSolution_( x, y, z );
     } else {
         AMP_ERROR( "Invalid dimension" );

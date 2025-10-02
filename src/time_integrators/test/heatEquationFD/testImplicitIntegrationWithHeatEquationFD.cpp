@@ -401,8 +401,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
      * Set up required vectors                                       *
      ****************************************************************/
     // 1. Create initial condition vector
-    auto icFun = [&]( AMP::Mesh::MeshElement &node ) {
-        return myHeatModel->initialCondition( node.coord() );
+    auto icFun = [&]( const AMP::Mesh::Point &point ) {
+        return myHeatModel->initialCondition( point );
     };
 
     auto icVec = myDiffusionOp->createOutputVector();
@@ -416,11 +416,11 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // Create a Dirichlet boundary-condition function which just returns the initial condition at
     // the given boundary node. That is, we have time-independent Dirichlet boundary conditions that
     // satisfy the initial condition
-    auto boundaryFun = [&]( AMP::Mesh::MeshElement &node, int ) { return icFun( node ); };
+    auto boundaryFun = [&]( const AMP::Mesh::Point &point, int ) { return icFun( point ); };
 
     // Get wrapper around heat equation source term
-    auto PDESourceFun = [&]( AMP::Mesh::MeshElement &node ) {
-        return myHeatModel->sourceTerm( node.coord() );
+    auto PDESourceFun = [&]( const AMP::Mesh::Point &point ) {
+        return myHeatModel->sourceTerm( point );
     };
 
     // 3. Auxiliary vectors
@@ -432,8 +432,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
     // Vector holding manufactured exact solution
     auto uManVec   = icVec->clone();
-    auto uexactFun = [&]( AMP::Mesh::MeshElement &node ) {
-        return myHeatModel->exactSolution( node.coord() );
+    auto uexactFun = [&]( const AMP::Mesh::Point &point ) {
+        return myHeatModel->exactSolution( point );
     };
 
 
