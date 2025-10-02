@@ -60,7 +60,6 @@ void ColumnOperator::residual( AMP::LinearAlgebra::Vector::const_shared_ptr f,
                                AMP::LinearAlgebra::Vector::const_shared_ptr u,
                                AMP::LinearAlgebra::Vector::shared_ptr r )
 {
-    AMP_ASSERT( getState( f ) == AMP::LinearAlgebra::UpdateState::UNCHANGED );
     AMP_ASSERT( getState( u ) == AMP::LinearAlgebra::UpdateState::UNCHANGED );
     for ( auto &op : d_operators ) {
         AMP_INSIST( op, "ColumnOperator::operator component is NULL" );
