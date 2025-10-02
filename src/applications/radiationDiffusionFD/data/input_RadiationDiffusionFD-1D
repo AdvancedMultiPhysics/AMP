@@ -4,8 +4,14 @@ Mesh {
     MeshType = "AMP"
     Generator = "cube"
     dim = 1
-    Size = 32
+    Size = 8
+    #Size = 16
+    #Size = 32
+    #Size = 64
+    #Size = 128
     #Size = 256
+    #Size = 512
+    #Size = 1024
     Range = -1, 1
     surfaceIds = 1, 2
     static = TRUE

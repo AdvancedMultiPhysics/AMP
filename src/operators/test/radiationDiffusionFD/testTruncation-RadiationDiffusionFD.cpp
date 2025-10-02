@@ -17,8 +17,9 @@
  * diffusion operator. There are two tests:
  * 
  * 1. A manufactured solution is provided, and this is used to compute a truncation error for a BDF
- * step. This tests that the operator performs as expected, and it provides a consistency check on
- * the discretization that it converges with the correct order of accuracy.
+ * step. This tests that apply() of the operator performs as expected, and it also provides some 
+ * type of a consistency check on the discretization that it converges (without further study it's 
+ * not completely clear how this truncation error should decrease w.r.t. dt and h)
  * 
  * 2. The associated linearized operator is constructed, and its apply() is tested.
  */
@@ -139,8 +140,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // We measure the truncation error in stepping from T - dt to T, so as to measure the truncation
     // error at the same time, irrespective of dt.
     double newTime    = trunc_db->getScalar<double>( "time" );
-    double h          = myRadDifOp->getMeshSize()[0];
-    double dt         = h * trunc_db->getScalar<double>( "CFL" );
+    double dt         = trunc_db->getScalar<double>( "dt" );
     double oldTime    = newTime - dt;
     double oldOldTime = oldTime - dt;
     // Populate vectors with manufactured solution
