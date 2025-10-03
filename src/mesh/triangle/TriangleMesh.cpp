@@ -5,6 +5,7 @@
 #include "AMP/mesh/triangle/TriangleHelpers.h"
 #include "AMP/mesh/triangle/TriangleMeshIterator.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/DelaunayHelpers.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/Vector.h"
@@ -128,7 +129,7 @@ static void getChildren( const std::vector<std::array<ElementID, N1 + 1>> &tri,
  ****************************************************************/
 template<uint8_t NG, uint8_t NP>
 static void removeUnusedVerticies( std::vector<std::array<double, NP>> &vertices,
-                                   std::vector<std::array<int64_t, NG + 1>> &tri )
+                                   std::vector<std::array<int, NG + 1>> &tri )
 {
     // Check which vertices are used
     std::vector<bool> used( vertices.size() );
@@ -221,8 +222,8 @@ sendData( const std::vector<TYPE> &data, const std::vector<size_t> &rank, const 
 }
 template<uint8_t NG, uint8_t NP>
 static void loadBalance( std::vector<std::array<double, NP>> &vertices,
-                         std::vector<std::array<int64_t, NG + 1>> &tri,
-                         std::vector<std::array<int64_t, NG + 1>> &tri_nab,
+                         std::vector<std::array<int, NG + 1>> &tri,
+                         std::vector<std::array<int, NG + 1>> &tri_nab,
                          std::vector<int> &block,
                          const AMP_MPI &comm )
 {
@@ -277,9 +278,8 @@ static void loadBalance( std::vector<std::array<double, NP>> &vertices,
     block    = sendData( block, rank_node, comm );
 }
 template<size_t NDIM, class TYPE>
-static void sortData( std::vector<TYPE> &data,
-                      std::vector<std::array<int64_t, NDIM>> &index,
-                      const AMP_MPI &comm )
+static void
+sortData( std::vector<TYPE> &data, std::vector<std::array<int, NDIM>> &index, const AMP_MPI &comm )
 {
     // Sort the local data updating the indicies
     std::vector<size_t> I, J;
@@ -300,7 +300,7 @@ static void sortData( std::vector<TYPE> &data,
 }
 template<size_t NDIM, class TYPE>
 static void sortData( std::vector<TYPE> &data,
-                      std::vector<std::array<int64_t, NDIM>> &index,
+                      std::vector<std::array<int, NDIM>> &index,
                       std::vector<int> &block,
                       const AMP_MPI &comm )
 {
@@ -333,8 +333,8 @@ static void sortData( std::vector<TYPE> &data,
 template<uint8_t NG, uint8_t NP>
 std::shared_ptr<TriangleMesh<NG, NP>>
 TriangleMesh<NG, NP>::generate( std::vector<std::array<double, NP>> vert,
-                                std::vector<std::array<int64_t, NG + 1>> tri,
-                                std::vector<std::array<int64_t, NG + 1>> tri_nab,
+                                std::vector<std::array<int, NG + 1>> tri,
+                                std::vector<std::array<int, NG + 1>> tri_nab,
                                 const AMP_MPI &comm,
                                 std::shared_ptr<Geometry::Geometry> geom,
                                 std::vector<int> block )
@@ -359,17 +359,17 @@ std::shared_ptr<TriangleMesh<NG, NP>> TriangleMesh<NG, NP>::generate(
     // Get the global list of tri_list
     auto global_list = comm.allGather( tri_list );
     std::vector<std::array<double, NP>> vertices;
-    std::vector<std::array<int64_t, NG + 1>> triangles;
-    std::vector<std::array<int64_t, NG + 1>> neighbors;
+    std::vector<std::array<int, NG + 1>> triangles;
+    std::vector<std::array<int, NG + 1>> neighbors;
 
     if ( comm.getRank() == 0 ) {
         // Create triangles from the points
         TriangleHelpers::createTriangles<NG, NP>( global_list, vertices, triangles, tol );
-        // Find the number of unique triangles (duplicates may indicate multiple objects
+        // Find the number of unique triangles (duplicates may indicate multiple objects)
         size_t N2 = TriangleHelpers::count<NG>( triangles );
         if ( N2 == tri_list.size() ) {
             // Get the triangle neighbors
-            neighbors = TriangleHelpers::create_tri_neighbors<NG>( triangles );
+            neighbors = DelaunayHelpers::create_tri_neighbors<NG>( triangles );
             // Check if the geometry is closed
             if constexpr ( NG == NP ) {
                 bool closed = true;
@@ -384,7 +384,7 @@ std::shared_ptr<TriangleMesh<NG, NP>> TriangleMesh<NG, NP>::generate(
             // auto triangles2 = TriangleHelpers::splitDomains<NG>( triangles );
             AMP_WARNING(
                 "Duplicate triangles detected, no connectivity information will be stored" );
-            neighbors.resize( triangles.size(), make_array<int64_t, NG + 1>( -1 ) );
+            neighbors.resize( triangles.size(), make_array<int, NG + 1>( -1 ) );
         }
     }
     // Create the mesh
@@ -398,7 +398,7 @@ std::shared_ptr<TriangleMesh<NG, NP>> TriangleMesh<NG, NP>::generate(
 }
 template<uint8_t NG>
 static std::vector<std::array<ElementID, NG + 1>>
-createGlobalIDs( const std::vector<std::array<int64_t, NG + 1>> &index,
+createGlobalIDs( const std::vector<std::array<int, NG + 1>> &index,
                  size_t N_local,
                  GeomType type,
                  const AMP_MPI &comm )
@@ -428,8 +428,8 @@ createGlobalIDs( const std::vector<std::array<int64_t, NG + 1>> &index,
 }
 template<uint8_t NG, uint8_t NP>
 TriangleMesh<NG, NP>::TriangleMesh( std::vector<std::array<double, NP>> vertices,
-                                    std::vector<std::array<int64_t, NG + 1>> tri,
-                                    std::vector<std::array<int64_t, NG + 1>> tri_nab,
+                                    std::vector<std::array<int, NG + 1>> tri,
+                                    std::vector<std::array<int, NG + 1>> tri_nab,
                                     const AMP_MPI &comm,
                                     std::shared_ptr<Geometry::Geometry> geom_in,
                                     std::vector<int> block )
