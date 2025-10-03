@@ -206,6 +206,9 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     std::vector<lidx_t> row_nnz( last_row - first_row, 0 );
     for ( auto it : blocks ) {
         block = it.second;
+        if ( block->isEmpty() ) {
+            continue;
+        }
         AMP_INSIST( first_row == block->d_first_row && last_row == block->d_last_row &&
                         first_col == block->d_first_col && last_col == block->d_last_col,
                     "Blocks to concatenate must have compatible layouts" );
@@ -229,6 +232,9 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     // loop back over blocks and write into new matrix
     for ( auto it : blocks ) {
         block = it.second;
+        if ( block->isEmpty() ) {
+            continue;
+        }
         for ( lidx_t row = 0; row < nrows; ++row ) {
             for ( auto n = block->d_row_starts[row]; n < block->d_row_starts[row + 1]; ++n ) {
                 const auto rs                     = concat_matrix->d_row_starts[row];
@@ -717,11 +723,14 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     // if all entries will be deleted throw a warning and set the matrix
     // as empty
     if ( d_nnz == num_delete ) {
+        AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
         d_cols.reset();
         d_cols_unq.reset();
         d_cols_loc.reset();
         d_coeffs.reset();
-        d_is_empty = true;
+        d_nnz       = 0;
+        d_ncols_unq = 0;
+        d_is_empty  = true;
         AMP_WARNING( "CSRLocalMatrixData::removeRange deleting all entries" );
         return;
     }

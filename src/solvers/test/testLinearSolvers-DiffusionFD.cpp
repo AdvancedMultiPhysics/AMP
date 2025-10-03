@@ -183,7 +183,7 @@ int main( int argc, char **argv )
     // 2d problems
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-JacobiL1" );
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-HybridGS" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
 
     // 3d problems
