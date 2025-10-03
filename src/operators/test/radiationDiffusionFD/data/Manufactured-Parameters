@@ -1,17 +1,9 @@
-# Parameters for manufactured problem
 Manufactured_Parameters{ 
-  model = "nonlinear"
-  #model = "linear"
-  
   zatom = 1.0
-
-  # k11 = 1.0
-  # k12 = 1.0
-  # k21 = 0.1
-  # k22 = 1.0
+  #
   k11 = 1.0
   k12 = 1.0
-  k21 = 1.0
+  k21 = 0.1
   k22 = 1.0
   #
   a1 = 0.25

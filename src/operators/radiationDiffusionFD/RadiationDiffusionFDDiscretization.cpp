@@ -372,28 +372,18 @@ void FDBoundaryUtils::ghostValuesSolve( double a,
     Eg = FDBoundaryUtils::ghostValueSolveE( a, b, r, c, h, Eint );
 }
 
-void FDBoundaryUtils::getLHSRobinConstantsFromDB( const AMP::Database &db,
+void FDBoundaryUtils::getBCConstantsFromDB( const AMP::Database &db,
                                                   size_t boundaryID,
                                                   double &ak,
-                                                  double &bk )
+                                                  double &bk, 
+                                                  double &rk, 
+                                                  double &nk )
 {
     AMP_INSIST( boundaryID >= 1 && boundaryID <= 6, "Invalid boundaryID" );
     ak = db.getScalar<double>( a_keys[boundaryID - 1] );
     bk = db.getScalar<double>( b_keys[boundaryID - 1] );
-}
-
-double FDBoundaryUtils::getBoundaryFunctionValueFromDBE( const AMP::Database &db,
-                                                         size_t boundaryID )
-{
-    AMP_INSIST( boundaryID >= 1 && boundaryID <= 6, "Invalid boundaryID" );
-    return db.getScalar<double>( r_keys[boundaryID - 1] );
-}
-
-double FDBoundaryUtils::getBoundaryFunctionValueFromDBT( const AMP::Database &db,
-                                                         size_t boundaryID )
-{
-    AMP_INSIST( boundaryID >= 1 && boundaryID <= 6, "Invalid boundaryID" );
-    return db.getScalar<double>( n_keys[boundaryID - 1] );
+    rk = db.getWithDefault<double>( r_keys[boundaryID - 1], 0.0 );
+    nk = db.getWithDefault<double>( n_keys[boundaryID - 1], 0.0 );
 }
 
 
@@ -432,9 +422,6 @@ RadDifOpPJac::RadDifOpPJac( std::shared_ptr<const AMP::Operator::OperatorParamet
     // Unpack parameter database
     d_db = params->d_db;
 
-    // Ensure that the model is using consistent coefficients with the hard-coded value in RadDifCoefficients
-    AMP_INSIST( d_db->getScalar<bool>( "isNonlinear") == RadDifCoefficients::IsNonlinear, "'isNonlinear' in incoming database inconsistent with 'RadDifCoefficients::IsNonlinear'");
-
     // Create all of our required mesh data
     FDMeshOps::createMeshData( this->getMesh(),
                                d_BoxMesh,
@@ -450,6 +437,23 @@ RadDifOpPJac::RadDifOpPJac( std::shared_ptr<const AMP::Operator::OperatorParamet
     // Create our FDMeshOps
     d_meshIndexingOps = std::make_shared<FDMeshGlobalIndexingOps>(
         d_BoxMesh, CellCenteredGeom, d_scalarDOFMan, d_multiDOFMan );
+
+    // Handle boundary conditions
+    // Unpack boundary condition constants into member vectors
+    for ( auto boundaryID : d_BoxMesh->getBoundaryIDs() ) {
+        FDBoundaryUtils::getBCConstantsFromDB( *d_db, boundaryID,
+                                                  d_ak[boundaryID-1],
+                                                  d_bk[boundaryID-1],
+                                                  d_rk[boundaryID-1],
+                                                  d_nk[boundaryID-1] );
+    }
+    // Copy so rk and nk so lambdas capture by value
+    auto rk = this->d_rk;
+    auto nk = this->d_nk;
+    // Set boundary condition functions to the default of retrieving constants from member vectors d_rk and d_nk
+    d_robinFunctionE = [rk]( size_t boundaryID, const AMP::Mesh::Point &) { return rk[boundaryID-1]; };
+    d_pseudoNeumannFunctionT = [nk]( size_t boundaryID, const AMP::Mesh::Point &) { return nk[boundaryID-1]; };
+
 
     // Unpack frozen vector
     d_frozenVec = params->d_frozenSolution;
@@ -583,13 +587,9 @@ void RadDifOpPJac::ghostValuesSolveWrapper( size_t boundaryID,
         return RadDifCoefficients::diffusionE( d_k11, T_midpoint, zatom );
     };
 
-    // Get the Robin constants for the given boundaryID
-    double ak, bk;
-    FDBoundaryUtils::getLHSRobinConstantsFromDB( *d_db, boundaryID, ak, bk );
-
-    // Now get the corresponding Robin value
+    auto ak   = d_ak[boundaryID-1];
+    auto bk   = d_bk[boundaryID-1];
     double rk = d_robinFunctionE( boundaryID, boundaryPoint );
-    // Get Neumann value
     double nk = d_pseudoNeumannFunctionT( boundaryID, boundaryPoint );
 
     // Spatial mesh size
@@ -1103,6 +1103,7 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
 
     // Unpack parameter database
     d_db = params->d_db;
+    
     // Unpack frozen vector
     d_frozenVec = params->d_frozenSolution;
 
@@ -1117,11 +1118,11 @@ RadDifOpPJac::PicardCorrectionCoefficient( size_t component, size_t boundaryID, 
 {
     // Energy
     if ( component == 0 ) {
-        // Get the Robin constants for the given boundaryID
-        double ak, bk;
-        FDBoundaryUtils::getLHSRobinConstantsFromDB( *d_db, boundaryID, ak, bk );
         // Spatial mesh size
         double hk = d_h[FDBoundaryUtils::getDimFromBoundaryID( boundaryID )];
+
+        auto ak = d_ak[boundaryID-1];
+        auto bk = d_bk[boundaryID-1];
 
         // The value we require coincides with r=0 and Eint=1 in "ghostValueSolveE"
         return FDBoundaryUtils::ghostValueSolveE( ak, bk, 0.0, ck, hk, 1.0 );
@@ -1170,6 +1171,23 @@ RadDifOp::RadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> par
     // Create our FDMeshOps
     d_meshIndexingOps = std::make_shared<FDMeshGlobalIndexingOps>(
         d_BoxMesh, CellCenteredGeom, d_scalarDOFMan, d_multiDOFMan );
+
+
+    // Handle boundary conditions
+    // Unpack boundary condition constants into member vectors
+    for ( auto boundaryID : d_BoxMesh->getBoundaryIDs() ) {
+        FDBoundaryUtils::getBCConstantsFromDB( *d_db, boundaryID,
+                                                  d_ak[boundaryID-1],
+                                                  d_bk[boundaryID-1],
+                                                  d_rk[boundaryID-1],
+                                                  d_nk[boundaryID-1] );
+    }
+    // Copy so rk and nk so lambdas capture by value
+    auto rk = this->d_rk;
+    auto nk = this->d_nk;
+    // Set boundary condition functions to the default of retrieving constants from member vectors d_rk and d_nk
+    d_robinFunctionE = [rk]( size_t boundaryID, const AMP::Mesh::Point &) { return rk[boundaryID-1]; };
+    d_pseudoNeumannFunctionT = [nk]( size_t boundaryID, const AMP::Mesh::Point &) { return nk[boundaryID-1]; };
 };
 
 
@@ -1238,13 +1256,9 @@ void RadDifOp::ghostValuesSolveWrapper( size_t boundaryID,
         return RadDifCoefficients::diffusionE( d_k11, T_midpoint, zatom );
     };
 
-    // Get the Robin constants for the given boundaryID
-    double ak, bk;
-    FDBoundaryUtils::getLHSRobinConstantsFromDB( *d_db, boundaryID, ak, bk );
-
-    // Now get the corresponding Robin value
+    auto ak   = d_ak[boundaryID-1];
+    auto bk   = d_bk[boundaryID-1];
     double rk = d_robinFunctionE( boundaryID, boundaryPoint );
-    // Get Neumann value
     double nk = d_pseudoNeumannFunctionT( boundaryID, boundaryPoint );
 
     // Spatial mesh size

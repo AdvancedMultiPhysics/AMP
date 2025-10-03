@@ -19,7 +19,9 @@
  * 1. A manufactured solution is provided, and this is used to compute a truncation error for a BDF
  * step. This tests that apply() of the operator performs as expected, and it also provides some 
  * type of a consistency check on the discretization that it converges (without further study it's 
- * not completely clear how this truncation error should decrease w.r.t. dt and h)
+ * not completely clear how this truncation error should decrease w.r.t. dt and h). A more thorough 
+ * test of the discretization correcteness is in AMP/applications/radiationDiffusionFD, wherein the 
+ * discretization error is computed after time integrating.
  * 
  * 2. The associated linearized operator is constructed, and its apply() is tested.
  */
@@ -44,20 +46,20 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
      * Re-organize database input                                    *
      ****************************************************************/
     // Unpack databases
-    auto PDE_basic_db    = input_db->getDatabase( "PDE" );
     auto mesh_db         = input_db->getDatabase( "Mesh" );
     auto trunc_db        = input_db->getDatabase( "TruncationError" );
     auto manufactured_db = input_db->getDatabase( "Manufactured_Parameters" );
 
     // Basic error check the input has required things
-    AMP_INSIST( PDE_basic_db, "PDE is null" );
     AMP_INSIST( mesh_db, "Mesh is null" );
     AMP_INSIST( trunc_db, "TruncationError is null" );
     AMP_INSIST( manufactured_db, "Manufactured_Parameters is null" );
 
     // Push problem dimension into PDE_basic_db
+    auto PDE_basic_db = std::make_shared<AMP::Database>( "PDE" );
     PDE_basic_db->putScalar<int>( "dim", mesh_db->getScalar<int>( "dim" ) );
 
+    
     /****************************************************************
      * Create a manufactured radiation-diffusion model               *
      ****************************************************************/

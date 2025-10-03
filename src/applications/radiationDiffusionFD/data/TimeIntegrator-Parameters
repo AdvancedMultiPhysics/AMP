@@ -1,34 +1,27 @@
-
 TimeIntegrator {
+    # TODO: remove this
     #outputSolution = TRUE # Write solution to file
     outputSolution = FALSE
 
     name = "BDF2"
     implicit_integrator = "BDF2"
-    # name = "BDF1"
-    # implicit_integrator = "BDF1"
     
     variable_names = ["ENERGY", "TEMPERATURE"]
 
-    max_integrator_steps = 1
-    #max_integrator_steps = 200
-
     initial_time = 0.0
-    final_time = 0.1
+    final_time = 3.0
     print_info_level = 1
     
     user_managed_time_operator  = TRUE # User builds I + gamma*f
 
-    # Bobby v2 (seems to work fine):
+    # Start from a small time step and ramp up to some final size
     timestep_selection_strategy = "final constant" 
     use_predictor = TRUE
     use_initial_predictor = FALSE
     predictor_type = "leapfrog"
     problem_fixed_scaling = 1.0, 1.0
     initial_dt = 1.0e-04
-    max_dt = 2e-2 
-    # initial_dt = 1.0e-04
-    # max_dt = 1e-4
+    max_dt = 1e-2 
 
     #number of time intervals before the final constant timestep is attained
     number_of_time_intervals   = 50 # Default is 100
@@ -56,9 +49,6 @@ TimeIntegrator {
       enableLineSearchPreCheck           = TRUE
       numberOfLineSearchPreCheckAttempts = 5
 
-      # Having this enabled is throwing an error in AMP::Solver::PetscSNESSolver::mffdCheckBounds (perhaps I don't have the operator set up properly at that point or something...)
-      enableMFFDBoundsCheck              = FALSE 
-
       # Abs tol should track truncation error
       absolute_tolerance = 1.0e-6
       relative_tolerance = 1.0e-12 
@@ -74,10 +64,9 @@ TimeIntegrator {
         name = "PetscKrylovSolver"
         print_info_level = 0
         max_iterations   = 40
-        ksp_type = "fgmres" # Could also use bicgstab (but Bobby said not robust here)
+        ksp_type = "fgmres"
         divergence_tolerance = 1.0e01
         max_krylov_dimension = 300
-        #uses_preconditioner=FALSE
         uses_preconditioner=TRUE
         pc_type    = "shell"
         pc_side    = "RIGHT"
@@ -87,7 +76,7 @@ TimeIntegrator {
         absolute_tolerance   = 1.0e-8 
         relative_tolerance   = 1.0e-10
 
-        #KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 20"
+        #KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
         # Let L be the approx Jacobian, then:
         # Use operator-split prec to approximately apply inv(L)
@@ -97,24 +86,7 @@ TimeIntegrator {
           relative_tolerance = 0.0
           print_info_level   = 0
           max_iterations     = 1 # Number of iterations of the preconditioner
-          compute_residual   = FALSE # Compute final residual
-          #compute_residual   = TRUE
-
-            # Preconditioner for approximately inverting diag diffusion blocks
-            DiffusionBlocks{
-              name = "BoomerAMGSolver"
-              print_info_level   = 0
-              min_coarse_size    = 5
-              relax_type         = 6 # Hybrid GS/Jacobi
-              coarsen_type       = 10
-              interp_type        = 17 # distance-two
-              cycle_type         = 1
-              relax_order        = 0
-              strong_threshold   = 0.5
-              absolute_tolerance = 0.0
-              relative_tolerance = 0.0
-              max_iterations     = 1
-            }
+          compute_residual   = FALSE # Compute final residual or not
         }
       }
     }

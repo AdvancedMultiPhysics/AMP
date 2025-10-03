@@ -5,8 +5,8 @@ Mesh {
     Generator = "cube"
     dim = 1
     #Size = 8
-    #Size = 16
-    Size = 32
+    Size = 16
+    #Size = 32
     #Size = 64
     #Size = 128
     #Size = 256

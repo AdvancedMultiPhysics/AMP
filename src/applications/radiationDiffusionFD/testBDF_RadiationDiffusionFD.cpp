@@ -18,8 +18,24 @@
 
 
 /** This test applies BDF integration to a radiation-diffusion problem discretized with finite
- * differences. There is a manufactured solution available, which can be used to measure the
- * discretization error at each time step.
+ * differences, i.e., an AMP::Operator::RadDifOp
+ * 
+ * This driver is set up to run two types of test given input file structure. 
+ * 
+ * 1. A test of discretization error. A manufactured solution is implemented and this is compared 
+ * against the discretized solution after one time step. For sufficiently small time steps (such 
+ * that the spatial error dominates) the discretization is expected to converge as O(h^2) for 
+ * spatial resolution h. Mesh refinement studies find this second-order convergence in 1D, 2D, and 
+ * 3D.
+ * NOTE: When flux limiting is turned on, as by the static constexpre bool IsFluxLimited in the 
+ * discretization header file, any convergence w.r.t. h for the model problem is lost. The flux 
+ * limiter used is designed to limit the energy diffusion coefficient, but it does not do so in a 
+ * way that for sufficiently small energy gradients the usual coefficient is recovered as h->0. 
+ * Rather, the diffusion coefficient is fundamentally changed, independent of h, such that the 
+ * discretized solution does not converge to the manufactured solution as h->0 in this case. 
+ * 
+ * 2. Time integration is run on model problems from Mosseau et al. (2000), in which the LHS 
+ * boundary is heated up and a Marshak wave then propagates through the domain. 
  */
 
 void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileName )
@@ -42,24 +58,35 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
      * Re-organize database input                                    *
      ****************************************************************/
     // Unpack databases
-    auto PDE_basic_db = input_db->getDatabase( "PDE" );
-    auto mesh_db      = input_db->getDatabase( "Mesh" );
-    auto ti_db        = input_db->getDatabase( "TimeIntegrator" );
+    auto test_db             = input_db->getDatabase( "TestSpecificParameters" );
+    auto mesh_db             = input_db->getDatabase( "Mesh" );
+    auto ti_db               = input_db->getDatabase( "TimeIntegrator" );
+    auto diffusion_solves_db = input_db->getDatabase( "DiffusionSolves" );
 
     // Basic error check the input has required things
-    AMP_INSIST( PDE_basic_db, "PDE is null" );
+    AMP_INSIST( test_db, "TestSpecificParameters is null" );
     AMP_INSIST( mesh_db, "Mesh is null" );
     AMP_INSIST( ti_db, "TimeIntegrator is null" );
+    AMP_INSIST( diffusion_solves_db, "DiffusionSolves is null" );
 
     // Get PDE model-specific parameter database
-    auto modelID          = PDE_basic_db->getScalar<std::string>( "modelID" );
+    auto modelID          = test_db->getScalar<std::string>( "modelID" );
     auto PDE_mspecific_db = input_db->getDatabase( modelID + "_Parameters" );
     AMP_INSIST( PDE_mspecific_db,
                 "Input must have the model-specific database: '" + modelID + "_Parameters'" );
 
-    // Push problem dimension into PDE_basic_db
+    // Create PDE_basic_db
+    auto PDE_basic_db = std::make_shared<AMP::Database>( "GeneralPDEParams" );
     PDE_basic_db->putScalar<int>( "dim", mesh_db->getScalar<int>( "dim" ) );
+    PDE_basic_db->putScalar<std::string>( "modelID", modelID );
+    
 
+    // Put number of time steps into ti_db
+    ti_db->putScalar<int>( "max_integrator_steps", test_db->getScalar<int>( "max_integrator_steps" ) );
+
+    // Put diffusion solves db into the correct sub db in ti_db
+    auto prec_db = ti_db->getDatabase( "Solver" )->getDatabase( "LinearSolver" )->getDatabase( "Preconditioner" );
+    prec_db->putDatabase( "DiffusionBlocks", diffusion_solves_db->cloneDatabase() );
 
     /****************************************************************
      * Create radiation-diffusion model                              *
@@ -72,9 +99,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
         myRadDifModel = myRadDifModel_;
 
     } else if ( modelID == "Manufactured" ) {
-        // Get static isNonlinear value from raddif code, ensuring manufactured model is the same
-        PDE_mspecific_db->putScalar<bool>( "isNonlinear", AMP::Operator::RadDifCoefficients::IsNonlinear );
-
         auto myRadDifModel_ = std::make_shared<AMP::Operator::Manufactured_RadDifModel>(
             PDE_basic_db, PDE_mspecific_db );
         myRadDifModel = myRadDifModel_;
@@ -196,9 +220,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     AMP_INSIST( is_bdf, "Implementation assumes BDF integrator" );
 
     // Parameters for time integrator
-    // auto h = myRadDifOp->getMeshSize()[0];
-    // double dt = 1.0 * h * h;
-    // double dt = 0.5 * h;
     double dt     = ti_db->getScalar<double>( "initial_dt" );
     auto tiParams = std::make_shared<AMP::TimeIntegrator::TimeIntegratorParameters>( ti_db );
     tiParams->d_ic_vector   = ic;
@@ -226,7 +247,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
 
     int step = 0;
-    // int n = mesh_db->getScalar<int>( "Size" );
     int n               = mesh_db->getArray<int>( "Size" )[0];
     std::string out_dir = "out/n" + std::to_string( n ) + "_" +
                           std::to_string( mesh_db->getScalar<int>( "dim" ) ) + "D/";
@@ -374,8 +394,12 @@ int main( int argc, char **argv )
 
     std::vector<std::string> exeNames;
 #ifdef AMP_USE_HYPRE
-    exeNames.emplace_back( "input_testBDF_RadiationDiffusionFD-1D-BoomerAMG" );
-    //exeNames.emplace_back( "input_testBDF_RadiationDiffusionFD-2D-BoomerAMG" );
+    // Discretization error tests
+    exeNames.emplace_back( "input_testDiscretizationError-1D-Boomer" );
+    exeNames.emplace_back( "input_testDiscretizationError-2D-Boomer" );
+    // Mousseau tests
+    exeNames.emplace_back( "input_testMousseau-1D-Boomer" );
+    exeNames.emplace_back( "input_testMousseau-2D-Boomer" );
 #endif
 
     for ( auto &exeName : exeNames ) {

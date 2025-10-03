@@ -32,16 +32,16 @@
  *
  * In more detail, the diffusion operator is
  *      D(u) = [grad dot (k11*D_E grad E), grad dot (k21*D_T grad T)],
- * where diffusive fluxes depend on the "model" parameter as:
- *      1. if model == "linear":
+ * where diffusive fluxes depend on the (currently static) "IsNonlinear" bool as:
+ *      1. if false:
  *          D_E = D_T = 1.0
- *      2. if model == "nonlinear":
+ *      2. if true:
  *          D_E = 1/(3*sigma), D_T = T^2.5, and sigma = (zatom/T)^3
  *
- * The reaction term is dependent on the "model" parameter as:
- *      1. if model == "linear":
+ * The reaction term is dependent on the "IsNonlinear" bool as:
+ *      1. if false:
  *          R(u) = [k12*(T - E), -k22*(T - E)]
- *      2. if model == "nonlinear":
+ *      2. if true:
  *          R(u) = [k12*simga*(T^4 - E), -k22*simga*(T^4 - E)]
  *
  * On boundary k in {1,...,6} the spatial boundary conditions are as follows:
@@ -74,7 +74,7 @@ class RadDifCoefficients
 {
 
 public:
-    // Hack. This should really be templated against. Realistically the operator RadDifOp, and its linearization, should be templated against a coefficient class, and a non-templated base class added.
+    // Hack. This should really be templated against. Realistically the operator RadDifOp, and its linearization, should be templated against a coefficient class, and a non-templated base class added. The realistic use case is for the nonlinear coefficients, but the linear coefficients can be useful for testing, debugging, etc. 
     //! Flag indicating whether nonlinear or linear PDE coefficients are used
     static constexpr bool IsNonlinear = true; 
 
@@ -121,7 +121,7 @@ private:
 public:
     // Hack. This should really be templated against. That said, for applications flux limiting is usually required.
     //! Flag indicating whether energy diffusion coefficient is limited
-    static constexpr bool IsFluxLimited = true; 
+    static constexpr bool IsFluxLimited = false; 
 
     //! Prevent instantiation
     FDMeshOps() = delete;
@@ -247,17 +247,13 @@ public:
      */
     static size_t getDimFromBoundaryID( size_t boundaryID );
 
-    //! Get the Robin constants ak and bk from the database for the given boundaryID
-    static void getLHSRobinConstantsFromDB( const AMP::Database &db,
+    //! Get the constants ak, bk, rk, nk from the database for the given boundaryID. Note that rk and nk need not exist in the db, and are returned with a default of 0
+    static void getBCConstantsFromDB( const AMP::Database &db,
                                             size_t boundaryID,
                                             double &ak,
-                                            double &bk );
-
-    //! Return database constant rk for boundary k
-    static double getBoundaryFunctionValueFromDBE( const AMP::Database &db, size_t boundaryID );
-
-    //! Return database constant nk for boundary k
-    static double getBoundaryFunctionValueFromDBT( const AMP::Database &db, size_t boundaryID );
+                                            double &bk, 
+                                            double &rk, 
+                                            double &nk );
 
     /** On boundary k we have the two equations:
      *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk,
@@ -325,13 +321,6 @@ public:
  *
  *  3. k11, k12, k21, k22
  * doubles. Scaling constants in PDE
- *
- *  4. model:
- * must be either 'linear' or 'nonlinear'. Specifies which PDE is discretized.
- *
- *  5. fluxLimited:
- * bool. Flag indicating whether flux limiting is for diffusion of energy
- *
  *
  * Mesh: The discretization expects a non-periodic AMP::Mesh::BoxMesh generated from the "cube"
  * generator. The boundaryIDs on the mesh must be:
@@ -407,6 +396,12 @@ private:
     const double d_k12;
     const double d_k21;
     const double d_k22;
+
+    //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in index boundaryID-1
+    std::array<double, 6> d_ak;
+    std::array<double, 6> d_bk;
+    std::array<double, 6> d_rk;
+    std::array<double, 6> d_nk;
 
     //! Mesh-related data
 private:
@@ -555,7 +550,7 @@ public:
     /** Reset the operator based on the incoming parameters.
      * Primarily, this updates frozen value of current solution, d_frozenSolution. It also resets
      * the associated linearized data. Note that it does not update any mesh-related data since
-     * neither does the base classes reset()
+     * neither does the base classes reset(). It also doesn't update any boundary-related data
      */
     void reset( std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override;
 
@@ -565,8 +560,9 @@ public:
     void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET,
                 std::shared_ptr<AMP::LinearAlgebra::Vector> LET );
 
-    //! Allows an apply from Jacobian data that's been modified by an outside class (this is an
-    //! acknowledgement that the caller of the apply deeply understands what they're doing)
+    /** Allows an apply from Jacobian data that's been modified by an outside class (this is an
+     * acknowledgement that the caller of the apply deeply understands what they're doing)
+     */
     void applyWithOverwrittenDataIsValid() { d_applyWithOverwrittenDataIsValid = true; };
 
 
@@ -577,6 +573,12 @@ private:
     const double d_k12;
     const double d_k21;
     const double d_k22;
+
+    //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in index boundaryID-1
+    std::array<double, 6> d_ak;
+    std::array<double, 6> d_bk;
+    std::array<double, 6> d_rk;
+    std::array<double, 6> d_nk;
 
     //! Flag indicating whether apply with overwritten Jacobian data is valid. This is reset to
     //! false at the end of every apply call, and can be set t true by the public member function

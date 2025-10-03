@@ -5,6 +5,7 @@
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/utils/Constants.h"
 #include "AMP/utils/Database.h"
+#include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
 
 namespace AMP::Operator {
 
@@ -18,7 +19,7 @@ namespace AMP::Operator {
  *
  * The class should be initialized with two databases:
  *  1. A basic PDE database, basic_db. This includes:
- *      "dim", "fluxLimited", "print_info_level".
+ *      "dim", "print_info_level".
  *  2. A model-specific database, mspecific_db. This should include any and all parameters that
  * when combined with basic_db provides sufficient context for the derived class to create a
  * RadiationDiffusionFD_input_db, which is a database suitable for creating an instance of a
@@ -33,6 +34,9 @@ class RadDifModel
 {
 
 public:
+    //! Flag indicating whether nonlinear or linear PDE coefficients are used. This value of this constant is inherited from the RadDifCoefficients class
+    static constexpr bool IsNonlinear = AMP::Operator::RadDifCoefficients::IsNonlinear; 
+
     //! Constructor
     RadDifModel( std::shared_ptr<AMP::Database> basic_db_,
                  std::shared_ptr<AMP::Database> mspecific_db_ );
@@ -63,8 +67,6 @@ public:
 
     //
 protected:
-    //! Flag indicating whether linear or nonlinear PDE coefficients are used
-    bool d_isNonlinear;
 
     //! The current time of the solution.
     double d_currentTime = 0.0;
