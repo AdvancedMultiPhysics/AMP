@@ -55,14 +55,6 @@ public:
     }
 
     /**
-     * Solve the system \f$Au = f\f$.
-     @param [in] f : shared pointer to right hand side vector
-     @param [out] u : shared pointer to approximate computed solution
-     */
-    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
-
-    /**
      * Initialize the solution vector and potentially create internal vectors needed for solution
      @param [in] parameters The parameters object
      contains a database object. Refer to the documentation for the constructor to see what fields
@@ -79,6 +71,7 @@ public:
 
 private:
     void setupHypreSolver( std::shared_ptr<const SolverStrategyParameters> parameters );
+    void setHypreFunctionPointers();
 
     bool d_bUsesPreconditioner = false;
     bool d_bDiagScalePC        = false; //! use diagonal scaled preconditioner

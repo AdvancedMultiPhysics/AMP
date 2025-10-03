@@ -32,6 +32,13 @@ HyprePCGSolver::HyprePCGSolver( std::shared_ptr<SolverStrategyParameters> parame
 {
     HYPRE_ParCSRPCGCreate( d_comm.getCommunicator(), &d_solver );
     setupHypreSolver( parameters );
+    setHypreFunctionPointers();
+}
+
+void HyprePCGSolver::setHypreFunctionPointers()
+{
+    d_hypreSolve          = HYPRE_PCGSolve;
+    getHypreNumIterations = HYPRE_PCGGetNumIterations;
 }
 
 HyprePCGSolver::~HyprePCGSolver() { HYPRE_ParCSRPCGDestroy( d_solver ); }
@@ -145,123 +152,6 @@ void HyprePCGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
     if ( db->keyExists( "compute_residual_p" ) ) {
         HYPRE_PCGSetRecomputeResidualP( d_solver, 1 );
-    }
-}
-
-void HyprePCGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                            std::shared_ptr<AMP::LinearAlgebra::Vector> u )
-{
-    PROFILE( "HyprePCGSolver::apply" );
-
-    // Always zero before checking stopping criteria for any reason
-    d_iNumberIterations = 0;
-
-    // in this case we make the assumption we can access a EpetraMat for now
-    AMP_INSIST( d_pOperator, "ERROR: HyprePCGSolver::apply() operator cannot be NULL" );
-
-    HYPRE_SetMemoryLocation( d_memory_location );
-    HYPRE_SetExecutionPolicy( d_exec_policy );
-
-    const auto f_norm = static_cast<HYPRE_Real>( f->L2Norm() );
-
-    // Zero rhs implies zero solution, bail out early
-    if ( f_norm == static_cast<HYPRE_Real>( 0.0 ) ) {
-        u->zero();
-        d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
-        d_dResidualNorm     = 0.0;
-        if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "HyprePCGSolver::apply: solution is zero" << std::endl;
-        }
-        return;
-    }
-
-    // Compute initial residual, used mostly for reporting in this case
-    // since Hypre tracks this internally
-    // Can we get that value from Hypre and remove one global reduce?
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r;
-    HYPRE_Real current_res;
-    if ( d_bUseZeroInitialGuess ) {
-        u->zero();
-        current_res = f_norm;
-    } else {
-        r = f->clone();
-        d_pOperator->residual( f, u, r );
-        current_res = static_cast<HYPRE_Real>( r->L2Norm() );
-    }
-    d_dInitialResidual = current_res;
-
-    if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "HyprePCGSolver::apply: initial L2Norm of solution vector: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "HyprePCGSolver::apply: initial L2Norm of rhs vector: " << f_norm << std::endl;
-        AMP::pout << "HyprePCGSolver::apply: initial L2Norm of residual: " << current_res
-                  << std::endl;
-    }
-
-    // return if the residual is already low enough
-    // checkStoppingCriteria responsible for setting flags on convergence reason
-    if ( checkStoppingCriteria( current_res ) ) {
-        if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "HyprePCGSolver::apply: initial residual below tolerance" << std::endl;
-        }
-        return;
-    }
-
-    copyToHypre( u, d_hypre_sol );
-    copyToHypre( f, d_hypre_rhs );
-
-    HYPRE_ParCSRMatrix parcsr_A;
-    HYPRE_ParVector par_b;
-    HYPRE_ParVector par_x;
-
-    HYPRE_IJMatrixGetObject( d_ijMatrix, (void **) &parcsr_A );
-
-    HYPRE_IJVectorGetObject( d_hypre_rhs, (void **) &par_b );
-    HYPRE_IJVectorGetObject( d_hypre_sol, (void **) &par_x );
-
-    HYPRE_PCGSolve( d_solver, (HYPRE_Matrix) parcsr_A, (HYPRE_Vector) par_b, (HYPRE_Vector) par_x );
-
-    copyFromHypre( d_hypre_sol, u );
-
-    // we are forced to update the state of u here
-    // as Hypre is not going to change the state of a managed vector
-    // an example where this will and has caused problems is when the
-    // vector is a petsc managed vector being passed back to PETSc
-    u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-
-    // Query iteration count and store on AMP side
-    HYPRE_Int hypre_iters;
-    HYPRE_PCGGetNumIterations( d_solver, &hypre_iters );
-    d_iNumberIterations = hypre_iters;
-    HYPRE_Real hypre_res;
-    HYPRE_PCGGetFinalRelativeResidualNorm( d_solver, &hypre_res );
-
-    // Check for NaNs
-    if ( std::isnan( hypre_res ) ) {
-        d_ConvergenceStatus = SolverStatus::DivergedOther;
-        AMP_WARNING( "HyprePCGSolver::apply: Residual norm is NaN" );
-    }
-
-    // Re-compute or query final residual
-    if ( d_bComputeResidual ) {
-        d_pOperator->residual( f, u, r );
-        current_res = static_cast<HYPRE_Real>( r->L2Norm() );
-    } else {
-        current_res = hypre_res;
-    }
-
-    // Store final residual norm and update convergence flags
-    d_dResidualNorm = current_res;
-    checkStoppingCriteria( current_res );
-
-    if ( d_iDebugPrintInfoLevel > 2 ) {
-        AMP::pout << "HyprePCGSolver::apply: final L2Norm of solution: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "HyprePCGSolver::apply: final L2Norm of residual: " << current_res
-                  << std::endl;
-        AMP::pout << "HyprePCGSolver::apply: iterations: " << d_iNumberIterations << std::endl;
-        AMP::pout << "HyprePCGSolver::apply: convergence reason: "
-                  << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
     }
 }
 

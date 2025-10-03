@@ -46,20 +46,13 @@ std::shared_ptr<Mesh> MeshFactory::create( std::shared_ptr<MeshParameters> param
         auto suffix   = IO::getSuffix( filename );
         if ( suffix == "stl" ) {
             // We are reading an stl file
-            mesh = AMP::Mesh::TriangleHelpers::generateSTL( params );
+            mesh = AMP::Mesh::TriangleHelpers::generate( params );
         } else {
             mesh = AMP::Mesh::BoxMesh::generate( params );
         }
     } else if ( MeshType == "TriangleGeometryMesh" ) {
         // We will build a triangle mesh from a geometry
-        auto geom_db   = db->getDatabase( "Geometry" );
-        double dist[3] = { db->getWithDefault<double>( "x_offset", 0.0 ),
-                           db->getWithDefault<double>( "y_offset", 0.0 ),
-                           db->getWithDefault<double>( "z_offset", 0.0 ) };
-        auto geom      = AMP::Geometry::Geometry::buildGeometry( geom_db );
-        geom->displace( dist );
-        auto res = db->getScalar<double>( "Resolution" );
-        mesh     = AMP::Mesh::TriangleHelpers::generate( geom, params->getComm(), res );
+        mesh = AMP::Mesh::TriangleHelpers::generate( params );
     } else if ( MeshType == "libMesh" ) {
 // The mesh is a libmesh mesh
 #ifdef AMP_USE_LIBMESH

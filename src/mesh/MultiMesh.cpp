@@ -52,6 +52,7 @@ MultiMesh::MultiMesh( std::shared_ptr<const MeshParameters> params_in ) : Mesh( 
     // Create the load balancer and comms
     loadBalanceSimulator loadBalance( db );
     loadBalance.setProcs( d_comm.getSize() );
+    AMP_ASSERT( loadBalance.maxProcs() >= d_comm.getSize() );
     const auto &submeshes = loadBalance.getSubmeshes();
     std::vector<std::vector<int>> groups( submeshes.size() );
     for ( size_t i = 0; i < submeshes.size(); i++ )
