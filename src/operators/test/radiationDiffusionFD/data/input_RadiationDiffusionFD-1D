@@ -8,4 +8,3 @@ Mesh {
     Range = -1, 1
     surfaceIds = 1, 2
     static = TRUE
-}

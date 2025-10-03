@@ -144,10 +144,6 @@ void FDMeshOps::createMeshData(
         d_rh2.push_back( 1.0 / ( h * h ) );
     }
 
-#if 0
-    // todo: delete
-    //printMeshNodes();
-#endif
 }
 
 void FDMeshOps::createDOFManagers(
@@ -235,16 +231,22 @@ FDMeshGlobalIndexingOps::FDMeshGlobalIndexingOps(
     : d_BoxMesh( BoxMesh ),
       d_geom( geom ),
       d_scalarDOFMan( scalarDOFMan ),
-      d_multiDOFMan( multiDOFMan ){};
+      d_multiDOFMan( multiDOFMan ){
+
+    // todo: delete
+    #if 0
+        printMeshNodes();
+    #endif
+      };
 
 #if 0
 // oktodo: remove the following once i've verified accuracy
-void FDMeshOps::printMeshNodes() {
+void FDMeshGlobalIndexingOps::printMeshNodes() {
 
-    AMP::pout << "h=";
-    for ( auto h : d_h ) {
-        AMP::pout << h << ", ";
-    }
+    // AMP::pout << "h=";
+    // for ( auto h : d_h ) {
+    //     AMP::pout << h << ", ";
+    // }
 
     AMP::pout << "\n\nprintMeshNodes()\n";
     std::array<int, 3> ijk;
@@ -1286,13 +1288,6 @@ bool RadDifOp::isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
  * 4. d_T*T        = -k21 * div grad( DT*T )
  * 5. diag(r_TE)*E = +k22 * diag(RTE) * E
  * 6. diag(r_TT)*T = +k22 * diag(RTT) * T
- *
- * In the nonlinear model:
- *      REE = RTE = -sigma
- *      RET = RTT = +sigma*T^3
- * In the linear model:
- *      REE = RTE = -1
- *      RET = RTT = +1
  */
 void RadDifOp::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
                       std::shared_ptr<AMP::LinearAlgebra::Vector> LET_vec_ )
@@ -1304,7 +1299,7 @@ void RadDifOp::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET_vec_,
         AMP::pout << "RadDifOp::apply() " << std::endl;
     }
 
-    // --- Unpack inputs ---
+    // Unpack inputs
     // Downcast input Vectors to MultiVectors
     auto ET_vec  = std::dynamic_pointer_cast<const AMP::LinearAlgebra::MultiVector>( ET_vec_ );
     auto LET_vec = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( LET_vec_ );
@@ -1335,6 +1330,11 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
         AMP::pout << "RadDifOp::applyInterior() " << std::endl;
     }
 
+    // If this process is empty no need to do anything
+    if ( d_scalarDOFMan->numLocalDOF() == 0 ) {
+        return;
+    }
+
     // Unpack parameters
     double zatom = this->d_db->getWithDefault<double>( "zatom", 1.0 );
     // Placeholder array for grid indices
@@ -1343,25 +1343,49 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
     std::array<double, 3> ELoc3;
     std::array<double, 3> TLoc3;
 
-    auto iDomLen = d_localBox->last[0] - d_localBox->first[0];
-    auto jDomLen = d_localBox->last[1] - d_localBox->first[1];
-    auto kDomLen = d_localBox->last[2] - d_localBox->first[2];
+    // Number of DOFs in each dimension 
+    std::array<int, 3> domLen;
+    for ( int dim = 0; dim < 3; dim ++ ) {
+        domLen[dim] = 1 + d_localBox->last[dim] - d_localBox->first[dim];
+    }
 
-    // Determine first and last interior indices in each dimension. If a dimension is empty we
-    // require start and end indices of 0 to enter into the loop.
-    auto iLast  = std::max( iDomLen - 1, 0 );
-    auto jLast  = std::max( jDomLen - 1, 0 );
-    auto kLast  = std::max( kDomLen - 1, 0 );
-    auto iFirst = ( iLast > 0 ) ? 1 : 0;
-    auto jFirst = ( jLast > 0 ) ? 1 : 0;
-    auto kFirst = ( kLast > 0 ) ? 1 : 0;
+    // Compute first and last index in each dimension. 
+    std::array<int, 3> ijkFirst;
+    std::array<int, 3> ijkLast;
+
+    // There are several cases:
+    for ( int dim = 0; dim < 3; dim++ ) {
+
+        // There's at least one interior DOF
+        if ( domLen[dim] >= 3 ) {
+            ijkFirst[dim] = 1;
+            ijkLast[dim]  = domLen[dim] - 2; // This index is inclusive in the below loop
+
+
+        // There's one or two interior DOFs (there cannot be zero because then the total number of local DOFs is zero and we've already accounted for that)
+        } else { 
+
+            // The given dimension is "empty" (as happens when the problem dimension is smaller than dim+1). Really there's one DOF in this dimension, but there's no notion of interior or boundary in this dimension. In this case we require start and end indices of 0 to enter into the loop below.
+            if ( d_globalBox->last[dim] == 0 ) {
+                ijkFirst[dim] = 0;
+                ijkLast[dim]  = 0;
+
+            // The current dimension is not empty and has either 1 or 2 DOFs, and thus all of this process' DOFs live on a boundary and will be handled by applyBoundary()
+            } else {
+                return;
+            }
+        }
+    }
+
+    // Placeholders for diffusion coefficients
+    double Dr_WO, Dr_OE, DT_WO, DT_OE;
 
     // Iterate over interior of local box
-    for ( auto k = kFirst; k <= kLast; k++ ) {
+    for ( auto k = ijkFirst[2]; k <= ijkLast[2]; k++ ) {
         ijk[2] = k;
-        for ( auto j = jFirst; j <= jLast; j++ ) {
+        for ( auto j = ijkFirst[1]; j <= ijkLast[1]; j++ ) {
             ijk[1] = j;
-            for ( auto i = iFirst; i <= iLast; i++ ) {
+            for ( auto i = ijkFirst[0]; i <= ijkLast[0]; i++ ) {
                 ijk[0] = i;
 
                 // Compute coefficients to apply stencil in a quasi-linear fashion
@@ -1390,7 +1414,6 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                     TLoc3[EAST] = T_vec->getValueByLocalID<double>( indEAST );
 
                     // Get diffusion coefficients for both E and T
-                    double Dr_WO, Dr_OE, DT_WO, DT_OE;
                     FDMeshOps::FaceDiffusionCoefficients<true, true>(
                         ELoc3,
                         TLoc3,
@@ -1444,6 +1467,11 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
         AMP::pout << "RadDifOp::applyBoundary() " << std::endl;
     }
 
+    // If this process is empty no need to do anything
+    if ( d_scalarDOFMan->numLocalDOF() == 0 ) {
+        return;
+    }
+
     // Unpack parameters
     double zatom = this->d_db->getWithDefault<double>( "zatom", 1.0 );
     // Placeholder array for grid indices
@@ -1452,19 +1480,15 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
     std::array<double, 3> ELoc3;
     std::array<double, 3> TLoc3;
 
+    // Placeholders for diffusion coefficients
+    double Dr_WO, Dr_OE, DT_WO, DT_OE;
+
     /** Loop over processor boundary. Note that DOFs are (re)set a number of times equal to the
      * number of boundaries they live on
      */
     std::array<size_t, 3> dims = { 0, 1, 2 };
     // Loop over each dimension
     for ( auto boundaryDim : dims ) {
-        // If length of domain in current dimension is zero there's no boundary to consider
-        auto west   = d_localBox->first[boundaryDim];
-        auto east   = d_localBox->last[boundaryDim];
-        auto domLen = east - west;
-        if ( domLen == 0 ) {
-            continue;
-        }
 
         // Create vector of free dimensions to loop over with current dim fixed
         std::vector<size_t> freeDims = {};
@@ -1474,8 +1498,8 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
             }
         }
 
-        // Loop over both boundaries of current dimension
-        for ( auto boundaryInd : { west, east } ) {
+        // Loop over both boundaries of current dimension (these are the same if only one DOF in this dimension)
+        for ( auto boundaryInd : { d_localBox->first[boundaryDim], d_localBox->last[boundaryDim] } ) {
             ijk[boundaryDim] = boundaryInd;
 
             // Loop over all of second free dimension
@@ -1505,7 +1529,6 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                         // Get WEST and EAST data for the given dimension
                         getNNDataBoundary( E_vec, T_vec, ijk, dim, ELoc3, TLoc3 );
                         // Get diffusion coefficients for both E and T
-                        double Dr_WO, Dr_OE, DT_WO, DT_OE;
                         FDMeshOps::
                             FaceDiffusionCoefficients<true, true>(
                                 ELoc3,

@@ -212,7 +212,7 @@ public:
     AMP::Mesh::MeshElement gridIndsToMeshElement( const std::array<size_t, 3> &ijk ) const;
 
 // oktodo: delete
-#if 0
+#if 1
     void printMeshNodes();
 #endif
 };
