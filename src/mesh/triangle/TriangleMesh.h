@@ -108,8 +108,8 @@ public:
      */
     static std::shared_ptr<TriangleMesh<NG, NP>>
     generate( std::vector<std::array<double, NP>> vertices,
-              std::vector<std::array<int64_t, NG + 1>> triangles,
-              std::vector<std::array<int64_t, NG + 1>> tri_nab,
+              std::vector<std::array<int, NG + 1>> triangles,
+              std::vector<std::array<int, NG + 1>> tri_nab,
               const AMP_MPI &comm,
               std::shared_ptr<Geometry::Geometry> geom = nullptr,
               std::vector<int> blockID                 = std::vector<int>() );
@@ -293,8 +293,8 @@ protected:
     TriangleMesh() = default;
     explicit TriangleMesh( std::shared_ptr<const MeshParameters> );
     explicit TriangleMesh( std::vector<std::array<double, NP>> vertices,
-                           std::vector<std::array<int64_t, NG + 1>> triangles,
-                           std::vector<std::array<int64_t, NG + 1>> tri_nab,
+                           std::vector<std::array<int, NG + 1>> triangles,
+                           std::vector<std::array<int, NG + 1>> tri_nab,
                            const AMP_MPI &comm,
                            std::shared_ptr<Geometry::Geometry> geom,
                            std::vector<int> block );
