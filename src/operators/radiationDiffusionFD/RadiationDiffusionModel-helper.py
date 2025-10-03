@@ -71,7 +71,7 @@ def manufacturedModel( dim, model ):
     print("    {} model {}D    ".format(model, dim))
     print("-----------------------------", sep="\n")
 
-    x, y, z, PI, zatom, k11, k12, k21, k22, t = sym.symbols('x y z PI zatom k11 k12 k21 k22 t')
+    x, y, z, PI, zatom, k11, k12, k21, k22, t = sym.symbols('x y z PI d_zatom d_k11 d_k12 d_k21 d_k22 t')
 
     # Exact solutions
     if dim == 1:

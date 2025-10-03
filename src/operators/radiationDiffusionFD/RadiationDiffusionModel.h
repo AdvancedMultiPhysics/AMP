@@ -65,8 +65,20 @@ public:
     //! Does the derived class implement an exact solution?
     bool exactSolutionAvailable() const;
 
-    //
+    // Data
 protected:
+    //! Constant scaling factors in the PDE
+    double d_k11;
+    double d_k12;
+    double d_k21;
+    double d_k22;
+
+    //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in index boundaryID-1
+    std::array<double, 6> d_ak;
+    std::array<double, 6> d_bk;
+
+    //! Atomic number; assumed constant
+    double d_zatom;
 
     //! The current time of the solution.
     double d_currentTime = 0.0;
@@ -86,15 +98,17 @@ protected:
     //! Flag derived classes must overwrite indicating they have constructed the above database
     bool d_RadiationDiffusionFD_input_db_completed = false;
 
-    /* Convert specific model parameters into parameters expected by the general formulation */
-    virtual void finalizeGeneralPDEModel_db() = 0;
-
     //! Does the derived class implement an exact solution?
     bool d_exactSolutionAvailable = false;
 
-    //! Get the Robin constants ak and bk from the d_RadiationDiffusionFD_input_db for the given
-    //! boundaryID
-    void getLHSRobinConstantsFromDB( size_t boundaryID, double &ak, double &bk ) const;
+    // Methods
+protected:
+
+    /* Convert specific model parameters into parameters expected by the general formulation */
+    virtual void finalizeGeneralPDEModel_db() = 0;
+
+    //! Set PDE constants in base class based on those in the finalized db d_RadiationDiffusionFD_input_db
+    void setMemberPDEConstants();
 
     //! Energy diffusion coefficient D_E given temperature T
     double diffusionCoefficientE( double T, double zatom ) const;

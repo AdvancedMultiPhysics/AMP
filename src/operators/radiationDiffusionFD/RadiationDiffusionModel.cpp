@@ -40,30 +40,25 @@ double RadDifModel::exactSolution( size_t, const AMP::Mesh::Point & ) const
     AMP_ERROR( "Base class cannot provide a meaningful implementation of this function" );
 }
 
-void RadDifModel::getLHSRobinConstantsFromDB( size_t boundaryID, double &ak, double &bk ) const
-{
-    if ( boundaryID == 1 ) {
-        ak = d_RadiationDiffusionFD_input_db->getScalar<double>( "a1" );
-        bk = d_RadiationDiffusionFD_input_db->getScalar<double>( "b1" );
-    } else if ( boundaryID == 2 ) {
-        ak = d_RadiationDiffusionFD_input_db->getScalar<double>( "a2" );
-        bk = d_RadiationDiffusionFD_input_db->getScalar<double>( "b2" );
-    } else if ( boundaryID == 3 ) {
-        ak = d_RadiationDiffusionFD_input_db->getScalar<double>( "a3" );
-        bk = d_RadiationDiffusionFD_input_db->getScalar<double>( "b3" );
-    } else if ( boundaryID == 4 ) {
-        ak = d_RadiationDiffusionFD_input_db->getScalar<double>( "a4" );
-        bk = d_RadiationDiffusionFD_input_db->getScalar<double>( "b4" );
-    } else if ( boundaryID == 5 ) {
-        ak = d_RadiationDiffusionFD_input_db->getScalar<double>( "a5" );
-        bk = d_RadiationDiffusionFD_input_db->getScalar<double>( "b5" );
-    } else if ( boundaryID == 6 ) {
-        ak = d_RadiationDiffusionFD_input_db->getScalar<double>( "a6" );
-        bk = d_RadiationDiffusionFD_input_db->getScalar<double>( "b6" );
-    } else {
-        AMP_ERROR( "Invalid boundaryID" );
+void RadDifModel::setMemberPDEConstants() {
+    
+    AMP_INSIST( d_RadiationDiffusionFD_input_db_completed, "Required db not finalized" );
+
+    // Coefficient constants
+    d_k11 = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
+    d_k12 = d_RadiationDiffusionFD_input_db->getScalar<double>( "k12" );
+    d_k21 = d_RadiationDiffusionFD_input_db->getScalar<double>( "k21" );
+    d_k22 = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
+
+    // Atomic number
+    d_zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
+
+    // Unpack boundary condition constants into member vectors
+    double dummy;
+    for ( size_t boundaryID = 1; boundaryID <= 2*d_dim; boundaryID++ ) {
+        AMP::Operator::FDBoundaryUtils::getBCConstantsFromDB( *d_RadiationDiffusionFD_input_db, boundaryID, d_ak[boundaryID-1], d_bk[boundaryID-1], dummy, dummy );
     }
-};
+}
 
 double RadDifModel::diffusionCoefficientE( double T, double zatom ) const
 {
@@ -90,8 +85,11 @@ Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel(
     AMP_INSIST( IsNonlinear, "This model is inherently nonlinear, but IsNonlinear==false, i.e., linear coefficients are turned on" );
 
     AMP_INSIST( d_dim < 3, "Mousseau_etal_2000_RadDifModel only implemented in 1D and 2D" );
+    
     finalizeGeneralPDEModel_db();
+    setMemberPDEConstants();
 }
+
 
 double Mousseau_etal_2000_RadDifModel::sourceTerm( size_t, const AMP::Mesh::Point & ) const
 {
@@ -183,6 +181,7 @@ Manufactured_RadDifModel::Manufactured_RadDifModel( std::shared_ptr<AMP::Databas
     d_exactSolutionAvailable = true;
 
     finalizeGeneralPDEModel_db();
+    setMemberPDEConstants();
 }
 
 void Manufactured_RadDifModel::finalizeGeneralPDEModel_db()
@@ -314,19 +313,17 @@ double Manufactured_RadDifModel::getBoundaryFunctionValueE( size_t boundaryID,
     double E = exactSolution( 0, point );
 
     // Compute diffusive flux D_E on boundary
-    double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
     double T     = exactSolution( 1, point );
-    auto D_E     = diffusionCoefficientE( T, zatom );
+    auto D_E     = diffusionCoefficientE( T, d_zatom );
 
     // Compute relevant component of gradient on boundary
     double dEdn = exactSolutionGradient( 0, point, normalComponent );
 
     // Unpack constants
-    double k11 = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
-    double ak, bk;
-    getLHSRobinConstantsFromDB( boundaryID, ak, bk );
+    auto ak = d_ak[boundaryID-1];
+    auto bk = d_bk[boundaryID-1];
 
-    return ak * E + bk * k11 * D_E * normalSign * dEdn;
+    return ak * E + bk * d_k11 * D_E * normalSign * dEdn;
 }
 
 double Manufactured_RadDifModel::getBoundaryFunctionValueT( size_t boundaryID,
@@ -381,21 +378,14 @@ double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) cons
 
     double t = this->getCurrentTime();
 
-    // Unpack parameters
-    double k11   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
-    double k12   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k12" );
-    double k21   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k21" );
-    double k22   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
-    double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
-
     // Linear case
     if constexpr ( !IsNonlinear ) {
         
         if ( component == 0 ) {
-            double sE = std::pow(PI, 2)*k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - k12*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
+            double sE = std::pow(PI, 2)*d_k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - d_k12*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sE;
         } else if ( component == 1 ) {
-            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)) + k22*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
+            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - d_k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)) + d_k22*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -405,24 +395,24 @@ double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) cons
     } else if constexpr ( IsNonlinear ) {
         if ( component == 0 ) {
             double sE =
-                ( ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * k11 * kE0 * std::pow( kX, 2 ) *
+                ( ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * d_k11 * kE0 * std::pow( kX, 2 ) *
                       std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) +
-                  ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * k11 * std::pow( kX, 2 ) *
+                  ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * d_k11 * std::pow( kX, 2 ) *
                       std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
                       std::pow( std::cos( PI * kT * t ), 2 ) -
-                  1.0 / 3.0 * std::pow( PI, 2 ) * k11 * std::pow( kX, 2 ) *
+                  1.0 / 3.0 * std::pow( PI, 2 ) * d_k11 * std::pow( kX, 2 ) *
                       std::pow( std::cos( PI * kT * t ), 2 ) *
                       std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) -
-                  PI * kT * std::pow( zatom, 3 ) * std::sin( PI * kT * t ) *
+                  PI * kT * std::pow( d_zatom, 3 ) * std::sin( PI * kT * t ) *
                       std::sin( PI * kX * x + kXPhi ) -
-                  k12 * std::pow( zatom, 6 ) *
+                  d_k12 * std::pow( d_zatom, 6 ) *
                       std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) ) +
-                  k12 * std::pow( zatom, 6 ) ) /
-                std::pow( zatom, 3 );
+                  d_k12 * std::pow( d_zatom, 6 ) ) /
+                std::pow( d_zatom, 3 );
             return sE;
         } else if ( component == 1 ) {
             double sT =
-                ( ( 1.0 / 72.0 ) * std::pow( PI, 2 ) * k21 * std::pow( kX, 2 ) *
+                ( ( 1.0 / 72.0 ) * std::pow( PI, 2 ) * d_k21 * std::pow( kX, 2 ) *
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
                                 5.0 / 3.0 ) *
                       ( 24 * kE0 * std::sin( PI * kX * x + kXPhi ) + 10 * std::cos( PI * kT * t ) -
@@ -433,7 +423,7 @@ double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) cons
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
                                 11.0 / 6.0 ) *
                       std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) -
-                  k22 * std::pow( zatom, 3 ) *
+                  d_k22 * std::pow( d_zatom, 3 ) *
                       ( -std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
                                    17.0 / 6.0 ) +
                         std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
@@ -504,23 +494,16 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
 
     double t = this->getCurrentTime();
 
-    // Unpack parameters
-    double k11   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
-    double k12   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k12" );
-    double k21   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k21" );
-    double k22   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
-    double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
-
     // Linear case
     if constexpr ( !IsNonlinear ) {
         if ( component == 0 ) {
             double sE =
-                std::pow( PI, 2 ) * k11 * ( std::pow( kX, 2 ) + std::pow( kY, 2 ) ) *
+                std::pow( PI, 2 ) * d_k11 * ( std::pow( kX, 2 ) + std::pow( kY, 2 ) ) *
                     std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                     std::cos( PI * kY * y + kYPhi ) -
                 PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kY * y + kYPhi ) +
-                k12 * ( kE0 -
+                d_k12 * ( kE0 -
                         std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                              std::cos( PI * kY * y + kYPhi ) ) +
                         std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
@@ -528,7 +511,7 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
             return sE;
         } else if ( component == 1 ) {
             double sT =
-                ( ( 1.0 / 9.0 ) * std::pow( PI, 2 ) * k21 *
+                ( ( 1.0 / 9.0 ) * std::pow( PI, 2 ) * d_k21 *
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                           std::cos( PI * kY * y + kYPhi ),
                                 4.0 / 3.0 ) *
@@ -550,7 +533,7 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
                                 7.0 / 3.0 ) *
                       std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
                       std::cos( PI * kY * y + kYPhi ) -
-                  k22 *
+                  d_k22 *
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                           std::cos( PI * kY * y + kYPhi ),
                                 3 ) *
@@ -570,10 +553,10 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
     // Nonlinear case
     } else if constexpr ( IsNonlinear ) {
         if ( component == 0 ) {
-            double sE = -PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(zatom, 3)) - k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)/std::pow(zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)/std::pow(zatom, 3)) - k12*std::pow(zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
+            double sE = -PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) - d_k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)/std::pow(d_zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(d_zatom, 3)) - d_k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)/std::pow(d_zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)/std::pow(d_zatom, 3)) - d_k12*std::pow(d_zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
             return sE;
         } else if ( component == 1 ) {
-            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0/3.0) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 5.0/6.0)) - k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 5.0/6.0)) + k22*std::pow(zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
+            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0/3.0) - d_k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 5.0/6.0)) - d_k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 5.0/6.0)) + d_k22*std::pow(d_zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -671,29 +654,22 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
 
     double t = this->getCurrentTime();
 
-    // Unpack parameters
-    double k11   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k11" );
-    double k12   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k12" );
-    double k21   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k21" );
-    double k22   = d_RadiationDiffusionFD_input_db->getScalar<double>( "k22" );
-    double zatom = d_RadiationDiffusionFD_input_db->getScalar<double>( "zatom" );
-
     // Linear case
     if constexpr ( !IsNonlinear ) {
         if ( component == 0 ) {
             double sE =
-                std::pow( PI, 2 ) * k11 * std::pow( kX, 2 ) * std::sin( PI * kX * x + kXPhi ) *
+                std::pow( PI, 2 ) * d_k11 * std::pow( kX, 2 ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kT * t ) * std::cos( PI * kY * y + kYPhi ) *
                     std::cos( PI * kZ * z + kZPhi ) +
-                std::pow( PI, 2 ) * k11 * std::pow( kY, 2 ) * std::sin( PI * kX * x + kXPhi ) *
+                std::pow( PI, 2 ) * d_k11 * std::pow( kY, 2 ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kT * t ) * std::cos( PI * kY * y + kYPhi ) *
                     std::cos( PI * kZ * z + kZPhi ) +
-                std::pow( PI, 2 ) * k11 * std::pow( kZ, 2 ) * std::sin( PI * kX * x + kXPhi ) *
+                std::pow( PI, 2 ) * d_k11 * std::pow( kZ, 2 ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kT * t ) * std::cos( PI * kY * y + kYPhi ) *
                     std::cos( PI * kZ * z + kZPhi ) -
                 PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
-                k12 * ( kE0 -
+                d_k12 * ( kE0 -
                         std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                              std::cos( PI * kY * y + kYPhi ) *
                                              std::cos( PI * kZ * z + kZPhi ) ) +
@@ -708,7 +684,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                         std::cos( PI * kY * y + kYPhi ) *
                                         std::cos( PI * kZ * z + kZPhi ),
                               2.0 / 3.0 ) -
-                k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
                             std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                             std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
                             std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
@@ -726,7 +702,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                                 std::cos( PI * kY * y + kYPhi ) *
                                                 std::cos( PI * kZ * z + kZPhi ),
                                       5.0 / 3.0 ) ) -
-                k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
                             std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                             std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
                             std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
@@ -744,7 +720,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                                 std::cos( PI * kY * y + kYPhi ) *
                                                 std::cos( PI * kZ * z + kZPhi ),
                                       5.0 / 3.0 ) ) -
-                k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
                             std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                             std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
                             std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
@@ -762,7 +738,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                                 std::cos( PI * kY * y + kYPhi ) *
                                                 std::cos( PI * kZ * z + kZPhi ),
                                       5.0 / 3.0 ) ) +
-                k22 * ( -kE0 +
+                d_k22 * ( -kE0 +
                         std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                              std::cos( PI * kY * y + kYPhi ) *
                                              std::cos( PI * kZ * z + kZPhi ) ) -
@@ -779,46 +755,46 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
             double sE =
                 -PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) -
-                k11 *
+                d_k11 *
                     ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
                           ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                       std::cos( PI * kY * y + kYPhi ) *
                                       std::cos( PI * kZ * z + kZPhi ) ) *
                           std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                           std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                          std::pow( zatom, 3 ) +
+                          std::pow( d_zatom, 3 ) +
                       ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
                           std::pow( std::cos( PI * kT * t ), 2 ) *
                           std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
                           std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) *
-                          std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) / std::pow( zatom, 3 ) ) -
-                k11 *
+                          std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) / std::pow( d_zatom, 3 ) ) -
+                d_k11 *
                     ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
                           ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                       std::cos( PI * kY * y + kYPhi ) *
                                       std::cos( PI * kZ * z + kZPhi ) ) *
                           std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                           std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                          std::pow( zatom, 3 ) +
+                          std::pow( d_zatom, 3 ) +
                       ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
                           std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
                           std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
                           std::pow( std::cos( PI * kT * t ), 2 ) *
-                          std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) / std::pow( zatom, 3 ) ) -
-                k11 *
+                          std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) / std::pow( d_zatom, 3 ) ) -
+                d_k11 *
                     ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
                           ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                       std::cos( PI * kY * y + kYPhi ) *
                                       std::cos( PI * kZ * z + kZPhi ) ) *
                           std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                           std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                          std::pow( zatom, 3 ) +
+                          std::pow( d_zatom, 3 ) +
                       ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
                           std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
                           std::pow( std::sin( PI * kZ * z + kZPhi ), 2 ) *
                           std::pow( std::cos( PI * kT * t ), 2 ) *
-                          std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) / std::pow( zatom, 3 ) ) -
-                k12 * std::pow( zatom, 3 ) *
+                          std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) / std::pow( d_zatom, 3 ) ) -
+                d_k12 * std::pow( d_zatom, 3 ) *
                     ( -kE0 +
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                           std::cos( PI * kY * y + kYPhi ) *
@@ -837,7 +813,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                         std::cos( PI * kY * y + kYPhi ) *
                                         std::cos( PI * kZ * z + kZPhi ),
                               2.0 / 3.0 ) -
-                k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
                             std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
                                                 std::cos( PI * kT * t ) *
                                                 std::cos( PI * kY * y + kYPhi ) *
@@ -855,7 +831,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                                 std::cos( PI * kY * y + kYPhi ) *
                                                 std::cos( PI * kZ * z + kZPhi ),
                                       5.0 / 6.0 ) ) -
-                k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
                             std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
                                                 std::cos( PI * kT * t ) *
                                                 std::cos( PI * kY * y + kYPhi ) *
@@ -873,7 +849,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                                 std::cos( PI * kY * y + kYPhi ) *
                                                 std::cos( PI * kZ * z + kZPhi ),
                                       5.0 / 6.0 ) ) -
-                k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
                             std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
                                                 std::cos( PI * kT * t ) *
                                                 std::cos( PI * kY * y + kYPhi ) *
@@ -891,7 +867,7 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                                 std::cos( PI * kY * y + kYPhi ) *
                                                 std::cos( PI * kZ * z + kZPhi ),
                                       5.0 / 6.0 ) ) +
-                k22 * std::pow( zatom, 3 ) *
+                d_k22 * std::pow( d_zatom, 3 ) *
                     ( -kE0 +
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
                                           std::cos( PI * kY * y + kYPhi ) *
