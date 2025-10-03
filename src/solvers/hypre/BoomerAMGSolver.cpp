@@ -36,6 +36,12 @@ BoomerAMGSolver::BoomerAMGSolver( std::shared_ptr<SolverStrategyParameters> para
     if ( d_bMatrixInitialized && d_bSetupSolver ) {
         setupBoomerAMG();
     }
+    setHypreFunctionPointers();
+}
+
+void BoomerAMGSolver::setHypreFunctionPointers()
+{
+    getHypreNumIterations = HYPRE_BoomerAMGGetNumIterations;
 }
 
 void BoomerAMGSolver::setupBoomerAMG()
@@ -308,8 +314,22 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
     }
 
     HYPRE_BoomerAMGSetTol( d_solver, static_cast<HYPRE_Real>( d_dRelativeTolerance ) );
+    HYPRE_BoomerAMGSetConvergeType( d_solver, static_cast<HYPRE_Int>( 1 ) );
     HYPRE_BoomerAMGSetMaxIter( d_solver, d_iMaxIterations );
     HYPRE_BoomerAMGSetPrintLevel( d_solver, d_iDebugPrintInfoLevel );
+    if ( d_hypre_memory_location != HYPRE_MEMORY_HOST ) {
+        AMP_INSIST( d_coarsen_type == 8, "BoomerAMGSolver:: on device coarsen_type can only be 8" );
+        AMP_INSIST( d_interp_type == 3 || d_interp_type == 6 || d_interp_type == 14 ||
+                        d_interp_type == 15 || d_interp_type == 18,
+                    "BoomerAMGSolver:: on device interp_type can only be one of 3, 6, 14, 15, 18" );
+        AMP_INSIST( d_agg_interp_type == 5 || d_agg_interp_type == 7,
+                    "BoomerAMGSolver:: on device agg_interp_type can only be one of 5, 7" );
+        AMP_INSIST( d_relax_type == 3 || d_relax_type == 4 || d_relax_type == 6 ||
+                        d_relax_type == 7 || d_relax_type == 11 || d_relax_type == 12 ||
+                        d_relax_type == 16 || d_relax_type == 18,
+                    "BoomerAMGSolver:: on device relax_type can only be one of 3, 4, 6, 7, 11, "
+                    "12, 16, 18" );
+    }
 }
 
 void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
@@ -320,62 +340,8 @@ void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
         setupHypreMatrixAndRhs();
         setupBoomerAMG();
     }
-    // Always zero before checking stopping criteria for any reason
-    d_iNumberIterations = 0;
 
-    AMP_INSIST( d_pOperator, "BoomerAMGSolver::apply() operator cannot be NULL" );
-
-    HYPRE_SetMemoryLocation( d_memory_location );
-    HYPRE_SetExecutionPolicy( d_exec_policy );
-
-    const auto f_norm = static_cast<HYPRE_Real>( f->L2Norm() );
-
-    // Zero rhs implies zero solution, bail out early
-    if ( f_norm == static_cast<HYPRE_Real>( 0.0 ) ) {
-        u->zero();
-        d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
-        d_dResidualNorm     = 0.0;
-        if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "BoomerAMGSolver::apply: solution is zero" << std::endl;
-        }
-        return;
-    }
-
-    // Compute initial residual, used mostly for reporting in this case
-    // since Hypre tracks this internally
-    // Can we get that value from Hypre and remove one global reduce?
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r;
-    HYPRE_Real current_res;
-    if ( d_bUseZeroInitialGuess ) {
-        u->zero();
-        current_res = f_norm;
-    } else {
-        r = f->clone();
-        d_pOperator->residual( f, u, r );
-        current_res = static_cast<HYPRE_Real>( r->L2Norm() );
-    }
-    d_dInitialResidual = current_res;
-
-    if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of solution vector: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of rhs vector: " << f_norm
-                  << std::endl;
-        AMP::pout << "BoomerAMGSolver::apply: initial L2Norm of residual: " << current_res
-                  << std::endl;
-    }
-
-    // return if the residual is already low enough
-    // checkStoppingCriteria responsible for setting flags on convergence reason
-    if ( checkStoppingCriteria( current_res ) ) {
-        if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "BoomerAMGSolver::apply: initial residual below tolerance" << std::endl;
-        }
-        return;
-    }
-
-    copyToHypre( u, d_hypre_sol );
-    copyToHypre( f, d_hypre_rhs );
+    preSolve( f, u );
 
     HYPRE_ParCSRMatrix parcsr_A;
     HYPRE_ParVector par_b;
@@ -387,48 +353,12 @@ void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
 
     HYPRE_BoomerAMGSolve( d_solver, parcsr_A, par_b, par_x );
 
-    copyFromHypre( d_hypre_sol, u );
-
-    // we are forced to update the state of u here
-    // as Hypre is not going to change the state of a managed vector
-    // an example where this will and has caused problems is when the
-    // vector is a petsc managed vector being passed back to PETSc
-    u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-
     // Query iteration count and store on AMP side
     HYPRE_Int hypre_iters;
-    HYPRE_BoomerAMGGetNumIterations( d_solver, &hypre_iters );
+    getHypreNumIterations( d_solver, &hypre_iters );
     d_iNumberIterations = hypre_iters;
-    HYPRE_Real hypre_res;
-    HYPRE_BoomerAMGGetFinalRelativeResidualNorm( d_solver, &hypre_res );
 
-    // Check for NaNs
-    if ( std::isnan( hypre_res ) ) {
-        d_ConvergenceStatus = SolverStatus::DivergedOther;
-        AMP_WARNING( "HyprePCGSolver::apply: Residual norm is NaN" );
-    }
-
-    // Re-compute or query final residual
-    if ( d_bComputeResidual ) {
-        d_pOperator->residual( f, u, r );
-        current_res = static_cast<HYPRE_Real>( r->L2Norm() );
-    } else {
-        current_res = hypre_res;
-    }
-
-    // Store final residual norm and update convergence flags
-    d_dResidualNorm = current_res;
-    checkStoppingCriteria( current_res );
-
-    if ( d_iDebugPrintInfoLevel > 0 ) {
-        AMP::pout << "BoomerAMGSolver::apply: final L2Norm of solution: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "BoomerAMGSolver::apply: final L2Norm of residual: " << current_res
-                  << std::endl;
-        AMP::pout << "BoomerAMG::apply: iterations: " << d_iNumberIterations << std::endl;
-        AMP::pout << "BoomerAMG::apply: convergence reason: "
-                  << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
-    }
+    postSolve( f, u );
 }
 
 void BoomerAMGSolver::reset( std::shared_ptr<SolverStrategyParameters> params )
@@ -442,7 +372,7 @@ void BoomerAMGSolver::reset( std::shared_ptr<SolverStrategyParameters> params )
     HYPRE_ParCSRMatrix parcsr_A;
 
     HYPRE_IJMatrixGetObject( d_ijMatrix, (void **) &parcsr_A );
-    hypre_ParCSRMatrixMigrate( parcsr_A, d_memory_location );
+    hypre_ParCSRMatrixMigrate( parcsr_A, d_hypre_memory_location );
     if ( d_bSetupSolver ) {
         PROFILE( "BoomerAMGSolver::reset(setup)" );
         HYPRE_BoomerAMGSetup( d_solver, parcsr_A, nullptr, nullptr );

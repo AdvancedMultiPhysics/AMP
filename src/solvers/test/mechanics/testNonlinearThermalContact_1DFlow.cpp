@@ -373,7 +373,10 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
 
         //------------------------------------------------------------
 
-        mapCladToFlow->residual( nullptr, TemperatureInKelvinVec2, solVec );
+        mapCladToFlow->apply( TemperatureInKelvinVec2, solVec );
+        solVec->scale( -1.0 );
+        solVec->makeConsistent();
+
         while ( true ) {
             flowOperator->residual( rhsVec, solVec, resVec );
             if ( ( resVec->L2Norm() - vecLag->L2Norm() ).abs() < .000005 * vecLag->L2Norm() )
@@ -390,9 +393,10 @@ static void thermalContactTest( AMP::UnitTest *ut, const std::string &exeName )
             vecLag->copyVector( resVec );
         }
 
-        mapFlowToClad->residual( nullptr, resVec, robinRHSVec );
+        resVec->makeConsistent();
+        mapFlowToClad->apply( resVec, robinRHSVec );
 
-        robinRHSVec->scale( hclad );
+        robinRHSVec->scale( -hclad );
         correctionParameters3->d_variableFlux = robinRHSVec;
         robinBoundaryOp3->reset( correctionParameters3 );
 

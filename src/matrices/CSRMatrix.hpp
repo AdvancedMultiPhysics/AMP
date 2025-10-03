@@ -143,6 +143,26 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType m
 }
 
 template<typename Config>
+template<typename ConfigOut>
+std::shared_ptr<Matrix> CSRMatrix<Config>::migrate() const
+{
+    return migrate<ConfigOut>( AMP::Utilities::getDefaultBackend(
+        AMP::Utilities::getAllocatorMemoryType<typename ConfigOut::allocator_type>() ) );
+}
+
+template<typename Config>
+template<typename ConfigOut>
+std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend backend ) const
+{
+    if constexpr ( std::is_same_v<Config, ConfigOut> )
+        return this->clone();
+
+    auto data    = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
+    auto dataOut = data->template migrate<ConfigOut>( backend );
+    return std::make_shared<CSRMatrix<ConfigOut>>( dataOut );
+}
+
+template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
 {
     PROFILE( "CSRMatrix<Config>::transpose" );

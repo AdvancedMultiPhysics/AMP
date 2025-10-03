@@ -135,7 +135,7 @@ void HypreSolver::copyToHypre( std::shared_ptr<const AMP::LinearAlgebra::Vector>
                      ->getRawDataBlock<HYPRE_Real>();
 
         auto memType      = AMP::Utilities::getMemoryType( vals_p );
-        auto hypreMemType = getAMPMemorySpace( d_memory_location );
+        auto hypreMemType = getAMPMemorySpace( d_hypre_memory_location );
         // see if memory spaces are compatible
         if ( memType == hypreMemType ) {
             AMP_ASSERT( vals_p );
@@ -176,7 +176,7 @@ void HypreSolver::copyFromHypre( HYPRE_IJVector hypre_v,
     if ( amp_v->isType<HYPRE_Real>( 0 ) ) {
 
         auto memType      = AMP::Utilities::getMemoryType( vals_p );
-        auto hypreMemType = getAMPMemorySpace( d_memory_location );
+        auto hypreMemType = getAMPMemorySpace( d_hypre_memory_location );
         // see if memory spaces are compatible
         if ( memType == hypreMemType ) {
             ierr = HYPRE_IJVectorGetValues(
@@ -217,17 +217,133 @@ void HypreSolver::setupHypreMatrixAndRhs()
 
         // set the hypre memory and execution spaces from the operator
         if ( linearOperator->getMemoryLocation() > AMP::Utilities::MemoryType::host ) {
-            d_memory_location = HYPRE_MEMORY_DEVICE;
-            d_exec_policy     = HYPRE_EXEC_DEVICE;
+            d_hypre_memory_location = HYPRE_MEMORY_DEVICE;
+            d_hypre_exec_policy     = HYPRE_EXEC_DEVICE;
         } else {
-            d_memory_location = HYPRE_MEMORY_HOST;
-            d_exec_policy     = HYPRE_EXEC_HOST;
+            d_hypre_memory_location = HYPRE_MEMORY_HOST;
+            d_hypre_exec_policy     = HYPRE_EXEC_HOST;
         }
 
         createHYPREMatrix( matrix );
         createHYPREVectors();
         d_bMatrixInitialized = true;
     }
+}
+
+void HypreSolver::preSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> u )
+{
+
+    // Always zero before checking stopping criteria for any reason
+    d_iNumberIterations = 0;
+
+    // in this case we make the assumption we can access a EpetraMat for now
+    AMP_INSIST( d_pOperator, "ERROR: " + type() + "::apply() operator cannot be NULL" );
+
+    HYPRE_SetMemoryLocation( d_hypre_memory_location );
+    HYPRE_SetExecutionPolicy( d_hypre_exec_policy );
+
+    // Compute initial residual, used mostly for reporting in this case
+    // since Hypre tracks this internally
+    // Can we get that value from Hypre and remove one global reduce?
+    if ( !d_r )
+        d_r = f->clone();
+
+    if ( d_bUseZeroInitialGuess ) {
+        u->zero();
+        d_r->copyVector( f );
+    } else {
+        d_pOperator->residual( f, u, d_r );
+    }
+
+    d_dResidualNorm    = static_cast<HYPRE_Real>( d_r->L2Norm() );
+    d_dInitialResidual = d_dResidualNorm;
+
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << type() << "::apply: initial L2Norm of residual: " << d_dResidualNorm
+                  << std::endl;
+    }
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << type() << "::apply: initial L2Norm of solution vector: " << u->L2Norm()
+                  << std::endl;
+        AMP::pout << type() << "::apply: initial L2Norm of rhs vector: " << f->L2Norm()
+                  << std::endl;
+    }
+
+    // return if the residual is already low enough
+    // checkStoppingCriteria responsible for setting flags on convergence reason
+    if ( checkStoppingCriteria( d_dResidualNorm ) ) {
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << type() << "::apply: initial residual below tolerance" << std::endl;
+        }
+        return;
+    }
+
+    copyToHypre( u, d_hypre_sol );
+    copyToHypre( f, d_hypre_rhs );
+}
+
+void HypreSolver::hypreSolve()
+{
+
+    HYPRE_ParCSRMatrix parcsr_A;
+    HYPRE_ParVector par_b;
+    HYPRE_ParVector par_x;
+
+    HYPRE_IJMatrixGetObject( d_ijMatrix, (void **) &parcsr_A );
+
+    HYPRE_IJVectorGetObject( d_hypre_rhs, (void **) &par_b );
+    HYPRE_IJVectorGetObject( d_hypre_sol, (void **) &par_x );
+
+    d_hypreSolve( d_solver, (HYPRE_Matrix) parcsr_A, (HYPRE_Vector) par_b, (HYPRE_Vector) par_x );
+
+    HYPRE_Int hypre_iters;
+    getHypreNumIterations( d_solver, &hypre_iters );
+    d_iNumberIterations = hypre_iters;
+}
+
+void HypreSolver::postSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                             std::shared_ptr<AMP::LinearAlgebra::Vector> u )
+{
+
+    copyFromHypre( d_hypre_sol, u );
+
+    // we are forced to update the state of u here
+    // as Hypre is not going to change the state of a managed vector
+    // an example where this will and has caused problems is when the
+    // vector is a petsc managed vector being passed back to PETSc
+    u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+    // Re-compute final residual, hypre only returns relative residual
+    d_pOperator->residual( f, u, d_r );
+    d_dResidualNorm = static_cast<HYPRE_Real>( d_r->L2Norm() );
+    // Store final residual norm and update convergence flags
+    checkStoppingCriteria( d_dResidualNorm );
+
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << type() << "::apply: final L2Norm of residual: " << d_dResidualNorm
+                  << std::endl;
+        AMP::pout << type() << "::apply: iterations: " << d_iNumberIterations << std::endl;
+        AMP::pout << type() << "::apply: convergence reason: "
+                  << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+    }
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << type() << "::apply: final L2Norm of solution: " << u->L2Norm() << std::endl;
+    }
+}
+
+void HypreSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                         std::shared_ptr<AMP::LinearAlgebra::Vector> u )
+{
+    PROFILE( "HypreSolver::apply" );
+
+    preSolve( f, u );
+
+    hypreSolve();
+
+    postSolve( f, u );
 }
 
 void HypreSolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )

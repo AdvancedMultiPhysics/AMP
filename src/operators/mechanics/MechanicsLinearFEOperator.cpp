@@ -72,8 +72,8 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
             d_inDofMap, d_inputVariable, true, d_memory_location );
         d_refXYZ->zero();
 
-        AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-        AMP::Mesh::MeshIterator end_el = el.end();
+        auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+        auto end_el = el.end();
 
         for ( ; el != end_el; ++el ) {
             d_currNodes               = el->getElements( AMP::Mesh::GeomType::Vertex );
@@ -111,9 +111,9 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
         if ( isNonlinearOperatorInitialized ) {
             reset( params );
         } else {
-            AMP::LinearAlgebra::Vector::shared_ptr tmpInVec = AMP::LinearAlgebra::createVector(
+            auto tmpInVec = AMP::LinearAlgebra::createVector(
                 d_inDofMap, d_inputVariable, true, d_memory_location );
-            AMP::LinearAlgebra::Vector::shared_ptr tmpOutVec = AMP::LinearAlgebra::createVector(
+            auto tmpOutVec = AMP::LinearAlgebra::createVector(
                 d_outDofMap, d_outputVariable, true, d_memory_location );
             d_matrix = AMP::LinearAlgebra::createMatrix( tmpInVec, tmpOutVec );
         }
@@ -225,8 +225,8 @@ void MechanicsLinearFEOperator::printStressAndStrain( AMP::LinearAlgebra::Vector
     disp->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     d_materialModel->preLinearAssembly();
 
-    AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    AMP::Mesh::MeshIterator end_el = el.end();
+    auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto end_el = el.end();
 
     for ( ; el != end_el; ++el ) {
         d_currNodes               = el->getElements( AMP::Mesh::GeomType::Vertex );

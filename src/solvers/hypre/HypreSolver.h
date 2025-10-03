@@ -94,14 +94,22 @@ public:
     /**
      * Set the desired HYPRE memory location for HYPRE objects
      */
-    void setMemoryLocation( HYPRE_MemoryLocation location ) { d_memory_location = location; }
+    void setMemoryLocation( HYPRE_MemoryLocation location ) { d_hypre_memory_location = location; }
 
     /**
      * Set the desired HYPRE execution policy for the solver
      */
-    void setExecutionPolicy( HYPRE_ExecutionPolicy policy ) { d_exec_policy = policy; }
+    void setExecutionPolicy( HYPRE_ExecutionPolicy policy ) { d_hypre_exec_policy = policy; }
 
     HYPRE_Solver getHYPRESolver() { return d_solver; }
+
+    /**
+     * Solve the system \f$Au = f\f$.
+     @param [in] f : shared pointer to right hand side vector
+     @param [out] u : shared pointer to approximate computed solution
+     */
+    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
 
 protected:
     /**
@@ -130,19 +138,31 @@ protected:
 
     void setupHypreMatrixAndRhs();
 
+    void hypreSolve();
+
+    void preSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                   std::shared_ptr<AMP::LinearAlgebra::Vector> u );
+    void postSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                    std::shared_ptr<AMP::LinearAlgebra::Vector> u );
+
     bool d_bMatrixInitialized = false;
 
     AMP_MPI d_comm;
 
     std::shared_ptr<AMP::LinearAlgebra::HypreMatrixAdaptor> d_HypreMatrixAdaptor;
 
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_r;
+
     HYPRE_IJMatrix d_ijMatrix  = nullptr; //! pointer to HYPRE matrix struct
     HYPRE_IJVector d_hypre_rhs = nullptr; //! pointer to HYPRE representation of rhs
     HYPRE_IJVector d_hypre_sol = nullptr; //! pointer to HYPRE representation of solution
     HYPRE_Solver d_solver      = nullptr; //! pointer to HYPRE solver
 
-    HYPRE_MemoryLocation d_memory_location;
-    HYPRE_ExecutionPolicy d_exec_policy;
+    HYPRE_MemoryLocation d_hypre_memory_location;
+    HYPRE_ExecutionPolicy d_hypre_exec_policy;
+
+    HYPRE_PtrToSolverFcn d_hypreSolve;
+    HYPRE_Int ( *getHypreNumIterations )( HYPRE_Solver solver, HYPRE_Int *num_iterations );
 };
 } // namespace AMP::Solver
 

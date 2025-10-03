@@ -69,14 +69,13 @@ CoupledFlowFrapconOperator::CoupledFlowFrapconOperator(
 void CoupledFlowFrapconOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                                         AMP::LinearAlgebra::Vector::shared_ptr r )
 {
-    AMP::LinearAlgebra::Vector::shared_ptr nullVec;
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal = subsetInputVector( r );
+    auto rInternal = subsetInputVector( r );
     std::dynamic_pointer_cast<AMP::Operator::Map1Dto3D>( d_operators[4] )->setVector( rInternal );
 
-    d_operators[0]->apply( u, nullVec );
-    d_operators[1]->apply( u, nullVec );
+    d_operators[0]->apply( u, nullptr );
+    d_operators[1]->apply( u, nullptr );
     d_operators[2]->apply( d_flowInput, d_flowOutput );
-    // d_operators[3]->apply(nullVec, d_flowInput, nullVec, a, b);  // Is this necessary
-    d_operators[4]->apply( d_flowOutput, nullVec );
+    // d_operators[3]->apply(nullptr, d_flowInput, nullptr, a, b);  // Is this necessary
+    d_operators[4]->apply( d_flowOutput, nullptr );
 }
 } // namespace AMP::Operator

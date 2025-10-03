@@ -51,11 +51,18 @@ DiffusionFDOperator::DiffusionFDOperator(
         AMP_INSIST( periodic == false, "Mesh cannot be periodic in any direction" );
     }
 
+    // Set DOFManager
+    this->setDOFManager();
+    AMP_INSIST( d_DOFMan, "Requires non-null DOFManager" );
+
     // Compute mesh spacings in each dimension
     // [ x_min x_max y_min y_max z_min z_max ]
     auto range = d_BoxMesh->getBoundingBox();
-    // Set globalBox
+    // Set boxes
     d_globalBox = std::make_shared<AMP::Mesh::BoxMesh::Box>( getGlobalNodeBox() );
+    d_localBox  = std::make_shared<AMP::Mesh::BoxMesh::Box>( getLocalNodeBox() );
+    // Set local size
+    d_localArraySize = std::make_shared<AMP::ArraySize>( d_localBox->size() );
 
     // There are nk+1 grid points in dimension k, nk = globalBox.last[k] - globalBox.first[k], such
     // that the mesh spacing is hk = (xkMax - xkMin)/nk
@@ -84,16 +91,8 @@ DiffusionFDOperator::DiffusionFDOperator(
         AMP_INSIST( coefficients->keyExists( key ), "Key ''" + key + "'' is missing!" );
     }
 
-    // Set DOFManager
-    this->setDOFManager();
-    AMP_INSIST( d_DOFMan, "Requires non-null DOFManager" );
-
     // Set stencil
     d_stencil = std::make_shared<std::vector<double>>( createStencil() );
-
-    // Create ids array
-    d_ids = std::make_shared<std::vector<AMP::Mesh::MeshElementID>>(
-        std::vector<AMP::Mesh::MeshElementID>() );
 
     // Get the matrix
     auto A = createDiscretizationMatrix();
@@ -107,32 +106,16 @@ void DiffusionFDOperator::setDOFManager()
 {
     int DOFsPerElement = 1;
     int gcw            = 1; // Ghost-cell width (stencils are at most 3-point in each direction)
-    d_DOFMan           = AMP::Discretization::boxMeshDOFManager::create(
-        this->getMesh(), VertexGeom, gcw, DOFsPerElement );
+    d_DOFMan           = std::dynamic_pointer_cast<AMP::Discretization::boxMeshDOFManager>(
+        AMP::Discretization::boxMeshDOFManager::create(
+            this->getMesh(), VertexGeom, gcw, DOFsPerElement ) );
 }
 
 
-// Map from a grid index to a mesh element index
-AMP::Mesh::MeshElementID
-DiffusionFDOperator::gridIndsToMeshElementIndex( int i, int j, int k ) const
+size_t DiffusionFDOperator::gridIndsToDOF( std::array<int, 3> ijk ) const
 {
-    return d_BoxMesh->convert( AMP::Mesh::BoxMesh::MeshElementIndex( VertexGeom, 0, i, j, k ) );
-};
-
-// Map from a grid index to a mesh element index
-AMP::Mesh::MeshElementID
-DiffusionFDOperator::gridIndsToMeshElementIndex( std::array<int, 3> ijk ) const
-{
-    return d_BoxMesh->convert(
-        AMP::Mesh::BoxMesh::MeshElementIndex( VertexGeom, 0, ijk[0], ijk[1], ijk[2] ) );
-};
-
-
-size_t DiffusionFDOperator::gridIndsToDOF( int i, int j, int k ) const
-{
-    AMP::Mesh::BoxMesh::MeshElementIndex ind( VertexGeom, 0, i, j, k );
+    AMP::Mesh::BoxMesh::MeshElementIndex ind( VertexGeom, 0, ijk[0], ijk[1], ijk[2] );
     AMP::Mesh::MeshElementID id = d_BoxMesh->convert( ind );
-
     std::vector<size_t> dof;
     d_DOFMan->getDOFs( id, dof );
     return dof[0];
@@ -140,27 +123,42 @@ size_t DiffusionFDOperator::gridIndsToDOF( int i, int j, int k ) const
 
 
 // Map from DOF to a grid index i, j, or k
-size_t DiffusionFDOperator::DOFToGridInds( size_t dof, int component ) const
+std::array<int, 3> DiffusionFDOperator::DOFToGridInds( size_t dof ) const
 {
     // Get ElementID
     AMP::Mesh::MeshElementID id = d_DOFMan->getElementID( dof );
     // Convert ElementID into a MeshElementIndex
     AMP::Mesh::BoxMesh::MeshElementIndex ind = d_BoxMesh->convert( id );
     // Get grid index along given component direction
-    return ind.index( component );
+    return ind.index();
 }
 
 
-// Convert a global element box to a global node box.
-// Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the grid
-// dimensions being periodic.
 AMP::Mesh::BoxMesh::Box DiffusionFDOperator::getGlobalNodeBox() const
 {
     auto global = d_BoxMesh->getGlobalBox();
     for ( int d = 0; d < 3; d++ ) {
-        global.last[d]++;
+        // Don't increment last index of box in empty dimensions
+        if ( global.last[d] > 0 ) {
+            global.last[d]++;
+        }
     }
     return global;
+}
+
+AMP::Mesh::BoxMesh::Box DiffusionFDOperator::getLocalNodeBox() const
+{
+    auto global = d_BoxMesh->getGlobalBox();
+    auto local  = d_BoxMesh->getLocalBox();
+    for ( int d = 0; d < 3; d++ ) {
+        // Don't increment last index of box in empty dimensions
+        if ( global.last[d] > 0 ) {
+            if ( local.last[d] == global.last[d] ) {
+                local.last[d]++;
+            }
+        }
+    }
+    return local;
 }
 
 
@@ -168,10 +166,10 @@ AMP::Mesh::BoxMesh::Box DiffusionFDOperator::getGlobalNodeBox() const
 std::vector<double> DiffusionFDOperator::getMeshSize() const { return d_h; }
 
 
-/* Populate vector with function that takes a reference to a MeshElement and returns a double.  */
+/* Populate vector with function that takes a reference to a point and returns a double.  */
 void DiffusionFDOperator::fillVectorWithFunction(
     std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
-    std::function<double( AMP::Mesh::MeshElement & )> fun ) const
+    std::function<double( const AMP::Mesh::Point & )> fun ) const
 {
 
     double u; // Placeholder for funcation evaluation
@@ -179,7 +177,7 @@ void DiffusionFDOperator::fillVectorWithFunction(
     // Fill in exact solution vector
     auto it = d_BoxMesh->getIterator( VertexGeom ); // Mesh iterator
     for ( auto elem = it.begin(); elem != it.end(); elem++ ) {
-        u = fun( *elem );
+        u = fun( elem->coord() );
         std::vector<size_t> i;
         d_DOFMan->getDOFs( elem->globalID(), i );
         vec->setValueByGlobalID( i[0], u );
@@ -194,8 +192,8 @@ void DiffusionFDOperator::fillVectorWithFunction(
    the given boundary
 */
 std::shared_ptr<AMP::LinearAlgebra::Vector> DiffusionFDOperator::createRHSVector(
-    std::function<double( AMP::Mesh::MeshElement & )> PDESourceFun,
-    std::function<double( AMP::Mesh::MeshElement &, int boundary_id )> boundaryFun )
+    std::function<double( const AMP::Mesh::Point & )> PDESourceFun,
+    std::function<double( const AMP::Mesh::Point &, int boundary_id )> boundaryFun )
 {
 
     // Create a vector
@@ -216,7 +214,7 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> DiffusionFDOperator::createRHSVector
             std::vector<size_t> dof;
             d_DOFMan->getDOFs( elem->globalID(), dof );
             // Get boundary value and multiply by corresponding entry in A
-            boundaryValue = boundaryFun( *elem, boundary_id );
+            boundaryValue = boundaryFun( elem->coord(), boundary_id );
             boundaryValue *= this->getMatrix()->getValueByGlobalID( dof[0], dof[0] );
             // Set value in vector
             rhs->setValueByGlobalID( dof[0], boundaryValue );
@@ -281,28 +279,116 @@ std::vector<double> DiffusionFDOperator::createStencil() const
 }
 
 
-/* Get CSR structure for given row of finite-difference operator */
 void DiffusionFDOperator::getCSRData( size_t row,
                                       std::vector<size_t> &cols,
-                                      std::vector<double> &data ) const
+                                      std::vector<double> &data )
 {
 
     PROFILE( "DiffusionFDOperator::getCSRData" );
 
-    // Convert DOF into grid index; note that grid indices in dimensions that don't exist are set to
-    // zero.
-    int i = DOFToGridInds( row, 0 );
-    int j = DOFToGridInds( row, 1 );
-    int k = DOFToGridInds( row, 2 );
+    // We do local grid-index based computations using ArraySize, so we need to offset the global
+    // index "row" to a local index.
+    size_t globalOffset = d_DOFMan->beginDOF();
 
-    // Pack indices into an array for ease of iterating through them
-    std::array<int, 3> ijk = { i, j, k };
+    // Convert global DOF into local grid index
+    size_t rowLocal = row - globalOffset;
+    d_localArraySize->ijk( rowLocal, d_ijk.data() );
 
-    // Determine if current DOF is on a boundary
+    // If current DOF is on a processor boundary, parse it off to the other getCSRDataBoundary
+    // function, which can handle such DOFs, albeit inefficiently.
+    for ( size_t dim = 0; dim < d_dim; dim++ ) {
+        if ( d_ijk[dim] == 0 ||
+             d_ijk[dim] == static_cast<size_t>( d_localBox->last[dim] - d_localBox->first[dim] ) ) {
+            getCSRDataBoundary( row, cols, data );
+            return;
+        }
+    }
+
+    // DOF is on interior of process
+    getCSRDataInterior( d_ijk, rowLocal, cols, data );
+    // Convert local indices back to global
+    for ( auto &col : cols ) {
+        col += globalOffset;
+    }
+}
+
+
+void DiffusionFDOperator::getCSRDataInterior( std::array<size_t, 5> &ijkLocal,
+                                              size_t rowLocal,
+                                              std::vector<size_t> &cols,
+                                              std::vector<double> &data ) const
+{
+
+    PROFILE( "DiffusionFDOperator::getCSRDataInterior" );
+
+    // At an interior DOF
+    cols.resize( d_stencil->size() );
+    data.resize( d_stencil->size() );
+    // Copy stencil contents into data
+    data = *d_stencil;
+
+    // Origin
+    cols[0]      = rowLocal;
+    size_t count = 1;
+    // Loop over all mesh dimensions, skipping diagonal connection since we already set it
+    for ( size_t dim = 0; dim < d_dim; dim++ ) {
+        // --- Whole terms, u_{dim,dim}
+        // W (or S or D)
+        ijkLocal[dim] -= 1;
+        cols[count] = d_localArraySize->index( ijkLocal[0], ijkLocal[1], ijkLocal[2] );
+        count++;
+        // E (or N or U)
+        ijkLocal[dim] += 2;
+        cols[count] = d_localArraySize->index( ijkLocal[0], ijkLocal[1], ijkLocal[2] );
+        count++;
+        // Reset ijkLocal to O.
+        ijkLocal[dim] -= 1;
+
+        // --- Mixed terms, u_{dim,ell}, for ell=0,...,dim-1
+        // We orient the 4 corners of each plane counter clockwise, starting in the bottom left
+        for ( size_t ell = 0; ell < dim; ell++ ) {
+            // SW (or DW or DS)
+            ijkLocal[dim] -= 1;
+            ijkLocal[ell] -= 1;
+            cols[count] = d_localArraySize->index( ijkLocal[0], ijkLocal[1], ijkLocal[2] );
+            count++;
+            // SE (or DE or DN)
+            ijkLocal[ell] += 2;
+            cols[count] = d_localArraySize->index( ijkLocal[0], ijkLocal[1], ijkLocal[2] );
+            count++;
+            // NE (or UE or UN)
+            ijkLocal[dim] += 2;
+            cols[count] = d_localArraySize->index( ijkLocal[0], ijkLocal[1], ijkLocal[2] );
+            count++;
+            // NW (UN or US)
+            ijkLocal[ell] -= 2;
+            cols[count] = d_localArraySize->index( ijkLocal[0], ijkLocal[1], ijkLocal[2] );
+            count++;
+            // Reset ijkLocal to O.
+            ijkLocal[ell] += 1;
+            ijkLocal[dim] -= 1;
+        }
+    }
+}
+
+
+void DiffusionFDOperator::getCSRDataBoundary( size_t row,
+                                              std::vector<size_t> &cols,
+                                              std::vector<double> &data ) const
+{
+
+    PROFILE( "DiffusionFDOperator::getCSRDataBoundary" );
+
+    // Get grid indices in an array for ease of iterating through them
+    std::array<int, 3> ijk = DOFToGridInds( row );
+
+    // Determine if current DOF is on a physical domain boundary
     bool onBoundary = false;
     for ( size_t dim = 0; dim < d_dim; dim++ ) {
-        onBoundary = onBoundary ||
-                     ( ijk[dim] == d_globalBox->first[dim] || ijk[dim] == d_globalBox->last[dim] );
+        if ( ijk[dim] == d_globalBox->first[dim] || ijk[dim] == d_globalBox->last[dim] ) {
+            onBoundary = true;
+            break;
+        }
     }
 
     // At a boundary DOF
@@ -314,24 +400,28 @@ void DiffusionFDOperator::getCSRData( size_t row,
         return;
     }
 
+    cols.resize( d_stencil->size() );
+    data.resize( d_stencil->size() );
+    // Copy stencil contents into data
+    data = *d_stencil;
+
     // At an interior DOF
-    // Convert grid indices of stencil connections into MeshElementIndex's
-    d_ids->resize( d_stencil->size() );
     // Origin
-    ( *d_ids )[0] = gridIndsToMeshElementIndex( ijk );
-    size_t count  = 1;
+    cols[0]      = gridIndsToDOF( ijk );
+    size_t count = 1;
     // Loop over all mesh dimensions, skipping diagonal connection since we already set it
     for ( size_t dim = 0; dim < d_dim; dim++ ) {
         // --- Whole terms, u_{dim,dim}
         // W (or S or D)
         ijk[dim] -= 1;
-        ( *d_ids )[count] = gridIndsToMeshElementIndex( ijk );
+        cols[count] = gridIndsToDOF( ijk );
+        count++;
         // E (or N or U)
         ijk[dim] += 2;
-        ( *d_ids )[count + 1] = gridIndsToMeshElementIndex( ijk );
+        cols[count] = gridIndsToDOF( ijk );
+        count++;
         // Reset ijk to O.
         ijk[dim] -= 1;
-        count += 2;
 
         // --- Mixed terms, u_{dim,ell}, for ell=0,...,dim-1
         // We orient the 4 corners of each plane counter clockwise, starting in the bottom left
@@ -339,35 +429,31 @@ void DiffusionFDOperator::getCSRData( size_t row,
             // SW (or DW or DS)
             ijk[dim] -= 1;
             ijk[ell] -= 1;
-            ( *d_ids )[count] = gridIndsToMeshElementIndex( ijk );
+            cols[count] = gridIndsToDOF( ijk );
+            count++;
             // SE (or DE or DN)
             ijk[ell] += 2;
-            ( *d_ids )[count + 1] = gridIndsToMeshElementIndex( ijk );
+            cols[count] = gridIndsToDOF( ijk );
+            count++;
             // NE (or UE or UN)
             ijk[dim] += 2;
-            ( *d_ids )[count + 2] = gridIndsToMeshElementIndex( ijk );
+            cols[count] = gridIndsToDOF( ijk );
+            count++;
             // NW (UN or US)
             ijk[ell] -= 2;
-            ( *d_ids )[count + 3] = gridIndsToMeshElementIndex( ijk );
+            cols[count] = gridIndsToDOF( ijk );
+            count++;
             // Reset ijk to O.
             ijk[ell] += 1;
             ijk[dim] -= 1;
-            count += 4;
         }
     }
-
-    cols.resize( d_stencil->size() );
-    data.resize( d_stencil->size() );
-    // Convert MeshElementIndex's into DOFs
-    d_DOFMan->getDOFs( *d_ids, cols );
-    // Copy stencil contents into data
-    data = *d_stencil;
 }
 
 
 // Helper function to fill matrix with CSR data
 void DiffusionFDOperator::fillMatrixWithCSRData(
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix ) const
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
 {
 
     PROFILE( "DiffusionFDOperator::fillMatrixWithCSRData" );

@@ -11,8 +11,8 @@ LinearSolver{
         print_info_level   = 0
         min_coarse_size    = 5
         relax_type         = 6 # Hybrid GS/Jacobi
-        coarsen_type       = 10
-        interp_type        = 17 # distance-two
+        coarsen_type       = 8
+        interp_type        = 18
         cycle_type         = 1
         relax_order        = 0
         strong_threshold   = 0.5

@@ -237,10 +237,8 @@ void Map1Dto3D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     auto commSubsetVec = u->select( commSelector );
     auto inputVec      = commSubsetVec->subsetVectorForVariable( d_inpVariable );
 
-    // AMP::LinearAlgebra::Vector::shared_ptr outputVec =  subsetOutputVector( r );
     AMP_ASSERT( inputVec );
     AMP_ASSERT( outputVec );
-    // outputVec->zero();
 
     // Loop through the points on the surface
     AMP_ASSERT( d_zLocations.size() >= 2 );
@@ -328,12 +326,8 @@ void Map1Dto3D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     auto commSubsetVec = u->select( commSelector );
     auto inputVec      = commSubsetVec->subsetVectorForVariable( d_inpVariable );
 
-    // AMP::LinearAlgebra::Vector::shared_ptr outputVec =  subsetOutputVector( r );
     AMP_ASSERT( inputVec );
     AMP_ASSERT( outputVec );
-    // outputVec->zero();
-
-    // const unsigned int numPoints = inputVec->getLocalSize();
 
     // Loop through the points on the surface
     AMP_ASSERT( d_zLocations.size() >= 2 );

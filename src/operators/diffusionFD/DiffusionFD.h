@@ -11,10 +11,11 @@
 #include "AMP/mesh/structured/BoxMesh.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/operators/Operator.h"
+#include "AMP/utils/ArraySize.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
-
 #include "ProfilerApp.h"
+
 
 namespace AMP::Operator {
 
@@ -50,24 +51,22 @@ class DiffusionFDOperator : public LinearOperator
 
     //
 private:
-    size_t d_dim                                  = 0;
+    //! Problem dimension
+    size_t d_dim = -1;
+
+    //! Mesh
     std::shared_ptr<AMP::Mesh::BoxMesh> d_BoxMesh = nullptr;
-    // Convenience member
+
+    //! Convenience member
     static constexpr auto VertexGeom = AMP::Mesh::GeomType::Vertex;
 
-    // Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
+    //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
-    // FD coefficients
-    std::shared_ptr<std::vector<double>> d_stencil = nullptr;
-    // Global grid index box w/ zero ghosts
-    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox = nullptr;
-    // Auxilliary variable for creating CSR data
-    std::shared_ptr<std::vector<AMP::Mesh::MeshElementID>> d_ids = nullptr;
 
     //
 public:
     std::shared_ptr<AMP::Database> d_db;
-    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFMan;
+    std::shared_ptr<AMP::Discretization::boxMeshDOFManager> d_DOFMan;
 
     // Constructor
     DiffusionFDOperator( std::shared_ptr<const AMP::Operator::OperatorParameters> params_ );
@@ -90,15 +89,33 @@ public:
     2. boundaryFun  is a function returning the Dirichlet boundary value at the given location on
     the given boundary */
     std::shared_ptr<AMP::LinearAlgebra::Vector> createRHSVector(
-        std::function<double( AMP::Mesh::MeshElement & )> PDESourceFun,
-        std::function<double( AMP::Mesh::MeshElement &, int boundary_id )> boundaryFun );
+        std::function<double( const AMP::Mesh::Point & )> PDESourceFun,
+        std::function<double( const AMP::Mesh::Point &, int boundary_id )> boundaryFun );
 
     // Populate a vector with the given function
     void fillVectorWithFunction( std::shared_ptr<AMP::LinearAlgebra::Vector> u,
-                                 std::function<double( AMP::Mesh::MeshElement & )> fun ) const;
+                                 std::function<double( const AMP::Mesh::Point & )> fun ) const;
 
     // Vector of hx, hy, hz
     std::vector<double> getMeshSize() const;
+
+
+    // Data
+private:
+    //! FD coefficients
+    std::shared_ptr<std::vector<double>> d_stencil = nullptr;
+
+    //! Local grid index box w/ zero ghosts
+    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_localBox = nullptr;
+
+    //! Global grid index box w/ zero ghosts
+    std::shared_ptr<AMP::Mesh::BoxMesh::Box> d_globalBox = nullptr;
+
+    //! ArraySize of the local box
+    std::shared_ptr<AMP::ArraySize> d_localArraySize = nullptr;
+
+    //! Placeholder array of grid indices
+    std::array<size_t, 5> d_ijk;
 
     //
 private:
@@ -108,31 +125,46 @@ private:
     // FD stencil
     std::vector<double> createStencil() const;
 
-    // Pack cols+data vectors in given row
-    void getCSRData( size_t row, std::vector<size_t> &cols, std::vector<double> &data ) const;
+    //! Pack cols+data vectors in given row.
+    void getCSRData( size_t row, std::vector<size_t> &cols, std::vector<double> &data );
+
+    /** Pack cols+data for the given row, which is a local row index, corresponding to a local DOF
+     * that's on the interior of the current process. The corresponding local ijk mesh indices are
+     * in ijkLocal
+     */
+    void getCSRDataInterior( std::array<size_t, 5> &ijkLocal,
+                             size_t rowLocal,
+                             std::vector<size_t> &cols,
+                             std::vector<double> &data ) const;
+
+    /** Pack cols+data vectors in given row. Note that, despite the name, this function works for
+     * any global row, not just those on the a (physical or processor) boundary, but for a DOF on
+     * the interior of a process it's less efficient than "getCSRDataInterior"
+     */
+    void
+    getCSRDataBoundary( size_t row, std::vector<size_t> &cols, std::vector<double> &data ) const;
+
 
     // Fill CSR matrix with data
-    void fillMatrixWithCSRData( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix ) const;
+    void fillMatrixWithCSRData( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix );
 
     // Assemble matrix
     std::shared_ptr<AMP::LinearAlgebra::Matrix> createDiscretizationMatrix();
 
-    // Map from grid index i, or i,j, or i,j,k to a MeshElementIndex to a MeshElementId and then to
-    // the corresponding DOF
-    size_t gridIndsToDOF( int i, int j = 0, int k = 0 ) const;
+    //! Map from grid index ijk to the corresponding DOF
+    size_t gridIndsToDOF( std::array<int, 3> ijk ) const;
 
-    // Map from a grid index to a mesh element index
-    AMP::Mesh::MeshElementID gridIndsToMeshElementIndex( int i, int j = 0, int k = 0 ) const;
+    //! Get grid indices corresponding to the DOF
+    std::array<int, 3> DOFToGridInds( size_t dof ) const;
 
-    // Map from a grid index to a mesh element index
-    AMP::Mesh::MeshElementID gridIndsToMeshElementIndex( std::array<int, 3> ijk ) const;
-
-    size_t DOFToGridInds( size_t dof, int component = 0 ) const;
-
-    // Convert a global element box to a global node box.
-    // Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
-    // grid dimensions being periodic.
+    /** Convert a global element box to a global node box.
+     * Modified from src/mesh/test/test_BoxMeshIndex.cpp by removing the possibility of any of the
+     * grid dimensions being periodic.
+     */
     AMP::Mesh::BoxMesh::Box getGlobalNodeBox() const;
+
+    //! Convert a local element box to a local node box.
+    AMP::Mesh::BoxMesh::Box getLocalNodeBox() const;
 };
 } // namespace AMP::Operator
 
