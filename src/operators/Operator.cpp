@@ -66,8 +66,6 @@ void Operator::residual( AMP::LinearAlgebra::Vector::const_shared_ptr f,
     } else {
         rInternal->scale( -1.0 );
     }
-
-    rInternal->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 
