@@ -88,6 +88,7 @@ public:
 
 private:
     void setupBoomerAMG( void );
+    void setHypreFunctionPointers();
 
     int d_num_functions        = 1;
     int d_min_iterations       = 0;
