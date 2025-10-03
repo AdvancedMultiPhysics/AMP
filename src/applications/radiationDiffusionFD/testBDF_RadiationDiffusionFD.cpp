@@ -393,6 +393,7 @@ int main( int argc, char **argv )
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
 
     std::vector<std::string> exeNames;
+#ifdef AMP_USE_PETSC // TI uses snes solver
 #ifdef AMP_USE_HYPRE
     // Discretization error tests
     exeNames.emplace_back( "input_testDiscretizationError-1D-Boomer" );
@@ -400,6 +401,7 @@ int main( int argc, char **argv )
     // Mousseau tests
     exeNames.emplace_back( "input_testMousseau-1D-Boomer" );
     exeNames.emplace_back( "input_testMousseau-2D-Boomer" );
+#endif
 #endif
 
     for ( auto &exeName : exeNames ) {

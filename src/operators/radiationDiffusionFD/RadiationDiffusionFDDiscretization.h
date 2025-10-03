@@ -368,7 +368,7 @@ public:
     bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET ) override;
 
     //! Create a multiVector of E and T over the mesh.
-    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override;
 
     //! Vector of hx, hy, hz
     std::vector<double> getMeshSize() const;
@@ -558,7 +558,7 @@ public:
 
     //! Compute LET = L(ET)
     void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> ET,
-                std::shared_ptr<AMP::LinearAlgebra::Vector> LET );
+                std::shared_ptr<AMP::LinearAlgebra::Vector> LET ) override;
 
     /** Allows an apply from Jacobian data that's been modified by an outside class (this is an
      * acknowledgement that the caller of the apply deeply understands what they're doing)
