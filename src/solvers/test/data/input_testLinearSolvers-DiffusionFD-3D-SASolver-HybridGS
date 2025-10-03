@@ -1,9 +1,11 @@
-Preconditioner{
+<<< input_DiffusionFDOperator-3D >>>
+
+LinearSolver{
   name = "SASolver"
-  absolute_tolerance = 0.0
-  relative_tolerance = 0.0
+  absolute_tolerance = 1.e-12
+  relative_tolerance = 1.e-12
   print_info_level = 3
-  max_iterations = 1
+  max_iterations = 50
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
@@ -30,4 +32,11 @@ Preconditioner{
     num_sweeps = 2
     sweep_type = "symmetric"
   }
+}
+
+Reference{
+  iterations = 19
+  res_l2_norm = -1
+  tolerance = 0
+  strict = FALSE
 }

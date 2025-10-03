@@ -36,9 +36,7 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
-    AMP_INSIST( d_num_smooth_prol <= 1,
-                "SASolver: more than one prolongator smoothing step not yet supported" );
-    d_prol_trunc = db->getWithDefault<float>( "prol_trunc", 0 );
+    d_prol_trunc      = db->getWithDefault<float>( "prol_trunc", 0 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
@@ -126,36 +124,39 @@ void SASolver::makeCoarseSolver()
 void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
                                  std::shared_ptr<LinearAlgebra::Matrix> &P ) const
 {
-    // Apply Jacobi smoother to get P_smooth = (I - omega * Dinv * A) * P_tent
-
-    // First A * P_tent
-    auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
+    // Apply Jacobi-L1 smoother w/ chebyshev acceleration to get P_smooth
 
     // Get D as absolute row sums of A
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // then apply -Dinv in-place
-    // omega hardcoded via linear Chebyshev over top 75% of evals
-    P_smooth->scaleInv( -8.0 / 5.0, D );
-    D.reset();
+    // Chebyshev terms, set to damp over 75% of eigenvalues
+    const double pi = static_cast<double>( AMP::Constants::pi );
+    const double a = 0.95, ma = 1.0 - a, pa = 1.0 + a;
 
-    // add back in P_tent
-    P_smooth->axpy( 1.0, P );
+    // Smooth P, swapping at end each time
+    for ( int i = 0; i < d_num_smooth_prol; ++i ) {
+        // First A * P
+        auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
 
-    // normalize rows to span constants
-    auto Ds = P_smooth->getRowSums();
-    P_smooth->scaleInv( 1.0, Ds );
+        // then apply -Dinv in-place
+        const double omega = 0.5 * ( ma * std::cos( pi * static_cast<double>( 2 * i - 1 ) /
+                                                    static_cast<double>( d_num_smooth_prol ) ) +
+                                     pa );
+        P_smooth->scaleInv( -omega, D );
 
-    // truncate small non-zeros and re-normalize
-    if ( d_prol_trunc > 0.0 ) {
-        P_smooth->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
-        Ds = P_smooth->getRowSums( Ds );
-        P_smooth->scaleInv( 1.0, Ds );
+        // add back in P_tent
+        P_smooth->axpy( 1.0, P );
+
+        P.swap( P_smooth );
+        P_smooth.reset();
+
+        if ( d_prol_trunc > 0.0 ) {
+            P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
+        }
     }
-    Ds.reset();
-
-    P.swap( P_smooth );
-    P_smooth.reset();
+    D.reset();
+    auto Ds = P->getRowSums();
+    P->scaleInv( 1.0, Ds );
 }
 
 void SASolver::setup()
@@ -172,10 +173,10 @@ void SASolver::setup()
 
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         auto A = d_levels.back().A->getMatrix();
+
         auto P = d_aggregator->getAggregateMatrix( A );
-        for ( int ns = 0; ns < d_num_smooth_prol; ++ns ) {
-            smoothP_JacobiL1( A, P );
-        }
+        smoothP_JacobiL1( A, P );
+
         auto R  = P->transpose();
         auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
         auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );

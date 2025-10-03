@@ -98,7 +98,14 @@ COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-BiCGSTAB )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-TFQMR )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-QMRCGSTAB )
 
-COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-1D-SASolver-HybridGS-FCG )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-JacobiL1 )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-HybridGS )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-JacobiL1 )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-HybridGS )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG )
 
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG )
@@ -119,8 +126,6 @@ COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR 
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES )
 
-COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG )
-COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG )
 
 IF ( USE_TRILINOS )
     COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-ML )
@@ -159,7 +164,8 @@ IF ( USE_TRILINOS )
 ENDIF()
 
 IF ( USE_HYPRE )
-    COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-1D-BoomerAMG-CG )
+    COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-BoomerAMG )
+    COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-BoomerAMG )
     COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG )
     COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG )
 

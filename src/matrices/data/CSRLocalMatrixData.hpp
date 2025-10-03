@@ -799,9 +799,6 @@ void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
 template<typename Config>
 void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) const
 {
-    AMP_INSIST( !d_is_symbolic,
-                "CSRLocalMatrixData::printStats not implemented for symbolic matrices" );
-
     std::cout << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
     if ( d_is_empty ) {
         std::cout << "    EMPTY" << std::endl;
@@ -823,21 +820,31 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
     std::cout << "    tot nnz: " << d_nnz << std::endl;
     if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
         std::cout << "    row 0: ";
-        for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
-            if ( d_coeffs[n] != 0 || show_zeros ) {
+        for ( auto n = d_row_starts[0]; n < d_row_starts[10]; ++n ) {
+            if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
                 std::cout << "("
                           << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
                                               static_cast<long long>( d_cols_loc[n] ) )
                           << "," << d_coeffs[n] << "), ";
+            } else if ( show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << ",--), ";
             }
         }
         std::cout << "\n    row last: ";
         for ( auto n = d_row_starts[d_num_rows - 1]; n < d_row_starts[d_num_rows]; ++n ) {
-            if ( d_coeffs[n] != 0 || show_zeros ) {
+            if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
                 std::cout << "("
                           << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
                                               static_cast<long long>( d_cols_loc[n] ) )
                           << "," << d_coeffs[n] << "), ";
+            } else if ( show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << ",--), ";
             }
         }
         if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
@@ -847,6 +854,9 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
             }
         }
     } else if ( verbose ) {
+        AMP_INSIST( !d_is_symbolic,
+                    "CSRLocalMatrixData::printStats not implemented for symbolic device matrices" );
+
         // copy row pointers back to host
         std::vector<lidx_t> rs_h( d_num_rows + 1, 0 );
         AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), rs_h.data() );

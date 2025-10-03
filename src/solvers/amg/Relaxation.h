@@ -94,6 +94,7 @@ struct JacobiL1 : Relaxation {
 
 private:
     float d_spec_lower;
+    std::shared_ptr<LinearAlgebra::Vector> d_diag;
     template<typename Config>
     void relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                 std::shared_ptr<const LinearAlgebra::Vector> b,
