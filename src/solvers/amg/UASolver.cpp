@@ -99,7 +99,7 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     }
 
     d_levels.clear();
-    d_levels.emplace_back().A       = linop;
+    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *linop );
     d_levels.back().pre_relaxation  = create_relaxation( linop, d_pre_relax_params );
     d_levels.back().post_relaxation = create_relaxation( linop, d_post_relax_params );
     d_levels.back().r               = linop->getMatrix()->createInputVector();
@@ -177,7 +177,7 @@ void UASolver::setup()
         if ( !Ac )
             break;
 
-        d_levels.emplace_back().A       = Ac;
+        d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *Ac );
         d_levels.back().R               = R;
         d_levels.back().P               = P;
         d_levels.back().pre_relaxation  = create_relaxation( Ac, d_pre_relax_params );

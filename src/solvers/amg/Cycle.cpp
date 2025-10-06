@@ -2,6 +2,33 @@
 
 namespace AMP::Solver::AMG {
 
+
+LevelOperator::LevelOperator( const AMP::Operator::LinearOperator &linop ) : base( linop ) {}
+
+
+void LevelOperator::apply( std::shared_ptr<const LinearAlgebra::Vector> u,
+                           std::shared_ptr<LinearAlgebra::Vector> f )
+{
+    AMP_INSIST( u, "NULL Solution Vector" );
+    AMP_INSIST( f, "NULL Residual Vector" );
+    AMP_INSIST( d_matrix, "NULL Matrix" );
+
+    AMP_INSIST( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED,
+                "Input vector is in an inconsistent state" );
+
+    auto uInternal = subsetInputVector( u );
+    auto fInternal = subsetOutputVector( f );
+
+    AMP_INSIST( uInternal, "uInternal is NULL" );
+    AMP_INSIST( fInternal, "fInternal is NULL" );
+
+    d_matrix->mult( uInternal, fInternal );
+
+    if ( !defer_consistency )
+        fInternal->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+}
+
+
 template void clone_workspace( LevelWithWorkspace<num_work_kcycle> &,
                                const LinearAlgebra::Vector & );
 
@@ -42,7 +69,7 @@ void kappa_kcycle( size_t lvl,
             auto [c, v, btilde, d, w] = clevel.work;
             c->zero();
             kappa_kcycle( lvl + 1, coarse_b, c, ml, coarse_solver, kappa, ktol, comm_free_interp );
-            Ac->apply( c, v );
+            Ac->applyDeferConsistency( c, v );
             auto rho1   = c->dot( *v );
             auto alpha1 = c->dot( *coarse_b );
             auto tau1   = alpha1 / rho1;
@@ -53,7 +80,7 @@ void kappa_kcycle( size_t lvl,
                 d->zero();
                 kappa_kcycle(
                     lvl + 1, btilde, d, ml, coarse_solver, kappa - 1, ktol, comm_free_interp );
-                Ac->apply( d, w );
+                Ac->applyDeferConsistency( d, w );
                 auto gamma  = d->dot( *v );
                 auto beta   = d->dot( *w );
                 auto alpha2 = d->dot( *btilde );
