@@ -125,7 +125,6 @@ private:
     int d_schwarz_overlap      = 1;
     int d_schwarz_domain_type  = 2;
     int d_schwarz_nonsymmetric = 0;
-    int d_logging              = 0;
     int d_debug_flag           = 0;
     int d_rap2                 = 0;
     int d_keep_transpose       = 1;

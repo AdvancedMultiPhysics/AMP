@@ -3,6 +3,7 @@
 #include "AMP/matrices/Matrix.h"
 #include "AMP/matrices/data/hypre/HypreMatrixAdaptor.h"
 #include "AMP/operators/LinearOperator.h"
+#include "AMP/solvers/SolverFactory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/VectorBuilder.h"
 
@@ -39,17 +40,44 @@ HypreSolver::~HypreSolver()
 {
     HYPRE_IJVectorDestroy( d_hypre_rhs );
     HYPRE_IJVectorDestroy( d_hypre_sol );
+    destroyHypreSolver();
 }
 
-void HypreSolver::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
+void HypreSolver::createHypreSolver()
 {
-    AMP_ASSERT( parameters );
+    d_hypreCreateSolver( d_comm.getCommunicator(), &d_solver );
+}
 
-    HypreSolver::getFromInput( parameters->d_db );
+void HypreSolver::destroyHypreSolver()
+{
+    d_hypreDestroySolver( d_solver );
+    d_solver = nullptr;
+}
 
+void HypreSolver::initialize( std::shared_ptr<const SolverStrategyParameters> )
+{
     if ( d_pOperator ) {
         registerOperator( d_pOperator );
     }
+}
+
+void HypreSolver::setCommonParameters( std::shared_ptr<const AMP::Database> db )
+{
+    AMP_DEBUG_ASSERT( db );
+
+    if ( db->keyExists( "logging" ) ) {
+        d_logging = db->getScalar<HYPRE_Int>( "logging" );
+    }
+
+    d_hypreSetRelativeTolerance( d_solver, static_cast<HYPRE_Real>( d_dRelativeTolerance ) );
+    if ( d_hypreSetAbsoluteTolerance )
+        d_hypreSetAbsoluteTolerance( d_solver, static_cast<HYPRE_Real>( d_dAbsoluteTolerance ) );
+    d_hypreSetMaxIterations( d_solver, d_iMaxIterations );
+    d_hypreSetPrintLevel( d_solver, d_iDebugPrintInfoLevel );
+    d_hypreSetLogging( d_solver, d_logging );
+
+    d_bUsesPreconditioner = db->getWithDefault<bool>( "uses_preconditioner", false );
+    d_bDiagScalePC        = db->getWithDefault<bool>( "diag_scale_pc", false );
 }
 
 void HypreSolver::createHYPREMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
@@ -230,6 +258,84 @@ void HypreSolver::setupHypreMatrixAndRhs()
     }
 }
 
+void HypreSolver::setupSolver()
+{
+    HYPRE_ParCSRMatrix parcsr_A;
+    HYPRE_IJMatrixGetObject( d_ijMatrix, (void **) &parcsr_A );
+
+    auto op = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
+    AMP_ASSERT( op );
+    auto matrix = op->getMatrix();
+    AMP_ASSERT( matrix );
+    auto f = matrix->createInputVector();
+    f->zero(); // just to be safe
+    AMP_ASSERT( f );
+    copyToHypre( f, d_hypre_rhs );
+    HYPRE_ParVector par_x;
+    HYPRE_IJVectorGetObject( d_hypre_rhs, (void **) &par_x );
+
+    if ( d_bUsesPreconditioner ) {
+        if ( d_bDiagScalePC ) {
+            HYPRE_Solver precond = NULL;
+            d_hypreSetPreconditioner( d_solver,
+                                      (HYPRE_PtrToSolverFcn) HYPRE_ParCSRDiagScale,
+                                      (HYPRE_PtrToSolverFcn) HYPRE_ParCSRDiagScaleSetup,
+                                      precond );
+        } else {
+            auto pc = std::dynamic_pointer_cast<HypreSolver>( d_pNestedSolver );
+            if ( pc ) {
+
+                auto precond = pc->getHYPRESolver();
+                AMP_ASSERT( precond );
+
+                if ( pc->type() == "BoomerAMGSolver" ) {
+                    d_hypreSetPreconditioner( d_solver,
+                                              (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
+                                              (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup,
+                                              precond );
+                } else {
+                    AMP_ERROR( "Currently only diagonal scaling and Boomer AMG preconditioners are "
+                               "supported" );
+                }
+
+            } else {
+                AMP_ERROR(
+                    "Currently only native hypre preconditioners are supported for hypre solvers" );
+            }
+        }
+    }
+
+    d_hypreSolverSetup(
+        d_solver, (HYPRE_Matrix) parcsr_A, (HYPRE_Vector) par_x, (HYPRE_Vector) par_x );
+}
+
+void HypreSolver::setupNestedSolver( std::shared_ptr<const SolverStrategyParameters> parameters )
+{
+    if ( parameters->d_pNestedSolver ) {
+        d_pNestedSolver = parameters->d_pNestedSolver;
+    } else {
+        auto db = parameters->d_db;
+        if ( d_bUsesPreconditioner && !d_bDiagScalePC ) {
+            auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
+            auto outerDB = db->keyExists( pcName ) ? db : parameters->d_global_db;
+            if ( outerDB ) {
+                auto pcDB   = outerDB->getDatabase( pcName );
+                auto pcName = pcDB->getString( "name" );
+                if ( pcName == "BoomerAMGSolver" ) {
+                    pcDB->putScalar<bool>( "setup_solver", false );
+                } else {
+                    AMP_ERROR( "Currently only diagonal scaling and Boomer AMG preconditioners are "
+                               "supported" );
+                }
+                auto parameters = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
+                parameters->d_pOperator = d_pOperator;
+                d_pNestedSolver         = AMP::Solver::SolverFactory::create( parameters );
+                AMP_ASSERT( d_pNestedSolver );
+            }
+        }
+    }
+}
+
 void HypreSolver::preSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                             std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
@@ -297,15 +403,14 @@ void HypreSolver::hypreSolve()
     HYPRE_IJVectorGetObject( d_hypre_sol, (void **) &par_x );
 
     d_hypreSolve( d_solver, (HYPRE_Matrix) parcsr_A, (HYPRE_Vector) par_b, (HYPRE_Vector) par_x );
-
-    HYPRE_Int hypre_iters;
-    getHypreNumIterations( d_solver, &hypre_iters );
-    d_iNumberIterations = hypre_iters;
 }
 
 void HypreSolver::postSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
+    HYPRE_Int hypre_iters;
+    d_hypreGetNumIterations( d_solver, &hypre_iters );
+    d_iNumberIterations = hypre_iters;
 
     copyFromHypre( d_hypre_sol, u );
 
