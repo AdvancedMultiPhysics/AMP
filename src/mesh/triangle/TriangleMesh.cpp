@@ -1,5 +1,6 @@
 #include "AMP/mesh/triangle/TriangleMesh.h"
 #include "AMP/IO/FileSystem.h"
+#include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/MultiIterator.h"
 #include "AMP/mesh/triangle/TriangleHelpers.h"
@@ -233,6 +234,9 @@ static void loadBalance( std::vector<std::array<double, NP>> &vertices,
     // Check that only rank 0 has data (may relax this in the future)
     if ( comm.getRank() != 0 )
         AMP_ASSERT( vertices.empty() && tri.empty() && tri_nab.empty() );
+    // Get the owner rank for each node
+    auto ranks = AMP::Geometry::GeometryHelpers::assignRanks( vertices, comm.getSize() );
+
     // Get the number of subdomains in each direction
     auto factors    = AMP::Utilities::factor( comm.getSize() );
     int N_domain[3] = { 1, 1, 1 };
@@ -258,7 +262,7 @@ static void loadBalance( std::vector<std::array<double, NP>> &vertices,
     auto rank_node = splitDomain( center );
     // Get the mapping for each triangle to the correct processor
     auto map_tri  = mapOwner( rank_tri, comm );
-    auto map_node = mapOwner( rank_tri, comm );
+    auto map_node = mapOwner( rank_node, comm );
     // Remap the triangles
     for ( auto &t : tri ) {
         for ( auto &v : t )

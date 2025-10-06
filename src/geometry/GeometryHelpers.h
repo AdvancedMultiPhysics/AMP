@@ -14,6 +14,7 @@ using Point = AMP::Mesh::MeshPoint<double>;
 namespace AMP::Geometry::GeometryHelpers {
 
 
+using Point1D = std::array<double, 1>;
 using Point2D = std::array<double, 2>;
 using Point3D = std::array<double, 3>;
 
@@ -35,7 +36,7 @@ using Point3D = std::array<double, 3>;
  * \param[in] y         Logical y coordinate
  * @return              Returns a pair with the (x,y) value
  */
-std::array<double, 2> map_logical_circle( double R, int method, double x, double y );
+Point2D map_logical_circle( double R, int method, double x, double y );
 
 
 /**
@@ -55,7 +56,7 @@ std::array<double, 2> map_logical_circle( double R, int method, double x, double
  * \param[in] y         Physical y coordinate
  * @return              Returns a pair with the logical (x,y) value
  */
-std::array<double, 2> map_circle_logical( double R, int method, double x, double y );
+Point2D map_circle_logical( double R, int method, double x, double y );
 
 
 /**
@@ -68,7 +69,7 @@ std::array<double, 2> map_circle_logical( double R, int method, double x, double
  * \param[in] y         Logical y coordinate
  * @return              Returns a pair with the (x,y) value
  */
-std::array<double, 2> map_logical_poly( int N, double R, double x, double y );
+Point2D map_logical_poly( int N, double R, double x, double y );
 
 
 /**
@@ -81,7 +82,7 @@ std::array<double, 2> map_logical_poly( int N, double R, double x, double y );
  * \param[in] y         Physical y coordinate
  * @return              Returns a pair with the logical (x,y) value
  */
-std::array<double, 2> map_poly_logical( int N, double R, double x, double y );
+Point2D map_poly_logical( int N, double R, double x, double y );
 
 
 /**
@@ -116,7 +117,7 @@ Point3D map_logical_sphere( double R, double x, double y, double z );
  * \details  This function will map physical coordinates in (x,y,z) to [0,1] locial
  *   coordinates in a sphere.  It uses the mapping by:
  *   Dona Calhoun, Christiane Helzel, Randall LeVeque, "Logically Rectangular Grids
- *      and Finite Volume Methods for PDEs in Circular and Spherical Domains",
+ *      and Finite Volume Methods for PDEs in Circular and Spherical Domains",Point3D
  *      SIAM Review, Vol. 50, No. 4, pp. 723-752 (2008)
  * \param[in] R         Radius of sphere
  * \param[in] x         Physical x coordinate
@@ -162,8 +163,7 @@ Point3D map_logical_sphere_surface( int method, double R, double x, double y );
  * \param[in] z         Physical z coordinate
  * @return              Returns a pair with the logical (x,y) values
  */
-std::array<double, 2>
-map_sphere_surface_logical( int method, double R, double x, double y, double z );
+Point2D map_sphere_surface_logical( int method, double R, double x, double y, double z );
 
 
 /**
@@ -585,6 +585,47 @@ std::vector<Point3D> sampleQuad( const std::array<Point3D, 4> &v, double d0, boo
  * @return              Returns the new points
  */
 std::vector<Point3D> sampleTet( const std::array<Point3D, 4> &v, double d0, bool interior = true );
+
+
+/**
+ * \brief   Assign ranks to a point cloud
+ * \details  This routine will divide a point cloud spatially and assign ranks to
+ *          a point cloud.
+ * \param[in] x         Points
+ * \param[in] N_ranks   Number of processors
+ * @return              Returns the rank of each point
+ */
+std::vector<int> assignRanks( const std::vector<double> &x, int N_ranks );
+
+/**
+ * \brief   Assign ranks to a point cloud
+ * \details  This routine will divide a point cloud spatially and assign ranks to
+ *          a point cloud.
+ * \param[in] x         Points
+ * \param[in] N_ranks   Number of processors
+ * @return              Returns the rank of each point
+ */
+std::vector<int> assignRanks( const std::vector<Point1D> &x, int N_ranks );
+
+/**
+ * \brief   Assign ranks to a point cloud
+ * \details  This routine will divide a point cloud spatially and assign ranks to
+ *          a point cloud.
+ * \param[in] x         Points
+ * \param[in] N_ranks   Number of processors
+ * @return              Returns the rank of each point
+ */
+std::vector<int> assignRanks( const std::vector<Point2D> &x, int N_ranks );
+
+/**
+ * \brief   Assign ranks to a point cloud
+ * \details  This routine will divide a point cloud spatially and assign ranks to
+ *          a point cloud.
+ * \param[in] x         Points
+ * \param[in] N_ranks   Number of processors
+ * @return              Returns the rank of each point
+ */
+std::vector<int> assignRanks( const std::vector<Point3D> &x, int N_ranks );
 
 
 } // namespace AMP::Geometry::GeometryHelpers
