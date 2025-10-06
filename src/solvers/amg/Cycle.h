@@ -6,11 +6,20 @@
 
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/SolverStrategy.h"
+#include "AMP/solvers/amg/DeferConsistency.h"
 
 namespace AMP::Solver::AMG {
+struct LevelOperator : HasDeferConsistency<AMP::Operator::LinearOperator> {
+    using base = HasDeferConsistency<AMP::Operator::LinearOperator>;
+    using base::base;
+    explicit LevelOperator( const AMP::Operator::LinearOperator &linop );
+
+    virtual void apply( std::shared_ptr<const LinearAlgebra::Vector> u,
+                        std::shared_ptr<LinearAlgebra::Vector> f ) override;
+};
 
 struct Level {
-    std::shared_ptr<AMP::Operator::LinearOperator> A;
+    std::shared_ptr<LevelOperator> A;
     std::shared_ptr<AMP::Operator::Operator> R, P;
     std::unique_ptr<AMP::Solver::SolverStrategy> pre_relaxation, post_relaxation;
     std::shared_ptr<LinearAlgebra::Vector> x, b, r, correction;
