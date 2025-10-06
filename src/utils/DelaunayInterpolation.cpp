@@ -58,11 +58,6 @@ static void get_interpolant_points( const int ndim,
                                     double *xi2,
                                     bool check );
 static void compute_gradient( const int ndim, const double *x, const double *f, double *g );
-static int intersect_sorted( const int N_lists,
-                             const int size[],
-                             uint32_t *list[],
-                             const int N_max,
-                             uint32_t *intersection );
 
 
 static constexpr double TRI_TOL = 1e-10;
@@ -1239,121 +1234,31 @@ void DelaunayInterpolation<TYPE>::create_node_neighbors() const
 
 /**************************************************************************
  * Function to get a list of the triangles that neighbors to each triangle *
- * Note:  This function relies on tri_list being in sorted order for       *
- * proper operation.
  **************************************************************************/
 template<class TYPE>
 void DelaunayInterpolation<TYPE>::create_tri_neighbors() const
 {
-    // Check to see if we already created the structure
-    if ( !d_tri_nab.empty() )
-        return;
-    // Create tri_nab
-    d_tri_nab.resize( d_tri.size() );
-    d_tri_nab.fill( -1 );
-    // 1D is a special easy case
-    size_t N     = d_x.size( 1 );
-    int ndim     = d_x.size( 0 );
-    size_t N_tri = d_tri.size( 1 );
+    size_t N = d_tri.size( 1 );
+    int ndim = d_x.size( 0 );
+    AMP_ASSERT( d_tri.size() == ArraySize( ndim + 1, N ) );
+    d_tri_nab.resize( ndim + 1, N );
     if ( ndim == 1 ) {
-        for ( size_t i = 0; i < N_tri; i++ ) {
-            d_tri_nab( 0, i ) = static_cast<int>( i + 1 );
-            d_tri_nab( 1, i ) = static_cast<int>( i - 1 );
-        }
-        d_tri_nab( 1, 0 )         = -1;
-        d_tri_nab( 0, N_tri - 1 ) = -1;
-        return;
-    }
-    if ( N_tri == 1 )
-        return;
-    // Allocate memory
-    const unsigned char Nd = ndim + 1;
-    auto N_tri_nab         = new unsigned int[N]; // Number of triangles connected each node (N)
-    auto tri_list          = new uint32_t *[N];   // List of triangles connected each node (N)
-    tri_list[0]            = new unsigned int[( ndim + 1 ) * N_tri];
-    PROFILE( "create_tri_neighbors", ProfileLevel );
-    // For each node, get a list of the triangles that connect to that node
-    // Count the number of triangles connected to each vertex
-    for ( size_t i = 0; i < N; i++ )
-        N_tri_nab[i] = 0;
-    for ( size_t i = 0; i < Nd * N_tri; i++ )
-        N_tri_nab[d_tri( i )]++;
-    for ( size_t i = 1; i < N; i++ )
-        tri_list[i] = &tri_list[i - 1][N_tri_nab[i - 1]];
-    for ( size_t i = 0; i < Nd * N_tri; i++ )
-        tri_list[0][i] = static_cast<unsigned int>( -1 );
-    // Create a sorted list of all triangles that have each node as a vertex
-    for ( size_t i = 0; i < N; i++ )
-        N_tri_nab[i] = 0;
-    for ( size_t i = 0; i < N_tri; i++ ) {
-        for ( size_t j = 0; j < Nd; j++ ) {
-            int k                     = d_tri( j, i );
-            tri_list[k][N_tri_nab[k]] = static_cast<unsigned int>( i );
-            N_tri_nab[k]++;
-        }
-    }
-    for ( size_t i = 0; i < N; i++ ) {
-        AMP::Utilities::quicksort( N_tri_nab[i], tri_list[i] );
-    }
-    uint32_t N_tri_max = 0;
-    for ( size_t i = 0; i < N; i++ ) {
-        if ( N_tri_nab[i] > N_tri_max )
-            N_tri_max = N_tri_nab[i];
-    }
-    // Note, if a triangle is a neighbor, it will share all but the current node
-    int size[NDIM_MAX];
-    int error = 0;
-    for ( uint32_t i = 0; i < N_tri; i++ ) {
-        // Loop through the different faces of the triangle
-        for ( int j = 0; j < Nd; j++ ) {
-            uint32_t *list[NDIM_MAX] = { nullptr };
-            int k1                   = 0;
-            for ( int k2 = 0; k2 < Nd; k2++ ) {
-                if ( k2 == j )
-                    continue;
-                int k    = d_tri( k2, i );
-                list[k1] = tri_list[k];
-                size[k1] = N_tri_nab[k];
-                k1++;
-            }
-            // Find the intersection of all triangle lists except the current node
-            const auto neg_1         = static_cast<unsigned int>( -1 );
-            uint32_t intersection[5] = { neg_1, neg_1, neg_1, neg_1, neg_1 };
-            int N_int                = intersect_sorted( ndim, size, list, 5, intersection );
-            uint32_t m               = 0;
-            if ( N_int == 0 || N_int > 2 ) {
-                // We cannot have less than 1 triangle or more than 2 triangles sharing ndim nodes
-                error = 1;
-                break;
-            } else if ( intersection[0] == i ) {
-                m = intersection[1];
-            } else if ( intersection[1] == i ) {
-                m = intersection[0];
-            } else {
-                // One of the triangles must be the current triangle
-                error = 1;
-                break;
-            }
-            d_tri_nab( j, i ) = m;
-        }
-        if ( error != 0 )
-            break;
-    }
-    // Check tri_nab
-    for ( size_t i = 0; i < N_tri; i++ ) {
-        for ( int d = 0; d < Nd; d++ ) {
-            if ( d_tri_nab( d, i ) < -1 || d_tri_nab( d, i ) >= ( (int) N_tri ) ||
-                 d_tri_nab( d, i ) == ( (int) i ) )
-                error = 2;
-        }
-    }
-    delete[] N_tri_nab;
-    delete[] tri_list[0];
-    delete[] tri_list;
-    if ( error == 1 ) {
-        throw std::logic_error( "Error in create_tri_neighbors detected" );
-    } else if ( error == 2 ) {
-        throw std::logic_error( "Internal error" );
+        std::vector<std::array<int, 2>> tri( N );
+        memcpy( tri.data()->data(), d_tri.data(), 2 * N * sizeof( int ) );
+        auto nab = DelaunayHelpers::create_tri_neighbors<1>( tri );
+        memcpy( d_tri_nab.data(), nab.data()->data(), 2 * N * sizeof( int ) );
+    } else if ( ndim == 2 ) {
+        std::vector<std::array<int, 3>> tri( N );
+        memcpy( tri.data()->data(), d_tri.data(), 3 * N * sizeof( int ) );
+        auto nab = DelaunayHelpers::create_tri_neighbors<2>( tri );
+        memcpy( d_tri_nab.data(), nab.data()->data(), 3 * N * sizeof( int ) );
+    } else if ( ndim == 3 ) {
+        std::vector<std::array<int, 4>> tri( N );
+        memcpy( tri.data()->data(), d_tri.data(), 4 * N * sizeof( int ) );
+        auto nab = DelaunayHelpers::create_tri_neighbors<3>( tri );
+        memcpy( d_tri_nab.data(), nab.data()->data(), 4 * N * sizeof( int ) );
+    } else {
+        AMP_ERROR( "Unsupported number of dimensions" );
     }
 }
 
@@ -1617,59 +1522,6 @@ static void Gauss_Seidel( const uint32_t Nb,
     }
     // Delete temporary memory
     delete[] D_inv;
-}
-
-
-// Subroutine to find the first n intersections in multiple lists
-// This function assumes the lists are in sorted order
-static int intersect_sorted(
-    const int N_lists, const int size[], uint32_t *list[], const int N_max, uint32_t *intersection )
-{
-    if ( N_max <= 0 )
-        return ~( (unsigned int) 0 );
-    int N_int  = 0;
-    auto index = new int[N_lists];
-    for ( int i = 0; i < N_lists; i++ )
-        index[i] = 0;
-    uint32_t current_val = list[0][0];
-    bool finished        = false;
-    while ( true ) {
-        uint32_t min_val     = 2147483647;
-        bool in_intersection = true;
-        for ( int i = 0; i < N_lists; i++ ) {
-            if ( index[i] >= size[i] ) {
-                finished = true;
-                break;
-            }
-            while ( list[i][index[i]] < current_val ) {
-                index[i]++;
-                if ( index[i] >= size[i] ) {
-                    finished = true;
-                    break;
-                }
-            }
-            if ( list[i][index[i]] == current_val ) {
-                index[i]++;
-            } else {
-                in_intersection = false;
-            }
-            if ( index[i] < size[i] ) {
-                if ( list[i][index[i]] < min_val )
-                    min_val = list[i][index[i]];
-            }
-        }
-        if ( finished )
-            break;
-        if ( in_intersection ) {
-            intersection[N_int] = current_val;
-            N_int++;
-            if ( N_int >= N_max )
-                break;
-        }
-        current_val = min_val;
-    }
-    delete[] index;
-    return N_int;
 }
 
 

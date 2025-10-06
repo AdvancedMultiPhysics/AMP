@@ -377,20 +377,27 @@ void testPrimes( AMP::UnitTest &ut )
 
     // Test the factor function
     auto factors = AMP::Utilities::factor( 13958 );
+    bool pass    = factors == std::vector<int>( { 2, 7, 997 } );
+    for ( uint64_t i = 0; i < 1000; i++ ) {
+        auto f = AMP::Utilities::factor( i );
+        pass   = pass && !f.empty();
+        for ( size_t j = 1; j < f.size(); j++ )
+            pass = pass && f[j] >= f[j - 1];
+    }
     ut.pass_fail( factors == std::vector<int>( { 2, 7, 997 } ), "Correctly factored 13958" );
     auto t1  = AMP::Utilities::time();
     int N_it = 10000;
-    for ( int i = 0; i < N_it; i++ )
-        [[maybe_unused]] auto tmp = AMP::Utilities::factor( dist( gen ) );
+    for ( int i = 0; i < N_it; i++ ) [[maybe_unused]]
+        auto tmp = AMP::Utilities::factor( dist( gen ) );
     auto t2 = AMP::Utilities::time();
     std::cout << "factor = " << round( 1e9 * ( t2 - t1 ) / N_it ) << " ns" << std::endl;
 
     // Test the isPrime function
-    bool pass = !AMP::Utilities::isPrime( 13958 ) && AMP::Utilities::isPrime( 9999991 );
+    pass = !AMP::Utilities::isPrime( 13958 ) && AMP::Utilities::isPrime( 9999991 );
     ut.pass_fail( pass, "isPrime" );
     t1 = AMP::Utilities::time();
-    for ( int i = 0; i < N_it; i++ )
-        [[maybe_unused]] auto tmp = AMP::Utilities::isPrime( dist( gen ) );
+    for ( int i = 0; i < N_it; i++ ) [[maybe_unused]]
+        auto tmp = AMP::Utilities::isPrime( dist( gen ) );
     t2 = AMP::Utilities::time();
     std::cout << "isPrime = " << round( 1e9 * ( t2 - t1 ) / N_it ) << " ns" << std::endl;
 
