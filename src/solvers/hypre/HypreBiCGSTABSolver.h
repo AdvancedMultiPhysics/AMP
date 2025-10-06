@@ -72,9 +72,6 @@ public:
 private:
     void setupHypreSolver( std::shared_ptr<const SolverStrategyParameters> parameters );
     void setHypreFunctionPointers();
-
-    bool d_bUsesPreconditioner = false;
-    bool d_bDiagScalePC        = false; //! use diagonal scaled preconditioner
 };
 } // namespace AMP::Solver
 
