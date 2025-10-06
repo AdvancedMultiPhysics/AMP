@@ -523,6 +523,14 @@ protected:
     //! Fill the domain box from the local box (requires communication)
     static std::vector<double> reduceBox( const std::vector<double> &, const AMP_MPI & );
 
+    /**
+     *  A function to create a unique id for the mesh (requires the comm to be set)
+     *  Note: this requires a global communication across the mesh communicator.
+     *  Note: this function is NOT thread safe, and will need to be modified before threads are
+     * used.
+     */
+    void setMeshID();
+
 protected:
     //!  Empty constructor for a mesh
     Mesh();
@@ -533,37 +541,16 @@ protected:
     // Private assigment operator
     Mesh &operator=( const Mesh &old ) = delete;
 
-    //! The geometry parameters
-    std::shared_ptr<Geometry::Geometry> d_geometry;
-
-    //! The geometric dimension (highest geometric object that can be represented)
-    GeomType GeomDim;
-
-    //! The physical dimension
-    uint8_t PhysicalDim;
-
-    //! The maximum ghost cell width
-    uint8_t d_max_gcw;
-
-    //! The communicator over which the mesh is stored
-    AMP_MPI d_comm;
-
-    //! A unique id for each mesh
-    MeshID d_meshID;
-
-    //! A name for the mesh
-    std::string d_name;
-
-    //! The bounding box for the mesh
-    std::vector<double> d_box, d_box_local;
-
-    /**
-     *  A function to create a unique id for the mesh (requires the comm to be set)
-     *  Note: this requires a global communication across the mesh communicator.
-     *  Note: this function is NOT thread safe, and will need to be modified before threads are
-     * used.
-     */
-    void setMeshID();
+protected:
+    GeomType GeomDim;                //!< The geometric dimension
+    uint8_t PhysicalDim;             //!< The physical dimension
+    uint8_t d_max_gcw;               //!< The maximum ghost cell width
+    MeshID d_meshID;                 //!< A unique id for each mesh
+    AMP_MPI d_comm;                  //!< The communicator over which the mesh is stored
+    std::string d_name;              //!< A name for the mesh
+    std::vector<double> d_box;       //!< The bounding box for the mesh
+    std::vector<double> d_box_local; //!< The bounding box for the mesh
+    std::shared_ptr<Geometry::Geometry> d_geometry; //!< The geometry parameters
 };
 
 } // namespace AMP::Mesh
