@@ -30,18 +30,25 @@ BoomerAMGSolver::BoomerAMGSolver( std::shared_ptr<SolverStrategyParameters> para
     : HypreSolver( parameters )
 {
     HYPRE_BoomerAMGCreate( &d_solver );
+    setHypreFunctionPointers();
     AMP_ASSERT( parameters );
+
     BoomerAMGSolver::initialize( parameters );
 
     if ( d_bMatrixInitialized && d_bSetupSolver ) {
         setupBoomerAMG();
     }
-    setHypreFunctionPointers();
 }
 
 void BoomerAMGSolver::setHypreFunctionPointers()
 {
-    getHypreNumIterations = HYPRE_BoomerAMGGetNumIterations;
+    d_hypreGetNumIterations     = HYPRE_BoomerAMGGetNumIterations;
+    d_hypreSetRelativeTolerance = HYPRE_BoomerAMGSetTol;
+    d_hypreSetAbsoluteTolerance = nullptr;
+    d_hypreSetMaxIterations     = HYPRE_BoomerAMGSetMaxIter;
+    d_hypreSetPrintLevel        = HYPRE_BoomerAMGSetPrintLevel;
+    d_hypreSetLogging           = HYPRE_BoomerAMGSetLogging;
+    d_hypreDestroySolver        = HYPRE_BoomerAMGDestroy;
 }
 
 void BoomerAMGSolver::setupBoomerAMG()
@@ -53,7 +60,7 @@ void BoomerAMGSolver::setupBoomerAMG()
     HYPRE_BoomerAMGSetup( d_solver, parcsr_A, nullptr, nullptr );
 }
 
-BoomerAMGSolver::~BoomerAMGSolver() { HYPRE_BoomerAMGDestroy( d_solver ); }
+BoomerAMGSolver::~BoomerAMGSolver() {}
 
 void BoomerAMGSolver::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
@@ -65,6 +72,8 @@ void BoomerAMGSolver::initialize( std::shared_ptr<const SolverStrategyParameters
 
 void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 {
+    HypreSolver::setCommonParameters( db );
+
     if ( db ) {
 
         d_bSetupSolver = db->getWithDefault<bool>( "setup_solver", true );
@@ -294,11 +303,6 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
             HYPRE_BoomerAMGSetSchwarzUseNonSymm( d_solver, d_schwarz_nonsymmetric );
         }
 
-        if ( db->keyExists( "logging" ) ) {
-            d_logging = db->getScalar<int>( "logging" );
-            HYPRE_BoomerAMGSetLogging( d_solver, d_logging );
-        }
-
         if ( db->keyExists( "debug_flag" ) ) {
             d_debug_flag = db->getScalar<int>( "debug_flag" );
             HYPRE_BoomerAMGSetDebugFlag( d_solver, d_debug_flag );
@@ -313,10 +317,9 @@ void BoomerAMGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
         }
     }
 
-    HYPRE_BoomerAMGSetTol( d_solver, static_cast<HYPRE_Real>( d_dRelativeTolerance ) );
     HYPRE_BoomerAMGSetConvergeType( d_solver, static_cast<HYPRE_Int>( 1 ) );
-    HYPRE_BoomerAMGSetMaxIter( d_solver, d_iMaxIterations );
-    HYPRE_BoomerAMGSetPrintLevel( d_solver, d_iDebugPrintInfoLevel );
+
+    // verify options are valid for device
     if ( d_hypre_memory_location != HYPRE_MEMORY_HOST ) {
         AMP_INSIST( d_coarsen_type == 8, "BoomerAMGSolver:: on device coarsen_type can only be 8" );
         AMP_INSIST( d_interp_type == 3 || d_interp_type == 6 || d_interp_type == 14 ||
@@ -353,17 +356,12 @@ void BoomerAMGSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
 
     HYPRE_BoomerAMGSolve( d_solver, parcsr_A, par_b, par_x );
 
-    // Query iteration count and store on AMP side
-    HYPRE_Int hypre_iters;
-    getHypreNumIterations( d_solver, &hypre_iters );
-    d_iNumberIterations = hypre_iters;
-
     postSolve( f, u );
 }
 
 void BoomerAMGSolver::reset( std::shared_ptr<SolverStrategyParameters> params )
 {
-    HYPRE_BoomerAMGDestroy( d_solver );
+    destroyHypreSolver();
     HYPRE_BoomerAMGCreate( &d_solver );
 
     HypreSolver::reset( params );
