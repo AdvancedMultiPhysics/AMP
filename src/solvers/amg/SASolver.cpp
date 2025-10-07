@@ -94,7 +94,7 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     }
 
     // fill in finest level and setup remaining levels
-    d_levels.emplace_back().A       = fine_op;
+    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *fine_op );
     d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
     d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
     d_levels.back().r               = fine_op->getMatrix()->createInputVector();
@@ -187,8 +187,8 @@ void SASolver::setup()
 
         const auto Ac_nrows_gbl = Ac->numGlobalRows();
 
-        // create next level
-        d_levels.emplace_back().A = std::make_shared<Operator::LinearOperator>( op_params );
+        // create next level with coarsened matrix
+        d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
         d_levels.back().A->setMatrix( Ac );
 
         // Attach restriction/prolongation operators for getting to/from new level
