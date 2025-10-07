@@ -66,7 +66,7 @@ private:
  * \class TriangleMesh
  * \brief A class used to represent an unstructured mesh of Triangles/Tetrahedrals
  */
-template<uint8_t NG, uint8_t NP = NG + 1>
+template<uint8_t NG, uint8_t NP>
 class TriangleMesh : public AMP::Mesh::Mesh
 {
 public: // Convenience typedefs
@@ -75,6 +75,7 @@ public: // Convenience typedefs
     typedef std::array<ElementID, 2> Edge;
     typedef std::array<ElementID, 3> Triangle;
     typedef std::array<ElementID, 4> Tetrahedron;
+    typedef std::array<int, NG + 1> TRI;
 
 public:
     /**
@@ -107,9 +108,9 @@ public:
      * \param blockID    Optional vector with the block id for each triangle
      */
     static std::shared_ptr<TriangleMesh<NG, NP>>
-    generate( std::vector<std::array<double, NP>> vertices,
-              std::vector<std::array<int, NG + 1>> triangles,
-              std::vector<std::array<int, NG + 1>> tri_nab,
+    generate( std::vector<Point> vertices,
+              std::vector<TRI> triangles,
+              std::vector<TRI> tri_nab,
               const AMP_MPI &comm,
               std::shared_ptr<Geometry::Geometry> geom = nullptr,
               std::vector<int> blockID                 = std::vector<int>() );
@@ -132,7 +133,7 @@ public:
     TriangleMesh( TriangleMesh && ) = default;
 
     TriangleMesh &operator=( const TriangleMesh & ) = delete;
-    TriangleMesh &operator=( TriangleMesh && ) = default;
+    TriangleMesh &operator=( TriangleMesh && )      = default;
 
     //! Deconstructor
     virtual ~TriangleMesh();
@@ -292,9 +293,9 @@ protected:
     // Constructors
     TriangleMesh() = default;
     explicit TriangleMesh( std::shared_ptr<const MeshParameters> );
-    explicit TriangleMesh( std::vector<std::array<double, NP>> vertices,
-                           std::vector<std::array<int, NG + 1>> triangles,
-                           std::vector<std::array<int, NG + 1>> tri_nab,
+    explicit TriangleMesh( std::vector<Point> vertices,
+                           std::vector<TRI> triangles,
+                           std::vector<TRI> tri_nab,
                            const AMP_MPI &comm,
                            std::shared_ptr<Geometry::Geometry> geom,
                            std::vector<int> block );
@@ -341,13 +342,23 @@ protected:
     friend TriangleMeshElement<NG, NP, 3>;
 
 
-private: // Internal data
-    // Store the locat start indicies
+private:
+    void loadBalance( const std::vector<Point> &vertices,
+                      const std::vector<TRI> &tri,
+                      const std::vector<TRI> &tri_nab,
+                      const std::vector<int> &block );
+
+private:                            // Internal data
+    std::vector<int> d_startVertex; //!< The starting coordinate for each local vertex
+    std::vector<int> d_startTri;    //!< The starting coordinate for each local triangle
+    std::vector<Point> d_vertex;    //!< Store the global coordinates
+    std::vector<TRI> d_globalTri;   // Store the global triangles
+
+    // Store the local start indicies
     std::array<size_t, 4> d_N_global;
 
     // Store the local triangle data
     typedef std::array<ElementID, NG + 1> NeighborIDs;
-    std::vector<Point> d_vert;
     std::vector<Edge> d_edge;
     std::vector<Triangle> d_tri;
     std::vector<Tetrahedron> d_tet;
@@ -355,7 +366,6 @@ private: // Internal data
     std::vector<int> d_blockID;
 
     // Store the ghost data
-    std::map<ElementID, Point> d_remote_vert;
     std::map<ElementID, Edge> d_remote_edge;
     std::map<ElementID, Triangle> d_remote_tri;
     std::map<ElementID, Tetrahedron> d_remote_tet;
