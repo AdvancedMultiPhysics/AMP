@@ -1,7 +1,12 @@
 #ifndef included_AMP_TrilinosMueLuSolver
 #define included_AMP_TrilinosMueLuSolver
 
-#include "AMP/matrices/trilinos/ManagedEpetraMatrix.h"
+#include "AMP/AMP_TPLs.h"
+
+#if defined( AMP_USE_TRILINOS_EPETRA )
+    #include "AMP/matrices/trilinos/epetra/ManagedEpetraMatrix.h"
+#endif
+
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/trilinos/ml/MLoptions.h"

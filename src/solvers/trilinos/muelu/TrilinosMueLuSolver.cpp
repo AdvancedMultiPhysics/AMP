@@ -1,7 +1,7 @@
 #include "AMP/solvers/trilinos/muelu/TrilinosMueLuSolver.h"
 #include "AMP/matrices/Matrix.h"
-#include "AMP/matrices/trilinos/EpetraMatrixData.h"
-#include "AMP/matrices/trilinos/EpetraMatrixHelpers.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixData.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixHelpers.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
 

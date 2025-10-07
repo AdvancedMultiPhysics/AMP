@@ -1,4 +1,4 @@
-#include "AMP/matrices/trilinos/EpetraMatrixData.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixData.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/data/VectorDataDefault.h"

@@ -17,9 +17,9 @@
     #include "AMP/matrices/petsc/NativePetscMatrix.h"
     #include "AMP/vectors/petsc/PetscHelpers.h"
 #endif
-#ifdef AMP_USE_TRILINOS
-    #include "AMP/matrices/trilinos/EpetraMatrixData.h"
-    #include "AMP/matrices/trilinos/ManagedEpetraMatrix.h"
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_EPETRA )
+    #include "AMP/matrices/trilinos/epetra/EpetraMatrixData.h"
+    #include "AMP/matrices/trilinos/epetra/ManagedEpetraMatrix.h"
 #endif
 
 #ifdef AMP_USE_HYPRE

@@ -1,8 +1,8 @@
-#include "AMP/matrices/trilinos/EpetraMatrixHelpers.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixHelpers.h"
 #include "AMP/matrices/Matrix.h"
 #include "AMP/matrices/MatrixParameters.h"
-#include "AMP/matrices/trilinos/EpetraMatrixData.h"
-#include "AMP/matrices/trilinos/ManagedEpetraMatrix.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixData.h"
+#include "AMP/matrices/trilinos/epetra/ManagedEpetraMatrix.h"
 
 #include <algorithm>
 #include <functional>
