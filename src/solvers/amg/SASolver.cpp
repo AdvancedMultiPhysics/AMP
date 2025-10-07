@@ -172,24 +172,29 @@ void SASolver::setup()
     auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 
     for ( size_t i = 0; i < d_max_levels; ++i ) {
+        // Get matrix for current level
         auto A = d_levels.back().A->getMatrix();
 
+        // aggregate on matrix to get tentative prolongator
+        // then smooth and transpose to get P/R
         auto P = d_aggregator->getAggregateMatrix( A );
         smoothP_JacobiL1( A, P );
+        auto R = P->transpose();
 
-        auto R  = P->transpose();
+        // Find coarsened A
         auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
         auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
 
         const auto Ac_nrows_gbl = Ac->numGlobalRows();
 
-        // create next level with coarsened matrix
+        // create next level
         d_levels.emplace_back().A = std::make_shared<Operator::LinearOperator>( op_params );
         d_levels.back().A->setMatrix( Ac );
 
         // Attach restriction/prolongation operators for getting to/from new level
         d_levels.back().R = std::make_shared<Operator::LinearOperator>( op_params );
         std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().R )->setMatrix( R );
+
         d_levels.back().P = std::make_shared<Operator::LinearOperator>( op_params );
         std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().P )->setMatrix( P );
 
@@ -206,6 +211,7 @@ void SASolver::setup()
         clone_workspace( d_levels.back(), *( d_levels.back().x ) );
 
         // if newest level is small enough break out
+        // and make residual vector for coarsest level
         const auto Ac_nrows_loc = static_cast<int>( Ac->numLocalRows() );
         auto comm               = Ac->getComm();
         if ( Ac_nrows_gbl <= d_coarsen_settings.min_coarse ||
@@ -225,6 +231,8 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
                       std::shared_ptr<LinearAlgebra::Vector> x )
 {
     PROFILE( "SASolver::apply" );
+
+    AMP_INSIST( x, "SASolver::apply Can't have null solution vector" );
 
     d_iNumberIterations = 0;
     const bool need_norms =
