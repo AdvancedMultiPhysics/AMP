@@ -11,6 +11,7 @@
 #include "AMP/solvers/amg/Aggregator.h"
 #include "AMP/solvers/amg/Cycle.h"
 #include "AMP/solvers/amg/Relaxation.h"
+#include "AMP/vectors/Variable.h"
 
 #include <memory>
 
@@ -56,7 +57,8 @@ protected:
     std::shared_ptr<SolverStrategyParameters> d_coarse_solver_params;
     std::unique_ptr<SolverStrategy> d_coarse_solver;
 
-    void setup();
+    void setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
+                std::shared_ptr<LinearAlgebra::Variable> bVar );
 
     void makeCoarseSolver();
 

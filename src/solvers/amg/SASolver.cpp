@@ -97,10 +97,14 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *fine_op );
     d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
     d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
-    d_levels.back().r               = fine_op->getMatrix()->createInputVector();
+    d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
-    setup();
+    auto xVar = d_levels.back().correction->getVariable();
+    auto bVar = d_levels.back().r->getVariable();
+    d_levels.back().A->setVariables( xVar, bVar );
+
+    setup( xVar, bVar );
 }
 
 std::unique_ptr<SolverStrategy>
@@ -159,7 +163,8 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     P->scaleInv( 1.0, Ds );
 }
 
-void SASolver::setup()
+void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
+                      std::shared_ptr<LinearAlgebra::Variable> bVar )
 {
     PROFILE( "SASolver::setup" );
 
@@ -181,6 +186,9 @@ void SASolver::setup()
         smoothP_JacobiL1( A, P );
         auto R = P->transpose();
 
+        // residual on current level needs comm list replaced by what R needs
+        d_levels.back().r = R->createInputVector();
+
         // Find coarsened A
         auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
         auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
@@ -190,13 +198,18 @@ void SASolver::setup()
         // create next level with coarsened matrix
         d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
         d_levels.back().A->setMatrix( Ac );
+        d_levels.back().A->setVariables( xVar, bVar );
 
         // Attach restriction/prolongation operators for getting to/from new level
         d_levels.back().R = std::make_shared<Operator::LinearOperator>( op_params );
         std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().R )->setMatrix( R );
+        std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().R )
+            ->setVariables( bVar, xVar );
 
         d_levels.back().P = std::make_shared<Operator::LinearOperator>( op_params );
         std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().P )->setMatrix( P );
+        std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().P )
+            ->setVariables( bVar, xVar );
 
         // Relaxation operators for new level
         d_levels.back().pre_relaxation = createRelaxation( d_levels.back().A, d_pre_relax_params );
@@ -254,7 +267,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
-    if ( d_bUseZeroInitialGuess ) {
+    if ( d_bUseZeroInitialGuess && false ) {
         x->zero();
         current_res = b_norm;
     } else {
