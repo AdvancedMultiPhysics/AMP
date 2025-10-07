@@ -94,7 +94,11 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     }
 
     // fill in finest level and setup remaining levels
-    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *fine_op );
+    //    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *fine_op );
+    auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
+    auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
+    d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
+    d_levels.back().A->setMatrix( mat );
     d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
     d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
     d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
