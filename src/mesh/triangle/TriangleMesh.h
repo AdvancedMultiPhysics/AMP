@@ -348,29 +348,25 @@ private:
                       const std::vector<TRI> &tri_nab,
                       const std::vector<int> &block );
 
-private:                            // Internal data
+private:                              // Internal data
+    std::array<size_t, 4> d_N_global; //!< The number of global elements
+
     std::vector<int> d_startVertex; //!< The starting coordinate for each local vertex
     std::vector<int> d_startTri;    //!< The starting coordinate for each local triangle
     std::vector<Point> d_vertex;    //!< Store the global coordinates
-    std::vector<TRI> d_globalTri;   // Store the global triangles
-
-    // Store the local start indicies
-    std::array<size_t, 4> d_N_global;
+    std::vector<TRI> d_globalTri;   //!< Store the global triangles
+    std::vector<TRI> d_globalNab;   //!< Store the global triangle neighbors
+    std::vector<int> d_blockID;     //!< The block id index for each triangle
 
     // Store the local triangle data
-    typedef std::array<ElementID, NG + 1> NeighborIDs;
     std::vector<Edge> d_edge;
     std::vector<Triangle> d_tri;
     std::vector<Tetrahedron> d_tet;
-    std::vector<NeighborIDs> d_neighbors;
-    std::vector<int> d_blockID;
 
     // Store the ghost data
     std::map<ElementID, Edge> d_remote_edge;
     std::map<ElementID, Triangle> d_remote_tri;
     std::map<ElementID, Tetrahedron> d_remote_tet;
-    std::map<ElementID, NeighborIDs> d_remote_neighbors;
-    std::map<ElementID, int> d_remote_blockID;
 
     // Store the parent data
     StoreCompressedList<ElementID> d_parents[NG][NG + 1];
@@ -381,7 +377,8 @@ private:                            // Internal data
     std::vector<std::array<ElementID, 6>> d_tet_edge;
 
     // Store common iterators
-    std::vector<int> d_block_ids, d_boundary_ids;
+    std::vector<int> d_block_ids;    //!< The global list of block ids
+    std::vector<int> d_boundary_ids; //!< The global list of boundary ids
     using IteratorSet = std::array<MeshIterator, NG + 1>;
     std::vector<IteratorSet> d_iterators;                       // [gcw][type]
     std::vector<IteratorSet> d_surface_iterators;               // [gcw][type]

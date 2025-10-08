@@ -353,4 +353,32 @@ template std::vector<std::array<int, 4>>
 create_tri_neighbors<3>( const std::vector<std::array<int, 4>> & );
 
 
+/****************************************************************
+ * Sort the triangles                                            *
+ ****************************************************************/
+template<size_t NG>
+std::vector<int> sortTri( std::vector<std::array<int, NG + 1>> &tri )
+{
+    std::vector<int> I( tri.size() );
+    std::vector<int> I2( tri.size() );
+    std::iota( I.begin(), I.end(), 0 );
+    for ( int k = NG; k >= 0; k-- ) {
+        std::iota( I2.begin(), I2.end(), 0 );
+        std::stable_sort( I2.begin(), I2.end(), [&tri, k]( size_t i1, size_t i2 ) {
+            return tri[i1][k] < tri[i2][k];
+        } );
+        auto tri0 = tri;
+        auto I0   = I;
+        for ( size_t i = 0; i < tri.size(); i++ ) {
+            tri[i] = tri0[I2[i]];
+            I[i]   = I0[I2[i]];
+        }
+    }
+    return I;
+}
+template std::vector<int> sortTri<1>( std::vector<std::array<int, 2>> & );
+template std::vector<int> sortTri<2>( std::vector<std::array<int, 3>> & );
+template std::vector<int> sortTri<3>( std::vector<std::array<int, 4>> & );
+
+
 } // namespace AMP::DelaunayHelpers

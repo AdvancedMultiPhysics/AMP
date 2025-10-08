@@ -834,6 +834,7 @@ AMP_INSTANTIATE_SORT( Point2D );
 AMP_INSTANTIATE_SORT( Point3D );
 template void AMP::Utilities::quicksort<double, size_t>( std::vector<double> &,
                                                          std::vector<size_t> & );
+template void AMP::Utilities::quicksort<double, size_t>( size_t, double *, size_t* );
 template std::string AMP::Utilities::to_string<int8_t>( std::vector<int8_t> const & );
 template std::string AMP::Utilities::to_string<int16_t>( std::vector<int16_t> const & );
 template std::string AMP::Utilities::to_string<int32_t>( std::vector<int32_t> const & );

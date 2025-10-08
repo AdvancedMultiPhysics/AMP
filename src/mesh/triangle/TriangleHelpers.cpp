@@ -497,6 +497,8 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         }
     }
     int N_domains = comm.bcast( tri.size(), 0 );
+    tri.resize( N_domains );
+    tri_nab.resize( N_domains );
     // Create the mesh
     std::shared_ptr<AMP::Mesh::Mesh> mesh;
     if ( N_domains == 1 ) {
@@ -540,7 +542,7 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         disp[1] = db->getScalar<double>( "y_offset" );
     if ( db->keyExists( "z_offset" ) )
         disp[2] = db->getScalar<double>( "z_offset" );
-    if ( disp[0] != 0.0 && disp[1] != 0.0 && disp[2] != 0.0 )
+    if ( disp[0] != 0.0 || disp[1] != 0.0 || disp[2] != 0.0 )
         mesh->displaceMesh( disp );
     // Set the mesh name
     mesh->setName( name );
