@@ -5,11 +5,11 @@
 #include "AMP/vectors/trilinos/tpetra/TpetraVector.h"
 
 DISABLE_WARNINGS
-#include "Tpetra_CrsMatrix_decl.hpp"
-#include "Tpetra_FECrsMatrix_decl.hpp"
+#include "Tpetra_CrsMatrix.hpp"
+#include "Tpetra_FECrsMatrix.hpp"
 #include <Teuchos_Comm.hpp>
 #include <Teuchos_OrdinalTraits.hpp>
-#include <Tpetra_RowMatrixTransposer_decl.hpp>
+#include <Tpetra_RowMatrixTransposer.hpp>
 ENABLE_WARNINGS
 
 #include "AMP/discretization/DOF_Manager.h"
@@ -29,8 +29,8 @@ static inline auto createTpetraMap( std::shared_ptr<AMP::Discretization::DOFMana
     auto comm = Tpetra::getDefaultComm();
 #endif
 
-    return std::make_shared<Tpetra::Map<LO, GO, NT>>(
-        dofManager->numGlobalDOF(), dofManager->numLocalDOF(), comm );
+    return Teuchos::rcp( new Tpetra::Map<LO, GO, NT>(
+        dofManager->numGlobalDOF(), dofManager->numLocalDOF(), comm ) );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -53,49 +53,50 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
     const auto &getRow = matParams->getRowFunction();
 
     if ( getRow ) {
-        const auto nrows = rowDOFs->numLocalDOF();
-        const auto srow  = rowDOFs->beginDOF();
-        std::vector<int> entries( nrows, 0 );
+        const auto nrows     = rowDOFs->numLocalDOF();
+        const auto srow      = rowDOFs->beginDOF();
+        size_t maxRowEntries = 0;
         for ( size_t i = 0; i < nrows; ++i ) {
             const auto cols = getRow( i + srow );
-            entries[i]      = static_cast<int>( cols.size() );
+            maxRowEntries   = std::max( maxRowEntries, cols.size() );
         }
-        d_tpetraMatrix = new Tpetra::FECrsMatrix( Copy, *d_RangeMap, entries.data(), false );
-        // Fill matrix and call fillComplete to set the nz structure
-        for ( size_t i = 0; i < nrows; ++i ) {
-            const auto cols = getRow( i + srow );
-            createValuesByGlobalID( i + srow, cols );
-        }
-        fillComplete();
+        d_tpetraMatrix = Teuchos::rcp(
+            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, maxRowEntries ) );
     } else {
-        d_tpetraMatrix = new Tpetra::FECrsMatrix( Copy, *d_RangeMap, 0, false );
+        AMP_ERROR(
+            "Tpetra::CrsMatrix cannot be created at present without a supplied getRow function" );
+        //        d_tpetraMatrix = Teuchos::rcp( new Tpetra::FECrsMatrix( *d_RangeMap, 0, false ) );
     }
-    d_DeleteMatrix = true;
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( const TpetraMatrixData &rhs )
     : TpetraMatrixData( rhs.d_pParameters )
 {
+    using row_matrix_type = Tpetra::RowMatrix<ST, LO, GO, NT>;
+    using nonconst_global_inds_host_view_type =
+        typename row_matrix_type::nonconst_global_inds_host_view_type;
+    using nonconst_values_host_view_type = typename row_matrix_type::nonconst_values_host_view_type;
+
     d_pParameters = rhs.d_pParameters;
 
     auto matParams = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
 
-    for ( size_t i = matParams->getLeftDOFManager()->beginDOF();
-          i != matParams->getLeftDOFManager()->endDOF();
-          i++ ) {
-        std::vector<size_t> cols;
-        std::vector<double> vals;
-        rhs.getRowByGlobalID( i, cols, vals );
+    size_t firstRow = matParams->getLeftDOFManager()->beginDOF();
 
-        // cast down to ints
-        const int ii    = static_cast<int>( i );
-        const int ncols = static_cast<int>( cols.size() );
-        std::vector<int> ep_cols( ncols );
-        std::transform(
-            cols.begin(), cols.end(), ep_cols.begin(), []( size_t c ) -> int { return c; } );
+    for ( size_t i = firstRow; i != matParams->getLeftDOFManager()->endDOF(); i++ ) {
+
+        size_t localRow = i - firstRow;
+        auto numCols    = rhs.getTpetra_CrsMatrix().getNumEntriesInLocalRow( localRow );
+        std::vector<GO> cols( numCols );
+        std::vector<ST> vals( numCols );
+
+        nonconst_global_inds_host_view_type tpetraColsView( cols.data(), numCols );
+        nonconst_values_host_view_type tpetraValsView( vals.data(), numCols );
+        d_tpetraMatrix->getGlobalRowCopy( i, tpetraColsView, tpetraValsView, numCols );
+
         VerifyTpetraReturn(
-            d_tpetraMatrix->ReplaceGlobalValues( ii, ncols, vals.data(), ep_cols.data() ),
+            d_tpetraMatrix->replaceGlobalValues( i, numCols, vals.data(), cols.data() ),
             "TpetraMatrixData copy constructor" );
     }
     d_RangeMap  = rhs.d_RangeMap;
@@ -104,29 +105,26 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( const TpetraMatrixData &rhs 
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( Tpetra::CrsMatrix<ST, LO, GO, NT> *inMatrix,
-                                                    bool dele )
-    : MatrixData(), d_tpetraMatrix( inMatrix ), d_DeleteMatrix( dele )
+TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData(
+    Teuchos::RCP<Tpetra::CrsMatrix<ST, LO, GO, NT>> inMatrix )
+    : MatrixData(), d_tpetraMatrix( inMatrix )
 {
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 std::shared_ptr<MatrixData> TpetraMatrixData<ST, LO, GO, NT>::cloneMatrixData() const
 {
-    auto *r           = new TpetraMatrixData<ST, LO, GO, NT>( *this );
-    r->d_DeleteMatrix = true;
+    auto *r = new TpetraMatrixData<ST, LO, GO, NT>( *this );
     return std::shared_ptr<MatrixData>( r );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 std::shared_ptr<MatrixData> TpetraMatrixData<ST, LO, GO, NT>::transpose() const
 {
-    auto &matrix = const_cast<Tpetra::CrsMatrix<ST, LO, GO, NT> &>( *d_tpetraMatrix );
-    Tpetra::RowMatrixTransposer<ST, LO, GO, NT> transposer( matrix );
+    Tpetra::RowMatrixTransposer<ST, LO, GO, NT> transposer( d_tpetraMatrix );
 
     auto matTranspose = transposer.createTranspose();
-    return std::shared_ptr<MatrixData>( new TpetraMatrixData<ST, LO, GO, NT>(
-        dynamic_cast<Tpetra::CrsMatrix<ST, LO, GO, NT> *>( &matTranspose ), true ) );
+    return std::shared_ptr<MatrixData>( new TpetraMatrixData<ST, LO, GO, NT>( matTranspose ) );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -143,8 +141,6 @@ void TpetraMatrixData<ST, LO, GO, NT>::VerifyTpetraReturn( int err, const char *
 template<typename ST, typename LO, typename GO, typename NT>
 TpetraMatrixData<ST, LO, GO, NT>::~TpetraMatrixData()
 {
-    if ( d_DeleteMatrix )
-        delete d_tpetraMatrix;
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -183,11 +179,11 @@ void TpetraMatrixData<ST, LO, GO, NT>::setTpetraMaps( std::shared_ptr<Vector> ra
 #endif
         auto N_global = static_cast<GO>( range->getGlobalSize() );
         auto N_local  = static_cast<LO>( range->getLocalSize() );
-        d_RangeMap    = std::make_shared<Tpetra::Map<LO, GO, NT>>( N_global, N_local, comm );
+        d_RangeMap    = Teuchos::rcp( new Tpetra::Map<LO, GO, NT>( N_global, N_local, comm ) );
         if ( domain ) {
             N_global    = static_cast<GO>( domain->getGlobalSize() );
             N_local     = static_cast<LO>( domain->getLocalSize() );
-            d_DomainMap = std::make_shared<Tpetra::Map<LO, GO, NT>>( N_global, N_local, comm );
+            d_DomainMap = Teuchos::rcp( new Tpetra::Map<LO, GO, NT>( N_global, N_local, comm ) );
         }
     }
 }
@@ -374,15 +370,35 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID(
     size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
 {
+    // NOTE: this routine assumes the same number of cols per row!!!
+    // This has to be fixed in ALL AMP matrix interfaces
     std::vector<GO> tpetra_cols( num_cols );
     std::copy( cols, cols + num_cols, tpetra_cols.begin() );
 
     if ( id == getTypeID<double>() ) {
-        auto values = reinterpret_cast<const double *>( vals );
-        for ( size_t i = 0; i != num_rows; i++ )
+
+        for ( size_t i = 0; i != num_rows; i++ ) {
+
+            std::vector<ST> row_vals;
+            ST *values;
+            if constexpr ( std::is_same_v<double, ST> ) {
+                const auto array_dptr = reinterpret_cast<const ST *>( vals );
+                values                = const_cast<ST *>( &array_dptr[num_cols * i] );
+            } else {
+                auto incoming_values = reinterpret_cast<const double *>( vals );
+                row_vals.resize( num_cols );
+                std::transform( &incoming_values[num_cols * i],
+                                &incoming_values[num_cols * i] + num_cols,
+                                row_vals.begin(),
+                                []( double c ) -> ST { return c; } );
+                values = row_vals.data();
+            }
+
             VerifyTpetraReturn( d_tpetraMatrix->sumIntoGlobalValues(
                                     rows[i], num_cols, values + num_cols * i, tpetra_cols.data() ),
-                                "addValuesByGlobalId" );
+                                "addValuesByGlobalID" );
+        }
+
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -392,6 +408,8 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::setValuesByGlobalID(
     size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
 {
+    // NOTE: this routine assumes the same number of cols per row!!!
+    // This has to be fixed in ALL AMP matrix interfaces
     std::vector<GO> tpetra_cols( num_cols );
     std::copy( cols, cols + num_cols, tpetra_cols.begin() );
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
@@ -400,14 +418,30 @@ void TpetraMatrixData<ST, LO, GO, NT>::setValuesByGlobalID(
     size_t MyFirstRow = params->getLeftDOFManager()->beginDOF();
     size_t MyEndRow   = params->getLeftDOFManager()->endDOF();
     if ( id == getTypeID<double>() ) {
-        auto values = reinterpret_cast<const double *>( vals );
+
         for ( size_t i = 0; i != num_rows; i++ ) {
+
+            std::vector<ST> row_vals;
+            ST *values;
+            if constexpr ( std::is_same_v<double, ST> ) {
+                const auto array_dptr = reinterpret_cast<const ST *>( vals );
+                values                = const_cast<ST *>( &array_dptr[num_cols * i] );
+            } else {
+                auto incoming_values = reinterpret_cast<const double *>( vals );
+                row_vals.resize( num_cols );
+                std::transform( &incoming_values[num_cols * i],
+                                &incoming_values[num_cols * i] + num_cols,
+                                row_vals.begin(),
+                                []( double c ) -> ST { return c; } );
+                values = row_vals.data();
+            }
+
             VerifyTpetraReturn( d_tpetraMatrix->replaceGlobalValues(
                                     rows[i], num_cols, values + num_cols * i, tpetra_cols.data() ),
                                 "setValuesByGlobalID" );
             if ( rows[i] < MyFirstRow || rows[i] >= MyEndRow ) {
                 for ( size_t j = 0; j != num_cols; j++ ) {
-                    d_OtherData[rows[i]][cols[j]] = values[num_cols * i + j];
+                    d_OtherData[rows[i]][cols[j]] = static_cast<ST>( values[num_cols * i + j] );
                 }
             }
         }
@@ -428,6 +462,10 @@ void TpetraMatrixData<ST, LO, GO, NT>::getValuesByGlobalID( size_t num_rows,
                                                             void *vals,
                                                             const typeID &id ) const
 {
+    using row_matrix_type = Tpetra::RowMatrix<ST, LO, GO, NT>;
+    using nonconst_global_inds_host_view_type =
+        typename row_matrix_type::nonconst_global_inds_host_view_type;
+    using nonconst_values_host_view_type = typename row_matrix_type::nonconst_values_host_view_type;
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
     // Zero out the data in values
@@ -439,23 +477,24 @@ void TpetraMatrixData<ST, LO, GO, NT>::getValuesByGlobalID( size_t num_rows,
         size_t firstRow = params->getLeftDOFManager()->beginDOF();
         size_t numRows  = params->getLeftDOFManager()->numLocalDOF();
         std::vector<GO> row_cols;
-        std::vector<double> row_values;
+        std::vector<ST> row_values;
         for ( size_t i = 0; i < num_rows; i++ ) {
             if ( rows[i] < firstRow || rows[i] >= firstRow + numRows )
                 continue;
             size_t localRow = rows[i] - firstRow;
-            auto numCols    = d_tpetraMatrix->getNumEntriesInLocalRow( localRow );
+            size_t numCols  = d_tpetraMatrix->getNumEntriesInLocalRow( localRow );
             if ( numCols == 0 )
                 continue;
             row_cols.resize( numCols );
             row_values.resize( numCols );
-            VerifyTpetraReturn(
-                d_tpetraMatrix->getGlobalRowCopy(
-                    rows[i], numCols, numCols, &( row_values[0] ), &( row_cols[0] ) ),
-                "getValuesByGlobalID" );
+            nonconst_global_inds_host_view_type tpetraColsView( row_cols.data(), numCols );
+            nonconst_values_host_view_type tpetraValsView( row_values.data(), numCols );
+            size_t nCols;
+            d_tpetraMatrix->getGlobalRowCopy( rows[i], tpetraColsView, tpetraValsView, nCols );
+            AMP_ASSERT( nCols == numCols );
             for ( size_t j1 = 0; j1 < num_cols; j1++ ) {
-                for ( size_t j2 = 0; j2 < (size_t) numCols; j2++ ) {
-                    if ( cols[j1] == (size_t) row_cols[j2] )
+                for ( size_t j2 = 0; j2 < numCols; j2++ ) {
+                    if ( cols[j1] == static_cast<size_t>( row_cols[j2] ) )
                         values[i * num_cols + j1] = row_values[j2];
                 }
             }
@@ -469,6 +508,11 @@ void TpetraMatrixData<ST, LO, GO, NT>::getRowByGlobalID( size_t row,
                                                          std::vector<size_t> &cols,
                                                          std::vector<double> &values ) const
 {
+    using row_matrix_type = Tpetra::RowMatrix<ST, LO, GO, NT>;
+    using nonconst_global_inds_host_view_type =
+        typename row_matrix_type::nonconst_global_inds_host_view_type;
+    using nonconst_values_host_view_type = typename row_matrix_type::nonconst_values_host_view_type;
+
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
     size_t firstRow = params->getLeftDOFManager()->beginDOF();
@@ -481,19 +525,51 @@ void TpetraMatrixData<ST, LO, GO, NT>::getRowByGlobalID( size_t row,
     cols.resize( numCols );
     values.resize( numCols );
 
+    std::vector<GO> row_cols;
+    std::vector<ST> row_vals;
+
     if ( numCols ) {
-        std::vector<GO> tpetra_cols( numCols );
-        VerifyTpetraReturn( d_tpetraMatrix->getGlobalRowCopy(
-                                row, numCols, numCols, &( values[0] ), &( tpetra_cols[0] ) ),
-                            "getRowByGlobalID" );
-        std::copy( tpetra_cols.begin(), tpetra_cols.end(), cols.begin() );
+        GO *row_cols_ptr;
+        ST *row_vals_ptr;
+        if constexpr ( std::is_same_v<size_t, GO> ) {
+            row_cols_ptr = cols.data();
+        } else {
+            row_cols.resize( numCols );
+            row_cols_ptr = row_cols.data();
+        }
+        if constexpr ( std::is_same_v<double, ST> ) {
+            row_vals_ptr = values.data();
+        } else {
+            row_vals.resize( numCols );
+            row_vals_ptr = row_vals.data();
+        }
+
+        nonconst_global_inds_host_view_type tpetraColsView( row_cols_ptr, numCols );
+        nonconst_values_host_view_type tpetraValsView( row_vals_ptr, numCols );
+        size_t nCols;
+        d_tpetraMatrix->getGlobalRowCopy( row, tpetraColsView, tpetraValsView, nCols );
+
+        if constexpr ( !std::is_same_v<size_t, GO> ) {
+            std::transform( row_cols.begin(), row_cols.end(), cols.begin(), []( GO c ) -> size_t {
+                return c;
+            } );
+        }
+        if constexpr ( !std::is_same_v<double, ST> ) {
+            std::transform( row_vals.begin(), row_vals.end(), values.begin(), []( ST c ) -> double {
+                return c;
+            } );
+        }
     }
 }
-
 
 template<typename ST, typename LO, typename GO, typename NT>
 std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row ) const
 {
+    using row_matrix_type = Tpetra::RowMatrix<ST, LO, GO, NT>;
+    using nonconst_global_inds_host_view_type =
+        typename row_matrix_type::nonconst_global_inds_host_view_type;
+    using nonconst_values_host_view_type = typename row_matrix_type::nonconst_values_host_view_type;
+
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
     size_t firstRow = params->getLeftDOFManager()->beginDOF();
@@ -505,13 +581,30 @@ std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row )
     auto numCols    = d_tpetraMatrix->getNumEntriesInLocalRow( localRow );
     std::vector<size_t> cols( numCols );
 
+    std::vector<GO> row_cols;
+
     if ( numCols ) {
-        std::vector<double> values( numCols );
-        std::vector<GO> tpetra_cols( numCols );
-        VerifyTpetraReturn( d_tpetraMatrix->getGlobalRowCopy(
-                                row, numCols, numCols, values.data(), tpetra_cols.data() ),
-                            "getRowByGlobalID" );
-        std::copy( tpetra_cols.begin(), tpetra_cols.end(), cols.begin() );
+
+        std::vector<ST> row_vals( numCols );
+        GO *row_cols_ptr;
+        ST *row_vals_ptr = row_vals.data();
+        if constexpr ( std::is_same_v<size_t, GO> ) {
+            row_cols_ptr = cols.data();
+        } else {
+            row_cols.resize( numCols );
+            row_cols_ptr = row_cols.data();
+        }
+
+        nonconst_global_inds_host_view_type tpetraColsView( row_cols_ptr, numCols );
+        nonconst_values_host_view_type tpetraValsView( row_vals_ptr, numCols );
+        size_t nCols;
+        d_tpetraMatrix->getGlobalRowCopy( row, tpetraColsView, tpetraValsView, nCols );
+
+        if constexpr ( !std::is_same_v<size_t, GO> ) {
+            std::transform( row_cols.begin(), row_cols.end(), cols.begin(), []( GO c ) -> size_t {
+                return c;
+            } );
+        }
     }
 
     return cols;
@@ -521,16 +614,9 @@ std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row )
  * makeConsistent                                        *
  ********************************************************/
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixData<ST, LO, GO, NT>::makeConsistent( AMP::LinearAlgebra::ScatterType t )
+void TpetraMatrixData<ST, LO, GO, NT>::makeConsistent( AMP::LinearAlgebra::ScatterType )
 {
-    const auto mode = ( t == AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD ) ?
-                          Tpetra::CombineMode::Add :
-                          Tpetra::CombineMode::Insert;
-    auto *mat       = dynamic_cast<Tpetra::FECrsMatrix<ST, LO, GO, NT> *>( d_tpetraMatrix );
-    if ( mat ) {
-        VerifyTpetraReturn( mat->globalAssemble( false, mode ), "makeParallelConsistent" );
-        fillComplete();
-    }
+    fillComplete();
     setOtherData();
 }
 

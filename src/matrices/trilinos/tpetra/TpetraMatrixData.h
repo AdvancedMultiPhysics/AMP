@@ -4,7 +4,7 @@
 #include "AMP/matrices/data/MatrixData.h"
 
 #include <Tpetra_Core.hpp>
-#include <Tpetra_CrsMatrix.hpp>
+#include <Tpetra_CrsMatrix_decl.hpp>
 
 namespace AMP::LinearAlgebra {
 
@@ -34,19 +34,15 @@ private:
 protected:
     /** \brief Bare pointer to an Tpetra_CrsMatrix
      */
-    Tpetra::CrsMatrix<ST, LO, GO, NT> *d_tpetraMatrix;
+    Teuchos::RCP<Tpetra::CrsMatrix<ST, LO, GO, NT>> d_tpetraMatrix;
 
     /** \brief Range map for the Tpetra_CrsMatrix
      */
-    std::shared_ptr<Tpetra::Map<LO, GO, NT>> d_RangeMap;
+    Teuchos::RCP<Tpetra::Map<LO, GO, NT>> d_RangeMap;
 
     /** \brief Domain map for the Tpetra_CrsMatrix
      */
-    std::shared_ptr<Tpetra::Map<LO, GO, NT>> d_DomainMap;
-
-    /** \brief Indicates if the destructor calls delete
-     */
-    bool d_DeleteMatrix;
+    Teuchos::RCP<Tpetra::Map<LO, GO, NT>> d_DomainMap;
 
     //!  \f$A_{i,j}\f$ storage of off-core data
     std::map<int, std::map<GO, ST>> d_OtherData;
@@ -71,7 +67,7 @@ public:
      * \param[in] inMatrix  Matrix to wrap
      * \param[in] dele  If true, then this class will delete the Tpetra_CrsMatrix
      */
-    explicit TpetraMatrixData( Tpetra::CrsMatrix<ST, LO, GO, NT> *inMatrix, bool dele = false );
+    explicit TpetraMatrixData( Teuchos::RCP<Tpetra::CrsMatrix<ST, LO, GO, NT>> inMatrix );
 
     std::shared_ptr<MatrixData> cloneMatrixData() const override;
 
