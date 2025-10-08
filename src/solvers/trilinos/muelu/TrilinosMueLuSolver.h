@@ -7,6 +7,12 @@
     #include "AMP/matrices/trilinos/epetra/ManagedEpetraMatrix.h"
 #endif
 
+#if defined( AMP_USE_TRILINOS_TPETRA )
+    #include "AMP/matrices/trilinos/tpetra/ManagedTpetraMatrix.h"
+    #include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
+#endif
+
+#include "AMP/AMP_TPLs.h"
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/trilinos/ml/MLoptions.h"
@@ -25,7 +31,18 @@ ENABLE_WARNINGS
 
 
 namespace MueLu {
+
+#if defined( AMP_USE_TRILINOS_EPETRA )
 class EpetraOperator;
+using MueLuOperator = EpetraOperator;
+#elif defined( AMP_USE_TRILINOS_TPETRA )
+template<typename Scalar, typename LocalOrdinal, typename GlobalOrdinal, typename Node>
+class TpetraOperator;
+using MueLuOperator = TpetraOperator;
+#else
+    #error "Muelu needs either Tpetra or Epetra enabled"
+#endif
+
 template<typename Scalar, typename LocalOrdinal, typename GlobalOrdinal, typename Node>
 class Hierarchy;
 template<typename Scalar, typename LocalOrdinal, typename GlobalOrdinal, typename Node>
@@ -39,10 +56,19 @@ class DirectSolver;
 template<typename Scalar, typename LocalOrdinal, typename GlobalOrdinal, typename Node>
 class SmootherFactory;
 
+#if defined( AMP_USE_TRILINOS_EPETRA )
 using Scalar        = double;
 using LocalOrdinal  = int;
 using GlobalOrdinal = int;
 using Node          = Xpetra::EpetraNode;
+#elif defined( AMP_USE_TRILINOS_TPETRA )
+using Scalar        = Tpetra_ST;
+using LocalOrdinal  = Tpetra_LO;
+using GlobalOrdinal = Tpetra_GO;
+using Node          = Xpetra::TpetraNode;
+#else
+    #error "Muelu needs either Tpetra or Epetra enabled"
+#endif
 } // namespace MueLu
 
 namespace AMP {
@@ -116,7 +142,7 @@ public:
     /**
      * Return a shared pointer to the ML_Epetra::MultiLevelPreconditioner object
      */
-    inline std::shared_ptr<MueLu::EpetraOperator> getMLSolver( void ) { return d_mueluSolver; }
+    inline std::shared_ptr<MueLu::MueLuOperator> getMLSolver( void ) { return d_mueluSolver; }
 
     /**
      * Initialize the solution vector and potentially create internal vectors needed for solution
@@ -194,7 +220,7 @@ private:
 
     std::string d_smoother_type; //! key for creating different smoothers
 
-    std::shared_ptr<MueLu::EpetraOperator> d_mueluSolver;
+    std::shared_ptr<MueLu::MueLuOperator> d_mueluSolver;
 
     std::shared_ptr<AMP::LinearAlgebra::ManagedEpetraMatrix> d_matrix;
     Teuchos::ParameterList d_MueLuParameterList;
