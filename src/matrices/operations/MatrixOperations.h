@@ -70,7 +70,7 @@ public:
      * \param[in] alpha  scalar
      * \param[in] X matrix
      * \param[out] Y Output matrix Y
-     * \details  Compute \f$\mathbf{THIS} = \alpha\mathbf{X} + \mathbf{THIS}\f$
+     * \details  Compute \f$\mathbf{Y} = \alpha\mathbf{X} + \mathbf{Y}\f$
      */
     virtual void axpy( AMP::Scalar alpha, const MatrixData &X, MatrixData &Y ) = 0;
 
