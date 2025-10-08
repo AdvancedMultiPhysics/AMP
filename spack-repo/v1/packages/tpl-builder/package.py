@@ -122,6 +122,20 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("FFLAGS", self.compiler.fc_pic_flag),
         ]
 
+        if spec.satisfies("+mpi"):
+            options.extend(
+                [
+                   self.define('CMAKE_C_COMPILER',   spec['mpi'].mpicc),
+                   self.define('CMAKE_CXX_COMPILER', spec['mpi'].mpicxx),
+                   self.define('CMAKE_Fortran_COMPILER', spec['mpi'].mpifc),
+                 ] )
+        else:
+            options.extend( [
+                self.define('CMAKE_C_COMPILER',   self.compiler.cc),
+                self.define('CMAKE_CXX_COMPILER', self.compiler.cxx),
+                self.define('CMAKE_Fortran_COMPILER', self.compiler.fc),
+            ] )
+
         if spec.satisfies("+cuda"):
             cuda_arch = spec.variants["cuda_arch"].value
             cuda_flags = ["-extended-lambda", "--expt-relaxed-constexpr"]
