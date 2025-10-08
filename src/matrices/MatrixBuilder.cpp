@@ -22,6 +22,11 @@
     #include "AMP/matrices/trilinos/epetra/ManagedEpetraMatrix.h"
 #endif
 
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_TPETRA )
+    #include "AMP/matrices/trilinos/tpetra/ManagedTpetraMatrix.h"
+    #include "AMP/matrices/trilinos/tpetra/TpetraMatrixData.h"
+#endif
+
 #ifdef AMP_USE_HYPRE
     #include "HYPRE.h"
     #include "HYPRE_IJ_mv.h"
