@@ -60,8 +60,8 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
             const auto cols = getRow( i + srow );
             maxRowEntries   = std::max( maxRowEntries, cols.size() );
         }
-        d_tpetraMatrix = Teuchos::rcp(
-            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, maxRowEntries ) );
+        d_tpetraMatrix =
+            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, maxRowEntries ) );
     } else {
         AMP_ERROR(
             "Tpetra::CrsMatrix cannot be created at present without a supplied getRow function" );

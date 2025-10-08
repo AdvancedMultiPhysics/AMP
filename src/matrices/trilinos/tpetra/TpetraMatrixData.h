@@ -2,8 +2,8 @@
 #define included_AMP_TpetraMatrixData
 
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
-#include <Tpetra_Core.hpp>
 #include <Tpetra_CrsMatrix_decl.hpp>
 
 namespace AMP::LinearAlgebra {
@@ -22,9 +22,9 @@ class Vector;
   *  -# Provides a static method for creating an Tpetra_CrsMatrix view of an AMP matrix.
   */
 
-template<typename ST = double,
-         typename LO = int32_t,
-         typename GO = int64_t,
+template<typename ST = Tpetra_ST,
+         typename LO = Tpetra_LO,
+         typename GO = Tpetra_GO,
          typename NT = Tpetra::Vector<>::node_type>
 class TpetraMatrixData : public MatrixData
 {

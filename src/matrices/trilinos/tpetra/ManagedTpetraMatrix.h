@@ -6,7 +6,9 @@
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/Matrix.h"
 #include "AMP/matrices/MatrixParameters.h"
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
 DISABLE_WARNINGS
 #include "Tpetra_CrsMatrix_decl.hpp"
@@ -20,9 +22,9 @@ namespace AMP::LinearAlgebra {
  * \details  This class stores an Tpetra_FECrsMatrix and provides
  * the AMP interface to this matrix.
  */
-template<typename ST = double,
-         typename LO = int32_t,
-         typename GO = int64_t,
+template<typename ST = Tpetra_ST,
+         typename LO = Tpetra_LO,
+         typename GO = Tpetra_GO,
          typename NT = Tpetra::Vector<>::node_type>
 class ManagedTpetraMatrix : public Matrix
 {
