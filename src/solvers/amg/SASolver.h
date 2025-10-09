@@ -11,9 +11,11 @@
 #include "AMP/solvers/amg/Aggregator.h"
 #include "AMP/solvers/amg/Cycle.h"
 #include "AMP/solvers/amg/Relaxation.h"
+#include "AMP/utils/Database.h"
 #include "AMP/vectors/Variable.h"
 
 #include <memory>
+#include <vector>
 
 namespace AMP::Solver::AMG {
 
@@ -48,14 +50,21 @@ protected:
     float d_prol_trunc;
     Utilities::MemoryType d_mem_loc;
 
+    static constexpr size_t NUM_LEVEL_OPTIONS = 10;
+    std::vector<std::shared_ptr<AMP::Database>> d_level_options_dbs;
 
+    std::string d_agg_type;
     std::shared_ptr<AMG::Aggregator> d_aggregator;
     std::vector<AMG::KCycleLevel> d_levels;
     PairwiseCoarsenSettings d_coarsen_settings;
+    std::shared_ptr<AMP::Database> d_pre_relax_db;
+    std::shared_ptr<AMP::Database> d_post_relax_db;
     std::shared_ptr<AMG::RelaxationParameters> d_pre_relax_params;
     std::shared_ptr<AMG::RelaxationParameters> d_post_relax_params;
     std::shared_ptr<SolverStrategyParameters> d_coarse_solver_params;
     std::unique_ptr<SolverStrategy> d_coarse_solver;
+
+    void setLevelOptions( const size_t lvl );
 
     void setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
                 std::shared_ptr<LinearAlgebra::Variable> bVar );

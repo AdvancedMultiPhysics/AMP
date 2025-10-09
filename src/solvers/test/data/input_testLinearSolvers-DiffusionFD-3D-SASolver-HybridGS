@@ -11,9 +11,18 @@ LinearSolver{
   min_coarse_global = 40
   kappa = 2
   agg_type = "simple"
-  prol_trunc = 0.075
-  num_smooth_prol = 3
-  strength_threshold = 4.0
+
+  level_options_0{
+    prol_trunc = 0.075
+    num_smooth_prol = 3
+    strength_threshold = 4.0
+  }
+
+  level_options_1{
+    prol_trunc = 0.1
+    num_smooth_prol = 1
+    strength_threshold = 10.0
+  }
   
   pre_relaxation{
     name = "HybridGS"
@@ -35,7 +44,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 39
+  iterations = 38
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

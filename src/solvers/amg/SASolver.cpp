@@ -23,48 +23,97 @@ SASolver::SASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 
 void SASolver::getFromInput( std::shared_ptr<Database> db )
 {
-    d_max_levels     = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
-    d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_kappa          = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
+    // settings applicable to entire solver
+    d_max_levels                        = db->getWithDefault<size_t>( "max_levels", 10 );
+    d_kappa                             = db->getWithDefault<size_t>( "kappa", 1 );
+    d_kcycle_tol                        = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
 
-    d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
-    d_coarsen_settings.min_coarse_local   = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_coarsen_settings.min_coarse         = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    // get and setup coarse solver options
+    AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
+    auto coarse_solver_db = db->getDatabase( "coarse_solver" );
+    AMP_INSIST( db->keyExists( "name" ), "Key name does not exist in coarse solver database" );
+    d_coarse_solver_params = std::make_shared<SolverStrategyParameters>( coarse_solver_db );
+
+    // settings applicable per level of hierarchy
+    // set these directly from main database so that
+    // users don't need to use the per-level options,
+    // then override later if per-level options were supplied
+    d_num_relax_pre                       = db->getWithDefault<size_t>( "num_relax_pre", 1 );
+    d_num_relax_post                      = db->getWithDefault<size_t>( "num_relax_post", 1 );
+    d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 4.0 );
     d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
     d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
+    d_num_smooth_prol                     = db->getWithDefault<int>( "num_smooth_prol", 1 );
+    d_prol_trunc                          = db->getWithDefault<float>( "prol_trunc", 0 );
+    d_agg_type                            = db->getWithDefault<std::string>( "agg_type", "simple" );
+    d_pre_relax_db                        = db->getDatabase( "pre_relaxation" );
+    d_post_relax_db                       = db->getDatabase( "post_relaxation" );
 
-    d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
-    d_prol_trunc      = db->getWithDefault<float>( "prol_trunc", 0 );
+    // Look for per-level DBs and set the fine level options if present
+    for ( size_t nl = 0; nl < NUM_LEVEL_OPTIONS; ++nl ) {
+        auto lvl_db_name =
+            std::string( "level_options_" ) + AMP::Utilities::intToString( static_cast<int>( nl ) );
+        d_level_options_dbs.emplace_back( db->getDatabase( lvl_db_name ) );
+    }
+}
 
-    const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
-    if ( agg_type == "simple" ) {
+void SASolver::setLevelOptions( const size_t lvl )
+{
+    if ( lvl < NUM_LEVEL_OPTIONS && d_level_options_dbs[lvl] ) {
+        auto lvl_db = d_level_options_dbs[lvl];
+        // the above sets defaults for all of these parameters
+        // and values applicable to all levels can be set in outer DB
+        // re-read them with their current values as the defaults
+        d_num_relax_pre  = lvl_db->getWithDefault<size_t>( "num_relax_pre", d_num_relax_pre );
+        d_num_relax_post = lvl_db->getWithDefault<size_t>( "num_relax_post", d_num_relax_post );
+        d_coarsen_settings.strength_threshold = lvl_db->getWithDefault<float>(
+            "strength_threshold", d_coarsen_settings.strength_threshold );
+        d_coarsen_settings.pairwise_passes =
+            lvl_db->getWithDefault<size_t>( "pairwise_passes", d_coarsen_settings.pairwise_passes );
+        d_coarsen_settings.checkdd =
+            lvl_db->getWithDefault<bool>( "checkdd", d_coarsen_settings.checkdd );
+        d_num_smooth_prol = lvl_db->getWithDefault<int>( "num_smooth_prol", d_num_smooth_prol );
+        d_prol_trunc      = lvl_db->getWithDefault<float>( "prol_trunc", d_prol_trunc );
+        d_agg_type        = lvl_db->getWithDefault<std::string>( "agg_type", d_agg_type );
+
+        // only replace these DBs if they exist
+        auto pre_relax_db = lvl_db->getDatabase( "pre_relaxation" );
+        if ( pre_relax_db ) {
+            d_pre_relax_db = pre_relax_db;
+        }
+        auto post_relax_db = lvl_db->getDatabase( "post_relaxation" );
+        if ( post_relax_db ) {
+            d_post_relax_db = post_relax_db;
+        }
+    }
+
+    // create/replace aggregator
+    if ( d_agg_type == "simple" ) {
         d_aggregator =
             std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings.strength_threshold );
-    } else if ( agg_type == "pairwise" ) {
+    } else if ( d_agg_type == "pairwise" ) {
         d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
     } else {
         d_aggregator =
             std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings.strength_threshold );
     }
 
-    auto pre_db        = db->getDatabase( "pre_relaxation" );
-    d_pre_relax_params = std::make_shared<AMG::RelaxationParameters>( pre_db );
-
-    auto post_db        = db->getDatabase( "post_relaxation" );
-    d_post_relax_params = std::make_shared<AMG::RelaxationParameters>( post_db );
-
-    AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
-    auto coarse_solver_db = db->getDatabase( "coarse_solver" );
-    AMP_INSIST( db->keyExists( "name" ), "Key name does not exist in coarse solver database" );
-    d_coarse_solver_params = std::make_shared<SolverStrategyParameters>( coarse_solver_db );
+    // create relaxation parameters
+    // these are the only items with no defaults so these DBs must exist from somewhere
+    AMP_INSIST( d_pre_relax_db && d_post_relax_db,
+                "SASolver: pre_relaxation and post_relaxation parameters must be set" );
+    d_pre_relax_params  = std::make_shared<AMG::RelaxationParameters>( d_pre_relax_db );
+    d_post_relax_params = std::make_shared<AMG::RelaxationParameters>( d_post_relax_db );
 }
 
 void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 {
+    // store operator, destroy hierarchy, reset to fine level options
     d_pOperator = op;
     d_levels.clear();
+    setLevelOptions( 0 );
 
     // unwrap operator
     auto fine_op = std::dynamic_pointer_cast<Operator::LinearOperator>( op );
@@ -198,6 +247,9 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
 
         const auto Ac_nrows_gbl = Ac->numGlobalRows();
+
+        // from here the new level gets created, load any new options
+        setLevelOptions( i + 1 );
 
         // create next level with coarsened matrix
         d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
