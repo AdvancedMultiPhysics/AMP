@@ -36,36 +36,37 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     AMP_INSIST( db->keyExists( "name" ), "Key name does not exist in coarse solver database" );
     d_coarse_solver_params = std::make_shared<SolverStrategyParameters>( coarse_solver_db );
 
-    // settings applicable per level of hierarchy
-    // set these directly from main database so that
-    // users don't need to use the per-level options,
-    // then override later if per-level options were supplied
-    d_num_relax_pre                       = db->getWithDefault<size_t>( "num_relax_pre", 1 );
-    d_num_relax_post                      = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 4.0 );
-    d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
-    d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
-    d_num_smooth_prol                     = db->getWithDefault<int>( "num_smooth_prol", 1 );
-    d_prol_trunc                          = db->getWithDefault<float>( "prol_trunc", 0 );
-    d_agg_type                            = db->getWithDefault<std::string>( "agg_type", "simple" );
-    d_pre_relax_db                        = db->getDatabase( "pre_relaxation" );
-    d_post_relax_db                       = db->getDatabase( "post_relaxation" );
+    // Apply default per-level options
+    resetLevelOptions();
+}
 
-    // Look for per-level DBs and set the fine level options if present
-    for ( size_t nl = 0; nl < NUM_LEVEL_OPTIONS; ++nl ) {
-        auto lvl_db_name =
-            std::string( "level_options_" ) + AMP::Utilities::intToString( static_cast<int>( nl ) );
-        d_level_options_dbs.emplace_back( db->getDatabase( lvl_db_name ) );
-    }
+void SASolver::resetLevelOptions()
+{
+    d_num_relax_pre  = d_db->getWithDefault<size_t>( "num_relax_pre", 1 );
+    d_num_relax_post = d_db->getWithDefault<size_t>( "num_relax_post", 1 );
+    d_coarsen_settings.strength_threshold =
+        d_db->getWithDefault<float>( "strength_threshold", 4.0 );
+    d_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
+    d_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
+    d_num_smooth_prol                  = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
+    d_prol_trunc                       = d_db->getWithDefault<float>( "prol_trunc", 0 );
+    d_agg_type                         = d_db->getWithDefault<std::string>( "agg_type", "simple" );
+    d_pre_relax_db                     = d_db->getDatabase( "pre_relaxation" );
+    d_post_relax_db                    = d_db->getDatabase( "post_relaxation" );
 }
 
 void SASolver::setLevelOptions( const size_t lvl )
 {
-    if ( lvl < NUM_LEVEL_OPTIONS && d_level_options_dbs[lvl] ) {
-        auto lvl_db = d_level_options_dbs[lvl];
-        // the above sets defaults for all of these parameters
-        // and values applicable to all levels can be set in outer DB
-        // re-read them with their current values as the defaults
+    // If a new set of level options is available
+    // apply them over the defaults.
+    // If no new options are available then keep existing
+    // ones without falling back to defaults
+    auto lvl_db_name =
+        std::string( "level_options_" ) + AMP::Utilities::intToString( static_cast<int>( lvl ) );
+    auto lvl_db = d_db->getDatabase( lvl_db_name );
+    if ( lvl_db ) {
+        resetLevelOptions();
+
         d_num_relax_pre  = lvl_db->getWithDefault<size_t>( "num_relax_pre", d_num_relax_pre );
         d_num_relax_post = lvl_db->getWithDefault<size_t>( "num_relax_post", d_num_relax_post );
         d_coarsen_settings.strength_threshold = lvl_db->getWithDefault<float>(
@@ -113,6 +114,7 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     // store operator, destroy hierarchy, reset to fine level options
     d_pOperator = op;
     d_levels.clear();
+    resetLevelOptions();
     setLevelOptions( 0 );
 
     // unwrap operator

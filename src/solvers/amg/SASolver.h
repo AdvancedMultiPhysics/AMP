@@ -39,31 +39,30 @@ public:
                 std::shared_ptr<LinearAlgebra::Vector> u ) override;
 
 protected:
+    Utilities::MemoryType d_mem_loc;
     size_t d_max_levels;
     int d_min_coarse_local;
     size_t d_min_coarse_global;
-    int d_num_smooth_prol;
-    int d_num_relax_pre;
-    int d_num_relax_post;
     int d_kappa;
     float d_kcycle_tol;
+
+    int d_num_relax_pre;
+    int d_num_relax_post;
+    int d_num_smooth_prol;
     float d_prol_trunc;
-    Utilities::MemoryType d_mem_loc;
-
-    static constexpr size_t NUM_LEVEL_OPTIONS = 10;
-    std::vector<std::shared_ptr<AMP::Database>> d_level_options_dbs;
-
     std::string d_agg_type;
-    std::shared_ptr<AMG::Aggregator> d_aggregator;
-    std::vector<AMG::KCycleLevel> d_levels;
     PairwiseCoarsenSettings d_coarsen_settings;
     std::shared_ptr<AMP::Database> d_pre_relax_db;
     std::shared_ptr<AMP::Database> d_post_relax_db;
+
+    std::shared_ptr<AMG::Aggregator> d_aggregator;
+    std::vector<AMG::KCycleLevel> d_levels;
     std::shared_ptr<AMG::RelaxationParameters> d_pre_relax_params;
     std::shared_ptr<AMG::RelaxationParameters> d_post_relax_params;
     std::shared_ptr<SolverStrategyParameters> d_coarse_solver_params;
     std::unique_ptr<SolverStrategy> d_coarse_solver;
 
+    void resetLevelOptions();
     void setLevelOptions( const size_t lvl );
 
     void setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
