@@ -50,6 +50,9 @@ public:
     // Return an iterator to the begining
     MeshIterator end() const override;
 
+    //! Access the list of elements
+    auto getList() const { return d_list; }
+
     using MeshIterator::operator+;
     using MeshIterator::operator+=;
 

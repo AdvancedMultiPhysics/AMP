@@ -107,6 +107,7 @@ template<uint8_t NG, uint8_t TYPE>
 TriangleMeshElement<NG, TYPE>::TriangleMeshElement()
 {
     static constexpr auto hash = AMP::getTypeID<decltype( *this )>().hash;
+    static_assert( TYPE <= NG );
     static_assert( hash != 0 );
     d_typeHash = hash;
     d_element  = nullptr;
@@ -458,12 +459,9 @@ double TriangleMeshElement<NG, TYPE>::distance( const MeshPoint<double> &pos,
 DISABLE_WARNINGS
 template class TriangleMeshElement<1, 0>;
 template class TriangleMeshElement<1, 1>;
-template class TriangleMeshElement<1, 2>;
-template class TriangleMeshElement<1, 3>;
 template class TriangleMeshElement<2, 0>;
 template class TriangleMeshElement<2, 1>;
 template class TriangleMeshElement<2, 2>;
-template class TriangleMeshElement<2, 3>;
 template class TriangleMeshElement<3, 0>;
 template class TriangleMeshElement<3, 1>;
 template class TriangleMeshElement<3, 2>;

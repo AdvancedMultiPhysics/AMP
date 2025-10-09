@@ -17,6 +17,7 @@ template<uint8_t NG, uint8_t TYPE>
 TriangleMeshIterator<NG, TYPE>::TriangleMeshIterator()
 {
     static constexpr auto MeshIteratorType = AMP::getTypeID<decltype( *this )>().hash;
+    static_assert( TYPE <= NG );
     static_assert( MeshIteratorType != 0 );
     d_typeHash = MeshIteratorType;
     d_iterator = nullptr;
@@ -205,12 +206,9 @@ bool TriangleMeshIterator<NG, TYPE>::operator!=( const MeshIterator &rhs ) const
  ********************************************************/
 template class TriangleMeshIterator<1, 0>;
 template class TriangleMeshIterator<1, 1>;
-template class TriangleMeshIterator<1, 2>;
-template class TriangleMeshIterator<1, 3>;
 template class TriangleMeshIterator<2, 0>;
 template class TriangleMeshIterator<2, 1>;
 template class TriangleMeshIterator<2, 2>;
-template class TriangleMeshIterator<2, 3>;
 template class TriangleMeshIterator<3, 0>;
 template class TriangleMeshIterator<3, 1>;
 template class TriangleMeshIterator<3, 2>;
