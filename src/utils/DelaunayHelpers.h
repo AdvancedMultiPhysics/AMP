@@ -46,6 +46,8 @@ create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri );
  ********************************************************************/
 template<size_t NG>
 std::vector<int> sortTri( std::vector<std::array<int, NG + 1>> &tri );
+template<size_t NG>
+std::vector<std::array<int, NG + 1>> uniqueTri( const std::vector<std::array<int, NG + 1>> &tri );
 
 
 /********************************************************************

@@ -15,9 +15,9 @@
 namespace AMP::Mesh {
 
 
-template<uint8_t NG, uint8_t NP, uint8_t TYPE>
+template<uint8_t NG, uint8_t TYPE>
 class TriangleMeshIterator;
-template<uint8_t NG, uint8_t NP, uint8_t TYPE>
+template<uint8_t NG, uint8_t TYPE>
 class TriangleMeshElement;
 
 
@@ -66,12 +66,12 @@ private:
  * \class TriangleMesh
  * \brief A class used to represent an unstructured mesh of Triangles/Tetrahedrals
  */
-template<uint8_t NG, uint8_t NP>
+template<uint8_t NG>
 class TriangleMesh : public AMP::Mesh::Mesh
 {
 public: // Convenience typedefs
     static_assert( NG <= 3, "Not programmed for higher dimensions yet" );
-    typedef std::array<double, NP> Point;
+    typedef std::array<double, 3> Point;
     typedef std::array<ElementID, 2> Edge;
     typedef std::array<ElementID, 3> Triangle;
     typedef std::array<ElementID, 4> Tetrahedron;
@@ -89,8 +89,9 @@ public:
      * \param tol        Relative tolerance (based on range of points) to use to determine
      *                   if two points are the same
      */
-    static std::shared_ptr<TriangleMesh<NG, NP>>
-    generate( const std::vector<std::array<Point, NG + 1>> &triangles,
+    template<uint8_t NP>
+    static std::shared_ptr<TriangleMesh<NG>>
+    generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangles,
               const AMP_MPI &comm,
               double tol = 1e-12 );
 
@@ -107,10 +108,11 @@ public:
      * \param geom       Optional geometry to associate with the mesh
      * \param blockID    Optional vector with the block id for each triangle
      */
-    static std::shared_ptr<TriangleMesh<NG, NP>>
-    generate( std::vector<Point> vertices,
-              std::vector<TRI> triangles,
-              std::vector<TRI> tri_nab,
+    template<uint8_t NP>
+    static std::shared_ptr<TriangleMesh<NG>>
+    generate( const std::vector<std::array<double, NP>> &vertices,
+              const std::vector<TRI> &triangles,
+              const std::vector<TRI> &tri_nab,
               const AMP_MPI &comm,
               std::shared_ptr<Geometry::Geometry> geom = nullptr,
               std::vector<int> blockID                 = std::vector<int>() );
@@ -134,6 +136,7 @@ public:
 
     TriangleMesh &operator=( const TriangleMesh & ) = delete;
     TriangleMesh &operator=( TriangleMesh && )      = default;
+
 
     //! Deconstructor
     virtual ~TriangleMesh();
@@ -293,12 +296,14 @@ protected:
     // Constructors
     TriangleMesh() = default;
     explicit TriangleMesh( std::shared_ptr<const MeshParameters> );
-    explicit TriangleMesh( std::vector<Point> vertices,
+    explicit TriangleMesh( int NP,
+                           std::vector<Point> vertices,
                            std::vector<TRI> triangles,
                            std::vector<TRI> tri_nab,
                            const AMP_MPI &comm,
                            std::shared_ptr<Geometry::Geometry> geom,
-                           std::vector<int> block );
+                           std::vector<int> block,
+                           int max_gcw = 2 );
     void initialize();
     void initializeIterators();
     void initializeBoundingBox();
@@ -306,6 +311,7 @@ protected:
 protected:
     // Create an iterator from a list
     MeshIterator createIterator( std::shared_ptr<std::vector<ElementID>> ) const;
+    MeshIterator createIterator( GeomType type, int gcw ) const;
 
     // Return the IDs of the elements composing the current element
     void getElementsIDs( const ElementID &id, const GeomType type, ElementID *IDs ) const;
@@ -323,7 +329,7 @@ protected:
 
     // Return the coordinated of the given vertex
     // Note: no error checking is done to make sure it is a valid vertex
-    TriangleMesh::Point getPos( const ElementID &id ) const;
+    Point getPos( const ElementID &id ) const;
 
     // Check if the element is on the given boundry, block, etc
     bool isOnSurface( const ElementID &elemID ) const;
@@ -331,15 +337,20 @@ protected:
     bool isInBlock( const ElementID &elemID, int id ) const;
     static bool inIterator( const ElementID &id, const MeshIterator *it );
 
+    template<uint8_t TYPE>
+    std::array<int, TYPE + 1> getElem( const ElementID &id ) const;
+    template<uint8_t TYPE>
+    ElementID getID( const std::array<int, TYPE + 1> &id ) const;
+
     // Friends
-    friend TriangleMeshIterator<NG, NP, 0>;
-    friend TriangleMeshIterator<NG, NP, 1>;
-    friend TriangleMeshIterator<NG, NP, 2>;
-    friend TriangleMeshIterator<NG, NP, 3>;
-    friend TriangleMeshElement<NG, NP, 0>;
-    friend TriangleMeshElement<NG, NP, 1>;
-    friend TriangleMeshElement<NG, NP, 2>;
-    friend TriangleMeshElement<NG, NP, 3>;
+    friend TriangleMeshElement<NG, 0>;
+    friend TriangleMeshElement<NG, 1>;
+    friend TriangleMeshElement<NG, 2>;
+    friend TriangleMeshElement<NG, 3>;
+    friend TriangleMeshIterator<NG, 0>;
+    friend TriangleMeshIterator<NG, 1>;
+    friend TriangleMeshIterator<NG, 2>;
+    friend TriangleMeshIterator<NG, 3>;
 
 
 private:
@@ -347,6 +358,8 @@ private:
                       const std::vector<TRI> &tri,
                       const std::vector<TRI> &tri_nab,
                       const std::vector<int> &block );
+    void buildChildren();
+
 
 private:                              // Internal data
     std::array<size_t, 4> d_N_global; //!< The number of global elements
@@ -357,6 +370,13 @@ private:                              // Internal data
     std::vector<TRI> d_globalTri;   //!< Store the global triangles
     std::vector<TRI> d_globalNab;   //!< Store the global triangle neighbors
     std::vector<int> d_blockID;     //!< The block id index for each triangle
+
+    std::vector<std::vector<int>> d_remoteTri;
+
+    std::vector<std::array<int, 2>> d_childEdge;
+    std::vector<std::array<int, 3>> d_childFace;
+    std::map<ElementID, std::array<int, 2>> d_remoteEdge;
+    std::map<ElementID, std::array<int, 3>> d_remoteFace;
 
     // Store the local triangle data
     std::vector<Edge> d_edge;

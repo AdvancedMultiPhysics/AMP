@@ -345,8 +345,6 @@ create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri )
     delete[] tri_list;
     return tri_nab;
 }
-template std::vector<std::array<int, 2>>
-create_tri_neighbors<1>( const std::vector<std::array<int, 2>> & );
 template std::vector<std::array<int, 3>>
 create_tri_neighbors<2>( const std::vector<std::array<int, 3>> & );
 template std::vector<std::array<int, 4>>
@@ -376,9 +374,31 @@ std::vector<int> sortTri( std::vector<std::array<int, NG + 1>> &tri )
     }
     return I;
 }
-template std::vector<int> sortTri<1>( std::vector<std::array<int, 2>> & );
-template std::vector<int> sortTri<2>( std::vector<std::array<int, 3>> & );
-template std::vector<int> sortTri<3>( std::vector<std::array<int, 4>> & );
+template<size_t NG>
+std::vector<std::array<int, NG + 1>> uniqueTri( const std::vector<std::array<int, NG + 1>> &tri )
+{
+    auto tri2 = tri;
+    sortTri<NG>( tri2 );
+    size_t pos = 1;
+    for ( size_t i = 1; i < tri2.size(); i++ ) {
+        if ( tri2[i] != tri2[pos - 1] ) {
+            tri2[pos] = tri2[i];
+            pos++;
+        }
+    }
+    if ( pos < tri2.size() )
+        tri2.resize( pos );
+    return std::vector( tri2.begin(), tri2.end() );
+}
+typedef std::array<int, 2> Edge;
+typedef std::array<int, 3> Tri;
+typedef std::array<int, 4> Tet;
+template std::vector<int> sortTri<1>( std::vector<Edge> & );
+template std::vector<int> sortTri<2>( std::vector<Tri> & );
+template std::vector<int> sortTri<3>( std::vector<Tet> & );
+template std::vector<Edge> uniqueTri<1>( const std::vector<Edge> & );
+template std::vector<Tri> uniqueTri<2>( const std::vector<Tri> & );
+template std::vector<Tet> uniqueTri<3>( const std::vector<Tet> & );
 
 
 } // namespace AMP::DelaunayHelpers
