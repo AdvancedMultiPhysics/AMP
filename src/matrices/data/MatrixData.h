@@ -254,6 +254,16 @@ public:
      */
     virtual typeID getCoeffType() const = 0;
 
+    /**
+     * Allow a matrix' structure and values to be modified
+     */
+    virtual void enableModifications() {}
+
+    /**
+     * Disable modifying a matrix' structure and values
+     */
+    virtual void disableModifications() {}
+
 protected:
     std::shared_ptr<MatrixParametersBase> d_pParameters;
 };

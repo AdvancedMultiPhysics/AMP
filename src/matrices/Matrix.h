@@ -190,6 +190,16 @@ public:
      */
     virtual Vector::shared_ptr createOutputVector() const = 0;
 
+    /**
+     * Allow a matrix' structure and values to be modified
+     */
+    void enableModifications() { d_matrixData->enableModifications(); }
+
+    /**
+     * Disable modifying a matrix' structure and values
+     */
+    void disableModifications() { d_matrixData->disableModifications(); }
+
 public:
     /** \brief  Add values to those in the matrix
      * \param[in] num_rows The number of rows represented in values

@@ -30,7 +30,7 @@ static inline auto createTpetraMap( std::shared_ptr<AMP::Discretization::DOFMana
 #endif
 
     return Teuchos::rcp( new Tpetra::Map<LO, GO, NT>(
-        dofManager->numGlobalDOF(), dofManager->numLocalDOF(), comm ) );
+        dofManager->numGlobalDOF(), dofManager->numLocalDOF(), 0, comm ) );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -48,24 +48,24 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
     d_RangeMap  = createTpetraMap<ST, LO, GO, NT>( rowDOFs, params->getComm() );
     d_DomainMap = createTpetraMap<ST, LO, GO, NT>( colDOFs, params->getComm() );
 
-
     // count up entries per row and build matrix if the getRow function exists
     const auto &getRow = matParams->getRowFunction();
 
     if ( getRow ) {
-        const auto nrows     = rowDOFs->numLocalDOF();
-        const auto srow      = rowDOFs->beginDOF();
-        size_t maxRowEntries = 0;
+        const auto nrows = rowDOFs->numLocalDOF();
+        const auto srow  = rowDOFs->beginDOF();
+        std::vector<size_t> entries( nrows, 0 );
         for ( size_t i = 0; i < nrows; ++i ) {
             const auto cols = getRow( i + srow );
-            maxRowEntries   = std::max( maxRowEntries, cols.size() );
+            entries[i]      = static_cast<size_t>( cols.size() );
         }
+        Teuchos::ArrayView<size_t> colView( entries.data(), entries.size() );
         d_tpetraMatrix = Teuchos::rcp(
-            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, maxRowEntries ) );
+            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, colView ) );
+        d_tpetraMatrix->setAllToScalar( 0.0 );
+        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
     } else {
-        AMP_ERROR(
-            "Tpetra::CrsMatrix cannot be created at present without a supplied getRow function" );
-        //        d_tpetraMatrix = Teuchos::rcp( new Tpetra::FECrsMatrix( *d_RangeMap, 0, false ) );
+        d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 0 ) );
     }
 }
 
@@ -192,7 +192,9 @@ void TpetraMatrixData<ST, LO, GO, NT>::setTpetraMaps( std::shared_ptr<Vector> ra
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::fillComplete()
 {
-    d_tpetraMatrix->fillComplete();
+    if ( d_tpetraMatrix->isFillActive() )
+        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
+    //        d_tpetraMatrix->fillComplete();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -619,5 +621,19 @@ void TpetraMatrixData<ST, LO, GO, NT>::makeConsistent( AMP::LinearAlgebra::Scatt
     fillComplete();
     setOtherData();
 }
+
+template<typename ST, typename LO, typename GO, typename NT>
+void TpetraMatrixData<ST, LO, GO, NT>::enableModifications()
+{
+    d_tpetraMatrix->resumeFill();
+}
+
+template<typename ST, typename LO, typename GO, typename NT>
+void TpetraMatrixData<ST, LO, GO, NT>::disableModifications()
+{
+    if ( d_tpetraMatrix->isFillActive() )
+        d_tpetraMatrix->fillComplete();
+}
+
 
 } // namespace AMP::LinearAlgebra

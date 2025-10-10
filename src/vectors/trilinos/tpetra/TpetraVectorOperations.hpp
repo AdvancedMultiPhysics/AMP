@@ -76,7 +76,21 @@ void TpetraVectorOperations<ST, LO, GO, NT>::setRandomValues( VectorData &x )
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraVectorOperations<ST, LO, GO, NT>::copy( const VectorData &x, VectorData &z )
 {
-    deep_copy( getTpetraVector<ST, LO, GO, NT>( z ), getTpetraVector<ST, LO, GO, NT>( x ) );
+    if ( x.VectorDataName() == z.VectorDataName() ) {
+        // assume both are TpetraVectorData
+        deep_copy( getTpetraVector<ST, LO, GO, NT>( z ), getTpetraVector<ST, LO, GO, NT>( x ) );
+    } else {
+        if ( x.numberOfDataBlocks() == z.numberOfDataBlocks() && x.numberOfDataBlocks() == 1 ) {
+            auto typeST = getTypeID<ST>();
+            AMP_ASSERT( x.getType( 0 ) == z.getType( 0 ) && x.getType( 0 ) == typeST );
+            AMP_ASSERT( x.sizeOfDataBlock() == z.sizeOfDataBlock() );
+            const auto xvData = x.getRawDataBlockAsVoid( 0 );
+            z.putRawData( xvData, typeST );
+        } else {
+            AMP_ERROR( "TpetraVectorOperations::copy for different VectorData only implemented for "
+                       "one data block" );
+        }
+    }
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

@@ -159,6 +159,9 @@ public:
         constexpr auto type = getTypeID<ST>();
         return type;
     }
+
+    void enableModifications() override;
+    void disableModifications() override;
 };
 
 

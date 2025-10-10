@@ -84,6 +84,7 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::zero( MatrixData &A )
 {
     getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).setAllToScalar( static_cast<ST>( 0.0 ) );
+    A.disableModifications();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -91,11 +92,14 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::axpy( AMP::Scalar alpha,
                                                    const MatrixData &X,
                                                    MatrixData &Y )
 {
+    auto &tY = getTpetra_CrsMatrix<ST, LO, GO, NT>( Y );
+    tY.resumeFill();
     Tpetra::MatrixMatrix::Add( getTpetra_CrsMatrix<ST, LO, GO, NT>( X ),
                                false,
                                static_cast<ST>( alpha ),
-                               getTpetra_CrsMatrix<ST, LO, GO, NT>( Y ),
+                               tY,
                                static_cast<ST>( 1.0 ) );
+    tY.fillComplete();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -111,6 +115,8 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
     in->getRawData<ST>( diag_vals.data() );
 
     auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+
+    //    matrix->resumeFill();
 
     // Get the current row's data
     for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
@@ -133,6 +139,8 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
             }
         }
     }
+
+    //    matrix->fillComplete();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -179,11 +187,15 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::matMatMult( std::shared_ptr<MatrixD
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::copy( const MatrixData &X, MatrixData &Y )
 {
+#if 1
+    getTpetra_CrsMatrix<ST, LO, GO, NT>( Y ) = getTpetra_CrsMatrix<ST, LO, GO, NT>( X );
+#else
     Tpetra::MatrixMatrix::Add( getTpetra_CrsMatrix<ST, LO, GO, NT>( X ),
                                false,
                                static_cast<ST>( 1.0 ),
                                getTpetra_CrsMatrix<ST, LO, GO, NT>( Y ),
                                0.0 );
+#endif
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
