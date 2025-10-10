@@ -65,11 +65,11 @@ static constexpr uint8_t n_Simplex_elements[10][10] = {
 /****************************************************************
  * Get the children from an element                              *
  ****************************************************************/
-template<uint8_t N1, uint8_t N2, typename TYPE>
-static std::array<std::array<TYPE, N2 + 1>, n_Simplex_elements[N1][N2]>
-getChildren( const std::array<TYPE, N1 + 1> &parent )
+template<uint8_t N1, uint8_t N2>
+static std::array<std::array<int, N2 + 1>, n_Simplex_elements[N1][N2]>
+getChildren( const std::array<int, N1 + 1> &parent )
 {
-    std::array<std::array<TYPE, N2 + 1>, n_Simplex_elements[N1][N2]> children;
+    std::array<std::array<int, N2 + 1>, n_Simplex_elements[N1][N2]> children;
     if constexpr ( N1 == N2 ) {
         children[0] = parent;
     } else if constexpr ( N2 == 0 ) {
@@ -77,9 +77,18 @@ getChildren( const std::array<TYPE, N1 + 1> &parent )
             children[i] = parent[i];
     } else if constexpr ( N2 == 1 ) {
         int k = 0;
-        for ( size_t i = 0; i < N1; i++ )
-            for ( size_t j = i + 1; j <= N1; j++ )
-                children[k++] = { parent[i], parent[j] };
+        for ( size_t i = 0; i < N1; i++ ) {
+            for ( size_t j = i + 1; j <= N1; j++ ) {
+                if ( parent[i] < parent[j] )
+                    children[k++] = { parent[i], parent[j] };
+                else
+                    children[k++] = { parent[j], parent[i] };
+            }
+        }
+        for ( size_t i = 0; i < children.size(); i++ ) {
+            if ( children[i][0] > children[i][1] )
+                std::swap( children[i][0], children[i][1] );
+        }
     } else if constexpr ( N2 == 2 && N1 == 3 ) {
         children[0] = { parent[1], parent[2], parent[3] };
         children[1] = { parent[2], parent[3], parent[0] };
@@ -91,26 +100,6 @@ getChildren( const std::array<TYPE, N1 + 1> &parent )
     for ( auto &child : children )
         std::sort( child.begin(), child.end() );
     return children;
-}
-template<std::size_t N1, std::size_t N2>
-static std::tuple<std::vector<std::array<ElementID, N2 + 1>>,
-                  std::vector<std::array<ElementID, N2 + 1>>>
-getChildren( const std::vector<std::array<ElementID, N1 + 1>> &tri )
-{
-    std::vector<std::array<ElementID, N2 + 1>> local;
-    std::vector<std::array<ElementID, N2 + 1>> remote;
-    local.reserve( n_Simplex_elements[N1][N2] * tri.size() / 2 );
-    for ( auto obj : tri ) {
-        for ( const auto &child : getChildren<N1, N2>( obj ) ) {
-            if ( child[0].is_local() )
-                local.push_back( child );
-            else
-                remote.push_back( child );
-        }
-    }
-    AMP::Utilities::unique( local );
-    AMP::Utilities::unique( remote );
-    return std::tie( local, remote );
 }
 
 
@@ -811,6 +800,8 @@ void TriangleMesh<NG>::buildChildren()
     d_childFace.clear();
     d_childEdge.reserve( N_tri );
     d_childFace.reserve( N_tri );
+    std::vector<Edge> remoteEdges;
+    std::vector<Face> remoteFaces;
     for ( int i = d_startTri[myRank]; i < d_startTri[myRank + 1]; i++ ) {
         auto tri = d_globalTri[i];
         if constexpr ( NG >= 2 ) {
@@ -818,6 +809,8 @@ void TriangleMesh<NG>::buildChildren()
             for ( auto child : children ) {
                 if ( child[0] >= start && child[0] < end )
                     d_childEdge.push_back( child );
+                else
+                    remoteEdges.push_back( child );
             }
         }
         if constexpr ( NG >= 3 ) {
@@ -825,6 +818,8 @@ void TriangleMesh<NG>::buildChildren()
             for ( auto child : children ) {
                 if ( child[0] >= start && child[0] < end )
                     d_childFace.push_back( child );
+                else
+                    remoteFaces.push_back( child );
             }
         }
     }
@@ -841,8 +836,26 @@ void TriangleMesh<NG>::buildChildren()
         faceIDs[d_childFace[i]] = ElementID( true, GeomType::Face, i, myRank );
     d_comm.mapGather( edgeIDs );
     d_comm.mapGather( faceIDs );
-
-    AMP_ERROR( "Not finished" );
+    if constexpr ( NG >= 2 ) {
+        for ( auto edge : remoteEdges ) {
+            auto it = edgeIDs.find( edge );
+            AMP_ASSERT( it != edgeIDs.end() );
+            int rank  = it->second.owner_rank();
+            int index = it->second.local_id();
+            ElementID id( rank == myRank, GeomType::Edge, index, rank );
+            d_remoteEdge[id] = edge;
+        }
+    }
+    if constexpr ( NG >= 3 ) {
+        for ( auto face : remoteFaces ) {
+            auto it = faceIDs.find( face );
+            AMP_ASSERT( it != faceIDs.end() );
+            int rank  = it->second.owner_rank();
+            int index = it->second.local_id();
+            ElementID id( rank == myRank, GeomType::Face, index, rank );
+            d_remoteFace[id] = face;
+        }
+    }
 }
 
 
@@ -853,14 +866,17 @@ template<uint8_t NG>
 static inline std::shared_ptr<const std::vector<ElementID>> getList( const MeshIterator &it0 )
 {
     auto it = it0.rawIterator();
-    if ( dynamic_cast<const TriangleMeshIterator<NG, 0> *>( it ) ) {
+    if ( dynamic_cast<const TriangleMeshIterator<NG, 0> *>( it ) )
         return dynamic_cast<const TriangleMeshIterator<NG, 0> *>( it )->getList();
-    } else if ( dynamic_cast<const TriangleMeshIterator<NG, 1> *>( it ) ) {
+    if ( dynamic_cast<const TriangleMeshIterator<NG, 1> *>( it ) )
         return dynamic_cast<const TriangleMeshIterator<NG, 1> *>( it )->getList();
-    } else if ( dynamic_cast<const TriangleMeshIterator<NG, 2> *>( it ) ) {
-        return dynamic_cast<const TriangleMeshIterator<NG, 2> *>( it )->getList();
-    } else if ( dynamic_cast<const TriangleMeshIterator<NG, 3> *>( it ) ) {
-        return dynamic_cast<const TriangleMeshIterator<NG, 3> *>( it )->getList();
+    if constexpr ( NG >= 2 ) {
+        if ( dynamic_cast<const TriangleMeshIterator<NG, 2> *>( it ) )
+            return dynamic_cast<const TriangleMeshIterator<NG, 2> *>( it )->getList();
+    }
+    if constexpr ( NG >= 3 ) {
+        if ( dynamic_cast<const TriangleMeshIterator<NG, 3> *>( it ) )
+            return dynamic_cast<const TriangleMeshIterator<NG, 3> *>( it )->getList();
     }
     return nullptr;
 }
@@ -1525,33 +1541,14 @@ bool TriangleMesh<NG>::inIterator( const ElementID &id, const MeshIterator *it )
 {
     if ( it->size() == 0 )
         return false;
-    auto type = id.type();
-    auto find = []( auto id, auto it ) {
-        const auto &list = *it->d_list;
-        bool found       = false;
-        for ( size_t i = 0; i < list.size(); i++ )
-            found = found || list[i] == id;
-        return found;
-    };
-    AMP_ASSERT( it );
-    if ( type == AMP::Mesh::GeomType::Vertex ) {
-        auto it2 = dynamic_cast<const TriangleMeshIterator<NG, 0> *>( it->rawIterator() );
-        AMP_ASSERT( it2 );
-        return find( id, it2 );
-    } else if ( type == AMP::Mesh::GeomType::Edge ) {
-        auto it2 = dynamic_cast<const TriangleMeshIterator<NG, 1> *>( it->rawIterator() );
-        AMP_ASSERT( it2 );
-        return find( id, it2 );
-    } else if ( type == AMP::Mesh::GeomType::Face ) {
-        auto it2 = dynamic_cast<const TriangleMeshIterator<NG, 2> *>( it->rawIterator() );
-        AMP_ASSERT( it2 );
-        return find( id, it2 );
-    } else if ( type == AMP::Mesh::GeomType::Cell ) {
-        auto it2 = dynamic_cast<const TriangleMeshIterator<NG, 3> *>( it->rawIterator() );
-        AMP_ASSERT( it2 );
-        return find( id, it2 );
-    }
-    return false;
+    auto list = getList<NG>( *it );
+#ifdef AMP_DEBUG
+    auto &list2 = *list;
+    for ( size_t i = 1; i < list->size(); i++ )
+        AMP_ASSERT( list2[i] >= list2[i - 1] );
+#endif
+    size_t i = std::min<size_t>( AMP::Utilities::findfirst( *list, id ), list->size() - 1 );
+    return list->operator[]( i ) == id;
 }
 
 
@@ -1564,11 +1561,11 @@ bool TriangleMesh<NG>::operator==( const Mesh &rhs ) const
     // Check if &rhs == this
     if ( this == &rhs )
         return true;
-    // Check if we can cast to a MultiMesh
+    // Check if we can cast to a TriangleMesh
     auto mesh = dynamic_cast<const TriangleMesh<NG> *>( &rhs );
     if ( !mesh )
         return false;
-    // Perform comparison on sub-meshes
+    // Perform comparison
     AMP_ERROR( "Not finished" );
     return false;
 }
