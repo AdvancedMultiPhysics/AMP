@@ -48,6 +48,56 @@ static constexpr uint8_t n_Simplex_elements[10][10] = {
 
 
 /****************************************************************
+ * Store the vertex data                                         *
+ ****************************************************************/
+static inline std::vector<std::array<double, 3>> convert( const std::vector<double> &x )
+{
+    std::vector<std::array<double, 3>> x2( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x2[i] = { x[i], 0, 0 };
+    return x2;
+}
+static inline std::vector<std::array<double, 3>>
+convert( const std::vector<std::array<double, 2>> &x )
+{
+    std::vector<std::array<double, 3>> x2( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x2[i] = { x[i][0], x[i][1], 0 };
+    return x2;
+}
+template<class TYPE, size_t N>
+StoreTriData<TYPE, N>::StoreTriData( std::vector<std::array<TYPE, N>> x,
+                                     std::vector<int> offset,
+                                     int rank,
+                                     GeomType type )
+    : d_type( type ),
+      d_start( offset[rank] ),
+      d_end( offset[rank + 1] ),
+      d_rank( rank ),
+      d_offset( std::move( offset ) ),
+      d_x( std::move( x ) )
+{
+}
+template<class TYPE, size_t N>
+int StoreTriData<TYPE, N>::rank( int i ) const
+{
+    return i >= d_start && i < d_end ? d_rank : AMP::Utilities::findfirst( d_offset, i + 1 ) - 1;
+}
+template<class TYPE, size_t N>
+ElementID StoreTriData<TYPE, N>::getID( int i ) const
+{
+    if ( i >= d_start && i < d_end ) {
+        int local = i - d_start;
+        return ElementID( true, d_type, local, d_rank );
+    } else {
+        int rank  = AMP::Utilities::findfirst( d_offset, i + 1 ) - 1;
+        int local = i - d_offset[rank];
+        return ElementID( false, d_type, local, rank );
+    }
+}
+
+
+/****************************************************************
  * Get the children from an element                              *
  ****************************************************************/
 template<uint8_t N1, uint8_t N2>
@@ -169,11 +219,8 @@ void TriangleMesh<NG>::loadBalance( const std::vector<Point> &vertices,
                                     const std::vector<TRI> &tri_nab,
                                     const std::vector<int> &block )
 {
-    // Check that only rank 0 has data (may relax this in the future)
-    int myRank = d_comm.getRank();
-    if ( myRank != 0 )
-        AMP_ASSERT( vertices.empty() && tri.empty() && tri_nab.empty() );
-    AMP_ASSERT( tri.size() == tri_nab.size() );
+    AMP_ASSERT( !vertices.empty() );
+    AMP_ASSERT( !tri.empty() && tri.size() == tri_nab.size() && tri.size() == block.size() );
     // Get the owner rank for each node
     auto ranks = AMP::Geometry::GeometryHelpers::assignRanks( vertices, d_comm.getSize() );
     // Reorder the vertices so they are stored grouped by rank
@@ -181,28 +228,27 @@ void TriangleMesh<NG>::loadBalance( const std::vector<Point> &vertices,
     std::iota( I.begin(), I.end(), 0 );
     std::stable_sort(
         I.begin(), I.end(), [&ranks]( size_t i1, size_t i2 ) { return ranks[i1] < ranks[i2]; } );
-    d_vertex.resize( vertices.size() );
+    std::vector<Point> x( vertices.size() );
     for ( size_t i = 0; i < vertices.size(); i++ )
-        d_vertex[i] = vertices[I[i]];
-    d_globalTri.resize( tri.size() );
+        x[i] = vertices[I[i]];
+    auto tri2 = tri;
+    tri2.resize( tri.size() );
     for ( size_t i = 0; i < tri.size(); i++ ) {
         for ( uint8_t d = 0; d < NG + 1; d++ )
-            d_globalTri[i][d] = I[tri[i][d]];
+            tri2[i][d] = I[tri[i][d]];
     }
-    // Send the vertex data to all ranks
-    d_startVertex.resize( d_comm.getSize() + 1, 0 );
+    // Get the ranks
+    std::vector<int> offset( d_comm.getSize() + 1, 0 );
     for ( auto r : ranks )
-        d_startVertex[r + 1]++;
-    for ( size_t i = 1; i < d_startVertex.size(); i++ )
-        d_startVertex[i] += d_startVertex[i - 1];
-    AMP_ASSERT( d_startVertex[d_comm.getSize()] == (int) vertices.size() );
-    d_comm.bcast( d_startVertex.data(), d_startVertex.size(), 0 );
-    d_vertex.resize( d_startVertex.back() );
-    d_comm.bcast( d_vertex.data(), d_startVertex.back(), 0 );
+        offset[r + 1]++;
+    for ( size_t i = 1; i < offset.size(); i++ )
+        offset[i] += offset[i - 1];
+    AMP_ASSERT( offset[d_comm.getSize()] == (int) x.size() );
+    d_vertex = StoreTriData( x, offset, d_comm.getRank(), GeomType::Vertex );
     // Load balance the triangles
     d_globalNab.resize( tri.size() );
     d_blockID.resize( tri.size(), 0 );
-    I = AMP::DelaunayHelpers::sortTri<NG>( d_globalTri );
+    I = AMP::DelaunayHelpers::sortTri<NG>( tri2 );
     for ( size_t i = 0; i < tri.size(); i++ )
         d_globalNab[i] = tri_nab[I[i]];
     if ( !block.empty() ) {
@@ -211,20 +257,16 @@ void TriangleMesh<NG>::loadBalance( const std::vector<Point> &vertices,
     }
     ranks.resize( tri.size() );
     for ( size_t i = 0; i < tri.size(); i++ )
-        ranks[i] = AMP::Utilities::findfirst( d_startVertex, d_globalTri[i][0] + 1 ) - 1;
-    d_startTri.resize( d_comm.getSize() + 1, 0 );
+        ranks[i] = d_vertex.rank( tri2[i][0] );
+    // Store the triangle data
+    offset.clear();
+    offset.resize( d_comm.getSize() + 1, 0 );
     for ( auto r : ranks )
-        d_startTri[r + 1]++;
-    for ( size_t i = 1; i < d_startTri.size(); i++ )
-        d_startTri[i] += d_startTri[i - 1];
-    AMP_ASSERT( d_startTri[d_comm.getSize()] == (int) tri.size() );
-    d_comm.bcast( d_startTri.data(), d_startTri.size(), 0 );
-    d_globalTri.resize( d_startTri.back() );
-    d_globalNab.resize( d_startTri.back() );
-    d_blockID.resize( d_startTri.back() );
-    d_comm.bcast( d_globalTri.data(), d_startTri.back(), 0 );
-    d_comm.bcast( d_globalNab.data(), d_startTri.back(), 0 );
-    d_comm.bcast( d_blockID.data(), d_startTri.back(), 0 );
+        offset[r + 1]++;
+    for ( size_t i = 1; i < offset.size(); i++ )
+        offset[i] += offset[i - 1];
+    AMP_ASSERT( offset[d_comm.getSize()] == (int) tri.size() );
+    d_globalTri = StoreTriData( tri2, offset, d_comm.getRank(), static_cast<GeomType>( NG ) );
 }
 
 
@@ -321,18 +363,6 @@ TriangleMesh<NG>::TriangleMesh( int NP,
                                 int max_gcw )
     : d_pos_hash( 0 )
 {
-    // Run some basic checks
-    AMP_ASSERT( tri.size() == 0 || comm.getRank() == 0 );
-    AMP_ASSERT( tri_nab.size() == tri.size() );
-    if ( block.empty() )
-        block = std::vector<int>( tri.size(), 0 );
-    AMP_ASSERT( block.size() == tri.size() );
-    for ( const auto &t : tri ) {
-        // Check for duplicate entries in the triangle
-        for ( size_t i = 1; i <= NG; i++ )
-            for ( size_t j = 0; j < i; j++ )
-                AMP_ASSERT( t[i] != t[j] );
-    }
     // Set basic mesh info
     d_geometry  = nullptr;
     GeomDim     = static_cast<GeomType>( NG );
@@ -342,6 +372,31 @@ TriangleMesh<NG>::TriangleMesh( int NP,
     d_name      = "NULL";
     d_geometry  = std::move( geom_in );
     setMeshID();
+    // Run some basic checks
+    if ( block.empty() )
+        block = std::vector<int>( tri.size(), 0 );
+    if ( d_comm.getSize() > 1 ) {
+        AMP_ASSERT( tri_nab.size() == tri.size() );
+        AMP_ASSERT( block.size() == tri.size() );
+        if ( d_comm.anyReduce( tri.empty() ) ) {
+            size_t N_vertex = d_comm.bcast( vertices.size(), 0 );
+            size_t N_tri    = d_comm.bcast( tri.size(), 0 );
+            vertices.resize( N_vertex );
+            tri.resize( N_tri );
+            tri_nab.resize( N_tri );
+            block.resize( N_tri );
+            d_comm.bcast( vertices.data(), N_vertex, 0 );
+            d_comm.bcast( tri.data(), N_tri, 0 );
+            d_comm.bcast( tri_nab.data(), N_tri, 0 );
+            d_comm.bcast( block.data(), N_tri, 0 );
+        }
+    }
+    // Check for duplicate entries in the triangle
+    for ( const auto &t : tri ) {
+        for ( size_t i = 1; i <= NG; i++ )
+            for ( size_t j = 0; j < i; j++ )
+                AMP_ASSERT( t[i] != t[j] );
+    }
     // Remove vertices that are not used
     removeUnusedVerticies<NG>( vertices, tri );
     // Perform the load balancing
@@ -369,20 +424,19 @@ template<uint8_t NG>
 void TriangleMesh<NG>::initializeBoundingBox()
 {
     // Initialize the bounding box
-    int rank = d_comm.getRank();
     d_box.resize( 6, 0 );
     d_box_local.resize( 6, 0 );
     for ( size_t d = 0; d < 3; d++ ) {
         d_box_local[2 * d + 0] = 1e100;
         d_box_local[2 * d + 1] = -1e100;
     }
-    for ( int i = d_startVertex[rank]; i < d_startVertex[rank + 1]; i++ ) {
+    for ( int i = d_vertex.start(); i < d_vertex.end(); i++ ) {
         for ( size_t d = 0; d < 3; d++ ) {
             d_box_local[2 * d + 0] = std::min( d_box_local[2 * d + 0], d_vertex[i][d] );
             d_box_local[2 * d + 1] = std::max( d_box_local[2 * d + 1], d_vertex[i][d] );
         }
     }
-    for ( size_t i = 0; i < d_vertex.size(); i++ ) {
+    for ( int i = 0; i < d_vertex.size(); i++ ) {
         for ( size_t d = 0; d < 3; d++ ) {
             d_box[2 * d + 0] = std::min( d_box[2 * d + 0], d_vertex[i][d] );
             d_box[2 * d + 1] = std::max( d_box[2 * d + 1], d_vertex[i][d] );
@@ -417,26 +471,23 @@ getChildrenIDs( const std::vector<std::array<ElementID, N1 + 1>> &elements,
 template<uint8_t NG>
 void TriangleMesh<NG>::initialize()
 {
-    int myRank = d_comm.getRank();
     // Create the local triangles
-    size_t N_tri = d_startTri[myRank + 1] - d_startTri[myRank];
+    size_t N_tri = d_globalTri.end() - d_globalTri.start();
     std::vector<std::array<ElementID, NG + 1>> tri2( N_tri );
-    for ( size_t i = 0, i2 = d_startTri[myRank]; i < N_tri; i++, i2++ ) {
+    for ( size_t i = 0, i2 = d_globalTri.start(); i < N_tri; i++, i2++ ) {
         for ( size_t d = 0; d <= NG; d++ ) {
             int node = d_globalTri[i2][d];
             if ( node == -1 )
                 continue;
-            int rank   = AMP::Utilities::findfirst( d_startVertex, node + 1 ) - 1;
-            int local  = node - d_startVertex[rank];
-            tri2[i][d] = ElementID( rank == myRank, GeomType::Vertex, local, rank );
+            tri2[i][d] = d_vertex.getID( node );
         }
     }
     // Create the remote triangles (store only the new values)
     d_remoteTri.resize( d_max_gcw );
     if ( d_max_gcw > 0 && d_comm.getSize() > 1 ) {
         std::set<int> list;
-        int start = d_startTri[myRank];
-        int end   = d_startTri[myRank + 1];
+        int start = d_globalTri.start();
+        int end   = d_globalTri.end();
         auto add  = [&list, start, end, &nab = d_globalNab]( int i, std::vector<int> &remote ) {
             for ( auto t : nab[i] ) {
                 if ( t != -1 && ( t < start || t >= end ) ) {
@@ -447,7 +498,7 @@ void TriangleMesh<NG>::initialize()
                 }
             }
         };
-        for ( int i = d_startTri[myRank]; i < d_startTri[myRank + 1]; i++ )
+        for ( int i = start; i < end; i++ )
             add( i, d_remoteTri[0] );
         AMP::Utilities::quicksort( d_remoteTri[0] );
         for ( int g = 1; g < d_max_gcw; g++ ) {
@@ -463,8 +514,8 @@ void TriangleMesh<NG>::initialize()
     // Initialize the iterators
     initializeIterators();
     // Get the global size
-    d_N_global[0]  = d_startVertex.back();
-    d_N_global[NG] = d_startTri.back();
+    d_N_global[0]  = d_vertex.size();
+    d_N_global[NG] = d_globalTri.size();
     for ( int i = 1; i < NG; i++ )
         d_N_global[i] = d_comm.sumReduce( d_iterators[0][i].size() );
     for ( int i = NG + 1; i < 4; i++ )
@@ -598,23 +649,15 @@ MeshIterator TriangleMesh<NG>::createIterator( GeomType type, int gcw ) const
     if ( static_cast<int>( type ) > NG || gcw > d_max_gcw )
         return MeshIterator();
     int myRank = d_comm.getRank();
-    std::vector<int> tri_list( d_startTri[myRank + 1] - d_startTri[myRank] );
-    std::iota( tri_list.begin(), tri_list.end(), d_startTri[myRank] );
+    std::vector<int> tri_list( d_globalTri.end() - d_globalTri.start() );
+    std::iota( tri_list.begin(), tri_list.end(), d_globalTri.start() );
     for ( int g = 0; g < gcw; g++ )
         tri_list.insert( tri_list.end(), d_remoteTri[g].begin(), d_remoteTri[g].end() );
     if ( static_cast<uint8_t>( type ) == NG ) {
         auto elements = std::make_shared<std::vector<ElementID>>();
         elements->reserve( tri_list.size() );
-        int start = d_startTri[myRank];
-        int end   = d_startTri[myRank + 1];
-        for ( int tri : tri_list ) {
-            if ( tri >= start && tri < end ) {
-                elements->emplace_back( true, type, tri - start, myRank );
-            } else {
-                int rank = AMP::Utilities::findfirst( d_startTri, tri + 1 ) - 1;
-                elements->emplace_back( false, type, tri - d_startTri[rank], rank );
-            }
-        }
+        for ( int tri : tri_list )
+            elements->push_back( d_globalTri.getID( tri ) );
         AMP::Utilities::quicksort( *elements );
         return TriangleMeshIterator<NG, NG>( this, elements );
     } else if ( type == GeomType::Vertex ) {
@@ -625,16 +668,8 @@ MeshIterator TriangleMesh<NG>::createIterator( GeomType type, int gcw ) const
         }
         auto elements = std::make_shared<std::vector<ElementID>>();
         elements->reserve( node_set.size() );
-        int start = d_startVertex[myRank];
-        int end   = d_startVertex[myRank + 1];
-        for ( int node : node_set ) {
-            if ( node >= start && node < end ) {
-                elements->emplace_back( true, type, node - start, myRank );
-            } else {
-                int rank = AMP::Utilities::findfirst( d_startVertex, node + 1 ) - 1;
-                elements->emplace_back( false, type, node - d_startVertex[rank], rank );
-            }
-        }
+        for ( int node : node_set )
+            elements->push_back( d_vertex.getID( node ) );
         AMP::Utilities::quicksort( *elements );
         return TriangleMeshIterator<NG, 0>( this, elements );
     } else if ( type == GeomType::Edge ) {
@@ -647,14 +682,13 @@ MeshIterator TriangleMesh<NG>::createIterator( GeomType type, int gcw ) const
                 vec.emplace_back( true, GeomType::Edge, i, myRank );
             // Add ghost values
             if ( gcw > 0 ) {
-                int start = d_startVertex[myRank];
-                int end   = d_startVertex[myRank + 1];
+                int start = d_vertex.start();
+                int end   = d_vertex.end();
                 auto it   = createIterator( static_cast<GeomType>( NG ), gcw );
                 auto it2  = dynamic_cast<const TriangleMeshIterator<NG, NG> *>( it.rawIterator() );
                 AMP_ASSERT( it2 );
                 for ( auto id : *( it2->d_list ) ) {
-                    int index = d_startTri[id.owner_rank()] + id.local_id();
-                    for ( auto &child : getChildren<NG, 1>( d_globalTri[index] ) ) {
+                    for ( auto &child : getChildren<NG, 1>( d_globalTri[id] ) ) {
                         if ( child[0] < start || child[0] >= end ) {
                             for ( auto [id, t] : d_remoteEdge ) {
                                 if ( t == child ) {
@@ -678,14 +712,13 @@ MeshIterator TriangleMesh<NG>::createIterator( GeomType type, int gcw ) const
                 vec.emplace_back( true, GeomType::Face, i, myRank );
             // Add ghost values
             if ( gcw > 0 ) {
-                int start = d_startVertex[myRank];
-                int end   = d_startVertex[myRank + 1];
+                int start = d_vertex.start();
+                int end   = d_vertex.end();
                 auto it   = createIterator( static_cast<GeomType>( NG ), gcw );
                 auto it2  = dynamic_cast<const TriangleMeshIterator<NG, NG> *>( it.rawIterator() );
                 AMP_ASSERT( it2 );
                 for ( auto id : *( it2->d_list ) ) {
-                    int index = d_startTri[id.owner_rank()] + id.local_id();
-                    for ( auto &child : getChildren<NG, 2>( d_globalTri[index] ) ) {
+                    for ( auto &child : getChildren<NG, 2>( d_globalTri[id] ) ) {
                         if ( child[0] < start || child[0] >= end ) {
                             for ( auto [id, t] : d_remoteFace ) {
                                 if ( t == child ) {
@@ -714,9 +747,9 @@ void TriangleMesh<NG>::buildChildren()
     if constexpr ( NG == 1 )
         return;
     int myRank = d_comm.getRank();
-    int N_tri  = d_startTri[myRank + 1] - d_startTri[myRank];
-    int start  = d_startVertex[myRank];
-    int end    = d_startVertex[myRank + 1];
+    int N_tri  = d_globalTri.end() - d_globalTri.start();
+    int start  = d_vertex.start();
+    int end    = d_vertex.end();
     // Build local children
     d_childEdge.clear();
     d_childFace.clear();
@@ -726,9 +759,8 @@ void TriangleMesh<NG>::buildChildren()
     std::vector<Face> remoteFaces;
     auto list = getList<NG>( createIterator( static_cast<GeomType>( NG ), d_max_gcw ) );
     for ( size_t i = 0; i < list->size(); i++ ) {
-        auto id   = list->operator[]( i );
-        int index = d_startTri[id.owner_rank()] + id.local_id();
-        auto tri  = d_globalTri[index];
+        auto id  = list->operator[]( i );
+        auto tri = d_globalTri[id];
         if constexpr ( NG >= 2 ) {
             auto children = getChildren<NG, 1>( tri );
             for ( auto child : children ) {
@@ -790,10 +822,9 @@ void TriangleMesh<NG>::buildChildren()
 template<uint8_t NG>
 StoreCompressedList<ElementID> TriangleMesh<NG>::computeNodeParents( const MeshIterator &it )
 {
-    int myRank = d_comm.getRank();
-    int start  = d_startVertex[myRank];
-    int end    = d_startVertex[myRank + 1];
-    auto list  = getList<NG>( it );
+    int start = d_vertex.start();
+    int end   = d_vertex.end();
+    auto list = getList<NG>( it );
     if ( list->empty() )
         return StoreCompressedList<ElementID>( end - start );
     auto type = list->front().type();
@@ -911,8 +942,6 @@ template<uint8_t NG>
 TriangleMesh<NG>::TriangleMesh( const TriangleMesh &rhs )
     : Mesh( rhs ),
       d_N_global{ rhs.d_N_global },
-      d_startVertex( rhs.d_startVertex ),
-      d_startTri( rhs.d_startTri ),
       d_vertex( rhs.d_vertex ),
       d_globalTri( rhs.d_globalTri ),
       d_globalNab( rhs.d_globalNab ),
@@ -1124,9 +1153,9 @@ template<uint8_t NG>
 void TriangleMesh<NG>::displaceMesh( const std::vector<double> &x )
 {
     AMP_ASSERT( x.size() <= 3 );
-    for ( auto &p : d_vertex ) {
+    for ( int i = 0; i < d_vertex.size(); i++ ) {
         for ( size_t d = 0; d < x.size(); d++ )
-            p[d] += x[d];
+            d_vertex[i][d] += x[d];
     }
     for ( size_t d = 0; d < x.size(); d++ ) {
         d_box[2 * d + 0] += x[d];
@@ -1140,9 +1169,9 @@ template<uint8_t NG>
 void TriangleMesh<NG>::displaceMesh( std::shared_ptr<const AMP::LinearAlgebra::Vector> x )
 {
     int rank  = d_comm.getRank();
-    int start = d_startVertex[rank];
+    int start = d_vertex.start();
     // Get the updated local coordinates
-    std::vector<Point> local( d_startVertex[rank + 1] - start );
+    std::vector<Point> local( d_vertex.end() - start );
     auto DOFs = x->getDOFManager();
     std::vector<size_t> dofs;
     double offset[3] = { 0, 0, 0 };
@@ -1155,11 +1184,11 @@ void TriangleMesh<NG>::displaceMesh( std::shared_ptr<const AMP::LinearAlgebra::V
             local[i][d] = d_vertex[i + start][d] + offset[d];
     }
     // Send the data to all ranks
+    auto &disp = const_cast<std::vector<int> &>( d_vertex.offset() );
     std::vector<int> cnt( d_comm.getSize(), 0 );
     for ( size_t i = 0; i < cnt.size(); i++ )
-        cnt[i] = d_startVertex[i + 1] - d_startVertex[i];
-    d_comm.allGather(
-        local.data(), local.size(), d_vertex.data(), cnt.data(), d_startVertex.data(), true );
+        cnt[i] = disp[i + 1] - disp[i];
+    d_comm.allGather( local.data(), local.size(), d_vertex.data(), cnt.data(), disp.data(), true );
     // Update the bounding box
     initializeBoundingBox();
     d_pos_hash++;
@@ -1173,9 +1202,7 @@ template<uint8_t NG>
 std::array<double, 3> TriangleMesh<NG>::getPos( const ElementID &id ) const
 {
     if ( id.type() == GeomType::Vertex ) {
-        int rank  = id.owner_rank();
-        int index = d_startVertex[rank] + id.local_id();
-        return d_vertex[index];
+        return d_vertex[id];
     } else {
         AMP_ERROR( "Not finished" );
     }
@@ -1189,7 +1216,6 @@ template<uint8_t NG>
 void TriangleMesh<NG>::getVerticies( const ElementID &id, ElementID *IDs ) const
 {
     auto type   = id.type();
-    int myRank  = d_comm.getRank();
     int N_nodes = 0;
     int nodes[NG + 1];
     if ( static_cast<uint8_t>( type ) > NG ) {
@@ -1198,10 +1224,10 @@ void TriangleMesh<NG>::getVerticies( const ElementID &id, ElementID *IDs ) const
         IDs[0] = id;
         return;
     } else if ( static_cast<uint8_t>( type ) == NG ) {
-        N_nodes   = NG + 1;
-        int index = d_startTri[id.owner_rank()] + id.local_id();
+        N_nodes  = NG + 1;
+        auto tri = d_globalTri[id];
         for ( int d = 0; d <= NG; d++ )
-            nodes[d] = d_globalTri[index][d];
+            nodes[d] = tri[d];
     } else if ( type == GeomType::Edge ) {
         N_nodes = 2;
         std::array<int, 2> edge;
@@ -1224,18 +1250,8 @@ void TriangleMesh<NG>::getVerticies( const ElementID &id, ElementID *IDs ) const
     } else {
         AMP_ERROR( "Not finished" );
     }
-    int start = d_startVertex[myRank];
-    int end   = d_startVertex[myRank + 1];
-    for ( int d = 0; d < N_nodes; d++ ) {
-        if ( nodes[d] >= start && nodes[d] < end ) {
-            int local = nodes[d] - start;
-            IDs[d]    = ElementID( true, GeomType::Vertex, local, myRank );
-        } else {
-            int rank  = AMP::Utilities::findfirst( d_startVertex, nodes[d] + 1 ) - 1;
-            int local = nodes[d] - d_startVertex[rank];
-            IDs[d]    = ElementID( false, GeomType::Vertex, local, rank );
-        }
-    }
+    for ( int d = 0; d < N_nodes; d++ )
+        IDs[d] = d_vertex.getID( nodes[d] );
 }
 template<uint8_t NG>
 void TriangleMesh<NG>::getElementsIDs( const ElementID &id,
@@ -1283,11 +1299,9 @@ std::array<int, TYPE + 1> TriangleMesh<NG>::getElem( const ElementID &id ) const
     static_assert( TYPE <= NG );
     AMP_DEBUG_ASSERT( static_cast<uint8_t>( id.type() ) == TYPE );
     if constexpr ( TYPE == 0 ) {
-        int index = d_startVertex[id.owner_rank()] + id.local_id();
-        return { index };
+        return { d_vertex.index( id ) };
     } else if constexpr ( TYPE == NG ) {
-        int index = d_startTri[id.owner_rank()] + id.local_id();
-        return d_globalTri[index];
+        return d_globalTri[id];
     } else if constexpr ( TYPE == 1 ) {
         int myRank = d_comm.getRank();
         int rank   = id.owner_rank();
@@ -1309,23 +1323,11 @@ ElementID TriangleMesh<NG>::getID( const std::array<int, TYPE + 1> &tri ) const
     static_assert( TYPE <= NG );
     int myRank = d_comm.getRank();
     if constexpr ( TYPE == 0 ) {
-        int start = d_startVertex[myRank];
-        int end   = d_startVertex[myRank + 1];
-        int node  = tri[0];
-        if ( node >= start && node < end ) {
-            int local = node - start;
-            return ElementID( true, GeomType::Vertex, local, myRank );
-        } else {
-            int rank  = AMP::Utilities::findfirst( d_startVertex, node + 1 ) - 1;
-            int local = node - d_startVertex[rank];
-            return ElementID( false, GeomType::Vertex, local, rank );
-        }
+        return d_vertex.getID( tri[0] );
     } else if constexpr ( TYPE == NG ) {
-        int index = AMP::Utilities::findfirst( d_globalTri, tri );
+        int index = AMP::Utilities::findfirst( d_globalTri.size(), d_globalTri.data(), tri );
         AMP_DEBUG_ASSERT( d_globalTri[index] == tri );
-        int rank  = AMP::Utilities::findfirst( d_startTri, index + 1 ) - 1;
-        int local = index - d_startTri[rank];
-        return ElementID( rank == myRank, static_cast<GeomType>( TYPE ), local, rank );
+        return d_globalTri.getID( index );
     } else if constexpr ( TYPE == 1 ) {
         int index  = AMP::Utilities::findfirst( d_childEdge, tri );
         bool found = index == (int) d_childEdge.size() ? false : d_childEdge[index] == tri;
@@ -1354,16 +1356,12 @@ void TriangleMesh<NG>::getNeighborIDs( const ElementID &id, std::vector<ElementI
     // Check if we are dealing with the largest geometric type
     auto type = id.type();
     if ( static_cast<size_t>( type ) == NG ) {
-        int myRank = d_comm.getRank();
         IDs.reserve( NG + 1 );
-        int index = d_startTri[id.owner_rank()] + id.local_id();
+        int index = d_globalTri.index( id );
         for ( size_t i = 0; i <= NG; i++ ) {
             int neighbor = d_globalNab[index][i];
-            if ( neighbor != -1 && neighbor != index ) {
-                int rank  = Utilities::findfirst( d_startTri, neighbor + 1 ) - 1;
-                int local = neighbor - d_startTri[rank];
-                IDs.emplace_back( rank == myRank, type, local, rank );
-            }
+            if ( neighbor != -1 && neighbor != index )
+                IDs.push_back( d_globalTri.getID( neighbor ) );
         }
         return;
     }
@@ -1393,7 +1391,7 @@ bool TriangleMesh<NG>::isOnSurface( const ElementID &id ) const
     auto type = id.type();
     if ( static_cast<uint8_t>( type ) == NG ) {
         // Triangle is on the surface if any neighbor is null
-        int index = d_startTri[id.owner_rank()] + id.local_id();
+        int index = d_globalTri.index( id );
         bool test = false;
         for ( int tmp : d_globalNab[index] )
             test = test || tmp == -1;
@@ -1431,8 +1429,7 @@ template<uint8_t NG>
 bool TriangleMesh<NG>::isInBlock( const ElementID &elemID, int id ) const
 {
     if ( static_cast<uint8_t>( elemID.type() ) == NG ) {
-        int rank  = elemID.owner_rank();
-        int index = d_startTri[rank] + elemID.local_id();
+        int index = d_globalTri.index( elemID );
         return id == d_blockID[index];
     } else {
         auto parents = getElementParents( elemID, static_cast<GeomType>( NG ) );
@@ -1516,6 +1513,10 @@ void TriangleMesh<NG>::writeRestart( int64_t ) const
 #define INSTANTIATE_FIND( NG )                                                            \
     template size_t AMP::Utilities::findfirst<TRI( NG )>( std::vector<TRI( NG )> const &, \
                                                           TRI( NG ) const & )
+template class AMP::Mesh::StoreTriData<double, 3>;
+template class AMP::Mesh::StoreTriData<int, 2>;
+template class AMP::Mesh::StoreTriData<int, 3>;
+template class AMP::Mesh::StoreTriData<int, 4>;
 template class AMP::Mesh::TriangleMesh<1>;
 template class AMP::Mesh::TriangleMesh<2>;
 template class AMP::Mesh::TriangleMesh<3>;

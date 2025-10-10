@@ -21,6 +21,47 @@ template<uint8_t NG, uint8_t TYPE>
 class TriangleMeshElement;
 
 
+// Class to store vertex data
+template<class TYPE, size_t N>
+class StoreTriData final
+{
+public:
+    StoreTriData() = default;
+    StoreTriData( std::vector<std::array<TYPE, N>> x,
+                  std::vector<int> offset,
+                  int rank,
+                  GeomType type );
+    inline int size() const { return d_x.size(); }
+    inline int start() const { return d_start; }
+    inline int end() const { return d_end; }
+    inline int start( int r ) const { return d_offset[r]; }
+    inline int end( int r ) const { return d_offset[r + 1]; }
+    int rank( int i ) const;
+    inline auto data() { return d_x.data(); }
+    inline const auto data() const { return d_x.data(); }
+    inline auto &offset() const { return d_offset; }
+    inline auto &operator[]( int i ) { return d_x[i]; }
+    inline auto &operator[]( int i ) const { return d_x[i]; }
+    inline int index( const ElementID &id ) const
+    {
+        AMP_DEBUG_ASSERT( id.type() == d_type );
+        int rank = id.owner_rank();
+        return d_offset[rank] + id.local_id();
+    }
+    ElementID getID( int i ) const;
+    inline auto &operator[]( const ElementID &id ) { return d_x[index( id )]; }
+    inline auto &operator[]( const ElementID &id ) const { return d_x[index( id )]; }
+
+private:
+    GeomType d_type;
+    int d_start;
+    int d_end;
+    int d_rank;
+    std::vector<int> d_offset;
+    std::vector<std::array<TYPE, N>> d_x;
+};
+
+
 // Class to store parent data
 template<class TYPE>
 class StoreCompressedList
@@ -368,10 +409,8 @@ private:
 
 private:
     std::array<size_t, 4> d_N_global;          //!< The number of global elements
-    std::vector<int> d_startVertex;            //!< The starting coordinate for each local vertex
-    std::vector<int> d_startTri;               //!< The starting coordinate for each local triangle
-    std::vector<Point> d_vertex;               //!< Store the global coordinates
-    std::vector<TRI> d_globalTri;              //!< Store the global triangles
+    StoreTriData<double, 3> d_vertex;          //!< Store the global coordinates
+    StoreTriData<int, NG + 1> d_globalTri;     //!< Store the global triangles
     std::vector<TRI> d_globalNab;              //!< Store the global triangle neighbors
     std::vector<int> d_blockID;                //!< The block id index for each triangle
     std::vector<std::vector<int>> d_remoteTri; //!< The unique ghost triangles for each gcw
