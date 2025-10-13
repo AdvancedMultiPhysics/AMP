@@ -138,11 +138,37 @@ getChildren( const std::array<int, N1 + 1> &parent )
         children[2] = { parent[3], parent[0], parent[1] };
         children[3] = { parent[0], parent[1], parent[2] };
     } else {
-        AMP_ERROR( "Not finished" );
+        static_assert( N1 == 0, "Not finished" );
     }
     for ( auto &child : children )
         std::sort( child.begin(), child.end() );
     return children;
+}
+template<uint8_t N1>
+static std::array<int, N1> getFace( const std::array<int, N1 + 1> &parent, int d )
+{
+    if constexpr ( N1 == 1 ) {
+        if ( d == 0 )
+            return { parent[1] };
+        else
+            return { parent[1] };
+    } else if constexpr ( N1 == 2 ) {
+        if ( d == 0 )
+            return { std::min( parent[1], parent[2] ), std::min( parent[1], parent[2] ) };
+        else if ( d == 1 )
+            return { std::min( parent[0], parent[2] ), std::min( parent[0], parent[2] ) };
+        else
+            return { std::min( parent[0], parent[1] ), std::min( parent[0], parent[1] ) };
+    } else if constexpr ( N1 == 3 ) {
+        std::array<int, N1> children[4];
+        children[0] = { parent[1], parent[2], parent[3] };
+        children[1] = { parent[2], parent[3], parent[0] };
+        children[2] = { parent[3], parent[0], parent[1] };
+        children[3] = { parent[0], parent[1], parent[2] };
+        return children[d];
+    } else {
+        static_assert( N1 == 0, "Not finished" );
+    }
 }
 
 
@@ -291,9 +317,6 @@ TriangleMesh<NG>::generate( const std::vector<std::array<double, NP>> &vert,
                             std::shared_ptr<Geometry::Geometry> geom,
                             std::vector<int> block )
 {
-    if ( comm.getRank() != 0 )
-        AMP_INSIST( vert.empty() && tri.empty() && tri_nab.empty(),
-                    "Initial triangle list must only be on rank 0" );
     std::vector<std::array<double, 3>> v2;
     if constexpr ( NP == 3 ) {
         v2 = vert;
@@ -371,6 +394,7 @@ TriangleMesh<NG>::TriangleMesh( int NP,
                                 int max_gcw )
     : d_pos_hash( 0 )
 {
+    PROFILE( "TriangleMesh" );
     // Set basic mesh info
     d_geometry  = nullptr;
     GeomDim     = static_cast<GeomType>( NG );
@@ -479,7 +503,6 @@ getChildrenIDs( const std::vector<std::array<ElementID, N1 + 1>> &elements,
 template<uint8_t NG>
 void TriangleMesh<NG>::initialize()
 {
-    PROFILE( "initialize" );
     // Create the local triangles
     size_t N_tri = d_globalTri.end() - d_globalTri.start();
     std::vector<std::array<ElementID, NG + 1>> tri2( N_tri );
@@ -558,38 +581,10 @@ void TriangleMesh<NG>::initializeIterators()
     std::set<int> blockSet( d_blockID.begin(), d_blockID.end() );
     d_block_ids = std::vector<int>( blockSet.begin(), blockSet.end() );
     d_block_it.resize( d_block_ids.size() );
-    for ( size_t i = 0; i < d_block_ids.size(); i++ ) {
-        auto id0 = d_block_ids[i];
-        d_block_it[i].resize( d_iterators.size() );
-        for ( size_t gcw = 0; gcw < d_iterators.size(); gcw++ ) {
-            for ( int type = 0; type <= NG; type++ ) {
-                auto list_ptr = std::make_shared<std::vector<ElementID>>();
-                auto &list    = *list_ptr;
-                for ( const auto &elem : d_iterators[gcw][type] ) {
-                    auto id = elem.globalID().elemID();
-                    if ( isInBlock( id, id0 ) )
-                        list.push_back( id );
-                }
-                std::sort( list.begin(), list.end() );
-                d_block_it[i][gcw][type] = createIterator( list_ptr );
-            }
-        }
-    }
+    for ( size_t i = 0; i < d_block_ids.size(); i++ )
+        d_block_it[i] = createBlockIterators( d_block_ids[i] );
     // Create the surface iterators
-    d_surface_it.resize( d_iterators.size() );
-    for ( size_t gcw = 0; gcw < d_iterators.size(); gcw++ ) {
-        for ( int type = 0; type <= NG; type++ ) {
-            auto list_ptr = std::make_shared<std::vector<ElementID>>();
-            auto &list    = *list_ptr;
-            for ( const auto &elem : d_iterators[gcw][type] ) {
-                auto id = elem.globalID().elemID();
-                if ( isOnSurface( id ) )
-                    list.push_back( id );
-            }
-            std::sort( list.begin(), list.end() );
-            d_surface_it[gcw][type] = createIterator( list_ptr );
-        }
-    }
+    createSurfaceIterators();
     // Create the boundary iterators
     if ( d_geometry ) {
         int Ns = d_geometry->NSurface();
@@ -623,6 +618,80 @@ void TriangleMesh<NG>::initializeIterators()
             d_boundary_ids = std::vector<int>( 1, 0 );
             d_boundary_it.resize( 1 );
             d_boundary_it[0] = d_surface_it;
+        }
+    }
+}
+template<uint8_t NG>
+std::vector<std::array<MeshIterator, NG + 1>> TriangleMesh<NG>::createBlockIterators( int block )
+{
+    std::set<ElementID> list[4];
+    for ( int i = 0; i < (int) d_globalTri.size(); i++ ) {
+        if ( d_block_ids[i] == block ) {
+            list[NG].insert( d_globalTri.getID( i ) );
+            for ( auto n : d_globalTri[i] )
+                list[0].insert( d_vertex.getID( n ) );
+            if constexpr ( NG >= 2 ) {
+                for ( auto &child : getChildren<NG, 1>( d_globalTri[i] ) )
+                    list[1].insert( d_childEdge.getID( d_childEdge.find( child ) ) );
+            }
+            if constexpr ( NG >= 3 ) {
+                for ( auto &child : getChildren<NG, 2>( d_globalTri[i] ) )
+                    list[2].insert( d_childFace.getID( d_childFace.find( child ) ) );
+            }
+        }
+    }
+    std::vector<IteratorSet> iterators( d_iterators.size() );
+    for ( size_t gcw = 0; gcw < d_iterators.size(); gcw++ ) {
+        for ( int type = 0; type <= NG; type++ ) {
+            auto list_ptr = std::make_shared<std::vector<ElementID>>();
+            auto &list2   = *list_ptr;
+            for ( const auto &elem : d_iterators[gcw][type] ) {
+                auto id = elem.globalID().elemID();
+                if ( list[type].find( id ) != list[type].end() )
+                    list2.push_back( id );
+            }
+            iterators[gcw][type] = createIterator( list_ptr );
+        }
+    }
+    return iterators;
+}
+template<uint8_t NG>
+void TriangleMesh<NG>::createSurfaceIterators()
+{
+    d_isSurface[0].resize( d_vertex.size(), false );
+    if constexpr ( NG > 1 )
+        d_isSurface[1].resize( d_childEdge.size(), false );
+    if constexpr ( NG > 2 )
+        d_isSurface[2].resize( d_childFace.size(), false );
+    for ( int i = 0; i < (int) d_globalTri.size(); i++ ) {
+        for ( int d = 0; d <= NG; d++ ) {
+            if ( d_globalNab[i][d] == -1 ) {
+                auto face = getFace<NG>( d_globalTri[i], d );
+                for ( auto n : face )
+                    d_isSurface[0][n] = true;
+                if constexpr ( NG >= 2 ) {
+                    for ( auto &child : getChildren<NG - 1, 1>( face ) )
+                        d_isSurface[1][d_childEdge.find( child )] = true;
+                }
+                if constexpr ( NG >= 3 ) {
+                    for ( auto &child : getChildren<NG - 1, 2>( face ) )
+                        d_isSurface[2][d_childFace.find( child )] = true;
+                }
+            }
+        }
+    }
+    d_surface_it.resize( d_iterators.size() );
+    for ( size_t gcw = 0; gcw < d_iterators.size(); gcw++ ) {
+        for ( int type = 0; type <= NG; type++ ) {
+            auto list_ptr = std::make_shared<std::vector<ElementID>>();
+            auto &list    = *list_ptr;
+            for ( const auto &elem : d_iterators[gcw][type] ) {
+                auto id = elem.globalID().elemID();
+                if ( isOnSurface( id ) )
+                    list.push_back( id );
+            }
+            std::sort( list.begin(), list.end() );
+            d_surface_it[gcw][type] = createIterator( list_ptr );
         }
     }
 }
@@ -736,7 +805,7 @@ void TriangleMesh<NG>::buildChildren()
         return;
     int myRank = d_comm.getRank();
     // Build local children
-    auto nodeOffsets = d_globalTri.offset();
+    auto nodeOffsets = d_vertex.offset();
     nodeOffsets.resize( nodeOffsets.size() + 1, nodeOffsets.back() );
     if constexpr ( NG >= 2 ) {
         std::vector<std::array<int, 2>> edges;
@@ -808,7 +877,7 @@ static StoreCompressedList<ElementID> computeParents( const StoreTriData<int, N1
         auto parent = parentData[i];
         for ( const auto &child : getChildren<N2, N1>( parent ) ) {
             int index = childData.find( child );
-            if ( index >= start || index < end )
+            if ( index >= start && index < end )
                 parents[index - start].push_back( parentData.getID( i ) );
         }
     }
@@ -1193,8 +1262,6 @@ void TriangleMesh<NG>::getElementsIDs( const ElementID &id,
         getVerticies( id, IDs );
         return;
     }
-    if ( !id.is_local() )
-        AMP_ERROR( "Getting children elements is not supported for ghost data" );
     if constexpr ( NG >= 2 ) {
         if ( id.type() == GeomType::Face && type == GeomType::Edge ) {
             auto children = getChildren<2, 1>( getElem<2>( id ) );
@@ -1259,8 +1326,6 @@ template<uint8_t NG>
 void TriangleMesh<NG>::getNeighborIDs( const ElementID &id, std::vector<ElementID> &IDs ) const
 {
     IDs.clear();
-    if ( !id.is_local() )
-        AMP_ERROR( "Getting neighbors for non-owned elements is not supported" );
     // Check if we are dealing with the largest geometric type
     auto type = id.type();
     if ( static_cast<size_t>( type ) == NG ) {
@@ -1274,6 +1339,8 @@ void TriangleMesh<NG>::getNeighborIDs( const ElementID &id, std::vector<ElementI
         return;
     }
     // The neighbors are any elements that share a parent
+    if ( !id.is_local() )
+        AMP_ERROR( "Getting neighbors for non-owned elements is not supported" );
     IDs.reserve( 20 );
     int N        = n_Simplex_elements[NG][static_cast<size_t>( type )];
     auto parents = getElementParents( id, static_cast<GeomType>( NG ) );
@@ -1304,18 +1371,12 @@ bool TriangleMesh<NG>::isOnSurface( const ElementID &id ) const
         for ( int tmp : d_globalNab[index] )
             test = test || tmp == -1;
         return test;
-    } else if ( static_cast<uint8_t>( type ) == NG - 1 ) {
-        // Face is on the surface if it has one parent
-        auto parents = getElementParents( id, static_cast<GeomType>( NG ) );
-        size_t N     = parents.second - parents.first;
-        return N == 1;
-    } else {
-        // Node/edge is on the surface if any face is on the surface
-        auto parents = getElementParents( id, static_cast<GeomType>( NG - 1 ) );
-        for ( auto p = parents.first; p != parents.second; ++p ) {
-            if ( isOnSurface( *p ) )
-                return true;
-        }
+    } else if ( type == GeomType::Vertex ) {
+        return d_isSurface[0][d_vertex.index( id )];
+    } else if ( type == GeomType::Edge ) {
+        return d_isSurface[1][d_childEdge.index( id )];
+    } else if ( type == GeomType::Face ) {
+        return d_isSurface[2][d_childFace.index( id )];
     }
     return false;
 }

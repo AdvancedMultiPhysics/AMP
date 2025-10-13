@@ -355,6 +355,8 @@ protected:
     void initialize();
     void initializeIterators();
     void initializeBoundingBox();
+    std::vector<IteratorSet> createBlockIterators( int block );
+    void createSurfaceIterators();
 
 
 protected:
@@ -420,6 +422,7 @@ private:
     ElementList d_parents[NG][NG + 1];         //!< Parent data
     std::vector<int> d_block_ids;              //!< The global list of block ids
     std::vector<int> d_boundary_ids;           //!< The global list of boundary ids
+    std::vector<bool> d_isSurface[NG];         //!< Global list of surface elements
     std::vector<IteratorSet> d_iterators;      //!< [gcw][type]
     std::vector<IteratorSet> d_surface_it;     //!< [gcw][type]
     std::vector<std::vector<IteratorSet>> d_boundary_it; //!< [id][gcw][type]
