@@ -122,6 +122,11 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("FFLAGS", self.compiler.fc_pic_flag),
         ]
 
+        if spec.satisifes("+shared"):
+            options.extend( [
+                self.define('CMAKE_POSITION_INDEPENDENT_CODE', True),    
+            ] )
+
         if spec.satisfies("+mpi"):
             options.extend(
                 [
