@@ -42,6 +42,15 @@ create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri );
 
 
 /********************************************************************
+ * Sort the triangles by index                                       *
+ ********************************************************************/
+template<size_t NG>
+std::vector<int> sortTri( std::vector<std::array<int, NG + 1>> &tri );
+template<size_t NG>
+std::vector<std::array<int, NG + 1>> uniqueTri( const std::vector<std::array<int, NG + 1>> &tri );
+
+
+/********************************************************************
  * Compute the determinant of a matrix                               *
  * Note: The matrix is stored in column-major order                  *
  * Note: For the determinant to be exact, we must support a signed   *
