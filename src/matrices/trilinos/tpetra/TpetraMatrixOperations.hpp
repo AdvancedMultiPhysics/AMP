@@ -248,7 +248,8 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSums( MatrixData const &,
 }
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSumsAbsolute( MatrixData const &,
-                                                                 std::shared_ptr<Vector> )
+                                                                 std::shared_ptr<Vector>,
+                                                                 const bool )
 {
     AMP_ERROR( "Not implemented" );
 }

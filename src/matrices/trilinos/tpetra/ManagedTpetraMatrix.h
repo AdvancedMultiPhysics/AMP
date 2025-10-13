@@ -71,11 +71,12 @@ public:
 
     Vector::shared_ptr
     extractDiagonal( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
-    Vector::shared_ptr getRowSums( Vector::shared_ptr ) const override
+    Vector::shared_ptr getRowSums( Vector::shared_ptr = Vector::shared_ptr() ) const override
     {
         AMP_ERROR( "Not implemented" );
     }
-    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr ) const override
+    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr,
+                                           const bool remove_zeros = false ) const override
     {
         AMP_ERROR( "Not implemented" );
     }
