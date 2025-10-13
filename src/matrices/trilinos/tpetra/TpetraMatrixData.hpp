@@ -69,9 +69,9 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
         }
         d_tpetraMatrix->setAllToScalar( 0.0 );
         d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
-        //        d_tpetraMatrix->fillComplete();
-        d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) ) ),
-                                  Teuchos::VERB_EXTREME );
+        // d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) )
+        // ),
+        //                           Teuchos::VERB_EXTREME );
     } else {
         d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 0 ) );
     }
@@ -405,9 +405,9 @@ void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID(
                 values = row_vals.data();
             }
 
-            VerifyTpetraReturn( d_tpetraMatrix->sumIntoGlobalValues(
-                                    rows[i], num_cols, values + num_cols * i, tpetra_cols.data() ),
-                                "addValuesByGlobalID" );
+            auto nvals = d_tpetraMatrix->sumIntoGlobalValues(
+                rows[i], num_cols, values + num_cols * i, tpetra_cols.data() );
+            AMP_ASSERT( nvals == static_cast<LO>( num_cols ) );
         }
 
     } else {
@@ -447,9 +447,9 @@ void TpetraMatrixData<ST, LO, GO, NT>::setValuesByGlobalID(
                 values = row_vals.data();
             }
 
-            VerifyTpetraReturn( d_tpetraMatrix->replaceGlobalValues(
-                                    rows[i], num_cols, values + num_cols * i, tpetra_cols.data() ),
-                                "setValuesByGlobalID" );
+            auto nvals = d_tpetraMatrix->replaceGlobalValues(
+                rows[i], num_cols, values + num_cols * i, tpetra_cols.data() );
+            AMP_ASSERT( nvals == static_cast<LO>( num_cols ) );
             if ( rows[i] < MyFirstRow || rows[i] >= MyEndRow ) {
                 for ( size_t j = 0; j != num_cols; j++ ) {
                     d_OtherData[rows[i]][cols[j]] = static_cast<ST>( values[num_cols * i + j] );

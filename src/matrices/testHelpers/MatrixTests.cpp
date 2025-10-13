@@ -70,7 +70,6 @@ void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix
     }
 
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-    AMP::pout << *matrix;
 }
 
 static void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
@@ -326,7 +325,6 @@ void MatrixTests::VerifyExtractDiagonal( AMP::UnitTest *utils )
         matrix->setValueByGlobalID( row, row, static_cast<double>( row + 1 ) );
     }
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD ); // required by PETSc
-    AMP::pout << *matrix;
     matrix            = getCopyMatrix( matrix );
     auto diag         = matrix->extractDiagonal();
     double l1norm     = static_cast<double>( diag->L1Norm() );

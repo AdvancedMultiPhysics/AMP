@@ -107,10 +107,6 @@ createManagedMatrix( [[maybe_unused]] AMP::LinearAlgebra::Vector::shared_ptr lef
             auto newMatrixData = std::make_shared<AMP::LinearAlgebra::TpetraMatrixData<>>( params );
             auto newMatrix =
                 std::make_shared<AMP::LinearAlgebra::ManagedTpetraMatrix<>>( newMatrixData );
-            newMatrix->zero();
-            //            newMatrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD
-            //            );
-            AMP::pout << *newMatrix;
             return newMatrix;
     #else
             AMP_ERROR( "Unable to build ManagedTpetraMatrix without Trilinos Tpetra enabled" );
