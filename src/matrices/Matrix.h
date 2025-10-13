@@ -176,8 +176,8 @@ public:
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the sums
      */
-    virtual Vector::shared_ptr
-    getRowSumsAbsolute( Vector::shared_ptr buf = Vector::shared_ptr() ) const = 0;
+    virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),
+                                                   const bool remove_zeros = false ) const = 0;
 
     /** \brief Get a right vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a
      * right vector ) \return  A newly created right vector

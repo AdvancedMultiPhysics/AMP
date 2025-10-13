@@ -13,6 +13,13 @@ void LevelOperator::apply( std::shared_ptr<const LinearAlgebra::Vector> u,
     AMP_INSIST( f, "NULL Residual Vector" );
     AMP_INSIST( d_matrix, "NULL Matrix" );
 
+    AMP_DEBUG_INSIST( u->getVariable(), "LevelOperator::apply: u must have a variable" );
+    AMP_DEBUG_INSIST( f->getVariable(), "LevelOperator::apply: f must have a variable" );
+    AMP_DEBUG_INSIST( d_inputVariable,
+                      "LevelOperator::apply: operator must have an input variable" );
+    AMP_DEBUG_INSIST( d_outputVariable,
+                      "LevelOperator::apply: operator must have an output variable" );
+
     AMP_INSIST( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED,
                 "Input vector is in an inconsistent state" );
 

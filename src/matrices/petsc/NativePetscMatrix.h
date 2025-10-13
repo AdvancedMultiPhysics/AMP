@@ -63,7 +63,7 @@ public:
     {
         AMP_ERROR( "Not implemented" );
     }
-    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr ) const override
+    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr, const bool ) const override
     {
         AMP_ERROR( "Not implemented" );
     }

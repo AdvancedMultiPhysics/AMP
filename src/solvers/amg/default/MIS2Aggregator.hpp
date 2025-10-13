@@ -1,6 +1,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/CSRVisit.h"
+#include "AMP/solvers/amg/Strength.h"
 #include "AMP/solvers/amg/default/MIS2Aggregator.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
@@ -22,22 +23,22 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix
 }
 
 template<typename Config>
-int MIS2Aggregator::classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixData<Config>> A,
-                                      std::vector<typename Config::lidx_t> &wl1,
-                                      std::vector<uint64_t> &Tv,
-                                      int *agg_ids )
+int MIS2Aggregator::classifyVertices(
+    std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A_diag,
+    std::vector<typename Config::lidx_t> &wl1,
+    std::vector<uint64_t> &Tv,
+    const uint64_t num_gbl,
+    int *agg_ids )
 {
     using lidx_t = typename Config::lidx_t;
 
-    // information about A and unpack diag block
-    const auto A_nrows                            = static_cast<lidx_t>( A->numLocalRows() );
-    const auto begin_row                          = A->beginRow();
-    auto A_diag                                   = A->getDiagMatrix();
+    // unpack diag block
+    const auto A_nrows                            = static_cast<lidx_t>( A_diag->numLocalRows() );
+    const auto begin_row                          = A_diag->beginRow();
     auto [Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs] = A_diag->getDataFields();
 
     // the packed representation uses minimal number of bits for ID part
     // of tuple, get log_2 of (num_gbl + 2)
-    const auto num_gbl  = static_cast<uint64_t>( A->numGlobalRows() ); // cast to make unsigned
     const auto id_shift = []( uint64_t ng ) -> uint8_t {
         // log2 from stackoverflow. If only bit_width was c++17...
         uint8_t s = 0;
@@ -60,7 +61,7 @@ int MIS2Aggregator::classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixDa
     std::vector<lidx_t> wl2( wl1 );
 
     // now loop until worklists are empty
-    const lidx_t max_iters = A_nrows;
+    const lidx_t max_iters = 20; // A_nrows;
     int num_iters          = 0;
     while ( wl1.size() > 0 ) {
         const auto iter_hash = hash( num_iters );
@@ -131,13 +132,15 @@ int MIS2Aggregator::classifyVertices( std::shared_ptr<LinearAlgebra::CSRMatrixDa
 
         ++num_iters;
 
+        AMP::pout << "Classify verts iter " << num_iters << " wl1 size " << wl1.size() << std::endl;
+
         if ( num_iters == max_iters ) {
             break;
         }
     }
 
     if ( num_iters == max_iters ) {
-        AMP_ERROR( "MIS2Aggregator::classifyVertices failed to terminate" );
+        AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
     }
 
     return num_iters;
@@ -151,11 +154,19 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t = typename matrix_t::matrixdata_t;
 
-    // information about A and unpack diag block
+    // get strength information
+    auto S = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+
+    // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
-    auto [Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs] = A_diag->getDataFields();
+    auto A_masked      = A_diag->maskMatrixData( S.diag_mask_data(), true );
+
+    // pull out data fields from A_masked
+    // only care about row starts and local cols
+    // auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_diag->getDataFields();
+    auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // initially un-aggregated
     AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_ids, A_nrows, -1 );
@@ -169,7 +180,8 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // Classify vertices, first pass considers all rows
     std::vector<lidx_t> wl1( A_nrows );
     std::iota( wl1.begin(), wl1.end(), 0 );
-    auto niter = classifyVertices<Config>( A_data, wl1, labels, agg_ids );
+    auto niter = classifyVertices<Config>(
+        A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
     // initilize aggregates from nodes flagged as in and all of their neighbors
     lidx_t num_agg = 0, num_unagg = A_nrows;
@@ -178,14 +190,16 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             continue;
         }
         agg_size.push_back( 0 );
-        for ( lidx_t c = Ad_rs[row]; c < Ad_rs[row + 1]; ++c ) {
-            agg_ids[Ad_cols_loc[c]] = num_agg;
+        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
+            agg_ids[Am_cols_loc[c]] = num_agg;
             agg_size[num_agg]++;
             --num_unagg;
         }
         // increment current id to start working on next aggregate
         ++num_agg;
     }
+    AMP::pout << "First pass found " << num_agg << " aggregates over " << A_nrows << " rows"
+              << std::endl;
 
     // do a second pass of classification and aggregation
     // reset worklist to be all vertices that are not part of an aggregate
@@ -199,7 +213,8 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     }
     AMP_DEBUG_ASSERT( n == num_unagg );
     AMP::Utilities::Algorithms<uint64_t>::fill_n( labels.data(), A_nrows, OUT );
-    niter += classifyVertices<Config>( A_data, wl1, labels, agg_ids );
+    niter += classifyVertices<Config>(
+        A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
     // on second pass only allow IN vertex to be root of agg if it has
     // at least 2 un-agg nbrs
@@ -208,8 +223,8 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             continue;
         }
         int n_nbrs = 0;
-        for ( lidx_t c = Ad_rs[row] + 1; c < Ad_rs[row + 1]; ++c ) {
-            if ( agg_ids[Ad_cols_loc[c]] < 0 ) {
+        for ( lidx_t c = Am_rs[row] + 1; c < Am_rs[row + 1]; ++c ) {
+            if ( agg_ids[Am_cols_loc[c]] < 0 ) {
                 ++n_nbrs;
             }
         }
@@ -217,35 +232,54 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             continue;
         }
         agg_size.push_back( 0 );
-        for ( lidx_t c = Ad_rs[row]; c < Ad_rs[row + 1]; ++c ) {
-            if ( agg_ids[Ad_cols_loc[c]] < 0 ) {
-                agg_ids[Ad_cols_loc[c]] = num_agg;
+        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
+            if ( agg_ids[Am_cols_loc[c]] < 0 ) {
+                agg_ids[Am_cols_loc[c]] = num_agg;
                 agg_size[num_agg]++;
             }
         }
         // increment current id to start working on next aggregate
         ++num_agg;
     }
+    AMP::pout << "Second pass found " << num_agg << " aggregates over " << A_nrows << " rows"
+              << std::endl;
 
-    // final pass adds unmarked entries to the smallest aggregate they are nbrs with
+    // Add unmarked entries to the smallest aggregate they are nbrs with
+    // look out for isolated points and add them to their own aggregate if needed
+    bool have_isolated = false;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         if ( agg_ids[row] >= 0 ) {
             // this row already assigned, skip ahead
             continue;
         }
+
         // find smallest neighboring aggregate
         lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t k = Ad_rs[row]; k < Ad_rs[row + 1]; ++k ) {
-            const auto c  = Ad_cols_loc[k];
+        for ( lidx_t k = Am_rs[row]; k < Am_rs[row + 1]; ++k ) {
+            const auto c  = Am_cols_loc[k];
             const auto id = agg_ids[c];
             if ( id >= 0 && ( agg_size[id] < small_agg_size ) ) {
                 small_agg_size = agg_size[id];
                 small_agg_id   = id;
             }
         }
-        AMP_DEBUG_ASSERT( small_agg_id >= 0 );
-        agg_ids[row] = small_agg_id;
-        agg_size[small_agg_id]++;
+
+        if ( small_agg_id >= 0 ) {
+            agg_ids[row] = small_agg_id;
+            agg_size[small_agg_id]++;
+        } else {
+            if ( !have_isolated ) {
+                agg_size.push_back( 0 );
+            }
+            have_isolated = true;
+            agg_ids[row]  = num_agg;
+            agg_size[num_agg]++;
+        }
+    }
+
+    // account for lumped isolated rows in aggregate count
+    if ( have_isolated ) {
+        ++num_agg;
     }
 
     return num_agg;

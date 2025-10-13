@@ -41,18 +41,14 @@ static inline size_t factorial( int x )
 }
 
 
-// Helper function to create constexpr std::array with a single value
-template<class T, std::size_t N, std::size_t... I>
-static constexpr std::array<std::remove_cv_t<T>, N> to_array_impl( const T *a,
-                                                                   std::index_sequence<I...> )
+// Helper function to create null triangles
+template<size_t N>
+static constexpr std::array<int, N + 1> createNullTri()
 {
-    return { { a[I]... } };
-}
-template<class TYPE, std::size_t N>
-static constexpr std::array<TYPE, N> make_array( const TYPE &x )
-{
-    TYPE tmp[N] = { x };
-    return to_array_impl<TYPE, N>( tmp, std::make_index_sequence<N>{} );
+    std::array<int, N + 1> null = { -1 };
+    for ( size_t i = 0; i < null.size(); i++ )
+        null[i] = -1;
+    return null;
 }
 
 
@@ -82,64 +78,10 @@ static inline bool approx_equal( const std::array<double, N> &x,
 
 
 /****************************************************************
- * Find the first n intersections in multiple lists              *
- * This function assumes the lists are in sorted order           *
- ****************************************************************/
-static int intersect_sorted(
-    const int N_lists, const int size[], int64_t *list[], const int N_max, int64_t *intersection )
-{
-    if ( N_max <= 0 )
-        return ~( (unsigned int) 0 );
-    int N_int = 0;
-    std::vector<int> index( N_lists );
-    for ( int i = 0; i < N_lists; i++ )
-        index[i] = 0;
-    unsigned int current_val = list[0][0];
-    bool finished            = false;
-    while ( true ) {
-        unsigned int min_val = 2147483647;
-        bool in_intersection = true;
-        for ( int i = 0; i < N_lists; i++ ) {
-            if ( index[i] >= size[i] ) {
-                finished = true;
-                break;
-            }
-            while ( list[i][index[i]] < current_val ) {
-                index[i]++;
-                if ( index[i] >= size[i] ) {
-                    finished = true;
-                    break;
-                }
-            }
-            if ( list[i][index[i]] == current_val ) {
-                index[i]++;
-            } else {
-                in_intersection = false;
-            }
-            if ( index[i] < size[i] ) {
-                if ( list[i][index[i]] < min_val )
-                    min_val = list[i][index[i]];
-            }
-        }
-        if ( finished )
-            break;
-        if ( in_intersection ) {
-            intersection[N_int] = current_val;
-            N_int++;
-            if ( N_int >= N_max )
-                break;
-        }
-        current_val = min_val;
-    }
-    return N_int;
-}
-
-
-/****************************************************************
  * Count the number of unique triangles                          *
  ****************************************************************/
 template<size_t NDIM, bool ordered>
-static uint64_t hash( const std::array<int64_t, NDIM> &x )
+static uint64_t hash( const std::array<int, NDIM> &x )
 {
     uint64_t hash = 0;
     for ( size_t i = 0; i < NDIM; i++ ) {
@@ -154,7 +96,7 @@ static uint64_t hash( const std::array<int64_t, NDIM> &x )
     return hash;
 }
 template<size_t NG>
-size_t count( const std::vector<std::array<int64_t, NG + 1>> &tri )
+size_t count( const std::vector<std::array<int, NG + 1>> &tri )
 {
     std::vector<uint64_t> x( tri.size(), 0 );
     for ( size_t i = 0; i < tri.size(); i++ )
@@ -224,7 +166,7 @@ std::vector<std::array<std::array<double, 3>, 3>> readSTL( const std::string &fi
 template<size_t NG, size_t NP>
 void createTriangles( const std::vector<std::array<std::array<double, NP>, NG + 1>> &tri_list,
                       std::vector<std::array<double, NP>> &vertices,
-                      std::vector<std::array<int64_t, NG + 1>> &triangles,
+                      std::vector<std::array<int, NG + 1>> &triangles,
                       double tol )
 {
     // Get the range of points and tolerance to use
@@ -247,8 +189,7 @@ void createTriangles( const std::vector<std::array<std::array<double, NP>, NG + 
     // Get the unique vertices and create triangle indicies
     vertices.clear();
     triangles.clear();
-    constexpr auto null_tri = make_array<int64_t, NG + 1>( -1 );
-    triangles.resize( tri_list.size(), null_tri );
+    triangles.resize( tri_list.size(), createNullTri<NG>() );
     for ( size_t i = 0; i < tri_list.size(); i++ ) {
         for ( size_t j = 0; j < NG + 1; j++ ) {
             auto &point   = tri_list[i][j];
@@ -268,116 +209,11 @@ void createTriangles( const std::vector<std::array<std::array<double, NP>, NG + 
 
 
 /****************************************************************
- * Create triangles neighbors from the triangles                 *
- ****************************************************************/
-template<size_t NG>
-std::vector<std::array<int64_t, NG + 1>>
-create_tri_neighbors( const std::vector<std::array<int64_t, NG + 1>> &tri )
-{
-    PROFILE( "create_tri_neighbors", 1 );
-    // Allocate memory
-    constexpr auto null_tri = make_array<int64_t, NG + 1>( -1 );
-    std::vector<std::array<int64_t, NG + 1>> tri_nab( tri.size(), null_tri );
-    if ( tri.size() == 1 )
-        return tri_nab;
-    // 1D is a special easy case
-    if constexpr ( NG == 1 ) {
-        for ( size_t i = 0; i < tri.size(); i++ ) {
-            tri_nab[i][0] = i + 1;
-            tri_nab[i][1] = i - 1;
-        }
-        tri_nab[0][1]              = -1;
-        tri_nab[tri.size() - 1][0] = -1;
-        return tri_nab;
-    }
-    // Get the number of vertices
-    size_t N_vertex = 0;
-    for ( const auto &t : tri ) {
-        for ( size_t i = 0; i < NG + 1; i++ )
-            N_vertex = std::max<size_t>( N_vertex, t[i] + 1 );
-    }
-    // Count the number of triangles connected to each vertex
-    std::vector<int64_t> N_tri_nab( N_vertex, 0 );
-    for ( size_t i = 0; i < tri.size(); i++ ) {
-        for ( size_t d = 0; d < NG + 1; d++ )
-            N_tri_nab[tri[i][d]]++;
-    }
-    // For each node, get a list of the triangles that connect to that node
-    auto tri_list = new int64_t *[N_vertex]; // List of triangles connected each node (N)
-    tri_list[0]   = new int64_t[( NG + 1 ) * tri.size()];
-    for ( size_t i = 1; i < N_vertex; i++ )
-        tri_list[i] = &tri_list[i - 1][N_tri_nab[i - 1]];
-    for ( size_t i = 0; i < ( NG + 1 ) * tri.size(); i++ )
-        tri_list[0][i] = -1;
-    // Create a sorted list of all triangles that have each node as a vertex
-    for ( size_t i = 0; i < N_vertex; i++ )
-        N_tri_nab[i] = 0;
-    for ( size_t i = 0; i < tri.size(); i++ ) {
-        for ( size_t j = 0; j <= NG; j++ ) {
-            int64_t k                 = tri[i][j];
-            tri_list[k][N_tri_nab[k]] = i;
-            N_tri_nab[k]++;
-        }
-    }
-    for ( size_t i = 0; i < N_vertex; i++ )
-        AMP::Utilities::quicksort( N_tri_nab[i], tri_list[i] );
-    int64_t N_tri_max = 0;
-    for ( size_t i = 0; i < N_vertex; i++ ) {
-        if ( N_tri_nab[i] > N_tri_max )
-            N_tri_max = N_tri_nab[i];
-    }
-    // Note, if a triangle is a neighbor, it will share all but the current node
-    int size[NG];
-    for ( int64_t i = 0; i < (int64_t) tri.size(); i++ ) {
-        // Loop through the different faces of the triangle
-        for ( size_t j = 0; j <= NG; j++ ) {
-            int64_t *list[NG] = { nullptr };
-            int64_t k1        = 0;
-            for ( size_t k2 = 0; k2 <= NG; k2++ ) {
-                if ( k2 == j )
-                    continue;
-                int64_t k = tri[i][k2];
-                list[k1]  = tri_list[k];
-                size[k1]  = N_tri_nab[k];
-                k1++;
-            }
-            // Find the intersection of all triangle lists except the current node
-            int64_t intersection[5] = { -1, -1, -1, -1, -1 };
-            int64_t N_int           = intersect_sorted( NG, size, list, 5, intersection );
-            int64_t m               = 0;
-            if ( N_int == 0 || N_int > 2 ) {
-                // We cannot have less than 1 triangle or more than 2 triangles sharing NDIM nodes
-                AMP_ERROR( "Error in create_tri_neighbors detected" );
-            } else if ( intersection[0] == i ) {
-                m = intersection[1];
-            } else if ( intersection[1] == i ) {
-                m = intersection[0];
-            } else {
-                // One of the triangles must be the current triangle
-                AMP_ERROR( "Error in create_tri_neighbors detected" );
-            }
-            tri_nab[i][j] = m;
-        }
-    }
-    // Check tri_nab
-    for ( int64_t i = 0; i < (int64_t) tri.size(); i++ ) {
-        for ( size_t d = 0; d <= NG; d++ ) {
-            if ( tri_nab[i][d] < -1 || tri_nab[i][d] >= (int64_t) tri.size() || tri_nab[i][d] == i )
-                AMP_ERROR( "Internal error" );
-        }
-    }
-    delete[] tri_list[0];
-    delete[] tri_list;
-    return tri_nab;
-}
-
-
-/****************************************************************
  * Create triangles/vertices from a set of triangles specified  *
  * by their coordinates                                          *
  ****************************************************************/
 static inline std::array<double, 3> calcNorm( const std::vector<std::array<double, 3>> &x,
-                                              const std::array<int64_t, 3> &tri )
+                                              const std::array<int, 3> &tri )
 {
     return AMP::Geometry::GeometryHelpers::normal( x[tri[0]], x[tri[1]], x[tri[2]] );
 }
@@ -387,8 +223,8 @@ static inline double dot( const std::array<double, 3> &x, const std::array<doubl
 }
 template<size_t NG, size_t NP>
 static std::vector<int> createBlockIDs( const std::vector<std::array<double, NP>> &vertices,
-                                        const std::vector<std::array<int64_t, NG + 1>> &tri,
-                                        const std::vector<std::array<int64_t, NG + 1>> &tri_nab )
+                                        const std::vector<std::array<int, NG + 1>> &tri,
+                                        const std::vector<std::array<int, NG + 1>> &tri_nab )
 {
     if ( tri.empty() )
         return std::vector<int>();
@@ -434,16 +270,16 @@ static std::vector<int> createBlockIDs( const std::vector<std::array<double, NP>
 /****************************************************************
  * Try to split the mesh into seperate independent domains       *
  ****************************************************************/
-static inline std::array<int64_t, 2> getFace( const std::array<int64_t, 3> &tri, size_t i )
+static inline std::array<int, 2> getFace( const std::array<int, 3> &tri, size_t i )
 {
     return { tri[( i + 1 ) % 3], tri[( i + 2 ) % 3] };
 }
-static inline std::array<int64_t, 3> getFace( const std::array<int64_t, 4> &tri, size_t i )
+static inline std::array<int, 3> getFace( const std::array<int, 4> &tri, size_t i )
 {
     return { tri[( i + 1 ) % 4], tri[( i + 2 ) % 4], tri[( i + 3 ) % 4] };
 }
 template<size_t NG>
-static void addFaces( const std::array<int64_t, NG + 1> &tri,
+static void addFaces( const std::array<int, NG + 1> &tri,
                       int64_t index,
                       std::vector<std::pair<uint64_t, int64_t>> &faces )
 {
@@ -481,8 +317,8 @@ static inline void erase( TYPE &faceMap, int64_t i )
     }
 }
 template<size_t NG>
-static std::vector<std::array<int64_t, NG + 1>>
-removeSubDomain( std::vector<std::array<int64_t, NG + 1>> &tri )
+static std::vector<std::array<int, NG + 1>>
+removeSubDomain( std::vector<std::array<int, NG + 1>> &tri )
 {
     // For each triangle get a hash id for each face
     std::multimap<uint64_t, int64_t> faceMap;
@@ -517,7 +353,7 @@ removeSubDomain( std::vector<std::array<int64_t, NG + 1>> &tri )
     }
     // Add the initial triangle store the edges
     std::vector<bool> used( tri.size(), false );
-    std::vector<std::array<int64_t, NG + 1>> tri2;
+    std::vector<std::array<int, NG + 1>> tri2;
     std::vector<std::pair<uint64_t, int64_t>> faces;
     used[i0] = true;
     tri2.push_back( tri[i0] );
@@ -545,7 +381,7 @@ removeSubDomain( std::vector<std::array<int64_t, NG + 1>> &tri )
             continue;
         // We have multiple faces to choose from, try to remove a subdomain from the remaining faces
         try {
-            std::vector<std::array<int64_t, NG + 1>> tri3;
+            std::vector<std::array<int, NG + 1>> tri3;
             for ( size_t j = 0; j < tri.size(); j++ ) {
                 if ( !used[j] )
                     tri3.push_back( tri[j] );
@@ -570,28 +406,27 @@ removeSubDomain( std::vector<std::array<int64_t, NG + 1>> &tri )
     return tri2;
 }
 template<size_t NG>
-std::vector<std::vector<std::array<int64_t, NG + 1>>>
-splitDomains( std::vector<std::array<int64_t, NG + 1>> tri )
+std::vector<std::vector<std::array<int, NG + 1>>>
+splitDomains( std::vector<std::array<int, NG + 1>> tri )
 {
-    std::vector<std::vector<std::array<int64_t, NG + 1>>> tri_sets;
+    std::vector<std::vector<std::array<int, NG + 1>>> tri_sets;
     while ( !tri.empty() ) {
         tri_sets.emplace_back( removeSubDomain<NG>( tri ) );
     }
     return tri_sets;
 }
 template<>
-std::vector<std::vector<std::array<int64_t, 2>>>
-splitDomains<1>( std::vector<std::array<int64_t, 2>> )
+std::vector<std::vector<std::array<int, 2>>> splitDomains<1>( std::vector<std::array<int, 2>> )
 {
     AMP_ERROR( "1D splitting of domains is not supported" );
-    return std::vector<std::vector<std::array<int64_t, 2>>>();
+    return std::vector<std::vector<std::array<int, 2>>>();
 }
 
 
 /********************************************************
  *  Generate mesh for STL file                           *
  ********************************************************/
-using triset = std::vector<std::array<int64_t, 3>>;
+using triset = std::vector<std::array<int, 3>>;
 static std::vector<AMP::AMP_MPI>
 loadbalance( const std::vector<triset> &tri, const AMP_MPI &comm, int method )
 {
@@ -642,7 +477,7 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         if ( !multidomain ) {
             for ( size_t i = 0; i < tri.size(); i++ ) {
                 // Get the triangle neighbors
-                tri_nab[i] = TriangleHelpers::create_tri_neighbors<2>( tri[i] );
+                tri_nab[i] = DelaunayHelpers::create_tri_neighbors<2>( tri[i] );
                 // Check if the geometry is closed
                 bool closed = true;
                 for ( const auto &t : tri_nab[i] ) {
@@ -662,11 +497,13 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         }
     }
     int N_domains = comm.bcast( tri.size(), 0 );
+    tri.resize( N_domains );
+    tri_nab.resize( N_domains );
     // Create the mesh
     std::shared_ptr<AMP::Mesh::Mesh> mesh;
     if ( N_domains == 1 ) {
         auto id = createBlockIDs<2, 3>( vert, tri[0], tri_nab[0] );
-        mesh    = TriangleMesh<2, 3>::generate( vert, tri[0], tri_nab[0], comm, nullptr, id );
+        mesh    = TriangleMesh<2>::generate<3>( vert, tri[0], tri_nab[0], comm, nullptr, id );
     } else {
         // We are dealing with multiple sub-domains, choose the load balance method
         int method = db->getWithDefault<int>( "LoadBalanceMethod", 1 );
@@ -686,10 +523,10 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
                 std::shared_ptr<AMP::Mesh::Mesh> mesh2;
                 if ( comm2[i].getRank() == 0 ) {
                     auto id = createBlockIDs<2, 3>( vert, tri[i], tri_nab[i] );
-                    mesh2   = TriangleMesh<2, 3>::generate(
+                    mesh2   = TriangleMesh<2>::generate<3>(
                         vert, tri[i], tri_nab[i], comm2[i], nullptr, id );
                 } else {
-                    mesh2 = TriangleMesh<2, 3>::generate( {}, {}, {}, comm2[i], nullptr, {} );
+                    mesh2 = TriangleMesh<2>::generate<3>( {}, {}, {}, comm2[i], nullptr, {} );
                 }
                 mesh2->setName( name + "_" + std::to_string( i + 1 ) );
                 submeshes.push_back( mesh2 );
@@ -705,7 +542,7 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         disp[1] = db->getScalar<double>( "y_offset" );
     if ( db->keyExists( "z_offset" ) )
         disp[2] = db->getScalar<double>( "z_offset" );
-    if ( disp[0] != 0.0 && disp[1] != 0.0 && disp[2] != 0.0 )
+    if ( disp[0] != 0.0 || disp[1] != 0.0 || disp[2] != 0.0 )
         mesh->displaceMesh( disp );
     // Set the mesh name
     mesh->setName( name );
@@ -849,7 +686,7 @@ static void removeTriangles( std::vector<std::array<int, NDIM + 1>> &tri,
                              std::vector<std::array<int, NDIM + 1>> &tri_nab,
                              const std::vector<bool> &remove )
 {
-    std::vector<int64_t> map( tri.size(), -1 );
+    std::vector<int> map( tri.size(), -1 );
     size_t N = 0;
     for ( size_t i = 0; i < tri.size(); i++ ) {
         if ( !remove[i] )
@@ -876,46 +713,21 @@ static void removeTriangles( std::vector<std::array<int, NDIM + 1>> &tri,
 }
 template<uint8_t NDIM>
 static std::tuple<std::vector<std::array<int, NDIM + 1>>, std::vector<std::array<int, NDIM + 1>>>
-createTessellation( const Point &lb, const Point &ub, const std::vector<Point> &points )
+createTessellation( const std::vector<Point> &points )
 {
     // Convert coordinates
-    auto dx = ub - lb;
-    int N   = points.size();
+    int N = points.size();
     AMP::Array<double> x1( NDIM, points.size() );
-    AMP::Array<int> x2( NDIM, points.size() );
     for ( int i = 0; i < N; i++ ) {
-        for ( int d = 0; d < NDIM; d++ ) {
-            double x   = points[i][d];
-            double tmp = 2.0 * ( x - lb[d] ) / dx[d] - 1.0;
-            int xi     = round( 1000000 * tmp );
-            x1( d, i ) = x;
-            x2( d, i ) = xi;
-        }
+        for ( int d = 0; d < NDIM; d++ )
+            x1( d, i ) = points[i][d];
     }
     // Tessellate
-    AMP::Array<int> tri, nab;
-    try {
-        // Try to tessellate with the actual points
-        std::tie( tri, nab ) = DelaunayTessellation::create_tessellation( x1 );
-    } catch ( ... ) {
-        try {
-            // Try to tessellate with the integer points
-            std::tie( tri, nab ) = DelaunayTessellation::create_tessellation( x2 );
-        } catch ( ... ) {
-            // Failed to tessellate
-            auto fid = fopen( "failed_points.csv", "wb" );
-            for ( size_t i = 0; i < x1.size( 1 ); i++ ) {
-                for ( size_t d = 0; d < NDIM; d++ )
-                    fprintf( fid, "%0.12f ", x1( d, i ) );
-                fprintf( fid, "\n" );
-            }
-            fclose( fid );
-            AMP_ERROR( "Failed to tessellate" );
-        }
-    }
+    auto [tri, nab] = DelaunayTessellation::create_tessellation( x1 );
     // Convert to output format
-    std::vector<std::array<int, NDIM + 1>> tri2( tri.size( 1 ), { -1 } );
-    std::vector<std::array<int, NDIM + 1>> nab2( tri.size( 1 ), { -1 } );
+    constexpr auto nullTri = createNullTri<NDIM>();
+    std::vector<std::array<int, NDIM + 1>> tri2( tri.size( 1 ), nullTri );
+    std::vector<std::array<int, NDIM + 1>> nab2( tri.size( 1 ), nullTri );
     for ( size_t i = 0; i < tri2.size(); i++ ) {
         for ( size_t d = 0; d <= NDIM; d++ ) {
             tri2[i][d] = tri( d, i );
@@ -932,10 +744,9 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
                const AMP_MPI &comm )
 {
     if ( comm.getRank() != 0 )
-        TriangleMesh<NDIM, NDIM>::generate( {}, {}, {}, comm, geom );
+        TriangleMesh<NDIM>::template generate<NDIM>( {}, {}, {}, comm, geom );
     // Tessellate
-    auto [lb, ub]       = geom->box();
-    auto [tri, tri_nab] = createTessellation<NDIM>( lb, ub, points );
+    auto [tri, tri_nab] = createTessellation<NDIM>( points );
     // Delete triangles that have duplicate neighbors
     {
         // Identify the triangles that need to be removed
@@ -998,7 +809,7 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
     }
     checkTri<NDIM>( tri );
     // Generate the mesh
-    std::vector<std::array<int64_t, NDIM + 1>> tri2( tri.size() ), tri_nab2( tri.size() );
+    std::vector<std::array<int, NDIM + 1>> tri2( tri.size() ), tri_nab2( tri.size() );
     for ( size_t i = 0; i < tri.size(); i++ ) {
         for ( int d = 0; d <= NDIM; d++ ) {
             tri2[i][d]     = tri[i][d];
@@ -1010,8 +821,7 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
         for ( int d = 0; d < NDIM; d++ )
             x1[i][d] = points[i][d];
     }
-    return TriangleMesh<NDIM, NDIM>::generate(
-        std::move( x1 ), std::move( tri2 ), std::move( tri_nab2 ), comm, geom );
+    return TriangleMesh<NDIM>::template generate<NDIM>( x1, tri2, tri_nab2, comm, geom );
 }
 std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Geometry> geom,
                                                const AMP_MPI &comm,
@@ -1131,9 +941,9 @@ using point3D = std::array<double, 3>;
 using pointset1D = std::vector<point1D>;
 using pointset2D = std::vector<point2D>;
 using pointset3D = std::vector<point3D>;
-using triset1D = std::vector<std::array<int64_t, 2>>;
-using triset2D = std::vector<std::array<int64_t, 3>>;
-using triset3D = std::vector<std::array<int64_t, 4>>;
+using triset1D = std::vector<std::array<int, 2>>;
+using triset2D = std::vector<std::array<int, 3>>;
+using triset3D = std::vector<std::array<int, 4>>;
 template size_t count<1>( const triset1D & );
 template size_t count<2>( const triset2D & );
 template size_t count<3>( const triset3D & );
@@ -1143,9 +953,6 @@ template void createTriangles<1,3>( const std::vector<std::array<point3D,2>>&, p
 template void createTriangles<2,2>( const std::vector<std::array<point2D,3>>&, pointset2D&, triset2D&, double );
 template void createTriangles<2,3>( const std::vector<std::array<point3D,3>>&, pointset3D&, triset2D&, double );
 template void createTriangles<3,3>( const std::vector<std::array<point3D,4>>&, pointset3D&, triset3D&, double );
-template triset1D create_tri_neighbors<1>( const triset1D& );
-template triset2D create_tri_neighbors<2>( const triset2D& );
-template triset3D create_tri_neighbors<3>( const triset3D& );
 template std::vector<triset2D> splitDomains<2>( triset2D );
 template std::vector<triset3D> splitDomains<3>( triset3D );
 // clang-format on

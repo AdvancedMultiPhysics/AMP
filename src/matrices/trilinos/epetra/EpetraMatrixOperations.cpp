@@ -153,7 +153,9 @@ void EpetraMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vec
 {
     AMP_ERROR( "Not implemented" );
 }
-void EpetraMatrixOperations::getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> )
+void EpetraMatrixOperations::getRowSumsAbsolute( MatrixData const &,
+                                                 std::shared_ptr<Vector>,
+                                                 const bool )
 {
     AMP_ERROR( "Not implemented" );
 }
