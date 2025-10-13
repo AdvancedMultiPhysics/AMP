@@ -190,7 +190,7 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
 
     // Chebyshev terms, set to damp over 75% of eigenvalues
     const double pi = static_cast<double>( AMP::Constants::pi );
-    const double a = 0.95, ma = 1.0 - a, pa = 1.0 + a;
+    const double a = 0.05, ma = 1.0 - a, pa = 1.0 + a;
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {
