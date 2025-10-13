@@ -84,13 +84,13 @@ std::ostream &operator<<( std::ostream &out, const Matrix &M_in )
     // Print some basic matrix info
     out << "\n"
         << "Global number of rows: " << M->numGlobalRows() << "\n"
-        << "Global number of colums: " << M->numGlobalColumns() << "\n"
+        << "Global number of columns: " << M->numGlobalColumns() << "\n"
         << "Local number of rows: " << M->numLocalRows() << "\n"
-        << "Local number of colums: " << M->numLocalColumns() << "\n";
+        << "Local number of columns: " << M->numLocalColumns() << "\n";
     // Loop through each local row
     std::vector<size_t> cols;
     std::vector<double> values;
-    out << "Compressed Matix: " << std::endl;
+    out << "Compressed Matrix: " << std::endl;
     for ( size_t row = leftDOF->beginDOF(); row < leftDOF->endDOF(); row++ ) {
         M->getRowByGlobalID( row, cols, values );
         out << "Row " << row << " (" << cols.size() << " entries):"

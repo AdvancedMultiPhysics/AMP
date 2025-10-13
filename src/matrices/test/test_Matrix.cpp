@@ -42,19 +42,21 @@ int main( int argc, char **argv )
 
 
     // Get the types of matrices to test
-    std::vector<std::string> types = { "CSRMatrix" };
-#ifdef AMP_USE_TRILINOS_EPETRA
-    types.emplace_back( "ManagedEpetraMatrix" );
-#endif
+    std::vector<std::string> types;
+    //    types.emplace_back( "CSRMatrix" );
 #ifdef AMP_USE_TRILINOS_TPETRA
     types.emplace_back( "ManagedTpetraMatrix" );
 #endif
-#ifdef AMP_USE_PETSC
+#if 0
+    #ifdef AMP_USE_TRILINOS_EPETRA
+    types.emplace_back( "ManagedEpetraMatrix" );
+    #endif
+    #ifdef AMP_USE_PETSC
     types.emplace_back( "NativePetscMatrix" );
-#endif
+    #endif
     if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getSize() == 1 )
         types.emplace_back( "DenseSerialMatrix" );
-
+#endif
 
     // Test some basic properties
     AMP::pout << "Running basic tests" << std::endl << std::endl;

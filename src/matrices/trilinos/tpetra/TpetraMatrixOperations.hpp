@@ -146,6 +146,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::setIdentity( MatrixData &A )
 {
+    // this is wrong as is as it assumes where the diagonal entries reside
     zero( A );
     int MyFirstRow = A.getLeftDOFManager()->beginDOF();
     int MyEndRow   = A.getLeftDOFManager()->endDOF();
@@ -161,14 +162,41 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::extractDiagonal( MatrixData const &A,
                                                               std::shared_ptr<Vector> buf )
 {
-    auto view = TpetraVector::view( buf );
+    const auto &tMat = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+    auto view        = TpetraVector::view( buf );
     getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).getLocalDiagCopy( view->getTpetra_Vector() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-AMP::Scalar TpetraMatrixOperations<ST, LO, GO, NT>::LinfNorm( MatrixData const & ) const
+AMP::Scalar TpetraMatrixOperations<ST, LO, GO, NT>::LinfNorm( MatrixData const &A ) const
 {
-    AMP_ERROR( "Not implemented for Trilinos 16.0" );
+    // this is only correct for host code, we need to eventually get it working everywhere
+    // and assumes all entries of a row are locally present
+    // getNormInf only appears to be in some Trilinos version > 16.1.0 -- should do check
+    using row_matrix_type           = Tpetra::RowMatrix<ST, LO, GO, NT>;
+    using local_inds_host_view_type = typename row_matrix_type::local_inds_host_view_type;
+    using values_host_view_type     = typename row_matrix_type::values_host_view_type;
+
+    auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+
+    ST normInf = static_cast<ST>( 0 );
+    // Get the current row's data
+    for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
+        auto numCols = matrix.getNumEntriesInLocalRow( row );
+        std::vector<LO> colInds( numCols );
+        std::vector<ST> vals( numCols );
+        local_inds_host_view_type colView( colInds.data(), numCols );
+        values_host_view_type valsView( vals.data(), numCols );
+        matrix.getLocalRowView( row, colView, valsView );
+        auto rowAbsSum =
+            std::accumulate( vals.begin(), vals.end(), 0.0, []( const ST &a, const ST &b ) {
+                return std::abs( a ) + std::abs( b );
+            } );
+
+        normInf = std::max( normInf, rowAbsSum );
+    }
+    auto comm = A.getComm(); // modify to return ref?
+    return comm.maxReduce( normInf );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

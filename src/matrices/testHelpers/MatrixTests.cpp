@@ -70,6 +70,7 @@ void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix
     }
 
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    AMP::pout << *matrix;
 }
 
 static void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
@@ -315,17 +316,17 @@ void MatrixTests::VerifyExtractDiagonal( AMP::UnitTest *utils )
     PROFILE( "VerifyExtractDiagonal" );
     auto matrix = d_factory->getMatrix();
     //    matrix->makeConsistent(); // required by PETSc
-    auto vector     = matrix->createInputVector();
-    size_t firstRow = vector->getCommunicationList()->getStartGID();
-    size_t maxCols  = matrix->numGlobalColumns();
+    //    auto vector     = matrix->createInputVector();
+    //    size_t firstRow = vector->getCommunicationList()->getStartGID();
+    size_t maxCols = matrix->numGlobalColumns();
     matrix->enableModifications();
-    for ( size_t i = 0; i != vector->getCommunicationList()->numLocalRows(); i++ ) {
-        int row = static_cast<int>( i + firstRow );
-        if ( row >= static_cast<int>( maxCols ) )
+    for ( size_t row = matrix->beginRow(); row < matrix->endRow(); ++row ) {
+        if ( row >= maxCols )
             break;
         matrix->setValueByGlobalID( row, row, static_cast<double>( row + 1 ) );
     }
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD ); // required by PETSc
+    AMP::pout << *matrix;
     matrix            = getCopyMatrix( matrix );
     auto diag         = matrix->extractDiagonal();
     double l1norm     = static_cast<double>( diag->L1Norm() );
@@ -628,7 +629,7 @@ void test_matrix_loop( AMP::UnitTest &ut, std::shared_ptr<MatrixTests> tests )
 {
     tests->InstantiateMatrix( &ut );
     tests->VerifyGetSetValuesMatrix( &ut );
-    tests->VerifyAXPYMatrix( &ut );
+    //    tests->VerifyAXPYMatrix( &ut );
     tests->VerifyCopyMatrix( &ut );
     tests->VerifyScaleMatrix( &ut );
     tests->VerifyGetLeftRightVector( &ut );

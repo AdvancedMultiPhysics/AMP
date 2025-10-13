@@ -60,10 +60,15 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
             entries[i]      = static_cast<size_t>( cols.size() );
         }
         Teuchos::ArrayView<size_t> colView( entries.data(), entries.size() );
-        d_tpetraMatrix = Teuchos::rcp(
-            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, colView ) );
+        d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 10 ) );
+        //            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap,
+        //            10 ) ); new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap,
+        //            colView ) );
         d_tpetraMatrix->setAllToScalar( 0.0 );
-        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
+        //        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
+        d_tpetraMatrix->fillComplete();
+        d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) ) ),
+                                  Teuchos::VERB_EXTREME );
     } else {
         d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 0 ) );
     }
@@ -227,20 +232,20 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::setOtherData()
 {
     AMP_MPI myComm = d_pParameters->getComm();
-    int ndxLen     = d_OtherData.size();
-    int totNdxLen  = myComm.sumReduce( ndxLen );
+    auto ndxLen    = d_OtherData.size();
+    auto totNdxLen = myComm.sumReduce( ndxLen );
     if ( totNdxLen == 0 ) {
         return;
     }
-    int dataLen  = 0;
-    auto cur_row = d_OtherData.begin();
+    size_t dataLen = 0;
+    auto cur_row   = d_OtherData.begin();
     while ( cur_row != d_OtherData.end() ) {
         dataLen += cur_row->second.size();
         ++cur_row;
     }
-    auto rows   = new int[dataLen + 1]; // Add one to have the new work
-    auto cols   = new int[dataLen + 1];
-    auto data   = new double[dataLen + 1];
+    auto rows   = new size_t[dataLen + 1]; // Add one to have the new work
+    auto cols   = new size_t[dataLen + 1];
+    auto data   = new ST[dataLen + 1];
     int cur_ptr = 0;
     cur_row     = d_OtherData.begin();
     while ( cur_row != d_OtherData.end() ) {
@@ -255,28 +260,29 @@ void TpetraMatrixData<ST, LO, GO, NT>::setOtherData()
         ++cur_row;
     }
 
-    int totDataLen = myComm.sumReduce( dataLen );
+    const auto totDataLen = myComm.sumReduce( dataLen );
 
-    auto aggregateRows = new int[totDataLen];
-    auto aggregateCols = new int[totDataLen];
-    auto aggregateData = new double[totDataLen];
+    auto params     = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
+    auto MyFirstRow = params->getLeftDOFManager()->beginDOF();
+    auto MyEndRow   = params->getLeftDOFManager()->endDOF();
+
+    auto aggregateRows = new decltype( MyFirstRow )[totDataLen];
+    auto aggregateCols = new decltype( MyFirstRow )[totDataLen];
+    auto aggregateData = new ST[totDataLen];
 
     myComm.allGather( rows, dataLen, aggregateRows );
     myComm.allGather( cols, dataLen, aggregateCols );
     myComm.allGather( data, dataLen, aggregateData );
 
-    auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
-    int MyFirstRow = params->getLeftDOFManager()->beginDOF();
-    int MyEndRow   = params->getLeftDOFManager()->endDOF();
-    for ( int i = 0; i != totDataLen; i++ ) {
+    for ( size_t i = 0; i != totDataLen; i++ ) {
         if ( ( aggregateRows[i] >= MyFirstRow ) && ( aggregateRows[i] < MyEndRow ) ) {
             setValuesByGlobalID( 1u,
                                  1u,
                                  (size_t *) &aggregateRows[i],
                                  (size_t *) &aggregateCols[i],
                                  &aggregateData[i],
-                                 getTypeID<double>() );
+                                 getTypeID<ST>() );
         }
     }
 
@@ -312,10 +318,10 @@ std::shared_ptr<Vector> TpetraMatrixData<ST, LO, GO, NT>::createInputVector() co
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
 
-    int localSize  = params->getLocalNumberOfColumns();
-    int globalSize = params->getGlobalNumberOfColumns();
-    int localStart = params->getRightDOFManager()->beginDOF();
-    auto buffer = std::make_shared<VectorDataDefault<double>>( localStart, localSize, globalSize );
+    const auto localSize  = params->getLocalNumberOfColumns();
+    const auto globalSize = params->getGlobalNumberOfColumns();
+    const auto localStart = params->getRightDOFManager()->beginDOF();
+    auto buffer = std::make_shared<VectorDataDefault<ST>>( localStart, localSize, globalSize );
     auto vec =
         createTpetraVector( params->getRightCommList(), params->getRightDOFManager(), buffer );
     vec->setVariable( params->getRightVariable() );
@@ -326,10 +332,10 @@ std::shared_ptr<Vector> TpetraMatrixData<ST, LO, GO, NT>::createOutputVector() c
 {
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
-    int localSize  = params->getLocalNumberOfRows();
-    int globalSize = params->getGlobalNumberOfRows();
-    int localStart = params->getRightDOFManager()->beginDOF();
-    auto buffer = std::make_shared<VectorDataDefault<double>>( localStart, localSize, globalSize );
+    const auto localSize  = params->getLocalNumberOfRows();
+    const auto globalSize = params->getGlobalNumberOfRows();
+    const auto localStart = params->getRightDOFManager()->beginDOF();
+    auto buffer = std::make_shared<VectorDataDefault<ST>>( localStart, localSize, globalSize );
     auto vec = createTpetraVector( params->getLeftCommList(), params->getLeftDOFManager(), buffer );
     vec->setVariable( params->getLeftVariable() );
     return vec;
