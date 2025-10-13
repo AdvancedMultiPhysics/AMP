@@ -40,8 +40,6 @@ public:
     inline auto data() { return d_x.data(); }
     inline const auto data() const { return d_x.data(); }
     inline auto &offset() const { return d_offset; }
-    inline auto &operator[]( int i ) { return d_x[i]; }
-    inline auto &operator[]( int i ) const { return d_x[i]; }
     inline int index( const ElementID &id ) const
     {
         AMP_DEBUG_ASSERT( id.type() == d_type );
@@ -49,6 +47,9 @@ public:
         return d_offset[rank] + id.local_id();
     }
     ElementID getID( int i ) const;
+    int find( const std::array<TYPE, N> &x ) const;
+    inline auto &operator[]( int i ) { return d_x[i]; }
+    inline auto &operator[]( int i ) const { return d_x[i]; }
     inline auto &operator[]( const ElementID &id ) { return d_x[index( id )]; }
     inline auto &operator[]( const ElementID &id ) const { return d_x[index( id )]; }
 
@@ -403,8 +404,8 @@ private:
                       const std::vector<TRI> &tri_nab,
                       const std::vector<int> &block );
     void buildChildren();
-    ElementList computeNodeParents( const MeshIterator &it );
-    ElementList getParents( int childType, const MeshIterator &it );
+    ElementList computeNodeParents( int parentType );
+    ElementList getParents( int childType, int parentType );
 
 
 private:
@@ -414,10 +415,8 @@ private:
     std::vector<TRI> d_globalNab;              //!< Store the global triangle neighbors
     std::vector<int> d_blockID;                //!< The block id index for each triangle
     std::vector<std::vector<int>> d_remoteTri; //!< The unique ghost triangles for each gcw
-    std::vector<Edge> d_childEdge;             //!< The list of local children edges
-    std::vector<Face> d_childFace;             //!< The list of local children faces
-    std::map<ElementID, Edge> d_remoteEdge;    //!< The list of remote children edges
-    std::map<ElementID, Face> d_remoteFace;    //!< The list of remote children faces
+    StoreTriData<int, 2> d_childEdge;          //!< The list of local children edges
+    StoreTriData<int, 3> d_childFace;          //!< The list of local children faces
     ElementList d_parents[NG][NG + 1];         //!< Parent data
     std::vector<int> d_block_ids;              //!< The global list of block ids
     std::vector<int> d_boundary_ids;           //!< The global list of boundary ids

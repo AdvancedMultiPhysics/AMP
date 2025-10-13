@@ -95,6 +95,14 @@ ElementID StoreTriData<TYPE, N>::getID( int i ) const
         return ElementID( false, d_type, local, rank );
     }
 }
+template<class TYPE, size_t N>
+int StoreTriData<TYPE, N>::find( const std::array<TYPE, N> &x ) const
+{
+    int index = AMP::Utilities::findfirst( d_x.size(), d_x.data(), x );
+    AMP_DEBUG_ASSERT( index < (int) d_x.size() );
+    AMP_DEBUG_ASSERT( d_x[index] == x );
+    return index;
+}
 
 
 /****************************************************************
@@ -471,6 +479,7 @@ getChildrenIDs( const std::vector<std::array<ElementID, N1 + 1>> &elements,
 template<uint8_t NG>
 void TriangleMesh<NG>::initialize()
 {
+    PROFILE( "initialize" );
     // Create the local triangles
     size_t N_tri = d_globalTri.end() - d_globalTri.start();
     std::vector<std::array<ElementID, NG + 1>> tri2( N_tri );
@@ -533,16 +542,16 @@ void TriangleMesh<NG>::initializeIterators()
     }
     // Compute the parents
     if constexpr ( NG >= 1 ) {
-        d_parents[0][1] = computeNodeParents( d_iterators[max_gcw][1] );
+        d_parents[0][1] = getParents( 0, 1 );
     }
     if constexpr ( NG >= 2 ) {
-        d_parents[0][2] = computeNodeParents( d_iterators[max_gcw][2] );
-        d_parents[1][2] = getParents( 1, d_iterators[max_gcw][2] );
+        d_parents[0][2] = getParents( 0, 2 );
+        d_parents[1][2] = getParents( 1, 2 );
     }
     if constexpr ( NG >= 3 ) {
-        d_parents[0][3] = computeNodeParents( d_iterators[max_gcw][3] );
-        d_parents[1][3] = getParents( 1, d_iterators[max_gcw][3] );
-        d_parents[2][3] = getParents( 2, d_iterators[max_gcw][3] );
+        d_parents[0][3] = getParents( 0, 3 );
+        d_parents[1][3] = getParents( 1, 3 );
+        d_parents[2][3] = getParents( 2, 3 );
     }
 
     // Create the block iterators
@@ -648,7 +657,6 @@ MeshIterator TriangleMesh<NG>::createIterator( GeomType type, int gcw ) const
 {
     if ( static_cast<int>( type ) > NG || gcw > d_max_gcw )
         return MeshIterator();
-    int myRank = d_comm.getRank();
     std::vector<int> tri_list( d_globalTri.end() - d_globalTri.start() );
     std::iota( tri_list.begin(), tri_list.end(), d_globalTri.start() );
     for ( int g = 0; g < gcw; g++ )
@@ -662,9 +670,13 @@ MeshIterator TriangleMesh<NG>::createIterator( GeomType type, int gcw ) const
         return TriangleMeshIterator<NG, NG>( this, elements );
     } else if ( type == GeomType::Vertex ) {
         std::set<int> node_set;
-        for ( int i : tri_list ) {
-            for ( auto n : d_globalTri[i] )
-                node_set.insert( n );
+        for ( int n = d_vertex.start(); n < d_vertex.end(); n++ )
+            node_set.insert( n );
+        if ( gcw > 0 ) {
+            for ( int i : tri_list ) {
+                for ( auto n : d_globalTri[i] )
+                    node_set.insert( n );
+            }
         }
         auto elements = std::make_shared<std::vector<ElementID>>();
         elements->reserve( node_set.size() );
@@ -674,61 +686,37 @@ MeshIterator TriangleMesh<NG>::createIterator( GeomType type, int gcw ) const
         return TriangleMeshIterator<NG, 0>( this, elements );
     } else if ( type == GeomType::Edge ) {
         if constexpr ( NG > 1 ) {
-            auto elements = std::make_shared<std::vector<ElementID>>();
-            // Create local edges
-            auto &vec = *elements;
-            vec.reserve( d_childEdge.size() );
-            for ( size_t i = 0; i < d_childEdge.size(); i++ )
-                vec.emplace_back( true, GeomType::Edge, i, myRank );
-            // Add ghost values
+            std::set<int> edge_set;
+            for ( int n = d_childEdge.start(); n < d_childEdge.end(); n++ )
+                edge_set.insert( n );
             if ( gcw > 0 ) {
-                int start = d_vertex.start();
-                int end   = d_vertex.end();
-                auto it   = createIterator( static_cast<GeomType>( NG ), gcw );
-                auto it2  = dynamic_cast<const TriangleMeshIterator<NG, NG> *>( it.rawIterator() );
-                AMP_ASSERT( it2 );
-                for ( auto id : *( it2->d_list ) ) {
-                    for ( auto &child : getChildren<NG, 1>( d_globalTri[id] ) ) {
-                        if ( child[0] < start || child[0] >= end ) {
-                            for ( auto [id, t] : d_remoteEdge ) {
-                                if ( t == child ) {
-                                    vec.push_back( id );
-                                }
-                            }
-                        }
-                    }
+                for ( int i : tri_list ) {
+                    for ( auto &child : getChildren<NG, 1>( d_globalTri[i] ) )
+                        edge_set.insert( d_childEdge.find( child ) );
                 }
             }
+            auto elements = std::make_shared<std::vector<ElementID>>();
+            elements->reserve( edge_set.size() );
+            for ( int edge : edge_set )
+                elements->push_back( d_childEdge.getID( edge ) );
             AMP::Utilities::quicksort( *elements );
             return TriangleMeshIterator<NG, 1>( this, elements );
         }
     } else if ( type == GeomType::Face ) {
         if constexpr ( NG > 2 ) {
-            auto elements = std::make_shared<std::vector<ElementID>>();
-            // Create local edges
-            auto &vec = *elements;
-            vec.reserve( d_childFace.size() );
-            for ( size_t i = 0; i < d_childFace.size(); i++ )
-                vec.emplace_back( true, GeomType::Face, i, myRank );
-            // Add ghost values
+            std::set<int> face_set;
+            for ( int n = d_childFace.start(); n < d_childFace.end(); n++ )
+                face_set.insert( n );
             if ( gcw > 0 ) {
-                int start = d_vertex.start();
-                int end   = d_vertex.end();
-                auto it   = createIterator( static_cast<GeomType>( NG ), gcw );
-                auto it2  = dynamic_cast<const TriangleMeshIterator<NG, NG> *>( it.rawIterator() );
-                AMP_ASSERT( it2 );
-                for ( auto id : *( it2->d_list ) ) {
-                    for ( auto &child : getChildren<NG, 2>( d_globalTri[id] ) ) {
-                        if ( child[0] < start || child[0] >= end ) {
-                            for ( auto [id, t] : d_remoteFace ) {
-                                if ( t == child ) {
-                                    vec.push_back( id );
-                                }
-                            }
-                        }
-                    }
+                for ( int i : tri_list ) {
+                    for ( auto &child : getChildren<NG, 2>( d_globalTri[i] ) )
+                        face_set.insert( d_childFace.find( child ) );
                 }
             }
+            auto elements = std::make_shared<std::vector<ElementID>>();
+            elements->reserve( face_set.size() );
+            for ( int face : face_set )
+                elements->push_back( d_childFace.getID( face ) );
             AMP::Utilities::quicksort( *elements );
             return TriangleMeshIterator<NG, 2>( this, elements );
         }
@@ -747,71 +735,44 @@ void TriangleMesh<NG>::buildChildren()
     if constexpr ( NG == 1 )
         return;
     int myRank = d_comm.getRank();
-    int N_tri  = d_globalTri.end() - d_globalTri.start();
-    int start  = d_vertex.start();
-    int end    = d_vertex.end();
     // Build local children
-    d_childEdge.clear();
-    d_childFace.clear();
-    d_childEdge.reserve( N_tri );
-    d_childFace.reserve( N_tri );
-    std::vector<Edge> remoteEdges;
-    std::vector<Face> remoteFaces;
-    auto list = getList<NG>( createIterator( static_cast<GeomType>( NG ), d_max_gcw ) );
-    for ( size_t i = 0; i < list->size(); i++ ) {
-        auto id  = list->operator[]( i );
-        auto tri = d_globalTri[id];
-        if constexpr ( NG >= 2 ) {
-            auto children = getChildren<NG, 1>( tri );
-            for ( auto child : children ) {
-                if ( child[0] >= start && child[0] < end )
-                    d_childEdge.push_back( child );
-                else
-                    remoteEdges.push_back( child );
-            }
-        }
-        if constexpr ( NG >= 3 ) {
-            auto children = getChildren<NG, 2>( tri );
-            for ( auto child : children ) {
-                if ( child[0] >= start && child[0] < end )
-                    d_childFace.push_back( child );
-                else
-                    remoteFaces.push_back( child );
-            }
-        }
-    }
-    d_childEdge = AMP::DelaunayHelpers::uniqueTri<1>( d_childEdge );
-    d_childFace = AMP::DelaunayHelpers::uniqueTri<2>( d_childFace );
-    if ( d_comm.getSize() == 1 )
-        return;
-    // Build remote children
-    std::map<std::array<int, 2>, ElementID> edgeIDs;
-    std::map<std::array<int, 3>, ElementID> faceIDs;
-    for ( size_t i = 0; i < d_childEdge.size(); i++ )
-        edgeIDs[d_childEdge[i]] = ElementID( true, GeomType::Edge, i, myRank );
-    for ( size_t i = 0; i < d_childFace.size(); i++ )
-        faceIDs[d_childFace[i]] = ElementID( true, GeomType::Face, i, myRank );
-    d_comm.mapGather( edgeIDs );
-    d_comm.mapGather( faceIDs );
+    auto nodeOffsets = d_globalTri.offset();
+    nodeOffsets.resize( nodeOffsets.size() + 1, nodeOffsets.back() );
     if constexpr ( NG >= 2 ) {
-        for ( auto edge : remoteEdges ) {
-            auto it = edgeIDs.find( edge );
-            AMP_ASSERT( it != edgeIDs.end() );
-            int rank  = it->second.owner_rank();
-            int index = it->second.local_id();
-            ElementID id( rank == myRank, GeomType::Edge, index, rank );
-            d_remoteEdge[id] = edge;
+        std::vector<std::array<int, 2>> edges;
+        edges.reserve( 2 * d_globalTri.size() );
+        for ( int i = 0; i < d_globalTri.size(); i++ ) {
+            for ( auto child : getChildren<NG, 1>( d_globalTri[i] ) )
+                edges.push_back( child );
         }
+        edges = AMP::DelaunayHelpers::uniqueTri<1>( edges );
+        std::vector<int> offset( d_comm.getSize() + 1, 0 );
+        for ( int i = 0, r = 1; i < (int) edges.size(); i++ ) {
+            while ( edges[i][0] >= nodeOffsets[r] )
+                r++;
+            offset[r]++;
+        }
+        for ( size_t i = 1; i < offset.size(); i++ )
+            offset[i] += offset[i - 1];
+        d_childEdge = StoreTriData( edges, offset, myRank, GeomType::Edge );
     }
     if constexpr ( NG >= 3 ) {
-        for ( auto face : remoteFaces ) {
-            auto it = faceIDs.find( face );
-            AMP_ASSERT( it != faceIDs.end() );
-            int rank  = it->second.owner_rank();
-            int index = it->second.local_id();
-            ElementID id( rank == myRank, GeomType::Face, index, rank );
-            d_remoteFace[id] = face;
+        std::vector<std::array<int, 3>> faces;
+        faces.reserve( 2 * d_globalTri.size() );
+        for ( int i = 0; i < d_globalTri.size(); i++ ) {
+            for ( auto child : getChildren<NG, 2>( d_globalTri[i] ) )
+                faces.push_back( child );
         }
+        faces = AMP::DelaunayHelpers::uniqueTri<2>( faces );
+        std::vector<int> offset( d_comm.getSize() + 1, 0 );
+        for ( int i = 0, r = 1; i < (int) faces.size(); i++ ) {
+            while ( faces[i][0] >= nodeOffsets[r] )
+                r++;
+            offset[r]++;
+        }
+        for ( size_t i = 1; i < offset.size(); i++ )
+            offset[i] += offset[i - 1];
+        d_childFace = StoreTriData( faces, offset, myRank, GeomType::Face );
     }
 }
 
@@ -819,101 +780,77 @@ void TriangleMesh<NG>::buildChildren()
 /********************************************************
  * Build the parent data                                 *
  ********************************************************/
-template<uint8_t NG>
-StoreCompressedList<ElementID> TriangleMesh<NG>::computeNodeParents( const MeshIterator &it )
+template<uint8_t N>
+static StoreCompressedList<ElementID>
+computeParents( int start, int end, const StoreTriData<int, N + 1> &tri )
 {
-    int start = d_vertex.start();
-    int end   = d_vertex.end();
-    auto list = getList<NG>( it );
-    if ( list->empty() )
-        return StoreCompressedList<ElementID>( end - start );
-    auto type = list->front().type();
     std::vector<std::vector<ElementID>> parents( end - start );
-    if ( type == GeomType::Edge ) {
-        for ( auto id : *list ) {
-            for ( auto node : getElem<1>( id ) ) {
-                if ( node >= start && node < end )
-                    parents[node - start].push_back( id );
-            }
+    for ( int i = 0; i < tri.size(); i++ ) {
+        for ( auto n : tri[i] ) {
+            if ( n >= start && n < end )
+                parents[n - start].push_back( tri.getID( i ) );
         }
     }
-    if constexpr ( NG >= 2 ) {
-        if ( type == GeomType::Face ) {
-            for ( auto id : *list ) {
-                for ( auto node : getElem<2>( id ) ) {
-                    if ( node >= start && node < end )
-                        parents[node - start].push_back( id );
-                }
-            }
-        }
-    }
-    if constexpr ( NG >= 3 ) {
-        if ( type == GeomType::Cell ) {
-            for ( auto id : *list ) {
-                for ( auto node : getElem<3>( id ) ) {
-                    if ( node >= start && node < end )
-                        parents[node - start].push_back( id );
-                }
-            }
-        }
-    }
-    // Check that every node has a parent
+    bool test = true;
     for ( size_t i = 0; i < parents.size(); i++ )
-        AMP_ASSERT( !parents[i].empty() );
-    // Return the parents
+        test = test && !parents[i].empty();
+    AMP_ASSERT( test );
+    return StoreCompressedList<ElementID>( parents );
+}
+template<uint8_t N1, uint8_t N2>
+static StoreCompressedList<ElementID> computeParents( const StoreTriData<int, N1 + 1> &childData,
+                                                      const StoreTriData<int, N2 + 1> &parentData )
+{
+    int start = childData.start();
+    int end   = childData.end();
+    std::vector<std::vector<ElementID>> parents( end - start );
+    for ( int i = 0; i < parentData.size(); i++ ) {
+        auto parent = parentData[i];
+        for ( const auto &child : getChildren<N2, N1>( parent ) ) {
+            int index = childData.find( child );
+            if ( index >= start || index < end )
+                parents[index - start].push_back( parentData.getID( i ) );
+        }
+    }
+    bool test = true;
+    for ( size_t i = 0; i < parents.size(); i++ )
+        test = test && !parents[i].empty();
+    AMP_ASSERT( test );
     return StoreCompressedList<ElementID>( parents );
 }
 template<uint8_t NG>
-StoreCompressedList<ElementID> TriangleMesh<NG>::getParents( int childType, const MeshIterator &it )
+StoreCompressedList<ElementID> TriangleMesh<NG>::computeNodeParents( int parentType )
 {
-    auto list   = getList<NG>( it );
-    int N_local = numLocalElements( static_cast<GeomType>( childType ) );
-    if ( list->empty() )
-        return StoreCompressedList<ElementID>( N_local );
-    auto parentType = static_cast<int>( list->front().type() );
-    AMP_ASSERT( childType < parentType );
+    int start = d_vertex.start();
+    int end   = d_vertex.end();
+    std::vector<std::vector<ElementID>> parents( end - start );
+    if ( parentType == NG ) {
+        return computeParents<NG>( start, end, d_globalTri );
+    } else if ( parentType == 1 ) {
+        if constexpr ( NG > 1 )
+            return computeParents<1>( start, end, d_childEdge );
+    } else if ( parentType == 2 ) {
+        if constexpr ( NG > 2 )
+            return computeParents<2>( start, end, d_childFace );
+    }
+    AMP_ERROR( "Internal Error" );
+}
+template<uint8_t NG>
+StoreCompressedList<ElementID> TriangleMesh<NG>::getParents( int childType, int parentType )
+{
     if ( childType == 0 )
-        return computeNodeParents( it );
-    std::vector<std::vector<ElementID>> parents( N_local );
-    if constexpr ( NG >= 2 ) {
-        if ( childType == 1 && parentType == 2 ) {
-            for ( auto id : *list ) {
-                auto elem = getElem<2>( id );
-                for ( const auto &child : getChildren<2, 1>( elem ) ) {
-                    auto id2 = getID<1>( child );
-                    if ( id2.is_local() )
-                        parents[id2.local_id()].push_back( id );
-                }
-            }
-        }
+        return computeNodeParents( parentType );
+    if ( parentType == NG && childType == 1 ) {
+        if constexpr ( NG > 1 )
+            return computeParents<1, NG>( d_childEdge, d_globalTri );
+    } else if ( parentType == NG && childType == 2 ) {
+        if constexpr ( NG > 2 )
+            return computeParents<2, NG>( d_childFace, d_globalTri );
+    } else if ( parentType == 2 && childType == 1 ) {
+        if constexpr ( NG > 2 )
+            return computeParents<1, 2>( d_childEdge, d_childFace );
     }
-    if constexpr ( NG >= 3 ) {
-        if ( childType == 1 && parentType == 3 ) {
-            for ( auto id : *list ) {
-                auto elem = getElem<3>( id );
-                for ( const auto &child : getChildren<3, 1>( elem ) ) {
-                    auto id2 = getID<1>( child );
-                    if ( id2.is_local() )
-                        parents[id2.local_id()].push_back( id );
-                }
-            }
-        }
-        if ( childType == 2 && parentType == 3 ) {
-            for ( auto id : *list ) {
-                auto elem = getElem<3>( id );
-                for ( const auto &child : getChildren<3, 2>( elem ) ) {
-                    auto id2 = getID<2>( child );
-                    if ( id2.is_local() )
-                        parents[id2.local_id()].push_back( id );
-                }
-            }
-        }
-    }
-    // Check that every node has a parent
-    for ( size_t i = 0; i < parents.size(); i++ )
-        AMP_ASSERT( !parents[i].empty() );
-    // Return the parents
-    return StoreCompressedList<ElementID>( parents );
+    AMP_ERROR( "Internal error" );
 }
 
 
@@ -949,8 +886,6 @@ TriangleMesh<NG>::TriangleMesh( const TriangleMesh &rhs )
       d_remoteTri( rhs.d_remoteTri ),
       d_childEdge( rhs.d_childEdge ),
       d_childFace( rhs.d_childFace ),
-      d_remoteEdge( rhs.d_remoteEdge ),
-      d_remoteFace( rhs.d_remoteFace ),
       d_block_ids( rhs.d_block_ids ),
       d_boundary_ids( rhs.d_boundary_ids ),
       d_pos_hash( 0 )
@@ -1229,24 +1164,16 @@ void TriangleMesh<NG>::getVerticies( const ElementID &id, ElementID *IDs ) const
         for ( int d = 0; d <= NG; d++ )
             nodes[d] = tri[d];
     } else if ( type == GeomType::Edge ) {
-        N_nodes = 2;
-        std::array<int, 2> edge;
-        if ( id.is_local() )
-            edge = d_childEdge[id.local_id()];
-        else
-            edge = d_remoteEdge.find( id )->second;
-        nodes[0] = edge[0];
-        nodes[1] = edge[1];
+        N_nodes   = 2;
+        auto edge = d_childEdge[id];
+        nodes[0]  = edge[0];
+        nodes[1]  = edge[1];
     } else if ( type == GeomType::Face ) {
-        N_nodes = 3;
-        std::array<int, 3> tri;
-        if ( id.is_local() )
-            tri = d_childFace[id.local_id()];
-        else
-            tri = d_remoteFace.find( id )->second;
-        nodes[0] = tri[0];
-        nodes[1] = tri[1];
-        nodes[2] = tri[2];
+        N_nodes   = 3;
+        auto face = d_childFace[id];
+        nodes[0]  = face[0];
+        nodes[1]  = face[1];
+        nodes[2]  = face[2];
     } else {
         AMP_ERROR( "Not finished" );
     }
@@ -1303,17 +1230,9 @@ std::array<int, TYPE + 1> TriangleMesh<NG>::getElem( const ElementID &id ) const
     } else if constexpr ( TYPE == NG ) {
         return d_globalTri[id];
     } else if constexpr ( TYPE == 1 ) {
-        int myRank = d_comm.getRank();
-        int rank   = id.owner_rank();
-        if ( rank == myRank )
-            return d_childEdge[id.local_id()];
-        AMP_ERROR( "Not finished" );
+        return d_childEdge[id];
     } else if constexpr ( TYPE == 2 ) {
-        int myRank = d_comm.getRank();
-        int rank   = id.owner_rank();
-        if ( rank == myRank )
-            return d_childFace[id.local_id()];
-        AMP_ERROR( "Not finished" );
+        return d_childFace[id];
     }
 }
 template<uint8_t NG>
@@ -1321,25 +1240,14 @@ template<uint8_t TYPE>
 ElementID TriangleMesh<NG>::getID( const std::array<int, TYPE + 1> &tri ) const
 {
     static_assert( TYPE <= NG );
-    int myRank = d_comm.getRank();
     if constexpr ( TYPE == 0 ) {
         return d_vertex.getID( tri[0] );
     } else if constexpr ( TYPE == NG ) {
-        int index = AMP::Utilities::findfirst( d_globalTri.size(), d_globalTri.data(), tri );
-        AMP_DEBUG_ASSERT( d_globalTri[index] == tri );
-        return d_globalTri.getID( index );
+        return d_globalTri.getID( d_globalTri.find( tri ) );
     } else if constexpr ( TYPE == 1 ) {
-        int index  = AMP::Utilities::findfirst( d_childEdge, tri );
-        bool found = index == (int) d_childEdge.size() ? false : d_childEdge[index] == tri;
-        if ( found )
-            return ElementID( true, GeomType::Edge, index, myRank );
-        AMP_ERROR( "Not finished" );
+        return d_childEdge.getID( d_childEdge.find( tri ) );
     } else if constexpr ( TYPE == 2 ) {
-        int index  = AMP::Utilities::findfirst( d_childFace, tri );
-        bool found = index == (int) d_childFace.size() ? false : d_childFace[index] == tri;
-        if ( found )
-            return ElementID( true, GeomType::Face, index, myRank );
-        AMP_ERROR( "Not finished" );
+        return d_childFace.getID( d_childFace.find( tri ) );
     }
 }
 
