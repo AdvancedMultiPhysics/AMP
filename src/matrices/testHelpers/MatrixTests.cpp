@@ -410,13 +410,15 @@ void MatrixTests::VerifyMatMultMatrix_IA( AMP::UnitTest *utils )
     matId      = getCopyMatrix( matId );
     matId->zero();
     matId->setDiagonal( x );
+    AMP::pout << *matId;
 
     matLap->mult( x, y );
     const auto l1y = static_cast<double>( y->L1Norm() );
 
     auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matId, matLap );
-    auto xp      = matProd->createInputVector();
-    auto yp      = matProd->createOutputVector();
+    AMP::pout << *matProd;
+    auto xp = matProd->createInputVector();
+    auto yp = matProd->createOutputVector();
     xp->setToScalar( 1.0 );
     matProd->mult( xp, yp );
     auto l1yp = static_cast<double>( yp->L1Norm() );

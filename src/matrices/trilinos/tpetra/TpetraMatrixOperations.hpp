@@ -116,7 +116,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
 
     auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
 
-    //    matrix->resumeFill();
+    matrix.resumeFill();
 
     // Get the current row's data
     for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
@@ -140,7 +140,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
         }
     }
 
-    //    matrix->fillComplete();
+    matrix.fillComplete();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
