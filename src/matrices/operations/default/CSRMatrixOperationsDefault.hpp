@@ -365,7 +365,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
     auto memTypeV = AMP::Utilities::getMemoryType( rawVecData );
     AMP_INSIST( memTypeV < AMP::Utilities::MemoryType::device &&
                     csrData->d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRMatrixOperationsDefault::extractDiagonal not implemented for device memory" );
+                "CSRMatrixOperationsDefault::getRowSums not implemented for device memory" );
 
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
@@ -380,7 +380,8 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
 
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A,
-                                                             std::shared_ptr<Vector> buf )
+                                                             std::shared_ptr<Vector> buf,
+                                                             const bool remove_zeros )
 {
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
@@ -390,9 +391,10 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     auto *rawVecData = buf->getRawDataBlock<scalar_t>();
     AMP_ASSERT( rawVecData );
     auto memTypeV = AMP::Utilities::getMemoryType( rawVecData );
-    AMP_INSIST( memTypeV < AMP::Utilities::MemoryType::device &&
-                    csrData->d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRMatrixOperationsDefault::extractDiagonal not implemented for device memory" );
+    AMP_INSIST(
+        memTypeV < AMP::Utilities::MemoryType::device &&
+            csrData->d_memory_location < AMP::Utilities::MemoryType::device,
+        "CSRMatrixOperationsDefault::getRowSumsAbsolute not implemented for device memory" );
 
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
@@ -402,6 +404,12 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(), rawVecData );
+    }
+
+    if ( remove_zeros ) {
+        for ( lidx_t row = 0; row < nRows; ++row ) {
+            rawVecData[row] = rawVecData[row] != 0.0 ? rawVecData[row] : 1.0;
+        }
     }
 }
 

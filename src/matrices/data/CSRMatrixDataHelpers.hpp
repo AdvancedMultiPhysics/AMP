@@ -577,6 +577,65 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
     }
 }
 
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::MaskCountNNZ( const typename Config::lidx_t *in_row_starts,
+                                                 const unsigned char *mask,
+                                                 const bool keep_first,
+                                                 const typename Config::lidx_t num_rows,
+                                                 typename Config::lidx_t *out_row_starts )
+{
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        const lidx_t kf = keep_first ? 1 : 0; // if keeping then start count at one and skip entry
+        for ( lidx_t row = 0; row < num_rows; ++row ) {
+            lidx_t row_nnz = kf;
+            for ( lidx_t c = in_row_starts[row] + kf; c < in_row_starts[row + 1]; ++c ) {
+                AMP_DEBUG_ASSERT( mask[c] == 0 || mask[c] == 1 );
+                row_nnz += static_cast<lidx_t>( mask[c] );
+            }
+            out_row_starts[row] = row_nnz;
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        AMP_ERROR( "CSRMatrixDataHelpers::MaskCountNNZ not implemented on device yet" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::MaskCountNNZ Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *in_row_starts,
+                                                 const typename Config::lidx_t *in_cols_loc,
+                                                 const typename Config::scalar_t *in_coeffs,
+                                                 const unsigned char *mask,
+                                                 const bool keep_first,
+                                                 const typename Config::lidx_t num_rows,
+                                                 const typename Config::lidx_t *out_row_starts,
+                                                 typename Config::lidx_t *out_cols_loc,
+                                                 typename Config::scalar_t *out_coeffs )
+{
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        for ( lidx_t row = 0; row < num_rows; ++row ) {
+            auto pos = out_row_starts[row];
+            for ( lidx_t c = in_row_starts[row]; c < in_row_starts[row + 1]; ++c ) {
+                if ( mask[c] == 1 || ( keep_first && c == in_row_starts[row] ) ) {
+                    out_cols_loc[pos] = in_cols_loc[c];
+                    if ( out_coeffs != nullptr ) {
+                        out_coeffs[pos] = in_coeffs[c];
+                    }
+                    ++pos;
+                }
+            }
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        AMP_ERROR( "CSRMatrixDataHelpers::MaskFillDiag not implemented on device yet" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::MaskFillDiag Undefined memory location" );
+#endif
+    }
+}
+
 } // namespace LinearAlgebra
 } // namespace AMP
 

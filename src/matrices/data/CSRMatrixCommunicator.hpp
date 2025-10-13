@@ -31,6 +31,7 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
         auto matrix        = it.second;
         const auto num_rs  = matrix->d_num_rows + 1;
         const auto num_nnz = matrix->d_nnz;
+        AMP_DEBUG_ASSERT( !matrix->isEmpty() );
         d_send_requests.emplace_back(
             d_comm.Isend( matrix->d_row_starts.get(), num_rs, dest, ROW_TAG ) );
         d_send_requests.emplace_back(

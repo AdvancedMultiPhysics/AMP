@@ -27,13 +27,23 @@ struct Relaxation : SolverStrategy {
 public:
     enum class Sweep { forward, backward, symmetric };
     enum class Direction { forward, backward };
-    explicit Relaxation( std::shared_ptr<const SolverStrategyParameters> params );
+    explicit Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
+                         std::string name_,
+                         std::string short_name_ );
 
     virtual std::string type() const override { return "Relaxation"; }
 
     void getFromInput( std::shared_ptr<AMP::Database> );
 
+    void apply( std::shared_ptr<const LinearAlgebra::Vector> b,
+                std::shared_ptr<LinearAlgebra::Vector> x ) override;
+
 protected:
+    virtual void relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
+                              std::shared_ptr<LinearAlgebra::Vector> x ) = 0;
+
+    const std::string name, short_name;
+    bool need_norms;
     Sweep d_sweep;
     size_t d_num_sweeps;
     std::shared_ptr<AMP::LinearAlgebra::Matrix> d_matrix;
@@ -54,20 +64,20 @@ struct HybridGS : Relaxation {
 
     void registerOperator( std::shared_ptr<AMP::Operator::Operator> ) override;
 
-    void apply( std::shared_ptr<const LinearAlgebra::Vector> b,
-                std::shared_ptr<LinearAlgebra::Vector> x ) override;
-
-private:
+protected:
     std::byte *d_ghost_vals;
     size_t d_num_ghosts;
     size_t d_num_ghost_bytes;
 
     void deallocateGhosts();
 
+    void relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
+                      std::shared_ptr<LinearAlgebra::Vector> x ) override;
+
     template<typename Config>
-    void relax( LinearAlgebra::CSRMatrix<Config> &A,
-                const LinearAlgebra::Vector &b,
-                LinearAlgebra::Vector &x );
+    void relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                std::shared_ptr<const LinearAlgebra::Vector> b,
+                std::shared_ptr<LinearAlgebra::Vector> x );
 
     template<typename Config>
     void sweep( const Relaxation::Direction relax_dir,
@@ -89,11 +99,12 @@ struct JacobiL1 : Relaxation {
 
     void registerOperator( std::shared_ptr<AMP::Operator::Operator> ) override;
 
-    void apply( std::shared_ptr<const LinearAlgebra::Vector> b,
-                std::shared_ptr<LinearAlgebra::Vector> x ) override;
+protected:
+    void relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
+                      std::shared_ptr<LinearAlgebra::Vector> x ) override;
 
-private:
     float d_spec_lower;
+    std::shared_ptr<LinearAlgebra::Vector> d_diag;
     template<typename Config>
     void relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                 std::shared_ptr<const LinearAlgebra::Vector> b,

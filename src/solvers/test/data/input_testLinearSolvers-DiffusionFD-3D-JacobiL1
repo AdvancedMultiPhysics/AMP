@@ -1,0 +1,11 @@
+<<< input_DiffusionFDOperator-3D >>>
+
+LinearSolver{
+  name = "JacobiL1"
+  absolute_tolerance = 1.e-12
+  relative_tolerance = 1.e-12
+  print_info_level = 3
+  max_iterations = 20
+  num_sweeps = 4
+  spec_lower = 0.9
+}

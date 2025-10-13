@@ -68,7 +68,7 @@ public:
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the sums
      */
-    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr ) const override
+    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr, const bool ) const override
     {
         AMP_ERROR( "Not implemented" );
     }
