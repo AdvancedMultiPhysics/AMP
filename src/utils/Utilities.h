@@ -375,6 +375,15 @@ void nullUse( const void * );
 std::string randomString( const AMP::AMP_MPI &comm = AMP_COMM_NULL );
 
 
+//! Fill with random values in [0,1]
+void fillRandom( std::vector<double> & );
+
+
+//! Fill with random values in [0,1]
+template<size_t N>
+void fillRandom( std::vector<std::array<double, N>> & );
+
+
 //! std::string version of sprintf
 inline std::string stringf( const char *format, ... )
 {
