@@ -13,11 +13,13 @@
 #include "AMP/solvers/testHelpers/SolverTestParameters.h"
 #include "AMP/solvers/testHelpers/testSolverHelpers.h"
 
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
 
+#define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
 void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileName )
 {
@@ -122,6 +124,8 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, myPoissonOp );
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     // Use zero initial iterate and apply solver
     // linearSolver->setZeroInitialGuess( true );
     linearSolver->apply( rhsVec, unumVec );
@@ -142,6 +146,12 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // No specific solution is implemented for this problem, so this will just check that the solver
     // converged.
     checkConvergence( linearSolver.get(), input_db, input_file, *ut );
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    AMP::pout << std::endl
+              << "DiffusionFD test with " << inputFileName << "  wall time: ("
+              << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;
 }
 // end of driver()
 
@@ -161,16 +171,23 @@ int main( int argc, char **argv )
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
 
     std::vector<std::string> exeNames;
-    /* Commenting out this test because it fails... I don't know what good parameters are for SA. It
-    seems to be coarsening incredibly aggressively when going to the first coarse level. The
-    non-eliminated boundaries might also be a source of difficulty?
-    @imay will add this back in later
-    */
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-1D-SASolver-HybridGS-FCG" );
+
+    // relaxation solvers alone, only for troubleshooting
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-JacobiL1" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-HybridGS" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-JacobiL1" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-HybridGS" );
+
+    // SASolver with/without FCG acceleration
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
 #ifdef AMP_USE_HYPRE
-    // The 1D test does not pass with default BoomerAMG parameters, so commenting out for the moment
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-1D-BoomerAMG-CG" );
+    // Boomer with/without CG acceleration
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG" );
     exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG" );
     exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
 #endif
 

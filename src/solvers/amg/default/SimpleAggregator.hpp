@@ -1,6 +1,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/CSRVisit.h"
+#include "AMP/solvers/amg/Strength.hpp"
 #include "AMP/solvers/amg/default/SimpleAggregator.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
@@ -32,11 +33,18 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t = typename matrix_t::matrixdata_t;
 
-    // information about A and unpack diag block
+    // get strength information
+    auto S = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+
+    // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
-    auto [Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs] = A_diag->getDataFields();
+    auto A_masked      = A_diag->maskMatrixData( S.diag_mask_data(), true );
+
+    // pull out data fields from A_masked
+    // only care about row starts and local cols
+    auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // fill initial ids with -1's to mark as not associated
     AMP::Utilities::Algorithms<int>::fill_n( agg_ids, A_nrows, -1 );
@@ -53,42 +61,34 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     //       that could be collapsed into a single loop
     int num_agg = 0;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = Ad_rs[row], re = Ad_rs[row + 1], row_len = re - rs;
+        const auto rs = Am_rs[row], re = Am_rs[row + 1], row_len = re - rs;
 
         // skip already aggregated rows
         if ( agg_ids[row] >= 0 ) {
             continue;
         }
 
-        // mark single entry rows as isolated and do not aggregate
-        if ( row_len == 1 ) {
+        // mark single entry or empty rows as isolated and do not aggregate
+        if ( row_len == 1 || row_len == 0 ) {
             AMP_DEBUG_ASSERT( isolated_pts[row] == 0 ); // should be undecided if not agg'd
             isolated_pts[row] = 1;
             continue;
         }
 
         // Check if any members of this row are already associated and skip if so.
-        // Also check if row has only stored zeros away from diag entry
-        bool have_nbr = false, have_nz = false;
+        bool have_nbr = false;
         for ( lidx_t c = rs + 1; c < re; ++c ) {
-            have_nbr = have_nbr || agg_ids[Ad_cols_loc[c]] < 0;
-            have_nz  = have_nz || Ad_coeffs[c] != 0.0;
+            have_nbr = have_nbr || agg_ids[Am_cols_loc[c]] < 0;
         }
         if ( !have_nbr ) {
             // does not have all nbrs available for aggregation, skip
-            continue;
-        }
-        if ( !have_nz ) {
-            // off of diagonal all entries are stored zeros, mark as isolated and skip
-            AMP_DEBUG_ASSERT( isolated_pts[row] == 0 ); // should be undecided if not agg'd
-            isolated_pts[row] = 1;
             continue;
         }
 
         // create new aggregate from row
         agg_size.push_back( 0 );
         for ( lidx_t n = 0; n < row_len; ++n ) {
-            const auto col_idx = Ad_cols_loc[rs + n];
+            const auto col_idx = Am_cols_loc[rs + n];
             agg_ids[col_idx]   = num_agg;
             agg_size[num_agg]++;
             // steal any isolated points that can be lumped into this aggregate
@@ -100,7 +100,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     }
 
     // second pass adds unmarked entries to the smallest aggregate they are nbrs with
-    // entries are unmarked because they neigbored some aggregate in the above or are
+    // entries are unmarked because they neighbored some aggregate in the above or are
     // isolated. Add entries to the smallest aggregate they neighbor and track if
     // any remain isolated
     bool have_isolated = false;
@@ -112,8 +112,8 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
 
         // find smallest neighboring aggregate
         lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t c = Ad_rs[row]; c < Ad_rs[row + 1]; ++c ) {
-            const auto id = agg_ids[Ad_cols_loc[c]];
+        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
+            const auto id = agg_ids[Am_cols_loc[c]];
             // only consider nbrs that are aggregated
             if ( id >= 0 && ( agg_size[id] < small_agg_size ) ) {
                 small_agg_size = agg_size[id];

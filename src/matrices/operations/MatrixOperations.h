@@ -107,7 +107,9 @@ public:
      * \param[in] A The matrix to get the row sums from
      * \param[in] buf Vector to store the row sums to
      */
-    virtual void getRowSumsAbsolute( MatrixData const &A, std::shared_ptr<Vector> buf ) = 0;
+    virtual void getRowSumsAbsolute( MatrixData const &A,
+                                     std::shared_ptr<Vector> buf,
+                                     const bool remove_zeros = false ) = 0;
 
     /** \brief  Set the matrix to the identity matrix
      */

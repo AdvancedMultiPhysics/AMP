@@ -14,10 +14,15 @@
 
 namespace AMP::Solver::AMG {
 
-Relaxation::Relaxation( std::shared_ptr<const SolverStrategyParameters> params )
-    : SolverStrategy( params )
+Relaxation::Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
+                        std::string name_,
+                        std::string short_name_ )
+    : SolverStrategy( params ), name( name_ ), short_name( short_name_ )
 {
+    AMP_ASSERT( params );
     getFromInput( params->d_db );
+    need_norms =
+        d_iMaxIterations > 1 && ( d_dAbsoluteTolerance > 0.0 || d_dRelativeTolerance > 0.0 );
 }
 
 void Relaxation::getFromInput( std::shared_ptr<AMP::Database> db )
@@ -34,11 +39,103 @@ void Relaxation::getFromInput( std::shared_ptr<AMP::Database> db )
     else {
         AMP_ERROR( "Relaxation: invalid sweep type (" + sweep_type + ")" );
     }
+
+    // These are predominantly used as preconditioners/smoothers
+    // so should default to zero tolerances and 1 iteration
+    d_iMaxIterations     = db->getWithDefault<int>( "max_iterations", 1 );
+    d_dAbsoluteTolerance = db->getWithDefault<double>( "absolute_tolerance", 0.0 );
+    d_dRelativeTolerance = db->getWithDefault<double>( "relative_tolerance", 0.0 );
+}
+
+void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
+                        std::shared_ptr<LinearAlgebra::Vector> x )
+{
+    PROFILE( "Relaxation::apply" );
+
+    // initialize, trivial if acting as a
+    // preconditioner
+    auto r             = need_norms ? b->clone() : nullptr;
+    d_dInitialResidual = 0.0;
+    if ( need_norms ) {
+        const auto b_norm = static_cast<double>( b->L2Norm() );
+
+        // Zero rhs implies zero solution, bail out early
+        if ( b_norm == 0.0 ) {
+            x->zero();
+            d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
+            d_dInitialResidual  = 0.0;
+            d_dResidualNorm     = 0.0;
+            if ( d_iDebugPrintInfoLevel > 0 ) {
+                AMP::pout << name << "::apply: solution is zero" << std::endl;
+            }
+        }
+
+        if ( d_bUseZeroInitialGuess ) {
+            x->zero();
+            d_dInitialResidual = b_norm;
+        } else {
+            d_pOperator->residual( b, x, r );
+            d_dInitialResidual = static_cast<double>( r->L2Norm() );
+        }
+
+        if ( d_iDebugPrintInfoLevel > 1 ) {
+            AMP::pout << name << "::apply: initial L2Norm of solution vector: " << x->L2Norm()
+                      << std::endl;
+            AMP::pout << name << "::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
+            AMP::pout << name << "::apply: initial L2Norm of residual: " << d_dInitialResidual
+                      << std::endl;
+        }
+        if ( checkStoppingCriteria( d_dInitialResidual ) ) {
+            if ( d_iDebugPrintInfoLevel > 0 ) {
+                AMP::pout << name << "::apply: initial residual below tolerance" << std::endl;
+            }
+            return;
+        }
+    }
+    auto current_res = static_cast<double>( d_dInitialResidual );
+
+    // apply solver for needed number of iterations
+    for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
+          ++d_iNumberIterations ) {
+        relax_visit( b, x );
+
+        if ( need_norms ) {
+            d_pOperator->residual( b, x, r );
+            current_res = static_cast<double>( r->L2Norm() );
+
+            if ( d_iDebugPrintInfoLevel > 1 ) {
+                AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
+                          << current_res << std::endl;
+            }
+
+            if ( checkStoppingCriteria( current_res ) ) {
+                break;
+            }
+        }
+    }
+
+    // Store final residual norm and update convergence flags
+    // if this is acting as a solver and not a preconditioner
+    if ( need_norms ) {
+        d_dResidualNorm = current_res;
+        checkStoppingCriteria( current_res );
+
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << name << "::apply: final L2Norm of solution: " << x->L2Norm() << std::endl;
+            AMP::pout << name << "::apply: final L2Norm of residual: " << current_res << std::endl;
+            AMP::pout << name << "::apply: iterations: " << d_iNumberIterations << std::endl;
+            AMP::pout << name << "::apply: convergence reason: "
+                      << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+        }
+    }
 }
 
 HybridGS::HybridGS( std::shared_ptr<const SolverStrategyParameters> iparams )
-    : Relaxation( iparams ), d_ghost_vals( nullptr ), d_num_ghosts( 0 )
+    : Relaxation( iparams, "HybridGS", "HGS" ), d_ghost_vals( nullptr ), d_num_ghosts( 0 )
 {
+    if ( d_pOperator ) {
+        registerOperator( d_pOperator );
+    }
 }
 
 HybridGS::~HybridGS() { deallocateGhosts(); }
@@ -82,35 +179,42 @@ void HybridGS::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     auto mat = lin_op->getMatrix();
     AMP_DEBUG_INSIST( mat, "HybridGS: matrix cannot be NULL" );
     d_matrix = mat;
+    // verify this is actually a CSRMatrix
+    const auto mode = mat->mode();
+    if ( mode == std::numeric_limits<std::uint16_t>::max() ) {
+        AMP::pout << "Expected a CSRMatrix but received a matrix of type: " << mat->type()
+                  << std::endl;
+        AMP_ERROR( "HybridGS::registerOperator: Must pass in linear operator in CSRMatrix format" );
+    }
 }
 
-void HybridGS::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
-                      std::shared_ptr<LinearAlgebra::Vector> x )
+void HybridGS::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
+                            std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    LinearAlgebra::csrVisit( d_matrix, [=]( auto csr_ptr ) { relax( *csr_ptr, *b, *x ); } );
+    LinearAlgebra::csrVisit( d_matrix, [=]( auto csr_ptr ) { relax( csr_ptr, b, x ); } );
 }
 
 template<typename Config>
-void HybridGS::relax( LinearAlgebra::CSRMatrix<Config> &A,
-                      const LinearAlgebra::Vector &b,
-                      LinearAlgebra::Vector &x )
+void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                      std::shared_ptr<const LinearAlgebra::Vector> b,
+                      std::shared_ptr<LinearAlgebra::Vector> x )
 {
     for ( size_t i = 0; i < d_num_sweeps; ++i ) {
         switch ( d_sweep ) {
         case Sweep::forward:
-            sweep<Config>( Direction::forward, A, b, x );
+            sweep<Config>( Direction::forward, *A, *b, *x );
             break;
         case Sweep::backward:
-            sweep<Config>( Direction::backward, A, b, x );
+            sweep<Config>( Direction::backward, *A, *b, *x );
             break;
         case Sweep::symmetric:
-            sweep<Config>( Direction::forward, A, b, x );
-            sweep<Config>( Direction::backward, A, b, x );
+            sweep<Config>( Direction::forward, *A, *b, *x );
+            sweep<Config>( Direction::backward, *A, *b, *x );
             break;
         }
     }
 
-    x.makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+    x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 template<typename Config>
@@ -195,6 +299,9 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
     auto update = [&]( lidx_t row ) {
         auto diag = Ad_coeffs[Ad_rs[row]];
         auto dinv = 1.0 / diag;
+        if ( std::isinf( dinv ) ) {
+            return;
+        }
         auto rsum = diag_sum( row ) + offd_sum( row );
         x[row]    = dinv * ( b[row] - rsum );
     };
@@ -213,12 +320,15 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
     xvec.setUpdateStatus( LinearAlgebra::UpdateState::LOCAL_CHANGED );
 }
 
-JacobiL1::JacobiL1( std::shared_ptr<const SolverStrategyParameters> iparams )
-    : Relaxation( iparams )
+JacobiL1::JacobiL1( std::shared_ptr<const SolverStrategyParameters> params )
+    : Relaxation( params, "JacobiL1", "JL1" )
 {
     d_spec_lower = d_db->getWithDefault<float>( "spec_lower", 0.25 );
     AMP_DEBUG_INSIST( d_spec_lower >= 0.0 && d_spec_lower < 1.0,
                       "JacobiL1: Invalid damping range, need a in [0,1)" );
+    if ( d_pOperator ) {
+        registerOperator( d_pOperator );
+    }
 }
 
 void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
@@ -229,10 +339,22 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     auto mat = lin_op->getMatrix();
     AMP_DEBUG_INSIST( mat, "JacobiL1: matrix cannot be NULL" );
     d_matrix = mat;
+    // verify this is actually a CSRMatrix
+    const auto mode = mat->mode();
+    if ( mode == std::numeric_limits<std::uint16_t>::max() ) {
+        AMP::pout << "Expected a CSRMatrix but received a matrix of type: " << mat->type()
+                  << std::endl;
+        AMP_ERROR( "HybridGS::registerOperator: Must pass in linear operator in CSRMatrix format" );
+    }
+    // Get D as absolute row sums of A
+    std::shared_ptr<LinearAlgebra::Vector> D;
+    LinearAlgebra::csrVisit( d_matrix,
+                             [&D]( auto csr_ptr ) { D = csr_ptr->getRowSumsAbsolute( D, true ); } );
+    d_diag.swap( D );
 }
 
-void JacobiL1::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
-                      std::shared_ptr<LinearAlgebra::Vector> x )
+void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
+                            std::shared_ptr<LinearAlgebra::Vector> x )
 {
     LinearAlgebra::csrVisit( d_matrix, [=]( auto csr_ptr ) { relax( csr_ptr, b, x ); } );
 }
@@ -250,25 +372,21 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
     // Chebyshev iteration knowing that we damp in range [a,1]
 
     const scalar_t pi = static_cast<scalar_t>( AMP::Constants::pi );
-    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower; // make a adjustable later
+    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
 
     // storage for r
     auto r = x->clone();
 
-    // Get D as absolute row sums of A
-    auto D = A->getRowSumsAbsolute();
-
     for ( size_t i = 0; i < d_num_sweeps; ++i ) {
         // find omega
-        const scalar_t om = ( ma * std::cos( pi * static_cast<scalar_t>( 2 * i - 1 ) /
-                                             static_cast<scalar_t>( d_num_sweeps ) ) +
-                              pa ) /
-                            2.0;
+        const scalar_t om = 0.5 * ( ma * std::cos( pi * static_cast<scalar_t>( 2 * i - 1 ) /
+                                                   static_cast<scalar_t>( d_num_sweeps ) ) +
+                                    pa );
         // update residual
         A->mult( x, r );
         r->subtract( *b, *r );
         // scale by Dinv
-        r->divide( *r, *D );
+        r->divide( *r, *d_diag );
         // update solution
         x->axpby( om, 1.0, *r );
         x->makeConsistent();

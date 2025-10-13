@@ -28,7 +28,10 @@ coarse_ops_type aggregator_coarsen( std::shared_ptr<AMP::Operator::Operator> fin
                                     Aggregator &aggregator );
 
 struct PairwiseAggregator : Aggregator {
-    PairwiseAggregator( const PairwiseCoarsenSettings &settings ) : d_settings( settings ) {}
+    PairwiseAggregator( const PairwiseCoarsenSettings &settings )
+        : Aggregator( settings.strength_threshold ), d_settings( settings )
+    {
+    }
 
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
     template<class Config>

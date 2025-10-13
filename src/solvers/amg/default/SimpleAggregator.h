@@ -8,7 +8,7 @@
 namespace AMP::Solver::AMG {
 
 struct SimpleAggregator : Aggregator {
-    SimpleAggregator() = default;
+    SimpleAggregator( const float strength_threshold ) : Aggregator( strength_threshold ) {}
 
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
 

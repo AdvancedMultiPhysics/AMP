@@ -43,6 +43,7 @@ public:
     using scalarAllocator_t =
         typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
     using localmatrixdata_t = CSRLocalMatrixData<Config>;
+    using mask_t            = typename localmatrixdata_t::mask_t;
 
     // Memory location, set by examining type of Allocator
     const AMP::Utilities::MemoryType d_memory_location;

@@ -157,25 +157,29 @@ std::shared_ptr<AMP::LinearAlgebra::Vector>
 Operator::subsetInputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec ) const
 {
     PROFILE( "subsetInputVector", 1 );
-    return vec->select( *selectInputVector() );
+    auto sel = selectInputVector();
+    return vec->select( *sel );
 }
 std::shared_ptr<const AMP::LinearAlgebra::Vector>
 Operator::subsetInputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec ) const
 {
     PROFILE( "constSubsetInputVector", 1 );
-    return vec->select( *selectInputVector() );
+    auto sel = selectInputVector();
+    return vec->select( *sel );
 }
 std::shared_ptr<AMP::LinearAlgebra::Vector>
 Operator::subsetOutputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec ) const
 {
     PROFILE( "subsetOutputVector", 1 );
-    return vec->select( *selectOutputVector() );
+    auto sel = selectOutputVector();
+    return vec->select( *sel );
 }
 std::shared_ptr<const AMP::LinearAlgebra::Vector>
 Operator::subsetOutputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec ) const
 {
     PROFILE( "constSubsetOutputVector", 1 );
-    return vec->select( *selectOutputVector() );
+    auto sel = selectOutputVector();
+    return vec->select( *sel );
 }
 
 

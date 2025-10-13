@@ -35,10 +35,8 @@ void CSRMatrixSpGEMMDefault<Config>::symbolicMultiply_NonOverlapped()
     PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply_NonOverlapped" );
 
     // non-overlapped, so do full comms first
-    if ( A->hasOffDiag() ) {
-        startBRemoteComm();
-        endBRemoteComm();
-    }
+    startBRemoteComm();
+    endBRemoteComm();
 
     if ( !A->hasOffDiag() ) {
         multiply<Mode::SYMBOLIC, BlockType::DIAG>( A_diag, B_diag, C_diag );
@@ -63,9 +61,7 @@ void CSRMatrixSpGEMMDefault<Config>::symbolicMultiply_Overlapped()
     PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply_Overlapped" );
 
     // start communication to build BRemote before doing anything
-    if ( A->hasOffDiag() ) {
-        startBRemoteComm();
-    }
+    startBRemoteComm();
 
     C_diag_diag = std::make_shared<localmatrixdata_t>( nullptr,
                                                        C->getMemoryLocation(),
@@ -88,9 +84,9 @@ void CSRMatrixSpGEMMDefault<Config>::symbolicMultiply_Overlapped()
         multiply<Mode::SYMBOLIC, BlockType::OFFD>( A_diag, B_offd, C_diag_offd );
     }
 
+    endBRemoteComm();
     if ( A->hasOffDiag() ) {
         PROFILE( "CSRMatrixSpGEMMDefault::symbolicMultiply_Overlapped (remote)" );
-        endBRemoteComm();
         if ( BR_diag.get() != nullptr ) {
             C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
                                                                C->getMemoryLocation(),
@@ -120,7 +116,7 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiply_NonOverlapped()
     PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_NonOverlapped" );
 
     // non-overlapped comms so do full set first if needed
-    if ( A->hasOffDiag() && d_need_comms ) {
+    if ( d_need_comms ) {
         startBRemoteComm();
         endBRemoteComm();
     }
@@ -155,7 +151,7 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiply_Overlapped()
     PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_Overlapped" );
 
     // start communication to build BRemote before doing anything
-    if ( A->hasOffDiag() && d_need_comms ) {
+    if ( d_need_comms ) {
         startBRemoteComm();
     }
 
@@ -165,11 +161,12 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiply_Overlapped()
         multiply<Mode::NUMERIC, BlockType::OFFD>( A_diag, B_offd, C_diag_offd );
     }
 
+    if ( d_need_comms ) {
+        endBRemoteComm();
+    }
+
     if ( A->hasOffDiag() ) {
         PROFILE( "CSRMatrixSpGEMMDefault::numericMultiply_Overlapped (remote)" );
-        if ( d_need_comms ) {
-            endBRemoteComm();
-        }
         if ( BR_diag.get() != nullptr ) {
             multiply<Mode::NUMERIC, BlockType::DIAG>( A_offd, BR_diag, C_offd_diag );
         }
@@ -198,7 +195,7 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiplyReuse()
     PROFILE( "CSRMatrixSpGEMMDefault::numericMultiplyReuse" );
 
     // start communication to build BRemote before doing anything
-    if ( A->hasOffDiag() && d_need_comms ) {
+    if ( d_need_comms ) {
         startBRemoteComm();
     }
 
@@ -223,11 +220,12 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiplyReuse()
         multiplyReuse<BlockType::OFFD>( A_diag, B_offd, C_offd );
     }
 
+    if ( d_need_comms ) {
+        endBRemoteComm();
+    }
+
     if ( A->hasOffDiag() ) {
         PROFILE( "CSRMatrixSpGEMMDefault::numericMultiplyReuse (A_offd)" );
-        if ( d_need_comms ) {
-            endBRemoteComm();
-        }
         if ( BR_diag.get() != nullptr ) {
             multiplyReuse<BlockType::DIAG>( A_offd, BR_diag, C_diag );
         }
@@ -833,6 +831,12 @@ void CSRMatrixSpGEMMDefault<Config>::setupBRemoteComm()
 template<typename Config>
 void CSRMatrixSpGEMMDefault<Config>::startBRemoteComm()
 {
+    if ( comm.getSize() == 1 ) {
+        return;
+    }
+
+    PROFILE( "CSRMatrixSpGEMMDefault::startBRemoteComm" );
+
     // check if the communicator information is available and create if needed
     if ( d_dest_info.empty() ) {
         setupBRemoteComm();
@@ -841,7 +845,9 @@ void CSRMatrixSpGEMMDefault<Config>::startBRemoteComm()
     // subset matrices by rows that other ranks need and send them out
     for ( auto it = d_dest_info.begin(); it != d_dest_info.end(); ++it ) {
         auto block = B->subsetRows( it->second.rowids );
-        d_send_matrices.insert( { it->first, block } );
+        if ( !block->isEmpty() ) {
+            d_send_matrices.insert( { it->first, block } );
+        }
     }
     d_csr_comm.sendMatrices( d_send_matrices );
 }
@@ -849,15 +855,21 @@ void CSRMatrixSpGEMMDefault<Config>::startBRemoteComm()
 template<typename Config>
 void CSRMatrixSpGEMMDefault<Config>::endBRemoteComm()
 {
+    if ( comm.getSize() == 1 ) {
+        return;
+    }
+
     PROFILE( "CSRMatrixSpGEMMDefault::endBRemoteComm" );
 
     d_recv_matrices = d_csr_comm.recvMatrices( 0, 0, 0, B->numGlobalColumns() );
-    // BRemotes do not need any particular parameters object internally
-    BR_diag = localmatrixdata_t::ConcatVertical(
-        nullptr, d_recv_matrices, B->beginCol(), B->endCol(), true );
-    BR_offd = localmatrixdata_t::ConcatVertical(
-        nullptr, d_recv_matrices, B->beginCol(), B->endCol(), false );
 
+    if ( d_recv_matrices.size() > 0 ) {
+        // BRemotes do not need any particular parameters object internally
+        BR_diag = localmatrixdata_t::ConcatVertical(
+            nullptr, d_recv_matrices, B->beginCol(), B->endCol(), true );
+        BR_offd = localmatrixdata_t::ConcatVertical(
+            nullptr, d_recv_matrices, B->beginCol(), B->endCol(), false );
+    }
     // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
     d_send_matrices.clear();
     d_recv_matrices.clear();

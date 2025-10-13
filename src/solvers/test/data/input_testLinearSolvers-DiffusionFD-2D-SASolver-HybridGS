@@ -1,12 +1,11 @@
-<<< "input_LinearThermalRobinOperator" >>>
+<<< input_DiffusionFDOperator-2D >>>
 
 LinearSolver{
   name = "SASolver"
-  uses_preconditioner = FALSE
-  absolute_tolerance = 1.0e-12
-  relative_tolerance = 1.0e-12
+  absolute_tolerance = 1.e-12
+  relative_tolerance = 1.e-12
   print_info_level = 3
-  max_iterations = 30
+  max_iterations = 50
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
@@ -18,25 +17,25 @@ LinearSolver{
   
   pre_relaxation{
     name = "HybridGS"
-    num_sweeps = 2
+    num_sweeps = 1
     sweep_type = "symmetric"
   }
 
   post_relaxation{
     name = "HybridGS"
-    num_sweeps = 2
+    num_sweeps = 1
     sweep_type = "symmetric"
   }
 
   coarse_solver{
     name = "HybridGS"
-    num_sweeps = 20
+    num_sweeps = 2
     sweep_type = "symmetric"
   }
 }
 
 Reference{
-  iterations = 29
+  iterations = 42
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

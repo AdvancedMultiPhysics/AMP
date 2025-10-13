@@ -147,7 +147,7 @@ public:
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector> ) override
+    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector>, const bool ) override
     {
         AMP_ERROR( "Not implemented" );
     }
