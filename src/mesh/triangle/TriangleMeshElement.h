@@ -10,9 +10,9 @@
 namespace AMP::Mesh {
 
 
-template<uint8_t NG, uint8_t NP>
+template<uint8_t NG>
 class TriangleMesh;
-template<uint8_t NG, uint8_t NP, uint8_t TYPE>
+template<uint8_t NG, uint8_t TYPE>
 class TriangleMeshIterator;
 
 
@@ -23,7 +23,7 @@ class TriangleMeshIterator;
  * A mesh element can be thought of as the smallest unit of a mesh.  It is of a type
  * of GeomType.  This class is derived to store a TriangleMesh element.
  */
-template<uint8_t NG, uint8_t NP, uint8_t TYPE>
+template<uint8_t NG, uint8_t TYPE>
 class TriangleMeshElement final : public MeshElement
 {
 public:
@@ -129,7 +129,7 @@ public:
 
 protected:
     // Default constructors
-    TriangleMeshElement( const MeshElementID &id, const TriangleMesh<NG, NP> *mesh );
+    TriangleMeshElement( const MeshElementID &id, const TriangleMesh<NG> *mesh );
 
     // Reset the element data
     inline void resetElemId( const ElementID &id ) { d_globalID.resetElemID( id ); }
@@ -138,14 +138,14 @@ protected:
     MeshElement *clone() const override;
 
     //! Get the vertices composing the element
-    inline std::array<std::array<double, NP>, TYPE + 1> getVertexCoord() const;
+    inline std::array<std::array<double, 3>, TYPE + 1> getVertexCoord() const;
 
     // The pointer to the current mesh
-    const TriangleMesh<NG, NP> *d_mesh;
+    const TriangleMesh<NG> *d_mesh;
 
     // Friends
-    friend class AMP::Mesh::TriangleMesh<NG, NP>;
-    friend class AMP::Mesh::TriangleMeshIterator<NG, NP, TYPE>;
+    friend class AMP::Mesh::TriangleMesh<NG>;
+    friend class AMP::Mesh::TriangleMeshIterator<NG, TYPE>;
 
 private:
     MeshElementID d_globalID;
