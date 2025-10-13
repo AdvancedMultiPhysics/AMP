@@ -33,7 +33,7 @@ static inline size_t factorial( int x )
 {
     if ( x <= 1 )
         return 1;
-    size_t y  = 0;
+    size_t y  = 1;
     size_t x2 = x;
     for ( size_t i = 2; i <= x2; i++ )
         y *= x;
@@ -744,7 +744,7 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
                const AMP_MPI &comm )
 {
     if ( comm.getRank() != 0 )
-        TriangleMesh<NDIM>::template generate<NDIM>( {}, {}, {}, comm, geom );
+        return TriangleMesh<NDIM>::template generate<NDIM>( {}, {}, {}, comm, geom );
     // Tessellate
     auto [tri, tri_nab] = createTessellation<NDIM>( points );
     // Delete triangles that have duplicate neighbors
@@ -928,7 +928,11 @@ size_t estimateMeshSize( std::shared_ptr<const MeshParameters> params )
     }
     return 0;
 }
-size_t maxProcs( std::shared_ptr<const MeshParameters> ) { return 1; }
+size_t maxProcs( [[maybe_unused]] std::shared_ptr<const MeshParameters> params )
+{
+    // return std::max<int>( estimateMeshSize( params ) / 10, 1 );
+    return 1;
+}
 
 
 /********************************************************
