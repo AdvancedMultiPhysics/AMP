@@ -21,6 +21,8 @@
     #include "AMP/mesh/moab/moabMesh.h"
 #endif
 
+#include "ProfilerApp.h"
+
 
 namespace AMP::Mesh {
 
@@ -30,6 +32,7 @@ namespace AMP::Mesh {
  ********************************************************/
 std::shared_ptr<Mesh> MeshFactory::create( std::shared_ptr<MeshParameters> params )
 {
+    PROFILE( "MeshFactory::create" );
     auto db = params->getDatabase();
     AMP_ASSERT( db );
     AMP_INSIST( db->keyExists( "MeshType" ), "MeshType must exist in input database" );
