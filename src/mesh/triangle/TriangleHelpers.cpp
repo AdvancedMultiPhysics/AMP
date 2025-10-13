@@ -497,11 +497,13 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         }
     }
     int N_domains = comm.bcast( tri.size(), 0 );
+    tri.resize( N_domains );
+    tri_nab.resize( N_domains );
     // Create the mesh
     std::shared_ptr<AMP::Mesh::Mesh> mesh;
     if ( N_domains == 1 ) {
         auto id = createBlockIDs<2, 3>( vert, tri[0], tri_nab[0] );
-        mesh    = TriangleMesh<2, 3>::generate( vert, tri[0], tri_nab[0], comm, nullptr, id );
+        mesh    = TriangleMesh<2>::generate<3>( vert, tri[0], tri_nab[0], comm, nullptr, id );
     } else {
         // We are dealing with multiple sub-domains, choose the load balance method
         int method = db->getWithDefault<int>( "LoadBalanceMethod", 1 );
@@ -521,10 +523,10 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
                 std::shared_ptr<AMP::Mesh::Mesh> mesh2;
                 if ( comm2[i].getRank() == 0 ) {
                     auto id = createBlockIDs<2, 3>( vert, tri[i], tri_nab[i] );
-                    mesh2   = TriangleMesh<2, 3>::generate(
+                    mesh2   = TriangleMesh<2>::generate<3>(
                         vert, tri[i], tri_nab[i], comm2[i], nullptr, id );
                 } else {
-                    mesh2 = TriangleMesh<2, 3>::generate( {}, {}, {}, comm2[i], nullptr, {} );
+                    mesh2 = TriangleMesh<2>::generate<3>( {}, {}, {}, comm2[i], nullptr, {} );
                 }
                 mesh2->setName( name + "_" + std::to_string( i + 1 ) );
                 submeshes.push_back( mesh2 );
@@ -540,7 +542,7 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         disp[1] = db->getScalar<double>( "y_offset" );
     if ( db->keyExists( "z_offset" ) )
         disp[2] = db->getScalar<double>( "z_offset" );
-    if ( disp[0] != 0.0 && disp[1] != 0.0 && disp[2] != 0.0 )
+    if ( disp[0] != 0.0 || disp[1] != 0.0 || disp[2] != 0.0 )
         mesh->displaceMesh( disp );
     // Set the mesh name
     mesh->setName( name );
@@ -742,7 +744,7 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
                const AMP_MPI &comm )
 {
     if ( comm.getRank() != 0 )
-        TriangleMesh<NDIM, NDIM>::generate( {}, {}, {}, comm, geom );
+        TriangleMesh<NDIM>::template generate<NDIM>( {}, {}, {}, comm, geom );
     // Tessellate
     auto [tri, tri_nab] = createTessellation<NDIM>( points );
     // Delete triangles that have duplicate neighbors
@@ -819,8 +821,7 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
         for ( int d = 0; d < NDIM; d++ )
             x1[i][d] = points[i][d];
     }
-    return TriangleMesh<NDIM, NDIM>::generate(
-        std::move( x1 ), std::move( tri2 ), std::move( tri_nab2 ), comm, geom );
+    return TriangleMesh<NDIM>::template generate<NDIM>( x1, tri2, tri_nab2, comm, geom );
 }
 std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Geometry> geom,
                                                const AMP_MPI &comm,
