@@ -101,7 +101,9 @@ class NativePetscMatrixOperations : public MatrixOperations
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSumsAbsolute( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
+    void getRowSumsAbsolute( MatrixData const &A,
+                             std::shared_ptr<Vector> buf,
+                             const bool remove_zeros = false ) override;
 
     /** \brief  Set the matrix to the identity matrix
      */

@@ -183,7 +183,7 @@ public:
     TriangleMesh( TriangleMesh && ) = default;
 
     TriangleMesh &operator=( const TriangleMesh & ) = delete;
-    TriangleMesh &operator=( TriangleMesh && )      = default;
+    TriangleMesh &operator=( TriangleMesh && ) = default;
 
 
     //! Deconstructor

@@ -36,17 +36,17 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
-    AMP_INSIST( d_num_smooth_prol <= 1,
-                "SASolver: more than one prolongator smoothing step not yet supported" );
-    d_prol_trunc = db->getWithDefault<float>( "prol_trunc", 0 );
+    d_prol_trunc      = db->getWithDefault<float>( "prol_trunc", 0 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
-        d_aggregator = std::make_shared<AMG::SimpleAggregator>();
+        d_aggregator =
+            std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings.strength_threshold );
     } else if ( agg_type == "pairwise" ) {
         d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
     } else {
-        d_aggregator = std::make_shared<AMG::MIS2Aggregator>();
+        d_aggregator =
+            std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings.strength_threshold );
     }
 
     auto pre_db        = db->getDatabase( "pre_relaxation" );
@@ -94,13 +94,21 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     }
 
     // fill in finest level and setup remaining levels
-    d_levels.emplace_back().A       = fine_op;
+    //    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *fine_op );
+    auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
+    auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
+    d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
+    d_levels.back().A->setMatrix( mat );
     d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
     d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
-    d_levels.back().r               = fine_op->getMatrix()->createInputVector();
+    d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
-    setup();
+    auto xVar = d_levels.back().correction->getVariable();
+    auto bVar = d_levels.back().r->getVariable();
+    d_levels.back().A->setVariables( xVar, bVar );
+
+    setup( xVar, bVar );
 }
 
 std::unique_ptr<SolverStrategy>
@@ -124,39 +132,43 @@ void SASolver::makeCoarseSolver()
 void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
                                  std::shared_ptr<LinearAlgebra::Matrix> &P ) const
 {
-    // Apply Jacobi smoother to get P_smooth = (I - omega * Dinv * A) * P_tent
-
-    // First A * P_tent
-    auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
+    // Apply Jacobi-L1 smoother w/ chebyshev acceleration to get P_smooth
 
     // Get D as absolute row sums of A
-    auto D = A->getRowSumsAbsolute();
+    auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // then apply -Dinv in-place
-    // omega hardcoded via linear Chebyshev over top 75% of evals
-    P_smooth->scaleInv( -8.0 / 5.0, D );
-    D.reset();
+    // Chebyshev terms, set to damp over 75% of eigenvalues
+    const double pi = static_cast<double>( AMP::Constants::pi );
+    const double a = 0.95, ma = 1.0 - a, pa = 1.0 + a;
 
-    // add back in P_tent
-    P_smooth->axpy( 1.0, P );
+    // Smooth P, swapping at end each time
+    for ( int i = 0; i < d_num_smooth_prol; ++i ) {
+        // First A * P
+        auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
 
-    // normalize rows to span constants
-    auto Ds = P_smooth->getRowSums();
-    P_smooth->scaleInv( 1.0, Ds );
+        // then apply -Dinv in-place
+        const double omega = 0.5 * ( ma * std::cos( pi * static_cast<double>( 2 * i - 1 ) /
+                                                    static_cast<double>( d_num_smooth_prol ) ) +
+                                     pa );
+        P_smooth->scaleInv( -omega, D );
 
-    // truncate small non-zeros and re-normalize
-    if ( d_prol_trunc > 0.0 ) {
-        P_smooth->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
-        Ds = P_smooth->getRowSums( Ds );
-        P_smooth->scaleInv( 1.0, Ds );
+        // add back in P_tent
+        P_smooth->axpy( 1.0, P );
+
+        P.swap( P_smooth );
+        P_smooth.reset();
+
+        if ( d_prol_trunc > 0.0 ) {
+            P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
+        }
     }
-    Ds.reset();
-
-    P.swap( P_smooth );
-    P_smooth.reset();
+    D.reset();
+    auto Ds = P->getRowSums();
+    P->scaleInv( 1.0, Ds );
 }
 
-void SASolver::setup()
+void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
+                      std::shared_ptr<LinearAlgebra::Variable> bVar )
 {
     PROFILE( "SASolver::setup" );
 
@@ -169,26 +181,39 @@ void SASolver::setup()
     auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 
     for ( size_t i = 0; i < d_max_levels; ++i ) {
+        // Get matrix for current level
         auto A = d_levels.back().A->getMatrix();
+
+        // aggregate on matrix to get tentative prolongator
+        // then smooth and transpose to get P/R
         auto P = d_aggregator->getAggregateMatrix( A );
-        for ( int ns = 0; ns < d_num_smooth_prol; ++ns ) {
-            smoothP_JacobiL1( A, P );
-        }
-        auto R  = P->transpose();
+        smoothP_JacobiL1( A, P );
+        auto R = P->transpose();
+
+        // residual on current level needs comm list replaced by what R needs
+        d_levels.back().r = R->createInputVector();
+
+        // Find coarsened A
         auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
         auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
 
         const auto Ac_nrows_gbl = Ac->numGlobalRows();
 
         // create next level with coarsened matrix
-        d_levels.emplace_back().A = std::make_shared<Operator::LinearOperator>( op_params );
+        d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
         d_levels.back().A->setMatrix( Ac );
+        d_levels.back().A->setVariables( xVar, bVar );
 
         // Attach restriction/prolongation operators for getting to/from new level
         d_levels.back().R = std::make_shared<Operator::LinearOperator>( op_params );
         std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().R )->setMatrix( R );
+        std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().R )
+            ->setVariables( bVar, xVar );
+
         d_levels.back().P = std::make_shared<Operator::LinearOperator>( op_params );
         std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().P )->setMatrix( P );
+        std::dynamic_pointer_cast<Operator::LinearOperator>( d_levels.back().P )
+            ->setVariables( bVar, xVar );
 
         // Relaxation operators for new level
         d_levels.back().pre_relaxation = createRelaxation( d_levels.back().A, d_pre_relax_params );
@@ -203,6 +228,7 @@ void SASolver::setup()
         clone_workspace( d_levels.back(), *( d_levels.back().x ) );
 
         // if newest level is small enough break out
+        // and make residual vector for coarsest level
         const auto Ac_nrows_loc = static_cast<int>( Ac->numLocalRows() );
         auto comm               = Ac->getComm();
         if ( Ac_nrows_gbl <= d_coarsen_settings.min_coarse ||
@@ -222,6 +248,8 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
                       std::shared_ptr<LinearAlgebra::Vector> x )
 {
     PROFILE( "SASolver::apply" );
+
+    AMP_INSIST( x, "SASolver::apply Can't have null solution vector" );
 
     d_iNumberIterations = 0;
     const bool need_norms =
