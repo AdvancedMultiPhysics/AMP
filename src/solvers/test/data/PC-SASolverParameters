@@ -16,18 +16,18 @@ Preconditioner{
   pre_relaxation{
     name = "HybridGS"
     num_sweeps = 2
-    sweep_type = "forward"
+    sweep_type = "symmetric"
   }
 
   post_relaxation{
     name = "HybridGS"
     num_sweeps = 2
-    sweep_type = "backward"
+    sweep_type = "symmetric"
   }
 
   coarse_solver{
     name = "HybridGS"
-    num_sweeps = 2
+    num_sweeps = 20
     sweep_type = "symmetric"
   }
 }

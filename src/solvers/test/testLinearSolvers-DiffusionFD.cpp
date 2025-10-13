@@ -150,7 +150,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     auto t2 = std::chrono::high_resolution_clock::now();
 
     AMP::pout << std::endl
-              << "DiffusionFD test with " << inputFileName << "  average time: ("
+              << "DiffusionFD test with " << inputFileName << "  wall time: ("
               << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;
 }
 // end of driver()
@@ -171,32 +171,24 @@ int main( int argc, char **argv )
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
 
     std::vector<std::string> exeNames;
-    /* Commenting out this test because it fails... I don't know what good parameters are for SA. It
-    seems to be coarsening incredibly aggressively when going to the first coarse level. The
-    non-eliminated boundaries might also be a source of difficulty?
-    @imay will add this back in later
 
-    From @imay, the 2d and 3d inputs are now present but more work needs to be done
-    before SA is good enough to handle this problem
-    */
-
-    // 2d problems
+    // relaxation solvers alone, only for troubleshooting
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-JacobiL1" );
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-HybridGS" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
-
-    // 3d problems
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-JacobiL1" );
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-HybridGS" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
-#ifdef AMP_USE_HYPRE
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
 
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
+    // SASolver with/without FCG acceleration
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
+#ifdef AMP_USE_HYPRE
+    // Boomer with/without CG acceleration
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
 #endif
 
     for ( auto &exeName : exeNames ) {

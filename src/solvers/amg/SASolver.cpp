@@ -271,7 +271,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
-    if ( d_bUseZeroInitialGuess && false ) {
+    if ( d_bUseZeroInitialGuess ) {
         x->zero();
         current_res = b_norm;
     } else {

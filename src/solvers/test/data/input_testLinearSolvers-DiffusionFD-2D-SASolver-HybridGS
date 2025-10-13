@@ -17,14 +17,14 @@ LinearSolver{
   
   pre_relaxation{
     name = "HybridGS"
-    num_sweeps = 2
-    sweep_type = "forward"
+    num_sweeps = 1
+    sweep_type = "symmetric"
   }
 
   post_relaxation{
     name = "HybridGS"
-    num_sweeps = 2
-    sweep_type = "backward"
+    num_sweeps = 1
+    sweep_type = "symmetric"
   }
 
   coarse_solver{
@@ -35,7 +35,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 32
+  iterations = 42
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE
