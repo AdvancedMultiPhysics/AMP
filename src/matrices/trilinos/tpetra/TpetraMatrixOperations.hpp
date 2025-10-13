@@ -164,7 +164,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::extractDiagonal( MatrixData const &
 {
     const auto &tMat = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
     auto view        = TpetraVector::view( buf );
-    getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).getLocalDiagCopy( view->getTpetra_Vector() );
+    tMat.getLocalDiagCopy( view->getTpetra_Vector() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -215,15 +215,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::matMatMult( std::shared_ptr<MatrixD
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::copy( const MatrixData &X, MatrixData &Y )
 {
-#if 1
     getTpetra_CrsMatrix<ST, LO, GO, NT>( Y ) = getTpetra_CrsMatrix<ST, LO, GO, NT>( X );
-#else
-    Tpetra::MatrixMatrix::Add( getTpetra_CrsMatrix<ST, LO, GO, NT>( X ),
-                               false,
-                               static_cast<ST>( 1.0 ),
-                               getTpetra_CrsMatrix<ST, LO, GO, NT>( Y ),
-                               0.0 );
-#endif
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

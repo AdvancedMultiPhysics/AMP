@@ -35,9 +35,8 @@ static inline auto createTpetraMap( std::shared_ptr<AMP::Discretization::DOFMana
 
 template<typename ST, typename LO, typename GO, typename NT>
 TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParametersBase> params )
+    : MatrixData( params )
 {
-    d_pParameters = params;
-
     // upcast to MatrixParameters and build Tpetra::Map over the rows
     auto matParams = std::dynamic_pointer_cast<MatrixParameters>( params );
     AMP_INSIST( matParams, "Must provide MatrixParameters object to build TpetraMatrixData" );
@@ -60,13 +59,17 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
             entries[i]      = static_cast<size_t>( cols.size() );
         }
         Teuchos::ArrayView<size_t> colView( entries.data(), entries.size() );
-        d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 10 ) );
-        //            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap,
-        //            10 ) ); new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap,
-        //            colView ) );
+        d_tpetraMatrix = Teuchos::rcp(
+            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, colView ) );
+        // Fill matrix and call fillComplete to set the nz structure
+        // Without setting column id's Tpetra will not allocate any memory
+        for ( size_t i = 0; i < nrows; ++i ) {
+            const auto cols = getRow( i + srow );
+            createValuesByGlobalID( i + srow, cols );
+        }
         d_tpetraMatrix->setAllToScalar( 0.0 );
-        //        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
-        d_tpetraMatrix->fillComplete();
+        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
+        //        d_tpetraMatrix->fillComplete();
         d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) ) ),
                                   Teuchos::VERB_EXTREME );
     } else {
