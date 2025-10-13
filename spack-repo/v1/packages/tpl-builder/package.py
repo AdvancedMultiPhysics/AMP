@@ -128,6 +128,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                    self.define('CMAKE_C_COMPILER',   spec['mpi'].mpicc),
                    self.define('CMAKE_CXX_COMPILER', spec['mpi'].mpicxx),
                    self.define('CMAKE_Fortran_COMPILER', spec['mpi'].mpifc),
+                   self.define('CMAKE_CXX_FLAGS', spec['mpi'].headers.include_flags),
                  ] )
         else:
             options.extend( [
@@ -165,6 +166,11 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                         self.define("CMAKE_HIP_FLAGS", ""),
                     ]
                 )
+                
+        if spec.satisfies("+mpi") and spec.satisfies("+rocm"):
+            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
+                             self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
+                             ] )
 
         tpl_list = []
 
