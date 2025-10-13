@@ -15,7 +15,7 @@ namespace AMP::Mesh::TriangleHelpers {
 
 //! Count the number of unique triangles
 template<size_t NG>
-size_t count( const std::vector<std::array<int64_t, NG + 1>> &tri );
+size_t count( const std::vector<std::array<int, NG + 1>> &tri );
 
 
 //! Read an STL file
@@ -30,18 +30,13 @@ size_t readSTLHeader( const std::string &filename );
 template<size_t NG, size_t NP>
 void createTriangles( const std::vector<std::array<std::array<double, NP>, NG + 1>> &tri_list,
                       std::vector<std::array<double, NP>> &vertices,
-                      std::vector<std::array<int64_t, NG + 1>> &triangles,
+                      std::vector<std::array<int, NG + 1>> &triangles,
                       double tol );
 
 //! Create triangles neighbors from the triangles
 template<size_t NG>
-std::vector<std::array<int64_t, NG + 1>>
-create_tri_neighbors( const std::vector<std::array<int64_t, NG + 1>> &tri );
-
-//! Create triangles neighbors from the triangles
-template<size_t NG>
-std::vector<std::vector<std::array<int64_t, NG + 1>>>
-splitDomains( std::vector<std::array<int64_t, NG + 1>> tri );
+std::vector<std::vector<std::array<int, NG + 1>>>
+splitDomains( std::vector<std::array<int, NG + 1>> tri );
 
 //! Read an STL file and generate a mesh (triangle mesh or multi-mesh)
 std::shared_ptr<AMP::Mesh::Mesh>

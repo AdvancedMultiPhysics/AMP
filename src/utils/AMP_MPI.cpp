@@ -1751,6 +1751,14 @@ INSTANTIATE_GET_COMM( std::string_view );
 /****************************************************************************
  * Explicit instantiation                                                    *
  ****************************************************************************/
+typedef std::pair<int, int> PairInt;
+typedef std::array<double, 1> ArrayDouble1;
+typedef std::array<double, 2> ArrayDouble2;
+typedef std::array<double, 3> ArrayDouble3;
+typedef std::vector<size_t> VecSize;
+typedef std::vector<std::array<int, 1>> VecArrayInt1;
+typedef std::vector<std::array<int, 2>> VecArrayInt2;
+typedef std::vector<std::array<int, 3>> VecArrayInt3;
 INSTANTIATE_MPI_TYPE( char );
 INSTANTIATE_MPI_TYPE( int8_t );
 INSTANTIATE_MPI_TYPE( uint8_t );
@@ -1770,23 +1778,13 @@ INSTANTIATE_MPI_SENDRECV( bool );
 INSTANTIATE_MPI_BCAST( std::string );
 INSTANTIATE_MPI_SENDRECV( std::string );
 INSTANTIATE_MPI_GATHER( std::string );
-template std::vector<size_t> AMP::AMP_MPI::bcast<std::vector<size_t>>( std::vector<size_t> const &,
-                                                                       int ) const;
-template std::vector<std::array<int64_t, 1>>
-AMP::AMP_MPI::bcast<std::vector<std::array<int64_t, 1>>>(
-    std::vector<std::array<int64_t, 1>> const &, int ) const;
-template std::vector<std::array<int64_t, 2>>
-AMP::AMP_MPI::bcast<std::vector<std::array<int64_t, 2>>>(
-    std::vector<std::array<int64_t, 2>> const &, int ) const;
-template std::vector<std::array<int64_t, 3>>
-AMP::AMP_MPI::bcast<std::vector<std::array<int64_t, 3>>>(
-    std::vector<std::array<int64_t, 3>> const &, int ) const;
+template VecSize AMP::AMP_MPI::bcast<VecSize>( VecSize const &, int ) const;
+template VecArrayInt1 AMP::AMP_MPI::bcast<VecArrayInt1>( VecArrayInt1 const &, int ) const;
+template VecArrayInt2 AMP::AMP_MPI::bcast<VecArrayInt2>( VecArrayInt2 const &, int ) const;
+template VecArrayInt3 AMP::AMP_MPI::bcast<VecArrayInt3>( VecArrayInt3 const &, int ) const;
 template void AMP::AMP_MPI::mapGather<uint64_t, uint64_t>( std::map<uint64_t, uint64_t> & ) const;
-template int AMP::AMP_MPI::allGather<std::pair<int, int>>(
-    std::pair<int, int> const *, int, std::pair<int, int> *, int *, int *, bool ) const;
-template void
-AMP::AMP_MPI::setGather<std::array<double, 1>>( std::set<std::array<double, 1>> & ) const;
-template void
-AMP::AMP_MPI::setGather<std::array<double, 2>>( std::set<std::array<double, 2>> & ) const;
-template void
-AMP::AMP_MPI::setGather<std::array<double, 3>>( std::set<std::array<double, 3>> & ) const;
+template int
+AMP::AMP_MPI::allGather<PairInt>( PairInt const *, int, PairInt *, int *, int *, bool ) const;
+template void AMP::AMP_MPI::setGather<ArrayDouble1>( std::set<ArrayDouble1> & ) const;
+template void AMP::AMP_MPI::setGather<ArrayDouble2>( std::set<ArrayDouble2> & ) const;
+template void AMP::AMP_MPI::setGather<ArrayDouble3>( std::set<ArrayDouble3> & ) const;
