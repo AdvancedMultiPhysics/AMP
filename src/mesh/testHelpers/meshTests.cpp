@@ -1131,47 +1131,43 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
 {
     PROFILE( "VerifyNodeElemMapIteratorTest" );
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
-    auto meshType  = mesh->meshClass();
     if ( multimesh ) {
         // Mesh is a multimesh and test is not valid if multimesh contains meshes with
         //   different geometric types
         for ( auto mesh2 : multimesh->getMeshes() )
             meshTests::VerifyNodeElemMapIteratorTest( ut, mesh2 );
-    } else if ( meshType.find( "libmeshMesh" ) != std::string::npos ) {
+    } else if ( mesh->meshClass().find( "libmeshMesh" ) != std::string::npos ) {
         // libmeshMesh does not currently support getElementParents
         ut.expected_failure( "Verify Node<->Element not supported for libMesh" );
         return;
     } else {
-        auto N_nodes = mesh->numLocalElements( AMP::Mesh::GeomType::Vertex );
-        int SKIP     = std::max<int>( N_nodes / 50, 1 );
-        int i        = 0;
+        auto verify_node = []( const AMP::Mesh::MeshElement &node,
+                               std::shared_ptr<AMP::Mesh::Mesh> mesh ) {
+            std::set<AMP::Mesh::MeshElementID> elems_from_node, elems_from_mesh;
+            auto elements = mesh->getElementParents( node, mesh->getGeomType() );
+            for ( const auto &elem : elements )
+                elems_from_node.insert( elem.globalID() );
+            MeshElementID ids[32];
+            for ( const auto &elem : mesh->getIterator( mesh->getGeomType(), 1 ) ) {
+                int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+                AMP_ASSERT( N < 32 );
+                for ( int i = 0; i < N; i++ )
+                    if ( ids[i] == node.globalID() )
+                        elems_from_mesh.insert( elem.globalID() );
+            }
+            return elems_from_node == elems_from_mesh;
+        };
+        int i    = 0;
+        int SKIP = mesh->numLocalElements( AMP::Mesh::GeomType::Vertex ) / 20;
         for ( const auto &node : mesh->getIterator( AMP::Mesh::GeomType::Vertex ) ) {
             if ( i % SKIP == 0 ) {
-                std::set<AMP::Mesh::MeshElementID> elems_from_node, elems_from_mesh;
-                auto type     = mesh->getGeomType();
-                auto elements = mesh->getElementParents( node, type );
-                for ( const auto &elem : elements )
-                    elems_from_node.insert( elem.globalID() );
-                MeshElementID ids[32];
-                int gcw = mesh->getMaxGhostWidth();
-                for ( const auto &elem : mesh->getIterator( type, gcw ) ) {
-                    int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
-                    AMP_ASSERT( N < 32 );
-                    for ( int i = 0; i < N; i++ )
-                        if ( ids[i] == node.globalID() )
-                            elems_from_mesh.insert( elem.globalID() );
+                if ( !verify_node( node, mesh ) ) {
+                    if ( mesh->meshClass().find( "TriangleMesh" ) != std::string::npos )
+                        ut.expected_failure( "Verify Node<->Element map iterator (TriangleMesh)" );
+                    else
+                        ut.failure( "Verify Node<->Element map iterator" );
+                    return;
                 }
-                if ( elems_from_node == elems_from_mesh )
-                    continue;
-                if ( meshType.find( "TriangleMesh" ) != std::string::npos ) {
-                    // TriangleMesh may not find all parents in the gcw
-                    if ( elems_from_node.size() > elems_from_mesh.size() ) {
-                        ut.expected_failure( "Verify Node<->Element map iterator" );
-                        return;
-                    }
-                }
-                ut.failure( "Verify Node<->Element map iterator" );
-                return;
             }
             i++;
         }
