@@ -94,6 +94,9 @@ public:
     template<typename ConfigOut>
     shared_ptr migrate( AMP::Utilities::Backend backend ) const;
 
+    //! Replace current backend with different one, no-op if same
+    void setBackend( AMP::Utilities::Backend backend ) override;
+
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the diagonal values
