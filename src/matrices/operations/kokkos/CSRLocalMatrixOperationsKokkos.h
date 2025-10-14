@@ -11,15 +11,7 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config,
-         class ExecSpace = typename std::conditional<
-             std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
-             Kokkos::DefaultHostExecutionSpace,
-             Kokkos::DefaultExecutionSpace>::type,
-         class ViewSpace = typename std::conditional<
-             std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
-             Kokkos::HostSpace,
-             Kokkos::SharedSpace>::type>
+template<typename Config, class ExecSpace, class ViewSpace>
 class CSRLocalMatrixOperationsKokkos
 {
 public:
@@ -61,6 +53,22 @@ public:
      * \details  Compute \f$\mathbf{A} = \alpha\mathbf{A}\f$
      */
     void scale( scalar_t alpha, std::shared_ptr<localmatrixdata_t> A );
+
+    /** \brief  Scale the matrix by a scalar and diagonal matrix
+     * \param[in] alpha  The value to scale by
+     * \param[in] D  Vector holding diagonal matrix entries
+     * \param[in,out] A The matrix A
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{A}\f$
+     */
+    void scale( scalar_t alpha, const scalar_t *D, std::shared_ptr<localmatrixdata_t> A );
+
+    /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
+     * \param[in] alpha  The value to scale by
+     * \param[in] D  Vector holding diagonal matrix entries
+     * \param[in,out] A The matrix A
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{A}\f$
+     */
+    void scaleInv( scalar_t alpha, const scalar_t *D, std::shared_ptr<localmatrixdata_t> A );
 
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
@@ -105,16 +113,22 @@ public:
      */
     void extractDiagonal( std::shared_ptr<localmatrixdata_t> A, scalar_t *buf );
 
+    /** \brief Extract the row sums into a vector
+     * \param[in] A The matrix to read from
+     * \param[out] buf Buffer to write row sums into
+     */
+    void getRowSums( std::shared_ptr<localmatrixdata_t> A, scalar_t *buf ) const;
+
+    /** \brief Extract the absolute row sums into a vector
+     * \param[in] A The matrix to read from
+     * \param[out] buf Buffer to write row sums into
+     */
+    void getRowSumsAbsolute( std::shared_ptr<localmatrixdata_t> A, scalar_t *buf ) const;
+
     /** \brief  Set the matrix to the identity matrix
      * \param[out] A The matrix to set
      */
     void setIdentity( std::shared_ptr<localmatrixdata_t> A );
-
-    /** \brief Compute the maximum row sum
-     * \return  The L-infinity norm of the matrix
-     * \param[in] A Data for the input matrix
-     */
-    void LinfNorm( std::shared_ptr<localmatrixdata_t> A, scalar_t *rowSums ) const;
 
     /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
      * as x and copy the coefficients

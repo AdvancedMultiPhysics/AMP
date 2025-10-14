@@ -4,8 +4,13 @@
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
 #include "AMP/matrices/operations/MatrixOperations.h"
+#include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
 #include "AMP/vectors/Vector.h"
+
+#ifdef AMP_USE_DEVICE
+    #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
+#endif
 
 #include <type_traits>
 
@@ -16,6 +21,7 @@
 namespace AMP::LinearAlgebra {
 
 template<typename Config,
+    #ifdef AMP_USE_DEVICE
          class ExecSpace = typename std::conditional<
              std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
              Kokkos::DefaultHostExecutionSpace,
@@ -23,7 +29,15 @@ template<typename Config,
          class ViewSpace = typename std::conditional<
              std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
              Kokkos::HostSpace,
-             Kokkos::SharedSpace>::type>
+             typename std::conditional<
+                 std::is_same_v<typename Config::allocator_type, AMP::ManagedAllocator<void>>,
+                 Kokkos::SharedSpace,
+                 typename Kokkos::DefaultExecutionSpace::memory_space>::type>::type
+    #else
+         class ExecSpace = Kokkos::DefaultHostExecutionSpace,
+         class ViewSpace = Kokkos::HostSpace
+    #endif
+         >
 class CSRMatrixOperationsKokkos : public MatrixOperations
 {
 public:
@@ -77,10 +91,7 @@ public:
      * \param[in] A The input matrix A
      * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}\mathbf{A}\f$
      */
-    void scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void scale( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
 
     /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
      * \param[in] alpha  The value to scale by
@@ -88,10 +99,7 @@ public:
      * \param[in] A The input matrix A
      * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}^{-1}\mathbf{A}\f$
      */
-    void scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void scaleInv( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
 
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
@@ -138,19 +146,15 @@ public:
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSums( MatrixData const &, std::shared_ptr<Vector> ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void getRowSums( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
 
     /** \brief Extract the absolute row sums into a vector
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector>, const bool ) override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
+    void getRowSumsAbsolute( MatrixData const &A,
+                             std::shared_ptr<Vector> buf,
+                             const bool remove_zeros = false ) override;
 
     /** \brief Compute the maximum column sum
      * \return  The L1 norm of the matrix
@@ -180,6 +184,13 @@ protected:
     ExecSpace d_exec_space;
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
+
+    // This currently forwards SpGEMM operations to either default ops or device ops
+    // so internal versions of each are held
+    CSRMatrixOperationsDefault<Config> d_matrixOpsDefault;
+    #ifdef AMP_USE_DEVICE
+    CSRMatrixOperationsDevice<Config> d_matrixOpsDevice;
+    #endif
 };
 
 } // namespace AMP::LinearAlgebra

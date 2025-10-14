@@ -52,6 +52,10 @@ public:
 
     //! Return CSR mode of the matrix.
     virtual std::uint16_t mode() const;
+
+    //! Replace current backend with different one, no-op if same, no-op if not a CSRMatrix
+    virtual void setBackend( AMP::Utilities::Backend );
+
     /** \brief  Matrix-vector multiplication
      * \param[in]  in  The vector to multiply
      * \param[out] out The resulting vectory
