@@ -173,4 +173,9 @@ void Matrix::copyCast( std::shared_ptr<const Matrix> X )
 
 std::uint16_t Matrix::mode() const { return std::numeric_limits<std::uint16_t>::max(); }
 
+void Matrix::setBackend( AMP::Utilities::Backend )
+{
+    AMP_WARNING( "Matrix::setBackend: No effect on matrix types other than CSRMatrix" );
+}
+
 } // namespace AMP::LinearAlgebra

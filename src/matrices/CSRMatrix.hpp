@@ -163,6 +163,40 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend back
 }
 
 template<typename Config>
+void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
+{
+    if ( backend == AMP::Utilities::Backend::Serial ) {
+        if ( std::dynamic_pointer_cast<CSRMatrixOperationsDefault<Config>>( d_matrixOps ) ) {
+            return;
+        }
+        d_matrixOps = std::make_shared<CSRMatrixOperationsDefault<Config>>();
+    } else if ( backend == AMP::Utilities::Backend::Hip_Cuda ) {
+#ifdef AMP_USE_DEVICE
+        if ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+            AMP_ERROR( "CSRMatrix::setBackend Can't set Hip_Cuda backend on host-stored matrix" );
+        }
+        if ( std::dynamic_pointer_cast<CSRMatrixOperationsDevice<Config>>( d_matrixOps ) ) {
+            return;
+        }
+        d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
+#else
+        AMP_ERROR( "CSRMatrix::setBackend Can't set Hip_Cuda backend in non-device build" );
+#endif
+    } else if ( backend == AMP::Utilities::Backend::Kokkos ) {
+#ifdef AMP_USE_KOKKOS
+        if ( std::dynamic_pointer_cast<CSRMatrixOperationsKokkos<Config>>( d_matrixOps ) ) {
+            return;
+        }
+        d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
+#else
+        AMP_ERROR( "CSRMatrix::setBackend Can't set Kokkos backend in non-Kokkos build" );
+#endif
+    } else {
+        AMP_ERROR( "CSRMatrix::setBackend Unsupported backend selected" );
+    }
+}
+
+template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
 {
     PROFILE( "CSRMatrix<Config>::transpose" );

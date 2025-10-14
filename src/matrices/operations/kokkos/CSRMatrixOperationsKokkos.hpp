@@ -2,6 +2,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/kokkos/CSRMatrixOperationsKokkos.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
@@ -177,10 +178,65 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scale( AMP::Scalar
 }
 
 template<typename Config, class ExecSpace, class ViewSpace>
-void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
-    std::shared_ptr<MatrixData>, std::shared_ptr<MatrixData>, std::shared_ptr<MatrixData> )
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scale(
+    AMP::Scalar alpha_in, std::shared_ptr<const Vector> D, MatrixData &A )
 {
-    AMP_WARNING( "matMatMult for CSRMatrixOperationsKokkos not implemented" );
+    // constrain to one data block
+    AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
+    auto D_data                  = D->getVectorData();
+    const scalar_t *D_data_block = D_data->getRawDataBlock<scalar_t>( 0 );
+
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+    AMP_DEBUG_ASSERT( csrData );
+    auto diagMatrix = csrData->getDiagMatrix();
+    auto offdMatrix = csrData->getOffdMatrix();
+    AMP_DEBUG_ASSERT( diagMatrix );
+
+    auto alpha = static_cast<scalar_t>( alpha_in );
+    d_localops_diag->scale( alpha, D_data_block, diagMatrix );
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->scale( alpha, D_data_block, offdMatrix );
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scaleInv(
+    AMP::Scalar alpha_in, std::shared_ptr<const Vector> D, MatrixData &A )
+{
+    // constrain to one data block
+    AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
+    auto D_data                  = D->getVectorData();
+    const scalar_t *D_data_block = D_data->getRawDataBlock<scalar_t>( 0 );
+
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+    AMP_DEBUG_ASSERT( csrData );
+    auto diagMatrix = csrData->getDiagMatrix();
+    auto offdMatrix = csrData->getOffdMatrix();
+    AMP_DEBUG_ASSERT( diagMatrix );
+
+    auto alpha = static_cast<scalar_t>( alpha_in );
+    d_localops_diag->scaleInv( alpha, D_data_block, diagMatrix );
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->scaleInv( alpha, D_data_block, offdMatrix );
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
+    std::shared_ptr<MatrixData> A, std::shared_ptr<MatrixData> B, std::shared_ptr<MatrixData> C )
+{
+    if ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        d_matrixOpsDefault.matMatMult( A, B, C );
+    } else {
+    #ifdef AMP_USE_DEVICE
+        if ( std::is_same_v<typename Config::allocator_type, AMP::ManagedAllocator<void>> ||
+             std::is_same_v<typename Config::allocator_type, AMP::DeviceAllocator<void>> ) {
+            d_matrixOpsDevice.matMatMult( A, B, C );
+            return;
+        }
+    #endif
+        AMP_ERROR( "CSRMatrixOperationsKokkos: Unrecognized memory space" );
+    }
 }
 
 template<typename Config, class ExecSpace, class ViewSpace>
@@ -302,6 +358,65 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::extractDiagonal(
 }
 
 template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSums(
+    MatrixData const &A, std::shared_ptr<Vector> buf )
+{
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+
+    AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
+    AMP_ASSERT( buf->isType<scalar_t>( 0 ) );
+
+    auto *rawVecData = buf->getRawDataBlock<scalar_t>();
+    AMP_ASSERT( rawVecData );
+
+    // zero out buffer so that the next two calls can accumulate into it
+    const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
+
+    d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
+    d_exec_space.fence();
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->getRowSums( csrData->getOffdMatrix(), rawVecData );
+        d_exec_space.fence();
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSumsAbsolute(
+    MatrixData const &A, std::shared_ptr<Vector> buf, bool remove_zeros )
+{
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+
+    AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
+    AMP_ASSERT( buf->isType<scalar_t>( 0 ) );
+
+    auto *rawVecData = buf->getRawDataBlock<scalar_t>();
+    AMP_ASSERT( rawVecData );
+
+    // zero out buffer so that the next two calls can accumulate into it
+    const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
+
+    d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
+    d_exec_space.fence();
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(), rawVecData );
+        d_exec_space.fence();
+    }
+
+    if ( remove_zeros ) {
+        Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> sums( rawVecData, nRows );
+        Kokkos::parallel_for(
+            "CSRMatrixOperationsKokkos::getRowSumsAbsolute(remove zeros)",
+            Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
+            KOKKOS_LAMBDA( lidx_t row ) { sums( row ) = sums( row ) != 0.0 ? sums( row ) : 1.0; } );
+        d_exec_space.fence();
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
 AMP::Scalar
 CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::LinfNorm( MatrixData const &A ) const
 {
@@ -314,18 +429,20 @@ CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::LinfNorm( MatrixData co
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    const auto nRows = csrData->numLocalRows();
-    std::vector<scalar_t> rowSums( nRows, 0.0 );
+    const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> sums(
+        "CSRMatrixOperationsKokkos::LinfNorm sum buffer", nRows );
+    Kokkos::deep_copy( sums, 0.0 );
 
-    d_localops_diag->LinfNorm( diagMatrix, rowSums.data() );
+    d_localops_diag->getRowSumsAbsolute( diagMatrix, sums.data() );
     d_exec_space.fence();
     if ( csrData->hasOffDiag() ) {
-        d_localops_offd->LinfNorm( offdMatrix, rowSums.data() );
+        d_localops_offd->getRowSumsAbsolute( offdMatrix, sums.data() );
         d_exec_space.fence();
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = *std::max_element( rowSums.begin(), rowSums.end() );
+    auto max_norm = AMP::Utilities::Algorithms<scalar_t>::max_element( sums.data(), nRows );
     AMP_MPI comm  = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
