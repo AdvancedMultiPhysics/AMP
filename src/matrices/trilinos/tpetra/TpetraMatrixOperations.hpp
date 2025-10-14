@@ -115,22 +115,21 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
     in->getRawData<ST>( diag_vals.data() );
 
     auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+    // matrix.describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) ) ),
+    //                  Teuchos::VERB_EXTREME );
 
     matrix.resumeFill();
 
     // Get the current row's data
     for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
-        auto numCols = matrix.getNumEntriesInLocalRow( row );
-        std::vector<LO> colInds( numCols );
-        std::vector<ST> vals( numCols );
-        local_inds_host_view_type colView( colInds.data(), numCols );
-        values_host_view_type valsView( vals.data(), numCols );
+        local_inds_host_view_type colView;
+        values_host_view_type valsView;
         matrix.getLocalRowView( row, colView, valsView );
 
         // Find the diagonal entry within the row's column indices
-        for ( size_t k = 0; k < colInds.size(); ++k ) {
-            if ( colInds[k] == static_cast<LO>( row ) ) { // Check if it's the diagonal entry
-                Teuchos::ArrayView<LO> replaceColInds( &colInds[k],
+        for ( size_t k = 0; k < colView.size(); ++k ) {
+            if ( colView[k] == static_cast<LO>( row ) ) { // Check if it's the diagonal entry
+                Teuchos::ArrayView<LO> replaceColInds( const_cast<LO *>( &colView[k] ),
                                                        1 ); // Column index for replacement
                 Teuchos::ArrayView<ST> replaceValues( &diag_vals[row],
                                                       1 ); // New value for replacement
@@ -141,6 +140,8 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
     }
 
     matrix.fillComplete();
+    // matrix.describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) ) ),
+    //                  Teuchos::VERB_EXTREME );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

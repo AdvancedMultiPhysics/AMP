@@ -40,6 +40,45 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
     // upcast to MatrixParameters and build Tpetra::Map over the rows
     auto matParams = std::dynamic_pointer_cast<MatrixParameters>( params );
     AMP_INSIST( matParams, "Must provide MatrixParameters object to build TpetraMatrixData" );
+
+#if 1
+    const auto colDOFs = matParams->getRightDOFManager();
+    const auto rowDOFs = matParams->getLeftDOFManager();
+    AMP_INSIST( rowDOFs && colDOFs,
+                "MatrixParameters must provide non-null DOFManagers to build TpetraMatrixData" );
+    d_RangeMap  = createTpetraMap<ST, LO, GO, NT>( rowDOFs, params->getComm() );
+    d_DomainMap = createTpetraMap<ST, LO, GO, NT>( colDOFs, params->getComm() );
+
+    // count up entries per row and build matrix if the getRow function exists
+    const auto &getRow = matParams->getRowFunction();
+
+    if ( getRow ) {
+        const auto nrows = rowDOFs->numLocalDOF();
+        const auto srow  = rowDOFs->beginDOF();
+        std::vector<size_t> entries( nrows, 0 );
+        for ( size_t i = 0; i < nrows; ++i ) {
+            const auto cols = getRow( i + srow );
+            entries[i]      = static_cast<size_t>( cols.size() );
+        }
+        Teuchos::ArrayView<size_t> colView( entries.data(), entries.size() );
+        d_tpetraMatrix =
+            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, colView ) );
+        //            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, colView ) );
+        // Fill matrix and call fillComplete to set the nz structure
+        // Without setting column id's Tpetra will not allocate any memory
+        for ( size_t i = 0; i < nrows; ++i ) {
+            const auto cols = getRow( i + srow );
+            createValuesByGlobalID( i + srow, cols );
+        }
+        d_tpetraMatrix->setAllToScalar( 0.0 );
+        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
+        // d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) )
+        // ),
+        //                           Teuchos::VERB_EXTREME );
+    } else {
+        d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 0 ) );
+    }
+#else
     const auto rowDOFs = matParams->getLeftDOFManager();
     const auto colDOFs = matParams->getRightDOFManager();
     AMP_INSIST( rowDOFs && colDOFs,
@@ -59,8 +98,9 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
             entries[i]      = static_cast<size_t>( cols.size() );
         }
         Teuchos::ArrayView<size_t> colView( entries.data(), entries.size() );
-        d_tpetraMatrix = Teuchos::rcp(
-            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, colView ) );
+        d_tpetraMatrix =
+            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, colView ) );
+        //            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, colView ) );
         // Fill matrix and call fillComplete to set the nz structure
         // Without setting column id's Tpetra will not allocate any memory
         for ( size_t i = 0; i < nrows; ++i ) {
@@ -75,6 +115,7 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
     } else {
         d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 0 ) );
     }
+#endif
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

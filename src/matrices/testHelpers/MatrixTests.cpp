@@ -410,13 +410,12 @@ void MatrixTests::VerifyMatMultMatrix_IA( AMP::UnitTest *utils )
     matId      = getCopyMatrix( matId );
     matId->zero();
     matId->setDiagonal( x );
-    AMP::pout << *matId;
 
     matLap->mult( x, y );
     const auto l1y = static_cast<double>( y->L1Norm() );
 
     auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matId, matLap );
-    AMP::pout << *matProd;
+
     auto xp = matProd->createInputVector();
     auto yp = matProd->createOutputVector();
     xp->setToScalar( 1.0 );
@@ -565,17 +564,8 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
             dofmap->getDOFs( node.globalID(), dofsNode );
             for ( auto &elem : dofsNode )
                 dofs.push_back( elem );
-#if 0            
-            const auto row = node.globalID().meshID().getData();
-            for ( size_t c = 0; c < dofs.size(); ++c ) {
-                double val = -1.0;
-                if ( row == c )
-                    val = dofs.size() - 1;
-                matrix->addValueByGlobalID( row, dofs[c], val );
-            }
-#endif
         }
-#if 1
+
         for ( size_t r = 0; r < dofs.size(); r++ ) {
             for ( size_t c = 0; c < dofs.size(); c++ ) {
                 double val = -1.0;
@@ -584,7 +574,6 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
                 matrix->addValueByGlobalID( dofs[r], dofs[c], val );
             }
         }
-#endif
         ++it;
     }
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
