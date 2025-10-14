@@ -51,12 +51,20 @@ void TpetraVectorData<ST, LO, GO, NT>::addValuesByLocalID( size_t,
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::getValuesByLocalID( size_t,
-                                                           const size_t *,
-                                                           void *,
-                                                           const typeID & ) const
+void TpetraVectorData<ST, LO, GO, NT>::getValuesByLocalID( size_t N,
+                                                           const size_t *indices,
+                                                           void *out,
+                                                           const typeID &id ) const
 {
-    AMP_ERROR( "Not implemented" );
+    if ( N == 0 )
+        return;
+    AMP_INSIST( id == getTypeID<ST>(), "Tpetra only supports native type at this time" );
+    auto vals = reinterpret_cast<ST *>( out );
+    auto tVec = this->getTpetraVector();
+    AMP_INSIST( tVec->getNumVectors() == 1, "Only single TpetraVectors supported" );
+    auto data = tVec->getData();
+    for ( size_t i = 0; i != N; i++ )
+        vals[i] = data[indices[i]];
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
