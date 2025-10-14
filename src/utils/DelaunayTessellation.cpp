@@ -615,7 +615,7 @@ create_tessellation( const std::vector<std::array<int, NDIM>> &x )
     using Point    = std::array<int, NDIM>;
     using Triangle = std::array<int, NDIM + 1>;
 
-    PROFILE2( AMP::Utilities::stringf( "create_tessellation<%i>", NDIM ), 1 );
+    PROFILE2( AMP::Utilities::stringf( "create_tessellation<%i>", NDIM ) );
 
     // First, get the two closest points
     auto index_pair = find_min_dist<NDIM, int>( N, x[0].data() );

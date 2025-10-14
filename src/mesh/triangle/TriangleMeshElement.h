@@ -137,9 +137,6 @@ protected:
     //! Clone the iterator
     MeshElement *clone() const override;
 
-    //! Get the vertices composing the element
-    inline std::array<std::array<double, 3>, TYPE + 1> getVertexCoord() const;
-
     // The pointer to the current mesh
     const TriangleMesh<NG> *d_mesh;
 
