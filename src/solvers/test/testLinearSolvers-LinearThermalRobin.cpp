@@ -153,6 +153,7 @@ void linearThermalTest( AMP::UnitTest *ut,
     auto solver_db = input_db->getDatabase( "LinearSolver" );
     solver_db->putScalar( "MemoryLocation", memoryLocation );
     auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
     std::shared_ptr<AMP::Operator::LinearOperator> migratedOperator = linearOperator;
 
@@ -169,9 +170,11 @@ void linearThermalTest( AMP::UnitTest *ut,
         auto opParams       = std::make_shared<AMP::Operator::OperatorParameters>( op_db );
         migratedOperator    = std::make_shared<AMP::Operator::LinearOperator>( opParams );
         auto matrix         = linearOperator->getMatrix();
-        auto migratedMatrix = AMP::LinearAlgebra::createMatrix( matrix, mem_loc );
+        auto migratedMatrix = AMP::LinearAlgebra::createMatrix( matrix, mem_loc, backend );
         migratedOperator->setMatrix( migratedMatrix );
         migratedOperator->setVariables( inVar, outVar );
+    } else {
+        linearOperator->getMatrix()->setBackend( backend );
     }
 
     auto linearSolver =

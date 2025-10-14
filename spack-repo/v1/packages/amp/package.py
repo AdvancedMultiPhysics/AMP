@@ -75,10 +75,6 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
             self.define("EXCLUDE_TESTS_FROM_ALL", not self.run_tests),
             self.define("AMP_ENABLE_EXAMPLES", False),
             self.define("CXX_STD", "17"),
-            # prevent TPL-builder to set something else
-            self.define("CMAKE_C_COMPILER", spack_cc),
-            self.define("CMAKE_CXX_COMPILER", spack_cxx),
-            self.define("CMAKE_Fortran_COMPILER", spack_fc),
         ]
 
         if "+rocm" in spec:
