@@ -240,47 +240,28 @@ void TriangleMeshElement<NG, TYPE>::getNeighbors(
 
 
 /****************************************************************
- * Get the coordinates of the vertices                          *
- ****************************************************************/
-template<uint8_t NG, uint8_t TYPE>
-inline std::array<std::array<double, 3>, TYPE + 1>
-TriangleMeshElement<NG, TYPE>::getVertexCoord() const
-{
-    if constexpr ( TYPE == 0 ) {
-        return { d_mesh->getPos( d_globalID.elemID() ) };
-    } else {
-        std::array<std::array<double, 3>, TYPE + 1> x;
-        ElementID ids[TYPE + 1];
-        d_mesh->getVerticies( d_globalID.elemID(), ids );
-        for ( size_t i = 0; i <= TYPE; i++ )
-            x[i] = d_mesh->getPos( ids[i] );
-        return x;
-    }
-}
-
-
-/****************************************************************
  * Functions to get basic element properties                     *
  ****************************************************************/
 template<uint8_t NG, uint8_t TYPE>
 double TriangleMeshElement<NG, TYPE>::volume() const
 {
+    [[maybe_unused]] std::array<std::array<double, 3>, TYPE + 1> x;
+    d_mesh->getVertexCoord( d_globalID.elemID(), x.data() );
     if constexpr ( TYPE == 0 ) {
         return 0;
     } else if constexpr ( TYPE == 1 ) {
-        auto x = getVertexCoord();
-        return abs( x[1] - x[0] );
+        double V = abs( x[1] - x[0] );
+        AMP_ASSERT( V > 0.0 );
+        return V;
     } else if constexpr ( TYPE == 2 ) {
-        auto x   = getVertexCoord();
         auto AB  = x[1] - x[0];
         auto AC  = x[2] - x[0];
         double t = dot( AB, AC );
         double V = 0.5 * std::sqrt( dot( AB, AB ) * dot( AC, AC ) - t * t );
-        AMP_ASSERT( V == V );
+        AMP_ASSERT( V > 0.0 );
         return V;
     } else if constexpr ( TYPE == 3 ) {
         // Calculate the volume of a N-dimensional simplex
-        auto x = getVertexCoord();
         auto V = DelaunayHelpers::calcVolume<TYPE, double>( x.data() );
         AMP_ASSERT( V > 0.0 );
         return V;
@@ -289,9 +270,10 @@ double TriangleMeshElement<NG, TYPE>::volume() const
 template<uint8_t NG, uint8_t TYPE>
 MeshPoint<double> TriangleMeshElement<NG, TYPE>::norm() const
 {
+    [[maybe_unused]] std::array<std::array<double, 3>, TYPE + 1> x;
+    d_mesh->getVertexCoord( d_globalID.elemID(), x.data() );
     if constexpr ( TYPE == 2 ) {
         AMP_DEBUG_ASSERT( d_mesh->getDim() == 3 );
-        auto x = getVertexCoord();
         auto n = AMP::Geometry::GeometryHelpers::normal( x[0], x[1], x[2] );
         return { n[0], n[1], n[2] };
     } else {
@@ -303,7 +285,8 @@ template<uint8_t NG, uint8_t TYPE>
 MeshPoint<double> TriangleMeshElement<NG, TYPE>::coord() const
 {
     if constexpr ( TYPE == 0 ) {
-        auto x = d_mesh->getPos( d_globalID.elemID() );
+        std::array<double, 3> x;
+        d_mesh->getVertexCoord( d_globalID.elemID(), &x );
         return MeshPoint<double>( d_mesh->getDim(), x.data() );
     } else {
         AMP_ERROR( "coord is only valid for vertices: " + std::to_string( (int) TYPE ) );
@@ -313,22 +296,25 @@ MeshPoint<double> TriangleMeshElement<NG, TYPE>::coord() const
 template<uint8_t NG, uint8_t TYPE>
 MeshPoint<double> TriangleMeshElement<NG, TYPE>::centroid() const
 {
-    if constexpr ( TYPE == 0 )
-        return MeshPoint<double>( d_mesh->getPos( d_globalID.elemID() ) );
     uint8_t NP = d_mesh->getDim();
-    auto x     = getVertexCoord();
-    for ( size_t i = 1; i <= TYPE; i++ ) {
+    std::array<std::array<double, 3>, TYPE + 1> x;
+    d_mesh->getVertexCoord( d_globalID.elemID(), x.data() );
+    if constexpr ( TYPE > 0 ) {
+        for ( size_t i = 1; i <= TYPE; i++ ) {
+            for ( size_t d = 0; d < NP; d++ )
+                x[0][d] += x[i][d];
+        }
         for ( size_t d = 0; d < NP; d++ )
-            x[0][d] += x[i][d];
+            x[0][d] /= ( TYPE + 1 );
     }
-    for ( size_t d = 0; d < NP; d++ )
-        x[0][d] /= ( TYPE + 1 );
     return MeshPoint<double>( (size_t) NP, x[0].data() );
 }
 template<uint8_t NG, uint8_t TYPE>
 bool TriangleMeshElement<NG, TYPE>::containsPoint( const MeshPoint<double> &pos, double TOL ) const
 {
     // Check if the point is in the triangle
+    [[maybe_unused]] std::array<std::array<double, 3>, TYPE + 1> x;
+    d_mesh->getVertexCoord( d_globalID.elemID(), x.data() );
     if constexpr ( TYPE == 0 ) {
         AMP_ERROR( elementClass() + "containsPoint - Not finished for VERTEX" );
     } else if constexpr ( TYPE == 1 ) {
@@ -337,7 +323,6 @@ bool TriangleMeshElement<NG, TYPE>::containsPoint( const MeshPoint<double> &pos,
         uint8_t NP = d_mesh->getDim();
         if ( NP == 3 ) {
             // Compute barycentric coordinates
-            auto x = getVertexCoord();
             auto L = AMP::Geometry::GeometryHelpers::barycentric<3, 3>(
                 x, { pos.x(), pos.y(), pos.z() } );
             return ( L[0] >= -TOL ) && ( L[1] >= -TOL ) && ( L[2] >= -TOL );
@@ -346,7 +331,6 @@ bool TriangleMeshElement<NG, TYPE>::containsPoint( const MeshPoint<double> &pos,
         }
     } else if constexpr ( TYPE == 3 ) {
         // Compute barycentric coordinates
-        auto x = getVertexCoord();
         auto L =
             AMP::Geometry::GeometryHelpers::barycentric<4, 3>( x, { pos.x(), pos.y(), pos.z() } );
         return ( L[0] >= -TOL ) && ( L[1] >= -TOL ) && ( L[2] >= -TOL ) && ( L[3] >= -TOL );
@@ -376,15 +360,15 @@ template<uint8_t NG, uint8_t TYPE>
 MeshPoint<double> TriangleMeshElement<NG, TYPE>::nearest( const MeshPoint<double> &pos ) const
 {
     // Get the vertex coordinates
+    [[maybe_unused]] std::array<std::array<double, 3>, TYPE + 1> x;
+    d_mesh->getVertexCoord( d_globalID.elemID(), x.data() );
     if constexpr ( TYPE == 0 ) {
         // Nearest point to a vertex is the vertex
-        auto x = getVertexCoord();
         return MeshPoint( d_mesh->getDim(), x[0].data() );
     } else if constexpr ( TYPE == 1 ) {
         uint8_t NP = d_mesh->getDim();
         if ( NP == 3 ) {
             // Nearest point to a line in 3D
-            auto x = getVertexCoord();
             auto p = AMP::Geometry::GeometryHelpers::nearest(
                 x[0], x[1], { pos.x(), pos.y(), pos.z() } );
             return { p[0], p[1], p[2] };
@@ -395,7 +379,6 @@ MeshPoint<double> TriangleMeshElement<NG, TYPE>::nearest( const MeshPoint<double
         uint8_t NP = d_mesh->getDim();
         if ( NP == 3 ) {
             // Nearest point to a triangle in 3D
-            auto x = getVertexCoord();
             auto p = AMP::Geometry::GeometryHelpers::nearest( x, { pos.x(), pos.y(), pos.z() } );
             return { p[0], p[1], p[2] };
         } else {
@@ -405,7 +388,6 @@ MeshPoint<double> TriangleMeshElement<NG, TYPE>::nearest( const MeshPoint<double
         // Nearest point to a tet in 3D
         if ( containsPoint( pos ) )
             return pos;
-        auto x                   = getVertexCoord();
         std::array<double, 3> p0 = { pos.x(), pos.y(), pos.z() };
         MeshPoint<double> p      = { 1e100, 1e100, 1e100 };
         for ( int i = 0; i < 4; i++ ) {
@@ -433,6 +415,8 @@ double TriangleMeshElement<NG, TYPE>::distance( const MeshPoint<double> &pos,
                                                 const MeshPoint<double> &dir ) const
 {
     // Get the vertex coordinates
+    [[maybe_unused]] std::array<std::array<double, 3>, TYPE + 1> x;
+    d_mesh->getVertexCoord( d_globalID.elemID(), x.data() );
     if constexpr ( TYPE == 1 ) {
         AMP_ERROR( elementClass() + "::distance - Not finished for 1D" );
     } else if constexpr ( TYPE == 2 ) {
@@ -440,11 +424,9 @@ double TriangleMeshElement<NG, TYPE>::distance( const MeshPoint<double> &pos,
         if ( NP == 2 ) {
             AMP_ERROR( elementClass() + "::distance - Not finished for 2D" );
         } else if ( NP == 3 ) {
-            auto x = getVertexCoord();
             return AMP::Geometry::GeometryHelpers::distanceToTriangle( x, pos, dir );
         }
     } else if constexpr ( TYPE == 3 ) {
-        auto x = getVertexCoord();
         return AMP::Geometry::GeometryHelpers::distanceToTetrahedron( x, pos, dir );
     } else {
         AMP_ERROR( elementClass() + "::distance - Not finished" );

@@ -125,6 +125,7 @@ size_t readSTLHeader( const std::string &filename )
 std::vector<std::array<std::array<double, 3>, 3>> readSTL( const std::string &filename,
                                                            double scale )
 {
+    PROFILE( "readSTL" );
     char header[80];
     uint32_t N;
     // Read the file
@@ -169,6 +170,7 @@ void createTriangles( const std::vector<std::array<std::array<double, NP>, NG + 
                       std::vector<std::array<int, NG + 1>> &triangles,
                       double tol )
 {
+    PROFILE( "createTriangles" );
     // Get the range of points and tolerance to use
     std::array<double, 2 * NP> range;
     for ( size_t d = 0; d < NP; d++ ) {
@@ -268,7 +270,7 @@ static std::vector<int> createBlockIDs( const std::vector<std::array<double, NP>
 
 
 /****************************************************************
- * Try to split the mesh into seperate independent domains       *
+ * Try to split the mesh into separate independent domains       *
  ****************************************************************/
 static inline std::array<int, 2> getFace( const std::array<int, 3> &tri, size_t i )
 {
@@ -333,7 +335,7 @@ removeSubDomain( std::vector<std::array<int, NG + 1>> &tri )
     // Choose an initial triangle
     size_t i0 = 0;
     int count = 100;
-    for ( size_t i = 0; i < tri.size(); i++ ) {
+    for ( size_t i = 0; i < tri.size() && count > 1; i++ ) {
         int Nf_max = 0;
         for ( size_t j = 0; j <= NG; j++ ) {
             // Get each face of the triangle
@@ -409,6 +411,7 @@ template<size_t NG>
 std::vector<std::vector<std::array<int, NG + 1>>>
 splitDomains( std::vector<std::array<int, NG + 1>> tri )
 {
+    PROFILE( "splitDomains" );
     std::vector<std::vector<std::array<int, NG + 1>>> tri_sets;
     while ( !tri.empty() ) {
         tri_sets.emplace_back( removeSubDomain<NG>( tri ) );
@@ -434,6 +437,7 @@ loadbalance( const std::vector<triset> &tri, const AMP_MPI &comm, int method )
     if ( method == 0 || comm.getSize() == 1 )
         return std::vector<AMP::AMP_MPI>( tri.size(), comm );
     // Perform the load balance
+    PROFILE( "loadbalance" );
     std::vector<loadBalanceSimulator> list( tri.size() );
     for ( size_t i = 0; i < tri.size(); i++ )
         list[i] = loadBalanceSimulator( tri[i].size() );
@@ -452,6 +456,7 @@ loadbalance( const std::vector<triset> &tri, const AMP_MPI &comm, int method )
 }
 std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParameters> params )
 {
+    PROFILE( "generateSTL" );
     auto db       = params->getDatabase();
     auto filename = db->getWithDefault<std::string>( "FileName", "" );
     auto name     = db->getWithDefault<std::string>( "MeshName", "NULL" );
@@ -827,6 +832,7 @@ std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Ge
                                                const AMP_MPI &comm,
                                                double resolution )
 {
+    PROFILE( "generateGeom" );
     AMP_ASSERT( geom );
     auto multigeom = std::dynamic_pointer_cast<AMP::Geometry::MultiGeometry>( geom );
     if ( multigeom ) {
@@ -928,10 +934,9 @@ size_t estimateMeshSize( std::shared_ptr<const MeshParameters> params )
     }
     return 0;
 }
-size_t maxProcs( [[maybe_unused]] std::shared_ptr<const MeshParameters> params )
+size_t maxProcs( std::shared_ptr<const MeshParameters> params )
 {
-    // return std::max<int>( estimateMeshSize( params ) / 10, 1 );
-    return 1;
+    return std::max<int>( estimateMeshSize( params ) / 10, 1 );
 }
 
 
