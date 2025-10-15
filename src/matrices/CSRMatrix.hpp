@@ -165,7 +165,8 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend back
 template<typename Config>
 void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 {
-    if ( backend == AMP::Utilities::Backend::Serial ) {
+    if ( backend == AMP::Utilities::Backend::Serial ||
+         backend == AMP::Utilities::Backend::OpenMP ) {
         if ( std::dynamic_pointer_cast<CSRMatrixOperationsDefault<Config>>( d_matrixOps ) ) {
             return;
         }

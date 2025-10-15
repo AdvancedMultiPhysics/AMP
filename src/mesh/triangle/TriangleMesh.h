@@ -15,9 +15,9 @@
 namespace AMP::Mesh {
 
 
-template<uint8_t NG, uint8_t TYPE>
+template<uint8_t NG>
 class TriangleMeshIterator;
-template<uint8_t NG, uint8_t TYPE>
+template<uint8_t NG>
 class TriangleMeshElement;
 
 
@@ -123,49 +123,32 @@ public: // Convenience typedefs
     typedef std::array<int, 2> Edge;
     typedef std::array<int, 3> Face;
     typedef std::array<int, NG + 1> TRI;
-    using IteratorSet = std::array<MeshIterator, NG + 1>;
+    using IteratorSet = std::array<TriangleMeshIterator<NG>, NG + 1>;
     typedef StoreCompressedList<ElementID> ElementList;
 
 
 public:
     /**
-     * \brief Generate a triangle mesh from local triangle coordinates
-     * \details  Create a triangle mesh from the local triangle coordinates.
-     *    Note: Triangle list should be unique for each rank, load balance
-     *    will be automatically adjusted.
-     * \param triangles  List of triangles (each rank may contribute a unique list)
-     * \param comm       Communicator to use
-     *                   (load balance will be automatically generated on this comm)
-     * \param tol        Relative tolerance (based on range of points) to use to determine
-     *                   if two points are the same
-     */
-    template<uint8_t NP>
-    static std::shared_ptr<TriangleMesh<NG>>
-    generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangles,
-              const AMP_MPI &comm,
-              double tol = 1e-12 );
-
-    /**
-     * \brief Generate a triangle mesh from local triangle coordinates
-     * \details  Create a triangle mesh from the local triangle coordinates.
-     *    Note: Triangle list should be unique for each rank,
-     *          load balance will be automatically adjusted.
+     * \brief Primary constructor
+     * \details  Create a triangle mesh from the verticies and triangle indicies
+     *    Note: Rank 0 must contain all data, other ranks "may" contain copies
      * \param vertices   List of vertices
-     * \param triangles  List of triangles (each rank may contribute a unique list)
-     * \param tri_nab    List of triangles neighbors
+     * \param triangles  List of triangles
+     * \param tri_nab    Optional list of triangles neighbors
      * \param comm       Communicator to use
      *                   (load balance will be automatically generated on this comm)
      * \param geom       Optional geometry to associate with the mesh
      * \param blockID    Optional vector with the block id for each triangle
+     * \param max_gcw    Maximum gcw to support
      */
-    template<uint8_t NP>
-    static std::shared_ptr<TriangleMesh<NG>>
-    generate( const std::vector<std::array<double, NP>> &vertices,
-              const std::vector<TRI> &triangles,
-              const std::vector<TRI> &tri_nab,
-              const AMP_MPI &comm,
-              std::shared_ptr<Geometry::Geometry> geom = nullptr,
-              std::vector<int> blockID                 = std::vector<int>() );
+    explicit TriangleMesh( int NP,
+                           std::vector<Point> vertices,
+                           std::vector<TRI> triangles,
+                           std::vector<TRI> tri_nab,
+                           const AMP_MPI &comm,
+                           std::shared_ptr<Geometry::Geometry> geom = {},
+                           std::vector<int> block                   = {},
+                           int max_gcw                              = 2 );
 
 
     //! Return a string with the mesh class name
@@ -185,7 +168,7 @@ public:
     TriangleMesh( TriangleMesh && ) = default;
 
     TriangleMesh &operator=( const TriangleMesh & ) = delete;
-    TriangleMesh &operator=( TriangleMesh && ) = default;
+    TriangleMesh &operator=( TriangleMesh && )      = default;
 
 
     //! Deconstructor
@@ -343,17 +326,8 @@ public:
 
 
 protected:
-    // Constructors
     TriangleMesh() = default;
     explicit TriangleMesh( std::shared_ptr<const MeshParameters> );
-    explicit TriangleMesh( int NP,
-                           std::vector<Point> vertices,
-                           std::vector<TRI> triangles,
-                           std::vector<TRI> tri_nab,
-                           const AMP_MPI &comm,
-                           std::shared_ptr<Geometry::Geometry> geom,
-                           std::vector<int> block,
-                           int max_gcw = 2 );
     void initialize();
     void initializeIterators();
     void initializeBoundingBox();
@@ -363,8 +337,7 @@ protected:
 
 public:
     // Create an iterator from a list
-    MeshIterator createIterator( std::shared_ptr<std::vector<ElementID>> ) const;
-    MeshIterator createIterator( GeomType type, int gcw ) const;
+    TriangleMeshIterator<NG> createIterator( GeomType type, int gcw ) const;
 
     // Return the IDs of the elements composing the current element
     void getElementsIDs( const ElementID &id, const GeomType type, ElementID *IDs ) const;
@@ -385,18 +358,12 @@ public:
     bool isOnSurface( const ElementID &elemID ) const;
     bool isOnBoundary( const ElementID &elemID, int id ) const;
     bool isInBlock( const ElementID &elemID, int id ) const;
-    static bool inIterator( const ElementID &id, const MeshIterator *it );
+    static bool inIterator( const ElementID &id, const TriangleMeshIterator<NG> *it );
 
     template<uint8_t TYPE>
     std::array<int, TYPE + 1> getElem( const ElementID &id ) const;
     template<uint8_t TYPE>
     ElementID getID( const std::array<int, TYPE + 1> &id ) const;
-
-    // Friends
-    friend TriangleMeshElement<NG, 0>;
-    friend TriangleMeshElement<NG, 1>;
-    friend TriangleMeshElement<NG, 2>;
-    friend TriangleMeshElement<NG, 3>;
 
 
 private:
@@ -407,6 +374,7 @@ private:
     void buildChildren();
     ElementList computeNodeParents( int parentType );
     ElementList getParents( int childType, int parentType );
+
 
 private:
     std::array<size_t, 4> d_N_global;          //!< The number of global elements

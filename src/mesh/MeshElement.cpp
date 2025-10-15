@@ -1,5 +1,7 @@
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/geometry/GeometryHelpers.h"
+#include "AMP/mesh/Mesh.h"
+#include "AMP/mesh/MultiMesh.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
 
@@ -300,12 +302,15 @@ bool MeshElement::isInBlock( int id ) const
         AMP_ERROR( "isInBlock is not implemented for the base class (" + elementClass() + ")" );
     return d_element->isInBlock( id );
 }
-unsigned int MeshElement::globalOwnerRank() const
+unsigned int MeshElement::globalOwnerRank( const Mesh &mesh ) const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "globalOwnerRank is not implemented for the base class (" + elementClass() +
-                   ")" );
-    return d_element->globalOwnerRank();
+    auto id = globalID();
+    if ( id.meshID() == mesh.meshID() )
+        return mesh.getComm().globalRanks()[id.owner_rank()];
+    auto mesh2 = mesh.Subset( id.meshID() );
+    if ( mesh2 )
+        return mesh2->getComm().globalRanks()[id.owner_rank()];
+    AMP_ERROR( "globalOwnerRank is not able to find mesh element" );
 }
 MeshElementID MeshElement::globalID() const
 {
