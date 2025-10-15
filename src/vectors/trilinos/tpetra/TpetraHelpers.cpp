@@ -18,7 +18,7 @@ static inline double *getBufferPtr( std::shared_ptr<VectorData> buf )
 
 
 /********************************************************
- * Get an Tpetra vector from an AMP vector               *
+ * Get a Tpetra vector from an AMP vector               *
  ********************************************************/
 Teuchos::RCP<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec )
 {
@@ -38,14 +38,16 @@ Teuchos::RCP<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec )
 
     const decltype( localSize ) ncols = 1;
 
-    using MDView = Kokkos::
+    using MDViewH = Kokkos::
         View<double **, Kokkos::LayoutLeft, HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-    MDView hview_unmanaged( ptr, localSize, ncols );
+    using MDViewD = Kokkos::
+        View<double **, Kokkos::LayoutLeft, DeviceSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+    MDViewH hview_unmanaged( ptr, localSize, ncols );
 
-    auto dview_unmanaged = Kokkos::create_mirror_view_and_copy( DeviceSpace(), hview_unmanaged );
+    MDViewD dview_unmanaged( ptr, localSize, ncols );
 
     using DualViewType = Tpetra::Vector<>::dual_view_type;
-    DualViewType dv( dview_unmanaged, hview_unmanaged );
+    DualViewType dv( hview_unmanaged, dview_unmanaged );
 
     auto vec2 = Teuchos::rcp( new Tpetra::Vector<>( map, dv ) );
 
