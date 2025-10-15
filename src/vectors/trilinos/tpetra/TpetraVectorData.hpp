@@ -29,7 +29,7 @@ TpetraVectorData<ST, LO, GO, NT>::TpetraVectorData(
 
     auto map        = Teuchos::rcp( new Tpetra::Map<LO, GO, NT>(
         dofManager->numGlobalDOF(), dofManager->numLocalDOF(), comm ) );
-    d_pTpetraVector = Teuchos::rcp( new Tpetra::Vector<ST, LO, GO, NT>( map, 1 ) );
+    d_pTpetraVector = Teuchos::rcp( new Tpetra::Vector<ST, LO, GO, NT>( map, true ) );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
