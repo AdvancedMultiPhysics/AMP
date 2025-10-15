@@ -93,15 +93,6 @@ structuredMeshElement::~structuredMeshElement() = default;
 MeshElement *structuredMeshElement::clone() const { return new structuredMeshElement( *this ); }
 
 
-/****************************************************************
- * Return the global rank of the owner rank                      *
- ****************************************************************/
-unsigned int structuredMeshElement::globalOwnerRank() const
-{
-    return d_mesh->getComm().globalRanks()[globalID().owner_rank()];
-}
-
-
 /********************************************************
  * Get the general boundary conditions                   *
  *    0 - Physical boundary                              *

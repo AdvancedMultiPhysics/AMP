@@ -141,7 +141,7 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
             id_pass = false;
         // Check the owner rank
         int ownerRank       = id.owner_rank();
-        int globalOwnerRank = element.globalOwnerRank();
+        int globalOwnerRank = element.globalOwnerRank( *mesh );
         id_pass             = id_pass && ownerRank >= 0 && ownerRank < commSize;
         id_pass             = id_pass && globalOwnerRank >= 0 && globalOwnerRank < globalSize;
         if ( id.is_local() ) {

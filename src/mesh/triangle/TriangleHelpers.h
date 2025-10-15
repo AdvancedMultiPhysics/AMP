@@ -50,6 +50,28 @@ std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Ge
 //! Generate a triangle mesh (or multi-mesh) from parameters
 std::shared_ptr<AMP::Mesh::Mesh> generate( std::shared_ptr<const MeshParameters> params );
 
+
+/**
+ * \brief Generate a triangle mesh from local triangle coordinates
+ * \details  Create a triangle mesh from the local triangle coordinates.
+ *    Note: rank 0 must contain all data, other ranks "may" contain copies
+ * \param triangles     List of triangles (rank 0 should contain all triangles)
+ * \param comm          Communicator to use
+ * \param tol           Relative tolerance to determine if two points are the same
+ * \param name          Name of mesh
+ * \param splitDomain   Split multi-domain objects into seperate meshes (returning a multimesh)
+ * \param loadBalanceMethod  Load balance method to use (only used if splitting multi-domain)
+ */
+template<size_t NG, size_t NP = 3>
+std::shared_ptr<AMP::Mesh::Mesh>
+generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangles,
+          const AMP_MPI &comm,
+          const std::string &name,
+          double tol            = 1e-12,
+          bool splitDomain      = true,
+          int loadBalanceMethod = 1 );
+
+
 //! Estimate Mesh size
 size_t estimateMeshSize( std::shared_ptr<const MeshParameters> params );
 

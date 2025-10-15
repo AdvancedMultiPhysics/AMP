@@ -12,7 +12,7 @@ namespace AMP::Mesh {
 
 template<uint8_t NG>
 class TriangleMesh;
-template<uint8_t NG, uint8_t TYPE>
+template<uint8_t NG>
 class TriangleMeshIterator;
 
 
@@ -20,10 +20,11 @@ class TriangleMeshIterator;
  * \class TriangleMeshElement
  * \brief A derived class used to define a mesh element
  * \details  This class provides routines for accessing and using a mesh element.
- * A mesh element can be thought of as the smallest unit of a mesh.  It is of a type
- * of GeomType.  This class is derived to store a TriangleMesh element.
+ * A mesh element can be thought of as the smallest unit of a mesh.
+ *    It is of a typeof GeomType.  This class is derived to store a TriangleMesh
+ *    element.
  */
-template<uint8_t NG, uint8_t TYPE>
+template<uint8_t NG>
 class TriangleMeshElement final : public MeshElement
 {
 public:
@@ -123,9 +124,6 @@ public:
      */
     bool isInBlock( int id ) const override;
 
-    //! Return the owner rank according to AMP_COMM_WORLD
-    unsigned int globalOwnerRank() const override;
-
 
 protected:
     // Default constructors
@@ -142,7 +140,7 @@ protected:
 
     // Friends
     friend class AMP::Mesh::TriangleMesh<NG>;
-    friend class AMP::Mesh::TriangleMeshIterator<NG, TYPE>;
+    friend class AMP::Mesh::TriangleMeshIterator<NG>;
 
 private:
     MeshElementID d_globalID;
