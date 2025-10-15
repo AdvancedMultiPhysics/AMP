@@ -508,8 +508,6 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
 
     auto comm = params->getComm();
     // Read the STL file
-<<<<<<< HEAD
-=======
     std::vector<std::array<std::array<double, 3>, 3>> triangles;
     if ( comm.getRank() == 0 ) {
         auto scale = db->getWithDefault<double>( "scale", 1.0 );
@@ -543,7 +541,6 @@ generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangl
           int method )
 {
     static_assert( NG == 2 && NP == 3, "Not finished" );
->>>>>>> fbd224a26aefb1e35238fb53f35eb298e6dba292
     std::vector<std::array<double, 3>> vert;
     std::vector<triset> tri( 1 ), tri_nab( 1 );
     if ( comm.getRank() == 0 ) {
@@ -551,11 +548,7 @@ generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangl
         TriangleHelpers::createTriangles<2, 3>( triangles, vert, tri[0], tol );
         // Find the number of unique triangles (duplicates may indicate multiple objects)
         bool multidomain = isMultiDomain( tri[0], tri_nab[0] );
-<<<<<<< HEAD
-        if ( multidomain && db->getWithDefault<bool>( "split", true ) ) {
-=======
         if ( multidomain && splitDomain ) {
->>>>>>> fbd224a26aefb1e35238fb53f35eb298e6dba292
             // Try to split the domains
             tri = TriangleHelpers::splitDomains<2>( tri[0] );
             tri_nab[0].clear();
