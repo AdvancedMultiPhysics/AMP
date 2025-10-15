@@ -104,8 +104,9 @@ public:
     virtual void getRowSums( MatrixData const &A, std::shared_ptr<Vector> buf ) = 0;
 
     /** \brief Extract the absolute row sums into a vector
-     * \param[in] A The matrix to get the row sums from
-     * \param[in] buf Vector to store the row sums to
+     * \param[in] A             The matrix to get the row sums from
+     * \param[in] buf           Vector to store the row sums to
+     * \param[in] remove_zeros  If true zero values in sum are replaced with ones
      */
     virtual void getRowSumsAbsolute( MatrixData const &A,
                                      std::shared_ptr<Vector> buf,

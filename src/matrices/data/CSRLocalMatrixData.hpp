@@ -1107,8 +1107,8 @@ void CSRLocalMatrixData<Config>::getValuesByGlobalID( const size_t local_row,
 }
 
 template<typename Config>
-void CSRLocalMatrixData<Config>::addValuesByGlobalID( const size_t num_cols,
-                                                      const size_t local_row,
+void CSRLocalMatrixData<Config>::addValuesByGlobalID( const size_t local_row,
+                                                      const size_t num_cols,
                                                       const size_t *cols,
                                                       const scalar_t *vals )
 {
@@ -1147,8 +1147,8 @@ void CSRLocalMatrixData<Config>::addValuesByGlobalID( const size_t num_cols,
 }
 
 template<typename Config>
-void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t num_cols,
-                                                      const size_t local_row,
+void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
+                                                      const size_t num_cols,
                                                       const size_t *cols,
                                                       const scalar_t *vals )
 {
