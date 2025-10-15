@@ -47,10 +47,11 @@ void makeCommRankMap( const AMP::AMP_MPI &comm, std::unordered_map<int, int> &ra
     }
 }
 
-int mapElementOwnerRank( const std::unordered_map<int, int> &rank_map,
+int mapElementOwnerRank( const AMP::Mesh::Mesh &mesh,
+                         const std::unordered_map<int, int> &rank_map,
                          const AMP::Mesh::MeshElement &element )
 {
-    return rank_map.find( element.globalOwnerRank() )->second;
+    return rank_map.find( element.globalOwnerRank( mesh ) )->second;
 }
 
 void testMultiMeshOwnerRank( AMP::UnitTest &ut )
@@ -98,7 +99,8 @@ void testMultiMeshOwnerRank( AMP::UnitTest &ut )
             // If the owner rank of the vertex is the same as the comm rank of
             // the boundary mesh that we got the vertex from then it should be
             // locally owned.
-            owner_rank_is_comm_rank = ( bnd_comm_rank == mapElementOwnerRank( rank_map, *it ) );
+            owner_rank_is_comm_rank =
+                ( bnd_comm_rank == mapElementOwnerRank( *arrayBoundaryMesh, rank_map, *it ) );
 
             // If the vertex thinks it is locally owned but its owner rank
             // and mesh comm rank dont match then this is a failure.

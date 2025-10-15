@@ -11,6 +11,9 @@
 namespace AMP::Mesh {
 
 
+class Mesh;
+
+
 /**
  * \class Mesh
  * \brief A class used to define a mesh element
@@ -116,7 +119,7 @@ public: // Virtual functions
     virtual MeshElementID globalID() const;
 
     //! Return the owner rank according to AMP_COMM_WORLD
-    virtual unsigned int globalOwnerRank() const;
+    unsigned int globalOwnerRank( const Mesh &mesh ) const;
 
     //! Return the element class
     virtual std::string elementClass() const;
