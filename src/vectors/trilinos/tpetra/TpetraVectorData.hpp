@@ -33,6 +33,11 @@ TpetraVectorData<ST, LO, GO, NT>::TpetraVectorData(
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
+TpetraVectorData<ST, LO, GO, NT>::~TpetraVectorData()
+{
+}
+
+template<typename ST, typename LO, typename GO, typename NT>
 void TpetraVectorData<ST, LO, GO, NT>::setValuesByLocalID( size_t,
                                                            const size_t *,
                                                            const void *,
