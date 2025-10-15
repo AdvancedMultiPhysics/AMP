@@ -55,15 +55,6 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::scale(
 }
 
 template<typename Config, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::matMatMult(
-    std::shared_ptr<LocalMatrixData>,
-    std::shared_ptr<LocalMatrixData>,
-    std::shared_ptr<LocalMatrixData> )
-{
-    AMP_WARNING( "matMatMult for CSRLocalMatrixOperationsDevice not implemented" );
-}
-
-template<typename Config, class LocalMatrixData>
 void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::axpy(
     typename Config::scalar_t alpha,
     std::shared_ptr<LocalMatrixData> X,

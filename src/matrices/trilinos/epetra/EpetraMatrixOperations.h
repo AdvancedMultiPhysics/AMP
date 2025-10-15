@@ -36,20 +36,12 @@ class EpetraMatrixOperations : public MatrixOperations
     void scale( AMP::Scalar alpha, MatrixData &A ) override;
 
     /** \brief  Scale the matrix by a scalar and diagonal matrix
-     * \param[in] alpha  The value to scale by
-     * \param[in] D  A vector representing the diagonal matrix
-     * \param[in] A The input matrix A
-     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}\mathbf{A}\f$
      */
-    void scale( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
+    void scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override;
 
     /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
-     * \param[in] alpha  The value to scale by
-     * \param[in] D  A vector representing the diagonal matrix
-     * \param[in] A The input matrix A
-     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}^{-1}\mathbf{A}\f$
      */
-    void scaleInv( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
+    void scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override;
 
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
@@ -87,26 +79,21 @@ class EpetraMatrixOperations : public MatrixOperations
     void setDiagonal( std::shared_ptr<const Vector> in, MatrixData &A ) override;
 
     /** \brief Extract the diagonal values into a vector
-     * \param[in] in The values to set the diagonal to
-     * \param[in] A The matrix to set
+     * \param[in]  A    The matrix to read from
+     * \param[out] buf  Buffer to write row sums into
      */
     void extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
 
     /** \brief Extract the row sums into a vector
-     * \param[in] A The matrix to read from
-     * \param[out] buf Buffer to write row sums into
      */
-    void getRowSums( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
+    void getRowSums( MatrixData const &, std::shared_ptr<Vector> ) override;
 
     /** \brief Extract the absolute row sums into a vector
-     * \param[in] A The matrix to read from
-     * \param[out] buf Buffer to write row sums into
      */
-    void getRowSumsAbsolute( MatrixData const &A,
-                             std::shared_ptr<Vector> buf,
-                             const bool remove_zeros = false ) override;
+    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector>, const bool ) override;
 
     /** \brief  Set the matrix to the identity matrix
+     * \param[out] A The matrix to set
      */
     void setIdentity( MatrixData &A ) override;
 
@@ -116,10 +103,9 @@ class EpetraMatrixOperations : public MatrixOperations
      */
     AMP::Scalar LinfNorm( const MatrixData &X ) const override;
 
-    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
-     * as x and copy the coefficients
-     * \param[in] x matrix data to copy from
-     * \param[in] y matrix data to copy to
+    /** \brief  Copy size and entries from X into Y
+     * \param[in] X matrix data to copy from
+     * \param[in] Y matrix data to copy to
      */
     void copy( const MatrixData &X, MatrixData &Y ) override;
 };

@@ -43,9 +43,9 @@ struct HasDeferConsistency : P {
     };
 
     /**
-     * The apply function for this operator without ensuring output vector consistency.
-     * @param [in] u input vector.
-     * @param [out] f residual/output vector.
+     * The apply function for this operator without necessarily ensuring output vector consistency.
+     * @param [in]  u  input vector.
+     * @param [out] f  output vector.
      */
     void applyDeferConsistency( std::shared_ptr<const AMP::LinearAlgebra::Vector> u,
                                 std::shared_ptr<AMP::LinearAlgebra::Vector> f )
@@ -56,8 +56,10 @@ struct HasDeferConsistency : P {
 
     /**
      * Residual wrapper to avoid makeConsistent when it subsequently calls apply.
-     * @param [in] u input vector.
-     * @param [out] f residual/output vector.
+     * @param [in]   f  forcing vector.
+     * @param [in]   u  state vector.
+     * @param [out]  r  residual vector.
+     * \details Sets r = f - apply(u)
      */
     void residual( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                    std::shared_ptr<const AMP::LinearAlgebra::Vector> u,

@@ -121,7 +121,6 @@ size_t readSTLHeader( const std::string &filename )
     fclose( fid );
     return N;
 }
-
 std::vector<std::array<std::array<double, 3>, 3>> readSTL( const std::string &filename,
                                                            double scale )
 {
@@ -266,6 +265,53 @@ static std::vector<int> createBlockIDs( const std::vector<std::array<double, NP>
         }
     }
     return blockID;
+}
+
+
+/****************************************************************
+ * Check if the domain is a multi-block domain                   *
+ ****************************************************************/
+bool isMultiDomain( const std::vector<std::array<int, 3>> &tri,
+                    std::vector<std::array<int, 3>> &tri_nab )
+{
+    // Duplicate triangles indicate multiple blocks
+    size_t N_unique = TriangleHelpers::count<2>( tri );
+    if ( N_unique != tri.size() )
+        return true;
+    // Create triangle neighbors if needed
+    std::vector<std::array<int, 3>> nab;
+    try {
+        nab = DelaunayHelpers::create_tri_neighbors<2>( tri );
+    } catch ( ... ) {
+        return true;
+    }
+    // Check if every triangle can be reached by triangle 0 (not finished)
+    std::vector<uint8_t> test( tri.size(), 0 );
+    test[0]       = 1;
+    bool finished = false;
+    while ( !finished ) {
+        finished = true;
+        for ( size_t i = 0; i < tri.size(); i++ ) {
+            if ( test[i] == 1 ) {
+                for ( int d = 0; d < 3; d++ ) {
+                    int t = nab[i][d];
+                    if ( t == -1 )
+                        continue;
+                    if ( test[t] == 0 ) {
+                        test[t]  = 1;
+                        finished = false;
+                    }
+                }
+                test[i] = 2;
+            }
+        }
+    }
+    bool multiblock = false;
+    for ( size_t i = 0; i < tri.size(); i++ )
+        multiblock = multiblock || test[i] == 0;
+    if ( !multiblock )
+        tri_nab = std::move( nab );
+    return multiblock;
 }
 
 
@@ -459,22 +505,53 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
     PROFILE( "generateSTL" );
     auto db       = params->getDatabase();
     auto filename = db->getWithDefault<std::string>( "FileName", "" );
-    auto name     = db->getWithDefault<std::string>( "MeshName", "NULL" );
-    auto comm     = params->getComm();
+
+    auto comm = params->getComm();
     // Read the STL file
-    std::vector<std::array<double, 3>> vert;
-    std::vector<triset> tri( 1 ), tri_nab;
+    std::vector<std::array<std::array<double, 3>, 3>> triangles;
     if ( comm.getRank() == 0 ) {
-        auto scale     = db->getWithDefault<double>( "scale", 1.0 );
-        auto triangles = TriangleHelpers::readSTL( filename, scale );
+        auto scale = db->getWithDefault<double>( "scale", 1.0 );
+        triangles  = TriangleHelpers::readSTL( filename, scale );
+    }
+    // Generate the mesh
+    double tol = 1e-6;
+    bool split = db->getWithDefault<bool>( "split", true );
+    int method = db->getWithDefault<int>( "LoadBalanceMethod", 1 );
+    auto name  = db->getWithDefault<std::string>( "MeshName", "NULL" );
+    auto mesh  = generate<2>( triangles, comm, name, tol, split, method );
+    // Displace the mesh
+    std::vector<double> disp( 3, 0.0 );
+    if ( db->keyExists( "x_offset" ) )
+        disp[0] = db->getScalar<double>( "x_offset" );
+    if ( db->keyExists( "y_offset" ) )
+        disp[1] = db->getScalar<double>( "y_offset" );
+    if ( db->keyExists( "z_offset" ) )
+        disp[2] = db->getScalar<double>( "z_offset" );
+    if ( disp[0] != 0.0 || disp[1] != 0.0 || disp[2] != 0.0 )
+        mesh->displaceMesh( disp );
+    return mesh;
+}
+template<size_t NG, size_t NP>
+std::shared_ptr<AMP::Mesh::Mesh>
+generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangles,
+          const AMP_MPI &comm,
+          const std::string &name,
+          double tol,
+          bool splitDomain,
+          int method )
+{
+    static_assert( NG == 2 && NP == 3, "Not finished" );
+    std::vector<std::array<double, 3>> vert;
+    std::vector<triset> tri( 1 ), tri_nab( 1 );
+    if ( comm.getRank() == 0 ) {
         // Create triangles from the points
-        double tol = 1e-6;
         TriangleHelpers::createTriangles<2, 3>( triangles, vert, tri[0], tol );
         // Find the number of unique triangles (duplicates may indicate multiple objects)
-        bool multidomain = TriangleHelpers::count<2>( tri[0] ) > 1;
-        if ( multidomain && db->getWithDefault<bool>( "split", true ) ) {
+        bool multidomain = isMultiDomain( tri[0], tri_nab[0] );
+        if ( multidomain && splitDomain ) {
             // Try to split the domains
-            tri         = TriangleHelpers::splitDomains<2>( tri[0] );
+            tri = TriangleHelpers::splitDomains<2>( tri[0] );
+            tri_nab[0].clear();
             multidomain = false;
         }
         // Create the triangle neighbors
@@ -482,7 +559,8 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         if ( !multidomain ) {
             for ( size_t i = 0; i < tri.size(); i++ ) {
                 // Get the triangle neighbors
-                tri_nab[i] = DelaunayHelpers::create_tri_neighbors<2>( tri[i] );
+                if ( tri_nab[i].size() != tri[i].size() )
+                    tri_nab[i] = DelaunayHelpers::create_tri_neighbors<2>( tri[i] );
                 // Check if the geometry is closed
                 bool closed = true;
                 for ( const auto &t : tri_nab[i] ) {
@@ -508,10 +586,9 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
     std::shared_ptr<AMP::Mesh::Mesh> mesh;
     if ( N_domains == 1 ) {
         auto id = createBlockIDs<2, 3>( vert, tri[0], tri_nab[0] );
-        mesh    = TriangleMesh<2>::generate<3>( vert, tri[0], tri_nab[0], comm, nullptr, id );
+        mesh = std::make_shared<TriangleMesh<2>>( 3, vert, tri[0], tri_nab[0], comm, nullptr, id );
     } else {
         // We are dealing with multiple sub-domains, choose the load balance method
-        int method = db->getWithDefault<int>( "LoadBalanceMethod", 1 );
         auto comm2 = loadbalance( tri, comm, method );
         // Send the triangle data to all ranks
         vert = comm.bcast( std::move( vert ), 0 );
@@ -525,34 +602,25 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         std::vector<std::shared_ptr<AMP::Mesh::Mesh>> submeshes;
         for ( size_t i = 0; i < tri.size(); i++ ) {
             if ( !comm2[i].isNull() ) {
-                std::shared_ptr<AMP::Mesh::Mesh> mesh2;
-                if ( comm2[i].getRank() == 0 ) {
-                    auto id = createBlockIDs<2, 3>( vert, tri[i], tri_nab[i] );
-                    mesh2   = TriangleMesh<2>::generate<3>(
-                        vert, tri[i], tri_nab[i], comm2[i], nullptr, id );
-                } else {
-                    mesh2 = TriangleMesh<2>::generate<3>( {}, {}, {}, comm2[i], nullptr, {} );
-                }
+                auto id    = createBlockIDs<2, 3>( vert, tri[i], tri_nab[i] );
+                auto mesh2 = std::make_shared<TriangleMesh<2>>(
+                    3, vert, tri[i], tri_nab[i], comm2[i], nullptr, id );
                 mesh2->setName( name + "_" + std::to_string( i + 1 ) );
                 submeshes.push_back( mesh2 );
             }
         }
         mesh.reset( new MultiMesh( name, comm, submeshes ) );
     }
-    // Displace the mesh
-    std::vector<double> disp( 3, 0.0 );
-    if ( db->keyExists( "x_offset" ) )
-        disp[0] = db->getScalar<double>( "x_offset" );
-    if ( db->keyExists( "y_offset" ) )
-        disp[1] = db->getScalar<double>( "y_offset" );
-    if ( db->keyExists( "z_offset" ) )
-        disp[2] = db->getScalar<double>( "z_offset" );
-    if ( disp[0] != 0.0 || disp[1] != 0.0 || disp[2] != 0.0 )
-        mesh->displaceMesh( disp );
-    // Set the mesh name
     mesh->setName( name );
     return mesh;
 }
+template std::shared_ptr<AMP::Mesh::Mesh>
+generate<2, 3>( const std::vector<std::array<std::array<double, 3>, 3>> &,
+                const AMP_MPI &,
+                const std::string &,
+                double,
+                bool,
+                int );
 
 
 /********************************************************
@@ -748,8 +816,11 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
                const std::vector<Point> &points,
                const AMP_MPI &comm )
 {
-    if ( comm.getRank() != 0 )
-        return TriangleMesh<NDIM>::template generate<NDIM>( {}, {}, {}, comm, geom );
+    if ( comm.getRank() != 0 ) {
+        std::vector<std::array<double, 3>> vert;
+        std::vector<std::array<int, NDIM + 1>> tri, tri_nab;
+        return std::make_shared<TriangleMesh<NDIM>>( NDIM, vert, tri, tri_nab, comm, geom );
+    }
     // Tessellate
     auto [tri, tri_nab] = createTessellation<NDIM>( points );
     // Delete triangles that have duplicate neighbors
@@ -821,12 +892,12 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
             tri_nab2[i][d] = tri_nab[i][d];
         }
     }
-    std::vector<std::array<double, NDIM>> x1( points.size() );
+    std::vector<std::array<double, 3>> x1( points.size(), { 0, 0, 0 } );
     for ( size_t i = 0; i < points.size(); i++ ) {
         for ( int d = 0; d < NDIM; d++ )
             x1[i][d] = points[i][d];
     }
-    return TriangleMesh<NDIM>::template generate<NDIM>( x1, tri2, tri_nab2, comm, geom );
+    return std::make_shared<TriangleMesh<NDIM>>( NDIM, x1, tri2, tri_nab2, comm, geom );
 }
 std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Geometry> geom,
                                                const AMP_MPI &comm,
