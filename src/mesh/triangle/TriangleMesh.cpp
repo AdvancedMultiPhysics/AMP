@@ -1429,9 +1429,11 @@ bool TriangleMesh<NG>::isOnSurface( const ElementID &id ) const
     } else if ( type == GeomType::Vertex ) {
         return d_isSurface[0][d_vertex.index( id )];
     } else if ( type == GeomType::Edge ) {
-        return d_isSurface[1][d_childEdge.index( id )];
+        if constexpr ( NG >= 2 )
+            return d_isSurface[1][d_childEdge.index( id )];
     } else if ( type == GeomType::Face ) {
-        return d_isSurface[2][d_childFace.index( id )];
+        if constexpr ( NG >= 3 )
+            return d_isSurface[2][d_childFace.index( id )];
     }
     return false;
 }

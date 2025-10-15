@@ -270,6 +270,53 @@ static std::vector<int> createBlockIDs( const std::vector<std::array<double, NP>
 
 
 /****************************************************************
+ * Check if the domain is a multi-block domain                   *
+ ****************************************************************/
+bool isMultiDomain( const std::vector<std::array<int, 3>> &tri,
+                    std::vector<std::array<int, 3>> &tri_nab )
+{
+    // Duplicate triangles indicate multiple blocks
+    size_t N_unique = TriangleHelpers::count<2>( tri );
+    if ( N_unique != tri.size() )
+        return true;
+    // Create triangle neighbors if needed
+    std::vector<std::array<int, 3>> nab;
+    try {
+        nab = DelaunayHelpers::create_tri_neighbors<2>( tri );
+    } catch ( ... ) {
+        return true;
+    }
+    // Check if every triangle can be reached by triangle 0 (not finished)
+    std::vector<uint8_t> test( tri.size(), 0 );
+    test[0]       = 1;
+    bool finished = false;
+    while ( !finished ) {
+        finished = true;
+        for ( size_t i = 0; i < tri.size(); i++ ) {
+            if ( test[i] == 1 ) {
+                for ( int d = 0; d < 3; d++ ) {
+                    int t = nab[i][d];
+                    if ( t == -1 )
+                        continue;
+                    if ( test[t] == 0 ) {
+                        test[t]  = 1;
+                        finished = false;
+                    }
+                }
+                test[i] = 2;
+            }
+        }
+    }
+    bool multiblock = false;
+    for ( size_t i = 0; i < tri.size(); i++ )
+        multiblock = multiblock || test[i] == 0;
+    if ( !multiblock )
+        tri_nab = std::move( nab );
+    return multiblock;
+}
+
+
+/****************************************************************
  * Try to split the mesh into separate independent domains       *
  ****************************************************************/
 static inline std::array<int, 2> getFace( const std::array<int, 3> &tri, size_t i )
@@ -463,7 +510,7 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
     auto comm     = params->getComm();
     // Read the STL file
     std::vector<std::array<double, 3>> vert;
-    std::vector<triset> tri( 1 ), tri_nab;
+    std::vector<triset> tri( 1 ), tri_nab( 1 );
     if ( comm.getRank() == 0 ) {
         auto scale     = db->getWithDefault<double>( "scale", 1.0 );
         auto triangles = TriangleHelpers::readSTL( filename, scale );
@@ -471,10 +518,11 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         double tol = 1e-6;
         TriangleHelpers::createTriangles<2, 3>( triangles, vert, tri[0], tol );
         // Find the number of unique triangles (duplicates may indicate multiple objects)
-        bool multidomain = TriangleHelpers::count<2>( tri[0] ) > 1;
+        bool multidomain = isMultiDomain( tri[0], tri_nab[0] );
         if ( multidomain && db->getWithDefault<bool>( "split", true ) ) {
             // Try to split the domains
-            tri         = TriangleHelpers::splitDomains<2>( tri[0] );
+            tri = TriangleHelpers::splitDomains<2>( tri[0] );
+            tri_nab[0].clear();
             multidomain = false;
         }
         // Create the triangle neighbors
@@ -482,7 +530,8 @@ std::shared_ptr<AMP::Mesh::Mesh> generateSTL( std::shared_ptr<const MeshParamete
         if ( !multidomain ) {
             for ( size_t i = 0; i < tri.size(); i++ ) {
                 // Get the triangle neighbors
-                tri_nab[i] = DelaunayHelpers::create_tri_neighbors<2>( tri[i] );
+                if ( tri_nab[i].size() != tri[i].size() )
+                    tri_nab[i] = DelaunayHelpers::create_tri_neighbors<2>( tri[i] );
                 // Check if the geometry is closed
                 bool closed = true;
                 for ( const auto &t : tri_nab[i] ) {
