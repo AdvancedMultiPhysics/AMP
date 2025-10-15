@@ -76,7 +76,6 @@ public: // Functions derived from MeshElement
     bool isOnSurface() const override;
     bool isOnBoundary( int id ) const override;
     bool isInBlock( int id ) const override;
-    unsigned int globalOwnerRank() const override;
     void getVertices( std::vector<Point> &vertices ) const override;
     using MeshElement::getElements;
     using MeshElement::getNeighbors;
