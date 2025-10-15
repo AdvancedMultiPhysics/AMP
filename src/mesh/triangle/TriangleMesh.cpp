@@ -7,6 +7,7 @@
 #include "AMP/mesh/triangle/TriangleMeshIterator.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/DelaunayHelpers.h"
+#include "AMP/utils/DelaunayTessellation.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/Vector.h"
@@ -45,6 +46,61 @@ static constexpr uint8_t n_Simplex_elements[10][10] = {
         { 10, 45, 120, 210, 252, 210, 120,  45, 10,  1 },
 };
 // clang-format on
+
+
+/****************************************************************
+ * Perform some sanity checks                                    *
+ ****************************************************************/
+#ifdef AMP_DEBUG
+typedef std::array<double, 3> TriPoint;
+static inline Point operator-( const TriPoint &x, const TriPoint &y )
+{
+    return { x[0] - y[0], x[1] - y[1], x[2] - y[2] };
+}
+static inline double dot( const TriPoint &x, const TriPoint &y )
+{
+    return x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
+}
+template<uint8_t NG>
+static void check( const std::vector<std::array<int, NG + 1>> &tri,
+                   const std::vector<TriPoint> &x0 )
+{
+    std::array<TriPoint, NG + 1> x;
+    for ( size_t i = 0; i < tri.size(); i++ ) {
+        for ( int j = 0; j <= NG; j++ ) {
+            int t = tri[i][j];
+            x[j]  = x0[t];
+        }
+        if constexpr ( NG == 1 ) {
+            auto y   = x[1] - x[0];
+            double V = std::sqrt( y[0] * y[0] + y[1] * y[1] + y[2] * y[2] );
+            AMP_ASSERT( V > 0 );
+        } else if constexpr ( NG == 2 ) {
+            auto AB  = x[1] - x[0];
+            auto AC  = x[2] - x[0];
+            double t = dot( AB, AC );
+            double V = 0.5 * std::sqrt( dot( AB, AB ) * dot( AC, AC ) - t * t );
+            AMP_ASSERT( V > 0 );
+        } else if constexpr ( NG == 3 ) {
+            // Calculate the volume of a N-dimensional simplex
+            auto V = DelaunayHelpers::calcVolume<3, double>( x.data() );
+            AMP_ASSERT( V > 0.0 );
+        }
+    }
+}
+static void check( const MeshIterator &it )
+{
+    for ( auto &elem : it )
+        AMP_ASSERT( elem.volume() > 0.0 );
+}
+#else
+template<uint8_t NG>
+static inline void check( const std::vector<std::array<int, NG + 1>> &,
+                          const std::vector<std::array<double, 3>> & )
+{
+}
+static inline void check( const MeshIterator & ) {}
+#endif
 
 
 /****************************************************************
@@ -262,14 +318,17 @@ void TriangleMesh<NG>::loadBalance( const std::vector<Point> &vertices,
     std::iota( I.begin(), I.end(), 0 );
     std::stable_sort(
         I.begin(), I.end(), [&ranks]( size_t i1, size_t i2 ) { return ranks[i1] < ranks[i2]; } );
+    std::vector<int> J( I.size() );
+    for ( size_t i = 0; i < I.size(); ++i )
+        J[I[i]] = i;
     std::vector<Point> x( vertices.size() );
     for ( size_t i = 0; i < vertices.size(); i++ )
         x[i] = vertices[I[i]];
     auto tri2 = tri;
     tri2.resize( tri.size() );
     for ( size_t i = 0; i < tri.size(); i++ ) {
-        for ( uint8_t d = 0; d < NG + 1; d++ )
-            tri2[i][d] = I[tri[i][d]];
+        for ( uint8_t d = 0; d <= NG; d++ )
+            tri2[i][d] = J[tri[i][d]];
     }
     // Get the ranks
     std::vector<int> offset( d_comm.getSize() + 1, 0 );
@@ -405,6 +464,7 @@ TriangleMesh<NG>::TriangleMesh( int NP,
     d_geometry  = std::move( geom_in );
     setMeshID();
     // Run some basic checks
+    check<NG>( tri, vertices );
     if ( block.empty() )
         block = std::vector<int>( tri.size(), 0 );
     if ( d_comm.getSize() > 1 ) {
@@ -552,6 +612,11 @@ void TriangleMesh<NG>::initialize()
         d_N_global[i] = d_comm.sumReduce( d_iterators[0][i].size() );
     for ( int i = NG + 1; i < 4; i++ )
         d_N_global[i] = 0;
+    // Perform some basic checks of the iterators (debug only)
+    for ( size_t i = 0; i < d_iterators.size(); i++ ) {
+        for ( size_t j = 1; j < d_iterators[i].size(); j++ )
+            check( d_iterators[i][j] );
+    }
 }
 template<uint8_t NG>
 void TriangleMesh<NG>::initializeIterators()
@@ -1200,54 +1265,31 @@ void TriangleMesh<NG>::displaceMesh( std::shared_ptr<const AMP::LinearAlgebra::V
 
 
 /****************************************************************
- *  Get the coordinated of the given vertex or the centroid      *
- ****************************************************************/
-template<uint8_t NG>
-std::array<double, 3> TriangleMesh<NG>::getPos( const ElementID &id ) const
-{
-    if ( id.type() == GeomType::Vertex ) {
-        return d_vertex[id];
-    } else {
-        AMP_ERROR( "Not finished" );
-    }
-}
-
-
-/****************************************************************
  * Return the IDs of the elements composing the current element  *
  ****************************************************************/
 template<uint8_t NG>
-void TriangleMesh<NG>::getVerticies( const ElementID &id, ElementID *IDs ) const
+void TriangleMesh<NG>::getVertexCoord( const ElementID &id, std::array<double, 3> *x ) const
 {
-    auto type   = id.type();
-    int N_nodes = 0;
-    int nodes[NG + 1];
-    if ( static_cast<uint8_t>( type ) > NG ) {
-        return;
-    } else if ( type == GeomType::Vertex ) {
-        IDs[0] = id;
-        return;
+    auto type = id.type();
+    AMP_DEBUG_ASSERT( static_cast<uint8_t>( type ) <= NG );
+    if ( type == GeomType::Vertex ) {
+        x[0] = d_vertex[id];
     } else if ( static_cast<uint8_t>( type ) == NG ) {
-        N_nodes  = NG + 1;
         auto tri = d_globalTri[id];
         for ( int d = 0; d <= NG; d++ )
-            nodes[d] = tri[d];
+            x[d] = d_vertex[tri[d]];
     } else if ( type == GeomType::Edge ) {
-        N_nodes   = 2;
         auto edge = d_childEdge[id];
-        nodes[0]  = edge[0];
-        nodes[1]  = edge[1];
+        x[0]      = d_vertex[edge[0]];
+        x[1]      = d_vertex[edge[1]];
     } else if ( type == GeomType::Face ) {
-        N_nodes   = 3;
         auto face = d_childFace[id];
-        nodes[0]  = face[0];
-        nodes[1]  = face[1];
-        nodes[2]  = face[2];
+        x[0]      = d_vertex[face[0]];
+        x[1]      = d_vertex[face[1]];
+        x[2]      = d_vertex[face[2]];
     } else {
         AMP_ERROR( "Not finished" );
     }
-    for ( int d = 0; d < N_nodes; d++ )
-        IDs[d] = d_vertex.getID( nodes[d] );
 }
 template<uint8_t NG>
 void TriangleMesh<NG>::getElementsIDs( const ElementID &id,
@@ -1259,7 +1301,20 @@ void TriangleMesh<NG>::getElementsIDs( const ElementID &id,
         return;
     }
     if ( type == GeomType::Vertex ) {
-        getVerticies( id, IDs );
+        if ( id.type() == static_cast<GeomType>( NG ) ) {
+            auto tri = d_globalTri[id];
+            for ( int d = 0; d <= NG; d++ )
+                IDs[d] = d_vertex.getID( tri[d] );
+        } else if ( id.type() == GeomType::Edge ) {
+            auto edge = d_childEdge[id];
+            IDs[0]    = d_vertex.getID( edge[0] );
+            IDs[1]    = d_vertex.getID( edge[1] );
+        } else if ( id.type() == GeomType::Face ) {
+            auto face = d_childFace[id];
+            IDs[0]    = d_vertex.getID( face[0] );
+            IDs[1]    = d_vertex.getID( face[1] );
+            IDs[2]    = d_vertex.getID( face[2] );
+        }
         return;
     }
     if constexpr ( NG >= 2 ) {
