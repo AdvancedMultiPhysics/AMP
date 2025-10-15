@@ -115,7 +115,7 @@ private:
     explicit TpetraVector( std::shared_ptr<Vector> );
 
 private:
-    std::shared_ptr<Tpetra::Vector<>> d_tpetra;
+    Teuchos::RCP<Tpetra::Vector<>> d_tpetra;
     std::shared_ptr<Vector> d_AMP;
 };
 

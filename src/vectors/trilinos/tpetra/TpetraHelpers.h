@@ -19,7 +19,7 @@ class Vector;
 /********************************************************
  * Get an Tpetra vector from an AMP vector               *
  ********************************************************/
-std::shared_ptr<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec );
+Teuchos::RCP<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec );
 
 
 } // namespace AMP::LinearAlgebra

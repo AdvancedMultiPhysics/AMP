@@ -20,7 +20,7 @@ static inline double *getBufferPtr( std::shared_ptr<VectorData> buf )
 /********************************************************
  * Get an Tpetra vector from an AMP vector               *
  ********************************************************/
-std::shared_ptr<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec )
+Teuchos::RCP<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec )
 {
 #ifdef AMP_USE_MPI
     const auto &mpiComm = vec->getComm().getCommunicator();
@@ -46,7 +46,8 @@ std::shared_ptr<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec )
 
     using DualViewType = Tpetra::Vector<>::dual_view_type;
     DualViewType dv( dview_unmanaged, hview_unmanaged );
-    auto vec2 = std::make_shared<Tpetra::Vector<>>( map, dv );
+
+    auto vec2 = Teuchos::rcp( new Tpetra::Vector<>( map, dv ) );
 
     return vec2;
 }
