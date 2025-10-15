@@ -297,6 +297,10 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
     auto offd_sum = row_sum( Ao_rs, Ao_cols_loc, Ao_coeffs, ghosts );
 
     auto update = [&]( lidx_t row ) {
+        if ( Ad_rs[row] == Ad_rs[row + 1] ) {
+            // row is empty, skip it
+            return;
+        }
         auto diag = Ad_coeffs[Ad_rs[row]];
         auto dinv = 1.0 / diag;
         if ( std::isinf( dinv ) ) {
