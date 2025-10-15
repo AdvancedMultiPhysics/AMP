@@ -25,13 +25,9 @@ public:
     {
         const int nLocal = 210;
         AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
-        const int start   = nLocal * globalComm.getRank();
-        const int nGlobal = nLocal * globalComm.getSize();
-        auto commList     = std::make_shared<CommunicationList>( nLocal, globalComm );
-        auto dofManager   = std::make_shared<AMP::Discretization::DOFManager>( nLocal, globalComm );
-        auto buffer =
-            std::make_shared<AMP::LinearAlgebra::VectorDataDefault<ST>>( start, nLocal, nGlobal );
-        auto vec = createTpetraVector( commList, dofManager, buffer );
+        auto commList   = std::make_shared<CommunicationList>( nLocal, globalComm );
+        auto dofManager = std::make_shared<AMP::Discretization::DOFManager>( nLocal, globalComm );
+        auto vec        = createTpetraVector( commList, dofManager );
         return vec;
     }
     std::string name() const override { return "NativeTpetraFactory"; }

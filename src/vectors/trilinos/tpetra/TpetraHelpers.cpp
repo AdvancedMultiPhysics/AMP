@@ -22,36 +22,47 @@ static inline double *getBufferPtr( std::shared_ptr<VectorData> buf )
  ********************************************************/
 Teuchos::RCP<Tpetra::Vector<>> getTpetra( std::shared_ptr<Vector> vec )
 {
+    auto vecData = vec->getVectorData();
+    // this routine probably needs to be templated on the Tpetra::Vector template parameters
+    auto tpetraData = std::dynamic_pointer_cast<TpetraVectorData<>>( vecData );
+
+    if ( tpetraData ) {
+        return tpetraData->getTpetraVector();
+    } else {
+
 #ifdef AMP_USE_MPI
-    const auto &mpiComm = vec->getComm().getCommunicator();
-    auto comm           = Teuchos::rcp( new Teuchos::MpiComm<int>( mpiComm ) );
+        const auto &mpiComm = vec->getComm().getCommunicator();
+        auto comm           = Teuchos::rcp( new Teuchos::MpiComm<int>( mpiComm ) );
 #else
-    auto comm = Tpetra::getDefaultComm();
+        auto comm = Tpetra::getDefaultComm();
 #endif
 
-    const auto localSize = vec->getLocalSize();
-    auto map = Teuchos::rcp( new Tpetra::Map<>( vec->getGlobalSize(), localSize, 0, comm ) );
-    auto ptr = getBufferPtr( vec->getVectorData() );
+        const auto localSize = vec->getLocalSize();
+        auto map = Teuchos::rcp( new Tpetra::Map<>( vec->getGlobalSize(), localSize, 0, comm ) );
+        auto ptr = getBufferPtr( vec->getVectorData() );
 
-    using HostSpace   = Kokkos::DefaultHostExecutionSpace::memory_space;
-    using DeviceSpace = Kokkos::DefaultExecutionSpace::memory_space;
+        using HostSpace   = Kokkos::DefaultHostExecutionSpace::memory_space;
+        using DeviceSpace = Kokkos::DefaultExecutionSpace::memory_space;
 
-    const decltype( localSize ) ncols = 1;
+        const decltype( localSize ) ncols = 1;
 
-    using MDViewH = Kokkos::
-        View<double **, Kokkos::LayoutLeft, HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-    using MDViewD = Kokkos::
-        View<double **, Kokkos::LayoutLeft, DeviceSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-    MDViewH hview_unmanaged( ptr, localSize, ncols );
+        using MDViewH = Kokkos::
+            View<double **, Kokkos::LayoutLeft, HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        using MDViewD = Kokkos::View<double **,
+                                     Kokkos::LayoutLeft,
+                                     DeviceSpace,
+                                     Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        MDViewH hview_unmanaged( ptr, localSize, ncols );
 
-    MDViewD dview_unmanaged( ptr, localSize, ncols );
+        MDViewD dview_unmanaged( ptr, localSize, ncols );
 
-    using DualViewType = Tpetra::Vector<>::dual_view_type;
-    DualViewType dv( hview_unmanaged, dview_unmanaged );
+        using DualViewType = Tpetra::Vector<>::dual_view_type;
+        DualViewType dv( hview_unmanaged, dview_unmanaged );
 
-    auto vec2 = Teuchos::rcp( new Tpetra::Vector<>( map, dv ) );
+        auto vec2 = Teuchos::rcp( new Tpetra::Vector<>( map, dv ) );
 
-    return vec2;
+        return vec2;
+    }
 }
 
 } // namespace AMP::LinearAlgebra

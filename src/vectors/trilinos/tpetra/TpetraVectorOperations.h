@@ -4,6 +4,7 @@
 #include "AMP/vectors/Scalar.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/operations/VectorOperations.h"
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -16,9 +17,9 @@ namespace AMP::LinearAlgebra {
  * This class is not to be used directly, just through base class interfaces.
  * \see TpetraVector
  */
-template<typename ST = double,
-         typename LO = int32_t,
-         typename GO = int64_t,
+template<typename ST = Tpetra_ST,
+         typename LO = Tpetra_LO,
+         typename GO = Tpetra_GO,
          typename NT = Tpetra::Vector<>::node_type>
 class TpetraVectorOperations : public VectorOperations
 {

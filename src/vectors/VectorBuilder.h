@@ -126,8 +126,7 @@ std::shared_ptr<Vector> createEpetraVector( std::shared_ptr<CommunicationList> c
  * \param[in] p             Optional VectorData object
  */
 std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> commList,
-                                            std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
-                                            std::shared_ptr<VectorData> p = nullptr );
+                                            std::shared_ptr<AMP::Discretization::DOFManager> DOFs );
 
 
 /**

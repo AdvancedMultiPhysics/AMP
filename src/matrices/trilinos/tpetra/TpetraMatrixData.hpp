@@ -323,12 +323,7 @@ std::shared_ptr<Vector> TpetraMatrixData<ST, LO, GO, NT>::createInputVector() co
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
 
-    const auto localSize  = params->getLocalNumberOfColumns();
-    const auto globalSize = params->getGlobalNumberOfColumns();
-    const auto localStart = params->getRightDOFManager()->beginDOF();
-    auto buffer = std::make_shared<VectorDataDefault<ST>>( localStart, localSize, globalSize );
-    auto vec =
-        createTpetraVector( params->getRightCommList(), params->getRightDOFManager(), buffer );
+    auto vec = createTpetraVector( params->getRightCommList(), params->getRightDOFManager() );
     vec->setVariable( params->getRightVariable() );
     return vec;
 }
@@ -337,11 +332,7 @@ std::shared_ptr<Vector> TpetraMatrixData<ST, LO, GO, NT>::createOutputVector() c
 {
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
     AMP_ASSERT( params );
-    const auto localSize  = params->getLocalNumberOfRows();
-    const auto globalSize = params->getGlobalNumberOfRows();
-    const auto localStart = params->getRightDOFManager()->beginDOF();
-    auto buffer = std::make_shared<VectorDataDefault<ST>>( localStart, localSize, globalSize );
-    auto vec = createTpetraVector( params->getLeftCommList(), params->getLeftDOFManager(), buffer );
+    auto vec = createTpetraVector( params->getLeftCommList(), params->getLeftDOFManager() );
     vec->setVariable( params->getLeftVariable() );
     return vec;
 }
