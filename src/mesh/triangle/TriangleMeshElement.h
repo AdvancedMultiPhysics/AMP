@@ -12,8 +12,6 @@ namespace AMP::Mesh {
 
 template<uint8_t NG>
 class TriangleMesh;
-template<uint8_t NG>
-class TriangleMeshIterator;
 
 
 /**
@@ -125,7 +123,7 @@ public:
     bool isInBlock( int id ) const override;
 
 
-protected:
+public: // Advanced interfaces
     // Default constructors
     TriangleMeshElement( const MeshElementID &id, const TriangleMesh<NG> *mesh );
 
@@ -135,15 +133,10 @@ protected:
     //! Clone the iterator
     MeshElement *clone() const override;
 
-    // The pointer to the current mesh
-    const TriangleMesh<NG> *d_mesh;
-
-    // Friends
-    friend class AMP::Mesh::TriangleMesh<NG>;
-    friend class AMP::Mesh::TriangleMeshIterator<NG>;
 
 private:
     MeshElementID d_globalID;
+    const TriangleMesh<NG> *d_mesh;
 };
 
 

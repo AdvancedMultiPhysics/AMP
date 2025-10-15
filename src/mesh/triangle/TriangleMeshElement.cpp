@@ -125,7 +125,7 @@ TriangleMeshElement<NG>::TriangleMeshElement( const MeshElementID &id,
 }
 template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement( const TriangleMeshElement &rhs )
-    : MeshElement(), d_mesh( rhs.d_mesh ), d_globalID( rhs.d_globalID )
+    : MeshElement(), d_globalID( rhs.d_globalID ), d_mesh( rhs.d_mesh )
 {
     static constexpr auto hash = AMP::getTypeID<decltype( *this )>().hash;
     static_assert( hash != 0 );
@@ -134,7 +134,7 @@ TriangleMeshElement<NG>::TriangleMeshElement( const TriangleMeshElement &rhs )
 }
 template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement( TriangleMeshElement &&rhs )
-    : MeshElement(), d_mesh( rhs.d_mesh ), d_globalID{ rhs.d_globalID }
+    : MeshElement(), d_globalID{ rhs.d_globalID }, d_mesh( rhs.d_mesh )
 {
     d_typeHash = rhs.d_typeHash;
     d_element  = nullptr;
