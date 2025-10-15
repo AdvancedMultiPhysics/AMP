@@ -19,20 +19,20 @@ LinearSolver{
   }
 
   level_options_1{
-    prol_trunc = 0.1
-    num_smooth_prol = 1
-    strength_threshold = 10.0
+    prol_trunc = 0.075
+    num_smooth_prol = 3
+    strength_threshold = 4.0
   }
     
   pre_relaxation{
     name = "HybridGS"
-    num_sweeps = 1
+    num_sweeps = 2
     sweep_type = "symmetric"
   }
 
   post_relaxation{
     name = "HybridGS"
-    num_sweeps = 1
+    num_sweeps = 2
     sweep_type = "symmetric"
   }
 

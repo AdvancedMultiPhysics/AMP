@@ -30,7 +30,7 @@ LinearSolver{
 
   coarse_solver{
     name = "HybridGS"
-    num_sweeps = 20
+    num_sweeps = 2
     sweep_type = "symmetric"
   }
 }
