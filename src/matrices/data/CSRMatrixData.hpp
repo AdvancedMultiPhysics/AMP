@@ -661,8 +661,8 @@ void CSRMatrixData<Config>::addValuesByGlobalID( size_t num_rows,
             // auto lcols = &cols[num_cols * i];
             const auto local_row = rows[i] - d_first_row;
             auto lvals           = &values[num_cols * i];
-            d_diag_matrix->addValuesByGlobalID( num_cols, local_row, cols, lvals );
-            d_offd_matrix->addValuesByGlobalID( num_cols, local_row, cols, lvals );
+            d_diag_matrix->addValuesByGlobalID( local_row, num_cols, cols, lvals );
+            d_offd_matrix->addValuesByGlobalID( local_row, num_cols, cols, lvals );
         } else {
             for ( size_t icol = 0; icol < num_cols; ++icol ) {
                 d_other_data[rows[i]][cols[icol]] += values[num_cols * i + icol];
@@ -696,8 +696,8 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
             // auto lcols = &cols[num_cols * i];
             const auto local_row = rows[i] - d_first_row;
             auto lvals           = &values[num_cols * i];
-            d_diag_matrix->setValuesByGlobalID( num_cols, local_row, cols, lvals );
-            d_offd_matrix->setValuesByGlobalID( num_cols, local_row, cols, lvals );
+            d_diag_matrix->setValuesByGlobalID( local_row, num_cols, cols, lvals );
+            d_offd_matrix->setValuesByGlobalID( local_row, num_cols, cols, lvals );
         } else {
             for ( size_t icol = 0; icol < num_cols; ++icol ) {
                 d_ghost_data[rows[i]][cols[icol]] = values[num_cols * i + icol];

@@ -22,13 +22,12 @@ public:
     AMPCSRMatrixParameters() = delete;
 
     /** \brief Constructor
-     * \param[in] dofLeft    The DOFManager for the left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$,
-     * \f$y\f$ is a left vector )
-     * \param[in] dofRight   The DOFManager for the right vector ( For
+     * \param[in] dofLeft       The DOFManager for the left vector ( For
+     * \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$y\f$ is a left vector )
+     * \param[in] dofRight      The DOFManager for the right vector ( For
      * \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$x\f$ is a right vector )
-     * \param[in] comm       Communicator for the matrix
-     * \param[in] getRowNNZ  Function that finds NNZ counts of each row
-     * \param[in] getRowCols Function that finds finds column indices of a row in each block
+     * \param[in] comm          Communicator for the matrix
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
@@ -36,14 +35,13 @@ public:
                                      std::shared_ptr<GetRowHelper> getRowHelper );
 
     /** \brief Constructor
-     * \param[in] dofLeft    The DOFManager for the left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$,
-     * \f$y\f$ is a left vector )
-     * \param[in] dofRight   The DOFManager for the right vector ( For
-     * \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$x\f$ is a right vector )
-     * \param[in] comm       Communicator for the matrix
-     * \param[in] backend    Acceleration backend for matrix operations
-     * \param[in] getRowNNZ  Function that finds NNZ counts of each row
-     * \param[in] getRowCols Function that finds finds column indices of a row in each block
+     * \param[in] dofLeft       The DOFManager for the left vector ( For
+     \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$y\f$ is a left vector )
+     * \param[in] dofRight      The DOFManager for the right vector ( For
+     \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$x\f$ is a right vector )
+     * \param[in] comm          Communicator for the matrix
+     * \param[in] backend       Acceleration backend for matrix operations
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
@@ -52,15 +50,14 @@ public:
                                      std::shared_ptr<GetRowHelper> getRowHelper );
 
     /** \brief Constructor
-     * \param[in] dofLeft    The DOFManager for the left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$,
-     * \f$y\f$ is a left vector )
-     * \param[in] dofRight   The DOFManager for the right vector ( For
-     * \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$x\f$ is a right vector )
-     * \param[in] comm       Communicator for the matrix
-     * \param[in] varLeft    Pointer to left variable
-     * \param[in] varRight   Pointer to right variable
-     * \param[in] getRowNNZ  Function that finds NNZ counts of each row
-     * \param[in] getRowCols Function that finds finds column indices of a row in each block
+     * \param[in] dofLeft       The DOFManager for the left vector ( For
+     \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$y\f$ is a left vector )
+     * \param[in] dofRight      The DOFManager for the right vector ( For
+     \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$x\f$ is a right vector )
+     * \param[in] comm          Communicator for the matrix
+     * \param[in] varLeft       Pointer to left variable
+     * \param[in] varRight      Pointer to right variable
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
@@ -70,16 +67,15 @@ public:
                                      std::shared_ptr<GetRowHelper> getRowHelper );
 
     /** \brief Constructor
-     * \param[in] dofLeft    The DOFManager for the left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$,
-     * \f$y\f$ is a left vector )
-     * \param[in] dofRight   The DOFManager for the right vector ( For
-     * \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$x\f$ is a right vector )
-     * \param[in] comm       Communicator for the matrix
-     * \param[in] varLeft    Pointer to left variable
-     * \param[in] varRight   Pointer to right variable
-     * \param[in] backend    Acceleration backend for matrix operations
-     * \param[in] getRowNNZ  Function that finds NNZ counts of each row
-     * \param[in] getRowCols Function that finds finds column indices of a row in each block
+     * \param[in] dofLeft       The DOFManager for the left vector ( For
+     \f$\mathbf{y}^T\mathbf{Ax}\f$,\f$y\f$ is a left vector )
+     * \param[in] dofRight      The DOFManager for the right vector ( For
+     \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$x\f$ is a right vector )
+     * \param[in] comm          Communicator for the matrix
+     * \param[in] varLeft       Pointer to left variable
+     * \param[in] varRight      Pointer to right variable
+     * \param[in] backend       Acceleration backend for matrix operations
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
@@ -97,8 +93,7 @@ public:
      * \param[in] comm          Communicator for the matrix
      * \param[in] commListLeft  Communication list for the left vector
      * \param[in] commListRight Communication list for the right vector
-     * \param[in] getRowNNZ     Function that finds NNZ counts of each row
-     * \param[in] getRowCols    Function that finds finds column indices of a row in each block
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
@@ -116,8 +111,7 @@ public:
      * \param[in] commListLeft  Communication list for the left vector
      * \param[in] commListRight Communication list for the right vector
      * \param[in] backend       Acceleration backend for matrix operations
-     * \param[in] getRowNNZ     Function that finds NNZ counts of each row
-     * \param[in] getRowCols    Function that finds finds column indices of a row in each block
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
@@ -137,8 +131,7 @@ public:
      * \param[in] varRight      Pointer to right variable
      * \param[in] commListLeft  Communication list for the left vector
      * \param[in] commListRight Communication list for the right vector
-     * \param[in] getRowNNZ     Function that finds NNZ counts of each row
-     * \param[in] getRowCols    Function that finds finds column indices of a row in each block
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
@@ -160,8 +153,7 @@ public:
      * \param[in] commListLeft  Communication list for the left vector
      * \param[in] commListRight Communication list for the right vector
      * \param[in] backend       Acceleration backend for matrix operations
-     * \param[in] getRowNNZ     Function that finds NNZ counts of each row
-     * \param[in] getRowCols    Function that finds finds column indices of a row in each block
+     * \param[in] getRowHelper  Object providing NNZ counts and column indices per row
      */
     explicit AMPCSRMatrixParameters( std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
                                      std::shared_ptr<AMP::Discretization::DOFManager> dofRight,

@@ -82,7 +82,7 @@ public:
      * and recreates it based on the parameters object. See constructor for
      * fields required for parameter object.
      */
-    void reset( std::shared_ptr<SolverStrategyParameters> ) override;
+    void reset( std::shared_ptr<SolverStrategyParameters> params ) override;
 
     void getFromInput( std::shared_ptr<const AMP::Database> db );
 
