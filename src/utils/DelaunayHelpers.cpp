@@ -260,7 +260,7 @@ template<size_t NG>
 std::vector<std::array<int, NG + 1>>
 create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri )
 {
-    PROFILE( "create_tri_neighbors", 1 );
+    PROFILE( "create_tri_neighbors" );
     // Allocate memory
     std::vector<std::array<int, NG + 1>> tri_nab( tri.size(), createNullTri<NG>() );
     if ( tri.size() == 1 )
