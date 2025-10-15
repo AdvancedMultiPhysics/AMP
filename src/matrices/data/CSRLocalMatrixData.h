@@ -66,6 +66,7 @@ public:
      * \param[in] first_col        Global index of starting column (inclusive)
      * \param[in] last_col         Global index of final column (exclusive)
      * \param[in] is_diag          True if this is the diag block, influences use of first/last col
+     * \param[in] is_symbolic      True if this is a symbolic matrix storing only the NZ pattern
      */
     explicit CSRLocalMatrixData( std::shared_ptr<MatrixParametersBase> params,
                                  AMP::Utilities::MemoryType memory_location,
@@ -251,33 +252,32 @@ protected:
                               scalar_t *values ) const;
 
     /** \brief  Add to existing values at given column locations in a row
-     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] local_row  Local index row to alter
+     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] cols       Global column indices where values are to be altered
-     * \param[in] values     Values to add to existing ones
+     * \param[in] vals       Values to add to existing ones
      * \details Entries in passed cols array that aren't the stored row are ignored
      */
-    void addValuesByGlobalID( const size_t num_cols,
-                              const size_t rows,
+    void addValuesByGlobalID( const size_t local_row,
+                              const size_t num_cols,
                               const size_t *cols,
                               const scalar_t *vals );
 
     /** \brief  Overwrite existing values at given column locations in a row
-     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] local_row  Local index row to alter
+     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] cols       Global column indices where values are to be set
      * \param[in] values     Values to write
      * \details Entries in passed cols array that aren't the stored row are ignored
      */
-    void setValuesByGlobalID( const size_t num_cols,
-                              const size_t rows,
+    void setValuesByGlobalID( const size_t local_row,
+                              const size_t num_cols,
                               const size_t *cols,
                               const scalar_t *vals );
 
     /** \brief  Get columns and values from one row
      * \param[in] local_row  Local index of desired row
-     * \param[out] cols      Vector of global column ids to push onto
-     * \param[out] values    Vector of values to push onto
+     * \return std::vector of global column ids in row
      */
     std::vector<size_t> getColumnIDs( const size_t local_row ) const;
 
