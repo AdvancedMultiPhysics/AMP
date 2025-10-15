@@ -52,6 +52,8 @@ public:
     inline auto &operator[]( int i ) const { return d_x[i]; }
     inline auto &operator[]( const ElementID &id ) { return d_x[index( id )]; }
     inline auto &operator[]( const ElementID &id ) const { return d_x[index( id )]; }
+    inline auto &operator()() { return d_x; }
+    inline const auto &operator()() const { return d_x; }
 
 private:
     GeomType d_type;
@@ -359,14 +361,14 @@ protected:
     void createSurfaceIterators();
 
 
-protected:
+public:
     // Create an iterator from a list
     MeshIterator createIterator( std::shared_ptr<std::vector<ElementID>> ) const;
     MeshIterator createIterator( GeomType type, int gcw ) const;
 
     // Return the IDs of the elements composing the current element
     void getElementsIDs( const ElementID &id, const GeomType type, ElementID *IDs ) const;
-    void getVerticies( const ElementID &id, ElementID *IDs ) const;
+    void getVertexCoord( const ElementID &id, std::array<double, 3> *x ) const;
 
     // Return the IDs of the neighboring elements
     void getNeighborIDs( const ElementID &id, std::vector<ElementID> &IDs ) const;
@@ -378,9 +380,6 @@ protected:
     // Return a new element (user must delete)
     MeshElement *getElement2( const MeshElementID &id ) const;
 
-    // Return the coordinated of the given vertex
-    // Note: no error checking is done to make sure it is a valid vertex
-    Point getPos( const ElementID &id ) const;
 
     // Check if the element is on the given boundry, block, etc
     bool isOnSurface( const ElementID &elemID ) const;
@@ -408,7 +407,6 @@ private:
     void buildChildren();
     ElementList computeNodeParents( int parentType );
     ElementList getParents( int childType, int parentType );
-
 
 private:
     std::array<size_t, 4> d_N_global;          //!< The number of global elements
