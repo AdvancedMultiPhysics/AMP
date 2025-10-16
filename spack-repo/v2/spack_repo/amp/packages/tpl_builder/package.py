@@ -160,7 +160,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     ]
                 )
                 
-        if spec.satisfies("+mpi") and spec.satisfies("+rocm"):
+        if spec.satisfies("+mpi +rocm"):
             options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
                              self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
                              ] )
