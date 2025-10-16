@@ -56,6 +56,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("hypre+mixedint", when="+hypre")
     depends_on("kokkos", when="+kokkos")
 
+    depends_on("kokkos+openmp", when="+kokkos+openmp")
     depends_on("kokkos+cuda+cuda_constexpr", when="+kokkos+cuda")
     depends_on("kokkos+rocm", when="+kokkos+rocm")
     depends_on("hypre+cuda+unified-memory", when="+hypre+cuda")
@@ -157,7 +158,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     ]
                 )
                 
-        if spec.satisfies("+mpi") and spec.satisfies("+rocm"):
+        if spec.satisfies("+mpi +rocm"):
             options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
                              self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
                              ] )

@@ -59,6 +59,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("hypre+mixedint", when="+hypre")
     depends_on("kokkos", when="+kokkos")
 
+    depends_on("kokkos+openmp", when="+kokkos+openmp")
     depends_on("kokkos+cuda+cuda_constexpr", when="+kokkos+cuda")
     depends_on("kokkos+rocm", when="+kokkos+rocm")
     depends_on("hypre+cuda+unified-memory", when="+hypre+cuda")
