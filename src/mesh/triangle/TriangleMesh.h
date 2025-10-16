@@ -132,13 +132,14 @@ public:
      * \brief Primary constructor
      * \details  Create a triangle mesh from the verticies and triangle indicies
      *    Note: Rank 0 must contain all data, other ranks "may" contain copies
+     * \param NP         Number of physical dimensions
      * \param vertices   List of vertices
      * \param triangles  List of triangles
      * \param tri_nab    Optional list of triangles neighbors
      * \param comm       Communicator to use
      *                   (load balance will be automatically generated on this comm)
      * \param geom       Optional geometry to associate with the mesh
-     * \param blockID    Optional vector with the block id for each triangle
+     * \param block      Optional vector with the block id for each triangle
      * \param max_gcw    Maximum gcw to support
      */
     explicit TriangleMesh( int NP,
@@ -168,7 +169,7 @@ public:
     TriangleMesh( TriangleMesh && ) = default;
 
     TriangleMesh &operator=( const TriangleMesh & ) = delete;
-    TriangleMesh &operator=( TriangleMesh && ) = default;
+    TriangleMesh &operator=( TriangleMesh && )      = default;
 
 
     //! Deconstructor

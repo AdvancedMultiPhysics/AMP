@@ -78,8 +78,8 @@ public:
     static void setIdentity( std::shared_ptr<LocalMatrixData> A );
 
     /** \brief Compute the maximum row sum
-     * \return  The L-infinity norm of the matrix
-     * \param[in] A Data for the input matrix
+     * \param[in] A         Data for the input matrix
+     * \param[out] rowSums  L-infinity norm of the matrix
      */
     static void LinfNorm( std::shared_ptr<LocalMatrixData> A, scalar_t *rowSums );
 
