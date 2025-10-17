@@ -649,6 +649,8 @@ private:
      * @param[in] component 0 (energy) or 1 (temperature) to get CSR data for
      * @param[in] E_vec E component of the frozen vector d_frozenVec
      * @param[in] T_vec T component of the frozen vector d_frozenVec
+     * @param[in] E_rawData local raw data array for E
+     * @param[in] T_rawData local raw data array for T
      * @param[in] row the row to retrieve (a scalar index)
      * @param[out] cols the column indices for the non-zeros in the given row, with the diagonal
      * entry first
@@ -661,6 +663,8 @@ private:
     template<size_t Component>
     void getCSRDataDiffusionMatrix( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                                     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+                                    const double * E_rawData,
+                                    const double * T_rawData,
                                     size_t row,
                                     std::vector<size_t> &cols,
                                     std::vector<double> &data );
@@ -669,8 +673,8 @@ private:
      * @note ijkLocal is modified internally, but returned in its original state
      */
     template<size_t Component>
-    void getCSRDataDiffusionMatrixInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
-                                            std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+    void getCSRDataDiffusionMatrixInterior( const double * E_rawData,
+                                            const double * T_rawData,
                                             size_t rowLocal,
                                             std::array<size_t, 5> &ijkLocal,
                                             std::vector<size_t> &colsLocal,

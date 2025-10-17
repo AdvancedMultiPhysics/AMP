@@ -721,6 +721,9 @@ void RadDifOpPJac::setData()
     setDataReaction( T_vec );
 
     // --- Create matrices
+    // Extract local raw data
+    const double * E_rawData = E_vec->getRawDataBlock<double>();
+    const double * T_rawData = T_vec->getRawDataBlock<double>();
     // Place-holders for CSR data in each row
     std::vector<size_t> cols_dE;
     std::vector<double> data_dE;
@@ -728,10 +731,10 @@ void RadDifOpPJac::setData()
     std::vector<double> data_dT;
     // Create wrapper around CSR data function that sets cols and data
     std::function<void( size_t dof )> setColsAndData_dE = [&]( size_t dof ) {
-        getCSRDataDiffusionMatrix<0>( E_vec, T_vec, dof, cols_dE, data_dE );
+        getCSRDataDiffusionMatrix<0>( E_vec, T_vec, E_rawData, T_rawData, dof, cols_dE, data_dE );
     };
     std::function<void( size_t dof )> setColsAndData_dT = [&]( size_t dof ) {
-        getCSRDataDiffusionMatrix<1>( E_vec, T_vec, dof, cols_dT, data_dT );
+        getCSRDataDiffusionMatrix<1>( E_vec, T_vec, E_rawData, T_rawData, dof, cols_dT, data_dT );
     };
 
     // Create Lambda to return col inds from a given row ind
@@ -772,12 +775,15 @@ void RadDifOpPJac::fillDiffusionMatrixWithData( std::shared_ptr<AMP::LinearAlgeb
     auto E_vec = ET_vec->getVector( 0 );
     auto T_vec = ET_vec->getVector( 1 );
 
+    // Extract local raw data
+    const double * E_rawData = E_vec->getRawDataBlock<double>();
+    const double * T_rawData = T_vec->getRawDataBlock<double>();
     // Place-holders for CSR data in each row
     std::vector<size_t> cols;
     std::vector<double> data;
     // Create wrapper around CSR data function that sets cols and data
     std::function<void( size_t dof )> setColsAndData = [&]( size_t dof ) {
-        getCSRDataDiffusionMatrix<Component>( E_vec, T_vec, dof, cols, data );
+        getCSRDataDiffusionMatrix<Component>( E_vec, T_vec, E_rawData, T_rawData, dof, cols, data );
     };
 
     // Iterate through local rows in matrix
@@ -810,6 +816,13 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
     auto jLast  = d_localBox->last[1] - d_localBox->first[1];
     auto kLast  = d_localBox->last[2] - d_localBox->first[2];
 
+    // Get raw data arrays. 
+    const double * T_rawData = T_vec->getRawDataBlock<double>();
+    double * r_EE_rawData = d_data->r_EE->getRawDataBlock<double>();
+    double * r_ET_rawData = d_data->r_ET->getRawDataBlock<double>();
+    double * r_TE_rawData = d_data->r_TE->getRawDataBlock<double>();
+    double * r_TT_rawData = d_data->r_TT->getRawDataBlock<double>();
+
     // Iterate over local box
     for ( auto k = 0; k <= kLast; k++ ) {
         ijk[2] = k;
@@ -820,17 +833,17 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
 
                 // Compute coefficients to apply stencil in a quasi-linear fashion
                 dof = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
-                T   = T_vec->getValueByLocalID<double>( dof );
+                T   = T_rawData[dof];
 
                 // Compute reaction coefficients at cell centers
                 RadDifCoefficients::reaction(
                     d_k12, d_k22, T, zatom, REE, RET, RTE, RTT );
 
                 // Insert values into the vectors
-                d_data->r_EE->setValuesByLocalID<double>( 1, &dof, &REE );
-                d_data->r_ET->setValuesByLocalID<double>( 1, &dof, &RET );
-                d_data->r_TE->setValuesByLocalID<double>( 1, &dof, &RTE );
-                d_data->r_TT->setValuesByLocalID<double>( 1, &dof, &RTT );
+                r_EE_rawData[dof] = REE;
+                r_ET_rawData[dof] = RET;
+                r_TE_rawData[dof] = RTE;
+                r_TT_rawData[dof] = RTT;
             } // Loop over i
         }     // Loop over j
     }         // Loop over k
@@ -841,6 +854,8 @@ template<size_t Component>
 void RadDifOpPJac::getCSRDataDiffusionMatrix(
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+    const double * E_rawData,
+    const double * T_rawData,
     size_t row,
     std::vector<size_t> &cols,
     std::vector<double> &data )
@@ -868,7 +883,7 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     }
 
     // DOF is on interior of processor domain
-    getCSRDataDiffusionMatrixInterior<Component>( E_vec, T_vec, rowLocal, d_ijk, cols, data );
+    getCSRDataDiffusionMatrixInterior<Component>( E_rawData, T_rawData, rowLocal, d_ijk, cols, data );
     // Indices returned in cols are local, so promote them back to the global space
     for ( auto &col : cols ) {
         col += globalOffset;
@@ -878,8 +893,8 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
 
 template<size_t Component>
 void RadDifOpPJac::getCSRDataDiffusionMatrixInterior(
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
-    std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
+    const double * E_rawData,
+    const double * T_rawData,
     size_t rowLocal,
     std::array<size_t, 5> &ijkLocal,
     std::vector<size_t> &colsLocal,
@@ -892,8 +907,8 @@ void RadDifOpPJac::getCSRDataDiffusionMatrixInterior(
 
     // Get ORIGIN DOFs
     auto indORIGIN  = rowLocal;
-    d_ELoc3[ORIGIN] = E_vec->getValueByLocalID<double>( indORIGIN );
-    d_TLoc3[ORIGIN] = T_vec->getValueByLocalID<double>( indORIGIN );
+    d_ELoc3[ORIGIN] = E_rawData[indORIGIN];
+    d_TLoc3[ORIGIN] = T_rawData[indORIGIN];
 
     /**
      * We sum over dimensions, resulting in columns ordered as
@@ -922,10 +937,10 @@ void RadDifOpPJac::getCSRDataDiffusionMatrixInterior(
         auto indEAST = d_localArraySize->index( ijkLocal[0], ijkLocal[1], ijkLocal[2] );
         ijkLocal[dim] -= 1; // Reset to O
 
-        d_ELoc3[WEST] = E_vec->getValueByLocalID<double>( indWEST );
-        d_TLoc3[WEST] = T_vec->getValueByLocalID<double>( indWEST );
-        d_ELoc3[EAST] = E_vec->getValueByLocalID<double>( indEAST );
-        d_TLoc3[EAST] = T_vec->getValueByLocalID<double>( indEAST );
+        d_ELoc3[WEST] = E_rawData[indWEST];
+        d_ELoc3[EAST] = E_rawData[indEAST];
+        d_TLoc3[WEST] = T_rawData[indWEST];
+        d_TLoc3[EAST] = T_rawData[indEAST];
 
         // Get energy coefficients
         if constexpr ( Component == 0 ) {
@@ -1377,6 +1392,18 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
         }
     }
 
+    /** Get raw data arrays. 
+     * We can index directly into these using indices from our ArraySize 
+     * insatnce, d_localArraySize.
+     * Note that in principle we could create AMP::Array's providing views of these raw data 
+     * using AMP::Array::constView (or similar), but we ultimately need to use the index() function 
+     * from ArraySize to get indices (for the Jacobian), so we don't bother creating views
+     */
+    const double * E_rawData = E_vec->getRawDataBlock<double>();
+    const double * T_rawData = T_vec->getRawDataBlock<double>();
+    double * LE_rawData = LE_vec->getRawDataBlock<double>();
+    double * LT_rawData = LT_vec->getRawDataBlock<double>();
+
     // Placeholders for diffusion coefficients
     double Dr_WO, Dr_OE, DT_WO, DT_OE;
 
@@ -1396,8 +1423,8 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 
                 // Get ORIGIN DOFs - these are independent of the dimension
                 auto indORIGIN  = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
-                ELoc3[ORIGIN] = E_vec->getValueByLocalID<double>( indORIGIN );
-                TLoc3[ORIGIN] = T_vec->getValueByLocalID<double>( indORIGIN );
+                ELoc3[ORIGIN]   = E_rawData[indORIGIN];
+                TLoc3[ORIGIN]   = T_rawData[indORIGIN];                
 
                 for ( size_t dim = 0; dim < d_dim; dim++ ) {
 
@@ -1408,10 +1435,10 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                     auto indEAST = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
                     ijk[dim] -= 1; // Reset to O
 
-                    ELoc3[WEST] = E_vec->getValueByLocalID<double>( indWEST );
-                    TLoc3[WEST] = T_vec->getValueByLocalID<double>( indWEST );
-                    ELoc3[EAST] = E_vec->getValueByLocalID<double>( indEAST );
-                    TLoc3[EAST] = T_vec->getValueByLocalID<double>( indEAST );
+                    ELoc3[WEST] = E_rawData[indWEST];
+                    ELoc3[EAST] = E_rawData[indEAST];
+                    TLoc3[WEST] = T_rawData[indWEST];
+                    TLoc3[EAST] = T_rawData[indEAST];
 
                     // Get diffusion coefficients for both E and T
                     FDMeshOps::FaceDiffusionCoefficients<true, true>(
@@ -1447,8 +1474,8 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                 double LT = dif_T_action + ( RTE * ELoc3[ORIGIN] + RTT * TLoc3[ORIGIN] );
 
                 // Insert values into the vectors
-                LE_vec->setValuesByLocalID<double>( 1, &indORIGIN, &LE );
-                LT_vec->setValuesByLocalID<double>( 1, &indORIGIN, &LT );
+                LE_rawData[indORIGIN] = LE;
+                LT_rawData[indORIGIN] = LT;
 
             } // Loop over i
         }     // Loop over j
