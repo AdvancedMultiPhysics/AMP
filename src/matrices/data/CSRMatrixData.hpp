@@ -248,51 +248,55 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
     // make a matrix communicator based on right comm list
     CSRMatrixCommunicator<Config> mat_comm( d_rightCommList, true );
-
-    // extract info from offd block
-    auto col_map = d_offd_matrix->getColumnMap();
-    auto num_unq = d_offd_matrix->numUniqueColumns();
-
-    // Get the partition from right comm list and test
-    // which blocks need to be created
-    // use the fact that partitions and col_map are sorted
-    auto partition = d_rightCommList->getPartition();
-    std::vector<int> dest_ranks;
-    int rd = 0;
-    for ( lidx_t n = 0; n < num_unq && rd < static_cast<int>( partition.size() ); ++n ) {
-        const auto col  = col_map[n];
-        auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
-        auto part_end   = static_cast<gidx_t>( partition[rd] );
-        if ( col < part_start ) {
-            // by sorting the partition containing this index should
-            // already be flagged
-            continue;
-        } else if ( col < part_end ) {
-            // Found column in current partition, flag it and increment
-            dest_ranks.push_back( rd );
-            ++rd;
-        } else {
-            // Found column past current partition
-            // increment partition until it is contained
-            while ( col >= part_end ) {
-                ++rd;
-                AMP_DEBUG_ASSERT( rd < static_cast<int>( partition.size() ) );
-                part_start = part_end;
-                part_end   = partition[rd];
-            }
-            // insert and increment again
-            dest_ranks.push_back( rd );
-            ++rd;
-        }
-    }
-
-    // Create blocks by subsetting on columns and send to owners
     std::map<int, std::shared_ptr<localmatrixdata_t>> send_blocks;
-    for ( const auto rd : dest_ranks ) {
-        const auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
-        const auto part_end   = static_cast<gidx_t>( partition[rd] );
-        auto block            = subsetCols( part_start, part_end );
-        send_blocks.insert( { rd, block->transpose( params ) } );
+
+    if ( !d_offd_matrix->isEmpty() ) {
+        // extract info from offd block
+        auto col_map = d_offd_matrix->getColumnMap();
+        auto num_unq = d_offd_matrix->numUniqueColumns();
+
+        // Get the partition from right comm list and test
+        // which blocks need to be created
+        // use the fact that partitions and col_map are sorted
+        std::vector<int> dest_ranks;
+        auto partition = d_rightCommList->getPartition();
+        int rd         = 0;
+        for ( lidx_t n = 0; n < num_unq && rd < static_cast<int>( partition.size() ); ++n ) {
+            const auto col  = col_map[n];
+            auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
+            auto part_end   = static_cast<gidx_t>( partition[rd] );
+            if ( col < part_start ) {
+                // by sorting the partition containing this index should
+                // already be flagged
+                continue;
+            } else if ( col < part_end ) {
+                // Found column in current partition, flag it and increment
+                dest_ranks.push_back( rd );
+                ++rd;
+            } else {
+                // Found column past current partition
+                // increment partition until it is contained
+                while ( col >= part_end ) {
+                    ++rd;
+                    AMP_DEBUG_ASSERT( rd < static_cast<int>( partition.size() ) );
+                    part_start = part_end;
+                    part_end   = partition[rd];
+                }
+                // insert and increment again
+                dest_ranks.push_back( rd );
+                ++rd;
+            }
+        }
+
+        // Create blocks by subsetting on columns and send to owners
+        for ( const auto rd : dest_ranks ) {
+            const auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
+            const auto part_end   = static_cast<gidx_t>( partition[rd] );
+            auto block            = subsetCols( part_start, part_end );
+            if ( !block->isEmpty() ) {
+                send_blocks.insert( { rd, block->transpose( params ) } );
+            }
+        }
     }
     mat_comm.sendMatrices( send_blocks );
 
@@ -404,7 +408,7 @@ void CSRMatrixData<Config>::resetDOFManagers( bool force_right )
         }
     }
 
-    if ( comm.anyReduce( need_right_cl ) ) {
+    if ( force_right || comm.anyReduce( need_right_cl ) ) {
         auto cl_params         = std::make_shared<CommunicationListParameters>();
         cl_params->d_comm      = comm;
         cl_params->d_localsize = d_last_col - d_first_col;
@@ -412,7 +416,7 @@ void CSRMatrixData<Config>::resetDOFManagers( bool force_right )
         d_rightCommList = std::make_shared<CommunicationList>( cl_params );
     }
 
-    if ( comm.anyReduce( need_right_dm ) ) {
+    if ( force_right || comm.anyReduce( need_right_dm ) ) {
         d_rightDOFManager = std::make_shared<Discretization::DOFManager>(
             d_last_col - d_first_col, comm, d_rightCommList->getGhostIDList() );
     }
@@ -657,8 +661,8 @@ void CSRMatrixData<Config>::addValuesByGlobalID( size_t num_rows,
             // auto lcols = &cols[num_cols * i];
             const auto local_row = rows[i] - d_first_row;
             auto lvals           = &values[num_cols * i];
-            d_diag_matrix->addValuesByGlobalID( num_cols, local_row, cols, lvals );
-            d_offd_matrix->addValuesByGlobalID( num_cols, local_row, cols, lvals );
+            d_diag_matrix->addValuesByGlobalID( local_row, num_cols, cols, lvals );
+            d_offd_matrix->addValuesByGlobalID( local_row, num_cols, cols, lvals );
         } else {
             for ( size_t icol = 0; icol < num_cols; ++icol ) {
                 d_other_data[rows[i]][cols[icol]] += values[num_cols * i + icol];
@@ -692,8 +696,8 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
             // auto lcols = &cols[num_cols * i];
             const auto local_row = rows[i] - d_first_row;
             auto lvals           = &values[num_cols * i];
-            d_diag_matrix->setValuesByGlobalID( num_cols, local_row, cols, lvals );
-            d_offd_matrix->setValuesByGlobalID( num_cols, local_row, cols, lvals );
+            d_diag_matrix->setValuesByGlobalID( local_row, num_cols, cols, lvals );
+            d_offd_matrix->setValuesByGlobalID( local_row, num_cols, cols, lvals );
         } else {
             for ( size_t icol = 0; icol < num_cols; ++icol ) {
                 d_ghost_data[rows[i]][cols[icol]] = values[num_cols * i + icol];

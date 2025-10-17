@@ -257,8 +257,8 @@ std::vector<int> factor( uint64_t n )
     if ( n <= 3 )
         return { static_cast<int>( n ) };
     // Initialize factors
-    size_t N = 0;
-    int factors[64];
+    size_t N        = 0;
+    int factors[64] = { 0 };
     // Remove all factors of 2
     while ( ( n & 0x01 ) == 0 ) {
         factors[N++] = 2;
@@ -271,10 +271,10 @@ std::vector<int> factor( uint64_t n )
     }
     // Use brute force to find remaining factors
     uint64_t f = 5;
-    while ( true ) {
+    while ( n > 1 ) {
         // Determine the largest number we need to check
         auto f_max = static_cast<uint64_t>( floor( 1.000000000000001 * std::sqrt( n ) ) );
-        // Search all remaining numbers (note  we skip every 3rd odd number)
+        // Search all remaining numbers (note: we skip every 3rd odd number)
         bool found = false;
         for ( ; f <= f_max && !found; f += 6 ) {
             while ( n % f == 0 ) {
@@ -516,6 +516,34 @@ std::string randomString( const AMP::AMP_MPI &comm )
     }
     return std::string( cname, i );
 }
+
+
+/****************************************************************************
+ *  Fill with random values in [0,1]                                         *
+ ****************************************************************************/
+void fillRandom( std::vector<double> &x )
+{
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<> dis( 0, 1 );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x[i] = dis( gen );
+}
+template<size_t NDIM>
+void fillRandom( std::vector<std::array<double, NDIM>> &x )
+{
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<> dis( 0, 1 );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        for ( size_t d = 0; d < NDIM; d++ )
+            x[i][d] = dis( gen );
+    }
+}
+template void fillRandom<1>( std::vector<std::array<double, 1>> & );
+template void fillRandom<2>( std::vector<std::array<double, 2>> & );
+template void fillRandom<3>( std::vector<std::array<double, 3>> & );
+template void fillRandom<4>( std::vector<std::array<double, 4>> & );
 
 
 /****************************************************************************
@@ -804,6 +832,9 @@ AMP_INSTANTIATE_SORT( long double );
 AMP_INSTANTIATE_SORT( Point1D );
 AMP_INSTANTIATE_SORT( Point2D );
 AMP_INSTANTIATE_SORT( Point3D );
+template void AMP::Utilities::quicksort<double, size_t>( std::vector<double> &,
+                                                         std::vector<size_t> & );
+template void AMP::Utilities::quicksort<double, size_t>( size_t, double *, size_t * );
 template std::string AMP::Utilities::to_string<int8_t>( std::vector<int8_t> const & );
 template std::string AMP::Utilities::to_string<int16_t>( std::vector<int16_t> const & );
 template std::string AMP::Utilities::to_string<int32_t>( std::vector<int32_t> const & );

@@ -52,6 +52,10 @@ public:
 
     //! Return CSR mode of the matrix.
     virtual std::uint16_t mode() const;
+
+    //! Replace current backend with different one, no-op if same, no-op if not a CSRMatrix
+    virtual void setBackend( AMP::Utilities::Backend );
+
     /** \brief  Matrix-vector multiplication
      * \param[in]  in  The vector to multiply
      * \param[out] out The resulting vectory
@@ -125,11 +129,11 @@ public:
     static shared_ptr matMatMult( shared_ptr A, shared_ptr B );
 
     /** \brief  Compute the product of two matrices
-     * \param[in] A  Left multiplicand
-     * \param[in] B  Right multiplicand
+     * \param[in] A     Left multiplicand
+     * \param[in] B     Right multiplicand
      * \param[inout] C  Result matrix
      */
-    static void matMatMult( shared_ptr A, shared_ptr B, shared_ptr c );
+    static void matMatMult( shared_ptr A, shared_ptr B, shared_ptr C );
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -176,8 +180,8 @@ public:
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the sums
      */
-    virtual Vector::shared_ptr
-    getRowSumsAbsolute( Vector::shared_ptr buf = Vector::shared_ptr() ) const = 0;
+    virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),
+                                                   const bool remove_zeros = false ) const = 0;
 
     /** \brief Get a right vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a
      * right vector ) \return  A newly created right vector

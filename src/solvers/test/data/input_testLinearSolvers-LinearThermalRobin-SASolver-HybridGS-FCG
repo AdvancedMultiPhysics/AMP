@@ -3,6 +3,7 @@
 LinearSolver{
   name = "CGSolver"
   variant = "fcg"
+  max_dimension = 3
   uses_preconditioner = TRUE
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
@@ -13,7 +14,7 @@ LinearSolver{
 <<< "PC-SASolverParameters" >>>
 
 Reference{
-  iterations = 11
+  iterations = 14
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

@@ -44,6 +44,7 @@ public:
     template<typename C>
     friend class CSRMatrixSpGEMMDevice;
 
+    using mask_t         = unsigned char;
     using gidx_t         = typename Config::gidx_t;
     using lidx_t         = typename Config::lidx_t;
     using scalar_t       = typename Config::scalar_t;
@@ -65,6 +66,7 @@ public:
      * \param[in] first_col        Global index of starting column (inclusive)
      * \param[in] last_col         Global index of final column (exclusive)
      * \param[in] is_diag          True if this is the diag block, influences use of first/last col
+     * \param[in] is_symbolic      True if this is a symbolic matrix storing only the NZ pattern
      */
     explicit CSRLocalMatrixData( std::shared_ptr<MatrixParametersBase> params,
                                  AMP::Utilities::MemoryType memory_location,
@@ -72,7 +74,8 @@ public:
                                  typename Config::gidx_t last_row,
                                  typename Config::gidx_t first_col,
                                  typename Config::gidx_t last_col,
-                                 bool is_diag );
+                                 bool is_diag,
+                                 bool is_symbolic = false );
 
     //! Destructor
     virtual ~CSRLocalMatrixData();
@@ -188,6 +191,10 @@ public:
     //! Print all information in a matrix block
     void printAll( bool force = false ) const;
 
+    //! Apply a mask to the entries of the matrix and return a new one
+    std::shared_ptr<CSRLocalMatrixData> maskMatrixData( const mask_t *mask,
+                                                        const bool is_symbolic ) const;
+
     static std::shared_ptr<CSRLocalMatrixData>
     ConcatHorizontal( std::shared_ptr<MatrixParametersBase> params,
                       std::map<int, std::shared_ptr<CSRLocalMatrixData>> blocks );
@@ -245,33 +252,32 @@ protected:
                               scalar_t *values ) const;
 
     /** \brief  Add to existing values at given column locations in a row
-     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] local_row  Local index row to alter
+     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] cols       Global column indices where values are to be altered
-     * \param[in] values     Values to add to existing ones
+     * \param[in] vals       Values to add to existing ones
      * \details Entries in passed cols array that aren't the stored row are ignored
      */
-    void addValuesByGlobalID( const size_t num_cols,
-                              const size_t rows,
+    void addValuesByGlobalID( const size_t local_row,
+                              const size_t num_cols,
                               const size_t *cols,
                               const scalar_t *vals );
 
     /** \brief  Overwrite existing values at given column locations in a row
-     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] local_row  Local index row to alter
+     * \param[in] num_cols   Number of columns/values passed in
      * \param[in] cols       Global column indices where values are to be set
      * \param[in] values     Values to write
      * \details Entries in passed cols array that aren't the stored row are ignored
      */
-    void setValuesByGlobalID( const size_t num_cols,
-                              const size_t rows,
+    void setValuesByGlobalID( const size_t local_row,
+                              const size_t num_cols,
                               const size_t *cols,
                               const scalar_t *vals );
 
     /** \brief  Get columns and values from one row
      * \param[in] local_row  Local index of desired row
-     * \param[out] cols      Vector of global column ids to push onto
-     * \param[out] values    Vector of values to push onto
+     * \return std::vector of global column ids in row
      */
     std::vector<size_t> getColumnIDs( const size_t local_row ) const;
 
@@ -287,10 +293,12 @@ protected:
     //! Global index of last column of diagonal block
     const gidx_t d_last_col;
 
-    //! Flag to indicate if this a diagonal block or not
+    //! Flag to indicate if this is a diagonal block or not
     const bool d_is_diag;
     //! Flag to indicate if this is empty
     bool d_is_empty = true;
+    //! Flag to indicate if this is a symbolic matrix
+    const bool d_is_symbolic;
 
     //! Allocator for gidx_t matched to template parameter
     gidxAllocator_t d_gidxAllocator;

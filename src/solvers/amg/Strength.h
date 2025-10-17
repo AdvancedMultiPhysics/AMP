@@ -10,6 +10,7 @@ namespace AMP::Solver::AMG {
 template<class Mat>
 struct Strength {
     explicit Strength( csr_view<Mat> A );
+    using mask_t   = typename csr_view<Mat>::mask_t;
     using lidx_t   = typename csr_view<Mat>::lidx_t;
     using scalar_t = typename csr_view<Mat>::scalar_t;
 
@@ -68,8 +69,8 @@ struct Strength {
 private:
     struct storage {
         using alloc_t = typename std::allocator_traits<
-            typename csr_view<Mat>::allocator_type>::template rebind_alloc<bool>;
-        using value_type = std::vector<bool, alloc_t>;
+            typename csr_view<Mat>::allocator_type>::template rebind_alloc<mask_t>;
+        using value_type = std::vector<mask_t, alloc_t>;
 
         value_type values;
         span<const lidx_t> rowptr;
@@ -77,17 +78,12 @@ private:
         span<const scalar_t> mat_values;
 
         struct reference {
-            std::vector<bool, alloc_t> *ptr;
+            using ref_type       = typename value_type::reference;
+            using const_ref_type = typename value_type::const_reference;
+            value_type *ptr;
             lidx_t offset;
-            constexpr typename std::vector<bool, alloc_t>::reference operator[]( lidx_t i )
-            {
-                return ( *ptr )[offset + i];
-            }
-            constexpr typename std::vector<bool, alloc_t>::const_reference
-            operator[]( lidx_t i ) const
-            {
-                return ( *ptr )[offset + i];
-            }
+            constexpr ref_type operator[]( lidx_t i ) { return ( *ptr )[offset + i]; }
+            constexpr const_ref_type operator[]( lidx_t i ) const { return ( *ptr )[offset + i]; }
         };
         constexpr reference row( lidx_t r ) { return { &values, rowptr[r] }; }
 
@@ -100,11 +96,17 @@ public:
     auto diag() const { return rep_type{ d_diag.rowptr, d_diag.colind, d_diag.values }; }
 
     auto offd() const { return rep_type{ d_offd.rowptr, d_offd.colind, d_offd.values }; }
+
+    auto diag_mask_data() const { return d_diag.values.data(); }
+
+    auto offd_mask_data() const { return d_offd.values.data(); }
 };
 
 enum class norm { abs, min };
 template<norm norm_type>
 struct classical_strength;
+
+struct evolution_strength;
 
 template<class StrengthPolicy, class Mat>
 Strength<Mat> compute_soc( csr_view<Mat> A, float threshold );

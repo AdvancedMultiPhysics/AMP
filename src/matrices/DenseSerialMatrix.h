@@ -56,8 +56,6 @@ public:
     extractDiagonal( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
 
     /** \brief  Get sum of each row in matrix
-     * \param[in]  buf  An optional vector to use as a buffer
-     * \return  A vector of the sums
      */
     Vector::shared_ptr getRowSums( Vector::shared_ptr ) const override
     {
@@ -65,10 +63,8 @@ public:
     }
 
     /** \brief  Get absolute sum of each row in matrix
-     * \param[in]  buf  An optional vector to use as a buffer
-     * \return  A vector of the sums
      */
-    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr ) const override
+    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr, const bool ) const override
     {
         AMP_ERROR( "Not implemented" );
     }

@@ -20,6 +20,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("2.1.2", tag="2.1.2", commit="cdb270395e1512da2f18a34a7fa6b60f1bcb790d")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
     variant("stacktrace", default=False, description="Build with support for Stacktrace")
@@ -80,10 +81,12 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     for _flag in list(CudaPackage.cuda_arch_values):
         depends_on(f"hypre cuda_arch={_flag}", when=f"+hypre+cuda cuda_arch={_flag}")
         depends_on(f"kokkos cuda_arch={_flag}", when=f"+kokkos+cuda cuda_arch={_flag}")
+        depends_on(f"trilinos cuda_arch={_flag}", when=f"+trilinos+cuda cuda_arch={_flag}")
 
     for _flag in ROCmPackage.amdgpu_targets:
         depends_on(f"hypre amdgpu_target={_flag}", when=f"+hypre+rocm amdgpu_target={_flag}")
         depends_on(f"kokkos amdgpu_target={_flag}", when=f"+kokkos+rocm amdgpu_target={_flag}")
+        depends_on(f"trilinos amdgpu_target={_flag}", when=f"+trilinos+rocm amdgpu_target={_flag}")
 
     # MPI related dependencies
     depends_on("mpi", when="+mpi")
@@ -112,6 +115,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("CXX_STD", "17"),
             self.define_from_variant("BUILD_SHARED_LIBS", "shared"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
+            self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "shared"),
             self.define("ENABLE_STATIC", not spec.variants["shared"].value),
             self.define_from_variant("USE_MPI", "mpi"),
             self.define("MPI_SKIP_SEARCH", False),
@@ -120,7 +124,11 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("CFLAGS", self.compiler.cc_pic_flag),
             self.define("CXXFLAGS", self.compiler.cxx_pic_flag),
             self.define("FFLAGS", self.compiler.fc_pic_flag),
+            self.define('CMAKE_C_COMPILER',   spack_cc),
+            self.define('CMAKE_CXX_COMPILER', spack_cxx),
+            self.define('CMAKE_Fortran_COMPILER', spack_fc),
         ]
+
 
         if spec.satisfies("+cuda"):
             cuda_arch = spec.variants["cuda_arch"].value
@@ -151,6 +159,11 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                         self.define("CMAKE_HIP_FLAGS", ""),
                     ]
                 )
+                
+        if spec.satisfies("+mpi +rocm"):
+            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
+                             self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
+                             ] )
 
         tpl_list = []
 

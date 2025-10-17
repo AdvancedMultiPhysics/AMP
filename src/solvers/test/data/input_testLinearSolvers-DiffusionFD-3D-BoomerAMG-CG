@@ -1,3 +1,10 @@
 <<< input_DiffusionFDOperator-3D >>>
 <<< "CGParameters" >>>
 <<< "PC-BoomerAMGParameters" >>>
+
+Reference{
+  iterations = 20
+  res_l2_norm = -1
+  tolerance = 0
+  strict = FALSE
+}

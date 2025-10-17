@@ -101,9 +101,6 @@ public:
      */
     bool isInBlock( int id ) const override;
 
-    //! Return the owner rank according to AMP_COMM_WORLD
-    unsigned int globalOwnerRank() const override;
-
     //! Return the raw pointer to the element/node (if it exists)
     const void *get() const { return ptr_element; }
 

@@ -43,11 +43,13 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     auto agg_type = db->getWithDefault<std::string>( "agg_type", "MIS2" );
     if ( !d_implicit_RAP || ( d_implicit_RAP && ( agg_type != "pairwise" ) ) ) {
         if ( agg_type == "simple" ) {
-            d_aggregator = std::make_shared<SimpleAggregator>();
+            d_aggregator =
+                std::make_shared<SimpleAggregator>( d_coarsen_settings.strength_threshold );
         } else if ( agg_type == "pairwise" ) {
             d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
         } else {
-            d_aggregator = std::make_shared<MIS2Aggregator>();
+            d_aggregator =
+                std::make_shared<MIS2Aggregator>( d_coarsen_settings.strength_threshold );
         }
     }
 
@@ -99,7 +101,7 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     }
 
     d_levels.clear();
-    d_levels.emplace_back().A       = linop;
+    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *linop );
     d_levels.back().pre_relaxation  = create_relaxation( linop, d_pre_relax_params );
     d_levels.back().post_relaxation = create_relaxation( linop, d_post_relax_params );
     d_levels.back().r               = linop->getMatrix()->createInputVector();
@@ -177,7 +179,7 @@ void UASolver::setup()
         if ( !Ac )
             break;
 
-        d_levels.emplace_back().A       = Ac;
+        d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *Ac );
         d_levels.back().R               = R;
         d_levels.back().P               = P;
         d_levels.back().pre_relaxation  = create_relaxation( Ac, d_pre_relax_params );

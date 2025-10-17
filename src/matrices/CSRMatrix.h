@@ -69,7 +69,7 @@ public:
     /** \brief  Return a copy of the matrix in the specified memory space
      * \param[in] memType Memory space for the new matrix
      * \return  The new matrix
-     * \detail This selects the operations backend from the default based on memType
+     * \details This selects the operations backend from the default based on memType
      */
     shared_ptr migrate( AMP::Utilities::MemoryType memType ) const;
 
@@ -82,7 +82,7 @@ public:
 
     /** \brief  Return a copy of the matrix with the specified ConfigOut
      * \return  The new matrix
-     * \detail This selects the operations backend from the default based on memType
+     * \details This selects the operations backend from the default based on memType
      */
     template<typename ConfigOut>
     shared_ptr migrate() const;
@@ -93,6 +93,9 @@ public:
      */
     template<typename ConfigOut>
     shared_ptr migrate( AMP::Utilities::Backend backend ) const;
+
+    //! Replace current backend with different one, no-op if same
+    void setBackend( AMP::Utilities::Backend backend ) override;
 
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer
@@ -109,11 +112,12 @@ public:
     getRowSums( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
 
     /** \brief  Get absolute sum of each row in matrix
-     * \param[in]  buf  An optional vector to use as a buffer
+     * \param[in]  buf           An optional vector to use as a buffer
+     * \param[in]  remove_zeros  If true zero values in sum are replaced with ones
      * \return  A vector of the sums
      */
-    virtual Vector::shared_ptr
-    getRowSumsAbsolute( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
+    virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),
+                                                   const bool remove_zeros = false ) const override;
 
     /** \brief Get a right vector( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a right
      * vector )

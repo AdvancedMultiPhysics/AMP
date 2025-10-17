@@ -2,6 +2,7 @@
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/MeshPoint.h"
 #include "AMP/utils/UnitTest.h"
+#include "AMP/utils/Utilities.h"
 
 #include <algorithm>
 #include <chrono>
@@ -77,10 +78,7 @@ void test_dist_line( int N, AMP::UnitTest &ut )
     auto t2    = std::chrono::high_resolution_clock::now();
     int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
     printf( "distanceToLine: %i ns\n", static_cast<int>( ns / ( 4 * N ) ) );
-    if ( pass )
-        ut.passes( "distanceToLine (2D)" );
-    else
-        ut.failure( "distanceToLine (2D)" );
+    ut.pass_fail( pass, "distanceToLine (2D)" );
 }
 
 
@@ -112,10 +110,7 @@ void test_map_logical_circle( int N, AMP::UnitTest &ut )
         auto t2    = std::chrono::high_resolution_clock::now();
         int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
         printf( "map_logical_circle - %i: %i ns\n", method, static_cast<int>( ns / ( 4 * N ) ) );
-        if ( pass )
-            ut.passes( "circle logical-physical-logical - " + std::to_string( method ) );
-        else
-            ut.failure( "circle logical-physical-logical - " + std::to_string( method ) );
+        ut.pass_fail( pass, "circle logical-physical-logical - " + std::to_string( method ) );
     }
     for ( int method = 1; method <= 3; method++ ) {
         std::uniform_real_distribution<> dis( -3.0, 3.0 );
@@ -129,10 +124,7 @@ void test_map_logical_circle( int N, AMP::UnitTest &ut )
             if ( !( distance( x, y, p2 ) < tol ) )
                 printf( "%e %e %e %e %e %e\n", x, y, p2[0], p2[1], p2[0] - x, p2[1] - y );
         }
-        if ( pass )
-            ut.passes( "circle physical-logical-physical - " + std::to_string( method ) );
-        else
-            ut.failure( "circle physical-logical-physical - " + std::to_string( method ) );
+        ut.pass_fail( pass, "circle physical-logical-physical - " + std::to_string( method ) );
     }
 }
 
@@ -162,10 +154,7 @@ void test_map_logical_poly( int N, AMP::UnitTest &ut )
         auto t2    = std::chrono::high_resolution_clock::now();
         int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
         printf( "map_logical_poly - %i: %i ns\n", Np, static_cast<int>( ns / N ) );
-        if ( pass )
-            ut.passes( "map_logical_poly - " + std::to_string( Np ) );
-        else
-            ut.failure( "map_logical_poly - " + std::to_string( Np ) );
+        ut.pass_fail( pass, "map_logical_poly - " + std::to_string( Np ) );
     }
 }
 
@@ -226,10 +215,7 @@ void test_map_logical_sphere_surface( int N, AMP::UnitTest &ut )
     pass = pass && testMap( { 0, 1, 0 } );
     pass = pass && testMap( { -1, 0, 0 } );
     pass = pass && testMap( { 1, 0, 0 } );
-    if ( pass )
-        ut.passes( "map_logical_sphere_surface" );
-    else
-        ut.failure( "map_logical_sphere_surface" );
+    ut.pass_fail( pass, "map_logical_sphere_surface" );
 }
 
 
@@ -320,11 +306,53 @@ void test_ray_triangle_intersection( int N, AMP::UnitTest &ut )
     auto end   = std::chrono::high_resolution_clock::now();
     int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( end - start ).count();
     printf( "ray-triangle intersection: %i ns\n", static_cast<int>( ns / ( 2 * N ) ) );
-    if ( pass ) {
-        ut.passes( "ray-triangle intersection" );
-    } else {
-        ut.failure( "ray-triangle intersection" );
+    ut.pass_fail( pass, "ray-triangle intersection" );
+}
+
+
+// Test point cloud
+template<uint8_t NDIM>
+void testPointCloud( int N, AMP::UnitTest &ut )
+{
+    using TYPE  = std::array<double, NDIM>;
+    int N_ranks = 120;
+    std::vector<TYPE> x( N );
+    AMP::Utilities::fillRandom( x );
+    auto ranks = assignRanks( x, N_ranks );
+    AMP_ASSERT( (int) ranks.size() == N );
+    std::array<double, 2 * NDIM> range0;
+    for ( uint8_t d = 0; d < NDIM; d++ ) {
+        range0[2 * d + 0] = 1e100;
+        range0[2 * d + 1] = -1e100;
     }
+    std::vector<int> count( N_ranks, 0 );
+    std::vector<std::array<double, 2 * NDIM>> range( N_ranks, range0 );
+    for ( int i = 0; i < N; i++ ) {
+        AMP_ASSERT( ranks[i] >= 0 && ranks[i] < N_ranks );
+        int r = ranks[i];
+        count[r]++;
+        for ( uint8_t d = 0; d < NDIM; d++ ) {
+            range[r][2 * d + 0] = std::min( x[i][d], range[r][2 * d + 0] );
+            range[r][2 * d + 1] = std::max( x[i][d], range[r][2 * d + 1] );
+        }
+    }
+    int countAvg = N / N_ranks;
+    double total = 0;
+    std::vector<double> volume( N_ranks, 0 );
+    bool pass = true;
+    for ( int i = 0; i < N_ranks; i++ ) {
+        pass      = pass && std::abs( count[i] - countAvg ) < 10;
+        volume[i] = 1;
+        for ( uint8_t d = 0; d < NDIM; d++ )
+            volume[i] *= range[i][2 * d + 1] - range[i][2 * d + 0];
+        total += volume[i];
+    }
+    pass = pass && total >= 0 && total < 1.0;
+    if constexpr ( NDIM == 1 ) {
+        for ( int i = 1; i < N_ranks; i++ )
+            pass = pass && range[i][0] >= range[i - 1][1];
+    }
+    ut.pass_fail( pass, "assignRanks<" + std::to_string( NDIM ) + ">" );
 }
 
 
@@ -342,6 +370,9 @@ int main( int argc, char **argv )
     test_map_logical_circle( 10000, ut );
     test_map_logical_sphere_surface( 10000, ut );
     test_ray_triangle_intersection( 1000, ut );
+    testPointCloud<1>( 10000, ut );
+    testPointCloud<2>( 10000, ut );
+    testPointCloud<3>( 10000, ut );
 
     // Print the results and return
     ut.report();

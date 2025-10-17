@@ -55,8 +55,8 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             leftDOFs,
             rightDOFs,
             A->getComm(),
-            A_data->getRightVariable(),
-            A_data->getRightVariable(),
+            A_data->getLeftVariable(),
+            A_data->getLeftVariable(),
             std::function<std::vector<size_t>( size_t )>() );
     }
     auto P = std::make_shared<matrixdata_t>( matParams );

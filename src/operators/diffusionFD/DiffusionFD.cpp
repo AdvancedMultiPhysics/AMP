@@ -481,9 +481,13 @@ std::shared_ptr<AMP::LinearAlgebra::Matrix> DiffusionFDOperator::createDiscretiz
 
     PROFILE( "DiffusionFDOperator::createDiscretizationMatrix" );
 
-    auto tempVar = std::make_shared<AMP::LinearAlgebra::Variable>( " " );
-    auto inVec   = AMP::LinearAlgebra::createVector( this->d_DOFMan, tempVar );
-    auto outVec  = AMP::LinearAlgebra::createVector( this->d_DOFMan, tempVar );
+    auto tempVar =
+        std::make_shared<AMP::LinearAlgebra::Variable>( "AMP::Operator::DiffusionFD::x" );
+    auto inVec  = AMP::LinearAlgebra::createVector( this->d_DOFMan, tempVar );
+    auto outVec = AMP::LinearAlgebra::createVector( this->d_DOFMan, tempVar );
+
+    d_inputVariable  = tempVar;
+    d_outputVariable = tempVar;
 
     // Place-holders for CSR data in each row
     std::vector<size_t> cols;

@@ -5,36 +5,38 @@ LinearSolver{
   uses_preconditioner = FALSE
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
-  print_info_level = 2
+  print_info_level = 3
   max_iterations = 30
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
-  kappa = 3
+  kappa = 2
   agg_type = "simple"
-  prol_trunc = 0.1
-
+  prol_trunc = 0.075
+  num_smooth_prol = 3
+  strength_threshold = 4.0
+  
   pre_relaxation{
     name = "HybridGS"
     num_sweeps = 2
-    sweep_type = "forward"
+    sweep_type = "symmetric"
   }
 
   post_relaxation{
     name = "HybridGS"
     num_sweeps = 2
-    sweep_type = "backward"
+    sweep_type = "symmetric"
   }
 
   coarse_solver{
     name = "HybridGS"
-    num_sweeps = 1
+    num_sweeps = 20
     sweep_type = "symmetric"
   }
 }
 
 Reference{
-  iterations = 21
+  iterations = 29
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE
