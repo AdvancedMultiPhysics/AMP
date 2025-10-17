@@ -488,7 +488,7 @@ public:
                             //!< 3 - The meshes are similar: Nodes do not match but map the
                             //!<     same domain within tolerance, block/surface ids match
         CompareResult( int state = 0 );
-        bool operator==( const CompareResult & );
+        bool operator==( const CompareResult & ) const;
     };
 
     /**

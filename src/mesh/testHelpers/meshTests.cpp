@@ -711,7 +711,7 @@ void meshTests::testID( AMP::UnitTest &ut )
     AMP::Mesh::MeshElementID id5( true, AMP::Mesh::GeomType::Vertex, 2, 4, 103 );
     AMP::Mesh::MeshElementID id6( true, AMP::Mesh::GeomType::Vertex, 2, 1, 105 );
     // Test the default values
-    if ( id0.meshID() != 0xFFFFFFFFFFFFFFFF || id0.is_local() ||
+    if ( id0.meshID() != AMP::Mesh::MeshID( 0xFFFFFFFFFFFFFFFF ) || id0.is_local() ||
          id0.type() != AMP::Mesh::GeomType::Nullity || id0.owner_rank() != 0 ||
          id0.local_id() != 0xFFFFFFFF )
         ut.failure( "MeshElementID test defaults" );
@@ -726,7 +726,7 @@ void meshTests::testID( AMP::UnitTest &ut )
     if ( id1.is_local() || !id2.is_local() )
         ut.failure( "MeshElementID test is_local" );
     if ( id1.type() != AMP::Mesh::GeomType::Vertex || id1.local_id() != 2 ||
-         id1.owner_rank() != 1 || id1.meshID() != 103 )
+         id1.owner_rank() != 1 || id1.meshID() != AMP::Mesh::MeshID( 103 ) )
         ut.failure( "MeshElementID test values" );
     id1.set_is_local( true );
     id2.set_is_local( false );
