@@ -15,14 +15,14 @@
 
 /** This is a test of a RadDifOp, which is a finite-difference discretization of a radiation
  * diffusion operator. There are two tests:
- * 
+ *
  * 1. A manufactured solution is provided, and this is used to compute a truncation error for a BDF
- * step. This tests that apply() of the operator performs as expected, and it also provides some 
- * type of a consistency check on the discretization that it converges (without further study it's 
- * not completely clear how this truncation error should decrease w.r.t. dt and h). A more thorough 
- * test of the discretization correcteness is in AMP/applications/radiationDiffusionFD, wherein the 
+ * step. This tests that apply() of the operator performs as expected, and it also provides some
+ * type of a consistency check on the discretization that it converges (without further study it's
+ * not completely clear how this truncation error should decrease w.r.t. dt and h). A more thorough
+ * test of the discretization correcteness is in AMP/applications/radiationDiffusionFD, wherein the
  * discretization error is computed after time integrating.
- * 
+ *
  * 2. The associated linearized operator is constructed, and its apply() is tested.
  */
 
@@ -59,7 +59,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     auto PDE_basic_db = std::make_shared<AMP::Database>( "PDE" );
     PDE_basic_db->putScalar<int>( "dim", mesh_db->getScalar<int>( "dim" ) );
 
-    
+
     /****************************************************************
      * Create a manufactured radiation-diffusion model               *
      ****************************************************************/
@@ -209,21 +209,19 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     /****************************************************************
      * Test 2: Build linearized operator and test its apply         *
      ****************************************************************/
-    // Get linearized parameters about manufactured solution 
+    // Get linearized parameters about manufactured solution
     auto linearizedOpParams = myBDFRadDifOp->getParameters( "Jacobian", manSolVecNew );
     auto myBDFRadDifOpPJac = std::make_shared<AMP::Operator::BDFRadDifOpPJac>( linearizedOpParams );
     // Extract underlying RadDifOpPJac
     auto myRadDifOpPJac = myBDFRadDifOpPJac->d_RadDifOpPJac;
     // Create input and output vectors
-    auto inVec  = myRadDifOpPJac->createInputVector();
+    auto inVec = myRadDifOpPJac->createInputVector();
     inVec->setRandomValues();
     auto outVec = inVec->clone();
-    // Apply 
+    // Apply
     myBDFRadDifOpPJac->apply( inVec, outVec );
 
     ut->passes( inputFileName + ": apply of linearized operator" );
-    
-
 }
 // end of driver()
 

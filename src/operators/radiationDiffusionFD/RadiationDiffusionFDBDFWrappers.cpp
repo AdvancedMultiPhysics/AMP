@@ -20,13 +20,13 @@ BDFRadDifOpPJacData::BDFRadDifOpPJacData( std::shared_ptr<RadDifOpPJacData> data
     AMP_INSIST( data, "Non-null data required" );
 
     // Unpack diffusion matrices and reaction vectors
-    auto t = data->get();
-    d_E_BDF  = std::get<0>(t);
-    d_T_BDF  = std::get<1>(t);
-    r_EE_BDF = std::get<2>(t);
-    r_ET_BDF = std::get<3>(t);
-    r_TE_BDF = std::get<4>(t);
-    r_TT_BDF = std::get<5>(t);
+    auto t   = data->get();
+    d_E_BDF  = std::get<0>( t );
+    d_T_BDF  = std::get<1>( t );
+    r_EE_BDF = std::get<2>( t );
+    r_ET_BDF = std::get<3>( t );
+    r_TE_BDF = std::get<4>( t );
+    r_TT_BDF = std::get<5>( t );
 
     // Scale them by gamma
     r_EE_BDF->scale( gamma );

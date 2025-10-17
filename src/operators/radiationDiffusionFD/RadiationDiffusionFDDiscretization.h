@@ -74,9 +74,12 @@ class RadDifCoefficients
 {
 
 public:
-    // Hack. This should really be templated against. Realistically the operator RadDifOp, and its linearization, should be templated against a coefficient class, and a non-templated base class added. The realistic use case is for the nonlinear coefficients, but the linear coefficients can be useful for testing, debugging, etc. 
+    // Hack. This should really be templated against. Realistically the operator RadDifOp, and its
+    // linearization, should be templated against a coefficient class, and a non-templated base
+    // class added. The realistic use case is for the nonlinear coefficients, but the linear
+    // coefficients can be useful for testing, debugging, etc.
     //! Flag indicating whether nonlinear or linear PDE coefficients are used
-    static constexpr bool IsNonlinear = true; 
+    static constexpr bool IsNonlinear = true;
 
     //! Prevent instantiation
     RadDifCoefficients() = delete;
@@ -96,13 +99,13 @@ public:
 
     //! Compute reaction coefficients REE, RET, RTE, REE
     static void reaction( double k12,
-                                      double k22,
-                                      double T,
-                                      double zatom,
-                                      double &REE,
-                                      double &RET,
-                                      double &RTE,
-                                      double &RTT );
+                          double k22,
+                          double T,
+                          double zatom,
+                          double &REE,
+                          double &RET,
+                          double &RTE,
+                          double &RTT );
 };
 
 
@@ -119,9 +122,10 @@ private:
     static constexpr size_t EAST   = 2;
 
 public:
-    // Hack. This should really be templated against. That said, for applications flux limiting is usually required.
+    // Hack. This should really be templated against. That said, for applications flux limiting is
+    // usually required.
     //! Flag indicating whether energy diffusion coefficient is limited
-    static constexpr bool IsFluxLimited = true; 
+    static constexpr bool IsFluxLimited = true;
 
     //! Prevent instantiation
     FDMeshOps() = delete;
@@ -242,13 +246,14 @@ public:
      */
     static size_t getDimFromBoundaryID( size_t boundaryID );
 
-    //! Get the constants ak, bk, rk, nk from the database for the given boundaryID. Note that rk and nk need not exist in the db, and are returned with a default of 0
+    //! Get the constants ak, bk, rk, nk from the database for the given boundaryID. Note that rk
+    //! and nk need not exist in the db, and are returned with a default of 0
     static void getBCConstantsFromDB( const AMP::Database &db,
-                                            size_t boundaryID,
-                                            double &ak,
-                                            double &bk, 
-                                            double &rk, 
-                                            double &nk );
+                                      size_t boundaryID,
+                                      double &ak,
+                                      double &bk,
+                                      double &rk,
+                                      double &nk );
 
     /** On boundary k we have the two equations:
      *     ak*E + bk * hat{nk} dot k11*D_E(T) grad E = rk,
@@ -392,7 +397,8 @@ private:
     const double d_k21;
     const double d_k22;
 
-    //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in index boundaryID-1
+    //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in
+    //! index boundaryID-1
     std::array<double, 6> d_ak;
     std::array<double, 6> d_bk;
     std::array<double, 6> d_rk;
@@ -569,7 +575,8 @@ private:
     const double d_k21;
     const double d_k22;
 
-    //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in index boundaryID-1
+    //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in
+    //! index boundaryID-1
     std::array<double, 6> d_ak;
     std::array<double, 6> d_bk;
     std::array<double, 6> d_rk;
@@ -658,8 +665,8 @@ private:
     template<size_t Component>
     void getCSRDataDiffusionMatrix( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
                                     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
-                                    const double * E_rawData,
-                                    const double * T_rawData,
+                                    const double *E_rawData,
+                                    const double *T_rawData,
                                     size_t row,
                                     std::vector<size_t> &cols,
                                     std::vector<double> &data );
@@ -668,8 +675,8 @@ private:
      * @note ijkLocal is modified internally, but returned in its original state
      */
     template<size_t Component>
-    void getCSRDataDiffusionMatrixInterior( const double * E_rawData,
-                                            const double * T_rawData,
+    void getCSRDataDiffusionMatrixInterior( const double *E_rawData,
+                                            const double *T_rawData,
                                             size_t rowLocal,
                                             std::array<size_t, 5> &ijkLocal,
                                             std::vector<size_t> &colsLocal,
@@ -761,10 +768,13 @@ struct RadDifOpPJacData {
 
 public:
     //! Getter routine; any external updates to the private data members below done via this
-    std::tuple<
-    std::shared_ptr<AMP::LinearAlgebra::Matrix>,std::shared_ptr<AMP::LinearAlgebra::Matrix>,
-    std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>
-    > get();
+    std::tuple<std::shared_ptr<AMP::LinearAlgebra::Matrix>,
+               std::shared_ptr<AMP::LinearAlgebra::Matrix>,
+               std::shared_ptr<AMP::LinearAlgebra::Vector>,
+               std::shared_ptr<AMP::LinearAlgebra::Vector>,
+               std::shared_ptr<AMP::LinearAlgebra::Vector>,
+               std::shared_ptr<AMP::LinearAlgebra::Vector>>
+    get();
 
 private:
     //! Flag indicating whether our data has been accessed, and hence possibly modified, by a

@@ -16,7 +16,6 @@ inline double RadDifCoefficients::diffusionE( double k11, double T, double zatom
     } else {
         return k11;
     }
-    
 }
 
 inline double RadDifCoefficients::diffusionT( double k21, double T )
@@ -28,9 +27,14 @@ inline double RadDifCoefficients::diffusionT( double k21, double T )
     }
 }
 
-inline void RadDifCoefficients::reaction( double k12, double k22, double T,
-                                        double zatom, double &REE, double &RET,
-                                        double &RTE, double &RTT )
+inline void RadDifCoefficients::reaction( double k12,
+                                          double k22,
+                                          double T,
+                                          double zatom,
+                                          double &REE,
+                                          double &RET,
+                                          double &RTE,
+                                          double &RTT )
 {
     if constexpr ( IsNonlinear ) {
         double Tcube = T * T * T;
@@ -143,7 +147,6 @@ void FDMeshOps::createMeshData(
     for ( auto h : d_h ) {
         d_rh2.push_back( 1.0 / ( h * h ) );
     }
-
 }
 
 void FDMeshOps::createDOFManagers(
@@ -195,7 +198,8 @@ void FDMeshOps::FaceDiffusionCoefficients( std::array<double, 3> &ELoc3,
         *Dr_WO = RadDifCoefficients::diffusionE( k11, T_WO, zatom );
         *Dr_OE = RadDifCoefficients::diffusionE( k11, T_OE, zatom );
         // Limit the energy flux if need be, eq. (17)
-        // This is also the same as eq. (9) in "An efficient nonlinear solution method for non-equilibrium radiation diffusion by D.A. Knoll, W.J. Rider, G.L. Olson"
+        // This is also the same as eq. (9) in "An efficient nonlinear solution method for
+        // non-equilibrium radiation diffusion by D.A. Knoll, W.J. Rider, G.L. Olson"
         if constexpr ( IsFluxLimited ) {
             double DE_WO =
                 *Dr_WO / ( 1.0 + *Dr_WO * ( abs( ELoc3[ORIGIN] - ELoc3[WEST] ) /
@@ -227,7 +231,7 @@ FDMeshGlobalIndexingOps::FDMeshGlobalIndexingOps(
     : d_BoxMesh( BoxMesh ),
       d_geom( geom ),
       d_scalarDOFMan( scalarDOFMan ),
-      d_multiDOFMan( multiDOFMan ){ };
+      d_multiDOFMan( multiDOFMan ){};
 
 
 //! Map from grid index to a the corresponding DOF
@@ -324,12 +328,8 @@ void FDBoundaryUtils::ghostValuesSolve( double a,
     Eg = FDBoundaryUtils::ghostValueSolveE( a, b, r, c, h, Eint );
 }
 
-void FDBoundaryUtils::getBCConstantsFromDB( const AMP::Database &db,
-                                                  size_t boundaryID,
-                                                  double &ak,
-                                                  double &bk, 
-                                                  double &rk, 
-                                                  double &nk )
+void FDBoundaryUtils::getBCConstantsFromDB(
+    const AMP::Database &db, size_t boundaryID, double &ak, double &bk, double &rk, double &nk )
 {
     AMP_INSIST( boundaryID >= 1 && boundaryID <= 6, "Invalid boundaryID" );
     ak = db.getScalar<double>( a_keys[boundaryID - 1] );
@@ -342,10 +342,14 @@ void FDBoundaryUtils::getBCConstantsFromDB( const AMP::Database &db,
 /** -------------------------------------------------------- *
  *  ----------- Implementation of RadDifOpPJacData --------- *
  *  -------------------------------------------------------- */
-std::tuple<
-    std::shared_ptr<AMP::LinearAlgebra::Matrix>,std::shared_ptr<AMP::LinearAlgebra::Matrix>,
-    std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>,std::shared_ptr<AMP::LinearAlgebra::Vector>
-    > RadDifOpPJacData::get() {
+std::tuple<std::shared_ptr<AMP::LinearAlgebra::Matrix>,
+           std::shared_ptr<AMP::LinearAlgebra::Matrix>,
+           std::shared_ptr<AMP::LinearAlgebra::Vector>,
+           std::shared_ptr<AMP::LinearAlgebra::Vector>,
+           std::shared_ptr<AMP::LinearAlgebra::Vector>,
+           std::shared_ptr<AMP::LinearAlgebra::Vector>>
+RadDifOpPJacData::get()
+{
 
     AMP_INSIST( d_E, "E is null before packing" );
 
@@ -393,18 +397,24 @@ RadDifOpPJac::RadDifOpPJac( std::shared_ptr<const AMP::Operator::OperatorParamet
     // Handle boundary conditions
     // Unpack boundary condition constants into member vectors
     for ( auto boundaryID : d_BoxMesh->getBoundaryIDs() ) {
-        FDBoundaryUtils::getBCConstantsFromDB( *d_db, boundaryID,
-                                                  d_ak[boundaryID-1],
-                                                  d_bk[boundaryID-1],
-                                                  d_rk[boundaryID-1],
-                                                  d_nk[boundaryID-1] );
+        FDBoundaryUtils::getBCConstantsFromDB( *d_db,
+                                               boundaryID,
+                                               d_ak[boundaryID - 1],
+                                               d_bk[boundaryID - 1],
+                                               d_rk[boundaryID - 1],
+                                               d_nk[boundaryID - 1] );
     }
     // Copy so rk and nk so lambdas capture by value
     auto rk = this->d_rk;
     auto nk = this->d_nk;
-    // Set boundary condition functions to the default of retrieving constants from member vectors d_rk and d_nk
-    d_robinFunctionE = [rk]( size_t boundaryID, const AMP::Mesh::Point &) { return rk[boundaryID-1]; };
-    d_pseudoNeumannFunctionT = [nk]( size_t boundaryID, const AMP::Mesh::Point &) { return nk[boundaryID-1]; };
+    // Set boundary condition functions to the default of retrieving constants from member vectors
+    // d_rk and d_nk
+    d_robinFunctionE = [rk]( size_t boundaryID, const AMP::Mesh::Point & ) {
+        return rk[boundaryID - 1];
+    };
+    d_pseudoNeumannFunctionT = [nk]( size_t boundaryID, const AMP::Mesh::Point & ) {
+        return nk[boundaryID - 1];
+    };
 
 
     // Unpack frozen vector
@@ -539,8 +549,8 @@ void RadDifOpPJac::ghostValuesSolveWrapper( size_t boundaryID,
         return RadDifCoefficients::diffusionE( d_k11, T_midpoint, zatom );
     };
 
-    auto ak   = d_ak[boundaryID-1];
-    auto bk   = d_bk[boundaryID-1];
+    auto ak   = d_ak[boundaryID - 1];
+    auto bk   = d_bk[boundaryID - 1];
     double rk = d_robinFunctionE( boundaryID, boundaryPoint );
     double nk = d_pseudoNeumannFunctionT( boundaryID, boundaryPoint );
 
@@ -672,8 +682,8 @@ void RadDifOpPJac::setData()
 
     // --- Create matrices
     // Extract local raw data
-    const double * E_rawData = E_vec->getRawDataBlock<double>();
-    const double * T_rawData = T_vec->getRawDataBlock<double>();
+    const double *E_rawData = E_vec->getRawDataBlock<double>();
+    const double *T_rawData = T_vec->getRawDataBlock<double>();
     // Place-holders for CSR data in each row
     std::vector<size_t> cols_dE;
     std::vector<double> data_dE;
@@ -726,8 +736,8 @@ void RadDifOpPJac::fillDiffusionMatrixWithData( std::shared_ptr<AMP::LinearAlgeb
     auto T_vec = ET_vec->getVector( 1 );
 
     // Extract local raw data
-    const double * E_rawData = E_vec->getRawDataBlock<double>();
-    const double * T_rawData = T_vec->getRawDataBlock<double>();
+    const double *E_rawData = E_vec->getRawDataBlock<double>();
+    const double *T_rawData = T_vec->getRawDataBlock<double>();
     // Place-holders for CSR data in each row
     std::vector<size_t> cols;
     std::vector<double> data;
@@ -756,22 +766,22 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
     std::array<size_t, 3> ijk;
     // Placeholder for ORIGIN dof
     size_t dof;
-    // Placeholder for temperature 
+    // Placeholder for temperature
     double T;
     // Placeholders for reaction coefficients
     double REE, RET, RTE, RTT;
 
-    // Compute upper local indices 
-    auto iLast  = d_localBox->last[0] - d_localBox->first[0];
-    auto jLast  = d_localBox->last[1] - d_localBox->first[1];
-    auto kLast  = d_localBox->last[2] - d_localBox->first[2];
+    // Compute upper local indices
+    auto iLast = d_localBox->last[0] - d_localBox->first[0];
+    auto jLast = d_localBox->last[1] - d_localBox->first[1];
+    auto kLast = d_localBox->last[2] - d_localBox->first[2];
 
-    // Get raw data arrays. 
-    const double * T_rawData = T_vec->getRawDataBlock<double>();
-    double * r_EE_rawData = d_data->r_EE->getRawDataBlock<double>();
-    double * r_ET_rawData = d_data->r_ET->getRawDataBlock<double>();
-    double * r_TE_rawData = d_data->r_TE->getRawDataBlock<double>();
-    double * r_TT_rawData = d_data->r_TT->getRawDataBlock<double>();
+    // Get raw data arrays.
+    const double *T_rawData = T_vec->getRawDataBlock<double>();
+    double *r_EE_rawData    = d_data->r_EE->getRawDataBlock<double>();
+    double *r_ET_rawData    = d_data->r_ET->getRawDataBlock<double>();
+    double *r_TE_rawData    = d_data->r_TE->getRawDataBlock<double>();
+    double *r_TT_rawData    = d_data->r_TT->getRawDataBlock<double>();
 
     // Iterate over local box
     for ( auto k = 0; k <= kLast; k++ ) {
@@ -786,8 +796,7 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
                 T   = T_rawData[dof];
 
                 // Compute reaction coefficients at cell centers
-                RadDifCoefficients::reaction(
-                    d_k12, d_k22, T, zatom, REE, RET, RTE, RTT );
+                RadDifCoefficients::reaction( d_k12, d_k22, T, zatom, REE, RET, RTE, RTT );
 
                 // Insert values into the vectors
                 r_EE_rawData[dof] = REE;
@@ -804,8 +813,8 @@ template<size_t Component>
 void RadDifOpPJac::getCSRDataDiffusionMatrix(
     std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
     std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec,
-    const double * E_rawData,
-    const double * T_rawData,
+    const double *E_rawData,
+    const double *T_rawData,
     size_t row,
     std::vector<size_t> &cols,
     std::vector<double> &data )
@@ -833,7 +842,8 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
     }
 
     // DOF is on interior of processor domain
-    getCSRDataDiffusionMatrixInterior<Component>( E_rawData, T_rawData, rowLocal, d_ijk, cols, data );
+    getCSRDataDiffusionMatrixInterior<Component>(
+        E_rawData, T_rawData, rowLocal, d_ijk, cols, data );
     // Indices returned in cols are local, so promote them back to the global space
     for ( auto &col : cols ) {
         col += globalOffset;
@@ -842,13 +852,12 @@ void RadDifOpPJac::getCSRDataDiffusionMatrix(
 
 
 template<size_t Component>
-void RadDifOpPJac::getCSRDataDiffusionMatrixInterior(
-    const double * E_rawData,
-    const double * T_rawData,
-    size_t rowLocal,
-    std::array<size_t, 5> &ijkLocal,
-    std::vector<size_t> &colsLocal,
-    std::vector<double> &data )
+void RadDifOpPJac::getCSRDataDiffusionMatrixInterior( const double *E_rawData,
+                                                      const double *T_rawData,
+                                                      size_t rowLocal,
+                                                      std::array<size_t, 5> &ijkLocal,
+                                                      std::vector<size_t> &colsLocal,
+                                                      std::vector<double> &data )
 {
     PROFILE( "RadDifOpPJac::getCSRDataDiffusionMatrixInterior" );
 
@@ -1070,7 +1079,7 @@ void RadDifOpPJac::reset( std::shared_ptr<const AMP::Operator::OperatorParameter
 
     // Unpack parameter database
     d_db = params->d_db;
-    
+
     // Unpack frozen vector
     d_frozenVec = params->d_frozenSolution;
 
@@ -1088,8 +1097,8 @@ RadDifOpPJac::PicardCorrectionCoefficient( size_t component, size_t boundaryID, 
         // Spatial mesh size
         double hk = d_h[FDBoundaryUtils::getDimFromBoundaryID( boundaryID )];
 
-        auto ak = d_ak[boundaryID-1];
-        auto bk = d_bk[boundaryID-1];
+        auto ak = d_ak[boundaryID - 1];
+        auto bk = d_bk[boundaryID - 1];
 
         // The value we require coincides with r=0 and Eint=1 in "ghostValueSolveE"
         return FDBoundaryUtils::ghostValueSolveE( ak, bk, 0.0, ck, hk, 1.0 );
@@ -1143,18 +1152,24 @@ RadDifOp::RadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> par
     // Handle boundary conditions
     // Unpack boundary condition constants into member vectors
     for ( auto boundaryID : d_BoxMesh->getBoundaryIDs() ) {
-        FDBoundaryUtils::getBCConstantsFromDB( *d_db, boundaryID,
-                                                  d_ak[boundaryID-1],
-                                                  d_bk[boundaryID-1],
-                                                  d_rk[boundaryID-1],
-                                                  d_nk[boundaryID-1] );
+        FDBoundaryUtils::getBCConstantsFromDB( *d_db,
+                                               boundaryID,
+                                               d_ak[boundaryID - 1],
+                                               d_bk[boundaryID - 1],
+                                               d_rk[boundaryID - 1],
+                                               d_nk[boundaryID - 1] );
     }
     // Copy so rk and nk so lambdas capture by value
     auto rk = this->d_rk;
     auto nk = this->d_nk;
-    // Set boundary condition functions to the default of retrieving constants from member vectors d_rk and d_nk
-    d_robinFunctionE = [rk]( size_t boundaryID, const AMP::Mesh::Point &) { return rk[boundaryID-1]; };
-    d_pseudoNeumannFunctionT = [nk]( size_t boundaryID, const AMP::Mesh::Point &) { return nk[boundaryID-1]; };
+    // Set boundary condition functions to the default of retrieving constants from member vectors
+    // d_rk and d_nk
+    d_robinFunctionE = [rk]( size_t boundaryID, const AMP::Mesh::Point & ) {
+        return rk[boundaryID - 1];
+    };
+    d_pseudoNeumannFunctionT = [nk]( size_t boundaryID, const AMP::Mesh::Point & ) {
+        return nk[boundaryID - 1];
+    };
 };
 
 
@@ -1223,8 +1238,8 @@ void RadDifOp::ghostValuesSolveWrapper( size_t boundaryID,
         return RadDifCoefficients::diffusionE( d_k11, T_midpoint, zatom );
     };
 
-    auto ak   = d_ak[boundaryID-1];
-    auto bk   = d_bk[boundaryID-1];
+    auto ak   = d_ak[boundaryID - 1];
+    auto bk   = d_bk[boundaryID - 1];
     double rk = d_robinFunctionE( boundaryID, boundaryPoint );
     double nk = d_pseudoNeumannFunctionT( boundaryID, boundaryPoint );
 
@@ -1308,13 +1323,13 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
     std::array<double, 3> ELoc3;
     std::array<double, 3> TLoc3;
 
-    // Number of DOFs in each dimension 
+    // Number of DOFs in each dimension
     std::array<int, 3> domLen;
-    for ( int dim = 0; dim < 3; dim ++ ) {
+    for ( int dim = 0; dim < 3; dim++ ) {
         domLen[dim] = 1 + d_localBox->last[dim] - d_localBox->first[dim];
     }
 
-    // Compute first and last index in each dimension. 
+    // Compute first and last index in each dimension.
     std::array<int, 3> ijkFirst;
     std::array<int, 3> ijkLast;
 
@@ -1327,32 +1342,37 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
             ijkLast[dim]  = domLen[dim] - 2; // This index is inclusive in the below loop
 
 
-        // There's one or two interior DOFs (there cannot be zero because then the total number of local DOFs is zero and we've already accounted for that)
-        } else { 
+            // There's one or two interior DOFs (there cannot be zero because then the total number
+            // of local DOFs is zero and we've already accounted for that)
+        } else {
 
-            // The given dimension is "empty" (as happens when the problem dimension is smaller than dim+1). Really there's one DOF in this dimension, but there's no notion of interior or boundary in this dimension. In this case we require start and end indices of 0 to enter into the loop below.
+            // The given dimension is "empty" (as happens when the problem dimension is smaller than
+            // dim+1). Really there's one DOF in this dimension, but there's no notion of interior
+            // or boundary in this dimension. In this case we require start and end indices of 0 to
+            // enter into the loop below.
             if ( d_globalBox->last[dim] == 0 ) {
                 ijkFirst[dim] = 0;
                 ijkLast[dim]  = 0;
 
-            // The current dimension is not empty and has either 1 or 2 DOFs, and thus all of this process' DOFs live on a boundary and will be handled by applyBoundary()
+                // The current dimension is not empty and has either 1 or 2 DOFs, and thus all of
+                // this process' DOFs live on a boundary and will be handled by applyBoundary()
             } else {
                 return;
             }
         }
     }
 
-    /** Get raw data arrays. 
-     * We can index directly into these using indices from our ArraySize 
+    /** Get raw data arrays.
+     * We can index directly into these using indices from our ArraySize
      * insatnce, d_localArraySize.
-     * Note that in principle we could create AMP::Array's providing views of these raw data 
-     * using AMP::Array::constView (or similar), but we ultimately need to use the index() function 
+     * Note that in principle we could create AMP::Array's providing views of these raw data
+     * using AMP::Array::constView (or similar), but we ultimately need to use the index() function
      * from ArraySize to get indices (for the Jacobian), so we don't bother creating views
      */
-    const double * E_rawData = E_vec->getRawDataBlock<double>();
-    const double * T_rawData = T_vec->getRawDataBlock<double>();
-    double * LE_rawData = LE_vec->getRawDataBlock<double>();
-    double * LT_rawData = LT_vec->getRawDataBlock<double>();
+    const double *E_rawData = E_vec->getRawDataBlock<double>();
+    const double *T_rawData = T_vec->getRawDataBlock<double>();
+    double *LE_rawData      = LE_vec->getRawDataBlock<double>();
+    double *LT_rawData      = LT_vec->getRawDataBlock<double>();
 
     // Placeholders for diffusion coefficients
     double Dr_WO, Dr_OE, DT_WO, DT_OE;
@@ -1372,9 +1392,9 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                 double dif_T_action = 0.0; // d_T * T
 
                 // Get ORIGIN DOFs - these are independent of the dimension
-                auto indORIGIN  = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
-                ELoc3[ORIGIN]   = E_rawData[indORIGIN];
-                TLoc3[ORIGIN]   = T_rawData[indORIGIN];                
+                auto indORIGIN = d_localArraySize->index( ijk[0], ijk[1], ijk[2] );
+                ELoc3[ORIGIN]  = E_rawData[indORIGIN];
+                TLoc3[ORIGIN]  = T_rawData[indORIGIN];
 
                 for ( size_t dim = 0; dim < d_dim; dim++ ) {
 
@@ -1391,17 +1411,16 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                     TLoc3[EAST] = T_rawData[indEAST];
 
                     // Get diffusion coefficients for both E and T
-                    FDMeshOps::FaceDiffusionCoefficients<true, true>(
-                        ELoc3,
-                        TLoc3,
-                        d_k11,
-                        d_k21,
-                        zatom,
-                        d_h[dim],
-                        &Dr_WO,
-                        &Dr_OE,
-                        &DT_WO,
-                        &DT_OE );
+                    FDMeshOps::FaceDiffusionCoefficients<true, true>( ELoc3,
+                                                                      TLoc3,
+                                                                      d_k11,
+                                                                      d_k21,
+                                                                      zatom,
+                                                                      d_h[dim],
+                                                                      &Dr_WO,
+                                                                      &Dr_OE,
+                                                                      &DT_WO,
+                                                                      &DT_OE );
 
                     // Apply diffusion operators
                     dif_E_action += ( -Dr_OE * ( ELoc3[EAST] - ELoc3[ORIGIN] ) +
@@ -1475,8 +1494,10 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
             }
         }
 
-        // Loop over both boundaries of current dimension (these are the same if only one DOF in this dimension)
-        for ( auto boundaryInd : { d_localBox->first[boundaryDim], d_localBox->last[boundaryDim] } ) {
+        // Loop over both boundaries of current dimension (these are the same if only one DOF in
+        // this dimension)
+        for ( auto boundaryInd :
+              { d_localBox->first[boundaryDim], d_localBox->last[boundaryDim] } ) {
             ijk[boundaryDim] = boundaryInd;
 
             // Loop over all of second free dimension
@@ -1497,27 +1518,25 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                     double dif_E_action = 0.0; // d_E * E
                     double dif_T_action = 0.0; // d_T * T
                     // Get ORIGIN DOFs - these are independent of the dimension
-                    auto indORIGIN  = d_meshIndexingOps->gridIndsToScalarDOF( ijk );
-                    ELoc3[ORIGIN] = E_vec->getValueByGlobalID<double>( indORIGIN );
-                    TLoc3[ORIGIN] = T_vec->getValueByGlobalID<double>( indORIGIN );
+                    auto indORIGIN = d_meshIndexingOps->gridIndsToScalarDOF( ijk );
+                    ELoc3[ORIGIN]  = E_vec->getValueByGlobalID<double>( indORIGIN );
+                    TLoc3[ORIGIN]  = T_vec->getValueByGlobalID<double>( indORIGIN );
 
                     for ( size_t dim = 0; dim < d_dim; dim++ ) {
 
                         // Get WEST and EAST data for the given dimension
                         getNNDataBoundary( E_vec, T_vec, ijk, dim, ELoc3, TLoc3 );
                         // Get diffusion coefficients for both E and T
-                        FDMeshOps::
-                            FaceDiffusionCoefficients<true, true>(
-                                ELoc3,
-                                TLoc3,
-                                d_k11,
-                                d_k21,
-                                zatom,
-                                d_h[dim],
-                                &Dr_WO,
-                                &Dr_OE,
-                                &DT_WO,
-                                &DT_OE );
+                        FDMeshOps::FaceDiffusionCoefficients<true, true>( ELoc3,
+                                                                          TLoc3,
+                                                                          d_k11,
+                                                                          d_k21,
+                                                                          zatom,
+                                                                          d_h[dim],
+                                                                          &Dr_WO,
+                                                                          &Dr_OE,
+                                                                          &DT_WO,
+                                                                          &DT_OE );
 
                         // Apply diffusion operators
                         dif_E_action += ( -Dr_OE * ( ELoc3[EAST] - ELoc3[ORIGIN] ) +
@@ -1528,8 +1547,7 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                                         d_rh2[dim];
                     } // Finished looping over dimensions for diffusion discretizations
 
-                    AMP_INSIST( TLoc3[ORIGIN] > 1e-14,
-                                "PDE coefficients ill-defined for T <= 0" );
+                    AMP_INSIST( TLoc3[ORIGIN] > 1e-14, "PDE coefficients ill-defined for T <= 0" );
 
                     // Compute reaction coefficients at cell centers using T value set in the last
                     // iteration of the above loop
@@ -1604,7 +1622,6 @@ void RadDifOp::getNNDataBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vect
 /** ------------------------------------------------------- *
  *  ----------- End of Implementation of RadDifOp --------- *
  *  ------------------------------------------------------- */
-
 
 
 } // namespace AMP::Operator

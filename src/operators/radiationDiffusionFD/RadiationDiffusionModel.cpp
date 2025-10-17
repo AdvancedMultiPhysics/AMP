@@ -40,8 +40,9 @@ double RadDifModel::exactSolution( size_t, const AMP::Mesh::Point & ) const
     AMP_ERROR( "Base class cannot provide a meaningful implementation of this function" );
 }
 
-void RadDifModel::setMemberPDEConstants() {
-    
+void RadDifModel::setMemberPDEConstants()
+{
+
     AMP_INSIST( d_RadiationDiffusionFD_input_db_completed, "Required db not finalized" );
 
     // Coefficient constants
@@ -55,8 +56,13 @@ void RadDifModel::setMemberPDEConstants() {
 
     // Unpack boundary condition constants into member vectors
     double dummy;
-    for ( size_t boundaryID = 1; boundaryID <= 2*d_dim; boundaryID++ ) {
-        AMP::Operator::FDBoundaryUtils::getBCConstantsFromDB( *d_RadiationDiffusionFD_input_db, boundaryID, d_ak[boundaryID-1], d_bk[boundaryID-1], dummy, dummy );
+    for ( size_t boundaryID = 1; boundaryID <= 2 * d_dim; boundaryID++ ) {
+        AMP::Operator::FDBoundaryUtils::getBCConstantsFromDB( *d_RadiationDiffusionFD_input_db,
+                                                              boundaryID,
+                                                              d_ak[boundaryID - 1],
+                                                              d_bk[boundaryID - 1],
+                                                              dummy,
+                                                              dummy );
     }
 }
 
@@ -81,11 +87,14 @@ Mousseau_etal_2000_RadDifModel::Mousseau_etal_2000_RadDifModel(
     std::shared_ptr<AMP::Database> basic_db_, std::shared_ptr<AMP::Database> mspecific_db_ )
     : RadDifModel( basic_db_, mspecific_db_ )
 {
-    // This model uses nonlinear coefficients, so it doesn't make sense to instantiate it if the base class is hard-coded to use linear coefficients
-    AMP_INSIST( IsNonlinear, "This model is inherently nonlinear, but IsNonlinear==false, i.e., linear coefficients are turned on" );
+    // This model uses nonlinear coefficients, so it doesn't make sense to instantiate it if the
+    // base class is hard-coded to use linear coefficients
+    AMP_INSIST( IsNonlinear,
+                "This model is inherently nonlinear, but IsNonlinear==false, i.e., linear "
+                "coefficients are turned on" );
 
     AMP_INSIST( d_dim < 3, "Mousseau_etal_2000_RadDifModel only implemented in 1D and 2D" );
-    
+
     finalizeGeneralPDEModel_db();
     setMemberPDEConstants();
 }
@@ -313,15 +322,15 @@ double Manufactured_RadDifModel::getBoundaryFunctionValueE( size_t boundaryID,
     double E = exactSolution( 0, point );
 
     // Compute diffusive flux D_E on boundary
-    double T     = exactSolution( 1, point );
-    auto D_E     = diffusionCoefficientE( T, d_zatom );
+    double T = exactSolution( 1, point );
+    auto D_E = diffusionCoefficientE( T, d_zatom );
 
     // Compute relevant component of gradient on boundary
     double dEdn = exactSolutionGradient( 0, point, normalComponent );
 
     // Unpack constants
-    auto ak = d_ak[boundaryID-1];
-    auto bk = d_bk[boundaryID-1];
+    auto ak = d_ak[boundaryID - 1];
+    auto bk = d_bk[boundaryID - 1];
 
     return ak * E + bk * d_k11 * D_E * normalSign * dEdn;
 }
@@ -380,18 +389,42 @@ double Manufactured_RadDifModel::sourceTerm1D( size_t component, double x ) cons
 
     // Linear case
     if constexpr ( !IsNonlinear ) {
-        
+
         if ( component == 0 ) {
-            double sE = std::pow(PI, 2)*d_k11*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t) - PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi) - d_k12*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
+            double sE =
+                std::pow( PI, 2 ) * d_k11 * std::pow( kX, 2 ) * std::sin( PI * kX * x + kXPhi ) *
+                    std::cos( PI * kT * t ) -
+                PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) -
+                d_k12 *
+                    ( -kE0 +
+                      std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) ) -
+                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) );
             return sE;
         } else if ( component == 1 ) {
-            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - d_k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 2.0/3.0) - 2.0/9.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t), 5.0/3.0)) + d_k22*(-kE0 + std::cbrt(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t));
+            double sT =
+                -1.0 / 3.0 * PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) /
+                    std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
+                              2.0 / 3.0 ) -
+                d_k21 *
+                    ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                          std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) /
+                          std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
+                                    2.0 / 3.0 ) -
+                      2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                          std::pow( std::cos( PI * kT * t ), 2 ) *
+                          std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) /
+                          std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ),
+                                    5.0 / 3.0 ) ) +
+                d_k22 *
+                    ( -kE0 +
+                      std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) ) -
+                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) );
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
         }
 
-    // Nonlinear case
+        // Nonlinear case
     } else if constexpr ( IsNonlinear ) {
         if ( component == 0 ) {
             double sE =
@@ -464,10 +497,12 @@ double Manufactured_RadDifModel::exactSolutionGradient2D( size_t component,
     double t = this->getCurrentTime();
     if ( component == 0 ) {
         if ( gradComponent == 0 ) {
-            double dEdx = PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi);
+            double dEdx = PI * kX * std::cos( PI * kT * t ) * std::cos( PI * kX * x + kXPhi ) *
+                          std::cos( PI * kY * y + kYPhi );
             return dEdx;
         } else if ( gradComponent == 1 ) {
-            double dEdy = -PI*kY*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kY*y + kYPhi)*std::cos(PI*kT*t);
+            double dEdy = -PI * kY * std::sin( PI * kX * x + kXPhi ) *
+                          std::sin( PI * kY * y + kYPhi ) * std::cos( PI * kT * t );
             return dEdy;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -475,10 +510,20 @@ double Manufactured_RadDifModel::exactSolutionGradient2D( size_t component,
 
     } else if ( component == 1 ) {
         if ( gradComponent == 0 ) {
-            double dTdx = (1.0/3.0)*PI*kX*std::cos(PI*kT*t)*std::cos(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0/3.0);
+            double dTdx =
+                ( 1.0 / 3.0 ) * PI * kX * std::cos( PI * kT * t ) *
+                std::cos( PI * kX * x + kXPhi ) * std::cos( PI * kY * y + kYPhi ) /
+                std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                    std::cos( PI * kY * y + kYPhi ),
+                          2.0 / 3.0 );
             return dTdx;
         } else if ( gradComponent == 1 ) {
-            double dTdy = -1.0/3.0*PI*kY*std::sin(PI*kX*x + kXPhi)*std::sin(PI*kY*y + kYPhi)*std::cos(PI*kT*t)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0/3.0);
+            double dTdy =
+                -1.0 / 3.0 * PI * kY * std::sin( PI * kX * x + kXPhi ) *
+                std::sin( PI * kY * y + kYPhi ) * std::cos( PI * kT * t ) /
+                std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                    std::cos( PI * kY * y + kYPhi ),
+                          2.0 / 3.0 );
             return dTdy;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -497,17 +542,17 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
     // Linear case
     if constexpr ( !IsNonlinear ) {
         if ( component == 0 ) {
-            double sE =
-                std::pow( PI, 2 ) * d_k11 * ( std::pow( kX, 2 ) + std::pow( kY, 2 ) ) *
-                    std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                    std::cos( PI * kY * y + kYPhi ) -
-                PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
-                    std::cos( PI * kY * y + kYPhi ) +
-                d_k12 * ( kE0 -
-                        std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                                             std::cos( PI * kY * y + kYPhi ) ) +
-                        std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) );
+            double sE = std::pow( PI, 2 ) * d_k11 * ( std::pow( kX, 2 ) + std::pow( kY, 2 ) ) *
+                            std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                            std::cos( PI * kY * y + kYPhi ) -
+                        PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
+                            std::cos( PI * kY * y + kYPhi ) +
+                        d_k12 * ( kE0 -
+                                  std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                       std::cos( PI * kT * t ) *
+                                                       std::cos( PI * kY * y + kYPhi ) ) +
+                                  std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                      std::cos( PI * kY * y + kYPhi ) );
             return sE;
         } else if ( component == 1 ) {
             double sT =
@@ -550,13 +595,87 @@ double Manufactured_RadDifModel::sourceTerm2D( size_t component, double x, doubl
             AMP_ERROR( "Invalid component" );
         }
 
-    // Nonlinear case
+        // Nonlinear case
     } else if constexpr ( IsNonlinear ) {
         if ( component == 0 ) {
-            double sE = -PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi) - d_k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)/std::pow(d_zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(d_zatom, 3)) - d_k11*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi)/std::pow(d_zatom, 3) + (1.0/3.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)/std::pow(d_zatom, 3)) - d_k12*std::pow(d_zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
+            double sE =
+                -PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
+                    std::cos( PI * kY * y + kYPhi ) -
+                d_k11 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                          std::cos( PI * kY * y + kYPhi ) ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) / std::pow( d_zatom, 3 ) +
+                          ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) /
+                              std::pow( d_zatom, 3 ) ) -
+                d_k11 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                          std::cos( PI * kY * y + kYPhi ) ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) / std::pow( d_zatom, 3 ) +
+                          ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) / std::pow( d_zatom, 3 ) ) -
+                d_k12 * std::pow( d_zatom, 3 ) *
+                    ( -kE0 +
+                      std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                          std::cos( PI * kY * y + kYPhi ),
+                                4.0 / 3.0 ) -
+                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                          std::cos( PI * kY * y + kYPhi ) ) /
+                    ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                std::cos( PI * kY * y + kYPhi ) );
             return sE;
         } else if ( component == 1 ) {
-            double sT = -1.0/3.0*PI*kT*std::sin(PI*kT*t)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kY*y + kYPhi)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 2.0/3.0) - d_k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kX, 2)*std::pow(std::cos(PI*kT*t), 2)*std::pow(std::cos(PI*kX*x + kXPhi), 2)*std::pow(std::cos(PI*kY*y + kYPhi), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 5.0/6.0)) - d_k21*(-1.0/3.0*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 1.0/6.0)*std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi) + (1.0/18.0)*std::pow(PI, 2)*std::pow(kY, 2)*std::pow(std::sin(PI*kX*x + kXPhi), 2)*std::pow(std::sin(PI*kY*y + kYPhi), 2)*std::pow(std::cos(PI*kT*t), 2)/std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 5.0/6.0)) + d_k22*std::pow(d_zatom, 3)*(-kE0 + std::pow(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi), 4.0/3.0) - std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi))/(kE0 + std::sin(PI*kX*x + kXPhi)*std::cos(PI*kT*t)*std::cos(PI*kY*y + kYPhi));
+            double sT =
+                -1.0 / 3.0 * PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
+                    std::cos( PI * kY * y + kYPhi ) /
+                    std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                        std::cos( PI * kY * y + kYPhi ),
+                              2.0 / 3.0 ) -
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ),
+                                        1.0 / 6.0 ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) +
+                          ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ),
+                                        5.0 / 6.0 ) ) -
+                d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ),
+                                        1.0 / 6.0 ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) +
+                          ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ),
+                                        5.0 / 6.0 ) ) +
+                d_k22 * std::pow( d_zatom, 3 ) *
+                    ( -kE0 +
+                      std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                          std::cos( PI * kY * y + kYPhi ),
+                                4.0 / 3.0 ) -
+                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                          std::cos( PI * kY * y + kYPhi ) ) /
+                    ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                std::cos( PI * kY * y + kYPhi ) );
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
@@ -669,12 +788,13 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                     std::cos( PI * kZ * z + kZPhi ) -
                 PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
-                d_k12 * ( kE0 -
-                        std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                                             std::cos( PI * kY * y + kYPhi ) *
-                                             std::cos( PI * kZ * z + kZPhi ) ) +
-                        std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) );
+                d_k12 *
+                    ( kE0 -
+                      std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                           std::cos( PI * kY * y + kYPhi ) *
+                                           std::cos( PI * kZ * z + kZPhi ) ) +
+                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                          std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) );
             return sE;
         } else if ( component == 1 ) {
             double sT =
@@ -685,115 +805,116 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                         std::cos( PI * kZ * z + kZPhi ),
                               2.0 / 3.0 ) -
                 d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                            std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      2.0 / 3.0 ) -
-                        2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                            std::pow( std::cos( PI * kT * t ), 2 ) *
-                            std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
-                            std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) *
-                            std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      5.0 / 3.0 ) ) -
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        2.0 / 3.0 ) -
+                          2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        5.0 / 3.0 ) ) -
                 d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
-                            std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      2.0 / 3.0 ) -
-                        2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
-                            std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
-                            std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
-                            std::pow( std::cos( PI * kT * t ), 2 ) *
-                            std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      5.0 / 3.0 ) ) -
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        2.0 / 3.0 ) -
+                          2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        5.0 / 3.0 ) ) -
                 d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
-                            std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      2.0 / 3.0 ) -
-                        2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
-                            std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
-                            std::pow( std::sin( PI * kZ * z + kZPhi ), 2 ) *
-                            std::pow( std::cos( PI * kT * t ), 2 ) *
-                            std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      5.0 / 3.0 ) ) +
-                d_k22 * ( -kE0 +
-                        std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                                             std::cos( PI * kY * y + kYPhi ) *
-                                             std::cos( PI * kZ * z + kZPhi ) ) -
-                        std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) );
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        2.0 / 3.0 ) -
+                          2.0 / 9.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kZ * z + kZPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        5.0 / 3.0 ) ) +
+                d_k22 *
+                    ( -kE0 +
+                      std::cbrt( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                           std::cos( PI * kY * y + kYPhi ) *
+                                           std::cos( PI * kZ * z + kZPhi ) ) -
+                      std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                          std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) );
             return sT;
         } else {
             AMP_ERROR( "Invalid component" );
         }
 
-    // Nonlinear case
+        // Nonlinear case
     } else if constexpr ( IsNonlinear ) {
         if ( component == 0 ) {
             double sE =
                 -PI * kT * std::sin( PI * kT * t ) * std::sin( PI * kX * x + kXPhi ) *
                     std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) -
-                d_k11 *
-                    ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                          ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                                      std::cos( PI * kY * y + kYPhi ) *
-                                      std::cos( PI * kZ * z + kZPhi ) ) *
-                          std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                          std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                          std::pow( d_zatom, 3 ) +
-                      ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                          std::pow( std::cos( PI * kT * t ), 2 ) *
-                          std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
-                          std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) *
-                          std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) / std::pow( d_zatom, 3 ) ) -
-                d_k11 *
-                    ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
-                          ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                                      std::cos( PI * kY * y + kYPhi ) *
-                                      std::cos( PI * kZ * z + kZPhi ) ) *
-                          std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                          std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                          std::pow( d_zatom, 3 ) +
-                      ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
-                          std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
-                          std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
-                          std::pow( std::cos( PI * kT * t ), 2 ) *
-                          std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) / std::pow( d_zatom, 3 ) ) -
-                d_k11 *
-                    ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
-                          ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                                      std::cos( PI * kY * y + kYPhi ) *
-                                      std::cos( PI * kZ * z + kZPhi ) ) *
-                          std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                          std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
-                          std::pow( d_zatom, 3 ) +
-                      ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
-                          std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
-                          std::pow( std::sin( PI * kZ * z + kZPhi ), 2 ) *
-                          std::pow( std::cos( PI * kT * t ), 2 ) *
-                          std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) / std::pow( d_zatom, 3 ) ) -
+                d_k11 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                          std::cos( PI * kY * y + kYPhi ) *
+                                          std::cos( PI * kZ * z + kZPhi ) ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
+                              std::pow( d_zatom, 3 ) +
+                          ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
+                              std::pow( d_zatom, 3 ) ) -
+                d_k11 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                          std::cos( PI * kY * y + kYPhi ) *
+                                          std::cos( PI * kZ * z + kZPhi ) ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
+                              std::pow( d_zatom, 3 ) +
+                          ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
+                              std::pow( d_zatom, 3 ) ) -
+                d_k11 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
+                              ( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                                          std::cos( PI * kY * y + kYPhi ) *
+                                          std::cos( PI * kZ * z + kZPhi ) ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) /
+                              std::pow( d_zatom, 3 ) +
+                          ( 1.0 / 3.0 ) * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kZ * z + kZPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) /
+                              std::pow( d_zatom, 3 ) ) -
                 d_k12 * std::pow( d_zatom, 3 ) *
                     ( -kE0 +
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
@@ -814,59 +935,59 @@ Manufactured_RadDifModel::sourceTerm3D( size_t component, double x, double y, do
                                         std::cos( PI * kZ * z + kZPhi ),
                               2.0 / 3.0 ) -
                 d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      1.0 / 6.0 ) *
-                            std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
-                        ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
-                            std::pow( std::cos( PI * kT * t ), 2 ) *
-                            std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
-                            std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) *
-                            std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      5.0 / 6.0 ) ) -
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        1.0 / 6.0 ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
+                          ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kX, 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        5.0 / 6.0 ) ) -
                 d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      1.0 / 6.0 ) *
-                            std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
-                        ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
-                            std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
-                            std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
-                            std::pow( std::cos( PI * kT * t ), 2 ) *
-                            std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      5.0 / 6.0 ) ) -
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        1.0 / 6.0 ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
+                          ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kY, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kY * y + kYPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kZ * z + kZPhi ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        5.0 / 6.0 ) ) -
                 d_k21 * ( -1.0 / 3.0 * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      1.0 / 6.0 ) *
-                            std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
-                            std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
-                        ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
-                            std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
-                            std::pow( std::sin( PI * kZ * z + kZPhi ), 2 ) *
-                            std::pow( std::cos( PI * kT * t ), 2 ) *
-                            std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) /
-                            std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
-                                                std::cos( PI * kT * t ) *
-                                                std::cos( PI * kY * y + kYPhi ) *
-                                                std::cos( PI * kZ * z + kZPhi ),
-                                      5.0 / 6.0 ) ) +
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        1.0 / 6.0 ) *
+                              std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
+                              std::cos( PI * kY * y + kYPhi ) * std::cos( PI * kZ * z + kZPhi ) +
+                          ( 1.0 / 18.0 ) * std::pow( PI, 2 ) * std::pow( kZ, 2 ) *
+                              std::pow( std::sin( PI * kX * x + kXPhi ), 2 ) *
+                              std::pow( std::sin( PI * kZ * z + kZPhi ), 2 ) *
+                              std::pow( std::cos( PI * kT * t ), 2 ) *
+                              std::pow( std::cos( PI * kY * y + kYPhi ), 2 ) /
+                              std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) *
+                                                  std::cos( PI * kT * t ) *
+                                                  std::cos( PI * kY * y + kYPhi ) *
+                                                  std::cos( PI * kZ * z + kZPhi ),
+                                        5.0 / 6.0 ) ) +
                 d_k22 * std::pow( d_zatom, 3 ) *
                     ( -kE0 +
                       std::pow( kE0 + std::sin( PI * kX * x + kXPhi ) * std::cos( PI * kT * t ) *
