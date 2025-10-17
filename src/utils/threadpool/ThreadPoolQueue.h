@@ -110,7 +110,7 @@ public:
         if ( d_Nh > 0 ) {
             std::pop_heap( const_cast<ThreadPoolID *>( d_ids ),
                            const_cast<ThreadPoolID *>( d_ids + d_Nh ) );
-            std::swap( id, const_cast<ThreadPoolID &>( d_ids[--d_Nh] ) );
+            std::swap( id, const_cast<ThreadPoolID &>( d_ids[--const_cast<size_t &>( d_Nh )] ) );
         }
         unlock();
         return id;
@@ -125,7 +125,7 @@ public:
             if ( ids[i].ready() ) {
                 d_ids[Nh2++] = ids[i];
             } else {
-                d_Nb++;
+                const_cast<size_t &>( d_Nb )++;
                 d_ids[d_Nc - d_Nb] = ids[i];
                 if ( d_ids[d_Nc - d_Nb] > d_ids[d_Nc - 1] )
                     std::swap( d_ids[d_Nc - d_Nb], d_ids[d_Nc - 1] );
@@ -197,11 +197,11 @@ private:
         if ( test ) {
             for ( size_t i = d_Nc - d_Nb; i < d_Nc; i++ ) {
                 if ( const_cast<ThreadPoolID &>( d_ids[i] ).ready() ) {
-                    std::swap( d_ids[d_Nh++], d_ids[i] );
+                    std::swap( d_ids[const_cast<size_t &>( d_Nh )++], d_ids[i] );
                     std::push_heap( d_ids, d_ids + d_Nh );
                     if ( i > d_Nc - d_Nb )
                         std::swap( d_ids[d_Nc - d_Nb], d_ids[i] );
-                    d_Nb--;
+                    const_cast<size_t &>( d_Nb )--;
                 }
             }
         }

@@ -20,12 +20,9 @@ public:
     // The diagonal and off-diagonal blocks need all the same parameters
     // Like in CSRMatrixData use a nested class to pack all this away
     struct RawCSRLocalMatrixParameters {
-        // No bare constructor, only initializer lists and default copy/moves
-        RawCSRLocalMatrixParameters() = delete;
-
-        lidx_t *d_row_starts;
-        gidx_t *d_cols;
-        scalar_t *d_coeffs;
+        lidx_t *d_row_starts = nullptr;
+        gidx_t *d_cols       = nullptr;
+        scalar_t *d_coeffs   = nullptr;
     };
 
     RawCSRMatrixParameters() = delete;
