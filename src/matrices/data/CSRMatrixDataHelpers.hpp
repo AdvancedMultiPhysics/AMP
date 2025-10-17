@@ -140,6 +140,106 @@ __global__ void row_sub_fill( const gidx_t *rows,
 }
 
 template<typename lidx_t, typename gidx_t>
+__global__ void col_sub_count( const gidx_t idx_lo,
+                               const gidx_t idx_up,
+                               const gidx_t first_col,
+                               const lidx_t *diag_row_starts,
+                               const lidx_t *diag_cols_loc,
+                               const lidx_t *offd_row_starts,
+                               const lidx_t *offd_cols_loc,
+                               const gidx_t *offd_cols_unq,
+                               const lidx_t num_rows,
+                               lidx_t *out_row_starts )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        out_row_starts[i] = 0;
+        for ( auto k = diag_row_starts[i]; k < diag_row_starts[i + 1]; ++k ) {
+            const auto col = static_cast<gidx_t>( diag_cols_loc[k] ) + first_col;
+            if ( idx_lo <= col && col < idx_up ) {
+                out_row_starts[i]++;
+            }
+        }
+        for ( auto k = offd_row_starts[i]; k < offd_row_starts[i + 1]; ++k ) {
+            const auto col = offd_cols_unq[offd_cols_loc[k]];
+            if ( idx_lo <= col && col < idx_up ) {
+                out_row_starts[i]++;
+            }
+        }
+    }
+}
+
+template<typename lidx_t, typename gidx_t, typename scalar_t>
+__global__ void col_sub_fill( const gidx_t idx_lo,
+                              const gidx_t idx_up,
+                              const gidx_t first_col,
+                              const lidx_t *diag_row_starts,
+                              const lidx_t *diag_cols_loc,
+                              const scalar_t *diag_coeffs,
+                              const lidx_t *offd_row_starts,
+                              const lidx_t *offd_cols_loc,
+                              const gidx_t *offd_cols_unq,
+                              const scalar_t *offd_coeffs,
+                              const lidx_t num_rows,
+                              lidx_t *out_row_starts,
+                              gidx_t *out_cols,
+                              scalar_t *out_coeffs )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        auto pos = out_row_starts[i];
+        for ( auto k = diag_row_starts[i]; k < diag_row_starts[i + 1]; ++k ) {
+            const auto col = static_cast<gidx_t>( diag_cols_loc[k] ) + first_col;
+            if ( idx_lo <= col && col < idx_up ) {
+                out_cols[pos]   = col;
+                out_coeffs[pos] = diag_coeffs[k];
+                pos++;
+            }
+        }
+        for ( auto k = offd_row_starts[i]; k < offd_row_starts[i + 1]; ++k ) {
+            const auto col = offd_cols_unq[offd_cols_loc[k]];
+            if ( idx_lo <= col && col < idx_up ) {
+                out_cols[pos]   = col;
+                out_coeffs[pos] = offd_coeffs[k];
+                pos++;
+            }
+        }
+    }
+}
+
+template<typename lidx_t>
+__global__ void
+horz_cat_count( const lidx_t *in_row_starts, const lidx_t num_rows, lidx_t *out_row_starts )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        out_row_starts[i] += ( in_row_starts[i + 1] - in_row_starts[i] );
+    }
+}
+
+template<typename lidx_t, typename gidx_t, typename scalar_t>
+__global__ void horz_cat_fill( const lidx_t *in_row_starts,
+                               const gidx_t *in_cols,
+                               const scalar_t *in_coeffs,
+                               const lidx_t num_rows,
+                               const lidx_t *out_row_starts,
+                               lidx_t *row_nnz_ctrs,
+                               gidx_t *out_cols,
+                               scalar_t *out_coeffs )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        for ( auto n = in_row_starts[i]; n < in_row_starts[i + 1]; ++n ) {
+            const auto rs        = out_row_starts[i];
+            const auto ctr       = row_nnz_ctrs[i];
+            out_cols[rs + ctr]   = in_cols[n];
+            out_coeffs[rs + ctr] = in_coeffs[n];
+            row_nnz_ctrs[i]++;
+        }
+    }
+}
+
+template<typename lidx_t, typename gidx_t>
 __global__ void vert_cat_count( const lidx_t *row_starts,
                                 const gidx_t *cols,
                                 const lidx_t num_rows,
@@ -483,6 +583,193 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill( const typename Config::gidx_t 
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RowSubsetFill Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
+    const typename Config::gidx_t idx_lo,
+    const typename Config::gidx_t idx_up,
+    const typename Config::gidx_t first_col,
+    const typename Config::lidx_t *diag_row_starts,
+    const typename Config::lidx_t *diag_cols_loc,
+    const typename Config::lidx_t *offd_row_starts,
+    const typename Config::lidx_t *offd_cols_loc,
+    const typename Config::gidx_t *offd_cols_unq,
+    const typename Config::lidx_t num_rows,
+    typename Config::lidx_t *out_row_starts )
+{
+    PROFILE( "CSRMatrixDataHelpers::ColSubsetCountNNZ" );
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        for ( lidx_t row = 0; row < num_rows; ++row ) {
+            out_row_starts[row] = 0;
+            for ( auto k = diag_row_starts[row]; k < diag_row_starts[row + 1]; ++k ) {
+                const auto col = static_cast<gidx_t>( diag_cols_loc[k] ) + first_col;
+                if ( idx_lo <= col && col < idx_up ) {
+                    out_row_starts[row]++;
+                }
+            }
+            for ( auto k = offd_row_starts[row]; k < offd_row_starts[row + 1]; ++k ) {
+                const auto col = offd_cols_unq[offd_cols_loc[k]];
+                if ( idx_lo <= col && col < idx_up ) {
+                    out_row_starts[row]++;
+                }
+            }
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        col_sub_count<<<GridDim, BlockDim>>>( idx_lo,
+                                              idx_up,
+                                              first_col,
+                                              diag_row_starts,
+                                              diag_cols_loc,
+                                              offd_row_starts,
+                                              offd_cols_loc,
+                                              offd_cols_unq,
+                                              num_rows,
+                                              out_row_starts );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetCountNNZ" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetCountNNZ Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::ColSubsetFill( const typename Config::gidx_t idx_lo,
+                                                  const typename Config::gidx_t idx_up,
+                                                  const typename Config::gidx_t first_col,
+                                                  const typename Config::lidx_t *diag_row_starts,
+                                                  const typename Config::lidx_t *diag_cols_loc,
+                                                  const typename Config::scalar_t *diag_coeffs,
+                                                  const typename Config::lidx_t *offd_row_starts,
+                                                  const typename Config::lidx_t *offd_cols_loc,
+                                                  const typename Config::gidx_t *offd_cols_unq,
+                                                  const typename Config::scalar_t *offd_coeffs,
+                                                  const typename Config::lidx_t num_rows,
+                                                  typename Config::lidx_t *out_row_starts,
+                                                  typename Config::gidx_t *out_cols,
+                                                  typename Config::scalar_t *out_coeffs )
+{
+    PROFILE( "CSRMatrixDataHelpers::ColSubsetFill" );
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        for ( lidx_t row = 0; row < num_rows; ++row ) {
+            auto pos = out_row_starts[row];
+            for ( auto k = diag_row_starts[row]; k < diag_row_starts[row + 1]; ++k ) {
+                const auto col = static_cast<gidx_t>( diag_cols_loc[k] ) + first_col;
+                if ( idx_lo <= col && col < idx_up ) {
+                    out_cols[pos]   = col;
+                    out_coeffs[pos] = diag_coeffs[k];
+                    pos++;
+                }
+            }
+            for ( auto k = offd_row_starts[row]; k < offd_row_starts[row + 1]; ++k ) {
+                const auto col = offd_cols_unq[offd_cols_loc[k]];
+                if ( idx_lo <= col && col < idx_up ) {
+                    out_cols[pos]   = col;
+                    out_coeffs[pos] = offd_coeffs[k];
+                    pos++;
+                }
+            }
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        col_sub_fill<<<GridDim, BlockDim>>>( idx_lo,
+                                             idx_up,
+                                             first_col,
+                                             diag_row_starts,
+                                             diag_cols_loc,
+                                             diag_coeffs,
+                                             offd_row_starts,
+                                             offd_cols_loc,
+                                             offd_cols_unq,
+                                             offd_coeffs,
+                                             num_rows,
+                                             out_row_starts,
+                                             out_cols,
+                                             out_coeffs );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetFill" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetFill Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
+    const typename Config::lidx_t *in_row_starts,
+    const typename Config::lidx_t num_rows,
+    typename Config::lidx_t *out_row_starts )
+{
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        for ( lidx_t row = 0; row < num_rows; ++row ) {
+            out_row_starts[row] += ( in_row_starts[row + 1] - in_row_starts[row] );
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        horz_cat_count<<<GridDim, BlockDim>>>( in_row_starts, num_rows, out_row_starts );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
+    const typename Config::lidx_t *in_row_starts,
+    const typename Config::gidx_t *in_cols,
+    const typename Config::scalar_t *in_coeffs,
+    const typename Config::lidx_t num_rows,
+    const typename Config::lidx_t *out_row_starts,
+    typename Config::lidx_t *row_nnz_ctrs,
+    typename Config::gidx_t *out_cols,
+    typename Config::scalar_t *out_coeffs )
+{
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        for ( lidx_t row = 0; row < num_rows; ++row ) {
+            for ( auto n = in_row_starts[row]; n < in_row_starts[row + 1]; ++n ) {
+                const auto rs        = out_row_starts[row];
+                const auto ctr       = row_nnz_ctrs[row];
+                out_cols[rs + ctr]   = in_cols[n];
+                out_coeffs[rs + ctr] = in_coeffs[n];
+                row_nnz_ctrs[row]++;
+            }
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        deviceSynchronize();
+        horz_cat_fill<<<GridDim, BlockDim>>>( in_row_starts,
+                                              in_cols,
+                                              in_coeffs,
+                                              num_rows,
+                                              out_row_starts,
+                                              row_nnz_ctrs,
+                                              out_cols,
+                                              out_coeffs );
+        deviceSynchronize();
+        getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalFill" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalFill Undefined memory location" );
 #endif
     }
 }

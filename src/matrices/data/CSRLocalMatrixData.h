@@ -207,9 +207,6 @@ public:
                     const bool is_diag );
 
 protected:
-    //! Helper function for getting a global col idx from local depending on diag/offd case
-    gidx_t localToGlobal( const lidx_t loc_id ) const;
-
     /** \brief  Sort the columns/values within each row
      * \details  This sorts within each row using the same ordering as
      * Hypre. Diagonal blocks will have the diagonal entry first, and

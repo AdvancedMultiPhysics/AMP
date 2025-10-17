@@ -194,20 +194,20 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     // Verify that all have matching row/col starts/stops
     // Blocks must have valid global columns present
     // Count total number of non-zeros in each row from combination.
-    auto block         = ( *blocks.begin() ).second;
-    const auto mem_loc = block->d_memory_location;
-    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::ConcatHorizontal not implemented on device yet" );
+    auto block           = ( *blocks.begin() ).second;
+    const auto mem_loc   = block->d_memory_location;
     const auto first_row = block->d_first_row;
     const auto last_row  = block->d_last_row;
     const auto nrows     = static_cast<lidx_t>( last_row - first_row );
     const auto first_col = block->d_first_col;
     const auto last_col  = block->d_last_col;
-    std::vector<lidx_t> row_nnz( last_row - first_row, 0 );
+    bool all_empty       = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
         if ( block->isEmpty() ) {
             continue;
+        } else {
+            all_empty = false;
         }
         AMP_INSIST( first_row == block->d_first_row && last_row == block->d_last_row &&
                         first_col == block->d_first_col && last_col == block->d_last_col,
@@ -216,18 +216,34 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
         AMP_INSIST( mem_loc == block->d_memory_location,
                     "Blocks to concatenate must be in same memory space" );
         AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
-        for ( lidx_t row = 0; row < nrows; ++row ) {
-            row_nnz[row] += ( block->d_row_starts[row + 1] - block->d_row_starts[row] );
-        }
     }
 
-    // Create empty matrix and trigger allocations to match
+    // extreme edge case where every block happened to be empty
+    if ( all_empty ) {
+        return nullptr;
+    }
+
+    // Create output matrix
     auto concat_matrix = std::make_shared<CSRLocalMatrixData<Config>>(
         params, mem_loc, first_row, last_row, first_col, last_col, false );
-    concat_matrix->setNNZ( row_nnz );
 
-    // set row_nnz back to zeros to use as counters while appending entries
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( row_nnz.data(), last_row - first_row, 0 );
+    // count number of non-zeros in each row
+    for ( auto it : blocks ) {
+        block = it.second;
+        if ( block->isEmpty() ) {
+            continue;
+        }
+        CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
+            block->d_row_starts.get(), nrows, concat_matrix->d_row_starts.get() );
+    }
+
+    // trigger allocations
+    concat_matrix->setNNZ( true );
+
+    // Create counters for non-zeros entered into each row
+    lidxAllocator_t lidx_alloc;
+    auto row_nnz_ctrs = sharedArrayBuilder( nrows, lidx_alloc );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( row_nnz_ctrs.get(), nrows, 0 );
 
     // loop back over blocks and write into new matrix
     for ( auto it : blocks ) {
@@ -235,15 +251,14 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
         if ( block->isEmpty() ) {
             continue;
         }
-        for ( lidx_t row = 0; row < nrows; ++row ) {
-            for ( auto n = block->d_row_starts[row]; n < block->d_row_starts[row + 1]; ++n ) {
-                const auto rs                     = concat_matrix->d_row_starts[row];
-                const auto ctr                    = row_nnz[row];
-                concat_matrix->d_cols[rs + ctr]   = block->d_cols[n];
-                concat_matrix->d_coeffs[rs + ctr] = block->d_coeffs[n];
-                row_nnz[row]++;
-            }
-        }
+        CSRMatrixDataHelpers<Config>::ConcatHorizontalFill( block->d_row_starts.get(),
+                                                            block->d_cols.get(),
+                                                            block->d_coeffs.get(),
+                                                            nrows,
+                                                            concat_matrix->d_row_starts.get(),
+                                                            row_nnz_ctrs.get(),
+                                                            concat_matrix->d_cols.get(),
+                                                            concat_matrix->d_coeffs.get() );
     }
 
     return concat_matrix;
@@ -275,7 +290,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
         all_empty = all_empty && block->isEmpty();
     }
 
-    // extreme edge case where every requested row happened to be empty
+    // extreme edge case where every block happened to be empty
     if ( all_empty ) {
         return nullptr;
     }
@@ -392,17 +407,6 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
 
     // free global cols as they should not be used from here on out
     d_cols.reset();
-}
-
-template<typename Config>
-typename Config::gidx_t
-CSRLocalMatrixData<Config>::localToGlobal( const typename Config::lidx_t loc_id ) const
-{
-    if ( d_is_diag ) {
-        return static_cast<typename Config::gidx_t>( loc_id ) + d_first_col;
-    } else {
-        return d_cols_unq[loc_id];
-    }
 }
 
 template<typename Config>
@@ -571,7 +575,7 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
     auto transposeData = std::make_shared<CSRLocalMatrixData>(
         params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, d_is_diag );
 
-    // handle rare edge case of empty diagonal block
+    // handle edge case of empty diagonal block
     if ( d_is_empty ) {
         return transposeData;
     }
@@ -731,7 +735,6 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
         d_nnz       = 0;
         d_ncols_unq = 0;
         d_is_empty  = true;
-        AMP_WARNING( "CSRLocalMatrixData::removeRange deleting all entries" );
         return;
     }
 
