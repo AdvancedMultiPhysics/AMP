@@ -1,8 +1,4 @@
 TimeIntegrator {
-    # TODO: remove this
-    #outputSolution = TRUE # Write solution to file
-    outputSolution = FALSE
-
     name = "BDF2"
     implicit_integrator = "BDF2"
     

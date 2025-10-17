@@ -121,7 +121,7 @@ private:
 public:
     // Hack. This should really be templated against. That said, for applications flux limiting is usually required.
     //! Flag indicating whether energy diffusion coefficient is limited
-    static constexpr bool IsFluxLimited = false; 
+    static constexpr bool IsFluxLimited = true; 
 
     //! Prevent instantiation
     FDMeshOps() = delete;
@@ -210,11 +210,6 @@ public:
 
     //! Map from grid index to a MeshElement
     AMP::Mesh::MeshElement gridIndsToMeshElement( const std::array<size_t, 3> &ijk ) const;
-
-// oktodo: delete
-#if 1
-    void printMeshNodes();
-#endif
 };
 
 

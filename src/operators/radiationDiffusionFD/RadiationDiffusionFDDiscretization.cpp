@@ -205,10 +205,6 @@ void FDMeshOps::FaceDiffusionCoefficients( std::array<double, 3> &ELoc3,
                                             ( h * 0.5 * ( ELoc3[EAST] + ELoc3[ORIGIN] ) ) ) );
             *Dr_WO = DE_WO;
             *Dr_OE = DE_OE;
-
-        #if 0
-            AMP_WARNING( "flux limiting is not working properly..." );
-        #endif
         }
     }
 
@@ -231,54 +227,8 @@ FDMeshGlobalIndexingOps::FDMeshGlobalIndexingOps(
     : d_BoxMesh( BoxMesh ),
       d_geom( geom ),
       d_scalarDOFMan( scalarDOFMan ),
-      d_multiDOFMan( multiDOFMan ){
+      d_multiDOFMan( multiDOFMan ){ };
 
-    // todo: delete
-    #if 0
-        printMeshNodes();
-    #endif
-      };
-
-#if 0
-// oktodo: remove the following once i've verified accuracy
-void FDMeshGlobalIndexingOps::printMeshNodes() {
-
-    // AMP::pout << "h=";
-    // for ( auto h : d_h ) {
-    //     AMP::pout << h << ", ";
-    // }
-
-    AMP::pout << "\n\nprintMeshNodes()\n";
-    std::array<int, 3> ijk;
-
-    // Iterate over local box
-    for ( auto k = d_localBox->first[2]; k <= d_localBox->last[2]; k++ ) {
-        ijk[2] = k;
-        std::cout << "k=" << k << "\n";
-        for ( auto j = d_localBox->first[1]; j <= d_localBox->last[1]; j++ ) {
-            ijk[1] = j;
-            std::cout << "  j=" << j << "\n";
-            for ( auto i = d_localBox->first[0]; i <= d_localBox->last[0]; i++ ) {
-                ijk[0] = i;
-                std::cout << "    i=" << i << "\t";
-
-                auto node = gridIndsToMeshElement( ijk );
-                //auto coord = node.coord();
-                auto point = node.centroid();
-                std::cout << "x=" << point[0] << ", ";
-                if (d_dim >= 2)
-                    std::cout << "y=" << point[1] << ", ";
-                if ( d_dim >= 3 )
-                    std::cout << "z=" << point[2];
-                std::cout << "\n";
-            }
-        }
-    }
-
-    d_BoxMesh->getComm().barrier();
-    AMP_ERROR( "halt here pls" );
-}
-#endif
 
 //! Map from grid index to a the corresponding DOF
 size_t FDMeshGlobalIndexingOps::gridIndsToScalarDOF( const std::array<size_t, 3> &ijk ) const
@@ -1222,19 +1172,19 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> RadDifOp::createInputVector() const
     auto ET_var = std::make_shared<AMP::LinearAlgebra::Variable>( "ET" );
     auto ET_vec = AMP::LinearAlgebra::createVector<double>( d_multiDOFMan, ET_var );
     return ET_vec;
-};
+}
 
 void RadDifOp::setBoundaryFunctionE(
     const std::function<double( size_t, const AMP::Mesh::Point & )> &fn_ )
 {
     d_robinFunctionE = fn_;
-};
+}
 
 void RadDifOp::setBoundaryFunctionT(
     const std::function<double( size_t, const AMP::Mesh::Point & )> &fn_ )
 {
     d_pseudoNeumannFunctionT = fn_;
-};
+}
 
 std::shared_ptr<AMP::Operator::OperatorParameters>
 RadDifOp::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr u_in )

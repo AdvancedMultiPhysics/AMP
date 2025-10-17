@@ -154,7 +154,7 @@ protected:
  * Diffusion, V. A. Mousseau, D. A. Knoll, and W. J. Rider, Journal of Computational Physics 160,
  * 743–765 (2000)
  */
-class Mousseau_etal_2000_RadDifModel : public RadDifModel
+class Mousseau_etal_2000_RadDifModel final : public RadDifModel
 {
 
     //
@@ -185,7 +185,7 @@ private:
  * are provided which accept the boundary id and spatial location on the boundary. (The
  * manufactured solution is not constant along along any boundary)
  */
-class Manufactured_RadDifModel : public RadDifModel
+class Manufactured_RadDifModel final : public RadDifModel
 {
 
 private:

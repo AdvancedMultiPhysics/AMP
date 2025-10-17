@@ -247,39 +247,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 
 
     int step = 0;
-    int n               = mesh_db->getArray<int>( "Size" )[0];
-    std::string out_dir = "out/n" + std::to_string( n ) + "_" +
-                          std::to_string( mesh_db->getScalar<int>( "dim" ) ) + "D/";
-    std::string num_dir = out_dir + "ETnum";
-    std::string man_dir = out_dir + "ETman";
-
-    // Only output solution data if requested and on single process
-    bool outputSolution = ti_db->getWithDefault<bool>( "outputSolution", false );
-    outputSolution      = outputSolution && ( comm.getSize() == 1 );
-#if 1
-    if ( outputSolution ) {
-        // Remove outdir and its contents if it already exists
-        if ( std::filesystem::is_directory( out_dir ) ) {
-            std::filesystem::remove_all( out_dir );
-        }
-        // create outdir
-        std::filesystem::create_directory( out_dir );
-        // Write IC
-        {
-            double T = 0.0;
-            AMP::IO::AsciiWriter vecWriter_man;
-            std::string name = std::to_string( T );
-            manSolVec->setName( name );
-            sol_new->setName( name );
-            vecWriter_man.registerVector( ic );
-            vecWriter_man.writeFile( man_dir, step, T );
-            AMP::IO::AsciiWriter vecWriter_num;
-            vecWriter_num.registerVector( sol_new );
-            vecWriter_num.writeFile( num_dir, step, T );
-        }
-    }
-#endif
-
 
     // Integrate!
     double finalTime = timeIntegrator->getFinalTime();
@@ -346,27 +313,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
             AMP::pout << "||e||=(" << enorms[0] << "," << enorms[1] << "," << enorms[2] << ")"
                       << std::endl;
             AMP::pout << "----------------------------------------" << std::endl;
-
-            if ( outputSolution ) {
-                std::string name = std::to_string( T );
-                manSolVec->setName( name );
-                AMP::IO::AsciiWriter vecWriter_man;
-                vecWriter_man.registerVector( manSolVec );
-                vecWriter_man.writeFile( man_dir, step, T );
-            }
         }
-
-// Write numerical solution to file.
-#if 1
-        if ( outputSolution ) {
-            std::string name = std::to_string( T );
-            sol_new->setName( name );
-            AMP::IO::AsciiWriter vecWriter_num;
-            vecWriter_num.registerVector( sol_new );
-            vecWriter_num.writeFile( num_dir, step, T );
-        }
-#endif
-
 
         // Drop out if we've exceeded max steps
         if ( !timeIntegrator->stepsRemaining() ) {
