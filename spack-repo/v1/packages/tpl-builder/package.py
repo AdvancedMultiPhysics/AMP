@@ -33,6 +33,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("petsc", default=False, description="Build with support for petsc")
     variant("trilinos", default=False, description="Build with support for trilinos")
     variant("test_gpus", default=-1, values=int, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
+    variant("unified-memory", default=True, description="Build hypre with uniied memory")
+
+    conflicts("+unified-memory", when="~rocm~cuda")
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
@@ -59,11 +62,17 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("kokkos+openmp", when="+kokkos+openmp")
     depends_on("kokkos+cuda+cuda_constexpr", when="+kokkos+cuda")
     depends_on("kokkos+rocm", when="+kokkos+rocm")
-    depends_on("hypre+cuda+unified-memory", when="+hypre+cuda")
-    depends_on("hypre+rocm+unified-memory", when="+hypre+rocm")
 
-    depends_on("hypre~shared", when="~shared+hypre")
-    depends_on("hypre+shared", when="+shared+hypre")
+    #cxx_std
+
+    hypre_depends = ["shared", "cuda", "rocm", "openmp"]
+
+    for v in hypre_depends:
+        depends_on(f"hypre+{v}", when=f"+{v}+hypre")
+        depends_on(f"hypre~{v}", when=f"~{v}+hypre")
+
+    
+
     depends_on("blas", when="+lapack")
     depends_on("lapack", when="+lapack")
 
@@ -162,6 +171,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
                              self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
                              ] )
+
+        if spec.satisfies("~unified-memory"):
+            options.extend( [self.define('HYPRE_DISABLE_UNIFIED_MEMORY', True)] )
 
         tpl_list = []
 
