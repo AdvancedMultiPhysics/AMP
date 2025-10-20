@@ -290,22 +290,8 @@ void structuredMeshElement::getElementIndex( const GeomType type,
         AMP_ERROR( "Not finished" );
     }
     // Fix any elements that are beyond a periodic boundary
-    auto BC = getBC();
-    for ( int d = 0; d < static_cast<int>( d_meshType ); d++ ) {
-        if ( BC[d] == 1 ) {
-            // Periodic boundary
-            int size = d_mesh->d_globalSize[d];
-            for ( int i = 0; i < N; i++ ) {
-                if ( index[i].d_index[d] < 0 )
-                    index[i].d_index[d] += size;
-                else if ( index[i].d_index[d] >= size )
-                    index[i].d_index[d] -= size;
-            }
-        } else if ( BC[d] == 2 ) {
-            // mapped boundary
-            AMP_WARN_ONCE( "Not finished" );
-        }
-    }
+    for ( int i = 0; i < N; i++ )
+        d_mesh->fixPeriodic( index[i] );
 }
 
 
@@ -592,19 +578,8 @@ std::vector<MeshElement> structuredMeshElement::getParents( GeomType type ) cons
     }
     index_list.resize( k );
     // Fix any elements that are beyond a periodic boundary
-    for ( int d = 0; d < static_cast<int>( d_meshType ); d++ ) {
-        if ( BC[d] == 1 ) {
-            int global_size = d_mesh->d_globalSize[d];
-            for ( auto &elem : index_list ) {
-                if ( elem.d_index[d] < 0 )
-                    elem.d_index[d] += global_size;
-                else if ( elem.d_index[d] >= global_size )
-                    elem.d_index[d] -= global_size;
-            }
-        } else if ( BC[d] == 2 ) {
-            AMP_WARN_ONCE( "Not finished" );
-        }
-    }
+    for ( auto &index : index_list )
+        d_mesh->fixPeriodic( index );
     // Create the elements
     AMP::Utilities::quicksort( index_list );
     std::vector<MeshElement> elements( index_list.size() );
