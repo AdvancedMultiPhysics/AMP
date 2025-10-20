@@ -5,6 +5,7 @@
 
 #include "StackTrace/ErrorHandlers.h"
 
+#include <atomic>
 #include <cstring>
 
 // LibMesh include
@@ -22,9 +23,9 @@ namespace AMP::Mesh {
 
 
 // Initialize static member variables
-volatile int initializeLibMesh::N_copies = 0;
-void *initializeLibMesh::lminit          = nullptr;
-AMP_MPI initializeLibMesh::d_comm        = AMP_COMM_NULL;
+std::atomic<int> initializeLibMesh::N_copies = 0;
+void *initializeLibMesh::lminit              = nullptr;
+AMP_MPI initializeLibMesh::d_comm            = AMP_COMM_NULL;
 
 
 /************************************************************

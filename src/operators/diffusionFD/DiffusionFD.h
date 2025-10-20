@@ -52,7 +52,7 @@ class DiffusionFDOperator : public LinearOperator
     //
 private:
     //! Problem dimension
-    size_t d_dim = -1;
+    size_t d_dim = static_cast<size_t>( -1 );
 
     //! Mesh
     std::shared_ptr<AMP::Mesh::BoxMesh> d_BoxMesh = nullptr;
