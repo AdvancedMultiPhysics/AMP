@@ -460,6 +460,8 @@ public: // BoxMesh specific functionality
     std::shared_ptr<AMP::LinearAlgebra::Vector> createVector( const std::string &name,
                                                               int gcw = 0 );
 
+    //! Fix periodic boundaries in the element index
+    inline void fixPeriodic( MeshElementIndex &id ) const;
 
 public: // Convenience typedef
     typedef AMP::Utilities::stackVector<std::pair<MeshElementIndex, MeshElementIndex>, 32>

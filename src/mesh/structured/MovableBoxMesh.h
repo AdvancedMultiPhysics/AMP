@@ -114,13 +114,9 @@ private:
     uint64_t d_pos_hash;
 
     // The coordinates of the nodes
-    std::vector<MeshElementIndex> d_index;
+    MeshElementIndex d_first;
+    MeshElementIndex d_last;
     AMP::Array<double> d_coord;
-
-    // Boundary information
-    std::vector<int> d_ids;
-    // std::vector<MeshIterator> d_surface[4];
-    // std::vector<std::vector<MeshIterator>> d_boundary[4];
 };
 
 
