@@ -332,8 +332,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
                                                               concat_matrix->d_row_starts.get(),
                                                               concat_matrix->d_cols.get(),
                                                               concat_matrix->d_coeffs.get() );
-            cat_row += block->d_num_rows;
         }
+        cat_row += block->d_num_rows;
     }
 
     return concat_matrix;
@@ -433,6 +433,7 @@ void CSRLocalMatrixData<Config>::sortColumns()
     }
 }
 
+
 template<typename Config>
 CSRLocalMatrixData<Config>::~CSRLocalMatrixData()
 {
@@ -457,7 +458,7 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
                 "CSRLocalMatrixData::maskMatrixData not implemented for off-diag blocks" );
 
     AMP_INSIST( d_cols.get() == nullptr,
-                "CSRLocalMatrixData::maskMatrixData can only be applied to assembpled matrices" );
+                "CSRLocalMatrixData::maskMatrixData can only be applied to assembled matrices" );
 
     if ( !is_symbolic ) {
         AMP_INSIST( !d_is_symbolic,
