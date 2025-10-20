@@ -348,6 +348,11 @@ int main( int argc, char **argv )
     exeNames.emplace_back( "input_testMousseau-1D-Boomer" );
     exeNames.emplace_back( "input_testMousseau-2D-Boomer" );
     #endif
+    // Same with SASolver
+    exeNames.emplace_back( "input_testDiscretizationError-1D-SASolver" );
+    exeNames.emplace_back( "input_testDiscretizationError-2D-SASolver" );
+    exeNames.emplace_back( "input_testMousseau-1D-SASolver" );
+    exeNames.emplace_back( "input_testMousseau-2D-SASolver" );
 #endif
 
     for ( auto &exeName : exeNames ) {
