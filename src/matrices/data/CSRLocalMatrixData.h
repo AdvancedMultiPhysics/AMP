@@ -267,7 +267,7 @@ protected:
      * \param[in] local_row  Local index row to alter
      * \param[in] num_cols   Number of columns/values passed in
      * \param[in] cols       Global column indices where values are to be set
-     * \param[in] values     Values to write
+     * \param[in] vals       Values to write
      * \details Entries in passed cols array that aren't the stored row are ignored
      */
     void setValuesByGlobalID( const size_t local_row,

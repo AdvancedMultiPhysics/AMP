@@ -248,6 +248,8 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
     // make a matrix communicator based on right comm list
     CSRMatrixCommunicator<Config> mat_comm( d_rightCommList, true );
+    auto comm    = d_rightCommList->getComm();
+    auto my_rank = comm.getRank();
     std::map<int, std::shared_ptr<localmatrixdata_t>> send_blocks;
 
     if ( !d_offd_matrix->isEmpty() ) {
@@ -266,7 +268,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
             auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
             auto part_end   = static_cast<gidx_t>( partition[rd] );
             if ( col < part_start ) {
-                // by sorting the partition containing this index should
+                // by sorting, the partition containing this index should
                 // already be flagged
                 continue;
             } else if ( col < part_end ) {
@@ -290,6 +292,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
         // Create blocks by subsetting on columns and send to owners
         for ( const auto rd : dest_ranks ) {
+            AMP_ASSERT( rd != my_rank );
             const auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
             const auto part_end   = static_cast<gidx_t>( partition[rd] );
             auto block            = subsetCols( part_start, part_end );

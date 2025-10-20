@@ -203,7 +203,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     const auto nrows     = static_cast<lidx_t>( last_row - first_row );
     const auto first_col = block->d_first_col;
     const auto last_col  = block->d_last_col;
-    std::vector<lidx_t> row_nnz( last_row - first_row, 0 );
+    std::vector<lidx_t> row_nnz( nrows, 0 );
     for ( auto it : blocks ) {
         block = it.second;
         if ( block->isEmpty() ) {
@@ -227,7 +227,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     concat_matrix->setNNZ( row_nnz );
 
     // set row_nnz back to zeros to use as counters while appending entries
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( row_nnz.data(), last_row - first_row, 0 );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( row_nnz.data(), nrows, 0 );
 
     // loop back over blocks and write into new matrix
     for ( auto it : blocks ) {
@@ -236,8 +236,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
             continue;
         }
         for ( lidx_t row = 0; row < nrows; ++row ) {
+            const auto rs = concat_matrix->d_row_starts[row];
             for ( auto n = block->d_row_starts[row]; n < block->d_row_starts[row + 1]; ++n ) {
-                const auto rs                     = concat_matrix->d_row_starts[row];
                 const auto ctr                    = row_nnz[row];
                 concat_matrix->d_cols[rs + ctr]   = block->d_cols[n];
                 concat_matrix->d_coeffs[rs + ctr] = block->d_coeffs[n];
@@ -317,8 +317,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
                                                               concat_matrix->d_row_starts.get(),
                                                               concat_matrix->d_cols.get(),
                                                               concat_matrix->d_coeffs.get() );
-            cat_row += block->d_num_rows;
         }
+        cat_row += block->d_num_rows;
     }
 
     return concat_matrix;
@@ -429,6 +429,7 @@ void CSRLocalMatrixData<Config>::sortColumns()
     }
 }
 
+
 template<typename Config>
 CSRLocalMatrixData<Config>::~CSRLocalMatrixData()
 {
@@ -453,7 +454,7 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
                 "CSRLocalMatrixData::maskMatrixData not implemented for off-diag blocks" );
 
     AMP_INSIST( d_cols.get() == nullptr,
-                "CSRLocalMatrixData::maskMatrixData can only be applied to assembpled matrices" );
+                "CSRLocalMatrixData::maskMatrixData can only be applied to assembled matrices" );
 
     if ( !is_symbolic ) {
         AMP_INSIST( !d_is_symbolic,

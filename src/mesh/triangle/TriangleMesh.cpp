@@ -110,21 +110,6 @@ static inline void check( const TriangleMeshIterator<NG> & )
 /****************************************************************
  * Store the vertex data                                         *
  ****************************************************************/
-static inline std::vector<std::array<double, 3>> convert( const std::vector<double> &x )
-{
-    std::vector<std::array<double, 3>> x2( x.size() );
-    for ( size_t i = 0; i < x.size(); i++ )
-        x2[i] = { x[i], 0, 0 };
-    return x2;
-}
-static inline std::vector<std::array<double, 3>>
-convert( const std::vector<std::array<double, 2>> &x )
-{
-    std::vector<std::array<double, 3>> x2( x.size() );
-    for ( size_t i = 0; i < x.size(); i++ )
-        x2[i] = { x[i][0], x[i][1], 0 };
-    return x2;
-}
 template<class TYPE, size_t N>
 StoreTriData<TYPE, N>::StoreTriData( std::vector<std::array<TYPE, N>> x,
                                      std::vector<int> offset,
@@ -229,6 +214,7 @@ static std::array<int, N1> getFace( const std::array<int, N1 + 1> &parent, int d
     } else {
         static_assert( N1 == 0, "Not finished" );
     }
+    AMP_ERROR( "Internal error" );
 }
 
 
@@ -1241,6 +1227,7 @@ ElementID TriangleMesh<NG>::getID( const std::array<int, TYPE + 1> &tri ) const
     } else if constexpr ( TYPE == 2 ) {
         return d_childFace.getID( d_childFace.find( tri ) );
     }
+    AMP_ERROR( "Internal error" );
 }
 
 

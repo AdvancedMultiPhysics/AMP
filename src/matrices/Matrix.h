@@ -178,6 +178,7 @@ public:
 
     /** \brief  Get absolute sum of each row in matrix
      * \param[in]  buf  An optional vector to use as a buffer
+     * \param[in]  remove_zeros  Do we want to remove zeros
      * \return  A vector of the sums
      */
     virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),

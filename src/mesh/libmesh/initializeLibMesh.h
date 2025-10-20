@@ -50,7 +50,7 @@ private:
     initializeLibMesh(){};
 
     // Internal data
-    static volatile int N_copies;
+    static std::atomic<int> N_copies;
     static AMP_MPI d_comm;
     static void *lminit;
 };

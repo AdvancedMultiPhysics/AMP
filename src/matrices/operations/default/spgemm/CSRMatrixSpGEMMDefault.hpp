@@ -42,12 +42,12 @@ void CSRMatrixSpGEMMDefault<Config>::symbolicMultiply_NonOverlapped()
         multiply<Mode::SYMBOLIC, BlockType::DIAG>( A_diag, B_diag, C_diag );
         multiply<Mode::SYMBOLIC, BlockType::OFFD>( A_diag, B_offd, C_offd );
     } else {
-        if ( BR_diag.get() ) {
+        if ( BR_diag.get() && !BR_diag->isEmpty() ) {
             multiplyFused<Mode::SYMBOLIC, BlockType::DIAG>( B_diag, BR_diag, C_diag );
         } else {
             multiply<Mode::SYMBOLIC, BlockType::DIAG>( A_diag, B_diag, C_diag );
         }
-        if ( BR_offd.get() ) {
+        if ( BR_offd.get() && !BR_offd->isEmpty() ) {
             multiplyFused<Mode::SYMBOLIC, BlockType::OFFD>( B_offd, BR_offd, C_offd );
         } else {
             multiply<Mode::SYMBOLIC, BlockType::OFFD>( A_diag, B_offd, C_offd );
@@ -125,12 +125,12 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiply_NonOverlapped()
         multiply<Mode::NUMERIC, BlockType::DIAG>( A_diag, B_diag, C_diag );
         multiply<Mode::NUMERIC, BlockType::OFFD>( A_diag, B_offd, C_offd );
     } else {
-        if ( BR_diag.get() ) {
+        if ( BR_diag.get() && !BR_diag->isEmpty() ) {
             multiplyFused<Mode::NUMERIC, BlockType::DIAG>( B_diag, BR_diag, C_diag );
         } else {
             multiply<Mode::NUMERIC, BlockType::DIAG>( A_diag, B_diag, C_diag );
         }
-        if ( BR_offd.get() ) {
+        if ( BR_offd.get() && !BR_offd->isEmpty() ) {
             multiplyFused<Mode::NUMERIC, BlockType::OFFD>( B_offd, BR_offd, C_offd );
         } else {
             multiply<Mode::NUMERIC, BlockType::OFFD>( A_diag, B_offd, C_offd );
@@ -287,7 +287,11 @@ void CSRMatrixSpGEMMDefault<Config>::multiply( std::shared_ptr<localmatrixdata_t
     }
     AMP_ASSERT( B_cols != nullptr || B_cols_loc != nullptr ); // otherwise just need one of them
 
-    auto B_colmap        = B_data->getColumnMap();
+    auto B_colmap = B_data->getColumnMap();
+    if ( !is_diag && B_cols == nullptr ) {
+        AMP_ASSERT( B_colmap != nullptr );
+    }
+    const auto B_nnz     = B_data->numberOfNonZeros();
     const auto first_col = B_data->beginCol();
 
     // DenseAcc's act on assembled blocks that may have global columns removed
@@ -316,9 +320,16 @@ void CSRMatrixSpGEMMDefault<Config>::multiply( std::shared_ptr<localmatrixdata_t
             // get rows in B block from the A_diag column indices
             for ( lidx_t j = A_rs[row]; j < A_rs[row + 1]; ++j ) {
                 const auto Acl = A_cols_loc[j];
+                AMP_DEBUG_ASSERT( Acl <= B_data->numLocalRows() );
                 // then row of C is union of those B row nz patterns
                 for ( lidx_t k = B_rs[Acl]; k < B_rs[Acl + 1]; ++k ) {
+                    AMP_DEBUG_ASSERT( k < B_nnz );
                     const auto gbl = B_to_global( k );
+                    if ( is_diag ) {
+                        AMP_DEBUG_ASSERT( B_data->beginCol() <= gbl && gbl < B_data->endCol() );
+                    } else {
+                        AMP_DEBUG_ASSERT( B_data->beginCol() > gbl || gbl >= B_data->endCol() );
+                    }
                     acc.insert_or_append( gbl );
                 }
             }
@@ -405,7 +416,9 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyFused( std::shared_ptr<localmatrixd
     AMP_ASSERT( B_data->isEmpty() || B_cols_loc != nullptr );
     AMP_ASSERT( BR_data->isEmpty() || BR_cols != nullptr );
 
-    const auto first_col = C_data->beginCol();
+    const auto first_col   = C_data->beginCol();
+    const auto B_num_rows  = B_data->numLocalRows();
+    const auto BR_num_rows = BR_data->numLocalRows();
 
     // The B blocks will have either local or global cols available
     // but generally not both. If only local available need conversion to global
@@ -430,6 +443,7 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyFused( std::shared_ptr<localmatrixd
             // get rows in B block from the Ad column indices
             for ( lidx_t j = Ad_rs[row]; j < Ad_rs[row + 1]; ++j ) {
                 const auto Acl = Ad_cols_loc[j];
+                AMP_DEBUG_ASSERT( Acl <= B_num_rows );
                 // then row of C is union of those B row nz patterns
                 for ( lidx_t k = B_rs[Acl]; k < B_rs[Acl + 1]; ++k ) {
                     acc.insert_or_append( B_to_global( k ) );
@@ -438,6 +452,7 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyFused( std::shared_ptr<localmatrixd
             // get rows in BR block from the Ao column indices
             for ( lidx_t j = Ao_rs[row]; j < Ao_rs[row + 1]; ++j ) {
                 const auto Acl = Ao_cols_loc[j];
+                AMP_DEBUG_ASSERT( Acl <= BR_num_rows );
                 // then row of C is union of those B row nz patterns
                 for ( lidx_t k = BR_rs[Acl]; k < BR_rs[Acl + 1]; ++k ) {
                     acc.insert_or_append( BR_cols[k] );
@@ -598,7 +613,7 @@ void CSRMatrixSpGEMMDefault<Config>::mergeDiag()
     const auto first_col = C_diag->beginCol();
 
     // handle special case where C_diag_offd is empty
-    if ( C_diag_offd.get() == nullptr || C_diag_offd->isEmpty() ) {
+    if ( C_offd_diag.get() == nullptr || C_offd_diag->isEmpty() ) {
         C_diag->swapDataFields( *C_diag_diag );
         return;
     }
@@ -845,9 +860,7 @@ void CSRMatrixSpGEMMDefault<Config>::startBRemoteComm()
     // subset matrices by rows that other ranks need and send them out
     for ( auto it = d_dest_info.begin(); it != d_dest_info.end(); ++it ) {
         auto block = B->subsetRows( it->second.rowids );
-        if ( !block->isEmpty() ) {
-            d_send_matrices.insert( { it->first, block } );
-        }
+        d_send_matrices.insert( { it->first, block } );
     }
     d_csr_comm.sendMatrices( d_send_matrices );
 }
@@ -860,7 +873,6 @@ void CSRMatrixSpGEMMDefault<Config>::endBRemoteComm()
     }
 
     PROFILE( "CSRMatrixSpGEMMDefault::endBRemoteComm" );
-
     d_recv_matrices = d_csr_comm.recvMatrices( 0, 0, 0, B->numGlobalColumns() );
 
     if ( d_recv_matrices.size() > 0 ) {
@@ -873,6 +885,14 @@ void CSRMatrixSpGEMMDefault<Config>::endBRemoteComm()
     // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
     d_send_matrices.clear();
     d_recv_matrices.clear();
+
+    // test shape of concatenated matrices
+    if ( BR_diag ) {
+        AMP_DEBUG_ASSERT( A_offd->numUniqueColumns() == BR_diag->numLocalRows() );
+    }
+    if ( BR_offd ) {
+        AMP_DEBUG_ASSERT( A_offd->numUniqueColumns() == BR_offd->numLocalRows() );
+    }
 
     // set flag that recv'd matrices are valid
     d_need_comms = false;
