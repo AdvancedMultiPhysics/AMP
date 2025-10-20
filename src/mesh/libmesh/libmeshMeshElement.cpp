@@ -55,7 +55,7 @@ libmeshMeshElement::libmeshMeshElement( int dim,
         is_local   = owner_rank == d_rank;
     } else if ( type == (GeomType) dim ) {
         auto *elem = (libMesh::Elem *) ptr_element;
-        AMP_ASSERT( elem->n_neighbors() < 100 );
+        AMP_DEBUG_ASSERT( elem->n_neighbors() < 100 );
         local_id   = elem->id();
         owner_rank = elem->processor_id();
         is_local   = owner_rank == d_rank;

@@ -306,7 +306,7 @@ Mesh::CompareResult::CompareResult( int state )
       geometry( state == 1 )
 {
 }
-bool Mesh::CompareResult::operator==( const Mesh::CompareResult &rhs )
+bool Mesh::CompareResult::operator==( const Mesh::CompareResult &rhs ) const
 {
     return equal == rhs.equal && nodes == rhs.nodes && surface == rhs.surface &&
            block == rhs.block && domain == rhs.domain && geometry == rhs.geometry;

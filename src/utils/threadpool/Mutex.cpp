@@ -36,7 +36,7 @@ void Mutex::lock()
         if ( !d_recursive )
             throw std::logic_error( "Lock is already locked and non-recursive" );
         // Increment the lock count
-        d_count++;
+        const_cast<int &>( d_count )++;
         return;
     }
     // Acquire the lock
@@ -54,7 +54,7 @@ bool Mutex::tryLock()
         if ( !d_recursive )
             return false;
         // Increment the lock count and return
-        d_count++;
+        const_cast<int &>( d_count )++;
         return true;
     }
     // Try and acquire the lock
@@ -76,7 +76,7 @@ void Mutex::unlock()
     if ( d_id != id )
         throw std::logic_error( "Thread that does not own lock is attempting to release" );
     // Release the lock
-    d_count--; // Change lock count before releasing mutex
+    const_cast<int &>( d_count )--; // Change lock count before releasing mutex
     if ( d_count == 0 ) {
         d_id = -1;
         d_mutex.unlock();

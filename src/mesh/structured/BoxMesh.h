@@ -133,6 +133,8 @@ public:
         constexpr auto index() const { return d_index; }
         constexpr int index( int d ) const { return d_index[d]; }
         constexpr int &index( int d ) { return d_index[d]; }
+        constexpr int operator[]( int d ) const { return d_index[d]; }
+        constexpr int &operator[]( int d ) { return d_index[d]; }
         constexpr GeomType type() const { return static_cast<GeomType>( d_type ); }
         constexpr uint8_t side() const { return d_side; }
         static constexpr size_t numElements( const MeshElementIndex &first,
