@@ -287,7 +287,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
                 timeIntegrator->updateSolution();
                 sol_old->copyVector( sol_new );
                 T += dt;
-                step++;
             }
 
             double dt_next = implicitIntegrator->getNextDt( good_solution );
