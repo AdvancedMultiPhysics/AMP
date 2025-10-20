@@ -16,7 +16,7 @@ static MeshElement nullElement;
 /********************************************************
  * Constructors                                          *
  ********************************************************/
-inline BoxMesh::MeshElementIndex structuredMeshIterator::getCurrentIndex() const
+BoxMesh::MeshElementIndex structuredMeshIterator::getCurrentIndex() const
 {
     if ( d_pos >= d_size )
         return {};

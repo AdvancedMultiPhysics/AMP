@@ -192,10 +192,14 @@ struct coarse_operator : AMP::Operator::LinearOperator {
                    std::shared_ptr<LinearAlgebra::Variable> right_var )
     {
         using seq_type   = typename parcsr_t::seq_type;
-        auto make_params = []( seq_type &in ) ->
-            typename LinearAlgebra::RawCSRMatrixParameters<Config>::RawCSRLocalMatrixParameters {
-                return { in.rowptr.data(), in.colind.data(), in.values.data() };
-            };
+        auto make_params = []( seq_type &in ) {
+            typename LinearAlgebra::RawCSRMatrixParameters<Config>::RawCSRLocalMatrixParameters
+                params;
+            params.d_row_starts = in.rowptr.data();
+            params.d_cols       = in.colind.data();
+            params.d_coeffs     = in.values.data();
+            return params;
+        };
 
         auto [diag_params, offd_params] = [&]( auto &...smats ) {
             return std::tuple( make_params( smats )... );
