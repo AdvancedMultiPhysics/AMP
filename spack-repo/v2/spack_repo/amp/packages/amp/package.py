@@ -100,4 +100,3 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
             options.append(self.define("CMAKE_EXE_LINKER_FLAGS", " ".join([f"-Wl,-rpath={p}" for p in self.compiler.extra_rpaths])))
 
         return options
-

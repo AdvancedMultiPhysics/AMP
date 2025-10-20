@@ -233,4 +233,3 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         filter_file(spack_cc, self.compiler.cc, *filenames, **kwargs)
         filter_file(spack_cxx, self.compiler.cxx, *filenames, **kwargs)
         filter_file(spack_fc, self.compiler.fc, *filenames, **kwargs)
-
