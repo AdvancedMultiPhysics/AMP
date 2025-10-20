@@ -2,7 +2,7 @@
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/operators/diffusionFD/DiffusionFD.h"
 #include "AMP/operators/diffusionFD/DiffusionRotatedAnisotropicModel.h"
-#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+#include "AMP/operators/testHelpers/FDHelper.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
