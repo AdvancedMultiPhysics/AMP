@@ -20,6 +20,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("4.0.1", tag="4.0.1", commit="808071edd31ea15e3c92b90e63bf7165e83e0588")
     version("4.0.0", tag="4.0.0", commit="7ebbcfef5b5c9d36e828a2da2d27e2106499e454")
     version("3.1.0", tag="3.1.0", commit="c8a52e6f3124e43ebce944ee3fae8b9a994c4dbe")
     
@@ -32,6 +33,16 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     variant("petsc", default=False, description="Build with support for petsc")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
     variant("trilinos", default=False, description="Build with support for Trilinos")
+    variant(
+        "cxxstd",
+        default="17",
+        values=("17", "20", "23"),
+        multi=False,
+        description="C++ standard",
+    )
+
+    conflicts("cxxstd=20", when="@:4.0.0") #c++ 20 is only compatible with amp 4.0.1 and up
+    conflicts("cxxstd=23", when="@:4.0.0") #c++ 23 is only compatible with amp 4.0.1 and up
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
@@ -47,6 +58,10 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
         depends_on(f"tpl-builder+{v}", when=f"+{v}")
         depends_on(f"tpl-builder~{v}", when=f"~{v}")
 
+    depends_on(f"tpl-builder cxxstd=17", when="cxxstd=17")
+    depends_on(f"tpl-builder cxxstd=20", when="cxxstd=20")
+    depends_on(f"tpl-builder cxxstd=23", when="cxxstd=23")
+ 
     for _flag in CudaPackage.cuda_arch_values:
         depends_on(f"tpl-builder+cuda cuda_arch={_flag}", when=f"+cuda cuda_arch={_flag}")
 
