@@ -20,6 +20,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     version("2.1.2", tag="2.1.2", commit="cdb270395e1512da2f18a34a7fa6b60f1bcb790d")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
+    variant('cxxstd', default='17', values=('17', '20', '23'), description='Build with support for C++17, 20 or 23')
     variant("stacktrace", default=False, description="Build with support for Stacktrace")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
     variant("lapack", default=False, description="Build with support for lapack")
@@ -56,10 +57,11 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("hypre+mixedint", when="+hypre")
     depends_on("kokkos", when="+kokkos")
 
+    depends_on("kokkos+openmp", when="+kokkos+openmp")
     depends_on("kokkos+cuda+cuda_constexpr", when="+kokkos+cuda")
     depends_on("kokkos+rocm", when="+kokkos+rocm")
-    depends_on("hypre+cuda+unified-memory", when="+hypre+cuda")
-    depends_on("hypre+rocm+unified-memory", when="+hypre+rocm")
+    depends_on("hypre+cuda+unified-memory", when="+hypre+cuda+unified-memory")
+    depends_on("hypre+rocm+unified-memory", when="+hypre+rocm+unified-memory")
 
     depends_on("hypre~shared", when="~shared+hypre")
     depends_on("hypre+shared", when="+shared+hypre")
@@ -109,7 +111,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         options = [
             self.define("INSTALL_DIR", spec.prefix),
             self.define("DISABLE_ALL_TESTS", True),
-            self.define("CXX_STD", "17"),
+            self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
             self.define_from_variant("BUILD_SHARED_LIBS", "shared"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
             self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "shared"),
@@ -157,10 +159,13 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     ]
                 )
                 
-        if spec.satisfies("+mpi") and spec.satisfies("+rocm"):
+        if spec.satisfies("+mpi +rocm"):
             options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
                              self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
                              ] )
+
+        if spec.satisfies("+hypre ~unified-memory"):
+            options.extend( [self.define('HYPRE_DISABLE_UNIFIED_MEMORY', True ), ] )
 
         tpl_list = []
 
