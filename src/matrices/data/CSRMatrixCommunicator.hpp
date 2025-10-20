@@ -31,13 +31,14 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
         auto matrix        = it.second;
         const auto num_rs  = matrix->d_num_rows + 1;
         const auto num_nnz = matrix->d_nnz;
-        AMP_DEBUG_ASSERT( !matrix->isEmpty() );
         d_send_requests.emplace_back(
             d_comm.Isend( matrix->d_row_starts.get(), num_rs, dest, ROW_TAG ) );
-        d_send_requests.emplace_back(
-            d_comm.Isend( matrix->d_cols.get(), num_nnz, dest, COL_TAG ) );
-        d_send_requests.emplace_back(
-            d_comm.Isend( matrix->d_coeffs.get(), num_nnz, dest, COEFF_TAG ) );
+        if ( !matrix->isEmpty() ) {
+            d_send_requests.emplace_back(
+                d_comm.Isend( matrix->d_cols.get(), num_nnz, dest, COL_TAG ) );
+            d_send_requests.emplace_back(
+                d_comm.Isend( matrix->d_coeffs.get(), num_nnz, dest, COEFF_TAG ) );
+        }
     }
     d_send_called = true;
 }
@@ -140,9 +141,11 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
         // matrix now exists and has row_starts buffer, recv it and trigger allocations
         d_comm.recv( block->d_row_starts.get(), num_rows + 1, source, ROW_TAG );
         block->setNNZ( false );
-        // buffers for cols and coeffs now allocated, recv them and continue to next probe
-        d_comm.recv( block->d_cols.get(), block->d_nnz, source, COL_TAG );
-        d_comm.recv( block->d_coeffs.get(), block->d_nnz, source, COEFF_TAG );
+        if ( !block->isEmpty() ) {
+            // buffers for cols and coeffs now allocated, recv them and continue to next probe
+            d_comm.recv( block->d_cols.get(), block->d_nnz, source, COL_TAG );
+            d_comm.recv( block->d_coeffs.get(), block->d_nnz, source, COEFF_TAG );
+        }
     }
 
     // ensure that any outstanding sends complete
