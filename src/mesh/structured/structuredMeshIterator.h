@@ -82,7 +82,7 @@ public: // Write/read restart data
     void writeRestart( int64_t fid ) const override;
     structuredMeshIterator( int64_t fid, AMP::IO::RestartManager *manager );
 
-protected:
+public: // Advanced interfaces
     //! Clone the iterator
     MeshIterator *clone() const override;
 
@@ -90,9 +90,7 @@ protected:
     std::shared_ptr<const std::vector<BoxMesh::MeshElementIndex>> getElements() const;
 
     // Get the current index
-    inline BoxMesh::MeshElementIndex getCurrentIndex() const;
-
-    friend class AMP::Mesh::BoxMesh;
+    BoxMesh::MeshElementIndex getCurrentIndex() const;
 
 private:
     // Data members

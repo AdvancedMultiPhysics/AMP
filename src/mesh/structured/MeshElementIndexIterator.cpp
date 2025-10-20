@@ -100,7 +100,7 @@ bool BoxMesh::MeshElementIndexIterator::operator!=(
 
 
 /********************************************************
- * Deference the iterator                                *
+ * Dereference the iterator                              *
  ********************************************************/
 BoxMesh::MeshElementIndex BoxMesh::MeshElementIndexIterator::operator*() const
 {
