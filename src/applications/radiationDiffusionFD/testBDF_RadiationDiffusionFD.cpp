@@ -248,9 +248,6 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
                    std::placeholders::_1,
                    std::placeholders::_2 ) );
 
-
-    int step = 0;
-
     // Integrate!
     double finalTime = timeIntegrator->getFinalTime();
     double T         = 0.0;
