@@ -34,7 +34,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("petsc", default=False, description="Build with support for petsc")
     variant("trilinos", default=False, description="Build with support for trilinos")
     variant("test_gpus", default=-1, values=int, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
-    variant("unified-memory", default=True, description="Build hypre with uniied memory")
+    variant("unified-memory", default=True, description="Build hypre with unified memory")
     variant(
         "cxxstd",
         default="17",
