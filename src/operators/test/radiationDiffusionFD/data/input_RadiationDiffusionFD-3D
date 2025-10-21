@@ -1,0 +1,11 @@
+# Mesh data
+Mesh {
+    MeshName = "mesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 16, 16, 16
+    Range = -1, 1, -1, 1, -1, 1
+    surfaceIds = 1, 2, 3, 4, 5, 6
+    static = TRUE
+}

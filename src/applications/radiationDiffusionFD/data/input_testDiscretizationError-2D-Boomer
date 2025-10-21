@@ -1,0 +1,8 @@
+TestSpecificParameters {
+  modelID = "Manufactured"
+  max_integrator_steps = 1
+}
+<<< DiffusionSolves-Boomer-Parameters >>>
+<<< TimeIntegrator-Parameters >>>
+<<< Manufactured-Parameters >>>
+<<< input_RadiationDiffusionFD-2D >>>
