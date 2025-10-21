@@ -45,25 +45,24 @@ PressureBoundaryOperator::PressureBoundaryOperator(
     AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
     AMP::Mesh::MeshIterator end_el = el.end();
     for ( ; el != end_el; ++el ) {
-        std::vector<AMP::Mesh::MeshElement> sides = el->getElements( AMP::Mesh::GeomType::Face );
+        auto sides = el->getElements( AMP::Mesh::GeomType::Face );
         for ( size_t s = 0; s < sides.size(); ++s ) {
             if ( sides[s].isOnBoundary( bndId ) ) {
-                AMP::Mesh::MeshElementID sideId = sides[s].globalID();
-                unsigned int owner              = sideId.owner_rank();
-                std::vector<AMP::Mesh::MeshElement> vertices =
-                    el->getElements( AMP::Mesh::GeomType::Vertex );
+                auto sideId        = sides[s].globalID();
+                unsigned int owner = sideId.owner_rank();
+                auto vertices      = el->getElements( AMP::Mesh::GeomType::Vertex );
                 for ( auto &vertice : vertices ) {
                     auto pt = vertice.coord();
                     for ( auto &elem : pt ) {
                         volElemMap[owner].push_back( elem );
                     } // end k
-                    AMP::Mesh::MeshElementID nodeId = vertice.globalID();
+                    auto nodeId = vertice.globalID();
                     idMap[owner].push_back( nodeId );
                 } // end for j
                 sideMap[owner].push_back( s );
             }
         } // end s
-    }     // end el
+    } // end el
 
     std::vector<int> sendCnts( npes );
     for ( int i = 0; i < npes; ++i ) {
@@ -209,7 +208,7 @@ PressureBoundaryOperator::PressureBoundaryOperator(
                 double tractionVal                    = val * ( normals[qp]( d ) );
                 pressure[( 12 * i ) + ( 3 * qp ) + d] = tractionVal;
             } // end d
-        }     // end qp
+        } // end qp
 
         for ( size_t j = 0; j < elem->n_nodes(); ++j ) {
             delete ( elem->node_ptr( j ) );

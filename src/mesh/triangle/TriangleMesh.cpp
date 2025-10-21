@@ -19,6 +19,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <numeric>
 
 
 namespace AMP::Mesh {
