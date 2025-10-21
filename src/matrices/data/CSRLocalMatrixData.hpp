@@ -569,8 +569,6 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
 {
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::transpose not implemented for symbolic matrices" );
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::transpose not implemented for device memory" );
 
     // create new data, note swapped rows and cols
     auto transposeData = std::make_shared<CSRLocalMatrixData>(
@@ -581,45 +579,36 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
         return transposeData;
     }
 
-    auto trans_row = [is_diag   = d_is_diag,
-                      first_col = d_first_col,
-                      cols      = d_cols,
-                      cols_loc  = d_cols_loc,
-                      cols_unq  = d_cols_unq]( const lidx_t c ) -> lidx_t {
-        gidx_t col_g = 0;
-        if ( cols.get() ) {
-            col_g = cols[c];
-        } else if ( is_diag ) {
-            return cols_loc[c];
-        } else {
-            col_g = cols_unq[cols_loc[c]];
-        }
-        return col_g - first_col;
-    };
+    // allocate fully since total number of NZs doesn't change
+    // transpose helpers resposible for setting up row_starts
+    transposeData->setNNZ( d_nnz );
 
-    // count nnz per column and store in transpose's rowstarts array
-    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
-        for ( lidx_t c = d_row_starts[row]; c < d_row_starts[row + 1]; ++c ) {
-            const auto t_row = trans_row( c );
-            transposeData->d_row_starts[t_row]++;
-        }
-    }
-
-    transposeData->setNNZ( true );
-
-    // count nnz per column again and append into each row of transpose
-    // create temporary vector of counters to hold position in each row
-    std::vector<lidx_t> row_ctr( transposeData->d_num_rows, 0 );
-    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
-        for ( lidx_t c = d_row_starts[row]; c < d_row_starts[row + 1]; ++c ) {
-            const auto t_row = trans_row( c );
-            const auto pos   = transposeData->d_row_starts[t_row] + row_ctr[t_row];
-            // local transpose only fills global cols and coeffs
-            // caller responsible for creation of local columns if desired
-            transposeData->d_cols[pos]   = static_cast<gidx_t>( row ) + d_first_row;
-            transposeData->d_coeffs[pos] = d_coeffs[c];
-            row_ctr[t_row]++;
-        }
+    if ( d_is_diag ) {
+        AMP_INSIST( d_cols_loc.get(),
+                    "CSRLocalMatrixData::transpose Diag block must have accessible local columns" );
+        CSRMatrixDataHelpers<Config>::TransposeDiag( d_row_starts.get(),
+                                                     d_cols_loc.get(),
+                                                     d_coeffs.get(),
+                                                     d_num_rows,
+                                                     transposeData->d_num_rows,
+                                                     transposeData->d_first_col,
+                                                     transposeData->d_row_starts.get(),
+                                                     transposeData->d_cols.get(),
+                                                     transposeData->d_coeffs.get() );
+    } else {
+        AMP_INSIST(
+            d_cols.get(),
+            "CSRLocalMatrixData::transpose Offd block must have global columns accessible" );
+        CSRMatrixDataHelpers<Config>::TransposeOffd( d_row_starts.get(),
+                                                     d_cols.get(),
+                                                     d_coeffs.get(),
+                                                     d_num_rows,
+                                                     d_first_col,
+                                                     transposeData->d_num_rows,
+                                                     transposeData->d_first_col,
+                                                     transposeData->d_row_starts.get(),
+                                                     transposeData->d_cols.get(),
+                                                     transposeData->d_coeffs.get() );
     }
 
     return transposeData;

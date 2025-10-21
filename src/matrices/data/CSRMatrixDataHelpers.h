@@ -20,6 +20,67 @@ struct CSRMatrixDataHelpers {
     static void GlobalToLocalOffd(
         gidx_t *cols, lidx_t nnz, gidx_t *cols_unq, lidx_t ncols_unq, lidx_t *cols_loc );
 
+    static void TransposeDiag( const lidx_t *in_row_starts,
+                               const lidx_t *in_cols_loc,
+                               const scalar_t *in_coeffs,
+                               const lidx_t in_num_rows,
+                               const lidx_t out_num_rows,
+                               const gidx_t out_first_col,
+                               lidx_t *out_row_starts,
+                               gidx_t *out_cols,
+                               scalar_t *out_coeffs );
+
+    static void TransposeOffd( const lidx_t *in_row_starts,
+                               const gidx_t *in_cols,
+                               const scalar_t *in_coeffs,
+                               const lidx_t in_num_rows,
+                               const gidx_t in_first_col,
+                               const lidx_t out_num_rows,
+                               const gidx_t out_first_col,
+                               lidx_t *out_row_starts,
+                               gidx_t *out_cols,
+                               scalar_t *out_coeffs );
+
+#if 0
+    static void TransposeDiagCountNNZ( const lidx_t *in_row_starts,
+                                       const lidx_t *in_cols_loc,
+                                       const lidx_t in_num_rows,
+                                       const lidx_t out_num_rows,
+                                       lidx_t *out_row_starts );
+
+
+    static void TransposeDiagFill( const lidx_t *in_row_starts,
+                                   const lidx_t *in_cols_loc,
+                                   const scalar_t *in_coeffs,
+                                   const lidx_t in_num_rows,
+                                   const lidx_t out_num_rows,
+                                   const gidx_t out_first_col,
+                                   lidx_t *out_row_starts,
+                                   gidx_t *out_cols,
+                                   scalar_t *out_coeffs );
+
+    static void TransposeOffdCountNNZ( const lidx_t *in_row_starts,
+                                       const lidx_t *in_cols_loc,
+                                       const gidx_t *in_cols_unq,
+                                       const lidx_t in_num_rows,
+                                       const gidx_t in_first_col,
+                                       const lidx_t out_num_rows,
+                                       lidx_t *out_row_starts );
+
+
+    static void TransposeOffdFill( const lidx_t *in_row_starts,
+                                   const lidx_t *in_cols_loc,
+                                   const gidx_t *in_cols_unq,
+                                   const scalar_t *in_coeffs,
+                                   const lidx_t in_num_rows,
+                                   const gidx_t in_first_col,
+                                   const lidx_t out_num_rows,
+                                   const gidx_t out_first_col,
+                                   lidx_t *out_row_starts,
+                                   gidx_t *out_cols,
+                                   scalar_t *out_coeffs );
+#endif
+
     static void RowSubsetCountNNZ( const gidx_t *rows,
                                    const lidx_t num_rows,
                                    const gidx_t first_row,

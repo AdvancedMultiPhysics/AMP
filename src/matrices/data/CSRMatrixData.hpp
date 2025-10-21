@@ -111,14 +111,14 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
 
             // contents of rowHelper no longer useful, trigger deallocation
             rowHelper->deallocate();
-
-            // trigger re-packing of columns and convert to local cols
-            globalToLocalColumns();
         }
 
     } else {
         AMP_ERROR( "Check supplied MatrixParameters object" );
     }
+
+    // trigger re-packing of columns and convert to local cols
+    globalToLocalColumns();
 
     // determine if DOFManagers and CommLists need to be (re)created
     resetDOFManagers();
