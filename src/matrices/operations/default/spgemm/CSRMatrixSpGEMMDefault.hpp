@@ -291,8 +291,8 @@ void CSRMatrixSpGEMMDefault<Config>::multiply( std::shared_ptr<localmatrixdata_t
     if ( !is_diag && B_cols == nullptr ) {
         AMP_ASSERT( B_colmap != nullptr );
     }
-    const auto B_nnz     = B_data->numberOfNonZeros();
-    const auto first_col = B_data->beginCol();
+    [[maybe_unused]] const auto B_nnz = B_data->numberOfNonZeros();
+    const auto first_col              = B_data->beginCol();
 
     // DenseAcc's act on assembled blocks that may have global columns removed
     // set up conversion for that case
@@ -416,9 +416,9 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyFused( std::shared_ptr<localmatrixd
     AMP_ASSERT( B_data->isEmpty() || B_cols_loc != nullptr );
     AMP_ASSERT( BR_data->isEmpty() || BR_cols != nullptr );
 
-    const auto first_col   = C_data->beginCol();
-    const auto B_num_rows  = B_data->numLocalRows();
-    const auto BR_num_rows = BR_data->numLocalRows();
+    const auto first_col                    = C_data->beginCol();
+    [[maybe_unused]] const auto B_num_rows  = B_data->numLocalRows();
+    [[maybe_unused]] const auto BR_num_rows = BR_data->numLocalRows();
 
     // The B blocks will have either local or global cols available
     // but generally not both. If only local available need conversion to global
