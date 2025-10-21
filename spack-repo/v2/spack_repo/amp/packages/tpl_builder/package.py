@@ -76,7 +76,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("kokkos+rocm", when="+kokkos+rocm")
 
 
-    hypre_depends = ["shared", "cuda", "rocm", "openmp"]
+    hypre_depends = ["shared", "cuda", "rocm", "openmp", "unified-memory"]
 
     for v in hypre_depends:
         depends_on(f"hypre+{v}", when=f"+{v}+hypre")
@@ -182,9 +182,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
                              self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
                              ] )
-
-        if spec.satisfies("+hypre~unified-memory"):
-            options.extend( [self.define('HYPRE_DISABLE_UNIFIED_MEMORY', True)] )
 
         tpl_list = []
 
