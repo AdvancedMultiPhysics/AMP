@@ -34,7 +34,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("petsc", default=False, description="Build with support for petsc")
     variant("trilinos", default=False, description="Build with support for trilinos")
     variant("test_gpus", default=-1, values=int, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
-    variant("unified-memory", default=True, description="Build hypre with unified memory")
     variant(
         "cxxstd",
         default="17",
@@ -45,7 +44,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     conflicts("cxxstd=20", when="@:2.1.2") #c++ 20 is only compatible with tpl-builder 2.1.3 and up
     conflicts("cxxstd=23", when="@:2.1.2") #c++ 23 is only compatible with tpl-builder 2.1.3 and up
-    conflicts("+unified-memory", when="~rocm~cuda")
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
@@ -74,7 +72,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("kokkos+rocm", when="+kokkos+rocm")
 
 
-    hypre_depends = ["shared", "cuda", "rocm", "openmp", "unified-memory"]
+    hypre_depends = ["shared", "cuda", "rocm", "openmp"]
 
     for v in hypre_depends:
         depends_on(f"hypre+{v}", when=f"+{v}+hypre")
