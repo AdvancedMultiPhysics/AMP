@@ -633,6 +633,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd( const typename Config::lidx_t 
         // count occurrences of each column to set up nnz per row of output
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
+                AMP_ASSERT( in_cols[k] >= in_first_col );
                 const auto icl = in_cols[k] - in_first_col;
                 const auto pos = out_row_starts[icl]++;
             }
@@ -667,81 +668,6 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd( const typename Config::lidx_t 
 #endif
     }
 }
-
-#if 0
-template<typename Config>
-void CSRMatrixDataHelpers<Config>::TransposeOffdCountNNZ(
-    const typename Config::lidx_t *in_row_starts,
-    const typename Config::lidx_t *in_cols_loc,
-    const typename Config::gidx_t *in_cols_unq,
-    const typename Config::lidx_t in_num_rows,
-    const typename Config::gidx_t in_first_col,
-    [[maybe_unused]] const typename Config::lidx_t out_num_rows,
-    typename Config::lidx_t *out_row_starts )
-{
-    PROFILE( "CSRMatrixDataHelpers::TransposeOffdCountNNZ" );
-    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
-        for ( lidx_t irow = 0; irow < in_num_rows; ++irow ) {
-            for ( lidx_t k = in_row_starts[irow]; k < in_row_starts[irow + 1]; ++k ) {
-                const auto t_row = in_cols_unq[in_cols_loc[k]] - in_first_col;
-                out_row_starts[t_row]++;
-            }
-        }
-    } else {
-    #ifdef AMP_USE_DEVICE
-        AMP_ERROR( "Not implemented" );
-        dim3 BlockDim;
-        dim3 GridDim;
-        setKernelDims( out_num_rows, BlockDim, GridDim );
-        deviceSynchronize();
-        deviceSynchronize();
-        getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffdCountNNZ" );
-    #else
-        AMP_ERROR( "CSRMatrixDataHelpers::TransposeOffdCountNNZ Undefined memory location" );
-    #endif
-    }
-}
-
-template<typename Config>
-void CSRMatrixDataHelpers<Config>::TransposeOffdFill( const typename Config::lidx_t *in_row_starts,
-                                                      const typename Config::lidx_t *in_cols_loc,
-                                                      const typename Config::gidx_t *in_cols_unq,
-                                                      const typename Config::scalar_t *in_coeffs,
-                                                      const typename Config::lidx_t in_num_rows,
-                                                      const typename Config::gidx_t in_first_col,
-                                                      const typename Config::lidx_t out_num_rows,
-                                                      const typename Config::gidx_t out_first_col,
-                                                      typename Config::lidx_t *out_row_starts,
-                                                      typename Config::gidx_t *out_cols,
-                                                      typename Config::scalar_t *out_coeffs )
-{
-    PROFILE( "CSRMatrixDataHelpers::TransposeOffdFill" );
-    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
-        std::vector<lidx_t> row_ctr( out_num_rows, 0 );
-        for ( lidx_t row = 0; row < in_num_rows; ++row ) {
-            for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
-                const auto t_row = in_cols_unq[in_cols_loc[k]] - in_first_col;
-                const auto pos   = out_row_starts[t_row] + row_ctr[t_row];
-                out_cols[pos]    = static_cast<gidx_t>( row ) + out_first_col;
-                out_coeffs[pos]  = in_coeffs[k];
-                row_ctr[t_row]++;
-            }
-        }
-    } else {
-    #ifdef AMP_USE_DEVICE
-        AMP_ERROR( "Not implemented" );
-        dim3 BlockDim;
-        dim3 GridDim;
-        setKernelDims( out_num_rows, BlockDim, GridDim );
-        deviceSynchronize();
-        deviceSynchronize();
-        getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffdFill" );
-    #else
-        AMP_ERROR( "CSRMatrixDataHelpers::TransposeOffdFill Undefined memory location" );
-    #endif
-    }
-}
-#endif
 
 template<typename Config>
 void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(

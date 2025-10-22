@@ -304,7 +304,8 @@ public:
      * offd components. Row and column extents are inherited from this matrix,
      * but are neither sorted nor converted to local indices.
      */
-    std::shared_ptr<localmatrixdata_t> subsetCols( const gidx_t idx_lo, const gidx_t idx_up ) const;
+    std::shared_ptr<localmatrixdata_t>
+    subsetCols( const gidx_t idx_lo, const gidx_t idx_up, const bool is_diag ) const;
 
 protected:
     bool d_is_square = true;

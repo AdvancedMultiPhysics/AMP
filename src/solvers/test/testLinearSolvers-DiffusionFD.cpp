@@ -179,9 +179,9 @@ int main( int argc, char **argv )
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-HybridGS" );
 
     // SASolver with/without FCG acceleration
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
+    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
     exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
 #ifdef AMP_USE_HYPRE
     // Boomer with/without CG acceleration

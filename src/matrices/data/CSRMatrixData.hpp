@@ -303,7 +303,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
             AMP_ASSERT( rd != my_rank );
             const auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
             const auto part_end   = static_cast<gidx_t>( partition[rd] );
-            auto block            = subsetCols( part_start, part_end );
+            auto block            = subsetCols( part_start, part_end, false );
             if ( !block->isEmpty() ) {
                 send_blocks.insert( { rd, block->transpose( params ) } );
             }
@@ -513,15 +513,15 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
 }
 
 template<typename Config>
-std::shared_ptr<CSRLocalMatrixData<Config>>
-CSRMatrixData<Config>::subsetCols( const gidx_t idx_lo, const gidx_t idx_up ) const
+std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
+    const gidx_t idx_lo, const gidx_t idx_up, const bool is_diag ) const
 {
     PROFILE( "CSRMatrixData::subsetCols" );
 
     AMP_DEBUG_ASSERT( idx_up > idx_lo );
 
     auto sub_matrix = std::make_shared<localmatrixdata_t>(
-        nullptr, d_memory_location, d_first_row, d_last_row, idx_lo, idx_up, true );
+        nullptr, d_memory_location, d_first_row, d_last_row, idx_lo, idx_up, is_diag );
     const auto nrows = static_cast<lidx_t>( d_last_row - d_first_row );
 
     // count nnz within each row that lie in the given range
