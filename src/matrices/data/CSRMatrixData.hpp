@@ -114,7 +114,9 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
         }
 
     } else {
-        AMP_ERROR( "Check supplied MatrixParameters object" );
+        AMP::pout << "Constructed using base params, got backend: "
+                  << AMP::Utilities::getString( this->getBackend() ) << std::endl;
+        return;
     }
 
     // trigger re-packing of columns and convert to local cols
@@ -191,9 +193,7 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
 {
     PROFILE( "CSRMatrixData::transpose" );
 
-    std::shared_ptr<CSRMatrixData> transposeData;
-
-    transposeData = std::make_shared<CSRMatrixData<Config>>();
+    auto transposeData = std::make_shared<CSRMatrixData<Config>>();
 
     // copy fields from current, take care to swap L/R and rows/cols
     transposeData->d_is_square       = d_is_square;
@@ -217,7 +217,8 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
                                             d_pParameters->getRightVariable(),
                                             d_pParameters->getLeftVariable(),
                                             d_rightCommList,
-                                            d_leftCommList );
+                                            d_leftCommList,
+                                            this->getBackend() );
 
     transposeData->d_diag_matrix = d_diag_matrix->transpose( transposeData->d_pParameters );
     if ( getComm().getSize() > 1 ) {

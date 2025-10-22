@@ -8,9 +8,15 @@
 #include "AMP/utils/Utilities.h"
 
 #ifdef AMP_USE_DEVICE
+    #include <thrust/device_ptr.h>
     #include <thrust/device_vector.h>
     #include <thrust/execution_policy.h>
+    #include <thrust/iterator/constant_iterator.h>
+    #include <thrust/iterator/discard_iterator.h>
+    #include <thrust/iterator/zip_iterator.h>
+    #include <thrust/sort.h>
     #include <thrust/transform.h>
+    #include <thrust/tuple.h>
 #endif
 
 #include "ProfilerApp.h"
@@ -83,6 +89,26 @@ sort_row_offd( const lidx_t *row_starts, gidx_t *cols, scalar_t *coeffs, const l
         const auto rs      = row_starts[i];
         const auto row_len = row_starts[i + 1] - rs;
         sort_row( &cols[rs], &coeffs[rs], row_len );
+    }
+}
+
+template<typename lidx_t, typename gidx_t, typename scalar_t>
+__global__ void diag_to_coo( const lidx_t *in_row_starts,
+                             const lidx_t *in_cols_loc,
+                             const scalar_t *in_coeffs,
+                             const lidx_t num_rows,
+                             const gidx_t first_col,
+                             lidx_t *out_rows,
+                             gidx_t *out_cols,
+                             scalar_t *out_coeffs )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        for ( auto k = in_row_starts[i]; k < in_row_starts[i + 1]; ++k ) {
+            out_rows[k]   = in_cols_loc[k];
+            out_cols[k]   = static_cast<gidx_t>( i ) + first_col;
+            out_coeffs[k] = in_coeffs[k];
+        }
     }
 }
 
@@ -492,15 +518,19 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalOffd( typename Config::gidx_t *c
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::TransposeDiag( const typename Config::lidx_t *in_row_starts,
-                                                  const typename Config::lidx_t *in_cols_loc,
-                                                  const typename Config::scalar_t *in_coeffs,
-                                                  const typename Config::lidx_t in_num_rows,
-                                                  const typename Config::lidx_t out_num_rows,
-                                                  const typename Config::gidx_t out_first_col,
-                                                  typename Config::lidx_t *out_row_starts,
-                                                  typename Config::gidx_t *out_cols,
-                                                  typename Config::scalar_t *out_coeffs )
+void CSRMatrixDataHelpers<Config>::TransposeDiag(
+    const typename Config::lidx_t *in_row_starts,
+    const typename Config::lidx_t *in_cols_loc,
+    const typename Config::scalar_t *in_coeffs,
+    const typename Config::lidx_t in_num_rows,
+    const typename Config::lidx_t out_num_rows,
+    const typename Config::gidx_t out_first_col,
+    [[maybe_unused]] const typename Config::lidx_t tot_nnz,
+    typename Config::lidx_t *out_row_starts,
+    [[maybe_unused]] typename Config::lidx_t *out_cols_loc,
+    typename Config::gidx_t *out_cols,
+    typename Config::scalar_t *out_coeffs,
+    typename Config::lidx_t *workspace )
 {
     PROFILE( "CSRMatrixDataHelpers::TransposeDiag" );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
@@ -517,24 +547,75 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag( const typename Config::lidx_t 
             out_row_starts, out_num_rows + 1, out_row_starts, 0 );
 
         // second pass fill in entries using extra space for row position counters
-        std::vector<lidx_t> counters( out_num_rows, 0 );
+	AMP::Utilities::Algorithms<lidx_t>::fill_n( workspace, out_num_rows, 0);
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto icl  = in_cols_loc[k];
-                const auto pos  = out_row_starts[icl] + counters[icl];
+                const auto pos  = out_row_starts[icl] + workspace[icl];
                 out_cols[pos]   = static_cast<gidx_t>( row ) + out_first_col;
                 out_coeffs[pos] = in_coeffs[k];
-                counters[icl]++;
+                workspace[icl]++;
             }
         }
     } else {
 #ifdef AMP_USE_DEVICE
-        AMP_ERROR( "Not implemented" );
-        dim3 BlockDim;
-        dim3 GridDim;
-        setKernelDims( out_num_rows, BlockDim, GridDim );
+        // the device approach is rather different from the host/serial one
+        // The destination matrix has storage allocated for both the global
+        // and local columns. The local columns are used temporarily as
+        // storage for local row indices with the matrix in COO format.
+        // Initially these will not be ordered in any useful way. Doing a
+        // sort_by_key with these as keys and cols/coeffs as values will
+        // rearrange everything to be back in CSR format. Now that the
+        // rows are correctly ordered, a reduce_by_key against an iterator
+        // of all ones will give the NNZ per row. Finally copy these into
+        // the row starts and accumulate them.
+
+        // write coo representation
+        {
+            dim3 BlockDim;
+            dim3 GridDim;
+            setKernelDims( in_num_rows, BlockDim, GridDim );
+            diag_to_coo<<<GridDim, BlockDim>>>( in_row_starts,
+                                                in_cols_loc,
+                                                in_coeffs,
+                                                in_num_rows,
+                                                out_first_col,
+                                                out_cols_loc,
+                                                out_cols,
+                                                out_coeffs );
+            deviceSynchronize();
+            getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (to COO)" );
+        }
+
+        // make zip-iterator to tie cols and coeffs together
+        using GidxIter         = thrust::device_ptr<gidx_t>;
+        using ScalarIter       = thrust::device_ptr<scalar_t>;
+        using IterTuple        = thrust::tuple<GidxIter, ScalarIter>;
+        using ZipIter          = thrust::zip_iterator<IterTuple>;
+        GidxIter cols_iter     = thrust::device_pointer_cast( out_cols );
+        ScalarIter coeffs_iter = thrust::device_pointer_cast( out_coeffs );
+        ZipIter vals_iter( thrust::make_tuple( cols_iter, coeffs_iter ) );
+
+        // sort by key to rearrange cols and coeffs
+        thrust::sort_by_key( thrust::device, out_cols_loc, out_cols_loc + tot_nnz, vals_iter );
         deviceSynchronize();
+        getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (sort by key)" );
+
+        // reduce by key
+        thrust::reduce_by_key( thrust::device,
+                               out_cols_loc,
+                               out_cols_loc + tot_nnz,
+                               thrust::constant_iterator<lidx_t>( 1 ),
+                               thrust::discard_iterator(),
+                               workspace );
         deviceSynchronize();
+        getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (reduce by key)" );
+
+        // copy into row starts and accumulate
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( workspace, out_num_rows, out_row_starts );
+        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
+            out_row_starts, out_num_rows + 1, out_row_starts, 0 );
+
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::TransposeDiag Undefined memory location" );

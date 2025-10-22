@@ -43,6 +43,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
 {
     AMP::pout << "matVecTestWithDOFs with " << type << ", backend " << accelerationBackend
               << ", memory " << memoryLocation << std::endl;
+
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );

@@ -26,9 +26,12 @@ struct CSRMatrixDataHelpers {
                                const lidx_t in_num_rows,
                                const lidx_t out_num_rows,
                                const gidx_t out_first_col,
+                               const lidx_t tot_nnz,
                                lidx_t *out_row_starts,
+                               lidx_t *out_cols_loc,
                                gidx_t *out_cols,
-                               scalar_t *out_coeffs );
+                               scalar_t *out_coeffs,
+                               lidx_t *workspace );
 
     static void TransposeOffd( const lidx_t *in_row_starts,
                                const gidx_t *in_cols,

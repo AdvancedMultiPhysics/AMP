@@ -23,8 +23,8 @@ public:
      */
     explicit MatrixParametersBase( const AMP_MPI &comm )
         : d_comm( comm ),
-          d_VariableLeft( std::make_shared<Variable>( "" ) ),
-          d_VariableRight( std::make_shared<Variable>( "" ) ),
+          d_VariableLeft( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
+          d_VariableRight( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
           d_backend( AMP::Utilities::Backend::Serial )
     {
     }
@@ -35,8 +35,8 @@ public:
      */
     explicit MatrixParametersBase( const AMP_MPI &comm, AMP::Utilities::Backend backend )
         : d_comm( comm ),
-          d_VariableLeft( std::make_shared<Variable>( "" ) ),
-          d_VariableRight( std::make_shared<Variable>( "" ) ),
+          d_VariableLeft( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
+          d_VariableRight( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
           d_backend( backend )
     {
     }

@@ -32,6 +32,9 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
                                  const std::string &accelerationBackend,
                                  const std::string &memoryLocation )
 {
+    AMP::pout << "matTransposeTestWithDOFs with " << type << ", backend " << accelerationBackend
+              << ", memory " << memoryLocation << std::endl;
+
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
@@ -57,7 +60,7 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
 
     // Get matrix transpose
     auto matrix_t = matrix->transpose();
-    if ( matrix ) {
+    if ( matrix_t ) {
         ut->passes( type + ": Able to create transpose" );
     } else {
         ut->failure( type + ": Unable to create transpose" );
@@ -148,11 +151,11 @@ size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
-    // backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
-    // backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
     size_t nGlobal = 0;
     for ( auto &[backend, memory] : backendsAndMemory )

@@ -584,6 +584,15 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
     transposeData->setNNZ( d_nnz );
 
     if ( d_is_diag ) {
+        // both host and device implementations require some workspace
+        // host needs out_num_rows worth of lidx_t's, device needs nnz worth
+        // of them
+        const auto worksize = d_memory_location == AMP::Utilities::MemoryType::host ?
+                                  transposeData->d_num_rows :
+                                  d_nnz;
+        lidxAllocator_t lidx_alloc;
+        auto workspace = sharedArrayBuilder( worksize, lidx_alloc );
+
         AMP_INSIST( d_cols_loc.get(),
                     "CSRLocalMatrixData::transpose Diag block must have accessible local columns" );
         CSRMatrixDataHelpers<Config>::TransposeDiag( d_row_starts.get(),
@@ -592,9 +601,12 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
                                                      d_num_rows,
                                                      transposeData->d_num_rows,
                                                      transposeData->d_first_col,
+                                                     d_nnz,
                                                      transposeData->d_row_starts.get(),
+                                                     transposeData->d_cols_loc.get(),
                                                      transposeData->d_cols.get(),
-                                                     transposeData->d_coeffs.get() );
+                                                     transposeData->d_coeffs.get(),
+                                                     workspace.get() );
     } else {
         AMP_INSIST(
             d_cols.get(),
@@ -822,7 +834,7 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
     std::cout << "    tot nnz: " << d_nnz << std::endl;
     if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
         std::cout << "    row 0: ";
-        for ( auto n = d_row_starts[0]; n < d_row_starts[10]; ++n ) {
+        for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
             if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
                 std::cout << "("
                           << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
