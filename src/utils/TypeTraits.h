@@ -170,7 +170,7 @@ inline constexpr bool has_end_v = has_end<T>::value;
 template<class T>
 inline constexpr bool has_empty_v = has_empty<T>::value;
 template<class T>
-inline constexpr bool is_container_v = has_begin_v<T> && has_end_v<T> && has_empty_v<T>;
+inline constexpr bool is_container_v = has_begin_v<T> &&has_end_v<T> &&has_empty_v<T>;
 template<class T>
 inline constexpr bool is_initializer_list_v = is_initializer_list<T>::value;
 template<class T>
@@ -179,9 +179,9 @@ inline constexpr bool is_complex_v = is_complex<T>::value;
 
 //! Checks whether two types are both integers of the same size and sign
 template<class T1, class T2>
-inline constexpr bool is_same_int_v =
-    std::is_integral_v<T1> && std::is_integral_v<T2> &&
-    ( std::is_signed_v<T1> == std::is_signed_v<T2> ) && ( sizeof( T1 ) == sizeof( T2 ) );
+inline constexpr bool is_same_int_v = std::is_integral_v<T1> &&std::is_integral_v<T2> &&
+                                      (std::is_signed_v<T1> ==
+                                       std::is_signed_v<T2>) &&( sizeof( T1 ) == sizeof( T2 ) );
 
 
 // Remove const and reference

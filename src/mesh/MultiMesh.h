@@ -338,7 +338,7 @@ public: // Default constructors
     MultiMesh()                           = delete;
     explicit MultiMesh( MultiMesh &&rhs ) = default;
     explicit MultiMesh( const MultiMesh &rhs );
-    MultiMesh &operator=( MultiMesh &&rhs )      = delete;
+    MultiMesh &operator=( MultiMesh &&rhs ) = delete;
     MultiMesh &operator=( const MultiMesh &rhs ) = delete;
 
 public: // Functions to help with load balancing

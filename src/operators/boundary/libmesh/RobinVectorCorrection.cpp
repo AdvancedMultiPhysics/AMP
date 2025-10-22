@@ -256,12 +256,12 @@ void RobinVectorCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_ptr 
                         for ( unsigned int j = 0; j < numNodesInCurrElem; j++ )
                             addValues[j] -= JxW[qp] * phi[j][qp] * gamma[qp] * phi_val;
                     } // end for qp
-                } // coupled
+                }     // coupled
                 rInternal->addValuesByGlobalID( dofs.size(), &dofs[0], &addValues[0] );
 
             } // end for bnd
-        } // end for dof ids
-    } // end for nid
+        }     // end for dof ids
+    }         // end for nid
 
     rInternal->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 }

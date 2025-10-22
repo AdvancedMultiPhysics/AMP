@@ -270,11 +270,11 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
                                 double temp = beta[qp] * ( JxW[qp] * phi[j][qp] * phi[i][qp] );
                                 inputMatrix->addValueByGlobalID( dofs[j], dofs[i], temp );
                             } // end for i
-                        } // end for j
-                    } // end for qp
+                        }     // end for j
+                    }         // end for qp
 
                 } // end for bnd
-            } // end dof ids
+            }     // end dof ids
 
         } // end for nid
 

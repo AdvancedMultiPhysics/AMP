@@ -94,7 +94,7 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
                     d_refXYZ->setValuesByGlobalID(
                         1, &d_dofIndices[j][i], &elementRefXYZ[( 3 * j ) + i] );
                 } // end of i
-            } // end of j
+            }     // end of j
 
             destroyCurrentLibMeshElement();
         } // end of el
@@ -161,7 +161,7 @@ void MechanicsLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
         for ( size_t c = 0; c < num_local_dofs; c++ ) {
             d_elementStiffnessMatrix[r][c] = 0.0;
         } // end for c
-    } // end for r
+    }     // end for r
 
     if ( d_useUpdatedLagrangian ) {
         std::vector<std::vector<double>> elementInputVectors(
@@ -179,7 +179,7 @@ void MechanicsLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
                 }
                 elementRefXYZ[( 3 * r ) + d] = d_refXYZ->getValueByGlobalID( d_dofIndices[r][d] );
             } // end for d
-        } // end for r
+        }     // end for r
         d_mechLinULElem->initializeForCurrentElement( d_currElemPtr, d_materialModel );
         d_mechLinULElem->setElementVectors( elementInputVectors );
         d_mechLinULElem->setElementStiffnessMatrix( d_elementStiffnessMatrix );
@@ -203,9 +203,9 @@ void MechanicsLinearFEOperator::postElementOperation()
                         d_dofIndices[c][dc],
                         d_elementStiffnessMatrix[( 3 * r ) + dr][( 3 * c ) + dc] );
                 } // end for dc
-            } // end for c
-        } // end for dr
-    } // end for r
+            }     // end for c
+        }         // end for dr
+    }             // end for r
     destroyCurrentLibMeshElement();
 }
 
@@ -241,7 +241,7 @@ void MechanicsLinearFEOperator::printStressAndStrain( AMP::LinearAlgebra::Vector
             for ( size_t d = 0; d < 3; d++ ) {
                 elementInputVector[( 3 * r ) + d] = disp->getValueByGlobalID( d_dofIndices[r][d] );
             } // end for d
-        } // end for r
+        }     // end for r
 
         d_mechLinElem->initializeForCurrentElement( d_currElemPtr, d_materialModel );
         d_mechLinElem->printStressAndStrain( fp, elementInputVector );
