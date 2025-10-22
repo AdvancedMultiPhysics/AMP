@@ -15,6 +15,8 @@ namespace AMP::Operator {
 class SubchannelFourEqLinearOperator : public LinearOperator
 {
 public:
+    typedef std::unique_ptr<AMP::Mesh::MeshElement> ElementPtr;
+
     //! Constructor
     explicit SubchannelFourEqLinearOperator( std::shared_ptr<const OperatorParameters> params );
 
@@ -53,8 +55,8 @@ public:
 
     //! Makes map of lateral gaps to their centroids
     void getLateralFaces( std::shared_ptr<AMP::Mesh::Mesh>,
-                          std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> &,
-                          std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> & );
+                          std::map<AMP::Mesh::Point, ElementPtr> &,
+                          std::map<AMP::Mesh::Point, ElementPtr> & );
 
     //! Makes map of gap widths to their xy positions
     std::map<AMP::Mesh::Point, double> getGapWidths( std::shared_ptr<AMP::Mesh::Mesh>,
@@ -62,9 +64,7 @@ public:
                                                      const std::vector<double> &,
                                                      const std::vector<double> & );
 
-    void getAxialFaces( const AMP::Mesh::MeshElement &,
-                        AMP::Mesh::MeshElement &,
-                        AMP::Mesh::MeshElement & );
+    void getAxialFaces( const AMP::Mesh::MeshElement &, ElementPtr &, ElementPtr & );
 
     void fillSubchannelGrid( std::shared_ptr<AMP::Mesh::Mesh> ); // function to fill the subchannel
                                                                  // data for all processors
@@ -144,9 +144,8 @@ private:
     std::vector<double> d_x, d_y, d_z;
     std::vector<bool> d_ownSubChannel; // does this processor own this subchannel (multiple
                                        // processors may own a subchannel)?
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
-        d_subchannelElem; // List of elements in each subchannel
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
+    std::vector<std::vector<ElementPtr>> d_subchannelElem; // List of elements in each subchannel
+    std::vector<std::vector<ElementPtr>>
         d_subchannelFace;    // List of z-face elements in each subchannel
     size_t d_numSubchannels; // number of subchannels
 
@@ -154,10 +153,9 @@ private:
     double Temperature( double, double );      // evaluates temperature
     double DynamicViscosity( double, double ); // evaluates dynamic viscosity
 
-    AMP::Mesh::MeshElement
-    getAxiallyAdjacentLateralFace( AMP::Mesh::MeshElement *,
-                                   const AMP::Mesh::MeshElement &,
-                                   std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> );
+    ElementPtr getAxiallyAdjacentLateralFace( AMP::Mesh::MeshElement *,
+                                              const AMP::Mesh::MeshElement &,
+                                              const std::map<AMP::Mesh::Point, ElementPtr> & );
 };
 } // namespace AMP::Operator
 

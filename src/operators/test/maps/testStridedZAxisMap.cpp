@@ -35,7 +35,7 @@ static void project( AMP::Mesh::MeshIterator const &meshIterator,
     AMP_INSIST( dof < dofsPerNode, "WRONG!" );
     auto dofManager = vector->getDOFManager();
     std::vector<size_t> dofIndices;
-    for ( auto elem : meshIterator ) {
+    for ( auto &elem : meshIterator ) {
         dofManager->getDOFs( elem.globalID(), dofIndices );
         AMP_ASSERT( dofIndices.size() == dofsPerNode );
         auto coord   = elem.coord();

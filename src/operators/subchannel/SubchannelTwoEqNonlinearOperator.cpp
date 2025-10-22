@@ -140,30 +140,27 @@ void SubchannelTwoEqNonlinearOperator::reset( std::shared_ptr<const OperatorPara
 
         // Get the subchannel elements
         d_ownSubChannel  = std::vector<bool>( d_numSubchannels, false );
-        d_subchannelElem = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-            d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
-        auto el = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+        d_subchannelElem = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
+        auto el          = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
         for ( size_t i = 0; i < el.size(); i++ ) {
             auto center = el->centroid();
             int index   = getSubchannelIndex( center[0], center[1] );
             if ( index >= 0 ) {
                 d_ownSubChannel[index] = true;
-                d_subchannelElem[index].push_back( *el );
+                d_subchannelElem[index].push_back( el->clone() );
             }
             ++el;
         }
-        d_subchannelFace = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-            d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
+        d_subchannelFace = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
         for ( size_t i = 0; i < d_numSubchannels; i++ ) {
             if ( !d_ownSubChannel[i] )
                 continue;
-            std::shared_ptr<std::vector<AMP::Mesh::MeshElement>> elemPtr( &d_subchannelElem[i],
-                                                                          []( auto ) {} );
+            std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
             auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
             auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
             auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
             for ( size_t j = 0; j < face.size(); j++ ) {
-                d_subchannelFace[i].push_back( *face );
+                d_subchannelFace[i].push_back( face->clone() );
                 ++face;
             }
         }
@@ -213,8 +210,7 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
         PROFILE( "apply-subchannel" );
 
         // Get the iterator over the faces in the local subchannel
-        std::shared_ptr<std::vector<AMP::Mesh::MeshElement>> elemPtr( &d_subchannelFace[isub],
-                                                                      []( auto ) {} );
+        std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub], []( auto ) {} );
         auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
         AMP_ASSERT( localSubchannelIt.size() == d_z.size() );
 

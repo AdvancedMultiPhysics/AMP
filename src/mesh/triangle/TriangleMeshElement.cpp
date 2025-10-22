@@ -106,20 +106,12 @@ std::string TriangleMeshElement<NG>::elementClass() const
 template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement()
 {
-    static constexpr auto hash = AMP::getTypeID<decltype( *this )>().hash;
-    static_assert( hash != 0 );
-    d_typeHash = hash;
-    d_element  = nullptr;
-    d_mesh     = nullptr;
+    d_mesh = nullptr;
 }
 template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement( const MeshElementID &id,
                                               const TriangleMesh<NG> *mesh )
 {
-    static constexpr auto hash = AMP::getTypeID<decltype( *this )>().hash;
-    static_assert( hash != 0 );
-    d_typeHash = hash;
-    d_element  = nullptr;
     d_globalID = id;
     d_mesh     = mesh;
 }
@@ -127,25 +119,17 @@ template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement( const TriangleMeshElement &rhs )
     : MeshElement(), d_globalID( rhs.d_globalID ), d_mesh( rhs.d_mesh )
 {
-    static constexpr auto hash = AMP::getTypeID<decltype( *this )>().hash;
-    static_assert( hash != 0 );
-    d_typeHash = hash;
-    d_element  = rhs.d_element;
 }
 template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement( TriangleMeshElement &&rhs )
     : MeshElement(), d_globalID{ rhs.d_globalID }, d_mesh( rhs.d_mesh )
 {
-    d_typeHash = rhs.d_typeHash;
-    d_element  = nullptr;
 }
 template<uint8_t NG>
 TriangleMeshElement<NG> &TriangleMeshElement<NG>::operator=( const TriangleMeshElement &rhs )
 {
     if ( &rhs == this )
         return *this;
-    d_typeHash = rhs.d_typeHash;
-    d_element  = nullptr;
     d_globalID = rhs.d_globalID;
     d_mesh     = rhs.d_mesh;
     return *this;
@@ -155,8 +139,6 @@ TriangleMeshElement<NG> &TriangleMeshElement<NG>::operator=( TriangleMeshElement
 {
     if ( &rhs == this )
         return *this;
-    d_typeHash = rhs.d_typeHash;
-    d_element  = nullptr;
     d_globalID = rhs.d_globalID;
     d_mesh     = rhs.d_mesh;
     return *this;
@@ -167,9 +149,9 @@ TriangleMeshElement<NG> &TriangleMeshElement<NG>::operator=( TriangleMeshElement
  * Function to clone the element                                 *
  ****************************************************************/
 template<uint8_t NG>
-MeshElement *TriangleMeshElement<NG>::clone() const
+std::unique_ptr<MeshElement> TriangleMeshElement<NG>::clone() const
 {
-    return new TriangleMeshElement<NG>( *this );
+    return std::make_unique<TriangleMeshElement<NG>>( *this );
 }
 
 
@@ -190,8 +172,7 @@ int TriangleMeshElement<NG>::getElementsID( const GeomType type, MeshElementID *
     return N;
 }
 template<uint8_t NG>
-void TriangleMeshElement<NG>::getElements( const GeomType type,
-                                           std::vector<MeshElement> &children ) const
+void TriangleMeshElement<NG>::getElements( const GeomType type, ElementList &children ) const
 {
     // Number of elements composing a given type
     auto TYPE = static_cast<uint8_t>( d_globalID.type() );

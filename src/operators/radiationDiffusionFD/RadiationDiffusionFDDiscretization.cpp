@@ -245,7 +245,7 @@ size_t FDMeshGlobalIndexingOps::gridIndsToScalarDOF( const std::array<size_t, 3>
 }
 
 //! Map from grid index to a MeshElement
-AMP::Mesh::MeshElement
+AMP::Mesh::structuredMeshElement
 FDMeshGlobalIndexingOps::gridIndsToMeshElement( const std::array<size_t, 3> &ijk ) const
 {
     AMP::Mesh::BoxMesh::MeshElementIndex ind( d_geom, 0, ijk[0], ijk[1], ijk[2] );
@@ -804,8 +804,8 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
                 r_TE_rawData[dof] = RTE;
                 r_TT_rawData[dof] = RTT;
             } // Loop over i
-        }     // Loop over j
-    }         // Loop over k
+        } // Loop over j
+    } // Loop over k
 }
 
 
@@ -1447,8 +1447,8 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                 LT_rawData[indORIGIN] = LT;
 
             } // Loop over i
-        }     // Loop over j
-    }         // Loop over k
+        } // Loop over j
+    } // Loop over k
 }
 
 void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
@@ -1564,9 +1564,9 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                     LT_vec->setValueByGlobalID<double>( indORIGIN, LT );
 
                 } // Loop first free dim
-            }     // Loop over second free dim
-        }         // Loop over boundary in frozen dim
-    }             // Loop over frozen dim
+            } // Loop over second free dim
+        } // Loop over boundary in frozen dim
+    } // Loop over frozen dim
 }
 
 void RadDifOp::getNNDataBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,

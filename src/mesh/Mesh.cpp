@@ -164,26 +164,27 @@ std::shared_ptr<Mesh> Mesh::Subset( const MeshIterator &iterator, bool isGlobal 
 /********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-MeshElement Mesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> Mesh::getElement( const MeshElementID &elem_id ) const
 {
     MeshID mesh_id = elem_id.meshID();
     AMP_INSIST( mesh_id == d_meshID, "mesh id must match the mesh id of the element" );
     auto it = getIterator( elem_id.type() );
     for ( size_t i = 0; i < it.size(); i++, ++it ) {
         if ( it->globalID() == elem_id )
-            return *it;
+            return it->clone();
     }
-    return MeshElement();
+    return std::make_unique<MeshElement>();
 }
 
 
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> Mesh::getElementParents( const MeshElement &, const GeomType ) const
+std::vector<std::unique_ptr<MeshElement>> Mesh::getElementParents( const MeshElement &,
+                                                                   const GeomType ) const
 {
     AMP_ERROR( "getElementParents is not implemented: " + meshClass() );
-    return std::vector<MeshElement>();
+    return {};
 }
 
 
@@ -219,11 +220,11 @@ bool Mesh::isMember( const MeshElementID &id ) const { return id.meshID() == d_m
 MeshIterator Mesh::isMember( const MeshIterator &iterator ) const
 {
     PROFILE( "isMember" );
-    auto elements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>();
+    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>();
     elements->reserve( iterator.size() );
     for ( const auto &elem : iterator ) {
         if ( isMember( elem.globalID() ) )
-            elements->push_back( elem );
+            elements->push_back( elem.clone() );
     }
     return AMP::Mesh::MeshElementVectorIterator( elements, 0 );
 }
@@ -470,12 +471,12 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
     if ( ids.empty() )
         return MeshIterator();
     size_t N      = 0;
-    auto elements = std::make_shared<std::vector<MeshElement>>( ids.size() );
+    auto elements = std::make_shared<std::vector<std::unique_ptr<MeshElement>>>( ids.size() );
     for ( auto &elem : A ) {
         auto idA = elem.globalID();
         size_t i = std::min( Utilities::findfirst( ids, idA ), ids.size() - 1 );
         if ( ids[i] == idA ) {
-            ( *elements )[i] = elem;
+            ( *elements )[i] = elem.clone();
             N++;
         }
     }
@@ -484,7 +485,7 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
             auto idB = elem.globalID();
             size_t i = std::min( Utilities::findfirst( ids, idB ), ids.size() - 1 );
             if ( ids[i] == idB ) {
-                ( *elements )[i] = elem;
+                ( *elements )[i] = elem.clone();
                 N++;
             }
         }

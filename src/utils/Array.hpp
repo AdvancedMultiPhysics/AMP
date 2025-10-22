@@ -1,6 +1,7 @@
 #ifndef included_AMP_ArrayClass_hpp
 #define included_AMP_ArrayClass_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMP_MPI_pack.hpp"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
@@ -1184,7 +1185,7 @@ Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::coarsen(
                     for ( size_t j2 = 0; j2 < ratio[1]; j2++ ) {
                         for ( size_t i2 = 0; i2 < ratio[0]; i2++ ) {
                             tmp( i2, j2, k2 ) = operator()(
-                                i1 *ratio[0] + i2, j1 * ratio[1] + j2, k1 * ratio[2] + k2 );
+                                i1 * ratio[0] + i2, j1 * ratio[1] + j2, k1 * ratio[2] + k2 );
                         }
                     }
                 }

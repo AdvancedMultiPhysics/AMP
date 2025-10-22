@@ -168,6 +168,12 @@ public: // non-virtual functions
     //! Dereference the iterator
     inline const MeshElement *operator->() const;
 
+    //! Dereference the iterator
+    inline MeshElement *get();
+
+    //! Dereference the iterator
+    inline const MeshElement *get() const;
+
     /**
      * \brief Post-Increment
      * \details  Post-Increment the mesh iterator and return a reference to a temporary iterator.

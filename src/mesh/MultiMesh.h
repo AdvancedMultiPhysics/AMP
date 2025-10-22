@@ -224,7 +224,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override;
+    MeshElementPtr getElement( const MeshElementID &id ) const override;
 
 
     /**
@@ -234,8 +234,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override;
+    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
+                                                           const GeomType type ) const override;
 
 
     //! Is the current mesh a base mesh
@@ -338,7 +338,7 @@ public: // Default constructors
     MultiMesh()                           = delete;
     explicit MultiMesh( MultiMesh &&rhs ) = default;
     explicit MultiMesh( const MultiMesh &rhs );
-    MultiMesh &operator=( MultiMesh &&rhs ) = delete;
+    MultiMesh &operator=( MultiMesh &&rhs )      = delete;
     MultiMesh &operator=( const MultiMesh &rhs ) = delete;
 
 public: // Functions to help with load balancing

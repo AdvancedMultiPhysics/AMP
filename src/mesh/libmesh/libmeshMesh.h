@@ -189,7 +189,7 @@ public:
      *    elements that were constructed internally.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override;
+    std::unique_ptr<MeshElement> getElement( const MeshElementID &id ) const override;
 
 
     /**
