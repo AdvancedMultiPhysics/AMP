@@ -271,7 +271,7 @@ void VolumeIntegralOperator::getNodeDofIndicesForCurrentElement()
     d_dofIndices.resize( d_currNodes.size() );
     std::vector<size_t> dofs;
     for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-        d_nodeDofMap->getDOFs( d_currNodes[j].globalID(), dofs );
+        d_nodeDofMap->getDOFs( d_currNodes[j]->globalID(), dofs );
         AMP_ASSERT( dofs.size() == 1 );
         d_dofIndices[j] = dofs[0];
     } // end of j

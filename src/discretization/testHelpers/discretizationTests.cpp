@@ -47,7 +47,7 @@ void testGetDOFIterator( AMP::UnitTest &ut,
         if ( dofs.empty() )
             pass1 = false;
         for ( size_t dof : dofs ) {
-            auto id2 = DOF->getElement( dof ).globalID();
+            auto id2 = DOF->getElement( dof )->globalID();
             if ( id2 != id )
                 pass2 = false;
         }

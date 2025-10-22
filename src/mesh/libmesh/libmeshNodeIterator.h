@@ -3,6 +3,7 @@
 
 #include "AMP/mesh/MeshIterator.h"
 #include "AMP/mesh/libmesh/libmeshMesh.h"
+#include "AMP/mesh/libmesh/libmeshMeshElement.h"
 
 // libMesh includes
 #include "libmesh/libmesh_config.h"
@@ -91,10 +92,11 @@ private:
     libMesh::Mesh::node_iterator d_pos2;
     MeshID d_meshID;
     const AMP::Mesh::libmeshMesh *d_mesh;
-    MeshElement d_cur_element;
+    libmeshMeshElement d_cur_element;
 
     void setCurrentElement();
 };
+
 } // namespace AMP::Mesh
 
 #endif

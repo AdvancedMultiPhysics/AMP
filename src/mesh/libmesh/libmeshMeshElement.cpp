@@ -27,8 +27,6 @@ libmeshMeshElement::libmeshMeshElement()
       d_delete_elem( false ),
       d_globalID( MeshElementID() )
 {
-    d_typeHash = elementTypeID;
-    d_element  = nullptr;
 }
 libmeshMeshElement::libmeshMeshElement( int dim,
                                         GeomType type,
@@ -38,8 +36,6 @@ libmeshMeshElement::libmeshMeshElement( int dim,
                                         const libmeshMesh *mesh )
 {
     AMP_ASSERT( libmesh_element );
-    d_typeHash      = elementTypeID;
-    d_element       = nullptr;
     d_dim           = dim;
     d_rank          = rank;
     d_mesh          = mesh;
@@ -73,8 +69,6 @@ libmeshMeshElement::libmeshMeshElement( int dim,
     : d_delete_elem( false )
 {
     AMP_ASSERT( libmesh_element );
-    d_typeHash      = elementTypeID;
-    d_element       = nullptr;
     d_dim           = dim;
     d_rank          = rank;
     d_mesh          = mesh;
@@ -104,8 +98,6 @@ libmeshMeshElement::libmeshMeshElement( const libmeshMeshElement &rhs )
       d_delete_elem( false ),
       d_globalID( rhs.d_globalID )
 {
-    d_typeHash  = elementTypeID;
-    d_element   = nullptr;
     d_dim       = rhs.d_dim;
     ptr_element = rhs.ptr_element;
     d_rank      = rhs.d_rank;
@@ -115,8 +107,6 @@ libmeshMeshElement &libmeshMeshElement::operator=( const libmeshMeshElement &rhs
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    this->d_typeHash    = elementTypeID;
-    this->d_element     = nullptr;
     this->d_globalID    = rhs.d_globalID;
     this->d_dim         = rhs.d_dim;
     this->ptr_element   = rhs.ptr_element;
@@ -130,22 +120,24 @@ libmeshMeshElement &libmeshMeshElement::operator=( const libmeshMeshElement &rhs
 
 
 /****************************************************************
- * De-constructor                                                *
+ * Destructor                                                    *
  ****************************************************************/
-libmeshMeshElement::~libmeshMeshElement() { d_element = nullptr; }
+libmeshMeshElement::~libmeshMeshElement() {}
 
 
 /****************************************************************
  * Function to clone the element                                 *
  ****************************************************************/
-MeshElement *libmeshMeshElement::clone() const { return new libmeshMeshElement( *this ); }
+std::unique_ptr<MeshElement> libmeshMeshElement::clone() const
+{
+    return std::make_unique<libmeshMeshElement>( *this );
+}
 
 
 /****************************************************************
  * Function to get the elements composing the current element    *
  ****************************************************************/
-void libmeshMeshElement::getElements( const GeomType type,
-                                      std::vector<MeshElement> &children ) const
+void libmeshMeshElement::getElements( const GeomType type, ElementList &children ) const
 {
     AMP_INSIST( type <= d_globalID.type(), "sub-elements must be of a smaller or equivalent type" );
     children.clear();
@@ -155,23 +147,23 @@ void libmeshMeshElement::getElements( const GeomType type,
         if ( type != GeomType::Vertex )
             AMP_ERROR( "A vertex is the base element and cannot have and sub-elements" );
         children.resize( 1 );
-        children[0] = *this;
+        children[0] = std::make_unique<libmeshMeshElement>( *this );
     } else if ( type == d_globalID.type() ) {
         // Return the children of the current element
         if ( elem->has_children() ) {
             children.resize( elem->n_children() );
             for ( unsigned int i = 0; i < children.size(); i++ )
-                children[i] = libmeshMeshElement(
+                children[i] = std::make_unique<libmeshMeshElement>(
                     d_dim, type, (void *) elem->child_ptr( i ), d_rank, d_meshID, d_mesh );
         } else {
             children.resize( 1 );
-            children[0] = *this;
+            children[0] = std::make_unique<libmeshMeshElement>( *this );
         }
     } else if ( type == GeomType::Vertex ) {
         // Return the nodes of the current element
         children.resize( elem->n_nodes() );
         for ( unsigned int i = 0; i < children.size(); i++ )
-            children[i] = libmeshMeshElement(
+            children[i] = std::make_unique<libmeshMeshElement>(
                 d_dim, type, (void *) elem->node_ptr( i ), d_rank, d_meshID, d_mesh );
     } else {
         // Return the children
@@ -205,7 +197,8 @@ void libmeshMeshElement::getElements( const GeomType type,
             unsigned int id         = generate_id( node_ids );
             element->set_id()       = id;
             // Create the libmeshMeshElement
-            children[i] = libmeshMeshElement( d_dim, type, element, d_rank, d_meshID, d_mesh );
+            children[i] = std::make_unique<libmeshMeshElement>(
+                d_dim, type, element, d_rank, d_meshID, d_mesh );
         }
     }
 }
@@ -214,7 +207,7 @@ void libmeshMeshElement::getElements( const GeomType type,
 /****************************************************************
  * Function to get the neighboring elements                      *
  ****************************************************************/
-void libmeshMeshElement::getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const
+void libmeshMeshElement::getNeighbors( ElementList &neighbors ) const
 {
     neighbors.clear();
     if ( d_globalID.type() == GeomType::Vertex ) {
@@ -342,11 +335,11 @@ bool libmeshMeshElement::isOnBoundary( int id ) const
             on_boundary = true;
     } else {
         // All other entities are on the boundary iff all of their vertices are on the surface
-        std::vector<MeshElement> nodes;
+        ElementList nodes;
         this->getElements( GeomType::Vertex, nodes );
         on_boundary = true;
         for ( auto &node : nodes )
-            on_boundary = on_boundary && node.isOnBoundary( id );
+            on_boundary = on_boundary && node->isOnBoundary( id );
     }
     return on_boundary;
 }

@@ -125,12 +125,12 @@ size_t subsetDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,
  ****************************************************************/
 AMP::Mesh::MeshElementID subsetDOFManager::getElementID( size_t dof ) const
 {
-    std::vector<size_t> dof2 = getParentDOF( { dof } );
+    auto dof2 = getParentDOF( { dof } );
     return d_parentDOFManager->getElementID( dof2[0] );
 }
-AMP::Mesh::MeshElement subsetDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> subsetDOFManager::getElement( size_t dof ) const
 {
-    std::vector<size_t> dof2 = getParentDOF( { dof } );
+    auto dof2 = getParentDOF( { dof } );
     return d_parentDOFManager->getElement( dof2[0] );
 }
 

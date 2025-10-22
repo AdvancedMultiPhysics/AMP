@@ -922,9 +922,10 @@ MeshElement *TriangleMesh<NG>::getElement2( const MeshElementID &id ) const
     return new TriangleMeshElement<NG>( id, this );
 }
 template<uint8_t NG>
-MeshElement TriangleMesh<NG>::getElement( const MeshElementID &id ) const
+std::unique_ptr<MeshElement> TriangleMesh<NG>::getElement( const MeshElementID &id ) const
 {
-    return MeshElement( getElement2( id ) );
+    AMP_ASSERT( static_cast<uint8_t>( id.type() ) <= NG );
+    return std::make_unique<TriangleMeshElement<NG>>( id, this );
 }
 
 
@@ -950,11 +951,11 @@ TriangleMesh<NG>::getElementParents( const ElementID &id, const GeomType type ) 
     return std::make_pair( list.begin( index ), list.end( index ) );
 }
 template<uint8_t NG>
-std::vector<MeshElement> TriangleMesh<NG>::getElementParents( const MeshElement &elem,
-                                                              const GeomType type ) const
+std::vector<std::unique_ptr<MeshElement>>
+TriangleMesh<NG>::getElementParents( const MeshElement &elem, const GeomType type ) const
 {
     auto ids = getElementParents( elem.globalID().elemID(), type );
-    std::vector<MeshElement> parents( ids.second - ids.first );
+    std::vector<std::unique_ptr<MeshElement>> parents( ids.second - ids.first );
     auto it = ids.first;
     for ( size_t i = 0; i < parents.size(); i++, ++it )
         parents[i] = getElement( MeshElementID( d_meshID, *it ) );

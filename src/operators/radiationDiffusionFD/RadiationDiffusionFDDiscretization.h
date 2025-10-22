@@ -213,7 +213,8 @@ public:
     std::array<size_t, 3> scalarDOFToGridInds( size_t dof ) const;
 
     //! Map from grid index to a MeshElement
-    AMP::Mesh::MeshElement gridIndsToMeshElement( const std::array<size_t, 3> &ijk ) const;
+    AMP::Mesh::structuredMeshElement
+    gridIndsToMeshElement( const std::array<size_t, 3> &ijk ) const;
 };
 
 

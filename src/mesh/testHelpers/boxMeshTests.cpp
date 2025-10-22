@@ -67,7 +67,7 @@ static void testSurface( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::Box
             auto &list = map[id];
             list.reserve( it.size() );
             for ( auto &elem : it ) {
-                auto elem2 = dynamic_cast<const structuredMeshElement *>( elem.getRawElement() );
+                auto elem2 = dynamic_cast<const structuredMeshElement *>( &elem );
                 list.push_back( elem2->getIndex() );
             }
             map[id]  = mesh->getComm().allGather( list );
@@ -85,7 +85,7 @@ static void testSurface( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::Box
             auto list  = map[id];
             bool pass  = true;
             for ( auto &elem : it ) {
-                auto elem2 = dynamic_cast<const structuredMeshElement *>( elem.getRawElement() );
+                auto elem2 = dynamic_cast<const structuredMeshElement *>( &elem );
                 auto index = elem2->getIndex();
                 if ( !std::binary_search( list.begin(), list.end(), index ) )
                     pass = false;

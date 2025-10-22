@@ -1,7 +1,7 @@
 #include "AMP/mesh/loadBalance/loadBalanceSimulator.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MultiMesh.h"
-#include "AMP/utils/Utilities.hpp"
+#include "AMP/utils/Utilities.h"
 
 #include <algorithm>
 #include <cstring>
@@ -581,3 +581,12 @@ void loadBalanceSimulator::copyRanks( const loadBalanceSimulator &x, int offset 
 
 
 } // namespace AMP::Mesh
+
+
+/********************************************************
+ * Explicit instantiations                               *
+ ********************************************************/
+#include "AMP/utils/Utilities.hpp"
+template void AMP::Utilities::quicksort<std::pair<double, int>>( size_t, std::pair<double, int> * );
+template void
+AMP::Utilities::quicksort<std::pair<double, int>>( std::vector<std::pair<double, int>> & );

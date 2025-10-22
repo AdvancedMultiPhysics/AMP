@@ -551,7 +551,7 @@ MeshIterator MultiMesh::isMember( const MeshIterator &iterator ) const
 /********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-MeshElement MultiMesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &elem_id ) const
 {
     MeshID mesh_id = elem_id.meshID();
     for ( auto &mesh : d_meshes ) {
@@ -565,15 +565,15 @@ MeshElement MultiMesh::getElement( const MeshElementID &elem_id ) const
             return mesh->getElement( elem_id );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
-    return MeshElement();
+    return std::make_unique<MeshElement>();
 }
 
 
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> MultiMesh::getElementParents( const MeshElement &elem,
-                                                       const GeomType type ) const
+std::vector<std::unique_ptr<MeshElement>> MultiMesh::getElementParents( const MeshElement &elem,
+                                                                        const GeomType type ) const
 {
     MeshID mesh_id = elem.globalID().meshID();
     for ( auto &mesh : d_meshes ) {
@@ -587,7 +587,7 @@ std::vector<MeshElement> MultiMesh::getElementParents( const MeshElement &elem,
             return mesh->getElementParents( elem, type );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
-    return std::vector<MeshElement>();
+    return {};
 }
 
 

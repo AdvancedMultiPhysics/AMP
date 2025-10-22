@@ -42,27 +42,24 @@ PressureBoundaryOperator::PressureBoundaryOperator(
     std::vector<std::vector<unsigned int>> sideMap( npes );
     std::vector<std::vector<AMP::Mesh::MeshElementID>> idMap( npes );
 
-    AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    AMP::Mesh::MeshIterator end_el = el.end();
-    for ( ; el != end_el; ++el ) {
-        auto sides = el->getElements( AMP::Mesh::GeomType::Face );
+    for ( auto &elem : d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 ) ) {
+        auto sides = elem.getElements( AMP::Mesh::GeomType::Face );
         for ( size_t s = 0; s < sides.size(); ++s ) {
-            if ( sides[s].isOnBoundary( bndId ) ) {
-                auto sideId        = sides[s].globalID();
+            if ( sides[s]->isOnBoundary( bndId ) ) {
+                auto sideId        = sides[s]->globalID();
                 unsigned int owner = sideId.owner_rank();
-                auto vertices      = el->getElements( AMP::Mesh::GeomType::Vertex );
+                auto vertices      = elem.getElements( AMP::Mesh::GeomType::Vertex );
                 for ( auto &vertice : vertices ) {
-                    auto pt = vertice.coord();
-                    for ( auto &elem : pt ) {
+                    auto pt = vertice->coord();
+                    for ( auto &elem : pt )
                         volElemMap[owner].push_back( elem );
-                    } // end k
-                    auto nodeId = vertice.globalID();
+                    auto nodeId = vertice->globalID();
                     idMap[owner].push_back( nodeId );
-                } // end for j
+                }
                 sideMap[owner].push_back( s );
             }
-        } // end s
-    } // end el
+        }
+    }
 
     std::vector<int> sendCnts( npes );
     for ( int i = 0; i < npes; ++i ) {
