@@ -139,7 +139,7 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         auto id = element.globalID();
         ids.push_back( id );
         id_pass = id_pass && !element.isNull();
-        id_pass = id_pass && element.globalID() != element.globalID();
+        id_pass = id_pass && element.globalID() != MeshElementID();
         id_pass = id_pass && element.getTypeID() != AMP::getTypeID<MeshElement>();
         // Check the owner rank
         int ownerRank       = id.owner_rank();
