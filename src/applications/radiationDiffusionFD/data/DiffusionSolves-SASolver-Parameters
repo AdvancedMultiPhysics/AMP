@@ -1,0 +1,34 @@
+# Preconditioner for approximately inverting diag diffusion blocks in operator-split preconditoner
+DiffusionSolves{
+  name = "SASolver"
+  absolute_tolerance = 0.0
+  relative_tolerance = 0.0
+  print_info_level = 2
+  max_iterations = 1
+  max_levels = 10
+  min_coarse_local = 10
+  min_coarse_global = 40
+  kappa = 1
+  agg_type = "simple"
+  prol_trunc = 0.005
+  num_smooth_prol = 1
+  strength_threshold = 4.0
+  
+  pre_relaxation{
+    name = "HybridGS"
+    num_sweeps = 1
+    sweep_type = "symmetric"
+  }
+
+  post_relaxation{
+    name = "HybridGS"
+    num_sweeps = 1
+    sweep_type = "symmetric"
+  }
+
+  coarse_solver{
+    name = "HybridGS"
+    num_sweeps = 2
+    sweep_type = "symmetric"
+  }
+}
