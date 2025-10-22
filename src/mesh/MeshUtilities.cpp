@@ -37,7 +37,7 @@ static inline double norm2( const std::array<double, 3> &a, const std::array<dou
  *  Get points in the mesh                               *
  ********************************************************/
 template<class CONTAINER>
-std::vector<AMP::Mesh::MeshElement>
+static std::vector<std::unique_ptr<MeshElement>>
 getElements( const Mesh &mesh, const CONTAINER &elements, AMP::Mesh::GeomType type )
 {
     // Function to get the composition elements
@@ -47,11 +47,20 @@ getElements( const Mesh &mesh, const CONTAINER &elements, AMP::Mesh::GeomType ty
         int N = elem.getElementsID( type, children );
         ids.insert( children, children + N );
     }
-    std::vector<AMP::Mesh::MeshElement> elements2;
+    std::vector<std::unique_ptr<MeshElement>> elements2;
     elements2.reserve( ids.size() );
     for ( const auto &id : ids )
         elements2.emplace_back( mesh.getElement( id ) );
     return elements2;
+}
+static inline MeshElementID globalID( const MeshElement &elem ) { return elem.globalID(); }
+static inline MeshElementID globalID( const std::unique_ptr<MeshElement> &elem )
+{
+    return elem->globalID();
+}
+static inline std::vector<Point> sample( const std::unique_ptr<MeshElement> &elem, double dx )
+{
+    return sample( *elem, dx );
 }
 template<class CONTAINER>
 std::tuple<std::vector<Point>, std::vector<MeshElementID>>
@@ -64,8 +73,8 @@ sample( const Mesh &mesh, const CONTAINER &elements, double dx )
     // Start by adding all the nodes to preserve the geometry
     auto node_list = getElements( mesh, elements, AMP::Mesh::GeomType::Vertex );
     for ( auto &node : node_list ) {
-        points.push_back( node.coord() );
-        ids.push_back( node.globalID() );
+        points.push_back( node->coord() );
+        ids.push_back( node->globalID() );
     }
     double d0 = nearest( points );
     // Check if we are auto determining the resolution
@@ -80,7 +89,7 @@ sample( const Mesh &mesh, const CONTAINER &elements, double dx )
             for ( const auto &p : points2 ) {
                 if ( dist( tree, p ) > 0.8 * dx ) {
                     points.push_back( p );
-                    ids.push_back( elem.globalID() );
+                    ids.push_back( globalID( elem ) );
                     tree.add( p.data() );
                 }
             }
@@ -113,7 +122,7 @@ std::vector<Point> sample( const MeshElement &elem, double dx )
     auto nodes = elem.getElements( AMP::Mesh::GeomType::Vertex );
     std::vector<Point> x( nodes.size() );
     for ( size_t i = 0; i < nodes.size(); i++ )
-        x[i] = nodes[i].coord();
+        x[i] = nodes[i]->coord();
     // Check if we are dealing with a volume (in the coordinate space)
     if ( static_cast<int>( type ) == x[0].ndim() ) {
         // Create a uniform grid
@@ -444,7 +453,7 @@ void ElementFinder::initialize() const
     // Choose the approximate spacing between points
     double volume = 0.0;
     auto type     = d_elements->globalID().type();
-    for ( auto elem : d_elements ) {
+    for ( auto &elem : d_elements ) {
         AMP_ASSERT( elem.globalID().type() == type );
         volume += elem.volume();
     }
@@ -453,7 +462,7 @@ void ElementFinder::initialize() const
     // Create a list of points in each element and the mesh ids
     std::vector<AMP::Mesh::MeshElementID> ids;
     std::vector<std::array<double, 3>> points;
-    std::vector<MeshElement> children;
+    std::vector<std::unique_ptr<MeshElement>> children;
     std::vector<std::array<double, 3>> nodes;
     for ( const auto &elem : d_elements ) {
         auto id = elem.globalID();
@@ -461,7 +470,7 @@ void ElementFinder::initialize() const
         elem.getElements( AMP::Mesh::GeomType::Vertex, children );
         nodes.resize( children.size() );
         for ( size_t i = 0; i < children.size(); i++ ) {
-            auto p      = children[i].coord();
+            auto p      = children[i]->coord();
             nodes[i][0] = p.x();
             nodes[i][1] = p.y();
             nodes[i][2] = p.z();
@@ -498,7 +507,7 @@ void ElementFinder::update() const
     if ( d_pos_hash != d_mesh->positionHash() )
         initialize();
 }
-std::pair<AMP::Mesh::MeshElement, Point> ElementFinder::nearest( const Point &x ) const
+std::pair<std::unique_ptr<MeshElement>, Point> ElementFinder::nearest( const Point &x ) const
 {
     // Update cached data if position moved
     if ( d_pos_hash != d_mesh->positionHash() )
@@ -510,8 +519,8 @@ std::pair<AMP::Mesh::MeshElement, Point> ElementFinder::nearest( const Point &x 
     // Get the nearest point in the element
     Point p = x;
     if ( norm2( p1, p0 ) > 1e-12 )
-        elem.nearest( x );
-    return std::pair<AMP::Mesh::MeshElement, Point>( std::move( elem ), p );
+        elem->nearest( x );
+    return std::pair<std::unique_ptr<MeshElement>, Point>( std::move( elem ), p );
 }
 double ElementFinder::distance( const Point &pos, const Point &dir ) const
 {
@@ -527,7 +536,7 @@ double ElementFinder::distance( const Point &pos, const Point &dir ) const
     double d  = std::numeric_limits<double>::infinity();
     for ( const auto &id : ids ) {
         auto elem = d_mesh->getElement( id );
-        auto d2   = elem.distance( pos, dir );
+        auto d2   = elem->distance( pos, dir );
         d2        = std::max( d2, 0.0 );
         if ( d2 < std::numeric_limits<double>::infinity() ) {
             d = std::min( d, d2 );

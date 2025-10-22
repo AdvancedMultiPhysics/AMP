@@ -258,7 +258,7 @@ void MechanicsLinearFEOperator::getDofIndicesForCurrentElement()
 {
     d_dofIndices.resize( d_currNodes.size() );
     for ( size_t j = 0; j < d_currNodes.size(); j++ ) {
-        d_inDofMap->getDOFs( d_currNodes[j].globalID(), d_dofIndices[j] );
+        d_inDofMap->getDOFs( d_currNodes[j]->globalID(), d_dofIndices[j] );
     } // end of j
 }
 } // namespace AMP::Operator

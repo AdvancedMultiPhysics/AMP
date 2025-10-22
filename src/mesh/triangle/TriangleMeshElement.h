@@ -51,14 +51,13 @@ public:
     std::string elementClass() const override;
 
     //! Return the elements composing the current element
-    virtual void getElements( const GeomType type,
-                              std::vector<MeshElement> &elements ) const override;
+    virtual void getElements( const GeomType type, ElementList &elements ) const override;
 
     //! Return the IDs of the elements composing the current element
     virtual int getElementsID( const GeomType type, MeshElementID *ID ) const override;
 
     //! Return the elements neighboring the current element
-    void getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const override;
+    void getNeighbors( ElementList &neighbors ) const override;
 
     //! Return the volume of the current element (does not apply to vertices)
     double volume() const override;
@@ -122,6 +121,9 @@ public:
      */
     bool isInBlock( int id ) const override;
 
+    //! Get the typeID
+    typeID getTypeID() const override { return AMP::getTypeID<TriangleMesh<NG>>(); }
+
 
 public: // Advanced interfaces
     // Default constructors
@@ -131,7 +133,7 @@ public: // Advanced interfaces
     inline void resetElemId( const ElementID &id ) { d_globalID.resetElemID( id ); }
 
     //! Clone the iterator
-    MeshElement *clone() const override;
+    std::unique_ptr<MeshElement> clone() const override;
 
 
 private:

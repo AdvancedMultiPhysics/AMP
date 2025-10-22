@@ -230,7 +230,7 @@ bool structuredMeshIterator::operator==( const MeshIterator &rhs ) const
     auto iterator = rhs.begin();
     auto set1     = getElements();
     for ( size_t i = 0; i < d_size; i++ ) {
-        auto *elem2 = dynamic_cast<structuredMeshElement *>( iterator->getRawElement() );
+        auto *elem2 = dynamic_cast<structuredMeshElement *>( iterator.get() );
         if ( elem2 == nullptr )
             return false;
         const auto &index1 = set1->operator[]( i );

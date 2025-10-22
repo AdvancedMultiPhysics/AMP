@@ -68,7 +68,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     while ( el != end_el ) {
         auto nodes = el->getElements( AMP::Mesh::GeomType::Vertex );
         for ( size_t i = 0; i < nodes.size(); i++ ) {
-            auto pt = nodes[i].coord();
+            auto pt = nodes[i]->coord();
             fprintf(
                 fp, "nd = %d, x = %.15f, y = %.15f, z = %.15f \n", (int) i, pt[0], pt[1], pt[2] );
         }
@@ -100,23 +100,21 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     fe->attach_quadrature_rule( qrule.get() );
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
-
     std::vector<size_t> d_dofIndices;
-    el          = ampMesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    d_currNodes = el->getElements( AMP::Mesh::GeomType::Vertex );
+    el               = ampMesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto d_currNodes = el->getElements( AMP::Mesh::GeomType::Vertex );
 
     std::vector<AMP::Mesh::MeshElementID> globalIDs( d_currNodes.size() );
 
     for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-        globalIDs[j] = d_currNodes[j].globalID();
+        globalIDs[j] = d_currNodes[j]->globalID();
     } // end of j
     dof_map->getDOFs( globalIDs, d_dofIndices );
 
     libMesh::Elem *currElemPtr;
     currElemPtr = new libMesh::Hex8;
     for ( size_t j = 0; j < d_currNodes.size(); j++ ) {
-        auto pt                    = d_currNodes[j].coord();
+        auto pt                    = d_currNodes[j]->coord();
         currElemPtr->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
     } // end for j
 

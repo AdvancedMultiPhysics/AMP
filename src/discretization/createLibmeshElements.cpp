@@ -139,9 +139,9 @@ void createLibmeshElements::reinit( const AMP::Mesh::MeshIterator &iterator_in,
 // Create a libmesh element
 libMesh::Elem *createLibmeshElements::createElement( const AMP::Mesh::MeshElement &elem )
 {
-    auto dim                                  = (int) elem.elementType();
-    std::vector<AMP::Mesh::MeshElement> nodes = elem.getElements( AMP::Mesh::GeomType::Vertex );
-    libMesh::Elem *element                    = nullptr;
+    auto dim               = (int) elem.elementType();
+    auto nodes             = elem.getElements( AMP::Mesh::GeomType::Vertex );
+    libMesh::Elem *element = nullptr;
     // Create the libmesh element
     if ( dim == 3 && nodes.size() == 8 ) {
         // We are dealing with a hex8 element
@@ -159,7 +159,7 @@ libMesh::Elem *createLibmeshElements::createElement( const AMP::Mesh::MeshElemen
         AMP_ERROR( "Unknown element type" );
     }
     for ( size_t j = 0; j < nodes.size(); j++ ) {
-        auto pt = nodes[j].coord();
+        auto pt = nodes[j]->coord();
         if ( pt.size() == 3 )
             element->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
         else if ( pt.size() == 2 )

@@ -156,30 +156,27 @@ void SubchannelFourEqNonlinearOperator::reset( std::shared_ptr<const OperatorPar
 
     // Get the subchannel elements
     d_ownSubChannel  = std::vector<bool>( d_numSubchannels, false );
-    d_subchannelElem = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-        d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
-    auto el = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    d_subchannelElem = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
+    auto el          = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
     for ( size_t i = 0; i < el.size(); i++ ) {
         auto center = el->centroid();
         int index   = getSubchannelIndex( center[0], center[1] );
         if ( index >= 0 ) {
             d_ownSubChannel[index] = true;
-            d_subchannelElem[index].push_back( *el );
+            d_subchannelElem[index].push_back( el->clone() );
         }
         ++el;
     }
-    d_subchannelFace = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-        d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
+    d_subchannelFace = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
     for ( size_t i = 0; i < d_numSubchannels; i++ ) {
         if ( !d_ownSubChannel[i] )
             continue;
-        std::shared_ptr<std::vector<AMP::Mesh::MeshElement>> elemPtr( &d_subchannelElem[i],
-                                                                      []( auto ) {} );
+        std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
         auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
         auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
         auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
         for ( size_t j = 0; j < face.size(); j++ ) {
-            d_subchannelFace[i].push_back( *face );
+            d_subchannelFace[i].push_back( face->clone() );
             ++face;
         }
     }
@@ -254,8 +251,8 @@ bool SubchannelFourEqNonlinearOperator::getBoolParameter(
 // function used to get all lateral gaps
 void SubchannelFourEqNonlinearOperator::getLateralFaces(
     std::shared_ptr<AMP::Mesh::Mesh> mesh,
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> &interiorLateralFaceMap,
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> &exteriorLateralFaceMap )
+    std::map<AMP::Mesh::Point, ElementPtr> &interiorLateralFaceMap,
+    std::map<AMP::Mesh::Point, ElementPtr> &exteriorLateralFaceMap )
 {
     // get iterator over all faces of mesh
     AMP::Mesh::MeshIterator face = mesh->getIterator( AMP::Mesh::GeomType::Face, 0 );
@@ -273,7 +270,7 @@ void SubchannelFourEqNonlinearOperator::getLateralFaces(
         // loop over vertices of current face
         for ( auto &vertice : vertices ) {
             // get coordinates of current vertex
-            auto vertexCoord = vertice.coord();
+            auto vertexCoord = vertice->coord();
             // if any vertex does not have the same x-coordinate as the face centroid,
             if ( !AMP::Utilities::approx_equal( vertexCoord[0], faceCentroid[0], 1.0e-6 ) )
                 // then the face is not perpindicular to x-axis
@@ -291,11 +288,11 @@ void SubchannelFourEqNonlinearOperator::getLateralFaces(
             if ( ( mesh->getElementParents( *face, AMP::Mesh::GeomType::Cell ) ).size() > 1 ) {
                 // insert face into map with centroid
                 interiorLateralFaceMap.insert(
-                    std::pair<AMP::Mesh::Point, AMP::Mesh::MeshElement>( faceCentroid, *face ) );
+                    std::pair<AMP::Mesh::Point, ElementPtr>( faceCentroid, face->clone() ) );
             } else {
                 // insert face into exterior lateral face map with centroid
                 exteriorLateralFaceMap.insert(
-                    std::pair<AMP::Mesh::Point, AMP::Mesh::MeshElement>( faceCentroid, *face ) );
+                    std::pair<AMP::Mesh::Point, ElementPtr>( faceCentroid, face->clone() ) );
             }
         }
     } // end loop over faces
@@ -322,8 +319,7 @@ SubchannelFourEqNonlinearOperator::getGapWidths( std::shared_ptr<AMP::Mesh::Mesh
                 // create vector of xy position of gap face
                 AMP::Mesh::Point xyPos( faceCentroid[0], faceCentroid[1] );
                 // get vertices of current face
-                std::vector<AMP::Mesh::MeshElement> vertices =
-                    face->getElements( AMP::Mesh::GeomType::Vertex );
+                std::vector<ElementPtr> vertices = face->getElements( AMP::Mesh::GeomType::Vertex );
                 // loop over vertices of current face
                 bool topVertex1Found = false;
                 double x1            = 0.0;
@@ -332,7 +328,7 @@ SubchannelFourEqNonlinearOperator::getGapWidths( std::shared_ptr<AMP::Mesh::Mesh
                 double gapWidth      = 0.0;
                 for ( auto &vertice : vertices ) {
                     // get coordinates of current vertex
-                    auto vertexCoord = vertice.coord();
+                    auto vertexCoord = vertice->coord();
                     if ( AMP::Utilities::approx_equal( vertexCoord[2], d_z[Nz], 1.0e-12 ) ) {
                         if ( topVertex1Found ) { // second top vertex has been found
                             // check for clad centered at this vertex
@@ -495,8 +491,8 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
     fillSubchannelGrid( d_Mesh );
 
     // get map of all of the lateral faces to their centroids
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> interiorLateralFaceMap;
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> exteriorLateralFaceMap;
+    std::map<AMP::Mesh::Point, ElementPtr> interiorLateralFaceMap;
+    std::map<AMP::Mesh::Point, ElementPtr> exteriorLateralFaceMap;
     getLateralFaces( d_Mesh, interiorLateralFaceMap, exteriorLateralFaceMap );
 
     // get map of gap widths to their xy positions
@@ -513,8 +509,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
 
     auto cell = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 ); // iterator for cells of mesh
 
-    std::vector<std::vector<AMP::Mesh::MeshElement>> d_elem(
-        d_numSubchannels ); // elements for each subchannel
+    std::vector<std::vector<ElementPtr>> d_elem( d_numSubchannels ); // elements for each subchannel
     std::vector<bool> d_ownSubChannel( d_numSubchannels );
 
     // for each cell,
@@ -525,7 +520,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
         if ( index >= 0 ) {
             d_ownSubChannel[index] = true;
             // put cell into array of cells for that subchannel
-            d_elem[index].push_back( *cell );
+            d_elem[index].push_back( cell->clone() );
         }
     } // end for cell
 
@@ -535,10 +530,10 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
             continue;
 
         // extract subchannel cells from d_elem[isub]
-        auto subchannelElements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>();
+        auto subchannelElements = std::make_shared<std::vector<ElementPtr>>();
         subchannelElements->reserve( d_numSubchannels );
         for ( const auto &ielem : d_elem[isub] ) {
-            subchannelElements->push_back( ielem );
+            subchannelElements->push_back( ielem->clone() );
         }
         auto localSubchannelCell = AMP::Mesh::MeshElementVectorIterator(
             subchannelElements ); // iterator over elements of current subchannel
@@ -550,8 +545,8 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
         // compute flux
         std::vector<double> flux( d_z.size() - 1 );
         if ( d_source == "averageCladdingTemperature" ) {
-            std::shared_ptr<std::vector<AMP::Mesh::MeshElement>> elemPtr( &d_subchannelFace[isub],
-                                                                          []( auto ) {} );
+            std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub],
+                                                              []( auto ) {} );
             auto localSubchannelFace = AMP::Mesh::MeshElementVectorIterator( elemPtr );
             AMP_ASSERT( localSubchannelFace.size() == d_z.size() );
             auto face = localSubchannelFace.begin();
@@ -595,20 +590,20 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
         double D    = d_channelDiam[isub]; // subchannel hydraulic diameter
         for ( ; localSubchannelCell != localSubchannelCell.end(); ++localSubchannelCell ) {
             // get upper and lower axial faces of current cell
-            AMP::Mesh::MeshElement plusFace;  // upper axial face for current cell
-            AMP::Mesh::MeshElement minusFace; // lower axial face for current cell
+            ElementPtr plusFace;  // upper axial face for current cell
+            ElementPtr minusFace; // lower axial face for current cell
             // get the axial faces of cell
             getAxialFaces( *localSubchannelCell, plusFace, minusFace );
 
-            auto plusFaceCentroid  = plusFace.centroid();
-            auto minusFaceCentroid = minusFace.centroid();
+            auto plusFaceCentroid  = plusFace->centroid();
+            auto minusFaceCentroid = minusFace->centroid();
 
             // extract unknowns from solution vector
             // -------------------------------------
             std::vector<size_t> plusDofs;
             std::vector<size_t> minusDofs;
-            dof_manager->getDOFs( plusFace.globalID(), plusDofs );
-            dof_manager->getDOFs( minusFace.globalID(), minusDofs );
+            dof_manager->getDOFs( plusFace->globalID(), plusDofs );
+            dof_manager->getDOFs( minusFace->globalID(), minusDofs );
             double m_plus  = m_scale * inputVec->getValueByGlobalID( plusDofs[0] );
             double h_plus  = h_scale * inputVec->getValueByGlobalID( plusDofs[1] );
             double p_plus  = p_scale * inputVec->getValueByGlobalID( plusDofs[2] );
@@ -738,36 +733,36 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
             // loop over gap faces
             auto cellFaces = localSubchannelCell->getElements( AMP::Mesh::GeomType::Face );
             for ( auto &cellFace : cellFaces ) {
-                auto faceCentroid        = cellFace.centroid();
+                auto faceCentroid        = cellFace->centroid();
                 auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
                 if ( lateralFaceIterator != interiorLateralFaceMap.end() ) {
                     // get face
-                    AMP::Mesh::MeshElement lateralFace = lateralFaceIterator->second;
+                    auto lateralFace = lateralFaceIterator->second->clone();
                     // get crossflow
                     std::vector<size_t> gapDofs;
-                    dof_manager->getDOFs( lateralFace.globalID(), gapDofs );
+                    dof_manager->getDOFs( lateralFace->globalID(), gapDofs );
                     double w = w_scale * inputVec->getValueByGlobalID( gapDofs[0] );
                     // get index of neighboring subchannel
                     auto adjacentCells =
-                        d_Mesh->getElementParents( lateralFace, AMP::Mesh::GeomType::Cell );
+                        d_Mesh->getElementParents( *lateralFace, AMP::Mesh::GeomType::Cell );
                     AMP_INSIST( adjacentCells.size() == 2,
                                 "There were not 2 adjacent cells to a lateral gap face" );
-                    auto subchannelCentroid1 = adjacentCells[0].centroid();
-                    auto subchannelCentroid2 = adjacentCells[1].centroid();
+                    auto subchannelCentroid1 = adjacentCells[0]->centroid();
+                    auto subchannelCentroid2 = adjacentCells[1]->centroid();
                     size_t subchannelIndex1 =
                         getSubchannelIndex( subchannelCentroid1[0], subchannelCentroid1[1] );
                     size_t subchannelIndex2 =
                         getSubchannelIndex( subchannelCentroid2[0], subchannelCentroid2[1] );
                     size_t neighborSubchannelIndex = 0;
-                    AMP::Mesh::MeshElement neighborCell;
+                    ElementPtr neighborCell;
                     if ( subchannelIndex1 == currentSubchannelIndex ) {
                         AMP_INSIST( subchannelIndex2 != currentSubchannelIndex,
                                     "Adjacent cells have the same subchannel index." );
                         neighborSubchannelIndex = subchannelIndex2;
-                        neighborCell            = adjacentCells[1];
+                        neighborCell            = adjacentCells[1]->clone();
                     } else if ( subchannelIndex2 == currentSubchannelIndex ) {
                         neighborSubchannelIndex = subchannelIndex1;
-                        neighborCell            = adjacentCells[0];
+                        neighborCell            = adjacentCells[0]->clone();
                     } else {
                         AMP_ERROR( "Neither of adjacent cells had the same index as the current "
                                    "subchannel." );
@@ -783,11 +778,11 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                     }
                     // get upper and lower axial faces of neighbor cell
                     // ------------------------------------------------
-                    auto neighborCentroid = neighborCell.centroid();
+                    auto neighborCentroid = neighborCell->centroid();
                     // get axial faces of current cell
-                    AMP::Mesh::MeshElement neighborPlusFace;  // upper axial face for current cell
-                    AMP::Mesh::MeshElement neighborMinusFace; // lower axial face for current cell
-                    getAxialFaces( neighborCell, neighborPlusFace, neighborMinusFace );
+                    ElementPtr neighborPlusFace;  // upper axial face for current cell
+                    ElementPtr neighborMinusFace; // lower axial face for current cell
+                    getAxialFaces( *neighborCell, neighborPlusFace, neighborMinusFace );
 
                     double neighborArea =
                         d_channelArea[neighborSubchannelIndex]; // neighbor subchannel area
@@ -798,8 +793,8 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                     // -------------------------------------
                     std::vector<size_t> neighborPlusDofs;
                     std::vector<size_t> neighborMinusDofs;
-                    dof_manager->getDOFs( neighborPlusFace.globalID(), neighborPlusDofs );
-                    dof_manager->getDOFs( neighborMinusFace.globalID(), neighborMinusDofs );
+                    dof_manager->getDOFs( neighborPlusFace->globalID(), neighborPlusDofs );
+                    dof_manager->getDOFs( neighborMinusFace->globalID(), neighborMinusDofs );
                     double m_plus_neighbor =
                         m_scale * inputVec->getValueByGlobalID( neighborPlusDofs[0] );
                     double h_plus_neighbor =
@@ -867,7 +862,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                         std::pow( std::pow( x_distance, 2 ) + std::pow( y_distance, 2 ), 0.5 );
 
                     // compute gap width
-                    auto lateralFaceCentroid = lateralFace.centroid();
+                    auto lateralFaceCentroid = lateralFace->centroid();
                     AMP::Mesh::Point xyPos( lateralFaceCentroid[0], lateralFaceCentroid[1] );
                     auto gapWidthIt = gapWidthMap.find( xyPos );
                     AMP_INSIST( gapWidthIt != gapWidthMap.end(), "Gap was not found." );
@@ -968,33 +963,33 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
         auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
         if ( lateralFaceIterator != interiorLateralFaceMap.end() ) {
             // get lateral face
-            AMP::Mesh::MeshElement lateralFace = lateralFaceIterator->second;
+            ElementPtr lateralFace = lateralFaceIterator->second->clone();
             // get crossflow from solution vector
             std::vector<size_t> gapDofs;
-            dof_manager->getDOFs( lateralFace.globalID(), gapDofs );
+            dof_manager->getDOFs( lateralFace->globalID(), gapDofs );
             double w_mid = w_scale * inputVec->getValueByGlobalID( gapDofs[0] );
 
             // get adjacent cells
-            std::vector<AMP::Mesh::MeshElement> adjacentCells =
-                d_Mesh->getElementParents( lateralFace, AMP::Mesh::GeomType::Cell );
+            auto adjacentCells =
+                d_Mesh->getElementParents( *lateralFace, AMP::Mesh::GeomType::Cell );
             AMP_INSIST( adjacentCells.size() == 2,
                         "There were not 2 adjacent cells to a lateral gap face" );
-            auto cell1         = adjacentCells[0];
-            auto cell2         = adjacentCells[1];
-            auto cell1Centroid = cell1.centroid();
-            auto cell2Centroid = cell2.centroid();
+            auto &cell1        = adjacentCells[0];
+            auto &cell2        = adjacentCells[1];
+            auto cell1Centroid = cell1->centroid();
+            auto cell2Centroid = cell2->centroid();
             // get upper and lower axial faces
-            AMP::Mesh::MeshElement cell1PlusFace;  // upper axial face for cell 1
-            AMP::Mesh::MeshElement cell1MinusFace; // lower axial face for cell 1
-            AMP::Mesh::MeshElement cell2PlusFace;  // upper axial face for cell 2
-            AMP::Mesh::MeshElement cell2MinusFace; // lower axial face for cell 2
-            getAxialFaces( cell1, cell1PlusFace, cell1MinusFace );
-            getAxialFaces( cell2, cell2PlusFace, cell2MinusFace );
+            ElementPtr cell1PlusFace;  // upper axial face for cell 1
+            ElementPtr cell1MinusFace; // lower axial face for cell 1
+            ElementPtr cell2PlusFace;  // upper axial face for cell 2
+            ElementPtr cell2MinusFace; // lower axial face for cell 2
+            getAxialFaces( *cell1, cell1PlusFace, cell1MinusFace );
+            getAxialFaces( *cell2, cell2PlusFace, cell2MinusFace );
 
             // determine if cells are in the first axial interval
-            auto cell1MinusFaceCentroid = cell1MinusFace.centroid();
-            auto cell1PlusFaceCentroid  = cell1PlusFace.centroid();
-            auto cell2MinusFaceCentroid = cell2MinusFace.centroid();
+            auto cell1MinusFaceCentroid = cell1MinusFace->centroid();
+            auto cell1PlusFaceCentroid  = cell1PlusFace->centroid();
+            auto cell2MinusFaceCentroid = cell2MinusFace->centroid();
             // if bottom face is at z = 0,
             if ( AMP::Utilities::approx_equal( cell1MinusFaceCentroid[2], 0.0 ) ) {
                 // implement fixed lateral mass flow rates inlet boundary condition
@@ -1003,22 +998,22 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
             } else {
                 // get cells below bottom faces
                 // get adjacent cells
-                std::vector<AMP::Mesh::MeshElement> cell1MinusFaceAdjacentCells =
-                    d_Mesh->getElementParents( cell1MinusFace, AMP::Mesh::GeomType::Cell );
-                std::vector<AMP::Mesh::MeshElement> cell2MinusFaceAdjacentCells =
-                    d_Mesh->getElementParents( cell2MinusFace, AMP::Mesh::GeomType::Cell );
+                auto cell1MinusFaceAdjacentCells =
+                    d_Mesh->getElementParents( *cell1MinusFace, AMP::Mesh::GeomType::Cell );
+                auto cell2MinusFaceAdjacentCells =
+                    d_Mesh->getElementParents( *cell2MinusFace, AMP::Mesh::GeomType::Cell );
                 AMP_INSIST( cell1MinusFaceAdjacentCells.size() == 2,
                             "There were not 2 adjacent cells to an axial face" );
                 AMP_INSIST( cell2MinusFaceAdjacentCells.size() == 2,
                             "There were not 2 adjacent cells to an axial face" );
-                AMP::Mesh::MeshElement axialCell11 = cell1MinusFaceAdjacentCells[0];
-                AMP::Mesh::MeshElement axialCell12 = cell1MinusFaceAdjacentCells[1];
-                AMP::Mesh::MeshElement axialCell21 = cell2MinusFaceAdjacentCells[0];
-                AMP::Mesh::MeshElement axialCell22 = cell2MinusFaceAdjacentCells[1];
-                auto axialCell11Centroid           = axialCell11.centroid();
-                auto axialCell12Centroid           = axialCell12.centroid();
-                auto axialCell21Centroid           = axialCell21.centroid();
-                auto axialCell22Centroid           = axialCell22.centroid();
+                auto &axialCell11        = cell1MinusFaceAdjacentCells[0];
+                auto &axialCell12        = cell1MinusFaceAdjacentCells[1];
+                auto &axialCell21        = cell2MinusFaceAdjacentCells[0];
+                auto &axialCell22        = cell2MinusFaceAdjacentCells[1];
+                auto axialCell11Centroid = axialCell11->centroid();
+                auto axialCell12Centroid = axialCell12->centroid();
+                auto axialCell21Centroid = axialCell21->centroid();
+                auto axialCell22Centroid = axialCell22->centroid();
                 // determine which cell is bottom cell
                 AMP::Mesh::MeshElement *bottomCell1;
                 // std::vector<double> *bottomCell1Centroid;
@@ -1029,14 +1024,14 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                     // ensure that axialCell12 is above
                     AMP_INSIST( axialCell12Centroid[2] > cell1MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell1 = &axialCell11;
+                    bottomCell1 = axialCell11.get();
                     // bottomCell1Centroid = &axialCell11Centroid;
                 } else {
                     // axialCell12 is bottom cell
                     // ensure that axialCell11 is above
                     AMP_INSIST( axialCell11Centroid[2] > cell1MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell1 = &axialCell12;
+                    bottomCell1 = axialCell12.get();
                     // bottomCell1Centroid = &axialCell12Centroid;
                 }
                 if ( axialCell21Centroid[2] < cell2MinusFaceCentroid[2] ) {
@@ -1044,38 +1039,38 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                     // ensure that axialCell22 is above
                     AMP_INSIST( axialCell22Centroid[2] > cell2MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell2 = &axialCell21;
+                    bottomCell2 = axialCell21.get();
                     // bottomCell2Centroid = &axialCell21Centroid;
                 } else {
                     // axialCell22 is bottom cell
                     // ensure that axialCell21 is above
                     AMP_INSIST( axialCell21Centroid[2] > cell2MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell2 = &axialCell22;
+                    bottomCell2 = axialCell22.get();
                     // bottomCell2Centroid = &axialCell22Centroid;
                 }
                 auto belowLateralFace = getAxiallyAdjacentLateralFace(
-                    bottomCell1, lateralFace, interiorLateralFaceMap );
+                    bottomCell1, *lateralFace, interiorLateralFaceMap );
                 std::vector<size_t> belowDofs;
-                dof_manager->getDOFs( belowLateralFace.globalID(), belowDofs );
+                dof_manager->getDOFs( belowLateralFace->globalID(), belowDofs );
                 double w_minus = w_scale * inputVec->getValueByGlobalID( belowDofs[0] );
 
                 // get axial faces of bottom cells
-                AMP::Mesh::MeshElement bottomCell1PlusFace;
-                AMP::Mesh::MeshElement bottomCell1MinusFace;
-                AMP::Mesh::MeshElement bottomCell2PlusFace;
-                AMP::Mesh::MeshElement bottomCell2MinusFace;
+                ElementPtr bottomCell1PlusFace;
+                ElementPtr bottomCell1MinusFace;
+                ElementPtr bottomCell2PlusFace;
+                ElementPtr bottomCell2MinusFace;
                 getAxialFaces( *bottomCell1, bottomCell1PlusFace, bottomCell1MinusFace );
                 getAxialFaces( *bottomCell2, bottomCell2PlusFace, bottomCell2MinusFace );
                 // get unknowns from axial faces of bottom cells
                 std::vector<size_t> dofs;
-                dof_manager->getDOFs( bottomCell1PlusFace.globalID(), dofs );
+                dof_manager->getDOFs( bottomCell1PlusFace->globalID(), dofs );
                 double m1_bottomPlus = m_scale * inputVec->getValueByGlobalID( dofs[0] );
-                dof_manager->getDOFs( bottomCell1MinusFace.globalID(), dofs );
+                dof_manager->getDOFs( bottomCell1MinusFace->globalID(), dofs );
                 double m1_bottomMinus = m_scale * inputVec->getValueByGlobalID( dofs[0] );
-                dof_manager->getDOFs( bottomCell2PlusFace.globalID(), dofs );
+                dof_manager->getDOFs( bottomCell2PlusFace->globalID(), dofs );
                 double m2_bottomPlus = m_scale * inputVec->getValueByGlobalID( dofs[0] );
-                dof_manager->getDOFs( bottomCell2MinusFace.globalID(), dofs );
+                dof_manager->getDOFs( bottomCell2MinusFace->globalID(), dofs );
                 double m2_bottomMinus = m_scale * inputVec->getValueByGlobalID( dofs[0] );
 
                 double m1_bottomMid = 0.5 * ( m1_bottomPlus + m1_bottomMinus );
@@ -1086,10 +1081,10 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                 std::vector<size_t> cell2PlusDofs;
                 std::vector<size_t> cell1MinusDofs;
                 std::vector<size_t> cell2MinusDofs;
-                dof_manager->getDOFs( cell1PlusFace.globalID(), cell1PlusDofs );
-                dof_manager->getDOFs( cell2PlusFace.globalID(), cell2PlusDofs );
-                dof_manager->getDOFs( cell1MinusFace.globalID(), cell1MinusDofs );
-                dof_manager->getDOFs( cell2MinusFace.globalID(), cell2MinusDofs );
+                dof_manager->getDOFs( cell1PlusFace->globalID(), cell1PlusDofs );
+                dof_manager->getDOFs( cell2PlusFace->globalID(), cell2PlusDofs );
+                dof_manager->getDOFs( cell1MinusFace->globalID(), cell1MinusDofs );
+                dof_manager->getDOFs( cell2MinusFace->globalID(), cell2MinusDofs );
 
                 double m1_plus   = m_scale * inputVec->getValueByGlobalID( cell1PlusDofs[0] );
                 double m2_plus   = m_scale * inputVec->getValueByGlobalID( cell2PlusDofs[0] );
@@ -1153,14 +1148,14 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                         // cell is in the uppermost axial interval
                         w_axialDonor_plus = w_mid;
                     } else {
-                        std::vector<AMP::Mesh::MeshElement> cell1PlusFaceAdjacentCells =
-                            d_Mesh->getElementParents( cell1PlusFace, AMP::Mesh::GeomType::Cell );
+                        auto cell1PlusFaceAdjacentCells =
+                            d_Mesh->getElementParents( *cell1PlusFace, AMP::Mesh::GeomType::Cell );
                         AMP_INSIST( cell1PlusFaceAdjacentCells.size() == 2,
                                     "There were not 2 adjacent cells to an axial gap face" );
-                        AMP::Mesh::MeshElement axialCell1 = cell1PlusFaceAdjacentCells[0];
-                        AMP::Mesh::MeshElement axialCell2 = cell1PlusFaceAdjacentCells[1];
-                        auto axialCell1Centroid           = axialCell1.centroid();
-                        auto axialCell2Centroid           = axialCell2.centroid();
+                        auto &axialCell1        = cell1PlusFaceAdjacentCells[0];
+                        auto &axialCell2        = cell1PlusFaceAdjacentCells[1];
+                        auto axialCell1Centroid = axialCell1->centroid();
+                        auto axialCell2Centroid = axialCell2->centroid();
                         // determine which cell is top cell
                         AMP::Mesh::MeshElement *topCell;
                         if ( axialCell1Centroid[2] > cell1PlusFaceCentroid[2] ) {
@@ -1168,18 +1163,18 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                             // ensure that axialCell2 is above
                             AMP_INSIST( axialCell2Centroid[2] < cell1PlusFaceCentroid[2],
                                         "Both adjacent cells are above axial face parent" );
-                            topCell = &axialCell1;
+                            topCell = axialCell1.get();
                         } else {
                             // axialCell2 is top cell
                             // ensure that axialCell1 is above
                             AMP_INSIST( axialCell1Centroid[2] < cell1PlusFaceCentroid[2],
                                         "Both adjacent cells are above axial face parent" );
-                            topCell = &axialCell2;
+                            topCell = axialCell2.get();
                         }
                         auto aboveLateralFace = getAxiallyAdjacentLateralFace(
-                            topCell, lateralFace, interiorLateralFaceMap );
+                            topCell, *lateralFace, interiorLateralFaceMap );
                         std::vector<size_t> aboveDofs;
-                        dof_manager->getDOFs( aboveLateralFace.globalID(), aboveDofs );
+                        dof_manager->getDOFs( aboveLateralFace->globalID(), aboveDofs );
                         double w_plus     = w_scale * inputVec->getValueByGlobalID( aboveDofs[0] );
                         w_axialDonor_plus = w_plus;
                     }
@@ -1196,7 +1191,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                     std::pow( std::pow( x_distance, 2 ) + std::pow( y_distance, 2 ), 0.5 );
 
                 // compute gap width
-                auto lateralFaceCentroid = lateralFace.centroid();
+                auto lateralFaceCentroid = lateralFace->centroid();
                 AMP::Mesh::Point xyPos( lateralFaceCentroid[0], lateralFaceCentroid[1] );
                 auto gapWidthIt = gapWidthMap.find( xyPos );
                 AMP_INSIST( gapWidthIt != gapWidthMap.end(), "Gap was not found." );
@@ -1220,9 +1215,9 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
             lateralFaceIterator = exteriorLateralFaceMap.find( faceCentroid );
             if ( lateralFaceIterator != exteriorLateralFaceMap.end() ) {
                 // get lateral face
-                auto lateralFace = lateralFaceIterator->second;
+                auto &lateralFace = lateralFaceIterator->second;
                 std::vector<size_t> gapDofs;
-                dof_manager->getDOFs( lateralFace.globalID(), gapDofs );
+                dof_manager->getDOFs( lateralFace->globalID(), gapDofs );
                 const double val = 0.0;
                 outputVec->setValuesByGlobalID( 1, &gapDofs[0], &val );
             }
@@ -1356,8 +1351,8 @@ double SubchannelFourEqNonlinearOperator::Enthalpy( double T, double p )
 }
 
 void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElement &cell,
-                                                       AMP::Mesh::MeshElement &upperFace,
-                                                       AMP::Mesh::MeshElement &lowerFace )
+                                                       ElementPtr &upperFace,
+                                                       ElementPtr &lowerFace )
 {
     // gets upper and lower faces of a cell
     bool upperFaceFound = false;
@@ -1367,7 +1362,7 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
     auto cellFaces = cell.getElements( AMP::Mesh::GeomType::Face );
     // loop over faces of cell
     for ( auto &cellFace : cellFaces ) {
-        auto faceCentroid = cellFace.centroid();
+        auto faceCentroid = cellFace->centroid();
         // if z-coordinates of centroids of the cell and face are not equal,
         if ( !AMP::Utilities::approx_equal( faceCentroid[2], cellCentroid[2], 1.0e-6 ) ) {
             // if face is above cell centroid,
@@ -1376,7 +1371,7 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
                 if ( upperFaceFound )
                     AMP_ERROR( "Two upper axial faces were found for the same cell." );
                 else {
-                    upperFace      = cellFace;
+                    upperFace      = cellFace->clone();
                     upperFaceFound = true;
                 }
             else
@@ -1384,7 +1379,7 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
                 if ( lowerFaceFound )
                     AMP_ERROR( "Two lower axial faces were found for the same cell." );
                 else {
-                    lowerFace      = cellFace;
+                    lowerFace      = cellFace->clone();
                     lowerFaceFound = true;
                 }
         }
@@ -1393,10 +1388,11 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
         AMP_ERROR( "One or both axial faces of a cell were not found." );
 }
 
-AMP::Mesh::MeshElement SubchannelFourEqNonlinearOperator::getAxiallyAdjacentLateralFace(
+std::unique_ptr<AMP::Mesh::MeshElement>
+SubchannelFourEqNonlinearOperator::getAxiallyAdjacentLateralFace(
     AMP::Mesh::MeshElement *daughterCell,
     const AMP::Mesh::MeshElement &parentLateralFace,
-    const std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> &interiorLateralFaceMap )
+    const std::map<AMP::Mesh::Point, ElementPtr> &interiorLateralFaceMap )
 {
     // gets the lateral face that is either below or above another lateral face
     // daughterCell: cell that is either above or below the parent cell
@@ -1412,15 +1408,15 @@ AMP::Mesh::MeshElement SubchannelFourEqNonlinearOperator::getAxiallyAdjacentLate
     // loop over faces of daughter cell to determine which face is the lateral face axially adjacent
     // to the current
     // lateral face
-    AMP::Mesh::MeshElement axiallyAdjacentLateralFace;
+    ElementPtr axiallyAdjacentLateralFace;
     auto daughterCellFaces = daughterCell->getElements( AMP::Mesh::GeomType::Face );
     for ( auto &daughterCellFace : daughterCellFaces ) {
-        auto faceCentroid        = daughterCellFace.centroid();
+        auto faceCentroid        = daughterCellFace->centroid();
         auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
         if ( lateralFaceIterator != interiorLateralFaceMap.end() ) {
             // get lateral face
-            auto daughterLateralFace         = lateralFaceIterator->second;
-            auto daughterLateralFaceCentroid = daughterLateralFace.centroid();
+            auto daughterLateralFace         = lateralFaceIterator->second->clone();
+            auto daughterLateralFaceCentroid = daughterLateralFace->centroid();
             // loop through coordinates to determine if lateral face is the lateral face axially
             // adjacent to the current
             // lateral face
@@ -1434,7 +1430,7 @@ AMP::Mesh::MeshElement SubchannelFourEqNonlinearOperator::getAxiallyAdjacentLate
                     isAxiallyAdjacentLateralFace = false;
             }
             if ( isAxiallyAdjacentLateralFace ) {
-                axiallyAdjacentLateralFace = daughterLateralFace;
+                axiallyAdjacentLateralFace = daughterLateralFace->clone();
                 if ( axiallyAdjacentLateralFaceFound )
                     AMP_ERROR( "Found multiple axially adjacent lateral faces." );
                 else

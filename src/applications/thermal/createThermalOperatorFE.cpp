@@ -53,7 +53,7 @@ integrateSourceVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     // Get the integration type
     std::string integrationType;
     auto srcDOFs = src->subsetVectorForVariable( srcName )->getDOFManager();
-    auto type    = srcDOFs->getElement( 0 ).elementType();
+    auto type    = srcDOFs->getElement( 0 )->elementType();
     if ( type == AMP::Mesh::GeomType::Vertex )
         integrationType = "NodalScalar";
     else if ( type == AMP::Mesh::GeomType::Cell )

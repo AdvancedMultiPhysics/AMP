@@ -130,7 +130,7 @@ protected:
     std::shared_ptr<AMP::Discretization::DOFManager> d_elementDofMap;
     std::shared_ptr<AMP::Discretization::DOFManager> d_nodeDofMap;
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
 
 private:
     std::shared_ptr<AMP::LinearAlgebra::MultiVariable> d_inpVariables; // Input Active variable
