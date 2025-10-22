@@ -202,6 +202,50 @@ void libmeshMeshElement::getElements( const GeomType type, ElementList &children
         }
     }
 }
+int libmeshMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
+{
+    AMP_INSIST( type <= d_globalID.type(), "sub-elements must be of a smaller or equivalent type" );
+    auto *elem = (libMesh::Elem *) ptr_element;
+    if ( d_globalID.type() == GeomType::Vertex ) {
+        // A vertex does not have children, return itself
+        if ( type != GeomType::Vertex )
+            AMP_ERROR( "A vertex is the base element and cannot have and sub-elements" );
+        ID[0] = globalID();
+        return 1;
+    } else if ( type == d_globalID.type() ) {
+        // Return the children of the current element
+        if ( elem->has_children() ) {
+            for ( unsigned int i = 0; i < elem->n_children(); i++ ) {
+                auto child     = elem->child_ptr( i );
+                int local_id   = child->id();
+                int owner_rank = child->processor_id();
+                bool is_local  = owner_rank == (int) d_rank;
+                ID[i]          = MeshElementID( is_local, type, local_id, owner_rank, d_meshID );
+            }
+            return elem->n_children();
+        } else {
+            ID[0] = globalID();
+            return 1;
+        }
+    } else if ( type == GeomType::Vertex ) {
+        // Return the nodes of the current element
+        for ( unsigned int i = 0; i < elem->n_nodes(); i++ ) {
+            auto node      = elem->node_ptr( i );
+            int local_id   = node->id();
+            int owner_rank = node->processor_id();
+            bool is_local  = owner_rank == (int) d_rank;
+            ID[i]          = MeshElementID( is_local, type, local_id, owner_rank, d_meshID );
+        }
+        return elem->n_nodes();
+    } else {
+        // Get the elements then the ids
+        ElementList elements;
+        this->getElements( type, elements );
+        for ( size_t i = 0; i < elements.size(); i++ )
+            ID[i] = elements[i]->globalID();
+        return elements.size();
+    }
+}
 
 
 /****************************************************************
