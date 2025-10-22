@@ -9,7 +9,7 @@ namespace AMP::Mesh {
 
 
 // Function to evaluate the magnitude of a cross product in 3d
-double cross3magnitude( const double a[3], const double b[3] )
+static inline double cross3magnitude( const double a[3], const double b[3] )
 {
     double v[3];
     v[0] = a[1] * b[2] - a[2] * b[1];
@@ -18,7 +18,7 @@ double cross3magnitude( const double a[3], const double b[3] )
     return std::sqrt( v[0] * v[0] + v[1] * v[1] + v[2] * v[2] );
 }
 // Function to evaluate the dot produce of a vector and a cross product in 3d ( a . ( b X c ) )
-double dot3cross( const double a[3], const double b[3], const double c[3] )
+static inline double dot3cross( const double a[3], const double b[3], const double c[3] )
 {
     double v[3];
     v[0] = b[1] * c[2] - b[2] * c[1];

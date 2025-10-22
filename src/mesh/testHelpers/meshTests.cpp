@@ -11,6 +11,7 @@
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/typeid.h"
 #include "AMP/vectors/Vector.h"
 
 #include "ProfilerApp.h"
@@ -137,8 +138,9 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         // Get the current id
         auto id = element.globalID();
         ids.push_back( id );
-        if ( id != element.globalID() )
-            id_pass = false;
+        id_pass = id_pass && !element.isNull();
+        id_pass = id_pass && element.globalID() != element.globalID();
+        id_pass = id_pass && element.getTypeID() != AMP::getTypeID<MeshElement>();
         // Check the owner rank
         int ownerRank       = id.owner_rank();
         int globalOwnerRank = element.globalOwnerRank( *mesh );
@@ -186,16 +188,13 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         if ( id.is_local() ) {
             // Test getElements
             for ( int t2 = 0; t2 <= (int) type; t2++ ) {
-                auto type2  = static_cast<AMP::Mesh::GeomType>( t2 );
-                auto pieces = element.getElements( type2 );
-                ids.resize( pieces.size() );
+                MeshElementID ids[16];
+                auto type2    = static_cast<AMP::Mesh::GeomType>( t2 );
+                auto pieces   = element.getElements( type2 );
+                size_t N      = element.getElementsID( type2, ids );
+                elements_pass = elements_pass && !pieces.empty() && pieces.size() == N;
                 for ( size_t j = 0; j < pieces.size(); j++ )
-                    ids[j] = pieces[j]->globalID();
-                AMP::Utilities::unique( ids );
-                if ( pieces.empty() || pieces.size() != ids.size() ) {
-                    pieces        = element.getElements( type2 );
-                    elements_pass = false;
-                }
+                    elements_pass = elements_pass && ids[j] == pieces[j]->globalID();
             }
             // Test getNeighbors
             // Note: some neighbors may be null (e.g. surfaces)
@@ -760,6 +759,11 @@ void meshTests::testID( AMP::UnitTest &ut )
         ut.passes( "MeshElementID tests" );
     else
         ut.failure( "MeshElementID tests" );
+    // Test basic MeshElement info
+    MeshElement elem;
+    bool passElem = elem.isNull() && elem.getTypeID() == AMP::getTypeID<MeshElement>() &&
+                    elem.elementClass() == "MeshElement";
+    ut.pass_fail( passElem, "MeshElement()" );
 }
 
 

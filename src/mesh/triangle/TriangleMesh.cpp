@@ -1214,6 +1214,7 @@ std::array<int, TYPE + 1> TriangleMesh<NG>::getElem( const ElementID &id ) const
     } else if constexpr ( TYPE == 2 ) {
         return d_childFace[id];
     }
+    AMP_ERROR( "Internal error" );
 }
 template<uint8_t NG>
 template<uint8_t TYPE>

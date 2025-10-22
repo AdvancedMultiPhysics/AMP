@@ -6,6 +6,17 @@
 #include <string_view>
 #include <type_traits>
 
+#include "AMP/AMP_TPLs.h"
+
+#ifndef AMP_CXX_STANDARD
+    #define AMP_CXX_STANDARD 17
+#endif
+#if AMP_CXX_STANDARD >= 20
+    #include <source_location>
+#else
+    #define consteval constexpr
+#endif
+
 
 namespace AMP {
 
@@ -76,7 +87,7 @@ constexpr void deblank( char *str, size_t N )
 
 //! Get the type name
 template<typename T>
-constexpr void getTypeName( uint64_t N, char *name )
+consteval void getTypeName( uint64_t N, char *name )
 {
     if constexpr ( std::is_same_v<T, bool> ) {
         copy( name, "bool", N );
@@ -112,9 +123,19 @@ constexpr void getTypeName( uint64_t N, char *name )
         copy( name, "std::string_view", N );
     } else {
         // Get the type name from the function
-#if defined( __clang__ ) || defined( __GNUC__ )
+#if AMP_CXX_STANDARD >= 20
+        auto source = std::source_location::current();
+        std::string_view name2( source.function_name() );
+#elif defined( __clang__ ) || defined( __GNUC__ )
         constexpr std::string_view name0 = __PRETTY_FUNCTION__;
         std::string_view name2           = name0;
+#elif defined( _MSC_VER )
+        constexpr std::string_view name0 = __FUNCSIG__;
+        std::string_view name2           = name0;
+#else
+    #error "Not finished";
+#endif
+        // Try to get just the type of interest
         if ( name2.find( "T = " ) != std::string::npos ) {
             name2 = name2.substr( name2.find( "T = " ) + 4 );
             if ( name2.find( ';' ) != std::string::npos )
@@ -122,9 +143,6 @@ constexpr void getTypeName( uint64_t N, char *name )
             else
                 name2 = name2.substr( 0, name2.rfind( ']' ) );
         }
-#elif defined( _MSC_VER )
-        constexpr std::string_view name0 = __FUNCSIG__;
-        std::string_view name2           = name0;
         if ( name2.find( "getTypeName<" ) != std::string::npos ) {
             auto i1 = name2.find( "getTypeName<" );
             auto i2 = name2.rfind( ">" );
@@ -132,10 +150,6 @@ constexpr void getTypeName( uint64_t N, char *name )
         }
         if ( name2[0] == ' ' )
             name2.remove_prefix( 1 );
-#else
-    // Not finished, one possible workaround, pass default class name as string_view
-    #error "Not finished";
-#endif
         // Copy the function name
         name2 = name2.substr( 0, N - 1 );
         for ( size_t i = 0; i < N; i++ )
@@ -167,7 +181,7 @@ constexpr void getTypeName( uint64_t N, char *name )
 
 //! Perform murmur hash (constexpr version that assumes key.size() is a multiple of 8)
 template<std::size_t N>
-constexpr uint64_t MurmurHash64A( const char *key )
+consteval uint64_t MurmurHash64A( const char *key )
 {
     static_assert( N % 8 == 0 );
     const uint64_t seed = 0x65ce2a5d390efa53LLU;
@@ -194,7 +208,7 @@ constexpr uint64_t MurmurHash64A( const char *key )
 
 //! Get the type info (does not resolve dynamic types)
 template<typename T0>
-constexpr typeID getTypeIDEval()
+consteval typeID getTypeIDEval()
 {
     typeID id = {};
     // Remove const/references
@@ -213,7 +227,7 @@ constexpr typeID getTypeIDEval()
     return id;
 }
 template<typename TYPE>
-constexpr typeID getTypeID()
+consteval typeID getTypeID()
 {
     constexpr auto id = getTypeIDEval<TYPE>();
     static_assert( id != 0 );

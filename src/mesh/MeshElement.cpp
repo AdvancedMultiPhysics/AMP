@@ -13,7 +13,7 @@
 namespace AMP::Mesh {
 
 
-static_assert( sizeof( MeshElement ) == sizeof( std::unique_ptr<MeshElement> ) );
+static_assert( sizeof( std::unique_ptr<MeshElement> ) == 8 );
 
 
 /********************************************************
