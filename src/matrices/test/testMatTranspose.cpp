@@ -39,27 +39,21 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
 
-    if ( memoryLocation == "host" ) {
-        inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-        outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
-    } else {
-        AMP_ASSERT( memoryLocation == "managed" );
-        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-        inVec        = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
-        outVec       = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
-    }
+    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
+    inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+    fillWithPseudoLaplacian( matrix_h, dofManager );
 
-    // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix(
-        inVec, outVec, AMP::Utilities::backendFromString( accelerationBackend ), type );
-    if ( matrix ) {
-        ut->passes( type + ": Able to create a square matrix" );
-    } else {
-        ut->failure( type + ": Unable to create a square matrix" );
-    }
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
-    fillWithPseudoLaplacian( matrix, dofManager );
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    if ( memoryLocation == "host" && type == "CSRMatrix" ) {
+        matrix_h->setBackend( backend );
+    }
+    auto matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+                      matrix_h :
+                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
 
     // Get matrix transpose
     auto matrix_t = matrix->transpose();
@@ -154,7 +148,11 @@ size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
+#endif
+#ifdef AMP_USE_DEVICE
+    // backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
     size_t nGlobal = 0;
     for ( auto &[backend, memory] : backendsAndMemory )

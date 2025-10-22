@@ -59,6 +59,9 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
+    if ( memoryLocation == "host" && type == "CSRMatrix" ) {
+        matrix_h->setBackend( backend );
+    }
     auto matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
                       matrix_h :
                       AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
