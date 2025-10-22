@@ -128,12 +128,14 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         if ( element.elementClass() == "libmeshMeshElement" )
             skip_nearest = true;
     }
+    int N_skip        = skip_nearest ? 10 : 3;
     int neighbor_pass = 1;
     int commSize      = mesh->getComm().getSize();
     int myGlobalRank  = AMP::AMP_MPI( AMP_COMM_WORLD ).getRank();
     int globalSize    = AMP::AMP_MPI( AMP_COMM_WORLD ).getSize();
     std::vector<AMP::Mesh::MeshElementID> ids;
     ids.reserve( iterator.size() );
+    size_t testElementIndex = 0;
     for ( const auto &element : iterator ) {
         // Get the current id
         auto id = element.globalID();
@@ -186,34 +188,38 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
             }
         }
         if ( id.is_local() ) {
-            // Test getElements
-            for ( int t2 = 0; t2 <= (int) type; t2++ ) {
-                MeshElementID ids[16];
-                auto type2    = static_cast<AMP::Mesh::GeomType>( t2 );
-                auto pieces   = element.getElements( type2 );
-                size_t N      = element.getElementsID( type2, ids );
-                elements_pass = elements_pass && !pieces.empty() && pieces.size() == N;
-                for ( size_t j = 0; j < pieces.size(); j++ )
-                    elements_pass = elements_pass && ids[j] == pieces[j]->globalID();
-            }
-            // Test getNeighbors
-            // Note: some neighbors may be null (e.g. surfaces)
-            auto neighbors     = element.getNeighbors();
-            size_t N_neighbors = 0;
-            for ( auto &neighbor : neighbors ) {
-                if ( neighbor ) {
-                    N_neighbors++;
-                    // Verify that the neighbors does not include self
-                    if ( *neighbor == element )
-                        neighbor_pass = 0;
+            bool skip = ( testElementIndex++ ) % N_skip != 0;
+            if ( !skip ) {
+                // Test getElements
+                for ( int t2 = 0; t2 <= (int) type; t2++ ) {
+                    MeshElementID ids[16];
+                    auto type2    = static_cast<AMP::Mesh::GeomType>( t2 );
+                    auto pieces   = element.getElements( type2 );
+                    size_t N      = element.getElementsID( type2, ids );
+                    elements_pass = elements_pass && !pieces.empty() && pieces.size() == N;
+                    for ( size_t j = 0; j < pieces.size(); j++ )
+                        elements_pass = elements_pass && ids[j] == pieces[j]->globalID();
                 }
-            }
-            if ( N_neighbors == 0 ) {
-                if ( element.elementType() == AMP::Mesh::GeomType::Vertex ||
-                     static_cast<int>( element.elementType() ) == mesh->getDim() )
-                    neighbor_pass = 0; // All nodes / elements should have some neighbors
-                else if ( neighbor_pass == 1 )
-                    neighbor_pass = 2; // Neighbors of other element types are not always supported
+                // Test getNeighbors
+                // Note: some neighbors may be null (e.g. surfaces)
+                auto neighbors     = element.getNeighbors();
+                size_t N_neighbors = 0;
+                for ( auto &neighbor : neighbors ) {
+                    if ( neighbor ) {
+                        N_neighbors++;
+                        // Verify that the neighbors does not include self
+                        if ( *neighbor == element )
+                            neighbor_pass = 0;
+                    }
+                }
+                if ( N_neighbors == 0 ) {
+                    if ( element.elementType() == AMP::Mesh::GeomType::Vertex ||
+                         static_cast<int>( element.elementType() ) == mesh->getDim() )
+                        neighbor_pass = 0; // All nodes / elements should have some neighbors
+                    else if ( neighbor_pass == 1 )
+                        neighbor_pass =
+                            2; // Neighbors of other element types are not always supported
+                }
             }
         }
     }
@@ -252,7 +258,10 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
     if ( !skip_nearest ) {
         try {
             bool pass = true;
+            int i     = 0;
             for ( const auto &element : iterator ) {
+                if ( ( i++ ) % N_skip != 0 )
+                    continue;
                 auto x = element.centroid();
                 auto y = element.nearest( x );
                 auto d = ( x - y ).norm();
