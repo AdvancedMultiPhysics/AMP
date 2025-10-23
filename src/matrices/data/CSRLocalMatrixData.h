@@ -160,7 +160,7 @@ public:
             return;
         }
 
-        colMap.resize( d_is_diag ? ( d_last_col - d_first_col ) : d_ncols_unq );
+        colMap.resize( d_is_diag ? ( d_last_col - d_first_col ) : d_ncols_unq, 0 );
 
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );

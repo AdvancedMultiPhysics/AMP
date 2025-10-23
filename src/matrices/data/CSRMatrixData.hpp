@@ -114,8 +114,6 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
         }
 
     } else {
-        AMP::pout << "Constructed using base params, got backend: "
-                  << AMP::Utilities::getString( this->getBackend() ) << std::endl;
         return;
     }
 
@@ -259,9 +257,10 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
         // pull offd column map to host if not accessible
         std::vector<gidx_t> col_map_migrate;
-        if ( d_memory_location < AMP::Utilities::MemoryType::device ) {
+        if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
             d_offd_matrix->getColumnMap( col_map_migrate );
         }
+
         gidx_t *col_map = d_memory_location < AMP::Utilities::MemoryType::device ?
                               d_offd_matrix->getColumnMap() :
                               col_map_migrate.data();
@@ -319,7 +318,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
     // handle edge case of no recv'd matrices (e.g. parallel matrix is block diagonal)
     if ( recv_blocks.size() == 0 ) {
         return std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, false );
+            params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, false );
     }
 
     // return horizontal concatenation of recv'd blocks

@@ -506,6 +506,8 @@ template<typename Config>
 template<typename ConfigOut>
 std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migrate() const
 {
+    PROFILE( "CSRLocalMatrixData::migrate" );
+
     using outdata_t = CSRLocalMatrixData<ConfigOut>;
 
     using out_alloc_t      = typename outdata_t::allocator_type;
@@ -583,16 +585,18 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
     // transpose helpers resposible for setting up row_starts
     transposeData->setNNZ( d_nnz );
 
-    if ( d_is_diag ) {
-        // both host and device implementations require some workspace
-        // host needs out_num_rows worth of lidx_t's, device needs nnz worth
-        // of them
-        const auto worksize = d_memory_location == AMP::Utilities::MemoryType::host ?
-                                  transposeData->d_num_rows :
-                                  d_nnz;
-        lidxAllocator_t lidx_alloc;
-        auto workspace = sharedArrayBuilder( worksize, lidx_alloc );
+    // both host and device implementations require some workspace
+    // host needs out_num_rows worth of lidx_t's
+    // device needs two buffers of lidx_t's with nnz entries each
+    const auto worksize =
+        d_memory_location == AMP::Utilities::MemoryType::host ? transposeData->d_num_rows : d_nnz;
+    lidxAllocator_t lidx_alloc;
+    auto counters     = sharedArrayBuilder( worksize, lidx_alloc );
+    auto reduce_space = d_memory_location == AMP::Utilities::MemoryType::host ?
+                            nullptr :
+                            sharedArrayBuilder( worksize, lidx_alloc );
 
+    if ( d_is_diag ) {
         AMP_INSIST( d_cols_loc.get(),
                     "CSRLocalMatrixData::transpose Diag block must have accessible local columns" );
         CSRMatrixDataHelpers<Config>::TransposeDiag( d_row_starts.get(),
@@ -606,7 +610,8 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
                                                      transposeData->d_cols_loc.get(),
                                                      transposeData->d_cols.get(),
                                                      transposeData->d_coeffs.get(),
-                                                     workspace.get() );
+                                                     counters.get(),
+                                                     reduce_space.get() );
     } else {
         AMP_INSIST(
             d_cols.get(),
@@ -618,9 +623,13 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
                                                      d_first_col,
                                                      transposeData->d_num_rows,
                                                      transposeData->d_first_col,
+                                                     d_nnz,
                                                      transposeData->d_row_starts.get(),
+                                                     transposeData->d_cols_loc.get(),
                                                      transposeData->d_cols.get(),
-                                                     transposeData->d_coeffs.get() );
+                                                     transposeData->d_coeffs.get(),
+                                                     counters.get(),
+                                                     reduce_space.get() );
     }
 
     return transposeData;
@@ -660,8 +669,7 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
             d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0 );
     }
 
-    if ( AMP::Utilities::getMemoryType( d_row_starts.get() ) ==
-         AMP::Utilities::MemoryType::device ) {
+    if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
         const lidx_t *ptr_loc = d_row_starts.get() + d_num_rows;
         AMP::Utilities::Algorithms<lidx_t>::copy_n( ptr_loc, 1, &d_nnz );
     } else {
