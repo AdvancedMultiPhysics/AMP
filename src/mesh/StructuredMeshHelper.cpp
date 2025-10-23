@@ -6,7 +6,7 @@
 #include "AMP/mesh/structured/structuredMeshIterator.h"
 
 #include <tuple>
-
+#include <numeric>
 
 namespace AMP::Mesh {
 
