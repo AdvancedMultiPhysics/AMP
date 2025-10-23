@@ -297,8 +297,9 @@ public:
     std::shared_ptr<localmatrixdata_t> subsetRows( const std::vector<gidx_t> &rows ) const;
 
     /** \brief  Extract subset of each row containing global columns in some range
-     * \param[in] idx_lo  Lower global column index (inclusive)
-     * \param[in] idx_up  Upper global column index (exclusive)
+     * \param[in] idx_lo   Lower global column index (inclusive)
+     * \param[in] idx_up   Upper global column index (exclusive)
+     * \param[in] is_diag  Flag if produced matrix should be marked as diag block
      * \return  shared_ptr to CSRLocalMatrixData holding the extracted nonzeros
      * \details  Returned matrix concatenates contributions for both diag and
      * offd components. Row and column extents are inherited from this matrix,
