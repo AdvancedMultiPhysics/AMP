@@ -144,10 +144,8 @@ constexpr double Units::strtod( std::string_view str )
 /********************************************************************
  * Constructors                                                      *
  ********************************************************************/
-constexpr Units::Units() : d_unit( { 0 } ), d_SI( { 0 } ), d_scale( 0.0 ) {}
 constexpr Units::Units( const char *str ) : Units( std::string_view( str ) ) {}
 constexpr Units::Units( const std::string_view &str )
-    : d_unit( { 0 } ), d_SI( { 0 } ), d_scale( 0.0 )
 {
     if ( !str.empty() ) {
         Units tmp = read( str );
