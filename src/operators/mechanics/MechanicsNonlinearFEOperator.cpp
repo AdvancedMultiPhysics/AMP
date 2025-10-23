@@ -793,7 +793,7 @@ void MechanicsNonlinearFEOperator::getDofIndicesForCurrentElement(
 {
     dofIds.resize( d_currNodes.size() );
     for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-        d_dofMap[varId]->getDOFs( d_currNodes[j].globalID(), dofIds[j] );
+        d_dofMap[varId]->getDOFs( d_currNodes[j]->globalID(), dofIds[j] );
     } // end of j
 }
 

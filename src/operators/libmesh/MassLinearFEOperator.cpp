@@ -130,7 +130,7 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_temperature->getDOFManager();
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localTemperature[r] = d_temperature->getValueByGlobalID( dofs[0] );
         }
@@ -143,7 +143,7 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_concentration->getDOFManager();
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localConcentration[r] = d_concentration->getValueByGlobalID( dofs[0] );
         }
@@ -156,7 +156,7 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_burnup->getDOFManager();
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localBurnup[r] = d_burnup->getValueByGlobalID( dofs[0] );
         }
@@ -178,7 +178,7 @@ void MassLinearFEOperator::postElementOperation()
 
     std::vector<size_t> d_dofIndices( d_currNodes.size() ), dofs( 1 );
     for ( size_t i = 0; i < d_currNodes.size(); i++ ) {
-        d_inDofMap->getDOFs( d_currNodes[i].globalID(), dofs );
+        d_inDofMap->getDOFs( d_currNodes[i]->globalID(), dofs );
         AMP_ASSERT( dofs.size() == 1 );
         d_dofIndices[i] = dofs[0];
     }

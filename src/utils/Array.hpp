@@ -1,6 +1,7 @@
 #ifndef included_AMP_ArrayClass_hpp
 #define included_AMP_ArrayClass_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMP_MPI_pack.hpp"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"

@@ -299,11 +299,11 @@ AMP::Mesh::MeshElementID simpleDOFManager::getElementID( size_t dof ) const
     }
     return AMP::Mesh::MeshElementID();
 }
-AMP::Mesh::MeshElement simpleDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> simpleDOFManager::getElement( size_t dof ) const
 {
     auto id = simpleDOFManager::getElementID( dof );
     if ( id.isNull() )
-        return AMP::Mesh::MeshElement();
+        return {};
     return d_mesh->getElement( id );
 }
 
@@ -354,35 +354,35 @@ size_t simpleDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
     if ( objType == d_type && ( objType == AMP::Mesh::GeomType::Vertex || objType == meshType ) ) {
         // Use the getNeighbors function to get the neighbors of the current element
         N += appendDOFs( id, dofs, N, N_alloc );
-        auto neighbors = obj.getNeighbors();
+        auto neighbors = obj->getNeighbors();
         for ( auto &elem : neighbors ) {
             if ( elem )
                 N += appendDOFs( elem->globalID(), dofs, N, N_alloc );
         }
     } else if ( objType == d_type ) {
         // We need to use the mesh to get the connectivity of the elements of the same type
-        auto parents = d_mesh->getElementParents( obj, meshType );
+        auto parents = d_mesh->getElementParents( *obj, meshType );
         std::vector<AMP::Mesh::MeshElementID> ids;
         for ( auto &parent : parents ) {
-            auto children = parent.getElements( objType );
+            auto children = parent->getElements( objType );
             ids.reserve( ids.size() + children.size() );
             for ( auto &elem : children )
-                ids.push_back( elem.globalID() );
+                ids.push_back( elem->globalID() );
         }
         AMP::Utilities::unique( ids );
         for ( auto &id2 : ids )
             N += appendDOFs( id2, dofs, N, N_alloc );
     } else if ( objType > d_type ) {
         // The desired element type is < the current element type, use getElements
-        auto children = obj.getElements( d_type );
+        auto children = obj->getElements( d_type );
         for ( auto &elem : children )
-            N += appendDOFs( elem.globalID(), dofs, N, N_alloc );
+            N += appendDOFs( elem->globalID(), dofs, N, N_alloc );
     } else if ( objType < d_type ) {
         // The desired element type is < the current element type, use getElementParents
-        auto parents = d_mesh->getElementParents( obj, meshType );
+        auto parents = d_mesh->getElementParents( *obj, meshType );
         std::vector<AMP::Mesh::MeshElementID> ids;
         for ( auto &parent : parents )
-            N += appendDOFs( parent.globalID(), dofs, N, N_alloc );
+            N += appendDOFs( parent->globalID(), dofs, N, N_alloc );
     } else {
         AMP_ERROR( "Internal error" );
     }

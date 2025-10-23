@@ -75,7 +75,7 @@ AMP::Mesh::MeshElementID subsetCommSelfDOFManager::getElementID( size_t dof ) co
 {
     return d_parentDOFManager->getElementID( dof + d_parentBegin );
 }
-AMP::Mesh::MeshElement subsetCommSelfDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> subsetCommSelfDOFManager::getElement( size_t dof ) const
 {
     return d_parentDOFManager->getElement( dof + d_parentBegin );
 }

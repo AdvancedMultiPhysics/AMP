@@ -74,7 +74,7 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    virtual AMP::Mesh::MeshElement getElement( size_t dof ) const;
+    virtual std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const;
 
 
     /** \brief Get the entry indices of DOFs given a mesh element ID

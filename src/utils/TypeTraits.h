@@ -20,6 +20,13 @@ template<typename T>
 struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {
 };
 
+//! Checks whether T is a unique_ptr
+template<typename T>
+struct is_unique_ptr : std::false_type {
+};
+template<typename T>
+struct is_unique_ptr<std::unique_ptr<T>> : std::true_type {
+};
 
 //! Checks whether T is a std::vector
 template<typename T>
@@ -142,6 +149,8 @@ struct is_complex<std::complex<T>> : public std::true_type {
 // Helper functions
 template<class T>
 inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
+template<class T>
+inline constexpr bool is_unique_ptr_v = is_unique_ptr<T>::value;
 template<class T>
 inline constexpr bool is_vector_v = is_vector<T>::value;
 template<class T>

@@ -381,7 +381,7 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
             found       = found || binary_search( nodes.begin(), nodes.end(), id );
         }
         if ( found )
-            ghost.insert( *dynamic_cast<libmeshMeshElement *>( elem.getRawElement() ) );
+            ghost.insert( *dynamic_cast<libmeshMeshElement *>( &elem ) );
     }
 #elif 0
     // Ghost cells are neighbors of local cells or the parent of a local node
@@ -392,7 +392,7 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
     for ( auto &elem : it ) {
         elem.getNeighbors( neighbors );
         for ( auto &neighbor : neighbors ) {
-            auto elem2 = dynamic_cast<libmeshMeshElement *>( neighbor->getRawElement() );
+            auto elem2 = dynamic_cast<libmeshMeshElement *>( &neighbor );
             if ( !elem2 )
                 continue;
             auto id = elem2->globalID();
@@ -419,7 +419,7 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
         for ( auto &node : nodes )
             found = found || binary_search( localNodes.begin(), localNodes.end(), node );
         if ( found )
-            ghost.insert( *dynamic_cast<libmeshMeshElement *>( elem.getRawElement() ) );
+            ghost.insert( *dynamic_cast<libmeshMeshElement *>( &elem ) );
     }
 #else
     // Use global list
@@ -429,7 +429,7 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
     for ( auto &elem : it ) {
         auto id = elem.globalID();
         if ( !id.is_local() && !id.isNull() )
-            ghost.insert( *dynamic_cast<libmeshMeshElement *>( elem.getRawElement() ) );
+            ghost.insert( *dynamic_cast<libmeshMeshElement *>( &elem ) );
     }
 #endif
     return std::make_shared<std::vector<libmeshMeshElement>>( ghost.begin(), ghost.end() );
@@ -449,9 +449,9 @@ libmeshMesh::ElemListPtr libmeshMesh::generateLocalElements( GeomType type ) con
     for ( auto &elem : it ) {
         auto tmp = elem.getElements( type );
         for ( auto &elem2 : tmp ) {
-            auto id = elem2.globalID();
+            auto id = elem2->globalID();
             if ( id.is_local() )
-                local.push_back( *dynamic_cast<libmeshMeshElement *>( elem2.getRawElement() ) );
+                local.push_back( *dynamic_cast<libmeshMeshElement *>( elem2.get() ) );
         }
     }
     AMP::Utilities::unique( local );
@@ -465,9 +465,9 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhostElements( GeomType type ) con
     for ( auto &elem : it ) {
         auto tmp = elem.getElements( type );
         for ( auto &elem2 : tmp ) {
-            auto id = elem2.globalID();
+            auto id = elem2->globalID();
             if ( !id.is_local() )
-                ghost.push_back( *dynamic_cast<libmeshMeshElement *>( elem2.getRawElement() ) );
+                ghost.push_back( *dynamic_cast<libmeshMeshElement *>( elem2.get() ) );
         }
     }
     AMP::Utilities::unique( ghost );
@@ -550,11 +550,11 @@ void libmeshMesh::fillBoundaryElements()
             AMP_ASSERT( !nodes.empty() );
             bool on_boundary = true;
             for ( auto &node : nodes ) {
-                if ( !node.isOnSurface() )
+                if ( !node->isOnSurface() )
                     on_boundary = false;
             }
             if ( on_boundary ) {
-                auto elem = dynamic_cast<libmeshMeshElement *>( it->getRawElement() );
+                auto elem = dynamic_cast<libmeshMeshElement *>( it.get() );
                 if ( it->globalID().is_local() )
                     local.insert( *elem );
                 else
@@ -588,7 +588,7 @@ void libmeshMesh::fillBoundaryElements()
             auto list = std::make_shared<std::vector<libmeshMeshElement>>( 0 );
             for ( auto &elem : iterator ) {
                 if ( elem.isOnBoundary( id ) ) {
-                    list->push_back( *dynamic_cast<libmeshMeshElement *>( elem.getRawElement() ) );
+                    list->push_back( *dynamic_cast<libmeshMeshElement *>( &elem ) );
                 }
             }
             if ( list->empty() )
@@ -846,7 +846,7 @@ std::vector<libMesh::Node *> libmeshMesh::getNeighborNodes( const MeshElementID 
 /********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-MeshElement libmeshMesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> libmeshMesh::getElement( const MeshElementID &elem_id ) const
 {
     MeshID mesh_id = elem_id.meshID();
     AMP_INSIST( mesh_id == d_meshID, "mesh id must match the mesh id of the element" );
@@ -854,12 +854,12 @@ MeshElement libmeshMesh::getElement( const MeshElementID &elem_id ) const
     if ( (int) elem_id.type() == PhysicalDim ) {
         // This is a libMesh element
         auto element = d_libMesh->elem_ptr( elem_id.local_id() );
-        return libmeshMeshElement(
+        return std::make_unique<libmeshMeshElement>(
             PhysicalDim, elem_id.type(), (void *) element, rank, mesh_id, this );
     } else if ( elem_id.type() == GeomType::Vertex ) {
         // This is a libMesh node
         auto node = d_libMesh->node_ptr( elem_id.local_id() );
-        return libmeshMeshElement(
+        return std::make_unique<libmeshMeshElement>(
             PhysicalDim, elem_id.type(), (void *) node, rank, mesh_id, this );
     }
     // All other types are stored in sorted lists
@@ -872,7 +872,7 @@ MeshElement libmeshMesh::getElement( const MeshElementID &elem_id ) const
     AMP_ASSERT( n > 0 );
     auto x = list->data(); // Use the pointer for speed
     if ( x[0] == elem_id )
-        return x[0];
+        return std::make_unique<libmeshMeshElement>( x[0] );
     size_t lower = 0;
     size_t upper = n - 1;
     size_t index;
@@ -885,10 +885,10 @@ MeshElement libmeshMesh::getElement( const MeshElementID &elem_id ) const
     }
     index = upper;
     if ( x[index] == elem_id )
-        return x[index];
+        return std::make_unique<libmeshMeshElement>( x[index] );
     if ( elem_id.is_local() )
         AMP_ERROR( "Local element not found" );
-    return MeshElement();
+    return std::make_unique<MeshElement>();
 }
 
 
@@ -1038,4 +1038,4 @@ void libmeshMesh::writeRestart( int64_t ) const
 #include "AMP/utils/Utilities.hpp"
 template void AMP::Utilities::unique<AMP::Mesh::libmeshMeshElement>(
     std::vector<AMP::Mesh::libmeshMeshElement> & );
-template class AMP::Mesh::MeshElementVectorIterator<AMP::Mesh::MeshElement>;
+template class AMP::Mesh::MeshElementVectorIterator<AMP::Mesh::libmeshMeshElement>;

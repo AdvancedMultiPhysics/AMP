@@ -8,6 +8,7 @@
 #include "ProfilerApp.h"
 
 #include <limits>
+#include <numeric>
 
 
 namespace AMP::DelaunayHelpers {

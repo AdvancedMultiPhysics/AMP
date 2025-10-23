@@ -245,7 +245,7 @@ size_t FDMeshGlobalIndexingOps::gridIndsToScalarDOF( const std::array<size_t, 3>
 }
 
 //! Map from grid index to a MeshElement
-AMP::Mesh::MeshElement
+AMP::Mesh::structuredMeshElement
 FDMeshGlobalIndexingOps::gridIndsToMeshElement( const std::array<size_t, 3> &ijk ) const
 {
     AMP::Mesh::BoxMesh::MeshElementIndex ind( d_geom, 0, ijk[0], ijk[1], ijk[2] );
