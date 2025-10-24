@@ -5,8 +5,8 @@
 #include "AMP/mesh/structured/BoxMesh.h"
 #include "AMP/mesh/structured/structuredMeshIterator.h"
 
+#include <numeric>
 #include <tuple>
-
 
 namespace AMP::Mesh {
 

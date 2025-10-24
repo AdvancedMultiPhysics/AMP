@@ -105,7 +105,7 @@ public:
 
 public:
     //! Empty constructor
-    constexpr Units();
+    constexpr Units() = default;
 
     /**
      * \brief  Construct the units from a const char array
@@ -240,9 +240,9 @@ public:
 
 
 protected:
-    unit_type d_unit;
-    SI_type d_SI;
-    double d_scale;
+    unit_type d_unit = { 0 };
+    SI_type d_SI     = { 0 };
+    double d_scale   = { 0.0 };
 
 protected:
     std::string printSIBase() const;
