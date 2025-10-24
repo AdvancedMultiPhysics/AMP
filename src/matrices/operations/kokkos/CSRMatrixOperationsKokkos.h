@@ -180,6 +180,22 @@ public:
     copyCast( CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X,
               CSRMatrixData<Config> *Y );
 
+    std::string type() const override { return "CSRMatrixOperationsKokkos"; }
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const override;
+
+    CSRMatrixOperationsKokkos( int64_t, AMP::IO::RestartManager * )
+        : d_exec_space(),
+          d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
+          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
+    {
+    }
+
 protected:
     ExecSpace d_exec_space;
     std::shared_ptr<localops_t> d_localops_diag;
