@@ -1,6 +1,7 @@
 #ifndef included_AMP_CSRVisit
 #define included_AMP_CSRVisit
 
+#include "AMP/IO/RestartManager.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 

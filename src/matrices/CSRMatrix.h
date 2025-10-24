@@ -7,6 +7,10 @@
 #include "AMP/vectors/Vector.h"
 #include <memory>
 
+namespace AMP::IO {
+class RestartManager;
+}
+
 namespace AMP::LinearAlgebra {
 
 template<typename Policy>
@@ -130,6 +134,8 @@ public:
      * \return  A newly created left vector
      */
     Vector::shared_ptr createOutputVector() const override;
+
+    CSRMatrix( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
     /** \brief  Multiply two matrices and store in a third

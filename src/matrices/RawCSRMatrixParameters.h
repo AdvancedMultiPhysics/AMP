@@ -17,6 +17,8 @@ public:
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
+    // modify ctors
+    //
     // The diagonal and off-diagonal blocks need all the same parameters
     // Like in CSRMatrixData use a nested class to pack all this away
     struct RawCSRLocalMatrixParameters {
@@ -146,6 +148,31 @@ public:
     //! Destructor
     virtual ~RawCSRMatrixParameters() = default;
 
+    std::string type() const override { return "RawCSRMatrixParameters"; }
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const override;
+
+    /**
+     * \brief    Read restart data from file
+     * \param fid    File identifier to write
+     * \param manager   Restart manager
+     */
+    RawCSRMatrixParameters( int64_t, AMP::IO::RestartManager * );
+
+public:
     // Bulk information
     gidx_t d_first_row;
     gidx_t d_last_row;

@@ -180,9 +180,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                              self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
                              ] )
 
-        if spec.satisfies("+hypre ~unified-memory"):
-            options.extend( [self.define('HYPRE_DISABLE_UNIFIED_MEMORY', True ), ] )
-
         tpl_list = []
 
         if spec.satisfies("+lapack"):

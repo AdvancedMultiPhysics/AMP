@@ -315,6 +315,11 @@ Vector::shared_ptr CSRMatrix<Config>::createOutputVector() const
     return createVector( getLeftDOFManager(), var, true, memloc );
 }
 
+template<typename Config>
+CSRMatrix<Config>::CSRMatrix( int64_t fid, AMP::IO::RestartManager *manager )
+    : Matrix( fid, manager )
+{
+}
 
 } // namespace AMP::LinearAlgebra
 

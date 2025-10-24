@@ -2,6 +2,8 @@
 #define included_AMP_CSRLocalMatrixData_hpp
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/IO/PIO.h"
+#include "AMP/IO/RestartManager.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/AMPCSRMatrixParameters.h"
 #include "AMP/matrices/MatrixParameters.h"
@@ -10,6 +12,7 @@
 #include "AMP/matrices/data/CSRMatrixDataHelpers.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
+#include "AMP/utils/Array.h"
 #include "AMP/utils/Utilities.h"
 
 #include <numeric>
@@ -52,7 +55,8 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
                                                 typename Config::gidx_t first_col,
                                                 typename Config::gidx_t last_col,
                                                 bool is_diag,
-                                                bool is_symbolic )
+                                                bool is_symbolic,
+                                                uint64_t hash )
     : d_memory_location( memory_location ),
       d_first_row( first_row ),
       d_last_row( last_row ),
@@ -60,7 +64,8 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
       d_last_col( last_col ),
       d_is_diag( is_diag ),
       d_is_symbolic( is_symbolic ),
-      d_num_rows( last_row - first_row )
+      d_num_rows( last_row - first_row ),
+      d_hash( hash )
 {
     AMPManager::incrementResource( "CSRLocalMatrixData" );
 
@@ -180,6 +185,19 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
 
     // fill in local column indices
     globalToLocalColumns();
+}
+
+template<typename Config>
+
+std::string CSRLocalMatrixData<Config>::type() const
+{
+    std::string tname = "CSRLocalMatrixData<";
+    std::string c     = ", ";
+    std::string s0    = getTypeID<allocator_type>().name;
+    std::string s1    = getTypeID<gidx_t>().name;
+    std::string s2    = getTypeID<lidx_t>().name;
+    std::string s3    = getTypeID<scalar_t>().name;
+    return tname + c + s0 + c + s1 + c + s2 + c + s3 + ">";
 }
 
 template<typename Config>
@@ -1233,6 +1251,123 @@ std::vector<size_t> CSRLocalMatrixData<Config>::getColumnIDs( const size_t local
     }
 
     return cols;
+}
+
+/****************************************************************
+ * Write/Read restart data                                       *
+ ****************************************************************/
+template<typename Config>
+void CSRLocalMatrixData<Config>::registerChildObjects( AMP::IO::RestartManager * ) const
+{
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
+{
+    IO::writeHDF5( fid, "memory_location", static_cast<signed char>( d_memory_location ) );
+    IO::writeHDF5( fid, "first_row", d_first_row );
+    IO::writeHDF5( fid, "last_row", d_last_row );
+    IO::writeHDF5( fid, "first_col", d_first_col );
+    IO::writeHDF5( fid, "last_col", d_last_col );
+
+    IO::writeHDF5( fid, "is_diag", d_is_diag );
+    IO::writeHDF5( fid, "is_empty", d_is_empty );
+    IO::writeHDF5( fid, "is_symbolic", d_is_symbolic );
+
+    IO::writeHDF5( fid, "num_rows", d_num_rows );
+    IO::writeHDF5( fid, "nnz", d_nnz );
+    IO::writeHDF5( fid, "ncols_unq", d_ncols_unq );
+
+    AMP::Array<lidx_t> row_starts;
+    AMP::Array<gidx_t> cols;
+    AMP::Array<gidx_t> cols_unq;
+    AMP::Array<lidx_t> cols_loc;
+    AMP::Array<scalar_t> coeffs;
+
+    if ( d_memory_location <= AMP::Utilities::MemoryType::host ) {
+
+        row_starts.viewRaw( d_num_rows + 1, d_row_starts.get() );
+        cols_unq.viewRaw( d_ncols_unq, d_cols_unq.get() );
+        cols_loc.viewRaw( d_nnz, d_cols_loc.get() );
+        if ( !d_is_symbolic )
+            coeffs.viewRaw( d_nnz, d_coeffs.get() );
+
+    } else {
+
+        row_starts.resize( d_num_rows + 1 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts.data() );
+
+        cols_unq.resize( d_ncols_unq );
+        AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq.data() );
+
+        cols_loc.resize( d_nnz );
+        AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc.data() );
+
+        if ( !d_is_symbolic ) {
+            coeffs.resize( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs.data() );
+        }
+    }
+
+    if ( d_num_rows > 0 )
+        IO::writeHDF5( fid, "row_starts", row_starts );
+    if ( d_ncols_unq > 0 )
+        IO::writeHDF5( fid, "cols_unq", cols_unq );
+    if ( d_nnz > 0 )
+        IO::writeHDF5( fid, "cols_loc", cols_loc );
+    if ( d_nnz && ( !d_is_symbolic ) )
+        IO::writeHDF5( fid, "coeffs", coeffs );
+}
+
+template<typename Config>
+CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager * )
+{
+    signed char memory_location;
+    IO::readHDF5( fid, "memory_location", memory_location );
+    d_memory_location = static_cast<AMP::Utilities::MemoryType>( memory_location );
+
+    IO::readHDF5( fid, "first_row", d_first_row );
+    IO::readHDF5( fid, "last_row", d_last_row );
+    IO::readHDF5( fid, "first_col", d_first_col );
+    IO::readHDF5( fid, "last_col", d_last_col );
+
+    IO::readHDF5( fid, "is_diag", d_is_diag );
+    IO::readHDF5( fid, "is_empty", d_is_empty );
+    IO::readHDF5( fid, "is_symbolic", d_is_symbolic );
+
+    IO::readHDF5( fid, "num_rows", d_num_rows );
+    IO::readHDF5( fid, "nnz", d_nnz );
+    IO::readHDF5( fid, "ncols_unq", d_ncols_unq );
+
+    AMP::Array<lidx_t> row_starts;
+    AMP::Array<gidx_t> cols_unq;
+    AMP::Array<lidx_t> cols_loc;
+    AMP::Array<scalar_t> coeffs;
+
+    IO::readHDF5( fid, "row_starts", row_starts );
+    IO::readHDF5( fid, "cols_unq", cols_unq );
+    IO::readHDF5( fid, "cols_loc", cols_loc );
+
+    if ( d_num_rows > 0 ) {
+        d_row_starts = sharedArrayBuilder( d_num_rows + 1, d_lidxAllocator );
+        AMP::Utilities::copy( d_num_rows + 1, row_starts.data(), d_row_starts.get() );
+    }
+
+    if ( d_ncols_unq > 0 ) {
+        d_cols_unq = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
+        AMP::Utilities::copy( d_ncols_unq, cols_unq.data(), d_cols_unq.get() );
+    }
+
+    if ( d_nnz > 0 ) {
+        d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
+        AMP::Utilities::copy( d_nnz, cols_loc.data(), d_cols_loc.get() );
+    }
+
+    if ( d_nnz && ( !d_is_symbolic ) ) {
+        IO::readHDF5( fid, "coeffs", coeffs );
+        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        AMP::Utilities::copy( d_nnz, coeffs.data(), d_coeffs.get() );
+    }
 }
 
 } // namespace AMP::LinearAlgebra

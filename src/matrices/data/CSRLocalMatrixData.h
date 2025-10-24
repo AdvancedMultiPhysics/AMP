@@ -13,6 +13,10 @@
 #include <tuple>
 #include <unordered_map>
 
+namespace AMP::IO {
+class RestartManager;
+}
+
 namespace AMP::Discretization {
 class DOFManager;
 }
@@ -75,10 +79,13 @@ public:
                                  typename Config::gidx_t first_col,
                                  typename Config::gidx_t last_col,
                                  bool is_diag,
-                                 bool is_symbolic = false );
+                                 bool is_symbolic = false,
+                                 uint64_t hash    = 0 );
 
     //! Destructor
     virtual ~CSRLocalMatrixData();
+
+    std::string type() const;
 
     //! Get all data fields as tuple
     std::tuple<lidx_t *, gidx_t *, lidx_t *, scalar_t *> getDataFields()
@@ -206,6 +213,30 @@ public:
                     const gidx_t last_col,
                     const bool is_diag );
 
+public: // Non virtual functions
+        //! Get a unique id hash for the vector
+    uint64_t getID() const { return d_hash; }
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const;
+
+    /**
+     * \brief Constructor from restart data
+     */
+    CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager *manager );
+
 protected:
     /** \brief  Sort the columns/values within each row
      * \details  This sorts within each row using the same ordering as
@@ -280,22 +311,22 @@ protected:
 
     // Data members passed from outer CSRMatrixData object
     //! Memory space where data lives, compatible with allocator template parameter
-    const AMP::Utilities::MemoryType d_memory_location;
+    AMP::Utilities::MemoryType d_memory_location;
     //! Global index of first row of this block
-    const gidx_t d_first_row;
+    gidx_t d_first_row;
     //! Global index of last row of this block
-    const gidx_t d_last_row;
+    gidx_t d_last_row;
     //! Global index of first column of diagonal block
-    const gidx_t d_first_col;
+    gidx_t d_first_col;
     //! Global index of last column of diagonal block
-    const gidx_t d_last_col;
+    gidx_t d_last_col;
 
     //! Flag to indicate if this is a diagonal block or not
-    const bool d_is_diag;
+    bool d_is_diag;
     //! Flag to indicate if this is empty
     bool d_is_empty = true;
     //! Flag to indicate if this is a symbolic matrix
-    const bool d_is_symbolic;
+    bool d_is_symbolic = false;
 
     //! Allocator for gidx_t matched to template parameter
     gidxAllocator_t d_gidxAllocator;
@@ -316,11 +347,13 @@ protected:
     std::shared_ptr<scalar_t[]> d_coeffs;
 
     //! Number of locally stored rows, (d_local_row - d_first_row)
-    const lidx_t d_num_rows;
+    lidx_t d_num_rows;
     //! Total number of nonzeros
     lidx_t d_nnz = 0;
     //! Number of unique columns referenced by block
     lidx_t d_ncols_unq = 0;
+    //! hash to uniquely identify this object during restart
+    uint64_t d_hash = 0;
 };
 
 } // namespace AMP::LinearAlgebra

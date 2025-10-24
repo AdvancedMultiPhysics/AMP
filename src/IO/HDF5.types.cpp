@@ -516,6 +516,7 @@ INSTANTIATE_DEFAULT( float );
 INSTANTIATE_DEFAULT( double );
 INSTANTIATE_DEFAULT( long double );
 INSTANTIATE_DEFAULT( std::byte );
+INSTANTIATE_DEFAULT( long long );
 #if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 )
 INSTANTIATE_DEFAULT( long int );
 INSTANTIATE_DEFAULT( unsigned long int );

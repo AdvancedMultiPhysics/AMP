@@ -120,4 +120,23 @@ AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     AMP_ASSERT( d_getRowHelper.get() );
 }
 
+template<typename Config>
+void AMPCSRMatrixParameters<Config>::registerChildObjects( AMP::IO::RestartManager *manager ) const
+{
+    MatrixParameters::registerChildObjects( manager );
+}
+
+template<typename Config>
+void AMPCSRMatrixParameters<Config>::writeRestart( int64_t fid ) const
+{
+    MatrixParameters::writeRestart( fid );
+}
+
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters( int64_t fid,
+                                                        AMP::IO::RestartManager *manager )
+    : MatrixParameters( fid, manager )
+{
+}
+
 } // namespace AMP::LinearAlgebra
