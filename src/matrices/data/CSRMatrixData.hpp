@@ -111,14 +111,14 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
 
             // contents of rowHelper no longer useful, trigger deallocation
             rowHelper->deallocate();
-
-            // trigger re-packing of columns and convert to local cols
-            globalToLocalColumns();
         }
 
     } else {
-        AMP_ERROR( "Check supplied MatrixParameters object" );
+        return;
     }
+
+    // trigger re-packing of columns and convert to local cols
+    globalToLocalColumns();
 
     // determine if DOFManagers and CommLists need to be (re)created
     resetDOFManagers();
@@ -191,9 +191,7 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
 {
     PROFILE( "CSRMatrixData::transpose" );
 
-    std::shared_ptr<CSRMatrixData> transposeData;
-
-    transposeData = std::make_shared<CSRMatrixData<Config>>();
+    auto transposeData = std::make_shared<CSRMatrixData<Config>>();
 
     // copy fields from current, take care to swap L/R and rows/cols
     transposeData->d_is_square       = d_is_square;
@@ -217,7 +215,8 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
                                             d_pParameters->getRightVariable(),
                                             d_pParameters->getLeftVariable(),
                                             d_rightCommList,
-                                            d_leftCommList );
+                                            d_leftCommList,
+                                            this->getBackend() );
 
     transposeData->d_diag_matrix = d_diag_matrix->transpose( transposeData->d_pParameters );
     if ( getComm().getSize() > 1 ) {
@@ -254,8 +253,17 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
     if ( !d_offd_matrix->isEmpty() ) {
         // extract info from offd block
-        auto col_map = d_offd_matrix->getColumnMap();
         auto num_unq = d_offd_matrix->numUniqueColumns();
+
+        // pull offd column map to host if not accessible
+        std::vector<gidx_t> col_map_migrate;
+        if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+            d_offd_matrix->getColumnMap( col_map_migrate );
+        }
+
+        gidx_t *col_map = d_memory_location < AMP::Utilities::MemoryType::device ?
+                              d_offd_matrix->getColumnMap() :
+                              col_map_migrate.data();
 
         // Get the partition from right comm list and test
         // which blocks need to be created
@@ -295,7 +303,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
             AMP_ASSERT( rd != my_rank );
             const auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
             const auto part_end   = static_cast<gidx_t>( partition[rd] );
-            auto block            = subsetCols( part_start, part_end );
+            auto block            = subsetCols( part_start, part_end, false );
             if ( !block->isEmpty() ) {
                 send_blocks.insert( { rd, block->transpose( params ) } );
             }
@@ -310,7 +318,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
     // handle edge case of no recv'd matrices (e.g. parallel matrix is block diagonal)
     if ( recv_blocks.size() == 0 ) {
         return std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, false );
+            params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, false );
     }
 
     // return horizontal concatenation of recv'd blocks
@@ -504,77 +512,48 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     return sub_matrix;
 }
 
-/** \brief  Extract subset of each row containing global columns in some range
- * \param[in] idx_lo  Lower global column index (inclusive)
- * \param[in] idx_up  Upper global column index (exclusive)
- * \return  shared_ptr to CSRLocalMatrixData holding the extracted nonzeros
- * \details  Returned matrix concatenates contributions for both diag and
- * offd components. Row and column extents are inherited from this matrix,
- * but are neither sorted nor converted to local indices.
- */
 template<typename Config>
-std::shared_ptr<CSRLocalMatrixData<Config>>
-CSRMatrixData<Config>::subsetCols( const gidx_t idx_lo, const gidx_t idx_up ) const
+std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
+    const gidx_t idx_lo, const gidx_t idx_up, const bool is_diag ) const
 {
     PROFILE( "CSRMatrixData::subsetCols" );
 
     AMP_DEBUG_ASSERT( idx_up > idx_lo );
 
     auto sub_matrix = std::make_shared<localmatrixdata_t>(
-        nullptr, d_memory_location, d_first_row, d_last_row, idx_lo, idx_up, true );
+        nullptr, d_memory_location, d_first_row, d_last_row, idx_lo, idx_up, is_diag );
+    const auto nrows = static_cast<lidx_t>( d_last_row - d_first_row );
 
     // count nnz within each row that lie in the given range
-    const auto nrows = static_cast<lidx_t>( d_last_row - d_first_row );
-    for ( lidx_t row = 0; row < nrows; ++row ) {
-        sub_matrix->d_row_starts[row] = 0;
-        for ( lidx_t k = d_diag_matrix->d_row_starts[row]; k < d_diag_matrix->d_row_starts[row + 1];
-              ++k ) {
-            const auto col = d_diag_matrix->localToGlobal( d_diag_matrix->d_cols_loc[k] );
-            if ( idx_lo <= col && col < idx_up ) {
-                sub_matrix->d_row_starts[row]++;
-            }
-        }
-        if ( !d_offd_matrix->d_is_empty ) {
-            for ( lidx_t k = d_offd_matrix->d_row_starts[row];
-                  k < d_offd_matrix->d_row_starts[row + 1];
-                  ++k ) {
-                const auto col = d_offd_matrix->localToGlobal( d_offd_matrix->d_cols_loc[k] );
-                if ( idx_lo <= col && col < idx_up ) {
-                    sub_matrix->d_row_starts[row]++;
-                }
-            }
-        }
-    }
+    CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ( idx_lo,
+                                                     idx_up,
+                                                     d_first_col,
+                                                     d_diag_matrix->d_row_starts.get(),
+                                                     d_diag_matrix->d_cols_loc.get(),
+                                                     d_offd_matrix->d_row_starts.get(),
+                                                     d_offd_matrix->d_cols_loc.get(),
+                                                     d_offd_matrix->d_cols_unq.get(),
+                                                     nrows,
+                                                     sub_matrix->d_row_starts.get() );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
 
     // loop back over rows and write desired entries into sub matrix
-    for ( lidx_t row = 0; row < nrows; ++row ) {
-        lidx_t pos = sub_matrix->d_row_starts[row];
-        for ( lidx_t k = d_diag_matrix->d_row_starts[row]; k < d_diag_matrix->d_row_starts[row + 1];
-              ++k ) {
-            const auto col = d_diag_matrix->localToGlobal( d_diag_matrix->d_cols_loc[k] );
-            if ( idx_lo <= col && col < idx_up ) {
-                sub_matrix->d_cols[pos]   = col;
-                sub_matrix->d_coeffs[pos] = d_diag_matrix->d_coeffs[k];
-                ++pos;
-            }
-        }
-        if ( !d_offd_matrix->d_is_empty ) {
-            for ( lidx_t k = d_offd_matrix->d_row_starts[row];
-                  k < d_offd_matrix->d_row_starts[row + 1];
-                  ++k ) {
-                const auto col = d_offd_matrix->localToGlobal( d_offd_matrix->d_cols_loc[k] );
-                if ( idx_lo <= col && col < idx_up ) {
-                    sub_matrix->d_cols[pos]   = col;
-                    sub_matrix->d_coeffs[pos] = d_offd_matrix->d_coeffs[k];
-                    ++pos;
-                }
-            }
-        }
-        AMP_DEBUG_ASSERT( pos == sub_matrix->d_row_starts[row + 1] );
-    }
+    CSRMatrixDataHelpers<Config>::ColSubsetFill( idx_lo,
+                                                 idx_up,
+                                                 d_first_col,
+                                                 d_diag_matrix->d_row_starts.get(),
+                                                 d_diag_matrix->d_cols_loc.get(),
+                                                 d_diag_matrix->d_coeffs.get(),
+                                                 d_offd_matrix->d_row_starts.get(),
+                                                 d_offd_matrix->d_cols_loc.get(),
+                                                 d_offd_matrix->d_cols_unq.get(),
+                                                 d_offd_matrix->d_coeffs.get(),
+                                                 nrows,
+                                                 sub_matrix->d_row_starts.get(),
+                                                 sub_matrix->d_cols.get(),
+                                                 sub_matrix->d_coeffs.get() );
 
     return sub_matrix;
 }

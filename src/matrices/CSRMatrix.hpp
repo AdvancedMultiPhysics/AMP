@@ -203,6 +203,7 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
     PROFILE( "CSRMatrix<Config>::transpose" );
 
     auto data = d_matrixData->transpose();
+    AMP_ASSERT( data->getBackend() == d_matrixData->getBackend() );
     return std::make_shared<CSRMatrix<Config>>( data );
 }
 

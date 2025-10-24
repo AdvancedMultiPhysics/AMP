@@ -32,38 +32,47 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
                                  const std::string &accelerationBackend,
                                  const std::string &memoryLocation )
 {
+    PROFILE( "matTransposeTestWithDOFs" );
+
+    AMP::pout << "matTransposeTestWithDOFs with " << type << ", backend " << accelerationBackend
+              << ", memory " << memoryLocation << std::endl;
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
+
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
-    // Create the vectors
+
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
 
-    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix_h, matrix, matrix_t;
 
-    if ( memoryLocation == "host" ) {
-        inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-        outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
-    } else {
-        AMP_ASSERT( memoryLocation == "managed" );
-        auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-        inVec        = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
-        outVec       = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
+    // create on host and migrate if needed
+    // the Pseudo-Laplacian fill routines are still host based
+    {
+        PROFILE( "matTransposeTestWithDOFs (create)" );
+        auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
+        auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
+        matrix_h    = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+        fillWithPseudoLaplacian( matrix_h, dofManager );
+
+        if ( memoryLocation == "host" && type == "CSRMatrix" ) {
+            matrix_h->setBackend( backend );
+        }
     }
 
-    // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix(
-        inVec, outVec, AMP::Utilities::backendFromString( accelerationBackend ), type );
-    if ( matrix ) {
-        ut->passes( type + ": Able to create a square matrix" );
-    } else {
-        ut->failure( type + ": Unable to create a square matrix" );
+    {
+        PROFILE( "matTransposeTestWithDOFs (migrate)" );
+        matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+                     matrix_h :
+                     AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
     }
-
-    fillWithPseudoLaplacian( matrix, dofManager );
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     // Get matrix transpose
-    auto matrix_t = matrix->transpose();
-    if ( matrix ) {
+    {
+        PROFILE( "matTransposeTestWithDOFs (transpose)" );
+        matrix_t = matrix->transpose();
+    }
+    if ( matrix_t ) {
         ut->passes( type + ": Able to create transpose" );
     } else {
         ut->failure( type + ": Unable to create transpose" );
@@ -126,6 +135,7 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
 
 size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
 {
+    PROFILE( "matTransposeTest" );
     std::string log_file = "output_testMatTranspose";
     AMP::logOnlyNodeZero( log_file );
 
@@ -154,7 +164,11 @@ size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
+#endif
+#ifdef AMP_USE_DEVICE
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
     size_t nGlobal = 0;
     for ( auto &[backend, memory] : backendsAndMemory )
@@ -179,9 +193,9 @@ int main( int argc, char *argv[] )
     }
 
     size_t nGlobal = 0;
-    for ( auto &file : files )
+    for ( auto &file : files ) {
         nGlobal = matTransposeTest( &ut, file );
-
+    }
     ut.report();
 
     // build unique profile name to avoid collisions
