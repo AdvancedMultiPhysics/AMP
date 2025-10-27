@@ -533,8 +533,9 @@ coarse_ops_type aggregator_coarsen( std::shared_ptr<LinearAlgebra::CSRMatrix<Con
 int PairwiseAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A,
                                                int *agg_ids )
 {
-    return LinearAlgebra::csrVisit(
-        A, [=]( auto csr_ptr ) { return assignLocalAggregates( csr_ptr, agg_ids ); } );
+    return LinearAlgebra::csrVisit( A, [this, agg_ids]( auto csr_ptr ) {
+        return this->assignLocalAggregates( csr_ptr, agg_ids );
+    } );
 }
 
 template<class Config>

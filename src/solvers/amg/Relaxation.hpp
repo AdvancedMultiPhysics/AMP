@@ -191,7 +191,8 @@ void HybridGS::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 void HybridGS::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                             std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    LinearAlgebra::csrVisit( d_matrix, [=]( auto csr_ptr ) { relax( csr_ptr, b, x ); } );
+    LinearAlgebra::csrVisit( d_matrix,
+                             [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
 template<typename Config>
@@ -360,7 +361,8 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                             std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    LinearAlgebra::csrVisit( d_matrix, [=]( auto csr_ptr ) { relax( csr_ptr, b, x ); } );
+    LinearAlgebra::csrVisit( d_matrix,
+                             [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
 template<typename Config>
