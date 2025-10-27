@@ -58,8 +58,6 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
 
     // first pass initilizes aggregates from nodes that have no
     // neighbors that are already associated
-    // NOTE: there are several loops through the entries in a row
-    //       that could be collapsed into a single loop
     int num_agg = 0;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         const auto rs = Am_rs[row], re = Am_rs[row + 1], row_len = re - rs;
@@ -70,18 +68,19 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
         }
 
         // mark single entry or empty rows as isolated and do not aggregate
-        if ( row_len == 1 || row_len == 0 ) {
+        if ( row_len <= 1 ) {
             AMP_DEBUG_ASSERT( isolated_pts[row] == 0 ); // should be undecided if not agg'd
             isolated_pts[row] = 1;
             continue;
         }
 
         // Check if any members of this row are already associated and skip if so.
-        bool have_nbr = false;
+        bool have_nbrs = true;
         for ( lidx_t c = rs + 1; c < re; ++c ) {
-            have_nbr = have_nbr || agg_ids[Am_cols_loc[c]] < 0;
+            const auto nid = Am_cols_loc[c];
+            have_nbrs      = have_nbrs && agg_ids[nid] < 0;
         }
-        if ( !have_nbr ) {
+        if ( !have_nbrs ) {
             // does not have all nbrs available for aggregation, skip
             continue;
         }
@@ -93,32 +92,39 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
             agg_ids[col_idx]   = num_agg;
             agg_size[num_agg]++;
             // steal any isolated points that can be lumped into this aggregate
-            isolated_pts[col_idx] = -1;
+            isolated_pts[col_idx] = 0;
         }
 
         // increment current id to start working on next aggregate
         ++num_agg;
     }
 
-    // second pass adds unmarked entries to the smallest aggregate they are nbrs with
-    // entries are unmarked because they neighbored some aggregate in the above or are
-    // isolated. Add entries to the smallest aggregate they neighbor and track if
-    // any remain isolated
-    bool have_isolated = false;
+    // second pass
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        const auto rs = Am_rs[row], re = Am_rs[row + 1];
         if ( agg_ids[row] >= 0 ) {
-            // this row already assigned, skip
+            // this row already assigned, check if it contains
+            // any isolated points and add them to this aggregate if so
+            const auto curr_agg = agg_ids[row];
+            for ( lidx_t c = rs + 1; c < re; ++c ) {
+                const auto id = Am_cols_loc[c];
+                if ( isolated_pts[id] == 1 ) {
+                    agg_ids[id] = curr_agg;
+                    agg_size[curr_agg]++;
+                    isolated_pts[id] = 0;
+                }
+            }
             continue;
         }
 
         // find smallest neighboring aggregate
         lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
-            const auto id = agg_ids[Am_cols_loc[c]];
+        for ( lidx_t c = rs + 1; c < re; ++c ) {
+            const auto agg = agg_ids[Am_cols_loc[c]];
             // only consider nbrs that are aggregated
-            if ( id >= 0 && ( agg_size[id] < small_agg_size ) ) {
-                small_agg_size = agg_size[id];
-                small_agg_id   = id;
+            if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
+                small_agg_size = agg_size[agg];
+                small_agg_id   = agg;
             }
         }
 
@@ -127,22 +133,30 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
             agg_ids[row] = small_agg_id;
             agg_size[small_agg_id]++;
             // steal if isolated
-            isolated_pts[row] = -1;
-        } else {
-            // no neighbor found, this must be an isolated point
-            AMP_DEBUG_ASSERT( isolated_pts[row] == 1 );
-            isolated_pts[row] = 1;
-            if ( !have_isolated ) {
-                agg_size.push_back( 0 );
-            }
-            have_isolated = true;
-            agg_ids[row]  = num_agg;
-            agg_size[num_agg]++;
+            isolated_pts[row] = 0;
         }
+    }
+
+    // third pass
+    bool have_isolated = false;
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        if ( isolated_pts[row] != 1 || agg_ids[row] >= 0 ) {
+            // point is not isolated or is already aggregated
+            continue;
+        }
+        if ( !have_isolated ) {
+            // this is the first isolated point found, make new agg
+            agg_size.push_back( 0 );
+        }
+        have_isolated = true;
+        agg_ids[row]  = num_agg;
+        agg_size[num_agg]++;
     }
 
     // account for lumped isolated rows in aggregate count
     if ( have_isolated ) {
+        std::cout << "SimpleAggregator had " << agg_size[num_agg] << " isolated points"
+                  << std::endl;
         ++num_agg;
     }
 

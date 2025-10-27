@@ -94,8 +94,10 @@ int MIS2Aggregator::classifyVertices(
         // mark undecided as IN or OUT if possible and build new worklists
         std::vector<lidx_t> wl1_new;
         for ( const auto n : wl1 ) {
-            bool mark_out = false, mark_in = true;
-            for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
+            const auto rs = Ad_rs[n], re = Ad_rs[n + 1], row_len = re - rs;
+            // default to IN unless point is isolated
+            bool mark_out = row_len <= 1, mark_in = !mark_out;
+            for ( lidx_t k = rs; k < re; ++k ) {
                 const auto c = Ad_cols_loc[k];
                 if ( agg_ids[c] >= 0 ) {
                     continue;
@@ -166,7 +168,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
-    // auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_diag->getDataFields();
     auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // initially un-aggregated
@@ -187,7 +188,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // initilize aggregates from nodes flagged as in and all of their neighbors
     lidx_t num_agg = 0, num_unagg = A_nrows;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( labels[row] == OUT ) {
+        if ( labels[row] != IN ) {
             continue;
         }
         agg_size.push_back( 0 );
@@ -247,39 +248,58 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // Add unmarked entries to the smallest aggregate they are nbrs with
     // look out for isolated points and add them to their own aggregate if needed
-    bool have_isolated = false;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        const auto rs = Am_rs[row], re = Am_rs[row + 1];
         if ( agg_ids[row] >= 0 ) {
-            // this row already assigned, skip ahead
+            // this row already assigned, check if it contains
+            // any isolated points and add them to this aggregate if so
+            const auto curr_agg = agg_ids[row];
+            for ( lidx_t c = rs + 1; c < re; ++c ) {
+                const auto id = Am_cols_loc[c];
+                if ( Am_rs[id + 1] - Am_rs[id] <= 1 ) {
+                    agg_ids[id] = curr_agg;
+                    agg_size[curr_agg]++;
+                }
+            }
             continue;
         }
 
         // find smallest neighboring aggregate
         lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t k = Am_rs[row]; k < Am_rs[row + 1]; ++k ) {
-            const auto c  = Am_cols_loc[k];
-            const auto id = agg_ids[c];
-            if ( id >= 0 && ( agg_size[id] < small_agg_size ) ) {
-                small_agg_size = agg_size[id];
-                small_agg_id   = id;
+        for ( lidx_t c = rs + 1; c < re; ++c ) {
+            const auto agg = agg_ids[Am_cols_loc[c]];
+            // only consider nbrs that are aggregated
+            if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
+                small_agg_size = agg_size[agg];
+                small_agg_id   = agg;
             }
         }
 
+        // add to aggregate
         if ( small_agg_id >= 0 ) {
             agg_ids[row] = small_agg_id;
             agg_size[small_agg_id]++;
-        } else {
-            if ( !have_isolated ) {
-                agg_size.push_back( 0 );
-            }
-            have_isolated = true;
-            agg_ids[row]  = num_agg;
-            agg_size[num_agg]++;
         }
+    }
+
+    // third pass
+    bool have_isolated = false;
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        if ( Am_rs[row + 1] - Am_rs[row] <= 1 || agg_ids[row] >= 0 ) {
+            continue;
+        }
+        if ( !have_isolated ) {
+            // this is the first isolated point found, make new agg
+            agg_size.push_back( 0 );
+        }
+        have_isolated = true;
+        agg_ids[row]  = num_agg;
+        agg_size[num_agg]++;
     }
 
     // account for lumped isolated rows in aggregate count
     if ( have_isolated ) {
+        std::cout << "MIS2Aggregator had " << agg_size[num_agg] << " isolated points" << std::endl;
         ++num_agg;
     }
 
