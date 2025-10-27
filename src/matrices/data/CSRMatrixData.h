@@ -13,6 +13,10 @@
 #include <tuple>
 #include <vector>
 
+namespace AMP::IO {
+class RestartManager;
+}
+
 namespace AMP::Discretization {
 class DOFManager;
 }
@@ -44,9 +48,6 @@ public:
         typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
     using localmatrixdata_t = CSRLocalMatrixData<Config>;
     using mask_t            = typename localmatrixdata_t::mask_t;
-
-    // Memory location, set by examining type of Allocator
-    const AMP::Utilities::MemoryType d_memory_location;
 
     /** \brief  Constructor
      * \param[in] params  Description of the matrix
@@ -297,16 +298,59 @@ public:
     std::shared_ptr<localmatrixdata_t> subsetRows( const std::vector<gidx_t> &rows ) const;
 
     /** \brief  Extract subset of each row containing global columns in some range
-     * \param[in] idx_lo  Lower global column index (inclusive)
-     * \param[in] idx_up  Upper global column index (exclusive)
+     * \param[in] idx_lo   Lower global column index (inclusive)
+     * \param[in] idx_up   Upper global column index (exclusive)
+     * \param[in] is_diag  Flag if produced matrix should be marked as diag block
      * \return  shared_ptr to CSRLocalMatrixData holding the extracted nonzeros
      * \details  Returned matrix concatenates contributions for both diag and
      * offd components. Row and column extents are inherited from this matrix,
      * but are neither sorted nor converted to local indices.
      */
-    std::shared_ptr<localmatrixdata_t> subsetCols( const gidx_t idx_lo, const gidx_t idx_up ) const;
+    std::shared_ptr<localmatrixdata_t>
+    subsetCols( const gidx_t idx_lo, const gidx_t idx_up, const bool is_diag ) const;
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const override;
+
+    /**
+     * \brief Constructor from restart data
+     */
+    CSRMatrixData( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
+    //!  Update matrix data off-core
+    void setOtherData( std::map<gidx_t, std::map<gidx_t, scalar_t>> &,
+                       AMP::LinearAlgebra::ScatterType );
+
+    std::shared_ptr<localmatrixdata_t>
+    transposeOffd( std::shared_ptr<MatrixParametersBase> params ) const;
+
+    void writeRestartMapData( const int64_t fid,
+                              const std::string &prefix,
+                              const std::map<gidx_t, std::map<gidx_t, scalar_t>> &data ) const;
+
+    void readRestartMapData( const int64_t fid,
+                             const std::string &prefix,
+                             std::map<gidx_t, std::map<gidx_t, scalar_t>> &data );
+
+public:
+    //! Memory location, set by examining type of Allocator
+    AMP::Utilities::MemoryType d_memory_location;
+
+protected:
+    //! Matrix is square if true
     bool d_is_square = true;
     //! Global index of first row of this block
     gidx_t d_first_row = 0;
@@ -344,13 +388,6 @@ protected:
 
     //!  \f$A_{i,j}\f$ storage of off core matrix data to set
     std::map<gidx_t, std::map<gidx_t, scalar_t>> d_ghost_data;
-
-    //!  Update matrix data off-core
-    void setOtherData( std::map<gidx_t, std::map<gidx_t, scalar_t>> &,
-                       AMP::LinearAlgebra::ScatterType );
-
-    std::shared_ptr<localmatrixdata_t>
-    transposeOffd( std::shared_ptr<MatrixParametersBase> params ) const;
 };
 
 template<typename Config>

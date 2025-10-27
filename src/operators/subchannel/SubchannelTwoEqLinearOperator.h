@@ -18,6 +18,8 @@ namespace AMP::Operator {
 class SubchannelTwoEqLinearOperator : public LinearOperator
 {
 public:
+    typedef std::unique_ptr<AMP::Mesh::MeshElement> ElementPtr;
+
     //! Constructor
     explicit SubchannelTwoEqLinearOperator( std::shared_ptr<const OperatorParameters> params );
 
@@ -145,10 +147,9 @@ private:
                        double D );
 
     std::vector<double> d_x, d_y, d_z;
-    std::vector<bool> d_ownSubChannel; // Which subchannels do I own
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
-        d_subchannelElem; // List of elements in each subchannel
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
+    std::vector<bool> d_ownSubChannel;                     // Which subchannels do I own
+    std::vector<std::vector<ElementPtr>> d_subchannelElem; // List of elements in each subchannel
+    std::vector<std::vector<ElementPtr>>
         d_subchannelFace; // List of z-face elements in each subchannel
     int getSubchannelIndex( double x, double y );
     size_t d_numSubchannels;

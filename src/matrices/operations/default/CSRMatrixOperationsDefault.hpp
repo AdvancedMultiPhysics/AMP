@@ -1,3 +1,4 @@
+#include "AMP/IO/HDF.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
@@ -237,7 +238,7 @@ void CSRMatrixOperationsDefault<Config>::matMatMult( std::shared_ptr<MatrixData>
         AMP_INSIST( csrDataC->isEmpty(),
                     "CSRMatrixOperationsDefault::matMatMult A*B->C only applicable to non-empty C "
                     "if it came from same A and B input matrices originally" );
-        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDefault( csrDataA, csrDataB, csrDataC, false );
+        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDefault( csrDataA, csrDataB, csrDataC, true );
         d_SpGEMMHelpers[bcPair].symbolicMultiply();
         d_SpGEMMHelpers[bcPair].numericMultiply();
     } else {
@@ -511,6 +512,13 @@ void CSRMatrixOperationsDefault<Config>::copyCast(
     if ( X->hasOffDiag() ) {
         localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
+}
+
+template<typename Config>
+void CSRMatrixOperationsDefault<Config>::writeRestart( int64_t fid ) const
+{
+    MatrixOperations::writeRestart( fid );
+    AMP::IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
 }
 
 } // namespace AMP::LinearAlgebra

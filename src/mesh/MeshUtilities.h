@@ -70,7 +70,7 @@ public:
     ElementFinder &operator=( ElementFinder && ) = default;
 
     //! Get the nearest element and point
-    std::pair<AMP::Mesh::MeshElement, Point> nearest( const Point &x ) const;
+    std::pair<std::unique_ptr<MeshElement>, Point> nearest( const Point &x ) const;
 
     /**
      * \brief    Calculate the distance to the object given a ray

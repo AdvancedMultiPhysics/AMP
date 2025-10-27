@@ -345,7 +345,7 @@ void testWriterMesh( AMP::UnitTest &ut,
                 std::vector<size_t> dofs;
                 for ( auto &id : surfaceMesh->getBoundaryIDs() ) {
                     double val = double( id );
-                    for ( auto elem : surfaceMesh->getBoundaryIDIterator( surfaceType, id, 0 ) ) {
+                    for ( auto &elem : surfaceMesh->getBoundaryIDIterator( surfaceType, id, 0 ) ) {
                         DOF_surface->getDOFs( elem.globalID(), dofs );
                         AMP_ASSERT( dofs.size() == 1 );
                         id_vec->setValuesByGlobalID( 1, dofs.data(), &val );
@@ -361,7 +361,7 @@ void testWriterMesh( AMP::UnitTest &ut,
                         writer->registerVector(
                             norm_vec, surfaceMesh, surfaceType, "surface_normal" );
                     norm_vec->setToScalar( 0 );
-                    for ( auto elem : surfaceMesh->getSurfaceIterator( surfaceType, 0 ) ) {
+                    for ( auto &elem : surfaceMesh->getSurfaceIterator( surfaceType, 0 ) ) {
                         auto norm = elem.norm();
                         DOF_surfaceVec->getDOFs( elem.globalID(), dofs );
                         AMP_ASSERT( dofs.size() == ndim );
@@ -378,7 +378,7 @@ void testWriterMesh( AMP::UnitTest &ut,
                         writer->registerVector(
                             norm_vec, surfaceMesh, surfaceType, "geometry_normal" );
                     norm_vec->setToScalar( 0 );
-                    for ( auto elem : surfaceMesh->getSurfaceIterator( surfaceType, 0 ) ) {
+                    for ( auto &elem : surfaceMesh->getSurfaceIterator( surfaceType, 0 ) ) {
                         auto norm = geom->surfaceNorm( elem.centroid() );
                         DOF_surfaceVec->getDOFs( elem.globalID(), dofs );
                         AMP_ASSERT( dofs.size() == ndim );
@@ -397,7 +397,7 @@ void testWriterMesh( AMP::UnitTest &ut,
     rank_vec->setToScalar( globalComm.getRank() );
     rank_vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     std::vector<size_t> dofs;
-    for ( auto elem : DOF_vector->getIterator() ) {
+    for ( auto &elem : DOF_vector->getIterator() ) {
         DOF_vector->getDOFs( elem.globalID(), dofs );
         auto pos = elem.coord();
         position->setValuesByGlobalID( dofs.size(), dofs.data(), pos.data() );
@@ -407,7 +407,7 @@ void testWriterMesh( AMP::UnitTest &ut,
     for ( auto &id : mesh->getBlockIDs() ) {
         double val = double( id );
         try {
-            for ( auto elem : mesh->getBlockIDIterator( volumeType, id, 0 ) ) {
+            for ( auto &elem : mesh->getBlockIDIterator( volumeType, id, 0 ) ) {
                 DOF_volume->getDOFs( elem.globalID(), dofs );
                 block_vec->setValuesByGlobalID( 1, &dofs[0], &val );
             }

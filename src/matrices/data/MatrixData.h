@@ -12,6 +12,10 @@
 #include "AMP/vectors/Scalar.h"
 #include "AMP/vectors/Variable.h"
 
+namespace AMP::IO {
+class RestartManager;
+}
+
 namespace AMP::Discretization {
 class DOFManager;
 }
@@ -264,8 +268,33 @@ public:
      */
     virtual void disableModifications() {}
 
+public: // Non virtual functions
+    //! Get a unique id hash for the vector
+    uint64_t getID() const;
+
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    virtual void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    virtual void writeRestart( int64_t fid ) const;
+
+    MatrixData( int64_t fid, AMP::IO::RestartManager *manager );
+
 protected:
     std::shared_ptr<MatrixParametersBase> d_pParameters;
+
+    // unique hash to identify this object
+    uint64_t d_hash = 0;
 };
 
 } // namespace AMP::LinearAlgebra

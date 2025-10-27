@@ -132,13 +132,14 @@ public:
      * \brief Primary constructor
      * \details  Create a triangle mesh from the verticies and triangle indicies
      *    Note: Rank 0 must contain all data, other ranks "may" contain copies
+     * \param NP         Number of physical dimensions
      * \param vertices   List of vertices
      * \param triangles  List of triangles
      * \param tri_nab    Optional list of triangles neighbors
      * \param comm       Communicator to use
      *                   (load balance will be automatically generated on this comm)
      * \param geom       Optional geometry to associate with the mesh
-     * \param blockID    Optional vector with the block id for each triangle
+     * \param block      Optional vector with the block id for each triangle
      * \param max_gcw    Maximum gcw to support
      */
     explicit TriangleMesh( int NP,
@@ -262,7 +263,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override final;
+    MeshElementPtr getElement( const MeshElementID &id ) const override final;
 
 
     /**
@@ -272,8 +273,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override final;
+    virtual std::vector<MeshElementPtr>
+    getElementParents( const MeshElement &elem, const GeomType type ) const override final;
 
     /**
      * \brief    Is the mesh movable

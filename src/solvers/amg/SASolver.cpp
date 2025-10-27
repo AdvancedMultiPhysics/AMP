@@ -132,9 +132,8 @@ void SASolver::makeCoarseSolver()
 void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
                                  std::shared_ptr<LinearAlgebra::Matrix> &P ) const
 {
-    // Apply Jacobi-L1 smoother w/ chebyshev acceleration to get P_smooth
-
     // Get D as absolute row sums of A
+    // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
     // Chebyshev terms, set to damp over 75% of eigenvalues

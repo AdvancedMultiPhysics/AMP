@@ -1,6 +1,7 @@
 #ifndef included_AMP_ArrayClass_hpp
 #define included_AMP_ArrayClass_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMP_MPI_pack.hpp"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
@@ -20,7 +21,12 @@
  *  Macros to help instantiate functions                 *
  ********************************************************/
 // clang-format off
-#ifdef __NVCOMPILER
+#ifndef AMP_CXX_STANDARD
+    #define AMP_CXX_STANDARD 17
+#endif
+#if AMP_CXX_STANDARD >= 20
+#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
+#elif defined( __NVCOMPILER )
 #define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
 #else
 #define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array<TYPE,FUN,A>();

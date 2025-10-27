@@ -5,8 +5,8 @@
 #include "AMP/mesh/structured/BoxMesh.h"
 #include "AMP/mesh/structured/structuredMeshIterator.h"
 
+#include <numeric>
 #include <tuple>
-
 
 namespace AMP::Mesh {
 
@@ -148,7 +148,7 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
     } else {
         // General case
         auto iterator = mesh->getIterator( AMP::Mesh::GeomType::Face, gcw );
-        std::vector<AMP::Mesh::MeshElement> face_list;
+        std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> face_list;
         std::vector<double> face_index;
         face_list.reserve( iterator.size() );
         face_index.reserve( iterator.size() );
@@ -161,7 +161,7 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
             auto center   = iterator->centroid();
             bool is_valid = true;
             for ( auto &node : nodes ) {
-                auto coord = node.coord();
+                auto coord = node->coord();
                 if ( !AMP::Utilities::approx_equal( coord[direction], center[direction], 1e-12 ) )
                     is_valid = false;
             }
@@ -182,15 +182,19 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
                 } else {
                     AMP_ERROR( "Not finished" );
                 }
-                face_list.push_back( *iterator );
+                face_list.push_back( iterator->clone() );
                 index.emplace_back( t1, t2, t3 );
             }
             ++iterator;
         }
         // Sort the points in the direction first, then the coordinates
-        Utilities::quicksort( index, face_list );
-        auto elements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>();
-        *elements     = face_list;
+        std::vector<int> I( index.size() );
+        std::iota( I.begin(), I.end(), 0 );
+        Utilities::quicksort( index, I );
+        auto elements =
+            std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>( index.size() );
+        for ( size_t i = 0; i < index.size(); i++ )
+            elements->operator[]( i ) = std::move( face_list[I[i]] );
         return AMP::Mesh::MeshElementVectorIterator( elements );
     }
 }
@@ -202,4 +206,16 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getGapFaceIterator( std::shared_pt
     AMP_ERROR( "Not finished" );
     return AMP::Mesh::MeshIterator();
 }
+
+
 } // namespace AMP::Mesh
+
+
+/********************************************************
+ * Explicit instantiations                               *
+ ********************************************************/
+#include "AMP/utils/Utilities.hpp"
+using intTuple3 = std::tuple<int, int, int>;
+template void AMP::Utilities::quicksort<intTuple3, int>( size_t N, intTuple3 *x, int *y );
+template void AMP::Utilities::quicksort<intTuple3, int>( std::vector<intTuple3> &x,
+                                                         std::vector<int> &y );

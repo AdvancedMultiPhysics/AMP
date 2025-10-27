@@ -19,6 +19,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <numeric>
 
 
 namespace AMP::Mesh {
@@ -110,21 +111,6 @@ static inline void check( const TriangleMeshIterator<NG> & )
 /****************************************************************
  * Store the vertex data                                         *
  ****************************************************************/
-static inline std::vector<std::array<double, 3>> convert( const std::vector<double> &x )
-{
-    std::vector<std::array<double, 3>> x2( x.size() );
-    for ( size_t i = 0; i < x.size(); i++ )
-        x2[i] = { x[i], 0, 0 };
-    return x2;
-}
-static inline std::vector<std::array<double, 3>>
-convert( const std::vector<std::array<double, 2>> &x )
-{
-    std::vector<std::array<double, 3>> x2( x.size() );
-    for ( size_t i = 0; i < x.size(); i++ )
-        x2[i] = { x[i][0], x[i][1], 0 };
-    return x2;
-}
 template<class TYPE, size_t N>
 StoreTriData<TYPE, N>::StoreTriData( std::vector<std::array<TYPE, N>> x,
                                      std::vector<int> offset,
@@ -229,6 +215,7 @@ static std::array<int, N1> getFace( const std::array<int, N1 + 1> &parent, int d
     } else {
         static_assert( N1 == 0, "Not finished" );
     }
+    AMP_ERROR( "Internal error" );
 }
 
 
@@ -935,9 +922,10 @@ MeshElement *TriangleMesh<NG>::getElement2( const MeshElementID &id ) const
     return new TriangleMeshElement<NG>( id, this );
 }
 template<uint8_t NG>
-MeshElement TriangleMesh<NG>::getElement( const MeshElementID &id ) const
+std::unique_ptr<MeshElement> TriangleMesh<NG>::getElement( const MeshElementID &id ) const
 {
-    return MeshElement( getElement2( id ) );
+    AMP_ASSERT( static_cast<uint8_t>( id.type() ) <= NG );
+    return std::make_unique<TriangleMeshElement<NG>>( id, this );
 }
 
 
@@ -963,11 +951,11 @@ TriangleMesh<NG>::getElementParents( const ElementID &id, const GeomType type ) 
     return std::make_pair( list.begin( index ), list.end( index ) );
 }
 template<uint8_t NG>
-std::vector<MeshElement> TriangleMesh<NG>::getElementParents( const MeshElement &elem,
-                                                              const GeomType type ) const
+std::vector<std::unique_ptr<MeshElement>>
+TriangleMesh<NG>::getElementParents( const MeshElement &elem, const GeomType type ) const
 {
     auto ids = getElementParents( elem.globalID().elemID(), type );
-    std::vector<MeshElement> parents( ids.second - ids.first );
+    std::vector<std::unique_ptr<MeshElement>> parents( ids.second - ids.first );
     auto it = ids.first;
     for ( size_t i = 0; i < parents.size(); i++, ++it )
         parents[i] = getElement( MeshElementID( d_meshID, *it ) );
@@ -1226,6 +1214,7 @@ std::array<int, TYPE + 1> TriangleMesh<NG>::getElem( const ElementID &id ) const
     } else if constexpr ( TYPE == 2 ) {
         return d_childFace[id];
     }
+    AMP_ERROR( "Internal error" );
 }
 template<uint8_t NG>
 template<uint8_t TYPE>
@@ -1241,6 +1230,7 @@ ElementID TriangleMesh<NG>::getID( const std::array<int, TYPE + 1> &tri ) const
     } else if constexpr ( TYPE == 2 ) {
         return d_childFace.getID( d_childFace.find( tri ) );
     }
+    AMP_ERROR( "Internal error" );
 }
 
 

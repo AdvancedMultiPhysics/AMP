@@ -174,7 +174,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override;
+    MeshElementPtr getElement( const MeshElementID &id ) const override;
 
 
     /**
@@ -184,8 +184,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override;
+    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
+                                                           const GeomType type ) const override;
 
 
     //! Is the current mesh a base mesh
@@ -289,16 +289,19 @@ protected:
 
 
 protected:
+    using ElementList    = std::vector<std::unique_ptr<MeshElement>>;
+    using ElementListPtr = std::shared_ptr<ElementList>;
+
     // Parent mesh for the subset
     std::shared_ptr<const Mesh> d_parentMesh;
     MeshID d_parentMeshID;
 
     // Pointers to store the elements in the subset meshes [type][gcw][elem]
     std::vector<size_t> N_global;
-    std::vector<std::vector<std::shared_ptr<std::vector<MeshElement>>>> d_elements;
+    std::vector<std::vector<ElementListPtr>> d_elements;
 
     // Pointers to store the elements on the surface [type][gcw][elem]
-    std::vector<std::vector<std::shared_ptr<std::vector<MeshElement>>>> d_surface;
+    std::vector<std::vector<ElementListPtr>> d_surface;
 
     // Data to store the id sets
     struct map_id_struct {
@@ -337,9 +340,9 @@ protected:
         inline bool operator<=( const map_id_struct &rhs ) const { return !operator>( rhs ); }
     };
     std::vector<int> d_boundaryIdSets;
-    std::map<map_id_struct, std::shared_ptr<std::vector<MeshElement>>> d_boundarySets;
+    std::map<map_id_struct, ElementListPtr> d_boundarySets;
     std::vector<int> d_blockIdSets;
-    std::map<map_id_struct, std::shared_ptr<std::vector<MeshElement>>> d_blockSets;
+    std::map<map_id_struct, ElementListPtr> d_blockSets;
 };
 
 } // namespace AMP::Mesh

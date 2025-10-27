@@ -165,11 +165,11 @@ AMP::Mesh::MeshElementID structuredFaceDOFManager::getElementID( size_t dof ) co
     }
     return id;
 }
-AMP::Mesh::MeshElement structuredFaceDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> structuredFaceDOFManager::getElement( size_t dof ) const
 {
     auto id = getElementID( dof );
     if ( id.isNull() )
-        return AMP::Mesh::MeshElement();
+        return {};
     return d_mesh->getElement( id );
 }
 
@@ -231,15 +231,15 @@ size_t structuredFaceDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
     // Get a list of all element ids that are part of the row
     // Only faces that share an element are part of the row
     auto obj     = d_mesh->getElement( id );
-    auto parents = d_mesh->getElementParents( obj, AMP::Mesh::GeomType::Cell );
+    auto parents = d_mesh->getElementParents( *obj, AMP::Mesh::GeomType::Cell );
     AMP_ASSERT( parents.size() == 1 || parents.size() == 2 );
     // Temporarily add neighbor elements
     size_t p_size = parents.size();
     for ( size_t i = 0; i < p_size; i++ ) {
-        auto neighbors = parents[i].getNeighbors();
+        auto neighbors = parents[i]->getNeighbors();
         for ( auto &neighbor : neighbors ) {
             if ( neighbor != nullptr )
-                parents.push_back( *neighbor );
+                parents.push_back( neighbor->clone() );
         }
     }
     AMP::Utilities::unique( parents );
@@ -247,10 +247,10 @@ size_t structuredFaceDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
     std::vector<AMP::Mesh::MeshElementID> ids;
     ids.reserve( 6 * parents.size() );
     for ( auto &parent : parents ) {
-        auto children = parent.getElements( AMP::Mesh::GeomType::Face );
+        auto children = parent->getElements( AMP::Mesh::GeomType::Face );
         AMP_ASSERT( children.size() == 6 );
         for ( auto &elem : children )
-            ids.push_back( elem.globalID() );
+            ids.push_back( elem->globalID() );
     }
     AMP::Utilities::unique( ids );
     // AMP_ASSERT(ids.size()==6||ids.size()==11);

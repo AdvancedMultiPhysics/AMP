@@ -62,7 +62,8 @@ static void runTest( const std::string &fname, AMP::UnitTest *ut )
     std::vector<size_t> dofs;
     for ( auto &id : surfaceMesh->getBoundaryIDs() ) {
         auto val = double( id );
-        for ( auto elem : surfaceMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, id, 0 ) ) {
+        for ( auto &elem :
+              surfaceMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, id, 0 ) ) {
             idDOFs->getDOFs( elem.globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             id_vec->setValuesByGlobalID( 1, &dofs[0], &val );

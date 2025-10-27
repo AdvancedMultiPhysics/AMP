@@ -181,7 +181,7 @@ void NeumannVectorCorrection::addRHScorrection(
 
                     dofIndices.resize( numNodesInCurrElem );
                     for ( unsigned int i = 0; i < numNodesInCurrElem; i++ ) {
-                        dofManager->getDOFs( d_currNodes[i].globalID(), dofIndices[i] );
+                        dofManager->getDOFs( d_currNodes[i]->globalID(), dofIndices[i] );
                     }
 
                     std::shared_ptr<AMP::Discretization::DOFManager> fluxDOFManager;

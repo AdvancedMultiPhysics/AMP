@@ -1,0 +1,8 @@
+TestSpecificParameters {
+  modelID = "Mousseau_etal_2000"
+  max_integrator_steps = 10
+}
+<<< DiffusionSolves-Boomer-Parameters >>>
+<<< TimeIntegrator-Parameters >>>
+<<< Mousseau_etal_2000-Parameters >>>
+<<< input_RadiationDiffusionFD-2D >>>

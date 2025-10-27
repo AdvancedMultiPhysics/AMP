@@ -80,6 +80,55 @@ void AMP::IO::readHDF5Scalar<AMP::Mesh::MeshID>( hid_t fid,
 
 
 /********************************************************
+ * ElementID                                             *
+ ********************************************************/
+#ifdef AMP_USE_HDF5
+static_assert( sizeof( AMP::Mesh::ElementID ) == sizeof( uint64_t ) );
+template<>
+hid_t AMP::IO::getHDF5datatype<AMP::Mesh::ElementID>()
+{
+    return getHDF5datatype<uint64_t>();
+}
+template<>
+void AMP::IO::writeHDF5Array<AMP::Mesh::ElementID>( hid_t fid,
+                                                    const std::string &name,
+                                                    const AMP::Array<AMP::Mesh::ElementID> &data )
+{
+    AMP::Array<uint64_t> data2( data.size(), reinterpret_cast<const uint64_t *>( data.data() ) );
+    writeHDF5Array<uint64_t>( fid, name, data2 );
+}
+template<>
+void AMP::IO::readHDF5Array<AMP::Mesh::ElementID>( hid_t fid,
+                                                   const std::string &name,
+                                                   AMP::Array<AMP::Mesh::ElementID> &data )
+{
+    Array<uint64_t> data2;
+    readHDF5Array<uint64_t>( fid, name, data2 );
+    data.resize( data2.size() );
+    for ( size_t i = 0; i < data.length(); i++ )
+        data( i ) = AMP::Mesh::ElementID( data2( i ) );
+}
+template<>
+void AMP::IO::writeHDF5Scalar<AMP::Mesh::ElementID>( hid_t fid,
+                                                     const std::string &name,
+                                                     const AMP::Mesh::ElementID &data )
+{
+    writeHDF5Scalar<uint64_t>( fid, name, data.getData() );
+}
+template<>
+void AMP::IO::readHDF5Scalar<AMP::Mesh::ElementID>( hid_t fid,
+                                                    const std::string &name,
+                                                    AMP::Mesh::ElementID &data )
+{
+    uint64_t data2;
+    readHDF5Scalar<uint64_t>( fid, name, data2 );
+    data = AMP::Mesh::ElementID( data2 );
+}
+#endif
+INSTANTIATE_HDF5( AMP::Mesh::ElementID );
+
+
+/********************************************************
  * MeshElementID                                         *
  ********************************************************/
 #ifdef AMP_USE_HDF5

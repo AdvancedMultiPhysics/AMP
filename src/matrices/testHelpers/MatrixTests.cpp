@@ -561,7 +561,7 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
         dofs.clear();
         for ( auto &node : nodes ) {
             std::vector<size_t> dofsNode;
-            dofmap->getDOFs( node.globalID(), dofsNode );
+            dofmap->getDOFs( node->globalID(), dofsNode );
             for ( auto &elem : dofsNode )
                 dofs.push_back( elem );
         }

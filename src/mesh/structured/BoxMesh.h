@@ -133,6 +133,8 @@ public:
         constexpr auto index() const { return d_index; }
         constexpr int index( int d ) const { return d_index[d]; }
         constexpr int &index( int d ) { return d_index[d]; }
+        constexpr int operator[]( int d ) const { return d_index[d]; }
+        constexpr int &operator[]( int d ) { return d_index[d]; }
         constexpr GeomType type() const { return static_cast<GeomType>( d_type ); }
         constexpr uint8_t side() const { return d_side; }
         static constexpr size_t numElements( const MeshElementIndex &first,
@@ -347,7 +349,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override final;
+    MeshElementPtr getElement( const MeshElementID &id ) const override final;
 
 
     /**
@@ -357,8 +359,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override final;
+    virtual std::vector<MeshElementPtr>
+    getElementParents( const MeshElement &elem, const GeomType type ) const override final;
 
 
     //! Return the global logical box
@@ -458,6 +460,8 @@ public: // BoxMesh specific functionality
     std::shared_ptr<AMP::LinearAlgebra::Vector> createVector( const std::string &name,
                                                               int gcw = 0 );
 
+    //! Fix periodic boundaries in the element index
+    inline void fixPeriodic( MeshElementIndex &id ) const;
 
 public: // Convenience typedef
     typedef AMP::Utilities::stackVector<std::pair<MeshElementIndex, MeshElementIndex>, 32>

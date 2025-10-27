@@ -422,3 +422,13 @@ bool NodeToNodeMap::Point::operator>( const Point &rhs ) const { return !operato
 
 
 } // namespace AMP::Operator
+
+
+/****************************************************************
+ * Explicit instantiations                                       *
+ ****************************************************************/
+#include "AMP/utils/Utilities.hpp"
+template size_t AMP::Utilities::findfirst<AMP::Operator::NodeToNodeMap::Point>(
+    size_t,
+    AMP::Operator::NodeToNodeMap::Point const *,
+    AMP::Operator::NodeToNodeMap::Point const & );

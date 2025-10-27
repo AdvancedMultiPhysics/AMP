@@ -156,6 +156,18 @@ public:
     copyCast( CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X,
               matrixdata_t *Y );
 
+    std::string type() const override { return "CSRMatrixOperationsDevice"; }
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const override;
+
+    CSRMatrixOperationsDevice() = default;
+    CSRMatrixOperationsDevice( int64_t, AMP::IO::RestartManager * ) {}
+
 protected:
     std::map<std::pair<std::shared_ptr<matrixdata_t>, std::shared_ptr<matrixdata_t>>,
              CSRMatrixSpGEMMDevice<Config>>

@@ -1,5 +1,8 @@
 #include "AMP/matrices/Matrix.h"
+#include "AMP/IO/PIO.h"
+#include "AMP/IO/RestartManager.h"
 #include "AMP/discretization/DOF_Manager.h"
+#include "AMP/matrices/MatrixFactory.h"
 #include "AMP/matrices/operations/default/MatrixOperationsDefault.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/utils/AMPManager.h"
@@ -178,4 +181,62 @@ void Matrix::setBackend( AMP::Utilities::Backend )
     AMP_WARNING( "Matrix::setBackend: No effect on matrix types other than CSRMatrix" );
 }
 
+uint64_t Matrix::getID() const { return getComm().rand(); }
+
+/********************************************************
+ *  Restart operations                                   *
+ ********************************************************/
+void Matrix::registerChildObjects( AMP::IO::RestartManager *manager ) const
+{
+    manager->registerObject( d_matrixData );
+    manager->registerObject( d_matrixOps );
+}
+void Matrix::writeRestart( int64_t fid ) const
+{
+    IO::writeHDF5( fid, "data", d_matrixData->getID() );
+    IO::writeHDF5( fid, "ops", d_matrixOps->getID() );
+}
+Matrix::Matrix( int64_t fid, AMP::IO::RestartManager *manager )
+{
+    AMPManager::incrementResource( "Matrix" );
+    uint64_t MatrixDataID, MatrixOpsID;
+    IO::readHDF5( fid, "data", MatrixDataID );
+    IO::readHDF5( fid, "ops", MatrixOpsID );
+    d_matrixData = manager->getData<AMP::LinearAlgebra::MatrixData>( MatrixDataID );
+    d_matrixOps  = manager->getData<AMP::LinearAlgebra::MatrixOperations>( MatrixOpsID );
+}
+
 } // namespace AMP::LinearAlgebra
+
+
+/********************************************************
+ *  Restart operations                                   *
+ ********************************************************/
+template<>
+AMP::IO::RestartManager::DataStoreType<AMP::LinearAlgebra::Matrix>::DataStoreType(
+    std::shared_ptr<const AMP::LinearAlgebra::Matrix> matrix, RestartManager *manager )
+    : d_data( matrix )
+{
+    d_hash = matrix->getID();
+    d_data->registerChildObjects( manager );
+}
+template<>
+void AMP::IO::RestartManager::DataStoreType<AMP::LinearAlgebra::Matrix>::write(
+    hid_t fid, const std::string &name ) const
+{
+    hid_t gid = IO::createGroup( fid, name );
+    IO::writeHDF5( gid, "type", d_data->type() );
+    IO::writeHDF5( gid, "mode", d_data->mode() );
+    d_data->writeRestart( gid );
+    IO::closeGroup( gid );
+}
+template<>
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+AMP::IO::RestartManager::DataStoreType<AMP::LinearAlgebra::Matrix>::read(
+    hid_t fid, const std::string &name, RestartManager *manager ) const
+{
+    hid_t gid   = IO::openGroup( fid, name );
+    auto matrix = AMP::LinearAlgebra::MatrixFactory::create( gid, manager );
+    IO::closeGroup( gid );
+    return matrix;
+}

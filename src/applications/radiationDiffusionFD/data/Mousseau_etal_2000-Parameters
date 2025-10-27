@@ -1,0 +1,8 @@
+Mousseau_etal_2000_Parameters{
+  # The temperature diffusion flux is k*T^{2.5}; eq. (16)
+  k = 1e-5
+  #k = 0.1
+  
+  # In initial tests this is constant 1 everywhere
+  zatom = 1.0
+}

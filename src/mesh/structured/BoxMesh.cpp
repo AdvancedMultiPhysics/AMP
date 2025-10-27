@@ -285,7 +285,7 @@ void BoxMesh::createBoundingBox()
     }
     double x[3] = { 0, 0, 0 };
     for ( auto &node : getIterator( GeomType::Vertex, 0 ) ) {
-        auto element = dynamic_cast<structuredMeshElement *>( node.getRawElement() );
+        auto element = dynamic_cast<structuredMeshElement *>( &node );
         AMP_ASSERT( element );
         coord( element->getIndex(), x );
         for ( int d = 0; d < PhysicalDim; d++ ) {
@@ -484,12 +484,12 @@ size_t BoxMesh::maxProcs( std::shared_ptr<const MeshParameters> params )
 /****************************************************************
  * Function to return the element given an ID                    *
  ****************************************************************/
-MeshElement BoxMesh::getElement( const MeshElementID &id ) const
+std::unique_ptr<MeshElement> BoxMesh::getElement( const MeshElementID &id ) const
 {
     // Get the index of the element
     MeshElementIndex index = convert( id );
     // Create the element
-    auto tmp = new structuredMeshElement( index, this );
+    auto tmp = std::make_unique<structuredMeshElement>( index, this );
     AMP_DEBUG_ASSERT( tmp->globalID() == id );
     return tmp;
 }
@@ -586,17 +586,18 @@ BoxMesh::MeshElementIndex BoxMesh::getElementFromPhysical( const AMP::Geometry::
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> BoxMesh::getElementParents( const MeshElement &meshelem,
-                                                     const GeomType type ) const
+std::vector<std::unique_ptr<MeshElement>> BoxMesh::getElementParents( const MeshElement &meshelem,
+                                                                      const GeomType type ) const
 {
     auto id = meshelem.globalID();
-    if ( type == id.type() )
-        return std::vector<MeshElement>( 1, meshelem );
+    if ( type == id.type() ) {
+        std::vector<std::unique_ptr<MeshElement>> parents;
+        parents.push_back( meshelem.clone() );
+        return parents;
+    }
     AMP_INSIST( id.meshID() == d_meshID, "MeshElement is not from the given mesh" );
-    // AMP_INSIST( type >= id.type() && type <= GeomDim,
-    //            "Cannot get the parents of the given type for the current element" );
     // Get the element of interest
-    const auto *elem = dynamic_cast<const structuredMeshElement *>( meshelem.getRawElement() );
+    const auto *elem = dynamic_cast<const structuredMeshElement *>( &meshelem );
     AMP_ASSERT( elem );
     return elem->getParents( type );
 }
@@ -811,7 +812,7 @@ MeshIterator BoxMesh::getSurfaceIterator( const GeomType type, const int gcw ) c
     if ( !d_surface[type2][gcw] ) {
         d_surface[type2][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
         for ( auto &elem : getIterator( type, gcw ) ) {
-            auto elem2 = dynamic_cast<structuredMeshElement *>( elem.getRawElement() );
+            auto elem2 = dynamic_cast<structuredMeshElement *>( &elem );
             if ( elem2->isOnSurface() )
                 d_surface[type2][gcw]->push_back( elem2->getIndex() );
         }
@@ -856,7 +857,7 @@ BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw
         d_bnd[type2][index][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
         auto &boundary           = *d_bnd[type2][index][gcw];
         for ( auto &elem : getIterator( type, gcw ) ) {
-            auto elem2 = dynamic_cast<structuredMeshElement *>( elem.getRawElement() );
+            auto elem2 = dynamic_cast<structuredMeshElement *>( &elem );
             if ( elem2->isOnBoundary( id ) )
                 boundary.push_back( elem2->getIndex() );
         }

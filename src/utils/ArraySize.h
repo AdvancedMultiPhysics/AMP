@@ -39,7 +39,8 @@
 #else
     #define ARRAY_INLINE HOST_DEVICE inline
 #endif
-#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ )
+#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ ) && \
+    !defined( __HIP_DEVICE_COMPILE__ )
     #define CHECK_ARRAY_LENGTH( i, length )                              \
         do {                                                             \
             if ( i >= length )                                           \

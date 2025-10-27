@@ -1,0 +1,5 @@
+# Parameters for computing BDF truncation error
+TruncationError {
+  dt = 1e-4
+  time = 0.3245 # Time to evaluate truncation error
+}

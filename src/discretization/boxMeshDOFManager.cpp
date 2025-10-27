@@ -232,10 +232,10 @@ size_t boxMeshDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
         auto parents = d_mesh->getElementParents( obj, meshType );
         std::vector<AMP::Mesh::MeshElementID> ids;
         for ( auto &parent : parents ) {
-            auto children = parent.getElements( objType );
+            auto children = parent->getElements( objType );
             ids.reserve( ids.size() + children.size() );
             for ( auto &elem : children )
-                ids.push_back( elem.globalID() );
+                ids.push_back( elem->globalID() );
         }
         AMP::Utilities::unique( ids );
         for ( auto &id2 : ids )
@@ -244,13 +244,13 @@ size_t boxMeshDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
         // The desired element type is < the current element type, use getElements
         auto children = obj.getElements( d_type );
         for ( auto &elem : children )
-            appendDOFs( elem.globalID() );
+            appendDOFs( elem->globalID() );
     } else if ( objType < d_type ) {
         // The desired element type is < the current element type, use getElementParents
         auto parents = d_mesh->getElementParents( obj, meshType );
         std::vector<AMP::Mesh::MeshElementID> ids;
         for ( auto &parent : parents )
-            appendDOFs( parent.globalID() );
+            appendDOFs( parent->globalID() );
     } else {
         AMP_ERROR( "Internal error" );
     }

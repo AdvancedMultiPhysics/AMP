@@ -62,7 +62,7 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    AMP::Mesh::MeshElement getElement( size_t dof ) const override;
+    std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const override;
 
 
     /** \brief   Get an entry over the mesh elements associated with the DOFs
