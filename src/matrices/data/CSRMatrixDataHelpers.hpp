@@ -560,7 +560,7 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto icl = in_cols_loc[k];
-                const auto pos = out_row_starts[icl]++;
+                out_row_starts[icl]++;
             }
         }
 
@@ -671,7 +671,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto icl = in_cols[k] - in_first_col;
-                const auto pos = out_row_starts[icl]++;
+                out_row_starts[icl]++;
             }
         }
 

@@ -15,11 +15,12 @@ namespace AMP::Solver::AMG {
 int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids )
 {
     AMP_DEBUG_INSIST( A->numLocalRows() == A->numLocalColumns(),
-                      "SimpleAggregator::assignLocalAggregates input matrix must be square" );
+                      "MIS2Aggregator::assignLocalAggregates input matrix must be square" );
     AMP_DEBUG_ASSERT( agg_ids != nullptr );
 
-    return LinearAlgebra::csrVisit(
-        A, [=]( auto csr_ptr ) { return assignLocalAggregates( csr_ptr, agg_ids ); } );
+    return LinearAlgebra::csrVisit( A, [this, agg_ids]( auto csr_ptr ) {
+        return this->assignLocalAggregates( csr_ptr, agg_ids );
+    } );
 }
 
 template<typename Config>
