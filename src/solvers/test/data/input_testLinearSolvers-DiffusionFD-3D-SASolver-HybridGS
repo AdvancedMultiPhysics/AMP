@@ -5,7 +5,7 @@ LinearSolver{
   absolute_tolerance = 1.e-12
   relative_tolerance = 1.e-12
   print_info_level = 3
-  max_iterations = 50
+  max_iterations = 100
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
@@ -35,7 +35,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 39
+  iterations = 61
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

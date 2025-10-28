@@ -6,6 +6,8 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
 
+#include "ProfilerApp.h"
+
 #include <cstdint>
 #include <limits>
 #include <numeric>
@@ -31,6 +33,8 @@ int MIS2Aggregator::classifyVertices(
     const uint64_t num_gbl,
     int *agg_ids )
 {
+    PROFILE( "MIS2Aggregator::classifyVertices" );
+    
     using lidx_t = typename Config::lidx_t;
 
     // unpack diag block
@@ -171,6 +175,8 @@ template<typename Config>
 int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                            int *agg_ids )
 {
+    PROFILE( "MIS2Aggregator::assignLocalAggregates" );
+    
     using lidx_t       = typename Config::lidx_t;
     using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t = typename matrix_t::matrixdata_t;
@@ -283,7 +289,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // Add unmarked entries to the smallest aggregate they are nbrs with
     bool grew_agg;
-    lidx_t npasses = 0;
     do {
         grew_agg = false;
         for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -310,9 +315,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                 grew_agg = true;
             }
         }
-        ++npasses;
     } while ( grew_agg );
-    AMP::pout << "Agg growth took " << npasses << " passes" << std::endl;
 
     // check if aggregated points neighbor any isolated points
     // and add them to their aggregate if so. These mostly come from BCs

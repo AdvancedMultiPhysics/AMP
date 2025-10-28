@@ -102,7 +102,6 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     // Second pass, add unaggregated points to the smallest aggregate
     // that they neighbor. Does nothing to isolated points
     bool grew_agg;
-    lidx_t npasses = 0;
     do {
         grew_agg = false;
         for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -131,10 +130,9 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
                 grew_agg          = true;
             }
         }
-        ++npasses;
     } while ( grew_agg );
-    AMP::pout << "Agg growth took " << npasses << " passes" << std::endl;
 
+#if 0
     // Third pass, check if aggregated points neighbor any isolated points
     // and add them to their aggregate if so. These mostly come from BCs
     // where connections might not be symmetric.
@@ -169,6 +167,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
                   << " rows, with average size " << total_agg / static_cast<double>( num_agg )
                   << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl;
     }
+#endif
 
     return num_agg;
 }
