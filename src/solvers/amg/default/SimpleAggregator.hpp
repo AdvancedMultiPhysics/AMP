@@ -99,65 +99,75 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
         ++num_agg;
     }
 
-    // second pass
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = Am_rs[row], re = Am_rs[row + 1];
-        if ( agg_ids[row] >= 0 ) {
-            // this row already assigned, check if it contains
-            // any isolated points and add them to this aggregate if so
-            const auto curr_agg = agg_ids[row];
-            for ( lidx_t c = rs + 1; c < re; ++c ) {
-                const auto id = Am_cols_loc[c];
-                if ( isolated_pts[id] == 1 ) {
-                    agg_ids[id] = curr_agg;
-                    agg_size[curr_agg]++;
-                    isolated_pts[id] = 0;
+    // Second pass, add unaggregated points to the smallest aggregate
+    // that they neighbor. Does nothing to isolated points
+    bool grew_agg;
+    lidx_t npasses = 0;
+    do {
+        grew_agg = false;
+        for ( lidx_t row = 0; row < A_nrows; ++row ) {
+            const auto rs = Am_rs[row], re = Am_rs[row + 1];
+            if ( agg_ids[row] >= 0 ) {
+                continue;
+            }
+
+            // find smallest neighboring aggregate
+            lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
+            for ( lidx_t c = rs; c < re; ++c ) {
+                const auto agg = agg_ids[Am_cols_loc[c]];
+                // only consider nbrs that are aggregated
+                if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
+                    small_agg_size = agg_size[agg];
+                    small_agg_id   = agg;
                 }
             }
-            continue;
-        }
 
-        // find smallest neighboring aggregate
-        lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t c = rs + 1; c < re; ++c ) {
-            const auto agg = agg_ids[Am_cols_loc[c]];
-            // only consider nbrs that are aggregated
-            if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
-                small_agg_size = agg_size[agg];
-                small_agg_id   = agg;
+            // add to aggregate
+            if ( small_agg_id >= 0 ) {
+                agg_ids[row] = small_agg_id;
+                agg_size[small_agg_id]++;
+                // steal if isolated
+                isolated_pts[row] = 0;
+                grew_agg          = true;
             }
         }
+        ++npasses;
+    } while ( grew_agg );
+    AMP::pout << "Agg growth took " << npasses << " passes" << std::endl;
 
-        // add to aggregate
-        if ( small_agg_id >= 0 ) {
-            agg_ids[row] = small_agg_id;
-            agg_size[small_agg_id]++;
-            // steal if isolated
-            isolated_pts[row] = 0;
-        }
-    }
-
-    // third pass
-    bool have_isolated = false;
+    // Third pass, check if aggregated points neighbor any isolated points
+    // and add them to their aggregate if so. These mostly come from BCs
+    // where connections might not be symmetric.
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( isolated_pts[row] != 1 || agg_ids[row] >= 0 ) {
-            // point is not isolated or is already aggregated
+        const auto rs = Am_rs[row], re = Am_rs[row + 1];
+        const auto curr_agg = agg_ids[row];
+
+        if ( curr_agg < 0 ) {
             continue;
         }
-        if ( !have_isolated ) {
-            // this is the first isolated point found, make new agg
-            agg_size.push_back( 0 );
+
+        for ( lidx_t c = rs; c < re; ++c ) {
+            const auto nid = Am_cols_loc[c];
+            if ( isolated_pts[nid] == 1 ) {
+                agg_ids[nid] = curr_agg;
+                agg_size[curr_agg]++;
+                isolated_pts[nid] = 0;
+            }
         }
-        have_isolated = true;
-        agg_ids[row]  = num_agg;
-        agg_size[num_agg]++;
     }
 
-    // account for lumped isolated rows in aggregate count
-    if ( have_isolated ) {
-        std::cout << "SimpleAggregator had " << agg_size[num_agg] << " isolated points"
-                  << std::endl;
-        ++num_agg;
+    // DEBUG
+    {
+        double total_agg   = 0.0;
+        lidx_t largest_agg = 0, smallest_agg = A_nrows;
+        for ( int n = 0; n < num_agg; ++n ) {
+            total_agg += agg_size[n];
+            largest_agg  = largest_agg < agg_size[n] ? agg_size[n] : largest_agg;
+            smallest_agg = smallest_agg > agg_size[n] ? agg_size[n] : smallest_agg;
+        }
+        AMP::pout << "SimpleAggregator found " << num_agg << " aggregates over " << A_nrows
+                  << " rows, with average size " << total_agg / static_cast<double>( num_agg )
+                  << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl;
     }
 
     return num_agg;
