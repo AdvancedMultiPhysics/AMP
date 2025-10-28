@@ -194,6 +194,30 @@ public:
     //!  Get the communication list for the right vector
     std::shared_ptr<CommunicationList> getRightCommList();
 
+    std::string type() const override { return "MatrixParameters"; }
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const override;
+
+    /**
+     * \brief    Read restart data from file
+     * \param fid    File identifier to write
+     * \param manager   Restart manager
+     */
+    MatrixParameters( int64_t, AMP::IO::RestartManager * );
+
 protected:
     // Generate communication lists internally from the dof managers if not provided
     void generateCommLists();

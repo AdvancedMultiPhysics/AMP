@@ -43,6 +43,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
 {
     AMP::pout << "matVecTestWithDOFs with " << type << ", backend " << accelerationBackend
               << ", memory " << memoryLocation << std::endl;
+
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
@@ -59,6 +60,9 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
+    if ( memoryLocation == "host" && type == "CSRMatrix" ) {
+        matrix_h->setBackend( backend );
+    }
     auto matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
                       matrix_h :
                       AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );

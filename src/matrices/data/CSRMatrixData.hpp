@@ -2,6 +2,8 @@
 #define included_AMP_CSRMatrixData_hpp
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/IO/PIO.h"
+#include "AMP/IO/RestartManager.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/AMPCSRMatrixParameters.h"
 #include "AMP/matrices/MatrixParameters.h"
@@ -46,6 +48,9 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
     auto ampCSRParams = std::dynamic_pointer_cast<AMPCSRMatrixParameters<Config>>( d_pParameters );
     auto matParams    = std ::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
 
+    uint64_t diag_hash = getComm().rand();
+    uint64_t offd_hash = getComm().rand();
+
     if ( rawCSRParams ) {
 
         // Simplest initialization, extract row/column bounds and pass through to diag/offd
@@ -55,10 +60,24 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
         d_last_col  = rawCSRParams->d_last_col;
 
         // Construct on/off diag blocks
-        d_diag_matrix = std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, true );
-        d_offd_matrix = std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, false );
+        d_diag_matrix = std::make_shared<localmatrixdata_t>( params,
+                                                             d_memory_location,
+                                                             d_first_row,
+                                                             d_last_row,
+                                                             d_first_col,
+                                                             d_last_col,
+                                                             true,
+                                                             false,
+                                                             diag_hash );
+        d_offd_matrix = std::make_shared<localmatrixdata_t>( params,
+                                                             d_memory_location,
+                                                             d_first_row,
+                                                             d_last_row,
+                                                             d_first_col,
+                                                             d_last_col,
+                                                             false,
+                                                             false,
+                                                             offd_hash );
 
         d_leftDOFManager  = nullptr;
         d_rightDOFManager = nullptr;
@@ -78,10 +97,24 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
         d_rightCommList = matParams->getRightCommList();
 
         // Construct on/off diag blocks
-        d_diag_matrix = std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, true );
-        d_offd_matrix = std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, false );
+        d_diag_matrix = std::make_shared<localmatrixdata_t>( params,
+                                                             d_memory_location,
+                                                             d_first_row,
+                                                             d_last_row,
+                                                             d_first_col,
+                                                             d_last_col,
+                                                             true,
+                                                             false,
+                                                             diag_hash );
+        d_offd_matrix = std::make_shared<localmatrixdata_t>( params,
+                                                             d_memory_location,
+                                                             d_first_row,
+                                                             d_last_row,
+                                                             d_first_col,
+                                                             d_last_col,
+                                                             false,
+                                                             false,
+                                                             offd_hash );
 
         // If, more specifically, have ampCSRParams then blocks are not yet
         // filled. This consolidates calls to getRow{NNZ,Cols} for both blocks
@@ -111,14 +144,14 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
 
             // contents of rowHelper no longer useful, trigger deallocation
             rowHelper->deallocate();
-
-            // trigger re-packing of columns and convert to local cols
-            globalToLocalColumns();
         }
 
     } else {
-        AMP_ERROR( "Check supplied MatrixParameters object" );
+        return;
     }
+
+    // trigger re-packing of columns and convert to local cols
+    globalToLocalColumns();
 
     // determine if DOFManagers and CommLists need to be (re)created
     resetDOFManagers();
@@ -155,6 +188,10 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
     cloneData->d_diag_matrix = d_diag_matrix->cloneMatrixData();
     cloneData->d_offd_matrix = d_offd_matrix->cloneMatrixData();
 
+    cloneData->d_diag_matrix->d_hash = getComm().rand();
+    if ( d_offd_matrix )
+        cloneData->d_offd_matrix->d_hash = getComm().rand();
+
     return cloneData;
 }
 
@@ -183,6 +220,10 @@ CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
     outData->d_diag_matrix = d_diag_matrix->template migrate<ConfigOut>();
     outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
 
+    outData->d_diag_matrix->d_hash = getComm().rand();
+    if ( d_offd_matrix )
+        outData->d_offd_matrix->d_hash = getComm().rand();
+
     return outData;
 }
 
@@ -191,9 +232,7 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
 {
     PROFILE( "CSRMatrixData::transpose" );
 
-    std::shared_ptr<CSRMatrixData> transposeData;
-
-    transposeData = std::make_shared<CSRMatrixData<Config>>();
+    auto transposeData = std::make_shared<CSRMatrixData<Config>>();
 
     // copy fields from current, take care to swap L/R and rows/cols
     transposeData->d_is_square       = d_is_square;
@@ -217,11 +256,15 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
                                             d_pParameters->getRightVariable(),
                                             d_pParameters->getLeftVariable(),
                                             d_rightCommList,
-                                            d_leftCommList );
+                                            d_leftCommList,
+                                            this->getBackend() );
 
-    transposeData->d_diag_matrix = d_diag_matrix->transpose( transposeData->d_pParameters );
+    transposeData->d_diag_matrix         = d_diag_matrix->transpose( transposeData->d_pParameters );
+    transposeData->d_diag_matrix->d_hash = getComm().rand();
     if ( getComm().getSize() > 1 ) {
-        transposeData->d_offd_matrix = transposeOffd( transposeData->d_pParameters );
+        transposeData->d_offd_matrix         = transposeOffd( transposeData->d_pParameters );
+        transposeData->d_offd_matrix->d_hash = getComm().rand();
+
     } else {
         transposeData->d_offd_matrix =
             std::make_shared<localmatrixdata_t>( transposeData->d_pParameters,
@@ -230,7 +273,9 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
                                                  d_last_col,
                                                  d_first_row,
                                                  d_last_row,
-                                                 false );
+                                                 false,
+                                                 false,
+                                                 getComm().rand() );
     }
 
     // matrix blocks will not have correct ordering within rows and still
@@ -254,8 +299,17 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
     if ( !d_offd_matrix->isEmpty() ) {
         // extract info from offd block
-        auto col_map = d_offd_matrix->getColumnMap();
         auto num_unq = d_offd_matrix->numUniqueColumns();
+
+        // pull offd column map to host if not accessible
+        std::vector<gidx_t> col_map_migrate;
+        if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+            d_offd_matrix->getColumnMap( col_map_migrate );
+        }
+
+        gidx_t *col_map = d_memory_location < AMP::Utilities::MemoryType::device ?
+                              d_offd_matrix->getColumnMap() :
+                              col_map_migrate.data();
 
         // Get the partition from right comm list and test
         // which blocks need to be created
@@ -295,7 +349,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
             AMP_ASSERT( rd != my_rank );
             const auto part_start = static_cast<gidx_t>( rd == 0 ? 0 : partition[rd - 1] );
             const auto part_end   = static_cast<gidx_t>( partition[rd] );
-            auto block            = subsetCols( part_start, part_end );
+            auto block            = subsetCols( part_start, part_end, false );
             if ( !block->isEmpty() ) {
                 send_blocks.insert( { rd, block->transpose( params ) } );
             }
@@ -310,7 +364,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
     // handle edge case of no recv'd matrices (e.g. parallel matrix is block diagonal)
     if ( recv_blocks.size() == 0 ) {
         return std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, false );
+            params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, false );
     }
 
     // return horizontal concatenation of recv'd blocks
@@ -504,77 +558,48 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     return sub_matrix;
 }
 
-/** \brief  Extract subset of each row containing global columns in some range
- * \param[in] idx_lo  Lower global column index (inclusive)
- * \param[in] idx_up  Upper global column index (exclusive)
- * \return  shared_ptr to CSRLocalMatrixData holding the extracted nonzeros
- * \details  Returned matrix concatenates contributions for both diag and
- * offd components. Row and column extents are inherited from this matrix,
- * but are neither sorted nor converted to local indices.
- */
 template<typename Config>
-std::shared_ptr<CSRLocalMatrixData<Config>>
-CSRMatrixData<Config>::subsetCols( const gidx_t idx_lo, const gidx_t idx_up ) const
+std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
+    const gidx_t idx_lo, const gidx_t idx_up, const bool is_diag ) const
 {
     PROFILE( "CSRMatrixData::subsetCols" );
 
     AMP_DEBUG_ASSERT( idx_up > idx_lo );
 
     auto sub_matrix = std::make_shared<localmatrixdata_t>(
-        nullptr, d_memory_location, d_first_row, d_last_row, idx_lo, idx_up, true );
+        nullptr, d_memory_location, d_first_row, d_last_row, idx_lo, idx_up, is_diag );
+    const auto nrows = static_cast<lidx_t>( d_last_row - d_first_row );
 
     // count nnz within each row that lie in the given range
-    const auto nrows = static_cast<lidx_t>( d_last_row - d_first_row );
-    for ( lidx_t row = 0; row < nrows; ++row ) {
-        sub_matrix->d_row_starts[row] = 0;
-        for ( lidx_t k = d_diag_matrix->d_row_starts[row]; k < d_diag_matrix->d_row_starts[row + 1];
-              ++k ) {
-            const auto col = d_diag_matrix->localToGlobal( d_diag_matrix->d_cols_loc[k] );
-            if ( idx_lo <= col && col < idx_up ) {
-                sub_matrix->d_row_starts[row]++;
-            }
-        }
-        if ( !d_offd_matrix->d_is_empty ) {
-            for ( lidx_t k = d_offd_matrix->d_row_starts[row];
-                  k < d_offd_matrix->d_row_starts[row + 1];
-                  ++k ) {
-                const auto col = d_offd_matrix->localToGlobal( d_offd_matrix->d_cols_loc[k] );
-                if ( idx_lo <= col && col < idx_up ) {
-                    sub_matrix->d_row_starts[row]++;
-                }
-            }
-        }
-    }
+    CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ( idx_lo,
+                                                     idx_up,
+                                                     d_first_col,
+                                                     d_diag_matrix->d_row_starts.get(),
+                                                     d_diag_matrix->d_cols_loc.get(),
+                                                     d_offd_matrix->d_row_starts.get(),
+                                                     d_offd_matrix->d_cols_loc.get(),
+                                                     d_offd_matrix->d_cols_unq.get(),
+                                                     nrows,
+                                                     sub_matrix->d_row_starts.get() );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
 
     // loop back over rows and write desired entries into sub matrix
-    for ( lidx_t row = 0; row < nrows; ++row ) {
-        lidx_t pos = sub_matrix->d_row_starts[row];
-        for ( lidx_t k = d_diag_matrix->d_row_starts[row]; k < d_diag_matrix->d_row_starts[row + 1];
-              ++k ) {
-            const auto col = d_diag_matrix->localToGlobal( d_diag_matrix->d_cols_loc[k] );
-            if ( idx_lo <= col && col < idx_up ) {
-                sub_matrix->d_cols[pos]   = col;
-                sub_matrix->d_coeffs[pos] = d_diag_matrix->d_coeffs[k];
-                ++pos;
-            }
-        }
-        if ( !d_offd_matrix->d_is_empty ) {
-            for ( lidx_t k = d_offd_matrix->d_row_starts[row];
-                  k < d_offd_matrix->d_row_starts[row + 1];
-                  ++k ) {
-                const auto col = d_offd_matrix->localToGlobal( d_offd_matrix->d_cols_loc[k] );
-                if ( idx_lo <= col && col < idx_up ) {
-                    sub_matrix->d_cols[pos]   = col;
-                    sub_matrix->d_coeffs[pos] = d_offd_matrix->d_coeffs[k];
-                    ++pos;
-                }
-            }
-        }
-        AMP_DEBUG_ASSERT( pos == sub_matrix->d_row_starts[row + 1] );
-    }
+    CSRMatrixDataHelpers<Config>::ColSubsetFill( idx_lo,
+                                                 idx_up,
+                                                 d_first_col,
+                                                 d_diag_matrix->d_row_starts.get(),
+                                                 d_diag_matrix->d_cols_loc.get(),
+                                                 d_diag_matrix->d_coeffs.get(),
+                                                 d_offd_matrix->d_row_starts.get(),
+                                                 d_offd_matrix->d_cols_loc.get(),
+                                                 d_offd_matrix->d_cols_unq.get(),
+                                                 d_offd_matrix->d_coeffs.get(),
+                                                 nrows,
+                                                 sub_matrix->d_row_starts.get(),
+                                                 sub_matrix->d_cols.get(),
+                                                 sub_matrix->d_coeffs.get() );
 
     return sub_matrix;
 }
@@ -902,6 +927,183 @@ template<typename Config>
 size_t CSRMatrixData<Config>::endCol() const
 {
     return static_cast<size_t>( d_last_col );
+}
+
+/****************************************************************
+ * Write/Read restart data                                       *
+ ****************************************************************/
+template<typename Config>
+void CSRMatrixData<Config>::registerChildObjects( AMP::IO::RestartManager *manager ) const
+{
+    MatrixData::registerChildObjects( manager );
+
+    auto id = manager->registerObject( d_diag_matrix );
+    AMP_ASSERT( id == d_diag_matrix->getID() );
+
+    if ( d_offd_matrix ) {
+        auto id = manager->registerObject( d_offd_matrix );
+        AMP_ASSERT( id == d_offd_matrix->getID() );
+    }
+
+    if ( d_leftDOFManager ) {
+        auto id = manager->registerObject( d_leftDOFManager );
+        AMP_ASSERT( id == d_leftDOFManager->getID() );
+    }
+    if ( d_rightDOFManager ) {
+        auto id = manager->registerObject( d_rightDOFManager );
+        AMP_ASSERT( id == d_rightDOFManager->getID() );
+    }
+    if ( d_leftCommList ) {
+        auto id = manager->registerObject( d_leftCommList );
+        AMP_ASSERT( id == d_leftCommList->getID() );
+    }
+    if ( d_rightCommList ) {
+        auto id = manager->registerObject( d_rightCommList );
+        AMP_ASSERT( id == d_rightCommList->getID() );
+    }
+}
+
+template<typename Config>
+void CSRMatrixData<Config>::writeRestartMapData(
+    const int64_t fid,
+    const std::string &prefix,
+    const std::map<gidx_t, std::map<gidx_t, scalar_t>> &data ) const
+{
+
+    const auto outer_map_size       = data.size();
+    std::string outer_map_size_name = prefix + "outer_map_size";
+    IO::writeHDF5( fid, outer_map_size_name, outer_map_size );
+
+    if ( outer_map_size > 0 ) {
+        AMP::Array<gidx_t> keys_v( outer_map_size );
+        size_t i = 0;
+        for ( const auto &[key, inner_map] : data ) {
+            AMP::Array<gidx_t> inner_keys_v( inner_map.size() );
+            AMP::Array<gidx_t> inner_vals_v( inner_map.size() );
+            size_t j = 0;
+            for ( const auto &[inner_key, inner_val] : inner_map ) {
+                inner_keys_v[j] = inner_key;
+                inner_vals_v[j] = inner_val;
+                ++j;
+            }
+            const auto key_name = prefix + "_keyvector_" + std::to_string( key );
+            const auto val_name = prefix + "_valvector_" + std::to_string( key );
+            IO::writeHDF5( fid, key_name, inner_keys_v );
+            IO::writeHDF5( fid, val_name, inner_vals_v );
+            keys_v[i] = key;
+            ++i;
+        }
+        std::string outer_vector_name = prefix + "_keys";
+        IO::writeHDF5( fid, outer_vector_name, keys_v );
+    }
+}
+
+template<typename Config>
+void CSRMatrixData<Config>::readRestartMapData( const int64_t fid,
+                                                const std::string &prefix,
+                                                std::map<gidx_t, std::map<gidx_t, scalar_t>> &data )
+{
+    size_t outer_map_size;
+    std::string outer_map_size_name = prefix + "outer_map_size";
+    IO::readHDF5( fid, outer_map_size_name, outer_map_size );
+
+    if ( outer_map_size > 0 ) {
+        AMP::Array<gidx_t> keys_v;
+        std::string outer_vector_name = prefix + "_keys";
+        IO::readHDF5( fid, outer_vector_name, keys_v );
+
+        for ( size_t i = 0u; i < keys_v.length(); ++i ) {
+            const auto key = keys_v[i];
+            AMP::Array<gidx_t> inner_keys_v;
+            AMP::Array<gidx_t> inner_vals_v;
+            const auto key_name = prefix + "_keyvector_" + std::to_string( key );
+            const auto val_name = prefix + "_valvector_" + std::to_string( key );
+            IO::readHDF5( fid, key_name, inner_keys_v );
+            IO::readHDF5( fid, val_name, inner_vals_v );
+            std::map<gidx_t, scalar_t> inner_map;
+            for ( size_t k = 0u; k < inner_keys_v.length(); ++k ) {
+                inner_map.insert( { inner_keys_v[k], inner_vals_v[k] } );
+            }
+            data[key] = inner_map;
+        }
+    }
+}
+
+template<typename Config>
+void CSRMatrixData<Config>::writeRestart( int64_t fid ) const
+{
+    MatrixData::writeRestart( fid );
+
+    IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
+
+    IO::writeHDF5( fid, "memory_location", static_cast<signed char>( d_memory_location ) );
+    IO::writeHDF5( fid, "is_square", d_is_square );
+    IO::writeHDF5( fid, "first_row", d_first_row );
+    IO::writeHDF5( fid, "last_row", d_last_row );
+    IO::writeHDF5( fid, "first_col", d_first_col );
+    IO::writeHDF5( fid, "last_col", d_last_col );
+
+    uint64_t diagMatrixID = d_diag_matrix->getID();
+    IO::writeHDF5( fid, "diagMatrixID", diagMatrixID );
+
+    uint64_t offdMatrixID = d_offd_matrix ? d_offd_matrix->getID() : 0;
+    IO::writeHDF5( fid, "offdMatrixID", offdMatrixID );
+
+    uint64_t leftCommListID = d_leftCommList ? d_leftCommList->getID() : 0;
+    IO::writeHDF5( fid, "leftCommListID", leftCommListID );
+    uint64_t rightCommListID = d_rightCommList ? d_rightCommList->getID() : 0;
+    IO::writeHDF5( fid, "rightCommListID", rightCommListID );
+
+    uint64_t leftDOFManagerID = d_leftDOFManager ? d_leftDOFManager->getID() : 0;
+    IO::writeHDF5( fid, "leftDOFManagerID", leftDOFManagerID );
+    uint64_t rightDOFManagerID = d_rightDOFManager ? d_rightDOFManager->getID() : 0;
+    IO::writeHDF5( fid, "rightDOFManagerID", rightDOFManagerID );
+
+    writeRestartMapData( fid, "ghost", d_ghost_data );
+    writeRestartMapData( fid, "other", d_other_data );
+}
+
+template<typename Config>
+CSRMatrixData<Config>::CSRMatrixData( int64_t fid, AMP::IO::RestartManager *manager )
+    : MatrixData( fid, manager )
+{
+    uint64_t diagMatrixID, offdMatrixID, leftCommListID, rightCommListID, leftDOFManagerID,
+        rightDOFManagerID;
+
+    signed char memory_location;
+    IO::readHDF5( fid, "memory_location", memory_location );
+    d_memory_location = static_cast<AMP::Utilities::MemoryType>( memory_location );
+
+    IO::readHDF5( fid, "is_square", d_is_square );
+    IO::readHDF5( fid, "first_row", d_first_row );
+    IO::readHDF5( fid, "last_row", d_last_row );
+    IO::readHDF5( fid, "first_col", d_first_col );
+    IO::readHDF5( fid, "last_col", d_last_col );
+
+    IO::readHDF5( fid, "diagMatrixID", diagMatrixID );
+    IO::readHDF5( fid, "offdMatrixID", offdMatrixID );
+    IO::readHDF5( fid, "leftCommListID", leftCommListID );
+    IO::readHDF5( fid, "rightCommListID", rightCommListID );
+    IO::readHDF5( fid, "leftDOFManagerID", leftDOFManagerID );
+    IO::readHDF5( fid, "rightDOFManagerID", rightDOFManagerID );
+
+    d_diag_matrix = manager->getData<localmatrixdata_t>( diagMatrixID );
+
+    if ( offdMatrixID )
+        d_offd_matrix = manager->getData<localmatrixdata_t>( offdMatrixID );
+
+    if ( leftCommListID != 0 )
+        d_leftCommList = manager->getData<CommunicationList>( leftCommListID );
+    if ( rightCommListID != 0 )
+        d_rightCommList = manager->getData<CommunicationList>( rightCommListID );
+
+    if ( leftDOFManagerID != 0 )
+        d_leftDOFManager = manager->getData<Discretization::DOFManager>( leftDOFManagerID );
+    if ( rightDOFManagerID != 0 )
+        d_rightDOFManager = manager->getData<Discretization::DOFManager>( rightDOFManagerID );
+
+    readRestartMapData( fid, "ghost", d_ghost_data );
+    readRestartMapData( fid, "other", d_other_data );
 }
 
 } // namespace AMP::LinearAlgebra

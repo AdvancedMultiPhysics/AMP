@@ -13,7 +13,7 @@
 #include <vector>
 
 
-std::atomic<int> global_count = 0;
+std::atomic<int> global_count  = 0;
 std::atomic<bool> global_start = false;
 AMP::Mutex global_lock( true );
 
@@ -103,7 +103,7 @@ int main( int argc, char *argv[] )
         {
             PROFILE( "multiple" );
             global_start = false;
-            start         = AMP::AMP_MPI::time();
+            start        = AMP::AMP_MPI::time();
             for ( int i = 0; i < N_threads; i++ )
                 ids.push_back(
                     TPOOL_ADD_WORK( &tpool, test_lock, ( comm_world.dup(), N_it, false ) ) );

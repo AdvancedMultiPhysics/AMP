@@ -1,14 +1,14 @@
 #ifndef included_CSRMatrixOperationsDevice_HPP_
 #define included_CSRMatrixOperationsDevice_HPP_
 
+#include "AMP/IO/HDF.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
 #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
-
-#include "AMP/utils/Memory.h"
 
 #include "thrust/device_vector.h"
 #include "thrust/execution_policy.h"
@@ -380,6 +380,13 @@ void CSRMatrixOperationsDevice<Config>::copyCast(
     if ( X->hasOffDiag() ) {
         localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
+}
+
+template<typename Config>
+void CSRMatrixOperationsDevice<Config>::writeRestart( int64_t fid ) const
+{
+    MatrixOperations::writeRestart( fid );
+    AMP::IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
 }
 
 } // namespace AMP::LinearAlgebra
