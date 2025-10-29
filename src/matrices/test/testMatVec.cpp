@@ -230,7 +230,7 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
     }
 }
 
-void matVecTest( AMP::UnitTest *ut, std::string input_file )
+void matVecTest( AMP::UnitTest *ut, const std::string &input_file )
 {
 
     std::string log_file = "output_testMatVec";

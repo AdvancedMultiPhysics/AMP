@@ -143,10 +143,10 @@ public:
 
 public: // Functions dealing with the ranges of the arguments
     //! Get units for all arguments used in this material
-    const std::vector<Units> &get_arg_units() const { return d_argUnits; }
+    const auto &get_arg_units() const { return d_argUnits; }
 
     //! Get ranges for all arguments used in this material
-    std::vector<std::array<double, 2>> get_arg_ranges() const { return d_ranges; }
+    const auto &get_arg_ranges() const { return d_ranges; }
 
     //! Get range for a specific argument
     std::array<double, 2> get_arg_range( std::string_view argname ) const;

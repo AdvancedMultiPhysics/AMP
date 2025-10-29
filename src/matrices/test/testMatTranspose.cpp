@@ -27,7 +27,7 @@
 #include <string>
 
 size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
-                                 std::string type,
+                                 const std::string &type,
                                  std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                                  const std::string &accelerationBackend,
                                  const std::string &memoryLocation )
@@ -133,7 +133,7 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
+size_t matTransposeTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     PROFILE( "matTransposeTest" );
     std::string log_file = "output_testMatTranspose";

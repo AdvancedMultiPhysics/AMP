@@ -51,7 +51,7 @@ public:
     ElementList getParents( GeomType type ) const;
 
     //! Return the index of the element
-    BoxMesh::MeshElementIndex getIndex() const { return d_index; }
+    const auto &getIndex() const { return d_index; }
 
 
 public: // Functions derived from MeshElement

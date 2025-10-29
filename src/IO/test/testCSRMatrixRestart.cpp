@@ -43,8 +43,7 @@ bool equalRawArrays( const size_t n1, const size_t n2, entries_t const *a1, entr
     for ( size_t i = 0u; i < n1; ++i ) {
         pass = pass && ( a1[i] == a2[i] );
         if ( !pass )
-            AMP::pout << "a1[" << i << "]"
-                      << "a2[" << i << "]" << std::endl;
+            AMP::pout << "a1[" << i << "]" << "a2[" << i << "]" << std::endl;
     }
     if ( !pass )
         AMP::pout << "Values don't match " << std::endl;
@@ -217,7 +216,7 @@ void testCSRMatrixRestartWithDOFs( AMP::UnitTest *ut,
     compareMatrices<Config>( ut, matrix, restartedMatrix );
 }
 
-void compareCSRMatrixRestart( AMP::UnitTest *ut, std::string input_file )
+void compareCSRMatrixRestart( AMP::UnitTest *ut, const std::string &input_file )
 {
     constexpr auto allocator = AMP::LinearAlgebra::alloc::host;
     using Config             = AMP::LinearAlgebra::DefaultCSRConfig<allocator>;

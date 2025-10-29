@@ -33,7 +33,7 @@
 #define NUM_PRODUCTS_REUSE 10
 
 size_t matMatTestWithDOFs( AMP::UnitTest *ut,
-                           std::string type,
+                           const std::string &type,
                            std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                            const std::string &accelerationBackend,
                            const std::string &memoryLocation )
@@ -150,7 +150,7 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matMatTest( AMP::UnitTest *ut, std::string input_file )
+size_t matMatTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatVecPerf";
     AMP::logOnlyNodeZero( log_file );
