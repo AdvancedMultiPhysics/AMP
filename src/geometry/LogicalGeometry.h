@@ -100,9 +100,9 @@ protected:
     LogicalGeometry( int physical, int logical, std::array<int, 6> ids = { 1, 2, 3, 4, 5, 6 } );
 
     // Delete copy constructors
-    LogicalGeometry( LogicalGeometry && )                 = delete;
-    LogicalGeometry( const LogicalGeometry & )            = default;
-    LogicalGeometry &operator=( LogicalGeometry && )      = delete;
+    LogicalGeometry( LogicalGeometry && )      = delete;
+    LogicalGeometry( const LogicalGeometry & ) = default;
+    LogicalGeometry &operator=( LogicalGeometry && ) = delete;
     LogicalGeometry &operator=( const LogicalGeometry & ) = delete;
 
 
