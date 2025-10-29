@@ -234,7 +234,8 @@ void testMoabMesh( [[maybe_unused]] AMP::UnitTest &ut )
 }
 
 
-void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut, [[maybe_unused]] std::string filename )
+void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut,
+                    [[maybe_unused]] const std::string &filename )
 {
 #ifdef USE_AMP_DATA
     PROFILE( "testInputMesh" );

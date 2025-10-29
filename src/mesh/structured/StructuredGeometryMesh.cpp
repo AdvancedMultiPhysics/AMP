@@ -53,7 +53,7 @@ StructuredGeometryMesh::StructuredGeometryMesh(
     std::shared_ptr<AMP::Geometry::LogicalGeometry> geom,
     const ArraySize &size,
     const AMP::AMP_MPI &comm )
-    : BoxMesh(), d_geometry2( geom )
+    : BoxMesh(), d_pos_hash( 0 ), d_geometry2( geom )
 {
     // Set base Mesh variables
     setMeshID();

@@ -475,10 +475,9 @@ void TriangleMesh<NG>::initialize()
         auto add  = [&list, start, end, &nab = d_globalNab]( int i, std::vector<int> &remote ) {
             for ( auto t : nab[i] ) {
                 if ( t != -1 && ( t < start || t >= end ) ) {
-                    if ( list.find( t ) == list.end() ) {
-                        list.insert( t );
+                    [[maybe_unused]] auto [it, test] = list.insert( t );
+                    if ( test )
                         remote.push_back( t );
-                    }
                 }
             }
         };
