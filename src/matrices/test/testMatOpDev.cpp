@@ -290,14 +290,6 @@ void testSetScalar( AMP::UnitTest *ut,
 
     A->setScalar( 1. );
 
-    // debug
-    {
-        auto A_data = std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrixData<Config>>(
-            A->getMatrixData() );
-        AMP_ASSERT( A_data );
-        A_data->printStats( true, true );
-    }
-
     x->setToScalar( 1.0 );
     // this shouldn't be necessary, but evidently is!
     x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
