@@ -12,6 +12,8 @@
 
 #include <cmath>
 
+#define AMP_AMG_RELAXATION_PROFILE
+
 namespace AMP::Solver::AMG {
 
 Relaxation::Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
@@ -195,28 +197,147 @@ void HybridGS::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                              [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
+#if 1
 template<typename Config>
 void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                       std::shared_ptr<const LinearAlgebra::Vector> b,
                       std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    for ( size_t i = 0; i < d_num_sweeps; ++i ) {
-        switch ( d_sweep ) {
-        case Sweep::forward:
-            sweep<Config>( Direction::forward, *A, *b, *x );
-            break;
-        case Sweep::backward:
-            sweep<Config>( Direction::backward, *A, *b, *x );
-            break;
-        case Sweep::symmetric:
-            sweep<Config>( Direction::forward, *A, *b, *x );
-            sweep<Config>( Direction::backward, *A, *b, *x );
-            break;
+    int caller_lvl = 0;
+    auto run       = [&]() {
+        auto comp = [&]() {
+            for ( size_t i = 0; i < d_num_sweeps; ++i ) {
+                switch ( d_sweep ) {
+                case Sweep::forward:
+                    sweep<Config>( Direction::forward, *A, *b, *x );
+                    break;
+                case Sweep::backward:
+                    sweep<Config>( Direction::backward, *A, *b, *x );
+                    break;
+                case Sweep::symmetric:
+                    sweep<Config>( Direction::forward, *A, *b, *x );
+                    sweep<Config>( Direction::backward, *A, *b, *x );
+                    break;
+                }
+            }
+        };
+
+        if ( caller_lvl == 0 ) {
+            {
+                PROFILE( "HGS-relax-comp-0" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-0" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( caller_lvl == 1 ) {
+            {
+                PROFILE( "HGS-relax-comp-1" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comp-1" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( caller_lvl == 1 ) {
+            {
+                PROFILE( "HGS-relax-comp-2" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-2" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( caller_lvl == 1 ) {
+            {
+                PROFILE( "HGS-relax-comp-3" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-3" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( caller_lvl == 1 ) {
+            {
+                PROFILE( "HGS-relax-comp-4" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-4" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else {
+            {
+                PROFILE( "HGS-relax-comp-5+" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-5+" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        }
+    };
+
+    if ( caller_lvl == 0 ) {
+        PROFILE( "HGS-relax-0" );
+        run();
+    } else if ( caller_lvl == 1 ) {
+        PROFILE( "HGS-relax-1" );
+        run();
+    } else if ( caller_lvl == 2 ) {
+        PROFILE( "HGS-relax-2" );
+        run();
+    } else if ( caller_lvl == 3 ) {
+        PROFILE( "HGS-relax-3" );
+        run();
+    } else if ( caller_lvl == 4 ) {
+        PROFILE( "HGS-relax-4" );
+        run();
+    } else {
+        PROFILE( "HGS-relax-5+" );
+        run();
+    }
+}
+
+#else
+
+template<typename Config>
+void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                      std::shared_ptr<const LinearAlgebra::Vector> b,
+                      std::shared_ptr<LinearAlgebra::Vector> x )
+{
+    #ifdef AMP_AMG_RELAXATION_PROFILE
+    PROFILE( "HGS-relax" );
+    #endif
+    {
+    #ifdef AMP_AMG_RELAXATION_PROFILE
+        PROFILE( "HGS-relax-comp" );
+    #endif
+        for ( size_t i = 0; i < d_num_sweeps; ++i ) {
+            switch ( d_sweep ) {
+            case Sweep::forward:
+                sweep<Config>( Direction::forward, *A, *b, *x );
+                break;
+            case Sweep::backward:
+                sweep<Config>( Direction::backward, *A, *b, *x );
+                break;
+            case Sweep::symmetric:
+                sweep<Config>( Direction::forward, *A, *b, *x );
+                sweep<Config>( Direction::backward, *A, *b, *x );
+                break;
+            }
         }
     }
 
-    x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+    {
+    #ifdef AMP_AMG_RELAXATION_PROFILE
+        PROFILE( "HGS-relax-comm" );
+    #endif
+        x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+    }
 }
+#endif
 
 template<typename Config>
 void HybridGS::sweep( const Relaxation::Direction relax_dir,
