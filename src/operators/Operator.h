@@ -167,7 +167,7 @@ public:
     virtual void reInitializeVector( std::shared_ptr<AMP::LinearAlgebra::Vector> ) {}
 
 protected:
-    void getFromInput( std::shared_ptr<AMP::Database> db );
+    void getBackendFromInput( std::shared_ptr<AMP::Database> db );
 
     /**
      * This function returns a OperatorParameters object

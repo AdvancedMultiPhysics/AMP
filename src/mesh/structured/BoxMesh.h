@@ -326,21 +326,6 @@ public:
 
 
     /**
-     * \brief    Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \details  Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \param OP Set operation to perform.
-     *           SetOP::Union - Perform a union of the iterators ( A U B )
-     *           SetOP::Intersection - Perform an intersection of the iterators ( A n B )
-     *           SetOP::Complement - Perform a compliment of the iterators ( A - B )
-     * \param A  Pointer to MeshIterator A
-     * \param B  Pointer to MeshIterator B
-     */
-    static MeshIterator getIterator( SetOP OP, const MeshIterator &A, const MeshIterator &B );
-
-
-    /**
      * \brief    Return a mesh element given it's id.
      * \details  This function queries the mesh to get an element given the mesh id.
      *    This function is only required to return an element if the id is local.

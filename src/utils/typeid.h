@@ -11,6 +11,9 @@
 #ifndef AMP_CXX_STANDARD
     #define AMP_CXX_STANDARD 17
 #endif
+#if AMP_CXX_STANDARD >= 20
+    #include <source_location>
+#endif
 
 
 namespace AMP {
