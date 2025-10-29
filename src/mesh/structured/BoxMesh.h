@@ -109,7 +109,7 @@ public:
     {
     public:
         //! Empty constructor
-        constexpr MeshElementIndex();
+        constexpr MeshElementIndex() = default;
         /**
          * \brief   Default constructor
          * \details  The default constructor
@@ -130,7 +130,7 @@ public:
         constexpr bool operator>=( const MeshElementIndex &rhs ) const; //!< Operator >=
         constexpr bool operator<( const MeshElementIndex &rhs ) const;  //!< Operator <
         constexpr bool operator<=( const MeshElementIndex &rhs ) const; //!< Operator <=
-        constexpr auto index() const { return d_index; }
+        constexpr const auto &index() const { return d_index; }
         constexpr int index( int d ) const { return d_index[d]; }
         constexpr int &index( int d ) { return d_index[d]; }
         constexpr int operator[]( int d ) const { return d_index[d]; }
@@ -142,9 +142,9 @@ public:
         std::string print() const;
 
     private:
-        uint8_t d_type;             //!<  Mesh element type
-        uint8_t d_side;             //!<  Are we dealing with x, y, or z faces/edges
-        std::array<int, 3> d_index; //!<  Global x, y, z index (may be negative if periodic)
+        uint8_t d_type             = 0;           //!<  Mesh element type
+        uint8_t d_side             = 255;         //!<  Are we dealing with x, y, or z faces/edges
+        std::array<int, 3> d_index = { 0, 0, 0 }; //!<  Global x, y, z index (may be negative)
         friend class BoxMesh;
         friend class structuredMeshElement;
     };
@@ -183,8 +183,8 @@ public:
         void set( uint32_t i ) { d_pos = i; }
         size_t size() const { return d_size; }
         size_t position() const { return d_pos; }
-        inline auto first() const { return d_first; }
-        inline auto last() const { return d_last; }
+        inline const auto &first() const { return d_first; }
+        inline const auto &last() const { return d_last; }
 
     private:
         // Data members
@@ -323,21 +323,6 @@ public:
      */
     virtual MeshIterator
     getBlockIDIterator( const GeomType type, const int id, const int gcw = 0 ) const override final;
-
-
-    /**
-     * \brief    Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \details  Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \param OP Set operation to perform.
-     *           SetOP::Union - Perform a union of the iterators ( A U B )
-     *           SetOP::Intersection - Perform an intersection of the iterators ( A n B )
-     *           SetOP::Complement - Perform a compliment of the iterators ( A - B )
-     * \param A  Pointer to MeshIterator A
-     * \param B  Pointer to MeshIterator B
-     */
-    static MeshIterator getIterator( SetOP OP, const MeshIterator &A, const MeshIterator &B );
 
 
     /**

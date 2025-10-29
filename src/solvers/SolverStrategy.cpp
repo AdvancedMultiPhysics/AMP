@@ -31,7 +31,7 @@ SolverStrategy::SolverStrategy( std::shared_ptr<const SolverStrategyParameters> 
 {
     AMP_INSIST( parameters, "NULL SolverStrategyParameters object" );
     SolverStrategy::d_iInstanceId++;
-    SolverStrategy::getFromInput( parameters->d_db );
+    SolverStrategy::getBaseFromInput( parameters->d_db );
     d_pNestedSolver = parameters->d_pNestedSolver;
     SolverStrategy::registerOperator( parameters->d_pOperator );
 }
@@ -46,7 +46,7 @@ SolverStrategy::~SolverStrategy() = default;
 /****************************************************************
  * Initialize                                                    *
  ****************************************************************/
-void SolverStrategy::getFromInput( std::shared_ptr<AMP::Database> db )
+void SolverStrategy::getBaseFromInput( std::shared_ptr<AMP::Database> db )
 {
     AMP_INSIST( db, "InputDatabase object must be non-NULL" );
     d_iMaxIterations       = db->getWithDefault<int>( "max_iterations", 100 );

@@ -14,7 +14,7 @@ void testInputGeometries( AMP::UnitTest &ut, std::string filename )
     auto input_db = AMP::Database::parseInputFile( filename );
 
     // Loop through the databases
-    for ( auto key : input_db->getAllKeys() ) {
+    for ( auto &key : input_db->getAllKeys() ) {
         // Load the geometry database
         auto db = input_db->getDatabase( key );
         // Create the geometry

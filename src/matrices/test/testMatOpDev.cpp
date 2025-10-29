@@ -34,7 +34,7 @@
 
 template<typename Config>
 void createMatrixAndVectors( AMP::UnitTest *ut,
-                             std::string type,
+                             const std::string &type,
                              std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                              std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
@@ -107,7 +107,7 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
 
 template<typename Config>
 void testGetSetValues( AMP::UnitTest *ut,
-                       std::string type,
+                       const std::string &type,
                        std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> matrix = nullptr;
@@ -136,7 +136,7 @@ void testGetSetValues( AMP::UnitTest *ut,
 
 template<class Config>
 void testMatvecWithDOFs( AMP::UnitTest *ut,
-                         std::string type,
+                         const std::string &type,
                          std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                          bool testTranspose )
 {
@@ -193,7 +193,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
 
 template<class Config>
 void testAXPY( AMP::UnitTest *ut,
-               std::string type,
+               const std::string &type,
                std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
@@ -244,7 +244,7 @@ void testAXPY( AMP::UnitTest *ut,
 
 template<typename Config>
 void testScale( AMP::UnitTest *ut,
-                std::string type,
+                const std::string &type,
                 std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
@@ -278,7 +278,7 @@ void testScale( AMP::UnitTest *ut,
 
 template<typename Config>
 void testSetScalar( AMP::UnitTest *ut,
-                    std::string type,
+                    const std::string &type,
                     std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
@@ -329,7 +329,7 @@ void testSetScalar( AMP::UnitTest *ut,
 
 template<typename Config>
 void testGetSetDiagonal( AMP::UnitTest *ut,
-                         std::string type,
+                         const std::string &type,
                          std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
@@ -364,7 +364,7 @@ void testGetSetDiagonal( AMP::UnitTest *ut,
 
 template<typename Config>
 void testLinfNorm( AMP::UnitTest *ut,
-                   std::string type,
+                   const std::string &type,
                    std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
@@ -392,7 +392,7 @@ void testLinfNorm( AMP::UnitTest *ut,
     }
 }
 
-void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
+void matDeviceOperationsTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     // clang-format off
 #ifdef AMP_USE_DEVICE

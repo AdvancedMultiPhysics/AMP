@@ -129,7 +129,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matMultTest( AMP::UnitTest *ut, std::string input_file )
+size_t matMultTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatMultCoarsen";
     AMP::logOnlyNodeZero( log_file );

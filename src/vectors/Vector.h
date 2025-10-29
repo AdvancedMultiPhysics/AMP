@@ -400,7 +400,7 @@ public: // Up/down-cast vectors
 
 public: // Get/Set data/variables/operations
     //! Get the units for this Vector
-    inline auto getUnits() const { return d_units; }
+    inline auto &getUnits() const { return d_units; }
 
     //! Get the units for this Vector
     virtual void setUnits( AMP::Units );

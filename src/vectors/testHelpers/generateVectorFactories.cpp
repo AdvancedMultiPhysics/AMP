@@ -431,7 +431,7 @@ std::vector<std::string> getManagedVectorFactories()
 std::vector<std::string> getCloneVectorFactories()
 {
     std::vector<std::string> list;
-    for ( auto factory : getNativeVectorFactories() )
+    for ( auto &factory : getNativeVectorFactories() )
         list.push_back( "CloneFactory<" + factory + ">" );
     list.push_back( "CloneFactory<" + getSimpleVectorFactories()[0] + ">" );
     list.push_back( "CloneFactory<" + getArrayVectorFactories()[0] + ">" );
@@ -478,7 +478,7 @@ std::vector<std::string> getViewVectorFactories()
     list.push_back( ViewMVFactory4 );
     list.push_back( ViewMVFactory5 );
     list.push_back( ViewMVFactory6 );
-    for ( auto factory : getManagedVectorFactories() )
+    for ( auto &factory : getManagedVectorFactories() )
         list.push_back( "ViewFactory<PetscVector," + factory + ">" );
     list = cleanList( list );
     return list;
@@ -487,7 +487,7 @@ std::vector<std::string> getViewVectorFactories()
 std::vector<std::string> getCloneViewVectorFactories()
 {
     std::vector<std::string> list;
-    for ( auto view : getViewVectorFactories() )
+    for ( auto &view : getViewVectorFactories() )
         list.push_back( "CloneFactory<" + view + ">" );
     std::string CloneViewSNEVFactory = "CloneFactory<ViewFactory<PetscVector,NativeEpetraFactory>>";
     std::string CloneViewSNTVFactory = "CloneFactory<ViewFactory<PetscVector,NativeTpetraFactory>>";
@@ -522,23 +522,23 @@ std::vector<std::string> getCloneViewVectorFactories()
 std::vector<std::string> getAllFactories()
 {
     std::vector<std::string> list;
-    for ( auto factory : getSimpleVectorFactories() )
+    for ( auto &factory : getSimpleVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getArrayVectorFactories() )
+    for ( auto &factory : getArrayVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getNativeVectorFactories() )
+    for ( auto &factory : getNativeVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getMeshVectorFactories() )
+    for ( auto &factory : getMeshVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getMultiVectorFactories() )
+    for ( auto &factory : getMultiVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getManagedVectorFactories() )
+    for ( auto &factory : getManagedVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getCloneVectorFactories() )
+    for ( auto &factory : getCloneVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getViewVectorFactories() )
+    for ( auto &factory : getViewVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getCloneViewVectorFactories() )
+    for ( auto &factory : getCloneViewVectorFactories() )
         list.push_back( factory );
     list = cleanList( list );
     return list;

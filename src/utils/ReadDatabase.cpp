@@ -1023,7 +1023,7 @@ size_t loadYAMLDatabase( const char *buffer, Database &db, size_t pos = 0, size_
                 line3 = AMP::Utilities::strrep( line3, "  ", " " );
                 line3 = AMP::Utilities::strrep( line3, " ", "," );
                 line3 += '\n';
-                auto tmp = read_value( line3.data(), key );
+                auto tmp = read_value( line3, key );
                 auto y   = std::get<1>( tmp )->convertToDouble();
                 size_t i = x.size( 0 );
                 x.resize( i + 1, y.length() );

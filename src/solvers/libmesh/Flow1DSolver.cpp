@@ -20,7 +20,7 @@ void Flow1DSolver::setInitialGuess( std::shared_ptr<AMP::LinearAlgebra::Vector> 
 
 void Flow1DSolver::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
-    getFromInput( parameters->d_db );
+    getBaseFromInput( parameters->d_db );
 
     if ( d_pOperator ) {
         auto Operator =

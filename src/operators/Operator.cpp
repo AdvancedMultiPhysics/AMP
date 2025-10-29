@@ -32,7 +32,7 @@ Operator::Operator( std::shared_ptr<const OperatorParameters> params )
     // try and keep the next call the last in the function
     // so as not to override any parameters set through it
     // by accident
-    getFromInput( params->d_db );
+    getBackendFromInput( params->d_db );
 }
 
 
@@ -42,7 +42,7 @@ void Operator::reset( std::shared_ptr<const OperatorParameters> params )
     // so as not to override any parameters set through it
     // by accident
     if ( params )
-        getFromInput( params->d_db );
+        getBackendFromInput( params->d_db );
 }
 
 
@@ -88,7 +88,7 @@ Operator::getParameters( const std::string &type,
 }
 
 
-void Operator::getFromInput( std::shared_ptr<AMP::Database> db )
+void Operator::getBackendFromInput( std::shared_ptr<AMP::Database> db )
 {
     AMP_INSIST( db, "NULL database" );
 

@@ -266,7 +266,7 @@ public:
     void setExecutionSpace( AMP::Utilities::ExecutionSpace space ) { d_exec_space = space; }
 
 protected:
-    void getFromInput( std::shared_ptr<AMP::Database> db );
+    void getBaseFromInput( std::shared_ptr<AMP::Database> db );
     virtual bool checkStoppingCriteria( AMP::Scalar res_norm, bool check_iters = true );
 
     SolverStatus d_ConvergenceStatus = SolverStatus::DivergedOther;
