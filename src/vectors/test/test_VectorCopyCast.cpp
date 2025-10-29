@@ -5,6 +5,12 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/GPUFunctionTable.h"
+    #include "AMP/vectors/data/device/VectorDataDevice.h"
+    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
+#endif
+
 
 #include <iostream>
 

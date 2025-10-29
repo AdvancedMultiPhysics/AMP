@@ -231,6 +231,9 @@ private:
     static double stop_HYPRE();
     static double stop_PETSc();
 
+    // wrapper for shutting and restarting SAMRAI
+    static void restart_SAMRAI();
+
     // Functions to set error handlers for specific packages
     static void set_PETSc_error_handler();
     static void clear_PETSc_error_handler();
