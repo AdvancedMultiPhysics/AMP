@@ -6,10 +6,10 @@
 #include "AMP/utils/UtilityMacros.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <random>
-
 
 namespace AMP {
 
@@ -353,7 +353,7 @@ template<class TYPE>
 void FunctionTable<TYPE>::transformTanh( size_t N, const TYPE *A, TYPE *B )
 {
     if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        const auto &fun = []( const TYPE &a ) { return tanh( a ); };
+        const auto &fun = []( const TYPE &a ) { return std::tanh( a ); };
         transform( fun, N, A, B );
     } else {
         AMP_ERROR( "min not implemented" );
