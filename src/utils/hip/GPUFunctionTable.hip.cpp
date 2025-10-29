@@ -1,15 +1,11 @@
-#ifndef included_AMP_GPUFunctionTable_cu
-#define included_AMP_GPUFunctionTable_cu
-
-#define included_AMP_AMP_GPUFunctionTable_HPP_
-
 #include <hip/hip_runtime_api.h>
 
-#include "AMP/utils/hip/GPUFunctionTable.h"
+#include "AMP/utils/hip/GPUFunctionTable.hpp"
 #include "AMP/utils/hip/Helper_Hip.h"
-#include "GPUFunctionTable.h"
+
 
 namespace AMP {
+
 
 // Kernels
 template<class TYPE, typename LAMBDA>
@@ -345,26 +341,24 @@ bool equalsW( const TYPE *d_a, const TYPE *d_b, TYPE tol, size_t n )
     return eq;
 }
 
-// Explicit Instantiation of the wrappers
-template double sumW<double>( const double *d_a, size_t n );
-template float sumW<float>( const float *d_a, size_t n );
-template bool equalsW<double>( const double *d_a, const double *d_b, double tol, size_t n );
-template bool equalsW<float>( const float *d_a, const float *d_b, float tol, size_t n );
-
-template void transformReLUW( const double *d_a, double *d_b, size_t n );
-template void transformAbsW( const double *d_a, double *d_b, size_t n );
-template void transformTanhW( const double *d_a, double *d_b, size_t n );
-template void transformHardTanhW( const double *d_a, double *d_b, size_t n );
-template void transformSigmoidW( const double *d_a, double *d_b, size_t n );
-template void transformSoftPlusW( const double *d_a, double *d_b, size_t n );
-
-} // namespace AMP
-
 
 /********************************************************
  *  Explicit instantiations of GPUFunctionTable          *
+ *  and the wrappers                                     *
  ********************************************************/
-template class AMP::GPUFunctionTable<float>;
-template class AMP::GPUFunctionTable<double>;
+#define INSTANTIATE( T )                                                     \
+    template class GPUFunctionTable<T>;                                      \
+    template T sumW<T>( const T *d_a, size_t n );                            \
+    template bool equalsW<T>( const T *d_a, const T *d_b, T tol, size_t n ); \
+    template void transformReLUW<T>( const T *d_a, T *d_b, size_t n );       \
+    template void transformAbsW<T>( const T *d_a, T *d_b, size_t n );        \
+    template void transformTanhW<T>( const T *d_a, T *d_b, size_t n );       \
+    template void transformHardTanhW<T>( const T *d_a, T *d_b, size_t n );   \
+    template void transformSigmoidW<T>( const T *d_a, T *d_b, size_t n );    \
+    template void transformSoftPlusW<T>( const T *d_a, T *d_b, size_t n )
+INSTANTIATE( double );
+INSTANTIATE( float );
 
-#endif
+
+} // namespace AMP
+

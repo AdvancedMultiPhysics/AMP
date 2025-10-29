@@ -22,6 +22,7 @@ class GPUFunctionTable final
 public:
     /*!
      * Initialize the array with random values
+     * @param[in] N         The length of the array
      * @param[in] x         The array to operate on
      */
     static void rand( size_t N, TYPE *x );
@@ -30,6 +31,7 @@ public:
      * Perform a reduce operator y = f(x)
      * @param[in] op            The function operation
      *                          Note: the operator is a template parameter to improve performance
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[in] initialValue  The initial value for the reduction (0 for sum, +/- inf for min/max,
      * ...)
@@ -45,6 +47,7 @@ public:
      * Perform a reduce operator z = f(x,y)
      * @param[in] op            The function operation
      *                          Note: the operator is a template parameter to improve performance
+     * @param[in] N             The length of the array
      * @param[in] A             The first array to operate on
      * @param[in] B             The second array to operate on
      * @param[in] initialValue  The initial value for the reduction (0 for sum, +/- inf for min/max,
@@ -74,6 +77,7 @@ public:
      * Perform a element-wise operation z = f(x,y)
      * @param[in] fun           The function operation
      *                          Note: the function is a template parameter to improve performance
+     * @param[in] N             The length of the array
      * @param[in] x             The first array
      * @param[in] y             The second array
      * @param[out] z            The output array
@@ -107,8 +111,11 @@ public:
 
     /*! NOT IMPLEMENTED
      * Multiply two arrays
+     * @param[in] sa            The size of the a array
      * @param[in] a             The first array
+     * @param[in] sb            The size of the b array
      * @param[in] b             The second array
+     * @param[in] sc            The size of the c array
      * @param[out] c            The output array
      */
     static void multiply( const ArraySize &sa,
@@ -158,6 +165,7 @@ public:
 
     /*!
      * Perform a element-wise operation y = max(x , 0)
+     * @param[in] N             The length of the array
      * @param[in] A             The input array
      * @param[out] B            The output array
      */
@@ -165,6 +173,7 @@ public:
 
     /*!
      * Perform a element-wise operation B = |A|
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[out] B            The output array
      */
@@ -186,6 +195,7 @@ public:
 
     /*!
      * Perform a element-wise operation B = 1 / (1 + exp(-A))
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[out] B            The output array
      */
@@ -193,6 +203,7 @@ public:
 
     /*!
      * Perform a element-wise operation B = log(exp(A) + 1)
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[out] B            The output array
      */
