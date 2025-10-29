@@ -79,10 +79,31 @@ public:
      * @param[out] z            The output array
      */
     template<typename LAMBDA>
-    static void transform( LAMBDA &fun, size_t N, const TYPE *x, const TYPE* y, TYPE *z )
+    static void transform( LAMBDA &fun, size_t N, const TYPE *x, const TYPE *y, TYPE *z )
     {
         AMP_ERROR( "Not implemented for GPU" );
     }
+
+    /*!
+     * Return the minimum value
+     * @param[in] N             The length of the array
+     * @param[in] x             The first array
+     */
+    static TYPE min( size_t N, const TYPE *x );
+
+    /*!
+     * Return the maximum value
+     * @param[in] N             The length of the array
+     * @param[in] x             The first array
+     */
+    static TYPE max( size_t N, const TYPE *x );
+
+    /*!
+     * Return the sum
+     * @param[in] N             The length of the array
+     * @param[in] x             The first array
+     */
+    static TYPE sum( size_t N, const TYPE *x );
 
     /*! NOT IMPLEMENTED
      * Multiply two arrays
@@ -90,8 +111,39 @@ public:
      * @param[in] b             The second array
      * @param[out] c            The output array
      */
-    static void multiply( const ArraySize &sa, const TYPE *a, const ArraySize &sb, const TYPE *b, const ArraySize &sc, TYPE *c );
+    static void multiply( const ArraySize &sa,
+                          const TYPE *a,
+                          const ArraySize &sb,
+                          const TYPE *b,
+                          const ArraySize &sc,
+                          TYPE *c );
 
+    /*!
+     * Perform axpy equavalent operation ( y = alpha*x + y )
+     * @param[in] alpha         The scalar value alpha
+     * @param[in] N             The length of the array
+     * @param[in] x             The input array x
+     * @param[in,out] y         The output array y
+     */
+    static void axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y );
+
+    /*!
+     * Perform axpy equavalent operation ( y = alpha + y )
+     * @param[in] alpha         The scalar value alpha
+     * @param[in] N             The length of the array
+     * @param[in,out] y         The output array y
+     */
+    static void apy( TYPE alpha, size_t N, TYPE *y );
+
+    /*!
+     * Perform axpy equavalent operation ( y = alpha*x + beta*y )
+     * @param[in] alpha         The scalar value alpha
+     * @param[in] N             The length of the array
+     * @param[in] x             The input array x
+     * @param[in] beta         The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta, TYPE *y );
 
     /*!
      * Check if two arrays are approximately equal
@@ -145,13 +197,6 @@ public:
      * @param[out] B            The output array
      */
     static void transformSoftPlus( size_t N, const TYPE *A, TYPE *B );
-
-    /*!
-     * Sum the elements of the Array
-     * @param[in] A             The array to sum
-     */
-    static TYPE sum( size_t N, const TYPE *A );
-
 
 private:
     GPUFunctionTable() = delete;

@@ -5,7 +5,6 @@
 #include "AMP/utils/AMP_MPI_pack.hpp"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
-#include "AMP/utils/FunctionTable.hpp"
 #include "AMP/utils/UtilityMacros.h"
 
 #include <algorithm>
@@ -1380,8 +1379,12 @@ Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator+=( const Array<TYPE, FUN, Allocator> &rhs )
 {
     AMP_ASSERT( d_size == rhs.d_size );
-    auto op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    FUN::transform( op, d_size.length(), d_data, rhs.d_data, d_data );
+    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+        FUN::axpy( 1, d_size.length(), rhs.d_data, d_data );
+    } else {
+        for ( size_t i = 0; i < d_size.length(); i++ )
+            d_data[i] += rhs[i];
+    }
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
@@ -1389,41 +1392,48 @@ Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator-=( const Array<TYPE, FUN, Allocator> &rhs )
 {
     AMP_ASSERT( d_size == rhs.d_size );
-    auto op = []( const TYPE &a, const TYPE &b ) { return a - b; };
-    FUN::transform( op, d_size.length(), d_data, rhs.d_data, d_data );
-    return *this;
+    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+        FUN::axpy( -1, d_size.length(), rhs.d_data, d_data );
+        return *this;
+    } else {
+        throw std::logic_error( "Not valid for non-arithmetic types" );
+    }
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator+=( const TYPE &rhs )
 {
-    auto op = [rhs]( const TYPE &x ) { return x + rhs; };
-    FUN::transform( op, d_size.length(), d_data, d_data );
+    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+        FUN::apy( rhs, d_size.length(), d_data );
+    } else {
+        for ( size_t i = 0; i < d_size.length(); i++ )
+            d_data[i] += rhs;
+    }
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator-=( const TYPE &rhs )
 {
-    auto op = [rhs]( const TYPE &x ) { return x - rhs; };
-    FUN::transform( op, d_size.length(), d_data, d_data );
-    return *this;
+    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+        FUN::apy( -rhs, d_size.length(), d_data );
+        return *this;
+    } else {
+        throw std::logic_error( "Not valid for non-arithmetic types" );
+    }
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::min() const
 {
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a < b ? a : b; };
-    return FUN::reduce( op, d_size.length(), d_data, d_data[0] );
+    return FUN::min( d_size.length(), d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::max() const
 {
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a > b ? a : b; };
-    return FUN::reduce( op, d_size.length(), d_data, d_data[0] );
+    return FUN::max( d_size.length(), d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::sum() const
 {
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    return FUN::reduce( op, d_size.length(), d_data, static_cast<TYPE>( 0 ) );
+    return FUN::sum( d_size.length(), d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::axpby( const TYPE &alpha,
@@ -1431,8 +1441,7 @@ void Array<TYPE, FUN, Allocator>::axpby( const TYPE &alpha,
                                          const TYPE &beta )
 {
     AMP_ASSERT( x.d_size == d_size );
-    const auto &op = [alpha, beta]( const TYPE &x, const TYPE &y ) { return alpha * x + beta * y; };
-    return FUN::transform( op, d_size.length(), x.d_data, d_data, d_data );
+    FUN::axpby( alpha, d_size.length(), x.d_data, beta, d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>

@@ -876,18 +876,16 @@ template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator+( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c( a.size() );
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    FUN::transform( op, a.length(), a.data(), b.data(), c.data() );
+    auto c = a;
+    c += b;
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator-( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c( a.size() );
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a - b; };
-    FUN::transform( op, a.length(), a.data(), b.data(), c.data() );
+    auto c = a;
+    c -= b;
     return c;
 }
 template<class TYPE, class FUN, class Allocator>

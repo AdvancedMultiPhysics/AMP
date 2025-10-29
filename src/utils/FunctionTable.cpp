@@ -2,6 +2,8 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/Array.h"
 
+#include <complex>
+#include <functional>
 
 #ifdef AMP_USE_LAPACK_WRAPPERS
     #include "LapackWrappers.h"
@@ -113,5 +115,28 @@ void call_gemm<float>( size_t M,
 /********************************************************
  *  Explicit instantiations of FunctionTable             *
  ********************************************************/
-template class AMP::FunctionTable<float>;
-template class AMP::FunctionTable<double>;
+template<class T>
+using FUN1 = std::function<T( const T & )>;
+template<class T>
+using FUN2 = std::function<T( const T &, const T & )>;
+#define INSTANTIATE( T )                                                                          \
+    template class AMP::FunctionTable<T>;                                                         \
+    template void AMP::FunctionTable<T>::transform<FUN1<T>>( FUN1<T> &, size_t, const T *, T * ); \
+    template void AMP::FunctionTable<T>::transform<FUN2<T>>(                                      \
+        FUN2<T> &, size_t, const T *, const T *, T * )
+INSTANTIATE( bool );
+INSTANTIATE( char );
+INSTANTIATE( uint8_t );
+INSTANTIATE( uint16_t );
+INSTANTIATE( uint32_t );
+INSTANTIATE( uint64_t );
+INSTANTIATE( int8_t );
+INSTANTIATE( int16_t );
+INSTANTIATE( int32_t );
+INSTANTIATE( int64_t );
+INSTANTIATE( long long );
+INSTANTIATE( float );
+INSTANTIATE( double );
+INSTANTIATE( long double );
+template class AMP::FunctionTable<std::complex<float>>;
+template class AMP::FunctionTable<std::complex<double>>;
