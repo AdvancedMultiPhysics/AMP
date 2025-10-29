@@ -113,6 +113,5 @@ void call_gemm<float>( size_t M,
 /********************************************************
  *  Explicit instantiations of FunctionTable             *
  ********************************************************/
-// clang-format off
-template void AMP::FunctionTable::multiply<double,AMP::FunctionTable>( const AMP::Array<double>&, const AMP::Array<double>&, AMP::Array<double>& );
-// clang-format on
+template class AMP::FunctionTable<float>;
+template class AMP::FunctionTable<double>;

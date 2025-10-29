@@ -79,6 +79,9 @@ templateRecursion:*/AMP/utils/AMP_MPI.I
 unusedPrivateFunction:*/AMP/materials/Property.h
 invalidPointerCast:*/AMP/vectors/data/VectorDataIterator.hpp
 uninitMemberVar:*/AMP/utils/Units.hpp
+passedByValue:*/AMP/utils/FunctionTable.hpp
+nullPointer:*/AMP/utils/FunctionTable.hpp
+invalidFunctionArgBool:*/AMP/utils/FunctionTable.hpp
 
 
 //***********************************************************

@@ -7,6 +7,7 @@
 
 #include "AMP/utils/Array.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/hip/GPUFunctionTable.h"
 
 
 namespace AMP {
@@ -37,150 +38,89 @@ template<class TYPE>
 bool equalsW( const TYPE *d_a, const TYPE *d_b, TYPE tol, size_t n );
 
 // Rand functions
-template<class TYPE, class FUN, class ALLOC>
-inline void GPUFunctionTable::rand( Array<TYPE, FUN, ALLOC> &x )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::rand( size_t N, TYPE *x )
 {
-    rand<TYPE>( x.length(), x.data() );
-}
-
-template<>
-inline void GPUFunctionTable::rand<int>( size_t n, int *d_x )
-{
-    hiprandGenerator_t gen;
-    hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
-    hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
-    hiprandGenerate( gen, (unsigned int *) d_x, n );
-    hiprandDestroyGenerator( gen );
-}
-
-template<>
-inline void GPUFunctionTable::rand<float>( size_t n, float *d_x )
-{
-    hiprandGenerator_t gen;
-    hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
-    hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
-    hiprandGenerateUniform( gen, d_x, n );
-    hiprandDestroyGenerator( gen );
-}
-
-template<>
-inline void GPUFunctionTable::rand<double>( size_t n, double *d_x )
-{
-    hiprandGenerator_t gen;
-    hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
-    hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
-    hiprandGenerateUniformDouble( gen, d_x, n );
-    hiprandDestroyGenerator( gen );
+    if constexpr ( std::is_same_v<TYPE, int> ) {
+        hiprandGenerator_t gen;
+        hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
+        hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
+        hiprandGenerate( gen, (unsigned int *) x, N );
+        hiprandDestroyGenerator( gen );
+    } else if constexpr ( std::is_same_v<TYPE, float> ) {
+        hiprandGenerator_t gen;
+        hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
+        hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
+        hiprandGenerateUniform( gen, x, N );
+        hiprandDestroyGenerator( gen );
+    } else if constexpr ( std::is_same_v<TYPE, double> ) {
+        hiprandGenerator_t gen;
+        hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
+        hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
+        hiprandGenerateUniformDouble( gen, x, N );
+        hiprandDestroyGenerator( gen );
+    } else {
+        AMP_ERROR( "Not finished" );
+    }
 }
 
 
 // Specialized transform functions - temporary solution
-template<class TYPE, class FUN, class ALLOC>
-void GPUFunctionTable::transformReLU( const Array<TYPE, FUN, ALLOC> &A, Array<TYPE, FUN, ALLOC> &B )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::transformReLU( size_t N, const TYPE *A, TYPE *B )
 {
-    B.resize( A.size() );
-    transformReLUW<TYPE>( A.data(), B.data(), A.length() );
+    transformReLUW<TYPE>( A, B, N );
 }
 
-template<class TYPE, class FUN, class ALLOC>
-void GPUFunctionTable::transformAbs( const Array<TYPE, FUN, ALLOC> &A, Array<TYPE, FUN, ALLOC> &B )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::transformAbs( size_t N, const TYPE *A, TYPE *B )
 {
-    B.resize( A.size() );
-    transformAbsW<TYPE>( A.data(), B.data(), A.length() );
+    transformAbsW<TYPE>( A, B, N );
 }
-template<class TYPE, class FUN, class ALLOC>
-void GPUFunctionTable::transformTanh( const Array<TYPE, FUN, ALLOC> &A, Array<TYPE, FUN, ALLOC> &B )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::transformTanh( size_t N, const TYPE *A, TYPE *B )
 {
-    B.resize( A.size() );
-    transformTanhW<TYPE>( A.data(), B.data(), A.length() );
+    transformTanhW<TYPE>( A, B, N );
 }
 
-template<class TYPE, class FUN, class ALLOC>
-void GPUFunctionTable::transformHardTanh( const Array<TYPE, FUN, ALLOC> &A,
-                                          Array<TYPE, FUN, ALLOC> &B )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::transformHardTanh( size_t N, const TYPE *A, TYPE *B )
 {
-    B.resize( A.size() );
-    transformHardTanhW<TYPE>( A.data(), B.data(), A.length() );
+    transformHardTanhW<TYPE>( A, B, N );
 }
 
-template<class TYPE, class FUN, class ALLOC>
-void GPUFunctionTable::transformSigmoid( const Array<TYPE, FUN, ALLOC> &A,
-                                         Array<TYPE, FUN, ALLOC> &B )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::transformSigmoid( size_t N, const TYPE *A, TYPE *B )
 {
-    B.resize( A.size() );
-    transformSigmoidW<TYPE>( A.data(), B.data(), A.length() );
+    transformSigmoidW<TYPE>( A, B, N );
 }
 
-template<class TYPE, class FUN, class ALLOC>
-void GPUFunctionTable::transformSoftPlus( const Array<TYPE, FUN, ALLOC> &A,
-                                          Array<TYPE, FUN, ALLOC> &B )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::transformSoftPlus( size_t N, const TYPE *A, TYPE *B )
 {
-    B.resize( A.size() );
-    transformSoftPlusW<TYPE>( A.data(), B.data(), A.length() );
+    transformSoftPlusW<TYPE>( A, B, N );
 }
 
 // Specialized reductions
-template<class TYPE, class FUN, class ALLOC>
-TYPE GPUFunctionTable::sum( const Array<TYPE, FUN, ALLOC> &A )
+template<class TYPE>
+TYPE GPUFunctionTable<TYPE>::sum( size_t N, const TYPE *A )
 {
-    if ( A.length() == 0 ) {
-        return TYPE();
-    }
-    return sumW<TYPE>( A.data(), A.length() );
+    if ( N == 0 )
+        return TYPE( 0 );
+    return sumW<TYPE>( A, N );
 }
 
-template<class TYPE, class FUN, class ALLOC>
-bool GPUFunctionTable::equals( const Array<TYPE, FUN, ALLOC> &A,
-                               const Array<TYPE, FUN, ALLOC> &B,
-                               TYPE tol )
+template<class TYPE>
+bool GPUFunctionTable<TYPE>::equals( size_t N, const TYPE *A, const TYPE *B, TYPE tol )
 {
-    bool eq = true;
-    AMP_INSIST( A.size() == B.size(), "Sizes of A and B do not match" );
-    eq = equalsW( A.data(), B.data(), tol, A.length() );
-
-    return eq;
+    return equalsW( A, B, tol, N );
 }
 
 
 /* Functions not yet implemented */
-
-template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline void
-GPUFunctionTable::transform( LAMBDA &, const Array<TYPE, FUN, ALLOC> &, Array<TYPE, FUN, ALLOC> & )
-{
-    AMP_ERROR( "Not implemented for GPU" );
-}
-
-template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline void GPUFunctionTable::transform( LAMBDA &,
-                                         const Array<TYPE, FUN, ALLOC> &,
-                                         const Array<TYPE, FUN, ALLOC> &,
-                                         Array<TYPE, FUN, ALLOC> & )
-{
-    AMP_ERROR( "Not implemented for GPU" );
-}
-
-template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline TYPE GPUFunctionTable::reduce( LAMBDA &, const Array<TYPE, FUN, ALLOC> &, const TYPE & )
-{
-    AMP_ERROR( "Not implemented for GPU" );
-    return 0;
-}
-
-template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline TYPE GPUFunctionTable::reduce( LAMBDA &,
-                                      const Array<TYPE, FUN, ALLOC> &,
-                                      const Array<TYPE, FUN, ALLOC> &,
-                                      const TYPE & )
-{
-    AMP_ERROR( "Not implemented for GPU" );
-    return 0;
-}
-
-template<class TYPE, class FUN, class ALLOC>
-void GPUFunctionTable::multiply( const Array<TYPE, FUN, ALLOC> &,
-                                 const Array<TYPE, FUN, ALLOC> &,
-                                 Array<TYPE, FUN, ALLOC> & )
+template<class TYPE>
+void GPUFunctionTable<TYPE>::multiply(
+    const ArraySize &, const TYPE *, const ArraySize &, const TYPE *, const ArraySize &, TYPE * )
 {
     AMP_ERROR( "not implemented" );
 }

@@ -360,4 +360,11 @@ template void transformSoftPlusW( const double *d_a, double *d_b, size_t n );
 
 } // namespace AMP
 
+
+/********************************************************
+ *  Explicit instantiations of GPUFunctionTable          *
+ ********************************************************/
+template class AMP::GPUFunctionTable<float>;
+template class AMP::GPUFunctionTable<double>;
+
 #endif

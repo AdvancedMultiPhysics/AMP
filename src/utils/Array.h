@@ -876,35 +876,36 @@ template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator+( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c;
+    Array<TYPE, FUN, Allocator> c( a.size() );
     const auto &op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    FUN::transform( op, a, b, c );
+    FUN::transform( op, a.length(), a.data(), b.data(), c.data() );
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator-( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c;
+    Array<TYPE, FUN, Allocator> c( a.size() );
     const auto &op = []( const TYPE &a, const TYPE &b ) { return a - b; };
-    FUN::transform( op, a, b, c );
+    FUN::transform( op, a.length(), a.data(), b.data(), c.data() );
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c;
-    FUN::multiply( a, b, c );
+    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>( a.size(), b.size() ) );
+    FUN::multiply( a.size(), a.data(), b.size(), b.data(), c.size(), c.data() );
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a,
                                               const std::vector<TYPE> &b )
 {
-    Array<TYPE, FUN, Allocator> b2, c;
+    Array<TYPE, FUN, Allocator> b2;
     b2.viewRaw( { b.size() }, const_cast<TYPE *>( b.data() ) );
-    FUN::multiply( a, b2, c );
+    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>( a.size(), b2.size() ) );
+    FUN::multiply( a.size(), a.data(), b2.size(), b2.data(), c.size(), c.data() );
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
@@ -918,7 +919,7 @@ template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a, const TYPE &b )
 {
     auto c = a;
-    c.scale( b );
+    c.scale( b.size(), b.data() );
     return c;
 }
 

@@ -68,7 +68,7 @@
     template AMP::Array<TYPE,FUN,A>& AMP::Array<TYPE,FUN,A>::operator=( const std::vector<TYPE>& ); \
     template bool AMP::Array<TYPE,FUN,A>::operator==( const AMP::Array<TYPE,FUN,A>& ) const
 #define instantiateArrayConstructors( TYPE )                              \
-    instantiateArrayConstructors2( TYPE, AMP::FunctionTable, std::allocator<void> )
+    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, std::allocator<void> )
 #define PACK_UNPACK_ARRAY( TYPE )                                         \
     template size_t AMP::packSize( const AMP::Array<TYPE> & );            \
     template size_t AMP::pack( const AMP::Array<TYPE> &, std::byte * );   \
@@ -1185,7 +1185,7 @@ Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::coarsen(
                     for ( size_t j2 = 0; j2 < ratio[1]; j2++ ) {
                         for ( size_t i2 = 0; i2 < ratio[0]; i2++ ) {
                             tmp( i2, j2, k2 ) = operator()(
-                                i1 *ratio[0] + i2, j1 * ratio[1] + j2, k1 * ratio[2] + k2 );
+                                i1 * ratio[0] + i2, j1 * ratio[1] + j2, k1 * ratio[2] + k2 );
                         }
                     }
                 }
@@ -1373,71 +1373,74 @@ TYPE Array<TYPE, FUN, Allocator>::interp( const double *x ) const
 template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::rand()
 {
-    FUN::rand( *this );
+    FUN::rand( d_size.length(), d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator+=( const Array<TYPE, FUN, Allocator> &rhs )
 {
+    AMP_ASSERT( d_size == rhs.d_size );
     auto op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    FUN::transform( op, *this, rhs, *this );
+    FUN::transform( op, d_size.length(), d_data, rhs.d_data, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator-=( const Array<TYPE, FUN, Allocator> &rhs )
 {
+    AMP_ASSERT( d_size == rhs.d_size );
     auto op = []( const TYPE &a, const TYPE &b ) { return a - b; };
-    FUN::transform( op, *this, rhs, *this );
+    FUN::transform( op, d_size.length(), d_data, rhs.d_data, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator+=( const TYPE &rhs )
 {
     auto op = [rhs]( const TYPE &x ) { return x + rhs; };
-    FUN::transform( op, *this, *this );
+    FUN::transform( op, d_size.length(), d_data, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator-=( const TYPE &rhs )
 {
     auto op = [rhs]( const TYPE &x ) { return x - rhs; };
-    FUN::transform( op, *this, *this );
+    FUN::transform( op, d_size.length(), d_data, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::min() const
 {
     const auto &op = []( const TYPE &a, const TYPE &b ) { return a < b ? a : b; };
-    return FUN::reduce( op, *this, d_data[0] );
+    return FUN::reduce( op, d_size.length(), d_data, d_data[0] );
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::max() const
 {
     const auto &op = []( const TYPE &a, const TYPE &b ) { return a > b ? a : b; };
-    return FUN::reduce( op, *this, d_data[0] );
+    return FUN::reduce( op, d_size.length(), d_data, d_data[0] );
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::sum() const
 {
     const auto &op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    return FUN::reduce( op, *this, static_cast<TYPE>( 0 ) );
+    return FUN::reduce( op, d_size.length(), d_data, static_cast<TYPE>( 0 ) );
 }
 template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::axpby( const TYPE &alpha,
                                          const Array<TYPE, FUN, Allocator> &x,
                                          const TYPE &beta )
 {
+    AMP_ASSERT( x.d_size == d_size );
     const auto &op = [alpha, beta]( const TYPE &x, const TYPE &y ) { return alpha * x + beta * y; };
-    return FUN::transform( op, x, *this, *this );
+    return FUN::transform( op, d_size.length(), x.d_data, d_data, d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>
 Array<TYPE, FUN, Allocator>::transform( std::function<TYPE( const TYPE & )> fun,
                                         const Array<TYPE, FUN, Allocator> &x )
 {
-    Array<TYPE, FUN, Allocator> y;
-    FUN::transform( fun, x, y );
+    Array<TYPE, FUN, Allocator> y( x.size() );
+    FUN::transform( fun, x.length(), x.data(), y.data() );
     return y;
 }
 template<class TYPE, class FUN, class Allocator>
@@ -1446,14 +1449,14 @@ Array<TYPE, FUN, Allocator>::transform( std::function<TYPE( const TYPE &, const 
                                         const Array<TYPE, FUN, Allocator> &x,
                                         const Array<TYPE, FUN, Allocator> &y )
 {
-    Array<TYPE, FUN, Allocator> z;
-    FUN::transform( fun, x, y, z );
+    Array<TYPE, FUN, Allocator> z( x.size() );
+    FUN::transform( fun, x.length(), x.data(), y.data(), z.data() );
     return z;
 }
 template<class TYPE, class FUN, class Allocator>
 bool Array<TYPE, FUN, Allocator>::equals( const Array &rhs, const TYPE &tol ) const
 {
-    return FUN::equals( *this, rhs, tol );
+    return FUN::equals( d_size.length(), d_data, rhs.d_data, tol );
 }
 
 
