@@ -66,7 +66,7 @@ public:
     virtual ~Property() {}
 
     //! get dimensions of evalv return value
-    inline ArraySize size() const { return d_dim; }
+    inline const ArraySize &size() const { return d_dim; }
 
     //! Return name of property
     inline const std::string &get_name() const { return d_name; }
@@ -143,7 +143,7 @@ public:
 
 public: // Functions dealing with the ranges of the arguments
     //! Get units for all arguments used in this material
-    std::vector<Units> get_arg_units() const { return d_argUnits; }
+    const std::vector<Units> &get_arg_units() const { return d_argUnits; }
 
     //! Get ranges for all arguments used in this material
     std::vector<std::array<double, 2>> get_arg_ranges() const { return d_ranges; }

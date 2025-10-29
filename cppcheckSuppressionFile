@@ -34,6 +34,12 @@ class_X_Y:*
 arrayIndexOutOfBounds:*/AMP/utils/DelaunayFaceList.hpp
 duplicateExpression:*/AMP/utils/Array.hpp
 duplicateExpression:*/AMP/utils/Database.hpp
+duplInheritedMember:*/AMP/mesh/MultiMesh.h
+duplInheritedMember:*/AMP/mesh/structured/BoxMesh.h
+duplInheritedMember:*/AMP/mesh/libmesh/libmeshMesh.h
+duplInheritedMember:*/AMP/mesh/triangle/TriangleHelpers.h
+duplInheritedMember:*/AMP/mesh/STKmesh/STKMesh.h
+duplInheritedMember:*/AMP/vectors/MultiVector.h
 constParameter:*/AMP/matrices/Matrix.inline.h
 constParameter:*/AMP/vectors/Vector.inline.h
 containerOutOfBounds:*/AMP/utils/DelaunayHelpers.h
@@ -79,6 +85,9 @@ templateRecursion:*/AMP/utils/AMP_MPI.I
 unusedPrivateFunction:*/AMP/materials/Property.h
 invalidPointerCast:*/AMP/vectors/data/VectorDataIterator.hpp
 uninitMemberVar:*/AMP/utils/Units.hpp
+passedByValue:*/AMP/utils/FunctionTable.hpp
+nullPointer:*/AMP/utils/FunctionTable.hpp
+invalidFunctionArgBool:*/AMP/utils/FunctionTable.hpp
 
 
 //***********************************************************
@@ -102,6 +111,7 @@ constParameter:*/src/operators/trilinos/TrilinosMatrixShellOperator.cpp
 constParameter:*/src/vectors/petsc/PetscHelpers.cpp
 containerOutOfBounds:*/src/mesh/MeshElement.cpp
 containerOutOfBounds:*/src/mesh/structured/structuredMeshElement.cpp
+containerOutOfBounds:*/src/mesh/triangle/TriangleMesh.cpp
 containerOutOfBounds:*/src/utils/DelaunayTessellation.cpp
 containerOutOfBounds:*/src/utils/test/test_AMP_MPI.cpp
 copyCtorPointerCopying:*/src/utils/AMP_MPI.cpp
@@ -110,7 +120,13 @@ duplicateAssignExpression:*/src/matrices/test/testMatVec.cpp
 duplicateExpression:*/src/mesh/structured/BoxMesh.cpp
 duplicateExpression:*/src/mesh/testHelpers/meshTests.cpp
 duplicateExpression:*/src/utils/DatabaseKeyData.cpp
+duplInheritedMember:*/src/mesh/MultiMesh.cpp
+duplInheritedMember:*/src/mesh/structured/BoxMesh.cpp
+duplInheritedMember:*/src/mesh/libmesh/libmeshMesh.cpp
+duplInheritedMember:*/src/mesh/triangle/TriangleHelpers.cpp
+duplInheritedMember:*/src/mesh/STKmesh/STKMesh.cpp
 exceptNew:*/src/matrices/trilinos/ManagedEpetraMatrix.cpp
+identicalConditionAfterEarlyExit:*/src/IO/HDF5.types.cpp
 ignoredReturnValue:*/src/geometry/GeometryHelpers.cpp
 incorrectLogicOperator:*/src/mesh/triangle/TriangleMeshElement.cpp
 invalidLifetime:*/src/mesh/libmesh/libmeshMesh.cpp
@@ -129,6 +145,7 @@ noOperatorEq:*/src/utils/Utilities.cpp
 noExplicitConstructor:*/src/graphics/getLines/mainwindow.cpp
 unknownMacro:*/src/graphics/getLines/ThreadedSlotsClass.h
 objectIndex:*/src/mesh/libmesh/initializeLibMesh.cpp
+objectIndex:*/AMP/vectors/data/VectorData.inline.h
 oppositeInnerCondition:*/src/mesh/MultiMesh.cpp
 oppositeInnerCondition:*/src/mesh/loadBalance/loadBalanceSimulator.cpp
 passedByValue:*/src/operators/subchannel/SubchannelHelpers.cpp
@@ -138,6 +155,7 @@ passedByValue:*/src/utils/DatabaseKeyData.cpp
 postfixOperator:*/src/mesh/testHelpers/meshTests.cpp
 redundantCondition:*/src/mesh/triangle/TriangleMeshElement.cpp
 redundantPointerOp:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
+returnReference:*/AMP/vectors/data/VectorDataIterator.hpp
 shadowVariable:*/src/mesh/STKmesh/STKMesh.cpp
 shadowVariable:*/src/mesh/libmesh/libmeshMesh.cpp
 shadowVariable:*/src/utils/DelaunayTessellation.cpp

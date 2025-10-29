@@ -395,7 +395,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    inline std::vector<double> getBoundingBox() const { return d_box; }
+    inline const auto &getBoundingBox() const { return d_box; }
 
 
     /**
@@ -404,7 +404,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    inline std::vector<double> getLocalBoundingBox() const { return d_box_local; }
+    inline const auto &getLocalBoundingBox() const { return d_box_local; }
 
 
     /**

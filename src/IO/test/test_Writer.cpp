@@ -470,7 +470,7 @@ int main( int argc, char **argv )
     if ( argc == 1 ) {
 
         // Run basic tests
-        for ( auto writer : writers ) {
+        for ( auto &writer : writers ) {
             testWriterVector( ut, writer );
             testWriterMatrix( ut, writer );
             testWriterMesh( ut, writer, "input_SiloIO-1" );
@@ -488,7 +488,7 @@ int main( int argc, char **argv )
             printMeshNames( argv[i] );
 
             // Run the tests
-            for ( auto writer : writers )
+            for ( auto &writer : writers )
                 testWriterMesh( ut, writer, argv[i] );
         }
     }

@@ -6,7 +6,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include "AMP/utils/cuda/GPUFunctionTable.h"
+#include "AMP/utils/cuda/GPUFunctionTable.hpp"
 
 
 namespace AMP{
@@ -290,5 +290,11 @@ template void transformSoftPlusW(const double* d_a, double* d_b, size_t n);
 
 }
 
+
+/********************************************************
+ *  Explicit instantiations of GPUFunctionTable          *
+ ********************************************************/
+template class AMP::GPUFunctionTable<float>;
+template class AMP::GPUFunctionTable<double>;
 
 #endif
