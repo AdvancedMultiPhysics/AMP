@@ -18,6 +18,7 @@ virtualCallInConstructor:*  // False errors
 nullPointerRedundantCheck:*
 internalAstError:*
 class_X_Y:*
+invalidPrintfArgType_uint
 
 
 //***********************************************************
@@ -45,6 +46,7 @@ constParameter:*/AMP/vectors/Vector.inline.h
 containerOutOfBounds:*/AMP/utils/DelaunayHelpers.h
 containerOutOfBounds:*/AMP/utils/Units.hpp
 invalidLifetime:*/AMP/utils/kdtree2.hpp
+memleakOnRealloc:*/AMP/utils/kdtree2.hpp
 memsetClass:*/AMP/utils/Array.hpp
 multiCondition:*/AMP/vectors/Scalar.hpp
 noConstructor:*/AMP/utils/RNG.h
@@ -96,6 +98,7 @@ invalidFunctionArgBool:*/AMP/utils/FunctionTable.hpp
 *:*/src/utils/tinyexpr/tinyexpr.c
 *:*/src/mesh/dendro/*
 *:*/src/mesh/hex8_element_t.cpp
+autovarInvalidDeallocation:*/src/discretization/subsetCommSelfDOFManager.cpp
 arrayIndexOutOfBounds:*/src/utils/DelaunayTessellation.cpp
 arrayIndexOutOfBoundsCond:*/src/geometry/shapes/SquareFrustum.cpp
 arrayIndexOutOfBoundsCond:*/src/mesh/edge_t.cpp
@@ -138,6 +141,7 @@ knownConditionTrueFalse:*/src/utils/threadpool/thread_pool.cpp
 knownConditionTrueFalse:*/src/utils/DelaunayInterpolation.cpp
 knownConditionTrueFalse:*/src/utils/DelaunayTessellation.cpp
 legacyUninitvar:*/src/vectors/testHelpers/trilinos/epetra/EpetraVectorTests.cpp
+memleakOnRealloc:*/src/matrices/GetRowHelper.cpp
 missingReturn:*/src/utils/AMPManager.cpp
 operatorEqVarError:*/src/utils/threadpool/ThreadPoolId.hpp
 negativeContainerIndex:*/src/utils/DelaunayTessellation.cpp
