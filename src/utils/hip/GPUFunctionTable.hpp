@@ -7,6 +7,7 @@
 
 #include "AMP/utils/Array.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/hip/GPUFunctionTable.h"
 
 
 namespace AMP {
@@ -38,39 +39,9 @@ bool equalsW( const TYPE *d_a, const TYPE *d_b, TYPE tol, size_t n );
 
 // Rand functions
 template<class TYPE, class FUN, class ALLOC>
-inline void GPUFunctionTable::rand( Array<TYPE, FUN, ALLOC> &x )
+void GPUFunctionTable::rand( Array<TYPE, FUN, ALLOC> &x )
 {
     rand<TYPE>( x.length(), x.data() );
-}
-
-template<>
-inline void GPUFunctionTable::rand<int>( size_t n, int *d_x )
-{
-    hiprandGenerator_t gen;
-    hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
-    hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
-    hiprandGenerate( gen, (unsigned int *) d_x, n );
-    hiprandDestroyGenerator( gen );
-}
-
-template<>
-inline void GPUFunctionTable::rand<float>( size_t n, float *d_x )
-{
-    hiprandGenerator_t gen;
-    hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
-    hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
-    hiprandGenerateUniform( gen, d_x, n );
-    hiprandDestroyGenerator( gen );
-}
-
-template<>
-inline void GPUFunctionTable::rand<double>( size_t n, double *d_x )
-{
-    hiprandGenerator_t gen;
-    hiprandCreateGenerator( &gen, HIPRAND_RNG_PSEUDO_DEFAULT );
-    hiprandSetPseudoRandomGeneratorSeed( gen, time( NULL ) );
-    hiprandGenerateUniformDouble( gen, d_x, n );
-    hiprandDestroyGenerator( gen );
 }
 
 
@@ -145,33 +116,34 @@ bool GPUFunctionTable::equals( const Array<TYPE, FUN, ALLOC> &A,
 /* Functions not yet implemented */
 
 template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline void
-GPUFunctionTable::transform( LAMBDA &, const Array<TYPE, FUN, ALLOC> &, Array<TYPE, FUN, ALLOC> & )
+void GPUFunctionTable::transform( LAMBDA &,
+                                  const Array<TYPE, FUN, ALLOC> &,
+                                  Array<TYPE, FUN, ALLOC> & )
 {
     AMP_ERROR( "Not implemented for GPU" );
 }
 
 template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline void GPUFunctionTable::transform( LAMBDA &,
-                                         const Array<TYPE, FUN, ALLOC> &,
-                                         const Array<TYPE, FUN, ALLOC> &,
-                                         Array<TYPE, FUN, ALLOC> & )
+void GPUFunctionTable::transform( LAMBDA &,
+                                  const Array<TYPE, FUN, ALLOC> &,
+                                  const Array<TYPE, FUN, ALLOC> &,
+                                  Array<TYPE, FUN, ALLOC> & )
 {
     AMP_ERROR( "Not implemented for GPU" );
 }
 
 template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline TYPE GPUFunctionTable::reduce( LAMBDA &, const Array<TYPE, FUN, ALLOC> &, const TYPE & )
+TYPE GPUFunctionTable::reduce( LAMBDA &, const Array<TYPE, FUN, ALLOC> &, const TYPE & )
 {
     AMP_ERROR( "Not implemented for GPU" );
     return 0;
 }
 
 template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-inline TYPE GPUFunctionTable::reduce( LAMBDA &,
-                                      const Array<TYPE, FUN, ALLOC> &,
-                                      const Array<TYPE, FUN, ALLOC> &,
-                                      const TYPE & )
+TYPE GPUFunctionTable::reduce( LAMBDA &,
+                               const Array<TYPE, FUN, ALLOC> &,
+                               const Array<TYPE, FUN, ALLOC> &,
+                               const TYPE & )
 {
     AMP_ERROR( "Not implemented for GPU" );
     return 0;

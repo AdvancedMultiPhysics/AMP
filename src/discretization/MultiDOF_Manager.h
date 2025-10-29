@@ -194,7 +194,6 @@ private:
 
     std::shared_ptr<const AMP::Mesh::Mesh> d_mesh;
     std::vector<std::shared_ptr<DOFManager>> d_managers;
-    std::vector<size_t> d_localSize;
     std::vector<size_t> d_globalSize;
     multiDOFHelper d_dofMap;
 };
