@@ -277,8 +277,9 @@ bool equalsW(const TYPE* d_a, const TYPE* d_b, TYPE tol, size_t n)
 
 //Explicit Instantiation of the wrappers
 template double sumW<double>(const double* d_a, size_t n);
-template float sumW<float>(const float* d_a, size_t n);
 template bool equalsW<double>(const double* d_a, const double* d_b, double tol, size_t n);
+
+template float sumW<float>(const float* d_a, size_t n);
 template bool equalsW<float>(const float* d_a, const float* d_b, float tol, size_t n);
 
 template void transformReLUW(const double* d_a, double* d_b, size_t n);
@@ -287,6 +288,13 @@ template void transformTanhW(const double* d_a, double* d_b, size_t n);
 template void transformHardTanhW(const double* d_a, double* d_b, size_t n);
 template void transformSigmoidW(const double* d_a, double* d_b, size_t n);
 template void transformSoftPlusW(const double* d_a, double* d_b, size_t n);
+
+template void transformReLUW(const float* d_a, float* d_b, size_t n);
+template void transformAbsW(const float* d_a, float* d_b, size_t n);
+template void transformTanhW(const float* d_a, float* d_b, size_t n);
+template void transformHardTanhW(const float* d_a, float* d_b, size_t n);
+template void transformSigmoidW(const float* d_a, float* d_b, size_t n);
+template void transformSoftPlusW(const float* d_a, float* d_b, size_t n);
 
 }
 
