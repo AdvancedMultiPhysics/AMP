@@ -86,7 +86,7 @@ void test_accuracy_loss( std::shared_ptr<AMP::LinearAlgebra::Matrix> &matrix,
 }
 
 size_t matVecTestWithDOFs( AMP::UnitTest *ut,
-                           std::string type,
+                           const std::string &type,
                            std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
@@ -215,7 +215,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
+size_t matVecTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatMigrate";
     AMP::logOnlyNodeZero( log_file );

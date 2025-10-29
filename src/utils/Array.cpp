@@ -49,7 +49,7 @@ instantiateFull( long double );
     template void AMP::Array<T>::copySubset( std::vector<size_t> const &, AMP::Array<T> const & ); \
     template AMP::Array<T> AMP::Array<T>::subset( std::vector<size_t> const & ) const;             \
     template bool AMP::Array<T>::NaNs() const;                                                     \
-    template void AMP::Array<T, AMP::FunctionTable>::rand();                                       \
+    template void AMP::Array<T, AMP::FunctionTable<T>>::rand();                                    \
     PACK_UNPACK_ARRAY( T );                                                                        \
     PACK_UNPACK_ARRAY2( T )
 instantiateComplex( std::complex<float> );

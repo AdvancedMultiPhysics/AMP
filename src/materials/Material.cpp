@@ -102,7 +102,7 @@ DatabaseMaterial::DatabaseMaterial( std::string_view name, std::shared_ptr<Datab
     if ( !db )
         return;
     auto keys = db->getAllKeys();
-    for ( auto key : keys )
+    for ( auto &key : keys )
         d_propertyMap[key] = createProperty( key, *db );
 }
 

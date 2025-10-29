@@ -70,7 +70,7 @@ static void simpleDOFManagerVectorTest( AMP::UnitTest *ut,
     ut->passes( "Test ran to completion" );
 }
 
-static void runTest( AMP::UnitTest *ut, std::string input_file )
+static void runTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( input_file );

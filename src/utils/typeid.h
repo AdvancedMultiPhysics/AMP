@@ -13,8 +13,6 @@
 #endif
 #if AMP_CXX_STANDARD >= 20
     #include <source_location>
-#else
-    #define consteval constexpr
 #endif
 
 
@@ -87,7 +85,7 @@ constexpr void deblank( char *str, size_t N )
 
 //! Get the type name
 template<typename T>
-consteval void getTypeName( uint64_t N, char *name )
+constexpr void getTypeName( uint64_t N, char *name )
 {
     if constexpr ( std::is_same_v<T, bool> ) {
         copy( name, "bool", N );
@@ -181,7 +179,7 @@ consteval void getTypeName( uint64_t N, char *name )
 
 //! Perform murmur hash (constexpr version that assumes key.size() is a multiple of 8)
 template<std::size_t N>
-consteval uint64_t MurmurHash64A( const char *key )
+constexpr uint64_t MurmurHash64A( const char *key )
 {
     static_assert( N % 8 == 0 );
     const uint64_t seed = 0x65ce2a5d390efa53LLU;
@@ -208,7 +206,7 @@ consteval uint64_t MurmurHash64A( const char *key )
 
 //! Get the type info (does not resolve dynamic types)
 template<typename T0>
-consteval typeID getTypeIDEval()
+constexpr typeID getTypeIDEval()
 {
     typeID id = {};
     // Remove const/references
@@ -227,7 +225,7 @@ consteval typeID getTypeIDEval()
     return id;
 }
 template<typename TYPE>
-consteval typeID getTypeID()
+constexpr typeID getTypeID()
 {
     constexpr auto id = getTypeIDEval<TYPE>();
     static_assert( id != 0 );
