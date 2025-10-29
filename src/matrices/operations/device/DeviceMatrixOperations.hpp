@@ -33,7 +33,7 @@ void DeviceMatrixOperations<G, L, S>::mult(
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     mult_kernel<<<GridDim, BlockDim>>>( row_starts, cols_loc, coeffs, N, in, out );
-    deviceSynchronize();
+    // deviceSynchronize();
 }
 
 // scale
@@ -52,7 +52,7 @@ void DeviceMatrixOperations<G, L, S>::scale( const size_t N, S *x, const S alpha
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     scale_kernel<<<GridDim, BlockDim>>>( N, x, alpha );
-    deviceSynchronize();
+    // deviceSynchronize();
 }
 
 // axpy
@@ -71,7 +71,7 @@ void DeviceMatrixOperations<G, L, S>::axpy( const size_t N, const S alpha, S *x,
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     axpy_kernel<<<GridDim, BlockDim>>>( N, alpha, x, y );
-    deviceSynchronize();
+    // deviceSynchronize();
 }
 
 // copy
@@ -107,7 +107,7 @@ void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     extractDiagonal_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N, diag );
-    deviceSynchronize();
+    // deviceSynchronize();
 }
 
 // set diagonal
@@ -134,7 +134,7 @@ void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     setDiagonal_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N, diag );
-    deviceSynchronize();
+    // deviceSynchronize();
 }
 
 // set identity
@@ -154,7 +154,7 @@ void DeviceMatrixOperations<G, L, S>::setIdentity( const L *row_starts, S *coeff
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     setIdentity_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N );
-    deviceSynchronize();
+    // deviceSynchronize();
 }
 
 // Linf norms
@@ -186,7 +186,7 @@ void DeviceMatrixOperations<G, L, S>::LinfNorm( const size_t N,
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     LinfNorm_kernel<<<GridDim, BlockDim>>>( N, x, row_starts, row_sums );
-    deviceSynchronize();
+    // deviceSynchronize();
 }
 
 } // namespace LinearAlgebra

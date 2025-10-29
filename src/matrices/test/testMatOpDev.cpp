@@ -289,18 +289,23 @@ void testSetScalar( AMP::UnitTest *ut,
     createMatrixAndVectors<Config>( ut, type, dofManager, A, x, y );
 
     A->setScalar( 1. );
+    A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     x->setToScalar( 1.0 );
     // this shouldn't be necessary, but evidently is!
     x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     y->zero();
+    y->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     A->mult( x, y );
 
     for ( size_t i = dofManager->beginDOF(); i != dofManager->endDOF(); i++ ) {
-        auto cols        = A->getColumnIDs( i );
-        const auto ncols = cols.size();
-        if ( ncols != y->getValueByGlobalID( i ) ) {
+        const auto ncols = A->getColumnIDs( i ).size();
+        const auto yi    = y->getValueByGlobalID( i );
+        if ( ncols != yi ) {
+            std::cout << "set scalar failed, y[" << i << "] = " << yi << ", expected " << ncols
+                      << std::endl;
+
             ut->failure( type + ": Fails to set matrix to scalar" );
             return;
         }
