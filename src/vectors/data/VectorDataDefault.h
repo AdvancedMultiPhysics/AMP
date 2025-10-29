@@ -177,7 +177,6 @@ public: // Write/read restart data
 
 protected:
     TYPE *d_data = nullptr;
-    scalarAllocator_t d_alloc;
 };
 
 

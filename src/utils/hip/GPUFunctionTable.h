@@ -21,7 +21,7 @@ public:
      * @param[in] x         The array to operate on
      */
     template<class TYPE, class FUN, class ALLOC>
-    static inline void rand( Array<TYPE, FUN, ALLOC> &x );
+    static void rand( Array<TYPE, FUN, ALLOC> &x );
 
     /*! NOT IMPLEMENTED
      * Perform a reduce operator y = f(x)
@@ -33,8 +33,7 @@ public:
      * @return                  The reduction
      */
     template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-    static inline TYPE
-    reduce( LAMBDA &op, const Array<TYPE, FUN, ALLOC> &A, const TYPE &initialValue );
+    static TYPE reduce( LAMBDA &op, const Array<TYPE, FUN, ALLOC> &A, const TYPE &initialValue );
 
     /*! NOT IMPLEMENTED
      * Perform a reduce operator z = f(x,y)
@@ -47,10 +46,10 @@ public:
      * @return                  The reduction
      */
     template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-    static inline TYPE reduce( LAMBDA &op,
-                               const Array<TYPE, FUN, ALLOC> &A,
-                               const Array<TYPE, FUN, ALLOC> &B,
-                               const TYPE &initialValue );
+    static TYPE reduce( LAMBDA &op,
+                        const Array<TYPE, FUN, ALLOC> &A,
+                        const Array<TYPE, FUN, ALLOC> &B,
+                        const TYPE &initialValue );
 
     /*! NOT IMPLEMENTED
      * Perform a element-wise operation y = f(x)
@@ -60,7 +59,7 @@ public:
      * @param[out] y            The output array
      */
     template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-    static inline void
+    static void
     transform( LAMBDA &fun, const Array<TYPE, FUN, ALLOC> &x, Array<TYPE, FUN, ALLOC> &y );
 
     /*! NOT IMPLEMENTED
@@ -72,10 +71,10 @@ public:
      * @param[out] z            The output array
      */
     template<class TYPE, class FUN, class ALLOC, typename LAMBDA>
-    static inline void transform( LAMBDA &fun,
-                                  const Array<TYPE, FUN, ALLOC> &x,
-                                  const Array<TYPE, FUN, ALLOC> &y,
-                                  Array<TYPE, FUN, ALLOC> &z );
+    static void transform( LAMBDA &fun,
+                           const Array<TYPE, FUN, ALLOC> &x,
+                           const Array<TYPE, FUN, ALLOC> &y,
+                           Array<TYPE, FUN, ALLOC> &z );
 
     /*! NOT IMPLEMENTED
      * Multiply two arrays
@@ -157,9 +156,8 @@ public:
 
 private:
     template<class TYPE>
-    static inline void rand( size_t N, TYPE *x );
+    static void rand( size_t N, TYPE *x );
 };
 } // namespace AMP
-#include "GPUFunctionTable.hpp"
 
 #endif
