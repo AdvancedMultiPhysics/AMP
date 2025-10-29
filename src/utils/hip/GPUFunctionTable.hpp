@@ -109,6 +109,16 @@ TYPE GPUFunctionTable<TYPE>::sum( size_t N, const TYPE *A )
         return TYPE( 0 );
     return sumW<TYPE>( A, N );
 }
+template<class TYPE>
+TYPE GPUFunctionTable<TYPE>::min( size_t N, const TYPE *A )
+{
+    AMP_ERROR( "Not finished" );
+}
+template<class TYPE>
+TYPE GPUFunctionTable<TYPE>::max( size_t N, const TYPE *A )
+{
+    AMP_ERROR( "Not finished" );
+}
 
 template<class TYPE>
 bool GPUFunctionTable<TYPE>::equals( size_t N, const TYPE *A, const TYPE *B, TYPE tol )
@@ -124,5 +134,22 @@ void GPUFunctionTable<TYPE>::multiply(
 {
     AMP_ERROR( "not implemented" );
 }
+template<class TYPE>
+void GPUFunctionTable<TYPE>::axpy( TYPE, size_t, const TYPE *, TYPE * )
+{
+    AMP_ERROR( "not implemented" );
+}
+template<class TYPE>
+void GPUFunctionTable<TYPE>::apy( TYPE, size_t, TYPE * )
+{
+    AMP_ERROR( "not implemented" );
+}
+template<class TYPE>
+void GPUFunctionTable<TYPE>::axpby( TYPE, size_t, const TYPE *, TYPE, TYPE * )
+{
+    AMP_ERROR( "not implemented" );
+}
+
+
 } // namespace AMP
 #endif

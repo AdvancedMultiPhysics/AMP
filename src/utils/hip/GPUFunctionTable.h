@@ -88,6 +88,27 @@ public:
         AMP_ERROR( "Not implemented for GPU" );
     }
 
+    /*!
+     * Return the minimum value
+     * @param[in] N             The length of the array
+     * @param[in] x             The first array
+     */
+    static TYPE min( size_t N, const TYPE *x );
+
+    /*!
+     * Return the maximum value
+     * @param[in] N             The length of the array
+     * @param[in] x             The first array
+     */
+    static TYPE max( size_t N, const TYPE *x );
+
+    /*!
+     * Return the sum
+     * @param[in] N             The length of the array
+     * @param[in] x             The first array
+     */
+    static TYPE sum( size_t N, const TYPE *x );
+
     /*! NOT IMPLEMENTED
      * Multiply two arrays
      * @param[in] sa            The size of the a array
