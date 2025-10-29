@@ -34,7 +34,7 @@ int MIS2Aggregator::classifyVertices(
     int *agg_ids )
 {
     PROFILE( "MIS2Aggregator::classifyVertices" );
-    
+
     using lidx_t = typename Config::lidx_t;
 
     // unpack diag block
@@ -110,8 +110,8 @@ int MIS2Aggregator::classifyVertices(
             for ( lidx_t k = rs; k < re; ++k ) {
                 const auto c = Ad_cols_loc[k];
                 if ( agg_ids[c] >= 0 ) {
-		  // neighbor is aggregated from previous vertex classification pass
-		  // ignore on this pass
+                    // neighbor is aggregated from previous vertex classification pass
+                    // ignore on this pass
                     continue;
                 }
                 if ( Mv[c] == OUT ) {
@@ -158,12 +158,13 @@ int MIS2Aggregator::classifyVertices(
 
         if ( wl1_stag && wl2_stag ) {
             AMP_WARNING( "MIS2Aggregator::classifyVertices worklists stagnated" );
-	    AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size() <<std::endl;
+            AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size()
+                      << std::endl;
 
-	    for (const auto n : wl1) {
-	      Tv[n] = IN;
-	    }
-	    
+            for ( const auto n : wl1 ) {
+                Tv[n] = IN;
+            }
+
             break;
         }
     }
@@ -176,7 +177,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                                            int *agg_ids )
 {
     PROFILE( "MIS2Aggregator::assignLocalAggregates" );
-    
+
     using lidx_t       = typename Config::lidx_t;
     using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t = typename matrix_t::matrixdata_t;
