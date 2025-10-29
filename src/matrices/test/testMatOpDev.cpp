@@ -289,23 +289,26 @@ void testSetScalar( AMP::UnitTest *ut,
     createMatrixAndVectors<Config>( ut, type, dofManager, A, x, y );
 
     A->setScalar( 1. );
-    A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+    // debug
+    {
+        auto A_data = std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrixData<Config>>(
+            A->getMatrixData() );
+        AMP_ASSERT( A_data );
+        A_data->printStats( true, true );
+    }
 
     x->setToScalar( 1.0 );
     // this shouldn't be necessary, but evidently is!
     x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     y->zero();
-    y->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     A->mult( x, y );
 
     for ( size_t i = dofManager->beginDOF(); i != dofManager->endDOF(); i++ ) {
-        const auto ncols = A->getColumnIDs( i ).size();
-        const auto yi    = y->getValueByGlobalID( i );
-        if ( ncols != yi ) {
-            std::cout << "set scalar failed, y[" << i << "] = " << yi << ", expected " << ncols
-                      << std::endl;
-
+        auto cols        = A->getColumnIDs( i );
+        const auto ncols = cols.size();
+        if ( ncols != y->getValueByGlobalID( i ) ) {
             ut->failure( type + ": Fails to set matrix to scalar" );
             return;
         }
@@ -455,9 +458,8 @@ int main( int argc, char *argv[] )
 
     // build unique profile name to avoid collisions
     std::ostringstream ss;
-    ss << "testMatVecPerf_r" << std::setw( 3 ) << std::setfill( '0' )
-       << AMP::AMPManager::getCommWorld().getSize() << "_n" << std::setw( 9 )
-       << std::setfill( '0' );
+    ss << "testMatOpDev_r" << std::setw( 3 ) << std::setfill( '0' )
+       << AMP::AMPManager::getCommWorld().getSize();
     PROFILE_SAVE( ss.str() );
 
     int num_failed = ut.NumFailGlobal();
