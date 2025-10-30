@@ -83,10 +83,8 @@ public:
 
     AMP::LinearAlgebra::Vector::shared_ptr getVector() { return d_cladVec; }
 
-    /**
-      This member function returns the 1D locations stl vector.
-      */
-    std::vector<double> getZLocations() { return zPoints; }
+    //! This member function returns the 1D locations stl vector.
+    const auto &getZLocations() { return zPoints; }
 
     double getHeatCapacity( double T_b )
     {

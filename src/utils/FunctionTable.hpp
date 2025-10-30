@@ -395,8 +395,7 @@ void FunctionTable<TYPE>::transformHardTanh( size_t N, const TYPE *A, TYPE *B )
 {
     if constexpr ( std::is_arithmetic_v<TYPE> ) {
         const auto &fun = []( const TYPE &a ) {
-            return std::max<TYPE>( -static_cast<TYPE>( 1.0 ),
-                                   std::min( static_cast<TYPE>( 1.0 ), a ) );
+            return std::max<TYPE>( static_cast<TYPE>( -1 ), std::min( static_cast<TYPE>( 1 ), a ) );
         };
         transform( fun, N, A, B );
     } else {

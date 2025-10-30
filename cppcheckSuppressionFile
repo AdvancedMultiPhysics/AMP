@@ -18,7 +18,7 @@ virtualCallInConstructor:*  // False errors
 nullPointerRedundantCheck:*
 internalAstError:*
 class_X_Y:*
-invalidPrintfArgType_uint
+invalidPrintfArgType_uint:*
 
 
 //***********************************************************
@@ -43,6 +43,7 @@ duplInheritedMember:*/AMP/mesh/STKmesh/STKMesh.h
 duplInheritedMember:*/AMP/operators/map/StridedZAxisMap.h
 duplInheritedMember:*/AMP/operators/map/libmesh/SubchannelToCladGPMap.h
 duplInheritedMember:*/AMP/vectors/MultiVector.h
+duplInheritedMember:*/AMP/vectors/data/MultiVectorData.h
 constParameter:*/AMP/matrices/Matrix.inline.h
 constParameter:*/AMP/vectors/Vector.inline.h
 containerOutOfBounds:*/AMP/utils/DelaunayHelpers.h
@@ -132,7 +133,10 @@ duplInheritedMember:*/src/mesh/libmesh/libmeshMesh.cpp
 duplInheritedMember:*/src/mesh/triangle/TriangleHelpers.cpp
 duplInheritedMember:*/src/mesh/STKmesh/STKMesh.cpp
 duplInheritedMember:*/src/operators/map/StridedZAxisMap.cpp
+duplInheritedMember:*/src/operators/map/libmesh/SubchannelToCladGPMap.cpp
+duplInheritedMember:*/src/vectors/data/MultiVectorData.cpp
 exceptNew:*/src/matrices/trilinos/ManagedEpetraMatrix.cpp
+floatConversionOverflow:*/src/utils/test/UtilityHelpers.h
 identicalConditionAfterEarlyExit:*/src/IO/HDF5.types.cpp
 ignoredReturnValue:*/src/geometry/GeometryHelpers.cpp
 incorrectLogicOperator:*/src/mesh/triangle/TriangleMeshElement.cpp
@@ -171,6 +175,7 @@ shiftTooManyBits:*/src/utils/extended_int.cpp
 syntaxError:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
 syntaxError:*/src/utils/cuda/helper_cuda.cpp
 uninitMemberVar:*/src/matrices/petsc/NativePetscMatrix.cpp
+uninitMemberVar:*/src/mesh/structured/structuredMeshIterator.cpp
 uninitMemberVar:*/src/operators/boundary/libmesh/RobinMatrixCorrection.cpp
 uninitMemberVar:*/src/operators/boundary/libmesh/TractionBoundaryOperator.cpp
 uninitMemberVar:*/src/operators/diffusion/DiffusionElement.cpp
@@ -196,7 +201,8 @@ useInitializationList:*/src/utils/AMP_MPI.cpp
 uninitMemberVar:*/src/solvers/petsc/PetscKrylovSolver.cpp
 uninitvar:*/src/utils/DelaunayInterpolation.cpp
 uninitvar:*/src/utils/DelaunayTessellation.cpp
-unknownMacro:*/src/utils/Array.cpp
+unknownMacro:*/src/matrices/operations/default/CSRMatrixOperationsDefault.cpp
+unknownMacro:*/src/matrices/operations/kokkos/CSRMatrixOperationsKokkos.cpp
 unreadVariable:*/src/utils/DelaunayInterpolation.cpp
 unreadVariable:*/src/utils/DelaunayTessellation.cpp
 unreadVariable:*/src/IO/HDF5writer.cpp

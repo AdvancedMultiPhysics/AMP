@@ -3,6 +3,7 @@
 
 #include "AMP/IO/FileSystem.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Array.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/Utilities.hpp"
@@ -336,6 +337,11 @@ void test_precision( [[maybe_unused]] AMP::UnitTest &ut )
 /********************************************************
  *  Test typeid                                          *
  ********************************************************/
+struct MyType {
+};
+template<class T>
+struct MyType2 {
+};
 template<class T>
 void check( const std::string &name, AMP::UnitTest &ut, bool expected = false )
 {
@@ -356,6 +362,8 @@ void testTypeID( AMP::UnitTest &ut )
     check<const double *>( "const double*", ut );
     check<double const *>( "const double*", ut );
     check<decltype( argv )>( "char*[3]", ut );
+    check<MyType>( "MyType", ut );
+    check<MyType2<int>>( "MyType2<int>", ut );
     check<std::shared_ptr<double>>( "std::shared_ptr<double>", ut );
     check<std::string>( "std::string", ut );
     check<std::string_view>( "std::string_view", ut );
@@ -363,6 +371,7 @@ void testTypeID( AMP::UnitTest &ut )
     check<std::vector<double>>( "std::vector<double>", ut, true );
     check<std::vector<std::string>>( "std::vector<std::string>", ut, true );
     check<std::vector<std::string_view>>( "std::vector<std::string_view>", ut, true );
+    check<AMP::Array<std::string>>( "AMP::Array<std::string>", ut, true );
 }
 
 
@@ -387,8 +396,8 @@ void testPrimes( AMP::UnitTest &ut )
     ut.pass_fail( factors == std::vector<int>( { 2, 7, 997 } ), "Correctly factored 13958" );
     auto t1  = AMP::Utilities::time();
     int N_it = 10000;
-    for ( int i = 0; i < N_it; i++ )
-        [[maybe_unused]] auto tmp = AMP::Utilities::factor( dist( gen ) );
+    for ( int i = 0; i < N_it; i++ ) [[maybe_unused]]
+        auto tmp = AMP::Utilities::factor( dist( gen ) );
     auto t2 = AMP::Utilities::time();
     std::cout << "factor = " << round( 1e9 * ( t2 - t1 ) / N_it ) << " ns" << std::endl;
 
@@ -396,8 +405,8 @@ void testPrimes( AMP::UnitTest &ut )
     pass = !AMP::Utilities::isPrime( 13958 ) && AMP::Utilities::isPrime( 9999991 );
     ut.pass_fail( pass, "isPrime" );
     t1 = AMP::Utilities::time();
-    for ( int i = 0; i < N_it; i++ )
-        [[maybe_unused]] auto tmp = AMP::Utilities::isPrime( dist( gen ) );
+    for ( int i = 0; i < N_it; i++ ) [[maybe_unused]]
+        auto tmp = AMP::Utilities::isPrime( dist( gen ) );
     t2 = AMP::Utilities::time();
     std::cout << "isPrime = " << round( 1e9 * ( t2 - t1 ) / N_it ) << " ns" << std::endl;
 
