@@ -852,7 +852,7 @@ MeshPoint<double> structuredMeshElement::nearest( const MeshPoint<double> &pos0 
 template<std::size_t N>
 static inline std::array<double, N> point( const double *x )
 {
-    std::array<double, N> y;
+    std::array<double, N> y = { 0 };
     for ( size_t i = 0; i < N; i++ )
         y[i] = x[i];
     return y;

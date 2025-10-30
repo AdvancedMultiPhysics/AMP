@@ -35,7 +35,7 @@
 #define NUM_PRODUCTS_TRANS 100
 
 size_t matVecTestWithDOFs( AMP::UnitTest *ut,
-                           std::string type,
+                           const std::string &type,
                            std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                            bool testTranspose,
                            const std::string &accelerationBackend,
@@ -128,7 +128,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
+size_t matVecTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatVecPerf";
     //    AMP::logOnlyNodeZero( log_file );

@@ -15,6 +15,7 @@
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Array.hpp"
+#include "AMP/utils/FunctionTable.hpp"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.hpp"
 
