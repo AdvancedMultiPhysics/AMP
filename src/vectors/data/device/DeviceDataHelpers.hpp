@@ -76,7 +76,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::setValuesByIndex( const size_t N,
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     set_vals_kernel<<<GridDim, BlockDim>>>( N, indices, src, dst );
-    // deviceSynchronize();
+    deviceSynchronize();
 }
 
 template<typename STYPE, typename DTYPE>
@@ -112,7 +112,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::addValuesByIndex( const size_t N,
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     add_vals_kernel<<<GridDim, BlockDim>>>( N, indices, src, dst );
-    // deviceSynchronize();
+    deviceSynchronize();
 }
 
 template<typename STYPE, typename DTYPE>
@@ -138,7 +138,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::getValuesByIndex( const size_t N,
     dim3 GridDim;
     setKernelDims( N, BlockDim, GridDim );
     get_vals_kernel<<<GridDim, BlockDim>>>( N, indices, src, dst );
-    // deviceSynchronize();
+    deviceSynchronize();
 }
 
 template<typename STYPE, typename DTYPE>
