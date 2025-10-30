@@ -18,7 +18,7 @@ multiDOFManager::multiDOFManager( const AMP_MPI &globalComm,
 {
     d_comm = globalComm;
     AMP_ASSERT( !d_comm.isNull() );
-    reset( managers, mesh );
+    reset( std::move( managers ), mesh );
 }
 multiDOFManager::multiDOFManager( std::shared_ptr<DOFManager> dof ) : DOFManager()
 {
@@ -189,15 +189,6 @@ size_t multiDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
     if ( sort )
         AMP::Utilities::quicksort( std::min( N, N_alloc ), dofs );
     return N;
-}
-
-
-/****************************************************************
- * Function to return the DOFManagers                            *
- ****************************************************************/
-std::vector<std::shared_ptr<DOFManager>> multiDOFManager::getDOFManagers() const
-{
-    return d_managers;
 }
 
 

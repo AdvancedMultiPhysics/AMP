@@ -60,7 +60,7 @@ putVector( AMP::Database &db, std::string_view key, const std::vector<std::array
     db.putArray( key, data2, {}, AMP::Database::Check::Overwrite );
 }
 static void
-putVector( AMP::Database &db, std::string_view key, const std::vector<std::vector<int>> x )
+putVector( AMP::Database &db, std::string_view key, const std::vector<std::vector<int>> &x )
 {
     db.putScalar<int>( key, x.size(), {}, AMP::Database::Check::Overwrite );
     for ( size_t i = 0; i < x.size(); i++ ) {
@@ -1022,37 +1022,37 @@ std::shared_ptr<AMP::Database> generateTestMesh( const std::string &name )
 void generateAll()
 {
     const char *ascii[]  = { "distortedElementMesh",
-                            "cookMesh0",
-                            "cookMesh1",
-                            "cookMesh2",
-                            "cookMesh3",
-                            "cookMesh4",
-                            "regPlateWithHole1",
-                            "regPlateWithHole2",
-                            "mesh7elem-1",
-                            "mesh7elem-2",
-                            "boxMesh-1",
-                            "boxMesh-2",
-                            "boxMesh-3",
-                            "boxMesh-4",
-                            "boxMesh-5",
-                            "fullMpcMesh-3",
-                            "mesh0",
-                            "mesh1",
-                            "mesh2",
-                            "mesh3",
-                            "mesh4",
-                            "mesh2elem-1",
-                            "mesh2elem-2",
-                            "mesh2elem-3",
-                            "mesh2elem-4",
-                            "mesh2elem-5",
-                            "mesh2elem-6",
-                            "mesh3_mod",
-                            "mesh2_mod",
-                            "mesh2_mod_1",
-                            "brick",
-                            "testAMGmesh5" };
+                             "cookMesh0",
+                             "cookMesh1",
+                             "cookMesh2",
+                             "cookMesh3",
+                             "cookMesh4",
+                             "regPlateWithHole1",
+                             "regPlateWithHole2",
+                             "mesh7elem-1",
+                             "mesh7elem-2",
+                             "boxMesh-1",
+                             "boxMesh-2",
+                             "boxMesh-3",
+                             "boxMesh-4",
+                             "boxMesh-5",
+                             "fullMpcMesh-3",
+                             "mesh0",
+                             "mesh1",
+                             "mesh2",
+                             "mesh3",
+                             "mesh4",
+                             "mesh2elem-1",
+                             "mesh2elem-2",
+                             "mesh2elem-3",
+                             "mesh2elem-4",
+                             "mesh2elem-5",
+                             "mesh2elem-6",
+                             "mesh3_mod",
+                             "mesh2_mod",
+                             "mesh2_mod_1",
+                             "brick",
+                             "testAMGmesh5" };
     const char *binary[] = { "lumlmesh1", "lumlmesh2", "lumlmesh3", "lumlmesh4",
                              "lumlmesh5", "lumlmesh6", "lumlmesh7", "lumlmesh8" };
     for ( auto name : ascii ) {

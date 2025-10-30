@@ -28,7 +28,7 @@ CommunicationListParameters::CommunicationListParameters( const CommunicationLis
 /************************************************************************
  * Constructors                                                          *
  ************************************************************************/
-CommunicationList::CommunicationList() { d_partition = { 0 }; }
+CommunicationList::CommunicationList() : d_partition( { 0 } ) {}
 CommunicationList::CommunicationList( std::shared_ptr<const CommunicationListParameters> params )
     : d_comm( params->d_comm )
 {

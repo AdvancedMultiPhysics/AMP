@@ -359,7 +359,7 @@ static inline std::string getFile( const std::string &file, const std::string &r
         return file.substr( root.size() );
     return file;
 }
-void SiloIO::writeSummary( std::string filename, int cycle, double time )
+void SiloIO::writeSummary( const std::string &filename, int cycle, double time )
 {
     PROFILE( "writeSummary", 1 );
     AMP_ASSERT( !filename.empty() );
