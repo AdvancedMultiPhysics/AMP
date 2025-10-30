@@ -123,7 +123,7 @@ void testVectorSelectorPerformance()
     if ( worldComm.getRank() == 0 )
         printf( "       subset performance (ns):              "
                 " Variable  Stride  VecComm    World    Self    Split     Mesh 1\n" );
-    for ( auto name : getAllFactories() ) {
+    for ( auto &name : getAllFactories() ) {
         auto factory = generateVectorFactory( name );
         auto vec     = factory->getVector();
         auto vecComm = vec->getComm();
@@ -185,7 +185,7 @@ int main( int argc, char **argv )
 
     // Run the managed vector tests
     AMP::pout << std::endl << "Running managed vector tests:" << std::endl;
-    for ( auto name : getManagedVectorFactories() ) {
+    for ( auto &name : getManagedVectorFactories() ) {
         auto factory = generateVectorFactory( name );
         VectorTests tests( factory );
         tests.testManagedVector( &ut );

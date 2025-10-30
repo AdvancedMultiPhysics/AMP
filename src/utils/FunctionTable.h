@@ -56,6 +56,7 @@ public:
      * Perform a element-wise operation y = f(x)
      * @param[in] fun           The function operation
      *                          Note: the function is a template parameter to improve performance
+     * @param[in] N             The length of the array
      * @param[in,out] x         The array to operate on
      * @param[out] y            The output array
      */
@@ -96,6 +97,13 @@ public:
     static TYPE sum( size_t N, const TYPE *x );
 
     /*!
+     * Return the size of the array for multiplication
+     * @param[in] sa            The size of the a array
+     * @param[in] sb            The size of the b array
+     */
+    static ArraySize multiplySize( const ArraySize &sa, const ArraySize &sb );
+
+    /*!
      * Multiply two arrays
      * @param[in] sa            The size of the a array
      * @param[in] a             The first array
@@ -112,11 +120,55 @@ public:
                           TYPE *c );
 
     /*!
-     * Return the size of the array for multiplication
-     * @param[in] sa            The size of the a array
-     * @param[in] sb            The size of the b array
+     * Perform addition operation ( y += x )
+     * @param[in] N             The length of the array
+     * @param[in] x             The scalar value alpha
+     * @param[in,out] y         The output array y
      */
-    static ArraySize multiplySize( const ArraySize &sa, const ArraySize &sb );
+    static void px( size_t N, TYPE x, TYPE *y );
+
+    /*!
+     * Perform addition operation ( y += x )
+     * @param[in] N             The length of the array
+     * @param[in] x             The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void px( size_t N, const TYPE *x, TYPE *y );
+
+    /*!
+     * Perform subtraction operation ( y += x )
+     * @param[in] N             The length of the array
+     * @param[in] x             The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void mx( size_t N, TYPE x, TYPE *y );
+
+    /*!
+     * Perform subtraction operation ( y += x )
+     * @param[in] x             The scalar value alpha
+     * @param[in] N             The length of the array
+     * @param[in,out] y         The output array y
+     */
+    static void mx( size_t N, const TYPE *x, TYPE *y );
+
+    /*!
+     * Perform axpy equavalent operation ( y = alpha*x + y )
+     * @param[in] alpha         The scalar value alpha
+     * @param[in] N             The length of the array
+     * @param[in] x             The input array x
+     * @param[in,out] y         The output array y
+     */
+    static void axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y );
+
+    /*!
+     * Perform axpby equavalent operation ( y = alpha*x + beta*y )
+     * @param[in] alpha         The scalar value alpha
+     * @param[in] N             The length of the array
+     * @param[in] x             The input array x
+     * @param[in] beta         The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta, TYPE *y );
 
     /*!
      * Perform dgemv/dgemm equavalent operation ( C = alpha*A*B + beta*C )
@@ -131,39 +183,13 @@ public:
      */
     static void gemm( TYPE alpha,
                       const ArraySize &sa,
-                      const TYPE *a,
+                      const TYPE *A,
                       const ArraySize &sb,
-                      const TYPE *b,
+                      const TYPE *B,
                       TYPE beta,
                       const ArraySize &sc,
-                      TYPE *c );
+                      TYPE *C );
 
-    /*!
-     * Perform axpy equavalent operation ( y = alpha*x + y )
-     * @param[in] alpha         The scalar value alpha
-     * @param[in] N             The length of the array
-     * @param[in] x             The input array x
-     * @param[in,out] y         The output array y
-     */
-    static void axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y );
-
-    /*!
-     * Perform axpy equavalent operation ( y = alpha + y )
-     * @param[in] alpha         The scalar value alpha
-     * @param[in] N             The length of the array
-     * @param[in,out] y         The output array y
-     */
-    static void apy( TYPE alpha, size_t N, TYPE *y );
-
-    /*!
-     * Perform axpy equavalent operation ( y = alpha*x + beta*y )
-     * @param[in] alpha         The scalar value alpha
-     * @param[in] N             The length of the array
-     * @param[in] x             The input array x
-     * @param[in] beta         The scalar value alpha
-     * @param[in,out] y         The output array y
-     */
-    static void axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta, TYPE *y );
 
     /*!
      * Check if two arrays are approximately equal
@@ -195,6 +221,7 @@ public:
 
     /*!
      * Perform a element-wise operation B = tanh(A)
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[out] B            The output array
      */
@@ -202,6 +229,7 @@ public:
 
     /*!
      * Perform a element-wise operation B = max(-1 , min(1 , A) )
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[out] B            The output array
      */

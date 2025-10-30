@@ -158,7 +158,11 @@ void call_axpy( size_t N, const TYPE alpha, const TYPE *x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
-    call_axpy( N, alpha, x, y );
+    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+        call_axpy( N, alpha, x, y );
+    } else {
+        AMP_ERROR( "axpy not implemented" );
+    }
 }
 template<class TYPE>
 void FunctionTable<TYPE>::axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta, TYPE *y )
@@ -175,13 +179,35 @@ void FunctionTable<TYPE>::axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta,
     }
 }
 template<class TYPE>
-void FunctionTable<TYPE>::apy( TYPE alpha, size_t N, TYPE *y )
+void FunctionTable<TYPE>::px( size_t N, TYPE x, TYPE *y )
+{
+    for ( size_t i = 0; i < N; i++ )
+        y[i] += x;
+}
+template<class TYPE>
+void FunctionTable<TYPE>::px( size_t N, const TYPE *x, TYPE *y )
+{
+    for ( size_t i = 0; i < N; i++ )
+        y[i] += x[i];
+}
+template<class TYPE>
+void FunctionTable<TYPE>::mx( size_t N, TYPE x, TYPE *y )
 {
     if constexpr ( std::is_arithmetic_v<TYPE> ) {
         for ( size_t i = 0; i < N; i++ )
-            y[i] += alpha;
+            y[i] -= x;
     } else {
-        AMP_ERROR( "apy not implemented" );
+        AMP_ERROR( "mx not implemented" );
+    }
+}
+template<class TYPE>
+void FunctionTable<TYPE>::mx( size_t N, const TYPE *x, TYPE *y )
+{
+    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+        for ( size_t i = 0; i < N; i++ )
+            y[i] -= x[i];
+    } else {
+        AMP_ERROR( "mx not implemented" );
     }
 }
 
@@ -293,13 +319,17 @@ void FunctionTable<TYPE>::multiply( const ArraySize &sa,
                                     const ArraySize &sc,
                                     TYPE *c )
 {
-    AMP_ASSERT( sc == multiplySize( sa, sb ) );
-    if ( sa.ndim() == 2 && sb.ndim() == 1 ) {
-        call_gemv<TYPE>( sa[0], sa[1], 1, 0, a, b, c );
-    } else if ( sa.ndim() <= 2 && sb.ndim() <= 2 ) {
-        call_gemm<TYPE>( sa[0], sa[1], sb[1], 1, 0, a, b, c );
-    } else {
+    if constexpr ( !std::is_arithmetic_v<TYPE> ) {
         AMP_ERROR( "Not finished yet" );
+    } else {
+        AMP_ASSERT( sc == multiplySize( sa, sb ) );
+        if ( sa.ndim() == 2 && sb.ndim() == 1 ) {
+            call_gemv<TYPE>( sa[0], sa[1], 1, 0, a, b, c );
+        } else if ( sa.ndim() <= 2 && sb.ndim() <= 2 ) {
+            call_gemm<TYPE>( sa[0], sa[1], sb[1], 1, 0, a, b, c );
+        } else {
+            AMP_ERROR( "Not finished yet" );
+        }
     }
 }
 

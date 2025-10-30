@@ -140,3 +140,4 @@ INSTANTIATE( double );
 INSTANTIATE( long double );
 template class AMP::FunctionTable<std::complex<float>>;
 template class AMP::FunctionTable<std::complex<double>>;
+template class AMP::FunctionTable<std::string>;

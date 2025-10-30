@@ -760,7 +760,7 @@ void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
         // outer db does not specify a memory location, check if any internal one does
         // if multiple are specified use most restrictive one
         std::string memLoc{ "device" };
-        auto memRestrict = []( std::string m1, std::string m2 ) -> std::string {
+        auto memRestrict = []( const std::string &m1, const std::string &m2 ) -> std::string {
             int c1 = 3, c2 = 3;
             if ( m1 == "device" || m1 == "Device" ) {
                 c1 = 2;

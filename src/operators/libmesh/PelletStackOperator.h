@@ -6,7 +6,7 @@
 
 namespace AMP::Operator {
 
-class PelletStackOperator : public Operator
+class PelletStackOperator final : public Operator
 {
 public:
     explicit PelletStackOperator( std::shared_ptr<const PelletStackOperatorParameters> params );
@@ -17,17 +17,17 @@ public:
 
     int getLocalIndexForPellet( unsigned int pellId );
 
-    unsigned int getTotalNumberOfPellets();
+    auto getTotalNumberOfPellets() { return d_totalNumberOfPellets; }
 
-    std::vector<std::shared_ptr<AMP::Mesh::Mesh>> getLocalMeshes();
+    const auto &getLocalMeshes() { return d_meshes; }
 
-    std::vector<unsigned int> getLocalPelletIds();
+    const auto &getLocalPelletIds() { return d_pelletIds; }
 
-    bool useSerial();
+    bool useSerial() { return d_useSerial; }
 
-    bool onlyZcorrection();
+    bool onlyZcorrection() { return d_onlyZcorrection; }
 
-    bool useScaling();
+    bool useScaling() { return d_useScaling; }
 
     void reset( std::shared_ptr<const OperatorParameters> params ) override;
 

@@ -97,7 +97,9 @@ public: // Restart functions
 
 protected:
     //!  Default constructor for the base class
-    LogicalGeometry( int physical, int logical, std::array<int, 6> ids = { 1, 2, 3, 4, 5, 6 } );
+    LogicalGeometry( int physical,
+                     int logical,
+                     const std::array<int, 6> &ids = { 1, 2, 3, 4, 5, 6 } );
 
     // Delete copy constructors
     LogicalGeometry( LogicalGeometry && )      = delete;

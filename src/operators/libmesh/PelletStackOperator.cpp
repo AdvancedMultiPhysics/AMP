@@ -50,21 +50,6 @@ void PelletStackOperator::reset( std::shared_ptr<const OperatorParameters> param
         d_currentPellet = myParams->d_currentPellet;
 }
 
-std::vector<std::shared_ptr<AMP::Mesh::Mesh>> PelletStackOperator::getLocalMeshes()
-{
-    return d_meshes;
-}
-
-std::vector<unsigned int> PelletStackOperator::getLocalPelletIds() { return d_pelletIds; }
-
-bool PelletStackOperator::useSerial() { return d_useSerial; }
-
-bool PelletStackOperator::onlyZcorrection() { return d_onlyZcorrection; }
-
-bool PelletStackOperator::useScaling() { return d_useScaling; }
-
-unsigned int PelletStackOperator::getTotalNumberOfPellets() { return d_totalNumberOfPellets; }
-
 int PelletStackOperator::getLocalIndexForPellet( unsigned int pellId )
 {
     for ( size_t i = 0; i < d_pelletIds.size(); i++ ) {
