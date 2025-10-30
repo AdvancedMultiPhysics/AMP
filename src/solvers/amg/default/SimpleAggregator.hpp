@@ -30,18 +30,25 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
 {
     PROFILE( "SimpleAggregator::assignLocalAggregates" );
 
-    using lidx_t       = typename Config::lidx_t;
-    using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
-    using matrixdata_t = typename matrix_t::matrixdata_t;
-
-    // get strength information
-    auto S = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+    using lidx_t            = typename Config::lidx_t;
+    using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
+    using matrixdata_t      = typename matrix_t::matrixdata_t;
+    using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
-    auto A_masked      = A_diag->maskMatrixData( S.diag_mask_data(), true );
+
+    std::shared_ptr<localmatrixdata_t> A_masked;
+    if ( false ) {
+        auto S   = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else {
+        auto S   = compute_soc<classical_strength<norm::min>>( csr_view( *A ),
+                                                             1.0 / d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    }
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
