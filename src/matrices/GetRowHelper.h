@@ -26,10 +26,10 @@ public:
     ~GetRowHelper();
 
     // Copy/assignment operators
-    GetRowHelper()                                  = default;
-    GetRowHelper( GetRowHelper && )                 = default;
-    GetRowHelper( const GetRowHelper & )            = delete;
-    GetRowHelper &operator=( GetRowHelper && )      = default;
+    GetRowHelper()                       = default;
+    GetRowHelper( GetRowHelper && )      = default;
+    GetRowHelper( const GetRowHelper & ) = delete;
+    GetRowHelper &operator=( GetRowHelper && ) = default;
     GetRowHelper &operator=( const GetRowHelper & ) = delete;
 
     //! Release all internal storage

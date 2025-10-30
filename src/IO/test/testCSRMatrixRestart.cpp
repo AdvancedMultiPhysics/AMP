@@ -43,7 +43,8 @@ bool equalRawArrays( const size_t n1, const size_t n2, entries_t const *a1, entr
     for ( size_t i = 0u; i < n1; ++i ) {
         pass = pass && ( a1[i] == a2[i] );
         if ( !pass )
-            AMP::pout << "a1[" << i << "]" << "a2[" << i << "]" << std::endl;
+            AMP::pout << "a1[" << i << "]"
+                      << "a2[" << i << "]" << std::endl;
     }
     if ( !pass )
         AMP::pout << "Values don't match " << std::endl;

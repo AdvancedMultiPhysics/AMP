@@ -341,7 +341,6 @@ bool equalsW( const TYPE *d_a, const TYPE *d_b, TYPE tol, size_t n )
     return eq;
 }
 
-
 /********************************************************
  *  Explicit instantiations of GPUFunctionTable          *
  *  and the wrappers                                     *
@@ -361,4 +360,3 @@ INSTANTIATE( float );
 
 
 } // namespace AMP
-

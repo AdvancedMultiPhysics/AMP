@@ -6,7 +6,7 @@
  *  Explicit instantiations of Array                     *
  ********************************************************/
 #define INSTANTIATE( T, ALLOC ) template class AMP::Array<T, AMP::GPUFunctionTable<T>, ALLOC<T>>
-INSTANTIATE( float, AMP::CudaDevAllocator );
-INSTANTIATE( float, AMP::CudaManagedAllocator );
-INSTANTIATE( double, AMP::CudaDevAllocator );
-INSTANTIATE( double, AMP::CudaManagedAllocator );
+INSTANTIATE( float, AMP::HipDevAllocator );
+INSTANTIATE( float, AMP::HipManagedAllocator );
+INSTANTIATE( double, AMP::HipDevAllocator );
+INSTANTIATE( double, AMP::HipManagedAllocator );
