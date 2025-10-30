@@ -11,7 +11,7 @@ namespace AMP::Mesh {
  * Constructors                                                 *
  ****************************************************************/
 StructuredGeometryMesh::StructuredGeometryMesh( std::shared_ptr<const MeshParameters> params )
-    : BoxMesh( params ), d_pos_hash( 0 )
+    : BoxMesh( params )
 {
     // Check for valid inputs
     AMP_INSIST( params.get(), "Params must not be null" );
@@ -53,7 +53,7 @@ StructuredGeometryMesh::StructuredGeometryMesh(
     std::shared_ptr<AMP::Geometry::LogicalGeometry> geom,
     const ArraySize &size,
     const AMP::AMP_MPI &comm )
-    : BoxMesh(), d_pos_hash( 0 ), d_geometry2( geom )
+    : BoxMesh(), d_geometry2( geom )
 {
     // Set base Mesh variables
     setMeshID();

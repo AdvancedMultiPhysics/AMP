@@ -9,10 +9,6 @@
 namespace AMP::Mesh {
 
 
-// unused global variable to prevent compiler warning
-static MeshElement nullElement;
-
-
 /********************************************************
  * Constructors                                          *
  ********************************************************/

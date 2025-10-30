@@ -77,7 +77,7 @@ public:
 
 
     //!  This function returns the 1D locations stl vector.
-    std::vector<double> getZLocations() { return d_zLocations; }
+    const auto &getZLocations() { return d_zLocations; }
 
 
     /**

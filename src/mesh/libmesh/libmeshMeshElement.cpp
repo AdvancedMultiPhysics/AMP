@@ -34,6 +34,7 @@ libmeshMeshElement::libmeshMeshElement( int dim,
                                         unsigned int rank,
                                         MeshID meshID,
                                         const libmeshMesh *mesh )
+    : d_delete_elem( true )
 {
     AMP_ASSERT( libmesh_element );
     d_dim           = dim;

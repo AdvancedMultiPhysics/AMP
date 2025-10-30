@@ -66,11 +66,6 @@ DiffusionNonlinearFEOperator::getOutputVariable() const
     return d_outVariable;
 }
 
-unsigned int DiffusionNonlinearFEOperator::numberOfDOFMaps() { return 1; }
-
-
-std::string DiffusionNonlinearFEOperator::getPrincipalVariable() { return d_PrincipalVariable; }
-
 
 std::shared_ptr<DiffusionTransportModel> DiffusionNonlinearFEOperator::getTransportModel()
 {
