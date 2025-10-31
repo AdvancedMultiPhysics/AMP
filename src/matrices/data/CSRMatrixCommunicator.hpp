@@ -2,6 +2,7 @@
 #define included_AMP_CSRMatrixCommunicator_hpp
 
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
+#include "AMP/utils/device/Device.h"
 
 #include "ProfilerApp.h"
 
@@ -19,6 +20,10 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
         d_send_called = true;
         return;
     }
+
+#ifdef AMP_USE_DEVICE
+    deviceSynchronize();
+#endif
 
     // At present we allow that the held communication list refer to a
     // super-set of the communications that need to be sent. First count

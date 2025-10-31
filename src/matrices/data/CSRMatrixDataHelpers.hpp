@@ -391,9 +391,6 @@ void CSRMatrixDataHelpers<Config>::SortColumnsDiag( typename Config::lidx_t *row
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
-        // deviceSynchronize();
-        sort_row_diag<<<GridDim, BlockDim>>>( row_starts, cols, coeffs, num_rows, first_col );
-        deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::SortColumnsDiag Undefined memory location" );
@@ -447,9 +444,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsOffd( typename Config::lidx_t *row
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
-        // deviceSynchronize();
         sort_row_offd<<<GridDim, BlockDim>>>( row_starts, cols, coeffs, num_rows );
-        deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsOffd" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::SortColumnsOffd Undefined memory location" );
@@ -603,7 +598,6 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
                                                 out_cols_loc,
                                                 out_cols,
                                                 out_coeffs );
-            // deviceSynchronize();
             getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (to COO)" );
         }
 
@@ -705,7 +699,6 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
                                                 out_cols_loc,
                                                 out_cols,
                                                 out_coeffs );
-            // deviceSynchronize();
             getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd (to COO)" );
         }
 
@@ -770,7 +763,6 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
         setKernelDims( num_rows, BlockDim, GridDim );
         row_sub_count<<<GridDim, BlockDim>>>(
             rows, num_rows, first_row, diag_row_starts, offd_row_starts, counts );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RowSubsetCountNNZ Undefined memory location" );
@@ -832,7 +824,6 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill( const typename Config::gidx_t 
                                              out_row_starts,
                                              out_cols,
                                              out_coeffs );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RowSubsetFill Undefined memory location" );
@@ -885,7 +876,6 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
                                               offd_cols_unq,
                                               num_rows,
                                               out_row_starts );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetCountNNZ Undefined memory location" );
@@ -949,7 +939,6 @@ void CSRMatrixDataHelpers<Config>::ColSubsetFill( const typename Config::gidx_t 
                                              out_row_starts,
                                              out_cols,
                                              out_coeffs );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetFill Undefined memory location" );
@@ -973,7 +962,6 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
         horz_cat_count<<<GridDim, BlockDim>>>( in_row_starts, num_rows, out_row_starts );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ Undefined memory location" );
@@ -1015,7 +1003,6 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
                                               row_nnz_ctrs,
                                               out_cols,
                                               out_coeffs );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalFill Undefined memory location" );
@@ -1051,7 +1038,6 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
         setKernelDims( num_rows, BlockDim, GridDim );
         vert_cat_count<<<GridDim, BlockDim>>>(
             row_starts, cols, num_rows, first_col, last_col, keep_inside, counts );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatVerticalCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatVerticalCountNNZ Undefined memory location" );
@@ -1103,7 +1089,6 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
                                               out_row_starts,
                                               out_cols,
                                               out_coeffs );
-        // deviceSynchronize();
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatVerticalFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatVerticalFill Undefined memory location" );
