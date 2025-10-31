@@ -158,7 +158,7 @@ void call_axpy( size_t N, const TYPE alpha, const TYPE *x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         call_axpy( N, alpha, x, y );
     } else {
         AMP_ERROR( "axpy not implemented" );
@@ -167,15 +167,25 @@ void FunctionTable<TYPE>::axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         if ( beta == 1 ) {
-            call_axpy( N, alpha, x, y );
+            axpy( alpha, N, x, y );
         } else {
             for ( size_t i = 0; i < N; i++ )
                 y[i] = alpha * x[i] + beta * y[i];
         }
     } else {
         AMP_ERROR( "axpby not implemented" );
+    }
+}
+template<class TYPE>
+void FunctionTable<TYPE>::scale( size_t N, TYPE x, TYPE *y )
+{
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        for ( size_t i = 0; i < N; i++ )
+            y[i] *= x;
+    } else {
+        AMP_ERROR( "scale not implemented" );
     }
 }
 template<class TYPE>
@@ -193,7 +203,7 @@ void FunctionTable<TYPE>::px( size_t N, const TYPE *x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::mx( size_t N, TYPE x, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         for ( size_t i = 0; i < N; i++ )
             y[i] -= x;
     } else {
@@ -203,7 +213,7 @@ void FunctionTable<TYPE>::mx( size_t N, TYPE x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::mx( size_t N, const TYPE *x, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         for ( size_t i = 0; i < N; i++ )
             y[i] -= x[i];
     } else {

@@ -372,6 +372,13 @@ void testArray( UnitTest &ut )
     M1.swap( M2 );
     pass = ( ( M1.data() == dA2 ) && ( M2.data() == dA1 ) );
     ut.pass_fail( pass, "swap" );
+
+    // clone test
+    auto F1 = M1.cloneTo<float>();
+    pass    = F1.size() == M1.size();
+    for ( size_t i = 0; i < M1.length(); i++ )
+        pass = pass && static_cast<float>( M1( i ) ) == F1( i );
+    ut.pass_fail( pass, "cloneTo" );
 }
 
 
