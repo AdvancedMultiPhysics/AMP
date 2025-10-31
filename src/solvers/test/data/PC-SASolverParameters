@@ -11,7 +11,8 @@ Preconditioner{
   agg_type = "simple"
   prol_trunc = 0.015
   num_smooth_prol = 3
-  strength_threshold = 3.0
+  strength_threshold = 0.4
+  strength_measure = "classical_min"
   
   pre_relaxation{
     name = "HybridGS"
