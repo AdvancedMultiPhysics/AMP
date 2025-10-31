@@ -47,6 +47,7 @@ duplInheritedMember:*/AMP/vectors/data/MultiVectorData.h
 constParameter:*/AMP/matrices/Matrix.inline.h
 constParameter:*/AMP/vectors/Vector.inline.h
 containerOutOfBounds:*/AMP/utils/DelaunayHelpers.h
+containerOutOfBounds:*/AMP/utils/DelaunayFaceList.hpp
 containerOutOfBounds:*/AMP/utils/Units.hpp
 invalidLifetime:*/AMP/utils/kdtree2.hpp
 memleakOnRealloc:*/AMP/utils/kdtree2.hpp
