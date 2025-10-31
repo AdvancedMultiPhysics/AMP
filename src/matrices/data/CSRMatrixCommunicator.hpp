@@ -1,8 +1,12 @@
 #ifndef included_AMP_CSRMatrixCommunicator_hpp
 #define included_AMP_CSRMatrixCommunicator_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
-#include "AMP/utils/device/Device.h"
+
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
+#endif
 
 #include "ProfilerApp.h"
 
