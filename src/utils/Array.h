@@ -259,7 +259,7 @@ public: // Views/copies/subset
     template<class TYPE2>
     static inline auto convert( std::shared_ptr<Array<TYPE, FUN, Allocator>> array )
     {
-        using FUN2 = FUN::template cloneTo<TYPE2>;
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
         static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
         using ARRAY2 = Array<TYPE2, FUN2, Allocator>;
         auto array2  = std::make_unique<ARRAY2>( array->size() );
@@ -275,7 +275,7 @@ public: // Views/copies/subset
     template<class TYPE2>
     static inline auto convert( std::shared_ptr<const Array<TYPE, FUN, Allocator>> array )
     {
-        using FUN2 = FUN::template cloneTo<TYPE2>;
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
         static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
         using ARRAY2 = Array<TYPE2, FUN2, Allocator>;
         auto array2  = std::make_unique<ARRAY2>( array->size() );
@@ -316,7 +316,7 @@ public: // Views/copies/subset
     template<class TYPE2>
     inline auto cloneTo() const
     {
-        using FUN2 = FUN::template cloneTo<TYPE2>;
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
         static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
         Array<TYPE2, FUN2, AMP::HostAllocator<void>> dst( this->size() );
         copyTo( dst.data() );
@@ -332,7 +332,7 @@ public: // Views/copies/subset
     {
         static_assert( sizeof( TYPE ) == sizeof( TYPE2 ) );
         auto ptr   = std::reinterpret_pointer_cast<TYPE2>( std::const_pointer_cast<TYPE>( d_ptr ) );
-        using FUN2 = FUN::template cloneTo<TYPE2>;
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
         static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
         Array<TYPE2, FUN2, Allocator> y;
         y.view2( d_size, ptr );
