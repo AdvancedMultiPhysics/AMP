@@ -60,7 +60,7 @@ putVector( AMP::Database &db, std::string_view key, const std::vector<std::array
     db.putArray( key, data2, {}, AMP::Database::Check::Overwrite );
 }
 static void
-putVector( AMP::Database &db, std::string_view key, const std::vector<std::vector<int>> x )
+putVector( AMP::Database &db, std::string_view key, const std::vector<std::vector<int>> &x )
 {
     db.putScalar<int>( key, x.size(), {}, AMP::Database::Check::Overwrite );
     for ( size_t i = 0; i < x.size(); i++ ) {

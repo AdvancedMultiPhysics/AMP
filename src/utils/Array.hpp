@@ -1379,12 +1379,7 @@ Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator+=( const Array<TYPE, FUN, Allocator> &rhs )
 {
     AMP_ASSERT( d_size == rhs.d_size );
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        FUN::axpy( 1, d_size.length(), rhs.d_data, d_data );
-    } else {
-        for ( size_t i = 0; i < d_size.length(); i++ )
-            d_data[i] += rhs[i];
-    }
+    FUN::px( d_size.length(), rhs.d_data, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
@@ -1392,33 +1387,20 @@ Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator-=( const Array<TYPE, FUN, Allocator> &rhs )
 {
     AMP_ASSERT( d_size == rhs.d_size );
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        FUN::axpy( -1, d_size.length(), rhs.d_data, d_data );
-        return *this;
-    } else {
-        throw std::logic_error( "Not valid for non-arithmetic types" );
-    }
+    FUN::mx( d_size.length(), rhs.d_data, d_data );
+    return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator+=( const TYPE &rhs )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        FUN::apy( rhs, d_size.length(), d_data );
-    } else {
-        for ( size_t i = 0; i < d_size.length(); i++ )
-            d_data[i] += rhs;
-    }
+    FUN::px( d_size.length(), rhs, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator-=( const TYPE &rhs )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        FUN::apy( -rhs, d_size.length(), d_data );
-        return *this;
-    } else {
-        throw std::logic_error( "Not valid for non-arithmetic types" );
-    }
+    FUN::mx( d_size.length(), rhs, d_data );
+    return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::min() const

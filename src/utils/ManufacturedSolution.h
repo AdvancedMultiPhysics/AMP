@@ -68,7 +68,7 @@ public:
         d_a = ain;
     }
 
-    std::string get_name() const { return d_Name; }
+    const std::string &get_name() const { return d_Name; }
 
 private:
     /**

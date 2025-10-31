@@ -413,7 +413,7 @@ Xdmf::MeshData HDF5writer::writeMesh( hid_t fid, const baseMeshData &mesh, std::
     // Update the path
     auto gid = fid;
     std::vector<hid_t> groups;
-    for ( auto dir : splitPath( mesh.path ) ) {
+    for ( auto &dir : splitPath( mesh.path ) ) {
         if ( H5Gexists( gid, dir ) )
             gid = openGroup( gid, dir );
         else

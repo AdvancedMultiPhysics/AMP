@@ -27,14 +27,13 @@ public:
      */
     static void rand( size_t N, TYPE *x );
 
-    /*! NOT IMPLEMENTED
+    /*!
      * Perform a reduce operator y = f(x)
      * @param[in] op            The function operation
      *                          Note: the operator is a template parameter to improve performance
      * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
-     * @param[in] initialValue  The initial value for the reduction (0 for sum, +/- inf for min/max,
-     * ...)
+     * @param[in] initialValue  The initial value for the reduction (0 for sum, +/- inf for min/max)
      * @return                  The reduction
      */
     template<typename LAMBDA>
@@ -43,15 +42,14 @@ public:
         AMP_ERROR( "Not implemented for GPU" );
     }
 
-    /*! NOT IMPLEMENTED
+    /*!
      * Perform a reduce operator z = f(x,y)
      * @param[in] op            The function operation
      *                          Note: the operator is a template parameter to improve performance
      * @param[in] N             The length of the array
      * @param[in] A             The first array to operate on
      * @param[in] B             The second array to operate on
-     * @param[in] initialValue  The initial value for the reduction (0 for sum, +/- inf for min/max,
-     * ...)
+     * @param[in] initialValue  The initial value for the reduction (0 for sum, +/- inf for min/max)
      * @return                  The reduction
      */
     template<typename LAMBDA>
@@ -60,10 +58,11 @@ public:
         AMP_ERROR( "Not implemented for GPU" );
     }
 
-    /*! NOT IMPLEMENTED
+    /*!
      * Perform a element-wise operation y = f(x)
      * @param[in] fun           The function operation
      *                          Note: the function is a template parameter to improve performance
+     * @param[in] N             The length of the array
      * @param[in,out] x         The array to operate on
      * @param[out] y            The output array
      */
@@ -73,7 +72,7 @@ public:
         AMP_ERROR( "Not implemented for GPU" );
     }
 
-    /*! NOT IMPLEMENTED
+    /*!
      * Perform a element-wise operation z = f(x,y)
      * @param[in] fun           The function operation
      *                          Note: the function is a template parameter to improve performance
@@ -109,7 +108,7 @@ public:
      */
     static TYPE sum( size_t N, const TYPE *x );
 
-    /*! NOT IMPLEMENTED
+    /*!
      * Multiply two arrays
      * @param[in] sa            The size of the a array
      * @param[in] a             The first array
@@ -126,6 +125,38 @@ public:
                           TYPE *c );
 
     /*!
+     * Perform addition operation ( y += x )
+     * @param[in] N             The length of the array
+     * @param[in] x             The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void px( size_t N, TYPE x, TYPE *y );
+
+    /*!
+     * Perform addition operation ( y += x )
+     * @param[in] N             The length of the array
+     * @param[in] x             The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void px( size_t N, const TYPE *x, TYPE *y );
+
+    /*!
+     * Perform subtraction operation ( y += x )
+     * @param[in] N             The length of the array
+     * @param[in] x             The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void mx( size_t N, TYPE x, TYPE *y );
+
+    /*!
+     * Perform subtraction operation ( y += x )
+     * @param[in] x             The scalar value alpha
+     * @param[in] N             The length of the array
+     * @param[in,out] y         The output array y
+     */
+    static void mx( size_t N, const TYPE *x, TYPE *y );
+
+    /*!
      * Perform axpy equavalent operation ( y = alpha*x + y )
      * @param[in] alpha         The scalar value alpha
      * @param[in] N             The length of the array
@@ -135,15 +166,7 @@ public:
     static void axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y );
 
     /*!
-     * Perform axpy equavalent operation ( y = alpha + y )
-     * @param[in] alpha         The scalar value alpha
-     * @param[in] N             The length of the array
-     * @param[in,out] y         The output array y
-     */
-    static void apy( TYPE alpha, size_t N, TYPE *y );
-
-    /*!
-     * Perform axpy equavalent operation ( y = alpha*x + beta*y )
+     * Perform axpby equavalent operation ( y = alpha*x + beta*y )
      * @param[in] alpha         The scalar value alpha
      * @param[in] N             The length of the array
      * @param[in] x             The input array x
@@ -154,6 +177,7 @@ public:
 
     /*!
      * Check if two arrays are approximately equal
+     * @param[in] N             The length of the array
      * @param[in] A             The first array
      * @param[in] B             The second array
      * @param[in] tol           The tolerance
@@ -181,6 +205,7 @@ public:
 
     /*!
      * Perform a element-wise operation B = tanh(A)
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[out] B            The output array
      */
@@ -188,6 +213,7 @@ public:
 
     /*!
      * Perform a element-wise operation B = max(-1 , min(1 , A) )
+     * @param[in] N             The length of the array
      * @param[in] A             The array to operate on
      * @param[out] B            The output array
      */

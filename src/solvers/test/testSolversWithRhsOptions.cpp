@@ -1,4 +1,5 @@
 #include "AMP/IO/PIO.h"
+#include "AMP/operators/FunctionOperator.h"
 #include "AMP/operators/Operator.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/SolverStrategy.h"
@@ -15,25 +16,7 @@
 static double val        = 0.25;
 static double init_guess = 0.325;
 
-class FunctionOperator : public AMP::Operator::Operator
-{
-public:
-    FunctionOperator( std::function<double( double )> f ) : d_f( f ) {}
-    std::string type() const override { return "FunctionOperator"; }
-    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> u,
-                std::shared_ptr<AMP::LinearAlgebra::Vector> f ) override
-    {
-        auto it_u = u->begin();
-        auto it_f = f->begin();
-        for ( size_t i = 0; i < it_u.size(); ++i, ++it_u, ++it_f ) {
-            *it_f = d_f( *it_u );
-            AMP::pout << "u = " << *it_u << " f = " << *it_f << std::endl;
-        }
-    }
 
-private:
-    std::function<double( double )> d_f;
-};
 auto getSolverParameters( std::shared_ptr<AMP::Database> input_db )
 {
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
@@ -76,8 +59,8 @@ static void nullRhsTest( AMP::UnitTest *ut, std::shared_ptr<AMP::Database> input
     auto u         = AMP::LinearAlgebra::createSimpleVector<double>( N, "x" );
 
     // Create the operator
-    //    auto op = std::make_shared<FunctionOperator>( []( double x ) { return x * x - val; } );
-    auto op = std::make_shared<FunctionOperator>( []( double x ) { return x * x - val; } );
+    auto op =
+        std::make_shared<AMP::Operator::FunctionOperator>( []( double x ) { return x * x - val; } );
 
     auto parameters         = getSolverParameters( input_db );
     parameters->d_pOperator = op;
@@ -126,7 +109,7 @@ static void nonNullRhsTest( AMP::UnitTest *ut, std::shared_ptr<AMP::Database> in
     f->setToScalar( val );
 
     // Create the operator
-    auto op = std::make_shared<FunctionOperator>( []( double x ) { return x * x; } );
+    auto op = std::make_shared<AMP::Operator::FunctionOperator>( []( double x ) { return x * x; } );
 
     auto parameters         = getSolverParameters( input_db );
     parameters->d_pOperator = op;

@@ -40,6 +40,8 @@ duplInheritedMember:*/AMP/mesh/structured/BoxMesh.h
 duplInheritedMember:*/AMP/mesh/libmesh/libmeshMesh.h
 duplInheritedMember:*/AMP/mesh/triangle/TriangleHelpers.h
 duplInheritedMember:*/AMP/mesh/STKmesh/STKMesh.h
+duplInheritedMember:*/AMP/operators/map/StridedZAxisMap.h
+duplInheritedMember:*/AMP/operators/map/libmesh/SubchannelToCladGPMap.h
 duplInheritedMember:*/AMP/vectors/MultiVector.h
 constParameter:*/AMP/matrices/Matrix.inline.h
 constParameter:*/AMP/vectors/Vector.inline.h
@@ -117,6 +119,7 @@ containerOutOfBounds:*/src/mesh/structured/structuredMeshElement.cpp
 containerOutOfBounds:*/src/mesh/triangle/TriangleMesh.cpp
 containerOutOfBounds:*/src/utils/DelaunayTessellation.cpp
 containerOutOfBounds:*/src/utils/test/test_AMP_MPI.cpp
+containerOutOfBounds:*/src/geometry/LogicalGeometry.cpp
 copyCtorPointerCopying:*/src/utils/AMP_MPI.cpp
 duplicateAssignExpression:*/src/mesh/testHelpers/meshTests.cpp
 duplicateAssignExpression:*/src/matrices/test/testMatVec.cpp
@@ -128,6 +131,7 @@ duplInheritedMember:*/src/mesh/structured/BoxMesh.cpp
 duplInheritedMember:*/src/mesh/libmesh/libmeshMesh.cpp
 duplInheritedMember:*/src/mesh/triangle/TriangleHelpers.cpp
 duplInheritedMember:*/src/mesh/STKmesh/STKMesh.cpp
+duplInheritedMember:*/src/operators/map/StridedZAxisMap.cpp
 exceptNew:*/src/matrices/trilinos/ManagedEpetraMatrix.cpp
 identicalConditionAfterEarlyExit:*/src/IO/HDF5.types.cpp
 ignoredReturnValue:*/src/geometry/GeometryHelpers.cpp
