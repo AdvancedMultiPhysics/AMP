@@ -191,14 +191,22 @@ void FunctionTable<TYPE>::scale( size_t N, TYPE x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::px( size_t N, TYPE x, TYPE *y )
 {
-    for ( size_t i = 0; i < N; i++ )
-        y[i] += x;
+    if constexpr ( std::is_same_v<TYPE, bool> ) {
+        AMP_ERROR( "px not implemented for bool" );
+    } else {
+        for ( size_t i = 0; i < N; i++ )
+            y[i] += x;
+    }
 }
 template<class TYPE>
 void FunctionTable<TYPE>::px( size_t N, const TYPE *x, TYPE *y )
 {
-    for ( size_t i = 0; i < N; i++ )
-        y[i] += x[i];
+    if constexpr ( std::is_same_v<TYPE, bool> ) {
+        AMP_ERROR( "px not implemented for bool" );
+    } else {
+        for ( size_t i = 0; i < N; i++ )
+            y[i] += x[i];
+    }
 }
 template<class TYPE>
 void FunctionTable<TYPE>::mx( size_t N, TYPE x, TYPE *y )
