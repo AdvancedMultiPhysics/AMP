@@ -168,10 +168,9 @@ static constexpr size_t length( token_type type )
     }
     return len;
 }
-static inline std::tuple<size_t, token_type> find_next_token( const char *buffer )
+static inline std::tuple<size_t, token_type> find_next_token( std::string_view buffer )
 {
-    size_t i = 0;
-    while ( true ) {
+    for ( size_t i = 0; i < buffer.size(); i++ ) {
         if ( buffer[i] == '\n' || buffer[i] == '\r' ) {
             return std::make_tuple( i + 1, token_type::newline );
         } else if ( buffer[i] == 0 ) {
@@ -203,15 +202,11 @@ static inline std::tuple<size_t, token_type> find_next_token( const char *buffer
         } else if ( std::string_view( &buffer[i], 3 ) == "<<<" ) {
             return std::make_tuple( i + 3, token_type::import_data );
         }
-        i++;
-        if ( i >= 10000000 ) {
-            AMP_WARNING( "Token not found" );
-            break;
-        }
     }
+    AMP_WARNING( "Token not found" );
     return std::make_tuple<size_t, token_type>( 0, token_type::end );
 }
-static size_t skip_comment( const char *buffer )
+static size_t skip_comment( std::string_view buffer )
 {
     auto tmp          = find_next_token( buffer );
     auto comment_type = std::get<1>( tmp );
@@ -221,7 +216,7 @@ static size_t skip_comment( const char *buffer )
         while ( std::get<1>( tmp ) != token_type::newline &&
                 std::get<1>( tmp ) != token_type::end ) {
             pos += std::get<0>( tmp );
-            tmp = find_next_token( &buffer[pos] );
+            tmp = find_next_token( buffer.substr( pos ) );
         }
         pos += std::get<0>( tmp );
     } else {
@@ -230,7 +225,7 @@ static size_t skip_comment( const char *buffer )
             if ( comment_type == token_type::block_start && std::get<1>( tmp ) == token_type::end )
                 throw std::logic_error( "Encountered end of file before block comment end" );
             pos += std::get<0>( tmp );
-            tmp = find_next_token( &buffer[pos] );
+            tmp = find_next_token( buffer.substr( pos ) );
         }
         pos += std::get<0>( tmp );
     }
@@ -632,7 +627,7 @@ read_value( std::string_view buffer,
                 pos++;
             AMP_INSIST( buffer[pos] == ';', "Equations must terminate with a ';'" );
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else if ( buffer[pos0] == '(' ) {
             // We are dealing with a complex number
@@ -640,7 +635,7 @@ read_value( std::string_view buffer,
             while ( buffer[pos] != ')' )
                 pos++;
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else if ( buffer[pos0] == '"' ) {
             // We are in a string
@@ -650,7 +645,7 @@ read_value( std::string_view buffer,
                 pos++;
             pos++;
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else if ( buffer[pos0] == '[' && nextChar( &buffer[pos0 + 1] ) == '(' ) {
             // We are (probably) reading a SAMRAI box
@@ -658,7 +653,7 @@ read_value( std::string_view buffer,
             while ( buffer[pos] != ']' )
                 pos++;
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
             // Check that it is a box and not an array of complex numbers
         } else if ( buffer[pos0] == '[' ) {
@@ -674,16 +669,16 @@ read_value( std::string_view buffer,
                 pos++;
             }
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else {
-            std::tie( pos, type ) = find_next_token( &buffer[pos0] );
+            std::tie( pos, type ) = find_next_token( buffer.substr( pos0 ) );
             pos += pos0;
             if ( buffer[pos - 1] == '"' ) {
                 while ( buffer[pos] != '"' )
                     pos++;
                 size_t pos2           = pos + 1;
-                std::tie( pos, type ) = find_next_token( &buffer[pos2] );
+                std::tie( pos, type ) = find_next_token( buffer.substr( pos2 ) );
                 pos += pos2;
             }
         }
@@ -700,7 +695,7 @@ read_value( std::string_view buffer,
         }
         if ( type == token_type::line_comment || type == token_type::block_start ) {
             // We encountered a comment
-            pos += skip_comment( &buffer[pos - length( type )] ) - length( type );
+            pos += skip_comment( buffer.substr( pos - length( type ) ) ) - length( type );
             break;
         }
     }
@@ -771,7 +766,7 @@ read_operator_value( std::string_view buffer,
     token_type type = token_type::equal;
     while ( type != token_type::line_comment && type != token_type::block_start &&
             type != token_type::newline && type != token_type::end ) {
-        std::tie( i, type ) = find_next_token( &buffer[pos] );
+        std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
         pos += i;
     }
     if ( type == token_type::line_comment && type != token_type::block_start )
@@ -849,14 +844,14 @@ loadDatabase( const std::string &errMsgPrefix,
     while ( pos < buffer.size() ) {
         size_t i;
         token_type type;
-        std::tie( i, type ) = find_next_token( &buffer[pos] );
+        std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
         std::string_view tmp( &buffer[pos], i - length( type ) );
         const auto key = deblank( tmp );
         int line =
             line0 + std::count_if( &buffer[0], &buffer[pos], []( char c ) { return c == '\n'; } );
         if ( type == token_type::line_comment || type == token_type::block_start ) {
             // Comment
-            size_t k = skip_comment( &buffer[pos] );
+            size_t k = skip_comment( buffer.substr( pos ) );
             pos += k;
         } else if ( type == token_type::newline ) {
             if ( !key.empty() ) {

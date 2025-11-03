@@ -20,6 +20,11 @@ template<class TYPE>
 class FunctionTable final
 {
 public:
+    typedef TYPE value_type;
+    template<class TYPE2>
+    using cloneTo = FunctionTable<TYPE2>;
+
+public:
     /*!
      * Initialize the array with random values
      * @param[in] N         The length of the array
@@ -118,6 +123,14 @@ public:
                           const TYPE *b,
                           const ArraySize &sc,
                           TYPE *c );
+
+    /*!
+     * Perform addition operation ( y *= x )
+     * @param[in] N             The length of the array
+     * @param[in] x             The scalar value alpha
+     * @param[in,out] y         The output array y
+     */
+    static void scale( size_t N, TYPE x, TYPE *y );
 
     /*!
      * Perform addition operation ( y += x )

@@ -2,6 +2,7 @@
 #define included_AMP_ArrayClass
 
 #include "AMP/utils/ArraySize.h"
+#include "AMP/utils/FunctionTable.h"
 #include "AMP/utils/Memory.h"
 
 #include <array>
@@ -27,6 +28,7 @@ public: // Typedefs
     typedef TYPE value_type;
     typedef FUN function_table;
     static_assert( !std::is_same_v<TYPE, std::vector<bool>::reference> );
+    static_assert( std::is_same_v<typename FUN::value_type, TYPE> );
     static_assert( std::is_same_v<typename Allocator::value_type, void> ||
                    std::is_same_v<typename Allocator::value_type, TYPE> );
     using scalarAllocator_t =
@@ -255,10 +257,12 @@ public: // Views/copies/subset
      * @param array         Input array
      */
     template<class TYPE2>
-    static inline std::unique_ptr<Array<TYPE2, FUN, Allocator>>
-    convert( std::shared_ptr<Array<TYPE, FUN, Allocator>> array )
+    static inline auto convert( std::shared_ptr<Array<TYPE, FUN, Allocator>> array )
     {
-        auto array2 = std::make_unique<Array<TYPE2>>( array->size() );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        using ARRAY2 = Array<TYPE2, FUN2, Allocator>;
+        auto array2  = std::make_unique<ARRAY2>( array->size() );
         array2.copy( *array );
         return array2;
     }
@@ -269,10 +273,12 @@ public: // Views/copies/subset
      * @param array         Input array
      */
     template<class TYPE2>
-    static inline std::unique_ptr<const Array<TYPE2, FUN, Allocator>>
-    convert( std::shared_ptr<const Array<TYPE, FUN, Allocator>> array )
+    static inline auto convert( std::shared_ptr<const Array<TYPE, FUN, Allocator>> array )
     {
-        auto array2 = std::make_unique<Array<TYPE2>>( array->size() );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        using ARRAY2 = Array<TYPE2, FUN2, Allocator>;
+        auto array2  = std::make_unique<ARRAY2>( array->size() );
         array2.copy( *array );
         return array2;
     }
@@ -308,9 +314,11 @@ public: // Views/copies/subset
      * Copy and convert data from this array to a new array
      */
     template<class TYPE2>
-    Array<TYPE2, FUN, AMP::HostAllocator<void>> inline cloneTo() const
+    inline auto cloneTo() const
     {
-        Array<TYPE2, FUN, AMP::HostAllocator<void>> dst( this->size() );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        Array<TYPE2, FUN2, AMP::HostAllocator<void>> dst( this->size() );
         copyTo( dst.data() );
         return dst;
     }
@@ -320,11 +328,13 @@ public: // Views/copies/subset
      * Reinterpret the array as a new type (use with caution)
      */
     template<class TYPE2>
-    Array<TYPE2, FUN, AMP::HostAllocator<void>> inline reinterpretArray() const
+    inline auto reinterpretArray() const
     {
         static_assert( sizeof( TYPE ) == sizeof( TYPE2 ) );
-        auto ptr = std::reinterpret_pointer_cast<TYPE2>( std::const_pointer_cast<TYPE>( d_ptr ) );
-        AMP::Array<TYPE2> y;
+        auto ptr   = std::reinterpret_pointer_cast<TYPE2>( std::const_pointer_cast<TYPE>( d_ptr ) );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        Array<TYPE2, FUN2, Allocator> y;
         y.view2( d_size, ptr );
         return y;
     }
@@ -348,12 +358,7 @@ public: // Views/copies/subset
      * Scale the array by the given value
      * @param y         Value to scale by
      */
-    template<class TYPE2>
-    ARRAY_INLINE void scale( const TYPE2 &y )
-    {
-        for ( auto &x : *this )
-            x *= y;
-    }
+    void scale( const TYPE &y );
 
 
     /*!
@@ -892,7 +897,7 @@ template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>( a.size(), b.size() ) );
+    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>::multiplySize( a.size(), b.size() ) );
     FUN::multiply( a.size(), a.data(), b.size(), b.data(), c.size(), c.data() );
     return c;
 }
@@ -902,7 +907,7 @@ inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> 
 {
     Array<TYPE, FUN, Allocator> b2;
     b2.viewRaw( { b.size() }, const_cast<TYPE *>( b.data() ) );
-    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>( a.size(), b2.size() ) );
+    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>::multiplySize( a.size(), b.size() ) );
     FUN::multiply( a.size(), a.data(), b2.size(), b2.data(), c.size(), c.data() );
     return c;
 }
@@ -917,7 +922,7 @@ template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a, const TYPE &b )
 {
     auto c = a;
-    c.scale( b.size(), b.data() );
+    c.scale( b );
     return c;
 }
 

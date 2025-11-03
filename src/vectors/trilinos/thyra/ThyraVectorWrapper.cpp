@@ -24,10 +24,10 @@ namespace AMP::LinearAlgebra {
 // Some function definitions
 template<class TYPE>
 static std::vector<ThyraVectorWrapper *>
-getPtr( std::vector<size_t> block_size, Teuchos::ArrayView<const Teuchos::Ptr<TYPE>> vecs );
+getPtr( const std::vector<size_t> &block_size, Teuchos::ArrayView<const Teuchos::Ptr<TYPE>> vecs );
 template<class TYPE>
 static std::vector<const ThyraVectorWrapper *>
-getConstPtr( std::vector<size_t> block_size,
+getConstPtr( const std::vector<size_t> &block_size,
              Teuchos::ArrayView<const Teuchos::Ptr<const TYPE>> vecs );
 
 
@@ -595,7 +595,7 @@ ENABLE_WARNINGS
  * Helper functions                                              *
  ****************************************************************/
 template<class TYPE>
-static std::vector<ThyraVectorWrapper *> getPtr( std::vector<size_t> block_size,
+static std::vector<ThyraVectorWrapper *> getPtr( const std::vector<size_t> &block_size,
                                                  Teuchos::ArrayView<const Teuchos::Ptr<TYPE>> vecs )
 {
     int n_vecs = vecs.size();
@@ -616,7 +616,7 @@ static std::vector<ThyraVectorWrapper *> getPtr( std::vector<size_t> block_size,
 }
 template<class TYPE>
 static std::vector<const ThyraVectorWrapper *>
-getConstPtr( std::vector<size_t> block_size,
+getConstPtr( const std::vector<size_t> &block_size,
              Teuchos::ArrayView<const Teuchos::Ptr<const TYPE>> vecs )
 {
     int n_vecs = vecs.size();
