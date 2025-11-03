@@ -655,7 +655,7 @@ public: // Operator overloading
     bool operator==( const Array &rhs ) const;
 
     //! Check if two matrices are not equal
-    bool operator!=( const Array &rhs ) const { return !this->operator==( rhs ); }
+    bool operator!=( const Array &rhs ) const;
 
     //! Add another array
     Array &operator+=( const Array &rhs );
