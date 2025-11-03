@@ -16,6 +16,21 @@
 namespace AMP::Operator {
 
 
+template<class TYPE>
+static TYPE get( std::shared_ptr<const SubchannelOperatorParameters> params,
+                 const std::string &key,
+                 const TYPE &val )
+{
+    auto &db = params->d_db;
+    if ( db->keyExists( key ) ) {
+        return db->getScalar<TYPE>( key );
+    } else {
+        AMP_WARNING( "Key '" + key + "' was not provided. Using default value: " << val );
+        return val;
+    }
+}
+
+
 // Constructor
 SubchannelFourEqNonlinearOperator::SubchannelFourEqNonlinearOperator(
     std::shared_ptr<const OperatorParameters> inparams )
@@ -69,42 +84,41 @@ void SubchannelFourEqNonlinearOperator::reset( std::shared_ptr<const OperatorPar
     d_numSubchannels = ( d_x.size() - 1 ) * ( d_y.size() - 1 );
 
     // Get the properties from the database
-    d_Pout     = getDoubleParameter( myparams, "Exit_Pressure", 15.5132e6 );
-    d_Tin      = getDoubleParameter( myparams, "Inlet_Temperature", 569.26 );
-    d_mass     = getDoubleParameter( myparams, "Inlet_Mass_Flow_Rate", 0.3522 * d_numSubchannels );
-    d_win      = getDoubleParameter( myparams, "Inlet_Lateral_Flow_Rate", 0.0 );
-    d_gamma    = getDoubleParameter( myparams, "Fission_Heating_Coefficient", 0.0 );
-    d_theta    = getDoubleParameter( myparams, "Channel_Angle", 0.0 );
-    d_reynolds = getDoubleParameter( myparams, "Reynolds", 0.0 );
-    d_prandtl  = getDoubleParameter( myparams, "Prandtl", 0.0 );
-    d_friction = getDoubleParameter( myparams, "Friction_Factor", 0.001 );
-    d_turbulenceCoef = getDoubleParameter( myparams, "Turbulence_Coefficient", 1.0 );
-    d_KG             = getDoubleParameter( myparams, "Lateral_Form_Loss_Coefficient", 0.2 );
-
-    d_forceNoConduction = getBoolParameter( myparams, "Force_No_Conduction", false );
-    d_forceNoTurbulence = getBoolParameter( myparams, "Force_No_Turbulence", false );
-    d_forceNoHeatSource = getBoolParameter( myparams, "Force_No_Heat_Source", false );
-    d_forceNoFriction   = getBoolParameter( myparams, "Force_No_Friction", false );
+    d_Pout           = get<double>( myparams, "Exit_Pressure", 15.5132e6 );
+    d_Tin            = get<double>( myparams, "Inlet_Temperature", 569.26 );
+    d_mass           = get<double>( myparams, "Inlet_Mass_Flow_Rate", 0.3522 * d_numSubchannels );
+    d_win            = get<double>( myparams, "Inlet_Lateral_Flow_Rate", 0.0 );
+    d_gamma          = get<double>( myparams, "Fission_Heating_Coefficient", 0.0 );
+    d_theta          = get<double>( myparams, "Channel_Angle", 0.0 );
+    d_reynolds       = get<double>( myparams, "Reynolds", 0.0 );
+    d_prandtl        = get<double>( myparams, "Prandtl", 0.0 );
+    d_friction       = get<double>( myparams, "Friction_Factor", 0.001 );
+    d_turbulenceCoef = get<double>( myparams, "Turbulence_Coefficient", 1.0 );
+    d_KG             = get<double>( myparams, "Lateral_Form_Loss_Coefficient", 0.2 );
+    d_forceNoConduction = get<bool>( myparams, "Force_No_Conduction", false );
+    d_forceNoTurbulence = get<bool>( myparams, "Force_No_Turbulence", false );
+    d_forceNoHeatSource = get<bool>( myparams, "Force_No_Heat_Source", false );
+    d_forceNoFriction   = get<bool>( myparams, "Force_No_Friction", false );
 
     // get additional parameters based on heat source type
-    d_source = getStringParameter( myparams, "Heat_Source_Type", "totalHeatGeneration" );
+    d_source = get<std::string>( myparams, "Heat_Source_Type", "totalHeatGeneration" );
     if ( ( d_source == "totalHeatGeneration" ) ||
          ( d_source == "totalHeatGenerationWithDiscretizationError" ) ) {
-        d_Q         = getDoubleParameter( myparams, "Max_Rod_Power", 66.0e3 );
+        d_Q         = get<double>( myparams, "Max_Rod_Power", 66.0e3 );
         d_QFraction = myparams->d_db->getVector<double>( "Rod_Power_Fraction" );
-        d_heatShape = getStringParameter( myparams, "Heat_Shape", "Sinusoidal" );
+        d_heatShape = get<std::string>( myparams, "Heat_Shape", "Sinusoidal" );
     }
 
     // get additional parameters based on friction model
-    d_frictionModel = getStringParameter( myparams, "Friction_Model", "Constant" );
+    d_frictionModel = get<std::string>( myparams, "Friction_Model", "Constant" );
     if ( d_frictionModel == "Constant" ) {
-        d_friction = getDoubleParameter( myparams, "Friction_Factor", 0.001 );
+        d_friction = get<double>( myparams, "Friction_Factor", 0.001 );
     } else if ( d_frictionModel == "Selander" ) {
-        d_roughness = getDoubleParameter( myparams, "Surface_Roughness", 0.0015e-3 );
+        d_roughness = get<double>( myparams, "Surface_Roughness", 0.0015e-3 );
     }
 
     // get form loss parameters if there are grid spacers
-    d_NGrid = getIntegerParameter( myparams, "Number_GridSpacers", 0 );
+    d_NGrid = get<int>( myparams, "Number_GridSpacers", 0 );
     if ( d_NGrid > 0 ) {
         d_zMinGrid = myparams->d_db->getVector<double>( "zMin_GridSpacers" );
         d_zMaxGrid = myparams->d_db->getVector<double>( "zMax_GridSpacers" );
@@ -182,70 +196,6 @@ void SubchannelFourEqNonlinearOperator::reset( std::shared_ptr<const OperatorPar
     }
 
     d_initialized = true;
-}
-
-// function used in reset to get double parameter or set default if missing
-double SubchannelFourEqNonlinearOperator::getDoubleParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    double defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getScalar<double>( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
-}
-
-// function used in reset to get integer parameter or set default if missing
-int SubchannelFourEqNonlinearOperator::getIntegerParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    int defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getScalar<int>( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
-}
-
-// function used in reset to get string parameter or set default if missing
-std::string SubchannelFourEqNonlinearOperator::getStringParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    std::string defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getString( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
-}
-
-// function used in reset to get bool parameter or set default if missing
-bool SubchannelFourEqNonlinearOperator::getBoolParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    bool defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getScalar<bool>( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
 }
 
 // function used to get all lateral gaps

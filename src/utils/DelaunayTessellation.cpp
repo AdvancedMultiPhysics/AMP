@@ -243,7 +243,7 @@ static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<
         return -1; // We outside the circumsphere
 }
 template<int NDIM, class TYPE>
-int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
+int test_in_circumsphere( const std::array<TYPE, NDIM> *x,
                           const std::array<TYPE, NDIM> &xi,
                           double TOL_VOL )
 {
@@ -2335,7 +2335,7 @@ double calc_volume( int ndim, const double x[] )
  *                                                                       *
  ************************************************************************/
 template<int NDIM, class TYPE>
-void get_circumsphere( const std::array<TYPE, NDIM> x0[], double &R, double *center )
+void get_circumsphere( const std::array<TYPE, NDIM> *x0, double &R, double *center )
 {
     using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
     if constexpr ( NDIM == 1 ) {

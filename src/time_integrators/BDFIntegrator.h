@@ -92,10 +92,7 @@ public:
 
     size_t sizeOfTimeHistory() const override { return d_max_integrator_index + 1; }
 
-    std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> getTimeHistoryVectors()
-    {
-        return d_prev_solutions;
-    }
+    const auto &getTimeHistoryVectors() { return d_prev_solutions; }
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> getTimeHistorySourceTerm() override
     {

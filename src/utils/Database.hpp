@@ -538,7 +538,7 @@ bool KeyDataScalar<TYPE>::operator==( const KeyData &rhs ) const
     if ( tmp1 ) {
         return compare( d_data, tmp1->d_data );
     } else if ( tmp2 ) {
-        if ( tmp2->get().size() != 1 )
+        if ( tmp2->get().size() != ArraySize( 1 ) )
             return false;
         return compare( d_data, tmp2->get()( 0 ) );
     } else if ( ( is_floating_point() || is_integral() ) &&
@@ -560,7 +560,7 @@ bool KeyDataArray<TYPE>::operator==( const KeyData &rhs ) const
     auto tmp1 = dynamic_cast<const KeyDataScalar<TYPE> *>( &rhs );
     auto tmp2 = dynamic_cast<const KeyDataArray<TYPE> *>( &rhs );
     if ( tmp1 ) {
-        if ( d_data.size() != 1 )
+        if ( d_data.size() != ArraySize( 1 ) )
             return false;
         return compare( d_data( 0 ), tmp1->get() );
     } else if ( tmp2 ) {
