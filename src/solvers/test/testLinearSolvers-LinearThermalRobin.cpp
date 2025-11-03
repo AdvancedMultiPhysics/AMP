@@ -23,7 +23,8 @@
 
 #define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
-std::vector<std::pair<std::string, std::string>> getBackendsAndMemory( const std::string& memory_space )
+std::vector<std::pair<std::string, std::string>>
+getBackendsAndMemory( const std::string &memory_space )
 {
     std::vector<std::pair<std::string, std::string>> rvec;
     AMP_INSIST( memory_space == "host" || memory_space == "managed" || memory_space == "device",
@@ -79,7 +80,7 @@ std::vector<std::string> getHypreMemorySpaces()
 std::tuple<std::shared_ptr<AMP::Operator::LinearOperator>,
            std::shared_ptr<AMP::LinearAlgebra::Vector>,
            std::shared_ptr<AMP::LinearAlgebra::Vector>>
-constructLinearSystem( const std::string& physicsFileName )
+constructLinearSystem( const std::string &physicsFileName )
 {
     PROFILE( "DRIVER::linearThermalPhysics" );
 
@@ -221,10 +222,10 @@ void linearThermalTest( AMP::UnitTest *ut,
 
 void runTestOnInputs( AMP::UnitTest *ut,
                       const std::string &physicsInput,
-                      const std::vector<std::string>& generalInputs,
-                      const std::vector<std::string>& deviceInputs,
-                      const std::vector<std::string>& hostOnlyInputs,
-                      const std::vector<std::string>& managedInputs,
+                      const std::vector<std::string> &generalInputs,
+                      const std::vector<std::string> &deviceInputs,
+                      const std::vector<std::string> &hostOnlyInputs,
+                      const std::vector<std::string> &managedInputs,
                       const bool strict = false )
 {
 

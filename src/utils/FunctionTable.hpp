@@ -15,8 +15,8 @@
 namespace AMP {
 
 template<class T>
-constexpr bool is_numeric_v =
-    ( std::is_arithmetic_v<T> || AMP::is_complex_v<T> ) && !std::is_same_v<T, bool>;
+constexpr bool is_numeric_v = (std::is_arithmetic_v<T> ||
+                               AMP::is_complex_v<T>) &&!std::is_same_v<T, bool>;
 
 
 /********************************************************
