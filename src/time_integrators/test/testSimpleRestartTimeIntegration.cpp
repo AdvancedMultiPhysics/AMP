@@ -1,5 +1,6 @@
 #include "AMP/IO/PIO.h"
 #include "AMP/IO/RestartManager.h"
+#include "AMP/operators/FunctionOperator.h"
 #include "AMP/operators/NullOperator.h"
 #include "AMP/operators/Operator.h"
 #include "AMP/solvers/SolverFactory.h"
@@ -16,24 +17,6 @@
 
 #include <numeric>
 
-
-class FunctionOperator : public AMP::Operator::Operator
-{
-public:
-    FunctionOperator( std::function<double( double )> f ) : d_f( f ) {}
-    std::string type() const override { return "FunctionOperator"; }
-    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                std::shared_ptr<AMP::LinearAlgebra::Vector> r ) override
-    {
-        auto it_f = f->begin();
-        auto it_r = r->begin();
-        for ( size_t i = 0; i < it_f.size(); ++i, ++it_f, ++it_r )
-            *it_r = d_f( *it_f );
-    }
-
-private:
-    std::function<double( double )> d_f;
-};
 
 bool is_implicit( const std::string &name )
 {
@@ -253,7 +236,8 @@ void runBasicIntegratorTestsRestart( const std::string &name, AMP::UnitTest &ut 
     params = createTimeIntegratorParameters( name, ic, finalTime );
 
     params->d_pSourceTerm = nullptr;
-    params->d_operator = std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+    params->d_operator =
+        std::make_shared<AMP::Operator::FunctionOperator>( []( double x ) { return -3.0 * x; } );
     testIntegratorRestart( name, "du/dt=-3u", params, ut, false );
     testIntegratorRestart( name, "du/dt=-3u", params, ut, true );
 
@@ -261,7 +245,8 @@ void runBasicIntegratorTestsRestart( const std::string &name, AMP::UnitTest &ut 
     params = createTimeIntegratorParameters( name, ic, finalTime );
 
     params->d_pSourceTerm = source;
-    params->d_operator = std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+    params->d_operator =
+        std::make_shared<AMP::Operator::FunctionOperator>( []( double x ) { return -3.0 * x; } );
     testIntegratorRestart( name, "du/dt=-3u+3", params, ut, false );
     testIntegratorRestart( name, "du/dt=-3u+3", params, ut, true );
 }

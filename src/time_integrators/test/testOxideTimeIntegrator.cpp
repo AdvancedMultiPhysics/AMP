@@ -12,7 +12,7 @@
 #include "AMP/vectors/VectorBuilder.h"
 
 
-static void OxideTest( AMP::UnitTest *ut, std::string input_file )
+static void OxideTest( AMP::UnitTest *ut, const std::string &input_file )
 {
 
     // Load the input file

@@ -69,10 +69,10 @@ public:
     // Data
 protected:
     //! Constant scaling factors in the PDE
-    double d_k11;
-    double d_k12;
-    double d_k21;
-    double d_k22;
+    double d_k11 = 0;
+    double d_k12 = 0;
+    double d_k21 = 0;
+    double d_k22 = 0;
 
     //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in
     //! index boundaryID-1
@@ -86,7 +86,7 @@ protected:
     double d_currentTime = 0.0;
 
     //! Shorthand for spatial dimension
-    size_t d_dim = -1;
+    size_t d_dim = (size_t) -1;
 
     //! Basic parameter database (with model-agnostic parameters)
     std::shared_ptr<AMP::Database> d_basic_db;

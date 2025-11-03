@@ -52,19 +52,6 @@ protected:
 private:
     bool d_initialized;
 
-    // Function used in reset to get double parameter or use default if missing
-    double
-    getDoubleParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, double );
-
-    // Function used in reset to get integer parameter or use default if missing
-    int
-    getIntegerParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, int );
-
-    // Function used in reset to get double parameter or use default if missing
-    std::string getStringParameter( std::shared_ptr<const SubchannelOperatorParameters>,
-                                    std::string,
-                                    std::string );
-
     double d_Pout;     // exit pressure [Pa]
     double d_Tin;      // inlet temperature [K]
     double d_mass;     // inlet global mass flow rate [kg/s]

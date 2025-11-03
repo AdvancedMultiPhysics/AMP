@@ -80,7 +80,7 @@ public:
     std::shared_ptr<AMP::LinearAlgebra::Vector> createOutputVector() const override;
 
 private:
-    size_t d_localSize;
+    size_t d_localSize = 0;
 };
 } // namespace AMP::Operator
 

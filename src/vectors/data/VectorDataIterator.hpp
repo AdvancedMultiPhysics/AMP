@@ -338,18 +338,18 @@ inline TYPE &VectorDataIterator<TYPE>::operator*()
 
 
 /****************************************************************
- * Assigment Operators                                           *
+ * Assignment Operators                                          *
  ****************************************************************/
 template<typename TYPE>
 TYPE &VectorDataIterator<TYPE>::operator[]( int i )
 {
+    if ( d_typeHash )
+        AMP_ERROR( "random-access iterators do not support implicit conversion" );
     VectorDataIterator<TYPE> tmp( *this ); // Create a temporary variable
     if ( i > 0 )
         tmp.advance( i );
     if ( i < 0 )
         tmp.recede( -i );
-    if ( d_typeHash )
-        AMP_ERROR( "random-access iterators do not support implicit conversion" );
     return tmp.d_data[tmp.d_CurBlock][tmp.d_CurOffset];
 }
 

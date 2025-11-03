@@ -165,7 +165,7 @@ void testCopyCast( AMP::UnitTest *ut,
         ut, test_name, "copy floats", dofManager, B, D, std::numeric_limits<float>::epsilon() );
 }
 
-void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
+void matDeviceOperationsTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatCopyCast";
     AMP::logOnlyNodeZero( log_file );

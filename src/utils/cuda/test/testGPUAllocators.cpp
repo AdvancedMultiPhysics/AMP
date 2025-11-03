@@ -13,8 +13,8 @@
 template<typename T, typename Alloc1, typename Alloc2>
 void ArrayTestWithAllocators( AMP::UnitTest &ut )
 {
-    AMP::Array<T, AMP::FunctionTable, Alloc1> A;
-    AMP::Array<T, AMP::FunctionTable, Alloc2> B;
+    AMP::Array<T, AMP::FunctionTable<T>, Alloc1> A;
+    AMP::Array<T, AMP::FunctionTable<T>, Alloc2> B;
     AMP::Array<T> R;
 
     const size_t n             = 10;

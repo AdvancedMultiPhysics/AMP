@@ -31,7 +31,7 @@ public:
     virtual std::shared_ptr<AMP::Discretization::DOFManager> getDOFMap() const  = 0;
     virtual std::shared_ptr<AMP::Discretization::DOFManager> getDOFMapL() const = 0;
     virtual std::string name() const                                            = 0;
-    std::string type() const { return d_type; }
+    const std::string &type() const { return d_type; }
 
 protected:
     MatrixFactory( const std::string &type ) : d_type( type ) {}

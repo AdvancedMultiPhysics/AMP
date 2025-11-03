@@ -422,7 +422,7 @@ private:
     //! Placeholder for geometry that results in cell-centered data
     AMP::Mesh::GeomType CellCenteredGeom;
     //! Problem dimension
-    size_t d_dim = -1;
+    size_t d_dim = (size_t) -1;
     //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
     //! Reciprocal squares of mesh sizes
@@ -605,7 +605,7 @@ private:
     //! Placeholder for geometry that results in cell-centered data
     AMP::Mesh::GeomType CellCenteredGeom;
     //! Problem dimension
-    size_t d_dim = -1;
+    size_t d_dim = (size_t) -1;
     //! Mesh sizes, hx, hy, hz. We compute these based on the incoming mesh
     std::vector<double> d_h;
     //! Reciprocal squares of mesh sizes

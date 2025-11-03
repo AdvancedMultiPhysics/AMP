@@ -102,7 +102,7 @@ public:
     inline auto end() const { return d_vVectors.end(); }
 
     //! Return one past the last vector in the MultiVector
-    std::vector<std::shared_ptr<Vector>> getVecs();
+    inline const std::vector<std::shared_ptr<Vector>> &getVecs() { return d_vVectors; }
 
     //! Return one past the last vector in the MultiVector
     std::vector<std::shared_ptr<const Vector>> getVecs() const;

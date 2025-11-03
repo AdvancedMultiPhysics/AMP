@@ -53,13 +53,11 @@ public:
                                  std::vector<double> &gamma,
                                  const std::vector<std::vector<double>> &arguments ) = 0;
 
-    const std::vector<std::string> getVariableName() { return d_activeVariableNames; }
+    const auto &getVariableName() { return d_activeVariableNames; }
 
 protected:
-    unsigned int d_numActiveVariables; /**< Number of Active Variables. */
-
-    std::vector<std::string>
-        d_activeVariableNames; /**< A list of strings to store Active Variable names. */
+    unsigned int d_numActiveVariables;              // Number of Active Variables
+    std::vector<std::string> d_activeVariableNames; // Active Variable names
 
 private:
 };
