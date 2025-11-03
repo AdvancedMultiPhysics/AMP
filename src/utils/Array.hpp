@@ -649,6 +649,11 @@ bool Array<TYPE, FUN, Allocator>::operator==( const Array &rhs ) const
         match = match && d_data[i] == rhs.d_data[i];
     return match;
 }
+template<class TYPE, class FUN, class Allocator>
+bool Array<TYPE, FUN, Allocator>::operator!=( const Array &rhs ) const
+{
+    return !this->operator==( rhs );
+}
 
 
 /********************************************************
