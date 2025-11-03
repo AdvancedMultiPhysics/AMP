@@ -11,6 +11,7 @@
 #include "AMP/utils/Memory.h"
 
 #include <cmath>
+#include <numeric>
 
 #define AMP_AMG_RELAXATION_PROFILE
 
@@ -19,7 +20,10 @@ namespace AMP::Solver::AMG {
 Relaxation::Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
                         std::string name_,
                         std::string short_name_ )
-    : SolverStrategy( params ), name( name_ ), short_name( short_name_ )
+    : SolverStrategy( params ),
+      name( name_ ),
+      short_name( short_name_ ),
+      d_caller_lvl( std::numeric_limits<size_t>::max() )
 {
     AMP_ASSERT( params );
     getFromInput( params->d_db );
@@ -54,82 +58,83 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 {
     PROFILE( "Relaxation::apply" );
 
-    // initialize, trivial if acting as a
-    // preconditioner
-    auto r             = need_norms ? b->clone() : nullptr;
-    d_dInitialResidual = 0.0;
-    if ( need_norms ) {
-        const auto b_norm = static_cast<double>( b->L2Norm() );
+    // // initialize, trivial if acting as a
+    // // preconditioner
+    // auto r             = need_norms ? b->clone() : nullptr;
+    // d_dInitialResidual = 0.0;
+    // if ( need_norms ) {
+    //     const auto b_norm = static_cast<double>( b->L2Norm() );
 
-        // Zero rhs implies zero solution, bail out early
-        if ( b_norm == 0.0 ) {
-            x->zero();
-            d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
-            d_dInitialResidual  = 0.0;
-            d_dResidualNorm     = 0.0;
-            if ( d_iDebugPrintInfoLevel > 0 ) {
-                AMP::pout << name << "::apply: solution is zero" << std::endl;
-            }
-        }
+    //     // Zero rhs implies zero solution, bail out early
+    //     if ( b_norm == 0.0 ) {
+    //         x->zero();
+    //         d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
+    //         d_dInitialResidual  = 0.0;
+    //         d_dResidualNorm     = 0.0;
+    //         if ( d_iDebugPrintInfoLevel > 0 ) {
+    //             AMP::pout << name << "::apply: solution is zero" << std::endl;
+    //         }
+    //     }
 
-        if ( d_bUseZeroInitialGuess ) {
-            x->zero();
-            d_dInitialResidual = b_norm;
-        } else {
-            d_pOperator->residual( b, x, r );
-            d_dInitialResidual = static_cast<double>( r->L2Norm() );
-        }
+    //     if ( d_bUseZeroInitialGuess ) {
+    //         x->zero();
+    //         d_dInitialResidual = b_norm;
+    //     } else {
+    //         d_pOperator->residual( b, x, r );
+    //         d_dInitialResidual = static_cast<double>( r->L2Norm() );
+    //     }
 
-        if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << name << "::apply: initial L2Norm of solution vector: " << x->L2Norm()
-                      << std::endl;
-            AMP::pout << name << "::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
-            AMP::pout << name << "::apply: initial L2Norm of residual: " << d_dInitialResidual
-                      << std::endl;
-        }
-        if ( checkStoppingCriteria( d_dInitialResidual ) ) {
-            if ( d_iDebugPrintInfoLevel > 0 ) {
-                AMP::pout << name << "::apply: initial residual below tolerance" << std::endl;
-            }
-            return;
-        }
-    }
-    auto current_res = static_cast<double>( d_dInitialResidual );
+    //     if ( d_iDebugPrintInfoLevel > 1 ) {
+    //         AMP::pout << name << "::apply: initial L2Norm of solution vector: " << x->L2Norm()
+    //                   << std::endl;
+    //         AMP::pout << name << "::apply: initial L2Norm of rhs vector: " << b_norm <<
+    //         std::endl; AMP::pout << name << "::apply: initial L2Norm of residual: " <<
+    //         d_dInitialResidual
+    //                   << std::endl;
+    //     }
+    //     if ( checkStoppingCriteria( d_dInitialResidual ) ) {
+    //         if ( d_iDebugPrintInfoLevel > 0 ) {
+    //             AMP::pout << name << "::apply: initial residual below tolerance" << std::endl;
+    //         }
+    //         return;
+    //     }
+    // }
+    // auto current_res = static_cast<double>( d_dInitialResidual );
 
-    // apply solver for needed number of iterations
-    for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
-          ++d_iNumberIterations ) {
-        relax_visit( b, x );
+    // // apply solver for needed number of iterations
+    // for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
+    //       ++d_iNumberIterations ) {
+    relax_visit( b, x );
 
-        if ( need_norms ) {
-            d_pOperator->residual( b, x, r );
-            current_res = static_cast<double>( r->L2Norm() );
+    //     if ( need_norms ) {
+    //         d_pOperator->residual( b, x, r );
+    //         current_res = static_cast<double>( r->L2Norm() );
 
-            if ( d_iDebugPrintInfoLevel > 1 ) {
-                AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
-                          << current_res << std::endl;
-            }
+    //         if ( d_iDebugPrintInfoLevel > 1 ) {
+    //             AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
+    //                       << current_res << std::endl;
+    //         }
 
-            if ( checkStoppingCriteria( current_res ) ) {
-                break;
-            }
-        }
-    }
+    //         if ( checkStoppingCriteria( current_res ) ) {
+    //             break;
+    //         }
+    //     }
+    // }
 
-    // Store final residual norm and update convergence flags
-    // if this is acting as a solver and not a preconditioner
-    if ( need_norms ) {
-        d_dResidualNorm = current_res;
-        checkStoppingCriteria( current_res );
+    // // Store final residual norm and update convergence flags
+    // // if this is acting as a solver and not a preconditioner
+    // if ( need_norms ) {
+    //     d_dResidualNorm = current_res;
+    //     checkStoppingCriteria( current_res );
 
-        if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << name << "::apply: final L2Norm of solution: " << x->L2Norm() << std::endl;
-            AMP::pout << name << "::apply: final L2Norm of residual: " << current_res << std::endl;
-            AMP::pout << name << "::apply: iterations: " << d_iNumberIterations << std::endl;
-            AMP::pout << name << "::apply: convergence reason: "
-                      << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
-        }
-    }
+    //     if ( d_iDebugPrintInfoLevel > 0 ) {
+    //         AMP::pout << name << "::apply: final L2Norm of solution: " << x->L2Norm() <<
+    //         std::endl; AMP::pout << name << "::apply: final L2Norm of residual: " << current_res
+    //         << std::endl; AMP::pout << name << "::apply: iterations: " << d_iNumberIterations <<
+    //         std::endl; AMP::pout << name << "::apply: convergence reason: "
+    //                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+    //     }
+    // }
 }
 
 HybridGS::HybridGS( std::shared_ptr<const SolverStrategyParameters> iparams )
@@ -203,8 +208,7 @@ void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                       std::shared_ptr<const LinearAlgebra::Vector> b,
                       std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    int caller_lvl = 0;
-    auto run       = [&]() {
+    auto run = [&]() {
         auto comp = [&]() {
             for ( size_t i = 0; i < d_num_sweeps; ++i ) {
                 switch ( d_sweep ) {
@@ -222,7 +226,7 @@ void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
             }
         };
 
-        if ( caller_lvl == 0 ) {
+        if ( d_caller_lvl == 0 ) {
             {
                 PROFILE( "HGS-relax-comp-0" );
                 comp();
@@ -231,16 +235,16 @@ void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                 PROFILE( "HGS-relax-comm-0" );
                 x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
             }
-        } else if ( caller_lvl == 1 ) {
+        } else if ( d_caller_lvl == 1 ) {
             {
                 PROFILE( "HGS-relax-comp-1" );
                 comp();
             }
             {
-                PROFILE( "HGS-relax-comp-1" );
+                PROFILE( "HGS-relax-comm-1" );
                 x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
             }
-        } else if ( caller_lvl == 1 ) {
+        } else if ( d_caller_lvl == 2 ) {
             {
                 PROFILE( "HGS-relax-comp-2" );
                 comp();
@@ -249,7 +253,7 @@ void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                 PROFILE( "HGS-relax-comm-2" );
                 x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
             }
-        } else if ( caller_lvl == 1 ) {
+        } else if ( d_caller_lvl == 3 ) {
             {
                 PROFILE( "HGS-relax-comp-3" );
                 comp();
@@ -258,7 +262,7 @@ void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                 PROFILE( "HGS-relax-comm-3" );
                 x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
             }
-        } else if ( caller_lvl == 1 ) {
+        } else if ( d_caller_lvl == 4 ) {
             {
                 PROFILE( "HGS-relax-comp-4" );
                 comp();
@@ -279,19 +283,19 @@ void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
         }
     };
 
-    if ( caller_lvl == 0 ) {
+    if ( d_caller_lvl == 0 ) {
         PROFILE( "HGS-relax-0" );
         run();
-    } else if ( caller_lvl == 1 ) {
+    } else if ( d_caller_lvl == 1 ) {
         PROFILE( "HGS-relax-1" );
         run();
-    } else if ( caller_lvl == 2 ) {
+    } else if ( d_caller_lvl == 2 ) {
         PROFILE( "HGS-relax-2" );
         run();
-    } else if ( caller_lvl == 3 ) {
+    } else if ( d_caller_lvl == 3 ) {
         PROFILE( "HGS-relax-3" );
         run();
-    } else if ( caller_lvl == 4 ) {
+    } else if ( d_caller_lvl == 4 ) {
         PROFILE( "HGS-relax-4" );
         run();
     } else {

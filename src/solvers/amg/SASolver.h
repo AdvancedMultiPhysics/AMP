@@ -63,7 +63,8 @@ protected:
     void makeCoarseSolver();
 
     std::unique_ptr<SolverStrategy>
-    createRelaxation( std::shared_ptr<Operator::Operator> A,
+    createRelaxation( size_t lvl,
+                      std::shared_ptr<Operator::Operator> A,
                       std::shared_ptr<AMG::RelaxationParameters> params );
 
     void smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,

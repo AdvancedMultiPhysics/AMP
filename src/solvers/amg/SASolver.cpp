@@ -99,8 +99,8 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
     d_levels.back().A->setMatrix( mat );
-    d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
-    d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
+    d_levels.back().pre_relaxation  = createRelaxation( 0, fine_op, d_pre_relax_params );
+    d_levels.back().post_relaxation = createRelaxation( 0, fine_op, d_post_relax_params );
     d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
@@ -112,11 +112,14 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 }
 
 std::unique_ptr<SolverStrategy>
-SASolver::createRelaxation( std::shared_ptr<Operator::Operator> A,
+SASolver::createRelaxation( size_t lvl,
+                            std::shared_ptr<Operator::Operator> A,
                             std::shared_ptr<AMG::RelaxationParameters> params )
 {
     auto rel_op = Solver::SolverFactory::create( params );
     rel_op->registerOperator( A );
+    auto &op = *rel_op;
+    dynamic_cast<Relaxation &>( op ).setLevel( lvl );
     return rel_op;
 }
 
@@ -215,9 +218,10 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
             ->setVariables( bVar, xVar );
 
         // Relaxation operators for new level
-        d_levels.back().pre_relaxation = createRelaxation( d_levels.back().A, d_pre_relax_params );
+        d_levels.back().pre_relaxation =
+            createRelaxation( i + 1, d_levels.back().A, d_pre_relax_params );
         d_levels.back().post_relaxation =
-            createRelaxation( d_levels.back().A, d_post_relax_params );
+            createRelaxation( i + 1, d_levels.back().A, d_post_relax_params );
 
         // in/out vectors for new level
         d_levels.back().x          = Ac->createInputVector();
