@@ -135,7 +135,7 @@ void GPUFunctionTable<TYPE>::multiply(
     AMP_ERROR( "not implemented" );
 }
 template<class TYPE>
-void FunctionTable<TYPE>::scale( size_t N, TYPE x, TYPE *y )
+void GPUFunctionTable<TYPE>::scale( size_t N, TYPE x, TYPE *y )
 {
     AMP_ERROR( "not implemented" );
 }
