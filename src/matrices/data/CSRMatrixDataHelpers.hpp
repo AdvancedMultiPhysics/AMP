@@ -391,6 +391,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsDiag( typename Config::lidx_t *row
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
+        sort_row_diag<<<GridDim, BlockDim>>>( row_starts, cols, coeffs, num_rows, first_col );
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::SortColumnsDiag Undefined memory location" );
