@@ -69,10 +69,10 @@ public:
     // Data
 protected:
     //! Constant scaling factors in the PDE
-    double d_k11;
-    double d_k12;
-    double d_k21;
-    double d_k22;
+    double d_k11 = 0;
+    double d_k12 = 0;
+    double d_k21 = 0;
+    double d_k22 = 0;
 
     //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in
     //! index boundaryID-1

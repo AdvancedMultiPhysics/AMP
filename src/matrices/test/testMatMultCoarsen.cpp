@@ -63,7 +63,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
               << std::endl;
 
     // Create aggregate matrix
-    auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( 4.0 );
+    auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( 4.0f );
     auto P   = agg->getAggregateMatrix( A );
 
     // perform A*P SpGEMM

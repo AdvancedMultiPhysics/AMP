@@ -133,7 +133,7 @@ protected:
 
 public:
     // The backend used for cpus and/or gpu acceleration
-    AMP::Utilities::Backend d_backend;
+    AMP::Utilities::Backend d_backend = AMP::Utilities::Backend::Serial;
 
     // unique hash to identify this object
     uint64_t d_hash = 0;
