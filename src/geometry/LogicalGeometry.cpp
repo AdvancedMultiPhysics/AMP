@@ -26,7 +26,7 @@ static inline std::array<int, 6> checkIDs( int logical, std::array<int, 6> ids )
     }
     return ids;
 }
-LogicalGeometry::LogicalGeometry( int physical, int logical, std::array<int, 6> ids )
+LogicalGeometry::LogicalGeometry( int physical, int logical, const std::array<int, 6> &ids )
     : Geometry( physical ), d_logicalDim( logical ), d_ids( checkIDs( logical, ids ) )
 {
 }

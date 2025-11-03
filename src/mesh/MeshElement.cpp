@@ -93,7 +93,7 @@ void MeshElement::getNeighborVertices( std::vector<Point> &vertices ) const
         elem->getVertices( V1 );
         for ( auto &p : V1 ) {
             bool found = false;
-            for ( auto p0 : V0 )
+            for ( auto &p0 : V0 )
                 found = found || p == p0;
             if ( !found )
                 vertices.push_back( p );

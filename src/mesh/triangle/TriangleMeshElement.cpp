@@ -104,16 +104,14 @@ std::string TriangleMeshElement<NG>::elementClass() const
  * Constructors                                          *
  ********************************************************/
 template<uint8_t NG>
-TriangleMeshElement<NG>::TriangleMeshElement()
+TriangleMeshElement<NG>::TriangleMeshElement() : d_mesh( nullptr )
 {
-    d_mesh = nullptr;
 }
 template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement( const MeshElementID &id,
                                               const TriangleMesh<NG> *mesh )
+    : d_globalID( id ), d_mesh( mesh )
 {
-    d_globalID = id;
-    d_mesh     = mesh;
 }
 template<uint8_t NG>
 TriangleMeshElement<NG>::TriangleMeshElement( const TriangleMeshElement &rhs )

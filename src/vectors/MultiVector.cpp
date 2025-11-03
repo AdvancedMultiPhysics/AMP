@@ -332,7 +332,6 @@ bool MultiVector::containsPointer( const Vector::shared_ptr p ) const
  ****************************************************************/
 Vector::shared_ptr MultiVector::getVector( size_t i ) { return d_vVectors[i]; }
 Vector::const_shared_ptr MultiVector::getVector( size_t i ) const { return d_vVectors[i]; }
-std::vector<std::shared_ptr<Vector>> MultiVector::getVecs() { return d_vVectors; }
 std::vector<std::shared_ptr<const Vector>> MultiVector::getVecs() const
 {
     std::vector<std::shared_ptr<const Vector>> vecs( d_vVectors.size() );
