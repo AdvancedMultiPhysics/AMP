@@ -377,6 +377,13 @@ void HypreSolver::preSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                   << std::endl;
     }
 
+
+    copyToHypre( u, d_hypre_sol );
+    copyToHypre( f, d_hypre_rhs );
+}
+
+void HypreSolver::hypreSolve()
+{
     // return if the residual is already low enough
     // checkStoppingCriteria responsible for setting flags on convergence reason
     if ( checkStoppingCriteria( d_dResidualNorm ) ) {
@@ -385,13 +392,6 @@ void HypreSolver::preSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
         }
         return;
     }
-
-    copyToHypre( u, d_hypre_sol );
-    copyToHypre( f, d_hypre_rhs );
-}
-
-void HypreSolver::hypreSolve()
-{
 
     HYPRE_ParCSRMatrix parcsr_A;
     HYPRE_ParVector par_b;
