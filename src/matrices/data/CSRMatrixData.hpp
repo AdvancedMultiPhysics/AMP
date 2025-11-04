@@ -992,7 +992,7 @@ void CSRMatrixData<Config>::writeRestartMapData(
         size_t i = 0;
         for ( const auto &[key, inner_map] : data ) {
             AMP::Array<gidx_t> inner_keys_v( inner_map.size() );
-            AMP::Array<gidx_t> inner_vals_v( inner_map.size() );
+            AMP::Array<scalar_t> inner_vals_v( inner_map.size() );
             size_t j = 0;
             for ( const auto &[inner_key, inner_val] : inner_map ) {
                 inner_keys_v[j] = inner_key;
@@ -1028,7 +1028,7 @@ void CSRMatrixData<Config>::readRestartMapData( const int64_t fid,
         for ( size_t i = 0u; i < keys_v.length(); ++i ) {
             const auto key = keys_v[i];
             AMP::Array<gidx_t> inner_keys_v;
-            AMP::Array<gidx_t> inner_vals_v;
+            AMP::Array<scalar_t> inner_vals_v;
             const auto key_name = prefix + "_keyvector_" + std::to_string( key );
             const auto val_name = prefix + "_valvector_" + std::to_string( key );
             IO::readHDF5( fid, key_name, inner_keys_v );

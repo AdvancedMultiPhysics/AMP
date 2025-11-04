@@ -14,8 +14,8 @@ namespace AMP::LinearAlgebra {
  * Constructors                                                  *
  ****************************************************************/
 SubsetCommSelfVectorData::SubsetCommSelfVectorData( std::shared_ptr<VectorData> data )
+    : d_parentData( data )
 {
-    d_parentData = data;
     AMP_ASSERT( d_parentData );
     size_t N     = d_parentData->getLocalSize();
     d_localSize  = N;

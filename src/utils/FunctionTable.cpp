@@ -112,6 +112,11 @@ void call_gemm<float>( size_t M,
 } // namespace AMP
 
 
+static_assert( std::is_same_v<typename AMP::FunctionTable<double>::value_type, double> );
+static_assert(
+    std::is_same_v<typename AMP::FunctionTable<double>::cloneTo<float>::value_type, float> );
+
+
 /********************************************************
  *  Explicit instantiations of FunctionTable             *
  ********************************************************/

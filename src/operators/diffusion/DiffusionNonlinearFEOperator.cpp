@@ -152,7 +152,7 @@ DiffusionNonlinearFEOperator::DiffusionNonlinearFEOperator(
     d_transportModel = params->d_transportModel;
 
     auto activeVariables = getActiveVariables( params->d_db, "ActiveInputVariables" );
-    for ( auto name : activeVariables ) {
+    for ( auto &name : activeVariables ) {
         InputVectorStruct data;
         data.isFrozen  = params->d_db->getWithDefault<bool>( "Freeze" + name, false );
         d_active[name] = data;

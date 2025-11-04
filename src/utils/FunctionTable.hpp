@@ -11,7 +11,12 @@
 #include <limits>
 #include <random>
 
+
 namespace AMP {
+
+template<class T>
+constexpr bool is_numeric_v = (std::is_arithmetic_v<T> ||
+                               AMP::is_complex_v<T>) &&!std::is_same_v<T, bool>;
 
 
 /********************************************************
@@ -108,7 +113,7 @@ TYPE FunctionTable<TYPE>::max( size_t N, const TYPE *x )
 template<class TYPE>
 TYPE FunctionTable<TYPE>::sum( size_t N, const TYPE *x )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+    if constexpr ( is_numeric_v<TYPE> ) {
         if ( N == 0 )
             return 0;
         TYPE y = x[0];
@@ -158,7 +163,7 @@ void call_axpy( size_t N, const TYPE alpha, const TYPE *x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( is_numeric_v<TYPE> ) {
         call_axpy( N, alpha, x, y );
     } else {
         AMP_ERROR( "axpy not implemented" );
@@ -167,9 +172,9 @@ void FunctionTable<TYPE>::axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        if ( beta == 1 ) {
-            call_axpy( N, alpha, x, y );
+    if constexpr ( is_numeric_v<TYPE> ) {
+        if ( beta == TYPE( 1 ) ) {
+            axpy( alpha, N, x, y );
         } else {
             for ( size_t i = 0; i < N; i++ )
                 y[i] = alpha * x[i] + beta * y[i];
@@ -179,21 +184,39 @@ void FunctionTable<TYPE>::axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta,
     }
 }
 template<class TYPE>
+void FunctionTable<TYPE>::scale( size_t N, TYPE x, TYPE *y )
+{
+    if constexpr ( is_numeric_v<TYPE> ) {
+        for ( size_t i = 0; i < N; i++ )
+            y[i] *= x;
+    } else {
+        AMP_ERROR( "scale not implemented" );
+    }
+}
+template<class TYPE>
 void FunctionTable<TYPE>::px( size_t N, TYPE x, TYPE *y )
 {
-    for ( size_t i = 0; i < N; i++ )
-        y[i] += x;
+    if constexpr ( std::is_same_v<TYPE, bool> ) {
+        AMP_ERROR( "px not implemented for bool" );
+    } else {
+        for ( size_t i = 0; i < N; i++ )
+            y[i] += x;
+    }
 }
 template<class TYPE>
 void FunctionTable<TYPE>::px( size_t N, const TYPE *x, TYPE *y )
 {
-    for ( size_t i = 0; i < N; i++ )
-        y[i] += x[i];
+    if constexpr ( std::is_same_v<TYPE, bool> ) {
+        AMP_ERROR( "px not implemented for bool" );
+    } else {
+        for ( size_t i = 0; i < N; i++ )
+            y[i] += x[i];
+    }
 }
 template<class TYPE>
 void FunctionTable<TYPE>::mx( size_t N, TYPE x, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( is_numeric_v<TYPE> ) {
         for ( size_t i = 0; i < N; i++ )
             y[i] -= x;
     } else {
@@ -203,7 +226,7 @@ void FunctionTable<TYPE>::mx( size_t N, TYPE x, TYPE *y )
 template<class TYPE>
 void FunctionTable<TYPE>::mx( size_t N, const TYPE *x, TYPE *y )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( is_numeric_v<TYPE> ) {
         for ( size_t i = 0; i < N; i++ )
             y[i] -= x[i];
     } else {
@@ -228,9 +251,14 @@ void call_gemv( size_t M, size_t N, TYPE alpha, TYPE beta, const TYPE *A, const 
 {
     if constexpr ( std::is_same_v<TYPE, bool> ) {
         AMP_ERROR( "gemv not implemented for bool" );
-    } else if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        for ( size_t i = 0; i < M; i++ )
-            y[i] = beta * y[i];
+    } else if constexpr ( is_numeric_v<TYPE> ) {
+        if ( beta == TYPE( 0 ) ) {
+            for ( size_t i = 0; i < M; i++ )
+                y[i] = TYPE( 0 );
+        } else {
+            for ( size_t i = 0; i < M; i++ )
+                y[i] = beta * y[i];
+        }
         for ( size_t j = 0; j < N; j++ ) {
             for ( size_t i = 0; i < M; i++ )
                 y[i] += alpha * A[i + j * M] * x[j];
@@ -267,8 +295,13 @@ void call_gemm(
     if constexpr ( std::is_same_v<TYPE, bool> ) {
         AMP_ERROR( "gemv not implemented for bool" );
     } else if constexpr ( std::is_arithmetic_v<TYPE> ) {
-        for ( size_t i = 0; i < K * M; i++ )
-            C[i] = beta * C[i];
+        if ( beta == TYPE( 0 ) ) {
+            for ( size_t i = 0; i < M; i++ )
+                C[i] = TYPE( 0 );
+        } else {
+            for ( size_t i = 0; i < M; i++ )
+                C[i] = beta * C[i];
+        }
         for ( size_t k = 0; k < K; k++ ) {
             for ( size_t j = 0; j < N; j++ ) {
                 for ( size_t i = 0; i < M; i++ )
@@ -319,7 +352,7 @@ void FunctionTable<TYPE>::multiply( const ArraySize &sa,
                                     const ArraySize &sc,
                                     TYPE *c )
 {
-    if constexpr ( !std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( !is_numeric_v<TYPE> ) {
         AMP_ERROR( "Not finished yet" );
     } else {
         AMP_ASSERT( sc == multiplySize( sa, sb ) );
@@ -361,7 +394,7 @@ bool FunctionTable<TYPE>::equals( size_t N, const TYPE *a, const TYPE *b, TYPE t
 template<class TYPE>
 void FunctionTable<TYPE>::transformReLU( size_t N, const TYPE *A, TYPE *B )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         const auto &fun = []( const TYPE &a ) { return std::max( a, static_cast<TYPE>( 0 ) ); };
         transform( fun, N, A, B );
     } else {
@@ -372,7 +405,7 @@ void FunctionTable<TYPE>::transformReLU( size_t N, const TYPE *A, TYPE *B )
 template<class TYPE>
 void FunctionTable<TYPE>::transformAbs( size_t N, const TYPE *A, TYPE *B )
 {
-    if constexpr ( std::is_signed_v<TYPE> ) {
+    if constexpr ( std::is_signed_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         const auto &fun = []( const TYPE &a ) { return std::abs( a ); };
         transform( fun, N, A, B );
     } else {
@@ -382,7 +415,7 @@ void FunctionTable<TYPE>::transformAbs( size_t N, const TYPE *A, TYPE *B )
 template<class TYPE>
 void FunctionTable<TYPE>::transformTanh( size_t N, const TYPE *A, TYPE *B )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         const auto &fun = []( const TYPE &a ) { return std::tanh( a ); };
         transform( fun, N, A, B );
     } else {
@@ -393,10 +426,9 @@ void FunctionTable<TYPE>::transformTanh( size_t N, const TYPE *A, TYPE *B )
 template<class TYPE>
 void FunctionTable<TYPE>::transformHardTanh( size_t N, const TYPE *A, TYPE *B )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         const auto &fun = []( const TYPE &a ) {
-            return std::max<TYPE>( -static_cast<TYPE>( 1.0 ),
-                                   std::min( static_cast<TYPE>( 1.0 ), a ) );
+            return std::max<TYPE>( static_cast<TYPE>( -1 ), std::min( static_cast<TYPE>( 1 ), a ) );
         };
         transform( fun, N, A, B );
     } else {
@@ -407,7 +439,7 @@ void FunctionTable<TYPE>::transformHardTanh( size_t N, const TYPE *A, TYPE *B )
 template<class TYPE>
 void FunctionTable<TYPE>::transformSigmoid( size_t N, const TYPE *A, TYPE *B )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         const auto &fun = []( const TYPE &a ) { return 1.0 / ( 1.0 + std::exp( -a ) ); };
         transform( fun, N, A, B );
     } else {
@@ -418,7 +450,7 @@ void FunctionTable<TYPE>::transformSigmoid( size_t N, const TYPE *A, TYPE *B )
 template<class TYPE>
 void FunctionTable<TYPE>::transformSoftPlus( size_t N, const TYPE *A, TYPE *B )
 {
-    if constexpr ( std::is_arithmetic_v<TYPE> ) {
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
         const auto &fun = []( const TYPE &a ) { return std::log1p( std::exp( a ) ); };
         transform( fun, N, A, B );
     } else {
