@@ -75,13 +75,6 @@ std::shared_ptr<Vector> createVector( Teuchos::RCP<Thyra::VectorBase<double>> ve
     auto data = std::make_shared<NativeThyraVectorData>( vec, local, comm );
     return std::make_shared<Vector>( data, ops, var, nullptr );
 }
-#else
-std::shared_ptr<Vector>
-createVector( Teuchos::RCP<Thyra::VectorBase<double>>, size_t, AMP_MPI, std::shared_ptr<Variable> )
-{
-    AMP_ERROR( "Thyra support not enabled" );
-    return nullptr;
-}
 #endif
 
 
