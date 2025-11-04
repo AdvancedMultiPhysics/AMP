@@ -92,10 +92,6 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
             self.define("AMP_ENABLE_EXAMPLES", False),
         ]
 
-        # this seems to be necessary at present
-        if "+shared" in spec:
-            options.append(self.define('CMAKE_POSITION_INDEPENDENT_CODE', True))
-
         if "+rocm" in spec:
             options.append(self.define("COMPILE_CXX_AS_HIP", True))
             # since there is no Spack compiler wrapper for HIP compiler, pass extra rpaths directly
