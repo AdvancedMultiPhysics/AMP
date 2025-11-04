@@ -9,14 +9,18 @@
     #include "petscvec.h"
 #endif
 #ifdef AMP_USE_TRILINOS
-    #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
-    #include "AMP/vectors/trilinos/epetra/EpetraVectorData.h"
-    #include "AMP/vectors/trilinos/epetra/EpetraVectorOperations.h"
-    #include "AMP/vectors/trilinos/thyra/NativeThyraVectorData.h"
-    #include "AMP/vectors/trilinos/thyra/NativeThyraVectorOperations.h"
+    #ifdef AMP_USE_TRILINOS_EPETRA
+        #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
+        #include "AMP/vectors/trilinos/epetra/EpetraVectorData.h"
+        #include "AMP/vectors/trilinos/epetra/EpetraVectorOperations.h"
+    #endif
+    #ifdef AMP_USE_TRILINOS_THYRA
+        #include "AMP/vectors/trilinos/thyra/NativeThyraVectorData.h"
+        #include "AMP/vectors/trilinos/thyra/NativeThyraVectorOperations.h"
 DISABLE_WARNINGS
-    #include "Thyra_VectorDefaultBase_decl.hpp"
+        #include "Thyra_VectorDefaultBase_decl.hpp"
 ENABLE_WARNINGS
+    #endif
     #ifdef AMP_USE_TRILINOS_TPETRA
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorData.h"
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorOperations.h"
