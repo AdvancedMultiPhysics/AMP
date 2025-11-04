@@ -3,5 +3,5 @@ variables:
   GROUP: nerd-project
 include:
   - project: 'xcap/oss/solvers/dev-ops/ci'
-    ref: glongo/darwin-legacy-jobs
+    ref: glongo/cleanup-ci
     file: 'amp-darwin.yml'
