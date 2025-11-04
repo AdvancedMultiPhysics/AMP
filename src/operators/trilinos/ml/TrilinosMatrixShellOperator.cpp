@@ -1,4 +1,4 @@
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/vectors/VectorBuilder.h"
 
 
