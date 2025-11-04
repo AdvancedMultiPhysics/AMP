@@ -5,7 +5,7 @@
 #include <numeric>
 #include <optional>
 
-#include "AMP/matrices/data/CSRMatrixData.hpp"
+#include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/amg/Aggregation.h"
 #include "AMP/solvers/amg/Strength.hpp"
 #include "AMP/vectors/VectorBuilder.h"
