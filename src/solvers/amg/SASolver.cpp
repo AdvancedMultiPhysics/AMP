@@ -27,16 +27,18 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
     d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
     d_kappa          = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_kcycle_tol     = db->getWithDefault<double>( "kcycle_tol", 0.0 );
 
-    d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
+    d_coarsen_settings.strength_threshold =
+        db->getWithDefault<double>( "strength_threshold", 0.25 );
     d_coarsen_settings.strength_measure =
         db->getWithDefault<std::string>( "strength_measure", "classical_min" );
     d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
     d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
-    d_prol_trunc      = db->getWithDefault<float>( "prol_trunc", 0 );
+    d_prol_trunc      = db->getWithDefault<double>( "prol_trunc", 0.0 );
+    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.9 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
@@ -143,7 +145,7 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
 
     // Chebyshev terms
     const double pi = static_cast<double>( AMP::Constants::pi );
-    const double a = 0.98, ma = 1.0 - a, pa = 1.0 + a;
+    const double ma = 1.0 - d_prol_spec_lower, pa = 1.0 + d_prol_spec_lower;
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {

@@ -47,6 +47,7 @@ protected:
     int d_kappa;
     float d_kcycle_tol;
     float d_prol_trunc;
+    float d_prol_spec_lower;
     Utilities::MemoryType d_mem_loc;
 
 

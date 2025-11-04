@@ -58,83 +58,82 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 {
     PROFILE( "Relaxation::apply" );
 
-    // // initialize, trivial if acting as a
-    // // preconditioner
-    // auto r             = need_norms ? b->clone() : nullptr;
-    // d_dInitialResidual = 0.0;
-    // if ( need_norms ) {
-    //     const auto b_norm = static_cast<double>( b->L2Norm() );
+    // initialize, trivial if acting as a
+    // preconditioner
+    auto r             = need_norms ? b->clone() : nullptr;
+    d_dInitialResidual = 0.0;
+    if ( need_norms ) {
+        const auto b_norm = static_cast<double>( b->L2Norm() );
 
-    //     // Zero rhs implies zero solution, bail out early
-    //     if ( b_norm == 0.0 ) {
-    //         x->zero();
-    //         d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
-    //         d_dInitialResidual  = 0.0;
-    //         d_dResidualNorm     = 0.0;
-    //         if ( d_iDebugPrintInfoLevel > 0 ) {
-    //             AMP::pout << name << "::apply: solution is zero" << std::endl;
-    //         }
-    //     }
+        // Zero rhs implies zero solution, bail out early
+        if ( b_norm == 0.0 ) {
+            x->zero();
+            d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
+            d_dInitialResidual  = 0.0;
+            d_dResidualNorm     = 0.0;
+            if ( d_iDebugPrintInfoLevel > 0 ) {
+                AMP::pout << name << "::apply: solution is zero" << std::endl;
+            }
+        }
 
-    //     if ( d_bUseZeroInitialGuess ) {
-    //         x->zero();
-    //         d_dInitialResidual = b_norm;
-    //     } else {
-    //         d_pOperator->residual( b, x, r );
-    //         d_dInitialResidual = static_cast<double>( r->L2Norm() );
-    //     }
+        if ( d_bUseZeroInitialGuess ) {
+            x->zero();
+            d_dInitialResidual = b_norm;
+        } else {
+            d_pOperator->residual( b, x, r );
+            d_dInitialResidual = static_cast<double>( r->L2Norm() );
+        }
 
-    //     if ( d_iDebugPrintInfoLevel > 1 ) {
-    //         AMP::pout << name << "::apply: initial L2Norm of solution vector: " << x->L2Norm()
-    //                   << std::endl;
-    //         AMP::pout << name << "::apply: initial L2Norm of rhs vector: " << b_norm <<
-    //         std::endl; AMP::pout << name << "::apply: initial L2Norm of residual: " <<
-    //         d_dInitialResidual
-    //                   << std::endl;
-    //     }
-    //     if ( checkStoppingCriteria( d_dInitialResidual ) ) {
-    //         if ( d_iDebugPrintInfoLevel > 0 ) {
-    //             AMP::pout << name << "::apply: initial residual below tolerance" << std::endl;
-    //         }
-    //         return;
-    //     }
-    // }
-    // auto current_res = static_cast<double>( d_dInitialResidual );
+        if ( d_iDebugPrintInfoLevel > 1 ) {
+            AMP::pout << name << "::apply: initial L2Norm of solution vector: " << x->L2Norm()
+                      << std::endl;
+            AMP::pout << name << "::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
+            AMP::pout << name << "::apply: initial L2Norm of residual: " << d_dInitialResidual
+                      << std::endl;
+        }
+        if ( checkStoppingCriteria( d_dInitialResidual ) ) {
+            if ( d_iDebugPrintInfoLevel > 0 ) {
+                AMP::pout << name << "::apply: initial residual below tolerance" << std::endl;
+            }
+            return;
+        }
+    }
+    auto current_res = static_cast<double>( d_dInitialResidual );
 
-    // // apply solver for needed number of iterations
-    // for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
-    //       ++d_iNumberIterations ) {
-    relax_visit( b, x );
+    // apply solver for needed number of iterations
+    for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
+          ++d_iNumberIterations ) {
+        relax_visit( b, x );
 
-    //     if ( need_norms ) {
-    //         d_pOperator->residual( b, x, r );
-    //         current_res = static_cast<double>( r->L2Norm() );
+        if ( need_norms ) {
+            d_pOperator->residual( b, x, r );
+            current_res = static_cast<double>( r->L2Norm() );
 
-    //         if ( d_iDebugPrintInfoLevel > 1 ) {
-    //             AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
-    //                       << current_res << std::endl;
-    //         }
+            if ( d_iDebugPrintInfoLevel > 1 ) {
+                AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
+                          << current_res << std::endl;
+            }
 
-    //         if ( checkStoppingCriteria( current_res ) ) {
-    //             break;
-    //         }
-    //     }
-    // }
+            if ( checkStoppingCriteria( current_res ) ) {
+                break;
+            }
+        }
+    }
 
-    // // Store final residual norm and update convergence flags
-    // // if this is acting as a solver and not a preconditioner
-    // if ( need_norms ) {
-    //     d_dResidualNorm = current_res;
-    //     checkStoppingCriteria( current_res );
+    // Store final residual norm and update convergence flags
+    // if this is acting as a solver and not a preconditioner
+    if ( need_norms ) {
+        d_dResidualNorm = current_res;
+        checkStoppingCriteria( current_res );
 
-    //     if ( d_iDebugPrintInfoLevel > 0 ) {
-    //         AMP::pout << name << "::apply: final L2Norm of solution: " << x->L2Norm() <<
-    //         std::endl; AMP::pout << name << "::apply: final L2Norm of residual: " << current_res
-    //         << std::endl; AMP::pout << name << "::apply: iterations: " << d_iNumberIterations <<
-    //         std::endl; AMP::pout << name << "::apply: convergence reason: "
-    //                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
-    //     }
-    // }
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << name << "::apply: final L2Norm of solution: " << x->L2Norm() << std::endl;
+            AMP::pout << name << "::apply: final L2Norm of residual: " << current_res << std::endl;
+            AMP::pout << name << "::apply: iterations: " << d_iNumberIterations << std::endl;
+            AMP::pout << name << "::apply: convergence reason: "
+                      << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+        }
+    }
 }
 
 HybridGS::HybridGS( std::shared_ptr<const SolverStrategyParameters> iparams )
@@ -453,7 +452,7 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
 JacobiL1::JacobiL1( std::shared_ptr<const SolverStrategyParameters> params )
     : Relaxation( params, "JacobiL1", "JL1" )
 {
-    d_spec_lower = d_db->getWithDefault<float>( "spec_lower", 0.25 );
+    d_spec_lower = d_db->getWithDefault<float>( "spec_lower", 0.8f );
     AMP_DEBUG_INSIST( d_spec_lower >= 0.0 && d_spec_lower < 1.0,
                       "JacobiL1: Invalid damping range, need a in [0,1)" );
     if ( d_pOperator ) {
@@ -490,6 +489,65 @@ void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                              [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
+#if 1
+template<typename Config>
+void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                      std::shared_ptr<const LinearAlgebra::Vector> b,
+                      std::shared_ptr<LinearAlgebra::Vector> x )
+{
+    using scalar_t = typename Config::scalar_t;
+
+    // Application of Jacobi L1 is x += omega * Dinv * r
+    // where r is (b - A * x), D is sum of absolute values
+    // in each row of A, and omega is weight determined from
+    // Chebyshev iteration knowing that we damp in range [a,1]
+
+    const scalar_t pi = static_cast<scalar_t>( AMP::Constants::pi );
+    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
+
+    // storage for r
+    auto r = x->clone();
+
+    auto run = [&]() {
+        for ( size_t i = 0; i < d_num_sweeps; ++i ) {
+            // find omega
+            const auto irat =
+                static_cast<scalar_t>( 2 * i - 1 ) / static_cast<scalar_t>( d_num_sweeps );
+            const scalar_t om = 0.5 * ( ma * std::cos( pi * irat ) + pa );
+            // update residual
+            A->mult( x, r );
+            r->subtract( *b, *r );
+            // scale by Dinv
+            r->divide( *r, *d_diag );
+            // update solution
+            x->axpby( om, 1.0, *r );
+            x->makeConsistent();
+        }
+    };
+
+    if ( d_caller_lvl == 0 ) {
+        PROFILE( "JL1-relax-0" );
+        run();
+    } else if ( d_caller_lvl == 1 ) {
+        PROFILE( "JL1-relax-1" );
+        run();
+    } else if ( d_caller_lvl == 2 ) {
+        PROFILE( "JL1-relax-2" );
+        run();
+    } else if ( d_caller_lvl == 3 ) {
+        PROFILE( "JL1-relax-3" );
+        run();
+    } else if ( d_caller_lvl == 4 ) {
+        PROFILE( "JL1-relax-4" );
+        run();
+    } else {
+        PROFILE( "JL1-relax-5+" );
+        run();
+    }
+}
+
+#else
+
 template<typename Config>
 void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                       std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -523,6 +581,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
         x->makeConsistent();
     }
 }
+#endif
 
 } // namespace AMP::Solver::AMG
 

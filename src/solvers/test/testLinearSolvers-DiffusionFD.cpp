@@ -166,6 +166,7 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 */
 int main( int argc, char **argv )
 {
+    PROFILE_ENABLE();
 
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
@@ -191,22 +192,21 @@ int main( int argc, char **argv )
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG" );
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
     // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
+    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
 #endif
 
     for ( auto &exeName : exeNames ) {
-        PROFILE_ENABLE();
 
         driver( comm, &ut, exeName );
-
-        // build unique profile name to avoid collisions
-        std::ostringstream ss;
-        ss << exeName << std::setw( 3 ) << std::setfill( '0' )
-           << AMP::AMPManager::getCommWorld().getSize();
-        PROFILE_SAVE( ss.str() );
     }
-    ut.report();
 
+    // build unique profile name to avoid collisions
+    std::ostringstream ss;
+    ss << "testLinearSolvers-DiffusionFD_r" << std::setw( 3 ) << std::setfill( '0' )
+       << comm.getSize();
+    PROFILE_SAVE( ss.str() );
+
+    ut.report();
     int num_failed = ut.NumFailGlobal();
     AMP::AMPManager::shutdown();
     return num_failed;
