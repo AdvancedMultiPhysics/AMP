@@ -1,6 +1,7 @@
 #ifndef included_AMP_MIS2Aggregator_H_
 #define included_AMP_MIS2Aggregator_H_
 
+#include "AMP/solvers/amg/AggregationSettings.h"
 #include "AMP/solvers/amg/Aggregator.h"
 
 #include <vector>
@@ -13,7 +14,7 @@ namespace AMP::Solver::AMG {
 //  set and graph coarsening" by Brian Kelley and Sivasankaran
 // Rajamanickam
 struct MIS2Aggregator : Aggregator {
-    MIS2Aggregator( const float strength_threshold ) : Aggregator( strength_threshold ) {}
+    MIS2Aggregator( const CoarsenSettings &settings ) : Aggregator( settings ) {}
 
     // Necessary overrides from base class
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;

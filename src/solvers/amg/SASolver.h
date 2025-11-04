@@ -8,6 +8,7 @@
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/amg/Aggregation.h"
+#include "AMP/solvers/amg/AggregationSettings.h"
 #include "AMP/solvers/amg/Aggregator.h"
 #include "AMP/solvers/amg/Cycle.h"
 #include "AMP/solvers/amg/Relaxation.h"
@@ -51,7 +52,8 @@ protected:
 
     std::shared_ptr<AMG::Aggregator> d_aggregator;
     std::vector<AMG::KCycleLevel> d_levels;
-    PairwiseCoarsenSettings d_coarsen_settings;
+    CoarsenSettings d_coarsen_settings;
+    PairwiseCoarsenSettings d_pair_coarsen_settings;
     std::shared_ptr<AMG::RelaxationParameters> d_pre_relax_params;
     std::shared_ptr<AMG::RelaxationParameters> d_post_relax_params;
     std::shared_ptr<SolverStrategyParameters> d_coarse_solver_params;

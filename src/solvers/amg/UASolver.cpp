@@ -44,13 +44,11 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     auto agg_type = db->getWithDefault<std::string>( "agg_type", "MIS2" );
     if ( !d_implicit_RAP || ( d_implicit_RAP && ( agg_type != "pairwise" ) ) ) {
         if ( agg_type == "simple" ) {
-            d_aggregator =
-                std::make_shared<SimpleAggregator>( d_coarsen_settings.strength_threshold );
+            d_aggregator = std::make_shared<SimpleAggregator>( d_coarsen_settings );
         } else if ( agg_type == "pairwise" ) {
             d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
         } else {
-            d_aggregator =
-                std::make_shared<MIS2Aggregator>( d_coarsen_settings.strength_threshold );
+            d_aggregator = std::make_shared<MIS2Aggregator>( d_coarsen_settings );
         }
     }
 
