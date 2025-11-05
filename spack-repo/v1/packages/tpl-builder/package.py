@@ -29,6 +29,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("lapackwrappers", default=False, description="Build with support for lapackwrappers")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
+    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
     variant("mpi", default=False, description="Build with MPI support")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
@@ -66,30 +67,20 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("lapackwrappers~shared", when="~shared+lapackwrappers")
     depends_on("lapackwrappers+shared", when="+shared+lapackwrappers")
 
-    depends_on("hypre+mixedint", when="+hypre")
-    depends_on("kokkos", when="+kokkos")
-
-    depends_on("kokkos+openmp", when="+kokkos+openmp")
-    depends_on("kokkos+cuda+cuda_constexpr", when="+kokkos+cuda")
-    depends_on("kokkos+rocm", when="+kokkos+rocm")
-
-
-    hypre_depends = ["shared", "cuda", "rocm", "openmp"]
-
-    for v in hypre_depends:
-        depends_on(f"hypre+{v}", when=f"+{v}+hypre")
-        depends_on(f"hypre~{v}", when=f"~{v}+hypre")
-    
-
-    depends_on("blas", when="+lapack")
     depends_on("lapack", when="+lapack")
 
+    depends_on("hypre+mixedint", when="+hypre")
     requires("+lapack", when="+hypre")
+
+    depends_on("kokkos", when="+kokkos")
+    depends_on("kokkos-kernels", when="+kokkos-kernels")
+
+    depends_on("blas", when="+lapack")
 
     depends_on("libmesh+exodusii+netcdf+metis", when="+libmesh")
 
     depends_on("petsc", when="+petsc")
-    depends_on("trilinos+epetra+epetraext+thyra+tpetra+ml+muelu+kokkos+amesos+ifpack+ifpack2+belos+nox+stratimikos gotype=int", when="+trilinos")
+    depends_on("trilinos", when="+trilinos")
 
     requires("+lapack", when="+trilinos")
 
@@ -128,9 +119,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("INSTALL_DIR", spec.prefix),
             self.define("DISABLE_ALL_TESTS", True),
             self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
-            self.define_from_variant("BUILD_SHARED_LIBS", "shared"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
-            self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "shared"),
             self.define("ENABLE_STATIC", not spec.variants["shared"].value),
             self.define_from_variant("USE_MPI", "mpi"),
             self.define("MPI_SKIP_SEARCH", False),
@@ -211,9 +200,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         if spec.variants["test_gpus"].value != "-1":
             options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))
 
-        for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
+        for vname in ("stacktrace", "hypre", "kokkos", "kokkos-kernels", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):
-                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else vname.upper()
+                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else "KOKKOSKERNELS" if vname == "kokkos-kernels" else vname.upper()
                 tpl_list.append(tpl_name)
                 options.append(self.define(f"{tpl_name}_INSTALL_DIR", spec[vname].prefix))
 
