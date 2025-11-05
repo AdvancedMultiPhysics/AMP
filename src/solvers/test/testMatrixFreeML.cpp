@@ -10,7 +10,7 @@
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/trilinos/ml/TrilinosMLSolver.h"
 #include "AMP/utils/AMPManager.h"

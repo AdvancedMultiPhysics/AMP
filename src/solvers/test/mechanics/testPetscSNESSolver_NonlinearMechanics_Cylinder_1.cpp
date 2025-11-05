@@ -12,7 +12,7 @@
 #include "AMP/operators/boundary/libmesh/PressureBoundaryOperator.h"
 #include "AMP/operators/mechanics/MechanicsLinearFEOperator.h"
 #include "AMP/operators/mechanics/MechanicsNonlinearFEOperator.h"
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/petsc/PetscKrylovSolver.h"
 #include "AMP/solvers/petsc/PetscSNESSolver.h"
