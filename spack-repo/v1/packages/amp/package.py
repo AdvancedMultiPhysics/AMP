@@ -46,6 +46,10 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     conflicts("cxxstd=20", when="@:4.0.0") #c++ 20 is only compatible with amp 4.0.1 and up
     conflicts("cxxstd=23", when="@:4.0.0") #c++ 23 is only compatible with amp 4.0.1 and up
 
+    depends_on("c", type="build")
+    depends_on("cxx", type="build")
+    depends_on("fortran", type="build")
+
     depends_on("cmake@3.26.0:")
     depends_on("tpl-builder+stacktrace")
     depends_on("tpl-builder+stacktrace+timerutility", when="+timerutility")
