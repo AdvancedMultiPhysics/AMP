@@ -63,6 +63,7 @@ IF ( NOT ONLY_BUILD_DOCS )
             HDF5
             HYPRE
             KOKKOS
+            KOKKOSKERNELS
             LAPACK
             LAPACK_WRAPPERS
             LIBMESH
