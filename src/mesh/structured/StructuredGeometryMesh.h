@@ -55,7 +55,7 @@ public: // Restart functions
     StructuredGeometryMesh( int64_t, AMP::IO::RestartManager * );
 
 private:
-    uint32_t d_pos_hash;
+    uint32_t d_pos_hash = 0;
     std::shared_ptr<AMP::Geometry::LogicalGeometry> d_geometry2;
 };
 

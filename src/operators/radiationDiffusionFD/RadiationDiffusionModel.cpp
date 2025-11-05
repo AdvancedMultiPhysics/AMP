@@ -72,7 +72,7 @@ double RadDifModel::diffusionCoefficientE( double T, double zatom ) const
         double zByT  = zatom / T;
         double sigma = zByT * zByT * zByT;
         return 1.0 / ( 3.0 * sigma );
-    } else if constexpr ( !IsNonlinear ) {
+    } else {
         return 1.0;
     }
 }

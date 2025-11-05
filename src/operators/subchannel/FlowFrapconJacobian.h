@@ -77,7 +77,7 @@ public:
       */
     void setZLocations( const std::vector<double> &zloc ) { zPoints = zloc; }
 
-    std::vector<double> getZLocations() { return zPoints; }
+    const auto &getZLocations() { return zPoints; }
 
     double getCp() { return Cp; }
 

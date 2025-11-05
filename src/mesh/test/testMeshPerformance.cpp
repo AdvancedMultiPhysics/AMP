@@ -41,7 +41,7 @@ void testMeshGenerators( AMP::UnitTest &ut )
 }
 
 
-void testInputMesh( AMP::UnitTest &ut, std::string filename )
+void testInputMesh( AMP::UnitTest &ut, const std::string &filename )
 {
     PROFILE( "testInputMesh" );
     // Read the input file

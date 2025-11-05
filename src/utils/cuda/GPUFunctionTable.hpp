@@ -135,12 +135,32 @@ void GPUFunctionTable<TYPE>::multiply(
     AMP_ERROR( "not implemented" );
 }
 template<class TYPE>
-void GPUFunctionTable<TYPE>::axpy( TYPE, size_t, const TYPE *, TYPE * )
+void GPUFunctionTable<TYPE>::scale( size_t N, TYPE x, TYPE *y )
 {
     AMP_ERROR( "not implemented" );
 }
 template<class TYPE>
-void GPUFunctionTable<TYPE>::apy( TYPE, size_t, TYPE * )
+void GPUFunctionTable<TYPE>::px( size_t N, TYPE x, TYPE *y )
+{
+    AMP_ERROR( "not implemented" );
+}
+template<class TYPE>
+void GPUFunctionTable<TYPE>::px( size_t N, const TYPE *x, TYPE *y )
+{
+    AMP_ERROR( "not implemented" );
+}
+template<class TYPE>
+void GPUFunctionTable<TYPE>::mx( size_t N, TYPE x, TYPE *y )
+{
+    AMP_ERROR( "not implemented" );
+}
+template<class TYPE>
+void GPUFunctionTable<TYPE>::mx( size_t N, const TYPE *x, TYPE *y )
+{
+    AMP_ERROR( "not implemented" );
+}
+template<class TYPE>
+void GPUFunctionTable<TYPE>::axpy( TYPE, size_t, const TYPE *, TYPE * )
 {
     AMP_ERROR( "not implemented" );
 }

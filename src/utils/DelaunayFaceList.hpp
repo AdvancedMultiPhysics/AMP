@@ -660,7 +660,7 @@ void DelaunayTessellation::FaceList<NDIM>::update_face( const int N,
  ********************************************************************/
 template<int NDIM>
 std::array<int64_t, NDIM>
-DelaunayTessellation::FaceList<NDIM>::calc_surface_normal( const std::array<int, NDIM> x[] )
+DelaunayTessellation::FaceList<NDIM>::calc_surface_normal( const std::array<int, NDIM> *x )
 {
     std::array<int64_t, NDIM> norm;
     if constexpr ( NDIM == 1 ) {
@@ -693,7 +693,7 @@ DelaunayTessellation::FaceList<NDIM>::calc_surface_normal( const std::array<int,
  *   be accurate.  The exact math portion requires N^D precision.    *
  ********************************************************************/
 template<int NDIM>
-bool DelaunayTessellation::FaceList<NDIM>::outside_triangle( const std::array<int, NDIM> x[NDIM],
+bool DelaunayTessellation::FaceList<NDIM>::outside_triangle( const std::array<int, NDIM> *x,
                                                              const std::array<int, NDIM> &xi ) const
 {
     // First compute the normal

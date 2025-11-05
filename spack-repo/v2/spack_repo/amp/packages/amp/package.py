@@ -23,13 +23,14 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("4.0.1", tag="4.0.1", commit="808071edd31ea15e3c92b90e63bf7165e83e0588")
+    version("4.0.1", tag="4.0.1", commit="53e1f9e61334e17f113631cfe705553c77ab02e2")
     version("4.0.0", tag="4.0.0", commit="7ebbcfef5b5c9d36e828a2da2d27e2106499e454")
     version("3.1.0", tag="3.1.0", commit="c8a52e6f3124e43ebce944ee3fae8b9a994c4dbe")
     
     variant("mpi", default=True, description="Build with MPI support")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
+    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
     variant("libmesh", default=False, description="Build with support for libmesh")
@@ -55,7 +56,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("tpl-builder+stacktrace")
     depends_on("tpl-builder+stacktrace+timerutility", when="+timerutility")
 
-    tpl_depends = ["hypre", "kokkos", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc", "trilinos"]
+    tpl_depends = ["hypre", "kokkos", "kokkos-kernels", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc", "trilinos"]
 
     for v in tpl_depends:
         depends_on(f"tpl-builder+{v}", when=f"+{v}")

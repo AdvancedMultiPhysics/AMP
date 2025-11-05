@@ -6,7 +6,7 @@
 #include "ProfilerApp.h"
 
 
-void testInputGeometries( AMP::UnitTest &ut, std::string filename )
+void testInputGeometries( AMP::UnitTest &ut, const std::string &filename )
 {
     PROFILE( "testInputGeometries" );
 

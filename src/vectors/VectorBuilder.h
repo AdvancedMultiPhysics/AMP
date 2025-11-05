@@ -16,15 +16,20 @@
 extern "C" {
 typedef struct _p_Vec *Vec;
 }
+#if defined( AMP_USE_TRILINOS )
 namespace Teuchos {
 template<class TYPE>
 class RCP;
 }
+
+    #if defined( AMP_USE_TRILINOS_THYRA )
 namespace Thyra {
 template<class TYPE>
 class VectorBase;
 }
+    #endif
 
+#endif
 
 namespace AMP::LinearAlgebra {
 
@@ -122,6 +127,7 @@ std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> c
                                             std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
                                             std::shared_ptr<VectorData> p = nullptr );
 
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_THYRA )
 
 /**
  * \brief  Create a vector from an arbitrary Thyra Vector
@@ -135,7 +141,7 @@ std::shared_ptr<Vector> createVector( Teuchos::RCP<Thyra::VectorBase<double>> ve
                                       size_t local,
                                       AMP_MPI comm,
                                       std::shared_ptr<Variable> var = nullptr );
-
+#endif
 
 /** \brief   Create a simple AMP vector
  * \details  This is a factory method to create a simple AMP vector.

@@ -21,10 +21,9 @@ namespace AMP::LinearAlgebra {
  * Constructors / reset                                          *
  ****************************************************************/
 MultiVectorData::MultiVectorData( VectorData *data, const AMP::Discretization::DOFManager *manager )
+    : d_comm( data->getComm() ), d_data( { data } )
 {
     auto multiDOFManager = dynamic_cast<const AMP::Discretization::multiDOFManager *>( manager );
-    d_comm               = data->getComm();
-    d_data               = { data };
     if ( multiDOFManager )
         d_dofMap = multiDOFManager->getMap();
     else

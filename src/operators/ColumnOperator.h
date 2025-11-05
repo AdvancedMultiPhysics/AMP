@@ -81,7 +81,7 @@ public:
 
     std::shared_ptr<Operator> getOperator( size_t i ) { return d_operators[i]; }
 
-    inline auto getOperators() { return d_operators; }
+    inline const auto &getOperators() { return d_operators; }
 
     //! Return an iterator to the beginning of the operators
     inline auto begin() { return d_operators.begin(); }

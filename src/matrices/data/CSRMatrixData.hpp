@@ -17,6 +17,10 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/copycast/CopyCastHelper.h"
 
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
+#endif
+
 #include "ProfilerApp.h"
 
 #include <type_traits>
@@ -416,6 +420,8 @@ void CSRMatrixData<Config>::globalToLocalColumns()
 
     d_diag_matrix->globalToLocalColumns();
     d_offd_matrix->globalToLocalColumns();
+
+    makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 template<typename Config>
@@ -843,6 +849,13 @@ void CSRMatrixData<Config>::setOtherData( std::map<gidx_t, std::map<gidx_t, scal
 template<typename Config>
 void CSRMatrixData<Config>::makeConsistent( AMP::LinearAlgebra::ScatterType t )
 {
+    PROFILE( "CSRMatrixData::makeConsistent" );
+
+#ifdef AMP_USE_DEVICE
+    deviceSynchronize();
+    getLastDeviceError( "CSRMatrixData::makeConsistent" );
+#endif
+
     if ( t == AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD )
         setOtherData( d_other_data, AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     else
@@ -979,7 +992,7 @@ void CSRMatrixData<Config>::writeRestartMapData(
         size_t i = 0;
         for ( const auto &[key, inner_map] : data ) {
             AMP::Array<gidx_t> inner_keys_v( inner_map.size() );
-            AMP::Array<gidx_t> inner_vals_v( inner_map.size() );
+            AMP::Array<scalar_t> inner_vals_v( inner_map.size() );
             size_t j = 0;
             for ( const auto &[inner_key, inner_val] : inner_map ) {
                 inner_keys_v[j] = inner_key;
@@ -1015,7 +1028,7 @@ void CSRMatrixData<Config>::readRestartMapData( const int64_t fid,
         for ( size_t i = 0u; i < keys_v.length(); ++i ) {
             const auto key = keys_v[i];
             AMP::Array<gidx_t> inner_keys_v;
-            AMP::Array<gidx_t> inner_vals_v;
+            AMP::Array<scalar_t> inner_vals_v;
             const auto key_name = prefix + "_keyvector_" + std::to_string( key );
             const auto val_name = prefix + "_valvector_" + std::to_string( key );
             IO::readHDF5( fid, key_name, inner_keys_v );

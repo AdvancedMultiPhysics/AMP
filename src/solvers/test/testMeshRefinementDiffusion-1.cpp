@@ -502,7 +502,7 @@ int main( int argc, char *argv[] )
     std::vector<std::string> exeNames;
     exeNames.emplace_back( "testMeshRefinementDiffusion-1" );
 
-    for ( auto name : exeNames )
+    for ( auto &name : exeNames )
         multiMeshLoop( &ut, name );
 
     ut.report();
