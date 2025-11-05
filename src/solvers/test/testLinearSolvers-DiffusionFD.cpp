@@ -166,10 +166,10 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 */
 int main( int argc, char **argv )
 {
-    PROFILE_ENABLE();
-
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
+
+    PROFILE_ENABLE();
 
     // Create a global communicator
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
