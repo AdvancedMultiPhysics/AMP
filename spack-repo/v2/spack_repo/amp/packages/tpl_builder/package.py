@@ -31,6 +31,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("lapackwrappers", default=False, description="Build with support for lapackwrappers")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
+    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
     variant("mpi", default=False, description="Build with MPI support")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
@@ -74,6 +75,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     requires("+lapack", when="+hypre")
 
     depends_on("kokkos", when="+kokkos")
+    depends_on("kokkos-kernels", when="+kokkos-kernels")
 
     depends_on("blas", when="+lapack")
 
@@ -202,7 +204,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
         for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):
-                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else vname.upper()
+                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else "KOKKOSKERNELS" if vname == "kokkos-kernels" else vname.upper()
                 tpl_list.append(tpl_name)
                 options.append(self.define(f"{tpl_name}_INSTALL_DIR", spec[vname].prefix))
 
