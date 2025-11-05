@@ -278,7 +278,9 @@ IF ( USE_LIBMESH )
 
     IF ( USE_TRILINOS )
         ADD_AMP_TEST( testAMGuniform )
-        ADD_AMP_TEST( testMatrixFreeML )
+        IF ( USE_TRILINOS_ML )
+            ADD_AMP_TEST( testMatrixFreeML )
+        ENDIF()
         ADD_AMP_TEST_1_2_4( testLinearRobinBoundaryOperator-1 )
     ENDIF()
 
