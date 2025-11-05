@@ -17,9 +17,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("2.1.4", tag="2.1.4", commit="64535905290a74dc950e01759d3e9aae1c90476d")
-    version("2.1.3", tag="2.1.3", commit="2c4fe7b60685c8a25f1b2b60dc8062f9f5ed84c9")
-    version("2.1.2", tag="2.1.2", commit="cdb270395e1512da2f18a34a7fa6b60f1bcb790d")
+    version("2.1.2", tag="2.1.2", commit="1a9c083972e13e1f54eda2a0e70dc297342d84e5")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
     variant('cxxstd', default='17', values=('17', '20', '23'), description='Build with support for C++17, 20 or 23')
@@ -29,6 +27,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("lapackwrappers", default=False, description="Build with support for lapackwrappers")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
+    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
     variant("mpi", default=False, description="Build with MPI support")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
@@ -44,8 +43,8 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         description="C++ standard",
     )
 
-    conflicts("cxxstd=20", when="@:2.1.2") #c++ 20 is only compatible with tpl-builder 2.1.3 and up
-    conflicts("cxxstd=23", when="@:2.1.2") #c++ 23 is only compatible with tpl-builder 2.1.3 and up
+    conflicts("cxxstd=20", when="@:2.1.0") #c++ 20 is only compatible with tpl-builder 2.1.2 and up
+    conflicts("cxxstd=23", when="@:2.1.0") #c++ 23 is only compatible with tpl-builder 2.1.2 and up
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
@@ -72,6 +71,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     requires("+lapack", when="+hypre")
 
     depends_on("kokkos", when="+kokkos")
+    depends_on("kokkos-kernels", when="+kokkos-kernels")
 
     depends_on("blas", when="+lapack")
 
@@ -198,9 +198,9 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         if spec.variants["test_gpus"].value != "-1":
             options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))
 
-        for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
+        for vname in ("stacktrace", "hypre", "kokkos", "kokkos-kernels", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):
-                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else vname.upper()
+                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else "KOKKOSKERNELS" if vname == "kokkos-kernels" else vname.upper()
                 tpl_list.append(tpl_name)
                 options.append(self.define(f"{tpl_name}_INSTALL_DIR", spec[vname].prefix))
 
