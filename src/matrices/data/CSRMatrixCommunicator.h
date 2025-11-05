@@ -1,6 +1,7 @@
 #ifndef included_AMP_CSRMatrixCommunicator_h
 #define included_AMP_CSRMatrixCommunicator_h
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/utils/AMP_MPI.h"
