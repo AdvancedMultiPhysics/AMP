@@ -48,10 +48,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     conflicts("cxxstd=20", when="@:2.1.2") #c++ 20 is only compatible with tpl-builder 2.1.3 and up
     conflicts("cxxstd=23", when="@:2.1.2") #c++ 23 is only compatible with tpl-builder 2.1.3 and up
 
-    depends_on("c", type="build")
-    depends_on("cxx", type="build")
-    depends_on("fortran", type="build")
-
     depends_on("git", type="build")
 
     depends_on("stacktrace~shared", when="~shared+stacktrace")
