@@ -29,7 +29,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("lapackwrappers", default=False, description="Build with support for lapackwrappers")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
-    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
+    variant("kokkoskernels", default=False, description="Build with support for KokkosKernels")
     variant("mpi", default=False, description="Build with MPI support")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
@@ -73,7 +73,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     requires("+lapack", when="+hypre")
 
     depends_on("kokkos", when="+kokkos")
-    depends_on("kokkos-kernels", when="+kokkos-kernels")
+    depends_on("kokkoskernels", when="+kokkoskernels")
 
     depends_on("blas", when="+lapack")
 
@@ -200,7 +200,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         if spec.variants["test_gpus"].value != "-1":
             options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))
 
-        for vname in ("stacktrace", "hypre", "kokkos", "kokkos-kernels", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
+        for vname in ("stacktrace", "hypre", "kokkos", "kokkoskernels", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):
                 tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else vname.upper()
                 tpl_list.append(tpl_name)
