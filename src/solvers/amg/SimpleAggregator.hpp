@@ -1,8 +1,8 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/CSRVisit.h"
+#include "AMP/solvers/amg/SimpleAggregator.h"
 #include "AMP/solvers/amg/Strength.hpp"
-#include "AMP/solvers/amg/default/SimpleAggregator.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
 

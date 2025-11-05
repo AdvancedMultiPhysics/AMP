@@ -19,17 +19,36 @@ struct MIS2Aggregator : Aggregator {
     // Necessary overrides from base class
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
 
-    // type specific aggregator
+    // type specific aggregator, dispatches to host/device impls
     template<typename Config>
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A, int *agg_ids );
 
+    // host implementation of aggregator
+    template<typename Config>
+    int assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                                   int *agg_ids );
+
     // classify vertices as in or out of MIS-2
     template<typename Config>
-    int classifyVertices( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
-                          std::vector<typename Config::lidx_t> &wl1,
-                          std::vector<uint64_t> &labels,
-                          const uint64_t num_gbl,
-                          int *agg_ids );
+    int classifyVerticesHost( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
+                              std::vector<typename Config::lidx_t> &wl1,
+                              std::vector<uint64_t> &labels,
+                              const uint64_t num_gbl,
+                              int *agg_ids );
+
+#ifdef AMP_USE_DEVICE
+    template<typename Config>
+    int assignLocalAggregatesDevice( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                                     int *agg_ids );
+    template<typename Config>
+    int classifyVerticesDevice( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
+                                Config::lidx_t *wl1,
+                                Config::lidx_t *wl2,
+                                uint64_t *Tv,
+                                uint64_t *Mv,
+                                const uint64_t num_gbl,
+                                int *agg_ids );
+#endif
 
     // status labels such that IN < UNDECIDED < OUT
     // there is no ordering within the IN set so all are marked 0,

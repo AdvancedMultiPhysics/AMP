@@ -4,11 +4,11 @@
 #include "ProfilerApp.h"
 
 #include "AMP/solvers/amg/Aggregator.hpp"
+#include "AMP/solvers/amg/MIS2Aggregator.hpp"
 #include "AMP/solvers/amg/Relaxation.hpp"
 #include "AMP/solvers/amg/SASolver.h"
+#include "AMP/solvers/amg/SimpleAggregator.hpp"
 #include "AMP/solvers/amg/Stats.h"
-#include "AMP/solvers/amg/default/MIS2Aggregator.hpp"
-#include "AMP/solvers/amg/default/SimpleAggregator.hpp"
 
 namespace AMP::Solver::AMG {
 

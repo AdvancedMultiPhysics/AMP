@@ -48,6 +48,30 @@ std::shared_ptr<data_type[]> sharedArrayWrapper( data_type *raw_array )
 }
 
 template<typename Config>
+std::shared_ptr<typename Config::lidx_t[]>
+CSRLocalMatrixData<Config>::makeLidxArray( const size_t N )
+{
+    lidxAllocator_t alloc;
+    return sharedArrayBuilder<size_t, lidxAllocator_t>( N, alloc );
+}
+
+template<typename Config>
+std::shared_ptr<typename Config::gidx_t[]>
+CSRLocalMatrixData<Config>::makeGidxArray( const size_t N )
+{
+    gidxAllocator_t alloc;
+    return sharedArrayBuilder<size_t, gidxAllocator_t>( N, alloc );
+}
+
+template<typename Config>
+std::shared_ptr<typename Config::scalar_t[]>
+CSRLocalMatrixData<Config>::makeScalarArray( const size_t N )
+{
+    scalarAllocator_t alloc;
+    return sharedArrayBuilder<size_t, scalarAllocator_t>( N, alloc );
+}
+
+template<typename Config>
 CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParametersBase> params,
                                                 AMP::Utilities::MemoryType memory_location,
                                                 typename Config::gidx_t first_row,
@@ -716,10 +740,10 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
 }
 
 template<typename Config>
-void CSRLocalMatrixData<Config>::setNNZ( const std::vector<lidx_t> &nnz )
+void CSRLocalMatrixData<Config>::setNNZ( const lidx_t *nnz )
 {
     // copy passed nnz vector into row_starts and call internal setNNZ
-    AMP::Utilities::Algorithms<lidx_t>::copy_n( nnz.data(), d_num_rows, d_row_starts.get() );
+    AMP::Utilities::Algorithms<lidx_t>::copy_n( nnz, d_num_rows, d_row_starts.get() );
     setNNZ( true );
 }
 

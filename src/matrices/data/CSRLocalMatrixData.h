@@ -181,7 +181,7 @@ public:
     void setNNZ( lidx_t tot_nnz );
 
     //! Set number of nonzeros in each row and allocate space accordingly
-    void setNNZ( const std::vector<lidx_t> &nnz );
+    void setNNZ( const lidx_t *nnz );
 
     //! setNNZ function that references d_row_starts and optionally does scan
     void setNNZ( bool do_accum );
@@ -212,6 +212,12 @@ public:
                     const gidx_t first_col,
                     const gidx_t last_col,
                     const bool is_diag );
+
+    static std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N );
+
+    static std::shared_ptr<gidx_t[]> makeGidxArray( const size_t N );
+
+    static std::shared_ptr<scalar_t[]> makeScalarArray( const size_t N );
 
 public: // Non virtual functions
         //! Get a unique id hash for the vector
