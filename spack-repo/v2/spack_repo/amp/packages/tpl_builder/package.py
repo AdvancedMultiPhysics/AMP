@@ -19,9 +19,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("2.1.4", tag="2.1.4", commit="64535905290a74dc950e01759d3e9aae1c90476d")
-    version("2.1.3", tag="2.1.3", commit="2c4fe7b60685c8a25f1b2b60dc8062f9f5ed84c9")
-    version("2.1.2", tag="2.1.2", commit="cdb270395e1512da2f18a34a7fa6b60f1bcb790d")
+    version("2.1.2", tag="2.1.2", commit="1a9c083972e13e1f54eda2a0e70dc297342d84e5")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
     variant('cxxstd', default='17', values=('17', '20', '23'), description='Build with support for C++17, 20 or 23')
@@ -47,8 +45,8 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         description="C++ standard",
     )
 
-    conflicts("cxxstd=20", when="@:2.1.2") #c++ 20 is only compatible with tpl-builder 2.1.3 and up
-    conflicts("cxxstd=23", when="@:2.1.2") #c++ 23 is only compatible with tpl-builder 2.1.3 and up
+    conflicts("cxxstd=20", when="@:2.1.0") #c++ 20 is only compatible with tpl-builder 2.1.2 and up
+    conflicts("cxxstd=23", when="@:2.1.0") #c++ 23 is only compatible with tpl-builder 2.1.2 and up
 
     depends_on("c", type="build")
     depends_on("cxx", type="build")
