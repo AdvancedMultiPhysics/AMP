@@ -1,6 +1,6 @@
 #include "AMP/solvers/testHelpers/SolverTestParameters.h"
 #include "AMP/solvers/SolverFactory.h"
-#ifdef AMP_USE_TRILINOS_NOX
+#if defined( AMP_USE_TRILINOS_NOX ) && defined( AMP_USE_TRILINOS_THYRA )
     #include "AMP/solvers/trilinos/nox/TrilinosNOXSolverParameters.h"
 #endif
 #include <memory>
