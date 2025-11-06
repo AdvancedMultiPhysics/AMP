@@ -30,23 +30,25 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
 
     d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
-    d_coarsen_settings.min_coarse_local   = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_coarsen_settings.min_coarse         = db->getWithDefault<size_t>( "min_coarse_global", 100 );
-    d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
-    d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
+    d_coarsen_settings.strength_measure =
+        db->getWithDefault<std::string>( "strength_measure", "classical_min" );
+    d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc      = db->getWithDefault<float>( "prol_trunc", 0 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
-        d_aggregator =
-            std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings.strength_threshold );
+        d_aggregator = std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings );
     } else if ( agg_type == "pairwise" ) {
-        d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
+        d_pair_coarsen_settings = d_coarsen_settings;
+        d_pair_coarsen_settings.pairwise_passes =
+            db->getWithDefault<size_t>( "pairwise_passes", 2 );
+        d_pair_coarsen_settings.checkdd = db->getWithDefault<bool>( "checkdd", true );
+        d_aggregator = std::make_shared<PairwiseAggregator>( d_pair_coarsen_settings );
     } else {
-        d_aggregator =
-            std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings.strength_threshold );
+        d_aggregator = std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings );
     }
 
     auto pre_db        = db->getDatabase( "pre_relaxation" );
@@ -136,9 +138,9 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // Chebyshev terms, set to damp over 75% of eigenvalues
+    // Chebyshev terms
     const double pi = static_cast<double>( AMP::Constants::pi );
-    const double a = 0.95, ma = 1.0 - a, pa = 1.0 + a;
+    const double a = 0.98, ma = 1.0 - a, pa = 1.0 + a;
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {

@@ -6,6 +6,8 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
 
+#include "ProfilerApp.h"
+
 #include <cstdint>
 #include <limits>
 #include <numeric>
@@ -31,6 +33,8 @@ int MIS2Aggregator::classifyVertices(
     const uint64_t num_gbl,
     int *agg_ids )
 {
+    PROFILE( "MIS2Aggregator::classifyVertices" );
+
     using lidx_t = typename Config::lidx_t;
 
     // unpack diag block
@@ -62,7 +66,7 @@ int MIS2Aggregator::classifyVertices(
     std::vector<lidx_t> wl2( wl1 );
 
     // now loop until worklists are empty
-    const lidx_t max_iters = 20; // A_nrows;
+    const lidx_t max_iters = 20;
     int num_iters          = 0;
     while ( wl1.size() > 0 ) {
         const auto iter_hash = hash( num_iters );
@@ -94,17 +98,29 @@ int MIS2Aggregator::classifyVertices(
         // mark undecided as IN or OUT if possible and build new worklists
         std::vector<lidx_t> wl1_new;
         for ( const auto n : wl1 ) {
+            const auto rs = Ad_rs[n], re = Ad_rs[n + 1], row_len = re - rs;
+            if ( row_len <= 1 || agg_ids[n] >= 0 ) {
+                AMP_ERROR( "This is impossible right?" );
+                // point is isolated or already aggregated, skip
+                continue;
+            }
+
+            // default to IN and check if conditions hold
             bool mark_out = false, mark_in = true;
-            for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
+            for ( lidx_t k = rs; k < re; ++k ) {
                 const auto c = Ad_cols_loc[k];
                 if ( agg_ids[c] >= 0 ) {
+                    // neighbor is aggregated from previous vertex classification pass
+                    // ignore on this pass
                     continue;
                 }
                 if ( Mv[c] == OUT ) {
                     mark_out = true;
                     break;
                 }
-                mark_in = mark_in && ( Tv[n] == Mv[c] );
+                if ( Mv[c] != Tv[n] ) {
+                    mark_in = false;
+                }
             }
 
             if ( mark_out ) {
@@ -128,20 +144,29 @@ int MIS2Aggregator::classifyVertices(
         }
 
         // swap updated worklists in and loop around
+        const bool wl1_stag = wl1.size() == wl1_new.size();
+        const bool wl2_stag = wl2.size() == wl2_new.size();
         wl1.swap( wl1_new );
         wl2.swap( wl2_new );
 
         ++num_iters;
 
-        AMP::pout << "Classify verts iter " << num_iters << " wl1 size " << wl1.size() << std::endl;
-
         if ( num_iters == max_iters ) {
+            AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
             break;
         }
-    }
 
-    if ( num_iters == max_iters ) {
-        AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
+        if ( wl1_stag && wl2_stag ) {
+            AMP_WARNING( "MIS2Aggregator::classifyVertices worklists stagnated" );
+            AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size()
+                      << std::endl;
+
+            for ( const auto n : wl1 ) {
+                Tv[n] = IN;
+            }
+
+            break;
+        }
     }
 
     return num_iters;
@@ -151,22 +176,35 @@ template<typename Config>
 int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                            int *agg_ids )
 {
-    using lidx_t       = typename Config::lidx_t;
-    using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
-    using matrixdata_t = typename matrix_t::matrixdata_t;
+    PROFILE( "MIS2Aggregator::assignLocalAggregates" );
 
-    // get strength information
-    auto S = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+    using lidx_t            = typename Config::lidx_t;
+    using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
+    using matrixdata_t      = typename matrix_t::matrixdata_t;
+    using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
-    auto A_masked      = A_diag->maskMatrixData( S.diag_mask_data(), true );
+
+    std::shared_ptr<localmatrixdata_t> A_masked;
+    if ( d_strength_measure == "evolution" ) {
+        auto S   = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "classical_abs" ) {
+        auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else {
+        if ( d_strength_measure != "classical_min" ) {
+            AMP_WARN_ONCE( "Unrecognized strength measure, reverting to classical_min" );
+        }
+        auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    }
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
-    // auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_diag->getDataFields();
     auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // initially un-aggregated
@@ -178,16 +216,25 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // label each vertex as in or out of MIS-2
     std::vector<uint64_t> labels( A_nrows, OUT );
 
-    // Classify vertices, first pass considers all rows
-    std::vector<lidx_t> wl1( A_nrows );
-    std::iota( wl1.begin(), wl1.end(), 0 );
-    auto niter = classifyVertices<Config>(
+    // Classify vertices, first pass considers all rows with length >= 2
+    lidx_t num_isolated = 0;
+    std::vector<lidx_t> wl1;
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        const auto rs = Am_rs[row], re = Am_rs[row + 1];
+        if ( re - rs > 1 ) {
+            wl1.push_back( row );
+        } else {
+            num_isolated++;
+        }
+    }
+    classifyVertices<Config>(
         A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
     // initilize aggregates from nodes flagged as in and all of their neighbors
     lidx_t num_agg = 0, num_unagg = A_nrows;
+    double total_agg = 0.0;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( labels[row] == OUT ) {
+        if ( labels[row] != IN ) {
             continue;
         }
         agg_size.push_back( 0 );
@@ -195,41 +242,47 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             agg_ids[Am_cols_loc[c]] = num_agg;
             agg_size[num_agg]++;
             --num_unagg;
+            if ( c > Am_rs[row] ) {
+                AMP_DEBUG_ASSERT( labels[Am_cols_loc[c]] != IN );
+            }
         }
+        total_agg += agg_size[num_agg];
         // increment current id to start working on next aggregate
         ++num_agg;
     }
-    AMP::pout << "First pass found " << num_agg << " aggregates over " << A_nrows << " rows"
-              << std::endl;
 
     // do a second pass of classification and aggregation
     // reset worklist to be all vertices that are not part of an aggregate
-    wl1.resize( num_unagg );
-    lidx_t n = 0;
+    wl1.clear();
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( agg_ids[row] < 0 ) {
-            wl1[n] = row;
-            ++n;
+        const auto rs = Am_rs[row], re = Am_rs[row + 1];
+        if ( agg_ids[row] < 0 && re - rs > 1 ) {
+            wl1.push_back( row );
         }
     }
-    AMP_DEBUG_ASSERT( n == num_unagg );
     AMP::Utilities::Algorithms<uint64_t>::fill_n( labels.data(), A_nrows, OUT );
-    niter += classifyVertices<Config>(
+    classifyVertices<Config>(
         A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
     // on second pass only allow IN vertex to be root of agg if it has
     // at least 2 un-agg nbrs
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( labels[row] == OUT || agg_ids[row] >= 0 ) {
+        if ( labels[row] != IN || agg_ids[row] >= 0 ) {
+            // not a prospective root or already aggregated
+            continue;
+        }
+        if ( Am_rs[row + 1] - Am_rs[row] <= 1 ) {
+            // row is isolated, ignore it
             continue;
         }
         int n_nbrs = 0;
-        for ( lidx_t c = Am_rs[row] + 1; c < Am_rs[row + 1]; ++c ) {
+        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
             if ( agg_ids[Am_cols_loc[c]] < 0 ) {
                 ++n_nbrs;
             }
         }
         if ( n_nbrs < 2 ) {
+            // too small, skip
             continue;
         }
         agg_size.push_back( 0 );
@@ -237,50 +290,78 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             if ( agg_ids[Am_cols_loc[c]] < 0 ) {
                 agg_ids[Am_cols_loc[c]] = num_agg;
                 agg_size[num_agg]++;
+                if ( c > Am_rs[row] ) {
+                    AMP_DEBUG_ASSERT( labels[Am_cols_loc[c]] != IN );
+                }
             }
         }
+        total_agg += agg_size[num_agg];
         // increment current id to start working on next aggregate
         ++num_agg;
     }
-    AMP::pout << "Second pass found " << num_agg << " aggregates over " << A_nrows << " rows"
-              << std::endl;
 
     // Add unmarked entries to the smallest aggregate they are nbrs with
-    // look out for isolated points and add them to their own aggregate if needed
-    bool have_isolated = false;
+    bool grew_agg;
+    do {
+        grew_agg = false;
+        for ( lidx_t row = 0; row < A_nrows; ++row ) {
+            const auto rs = Am_rs[row], re = Am_rs[row + 1];
+            if ( agg_ids[row] >= 0 ) {
+                continue;
+            }
+
+            // find smallest neighboring aggregate
+            lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
+            for ( lidx_t c = rs; c < re; ++c ) {
+                const auto agg = agg_ids[Am_cols_loc[c]];
+                // only consider nbrs that are aggregated
+                if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
+                    small_agg_size = agg_size[agg];
+                    small_agg_id   = agg;
+                }
+            }
+
+            // add to aggregate
+            if ( small_agg_id >= 0 ) {
+                agg_ids[row] = small_agg_id;
+                agg_size[small_agg_id]++;
+                grew_agg = true;
+            }
+        }
+    } while ( grew_agg );
+
+    // check if aggregated points neighbor any isolated points
+    // and add them to their aggregate if so. These mostly come from BCs
+    // where connections might not be symmetric.
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( agg_ids[row] >= 0 ) {
-            // this row already assigned, skip ahead
+        const auto rs = Am_rs[row], re = Am_rs[row + 1];
+        const auto curr_agg = agg_ids[row];
+
+        if ( curr_agg < 0 ) {
             continue;
         }
 
-        // find smallest neighboring aggregate
-        lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t k = Am_rs[row]; k < Am_rs[row + 1]; ++k ) {
-            const auto c  = Am_cols_loc[k];
-            const auto id = agg_ids[c];
-            if ( id >= 0 && ( agg_size[id] < small_agg_size ) ) {
-                small_agg_size = agg_size[id];
-                small_agg_id   = id;
+        for ( lidx_t c = rs; c < re; ++c ) {
+            const auto nid = Am_cols_loc[c];
+            if ( Am_rs[nid + 1] - Am_rs[nid] <= 1 ) {
+                agg_ids[nid] = curr_agg;
+                agg_size[curr_agg]++;
             }
-        }
-
-        if ( small_agg_id >= 0 ) {
-            agg_ids[row] = small_agg_id;
-            agg_size[small_agg_id]++;
-        } else {
-            if ( !have_isolated ) {
-                agg_size.push_back( 0 );
-            }
-            have_isolated = true;
-            agg_ids[row]  = num_agg;
-            agg_size[num_agg]++;
         }
     }
 
-    // account for lumped isolated rows in aggregate count
-    if ( have_isolated ) {
-        ++num_agg;
+    // DEBUG
+    {
+        total_agg          = 0.0;
+        lidx_t largest_agg = 0, smallest_agg = A_nrows;
+        for ( int n = 0; n < num_agg; ++n ) {
+            total_agg += agg_size[n];
+            largest_agg  = largest_agg < agg_size[n] ? agg_size[n] : largest_agg;
+            smallest_agg = smallest_agg > agg_size[n] ? agg_size[n] : smallest_agg;
+        }
+        AMP::pout << "MIS2Aggregator found " << num_agg << " aggregates over " << A_nrows
+                  << " rows, with average size " << total_agg / static_cast<double>( num_agg )
+                  << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl;
     }
 
     return num_agg;
