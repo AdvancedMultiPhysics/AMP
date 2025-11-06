@@ -63,8 +63,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("lapack", when="+lapack")
 
-    depends_on("hypre+mixedint", when="+hypre")
-    requires("+lapack", when="+hypre")
+    depends_on("hypre", when="+hypre")
 
     depends_on("kokkos", when="+kokkos")
     depends_on("kokkos-kernels", when="+kokkos-kernels")
@@ -75,8 +74,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("petsc", when="+petsc")
     depends_on("trilinos", when="+trilinos")
-
-    requires("+lapack", when="+trilinos")
 
     for _flag in list(CudaPackage.cuda_arch_values):
         depends_on(f"hypre cuda_arch={_flag}", when=f"+hypre+cuda cuda_arch={_flag}")

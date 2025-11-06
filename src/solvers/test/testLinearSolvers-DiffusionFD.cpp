@@ -121,10 +121,12 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     AMP_INSIST( solver_db, "A ''LinearSolver'' database must be provided" );
 
     // Get the linear solver for operator myPoissonOp
+    auto t1_setup = std::chrono::high_resolution_clock::now();
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, myPoissonOp );
+    auto t2_setup = std::chrono::high_resolution_clock::now();
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    auto t1_solve = std::chrono::high_resolution_clock::now();
 
     // Use zero initial iterate and apply solver
     // linearSolver->setZeroInitialGuess( true );
@@ -147,11 +149,12 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
     // converged.
     checkConvergence( linearSolver.get(), input_db, input_file, *ut );
 
-    auto t2 = std::chrono::high_resolution_clock::now();
+    auto t2_solve = std::chrono::high_resolution_clock::now();
 
     AMP::pout << std::endl
-              << "DiffusionFD test with " << inputFileName << "  wall time: ("
-              << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;
+              << "DiffusionFD test with " << inputFileName << " setup time: ("
+              << 1e-3 * to_ms( t2_setup - t1_setup ) << "s), solve time: ("
+              << 1e-3 * to_ms( t2_solve - t1_solve ) << " s)" << std::endl;
 }
 // end of driver()
 
