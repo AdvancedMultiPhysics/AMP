@@ -238,7 +238,7 @@ buildSolver( const std::string &solver_name,
     // temporary hack for NOX since this is testing infrastructure
     std::shared_ptr<AMP::Solver::SolverStrategyParameters> parameters;
     if ( type_name == "TrilinosNOXSolver" ) {
-#ifdef AMP_USE_TRILINOS_NOX
+#if defined( AMP_USE_TRILINOS_NOX ) && defined( AMP_USE_TRILINOS_THYRA )
         parameters = std::make_shared<AMP::Solver::TrilinosNOXSolverParameters>( db );
 #else
         AMP_ERROR( "AMP built without support for Trilinos NOX" );
