@@ -60,7 +60,7 @@ responsibility for the use of this software.
 #ifdef AMP_USE_TRILINOS_MUELU
     #include "AMP/solvers/trilinos/muelu/TrilinosMueLuSolver.h"
 #endif
-#ifdef AMP_USE_TRILINOS_NOX
+#if defined( AMP_USE_TRILINOS_NOX ) && defined( AMP_USE_TRILINOS_THYRA )
     #include "AMP/solvers/trilinos/nox/TrilinosNOXSolver.h"
 #endif
 
@@ -98,7 +98,7 @@ void AMP::FactoryStrategy<AMP::Solver::SolverStrategy,
     d_factories["TrilinosMLSolver"] = TrilinosMLSolver::createSolver;
 #endif
 
-#ifdef AMP_USE_TRILINOS_NOX
+#if defined( AMP_USE_TRILINOS_NOX ) && defined( AMP_USE_TRILINOS_THYRA )
     d_factories["TrilinosNOXSolver"] = TrilinosNOXSolver::createSolver;
 #endif
 
