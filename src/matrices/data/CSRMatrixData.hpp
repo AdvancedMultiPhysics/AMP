@@ -42,7 +42,7 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
     : MatrixData( params ),
       d_memory_location( AMP::Utilities::getAllocatorMemoryType<allocator_type>() )
 {
-    PROFILE( "CSRMatrixData::CSRMatrixData" );
+    PROFILE( "CSRMatrixData::constructor" );
 
     AMPManager::incrementResource( "CSRMatrixData" );
 

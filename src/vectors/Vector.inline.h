@@ -98,6 +98,7 @@ TYPE Vector::getLocalValueByGlobalID( size_t i ) const
 template<typename TYPE>
 TYPE Vector::getGhostValueByGlobalID( size_t i ) const
 {
+    PROFILE( "Vector::getGhostValueByGlobalID" );
     TYPE ans;
     getGhostValuesByGlobalID( 1, &i, &ans );
     return ans;
