@@ -4,18 +4,10 @@
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/operators/Operator.h"
+#include "AMP/solvers/amg/AggregationSettings.h"
 #include "AMP/solvers/amg/Aggregator.h"
 
 namespace AMP::Solver::AMG {
-struct CoarsenSettings {
-    float strength_threshold;
-    int min_coarse_local;
-    size_t min_coarse;
-};
-struct PairwiseCoarsenSettings : CoarsenSettings {
-    size_t pairwise_passes;
-    bool checkdd;
-};
 
 using coarse_ops_type = std::tuple<std::shared_ptr<AMP::Operator::Operator>,
                                    std::shared_ptr<AMP::Operator::LinearOperator>,
@@ -29,7 +21,7 @@ coarse_ops_type aggregator_coarsen( std::shared_ptr<AMP::Operator::Operator> fin
 
 struct PairwiseAggregator : Aggregator {
     PairwiseAggregator( const PairwiseCoarsenSettings &settings )
-        : Aggregator( settings.strength_threshold ), d_settings( settings )
+        : Aggregator( settings ), d_settings( settings )
     {
     }
 

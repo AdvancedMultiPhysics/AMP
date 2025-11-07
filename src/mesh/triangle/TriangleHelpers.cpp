@@ -327,47 +327,26 @@ static inline std::array<int, 3> getFace( const std::array<int, 4> &tri, size_t 
     return { tri[( i + 1 ) % 4], tri[( i + 2 ) % 4], tri[( i + 3 ) % 4] };
 }
 template<size_t NG>
-static void addFaces( const std::array<int, NG + 1> &tri,
-                      int64_t index,
-                      std::vector<std::pair<uint64_t, int64_t>> &faces )
+static void addFaces( const std::array<int, NG + 1> &tri, std::set<uint64_t> &faces )
 {
     for ( size_t i = 0; i <= NG; i++ ) {
-        // Get each face of the triangle
         auto face = getFace( tri, i );
         auto id1  = hash<NG, true>( face );
-        // Reverse the order
-        std::reverse( face.begin(), face.end() );
-        auto id2   = hash<NG, true>( face );
-        bool found = false;
-        size_t k   = 0;
-        for ( size_t j = 0; j < faces.size(); j++ ) {
-            if ( faces[j].first == id1 )
-                found = true;
-            else
-                faces[k++] = faces[j];
+        auto it   = faces.find( id1 );
+        if ( it != faces.end() ) {
+            faces.erase( it );
+        } else {
+            std::reverse( face.begin(), face.end() );
+            auto id2 = hash<NG, true>( face );
+            faces.insert( id2 );
         }
-        faces.resize( k );
-        if ( !found ) {
-            // Face does not exist, add it
-            int64_t tmp = ( index << 4 ) + i;
-            faces.push_back( std::make_pair( id2, tmp ) );
-        }
-    }
-}
-template<class TYPE>
-static inline void erase( TYPE &faceMap, int64_t i )
-{
-    for ( auto it = faceMap.begin(); it != faceMap.end(); ) {
-        if ( it->second >> 4 == i )
-            it = faceMap.erase( it );
-        else
-            ++it;
     }
 }
 template<size_t NG>
 static std::vector<std::array<int, NG + 1>>
 removeSubDomain( std::vector<std::array<int, NG + 1>> &tri )
 {
+    PROFILE( "removeSubDomain" );
     // For each triangle get a hash id for each face
     std::multimap<uint64_t, int64_t> faceMap;
     for ( size_t i = 0, k = 0; i < tri.size(); i++ ) {
@@ -402,25 +381,25 @@ removeSubDomain( std::vector<std::array<int, NG + 1>> &tri )
     // Add the initial triangle store the edges
     std::vector<bool> used( tri.size(), false );
     std::vector<std::array<int, NG + 1>> tri2;
-    std::vector<std::pair<uint64_t, int64_t>> faces;
+    std::set<uint64_t> faces;
     used[i0] = true;
     tri2.push_back( tri[i0] );
-    addFaces<NG>( tri[i0], i0, faces );
-    erase( faceMap, i0 );
+    addFaces<NG>( tri[i0], faces );
     // Add triangles until all faces have been filled
     while ( !faces.empty() ) {
         bool found = false;
-        for ( size_t i = 0; i < faces.size(); i++ ) {
-            int Nf = faceMap.count( faces[i].first );
+        for ( auto id : faces ) {
+            int Nf = faceMap.count( id );
             AMP_ASSERT( Nf > 0 );
             if ( Nf == 1 ) {
                 // We are dealing with a unique match, add the triangle
-                auto it = faceMap.find( faces[i].first );
+                auto it = faceMap.find( id );
                 int j   = it->second >> 4;
+                if ( used[j] )
+                    continue;
                 used[j] = true;
                 tri2.push_back( tri[j] );
-                addFaces<NG>( tri[j], j, faces );
-                erase( faceMap, j );
+                addFaces<NG>( tri[j], faces );
                 found = true;
                 break;
             }
@@ -457,18 +436,13 @@ template<size_t NG>
 std::vector<std::vector<std::array<int, NG + 1>>>
 splitDomains( std::vector<std::array<int, NG + 1>> tri )
 {
+    static_assert( NG != 1, "Splitting 1D is not supported" );
     PROFILE( "splitDomains" );
     std::vector<std::vector<std::array<int, NG + 1>>> tri_sets;
     while ( !tri.empty() ) {
         tri_sets.emplace_back( removeSubDomain<NG>( tri ) );
     }
     return tri_sets;
-}
-template<>
-std::vector<std::vector<std::array<int, 2>>> splitDomains<1>( std::vector<std::array<int, 2>> )
-{
-    AMP_ERROR( "1D splitting of domains is not supported" );
-    return std::vector<std::vector<std::array<int, 2>>>();
 }
 
 

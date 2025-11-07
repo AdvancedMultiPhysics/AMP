@@ -30,18 +30,30 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
 {
     PROFILE( "SimpleAggregator::assignLocalAggregates" );
 
-    using lidx_t       = typename Config::lidx_t;
-    using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
-    using matrixdata_t = typename matrix_t::matrixdata_t;
-
-    // get strength information
-    auto S = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+    using lidx_t            = typename Config::lidx_t;
+    using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
+    using matrixdata_t      = typename matrix_t::matrixdata_t;
+    using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
-    auto A_masked      = A_diag->maskMatrixData( S.diag_mask_data(), true );
+
+    std::shared_ptr<localmatrixdata_t> A_masked;
+    if ( d_strength_measure == "evolution" ) {
+        auto S   = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "classical_abs" ) {
+        auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else {
+        if ( d_strength_measure != "classical_min" ) {
+            AMP_WARN_ONCE( "Unrecognized strength measure, reverting to classical_min" );
+        }
+        auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    }
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
@@ -58,8 +70,6 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
 
     // first pass initilizes aggregates from nodes that have no
     // neighbors that are already associated
-    // NOTE: there are several loops through the entries in a row
-    //       that could be collapsed into a single loop
     int num_agg = 0;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         const auto rs = Am_rs[row], re = Am_rs[row + 1], row_len = re - rs;
@@ -70,18 +80,19 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
         }
 
         // mark single entry or empty rows as isolated and do not aggregate
-        if ( row_len == 1 || row_len == 0 ) {
+        if ( row_len <= 1 ) {
             AMP_DEBUG_ASSERT( isolated_pts[row] == 0 ); // should be undecided if not agg'd
             isolated_pts[row] = 1;
             continue;
         }
 
         // Check if any members of this row are already associated and skip if so.
-        bool have_nbr = false;
+        bool have_nbrs = true;
         for ( lidx_t c = rs + 1; c < re; ++c ) {
-            have_nbr = have_nbr || agg_ids[Am_cols_loc[c]] < 0;
+            const auto nid = Am_cols_loc[c];
+            have_nbrs      = have_nbrs && agg_ids[nid] < 0;
         }
-        if ( !have_nbr ) {
+        if ( !have_nbrs ) {
             // does not have all nbrs available for aggregation, skip
             continue;
         }
@@ -93,58 +104,82 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
             agg_ids[col_idx]   = num_agg;
             agg_size[num_agg]++;
             // steal any isolated points that can be lumped into this aggregate
-            isolated_pts[col_idx] = -1;
+            isolated_pts[col_idx] = 0;
         }
 
         // increment current id to start working on next aggregate
         ++num_agg;
     }
 
-    // second pass adds unmarked entries to the smallest aggregate they are nbrs with
-    // entries are unmarked because they neighbored some aggregate in the above or are
-    // isolated. Add entries to the smallest aggregate they neighbor and track if
-    // any remain isolated
-    bool have_isolated = false;
+    // Second pass, add unaggregated points to the smallest aggregate
+    // that they neighbor. Does nothing to isolated points
+    bool grew_agg;
+    do {
+        grew_agg = false;
+        for ( lidx_t row = 0; row < A_nrows; ++row ) {
+            const auto rs = Am_rs[row], re = Am_rs[row + 1];
+            if ( agg_ids[row] >= 0 ) {
+                continue;
+            }
+
+            // find smallest neighboring aggregate
+            lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
+            for ( lidx_t c = rs; c < re; ++c ) {
+                const auto agg = agg_ids[Am_cols_loc[c]];
+                // only consider nbrs that are aggregated
+                if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
+                    small_agg_size = agg_size[agg];
+                    small_agg_id   = agg;
+                }
+            }
+
+            // add to aggregate
+            if ( small_agg_id >= 0 ) {
+                agg_ids[row] = small_agg_id;
+                agg_size[small_agg_id]++;
+                // steal if isolated
+                isolated_pts[row] = 0;
+                grew_agg          = true;
+            }
+        }
+    } while ( grew_agg );
+
+#if 0
+    // Third pass, check if aggregated points neighbor any isolated points
+    // and add them to their aggregate if so. These mostly come from BCs
+    // where connections might not be symmetric.
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( agg_ids[row] >= 0 ) {
-            // this row already assigned, skip
+        const auto rs = Am_rs[row], re = Am_rs[row + 1];
+        const auto curr_agg = agg_ids[row];
+
+        if ( curr_agg < 0 ) {
             continue;
         }
 
-        // find smallest neighboring aggregate
-        lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
-            const auto id = agg_ids[Am_cols_loc[c]];
-            // only consider nbrs that are aggregated
-            if ( id >= 0 && ( agg_size[id] < small_agg_size ) ) {
-                small_agg_size = agg_size[id];
-                small_agg_id   = id;
+        for ( lidx_t c = rs; c < re; ++c ) {
+            const auto nid = Am_cols_loc[c];
+            if ( isolated_pts[nid] == 1 ) {
+                agg_ids[nid] = curr_agg;
+                agg_size[curr_agg]++;
+                isolated_pts[nid] = 0;
             }
-        }
-
-        // add to aggregate
-        if ( small_agg_id >= 0 ) {
-            agg_ids[row] = small_agg_id;
-            agg_size[small_agg_id]++;
-            // steal if isolated
-            isolated_pts[row] = -1;
-        } else {
-            // no neighbor found, this must be an isolated point
-            AMP_DEBUG_ASSERT( isolated_pts[row] == 1 );
-            isolated_pts[row] = 1;
-            if ( !have_isolated ) {
-                agg_size.push_back( 0 );
-            }
-            have_isolated = true;
-            agg_ids[row]  = num_agg;
-            agg_size[num_agg]++;
         }
     }
 
-    // account for lumped isolated rows in aggregate count
-    if ( have_isolated ) {
-        ++num_agg;
+    // DEBUG
+    {
+        double total_agg   = 0.0;
+        lidx_t largest_agg = 0, smallest_agg = A_nrows;
+        for ( int n = 0; n < num_agg; ++n ) {
+            total_agg += agg_size[n];
+            largest_agg  = largest_agg < agg_size[n] ? agg_size[n] : largest_agg;
+            smallest_agg = smallest_agg > agg_size[n] ? agg_size[n] : smallest_agg;
+        }
+        AMP::pout << "SimpleAggregator found " << num_agg << " aggregates over " << A_nrows
+                  << " rows, with average size " << total_agg / static_cast<double>( num_agg )
+                  << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl;
     }
+#endif
 
     return num_agg;
 }

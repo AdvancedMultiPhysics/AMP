@@ -46,10 +46,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     conflicts("cxxstd=20", when="@:2.1.0") #c++ 20 is only compatible with tpl-builder 2.1.2 and up
     conflicts("cxxstd=23", when="@:2.1.0") #c++ 23 is only compatible with tpl-builder 2.1.2 and up
 
-    depends_on("c", type="build")
-    depends_on("cxx", type="build")
-    depends_on("fortran", type="build")
-
     depends_on("git", type="build")
 
     depends_on("stacktrace~shared", when="~shared+stacktrace")
@@ -67,8 +63,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("lapack", when="+lapack")
 
-    depends_on("hypre+mixedint", when="+hypre")
-    requires("+lapack", when="+hypre")
+    depends_on("hypre", when="+hypre")
 
     depends_on("kokkos", when="+kokkos")
     depends_on("kokkos-kernels", when="+kokkos-kernels")
@@ -79,8 +74,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("petsc", when="+petsc")
     depends_on("trilinos", when="+trilinos")
-
-    requires("+lapack", when="+trilinos")
 
     for _flag in list(CudaPackage.cuda_arch_values):
         depends_on(f"hypre cuda_arch={_flag}", when=f"+hypre+cuda cuda_arch={_flag}")
@@ -129,7 +122,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define('CMAKE_C_COMPILER',   spack_cc),
             self.define('CMAKE_CXX_COMPILER', spack_cxx),
             self.define('CMAKE_Fortran_COMPILER', spack_fc),
-            self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd")
         ]
 
 
@@ -192,8 +184,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     self.define("LAPACK_LIBRARY_DIRS", ";".join(lapack.directories)),
                 ]
             )
-        if spec.satisfies("+trilinos"):
-            options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Xpetra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
 
         if spec.variants["test_gpus"].value != "-1":
             options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))
