@@ -70,6 +70,7 @@ Writer::WriterProperties HDF5writer::getProperties() const
 #else
     properties.enabled = false;
 #endif
+    properties.isNull = false;
     return properties;
 }
 
