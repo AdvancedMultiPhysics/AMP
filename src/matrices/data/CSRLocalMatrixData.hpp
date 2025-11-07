@@ -68,6 +68,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
       d_hash( hash )
 {
     AMPManager::incrementResource( "CSRLocalMatrixData" );
+    PROFILE( "CSRLocalMatrixData::constructor" );
 
     // Figure out what kind of parameters object we have
     // Note: matParams always true if ampCSRParams is by inheritance
@@ -188,7 +189,31 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
 }
 
 template<typename Config>
+size_t *CSRLocalMatrixData<Config>::getColumnMapSizeT() const
+{
+    if ( d_is_diag ) {
+        return nullptr;
+    }
+    if ( !d_cols_unq_size_t ) {
+        d_cols_unq_size_t = sharedArrayBuilder( d_ncols_unq, d_sizetAllocator );
+        AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), d_cols_unq_size_t.get() );
+    }
+    return d_cols_unq_size_t.get();
+}
 
+template<typename Config>
+typename Config::scalar_t *CSRLocalMatrixData<Config>::getGhostCache() const
+{
+    if ( d_is_diag ) {
+        return nullptr;
+    }
+    if ( !d_ghost_cache ) {
+        d_ghost_cache = sharedArrayBuilder( d_ncols_unq, d_scalarAllocator );
+    }
+    return d_ghost_cache.get();
+}
+
+template<typename Config>
 std::string CSRLocalMatrixData<Config>::type() const
 {
     std::string tname = "CSRLocalMatrixData<";

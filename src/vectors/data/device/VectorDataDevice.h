@@ -119,6 +119,7 @@ public: // Write/read restart data
 
 private:
     void setScratchSpace( size_t N ) const;
+    void setMapScratchSpace( size_t N ) const;
     std::tuple<bool, size_t *, void *> copyToScratchSpace( size_t num,
                                                            const size_t *indices_,
                                                            const void *vals_,
@@ -127,9 +128,10 @@ private:
     mutable idxAllocator_t d_idx_alloc;
     mutable scalarAllocator_t d_scalar_alloc;
 
-    mutable size_t d_scratchSize   = 0;
-    mutable size_t *d_idx_scratch  = nullptr;
-    mutable TYPE *d_scalar_scratch = nullptr;
+    mutable size_t d_scratchSize      = 0;
+    mutable size_t *d_idx_req_scratch = nullptr;
+    mutable size_t *d_idx_map_scratch = nullptr;
+    mutable TYPE *d_scalar_scratch    = nullptr;
 };
 
 
