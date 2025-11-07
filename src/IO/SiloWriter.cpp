@@ -43,6 +43,7 @@ Writer::WriterProperties SiloIO::getProperties() const
 #else
     properties.enabled = false;
 #endif
+    properties.isNull = false;
     return properties;
 }
 
