@@ -216,8 +216,9 @@ void testWriterMesh( AMP::UnitTest &ut,
     PROFILE2( "testWriterMesh-" + writerName );
 
     // Create the writer and get it's properties
-    auto writer     = AMP::IO::Writer::buildWriter( writerName, AMP_COMM_WORLD );
-    auto properties = writer->getProperties();
+    auto writer      = AMP::IO::Writer::buildWriter( writerName, AMP_COMM_WORLD );
+    auto properties  = writer->getProperties();
+    using VectorType = AMP::IO::Writer::VectorType;
 
     // Check that we have valid work to do
     if ( !properties.registerMesh ) {
@@ -282,11 +283,11 @@ void testWriterMesh( AMP::UnitTest &ut,
     if ( surface )
         writer->registerMesh( surface, level );
     if ( properties.registerVectorWithMesh ) {
-        writer->registerVector( meshID_vec, mesh, pointType, "MeshID" );
-        writer->registerVector( block_vec, mesh, volumeType, "BlockID" );
-        writer->registerVector( rank_vec, mesh, pointType, "rank" );
-        writer->registerVector( position, mesh, pointType, "position" );
-        writer->registerVector( gauss_pt, mesh, volumeType, "gauss_pnt" );
+        writer->registerVector( meshID_vec, mesh, pointType, "MeshID", VectorType::INT );
+        writer->registerVector( block_vec, mesh, volumeType, "BlockID", VectorType::INT, true );
+        writer->registerVector( rank_vec, mesh, pointType, "rank", VectorType::INT, true );
+        writer->registerVector( position, mesh, pointType, "position", VectorType::DOUBLE );
+        writer->registerVector( gauss_pt, mesh, volumeType, "gauss_pnt", VectorType::SINGLE );
         if ( surface )
             writer->registerVector( x_surface, surface, pointType, "x_surface" );
     }
@@ -315,7 +316,8 @@ void testWriterMesh( AMP::UnitTest &ut,
                     surfaceMesh, surfaceType, 0, 1, true );
                 auto id_vec = AMP::LinearAlgebra::createVector( DOF_surface, id_var, true );
                 if ( properties.registerVectorWithMesh )
-                    writer->registerVector( id_vec, surfaceMesh, surfaceType, "surface_ids" );
+                    writer->registerVector(
+                        id_vec, surfaceMesh, surfaceType, "surface_ids", VectorType::INT );
                 id_vec->setToScalar( -1 );
                 std::vector<size_t> dofs;
                 for ( auto &id : surfaceMesh->getBoundaryIDs() ) {
