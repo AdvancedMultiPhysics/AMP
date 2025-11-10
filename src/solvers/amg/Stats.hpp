@@ -179,7 +179,7 @@ void print_summary( std::string amg_name,
                              types.push_back( ( i < ml.size() - 1 ) ? amg_name : cg_solver.type() );
                          return types;
                      }(),
-                     []( std::string val ) { return val; } };
+                     []( const std::string &val ) { return val; } };
 
     auto maxmin_repr = []( const std::pair<size_t, size_t> &mm ) {
         std::stringstream ss;

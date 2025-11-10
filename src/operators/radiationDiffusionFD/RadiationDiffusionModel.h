@@ -76,11 +76,11 @@ protected:
 
     //! Constants in boundary conditions from incoming db. The constant for a given boundaryID is in
     //! index boundaryID-1
-    std::array<double, 6> d_ak;
-    std::array<double, 6> d_bk;
+    std::array<double, 6> d_ak{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    std::array<double, 6> d_bk{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     //! Atomic number; assumed constant
-    double d_zatom;
+    double d_zatom = 1.0;
 
     //! The current time of the solution.
     double d_currentTime = 0.0;
