@@ -1,6 +1,7 @@
 #ifndef included_AMP_Writer
 #define included_AMP_Writer
 
+#include "AMP/mesh/MeshID.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Database.h"
@@ -13,10 +14,8 @@
 // Declare some classes
 namespace AMP::Mesh {
 class Mesh;
-struct MeshID;
 class MeshIterator;
 struct MeshElementID;
-enum class GeomType : uint8_t;
 } // namespace AMP::Mesh
 namespace AMP::LinearAlgebra {
 class Vector;
@@ -48,19 +47,21 @@ public:
         bool isNull;                 // Is the current writer a null writer
         WriterProperties();
     };
+    enum class VectorType : uint8_t { DOUBLE, SINGLE, INT };
+
 
 public:
     /**
      * \brief   Function to build a writer
      * \details This function will build a default writer for use.
-     * \param type   Writer type:
-     *               "None"  - An empty writer will be created
-     *               "Silo"  - A silo writer will be created if silo is configured,
-     *                        otherwise an empty writer will be created.
-     *               "Ascii" - A simple ascii writer
-     *               "HDF5"  - A simple HDF5 writer
-     *               "auto"  - Choose the writer based on the comm size and compiled packages
-     * \param comm   Communicator to use
+     * \param[in] type  Writer type:
+     *                  "None"  - An empty writer will be created
+     *                  "Silo"  - A silo writer will be created if silo is configured,
+     *                            otherwise an empty writer will be created.
+     *                  "Ascii" - A simple ascii writer
+     *                  "HDF5"  - A simple HDF5 writer
+     *                  "auto"  - Choose the writer based on the comm size and compiled packages
+     * \param[in] comm  Communicator to use
      */
     static std::shared_ptr<AMP::IO::Writer> buildWriter( std::string type,
                                                          AMP_MPI comm = AMP_COMM_WORLD );
@@ -68,7 +69,7 @@ public:
     /**
      * \brief   Function to build a writer
      * \details This function will build a default writer for use.
-     * \param db   Input database for the writer
+     * \param[in] db    Input database for the writer
      */
     static std::shared_ptr<AMP::IO::Writer> buildWriter( std::shared_ptr<AMP::Database> db );
 
@@ -94,7 +95,7 @@ public:
      * \details This function will set the method used for file IO.  When writing files,
      *    there are different decompositions that affect the performance and usability
      *    of the output files.  By default, this writer will generate a single file.
-     * \param decomposition   Decomposition method to use:
+     * \param[in] decomposition   Decomposition method to use:
      *             1:  This will write all of the data to a single file.
      *                 Note that this requires a serial write and will have the worst performance
      *             2:  Each processor will write a separate file and a separate
@@ -113,14 +114,14 @@ public:
      * \brief    Function to register a mesh
      * \details  This function will register a mesh with the writer.
      *           Note: if mesh is a MultiMesh, it will register all sub meshes.
-     * \param mesh  The mesh to register
-     * \param level How many sub meshes do we want?
-     *              0: Only register the local base meshes (advanced users only)
-     *              1: Register current mesh only (default)
-     *              2: Register all meshes (do not separate for the ranks)
-     *              3: Register all mesh pieces including the individual ranks
+     * \param[in] mesh  The mesh to register
+     * \param[in] level How many sub meshes do we want?
+     *                  0: Only register the local base meshes (advanced users only)
+     *                  1: Register current mesh only (default)
+     *                  2: Register all meshes (do not separate for the ranks)
+     *                  3: Register all mesh pieces including the individual ranks
 
-     * \param path  The directory path for the mesh.  Default is an empty string.
+     * \param[in] path  The directory path for the mesh.  Default is an empty string.
      */
     void registerMesh( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                        int level               = 1,
@@ -133,28 +134,33 @@ public:
      *     This version of registerVector allows the data to be "stored" on the mesh for
      * visualization
      *     or mesh-based operations.
-     * \param vec   The vector we want to write
-     * \param mesh  The mesh we want to write the vector over.
-     *              Note: any writers require the vector to completely cover the mesh.
-     *              Note: mesh does not have to be previously registered with registerMesh.
-     * \param type  The entity type we want to save (vertex, face, cell, etc.)
-     *              Note: some writers only supports writing one entity type.
-     *              If the vector spans multiple entity type (eg cell+vertex)  the user should
-     *              register the vector multiple times (one for each entity type).
-     * \param name  Optional name for the vector.
+     * \param[in] vec   The vector we want to write
+     * \param[in] mesh  The mesh we want to write the vector over.
+     *                  Note: any writers require the vector to completely cover the mesh.
+     *                  Note: mesh does not have to be previously registered with registerMesh.
+     * \param[in] type  The entity type we want to save (vertex, face, cell, etc.)
+     *                  Note: some writers only supports writing one entity type.
+     *                  If the vector spans multiple entity type (eg cell+vertex)  the user should
+     *                  register the vector multiple times (one for each entity type).
+     * \param[in] name  Optional name for the vector.
+     * \param[in] precision  Desired precision in output file.
+     *                       Note: not all types are supported by all writers.
+     * \param[in] isStatic   Is the vectors static (constant vs time)
      */
     virtual void registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                                  std::shared_ptr<AMP::Mesh::Mesh> mesh,
                                  AMP::Mesh::GeomType type,
-                                 const std::string &name = "" );
+                                 const std::string &name = "",
+                                 VectorType precision    = VectorType::DOUBLE,
+                                 bool isStatic           = false );
 
     /**
      * \brief    Function to register a vector
      * \details  This function will register a vector with the writer.
      *     This version of registerVector only stores the raw data.
      *     It is not associated with a mesh.
-     * \param vec   The vector we want to write
-     * \param name  Optional name for the vector.
+     * \param[in] vec   The vector we want to write
+     * \param[in] name  Optional name for the vector.
      */
     void registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                          const std::string &name = "" );
@@ -164,13 +170,13 @@ public:
      * \details  This function will register a matrix with the writer.
      *     This version of registerMatrix only stores the raw data..
      *     It is not associated with a mesh.
-     * \param mat   The matrix we want to write
-     * \param name  Optional name for the vector.
+     * \param[in] mat   The matrix we want to write
+     * \param[in] name  Optional name for the vector.
      */
     void registerMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> mat,
                          const std::string &name = "" );
 
-protected: // Protected structures
+protected: // Internal structures
     // Structure to hold id
     struct GlobalID {
         uint64_t objID;     // Object id
@@ -212,12 +218,15 @@ protected: // Protected structures
     };
 
     // Structure to hold vector data
+    using GeomType = AMP::Mesh::GeomType;
     struct VectorData {
+        bool isStatic       = false;                     // Is the variable static vs time
+        VectorType dataType = VectorType::DOUBLE;        // Desired precision (if supported)
+        uint8_t numDOFs     = 0;                         // Number of unknowns per point
+        GeomType type       = GeomType::Nullity;         // Types of variables
         std::string name;                                // Vector name to store
-        int numDOFs;                                     // Number of unknowns per point
         std::shared_ptr<AMP::LinearAlgebra::Vector> vec; // AMP vector
-        AMP::Mesh::GeomType type;                        // Types of variables
-        VectorData() : numDOFs( 0 ), type( static_cast<AMP::Mesh::GeomType>( 0xFF ) ) {}
+        VectorData() = default;
         VectorData( std::shared_ptr<AMP::LinearAlgebra::Vector>, const std::string & );
     };
 

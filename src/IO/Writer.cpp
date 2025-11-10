@@ -89,7 +89,12 @@ Writer::WriterProperties::WriterProperties()
  ************************************************************/
 Writer::VectorData::VectorData( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_,
                                 const std::string &name_ )
-    : name( name_ ), numDOFs( 0 ), vec( vec_ ), type( static_cast<AMP::Mesh::GeomType>( 0xFF ) )
+    : isStatic( false ),
+      dataType( VectorType::DOUBLE ),
+      numDOFs( 0 ),
+      type( static_cast<AMP::Mesh::GeomType>( 0xFF ) ),
+      name( name_ ),
+      vec( vec_ )
 {
     if ( !vec )
         return;
@@ -316,7 +321,9 @@ static int getDOFsPerPoint( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
 void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                              std::shared_ptr<AMP::Mesh::Mesh> mesh,
                              AMP::Mesh::GeomType type,
-                             const std::string &name_in )
+                             const std::string &name_in,
+                             VectorType precision,
+                             bool isStatic )
 {
     // Return if the vector or mesh is empty
     if ( !vec || !mesh )
@@ -345,8 +352,10 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                 auto vec2 = vec->selectInto( meshSelector );
                 if ( vec2 ) {
                     VectorData data( vec2, name_in );
-                    data.type    = type;
-                    data.numDOFs = getDOFsPerPoint( vec2, mesh2.mesh, type );
+                    data.type     = type;
+                    data.numDOFs  = getDOFsPerPoint( vec2, mesh2.mesh, type );
+                    data.isStatic = isStatic;
+                    data.dataType = precision;
                     mesh2.vectors.push_back( data );
                 }
             }
