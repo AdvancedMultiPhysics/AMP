@@ -224,7 +224,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         if ( re - rs > 1 ) {
             wl1.push_back( row );
         } else {
-            num_isolated++;
+            ++num_isolated;
         }
     }
     classifyVertices<Config>(
