@@ -124,6 +124,7 @@ void VectorData::addValuesByLocalID( size_t N, const size_t *ndx, const TYPE *va
 template<typename TYPE>
 void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ ) const
 {
+    PROFILE( "VectorData::getValuesByGlobalID" );
     auto ndx           = ndx_;
     auto vals          = vals_;
     bool allocate_ndx  = false;
@@ -295,6 +296,7 @@ void VectorData::addGhostValuesByGlobalID( size_t N, const size_t *ndx, const TY
 template<typename TYPE>
 void VectorData::getGhostValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
+    PROFILE( "VectorData::getGhostValuesByGlobalID" );
     constexpr auto type = getTypeID<TYPE>();
     getGhostValuesByGlobalID( N, ndx, vals, type );
 }

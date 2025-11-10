@@ -58,23 +58,20 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsDefault::mult (ghost)" );
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        std::vector<scalar_t> ghosts( nGhosts );
+        auto ghosts        = offdMatrix->getGhostCache();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             auto colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            // type mismatch, need to copy/cast into temporary vector
-            AMP_WARN_ONCE(
-                "CSRMatrixOperationsDefault::mult: Deep copy/cast of column map required" );
-            std::vector<size_t> colMap;
-            offdMatrix->getColumnMap( colMap );
-            in->getGhostValuesByGlobalID( nGhosts, colMap.data(), ghosts.data() );
+            // Fall back to forcing a copy-cast inside matrix data
+            auto colMap = offdMatrix->getColumnMapSizeT();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         }
-        d_localops_offd->mult( ghosts.data(), offdMatrix, outDataBlock );
+        d_localops_offd->mult( ghosts, offdMatrix, outDataBlock );
     }
 }
 
