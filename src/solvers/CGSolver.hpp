@@ -243,9 +243,11 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
 
         alpha = rho_1 / gamma;
 
-        u->axpy( alpha, *d_p, *u );
-        d_r->axpy( -alpha, *d_w, *d_r );
-
+        {
+            PROFILE( "CGSolver<T>:: alpha*p + u" );
+            u->axpy( alpha, *d_p, *u );
+            d_r->axpy( -alpha, *d_w, *d_r );
+        }
         {
             PROFILE( "CGSolver<T>:: r->L2Norm" );
             // compute the current residual norm

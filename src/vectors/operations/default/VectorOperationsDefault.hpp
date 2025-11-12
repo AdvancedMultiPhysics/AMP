@@ -33,8 +33,9 @@ static bool allDefaultDataType( const VectorData &x, const VectorData &y )
     const auto ytype               = y.VectorDataName();
     const std::string_view xtype_s = xtype;
     const std::string_view ytype_s = ytype;
-    return xtype_s.compare( ytype_s ) == 0 &&
-           ( ( xtype_s.compare( 0, 17, type1 ) == 0 ) || ( xtype_s.compare( 0, 11, type2 ) == 0 ) );
+    return ( ( xtype_s.compare( 0, 17, type1 ) == 0 ) ||
+             ( xtype_s.compare( 0, 11, type2 ) == 0 ) ) &&
+           ( ( ytype_s.compare( 0, 17, type1 ) == 0 ) || ( ytype_s.compare( 0, 11, type2 ) == 0 ) );
 }
 static bool allDefaultDataType( const VectorData &x, const VectorData &y, VectorData &z )
 {
@@ -47,8 +48,11 @@ static bool allDefaultDataType( const VectorData &x, const VectorData &y, Vector
     const std::string_view ytype_s = ytype;
     const std::string_view ztype_s = ztype;
 
-    return ( xtype_s.compare( ytype_s ) == 0 ) && ( ytype_s.compare( ztype_s ) == 0 ) &&
-           ( ( xtype_s.compare( 0, 17, type1 ) == 0 ) || ( xtype_s.compare( 0, 11, type2 ) == 0 ) );
+    return ( ( xtype_s.compare( 0, 17, type1 ) == 0 ) ||
+             ( xtype_s.compare( 0, 11, type2 ) == 0 ) ) &&
+           ( ( ytype_s.compare( 0, 17, type1 ) == 0 ) ||
+             ( ytype_s.compare( 0, 11, type2 ) == 0 ) ) &&
+           ( ( ztype_s.compare( 0, 17, type1 ) == 0 ) || ( ztype_s.compare( 0, 11, type2 ) == 0 ) );
 }
 
 /****************************************************************
