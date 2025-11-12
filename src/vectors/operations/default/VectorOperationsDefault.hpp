@@ -19,23 +19,26 @@ extern template class VectorOperationsDefault<float>;  // Suppresses implicit in
 
 static bool allDefaultDataType( const VectorData &x )
 {
-    constexpr std::string_view type( "VectorDataDefault", 17 );
+    constexpr std::string_view type1( "VectorDataDefault", 17 );
+    constexpr std::string_view type2( "ArrayVector", 11 );
     const auto xtype               = x.VectorDataName();
     const std::string_view xtype_s = xtype;
-    return ( xtype_s.compare( 0, 17, type ) == 0 );
+    return ( xtype_s.compare( 0, 17, type1 ) == 0 ) || ( xtype_s.compare( 0, 11, type2 ) == 0 );
 }
 static bool allDefaultDataType( const VectorData &x, const VectorData &y )
 {
-    constexpr std::string_view type( "VectorDataDefault", 17 );
+    constexpr std::string_view type1( "VectorDataDefault", 17 );
+    constexpr std::string_view type2( "ArrayVector", 11 );
     const auto xtype               = x.VectorDataName();
     const auto ytype               = y.VectorDataName();
     const std::string_view xtype_s = xtype;
     const std::string_view ytype_s = ytype;
-    return ( xtype_s.compare( ytype_s ) == 0 && xtype_s.compare( 0, 17, type ) == 0 );
+    return ( xtype_s.compare( ytype_s ) == 0 && (( xtype_s.compare( 0, 17, type1 ) == 0 )|| ( xtype_s.compare( 0, 11, type2 ) == 0 ));
 }
 static bool allDefaultDataType( const VectorData &x, const VectorData &y, VectorData &z )
 {
-    constexpr std::string_view type( "VectorDataDefault", 17 );
+    constexpr std::string_view type1( "VectorDataDefault", 17 );
+    constexpr std::string_view type2( "ArrayVector", 11 );
     const auto xtype               = x.VectorDataName();
     const auto ytype               = y.VectorDataName();
     const auto ztype               = z.VectorDataName();
@@ -44,7 +47,8 @@ static bool allDefaultDataType( const VectorData &x, const VectorData &y, Vector
     const std::string_view ztype_s = ztype;
 
     return ( xtype_s.compare( ytype_s ) == 0 && ytype_s.compare( ztype_s ) == 0 &&
-             xtype_s.compare( 0, 17, type ) == 0 );
+                 ( xtype_s.compare( 0, 17, type ) == 0 ) ||
+             ( xtype_s.compare( 0, 11, type2 ) == 0 ) );
 }
 
 /****************************************************************
