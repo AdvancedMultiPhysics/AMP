@@ -25,7 +25,21 @@ public:
 
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );
 
-    CSRMatrixSpGEMMDefault() = default;
+    CSRMatrixSpGEMMDefault()
+        : A( nullptr ),
+          B( nullptr ),
+          C( nullptr ),
+          A_diag( nullptr ),
+          A_offd( nullptr ),
+          B_diag( nullptr ),
+          B_offd( nullptr ),
+          C_diag( nullptr ),
+          C_offd( nullptr ),
+          d_overlap_comms( false ),
+          d_num_rows( 0 ),
+          d_need_comms( false )
+    {
+    }
     CSRMatrixSpGEMMDefault( std::shared_ptr<matrixdata_t> A_,
                             std::shared_ptr<matrixdata_t> B_,
                             std::shared_ptr<matrixdata_t> C_,
@@ -135,7 +149,7 @@ protected:
     // struct to hold fields that are needed in both
     // the "source" and "destination" perspectives
     struct SpGEMMCommInfo {
-        SpGEMMCommInfo() = default;
+        SpGEMMCommInfo() : numrow( 0 ) {}
         SpGEMMCommInfo( int numrow_ ) : numrow( numrow_ ) {}
         // number of rows to send or receive
         int numrow;
