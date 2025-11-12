@@ -328,14 +328,18 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
         PROFILE( "CGSolver<T>:: u->makeConsistent" );
         u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     }
-    {
-        PROFILE( "CGSolver<T>:: r = f-Au (final)" );
-        d_pOperator->residual( f, u, d_r );
+
+    if ( d_bComputeResidual ) {
+        {
+            PROFILE( "CGSolver<T>:: r = f-Au (final)" );
+            d_pOperator->residual( f, u, d_r );
+        }
+        {
+            PROFILE( "CGSolver<T>:: r->L2Norm (final)" );
+            d_dResidualNorm = static_cast<T>( d_r->L2Norm() );
+        }
     }
-    {
-        PROFILE( "CGSolver<T>:: r->L2Norm (final)" );
-        d_dResidualNorm = static_cast<T>( d_r->L2Norm() );
-    }
+
     // final check updates flags if needed
     checkStoppingCriteria( d_dResidualNorm );
 
