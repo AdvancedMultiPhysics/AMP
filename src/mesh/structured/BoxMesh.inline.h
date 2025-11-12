@@ -29,10 +29,6 @@ constexpr ArraySize BoxMesh::Box::size() const
 /****************************************************************
  * MeshElementIndex                                              *
  ****************************************************************/
-constexpr BoxMesh::MeshElementIndex::MeshElementIndex()
-    : d_type( 0 ), d_side( 255 ), d_index{ 0, 0, 0 }
-{
-}
 constexpr BoxMesh::MeshElementIndex::MeshElementIndex(
     GeomType type_in, uint8_t side_in, int x, int y, int z )
     : d_type( static_cast<uint8_t>( type_in ) ), d_side( side_in ), d_index{ x, y, z }
@@ -270,6 +266,26 @@ inline BoxMesh::MeshElementIndex BoxMesh::convert( const MeshElementID &id ) con
     j += index0[1];
     k += index0[2];
     return MeshElementIndex( id.type(), side, i, j, k );
+}
+
+
+/****************************************************************
+ * Fix the element id for any periodic boundaries                *
+ ****************************************************************/
+inline void BoxMesh::fixPeriodic( MeshElementIndex &index ) const
+{
+    for ( int d = 0; d < PhysicalDim; d++ ) {
+        if ( d_surfaceId[2 * d] == -1 ) {
+            // Periodic boundary
+            if ( index[d] < 0 )
+                index[d] += d_globalSize[d];
+            else if ( index[d] >= d_globalSize[d] )
+                index[d] -= d_globalSize[d];
+        } else if ( d_surfaceId[2 * d] == -2 || d_surfaceId[2 * d + 1] == -2 ) {
+            // Mapped boundary
+            AMP_WARN_ONCE( "Not finished" );
+        }
+    }
 }
 
 

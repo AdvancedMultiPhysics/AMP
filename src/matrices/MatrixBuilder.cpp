@@ -301,7 +301,7 @@ static void test( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
 std::shared_ptr<AMP::LinearAlgebra::Matrix>
 createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
               AMP::LinearAlgebra::Vector::shared_ptr leftVec,
-              std::string type,
+              const std::string &type,
               std::function<std::vector<size_t>( size_t )> getRow )
 {
 

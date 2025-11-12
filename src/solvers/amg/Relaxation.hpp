@@ -15,8 +15,8 @@
 namespace AMP::Solver::AMG {
 
 Relaxation::Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
-                        std::string name_,
-                        std::string short_name_ )
+                        const std::string &name_,
+                        const std::string &short_name_ )
     : SolverStrategy( params ), name( name_ ), short_name( short_name_ )
 {
     AMP_ASSERT( params );
@@ -191,7 +191,8 @@ void HybridGS::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 void HybridGS::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                             std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    LinearAlgebra::csrVisit( d_matrix, [=]( auto csr_ptr ) { relax( csr_ptr, b, x ); } );
+    LinearAlgebra::csrVisit( d_matrix,
+                             [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
 template<typename Config>
@@ -297,6 +298,10 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
     auto offd_sum = row_sum( Ao_rs, Ao_cols_loc, Ao_coeffs, ghosts );
 
     auto update = [&]( lidx_t row ) {
+        if ( Ad_rs[row] == Ad_rs[row + 1] ) {
+            // row is empty, skip it
+            return;
+        }
         auto diag = Ad_coeffs[Ad_rs[row]];
         auto dinv = 1.0 / diag;
         if ( std::isinf( dinv ) ) {
@@ -356,7 +361,8 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                             std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    LinearAlgebra::csrVisit( d_matrix, [=]( auto csr_ptr ) { relax( csr_ptr, b, x ); } );
+    LinearAlgebra::csrVisit( d_matrix,
+                             [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
 template<typename Config>

@@ -91,10 +91,10 @@ size_t DOFManager::appendDOFs( const AMP::Mesh::MeshElementID &, size_t *, size_
 /****************************************************************
  * Get the element ID give a dof                                 *
  ****************************************************************/
-AMP::Mesh::MeshElement DOFManager::getElement( size_t ) const
+std::unique_ptr<AMP::Mesh::MeshElement> DOFManager::getElement( size_t ) const
 {
     AMP_ERROR( "getElement is not implemented for the base class" );
-    return AMP::Mesh::MeshElement();
+    return nullptr;
 }
 AMP::Mesh::MeshElementID DOFManager::getElementID( size_t ) const
 {

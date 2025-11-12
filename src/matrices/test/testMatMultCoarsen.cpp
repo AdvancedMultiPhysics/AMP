@@ -63,7 +63,8 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
               << std::endl;
 
     // Create aggregate matrix
-    auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( 0.25 );
+    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, 10, 40, "classical_min" };
+    auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( crs_settings );
     auto P   = agg->getAggregateMatrix( A );
 
     // perform A*P SpGEMM
@@ -129,7 +130,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matMultTest( AMP::UnitTest *ut, std::string input_file )
+size_t matMultTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatMultCoarsen";
     AMP::logOnlyNodeZero( log_file );

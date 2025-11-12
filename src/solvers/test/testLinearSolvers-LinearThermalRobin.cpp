@@ -23,7 +23,8 @@
 
 #define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
-std::vector<std::pair<std::string, std::string>> getBackendsAndMemory( std::string memory_space )
+std::vector<std::pair<std::string, std::string>>
+getBackendsAndMemory( const std::string &memory_space )
 {
     std::vector<std::pair<std::string, std::string>> rvec;
     AMP_INSIST( memory_space == "host" || memory_space == "managed" || memory_space == "device",
@@ -79,7 +80,7 @@ std::vector<std::string> getHypreMemorySpaces()
 std::tuple<std::shared_ptr<AMP::Operator::LinearOperator>,
            std::shared_ptr<AMP::LinearAlgebra::Vector>,
            std::shared_ptr<AMP::LinearAlgebra::Vector>>
-constructLinearSystem( std::string physicsFileName )
+constructLinearSystem( const std::string &physicsFileName )
 {
     PROFILE( "DRIVER::linearThermalPhysics" );
 
@@ -177,10 +178,10 @@ void linearThermalTest( AMP::UnitTest *ut,
         linearOperator->getMatrix()->setBackend( backend );
     }
 
+    auto t1_setup = std::chrono::high_resolution_clock::now();
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, migratedOperator );
-
-    auto t1 = std::chrono::high_resolution_clock::now();
+    auto t2_setup = std::chrono::high_resolution_clock::now();
 
     auto op_mem_loc = linearOperator->getMemoryLocation();
     std::shared_ptr<AMP::LinearAlgebra::Vector> u, f;
@@ -193,7 +194,7 @@ void linearThermalTest( AMP::UnitTest *ut,
         f = rhs;
     }
 
-
+    auto t1_solve = std::chrono::high_resolution_clock::now();
     for ( int i = 0; i < nReps; ++i ) {
         // Set initial guess
         u->setToScalar( 1.0 );
@@ -212,19 +213,20 @@ void linearThermalTest( AMP::UnitTest *ut,
         checkConvergence( linearSolver.get(), input_db, inputFileName, *ut );
     }
 
-    auto t2 = std::chrono::high_resolution_clock::now();
+    auto t2_solve = std::chrono::high_resolution_clock::now();
 
     AMP::pout << std::endl
-              << "linearThermalTest with " << inputFileName << "  average time: ("
-              << 1e-3 * to_ms( t2 - t1 ) / nReps << " s)" << std::endl;
+              << "linearThermalTest with " << inputFileName << " setup time: ("
+              << 1e-3 * to_ms( t2_setup - t1_setup ) << "s), average solve time: ("
+              << 1e-3 * to_ms( t2_solve - t1_solve ) / nReps << " s)" << std::endl;
 }
 
 void runTestOnInputs( AMP::UnitTest *ut,
                       const std::string &physicsInput,
-                      std::vector<std::string> generalInputs,
-                      std::vector<std::string> deviceInputs,
-                      std::vector<std::string> hostOnlyInputs,
-                      std::vector<std::string> managedInputs,
+                      const std::vector<std::string> &generalInputs,
+                      const std::vector<std::string> &deviceInputs,
+                      const std::vector<std::string> &hostOnlyInputs,
+                      const std::vector<std::string> &managedInputs,
                       const bool strict = false )
 {
 

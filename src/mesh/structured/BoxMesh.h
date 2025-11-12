@@ -109,7 +109,7 @@ public:
     {
     public:
         //! Empty constructor
-        constexpr MeshElementIndex();
+        constexpr MeshElementIndex() = default;
         /**
          * \brief   Default constructor
          * \details  The default constructor
@@ -130,9 +130,11 @@ public:
         constexpr bool operator>=( const MeshElementIndex &rhs ) const; //!< Operator >=
         constexpr bool operator<( const MeshElementIndex &rhs ) const;  //!< Operator <
         constexpr bool operator<=( const MeshElementIndex &rhs ) const; //!< Operator <=
-        constexpr auto index() const { return d_index; }
+        constexpr const auto &index() const { return d_index; }
         constexpr int index( int d ) const { return d_index[d]; }
         constexpr int &index( int d ) { return d_index[d]; }
+        constexpr int operator[]( int d ) const { return d_index[d]; }
+        constexpr int &operator[]( int d ) { return d_index[d]; }
         constexpr GeomType type() const { return static_cast<GeomType>( d_type ); }
         constexpr uint8_t side() const { return d_side; }
         static constexpr size_t numElements( const MeshElementIndex &first,
@@ -140,9 +142,9 @@ public:
         std::string print() const;
 
     private:
-        uint8_t d_type;             //!<  Mesh element type
-        uint8_t d_side;             //!<  Are we dealing with x, y, or z faces/edges
-        std::array<int, 3> d_index; //!<  Global x, y, z index (may be negative if periodic)
+        uint8_t d_type             = 0;           //!<  Mesh element type
+        uint8_t d_side             = 255;         //!<  Are we dealing with x, y, or z faces/edges
+        std::array<int, 3> d_index = { 0, 0, 0 }; //!<  Global x, y, z index (may be negative)
         friend class BoxMesh;
         friend class structuredMeshElement;
     };
@@ -181,8 +183,8 @@ public:
         void set( uint32_t i ) { d_pos = i; }
         size_t size() const { return d_size; }
         size_t position() const { return d_pos; }
-        inline auto first() const { return d_first; }
-        inline auto last() const { return d_last; }
+        inline const auto &first() const { return d_first; }
+        inline const auto &last() const { return d_last; }
 
     private:
         // Data members
@@ -324,21 +326,6 @@ public:
 
 
     /**
-     * \brief    Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \details  Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \param OP Set operation to perform.
-     *           SetOP::Union - Perform a union of the iterators ( A U B )
-     *           SetOP::Intersection - Perform an intersection of the iterators ( A n B )
-     *           SetOP::Complement - Perform a compliment of the iterators ( A - B )
-     * \param A  Pointer to MeshIterator A
-     * \param B  Pointer to MeshIterator B
-     */
-    static MeshIterator getIterator( SetOP OP, const MeshIterator &A, const MeshIterator &B );
-
-
-    /**
      * \brief    Return a mesh element given it's id.
      * \details  This function queries the mesh to get an element given the mesh id.
      *    This function is only required to return an element if the id is local.
@@ -347,7 +334,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override final;
+    MeshElementPtr getElement( const MeshElementID &id ) const override final;
 
 
     /**
@@ -357,8 +344,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override final;
+    virtual std::vector<MeshElementPtr>
+    getElementParents( const MeshElement &elem, const GeomType type ) const override final;
 
 
     //! Return the global logical box
@@ -458,6 +445,8 @@ public: // BoxMesh specific functionality
     std::shared_ptr<AMP::LinearAlgebra::Vector> createVector( const std::string &name,
                                                               int gcw = 0 );
 
+    //! Fix periodic boundaries in the element index
+    inline void fixPeriodic( MeshElementIndex &id ) const;
 
 public: // Convenience typedef
     typedef AMP::Utilities::stackVector<std::pair<MeshElementIndex, MeshElementIndex>, 32>

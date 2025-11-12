@@ -2,7 +2,7 @@
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/operators/diffusionFD/DiffusionFD.h"
 #include "AMP/operators/diffusionFD/DiffusionRotatedAnisotropicModel.h"
-#include "AMP/operators/testHelpers/testDiffusionFDHelper.h"
+#include "AMP/operators/testHelpers/FDHelper.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
@@ -123,16 +123,16 @@ public:
 
     ~ManufacturedHeatEquationModel() {}
 
-    double exactSolution( AMP::Mesh::Point point ) const
+    double exactSolution( const AMP::Mesh::Point &point ) const
     {
         return f() * uzero( point ) + ubnd( point );
     };
     //! s(t) = [f'(t)*uzero - f(t)*L*uzero]  - L*ubnd
-    double sourceTerm( AMP::Mesh::Point point ) const
+    double sourceTerm( const AMP::Mesh::Point &point ) const
     {
         return ( fprime() * uzero( point ) - f() * Luzero( point ) ) - Lubnd( point );
     };
-    double initialCondition( AMP::Mesh::Point point ) const
+    double initialCondition( const AMP::Mesh::Point &point ) const
     {
         auto temp     = d_currentTime;
         d_currentTime = 0.0;
@@ -142,7 +142,7 @@ public:
     };
 
 private:
-    double ubnd( AMP::Mesh::Point point ) const
+    double ubnd( const AMP::Mesh::Point &point ) const
     {
         auto x   = point.x();
         auto y   = point.y();
@@ -157,7 +157,7 @@ private:
         }
         return u;
     };
-    double Lubnd( AMP::Mesh::Point point ) const
+    double Lubnd( const AMP::Mesh::Point &point ) const
     {
         auto x    = point.x();
         auto y    = point.y();
@@ -180,7 +180,7 @@ private:
     };
     // Constants K and PHI in each dimension are such that u in that dimension is the
     // lowest-frequency sine function
-    double uzero( AMP::Mesh::Point point ) const
+    double uzero( const AMP::Mesh::Point &point ) const
     {
         auto x   = point.x();
         auto y   = point.y();
@@ -196,7 +196,7 @@ private:
         }
         return u;
     };
-    double Luzero( AMP::Mesh::Point point ) const
+    double Luzero( const AMP::Mesh::Point &point ) const
     {
         auto x    = point.x();
         auto y    = point.y();
@@ -268,12 +268,10 @@ public:
     std::shared_ptr<const AMP::Operator::OperatorParameters> d_params = nullptr;
 
     BDFDiffusionFDOp( std::shared_ptr<const AMP::Operator::OperatorParameters> params )
-        : AMP::Operator::LinearOperator( params )
+        : AMP::Operator::LinearOperator( params ),
+          d_L( std::make_shared<AMP::Operator::DiffusionFDOperator>( params ) ),
+          d_params( params )
     {
-
-        d_params = params;
-        // Create our diffusion FD operator
-        d_L = std::make_shared<AMP::Operator::DiffusionFDOperator>( params );
     }
 
     //! Destructor

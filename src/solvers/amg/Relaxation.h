@@ -28,8 +28,8 @@ public:
     enum class Sweep { forward, backward, symmetric };
     enum class Direction { forward, backward };
     explicit Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
-                         std::string name_,
-                         std::string short_name_ );
+                         const std::string &name_,
+                         const std::string &short_name_ );
 
     virtual std::string type() const override { return "Relaxation"; }
 

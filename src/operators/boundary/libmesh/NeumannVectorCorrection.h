@@ -77,9 +77,9 @@ public:
 
     std::shared_ptr<RobinPhysicsModel> getRobinPhysicsModel() { return d_robinPhysicsModel; }
 
-    std::vector<short int> getBoundaryIds() const { return d_boundaryIds; }
+    const auto &getBoundaryIds() const { return d_boundaryIds; }
 
-    std::vector<std::vector<unsigned int>> getDofIds() const { return d_dofIds; }
+    const auto &getDofIds() const { return d_dofIds; }
 
     std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
@@ -129,7 +129,7 @@ protected:
     libMeshEnums::Order d_qruleOrder;
     libMeshEnums::QuadratureType d_qruleType;
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
 
 private:
 };

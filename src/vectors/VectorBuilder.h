@@ -9,13 +9,6 @@
 #include "AMP/vectors/data/VectorDataDefault.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/GPUFunctionTable.h"
-    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
-#else
-    #include "AMP/utils/FunctionTable.h"
-#endif
-
 #include <string>
 
 
@@ -23,15 +16,20 @@
 extern "C" {
 typedef struct _p_Vec *Vec;
 }
+#if defined( AMP_USE_TRILINOS )
 namespace Teuchos {
 template<class TYPE>
 class RCP;
 }
+
+    #if defined( AMP_USE_TRILINOS_THYRA )
 namespace Thyra {
 template<class TYPE>
 class VectorBase;
 }
+    #endif
 
+#endif
 
 namespace AMP::LinearAlgebra {
 
@@ -129,6 +127,7 @@ std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> c
                                             std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
                                             std::shared_ptr<VectorData> p = nullptr );
 
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_THYRA )
 
 /**
  * \brief  Create a vector from an arbitrary Thyra Vector
@@ -142,7 +141,7 @@ std::shared_ptr<Vector> createVector( Teuchos::RCP<Thyra::VectorBase<double>> ve
                                       size_t local,
                                       AMP_MPI comm,
                                       std::shared_ptr<Variable> var = nullptr );
-
+#endif
 
 /** \brief   Create a simple AMP vector
  * \details  This is a factory method to create a simple AMP vector.
@@ -199,7 +198,7 @@ Vector::shared_ptr createSimpleVector( std::shared_ptr<Variable> var,
  * \param    localSize  The number of elements in the vector on this processor
  * \param    var The variable name for the new vector
  */
-template<typename T, typename FUN = FunctionTable, typename Allocator = AMP::HostAllocator<void>>
+template<typename T, typename FUN = FunctionTable<T>, typename Allocator = AMP::HostAllocator<void>>
 Vector::shared_ptr createArrayVector( const ArraySize &localSize, const std::string &var );
 
 /** \brief    Cre
@@ -208,7 +207,7 @@ ate a ArrayVector
  * \param    localSize  The number of elements in the vector on this processor
  * \param    var The variable associated with the new vector
  */
-template<typename T, typename FUN = FunctionTable, typename Allocator = AMP::HostAllocator<void>>
+template<typename T, typename FUN = FunctionTable<T>, typename Allocator = AMP::HostAllocator<void>>
 Vector::shared_ptr createArrayVector( const ArraySize &localSize, std::shared_ptr<Variable> var );
 
 
@@ -219,7 +218,7 @@ Vector::shared_ptr createArrayVector( const ArraySize &localSize, std::shared_pt
  * \param    comm  The communicator for the vector
  * \param    var The variable associated with the new vector
  */
-template<typename T, typename FUN = FunctionTable, typename Allocator = AMP::HostAllocator<void>>
+template<typename T, typename FUN = FunctionTable<T>, typename Allocator = AMP::HostAllocator<void>>
 Vector::shared_ptr createArrayVector( const ArraySize &localSize,
                                       const ArraySize &blockIndex,
                                       const AMP_MPI &comm,

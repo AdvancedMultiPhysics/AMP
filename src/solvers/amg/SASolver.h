@@ -8,6 +8,7 @@
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/amg/Aggregation.h"
+#include "AMP/solvers/amg/AggregationSettings.h"
 #include "AMP/solvers/amg/Aggregator.h"
 #include "AMP/solvers/amg/Cycle.h"
 #include "AMP/solvers/amg/Relaxation.h"
@@ -51,7 +52,8 @@ protected:
     int d_num_smooth_prol;
     float d_prol_trunc;
     std::string d_agg_type;
-    PairwiseCoarsenSettings d_coarsen_settings;
+    CoarsenSettings d_coarsen_settings;
+    PairwiseCoarsenSettings d_pair_coarsen_settings;
     std::shared_ptr<AMP::Database> d_pre_relax_db;
     std::shared_ptr<AMP::Database> d_post_relax_db;
 

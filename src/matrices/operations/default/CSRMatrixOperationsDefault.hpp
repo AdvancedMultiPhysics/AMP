@@ -1,3 +1,4 @@
+#include "AMP/IO/HDF.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
@@ -57,23 +58,20 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsDefault::mult (ghost)" );
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        std::vector<scalar_t> ghosts( nGhosts );
+        auto ghosts        = offdMatrix->getGhostCache();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             auto colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            // type mismatch, need to copy/cast into temporary vector
-            AMP_WARN_ONCE(
-                "CSRMatrixOperationsDefault::mult: Deep copy/cast of column map required" );
-            std::vector<size_t> colMap;
-            offdMatrix->getColumnMap( colMap );
-            in->getGhostValuesByGlobalID( nGhosts, colMap.data(), ghosts.data() );
+            // Fall back to forcing a copy-cast inside matrix data
+            auto colMap = offdMatrix->getColumnMapSizeT();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         }
-        d_localops_offd->mult( ghosts.data(), offdMatrix, outDataBlock );
+        d_localops_offd->mult( ghosts, offdMatrix, outDataBlock );
     }
 }
 
@@ -237,7 +235,7 @@ void CSRMatrixOperationsDefault<Config>::matMatMult( std::shared_ptr<MatrixData>
         AMP_INSIST( csrDataC->isEmpty(),
                     "CSRMatrixOperationsDefault::matMatMult A*B->C only applicable to non-empty C "
                     "if it came from same A and B input matrices originally" );
-        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDefault( csrDataA, csrDataB, csrDataC, false );
+        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDefault( csrDataA, csrDataB, csrDataC, true );
         d_SpGEMMHelpers[bcPair].symbolicMultiply();
         d_SpGEMMHelpers[bcPair].numericMultiply();
     } else {
@@ -294,7 +292,7 @@ void CSRMatrixOperationsDefault<Config>::setScalar( AMP::Scalar alpha_in, Matrix
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::zero( MatrixData &A )
 {
-    setScalar( static_cast<scalar_t>( 0.0 ), A );
+    setScalar( 0, A );
 }
 
 template<typename Config>
@@ -370,7 +368,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0 );
 
     d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
@@ -399,7 +397,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0 );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
@@ -408,7 +406,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
 
     if ( remove_zeros ) {
         for ( lidx_t row = 0; row < nRows; ++row ) {
-            rawVecData[row] = rawVecData[row] != 0.0 ? rawVecData[row] : 1.0;
+            rawVecData[row] = rawVecData[row] != 0 ? rawVecData[row] : 1;
         }
     }
 }
@@ -422,7 +420,7 @@ AMP::Scalar CSRMatrixOperationsDefault<Config>::LinfNorm( MatrixData const &A ) 
                       "CSRMatrixOperationsDefault is not implemented for device memory" );
 
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
-    std::vector<scalar_t> rowSums( nRows, 0.0 );
+    std::vector<scalar_t> rowSums( nRows, 0 );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rowSums.data() );
     if ( csrData->hasOffDiag() ) {
@@ -511,6 +509,13 @@ void CSRMatrixOperationsDefault<Config>::copyCast(
     if ( X->hasOffDiag() ) {
         localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
+}
+
+template<typename Config>
+void CSRMatrixOperationsDefault<Config>::writeRestart( int64_t fid ) const
+{
+    MatrixOperations::writeRestart( fid );
+    AMP::IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
 }
 
 } // namespace AMP::LinearAlgebra

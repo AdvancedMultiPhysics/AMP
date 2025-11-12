@@ -17,6 +17,8 @@
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
 
+#include "ProfilerApp.h"
+
 namespace AMP {
 namespace LinearAlgebra {
 
@@ -145,30 +147,26 @@ template<typename STYPE, typename DTYPE>
 void DeviceDataHelpers<STYPE, DTYPE>::setGhostValuesByGlobalID( const size_t gsize,
                                                                 const size_t *globalids,
                                                                 const size_t N,
-                                                                const size_t *ndx,
+                                                                const size_t *ndxReq,
+                                                                size_t *ndxMap,
                                                                 const STYPE *src,
                                                                 const size_t dst_size,
                                                                 DTYPE *dst )
 {
     AMP_INSIST( AMP::Utilities::getMemoryType( globalids ) >= AMP::Utilities::MemoryType::managed,
                 "globalids not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed,
-                "ndx not on device" );
+    AMP_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >= AMP::Utilities::MemoryType::managed,
+                "ndxReq not on device" );
+    AMP_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >= AMP::Utilities::MemoryType::managed,
+                "ndxMap not on device" );
     AMP_INSIST( AMP::Utilities::getMemoryType( src ) >= AMP::Utilities::MemoryType::managed,
                 "src not on device" );
     AMP_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
                 "dst not on device" );
-    thrust::device_ptr<const size_t> gid_ptr = thrust::device_pointer_cast( globalids );
-    thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( ndx );
-    thrust::device_ptr<const STYPE> src_ptr  = thrust::device_pointer_cast( src );
-    thrust::device_ptr<DTYPE> dst_ptr        = thrust::device_pointer_cast( dst );
-
-    thrust::device_vector<size_t> pos( N );
 
     // Perform vectorized lower_bound
-    thrust::lower_bound(
-        thrust::device, gid_ptr, gid_ptr + gsize, ndx_ptr, ndx_ptr + N, pos.begin() );
-    thrust::scatter( thrust::device, src_ptr, src_ptr + N, pos.begin(), dst_ptr );
+    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
+    thrust::scatter( thrust::device, src, src + N, ndxMap, dst );
 }
 
 
@@ -176,37 +174,31 @@ template<typename STYPE, typename DTYPE>
 void DeviceDataHelpers<STYPE, DTYPE>::addGhostValuesByGlobalID( const size_t gsize,
                                                                 const size_t *globalids,
                                                                 const size_t N,
-                                                                const size_t *ndx,
+                                                                const size_t *ndxReq,
+                                                                size_t *ndxMap,
                                                                 const STYPE *src,
                                                                 const size_t dst_size,
                                                                 DTYPE *dst )
 {
     AMP_INSIST( AMP::Utilities::getMemoryType( globalids ) >= AMP::Utilities::MemoryType::managed,
                 "globalids not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed,
-                "ndx not on device" );
+    AMP_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >= AMP::Utilities::MemoryType::managed,
+                "ndxReq not on device" );
+    AMP_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >= AMP::Utilities::MemoryType::managed,
+                "ndxMap not on device" );
     AMP_INSIST( AMP::Utilities::getMemoryType( src ) >= AMP::Utilities::MemoryType::managed,
                 "src not on device" );
     AMP_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
                 "dst not on device" );
 
-    thrust::device_ptr<const size_t> gid_ptr = thrust::device_pointer_cast( globalids );
-    thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( ndx );
-    thrust::device_ptr<const STYPE> src_ptr  = thrust::device_pointer_cast( src );
-    thrust::device_ptr<DTYPE> dst_ptr        = thrust::device_pointer_cast( dst );
-
-    thrust::device_vector<size_t> pos( N );
-
     // Perform vectorized lower_bound to find positions in destination
-    thrust::lower_bound(
-        thrust::device, gid_ptr, gid_ptr + gsize, ndx_ptr, ndx_ptr + N, pos.begin() );
+    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
     // construct the [begin, end) for the map
-    auto begin_map = thrust::make_permutation_iterator( dst_ptr, pos.begin() );
-    auto end_map   = thrust::make_permutation_iterator( dst_ptr, pos.end() );
+    auto begin_map = thrust::make_permutation_iterator( dst, ndxMap );
+    auto end_map   = thrust::make_permutation_iterator( dst, ndxMap + N );
 
     // add the src vector to the mapped locations using transform with a binary op
-    thrust::transform(
-        thrust::device, begin_map, end_map, src_ptr, begin_map, thrust::plus<DTYPE>() );
+    thrust::transform( thrust::device, begin_map, end_map, src, begin_map, thrust::plus<DTYPE>() );
 }
 
 template<typename TYPE>
@@ -222,92 +214,77 @@ template<typename STYPE, typename DTYPE>
 void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID( const size_t gsize,
                                                                 const size_t *globalids,
                                                                 const size_t N,
-                                                                const size_t *ndx,
+                                                                const size_t *ndxReq,
+                                                                size_t *ndxMap,
                                                                 const size_t src_size,
                                                                 const STYPE *src1,
                                                                 const STYPE *src2,
                                                                 DTYPE *dst )
 {
+    PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID" );
 
-    AMP_INSIST( AMP::Utilities::getMemoryType( globalids ) >= AMP::Utilities::MemoryType::managed,
-                "globalids not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed,
-                "ndx not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( src1 ) >= AMP::Utilities::MemoryType::managed,
-                "src1 not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( src2 ) >= AMP::Utilities::MemoryType::managed,
-                "src2 not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
-                "dst not on device" );
+    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( globalids ) >=
+                          AMP::Utilities::MemoryType::managed,
+                      "globalids not on device" );
+    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >=
+                          AMP::Utilities::MemoryType::managed,
+                      "ndxReq not on device" );
+    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >=
+                          AMP::Utilities::MemoryType::managed,
+                      "ndxMap not on device" );
+    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( src1 ) >= AMP::Utilities::MemoryType::managed,
+                      "src1 not on device" );
+    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( src2 ) >= AMP::Utilities::MemoryType::managed,
+                      "src2 not on device" );
+    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
+                      "dst not on device" );
 
-    // print<size_t>( "Global IDs", gsize, globalids );
-    // print<size_t>( "Ghost IDs to map to local", N, ndx );
-    // print<STYPE>( "Ghost set buffer values", src_size, src1 );
-    // print<STYPE>( "Ghost add buffer values", src_size, src2 );
+    {
+        PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID(1)" );
+        // Perform vectorized lower_bound to find positions in src
+        thrust::lower_bound(
+            thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
+    }
+    auto map_data_1_begin = thrust::make_permutation_iterator( src1, ndxMap );
+    auto map_data_1_end   = thrust::make_permutation_iterator( src1, ndxMap + N );
 
-    thrust::device_ptr<const size_t> gid_ptr = thrust::device_pointer_cast( globalids );
-    thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( ndx );
-    thrust::device_ptr<const STYPE> src1_ptr = thrust::device_pointer_cast( src1 );
-    thrust::device_ptr<const STYPE> src2_ptr = thrust::device_pointer_cast( src2 );
-    thrust::device_ptr<DTYPE> dst_ptr        = thrust::device_pointer_cast( dst );
-
-    thrust::device_vector<size_t> pos( N );
-
-    // Perform vectorized lower_bound to find positions in src
-    thrust::lower_bound(
-        thrust::device, gid_ptr, gid_ptr + gsize, ndx_ptr, ndx_ptr + N, pos.begin() );
-
-    //    print<size_t>( "Positions to map to local", N, thrust::raw_pointer_cast( pos.data() ) );
-    // AMP::pout << "Contents of device_vector pos:" << std::endl;
-    // thrust::copy( pos.begin(), pos.end(), std::ostream_iterator<float>( AMP::pout, " " ) );
-    // AMP::pout << std::endl; // Add a newline after printing
-
-    auto map_data_1_begin = thrust::make_permutation_iterator( src1_ptr, pos.begin() );
-    auto map_data_1_end   = thrust::make_permutation_iterator( src1_ptr, pos.end() );
-
-    auto map_data_2_begin = thrust::make_permutation_iterator( src2_ptr, pos.begin() );
-    auto map_data_2_end   = thrust::make_permutation_iterator( src2_ptr, pos.end() );
-
+    auto map_data_2_begin = thrust::make_permutation_iterator( src2, ndxMap );
+    auto map_data_2_end   = thrust::make_permutation_iterator( src2, ndxMap + N );
     auto zip_begin =
         thrust::make_zip_iterator( thrust::make_tuple( map_data_1_begin, map_data_2_begin ) );
     auto zip_end =
         thrust::make_zip_iterator( thrust::make_tuple( map_data_1_end, map_data_2_end ) );
-    thrust::transform( thrust::device, zip_begin, zip_end, dst_ptr, pair_plus_op<DTYPE>() );
+    {
+        PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID(4)" );
+        thrust::transform( thrust::device, zip_begin, zip_end, dst, pair_plus_op<DTYPE>() );
+    }
 }
 
 template<typename STYPE, typename DTYPE>
 void DeviceDataHelpers<STYPE, DTYPE>::getGhostAddValuesByGlobalID( const size_t gsize,
                                                                    const size_t *globalids,
                                                                    const size_t N,
-                                                                   const size_t *ndx,
+                                                                   const size_t *ndxReq,
+                                                                   size_t *ndxMap,
                                                                    const size_t src_size,
                                                                    const STYPE *src,
                                                                    DTYPE *dst )
 {
     AMP_INSIST( AMP::Utilities::getMemoryType( globalids ) >= AMP::Utilities::MemoryType::managed,
                 "globalids not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed,
-                "ndx not on device" );
+    AMP_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >= AMP::Utilities::MemoryType::managed,
+                "ndxReq not on device" );
+    AMP_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >= AMP::Utilities::MemoryType::managed,
+                "ndxMap not on device" );
     AMP_INSIST( AMP::Utilities::getMemoryType( src ) >= AMP::Utilities::MemoryType::managed,
                 "src not on device" );
     AMP_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
                 "dst not on device" );
-    thrust::device_ptr<const size_t> gid_ptr = thrust::device_pointer_cast( globalids );
-    thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( ndx );
-    thrust::device_ptr<const STYPE> src_ptr  = thrust::device_pointer_cast( src );
-    thrust::device_ptr<DTYPE> dst_ptr        = thrust::device_pointer_cast( dst );
-
-    thrust::device_vector<size_t> pos( N );
 
     // Perform vectorized lower_bound to find positions in src
-    thrust::lower_bound(
-        thrust::device, gid_ptr, gid_ptr + gsize, ndx_ptr, ndx_ptr + N, pos.begin() );
+    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
 
-    // construct the [begin, end) for the src map
-    auto begin_map = thrust::make_permutation_iterator( src_ptr, pos.begin() );
-    auto end_map   = thrust::make_permutation_iterator( src_ptr, pos.end() );
-
-    thrust::gather( thrust::device, pos.begin(), pos.end(), src_ptr, dst_ptr );
+    thrust::gather( thrust::device, ndxMap, ndxMap + N, src, dst );
 }
 
 } // namespace LinearAlgebra

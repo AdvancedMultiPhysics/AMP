@@ -154,7 +154,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     }
 }
 
-void compareCSRMatOps( AMP::UnitTest *ut, std::string input_file )
+void compareCSRMatOps( AMP::UnitTest *ut, const std::string &input_file )
 {
     constexpr auto allocator = AMP::LinearAlgebra::alloc::managed;
     using Config             = AMP::LinearAlgebra::DefaultCSRConfig<allocator>;

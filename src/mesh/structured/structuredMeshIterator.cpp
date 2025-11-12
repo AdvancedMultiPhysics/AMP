@@ -9,14 +9,10 @@
 namespace AMP::Mesh {
 
 
-// unused global variable to prevent compiler warning
-static MeshElement nullElement;
-
-
 /********************************************************
  * Constructors                                          *
  ********************************************************/
-inline BoxMesh::MeshElementIndex structuredMeshIterator::getCurrentIndex() const
+BoxMesh::MeshElementIndex structuredMeshIterator::getCurrentIndex() const
 {
     if ( d_pos >= d_size )
         return {};
@@ -33,14 +29,14 @@ inline BoxMesh::MeshElementIndex structuredMeshIterator::getCurrentIndex() const
 static constexpr auto MeshIteratorType = AMP::getTypeID<structuredMeshIterator>().hash;
 static_assert( MeshIteratorType != 0 );
 structuredMeshIterator::structuredMeshIterator()
+    : d_mesh( nullptr ), d_cur_element( structuredMeshElement() )
+
 {
-    d_typeHash    = MeshIteratorType;
-    d_iterator    = nullptr;
-    d_pos         = 0;
-    d_size        = 0;
-    d_mesh        = nullptr;
-    d_element     = &d_cur_element;
-    d_cur_element = structuredMeshElement();
+    d_typeHash = MeshIteratorType;
+    d_iterator = nullptr;
+    d_pos      = 0;
+    d_size     = 0;
+    d_element  = &d_cur_element;
 }
 structuredMeshIterator::structuredMeshIterator( const BoxMesh::MeshElementIndexIterator &it,
                                                 const AMP::Mesh::BoxMesh *mesh,
@@ -230,7 +226,7 @@ bool structuredMeshIterator::operator==( const MeshIterator &rhs ) const
     auto iterator = rhs.begin();
     auto set1     = getElements();
     for ( size_t i = 0; i < d_size; i++ ) {
-        auto *elem2 = dynamic_cast<structuredMeshElement *>( iterator->getRawElement() );
+        auto *elem2 = dynamic_cast<structuredMeshElement *>( iterator.get() );
         if ( elem2 == nullptr )
             return false;
         const auto &index1 = set1->operator[]( i );

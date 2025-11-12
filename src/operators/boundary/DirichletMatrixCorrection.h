@@ -71,9 +71,9 @@ public:
       */
     void setRHScorrection( AMP::LinearAlgebra::Vector::shared_ptr rhs ) override;
 
-    std::vector<short int> getBoundaryIds() { return d_boundaryIds; }
+    const auto &getBoundaryIds() { return d_boundaryIds; }
 
-    std::vector<std::vector<unsigned int>> getDofIds() { return d_dofIds; }
+    const auto &getDofIds() { return d_dofIds; }
 
 
 protected:

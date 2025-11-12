@@ -9,7 +9,7 @@ namespace AMP::Mesh {
 
 
 // Function to evaluate the magnitude of a cross product in 3d
-double cross3magnitude( const double a[3], const double b[3] )
+static inline double cross3magnitude( const double a[3], const double b[3] )
 {
     double v[3];
     v[0] = a[1] * b[2] - a[2] * b[1];
@@ -18,7 +18,7 @@ double cross3magnitude( const double a[3], const double b[3] )
     return std::sqrt( v[0] * v[0] + v[1] * v[1] + v[2] * v[2] );
 }
 // Function to evaluate the dot produce of a vector and a cross product in 3d ( a . ( b X c ) )
-double dot3cross( const double a[3], const double b[3], const double c[3] )
+static inline double dot3cross( const double a[3], const double b[3], const double c[3] )
 {
     double v[3];
     v[0] = b[1] * c[2] - b[2] * c[1];
@@ -36,8 +36,6 @@ static_assert( elementTypeID != 0 );
 structuredMeshElement::structuredMeshElement() { reset(); }
 void structuredMeshElement::reset()
 {
-    d_typeHash    = elementTypeID;
-    d_element     = nullptr;
     d_index       = BoxMesh::MeshElementIndex();
     d_meshType    = GeomType::Nullity;
     d_physicalDim = 0;
@@ -50,7 +48,6 @@ structuredMeshElement::structuredMeshElement( const BoxMesh::MeshElementIndex &i
 void structuredMeshElement::reset( const BoxMesh::MeshElementIndex &index,
                                    const AMP::Mesh::BoxMesh *mesh )
 {
-    d_typeHash    = elementTypeID;
     d_mesh        = mesh;
     d_meshType    = d_mesh->getGeomType();
     d_physicalDim = d_mesh->getDim();
@@ -64,15 +61,11 @@ structuredMeshElement::structuredMeshElement( const structuredMeshElement &rhs )
       d_index( rhs.d_index ),
       d_mesh( rhs.d_mesh )
 {
-    d_typeHash = elementTypeID;
-    d_element  = nullptr;
 }
 structuredMeshElement &structuredMeshElement::operator=( const structuredMeshElement &rhs )
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    this->d_typeHash    = elementTypeID;
-    this->d_element     = nullptr;
     this->d_meshType    = rhs.d_meshType;
     this->d_physicalDim = rhs.d_physicalDim;
     this->d_index       = rhs.d_index;
@@ -90,15 +83,9 @@ structuredMeshElement::~structuredMeshElement() = default;
 /****************************************************************
  * Function to clone the element                                 *
  ****************************************************************/
-MeshElement *structuredMeshElement::clone() const { return new structuredMeshElement( *this ); }
-
-
-/****************************************************************
- * Return the global rank of the owner rank                      *
- ****************************************************************/
-unsigned int structuredMeshElement::globalOwnerRank() const
+std::unique_ptr<MeshElement> structuredMeshElement::clone() const
 {
-    return d_mesh->getComm().globalRanks()[globalID().owner_rank()];
+    return std::make_unique<structuredMeshElement>( *this );
 }
 
 
@@ -139,8 +126,7 @@ void structuredMeshElement::getVertices( std::vector<Point> &vertices ) const
  * Function to get the elements composing the current element    *
  * We use a Canonical numbering system                           *
  ****************************************************************/
-void structuredMeshElement::getElements( const GeomType type,
-                                         std::vector<MeshElement> &elements ) const
+void structuredMeshElement::getElements( const GeomType type, ElementList &elements ) const
 {
     int N = 0;
     BoxMesh::MeshElementIndex index[12];
@@ -149,7 +135,7 @@ void structuredMeshElement::getElements( const GeomType type,
     elements.clear();
     elements.reserve( N );
     for ( int i = 0; i < N; i++ )
-        elements.emplace_back( structuredMeshElement( index[i], d_mesh ) );
+        elements.emplace_back( std::make_unique<structuredMeshElement>( index[i], d_mesh ) );
 }
 int structuredMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
@@ -299,30 +285,15 @@ void structuredMeshElement::getElementIndex( const GeomType type,
         AMP_ERROR( "Not finished" );
     }
     // Fix any elements that are beyond a periodic boundary
-    auto BC = getBC();
-    for ( int d = 0; d < static_cast<int>( d_meshType ); d++ ) {
-        if ( BC[d] == 1 ) {
-            // Periodic boundary
-            int size = d_mesh->d_globalSize[d];
-            for ( int i = 0; i < N; i++ ) {
-                if ( index[i].d_index[d] < 0 )
-                    index[i].d_index[d] += size;
-                else if ( index[i].d_index[d] >= size )
-                    index[i].d_index[d] -= size;
-            }
-        } else if ( BC[d] == 2 ) {
-            // mapped boundary
-            AMP_WARN_ONCE( "Not finished" );
-        }
-    }
+    for ( int i = 0; i < N; i++ )
+        d_mesh->fixPeriodic( index[i] );
 }
 
 
 /****************************************************************
  * Function to get the neighboring elements                      *
  ****************************************************************/
-void structuredMeshElement::getNeighbors(
-    std::vector<std::unique_ptr<MeshElement>> &neighbors ) const
+void structuredMeshElement::getNeighbors( ElementList &neighbors ) const
 {
     BoxMesh::MeshElementIndex index[27];
     int N = getNeighborIndex( index );
@@ -447,7 +418,7 @@ int structuredMeshElement::getNeighborIndex( BoxMesh::MeshElementIndex *index ) 
 /****************************************************************
  * Function to get the parent elements                           *
  ****************************************************************/
-std::vector<MeshElement> structuredMeshElement::getParents( GeomType type ) const
+MeshElement::ElementList structuredMeshElement::getParents( GeomType type ) const
 {
     AMP_INSIST( static_cast<int>( type ) >= d_index.d_type,
                 "We can't return a parent of geometric type < current type" );
@@ -466,7 +437,9 @@ std::vector<MeshElement> structuredMeshElement::getParents( GeomType type ) cons
     const int *ijk = d_index.d_index.data();
     if ( d_index.d_type == static_cast<int>( type ) ) {
         // We are looking for the current element
-        return std::vector<MeshElement>( 1, MeshElement( *this ) );
+        ElementList tmp;
+        tmp.push_back( std::make_unique<structuredMeshElement>( *this ) );
+        return tmp;
     } else if ( static_cast<int>( type ) == d_index.d_type + 1 && type == d_meshType ) {
         // We have an entity that is the geometric type-1 and we want to get the
         // parents of the geometric type of the mesh
@@ -601,24 +574,13 @@ std::vector<MeshElement> structuredMeshElement::getParents( GeomType type ) cons
     }
     index_list.resize( k );
     // Fix any elements that are beyond a periodic boundary
-    for ( int d = 0; d < static_cast<int>( d_meshType ); d++ ) {
-        if ( BC[d] == 1 ) {
-            int global_size = d_mesh->d_globalSize[d];
-            for ( auto &elem : index_list ) {
-                if ( elem.d_index[d] < 0 )
-                    elem.d_index[d] += global_size;
-                else if ( elem.d_index[d] >= global_size )
-                    elem.d_index[d] -= global_size;
-            }
-        } else if ( BC[d] == 2 ) {
-            AMP_WARN_ONCE( "Not finished" );
-        }
-    }
+    for ( auto &index : index_list )
+        d_mesh->fixPeriodic( index );
     // Create the elements
     AMP::Utilities::quicksort( index_list );
-    std::vector<MeshElement> elements( index_list.size() );
+    std::vector<std::unique_ptr<MeshElement>> elements( index_list.size() );
     for ( size_t i = 0; i < index_list.size(); i++ )
-        elements[i] = structuredMeshElement( index_list[i], d_mesh );
+        elements[i] = std::make_unique<structuredMeshElement>( index_list[i], d_mesh );
     return elements;
 }
 
@@ -890,7 +852,7 @@ MeshPoint<double> structuredMeshElement::nearest( const MeshPoint<double> &pos0 
 template<std::size_t N>
 static inline std::array<double, N> point( const double *x )
 {
-    std::array<double, N> y;
+    std::array<double, N> y = { 0 };
     for ( size_t i = 0; i < N; i++ )
         y[i] = x[i];
     return y;

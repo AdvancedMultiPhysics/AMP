@@ -68,7 +68,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
             multiply( A_offd, BR_offd, C_offd_offd );
         }
     }
-    deviceSynchronize();
 
     merge( C_diag_diag, C_offd_diag, C_diag );
     C_diag_diag.reset();
@@ -77,8 +76,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
     merge( C_diag_offd, C_offd_offd, C_offd );
     C_diag_offd.reset();
     C_offd_offd.reset();
-
-    deviceSynchronize();
 
     C->assemble( true );
 }
@@ -298,10 +295,8 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
-        deviceSynchronize();
         merge_row_count<<<GridDim, BlockDim>>>(
             num_rows, inL_rs, inL_cols, inR_rs, inR_cols, out_rs );
-        deviceSynchronize();
         getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
     }
 
@@ -319,7 +314,6 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, BlockDim, GridDim );
-        deviceSynchronize();
         merge_row_fill<gidx_t, lidx_t, scalar_t><<<GridDim, BlockDim>>>( num_rows,
                                                                          inL_rs,
                                                                          inL_cols,
@@ -330,7 +324,6 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                                                                          out_rs,
                                                                          out_cols,
                                                                          out_coeffs );
-        deviceSynchronize();
         getLastDeviceError( "CSRMatrixSpGEMMDevice::mergeDiag::merge_row_count" );
     }
 }
@@ -419,6 +412,12 @@ void CSRMatrixSpGEMMDevice<Config>::setupBRemoteComm()
 template<typename Config>
 void CSRMatrixSpGEMMDevice<Config>::startBRemoteComm()
 {
+    if ( comm.getSize() == 1 ) {
+        return;
+    }
+
+    PROFILE( "CSRMatrixSpGEMMDevice::startBRemoteComm" );
+
     // check if the communicator information is available and create if needed
     if ( d_dest_info.empty() ) {
         setupBRemoteComm();
@@ -435,23 +434,36 @@ void CSRMatrixSpGEMMDevice<Config>::startBRemoteComm()
 template<typename Config>
 void CSRMatrixSpGEMMDevice<Config>::endBRemoteComm()
 {
+    if ( comm.getSize() == 1 ) {
+        return;
+    }
+
     PROFILE( "CSRMatrixSpGEMMDevice::endBRemoteComm" );
 
     d_recv_matrices = d_csr_comm.recvMatrices( 0, 0, 0, B->numGlobalColumns() );
 
-    // BRemotes do not need any particular parameters object internally
-    BR_diag = localmatrixdata_t::ConcatVertical(
-        nullptr, d_recv_matrices, B->beginCol(), B->endCol(), true );
-    BR_offd = localmatrixdata_t::ConcatVertical(
-        nullptr, d_recv_matrices, B->beginCol(), B->endCol(), false );
+    if ( d_recv_matrices.size() > 0 ) {
+        // BRemotes do not need any particular parameters object internally
+        BR_diag = localmatrixdata_t::ConcatVertical(
+            nullptr, d_recv_matrices, B->beginCol(), B->endCol(), true );
+        BR_offd = localmatrixdata_t::ConcatVertical(
+            nullptr, d_recv_matrices, B->beginCol(), B->endCol(), false );
+    }
+    // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
+    d_send_matrices.clear();
+    d_recv_matrices.clear();
 
     // trigger remotes to build local indices
     BR_diag->globalToLocalColumns();
     BR_offd->globalToLocalColumns();
 
-    // comms are done and BR_{diag,offd} filled, deallocate send/recv blocks
-    d_send_matrices.clear();
-    d_recv_matrices.clear();
+    // test shape of concatenated matrices
+    if ( BR_diag ) {
+        AMP_DEBUG_ASSERT( A_offd->numUniqueColumns() == BR_diag->numLocalRows() );
+    }
+    if ( BR_offd ) {
+        AMP_DEBUG_ASSERT( A_offd->numUniqueColumns() == BR_offd->numLocalRows() );
+    }
 }
 
 } // namespace AMP::LinearAlgebra

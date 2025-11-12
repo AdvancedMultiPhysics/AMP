@@ -59,17 +59,16 @@ NodeToGaussPointOperator::NodeToGaussPointOperator(
     AMP::Mesh::MeshIterator iterator = d_iterator.begin();
     for ( size_t i = 0; i < iterator.size(); ++i, ++iterator ) {
         // Cache the nodes for all elements
-        std::vector<AMP::Mesh::MeshElement> nodes =
-            iterator->getElements( AMP::Mesh::GeomType::Vertex );
+        auto nodes = iterator->getElements( AMP::Mesh::GeomType::Vertex );
         d_nodes[i].resize( nodes.size() );
         for ( size_t j = 0; j < nodes.size(); j++ )
-            d_nodes[i][j] = nodes[j].globalID();
+            d_nodes[i][j] = nodes[j]->globalID();
         size_t N_nodes = d_nodes[i].size();
         // Cache the shape functions for all elements
         libMesh::Elem *elem =
             AMP::Discretization::createLibmeshElements::createElement( *iterator );
         febase->reinit( elem );
-        const std::vector<std::vector<libMesh::Real>> &phi = febase->get_phi();
+        const auto &phi = febase->get_phi();
         AMP_ASSERT( d_nodes[i].size() == N_nodes );
         d_N_quad[i] = phi[0].size();
         d_phi[i].resize( d_N_quad[i] * N_nodes, 0 );

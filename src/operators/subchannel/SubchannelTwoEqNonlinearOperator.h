@@ -17,6 +17,8 @@ namespace AMP::Operator {
 class SubchannelTwoEqNonlinearOperator : public Operator
 {
 public:
+    typedef std::unique_ptr<AMP::Mesh::MeshElement> ElementPtr;
+
     //! Constructor
     explicit SubchannelTwoEqNonlinearOperator( std::shared_ptr<const OperatorParameters> params );
 
@@ -78,19 +80,6 @@ protected:
 private:
     bool d_initialized;
 
-    // Function used in reset to get double parameter or use default if missing
-    double
-    getDoubleParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, double );
-
-    // Function used in reset to get integer parameter or use default if missing
-    int
-    getIntegerParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, int );
-
-    // Function used in reset to get double parameter or use default if missing
-    std::string getStringParameter( std::shared_ptr<const SubchannelOperatorParameters>,
-                                    std::string,
-                                    std::string );
-
     std::shared_ptr<AMP::LinearAlgebra::Variable> d_inpVariable;
     std::shared_ptr<AMP::LinearAlgebra::Variable> d_outVariable;
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_cladTemperature;
@@ -123,10 +112,9 @@ private:
     std::string d_heatShape; // heat shape used if heat source type is "totalHeatGeneration"
 
     std::vector<double> d_x, d_y, d_z;
-    std::vector<bool> d_ownSubChannel; // Which subchannels do I own
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
-        d_subchannelElem; // List of elements in each subchannel
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
+    std::vector<bool> d_ownSubChannel;                     // Which subchannels do I own
+    std::vector<std::vector<ElementPtr>> d_subchannelElem; // List of elements in each subchannel
+    std::vector<std::vector<ElementPtr>>
         d_subchannelFace; // List of z-face elements in each subchannel
     int getSubchannelIndex( double x, double y );
     size_t d_numSubchannels;

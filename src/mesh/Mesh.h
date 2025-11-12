@@ -64,6 +64,9 @@ public:
     typedef std::function<std::shared_ptr<Mesh>( std::shared_ptr<const MeshParameters> )>
         generatorType;
 
+    //! Pointer to MeshElement
+    using MeshElementPtr = std::unique_ptr<MeshElement>;
+
     //! Enumeration for basic mesh-based quantities
     enum class Movable : uint8_t { Fixed = 0, Displace = 1, Deform = 2 };
 
@@ -303,7 +306,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    virtual MeshElement getElement( const MeshElementID &id ) const;
+    virtual MeshElementPtr getElement( const MeshElementID &id ) const;
 
 
     /**
@@ -313,8 +316,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const;
+    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
+                                                           const GeomType type ) const;
 
 
     //! Get the largest geometric type in the mesh
@@ -392,7 +395,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    inline std::vector<double> getBoundingBox() const { return d_box; }
+    inline const auto &getBoundingBox() const { return d_box; }
 
 
     /**
@@ -401,7 +404,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    inline std::vector<double> getLocalBoundingBox() const { return d_box_local; }
+    inline const auto &getLocalBoundingBox() const { return d_box_local; }
 
 
     /**
@@ -488,7 +491,7 @@ public:
                             //!< 3 - The meshes are similar: Nodes do not match but map the
                             //!<     same domain within tolerance, block/surface ids match
         CompareResult( int state = 0 );
-        bool operator==( const CompareResult & );
+        bool operator==( const CompareResult & ) const;
     };
 
     /**

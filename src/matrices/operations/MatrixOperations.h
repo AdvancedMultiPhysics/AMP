@@ -4,6 +4,10 @@
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/Scalar.h"
 
+namespace AMP::IO {
+class RestartManager;
+}
+
 namespace AMP::LinearAlgebra {
 
 class Vector;
@@ -104,8 +108,9 @@ public:
     virtual void getRowSums( MatrixData const &A, std::shared_ptr<Vector> buf ) = 0;
 
     /** \brief Extract the absolute row sums into a vector
-     * \param[in] A The matrix to get the row sums from
-     * \param[in] buf Vector to store the row sums to
+     * \param[in] A             The matrix to get the row sums from
+     * \param[in] buf           Vector to store the row sums to
+     * \param[in] remove_zeros  If true zero values in sum are replaced with ones
      */
     virtual void getRowSumsAbsolute( MatrixData const &A,
                                      std::shared_ptr<Vector> buf,
@@ -133,6 +138,35 @@ public:
      * \param[in] y matrix data to copy to after up/down casting the coefficients
      */
     virtual void copyCast( const MatrixData &x, MatrixData &y );
+
+    //! Return the type of the matrix operations class
+    virtual std::string type() const { return "MatrixOperations"; }
+
+    //! Get a unique id hash for the vector operation
+    uint64_t getID() const;
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    virtual void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    virtual void writeRestart( int64_t fid ) const;
+
+
+protected:
+    MatrixOperations();
+
+protected:
+    //! unique hash for object
+    uint64_t d_hash = 0;
 };
 
 } // namespace AMP::LinearAlgebra

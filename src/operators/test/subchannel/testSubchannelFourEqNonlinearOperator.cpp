@@ -211,8 +211,8 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
     std::cout.flush();
 
     // check number of lateral gaps
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> interiorLateralFaceMap;
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> exteriorLateralFaceMap;
+    std::map<AMP::Mesh::Point, std::unique_ptr<AMP::Mesh::MeshElement>> interiorLateralFaceMap;
+    std::map<AMP::Mesh::Point, std::unique_ptr<AMP::Mesh::MeshElement>> exteriorLateralFaceMap;
     subchannelOperator->getLateralFaces(
         subchannelOpParams->d_Mesh, interiorLateralFaceMap, exteriorLateralFaceMap );
     size_t Ngaps = interiorLateralFaceMap.size();
@@ -240,7 +240,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
     subchannelOperator->fillSubchannelGrid( subchannelOpParams->d_Mesh );
 
     // put all cells in an array by subchannel
-    AMP::Mesh::MeshElement
+    std::unique_ptr<AMP::Mesh::MeshElement>
         d_elem[numSubchannels][numAxialIntervals]; // array of array of elements for each subchannel
     auto cell = subchannelOpParams->d_Mesh->getIterator( AMP::Mesh::GeomType::Cell,
                                                          0 ); // iterator for cells of mesh
@@ -255,7 +255,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
             double center_interval_j = ( j + 0.5 ) * dz;
             // check if center of cell is equal to center of axial interval j
             if ( AMP::Utilities::approx_equal( center[2], center_interval_j, 1.0e-12 ) ) {
-                d_elem[isub][j]   = *cell;
+                d_elem[isub][j]   = cell->clone();
                 found_axial_index = true;
                 break;
             }
@@ -277,9 +277,9 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
         // loop over axial intervals
         for ( unsigned int j = 0; j < numAxialIntervals; ++j ) {
             // get axial faces
-            AMP::Mesh::MeshElement plusFace;  // upper axial face for current cell
-            AMP::Mesh::MeshElement minusFace; // lower axial face for current cell
-            subchannelOperator->getAxialFaces( d_elem[isub][j], plusFace, minusFace );
+            std::unique_ptr<AMP::Mesh::MeshElement> plusFace;  // upper axial face for current cell
+            std::unique_ptr<AMP::Mesh::MeshElement> minusFace; // lower axial face for current cell
+            subchannelOperator->getAxialFaces( *d_elem[isub][j], plusFace, minusFace );
 
             double val;
             if ( j == 0 ) // for first axial interval only, set the quantities for the lower face
@@ -287,7 +287,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
                 size_t jj = j + 1; // corresponding MATLAB index for this axial face
                 // get dofs on minus face
                 std::vector<size_t> minusDofs;
-                subchannelDOFManager->getDOFs( minusFace.globalID(), minusDofs );
+                subchannelDOFManager->getDOFs( minusFace->globalID(), minusDofs );
                 // set values of minus face
                 val = m_scale * 0.35 * ( 1.0 + 1.0 / 100.0 * cos( ii ) * cos( 17.3 * jj ) );
                 SolVec->setValuesByGlobalID( 1, &minusDofs[0], &val );
@@ -300,7 +300,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
             size_t jj = j + 2; // corresponding MATLAB index for this axial face
             // get dofs on plus face
             std::vector<size_t> plusDofs;
-            subchannelDOFManager->getDOFs( plusFace.globalID(), plusDofs );
+            subchannelDOFManager->getDOFs( plusFace->globalID(), plusDofs );
             // set values of plus face
             val = m_scale * 0.35 * ( 1.0 + 1.0 / 100.0 * cos( ii ) * cos( 17.3 * jj ) );
             SolVec->setValuesByGlobalID( 1, &plusDofs[0], &val );
@@ -316,7 +316,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
 
     // set lateral face quantities (lateral mass flow rates) of input vector for nonlinear residual
     // array of gap faces
-    AMP::Mesh::MeshElement gapFaces[numGaps][numAxialIntervals]; // gap faces
+    std::unique_ptr<AMP::Mesh::MeshElement> gapFaces[numGaps][numAxialIntervals]; // gap faces
     // loop over all faces in mesh
     AMP::Mesh::MeshIterator face =
         subchannelOpParams->d_Mesh->getIterator( AMP::Mesh::GeomType::Face, 0 );
@@ -326,16 +326,16 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
         auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
         if ( lateralFaceIterator != interiorLateralFaceMap.end() ) { // if face in lateral face map,
             // get lateral face
-            AMP::Mesh::MeshElement lateralFace = lateralFaceIterator->second;
+            auto &lateralFace = lateralFaceIterator->second;
             // get MATLAB index for gap
-            unsigned int k = getMATLABGapIndex( lateralFace );
+            unsigned int k = getMATLABGapIndex( *lateralFace );
             // get MATLAB axial index
-            unsigned int j = getMATLABAxialIndex( lateralFace );
+            unsigned int j = getMATLABAxialIndex( *lateralFace );
             // put gap face in array
-            gapFaces[k - 1][j - 1] = lateralFace;
+            gapFaces[k - 1][j - 1] = lateralFace->clone();
             // get crossflow from solution vector
             std::vector<size_t> gapDofs;
-            subchannelDOFManager->getDOFs( lateralFace.globalID(), gapDofs );
+            subchannelDOFManager->getDOFs( lateralFace->globalID(), gapDofs );
             // set test value for crossflow
             double val = w_scale * 0.001 * ( 1.0 + 1.0 / 100.0 * cos( k ) * cos( 17.3 * j ) );
             SolVec->setValuesByGlobalID( 1, &gapDofs[0], &val );
@@ -361,15 +361,15 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
         // loop over axial intervals
         for ( size_t j = 0; j < numAxialIntervals; ++j ) {
             // get axial faces
-            AMP::Mesh::MeshElement plusFace;  // upper axial face for current cell
-            AMP::Mesh::MeshElement minusFace; // lower axial face for current cell
-            subchannelOperator->getAxialFaces( d_elem[isub][j], plusFace, minusFace );
+            std::unique_ptr<AMP::Mesh::MeshElement> plusFace;  // upper axial face for current cell
+            std::unique_ptr<AMP::Mesh::MeshElement> minusFace; // lower axial face for current cell
+            subchannelOperator->getAxialFaces( *d_elem[isub][j], plusFace, minusFace );
 
             // get unknowns of first face
             if ( j == 0 ) {
                 // get dofs on minus face
                 std::vector<size_t> minusDofs;
-                subchannelDOFManager->getDOFs( minusFace.globalID(), minusDofs );
+                subchannelDOFManager->getDOFs( minusFace->globalID(), minusDofs );
                 // get values of minus face
                 m_res[ii - 1][0] = ResVec->getValueByGlobalID( minusDofs[0] ) / m_scale;
                 h_res[ii - 1][0] = ResVec->getValueByGlobalID( minusDofs[1] ) / h_scale;
@@ -380,7 +380,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
 
             // get dofs on plus face
             std::vector<size_t> plusDofs;
-            subchannelDOFManager->getDOFs( plusFace.globalID(), plusDofs );
+            subchannelDOFManager->getDOFs( plusFace->globalID(), plusDofs );
             // get values of plus face
             m_res[ii - 1][j + 1] = ResVec->getValueByGlobalID( plusDofs[0] ) / m_scale;
             h_res[ii - 1][j + 1] = ResVec->getValueByGlobalID( plusDofs[1] ) / h_scale;
@@ -396,7 +396,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
         std::cout << "\nGap " << k + 1 << ":" << std::endl;
         for ( size_t j = 0; j < numAxialIntervals; ++j ) {
             std::vector<size_t> gapDofs;
-            subchannelDOFManager->getDOFs( gapFaces[k][j].globalID(), gapDofs );
+            subchannelDOFManager->getDOFs( gapFaces[k][j]->globalID(), gapDofs );
             w_res[k][j] = ResVec->getValueByGlobalID( gapDofs[0] ) / w_scale;
             std::cout << "Interval " << j + 1 << ":\t" << w_res[k][j] << std::endl;
         }

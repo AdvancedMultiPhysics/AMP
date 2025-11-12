@@ -34,11 +34,11 @@ public:
 
     std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override;
 
-    unsigned int numberOfDOFMaps();
+    unsigned int numberOfDOFMaps() { return 1; }
 
     std::shared_ptr<AMP::LinearAlgebra::Variable> getVariableForDOFMap( unsigned int id );
 
-    std::string getPrincipalVariable();
+    const auto &getPrincipalVariable() { return d_PrincipalVariable; }
 
     std::vector<std::string> getNonPrincipalVariableIds();
 
@@ -80,7 +80,7 @@ protected:
 
     std::shared_ptr<DiffusionTransportModel> d_transportModel;
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
 
     AMP::LinearAlgebra::Vector::shared_ptr d_outVec;
 

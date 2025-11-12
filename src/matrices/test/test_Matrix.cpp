@@ -56,7 +56,7 @@ int main( int argc, char **argv )
     // Test some basic properties
     AMP::pout << "Running basic tests" << std::endl << std::endl;
     testBasics( ut, "auto" );
-    for ( auto type : types )
+    for ( auto &type : types )
         testBasics( ut, type );
 
 

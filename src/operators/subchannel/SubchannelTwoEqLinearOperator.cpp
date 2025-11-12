@@ -17,6 +17,21 @@
 namespace AMP::Operator {
 
 
+template<class TYPE>
+static TYPE get( std::shared_ptr<const SubchannelOperatorParameters> params,
+                 const std::string &key,
+                 const TYPE &val )
+{
+    auto &db = params->d_db;
+    if ( db->keyExists( key ) ) {
+        return db->getScalar<TYPE>( key );
+    } else {
+        AMP_WARNING( "Key '" + key + "' was not provided. Using default value: " << val );
+        return val;
+    }
+}
+
+
 // Constructor
 SubchannelTwoEqLinearOperator::SubchannelTwoEqLinearOperator(
     std::shared_ptr<const OperatorParameters> inparams )
@@ -73,17 +88,17 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
         d_numSubchannels = ( d_x.size() - 1 ) * ( d_y.size() - 1 );
 
         // Get the properties from the database
-        d_Pout  = getDoubleParameter( myparams, "Exit_Pressure", 15.5132e6 );
-        d_Tin   = getDoubleParameter( myparams, "Inlet_Temperature", 569.26 );
-        d_mass  = getDoubleParameter( myparams, "Inlet_Mass_Flow_Rate", 0.3522 * d_numSubchannels );
-        d_gamma = getDoubleParameter( myparams, "Fission_Heating_Coefficient", 0.0 );
-        d_theta = getDoubleParameter( myparams, "Channel_Angle", 0.0 );
-        d_reynolds      = getDoubleParameter( myparams, "Reynolds", 0.0 );
-        d_prandtl       = getDoubleParameter( myparams, "Prandtl", 0.0 );
-        d_friction      = getDoubleParameter( myparams, "Friction_Factor", 0.001 );
-        d_source        = getStringParameter( myparams, "Heat_Source_Type", "totalHeatGeneration" );
-        d_frictionModel = getStringParameter( myparams, "Friction_Model", "Constant" );
-        d_NGrid         = getIntegerParameter( myparams, "Number_GridSpacers", 0 );
+        d_Pout     = get<double>( myparams, "Exit_Pressure", 15.5132e6 );
+        d_Tin      = get<double>( myparams, "Inlet_Temperature", 569.26 );
+        d_mass     = get<double>( myparams, "Inlet_Mass_Flow_Rate", 0.3522 * d_numSubchannels );
+        d_gamma    = get<double>( myparams, "Fission_Heating_Coefficient", 0.0 );
+        d_theta    = get<double>( myparams, "Channel_Angle", 0.0 );
+        d_reynolds = get<double>( myparams, "Reynolds", 0.0 );
+        d_prandtl  = get<double>( myparams, "Prandtl", 0.0 );
+        d_friction = get<double>( myparams, "Friction_Factor", 0.001 );
+        d_source   = get<std::string>( myparams, "Heat_Source_Type", "totalHeatGeneration" );
+        d_frictionModel = get<std::string>( myparams, "Friction_Model", "Constant" );
+        d_NGrid         = get<int>( myparams, "Number_GridSpacers", 0 );
 
         // Check for obsolete properites
         if ( myparams->d_db->keyExists( "Rod_Diameter" ) )
@@ -121,15 +136,15 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
 
         // get additional parameters based on heat source type
         if ( d_source == "totalHeatGeneration" ) {
-            d_Q         = getDoubleParameter( myparams, "Rod_Power", 66.81e3 );
-            d_heatShape = getStringParameter( myparams, "Heat_Shape", "Sinusoidal" );
+            d_Q         = get<double>( myparams, "Rod_Power", 66.81e3 );
+            d_heatShape = get<std::string>( myparams, "Heat_Shape", "Sinusoidal" );
         }
 
         // get additional parameters based on friction model
         if ( d_frictionModel == "Constant" ) {
-            d_friction = getDoubleParameter( myparams, "Friction_Factor", 0.001 );
+            d_friction = get<double>( myparams, "Friction_Factor", 0.001 );
         } else if ( d_frictionModel == "Selander" ) {
-            d_roughness = getDoubleParameter( myparams, "Surface_Roughness", 0.0015e-3 );
+            d_roughness = get<double>( myparams, "Surface_Roughness", 0.0015e-3 );
         }
 
         // get form loss parameters if there are grid spacers
@@ -151,30 +166,27 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
 
         // Get the subchannel elements
         d_ownSubChannel  = std::vector<bool>( d_numSubchannels, false );
-        d_subchannelElem = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-            d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
-        auto el = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+        d_subchannelElem = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
+        auto el          = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
         for ( size_t i = 0; i < el.size(); i++ ) {
             auto center = el->centroid();
             int index   = getSubchannelIndex( center[0], center[1] );
             if ( index >= 0 ) {
                 d_ownSubChannel[index] = true;
-                d_subchannelElem[index].push_back( *el );
+                d_subchannelElem[index].push_back( el->clone() );
             }
             ++el;
         }
-        d_subchannelFace = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-            d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
+        d_subchannelFace = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
         for ( size_t i = 0; i < d_numSubchannels; i++ ) {
             if ( !d_ownSubChannel[i] )
                 continue;
-            std::shared_ptr<std::vector<AMP::Mesh::MeshElement>> elemPtr( &d_subchannelElem[i],
-                                                                          []( auto ) {} );
+            std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
             auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
             auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
             auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
             for ( size_t j = 0; j < face.size(); j++ ) {
-                d_subchannelFace[i].push_back( *face );
+                d_subchannelFace[i].push_back( face->clone() );
                 ++face;
             }
         }
@@ -208,8 +220,8 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
                 continue;
 
             // Get the iterator over the faces in the local subchannel
-            std::shared_ptr<std::vector<AMP::Mesh::MeshElement>> elemPtr( &d_subchannelFace[isub],
-                                                                          []( auto ) {} );
+            std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub],
+                                                              []( auto ) {} );
             auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
             AMP_ASSERT( localSubchannelIt.size() == d_z.size() );
 
@@ -384,54 +396,6 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
 
         } // end of isub
         d_matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-    }
-}
-
-// function used in reset to get double parameter or set default if missing
-double SubchannelTwoEqLinearOperator::getDoubleParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    double defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getScalar<double>( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
-}
-
-// function used in reset to get integer parameter or set default if missing
-int SubchannelTwoEqLinearOperator::getIntegerParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    int defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getScalar<int>( paramString );
-    } else {
-        AMP::pout << "Key '" + paramString + "' was not provided. Using default value: "
-                  << defaultValue << "\n";
-        return defaultValue;
-    }
-}
-
-// function used in reset to get string parameter or set default if missing
-std::string SubchannelTwoEqLinearOperator::getStringParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    std::string defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getString( paramString );
-    } else {
-        AMP::pout << "Key '" + paramString + "' was not provided. Using default value: "
-                  << defaultValue << "\n";
-        return defaultValue;
     }
 }
 

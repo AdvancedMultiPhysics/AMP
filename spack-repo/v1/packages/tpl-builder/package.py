@@ -17,15 +17,17 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("2.1.2", tag="2.1.2", commit="cdb270395e1512da2f18a34a7fa6b60f1bcb790d")
+    version("2.1.2", tag="2.1.2", commit="1a9c083972e13e1f54eda2a0e70dc297342d84e5")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
+    variant('cxxstd', default='17', values=('17', '20', '23'), description='Build with support for C++17, 20 or 23')
     variant("stacktrace", default=False, description="Build with support for Stacktrace")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
     variant("lapack", default=False, description="Build with support for lapack")
     variant("lapackwrappers", default=False, description="Build with support for lapackwrappers")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
+    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
     variant("mpi", default=False, description="Build with MPI support")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
@@ -33,10 +35,16 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("petsc", default=False, description="Build with support for petsc")
     variant("trilinos", default=False, description="Build with support for trilinos")
     variant("test_gpus", default=-1, values=int, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
+    variant(
+        "cxxstd",
+        default="17",
+        values=("17", "20", "23"),
+        multi=False,
+        description="C++ standard",
+    )
 
-    depends_on("c", type="build")
-    depends_on("cxx", type="build")
-    depends_on("fortran", type="build")
+    conflicts("cxxstd=20", when="@:2.1.0") #c++ 20 is only compatible with tpl-builder 2.1.2 and up
+    conflicts("cxxstd=23", when="@:2.1.0") #c++ 23 is only compatible with tpl-builder 2.1.2 and up
 
     depends_on("git", type="build")
 
@@ -53,27 +61,19 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("lapackwrappers~shared", when="~shared+lapackwrappers")
     depends_on("lapackwrappers+shared", when="+shared+lapackwrappers")
 
-    depends_on("hypre+mixedint", when="+hypre")
-    depends_on("kokkos", when="+kokkos")
-
-    depends_on("kokkos+cuda+cuda_constexpr", when="+kokkos+cuda")
-    depends_on("kokkos+rocm", when="+kokkos+rocm")
-    depends_on("hypre+cuda+unified-memory", when="+hypre+cuda")
-    depends_on("hypre+rocm+unified-memory", when="+hypre+rocm")
-
-    depends_on("hypre~shared", when="~shared+hypre")
-    depends_on("hypre+shared", when="+shared+hypre")
-    depends_on("blas", when="+lapack")
     depends_on("lapack", when="+lapack")
 
-    requires("+lapack", when="+hypre")
+    depends_on("hypre", when="+hypre")
+
+    depends_on("kokkos", when="+kokkos")
+    depends_on("kokkos-kernels", when="+kokkos-kernels")
+
+    depends_on("blas", when="+lapack")
 
     depends_on("libmesh+exodusii+netcdf+metis", when="+libmesh")
 
     depends_on("petsc", when="+petsc")
-    depends_on("trilinos+epetra+epetraext+thyra+tpetra+ml+muelu+kokkos+amesos+ifpack+ifpack2+belos+nox+stratimikos gotype=int", when="+trilinos")
-
-    requires("+lapack", when="+trilinos")
+    depends_on("trilinos", when="+trilinos")
 
     for _flag in list(CudaPackage.cuda_arch_values):
         depends_on(f"hypre cuda_arch={_flag}", when=f"+hypre+cuda cuda_arch={_flag}")
@@ -109,10 +109,8 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         options = [
             self.define("INSTALL_DIR", spec.prefix),
             self.define("DISABLE_ALL_TESTS", True),
-            self.define("CXX_STD", "17"),
-            self.define_from_variant("BUILD_SHARED_LIBS", "shared"),
+            self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
-            self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "shared"),
             self.define("ENABLE_STATIC", not spec.variants["shared"].value),
             self.define_from_variant("USE_MPI", "mpi"),
             self.define("MPI_SKIP_SEARCH", False),
@@ -126,6 +124,10 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define('CMAKE_Fortran_COMPILER', spack_fc),
         ]
 
+
+        if spec.satisfies("+trilinos"):
+            if '~kokkos' in spec['trilinos']:
+                options.extend( [ self.define("DISABLE_TRILINOS_KOKKOS", True) ] )
 
         if spec.satisfies("+cuda"):
             cuda_arch = spec.variants["cuda_arch"].value
@@ -157,7 +159,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     ]
                 )
                 
-        if spec.satisfies("+mpi") and spec.satisfies("+rocm"):
+        if spec.satisfies("+mpi +rocm"):
             options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
                              self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
                              ] )
@@ -186,15 +188,13 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     self.define("LAPACK_LIBRARY_DIRS", ";".join(lapack.directories)),
                 ]
             )
-        if spec.satisfies("+trilinos"):
-            options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Xpetra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
 
         if spec.variants["test_gpus"].value != "-1":
             options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))
 
-        for vname in ("stacktrace", "hypre", "kokkos", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
+        for vname in ("stacktrace", "hypre", "kokkos", "kokkos-kernels", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):
             if spec.satisfies(f"+{vname}"):
-                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else vname.upper()
+                tpl_name = "TIMER" if vname == "timerutility" else "LAPACK_WRAPPERS" if vname == "lapackwrappers" else "KOKKOSKERNELS" if vname == "kokkos-kernels" else vname.upper()
                 tpl_list.append(tpl_name)
                 options.append(self.define(f"{tpl_name}_INSTALL_DIR", spec[vname].prefix))
 

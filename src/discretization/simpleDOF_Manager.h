@@ -102,7 +102,7 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    AMP::Mesh::MeshElement getElement( size_t dof ) const override;
+    std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const override;
 
 
     /** \brief   Get the underlying mesh
@@ -162,7 +162,7 @@ protected:
     simpleDOFManager() = delete;
 
     // Function to find the remote DOF given a set of mesh element IDs
-    std::vector<size_t> getRemoteDOF( std::vector<AMP::Mesh::MeshElementID> remote_ids ) const;
+    std::vector<size_t> getRemoteDOF( const std::vector<AMP::Mesh::MeshElementID> &ids ) const;
 
     // Function to initialize the data
     void initialize();

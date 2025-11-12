@@ -81,9 +81,9 @@ public:
         }
     }
 
-    std::vector<short int> getBoundaryIds() { return d_boundaryIds; }
+    const auto &getBoundaryIds() const { return d_boundaryIds; }
 
-    std::vector<std::vector<size_t>> getDofIds() { return d_dofIds; }
+    const auto &getDofIds() const { return d_dofIds; }
 
 protected:
     AMP::LinearAlgebra::Vector::shared_ptr

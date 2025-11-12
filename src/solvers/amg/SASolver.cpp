@@ -45,7 +45,9 @@ void SASolver::resetLevelOptions()
     d_num_relax_pre  = d_db->getWithDefault<size_t>( "num_relax_pre", 1 );
     d_num_relax_post = d_db->getWithDefault<size_t>( "num_relax_post", 1 );
     d_coarsen_settings.strength_threshold =
-        d_db->getWithDefault<float>( "strength_threshold", 4.0 );
+        d_db->getWithDefault<float>( "strength_threshold", 0.25 );
+    d_coarsen_settings.strength_measure =
+        d_db->getWithDefault<std::string>( "strength_measure", "classical_min" );
     d_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
     d_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
     d_num_smooth_prol                  = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
@@ -71,6 +73,8 @@ void SASolver::setLevelOptions( const size_t lvl )
         d_num_relax_post = lvl_db->getWithDefault<size_t>( "num_relax_post", d_num_relax_post );
         d_coarsen_settings.strength_threshold = lvl_db->getWithDefault<float>(
             "strength_threshold", d_coarsen_settings.strength_threshold );
+        d_coarsen_settings.strength_measure = lvl_db->getWithDefault<std::string>(
+            "strength_measure", d_coarsen_settings.strength_measure );
         d_coarsen_settings.pairwise_passes =
             lvl_db->getWithDefault<size_t>( "pairwise_passes", d_coarsen_settings.pairwise_passes );
         d_coarsen_settings.checkdd =
@@ -97,8 +101,7 @@ void SASolver::setLevelOptions( const size_t lvl )
     } else if ( d_agg_type == "pairwise" ) {
         d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
     } else {
-        d_aggregator =
-            std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings.strength_threshold );
+        d_aggregator = std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings );
     }
 
     // create relaxation parameters
@@ -183,14 +186,13 @@ void SASolver::makeCoarseSolver()
 void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
                                  std::shared_ptr<LinearAlgebra::Matrix> &P ) const
 {
-    // Apply Jacobi-L1 smoother w/ chebyshev acceleration to get P_smooth
-
     // Get D as absolute row sums of A
+    // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // Chebyshev terms, set to damp over 75% of eigenvalues
+    // Chebyshev terms
     const double pi = static_cast<double>( AMP::Constants::pi );
-    const double a = 0.05, ma = 1.0 - a, pa = 1.0 + a;
+    const double a = 0.98, ma = 1.0 - a, pa = 1.0 + a;
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {

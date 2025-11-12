@@ -66,11 +66,6 @@ DiffusionNonlinearFEOperator::getOutputVariable() const
     return d_outVariable;
 }
 
-unsigned int DiffusionNonlinearFEOperator::numberOfDOFMaps() { return 1; }
-
-
-std::string DiffusionNonlinearFEOperator::getPrincipalVariable() { return d_PrincipalVariable; }
-
 
 std::shared_ptr<DiffusionTransportModel> DiffusionNonlinearFEOperator::getTransportModel()
 {
@@ -157,7 +152,7 @@ DiffusionNonlinearFEOperator::DiffusionNonlinearFEOperator(
     d_transportModel = params->d_transportModel;
 
     auto activeVariables = getActiveVariables( params->d_db, "ActiveInputVariables" );
-    for ( auto name : activeVariables ) {
+    for ( auto &name : activeVariables ) {
         InputVectorStruct data;
         data.isFrozen  = params->d_db->getWithDefault<bool>( "Freeze" + name, false );
         d_active[name] = data;
@@ -251,7 +246,7 @@ void DiffusionNonlinearFEOperator::preElementOperation( const AMP::Mesh::MeshEle
     d_currNodes = elem.getElements( AMP::Mesh::GeomType::Vertex );
     std::vector<AMP::Mesh::MeshElementID> ids( d_currNodes.size() );
     for ( size_t i = 0; i < d_currNodes.size(); i++ )
-        ids[i] = d_currNodes[i].globalID();
+        ids[i] = d_currNodes[i]->globalID();
 
     std::vector<size_t> dofs( d_currNodes.size() );
     for ( auto &[name, data] : d_active ) {
@@ -284,7 +279,7 @@ void DiffusionNonlinearFEOperator::postElementOperation()
 
     std::vector<AMP::Mesh::MeshElementID> ids( d_currNodes.size() );
     for ( size_t i = 0; i < d_currNodes.size(); i++ )
-        ids[i] = d_currNodes[i].globalID();
+        ids[i] = d_currNodes[i]->globalID();
 
     auto DOF = d_outVec->getDOFManager();
     std::vector<size_t> dofs( d_currNodes.size() );

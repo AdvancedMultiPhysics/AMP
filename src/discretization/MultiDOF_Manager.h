@@ -60,7 +60,7 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    AMP::Mesh::MeshElement getElement( size_t dof ) const override;
+    std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const override;
 
 
     /** \brief   Get the underlying mesh
@@ -117,10 +117,10 @@ public:
 
 public:
     //! Get the DOFManagers that compose the multiDOFManager
-    std::vector<std::shared_ptr<DOFManager>> getDOFManagers() const;
+    inline const auto &getDOFManagers() const { return d_managers; }
 
     //! get the i-th dof manager
-    std::shared_ptr<DOFManager> getDOFManager( const size_t i ) const { return d_managers[i]; }
+    inline const auto &getDOFManager( const size_t i ) const { return d_managers[i]; }
 
 
     /** \brief   Function to convert DOFs from a sub-manager DOF to the global DOF
@@ -194,7 +194,6 @@ private:
 
     std::shared_ptr<const AMP::Mesh::Mesh> d_mesh;
     std::vector<std::shared_ptr<DOFManager>> d_managers;
-    std::vector<size_t> d_localSize;
     std::vector<size_t> d_globalSize;
     multiDOFHelper d_dofMap;
 };

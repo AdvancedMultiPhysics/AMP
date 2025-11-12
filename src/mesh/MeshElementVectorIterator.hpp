@@ -3,7 +3,9 @@
 
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/utils/TypeTraits.h"
 #include "AMP/utils/typeid.h"
+
 
 namespace AMP::Mesh {
 
@@ -32,7 +34,10 @@ MeshElementVectorIterator<TYPE>::MeshElementVectorIterator(
     d_iterator          = nullptr;
     d_pos               = pos;
     d_size              = d_elements->size();
-    d_element           = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
+    if constexpr ( is_unique_ptr_v<TYPE> )
+        d_element = d_pos < d_size ? d_elements->operator[]( d_pos ).get() : nullptr;
+    else
+        d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
 }
 template<class TYPE>
 MeshElementVectorIterator<TYPE>::MeshElementVectorIterator( const MeshElementVectorIterator &rhs )
@@ -44,7 +49,10 @@ MeshElementVectorIterator<TYPE>::MeshElementVectorIterator( const MeshElementVec
     d_iterator          = nullptr;
     d_pos               = rhs.d_pos;
     d_size              = rhs.d_size;
-    d_element           = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
+    if constexpr ( is_unique_ptr_v<TYPE> )
+        d_element = d_pos < d_size ? d_elements->operator[]( d_pos ).get() : nullptr;
+    else
+        d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
 }
 template<class TYPE>
 MeshElementVectorIterator<TYPE> &
@@ -58,7 +66,10 @@ MeshElementVectorIterator<TYPE>::operator=( const MeshElementVectorIterator &rhs
     d_elements = rhs.d_elements;
     d_pos      = rhs.d_pos;
     d_size     = rhs.d_size;
-    d_element  = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
+    if constexpr ( is_unique_ptr_v<TYPE> )
+        d_element = d_pos < d_size ? d_elements->operator[]( d_pos ).get() : nullptr;
+    else
+        d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
     return *this;
 }
 
@@ -96,7 +107,10 @@ MeshIterator &MeshElementVectorIterator<TYPE>::operator++()
 {
     // Prefix increment (increment and return this)
     d_pos++;
-    d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
+    if constexpr ( is_unique_ptr_v<TYPE> )
+        d_element = d_pos < d_size ? d_elements->operator[]( d_pos ).get() : nullptr;
+    else
+        d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
     return *this;
 }
 template<class TYPE>
@@ -104,7 +118,10 @@ MeshIterator &MeshElementVectorIterator<TYPE>::operator--()
 {
     // Prefix decrement (increment and return this)
     d_pos--;
-    d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
+    if constexpr ( is_unique_ptr_v<TYPE> )
+        d_element = d_pos < d_size ? d_elements->operator[]( d_pos ).get() : nullptr;
+    else
+        d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
     return *this;
 }
 
@@ -126,7 +143,10 @@ MeshIterator &MeshElementVectorIterator<TYPE>::operator+=( int n )
             AMP_ERROR( "Iterated past beginning of iterator" );
         d_pos -= n2;
     }
-    d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
+    if constexpr ( is_unique_ptr_v<TYPE> )
+        d_element = d_pos < d_size ? d_elements->operator[]( d_pos ).get() : nullptr;
+    else
+        d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
     return *this;
 }
 
@@ -159,12 +179,18 @@ bool MeshElementVectorIterator<TYPE>::operator==( const MeshIterator &rhs ) cons
         // If we are dealing with different arrays, check that the are the same size and values
         if ( d_elements->size() != rhs2->d_elements->size() )
             return false;
-        bool elements_match = true;
-        for ( size_t i = 0; i < d_elements->size(); i++ ) {
-            if ( d_elements->operator[]( i ) != rhs2->d_elements->operator[]( i ) )
-                elements_match = false;
+        size_t N   = d_elements->size();
+        auto p1    = d_elements->data();
+        auto p2    = d_elements->data();
+        bool match = true;
+        if constexpr ( is_unique_ptr_v<TYPE> ) {
+            for ( size_t i = 0; i < N; i++ )
+                match = match && *p1[i] == *p2[i];
+        } else {
+            for ( size_t i = 0; i < N; i++ )
+                match = match && p1[i] == p2[i];
         }
-        return elements_match;
+        return match;
     }
     /* We are comparing a MeshElementVectorIterator to an arbitrary iterator
      * The iterators are the same if they point to the same position and iterate
@@ -178,18 +204,22 @@ bool MeshElementVectorIterator<TYPE>::operator==( const MeshIterator &rhs ) cons
         return false;
     // Check that the elements match
     MeshIterator iterator = rhs.begin();
-    bool elements_match   = true;
-    for ( size_t i = 0; i < d_elements->size(); i++ ) {
-        if ( iterator->globalID() != ( d_elements->operator[]( i ) ).globalID() )
-            elements_match = false;
-        ++iterator;
+    size_t N              = d_elements->size();
+    auto p1               = d_elements->data();
+    bool match            = true;
+    if constexpr ( is_unique_ptr_v<TYPE> ) {
+        for ( size_t i = 0; i < N; i++, ++iterator )
+            match = match && *p1[i] == iterator->globalID();
+    } else {
+        for ( size_t i = 0; i < N; i++, ++iterator )
+            match = match && p1[i] == iterator->globalID();
     }
-    return elements_match;
+    return match;
 }
 template<class TYPE>
 bool MeshElementVectorIterator<TYPE>::operator!=( const MeshIterator &rhs ) const
 {
-    return !( ( *this ) == rhs );
+    return !( *this == rhs );
 }
 
 

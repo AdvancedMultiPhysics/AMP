@@ -19,7 +19,7 @@
 #include <string>
 
 
-void myTest( AMP::UnitTest *ut, std::string input_file )
+void myTest( AMP::UnitTest *ut, const std::string &input_file )
 {
 
     std::string log_file = "output_testMatCreate";

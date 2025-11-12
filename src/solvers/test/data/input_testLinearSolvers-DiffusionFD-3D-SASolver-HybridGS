@@ -5,24 +5,16 @@ LinearSolver{
   absolute_tolerance = 1.e-12
   relative_tolerance = 1.e-12
   print_info_level = 3
-  max_iterations = 50
+  max_iterations = 100
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
   agg_type = "simple"
-
-  level_options_0{
-    prol_trunc = 0.075
-    num_smooth_prol = 3
-    strength_threshold = 4.0
-  }
-
-  level_options_1{
-    prol_trunc = 0.075
-    num_smooth_prol = 3
-    strength_threshold = 4.0
-  }
+  prol_trunc = 0.015
+  num_smooth_prol = 3
+  strength_threshold = 0.4
+  strength_measure = "classical_min"
   
   pre_relaxation{
     name = "HybridGS"
@@ -44,7 +36,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 38
+  iterations = 34
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

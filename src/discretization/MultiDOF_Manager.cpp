@@ -18,7 +18,7 @@ multiDOFManager::multiDOFManager( const AMP_MPI &globalComm,
 {
     d_comm = globalComm;
     AMP_ASSERT( !d_comm.isNull() );
-    reset( managers, mesh );
+    reset( std::move( managers ), mesh );
 }
 multiDOFManager::multiDOFManager( std::shared_ptr<DOFManager> dof ) : DOFManager()
 {
@@ -108,7 +108,7 @@ AMP::Mesh::MeshElementID multiDOFManager::getElementID( size_t dof ) const
     AMP_ASSERT( map.second >= 0 );
     return d_managers[map.second]->getElementID( map.first );
 }
-AMP::Mesh::MeshElement multiDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> multiDOFManager::getElement( size_t dof ) const
 {
     auto map = globalToSub( dof );
     AMP_ASSERT( map.second >= 0 );
@@ -140,11 +140,11 @@ AMP::Mesh::MeshIterator multiDOFManager::getIterator() const
     size_t N_tot = 0;
     for ( auto &iterator : iterators )
         N_tot += iterator->size();
-    auto elements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>( 0 );
+    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>( 0 );
     elements->reserve( N_tot );
     for ( auto &iterator : iterators ) {
         for ( const auto &elem : *iterator )
-            elements->push_back( elem );
+            elements->push_back( elem.clone() );
     }
     AMP::Utilities::unique( *elements );
     // Create an iterator over the elements
@@ -189,15 +189,6 @@ size_t multiDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
     if ( sort )
         AMP::Utilities::quicksort( std::min( N, N_alloc ), dofs );
     return N;
-}
-
-
-/****************************************************************
- * Function to return the DOFManagers                            *
- ****************************************************************/
-std::vector<std::shared_ptr<DOFManager>> multiDOFManager::getDOFManagers() const
-{
-    return d_managers;
 }
 
 

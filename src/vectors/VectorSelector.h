@@ -85,8 +85,7 @@ public:
      */
     VS_ByVariableName( std::string name );
 
-
-    std::string getName() const { return d_VecName; };
+    const std::string &getName() const { return d_VecName; };
 
 public: // Functions inherited from VectorSelector
     virtual bool isSelected( const Vector &v ) const override;

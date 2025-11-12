@@ -129,11 +129,11 @@ public:
     static shared_ptr matMatMult( shared_ptr A, shared_ptr B );
 
     /** \brief  Compute the product of two matrices
-     * \param[in] A  Left multiplicand
-     * \param[in] B  Right multiplicand
+     * \param[in] A     Left multiplicand
+     * \param[in] B     Right multiplicand
      * \param[inout] C  Result matrix
      */
-    static void matMatMult( shared_ptr A, shared_ptr B, shared_ptr c );
+    static void matMatMult( shared_ptr A, shared_ptr B, shared_ptr C );
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -178,6 +178,7 @@ public:
 
     /** \brief  Get absolute sum of each row in matrix
      * \param[in]  buf  An optional vector to use as a buffer
+     * \param[in]  remove_zeros  Do we want to remove zeros
      * \return  A vector of the sums
      */
     virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),
@@ -371,6 +372,32 @@ public:
 
     //! Return the pointer to the MatrixData
     std::shared_ptr<const MatrixData> getMatrixData() const { return d_matrixData; }
+
+    //! Get a unique id hash for the matrix
+    uint64_t getID() const;
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    virtual void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    virtual void writeRestart( int64_t fid ) const;
+
+    /**
+     * \brief    Read restart data to file
+     * \details  This function will create a variable from the restart file
+     * \param fid    File identifier to write
+     * \param manager   Restart manager
+     */
+    Matrix( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
     //! Protected constructor

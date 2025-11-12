@@ -327,7 +327,7 @@ void testGeometry( const AMP::Geometry::Geometry &geom, AMP::UnitTest &ut )
             if ( N_failed > 0.001 * N_test ) {
                 ut.failure( msg );
                 pass = false;
-            } else if ( N_failed > 0 ) {
+            } else {
                 ut.expected_failure( msg );
             }
         }

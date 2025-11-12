@@ -165,7 +165,8 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend back
 template<typename Config>
 void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 {
-    if ( backend == AMP::Utilities::Backend::Serial ) {
+    if ( backend == AMP::Utilities::Backend::Serial ||
+         backend == AMP::Utilities::Backend::OpenMP ) {
         if ( std::dynamic_pointer_cast<CSRMatrixOperationsDefault<Config>>( d_matrixOps ) ) {
             return;
         }
@@ -202,6 +203,7 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
     PROFILE( "CSRMatrix<Config>::transpose" );
 
     auto data = d_matrixData->transpose();
+    AMP_ASSERT( data->getBackend() == d_matrixData->getBackend() );
     return std::make_shared<CSRMatrix<Config>>( data );
 }
 
@@ -313,6 +315,11 @@ Vector::shared_ptr CSRMatrix<Config>::createOutputVector() const
     return createVector( getLeftDOFManager(), var, true, memloc );
 }
 
+template<typename Config>
+CSRMatrix<Config>::CSRMatrix( int64_t fid, AMP::IO::RestartManager *manager )
+    : Matrix( fid, manager )
+{
+}
 
 } // namespace AMP::LinearAlgebra
 

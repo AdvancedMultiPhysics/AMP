@@ -92,10 +92,7 @@ public:
 
     size_t sizeOfTimeHistory() const override { return d_max_integrator_index + 1; }
 
-    std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> getTimeHistoryVectors()
-    {
-        return d_prev_solutions;
-    }
+    const auto &getTimeHistoryVectors() { return d_prev_solutions; }
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> getTimeHistorySourceTerm() override
     {
@@ -356,7 +353,7 @@ protected:
     double d_new_time = std::numeric_limits<double>::signaling_NaN();
 
     //! double storing the first dt before any restart
-    double d_first_initial_dt;
+    double d_first_initial_dt = 0.0;
 
     //! ratio of current to previous timestep
     double d_alpha = 1.0;

@@ -1,14 +1,14 @@
 #ifndef included_CSRMatrixOperationsDevice_HPP_
 #define included_CSRMatrixOperationsDevice_HPP_
 
+#include "AMP/IO/HDF.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
 #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
-
-#include "AMP/utils/Memory.h"
 
 #include "thrust/device_vector.h"
 #include "thrust/execution_policy.h"
@@ -38,7 +38,10 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    out->zero();
+    {
+        PROFILE( "CSRMatrixOperationsDevice::mult(zero output)" );
+        out->zero();
+    }
 
     auto inData                 = in->getVectorData();
     const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
@@ -64,34 +67,21 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsDevice::mult(ghost)" );
-        using scalarAllocator_t = typename std::allocator_traits<
-            typename Config::allocator_type>::template rebind_alloc<scalar_t>;
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        scalarAllocator_t alloc;
-        scalar_t *ghosts = alloc.allocate( nGhosts );
+        auto ghosts        = offdMatrix->getGhostCache();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
-            auto *colMap = offdMatrix->getColumnMap();
+            auto colMap = offdMatrix->getColumnMap();
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            // this is inefficient and we should figure out a better approach
-            AMP_WARN_ONCE(
-                "CSRMatrixOperationsDevice::mult: Deep copy/cast of column map required" );
-            using idxAllocator_t = typename std::allocator_traits<
-                typename Config::allocator_type>::template rebind_alloc<size_t>;
-            idxAllocator_t idx_alloc;
-            size_t *idxMap = idx_alloc.allocate( nGhosts );
-            auto *colMap   = offdMatrix->getColumnMap();
-            AMP::Utilities::copy( nGhosts, colMap, idxMap );
-            in->getGhostValuesByGlobalID( nGhosts, idxMap, ghosts );
-            idx_alloc.deallocate( idxMap, nGhosts );
+            // Fall back to forcing a copy-cast inside matrix data
+            auto colMap = offdMatrix->getColumnMapSizeT();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         }
-        deviceSynchronize();
         CSRLocalMatrixOperationsDevice<Config>::mult( ghosts, offdMatrix, outDataBlock );
-        alloc.deallocate( ghosts, nGhosts );
     }
 }
 
@@ -380,6 +370,13 @@ void CSRMatrixOperationsDevice<Config>::copyCast(
     if ( X->hasOffDiag() ) {
         localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
+}
+
+template<typename Config>
+void CSRMatrixOperationsDevice<Config>::writeRestart( int64_t fid ) const
+{
+    MatrixOperations::writeRestart( fid );
+    AMP::IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
 }
 
 } // namespace AMP::LinearAlgebra

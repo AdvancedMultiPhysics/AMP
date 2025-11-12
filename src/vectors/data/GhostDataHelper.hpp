@@ -6,6 +6,10 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/data/GhostDataHelper.h"
 
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
+#endif
+
 #include <cstring>
 
 
@@ -213,7 +217,13 @@ void GhostDataHelper<TYPE, Allocator>::dataChanged()
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
 {
-    PROFILE( "makeConsistent" );
+    PROFILE( "GhostDataHelper::makeConsistent" );
+
+#ifdef AMP_USE_DEVICE
+    deviceSynchronize();
+    getLastDeviceError( "GhostDataHelper::makeConsistent" );
+#endif
+
     if ( d_CommList ) {
         if ( t == ScatterType::CONSISTENT_ADD ) {
             AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
@@ -491,6 +501,7 @@ void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
                                                                  void *vals,
                                                                  const typeID &id ) const
 {
+    PROFILE( "GhostDataHelper::getGhostValuesByGlobalID" );
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
