@@ -553,7 +553,7 @@ void GhostDataHelper<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
 }
-  
+
 template<class TYPE, class Allocator>
 size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const typeID &id ) const
 {
