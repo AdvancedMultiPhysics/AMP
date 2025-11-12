@@ -17,9 +17,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("2.1.4", tag="2.1.4", commit="64535905290a74dc950e01759d3e9aae1c90476d")
-    version("2.1.3", tag="2.1.3", commit="2c4fe7b60685c8a25f1b2b60dc8062f9f5ed84c9")
-    version("2.1.2", tag="2.1.2", commit="cdb270395e1512da2f18a34a7fa6b60f1bcb790d")
+    version("2.1.2", tag="2.1.2", commit="1a9c083972e13e1f54eda2a0e70dc297342d84e5")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
     variant('cxxstd', default='17', values=('17', '20', '23'), description='Build with support for C++17, 20 or 23')
@@ -45,12 +43,8 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         description="C++ standard",
     )
 
-    conflicts("cxxstd=20", when="@:2.1.2") #c++ 20 is only compatible with tpl-builder 2.1.3 and up
-    conflicts("cxxstd=23", when="@:2.1.2") #c++ 23 is only compatible with tpl-builder 2.1.3 and up
-
-    depends_on("c", type="build")
-    depends_on("cxx", type="build")
-    depends_on("fortran", type="build")
+    conflicts("cxxstd=20", when="@:2.1.0") #c++ 20 is only compatible with tpl-builder 2.1.2 and up
+    conflicts("cxxstd=23", when="@:2.1.0") #c++ 23 is only compatible with tpl-builder 2.1.2 and up
 
     depends_on("git", type="build")
 
@@ -69,8 +63,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("lapack", when="+lapack")
 
-    depends_on("hypre+mixedint", when="+hypre")
-    requires("+lapack", when="+hypre")
+    depends_on("hypre", when="+hypre")
 
     depends_on("kokkos", when="+kokkos")
     depends_on("kokkos-kernels", when="+kokkos-kernels")
@@ -81,8 +74,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("petsc", when="+petsc")
     depends_on("trilinos", when="+trilinos")
-
-    requires("+lapack", when="+trilinos")
 
     for _flag in list(CudaPackage.cuda_arch_values):
         depends_on(f"hypre cuda_arch={_flag}", when=f"+hypre+cuda cuda_arch={_flag}")
@@ -131,9 +122,12 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define('CMAKE_C_COMPILER',   spack_cc),
             self.define('CMAKE_CXX_COMPILER', spack_cxx),
             self.define('CMAKE_Fortran_COMPILER', spack_fc),
-            self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd")
         ]
 
+
+        if spec.satisfies("+trilinos"):
+            if '~kokkos' in spec['trilinos']:
+                options.extend( [ self.define("DISABLE_TRILINOS_KOKKOS", True) ] )
 
         if spec.satisfies("+cuda"):
             cuda_arch = spec.variants["cuda_arch"].value
@@ -194,8 +188,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     self.define("LAPACK_LIBRARY_DIRS", ";".join(lapack.directories)),
                 ]
             )
-        if spec.satisfies("+trilinos"):
-            options.append(self.define("TRILINOS_PACKAGES", "Epetra;EpetraExt;Thyra;Xpetra;Tpetra;ML;Kokkos;Amesos;Ifpack;Ifpack2;Belos;NOX;Stratimikos"))
 
         if spec.variants["test_gpus"].value != "-1":
             options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))

@@ -1173,7 +1173,7 @@ RadDifOp::RadDifOp( std::shared_ptr<const AMP::Operator::OperatorParameters> par
 };
 
 
-std::vector<double> RadDifOp::getMeshSize() const { return d_h; }
+const std::vector<double> &RadDifOp::getMeshSize() const { return d_h; }
 
 AMP::Mesh::GeomType RadDifOp::getGeomType() const { return CellCenteredGeom; }
 

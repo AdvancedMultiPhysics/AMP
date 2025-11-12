@@ -17,6 +17,10 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/copycast/CopyCastHelper.h"
 
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
+#endif
+
 #include "ProfilerApp.h"
 
 #include <type_traits>
@@ -38,7 +42,7 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
     : MatrixData( params ),
       d_memory_location( AMP::Utilities::getAllocatorMemoryType<allocator_type>() )
 {
-    PROFILE( "CSRMatrixData::CSRMatrixData" );
+    PROFILE( "CSRMatrixData::constructor" );
 
     AMPManager::incrementResource( "CSRMatrixData" );
 
@@ -415,6 +419,8 @@ void CSRMatrixData<Config>::globalToLocalColumns()
 
     d_diag_matrix->globalToLocalColumns();
     d_offd_matrix->globalToLocalColumns();
+
+    makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 template<typename Config>
@@ -842,6 +848,13 @@ void CSRMatrixData<Config>::setOtherData( std::map<gidx_t, std::map<gidx_t, scal
 template<typename Config>
 void CSRMatrixData<Config>::makeConsistent( AMP::LinearAlgebra::ScatterType t )
 {
+    PROFILE( "CSRMatrixData::makeConsistent" );
+
+#ifdef AMP_USE_DEVICE
+    deviceSynchronize();
+    getLastDeviceError( "CSRMatrixData::makeConsistent" );
+#endif
+
     if ( t == AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD )
         setOtherData( d_other_data, AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     else

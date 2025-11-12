@@ -2,11 +2,13 @@
 #define included_AMP_VectorDataDevice_hpp
 
 #include "AMP/IO/RestartManager.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/data/device/DeviceDataHelpers.h"
 #include "AMP/vectors/data/device/VectorDataDevice.h"
 #include <cstring>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -65,16 +67,28 @@ bool inDeviceMemory( T *v )
 }
 
 template<typename TYPE, class Allocator>
-void VectorDataDevice<TYPE, Allocator>::setScratchSpace( const size_t N ) const
+void VectorDataDevice<TYPE, Allocator>::setMapScratchSpace( const size_t N ) const
 {
     if ( N > this->d_scratchSize ) {
-        d_idx_alloc.deallocate( this->d_idx_scratch, this->d_scratchSize );
-        d_scalar_alloc.deallocate( this->d_scalar_scratch, this->d_scratchSize );
-        this->d_scratchSize    = N;
-        this->d_idx_scratch    = d_idx_alloc.allocate( this->d_scratchSize );
-        this->d_scalar_scratch = d_scalar_alloc.allocate( this->d_scratchSize );
+        d_idx_alloc.deallocate( this->d_idx_map_scratch, this->d_scratchSize );
+        this->d_scratchSize     = N;
+        this->d_idx_map_scratch = d_idx_alloc.allocate( this->d_scratchSize );
+        AMP::Utilities::Algorithms<size_t>::fill_n( this->d_idx_map_scratch, N, 0 );
     }
-    AMP_ASSERT( d_idx_scratch && d_scalar_scratch );
+    AMP_ASSERT( d_idx_map_scratch );
+}
+
+template<typename TYPE, class Allocator>
+void VectorDataDevice<TYPE, Allocator>::setScratchSpace( const size_t N ) const
+{
+    if ( N > this->d_scratchSize || !this->d_idx_req_scratch ) {
+        d_idx_alloc.deallocate( this->d_idx_req_scratch, this->d_scratchSize );
+        d_scalar_alloc.deallocate( this->d_scalar_scratch, this->d_scratchSize );
+        this->d_scratchSize     = N;
+        this->d_idx_req_scratch = d_idx_alloc.allocate( this->d_scratchSize );
+        this->d_scalar_scratch  = d_scalar_alloc.allocate( this->d_scratchSize );
+    }
+    AMP_ASSERT( d_idx_req_scratch && d_scalar_scratch );
 }
 
 template<typename TYPE, class Allocator>
@@ -82,14 +96,14 @@ std::tuple<bool, size_t *, void *> VectorDataDevice<TYPE, Allocator>::copyToScra
     size_t num, const size_t *indices_, const void *vals_, const typeID &id ) const
 {
     bool scratchUsed = false;
-    size_t *indices  = const_cast<size_t *>( indices_ );
+    size_t *ind_req  = const_cast<size_t *>( indices_ );
     void *vals       = const_cast<void *>( vals_ );
 
-    if ( ( !inDeviceMemory( indices ) ) || ( !inDeviceMemory( vals ) ) ) {
+    if ( ( !inDeviceMemory( ind_req ) ) || ( !inDeviceMemory( vals ) ) ) {
         this->setScratchSpace( num );
-        indices = this->d_idx_scratch;
+        ind_req = this->d_idx_req_scratch;
         vals    = this->d_scalar_scratch;
-        AMP::Utilities::copy<size_t, size_t>( num, indices_, indices );
+        AMP::Utilities::copy<size_t, size_t>( num, indices_, ind_req );
 
         if ( id == getTypeID<TYPE>() ) {
             AMP::Utilities::copy<TYPE, TYPE>(
@@ -106,7 +120,7 @@ std::tuple<bool, size_t *, void *> VectorDataDevice<TYPE, Allocator>::copyToScra
         scratchUsed = true;
     }
 
-    return std::make_tuple( scratchUsed, indices, vals );
+    return std::make_tuple( scratchUsed, ind_req, vals );
 }
 
 template<typename TYPE, class Allocator>
@@ -314,9 +328,10 @@ void VectorDataDevice<TYPE, Allocator>::setGhostValuesByGlobalID( size_t N,
                                                                   const typeID &id )
 {
     AMP_ASSERT( inDeviceMemory( this->d_data ) );
+    setMapScratchSpace( N );
     auto tup               = copyToScratchSpace( N, ndx_, vals_, id );
     const auto scratchUsed = std::get<0>( tup );
-    const auto *ndx        = std::get<1>( tup );
+    const auto *ndxReq     = std::get<1>( tup );
     const auto *vals       = std::get<2>( tup );
 
     if ( id == AMP::getTypeID<TYPE>() ) {
@@ -327,7 +342,8 @@ void VectorDataDevice<TYPE, Allocator>::setGhostValuesByGlobalID( size_t N,
         DeviceDataHelpers<TYPE>::setGhostValuesByGlobalID( this->d_ghostSize,
                                                            this->d_ReceiveDOFList,
                                                            N,
-                                                           ndx,
+                                                           ndxReq,
+                                                           this->d_idx_map_scratch,
                                                            data,
                                                            this->d_ghostSize,
                                                            this->d_Ghosts );
@@ -342,9 +358,10 @@ void VectorDataDevice<TYPE, Allocator>::addGhostValuesByGlobalID( size_t N,
                                                                   const typeID &id )
 {
     AMP_ASSERT( inDeviceMemory( this->d_data ) );
+    setMapScratchSpace( N );
     auto tup               = copyToScratchSpace( N, ndx_, vals_, id );
     const auto scratchUsed = std::get<0>( tup );
-    const auto *ndx        = std::get<1>( tup );
+    const auto *ndxReq     = std::get<1>( tup );
     const auto *vals       = std::get<2>( tup );
 
     if ( id == AMP::getTypeID<TYPE>() ) {
@@ -355,7 +372,8 @@ void VectorDataDevice<TYPE, Allocator>::addGhostValuesByGlobalID( size_t N,
         DeviceDataHelpers<TYPE>::addGhostValuesByGlobalID( this->d_ghostSize,
                                                            this->d_ReceiveDOFList,
                                                            N,
-                                                           ndx,
+                                                           ndxReq,
+                                                           this->d_idx_map_scratch,
                                                            data,
                                                            this->d_ghostSize,
                                                            this->d_AddBuffer );
@@ -369,24 +387,26 @@ void VectorDataDevice<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
                                                                   void *vals_,
                                                                   const typeID &id ) const
 {
+    PROFILE( "VectorDataDevice::getGhostValuesByGlobalID" );
     AMP_ASSERT( inDeviceMemory( this->d_data ) );
+    setMapScratchSpace( N );
     auto tup         = copyToScratchSpace( N, ndx_, vals_, id );
     auto scratchUsed = std::get<0>( tup );
-    auto *ndx        = std::get<1>( tup );
+    auto *ndxReq     = std::get<1>( tup );
     auto *vals       = std::get<2>( tup );
 
     if ( id != AMP::getTypeID<TYPE>() ) {
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     } else {
 
-        auto data       = reinterpret_cast<TYPE *>( vals );
-        size_t *indices = const_cast<size_t *>( ndx );
+        auto data = reinterpret_cast<TYPE *>( vals );
         AMP_DEBUG_INSIST( this->allGhostIndices( N, indices ), "Non ghost index encountered" );
 
         DeviceDataHelpers<TYPE>::getGhostValuesByGlobalID( this->d_ghostSize,
                                                            this->d_ReceiveDOFList,
                                                            N,
-                                                           indices,
+                                                           ndxReq,
+                                                           this->d_idx_map_scratch,
                                                            this->d_ghostSize,
                                                            this->d_Ghosts,
                                                            this->d_AddBuffer,
@@ -405,9 +425,10 @@ void VectorDataDevice<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
                                                                      const typeID &id ) const
 {
     AMP_ASSERT( inDeviceMemory( this->d_data ) );
+    setMapScratchSpace( N );
     auto tup         = copyToScratchSpace( N, ndx_, vals_, id );
     auto scratchUsed = std::get<0>( tup );
-    auto *ndx        = std::get<1>( tup );
+    auto *ndxReq     = std::get<1>( tup );
     auto *vals       = std::get<2>( tup );
 
     if ( id != AMP::getTypeID<TYPE>() ) {
@@ -418,7 +439,8 @@ void VectorDataDevice<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
         DeviceDataHelpers<TYPE>::getGhostAddValuesByGlobalID( this->d_ghostSize,
                                                               this->d_ReceiveDOFList,
                                                               N,
-                                                              ndx,
+                                                              ndxReq,
+                                                              this->d_idx_map_scratch,
                                                               this->d_ghostSize,
                                                               this->d_AddBuffer,
                                                               data );
