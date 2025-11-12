@@ -12,6 +12,7 @@
 
 #include <cstring>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -25,6 +26,7 @@ GhostDataHelper<TYPE, Allocator>::GhostDataHelper()
 {
     *d_UpdateState = UpdateState::UNCHANGED;
 }
+
 template<class TYPE, class Allocator>
 GhostDataHelper<TYPE, Allocator>::GhostDataHelper( std::shared_ptr<CommunicationList> list )
     : d_UpdateState{ std::make_shared<UpdateState>() }
@@ -52,6 +54,8 @@ std::shared_ptr<CommunicationList> GhostDataHelper<TYPE, Allocator>::getCommunic
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
 {
+    PROFILE( "GhostDataHelper::allocateBuffers" );
+
     if ( len > 0 ) {
         d_ghostSize = len;
 
@@ -75,6 +79,8 @@ void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::deallocateBuffers()
 {
+    PROFILE( "GhostDataHelper::deallocateBuffers" );
+
     if ( this->d_Ghosts ) {
         this->d_alloc.deallocate( this->d_Ghosts, this->d_ghostSize );
         this->d_Ghosts = nullptr;
@@ -122,6 +128,8 @@ template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     std::shared_ptr<CommunicationList> commList )
 {
+    PROFILE( "GhostDataHelper::setCommunicationList" );
+
     // Verify CommunicationList and vector sizes
     AMP_ASSERT( commList );
     if ( d_globalSize == 0 ) {
@@ -244,6 +252,8 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::scatter_set()
 {
+    PROFILE( "GhostDataHelper::scatter_set" );
+
     AMP_ASSERT( d_CommList );
     if ( !d_CommList->anyCommunication() )
         return;
@@ -316,6 +326,8 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::scatter_add()
 {
+    PROFILE( "GhostDataHelper::scatter_add" );
+
     AMP_ASSERT( d_CommList );
     if ( !d_CommList->anyCommunication() )
         return;
@@ -406,6 +418,8 @@ size_t GhostDataHelper<TYPE, Allocator>::getGhostSize() const
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::fillGhosts( const Scalar &scalar )
 {
+    PROFILE( "GhostDataHelper::fillGhosts" );
+
     const auto y = static_cast<TYPE>( scalar );
     for ( size_t i = 0; i < d_ghostSize; ++i ) {
         this->d_Ghosts[i]    = y;
@@ -436,6 +450,8 @@ void GhostDataHelper<TYPE, Allocator>::setNoGhosts()
 template<class TYPE, class Allocator>
 bool GhostDataHelper<TYPE, Allocator>::containsGlobalElement( size_t i ) const
 {
+    PROFILE( "GhostDataHelper::containsGlobalElement" );
+
     if ( ( i >= d_CommList->getStartGID() ) &&
          ( i < d_CommList->getStartGID() + d_CommList->numLocalRows() ) )
         return true;
@@ -451,6 +467,8 @@ bool GhostDataHelper<TYPE, Allocator>::containsGlobalElement( size_t i ) const
 template<class TYPE, class Allocator>
 bool GhostDataHelper<TYPE, Allocator>::allGhostIndices( size_t N, const size_t *ndx ) const
 {
+    PROFILE( "GhostDataHelper::allGhostIndices" );
+
     bool pass = true;
     for ( size_t i = 0; i < N; i++ ) {
         pass =
@@ -465,6 +483,8 @@ void GhostDataHelper<TYPE, Allocator>::setGhostValuesByGlobalID( size_t N,
                                                                  const void *vals,
                                                                  const typeID &id )
 {
+    PROFILE( "GhostDataHelper::setGhostValuesByGlobalID" );
+
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *d_UpdateState != UpdateState::ADDING );
         *d_UpdateState = UpdateState::SETTING;
@@ -483,6 +503,8 @@ void GhostDataHelper<TYPE, Allocator>::addGhostValuesByGlobalID( size_t N,
                                                                  const void *vals,
                                                                  const typeID &id )
 {
+    PROFILE( "GhostDataHelper::addGhostValuesByGlobalID" );
+
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
         *d_UpdateState = UpdateState::ADDING;
@@ -519,6 +541,8 @@ void GhostDataHelper<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
                                                                     void *vals,
                                                                     const typeID &id ) const
 {
+    PROFILE( "GhostDataHelper::getGhostAddValuesByGlobalID" );
+
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
@@ -529,9 +553,12 @@ void GhostDataHelper<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
 }
+  
 template<class TYPE, class Allocator>
 size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const typeID &id ) const
 {
+    PROFILE( "GhostDataHelper::getAllGhostValues" );
+
     if ( id == getTypeID<TYPE>() ) {
         AMP::Utilities::memcpy( vals, d_Ghosts, d_ghostSize * sizeof( TYPE ) );
     } else {
@@ -573,6 +600,8 @@ const AMP_MPI &GhostDataHelper<TYPE, Allocator>::getComm() const
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::copyGhostValues( const VectorData &rhs )
 {
+    PROFILE( "GhostDataHelper::copyGhostValues" );
+
     if ( getGhostSize() == 0 ) {
         // No ghosts to fill, copy the consistency state from the rhs
         *d_UpdateState = rhs.getLocalUpdateStatus();

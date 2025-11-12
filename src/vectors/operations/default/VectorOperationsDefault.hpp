@@ -11,6 +11,8 @@
 #include <random>
 #include <string_view>
 
+#include "ProfilerApp.h"
+
 namespace AMP::LinearAlgebra {
 
 
@@ -75,6 +77,8 @@ std::string VectorOperationsDefault<TYPE>::VectorOpName() const
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::zero( VectorData &x )
 {
+    PROFILE( "VectorOperationsDefault::zero" );
+
     AMP_DEBUG_ASSERT( x.isType<TYPE>() );
     static_assert( std::is_trivially_copyable_v<TYPE> );
     size_t N_blocks = x.numberOfDataBlocks();
@@ -91,6 +95,8 @@ void VectorOperationsDefault<TYPE>::zero( VectorData &x )
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::setToScalar( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "VectorOperationsDefault::setToScalar" );
+
     auto const alpha = alpha_in.get<TYPE>();
 
     if ( allDefaultDataType( x ) ) {
@@ -115,6 +121,8 @@ void VectorOperationsDefault<TYPE>::setToScalar( const Scalar &alpha_in, VectorD
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::setRandomValues( VectorData &x )
 {
+    PROFILE( "VectorOperationsDefault::setRandomValues" );
+
     std::random_device rd;
     std::mt19937 gen( rd() );
     if constexpr ( std::is_floating_point_v<TYPE> ) {
@@ -140,10 +148,11 @@ void VectorOperationsDefault<TYPE>::setRandomValues( VectorData &x )
     x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
-
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDefault::copy" );
+
     AMP_DEBUG_ASSERT( y.getLocalSize() == x.getLocalSize() );
     AMP_DEBUG_ASSERT( y.isType<TYPE>() );
     size_t N_blocks   = y.numberOfDataBlocks();
@@ -180,15 +189,20 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
         y.copyGhostValues( x );
     }
 }
+
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDefault::copyCast" );
+
     VectorOperationsDefault<TYPE>::copy( x, y );
 }
 
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::scale( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "VectorOperationsDefault::scale" );
+
     auto const alpha = alpha_in.get<TYPE>();
 
     if ( allDefaultDataType( x ) ) {
@@ -213,6 +227,8 @@ void VectorOperationsDefault<TYPE>::scale( const Scalar &alpha_in,
                                            const VectorData &x,
                                            VectorData &y )
 {
+    PROFILE( "VectorOperationsDefault::scale" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
     auto const alpha = alpha_in.get<TYPE>();
 
@@ -239,6 +255,8 @@ void VectorOperationsDefault<TYPE>::scale( const Scalar &alpha_in,
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::add( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "VectorOperationsDefault::add" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
     if ( allDefaultDataType( x, y, z ) ) {
@@ -269,6 +287,8 @@ void VectorOperationsDefault<TYPE>::subtract( const VectorData &x,
                                               const VectorData &y,
                                               VectorData &z )
 {
+    PROFILE( "VectorOperationsDefault::subtract" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
 
@@ -300,6 +320,8 @@ void VectorOperationsDefault<TYPE>::multiply( const VectorData &x,
                                               const VectorData &y,
                                               VectorData &z )
 {
+    PROFILE( "VectorOperationsDefault::multiply" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
 
@@ -331,6 +353,8 @@ void VectorOperationsDefault<TYPE>::divide( const VectorData &x,
                                             const VectorData &y,
                                             VectorData &z )
 {
+    PROFILE( "VectorOperationsDefault::divide" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
 
@@ -361,6 +385,8 @@ void VectorOperationsDefault<TYPE>::divide( const VectorData &x,
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::reciprocal( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDefault::reciprocal" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
 
     if ( allDefaultDataType( x, y ) ) {
@@ -392,6 +418,8 @@ void VectorOperationsDefault<TYPE>::linearSum( const Scalar &alpha_in,
                                                const VectorData &y,
                                                VectorData &z )
 {
+    PROFILE( "VectorOperationsDefault::linearSum" );
+
     const auto alpha = alpha_in.get<TYPE>();
     const auto beta  = beta_in.get<TYPE>();
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
@@ -426,6 +454,8 @@ void VectorOperationsDefault<TYPE>::axpy( const Scalar &alpha_in,
                                           const VectorData &y,
                                           VectorData &z )
 {
+    PROFILE( "VectorOperationsDefault::axpy" );
+
     const auto alpha = alpha_in.get<TYPE>();
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
@@ -459,6 +489,8 @@ void VectorOperationsDefault<TYPE>::axpby( const Scalar &alpha_in,
                                            const VectorData &x,
                                            VectorData &y )
 {
+    PROFILE( "VectorOperationsDefault::axpby" );
+
     const auto alpha = alpha_in.get<TYPE>();
     const auto beta  = beta_in.get<TYPE>();
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
@@ -486,6 +518,8 @@ void VectorOperationsDefault<TYPE>::axpby( const Scalar &alpha_in,
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::abs( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDefault::abs" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
 
     if ( allDefaultDataType( x, y ) ) {
@@ -513,6 +547,8 @@ void VectorOperationsDefault<TYPE>::addScalar( const VectorData &x,
                                                const Scalar &alpha_in,
                                                VectorData &y )
 {
+    PROFILE( "VectorOperationsDefault::addScalar" );
+
     const auto alpha = alpha_in.get<TYPE>();
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
 
@@ -539,6 +575,8 @@ void VectorOperationsDefault<TYPE>::addScalar( const VectorData &x,
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::setMax( const Scalar &val, VectorData &x )
 {
+    PROFILE( "VectorOperationsDefault::setMax" );
+
     auto alpha = val.get<TYPE>();
     auto curMe = x.begin<TYPE>();
     auto last  = x.end<TYPE>();
@@ -551,6 +589,8 @@ void VectorOperationsDefault<TYPE>::setMax( const Scalar &val, VectorData &x )
 template<typename TYPE>
 void VectorOperationsDefault<TYPE>::setMin( const Scalar &val, VectorData &x )
 {
+    PROFILE( "VectorOperationsDefault::setMin" );
+
     auto alpha = val.get<TYPE>();
     auto curMe = x.begin<TYPE>();
     auto last  = x.end<TYPE>();
@@ -563,6 +603,8 @@ void VectorOperationsDefault<TYPE>::setMin( const Scalar &val, VectorData &x )
 template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localMin( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDefault::localMin" );
+
     const size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans              = std::numeric_limits<TYPE>::max();
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -577,6 +619,8 @@ Scalar VectorOperationsDefault<TYPE>::localMin( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localMax( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDefault::localMax" );
+
     const size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans              = std::numeric_limits<TYPE>::lowest();
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -591,6 +635,8 @@ Scalar VectorOperationsDefault<TYPE>::localMax( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localSum( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDefault::localSum" );
+
     const size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans              = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -605,6 +651,8 @@ Scalar VectorOperationsDefault<TYPE>::localSum( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localL1Norm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDefault::localL1Norm" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -619,6 +667,8 @@ Scalar VectorOperationsDefault<TYPE>::localL1Norm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localL2Norm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDefault::localL2Norm" );
+
     const size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans              = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -633,6 +683,8 @@ Scalar VectorOperationsDefault<TYPE>::localL2Norm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localMaxNorm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDefault::localMaxNorm" );
+
     const size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans              = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -647,6 +699,8 @@ Scalar VectorOperationsDefault<TYPE>::localMaxNorm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localDot( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDefault::localDot" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
 
     TYPE ans = 0;
@@ -677,6 +731,8 @@ template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localMinQuotient( const VectorData &x,
                                                         const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDefault::localMinQuotient" );
+
     auto curx = x.constBegin<TYPE>();
     auto endx = x.constEnd<TYPE>();
     auto cury = y.constBegin<TYPE>();
@@ -697,6 +753,8 @@ template<typename TYPE>
 Scalar VectorOperationsDefault<TYPE>::localWrmsNorm( const VectorData &x,
                                                      const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDefault::localWrmsNorm" );
+
     auto curx = x.constBegin<TYPE>();
     auto endx = x.constEnd<TYPE>();
     auto cury = y.constBegin<TYPE>();
@@ -718,6 +776,8 @@ Scalar VectorOperationsDefault<TYPE>::localWrmsNormMask( const VectorData &x,
                                                          const VectorData &mask,
                                                          const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDefault::localWrmsNormMask" );
+
     auto curx = x.constBegin<TYPE>();
     auto endx = x.constEnd<TYPE>();
     auto cury = y.constBegin<TYPE>();
@@ -743,6 +803,8 @@ bool VectorOperationsDefault<TYPE>::localEquals( const VectorData &x,
                                                  const VectorData &y,
                                                  const Scalar &tol_in ) const
 {
+    PROFILE( "VectorOperationsDefault::localEquals" );
+
     if ( ( x.getGlobalSize() != y.getGlobalSize() ) || ( x.getLocalSize() != y.getLocalSize() ) )
         return false;
     bool equal = true;
