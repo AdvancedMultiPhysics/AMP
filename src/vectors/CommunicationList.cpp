@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -32,6 +33,8 @@ CommunicationList::CommunicationList() : d_partition( { 0 } ) {}
 CommunicationList::CommunicationList( std::shared_ptr<const CommunicationListParameters> params )
     : d_comm( params->d_comm )
 {
+    PROFILE( "CommunicationList::constructor" );
+
     AMP_ASSERT( !d_comm.isNull() );
     d_partition = d_comm.allGather( params->d_localsize );
     for ( size_t i = 1; i < d_partition.size(); i++ )
@@ -41,6 +44,8 @@ CommunicationList::CommunicationList( std::shared_ptr<const CommunicationListPar
 }
 CommunicationList::CommunicationList( size_t local, const AMP_MPI &comm ) : d_comm( comm )
 {
+    PROFILE( "CommunicationList::constructor" );
+
     d_partition = d_comm.allGather( local );
     for ( size_t i = 1; i < d_partition.size(); i++ )
         d_partition[i] += d_partition[i - 1];
@@ -56,6 +61,8 @@ CommunicationList::CommunicationList( size_t local, const AMP_MPI &comm ) : d_co
 CommunicationList::CommunicationList( const std::vector<size_t> &partition, const AMP_MPI &comm )
     : d_comm( comm ), d_partition{ partition }
 {
+    PROFILE( "CommunicationList::constructor" );
+
     const int size  = std::max( d_comm.getSize(), 1 );
     d_ReceiveSizes  = std::vector<int>( size, 0 );
     d_ReceiveDisp   = std::vector<int>( size, 0 );
@@ -71,6 +78,8 @@ CommunicationList::CommunicationList( const AMP_MPI &comm,
                                       std::vector<size_t> remote )
     : d_comm( comm ), d_ReceiveDOFList( std::move( remote ) ), d_partition( std::move( local ) )
 {
+    PROFILE( "CommunicationList::constructor" );
+
     AMP_ASSERT( (int) d_partition.size() == d_comm.getSize() );
     for ( size_t i = 1; i < d_partition.size(); i++ )
         d_partition[i] += d_partition[i - 1];
@@ -88,6 +97,8 @@ std::shared_ptr<CommunicationList> CommunicationList::getNoCommunicationList()
  ************************************************************************/
 std::shared_ptr<CommunicationList> CommunicationList::subset( std::shared_ptr<VectorIndexer> ndx )
 {
+    PROFILE( "CommunicationList::subset" );
+
     if ( !d_initialized )
         initialize();
     // Create the parameters for the subset
@@ -117,6 +128,8 @@ std::shared_ptr<CommunicationList> CommunicationList::subset( std::shared_ptr<Ve
  ************************************************************************/
 size_t CommunicationList::getLocalGhostID( size_t GID ) const
 {
+    PROFILE( "CommunicationList::getLocalGhostID" );
+
     // Search d_ReceiveDOFList for GID
     // Note: d_ReceiveDOFList must be sorted for this to work
     AMP_INSIST( !d_ReceiveDOFList.empty(),
@@ -140,6 +153,8 @@ size_t CommunicationList::getLocalGhostID( size_t GID ) const
  ************************************************************************/
 void CommunicationList::initialize() const
 {
+    PROFILE( "CommunicationList::initialize" );
+
     if ( d_initialized )
         return;
     d_initialized   = true;

@@ -3,5 +3,5 @@
 namespace AMP::Solver::AMG {
 
 template void
-print_summary( std::string, const std::vector<KCycleLevel> &, const SolverStrategy & );
+print_summary( const std::string &, const std::vector<KCycleLevel> &, const SolverStrategy & );
 }

@@ -16,7 +16,7 @@ namespace AMP::Solver::AMG {
    \param[in] cg_solver Coarse grid solver for hierarchy
  */
 template<class T, std::enable_if_t<is_level_v<T>, bool> = true>
-void print_summary( std::string amg_name,
+void print_summary( const std::string &amg_name,
                     const std::vector<T> &ml,
                     const SolverStrategy &cg_solver );
 

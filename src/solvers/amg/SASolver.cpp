@@ -27,16 +27,18 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
     d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
     d_kappa          = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_kcycle_tol     = db->getWithDefault<double>( "kcycle_tol", 0.0 );
 
-    d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
+    d_coarsen_settings.strength_threshold =
+        db->getWithDefault<double>( "strength_threshold", 0.25 );
     d_coarsen_settings.strength_measure =
         db->getWithDefault<std::string>( "strength_measure", "classical_min" );
     d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
     d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
-    d_prol_trunc      = db->getWithDefault<float>( "prol_trunc", 0 );
+    d_prol_trunc      = db->getWithDefault<double>( "prol_trunc", 0.0 );
+    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.9 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
@@ -101,8 +103,8 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
     d_levels.back().A->setMatrix( mat );
-    d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
-    d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
+    d_levels.back().pre_relaxation  = createRelaxation( 0, fine_op, d_pre_relax_params );
+    d_levels.back().post_relaxation = createRelaxation( 0, fine_op, d_post_relax_params );
     d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
@@ -114,11 +116,14 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 }
 
 std::unique_ptr<SolverStrategy>
-SASolver::createRelaxation( std::shared_ptr<Operator::Operator> A,
+SASolver::createRelaxation( size_t lvl,
+                            std::shared_ptr<Operator::Operator> A,
                             std::shared_ptr<AMG::RelaxationParameters> params )
 {
     auto rel_op = Solver::SolverFactory::create( params );
     rel_op->registerOperator( A );
+    auto &op = *rel_op;
+    dynamic_cast<Relaxation &>( op ).setLevel( lvl );
     return rel_op;
 }
 
@@ -140,7 +145,7 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
 
     // Chebyshev terms
     const double pi = static_cast<double>( AMP::Constants::pi );
-    const double a = 0.98, ma = 1.0 - a, pa = 1.0 + a;
+    const double ma = 1.0 - d_prol_spec_lower, pa = 1.0 + d_prol_spec_lower;
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {
@@ -217,9 +222,10 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
             ->setVariables( bVar, xVar );
 
         // Relaxation operators for new level
-        d_levels.back().pre_relaxation = createRelaxation( d_levels.back().A, d_pre_relax_params );
+        d_levels.back().pre_relaxation =
+            createRelaxation( i + 1, d_levels.back().A, d_pre_relax_params );
         d_levels.back().post_relaxation =
-            createRelaxation( d_levels.back().A, d_post_relax_params );
+            createRelaxation( i + 1, d_levels.back().A, d_post_relax_params );
 
         // in/out vectors for new level
         d_levels.back().x          = Ac->createInputVector();

@@ -4,6 +4,7 @@
 #include "AMP/vectors/data/MultiVectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -68,6 +69,8 @@ MultiVectorData *MultiVectorOperations::getMultiVectorData( VectorData &x )
 
 void MultiVectorOperations::zero( VectorData &x )
 {
+    PROFILE( "MultiVectorOperations::zero" );
+
     auto mData = getMultiVectorData( x );
     for ( size_t i = 0; i != mData->getVectorDataSize(); ++i )
         d_operations[i]->zero( *getVectorDataComponent( x, i ) );
@@ -76,6 +79,8 @@ void MultiVectorOperations::zero( VectorData &x )
 
 void MultiVectorOperations::setToScalar( const Scalar &alpha, VectorData &x )
 {
+    PROFILE( "MultiVectorOperations::setToScalar" );
+
     for ( size_t i = 0; i != d_operations.size(); i++ )
         d_operations[i]->setToScalar( alpha, *getVectorDataComponent( x, i ) );
     x.setUpdateStatus( UpdateState::UNCHANGED );
@@ -83,12 +88,16 @@ void MultiVectorOperations::setToScalar( const Scalar &alpha, VectorData &x )
 
 void MultiVectorOperations::setRandomValues( VectorData &x )
 {
+    PROFILE( "MultiVectorOperations::setRandomValues" );
+
     for ( size_t i = 0; i != d_operations.size(); i++ )
         d_operations[i]->setRandomValues( *getVectorDataComponent( x, i ) );
 }
 
 void MultiVectorOperations::copy( const VectorData &x, VectorData &y )
 {
+    PROFILE( "MultiVectorOperations::copy" );
+
     // Check if both x and y are MultVectorData objects (of the same size)
     auto xc = getMultiVectorData( x );
     auto yc = getMultiVectorData( y );
@@ -134,8 +143,11 @@ void MultiVectorOperations::copy( const VectorData &x, VectorData &y )
         AMP_ERROR( "Unable to discern data types" );
     }
 }
+
 void MultiVectorOperations::copyCast( const VectorData &x, VectorData &y )
 {
+    PROFILE( "MultiVectorOperations::copyCast" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -147,6 +159,8 @@ void MultiVectorOperations::copyCast( const VectorData &x, VectorData &y )
 
 void MultiVectorOperations::scale( const Scalar &alpha, VectorData &x )
 {
+    PROFILE( "MultiVectorOperations::scale" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -156,6 +170,8 @@ void MultiVectorOperations::scale( const Scalar &alpha, VectorData &x )
 
 void MultiVectorOperations::scale( const Scalar &alpha, const VectorData &x, VectorData &y )
 {
+    PROFILE( "MultiVectorOperations::scale" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -167,6 +183,8 @@ void MultiVectorOperations::scale( const Scalar &alpha, const VectorData &x, Vec
 
 void MultiVectorOperations::add( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "MultiVectorOperations::add" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -180,6 +198,8 @@ void MultiVectorOperations::add( const VectorData &x, const VectorData &y, Vecto
 
 void MultiVectorOperations::subtract( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "MultiVectorOperations::subtract" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -193,6 +213,8 @@ void MultiVectorOperations::subtract( const VectorData &x, const VectorData &y, 
 
 void MultiVectorOperations::multiply( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "MultiVectorOperations::multiply" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -206,6 +228,8 @@ void MultiVectorOperations::multiply( const VectorData &x, const VectorData &y, 
 
 void MultiVectorOperations::divide( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "MultiVectorOperations::divide" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -219,6 +243,8 @@ void MultiVectorOperations::divide( const VectorData &x, const VectorData &y, Ve
 
 void MultiVectorOperations::reciprocal( const VectorData &x, VectorData &y )
 {
+    PROFILE( "MultiVectorOperations::reciprocal" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -234,6 +260,8 @@ void MultiVectorOperations::linearSum( const Scalar &alpha_in,
                                        const VectorData &y,
                                        VectorData &z )
 {
+    PROFILE( "MultiVectorOperations::linearSum" );
+
     if ( d_operations.empty() )
         return;
     bool match = d_operations.size() == getVectorDataSize( x ) &&
@@ -287,6 +315,8 @@ void MultiVectorOperations::axpy( const Scalar &alpha_in,
                                   const VectorData &y,
                                   VectorData &z )
 {
+    PROFILE( "MultiVectorOperations::axpy" );
+
     linearSum( alpha_in, x, 1.0, y, z );
 }
 
@@ -295,11 +325,15 @@ void MultiVectorOperations::axpby( const Scalar &alpha_in,
                                    const VectorData &x,
                                    VectorData &z )
 {
+    PROFILE( "MultiVectorOperations::axpby" );
+
     linearSum( alpha_in, x, beta_in, z, z );
 }
 
 void MultiVectorOperations::abs( const VectorData &x, VectorData &y )
 {
+    PROFILE( "MultiVectorOperations::abs" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -310,6 +344,8 @@ void MultiVectorOperations::abs( const VectorData &x, VectorData &y )
 
 void MultiVectorOperations::addScalar( const VectorData &x, const Scalar &alpha_in, VectorData &y )
 {
+    PROFILE( "MultiVectorOperations::addScalar" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -321,6 +357,8 @@ void MultiVectorOperations::addScalar( const VectorData &x, const Scalar &alpha_
 
 void MultiVectorOperations::setMax( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "MultiVectorOperations::setMax" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -330,6 +368,8 @@ void MultiVectorOperations::setMax( const Scalar &alpha_in, VectorData &x )
 
 void MultiVectorOperations::setMin( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "MultiVectorOperations::setMin" );
+
     if ( d_operations.empty() )
         return;
     AMP_ASSERT( d_operations.size() == getVectorDataSize( x ) );
@@ -339,6 +379,8 @@ void MultiVectorOperations::setMin( const Scalar &alpha_in, VectorData &x )
 
 Scalar MultiVectorOperations::localMin( const VectorData &x ) const
 {
+    PROFILE( "MultiVectorOperations::localMin" );
+
     AMP_ASSERT( getMultiVectorData( x ) );
     if ( d_operations.empty() )
         return 0;
@@ -352,6 +394,8 @@ Scalar MultiVectorOperations::localMin( const VectorData &x ) const
 
 Scalar MultiVectorOperations::localMax( const VectorData &x ) const
 {
+    PROFILE( "MultiVectorOperations::localMax" );
+
     AMP_ASSERT( getMultiVectorData( x ) );
     if ( d_operations.empty() )
         return 0;
@@ -365,6 +409,8 @@ Scalar MultiVectorOperations::localMax( const VectorData &x ) const
 
 Scalar MultiVectorOperations::localSum( const VectorData &x ) const
 {
+    PROFILE( "MultiVectorOperations::localSum" );
+
     AMP_ASSERT( getMultiVectorData( x ) );
     if ( d_operations.empty() )
         return 0;
@@ -378,6 +424,8 @@ Scalar MultiVectorOperations::localSum( const VectorData &x ) const
 
 Scalar MultiVectorOperations::localL1Norm( const VectorData &x ) const
 {
+    PROFILE( "MultiVectorOperations::localL1Norm" );
+
     AMP_ASSERT( getMultiVectorData( x ) );
     if ( d_operations.empty() )
         return 0;
@@ -391,6 +439,8 @@ Scalar MultiVectorOperations::localL1Norm( const VectorData &x ) const
 
 Scalar MultiVectorOperations::localL2Norm( const VectorData &x ) const
 {
+    PROFILE( "MultiVectorOperations::localL2Norm" );
+
     AMP_ASSERT( getMultiVectorData( x ) );
     if ( d_operations.empty() )
         return 0;
@@ -406,6 +456,8 @@ Scalar MultiVectorOperations::localL2Norm( const VectorData &x ) const
 
 Scalar MultiVectorOperations::localMaxNorm( const VectorData &x ) const
 {
+    PROFILE( "MultiVectorOperations::localMaxNorm" );
+
     AMP_ASSERT( getMultiVectorData( x ) );
     if ( d_operations.empty() )
         return 0;
@@ -419,6 +471,8 @@ Scalar MultiVectorOperations::localMaxNorm( const VectorData &x ) const
 
 Scalar MultiVectorOperations::localDot( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "MultiVectorOperations::localDot" );
+
     if ( d_operations.empty() )
         return 0;
     auto x2 = getMultiVectorData( x );
@@ -442,6 +496,8 @@ Scalar MultiVectorOperations::localDot( const VectorData &x, const VectorData &y
 
 Scalar MultiVectorOperations::localMinQuotient( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "MultiVectorOperations::localMinQuotient" );
+
     if ( d_operations.empty() )
         return std::numeric_limits<double>::max();
     auto x2 = getMultiVectorData( x );
@@ -465,6 +521,8 @@ Scalar MultiVectorOperations::localMinQuotient( const VectorData &x, const Vecto
 
 Scalar MultiVectorOperations::localWrmsNorm( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "MultiVectorOperations::localWrmsNorm" );
+
     if ( d_operations.empty() )
         return 0;
     auto x2 = getMultiVectorData( x );
@@ -491,6 +549,8 @@ Scalar MultiVectorOperations::localWrmsNormMask( const VectorData &x,
                                                  const VectorData &mask,
                                                  const VectorData &y ) const
 {
+    PROFILE( "MultiVectorOperations::localWrmsNormMask" );
+
     if ( d_operations.empty() )
         return 0;
     auto x2 = getMultiVectorData( x );
@@ -521,6 +581,8 @@ bool MultiVectorOperations::localEquals( const VectorData &x,
                                          const VectorData &y,
                                          const Scalar &tol ) const
 {
+    PROFILE( "MultiVectorOperations::localEquals" );
+
     if ( d_operations.empty() )
         return false;
     bool ans = true;
