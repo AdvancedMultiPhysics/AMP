@@ -24,6 +24,18 @@ namespace AMP::IO {
 /************************************************************
  * Helper functions                                          *
  ************************************************************/
+[[maybe_unused]] static inline void
+writeHDF5( hid_t fid, const std::string &name, const Array<double> &data, Writer::VectorType type )
+{
+    if ( type == Writer::VectorType::DOUBLE )
+        writeHDF5( fid, name, data );
+    else if ( type == Writer::VectorType::SINGLE )
+        writeHDF5( fid, name, data.cloneTo<float>() );
+    else if ( type == Writer::VectorType::INT )
+        writeHDF5( fid, name, data.cloneTo<int>() );
+    else
+        AMP_ERROR( "Unknown vector type" );
+}
 [[maybe_unused]] static AMP::Array<double>
 getArrayData( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec )
 {
@@ -70,6 +82,7 @@ Writer::WriterProperties HDF5writer::getProperties() const
 #else
     properties.enabled = false;
 #endif
+    properties.isNull = false;
     return properties;
 }
 
@@ -131,7 +144,7 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
     for ( const auto &[id, data] : d_vectors ) {
         AMP::Utilities::nullUse( &id );
         auto data2 = getArrayData( data.vec );
-        writeHDF5( fid, data.name, data2 );
+        writeHDF5( fid, data.name, data2, data.dataType );
     }
     // Add the matricies
     for ( size_t i = 0; i < d_matrices.size(); i++ ) {
@@ -219,7 +232,7 @@ Xdmf::MeshData HDF5writer::writeDefaultMesh( hid_t fid,
     const char *x_names[3] = { "x", "y", "z" };
     std::string x_path[3];
     for ( int d = 0; d < ndim; d++ ) {
-        writeHDF5( fid, x_names[d], x[d] );
+        writeHDF5( fid, x_names[d], x[d], VectorType::SINGLE );
         x_path[d] = path + "/" + x_names[d];
     }
     writeHDF5( fid, "type", static_cast<int>( type ) );
@@ -260,7 +273,7 @@ Xdmf::MeshData HDF5writer::writeDefaultMesh( hid_t fid,
         }
         if ( vec.numDOFs == 1 )
             data.reshape( data.length() );
-        writeHDF5( fid, vec.name, data );
+        writeHDF5( fid, vec.name, data, vec.dataType );
         AMP::Xdmf::VarData var;
         var.name     = vec.name;
         var.rankType = getRankType( vec.numDOFs, ndim );
@@ -363,16 +376,16 @@ Xdmf::MeshData HDF5writer::writeBoxMesh( hid_t fid,
     }
     auto name2 = mesh2->getName() + "_" + name;
     if ( mesh2->getDim() == 1 ) {
-        writeHDF5( fid, "x", x );
+        writeHDF5( fid, "x", x, VectorType::SINGLE );
         XdmfData = AMP::Xdmf::createCurvilinearMesh( name2, size, path + "/x" );
     } else if ( mesh2->getDim() == 2 ) {
-        writeHDF5( fid, "x", x );
-        writeHDF5( fid, "y", y );
+        writeHDF5( fid, "x", x, VectorType::SINGLE );
+        writeHDF5( fid, "y", y, VectorType::SINGLE );
         XdmfData = AMP::Xdmf::createCurvilinearMesh( name2, size, path + "/x", path + "/y" );
     } else if ( mesh2->getDim() == 3 ) {
-        writeHDF5( fid, "x", x );
-        writeHDF5( fid, "y", y );
-        writeHDF5( fid, "z", z );
+        writeHDF5( fid, "x", x, VectorType::SINGLE );
+        writeHDF5( fid, "y", y, VectorType::SINGLE );
+        writeHDF5( fid, "z", z, VectorType::SINGLE );
         XdmfData =
             AMP::Xdmf::createCurvilinearMesh( name2, size, path + "/x", path + "/y", path + "/z" );
     } else {
@@ -382,7 +395,7 @@ Xdmf::MeshData HDF5writer::writeBoxMesh( hid_t fid,
     PROFILE( "writeBoxMeshVars", 1 );
     for ( const auto &vec : mesh.vectors ) {
         auto data = getBoxMeshVar( *mesh2, *vec.vec, vec.type, vec.numDOFs );
-        writeHDF5( fid, vec.name, data );
+        writeHDF5( fid, vec.name, data, vec.dataType );
         AMP::Xdmf::VarData var;
         var.name     = vec.name;
         var.rankType = getRankType( vec.numDOFs, mesh.mesh->getDim() );

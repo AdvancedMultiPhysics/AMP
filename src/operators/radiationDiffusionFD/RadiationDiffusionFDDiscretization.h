@@ -372,7 +372,7 @@ public:
     std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override;
 
     //! Vector of hx, hy, hz
-    std::vector<double> getMeshSize() const;
+    const std::vector<double> &getMeshSize() const;
 
     //! Geometry used in the mesh
     AMP::Mesh::GeomType getGeomType() const;

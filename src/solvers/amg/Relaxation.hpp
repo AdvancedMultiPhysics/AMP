@@ -18,8 +18,8 @@
 namespace AMP::Solver::AMG {
 
 Relaxation::Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
-                        std::string name_,
-                        std::string short_name_ )
+                        const std::string &name_,
+                        const std::string &short_name_ )
     : SolverStrategy( params ),
       name( name_ ),
       short_name( short_name_ ),

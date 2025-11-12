@@ -59,40 +59,24 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
     }
 
     if ( csrData->hasOffDiag() ) {
-        PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- all)" );
-        using scalarAllocator_t = typename std::allocator_traits<
-            typename Config::allocator_type>::template rebind_alloc<scalar_t>;
+        PROFILE( "CSRMatrixOperationsKokkos::mult(ghost)" );
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        scalarAllocator_t alloc;
-        scalar_t *ghosts = alloc.allocate( nGhosts );
+        auto ghosts        = offdMatrix->getGhostCache();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- match type)" );
             // column map can be passed to get ghosts function directly
-            auto *colMap = offdMatrix->getColumnMap();
+            auto colMap = offdMatrix->getColumnMap();
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            // this is inefficient and we should figure out a better approach
-            AMP_WARN_ONCE(
-                "CSRMatrixOperationsKokkos::mult: Deep copy/cast of column map required" );
-            using idxAllocator_t = typename std::allocator_traits<
-                typename Config::allocator_type>::template rebind_alloc<size_t>;
-            idxAllocator_t idx_alloc;
-            size_t *idxMap = idx_alloc.allocate( nGhosts );
-            auto *colMap   = offdMatrix->getColumnMap();
-            AMP::Utilities::copy( nGhosts, colMap, idxMap );
-            in->getGhostValuesByGlobalID( nGhosts, idxMap, ghosts );
-            idx_alloc.deallocate( idxMap, nGhosts );
+            // Fall back to forcing a copy-cast inside matrix data
+            auto colMap = offdMatrix->getColumnMapSizeT();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         }
 
-        {
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- apply)" );
-            d_localops_offd->mult( ghosts, 1.0, offdMatrix, 1.0, outDataBlock );
-        }
-        d_exec_space.fence(); // ensure that mult finishes before deallocating
-        alloc.deallocate( ghosts, nGhosts );
+        d_localops_offd->mult( ghosts, 1.0, offdMatrix, 1.0, outDataBlock );
+        d_exec_space.fence();
     }
 }
 

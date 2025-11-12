@@ -20,14 +20,14 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("4.0.3", tag="4.0.3", commit="079f6b0ecf5c851b3323c875295d1240638db8b9")
-    version("4.0.1", tag="4.0.1", commit="808071edd31ea15e3c92b90e63bf7165e83e0588")
+    version("4.0.1", tag="4.0.1", commit="8e8c7813cd24639907241c98836b8d49d74baa86")
     version("4.0.0", tag="4.0.0", commit="7ebbcfef5b5c9d36e828a2da2d27e2106499e454")
     version("3.1.0", tag="3.1.0", commit="c8a52e6f3124e43ebce944ee3fae8b9a994c4dbe")
     
     variant("mpi", default=True, description="Build with MPI support")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
+    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
     variant("libmesh", default=False, description="Build with support for libmesh")
@@ -45,15 +45,11 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     conflicts("cxxstd=20", when="@:4.0.0") #c++ 20 is only compatible with amp 4.0.1 and up
     conflicts("cxxstd=23", when="@:4.0.0") #c++ 23 is only compatible with amp 4.0.1 and up
 
-    depends_on("c", type="build")
-    depends_on("cxx", type="build")
-    depends_on("fortran", type="build")
-
     depends_on("cmake@3.26.0:")
     depends_on("tpl-builder+stacktrace")
     depends_on("tpl-builder+stacktrace+timerutility", when="+timerutility")
 
-    tpl_depends = ["hypre", "kokkos", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc", "trilinos"]
+    tpl_depends = ["hypre", "kokkos", "kokkos-kernels", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc", "trilinos"]
 
     for v in tpl_depends:
         depends_on(f"tpl-builder+{v}", when=f"+{v}")
@@ -91,10 +87,6 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
             self.define("EXCLUDE_TESTS_FROM_ALL", not self.run_tests),
             self.define("AMP_ENABLE_EXAMPLES", False),
         ]
-
-        # this seems to be necessary at present
-        if "+shared" in spec:
-            options.append(self.define('CMAKE_POSITION_INDEPENDENT_CODE', True))
 
         if "+rocm" in spec:
             options.append(self.define("COMPILE_CXX_AS_HIP", True))

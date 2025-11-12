@@ -61,6 +61,8 @@ public:
         typename std::allocator_traits<allocator_type>::template rebind_alloc<lidx_t>;
     using scalarAllocator_t =
         typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
+    using sizetAllocator_t =
+        typename std::allocator_traits<allocator_type>::template rebind_alloc<size_t>;
 
     /** \brief Constructor
      * \param[in] params           Description of the matrix
@@ -151,6 +153,12 @@ public:
         }
         return d_cols_unq.get();
     }
+
+    //! Get pointer to unique columns as size_t's
+    size_t *getColumnMapSizeT() const;
+
+    //! Get pointer to unique columns as size_t's
+    scalar_t *getGhostCache() const;
 
     /** \brief  Copy unique columns into
      * \param[out] colMap  Vector to copy column indices into
@@ -333,7 +341,9 @@ protected:
     //! Allocator for lidx_t matched to template parameter
     lidxAllocator_t d_lidxAllocator;
     //! Allocator for scalar_t matched to template parameter
-    scalarAllocator_t d_scalarAllocator;
+    mutable scalarAllocator_t d_scalarAllocator;
+    //! Allocator for size_t
+    mutable sizetAllocator_t d_sizetAllocator;
 
     //! Starting index of each row within other data arrays
     std::shared_ptr<lidx_t[]> d_row_starts;
@@ -354,6 +364,12 @@ protected:
     lidx_t d_ncols_unq = 0;
     //! hash to uniquely identify this object during restart
     uint64_t d_hash = 0;
+
+    //! column map as size_t, generated lazily only if needed
+    mutable std::shared_ptr<size_t[]> d_cols_unq_size_t;
+
+    //! Storage space for vector ghost information, allocated lazily
+    mutable std::shared_ptr<scalar_t[]> d_ghost_cache;
 };
 
 } // namespace AMP::LinearAlgebra

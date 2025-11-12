@@ -99,9 +99,6 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
     x.fillGhosts( alpha );
     // Override the status state since we set the ghost values
     x.setUpdateStatus( UpdateState::UNCHANGED );
-    // Wait for cuda data to complete
-    if ( useGPU )
-        deviceSynchronize();
 }
 
 template<typename TYPE>
@@ -153,7 +150,6 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in, VectorData &x 
         size_t N   = x.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::scale( alpha, N, data );
-        deviceSynchronize();
         x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -172,7 +168,6 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in,
         auto N     = y.sizeOfDataBlock( 0 );
         auto alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::scale( alpha, N, xdata, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -189,7 +184,6 @@ void VectorOperationsDevice<TYPE>::add( const VectorData &x, const VectorData &y
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         auto N     = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::add( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -208,7 +202,6 @@ void VectorOperationsDevice<TYPE>::subtract( const VectorData &x,
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::subtract( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -227,7 +220,6 @@ void VectorOperationsDevice<TYPE>::multiply( const VectorData &x,
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::multiply( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -244,7 +236,6 @@ void VectorOperationsDevice<TYPE>::divide( const VectorData &x, const VectorData
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::divide( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -261,7 +252,6 @@ void VectorOperationsDevice<TYPE>::reciprocal( const VectorData &x, VectorData &
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::reciprocal( N, xdata, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -285,7 +275,6 @@ void VectorOperationsDevice<TYPE>::linearSum( const Scalar &alpha_in,
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::linearSum( alpha, N, xdata, beta, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -319,7 +308,6 @@ void VectorOperationsDevice<TYPE>::abs( const VectorData &x, VectorData &y )
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::abs( N, xdata, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -338,7 +326,6 @@ void VectorOperationsDevice<TYPE>::addScalar( const VectorData &x,
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::addScalar( N, xdata, alpha, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -354,7 +341,6 @@ void VectorOperationsDevice<TYPE>::setMin( const Scalar &alpha_in, VectorData &y
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::setMin( N, alpha, ydata );
-        deviceSynchronize();
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->setMin( alpha_in, y );
@@ -369,7 +355,6 @@ void VectorOperationsDevice<TYPE>::setMax( const Scalar &alpha_in, VectorData &y
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::setMax( N, alpha, ydata );
-        deviceSynchronize();
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->setMax( alpha_in, y );

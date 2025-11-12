@@ -72,7 +72,7 @@ public:
 private:
     void setupHypreSolver( std::shared_ptr<const SolverStrategyParameters> parameters );
     void setHypreFunctionPointers();
-    int d_iMaxKrylovDim;
+    int d_iMaxKrylovDim = 100;
 };
 } // namespace AMP::Solver
 
