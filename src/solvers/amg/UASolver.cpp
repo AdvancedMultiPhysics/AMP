@@ -21,16 +21,16 @@ UASolver::UASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 
 void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
 {
-    d_max_levels     = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
-    d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_boomer_cg      = db->getWithDefault<bool>( "boomer_cg", false );
-    d_kappa          = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_max_levels        = db->getWithDefault<size_t>( "max_levels", 10 );
+    d_num_relax_pre     = db->getWithDefault<size_t>( "num_relax_pre", 1 );
+    d_num_relax_post    = db->getWithDefault<size_t>( "num_relax_post", 1 );
+    d_boomer_cg         = db->getWithDefault<bool>( "boomer_cg", false );
+    d_kappa             = db->getWithDefault<size_t>( "kappa", 1 );
+    d_kcycle_tol        = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_min_coarse_local  = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_min_coarse_global = db->getWithDefault<size_t>( "min_coarse_global", 100 );
 
     d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
-    d_coarsen_settings.min_coarse_local   = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_coarsen_settings.min_coarse         = db->getWithDefault<size_t>( "min_coarse_global", 100 );
     d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
     d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
 
@@ -163,8 +163,8 @@ void UASolver::setup()
         AMP_DEBUG_ASSERT( matrix );
         int nrows_local   = static_cast<int>( matrix->numLocalRows() );
         auto nrows_global = matrix->numGlobalRows();
-        return nrows_global <= d_coarsen_settings.min_coarse ||
-               matrix->getComm().anyReduce( nrows_local < d_coarsen_settings.min_coarse_local );
+        return nrows_global <= d_min_coarse_global ||
+               matrix->getComm().anyReduce( nrows_local < d_min_coarse_local );
     };
 
     auto &fine_settings     = d_coarsen_settings;

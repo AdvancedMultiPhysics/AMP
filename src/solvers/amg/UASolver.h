@@ -37,6 +37,8 @@ private:
                        std::shared_ptr<RelaxationParameters> params );
     void makeCoarseSolver();
     size_t d_max_levels;
+    int d_min_coarse_local;
+    size_t d_min_coarse_global;
     size_t d_num_relax_pre;
     size_t d_num_relax_post;
     bool d_boomer_cg;

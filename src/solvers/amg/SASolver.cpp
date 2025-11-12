@@ -24,11 +24,11 @@ SASolver::SASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 void SASolver::getFromInput( std::shared_ptr<Database> db )
 {
     // settings applicable to entire solver
-    d_max_levels                        = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_kappa                             = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol                        = db->getWithDefault<float>( "kcycle_tol", 0 );
-    d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    d_max_levels        = db->getWithDefault<size_t>( "max_levels", 10 );
+    d_kappa             = db->getWithDefault<size_t>( "kappa", 1 );
+    d_kcycle_tol        = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_min_coarse_local  = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_min_coarse_global = db->getWithDefault<size_t>( "min_coarse_global", 100 );
 
     // get and setup coarse solver options
     AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
@@ -48,13 +48,14 @@ void SASolver::resetLevelOptions()
         d_db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.strength_measure =
         d_db->getWithDefault<std::string>( "strength_measure", "classical_min" );
-    d_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
-    d_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
-    d_num_smooth_prol                  = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
-    d_prol_trunc                       = d_db->getWithDefault<float>( "prol_trunc", 0 );
-    d_agg_type                         = d_db->getWithDefault<std::string>( "agg_type", "simple" );
-    d_pre_relax_db                     = d_db->getDatabase( "pre_relaxation" );
-    d_post_relax_db                    = d_db->getDatabase( "post_relaxation" );
+    d_pair_coarsen_settings                 = d_coarsen_settings;
+    d_pair_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
+    d_pair_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
+    d_num_smooth_prol                       = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
+    d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0 );
+    d_agg_type      = d_db->getWithDefault<std::string>( "agg_type", "simple" );
+    d_pre_relax_db  = d_db->getDatabase( "pre_relaxation" );
+    d_post_relax_db = d_db->getDatabase( "post_relaxation" );
 }
 
 void SASolver::setLevelOptions( const size_t lvl )
@@ -75,10 +76,11 @@ void SASolver::setLevelOptions( const size_t lvl )
             "strength_threshold", d_coarsen_settings.strength_threshold );
         d_coarsen_settings.strength_measure = lvl_db->getWithDefault<std::string>(
             "strength_measure", d_coarsen_settings.strength_measure );
-        d_coarsen_settings.pairwise_passes =
-            lvl_db->getWithDefault<size_t>( "pairwise_passes", d_coarsen_settings.pairwise_passes );
-        d_coarsen_settings.checkdd =
-            lvl_db->getWithDefault<bool>( "checkdd", d_coarsen_settings.checkdd );
+        d_pair_coarsen_settings                 = d_coarsen_settings;
+        d_pair_coarsen_settings.pairwise_passes = lvl_db->getWithDefault<size_t>(
+            "pairwise_passes", d_pair_coarsen_settings.pairwise_passes );
+        d_pair_coarsen_settings.checkdd =
+            lvl_db->getWithDefault<bool>( "checkdd", d_pair_coarsen_settings.checkdd );
         d_num_smooth_prol = lvl_db->getWithDefault<int>( "num_smooth_prol", d_num_smooth_prol );
         d_prol_trunc      = lvl_db->getWithDefault<float>( "prol_trunc", d_prol_trunc );
         d_agg_type        = lvl_db->getWithDefault<std::string>( "agg_type", d_agg_type );
@@ -96,10 +98,9 @@ void SASolver::setLevelOptions( const size_t lvl )
 
     // create/replace aggregator
     if ( d_agg_type == "simple" ) {
-        d_aggregator =
-            std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings.strength_threshold );
+        d_aggregator = std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings );
     } else if ( d_agg_type == "pairwise" ) {
-        d_aggregator = std::make_shared<PairwiseAggregator>( d_coarsen_settings );
+        d_aggregator = std::make_shared<PairwiseAggregator>( d_pair_coarsen_settings );
     } else {
         d_aggregator = std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings );
     }
@@ -287,8 +288,8 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         // and make residual vector for coarsest level
         const auto Ac_nrows_loc = static_cast<int>( Ac->numLocalRows() );
         auto comm               = Ac->getComm();
-        if ( Ac_nrows_gbl <= d_coarsen_settings.min_coarse ||
-             comm.anyReduce( Ac_nrows_loc < d_coarsen_settings.min_coarse_local ) ) {
+        if ( Ac_nrows_gbl <= d_min_coarse_global ||
+             comm.anyReduce( Ac_nrows_loc < d_min_coarse_local ) ) {
             break;
         }
     }
