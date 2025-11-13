@@ -6,6 +6,7 @@
 #include "AMP/vectors/data/VectorDataDefault.h"
 #include <cstring>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -49,6 +50,8 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
                                                        size_t localSize,
                                                        size_t globalSize )
 {
+    PROFILE( "VectorDataDefault::constructor" );
+
     static_assert( std::is_same_v<typename Allocator::value_type, void> );
     this->d_localSize  = localSize;
     this->d_globalSize = globalSize;
@@ -56,6 +59,7 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
     this->d_data       = this->d_alloc.allocate( localSize );
     AMP::Utilities::memset( this->d_data, 0, localSize * sizeof( TYPE ) );
 }
+
 template<typename TYPE, class Allocator>
 VectorDataDefault<TYPE, Allocator>::~VectorDataDefault()
 {
@@ -72,6 +76,8 @@ template<typename TYPE, class Allocator>
 std::shared_ptr<VectorData>
 VectorDataDefault<TYPE, Allocator>::cloneData( const std::string & ) const
 {
+    PROFILE( "VectorDataDefault::cloneData" );
+
     auto retVal = std::make_shared<VectorDataDefault<TYPE, Allocator>>(
         this->d_localStart, this->d_localSize, this->d_globalSize );
     auto comm = this->getCommunicationList();
@@ -172,6 +178,8 @@ inline void VectorDataDefault<TYPE, Allocator>::setValuesByLocalID( size_t num,
                                                                     const void *vals,
                                                                     const typeID &id )
 {
+    PROFILE( "VectorDataDefault::setValuesByLocalID" );
+
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
     for ( size_t i = 0; i < num; i++ )
         AMP_ASSERT( indices[i] < this->d_localSize );
@@ -190,12 +198,15 @@ inline void VectorDataDefault<TYPE, Allocator>::setValuesByLocalID( size_t num,
     if ( *( this->d_UpdateState ) == UpdateState::UNCHANGED )
         *( this->d_UpdateState ) = UpdateState::LOCAL_CHANGED;
 }
+
 template<typename TYPE, class Allocator>
 inline void VectorDataDefault<TYPE, Allocator>::addValuesByLocalID( size_t num,
                                                                     const size_t *indices,
                                                                     const void *vals,
                                                                     const typeID &id )
 {
+    PROFILE( "VectorDataDefault::addValuesByLocalID" );
+
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
     for ( size_t i = 0; i < num; i++ )
         AMP_ASSERT( indices[i] < this->d_localSize );
@@ -214,12 +225,15 @@ inline void VectorDataDefault<TYPE, Allocator>::addValuesByLocalID( size_t num,
     if ( *( this->d_UpdateState ) == UpdateState::UNCHANGED )
         *( this->d_UpdateState ) = UpdateState::LOCAL_CHANGED;
 }
+
 template<typename TYPE, class Allocator>
 inline void VectorDataDefault<TYPE, Allocator>::getValuesByLocalID( size_t num,
                                                                     const size_t *indices,
                                                                     void *vals,
                                                                     const typeID &id ) const
 {
+    PROFILE( "VectorDataDefault::getValuesByLocalID" );
+
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
     for ( size_t i = 0; i < num; i++ )
         AMP_ASSERT( indices[i] < this->d_localSize );
@@ -244,6 +258,8 @@ inline void VectorDataDefault<TYPE, Allocator>::getValuesByLocalID( size_t num,
 template<typename TYPE, class Allocator>
 void VectorDataDefault<TYPE, Allocator>::putRawData( const void *in, const typeID &id )
 {
+    PROFILE( "VectorDataDefault::putRawData" );
+
     if ( id == getTypeID<TYPE>() ) {
         memcpy( this->d_data, in, this->d_localSize * sizeof( TYPE ) );
     } else if ( id == getTypeID<double>() ) {
@@ -258,6 +274,8 @@ void VectorDataDefault<TYPE, Allocator>::putRawData( const void *in, const typeI
 template<typename TYPE, class Allocator>
 void VectorDataDefault<TYPE, Allocator>::getRawData( void *out, const typeID &id ) const
 {
+    PROFILE( "VectorDataDefault::getRawData" );
+
     if ( id == getTypeID<TYPE>() ) {
         memcpy( out, this->d_data, this->d_localSize * sizeof( TYPE ) );
     } else if ( id == getTypeID<double>() ) {
@@ -276,6 +294,8 @@ void VectorDataDefault<TYPE, Allocator>::getRawData( void *out, const typeID &id
 template<typename TYPE, class Allocator>
 void VectorDataDefault<TYPE, Allocator>::swapData( VectorData &rhs )
 {
+    PROFILE( "VectorDataDefault::swapData" );
+
     auto rhs2 = dynamic_cast<VectorDataDefault<TYPE, Allocator> *>( &rhs );
     AMP_INSIST( rhs2, "Cannot swap with arbitrary VectorData" );
     std::swap( this->d_CommList, rhs2->d_CommList );

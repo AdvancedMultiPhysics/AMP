@@ -353,7 +353,7 @@ protected:
     double d_new_time = std::numeric_limits<double>::signaling_NaN();
 
     //! double storing the first dt before any restart
-    double d_first_initial_dt;
+    double d_first_initial_dt = 0.0;
 
     //! ratio of current to previous timestep
     double d_alpha = 1.0;

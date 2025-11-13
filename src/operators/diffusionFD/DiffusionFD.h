@@ -97,7 +97,7 @@ public:
                                  std::function<double( const AMP::Mesh::Point & )> fun ) const;
 
     // Vector of hx, hy, hz
-    std::vector<double> getMeshSize() const;
+    const std::vector<double> &getMeshSize() const;
 
 
     // Data

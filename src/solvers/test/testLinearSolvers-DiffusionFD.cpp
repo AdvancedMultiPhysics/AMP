@@ -166,47 +166,50 @@ void driver( AMP::AMP_MPI comm, AMP::UnitTest *ut, const std::string &inputFileN
 */
 int main( int argc, char **argv )
 {
-
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
+
+    PROFILE_ENABLE();
 
     // Create a global communicator
     AMP::AMP_MPI comm( AMP_COMM_WORLD );
 
     std::vector<std::string> exeNames;
+    if ( argc > 1 ) {
+        exeNames.emplace_back( argv[1] );
+    } else {
+        // relaxation solvers alone, only for troubleshooting
+        // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-JacobiL1" );
+        // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-HybridGS" );
+        // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-JacobiL1" );
+        // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-HybridGS" );
 
-    // relaxation solvers alone, only for troubleshooting
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-JacobiL1" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-HybridGS" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-JacobiL1" );
-    // exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-HybridGS" );
-
-    // SASolver with/without FCG acceleration
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
+        // SASolver with/without FCG acceleration
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
 #ifdef AMP_USE_HYPRE
-    // Boomer with/without CG acceleration
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG" );
-    exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
+        // Boomer with/without CG acceleration
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG" );
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG" );
+        exeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
 #endif
+    }
 
     for ( auto &exeName : exeNames ) {
-        PROFILE_ENABLE();
 
         driver( comm, &ut, exeName );
-
-        // build unique profile name to avoid collisions
-        std::ostringstream ss;
-        ss << exeName << std::setw( 3 ) << std::setfill( '0' )
-           << AMP::AMPManager::getCommWorld().getSize();
-        PROFILE_SAVE( ss.str() );
     }
-    ut.report();
 
+    // build unique profile name to avoid collisions
+    std::ostringstream ss;
+    ss << "testLinearSolvers-DiffusionFD_r" << std::setw( 3 ) << std::setfill( '0' )
+       << comm.getSize();
+    PROFILE_SAVE( ss.str() );
+
+    ut.report();
     int num_failed = ut.NumFailGlobal();
     AMP::AMPManager::shutdown();
     return num_failed;

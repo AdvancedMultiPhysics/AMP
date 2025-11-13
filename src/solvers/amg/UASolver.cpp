@@ -2,6 +2,7 @@
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/amg/Aggregation.h"
+#include "AMP/solvers/amg/Relaxation.h"
 #include "AMP/solvers/amg/Stats.h"
 #include "AMP/solvers/amg/default/MIS2Aggregator.h"
 #include "AMP/solvers/amg/default/SimpleAggregator.h"
@@ -65,11 +66,14 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
 }
 
 std::unique_ptr<SolverStrategy>
-UASolver::create_relaxation( std::shared_ptr<AMP::Operator::LinearOperator> A,
+UASolver::create_relaxation( size_t lvl,
+                             std::shared_ptr<AMP::Operator::LinearOperator> A,
                              std::shared_ptr<RelaxationParameters> params )
 {
     auto rel_op = SolverFactory::create( params );
     rel_op->registerOperator( A );
+    auto &op = *rel_op;
+    dynamic_cast<Relaxation &>( op ).setLevel( lvl );
     return rel_op;
 }
 
@@ -100,8 +104,8 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 
     d_levels.clear();
     d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *linop );
-    d_levels.back().pre_relaxation  = create_relaxation( linop, d_pre_relax_params );
-    d_levels.back().post_relaxation = create_relaxation( linop, d_post_relax_params );
+    d_levels.back().pre_relaxation  = create_relaxation( 0, linop, d_pre_relax_params );
+    d_levels.back().post_relaxation = create_relaxation( 0, linop, d_post_relax_params );
     d_levels.back().r               = linop->getMatrix()->createInputVector();
     d_levels.back().correction      = linop->getMatrix()->createInputVector();
 
@@ -180,8 +184,8 @@ void UASolver::setup()
         d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *Ac );
         d_levels.back().R               = R;
         d_levels.back().P               = P;
-        d_levels.back().pre_relaxation  = create_relaxation( Ac, d_pre_relax_params );
-        d_levels.back().post_relaxation = create_relaxation( Ac, d_post_relax_params );
+        d_levels.back().pre_relaxation  = create_relaxation( i + 1, Ac, d_pre_relax_params );
+        d_levels.back().post_relaxation = create_relaxation( i + 1, Ac, d_post_relax_params );
         d_levels.back().x               = Ac->getMatrix()->createInputVector();
         d_levels.back().b               = Ac->getMatrix()->createInputVector();
         d_levels.back().r               = Ac->getMatrix()->createInputVector();

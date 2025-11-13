@@ -121,7 +121,7 @@ std::pair<size_t, size_t> get_local_nrows( const LinearAlgebra::CSRMatrix<Config
 
 
 template<class T, std::enable_if_t<is_level_v<T>, bool>>
-void print_summary( std::string amg_name,
+void print_summary( const std::string &amg_name,
                     const std::vector<T> &ml,
                     const SolverStrategy &cg_solver )
 {
@@ -179,7 +179,7 @@ void print_summary( std::string amg_name,
                              types.push_back( ( i < ml.size() - 1 ) ? amg_name : cg_solver.type() );
                          return types;
                      }(),
-                     []( std::string val ) { return val; } };
+                     []( const std::string &val ) { return val; } };
 
     auto maxmin_repr = []( const std::pair<size_t, size_t> &mm ) {
         std::stringstream ss;

@@ -28,8 +28,8 @@ public:
     enum class Sweep { forward, backward, symmetric };
     enum class Direction { forward, backward };
     explicit Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
-                         std::string name_,
-                         std::string short_name_ );
+                         const std::string &name_,
+                         const std::string &short_name_ );
 
     virtual std::string type() const override { return "Relaxation"; }
 
@@ -37,6 +37,8 @@ public:
 
     void apply( std::shared_ptr<const LinearAlgebra::Vector> b,
                 std::shared_ptr<LinearAlgebra::Vector> x ) override;
+
+    void setLevel( size_t lvl ) { d_caller_lvl = lvl; }
 
 protected:
     virtual void relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -47,6 +49,8 @@ protected:
     Sweep d_sweep;
     size_t d_num_sweeps;
     std::shared_ptr<AMP::LinearAlgebra::Matrix> d_matrix;
+
+    size_t d_caller_lvl;
 };
 
 struct HybridGS : Relaxation {

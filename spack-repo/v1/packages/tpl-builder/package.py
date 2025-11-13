@@ -125,6 +125,10 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
         ]
 
 
+        if spec.satisfies("+trilinos"):
+            if '~kokkos' in spec['trilinos']:
+                options.extend( [ self.define("DISABLE_TRILINOS_KOKKOS", True) ] )
+
         if spec.satisfies("+cuda"):
             cuda_arch = spec.variants["cuda_arch"].value
             cuda_flags = ["-extended-lambda", "--expt-relaxed-constexpr"]

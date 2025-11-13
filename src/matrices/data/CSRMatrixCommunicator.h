@@ -35,7 +35,10 @@ public:
     // create a host config for cases where DtoH migration is required
     using ConfigHost = typename Config::template set_alloc<alloc::host>::type;
 
-    CSRMatrixCommunicator() = default;
+    CSRMatrixCommunicator() : d_send_called( false ), d_num_sources( 0 ), d_num_allowed_sources( 0 )
+    {
+    }
+
     CSRMatrixCommunicator( std::shared_ptr<CommunicationList> comm_list,
                            const bool flip_sendrecv = false )
         : d_comm( comm_list->getComm() ),

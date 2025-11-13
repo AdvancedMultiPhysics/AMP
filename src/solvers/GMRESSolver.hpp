@@ -1,8 +1,8 @@
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/GMRESSolver.h"
 #include "AMP/solvers/SolverFactory.h"
-#include "ProfilerApp.h"
 
+#include "ProfilerApp.h"
 
 #include <cmath>
 #include <iomanip>
@@ -34,6 +34,8 @@ GMRESSolver<T>::GMRESSolver( std::shared_ptr<SolverStrategyParameters> parameter
 template<typename T>
 void GMRESSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
+    PROFILE( "GMRESSolver::initialize" );
+
     AMP_ASSERT( parameters );
     auto db = parameters->d_db;
 
@@ -103,6 +105,8 @@ void GMRESSolver<T>::getFromInput( std::shared_ptr<AMP::Database> db )
 template<typename T>
 void GMRESSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 {
+    PROFILE( "GMRESSolver::registerOperator" );
+
     // not sure about excluding op == d_pOperator
     d_pOperator = op;
 
@@ -128,7 +132,7 @@ template<typename T>
 void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                             std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
-    PROFILE( "GMRESSolver<T>::apply" );
+    PROFILE( "GMRESSolver::apply" );
 
     // Always zero before checking stopping criteria for any reason
     d_iNumberIterations = 1;
@@ -191,7 +195,7 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
     int k = 0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
-        PROFILE( "GMRESSolver<T>::apply: main loop" );
+        PROFILE( "GMRESSolver::apply: main loop" );
 
         // reuse basis vectors for restarts in order to avoid a clone
         if ( static_cast<int>( d_vBasis.size() ) <= k + 1 )
@@ -220,7 +224,7 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                 AMP_ERROR( "Left and right preconditioning not enabled" );
             }
         } else {
-            PROFILE( "GMRESSolver<T>::apply: v = Az" );
+            PROFILE( "GMRESSolver::apply: v = Az" );
             d_z = d_vBasis[k];
             d_z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
             d_pOperator->apply( d_z, v );
@@ -240,12 +244,12 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
         // apply all previous Givens rotations to
         // the k-th column of the Hessenberg matrix
         for ( int i = 0; i < k; ++i ) {
-            PROFILE( "GMRESSolver<T>::apply: Givens rotations on previous cols" );
+            PROFILE( "GMRESSolver::apply: Givens rotations on previous cols" );
             applyGivensRotation( i, k );
         }
 
         if ( v_norm != static_cast<T>( 0.0 ) ) {
-            PROFILE( "GMRESSolver<T>::apply: Givens on current col" );
+            PROFILE( "GMRESSolver::apply: Givens on current col" );
             // compute and store the Givens rotation that zeroes out
             // the subdiagonal for the current column
             computeGivensRotation( k );
@@ -347,7 +351,7 @@ std::vector<T> GMRESSolver<T>::basisInnerProducts( const int k,
     auto vecOps = v->getVectorOperations();
     AMP_ASSERT( vecOps );
     {
-        PROFILE( "GMRESSolver<T>::basisInnerProducts::localDots" );
+        PROFILE( "GMRESSolver::basisInnerProducts::localDots" );
 
         for ( int j = 0; j < k; ++j ) {
             hcol[j] = static_cast<T>(
@@ -355,7 +359,7 @@ std::vector<T> GMRESSolver<T>::basisInnerProducts( const int k,
         }
     }
     {
-        PROFILE( "GMRESSolver<T>::basisInnerProducts::sumReduce" );
+        PROFILE( "GMRESSolver::basisInnerProducts::sumReduce" );
         const auto &comm = v->getComm();
         comm.sumReduce( hcol.data(), k );
     }
@@ -365,6 +369,8 @@ std::vector<T> GMRESSolver<T>::basisInnerProducts( const int k,
 template<typename T>
 void GMRESSolver<T>::cgs( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v )
 {
+    PROFILE( "GMRESSolver::cgs" );
+
     auto hcol = basisInnerProducts( k, v );
 
     for ( int j = 0; j < k; ++j ) {
@@ -379,14 +385,14 @@ void GMRESSolver<T>::cgs2( const int k, std::shared_ptr<AMP::LinearAlgebra::Vect
     auto hcol = basisInnerProducts( k, v );
 
     for ( int j = 0; j < k; ++j ) {
-        PROFILE( "GMRESSolver<T>::cgs2: axpy1" );
+        PROFILE( "GMRESSolver::cgs2: axpy1" );
         v->axpy( -hcol[j], *d_vBasis[j], *v );
     }
 
     auto scol = basisInnerProducts( k, v );
 
     for ( int j = 0; j < k; ++j ) {
-        PROFILE( "GMRESSolver<T>::cgs2: axpy2" );
+        PROFILE( "GMRESSolver::cgs2: axpy2" );
         v->axpy( -scol[j], *d_vBasis[j], *v );
     }
 
@@ -398,7 +404,7 @@ void GMRESSolver<T>::cgs2( const int k, std::shared_ptr<AMP::LinearAlgebra::Vect
 template<typename T>
 void GMRESSolver<T>::orthogonalize( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v )
 {
-    PROFILE( "GMRESSolver<T>::orthogonalize" );
+    PROFILE( "GMRESSolver::orthogonalize" );
     if ( d_sOrthogonalizationMethod == "CGS" ) {
         this->cgs( k, v );
     } else if ( d_sOrthogonalizationMethod == "CGS2" ) {
@@ -423,6 +429,8 @@ void GMRESSolver<T>::orthogonalize( const int k, std::shared_ptr<AMP::LinearAlge
 template<typename T>
 void GMRESSolver<T>::applyGivensRotation( const int i, const int k )
 {
+    PROFILE( "GMRESSolver::applyGivensRotation" );
+
     // updates column k of the Hessenberg matrix by applying the i-th Givens rotations
 
     auto x = d_dHessenberg( i, k );
@@ -437,6 +445,8 @@ void GMRESSolver<T>::applyGivensRotation( const int i, const int k )
 template<typename T>
 void GMRESSolver<T>::computeGivensRotation( const int k )
 {
+    PROFILE( "GMRESSolver::computeGivensRotation" );
+
     // computes the Givens rotation required to zero out
     // the subdiagonal on column k of the Hessenberg matrix
 
@@ -469,6 +479,8 @@ void GMRESSolver<T>::computeGivensRotation( const int k )
 template<typename T>
 void GMRESSolver<T>::backwardSolve( const int nr )
 {
+    PROFILE( "GMRESSolver::backwardSolve" );
+
     // lower corner
     d_dy[nr] = d_dw[nr] / d_dHessenberg( nr, nr );
 
@@ -492,7 +504,8 @@ void GMRESSolver<T>::computeInitialResidual( bool use_zero_guess,
                                              std::shared_ptr<AMP::LinearAlgebra::Vector> tmp,
                                              std::shared_ptr<AMP::LinearAlgebra::Vector> res )
 {
-    PROFILE( "GMRESSolver<T>::compute initial residual" );
+    PROFILE( "GMRESSolver::computeInitialResidual" );
+
     if ( use_zero_guess ) {
         if ( d_bUsesPreconditioner && ( d_preconditioner_side == "left" ) ) {
             d_pNestedSolver->apply( f, res );
@@ -518,6 +531,7 @@ void GMRESSolver<T>::addCorrection( const int nr,
                                     std::shared_ptr<AMP::LinearAlgebra::Vector> z1,
                                     std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
+    PROFILE( "GMRESSolver::addCorrection" );
 
     if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
 
@@ -551,7 +565,7 @@ void GMRESSolver<T>::addCorrection( const int nr,
 template<typename T>
 void GMRESSolver<T>::allocateBasis( std::shared_ptr<const AMP::LinearAlgebra::Vector> u )
 {
-    PROFILE( "GMRESSolver<T>::allocateBasis" );
+    PROFILE( "GMRESSolver::allocateBasis" );
     AMP_ASSERT( d_pOperator );
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> v;

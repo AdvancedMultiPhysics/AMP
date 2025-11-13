@@ -163,7 +163,7 @@ AMP::Mesh::BoxMesh::Box DiffusionFDOperator::getLocalNodeBox() const
 
 
 // Vector of hx, hy, hz
-std::vector<double> DiffusionFDOperator::getMeshSize() const { return d_h; }
+const std::vector<double> &DiffusionFDOperator::getMeshSize() const { return d_h; }
 
 
 /* Populate vector with function that takes a reference to a point and returns a double.  */

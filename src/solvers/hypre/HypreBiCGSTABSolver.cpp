@@ -69,6 +69,8 @@ void HypreBiCGSTABSolver::setupHypreSolver(
 
 void HypreBiCGSTABSolver::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
+    PROFILE( "HypreBiCGSTABSolver::initialize" );
+
     AMP_ASSERT( parameters );
     HypreBiCGSTABSolver::getFromInput( parameters->d_db );
     setupNestedSolver( parameters );
@@ -81,6 +83,8 @@ void HypreBiCGSTABSolver::getFromInput( std::shared_ptr<const AMP::Database> db 
 
 void HypreBiCGSTABSolver::reset( std::shared_ptr<SolverStrategyParameters> params )
 {
+    PROFILE( "HypreBiCGSTABSolver::reset" );
+
     destroyHypreSolver();
     HypreSolver::reset( params );
     setupHypreSolver( params );

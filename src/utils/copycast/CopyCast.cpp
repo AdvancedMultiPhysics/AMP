@@ -27,6 +27,8 @@ namespace AMP::Utilities {
     INSTANTIATE_ALLOCATOR( long long, unsigned long, backend ) \
     INSTANTIATE_ALLOCATOR( int, long long, backend )           \
     INSTANTIATE_ALLOCATOR( long long, int, backend )           \
+    INSTANTIATE_ALLOCATOR( int, unsigned long, backend )       \
+    INSTANTIATE_ALLOCATOR( unsigned long, int, backend )       \
     INSTANTIATE_ALLOCATOR( unsigned long, long long, backend ) \
     INSTANTIATE_ALLOCATOR( float, double, backend )            \
     INSTANTIATE_ALLOCATOR( double, float, backend )            \
