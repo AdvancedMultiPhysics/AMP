@@ -8,6 +8,7 @@
 
 #include <random>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -32,6 +33,8 @@ std::shared_ptr<VectorOperations> VectorOperationsOpenMP<TYPE>::cloneOperations(
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::zero( VectorData &x )
 {
+    PROFILE( "VectorOperationsOpenMP::zero" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     for ( size_t i = 0; i < N_blocks; i++ ) {
         size_t size = x.sizeOfDataBlock( i );
@@ -48,6 +51,8 @@ void VectorOperationsOpenMP<TYPE>::zero( VectorData &x )
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::setToScalar( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "VectorOperationsOpenMP::setToScalar" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE alpha      = alpha_in.get<TYPE>();
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -65,6 +70,8 @@ void VectorOperationsOpenMP<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::setRandomValues( VectorData &x )
 {
+    PROFILE( "VectorOperationsOpenMP::setRandomValues" );
+
     std::random_device rd;
     std::mt19937 gen( rd() );
     if constexpr ( std::is_floating_point_v<TYPE> ) {
@@ -93,6 +100,8 @@ void VectorOperationsOpenMP<TYPE>::setRandomValues( VectorData &x )
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::copy( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsOpenMP::copy" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
     std::copy( x.begin<TYPE>(), x.end<TYPE>(), y.begin<TYPE>() );
     y.copyGhostValues( x );
@@ -101,6 +110,8 @@ void VectorOperationsOpenMP<TYPE>::copy( const VectorData &x, VectorData &y )
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsOpenMP::copyCast" );
+
     constexpr auto OpenMP = AMP::Utilities::Backend::OpenMP;
     if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
         for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
@@ -127,6 +138,8 @@ void VectorOperationsOpenMP<TYPE>::copyCast( const VectorData &x, VectorData &y 
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::scale( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "VectorOperationsOpenMP::scale" );
+
     TYPE alpha      = alpha_in.get<TYPE>();
     size_t N_blocks = x.numberOfDataBlocks();
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -143,6 +156,8 @@ void VectorOperationsOpenMP<TYPE>::scale( const Scalar &alpha_in,
                                           const VectorData &x,
                                           VectorData &y )
 {
+    PROFILE( "VectorOperationsOpenMP::scale" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
     TYPE alpha  = alpha_in.get<TYPE>();
     auto curMe  = y.begin<TYPE>();
@@ -158,6 +173,8 @@ void VectorOperationsOpenMP<TYPE>::scale( const Scalar &alpha_in,
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::add( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "VectorOperationsOpenMP::add" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
     auto curMe   = z.begin<TYPE>();
@@ -177,6 +194,8 @@ void VectorOperationsOpenMP<TYPE>::subtract( const VectorData &x,
                                              const VectorData &y,
                                              VectorData &z )
 {
+    PROFILE( "VectorOperationsOpenMP::subtract" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
     auto curMe   = z.begin<TYPE>();
@@ -196,6 +215,8 @@ void VectorOperationsOpenMP<TYPE>::multiply( const VectorData &x,
                                              const VectorData &y,
                                              VectorData &z )
 {
+    PROFILE( "VectorOperationsOpenMP::multiply" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
     auto curMe   = z.begin<TYPE>();
@@ -213,6 +234,8 @@ void VectorOperationsOpenMP<TYPE>::multiply( const VectorData &x,
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::divide( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "VectorOperationsOpenMP::divide" );
+
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
     auto curMe   = z.begin<TYPE>();
@@ -231,6 +254,8 @@ void VectorOperationsOpenMP<TYPE>::divide( const VectorData &x, const VectorData
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::reciprocal( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsOpenMP::reciprocal" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
     auto curMe  = y.begin<TYPE>();
     auto last   = y.end<TYPE>();
@@ -250,6 +275,8 @@ void VectorOperationsOpenMP<TYPE>::linearSum( const Scalar &alpha_in,
                                               const VectorData &y,
                                               VectorData &z )
 {
+    PROFILE( "VectorOperationsOpenMP::linearSum" );
+
     TYPE alpha = alpha_in.get<TYPE>();
     TYPE beta  = beta_in.get<TYPE>();
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
@@ -272,6 +299,8 @@ void VectorOperationsOpenMP<TYPE>::axpy( const Scalar &alpha_in,
                                          const VectorData &y,
                                          VectorData &z )
 {
+    PROFILE( "VectorOperationsOpenMP::axpy" );
+
     TYPE alpha = alpha_in.get<TYPE>();
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
     AMP_ASSERT( z.getLocalSize() == y.getLocalSize() );
@@ -293,6 +322,8 @@ void VectorOperationsOpenMP<TYPE>::axpby( const Scalar &alpha_in,
                                           const VectorData &x,
                                           VectorData &z )
 {
+    PROFILE( "VectorOperationsOpenMP::axpby" );
+
     TYPE alpha = alpha_in.get<TYPE>();
     TYPE beta  = beta_in.get<TYPE>();
     AMP_ASSERT( z.getLocalSize() == x.getLocalSize() );
@@ -309,6 +340,8 @@ void VectorOperationsOpenMP<TYPE>::axpby( const Scalar &alpha_in,
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::abs( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsOpenMP::abs" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
     auto curMe  = y.begin<TYPE>();
     auto last   = y.end<TYPE>();
@@ -325,6 +358,8 @@ void VectorOperationsOpenMP<TYPE>::addScalar( const VectorData &x,
                                               const Scalar &alpha_in,
                                               VectorData &y )
 {
+    PROFILE( "VectorOperationsOpenMP::addScalar" );
+
     TYPE alpha = alpha_in.get<TYPE>();
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
     auto curMe   = y.begin<TYPE>();
@@ -340,6 +375,8 @@ void VectorOperationsOpenMP<TYPE>::addScalar( const VectorData &x,
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::setMax( const Scalar &val, VectorData &x )
 {
+    PROFILE( "VectorOperationsOpenMP::setMax" );
+
     auto alpha = val.get<TYPE>();
     auto curMe = x.begin<TYPE>();
     auto last  = x.end<TYPE>();
@@ -352,6 +389,8 @@ void VectorOperationsOpenMP<TYPE>::setMax( const Scalar &val, VectorData &x )
 template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::setMin( const Scalar &val, VectorData &x )
 {
+    PROFILE( "VectorOperationsOpenMP::setMin" );
+
     auto alpha = val.get<TYPE>();
     auto curMe = x.begin<TYPE>();
     auto last  = x.end<TYPE>();
@@ -364,6 +403,8 @@ void VectorOperationsOpenMP<TYPE>::setMin( const Scalar &val, VectorData &x )
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localMin( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localMin" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = std::numeric_limits<TYPE>::max();
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -379,6 +420,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localMin( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localMax( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localMax" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = std::numeric_limits<TYPE>::lowest();
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -394,6 +437,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localMax( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localSum( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localSum" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = std::numeric_limits<TYPE>::lowest();
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -409,6 +454,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localSum( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localL1Norm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localL1Norm" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -424,6 +471,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localL1Norm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localL2Norm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localL2Norm" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -441,6 +490,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localL2Norm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localMaxNorm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localMaxNorm" );
+
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
@@ -456,6 +507,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localMaxNorm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localDot( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localDot" );
+
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
     auto curMe   = y.constBegin<TYPE>();
     auto last    = y.constEnd<TYPE>();
@@ -475,6 +528,8 @@ template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localMinQuotient( const VectorData &x,
                                                        const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localMinQuotient" );
+
     auto curx = x.constBegin<TYPE>();
     auto endx = x.constEnd<TYPE>();
     auto cury = y.constBegin<TYPE>();
@@ -494,6 +549,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localMinQuotient( const VectorData &x,
 template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localWrmsNorm( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localWrmsNorm" );
+
     auto curx = x.constBegin<TYPE>();
     auto endx = x.constEnd<TYPE>();
     auto cury = y.constBegin<TYPE>();
@@ -515,6 +572,8 @@ Scalar VectorOperationsOpenMP<TYPE>::localWrmsNormMask( const VectorData &x,
                                                         const VectorData &mask,
                                                         const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localWrmsNormMask" );
+
     auto curx = x.constBegin<TYPE>();
     auto endx = x.constEnd<TYPE>();
     auto cury = y.constBegin<TYPE>();
@@ -540,6 +599,8 @@ bool VectorOperationsOpenMP<TYPE>::localEquals( const VectorData &x,
                                                 const VectorData &y,
                                                 const Scalar &tol_in ) const
 {
+    PROFILE( "VectorOperationsOpenMP::localEquals" );
+
     if ( ( x.getGlobalSize() != y.getGlobalSize() ) || ( x.getLocalSize() != y.getLocalSize() ) )
         return false;
     bool equal = true;

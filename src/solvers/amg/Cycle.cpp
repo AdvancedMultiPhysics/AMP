@@ -1,5 +1,7 @@
 #include "AMP/solvers/amg/Cycle.hpp"
 
+#define AMP_AMG_CYCLE_PROFILE
+
 namespace AMP::Solver::AMG {
 
 
@@ -56,7 +58,12 @@ void kappa_kcycle( size_t lvl,
     ++flevel.nrelax;
 
     auto r = flevel.r;
-    A->residual( b, x, r );
+    {
+#ifdef AMP_AMG_CYCLE_PROFILE
+        PROFILE( "Kcycle::matvec" );
+#endif
+        A->residual( b, x, r );
+    }
 
     if ( !comm_free_interp ) {
         r->makeConsistent();
@@ -65,7 +72,12 @@ void kappa_kcycle( size_t lvl,
     auto coarse_b = clevel.b;
     auto coarse_x = clevel.x;
 
-    clevel.R->apply( r, coarse_b );
+    {
+#ifdef AMP_AMG_CYCLE_PROFILE
+        PROFILE( "Kcycle::intergrid" );
+#endif
+        clevel.R->apply( r, coarse_b );
+    }
     coarse_x->zero();
     if ( lvl + 1 == ml.size() - 1 ) {
         coarse_solver.apply( coarse_b, coarse_x );
@@ -76,25 +88,46 @@ void kappa_kcycle( size_t lvl,
             auto [c, v, btilde, d, w] = clevel.work;
             c->zero();
             kappa_kcycle( lvl + 1, coarse_b, c, ml, coarse_solver, kappa, ktol, comm_free_interp );
-            Ac->applyDeferConsistency( c, v );
-            auto rho1   = c->dot( *v );
-            auto alpha1 = c->dot( *coarse_b );
-            auto tau1   = alpha1 / rho1;
-            btilde->axpy( -tau1, *v, *coarse_b );
+            {
+#ifdef AMP_AMG_CYCLE_PROFILE
+                PROFILE( "Kcycle::matvec" );
+#endif
+                Ac->applyDeferConsistency( c, v );
+            }
+            AMP::Scalar rho1, alpha1, tau1;
+            {
+#ifdef AMP_AMG_CYCLE_PROFILE
+                PROFILE( "Kcycle::dot" );
+#endif
+                rho1   = c->dot( *v );
+                alpha1 = c->dot( *coarse_b );
+                tau1   = alpha1 / rho1;
+                btilde->axpy( -tau1, *v, *coarse_b );
+            }
             if ( ktol > 0 && btilde->L2Norm() < ktol * coarse_b->L2Norm() ) {
                 coarse_x->axpy( tau1, *c, *coarse_x );
             } else {
                 d->zero();
                 kappa_kcycle(
                     lvl + 1, btilde, d, ml, coarse_solver, kappa - 1, ktol, comm_free_interp );
-                Ac->applyDeferConsistency( d, w );
-                auto gamma  = d->dot( *v );
-                auto beta   = d->dot( *w );
-                auto alpha2 = d->dot( *btilde );
-                auto rho2   = beta - ( ( gamma * gamma ) / rho1 );
-                auto tau2   = tau1 - ( gamma * alpha2 ) / ( rho1 * rho2 );
-                auto tau3   = alpha2 / rho2;
-                coarse_x->linearSum( tau2, *c, tau3, *d );
+                {
+#ifdef AMP_AMG_CYCLE_PROFILE
+                    PROFILE( "Kcycle::matvec" );
+#endif
+                    Ac->applyDeferConsistency( d, w );
+                }
+                {
+#ifdef AMP_AMG_CYCLE_PROFILE
+                    PROFILE( "Kcycle::dot" );
+#endif
+                    auto gamma  = d->dot( *v );
+                    auto beta   = d->dot( *w );
+                    auto alpha2 = d->dot( *btilde );
+                    auto rho2   = beta - ( ( gamma * gamma ) / rho1 );
+                    auto tau2   = tau1 - ( gamma * alpha2 ) / ( rho1 * rho2 );
+                    auto tau3   = alpha2 / rho2;
+                    coarse_x->linearSum( tau2, *c, tau3, *d );
+                }
                 if ( !comm_free_interp )
                     coarse_x->makeConsistent();
             }
@@ -105,9 +138,14 @@ void kappa_kcycle( size_t lvl,
     }
 
     auto correction = flevel.correction;
-    clevel.P->apply( coarse_x, correction );
-    x->add( *x, *correction );
-    x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+    {
+#ifdef AMP_AMG_CYCLE_PROFILE
+        PROFILE( "Kcycle::intergrid" );
+#endif
+        clevel.P->apply( coarse_x, correction );
+        x->add( *x, *correction );
+        x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+    }
     flevel.post_relaxation->apply( b, x );
     ++flevel.nrelax;
 }

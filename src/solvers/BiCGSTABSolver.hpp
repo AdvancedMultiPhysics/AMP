@@ -39,6 +39,8 @@ BiCGSTABSolver<T>::~BiCGSTABSolver() = default;
 template<typename T>
 void BiCGSTABSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
+    PROFILE( "BiCGSTABSolver::initialize" );
+
     AMP_ASSERT( parameters );
     auto db = parameters->d_db;
     getFromInput( db );
@@ -75,6 +77,8 @@ template<typename T>
 void BiCGSTABSolver<T>::allocateScratchVectors(
     std::shared_ptr<const AMP::LinearAlgebra::Vector> u )
 {
+    PROFILE( "BiCGSTABSolver::allocateScratchVectors" );
+
     // allocates d_p, d_w, d_z (if necessary)
     AMP_INSIST( u, "Input to BiCGSTABSolver::allocateScratchVectors must be non-null" );
     d_r_tilde = u->clone();
@@ -96,6 +100,8 @@ void BiCGSTABSolver<T>::allocateScratchVectors(
 template<typename T>
 void BiCGSTABSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 {
+    PROFILE( "BiCGSTABSolver::registerOperator" );
+
     // not sure about excluding op == d_pOperator
     d_pOperator = op;
 
@@ -123,7 +129,7 @@ void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     // 4. Will 3, be affected by the transition to using checkStoppingCriteria
     // 5. This implementation is both BiCGSTAB & Flexible BiCGSTAB with right preconditioning
     //    See J. Vogels paper
-    PROFILE( "BiCGSTABSolver<T>::apply" );
+    PROFILE( "BiCGSTABSolver::apply" );
 
     if ( !d_r ) {
         d_r = u->clone();

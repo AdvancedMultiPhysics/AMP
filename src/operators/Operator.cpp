@@ -50,6 +50,8 @@ void Operator::residual( AMP::LinearAlgebra::Vector::const_shared_ptr f,
                          AMP::LinearAlgebra::Vector::const_shared_ptr u,
                          AMP::LinearAlgebra::Vector::shared_ptr r )
 {
+    PROFILE( "Operator::residual" );
+
     AMP_INSIST( u, "NULL Solution Vector" );
     AMP_INSIST( r, "NULL Residual Vector" );
     AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
@@ -188,6 +190,8 @@ Operator::subsetOutputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
  ********************************************************/
 void Operator::makeConsistent( std::shared_ptr<AMP::LinearAlgebra::Vector> vec )
 {
+    PROFILE( "Operator::makeConsistent" );
+
     AMP_ASSERT( vec );
     vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
