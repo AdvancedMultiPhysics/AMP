@@ -181,8 +181,9 @@ hid_t createGroup( hid_t fid, const std::string &name );
  * \details This function opens an HDF5 group
  * @param[in] fid       File or group to write to
  * @param[in] name      The name of the group
+ * @param[in] create    Create the group if it does not exist?
  */
-hid_t openGroup( hid_t fid, const std::string &name );
+hid_t openGroup( hid_t fid, const std::string &name, bool create = false );
 
 
 /**
