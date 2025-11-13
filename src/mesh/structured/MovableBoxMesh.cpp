@@ -26,6 +26,7 @@ MovableBoxMesh::MovableBoxMesh( const AMP::Mesh::BoxMesh &mesh ) : BoxMesh( mesh
         d_first  = rhs.d_first;
         d_last   = rhs.d_last;
         d_coord  = rhs.d_coord;
+        d_mapped = rhs.d_mapped;
     } else {
         // Get the ghost box
         auto box   = getLocalBlock( d_rank );
@@ -42,9 +43,21 @@ MovableBoxMesh::MovableBoxMesh( const AMP::Mesh::BoxMesh &mesh ) : BoxMesh( mesh
             for ( int j = d_first[1]; j <= d_last[1]; j++ ) {
                 for ( int i = d_first[0]; i <= d_last[0]; i++ ) {
                     auto x2 = &d_coord( 0, i - d_first[0], j - d_first[1], k - d_first[2] );
-                    MeshElementIndex index( GeomType::Vertex, 0, i, j, k );
-                    mesh.fixPeriodic( index );
-                    mesh.coord( index, x2 );
+                    MeshElementIndex index0( GeomType::Vertex, 0, i, j, k );
+                    auto index1 = index0;
+                    mesh.fixPeriodic( index1 );
+                    mesh.coord( index1, x2 );
+                    // Store mapped boundary reverse mappings
+                    for ( int d = 0; d < PhysicalDim; d++ ) {
+                        if ( d_surfaceId[2 * d] == -1 ) {
+                            if ( index1[d] < d_first[d] )
+                                index1[d] += d_globalSize[d];
+                            else if ( index1[d] > d_last[d] )
+                                index1[d] -= d_globalSize[d];
+                        }
+                    }
+                    if ( index0 != index1 )
+                        d_mapped[index1] = index0;
                 }
             }
         }
@@ -190,6 +203,7 @@ void MovableBoxMesh::coord( const MeshElementIndex &index0, double *pos ) const
 {
     AMP_ASSERT( index0.type() == AMP::Mesh::GeomType::Vertex );
     auto index = index0;
+    fixPeriodic( index );
     for ( int d = 0; d < PhysicalDim; d++ ) {
         if ( d_surfaceId[2 * d] == -1 ) {
             // Periodic boundary
@@ -198,12 +212,73 @@ void MovableBoxMesh::coord( const MeshElementIndex &index0, double *pos ) const
             else if ( index[d] > d_last[d] )
                 index[d] -= d_globalSize[d];
         }
+        if ( index[d] < d_first[d] || index[d] > d_last[d] ) {
+            auto it = d_mapped.find( index );
+            AMP_ASSERT( it != d_mapped.end() );
+            index = it->second;
+        }
     }
-    AMP_DEBUG_ASSERT( index[0] >= d_first[0] && index[0] <= d_last[0] && index[1] >= d_first[1] &&
-                      index[1] <= d_last[1] && index[2] >= d_first[2] && index[2] <= d_last[2] );
     auto x2 = &d_coord( 0, index[0] - d_first[0], index[1] - d_first[1], index[2] - d_first[2] );
     for ( int d = 0; d < PhysicalDim; d++ )
         pos[d] = x2[d];
+}
+std::array<AMP::Array<double>, 3> MovableBoxMesh::localCoord() const
+{
+    auto local = getLocalBlock( d_comm.getRank() );
+    ArraySize size( { local[1] - local[0] + 2, local[3] - local[2] + 2, local[5] - local[4] + 2 }, static_cast<int>( GeomDim ) );
+    AMP::Array<double> x( size ), y( size ), z( size );
+    auto Vertex = AMP::Mesh::GeomType::Vertex;
+    double pos[3];
+    for ( size_t k = 0; k < size[2]; k++ ) {
+        for ( size_t j = 0; j < size[1]; j++ ) {
+            for ( size_t i = 0; i < size[0]; i++ ) {
+                MeshElementIndex index( Vertex, 0, i + local[0], j + local[2], k + local[4] );
+                coord( index, pos );
+                x( i, j, k ) = pos[0];
+                y( i, j, k ) = pos[1];
+                z( i, j, k ) = pos[2];
+            }
+        }
+    }
+    if ( PhysicalDim == 1 )
+        return { x, {}, {} };
+    else if ( PhysicalDim == 2 )
+        return { x, y, {} };
+    else
+        return { x, y, z };
+}
+std::array<AMP::Array<double>, 3> MovableBoxMesh::globalCoord() const
+{
+    ArraySize size( { d_globalSize[0] + 1, d_globalSize[1] + 1, d_globalSize[2] + 1 }, static_cast<int>( GeomDim ) );
+    AMP::Array<double> x( size ), y( size ), z( size );
+    x.fill( 0 );
+    y.fill( 0 );
+    z.fill( 0 );
+    auto box   = getLocalBlock( d_rank );
+    auto range = getIteratorRange( box, GeomType::Vertex, 0 );
+    AMP_DEBUG_ASSERT( range.size() == 1 );
+    auto it  = structuredMeshIterator( range[0].first, range[0].second, this, 0 );
+    size_t N = it.size();
+    double pos[3];
+    for ( size_t m = 0; m < N; m++, ++it ) {
+        auto index = it.getCurrentIndex();
+        coord( index, pos );
+        auto [i, j, k] = index.index();
+        x( i, j, k )   = pos[0];
+        y( i, j, k )   = pos[1];
+        z( i, j, k )   = pos[2];
+    }
+    d_comm.sumReduce( x.data(), x.length() );
+    if ( PhysicalDim >= 2 )
+        d_comm.sumReduce( y.data(), y.length() );
+    if ( PhysicalDim >= 3 )
+        d_comm.sumReduce( z.data(), z.length() );
+    if ( PhysicalDim == 1 )
+        return { x, {}, {} };
+    else if ( PhysicalDim == 2 )
+        return { x, y, {} };
+    else
+        return { x, y, z };
 }
 
 
