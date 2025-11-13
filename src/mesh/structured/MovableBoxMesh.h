@@ -129,7 +129,7 @@ private:
     MeshElementIndex d_first;
     MeshElementIndex d_last;
     AMP::Array<double> d_coord;
-    std::map<MeshElementIndex,MeshElementIndex> d_mapped;
+    std::map<MeshElementIndex, MeshElementIndex> d_mapped;
 };
 
 

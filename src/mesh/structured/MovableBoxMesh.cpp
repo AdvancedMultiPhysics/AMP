@@ -225,7 +225,8 @@ void MovableBoxMesh::coord( const MeshElementIndex &index0, double *pos ) const
 std::array<AMP::Array<double>, 3> MovableBoxMesh::localCoord() const
 {
     auto local = getLocalBlock( d_comm.getRank() );
-    ArraySize size( { local[1] - local[0] + 2, local[3] - local[2] + 2, local[5] - local[4] + 2 }, static_cast<int>( GeomDim ) );
+    ArraySize size( { local[1] - local[0] + 2, local[3] - local[2] + 2, local[5] - local[4] + 2 },
+                    static_cast<int>( GeomDim ) );
     AMP::Array<double> x( size ), y( size ), z( size );
     auto Vertex = AMP::Mesh::GeomType::Vertex;
     double pos[3];
@@ -249,7 +250,8 @@ std::array<AMP::Array<double>, 3> MovableBoxMesh::localCoord() const
 }
 std::array<AMP::Array<double>, 3> MovableBoxMesh::globalCoord() const
 {
-    ArraySize size( { d_globalSize[0] + 1, d_globalSize[1] + 1, d_globalSize[2] + 1 }, static_cast<int>( GeomDim ) );
+    ArraySize size( { d_globalSize[0] + 1, d_globalSize[1] + 1, d_globalSize[2] + 1 },
+                    static_cast<int>( GeomDim ) );
     AMP::Array<double> x( size ), y( size ), z( size );
     x.fill( 0 );
     y.fill( 0 );
