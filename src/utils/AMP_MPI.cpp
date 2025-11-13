@@ -776,7 +776,7 @@ AMP_MPI AMP_MPI::dup( bool manage ) const
     new_MPI_comm = tmp;
 #else
     static AMP_MPI::Comm uniqueGlobalComm = 11;
-    new_MPI_comm = uniqueGlobalComm;
+    new_MPI_comm                          = uniqueGlobalComm;
     uniqueGlobalComm++;
 #endif
     // Create the new comm object
@@ -1049,7 +1049,7 @@ void AMP_MPI::abort() const
 /************************************************************************
  *  newTag                                                               *
  ************************************************************************/
-int AMP_MPI::newTag()
+int AMP_MPI::newTag() const
 {
 #ifdef AMP_USE_MPI
 
@@ -1297,11 +1297,11 @@ AMP_MPI::Request AMP_MPI::IsendBytes( const void *buf, int bytes, int, int tag )
     if ( it == global_isendrecv_list.end() ) {
         // We are calling isend first
         Isendrecv_struct data;
-        data.bytes = bytes;
-        data.data = buf;
+        data.bytes  = bytes;
+        data.data   = buf;
         data.status = 1;
-        data.comm = d_comm;
-        data.tag = tag;
+        data.comm   = d_comm;
+        data.tag    = tag;
         global_isendrecv_list.insert( std::pair<AMP_MPI::Request2, Isendrecv_struct>( id, data ) );
     } else {
         // We called irecv first
@@ -1322,11 +1322,11 @@ AMP_MPI::Request AMP_MPI::IrecvBytes( void *buf, const int bytes, const int, con
     if ( it == global_isendrecv_list.end() ) {
         // We are calling Irecv first
         Isendrecv_struct data;
-        data.bytes = bytes;
-        data.data = buf;
+        data.bytes  = bytes;
+        data.data   = buf;
         data.status = 2;
-        data.comm = d_comm;
-        data.tag = tag;
+        data.comm   = d_comm;
+        data.tag    = tag;
         global_isendrecv_list.insert( std::pair<AMP_MPI::Request, Isendrecv_struct>( id, data ) );
     } else {
         // We called Isend first
@@ -1465,7 +1465,7 @@ int AMP_MPI::waitAny( int count, Request2 *request )
         for ( int i = 0; i < count; i++ ) {
             if ( global_isendrecv_list.find( request[i] ) == global_isendrecv_list.end() ) {
                 found_any = true;
-                index = i;
+                index     = i;
             }
         }
         if ( found_any )
@@ -1597,7 +1597,7 @@ double AMP_MPI::tick() { return MPI_Wtick(); }
 #else
 double AMP_MPI::time()
 {
-    auto t = std::chrono::system_clock::now();
+    auto t  = std::chrono::system_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t.time_since_epoch() );
     return 1e-9 * ns.count();
 }
@@ -1612,10 +1612,10 @@ double AMP_MPI::tick()
 /************************************************************************
  *  Serialize a block of code across MPI processes                       *
  ************************************************************************/
-void AMP_MPI::serializeStart()
+void AMP_MPI::serializeStart() const
 {
-    PROFILE( "serializeStart", profile_level );
 #ifdef AMP_USE_MPI
+    PROFILE( "serializeStart", profile_level );
     // Wait for a message from the previous rank
     if ( d_rank > 0 ) {
         MPI_Request request;
@@ -1628,16 +1628,16 @@ void AMP_MPI::serializeStart()
     }
 #endif
 }
-void AMP_MPI::serializeStop()
+void AMP_MPI::serializeStop() const
 {
-    PROFILE( "serializeStop", profile_level );
 #ifdef AMP_USE_MPI
+    PROFILE( "serializeStop", profile_level );
     // Send flag to next rank
     if ( d_rank < d_size - 1 )
         MPI_Send( &d_rank, 1, MPI_INT, d_rank + 1, 5627, d_comm );
-#endif
     // Final barrier to sync all threads
     sleepBarrier( 0 );
+#endif
 }
 
 

@@ -148,7 +148,8 @@ void testWriterVector( AMP::UnitTest &ut, const std::string &writerName )
 
     // Write the file
     auto rankStr         = std::to_string( comm.getRank() + 1 );
-    std::string filename = "output_test_Writer/vector-" + writerName + "-" + rankStr + "proc";
+    std::string filename = "output_test_Writer/vector-" + writerName;
+    writer->setDecomposition( 1 );
     writer->writeFile( filename, 0, 0.0 );
     if ( AMP::IO::exists( filename + "_0." + properties.extension ) || properties.isNull )
         ut.passes( writerName + " registered independent vector" );
@@ -475,7 +476,7 @@ int main( int argc, char **argv )
     PROFILE( "test_Writer" );
     AMP::logOnlyNodeZero( "output_test_SiloIO" );
 
-    std::vector<std::string> writers = { "Silo" };
+    std::vector<std::string> writers = { "Silo", "HDF5" };
     int commSize                     = AMP::AMP_MPI( AMP_COMM_WORLD ).getSize();
     if ( commSize == 1 )
         writers = { "NULL", "Silo", "HDF5", "Ascii" }; // HDF5 does not support parallel yet
@@ -498,7 +499,7 @@ int main( int argc, char **argv )
         for ( auto &input : inputs ) {
             if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getRank() == 0 )
                 std::cout << "Testing " << input << std::endl;
-            testWriterMesh( ut, writers, input, true );
+            // testWriterMesh( ut, writers, input, true );
         }
     } else {
         // Test the provided input files

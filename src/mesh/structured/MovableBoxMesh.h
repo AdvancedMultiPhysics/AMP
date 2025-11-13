@@ -90,6 +90,18 @@ public:
      */
     void coord( const MeshElementIndex &index, double *pos ) const override;
 
+    /**
+     * \brief    Return the vertex coordinates for the local box
+     * \details  This function returns the vertices for all local cells
+     */
+    std::array<AMP::Array<double>, 3> localCoord() const override;
+
+    /**
+     * \brief    Return the vertex coordinates for the global box
+     * \details  This function returns the vertices for all local cells
+     */
+    std::array<AMP::Array<double>, 3> globalCoord() const override;
+
 
 public: // BoxMesh specific functionality
     /**
@@ -117,6 +129,7 @@ private:
     MeshElementIndex d_first;
     MeshElementIndex d_last;
     AMP::Array<double> d_coord;
+    std::map<MeshElementIndex,MeshElementIndex> d_mapped;
 };
 
 

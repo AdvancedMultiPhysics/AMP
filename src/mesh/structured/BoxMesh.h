@@ -360,7 +360,10 @@ public:
     inline std::vector<bool> periodic() const;
 
     //! Return the size of the mesh
-    inline std::vector<size_t> size() const;
+    inline ArraySize size() const;
+
+    //! Return the size of the mesh
+    inline ArraySize localSize() const;
 
     //! Return the number of blocks
     inline std::vector<size_t> numBlocks() const;
@@ -390,6 +393,18 @@ public:
      * \param[out] pos      Mesh element coordinates
      */
     virtual void coord( const MeshElementIndex &index, double *pos ) const = 0;
+
+    /**
+     * \brief    Return the vertex coordinates for the local box
+     * \details  This function returns the vertices for all local cells
+     */
+    virtual std::array<AMP::Array<double>, 3> localCoord() const = 0;
+
+    /**
+     * \brief    Return the vertex coordinates for the global box
+     * \details  This function returns the vertices for all local cells
+     */
+    virtual std::array<AMP::Array<double>, 3> globalCoord() const = 0;
 
     //! Check if the element is on the surface
     virtual bool isOnSurface( const MeshElementIndex &index ) const;

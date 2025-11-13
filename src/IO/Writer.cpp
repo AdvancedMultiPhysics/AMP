@@ -161,20 +161,15 @@ std::shared_ptr<AMP::IO::Writer> Writer::buildWriter( std::shared_ptr<AMP::Datab
 
 
 /************************************************************
- * Constructor/Destructor                                    *
- ************************************************************/
-Writer::Writer() : d_comm( AMP_COMM_WORLD ) { d_decomposition = 2; }
-Writer::~Writer() = default;
-
-
-/************************************************************
  * Some basic functions                                      *
  ************************************************************/
 std::string Writer::getExtension() const { return getProperties().extension; }
 void Writer::setDecomposition( int d )
 {
-    AMP_INSIST( d == 1 || d == 2, "decomposition must be 1 or 2" );
-    d_decomposition = d;
+    if ( d == 1 )
+        d_decomposition = DecompositionType::SINGLE;
+    else
+        d_decomposition = DecompositionType::MULTIPLE;
 }
 void Writer::createDirectories( const std::string &filename )
 {

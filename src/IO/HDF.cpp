@@ -245,12 +245,16 @@ hid_t createGroup( hid_t fid, const std::string &name )
         return H5Gcreate2( fid, nullName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
     return H5Gcreate2( fid, name.data(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
 }
-hid_t openGroup( hid_t fid, const std::string &name )
+hid_t openGroup( hid_t fid, const std::string &name, bool create )
 {
     if ( name.empty() )
         return openGroup( fid, nullName );
-    if ( !H5Gexists( fid, name ) )
-        AMP_ERROR( "Group " + std::string( name ) + " does not exist" );
+    if ( !H5Gexists( fid, name ) ) {
+        if ( create )
+            createGroup( fid, name );
+        else
+            AMP_ERROR( "Group " + std::string( name ) + " does not exist" );
+    }
     return H5Gopen2( fid, name.data(), H5P_DEFAULT );
 }
 void closeGroup( hid_t gid ) { H5Gclose( gid ); }
