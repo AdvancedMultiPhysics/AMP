@@ -100,6 +100,22 @@ size_t multiDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int multiDOFManager::getDOFsPerPoint() const
+{
+    if ( d_managers.empty() )
+        return -1;
+    int N = d_managers[0]->getDOFsPerPoint();
+    for ( size_t i = 1; i < d_managers.size(); i++ ) {
+        if ( d_managers[i]->getDOFsPerPoint() != N )
+            return -1;
+    }
+    return N;
+}
+
+
+/****************************************************************
  * Get the element ID give a dof                                 *
  ****************************************************************/
 AMP::Mesh::MeshElementID multiDOFManager::getElementID( size_t dof ) const
