@@ -252,12 +252,11 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::scatter_set()
 {
-    PROFILE( "GhostDataHelper::scatter_set" );
 
     AMP_ASSERT( d_CommList );
     if ( !d_CommList->anyCommunication() )
         return;
-    PROFILE( "scatter_set" );
+    PROFILE( "GhostDataHelper::scatter_set" );
     constexpr auto type   = getTypeID<TYPE>();
     const auto &sendSizes = d_CommList->getSendSizes();
     const auto &recvSizes = d_CommList->getReceiveSizes();
@@ -302,8 +301,6 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
 
         AMP::Utilities::Algorithms<TYPE>::copy_n(
             d_SendRecv, this->d_numRemote, d_SendRecv_h.data() );
-
-        AMP::Utilities::Algorithms<TYPE>::copy_n( d_Ghosts, this->d_ghostSize, d_Ghosts_h.data() );
 
         send_recv_p = d_SendRecv_h.data();
         ghosts_p    = d_Ghosts_h.data();
