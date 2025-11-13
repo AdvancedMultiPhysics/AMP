@@ -499,7 +499,7 @@ int main( int argc, char **argv )
         for ( auto &input : inputs ) {
             if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getRank() == 0 )
                 std::cout << "Testing " << input << std::endl;
-            // testWriterMesh( ut, writers, input, true );
+            testWriterMesh( ut, writers, input, true );
         }
     } else {
         // Test the provided input files
