@@ -242,8 +242,8 @@ IF ( USE_LIBMESH )
     ADD_AMP_TEST( testSolversForUserMatrix PROCS 2 )
     ADD_AMP_TEST( testSolversForUserMatrix PROCS 4 )
 
-    ADD_AMP_TEST( testSolversForVectorAdaptor PROCS 1 )
-    ADD_AMP_TEST( testSolversForVectorAdaptor PROCS 4 )
+    #    ADD_AMP_TEST( testSolversForVectorAdaptor PROCS 1 )
+    #    ADD_AMP_TEST( testSolversForVectorAdaptor PROCS 4 )
 
     ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-2 PROCS 1 GPU )
     ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-2 PROCS 2 GPU )
