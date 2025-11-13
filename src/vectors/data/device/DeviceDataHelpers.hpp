@@ -239,12 +239,9 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID( const size_t gsi
     AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
                       "dst not on device" );
 
-    {
-        PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID(1)" );
-        // Perform vectorized lower_bound to find positions in src
-        thrust::lower_bound(
-            thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
-    }
+    // Perform vectorized lower_bound to find positions in src
+    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
+
     auto map_data_1_begin = thrust::make_permutation_iterator( src1, ndxMap );
     auto map_data_1_end   = thrust::make_permutation_iterator( src1, ndxMap + N );
 
@@ -254,10 +251,8 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID( const size_t gsi
         thrust::make_zip_iterator( thrust::make_tuple( map_data_1_begin, map_data_2_begin ) );
     auto zip_end =
         thrust::make_zip_iterator( thrust::make_tuple( map_data_1_end, map_data_2_end ) );
-    {
-        PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID(4)" );
-        thrust::transform( thrust::device, zip_begin, zip_end, dst, pair_plus_op<DTYPE>() );
-    }
+
+    thrust::transform( thrust::device, zip_begin, zip_end, dst, pair_plus_op<DTYPE>() );
 }
 
 template<typename STYPE, typename DTYPE>

@@ -337,7 +337,7 @@ void VectorDataDevice<TYPE, Allocator>::setGhostValuesByGlobalID( size_t N,
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *( this->d_UpdateState ) != UpdateState::ADDING );
         *( this->d_UpdateState ) = UpdateState::SETTING;
-        AMP_DEBUG_INSIST( allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        AMP_DEBUG_INSIST( allGhostIndices( N, ndx_ ), "Non ghost index encountered" );
         auto data = reinterpret_cast<const TYPE *>( vals );
         DeviceDataHelpers<TYPE>::setGhostValuesByGlobalID( this->d_ghostSize,
                                                            this->d_ReceiveDOFList,
@@ -367,7 +367,7 @@ void VectorDataDevice<TYPE, Allocator>::addGhostValuesByGlobalID( size_t N,
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *( this->d_UpdateState ) != UpdateState::SETTING );
         *( this->d_UpdateState ) = UpdateState::ADDING;
-        AMP_DEBUG_INSIST( this->allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        AMP_DEBUG_INSIST( this->allGhostIndices( N, ndx_ ), "Non ghost index encountered" );
         auto data = reinterpret_cast<const TYPE *>( vals );
         DeviceDataHelpers<TYPE>::addGhostValuesByGlobalID( this->d_ghostSize,
                                                            this->d_ReceiveDOFList,
@@ -400,7 +400,7 @@ void VectorDataDevice<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
     } else {
 
         auto data = reinterpret_cast<TYPE *>( vals );
-        AMP_DEBUG_INSIST( this->allGhostIndices( N, indices ), "Non ghost index encountered" );
+        AMP_DEBUG_INSIST( this->allGhostIndices( N, ndx_ ), "Non ghost index encountered" );
 
         DeviceDataHelpers<TYPE>::getGhostValuesByGlobalID( this->d_ghostSize,
                                                            this->d_ReceiveDOFList,
@@ -434,7 +434,7 @@ void VectorDataDevice<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
     if ( id != AMP::getTypeID<TYPE>() ) {
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     } else {
-        AMP_DEBUG_INSIST( this->allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        AMP_DEBUG_INSIST( this->allGhostIndices( N, ndx_ ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
         DeviceDataHelpers<TYPE>::getGhostAddValuesByGlobalID( this->d_ghostSize,
                                                               this->d_ReceiveDOFList,

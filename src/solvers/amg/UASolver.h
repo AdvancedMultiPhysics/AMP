@@ -33,7 +33,8 @@ private:
                              const PairwiseCoarsenSettings &,
                              std::shared_ptr<Operator::OperatorParameters> );
     static std::unique_ptr<SolverStrategy>
-    create_relaxation( std::shared_ptr<AMP::Operator::LinearOperator> A,
+    create_relaxation( size_t lvl,
+                       std::shared_ptr<AMP::Operator::LinearOperator> A,
                        std::shared_ptr<RelaxationParameters> params );
     void makeCoarseSolver();
     size_t d_max_levels;

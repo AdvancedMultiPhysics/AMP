@@ -143,6 +143,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scale( AMP::Scalar alpha_in,
                                                                      MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::scale" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -166,6 +168,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scale(
     AMP::Scalar alpha_in, std::shared_ptr<const Vector> D, MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::scale" );
+
     // constrain to one data block
     AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
     auto D_data                  = D->getVectorData();
@@ -188,6 +192,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scaleInv(
     AMP::Scalar alpha_in, std::shared_ptr<const Vector> D, MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::scaleInv" );
+
     // constrain to one data block
     AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
     auto D_data                  = D->getVectorData();
@@ -210,6 +216,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
     std::shared_ptr<MatrixData> A, std::shared_ptr<MatrixData> B, std::shared_ptr<MatrixData> C )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::matMatMult" );
+
     if ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
         d_matrixOpsDefault.matMatMult( A, B, C );
     } else {
@@ -229,6 +237,8 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::axpy( AMP::Scalar 
                                                                     const MatrixData &X,
                                                                     MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::axpy" );
+
     auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
     auto csrDataY = getCSRMatrixData<Config>( const_cast<MatrixData &>( Y ) );
 
@@ -260,6 +270,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setScalar( AMP::Scalar alpha_in,
                                                                          MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::setScalar" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -289,6 +301,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setDiagonal(
     std::shared_ptr<const Vector> in, MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::setDiagonal" );
+
     // constrain to one data block for now
     AMP_DEBUG_ASSERT( in && in->numberOfDataBlocks() == 1 && in->isType<scalar_t>( 0 ) );
 
@@ -310,6 +324,8 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setDiagonal(
 template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setIdentity( MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::setIdentity" );
+
     zero( A );
 
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
@@ -328,6 +344,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::extractDiagonal(
     MatrixData const &A, std::shared_ptr<Vector> buf )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::extractDiagonal" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -346,6 +364,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSums(
     MatrixData const &A, std::shared_ptr<Vector> buf )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::getRowSums" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
@@ -371,6 +391,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSumsAbsolute(
     MatrixData const &A, std::shared_ptr<Vector> buf, bool remove_zeros )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::getRowSumsAbsolute" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
@@ -405,6 +427,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 AMP::Scalar
 CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::LinfNorm( MatrixData const &A ) const
 {
+    PROFILE( "CSRMatrixOperationsKokkos::LinfNorm" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -436,6 +460,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copy( const MatrixData &X,
                                                                     MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::copy" );
+
     auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
     auto csrDataY = getCSRMatrixData<Config>( const_cast<MatrixData &>( Y ) );
 
@@ -465,6 +491,8 @@ template<typename Config, class ExecSpace, class ViewSpace>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast( const MatrixData &X,
                                                                         MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
+
     auto csrDataY = getCSRMatrixData<Config>( Y );
     AMP_DEBUG_ASSERT( csrDataY );
     if ( X.getCoeffType() == getTypeID<double>() ) {
@@ -491,6 +519,7 @@ template<typename ConfigIn>
 void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast(
     CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
 
     AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
                       "CSRMatrixOperationsKokkos::copyCast X and Y must be in same memory space" );
