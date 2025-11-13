@@ -48,6 +48,7 @@ public:
         WriterProperties();
     };
     enum class VectorType : uint8_t { DOUBLE, SINGLE, INT };
+    enum class DecompositionType : uint8_t { SINGLE, MULTIPLE };
 
 
 public:
@@ -75,11 +76,8 @@ public:
 
 
 public:
-    //!  Default constructor
-    Writer();
-
     //!  Default destructor
-    virtual ~Writer();
+    virtual ~Writer() = default;
 
     //! Delete copy constructor
     Writer( const Writer & ) = delete;
@@ -278,6 +276,9 @@ protected: // Internal structures
     };
 
 protected: // Protected member functions
+    // Default constructor
+    Writer() = default;
+
     // Given a filename, strip the directory information and create the directories if needed
     void createDirectories( const std::string &filename );
 
@@ -313,10 +314,10 @@ protected: // Protected member functions
 
 protected: // Internal data
     // The comm of the writer
-    AMP_MPI d_comm;
+    AMP_MPI d_comm = AMP_COMM_WORLD;
 
     // The decomposition to use
-    int d_decomposition;
+    DecompositionType d_decomposition = DecompositionType::MULTIPLE;
 
     // List of all meshes and their ids
     std::map<GlobalID, baseMeshData> d_baseMeshes;
