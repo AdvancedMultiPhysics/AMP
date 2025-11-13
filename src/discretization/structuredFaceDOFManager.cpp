@@ -97,6 +97,20 @@ void structuredFaceDOFManager::initialize()
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int structuredFaceDOFManager::getDOFsPerPoint() const
+{
+    int N = d_DOFsPerFace[0];
+    for ( size_t i = 1; i < 3; i++ ) {
+        if ( d_DOFsPerFace[i] != N )
+            return -1;
+    }
+    return N;
+}
+
+
+/****************************************************************
  * Get the DOFs for the element                                  *
  ****************************************************************/
 size_t structuredFaceDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,

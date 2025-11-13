@@ -316,6 +316,12 @@ AMP::Mesh::MeshIterator simpleDOFManager::getIterator() const { return d_localIt
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int simpleDOFManager::getDOFsPerPoint() const { return d_DOFsPerElement; }
+
+
+/****************************************************************
  * Return the remote DOFs for a vector                           *
  ****************************************************************/
 std::vector<size_t> simpleDOFManager::getRemoteDOFs() const

@@ -297,23 +297,6 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
 /************************************************************
  * Register a vector with a mesh                             *
  ************************************************************/
-static int getDOFsPerPoint( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
-                            std::shared_ptr<AMP::Mesh::Mesh> mesh,
-                            AMP::Mesh::GeomType type )
-{
-    std::vector<size_t> dofs;
-    auto DOFs = vec->getDOFManager();
-    auto it1  = mesh->getIterator( type, 0 );
-    DOFs->getDOFs( it1->globalID(), dofs );
-    int DOFsPerPoint = dofs.size();
-    if ( type == AMP::Mesh::GeomType::Vertex )
-        it1 = mesh->getIterator( type, 1 );
-    for ( const auto &elem : it1 ) {
-        DOFs->getDOFs( elem.globalID(), dofs );
-        AMP_ASSERT( (int) dofs.size() == DOFsPerPoint );
-    }
-    return DOFsPerPoint;
-}
 void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                              std::shared_ptr<AMP::Mesh::Mesh> mesh,
                              AMP::Mesh::GeomType type,
@@ -349,11 +332,14 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                 AMP::LinearAlgebra::VS_Mesh meshSelector( mesh2.mesh );
                 auto vec2 = vec->selectInto( meshSelector );
                 if ( vec2 ) {
+                    int N_dofs = vec2->getDOFManager()->getDOFsPerPoint();
+                    AMP_ASSERT( N_dofs > 0 && N_dofs < 255 );
                     VectorData data( vec2, name_in );
                     data.type     = type;
-                    data.numDOFs  = getDOFsPerPoint( vec2, mesh2.mesh, type );
+                    data.numDOFs  = N_dofs;
                     data.isStatic = isStatic;
                     data.dataType = precision;
+                    AMP_ASSERT( data.numDOFs != -1 );
                     mesh2.vectors.push_back( data );
                 }
             }
