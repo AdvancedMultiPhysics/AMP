@@ -256,20 +256,26 @@ std::array<AMP::Array<double>, 3> MovableBoxMesh::globalCoord() const
     x.fill( 0 );
     y.fill( 0 );
     z.fill( 0 );
-    auto box   = getLocalBlock( d_rank );
-    auto range = getIteratorRange( box, GeomType::Vertex, 0 );
-    AMP_DEBUG_ASSERT( range.size() == 1 );
-    auto it  = structuredMeshIterator( range[0].first, range[0].second, this, 0 );
-    size_t N = it.size();
-    double pos[3];
-    for ( size_t m = 0; m < N; m++, ++it ) {
-        auto index = it.getCurrentIndex();
-        coord( index, pos );
-        auto [i, j, k] = index.index();
-        x( i, j, k )   = pos[0];
-        y( i, j, k )   = pos[1];
-        z( i, j, k )   = pos[2];
+    // Fill the local box
+    auto local = getLocalBlock( d_comm.getRank() );
+    for ( int d = 0; d < static_cast<int>( GeomDim ); d++ ) {
+        if ( local[2 * d + 1] == d_globalSize[d] - 1 )
+            local[2 * d + 1]++;
     }
+    auto Vertex   = AMP::Mesh::GeomType::Vertex;
+    double pos[3] = { 0, 0, 0 };
+    for ( int k = local[4]; k <= local[5]; k++ ) {
+        for ( int j = local[2]; j <= local[3]; j++ ) {
+            for ( int i = local[0]; i <= local[1]; i++ ) {
+                MeshElementIndex index( Vertex, 0, i, j, k );
+                coord( index, pos );
+                x( i, j, k ) = pos[0];
+                y( i, j, k ) = pos[1];
+                z( i, j, k ) = pos[2];
+            }
+        }
+    }
+    // Fill all non-local values
     d_comm.sumReduce( x.data(), x.length() );
     if ( PhysicalDim >= 2 )
         d_comm.sumReduce( y.data(), y.length() );

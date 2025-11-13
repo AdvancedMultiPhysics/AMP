@@ -324,7 +324,7 @@ void closeHDF5( hid_t, bool ) {}
 bool H5Gexists( hid_t, const std::string & ) { return false; }
 bool H5Dexists( hid_t, const std::string & ) { return false; }
 hid_t createGroup( hid_t, const std::string & ) { return 0; }
-hid_t openGroup( hid_t, const std::string & ) { return 0; }
+hid_t openGroup( hid_t, const std::string &, bool ) { return 0; }
 void closeGroup( hid_t ) {}
 void closeDataset( hid_t ) {}
 void closeDatatype( hid_t ) {}

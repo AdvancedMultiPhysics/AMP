@@ -204,6 +204,7 @@ void Writer::registerMesh2( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( !multimesh ) {
         // Create a unique id for each rank
+        mesh->getComm().barrier();
         int rank = d_comm.getRank();
         GlobalID id( mesh->meshID().getData(), rank );
         base_ids.insert( id );
@@ -333,11 +334,13 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
         return;
     auto it1 = mesh->getIterator( type, 0 );
     auto it2 = DOFs->getIterator();
-    auto it3 = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, it1, it2 );
     if ( it1.size() == 0 || it2.size() == 0 )
         return;
-    if ( it1.size() != it3.size() )
-        AMP_WARNING( "vector does not cover the entire mesh for the given entity type" );
+    if ( it2.size() != it1.size() ) {
+        auto it3 = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, it1, it2 );
+        if ( it1.size() != it3.size() )
+            AMP_WARNING( "vector does not cover the entire mesh for the given entity type" );
+    }
     // Register the vector with the appropriate base meshes
     auto ids = getMeshIDs( mesh );
     for ( auto id : ids ) {

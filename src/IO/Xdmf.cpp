@@ -683,8 +683,6 @@ void Xdmf::gather( const AMP::AMP_MPI &comm )
                     // Add the domains
                     auto &meshes = d_meshData[name];
                     for ( auto domain : domains ) {
-                        for ( const auto &tmp2 : meshes )
-                            AMP_ASSERT( tmp2.name != domain.name );
                         meshes.push_back( domain );
                     }
                 }

@@ -155,11 +155,21 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
     syncMultiMeshData();
     syncVectors();
     // Add the mesh based data
+    std::set<uint64_t> meshIDs;
+    for ( [[maybe_unused]] auto &[id, mesh] : d_baseMeshes )
+        meshIDs.insert( id.objID );
+    d_comm.setGather( meshIDs );
     std::map<GlobalID, Xdmf::MeshData> baseMeshData;
-    for ( const auto &[id, mesh] : d_baseMeshes ) {
-        auto data = writeMesh( fid, filename, mesh );
-        if ( data.type != Xdmf::TopologyType::Null )
-            baseMeshData[id] = data;
+    for ( auto meshID : meshIDs ) {
+        GlobalID id( meshID, rank );
+        auto it = d_baseMeshes.find( id );
+        if ( it != d_baseMeshes.end() ) {
+            auto data = writeMesh( fid, filename, it->second );
+            if ( data.type != Xdmf::TopologyType::Null )
+                baseMeshData[id] = data;
+        }
+        if ( d_decomposition == DecompositionType::SINGLE )
+            d_comm.barrier();
     }
     for ( const auto &[id, mesh] : d_multiMeshes ) {
         AMP::Utilities::nullUse( &id );
@@ -277,11 +287,15 @@ Xdmf::MeshData HDF5writer::writeDefaultMesh( hid_t fid,
     auto path     = AMP::IO::filename( filename ) + ":/meshes";
     auto path2    = mesh.path;
     auto elemPath = path + "/elements";
+    auto comm     = mesh.mesh->getComm();
     if ( d_decomposition == DecompositionType::SINGLE ) {
-        d_comm.serializeStart();
+        comm.serializeStart();
         fid = openHDF5( filename, "rw", Compression::GZIP );
+        if ( fid == -1 )
+            fid = openHDF5( filename, "rw", Compression::GZIP );
         path2 += "rank_" + std::to_string( mesh.mesh->getComm().getRank() ) + "/";
     }
+    AMP_ASSERT( fid != -1 );
     auto gid0 = openGroup( fid, "meshes" );
     auto gid  = gid0;
     std::vector<hid_t> groups;
@@ -352,7 +366,7 @@ Xdmf::MeshData HDF5writer::writeDefaultMesh( hid_t fid,
     closeGroup( gid0 );
     if ( d_decomposition == DecompositionType::SINGLE ) {
         closeHDF5( fid );
-        d_comm.serializeStop();
+        comm.serializeStop();
     }
     return XdmfData;
 }
@@ -374,7 +388,7 @@ static Array<double> getBoxMeshVar( const AMP::Mesh::BoxMesh &mesh,
     if ( boxMeshDOFs && vec.numberOfDataBlocks() == 1 ) {
         if ( boxMeshDOFs->getArraySize() == size2 ) {
             auto ptr = vec.getRawDataBlock<double>();
-            data.viewRaw( size, const_cast<double *>( ptr ) );
+            data.viewRaw( size2, const_cast<double *>( ptr ) );
             return data;
         }
     }
