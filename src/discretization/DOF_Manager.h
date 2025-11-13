@@ -77,6 +77,14 @@ public:
     virtual std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const;
 
 
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    virtual int getDOFsPerPoint() const;
+
+
     /** \brief Get the entry indices of DOFs given a mesh element ID
      * \details  This will return a vector of pointers into a Vector that are associated with which.
      * \param[in]  id       The element ID to collect nodal objects for.

@@ -43,6 +43,7 @@ std::string DOFManager::className() const { return "DOFManager"; }
 /****************************************************************
  * Get the DOFs for the element                                  *
  ****************************************************************/
+int DOFManager::getDOFsPerPoint() const { return -1; }
 void DOFManager::getDOFs( const AMP::Mesh::MeshElementID &id, std::vector<size_t> &dofs ) const
 {
     dofs.resize( 8 );
