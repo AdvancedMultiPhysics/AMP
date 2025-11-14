@@ -92,7 +92,7 @@ void CGSolver<T>::allocateScratchVectors( std::shared_ptr<const AMP::LinearAlgeb
 
     if ( d_bUsesPreconditioner ) {
         d_z = u->clone();
-        if ( d_sVariant != "fcg" ) {
+        if ( d_sVariant != "fcg" && false ) {
             // only fcg utilizes ghosts in d_z, otherwise can set to none
             d_z->setNoGhosts();
         }
