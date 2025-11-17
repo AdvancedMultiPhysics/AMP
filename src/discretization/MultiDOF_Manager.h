@@ -115,6 +115,13 @@ public:
     void reset( std::vector<std::shared_ptr<DOFManager>> managers,
                 std::shared_ptr<const AMP::Mesh::Mesh> mesh = {} );
 
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    int getDOFsPerPoint() const override;
+
 public:
     //! Get the DOFManagers that compose the multiDOFManager
     inline const auto &getDOFManagers() const { return d_managers; }

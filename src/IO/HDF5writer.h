@@ -60,15 +60,12 @@ public:
 
 
 private:
-    Xdmf::MeshData writeMesh( hid_t fid, const baseMeshData &mesh, std::string path );
-    Xdmf::MeshData writeDefaultMesh( hid_t fid,
-                                     const baseMeshData &mesh,
-                                     const std::string &name,
-                                     const std::string &path ) const;
-    Xdmf::MeshData writeBoxMesh( hid_t fid,
-                                 const baseMeshData &mesh,
-                                 const std::string &name,
-                                 const std::string &path ) const;
+    Xdmf::MeshData
+    writeMesh( hid_t fid, const std::string &filename, const baseMeshData &mesh ) const;
+    Xdmf::MeshData
+    writeDefaultMesh( hid_t fid, const std::string &filename, const baseMeshData &mesh ) const;
+    Xdmf::MeshData
+    writeBoxMesh( hid_t fid, const std::string &filename, const baseMeshData &mesh ) const;
 
 private:
     std::vector<std::function<void( hid_t, std::string, Xdmf & )>> d_fun;

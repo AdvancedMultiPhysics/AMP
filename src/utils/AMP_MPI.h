@@ -448,7 +448,7 @@ public: // Member functions
      *   Note that this tag may match a user tag, but this function will
      *   not return two duplicate tags.  This is a global operation.
      */
-    int newTag();
+    int newTag() const;
 
 
     /**
@@ -1393,14 +1393,14 @@ public: // Member functions
      *    to serializeStop after the commands to be executed.
      *    Note: the ranks will be run in order.
      */
-    void serializeStart();
+    void serializeStart() const;
 
 
     /*!
      * \brief   Stop a serial region
      * \details Stop a serial region.  See serializeStart for more information.
      */
-    void serializeStop();
+    void serializeStop() const;
 
 
     /*!

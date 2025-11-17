@@ -28,6 +28,15 @@ subsetCommSelfDOFManager::subsetCommSelfDOFManager( std::shared_ptr<const DOFMan
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int subsetCommSelfDOFManager::getDOFsPerPoint() const
+{
+    return d_parentDOFManager->getDOFsPerPoint();
+}
+
+
+/****************************************************************
  * Convert DOF indicies                                          *
  ****************************************************************/
 size_t subsetCommSelfDOFManager::getSubsetDOF( size_t N, size_t *dofs ) const
