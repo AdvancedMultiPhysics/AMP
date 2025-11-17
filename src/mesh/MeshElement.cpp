@@ -271,8 +271,8 @@ void AMP::Utilities::unique<ElementPtr>( std::vector<ElementPtr> &x )
     std::vector<AMP::Mesh::MeshElementID> ids( x.size() );
     for ( size_t i = 0; i < x.size(); i++ )
         ids[i] = x[i]->globalID();
-    std::vector<size_t> I, J;
-    AMP::Utilities::unique( ids, I, J );
+    std::vector<size_t> I;
+    AMP::Utilities::unique( ids, I );
     AMP_ASSERT( I.size() == ids.size() );
     std::vector<ElementPtr> y( ids.size() );
     for ( size_t i = 0; i < ids.size(); i++ )

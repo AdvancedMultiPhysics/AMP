@@ -292,17 +292,6 @@ protected:
     using ElementList    = std::vector<std::unique_ptr<MeshElement>>;
     using ElementListPtr = std::shared_ptr<ElementList>;
 
-    // Parent mesh for the subset
-    std::shared_ptr<const Mesh> d_parentMesh;
-    MeshID d_parentMeshID;
-
-    // Pointers to store the elements in the subset meshes [type][gcw][elem]
-    std::vector<size_t> N_global;
-    std::vector<std::vector<ElementListPtr>> d_elements;
-
-    // Pointers to store the elements on the surface [type][gcw][elem]
-    std::vector<std::vector<ElementListPtr>> d_surface;
-
     // Data to store the id sets
     struct map_id_struct {
         int id;
@@ -339,6 +328,14 @@ protected:
         inline bool operator<( const map_id_struct &rhs ) const { return !operator>=( rhs ); }
         inline bool operator<=( const map_id_struct &rhs ) const { return !operator>( rhs ); }
     };
+
+
+protected:                                               // Member data
+    std::shared_ptr<const Mesh> d_parentMesh;            // Parent mesh for the subset
+    MeshID d_parentMeshID;                               // Parent mesh id
+    std::vector<size_t> N_global;                        // Number of global elements
+    std::vector<std::vector<ElementListPtr>> d_elements; // Elements in the subset [type][gcw][elem]
+    std::vector<std::vector<ElementListPtr>> d_surface; // Elements on the surface [type][gcw][elem]
     std::vector<int> d_boundaryIdSets;
     std::map<map_id_struct, ElementListPtr> d_boundarySets;
     std::vector<int> d_blockIdSets;
