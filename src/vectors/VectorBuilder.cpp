@@ -12,6 +12,14 @@ namespace AMP::LinearAlgebra {
 std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
                                       AMP::Utilities::MemoryType memType )
 {
+    auto backend = AMP::Utilities::getDefaultBackend( memType );
+    return createVector( vector, memType, backend );
+}
+
+std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
+                                      AMP::Utilities::MemoryType memType,
+                                      AMP::Utilities::Backend backend )
+{
     if ( !vector )
         return nullptr;
     // Check if we are dealing with a multiVector
@@ -19,7 +27,7 @@ std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
     if ( multiVector ) {
         std::vector<std::shared_ptr<Vector>> vecs;
         for ( auto vec : *multiVector )
-            vecs.push_back( createVector( vec, memType ) );
+            vecs.push_back( createVector( vec, memType, backend ) );
         auto multiVector = MultiVector::create( vector->getVariable(), vector->getComm() );
         multiVector->addVector( vecs );
         return multiVector;
@@ -28,10 +36,10 @@ std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
     auto type = vector->getVectorData()->getType( 0 );
     if ( type == getTypeID<double>() ) {
         return createVector<double>(
-            vector->getDOFManager(), vector->getVariable(), false, memType );
+            vector->getDOFManager(), vector->getVariable(), false, memType, backend );
     } else if ( type == AMP::getTypeID<float>() ) {
         return createVector<float>(
-            vector->getDOFManager(), vector->getVariable(), false, memType );
+            vector->getDOFManager(), vector->getVariable(), false, memType, backend );
     } else {
         AMP_ERROR( "Currently only float and double supported" );
     }

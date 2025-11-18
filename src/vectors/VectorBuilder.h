@@ -3,6 +3,7 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
+#include "AMP/utils/Backend.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Vector.h"
@@ -55,6 +56,16 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
               bool split = true );
 
 /**
+ * \brief  This function will create a vector from a DOFManager with a given ops backend
+ */
+template<typename TYPE = double, typename DATA = VectorDataDefault<TYPE>>
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+              std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
+              bool split,
+              AMP::Utilities::Backend backend );
+
+/**
  * \brief  This function will create a vector from an arbitrary DOFManager
  * \details  This function is responsible for creating vectors from a DOFManager and variable.
  * \param[in] DOFs          DOFManager to use for constucting the vector
@@ -69,6 +80,24 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
               std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
               bool split,
               AMP::Utilities::MemoryType memType );
+
+/**
+ * \brief  This function will create a vector from an arbitrary DOFManager
+ * \details  This function is responsible for creating vectors from a DOFManager and variable.
+ * \param[in] DOFs          DOFManager to use for constucting the vector
+ * \param[in] variable      Variable for the vector
+ * \param[in] split         If we are given a multiDOFManager, do we want to split the vector
+ *                              based on the individual DOFManagers to create a MultiVector
+ * \param[in] memType       Memory space in which to create vector
+ * \param[in] backend       Backend for operations
+ */
+template<typename TYPE = double>
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+              std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
+              bool split,
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend backend );
 
 /**
  * \brief  This function will create a vector from a vector
@@ -91,6 +120,32 @@ createVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
 AMP::LinearAlgebra::Vector::shared_ptr
 createVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vector,
               AMP::Utilities::MemoryType memType );
+
+/**
+ * \brief  This function will create a vector from a vector
+ * \details  This function is responsible for creating vectors from an existing vector.
+ * \param[in] vector        Vector we want to mimic
+ * \param[in] memType       Memory space in which to create vector
+ * \param[in] backend       Backend for operations
+ */
+template<typename TYPE = double>
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend backend );
+
+
+/**
+ * \brief  This function will create a vector from a vector
+ * \details  This function is responsible for creating vectors from an existing vector.
+ * \param[in] vector        Vector we want to mimic
+ * \param[in] memType       Memory space in which to create vector
+ * \param[in] backend       Backend for operations
+ */
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vector,
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend backend );
 
 /**
  * \brief  Create a vector from an arbitrary PETSc Vec
