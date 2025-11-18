@@ -117,13 +117,16 @@ public:
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSums( std::shared_ptr<localmatrixdata_t> A, scalar_t *buf ) const;
+    void
+    getRowSums( std::shared_ptr<localmatrixdata_t> A, scalar_t *buf, const bool zero_first ) const;
 
     /** \brief Extract the absolute row sums into a vector
      * \param[in] A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      */
-    void getRowSumsAbsolute( std::shared_ptr<localmatrixdata_t> A, scalar_t *buf ) const;
+    void getRowSumsAbsolute( std::shared_ptr<localmatrixdata_t> A,
+                             scalar_t *buf,
+                             const bool zero_first ) const;
 
     /** \brief  Set the matrix to the identity matrix
      * \param[out] A The matrix to set
