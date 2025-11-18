@@ -43,6 +43,7 @@ BoomerAMGSolver::BoomerAMGSolver( std::shared_ptr<SolverStrategyParameters> para
 void BoomerAMGSolver::setHypreFunctionPointers()
 {
     d_hypreGetNumIterations     = HYPRE_BoomerAMGGetNumIterations;
+    d_hypreGetRelativeResNorm   = HYPRE_BoomerAMGGetFinalRelativeResidualNorm;
     d_hypreSetRelativeTolerance = HYPRE_BoomerAMGSetTol;
     d_hypreSetAbsoluteTolerance = nullptr;
     d_hypreSetMaxIterations     = HYPRE_BoomerAMGSetMaxIter;

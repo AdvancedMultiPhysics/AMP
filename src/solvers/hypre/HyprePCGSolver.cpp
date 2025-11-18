@@ -37,6 +37,7 @@ void HyprePCGSolver::setHypreFunctionPointers()
 {
     d_hypreSolve                = HYPRE_PCGSolve;
     d_hypreGetNumIterations     = HYPRE_PCGGetNumIterations;
+    d_hypreGetRelativeResNorm   = HYPRE_PCGGetFinalRelativeResidualNorm;
     d_hypreSetPreconditioner    = HYPRE_PCGSetPrecond;
     d_hypreSolverSetup          = HYPRE_PCGSetup;
     d_hypreSetRelativeTolerance = HYPRE_PCGSetTol;

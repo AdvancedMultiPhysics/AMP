@@ -264,8 +264,10 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     const auto &sendDisp  = d_CommList->getSendDisp();
     const auto &recvDisp  = d_CommList->getReceiveDisp();
     // Pack the set buffers
-    if ( d_localRemote != nullptr )
+    if ( d_localRemote != nullptr ) {
+        PROFILE( "GhostDataHelper::scatter_set (pack buffer)" );
         getValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type );
+    }
 
     // Communicate ghosts (directly fill ghost buffer)
     constexpr AMP::Utilities::MemoryType allocMemType =
@@ -295,6 +297,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
         recv_sizes_p = d_recvSizes;
         recv_disp_p  = d_recvDisplacements;
 #else
+        PROFILE( "GhostDataHelper::scatter_set (D->H copy)" );
         // copy into host buffers
         d_SendRecv_h.resize( this->d_numRemote );
         d_Ghosts_h.resize( this->d_ghostSize );
@@ -315,6 +318,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     // memory (TODO)
     if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
+        PROFILE( "GhostDataHelper::scatter_set (H->D copy)" );
         AMP::Utilities::Algorithms<TYPE>::copy_n( d_Ghosts_h.data(), this->d_ghostSize, d_Ghosts );
 #endif
     }

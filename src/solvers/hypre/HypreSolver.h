@@ -189,7 +189,8 @@ protected:
 
     HYPRE_PtrToSolverFcn d_hypreSolve                                      = nullptr;
     HYPRE_Int ( *d_hypreGetNumIterations )( HYPRE_Solver solver,
-                                            HYPRE_Int *num_iterations )    = nullptr;
+                                            HYPRE_Int *num_iterations )                  = nullptr;
+    HYPRE_Int ( *d_hypreGetRelativeResNorm )( HYPRE_Solver solver, HYPRE_Real *rel_res ) = nullptr;
     HYPRE_Int ( *d_hypreSetPreconditioner )( HYPRE_Solver solver,
                                              HYPRE_PtrToSolverFcn precond,
                                              HYPRE_PtrToSolverFcn precond_setup,
