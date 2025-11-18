@@ -212,6 +212,7 @@ void testWriterMatrix( AMP::UnitTest &ut, const std::string &writerName )
 void testWriterMesh( AMP::UnitTest &ut,
                      const std::string &writerName,
                      std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                     std::shared_ptr<AMP::Mesh::Mesh> surface,
                      const std::string &fname )
 {
     PROFILE2( "testWriterMesh-" + writerName );
@@ -235,10 +236,6 @@ void testWriterMesh( AMP::UnitTest &ut,
     globalComm.barrier();
     double t1 = AMP::AMP_MPI::time();
 
-    // Create a surface mesh
-    auto surface = mesh->Subset( mesh->getSurfaceIterator( surfaceType, 1 ) );
-    if ( surface )
-        surface->setName( mesh->getName() + "_surface" );
 
     // Create a simple DOFManager
     uint8_t ndim    = mesh->getDim();
@@ -458,10 +455,22 @@ void testWriterMesh( AMP::UnitTest &ut,
         if ( rank == 0 )
             std::cout << "Create meshes: " << t2 - t1 << std::endl;
     }
+    std::shared_ptr<AMP::Mesh::Mesh> surface;
+    {
+        PROFILE( "createSurfaceMesh" );
+        double t1        = AMP::AMP_MPI::time();
+        auto surfaceType = getSurfaceType( mesh->getGeomType() );
+        surface          = mesh->Subset( mesh->getSurfaceIterator( surfaceType, 1 ) );
+        if ( surface )
+            surface->setName( mesh->getName() + "_surface" );
+        double t2 = AMP::AMP_MPI::time();
+        if ( rank == 0 && surface )
+            std::cout << "Create surface mesh: " << t2 - t1 << std::endl;
+    }
     for ( auto &writer : writers ) {
         std::string fname = "output_test_Writer/" + input_file + "-" + writer + "-" +
                             std::to_string( globalComm.getSize() );
-        testWriterMesh( ut, writer, mesh, fname );
+        testWriterMesh( ut, writer, mesh, surface, fname );
     }
     if ( rank == 0 )
         std::cout << std::endl;
