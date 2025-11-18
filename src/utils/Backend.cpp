@@ -58,7 +58,11 @@ Backend getDefaultBackend( const MemoryType memory_location )
         return Backend::Serial;
 #endif
     } else if ( memory_location == MemoryType::managed || memory_location == MemoryType::device ) {
+#ifdef AMP_USE_KOKKOS
+        return Backend::Kokkos;
+#else
         return Backend::Hip_Cuda;
+#endif
     }
     return Backend::Serial;
 }

@@ -377,12 +377,11 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSums(
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
 
-    d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
+    d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData, true );
     d_exec_space.fence();
     if ( csrData->hasOffDiag() ) {
-        d_localops_offd->getRowSums( csrData->getOffdMatrix(), rawVecData );
+        d_localops_offd->getRowSums( csrData->getOffdMatrix(), rawVecData, false );
         d_exec_space.fence();
     }
 }
@@ -404,12 +403,11 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSumsAbsolute
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
 
-    d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
+    d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData, true );
     d_exec_space.fence();
     if ( csrData->hasOffDiag() ) {
-        d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(), rawVecData );
+        d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(), rawVecData, false );
         d_exec_space.fence();
     }
 
@@ -441,12 +439,11 @@ CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::LinfNorm( MatrixData co
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> sums(
         "CSRMatrixOperationsKokkos::LinfNorm sum buffer", nRows );
-    Kokkos::deep_copy( sums, 0.0 );
 
-    d_localops_diag->getRowSumsAbsolute( diagMatrix, sums.data() );
+    d_localops_diag->getRowSumsAbsolute( diagMatrix, sums.data(), true );
     d_exec_space.fence();
     if ( csrData->hasOffDiag() ) {
-        d_localops_offd->getRowSumsAbsolute( offdMatrix, sums.data() );
+        d_localops_offd->getRowSumsAbsolute( offdMatrix, sums.data(), false );
         d_exec_space.fence();
     }
 
