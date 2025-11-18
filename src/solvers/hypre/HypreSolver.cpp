@@ -416,6 +416,7 @@ void HypreSolver::postSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     d_hypreGetRelativeResNorm( d_solver, &hypre_rel_res_norm );
     d_dResidualNorm = hypre_rel_res_norm * d_dInitialResidual;
     copyFromHypre( d_hypre_sol, u );
+    u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // Store final residual norm and update convergence flags
     checkStoppingCriteria( d_dResidualNorm );
