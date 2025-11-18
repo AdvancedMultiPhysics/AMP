@@ -80,16 +80,14 @@ void meshTests::MeshMatrixTestLoop( AMP::UnitTest &ut,
     if ( run_tests ) {
         PROFILE( "MeshMatrixTestLoop" );
         VerifyGetMatrixTrivialTest<1, true>( ut, mesh );
-        if ( AMP::LinearAlgebra::haveSparseMatrix() ) {
-            GhostWriteTest<1, true>( ut, mesh );
-            if ( !fast ) {
-                VerifyGetMatrixTrivialTest<3, true>( ut, mesh );
-                VerifyGetMatrixTrivialTest<1, false>( ut, mesh );
-                VerifyGetMatrixTrivialTest<3, false>( ut, mesh );
-                GhostWriteTest<3, true>( ut, mesh );
-                GhostWriteTest<1, false>( ut, mesh );
-                GhostWriteTest<3, false>( ut, mesh );
-            }
+        GhostWriteTest<1, true>( ut, mesh );
+        if ( !fast ) {
+            VerifyGetMatrixTrivialTest<3, true>( ut, mesh );
+            VerifyGetMatrixTrivialTest<1, false>( ut, mesh );
+            VerifyGetMatrixTrivialTest<3, false>( ut, mesh );
+            GhostWriteTest<3, true>( ut, mesh );
+            GhostWriteTest<1, false>( ut, mesh );
+            GhostWriteTest<3, false>( ut, mesh );
         }
     }
 }
