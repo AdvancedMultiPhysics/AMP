@@ -192,6 +192,7 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
             return;
         }
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
+        d_matrixData->setBackend( AMP::Utilities::Backend::Hip_Cuda );
 #else
         AMP_ERROR( "CSRMatrix::setBackend Can't set Hip_Cuda backend in non-device build" );
 #endif
@@ -201,6 +202,7 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
             return;
         }
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
+        d_matrixData->setBackend( AMP::Utilities::Backend::Kokkos );
 #else
         AMP_ERROR( "CSRMatrix::setBackend Can't set Kokkos backend in non-Kokkos build" );
 #endif
@@ -324,8 +326,9 @@ Vector::shared_ptr CSRMatrix<Config>::createInputVector() const
     PROFILE( "CSRMatrix::createInputVector" );
 
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getRightVariable();
+    auto backend      = d_matrixData->getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
-    return createVector( getRightDOFManager(), var, true, memloc );
+    return createVector( getRightDOFManager(), var, true, memloc, backend );
 }
 
 template<typename Config>
@@ -334,8 +337,9 @@ Vector::shared_ptr CSRMatrix<Config>::createOutputVector() const
     PROFILE( "CSRMatrix::createOutputVector" );
 
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getLeftVariable();
+    auto backend      = d_matrixData->getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
-    return createVector( getLeftDOFManager(), var, true, memloc );
+    return createVector( getLeftDOFManager(), var, true, memloc, backend );
 }
 
 template<typename Config>

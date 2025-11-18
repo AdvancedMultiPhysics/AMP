@@ -157,7 +157,7 @@ void linearThermalTest( AMP::UnitTest *ut,
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
     std::shared_ptr<AMP::Operator::LinearOperator> migratedOperator = linearOperator;
-
+    std::shared_ptr<AMP::LinearAlgebra::Vector> u, f;
     if ( memoryLocation != "host" ) {
 
         auto inVar  = migratedOperator->getInputVariable();
@@ -174,25 +174,19 @@ void linearThermalTest( AMP::UnitTest *ut,
         auto migratedMatrix = AMP::LinearAlgebra::createMatrix( matrix, mem_loc, backend );
         migratedOperator->setMatrix( migratedMatrix );
         migratedOperator->setVariables( inVar, outVar );
+        u = AMP::LinearAlgebra::createVector( sol, mem_loc, backend );
+        f = AMP::LinearAlgebra::createVector( rhs, mem_loc, backend );
+        f->copyVector( rhs );
     } else {
         linearOperator->getMatrix()->setBackend( backend );
+        u = sol;
+        f = rhs;
     }
 
     auto t1_setup = std::chrono::high_resolution_clock::now();
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, migratedOperator );
     auto t2_setup = std::chrono::high_resolution_clock::now();
-
-    auto op_mem_loc = linearOperator->getMemoryLocation();
-    std::shared_ptr<AMP::LinearAlgebra::Vector> u, f;
-    if ( op_mem_loc != mem_loc ) {
-        u = AMP::LinearAlgebra::createVector( sol, mem_loc );
-        f = AMP::LinearAlgebra::createVector( rhs, mem_loc );
-        f->copyVector( rhs );
-    } else {
-        u = sol;
-        f = rhs;
-    }
 
     auto t1_solve = std::chrono::high_resolution_clock::now();
     for ( int i = 0; i < nReps; ++i ) {
