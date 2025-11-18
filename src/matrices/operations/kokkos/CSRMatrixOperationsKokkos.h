@@ -1,6 +1,7 @@
 #ifndef included_CSRMatrixOperationsKokkos_H_
 #define included_CSRMatrixOperationsKokkos_H_
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
 #include "AMP/matrices/operations/MatrixOperations.h"
