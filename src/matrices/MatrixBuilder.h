@@ -17,10 +17,6 @@ typedef struct _p_Mat *Mat;
 namespace AMP::LinearAlgebra {
 
 
-//! Check if we have a sparse matrix availible
-bool haveSparseMatrix();
-
-
 //! Return the default matrix type
 std::string getDefaultMatrixType();
 
