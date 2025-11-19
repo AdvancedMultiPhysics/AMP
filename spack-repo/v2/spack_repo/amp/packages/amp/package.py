@@ -93,7 +93,6 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
             self.define("AMP_ENABLE_TESTS", self.run_tests),
             self.define("EXCLUDE_TESTS_FROM_ALL", not self.run_tests),
             self.define("AMP_ENABLE_EXAMPLES", False),
-            self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
         ]
 
         if "+rocm" in spec:
