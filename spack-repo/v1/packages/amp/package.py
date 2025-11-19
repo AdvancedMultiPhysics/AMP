@@ -86,11 +86,13 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
             self.define("AMP_ENABLE_TESTS", self.run_tests),
             self.define("EXCLUDE_TESTS_FROM_ALL", not self.run_tests),
             self.define("AMP_ENABLE_EXAMPLES", False),
+            self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
         ]
 
         if "+rocm" in spec:
             options.append(self.define("COMPILE_CXX_AS_HIP", True))
             # since there is no Spack compiler wrapper for HIP compiler, pass extra rpaths directly
             options.append(self.define("CMAKE_EXE_LINKER_FLAGS", " ".join([f"-Wl,-rpath={p}" for p in self.compiler.extra_rpaths])))
+            options.append(self.define_from_variant("CMAKE_HIP_STANDARD", "cxxstd"))
 
         return options
