@@ -131,7 +131,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define('CMAKE_Fortran_COMPILER', spack_fc),
         ]
 
-
         if spec.satisfies("+trilinos"):
             if '~kokkos' in spec['trilinos']:
                 options.extend( [ self.define("DISABLE_TRILINOS_KOKKOS", True) ] )
