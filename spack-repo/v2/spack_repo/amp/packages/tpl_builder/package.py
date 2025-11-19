@@ -154,6 +154,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                         ),
                         self.define("CMAKE_CUDA_ARCHITECTURES", cuda_arch),
                         self.define("CMAKE_CUDA_FLAGS", " ".join(cuda_flags)),
+                        self.define_from_variant("CMAKE_CUDA_STANDARD", "cxxstd"),
                     ]
                 )
 
