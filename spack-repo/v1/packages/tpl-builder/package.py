@@ -130,6 +130,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define('CMAKE_CXX_COMPILER', spack_cxx),
             self.define('CMAKE_Fortran_COMPILER', spack_fc),
         ]
+        
 
         if spec.satisfies("+trilinos"):
             if '~kokkos' in spec['trilinos']:
