@@ -156,6 +156,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                         ),
                         self.define("CMAKE_HIP_ARCHITECTURES", amdgpu_target),
                         self.define("CMAKE_HIP_FLAGS", ""),
+                        self.define_from_variant("CMAKE_HIP_STANDARD", "cxxstd"),
                     ]
                 )
                 
