@@ -39,7 +39,6 @@ void HypreGMRESSolver::setHypreFunctionPointers()
 {
     d_hypreSolve                = HYPRE_GMRESSolve;
     d_hypreGetNumIterations     = HYPRE_GMRESGetNumIterations;
-    d_hypreGetRelativeResNorm   = HYPRE_GMRESGetFinalRelativeResidualNorm;
     d_hypreSetPreconditioner    = HYPRE_GMRESSetPrecond;
     d_hypreSolverSetup          = HYPRE_GMRESSetup;
     d_hypreSetRelativeTolerance = HYPRE_GMRESSetTol;

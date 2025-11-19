@@ -39,7 +39,6 @@ void HypreBiCGSTABSolver::setHypreFunctionPointers()
 {
     d_hypreSolve                = HYPRE_BiCGSTABSolve;
     d_hypreGetNumIterations     = HYPRE_BiCGSTABGetNumIterations;
-    d_hypreGetRelativeResNorm   = HYPRE_BiCGSTABGetFinalRelativeResidualNorm;
     d_hypreSetPreconditioner    = HYPRE_BiCGSTABSetPrecond;
     d_hypreSolverSetup          = HYPRE_BiCGSTABSetup;
     d_hypreSetRelativeTolerance = HYPRE_BiCGSTABSetTol;

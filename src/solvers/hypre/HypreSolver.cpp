@@ -412,12 +412,18 @@ void HypreSolver::postSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     HYPRE_Int hypre_iters;
     d_hypreGetNumIterations( d_solver, &hypre_iters );
     d_iNumberIterations = hypre_iters;
-    HYPRE_Real hypre_rel_res_norm;
-    d_hypreGetRelativeResNorm( d_solver, &hypre_rel_res_norm );
-    d_dResidualNorm = hypre_rel_res_norm * d_dInitialResidual;
+
     copyFromHypre( d_hypre_sol, u );
+
+    // we are forced to update the state of u here
+    // as Hypre is not going to change the state of a managed vector
+    // an example where this will and has caused problems is when the
+    // vector is a petsc managed vector being passed back to PETSc
     u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
+    // Re-compute final residual, hypre only returns relative residual
+    d_pOperator->residual( f, u, d_r );
+    d_dResidualNorm = static_cast<HYPRE_Real>( d_r->L2Norm() );
     // Store final residual norm and update convergence flags
     checkStoppingCriteria( d_dResidualNorm );
 

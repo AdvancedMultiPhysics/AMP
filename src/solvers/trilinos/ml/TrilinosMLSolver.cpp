@@ -225,10 +225,8 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
     if ( d_bUseZeroInitialGuess ) {
         u->zero();
         r->copyVector( f );
-    } else if ( u->getGhostSize() > 0 || u->getComm().getSize() == 1 ) {
-        d_pOperator->residual( f, u, r );
     } else {
-        AMP_WARN_ONCE( "TrilinosMLSolver skipping initial residual" );
+        d_pOperator->residual( f, u, r );
     }
 
     if ( d_bCreationPhase ) {
@@ -293,14 +291,9 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                   << u->L2Norm() << std::endl;
     }
 
-    if ( u->getGhostSize() > 0 || u->getComm().getSize() == 1 ) {
-        d_pOperator->residual( f, u, r );
-        d_dResidualNorm = r->L2Norm();
-        checkStoppingCriteria( d_dResidualNorm );
-    } else {
-        AMP_WARN_ONCE( "TrilinosMLSolver skipping post-solve residual" );
-        d_dResidualNorm = -1.0;
-    }
+    d_pOperator->residual( f, u, r );
+    d_dResidualNorm = r->L2Norm();
+    checkStoppingCriteria( d_dResidualNorm );
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "TrilinosMLSolver::apply(), L2 norm of residual after solve "
