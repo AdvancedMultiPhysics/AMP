@@ -31,7 +31,7 @@ public:
     #endif
 
     // Constructor
-    VectorOperationsKokkos() { d_default_ops = std::make_shared<VectorOperationsDefault<TYPE>>(); }
+    VectorOperationsKokkos() : d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() ) {}
 
     //! Destructor
     virtual ~VectorOperationsKokkos() = default;

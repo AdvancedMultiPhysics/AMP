@@ -21,6 +21,13 @@ class Timerutility(CMakePackage):
     variant("mpi", default=True, description="build with mpi")
     variant("shared", default=False, description="Build shared libraries")
     variant("pic", default=False, description="Produce position-independent code")
+    variant(
+        "cxxstd",
+        default="17",
+        values=("17", "20", "23"),
+        multi=False,
+        description="C++ standard",
+    )
 
     depends_on("cmake@3.26.0:", type="build")
     depends_on("mpi", when="+mpi")
@@ -29,8 +36,16 @@ class Timerutility(CMakePackage):
         args = [
             self.define("Timer_INSTALL_DIR", self.prefix),
             self.define_from_variant("USE_MPI", "mpi"),
-            self.define_from_variant("BUILD_SHARED_LIBS", "shared"),
+            self.define_from_variant("ENABLE_SHARED", "shared"),
             self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "pic"),
+            self.define("DISABLE_NEW_OVERLOAD", True),
+            self.define("CFLAGS", self.compiler.cc_pic_flag),
+            self.define("CXXFLAGS", self.compiler.cxx_pic_flag),
+            self.define("FFLAGS", self.compiler.fc_pic_flag),
+            self.define('CMAKE_C_COMPILER',   spack_cc),
+            self.define('CMAKE_CXX_COMPILER', spack_cxx),
+            self.define('CMAKE_Fortran_COMPILER', spack_fc),
+            self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd")
         ]
 
         return args
