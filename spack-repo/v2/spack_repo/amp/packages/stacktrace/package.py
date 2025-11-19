@@ -57,7 +57,6 @@ class Stacktrace(CMakePackage):
             self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "pic"),
             self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
-            self.define("ENABLE_STATIC", not spec.variants["shared"].value),
             self.define("DISABLE_GOLD", True),
             self.define("CFLAGS", self.compiler.cc_pic_flag),
             self.define("CXXFLAGS", self.compiler.cxx_pic_flag),
@@ -66,4 +65,8 @@ class Stacktrace(CMakePackage):
             self.define('CMAKE_CXX_COMPILER', spack_cxx),
             self.define('CMAKE_Fortran_COMPILER', spack_fc)
         ]
+
+        if spec.satisfies("+timerutility"):
+            options.extend( [ self.define("TIMER_DIRECTORY", spec["timerutility"].prefix ) ] )
+
         return options

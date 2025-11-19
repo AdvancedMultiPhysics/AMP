@@ -121,7 +121,7 @@ std::array<AMP::Array<double>, 3> PureLogicalMesh::localCoord() const
     }
     if ( PhysicalDim == 1 )
         return { x, {}, {} };
-    else if ( PhysicalDim == 1 )
+    else if ( PhysicalDim == 2 )
         return { x, y, {} };
     else
         return { x, y, z };
@@ -142,7 +142,7 @@ std::array<AMP::Array<double>, 3> PureLogicalMesh::globalCoord() const
     }
     if ( PhysicalDim == 1 )
         return { x, {}, {} };
-    else if ( PhysicalDim == 1 )
+    else if ( PhysicalDim == 2 )
         return { x, y, {} };
     else
         return { x, y, z };
