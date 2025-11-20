@@ -42,6 +42,10 @@ public: // Functions overloaded from VectorData
                                    const size_t *indices,
                                    void *vals,
                                    const typeID &id ) const override;
+    void getGhostValuesByGlobalIDUnsorted( size_t num,
+                                           const size_t *indices,
+                                           void *vals,
+                                           const typeID &id ) const;
     void getGhostAddValuesByGlobalID( size_t num,
                                       const size_t *indices,
                                       void *vals,

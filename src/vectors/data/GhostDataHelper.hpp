@@ -518,6 +518,7 @@ void GhostDataHelper<TYPE, Allocator>::addGhostValuesByGlobalID( size_t N,
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
 }
+
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
                                                                  const size_t *ndx,
@@ -525,6 +526,42 @@ void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
                                                                  const typeID &id ) const
 {
     PROFILE( "GhostDataHelper::getGhostValuesByGlobalID" );
+    if ( id == AMP::getTypeID<TYPE>() ) {
+        AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
+        auto data = reinterpret_cast<TYPE *>( vals );
+
+        // do the lookup assuming that given ndx list is sorted,
+        // and fall-back to slower version only if needed
+        bool ndx_is_sorted = true;
+        size_t k           = 0;
+        for ( size_t i = 0; i < N; i++ ) {
+            if ( i > 0 && ndx[i] <= ndx[i - 1] ) {
+                ndx_is_sorted = false;
+                break;
+            }
+            for ( ; k < this->d_ghostSize; ++k ) {
+                if ( this->d_ReceiveDOFList[k] == ndx[i] ) {
+                    break;
+                }
+            }
+            data[i] = this->d_Ghosts[k] + this->d_AddBuffer[k];
+        }
+
+        if ( !ndx_is_sorted ) {
+            getGhostValuesByGlobalIDUnsorted( N, ndx, vals, id );
+        }
+    } else {
+        AMP_ERROR( "Ghosts other than same type are not supported yet" );
+    }
+}
+
+template<class TYPE, class Allocator>
+void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalIDUnsorted( size_t N,
+                                                                         const size_t *ndx,
+                                                                         void *vals,
+                                                                         const typeID &id ) const
+{
+    PROFILE( "GhostDataHelper::getGhostValuesByGlobalIDUnsorted" );
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
@@ -536,6 +573,7 @@ void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
 }
+
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
                                                                     const size_t *ndx,
