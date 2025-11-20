@@ -37,7 +37,6 @@ class Timerutility(CMakePackage):
             self.define("Timer_INSTALL_DIR", self.prefix),
             self.define_from_variant("USE_MPI", "mpi"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
-            self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "pic"),
             self.define("DISABLE_NEW_OVERLOAD", True),
             self.define("CFLAGS", self.compiler.cc_pic_flag),
             self.define("CXXFLAGS", self.compiler.cxx_pic_flag),

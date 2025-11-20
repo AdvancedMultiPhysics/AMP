@@ -90,8 +90,9 @@ void CGSolver<T>::allocateScratchVectors( std::shared_ptr<const AMP::LinearAlgeb
     // ensure w does no communication
     d_w->setNoGhosts();
 
-    if ( d_bUsesPreconditioner )
+    if ( d_bUsesPreconditioner ) {
         d_z = u->clone();
+    }
 }
 
 template<typename T>
