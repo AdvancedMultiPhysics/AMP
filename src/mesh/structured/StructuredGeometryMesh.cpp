@@ -168,7 +168,7 @@ std::array<AMP::Array<double>, 3> StructuredGeometryMesh::localCoord() const
     }
     if ( PhysicalDim == 1 )
         return { x, {}, {} };
-    else if ( PhysicalDim == 1 )
+    else if ( PhysicalDim == 2 )
         return { x, y, {} };
     else
         return { x, y, z };
@@ -196,7 +196,7 @@ std::array<AMP::Array<double>, 3> StructuredGeometryMesh::globalCoord() const
     }
     if ( PhysicalDim == 1 )
         return { x, {}, {} };
-    else if ( PhysicalDim == 1 )
+    else if ( PhysicalDim == 2 )
         return { x, y, {} };
     else
         return { x, y, z };
