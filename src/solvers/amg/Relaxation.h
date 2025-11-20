@@ -108,7 +108,9 @@ protected:
                       std::shared_ptr<LinearAlgebra::Vector> x ) override;
 
     float d_spec_lower;
-    std::shared_ptr<LinearAlgebra::Vector> d_diag;
+    std::shared_ptr<LinearAlgebra::Vector> d_dinv;
+    std::shared_ptr<LinearAlgebra::Vector> d_r;
+    std::shared_ptr<LinearAlgebra::Vector> d_xprev;
     template<typename Config>
     void relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                 std::shared_ptr<const LinearAlgebra::Vector> b,
