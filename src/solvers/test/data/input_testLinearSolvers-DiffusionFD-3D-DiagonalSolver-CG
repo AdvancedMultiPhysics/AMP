@@ -1,0 +1,12 @@
+<<< input_DiffusionFDOperator-3D >>>
+<<< "CGParameters" >>>
+<<< "PC-DiagParameters" >>>
+
+repetitions = 50
+
+Reference{
+  iterations = 100
+  res_l2_norm = -1
+  tolerance = 0
+  strict = FALSE
+}

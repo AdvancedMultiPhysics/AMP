@@ -159,7 +159,11 @@ public:
     virtual void setNestedSolver( std::shared_ptr<SolverStrategy> solver )
     {
         d_pNestedSolver = solver;
+        d_pNestedSolver->setIsNestedSolver( true );
     }
+
+    //! Tell a solver that it is nested inside some outer solver
+    void setIsNestedSolver( bool is_nested ) { d_bIsNestedSolver = is_nested; }
 
     /**
      * Return a nested solver (eg preconditioner) if it exists. By default return a nullptr
@@ -287,6 +291,7 @@ protected:
 
     bool d_bUseZeroInitialGuess = true;
 
+    bool d_bIsNestedSolver  = false;
     bool d_bComputeResidual = false;
 
     int d_iObjectId;

@@ -106,6 +106,7 @@ COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS )
 COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS )
 COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG )
 COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG )
+COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG )
 
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG )
@@ -168,6 +169,7 @@ IF ( USE_HYPRE )
     COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-BoomerAMG )
     COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG )
     COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG )
+    COPY_TEST_FILE( input_testLinearSolvers-DiffusionFD-3D-DiagonalPC-HypreCG )
 
     COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-BoomerAMG )
     COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG )
@@ -225,9 +227,9 @@ COPY_TEST_FILE( input_testPetscSNESSolver-NonlinearThermalOxygenDiffusion-2 )
 
 ADD_AMP_TEST( testSolversWithRhsOptions )
 
-ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 1 )
-ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 2 )
-ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 4 )
+ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 1 GPU )
+ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 2 GPU )
+ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 4 GPU )
 
 ADD_AMP_TEST( testLinearSolvers-PseudoLaplacian PROCS 1 GPU )
 ADD_AMP_TEST( testLinearSolvers-PseudoLaplacian PROCS 2 GPU )
