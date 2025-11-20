@@ -13,7 +13,7 @@
 #include <cmath>
 #include <numeric>
 
-// #define AMP_AMG_RELAXATION_PROFILE
+#define AMP_AMG_RELAXATION_PROFILE
 
 namespace AMP::Solver::AMG {
 
@@ -99,7 +99,7 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         }
     }
     auto current_res = static_cast<double>( d_dInitialResidual );
-    double prev_res = 0.0;
+    double prev_res  = 0.0;
 
     // apply solver for needed number of iterations
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
@@ -112,8 +112,8 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
             if ( d_iDebugPrintInfoLevel > 1 ) {
                 AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
-                          << current_res << ", conv ratio " << current_res/prev_res << std::endl;
-		prev_res = current_res;
+                          << current_res << ", conv ratio " << current_res / prev_res << std::endl;
+                prev_res = current_res;
             }
 
             if ( checkStoppingCriteria( current_res ) ) {
@@ -482,7 +482,7 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     LinearAlgebra::csrVisit( d_matrix,
                              [&D]( auto csr_ptr ) { D = csr_ptr->getRowSumsAbsolute( D, true ); } );
     d_dinv.swap( D );
-    d_dinv->reciprocal(*d_dinv);
+    d_dinv->reciprocal( *d_dinv );
     d_r.reset();
     d_xprev.reset();
 }
@@ -506,7 +506,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
     // where r is (b - A * x), D is sum of absolute values
     // in each row of A, and omega is weight determined from
     // Chebyshev iteration knowing that we damp in range [a,1]
-    
+
     const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
 
     // storage for r
@@ -520,15 +520,16 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
         A->mult( x, d_r );
         d_r->subtract( *b, *d_r );
 
-	// coefficients for first iterate
+        // coefficients for first iterate
         scalar_t rho = ma / pa, a1 = 2.0 * rho / ma;
 
-	// put first iterate into xprev and swap to prime for following iterates
+        // put first iterate into xprev and swap to prime for following iterates
         d_r->multiply( *d_r, *d_dinv );
-        d_xprev->axpy(a1, *d_r, *x);
-	d_xprev.swap(x);
+        d_xprev->axpy( a1, *d_r, *x );
+        d_xprev.swap( x );
+        x->makeConsistent();
 
-	// iterate further
+        // iterate further
         scalar_t rho_prev = rho;
         for ( size_t i = 1; i < d_num_sweeps; ++i ) {
             // update residual
@@ -548,8 +549,9 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
             // do in two steps, overwriting d_xprev with next
             // so that a swap gets xnext into x and x into xprev
             d_xprev->axpby( ( 1.0 + beta ), beta, *x );
-	    d_xprev->axpby( a1, 1.0, *d_r );
-	    d_xprev.swap(x);
+            d_xprev->axpby( a1, 1.0, *d_r );
+            d_xprev.swap( x );
+            x->makeConsistent();
 
             // store rho in rho_prev for next iteration
             rho_prev = rho;
@@ -597,21 +599,48 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
     // storage for r
     if ( !d_r ) {
         d_r = x->clone();
+        d_xprev = x->clone();
     }
 
-    for ( size_t i = 0; i < d_num_sweeps; ++i ) {
-        // find omega
-        const scalar_t om = 0.5 * ( ma * std::cos( pi * static_cast<scalar_t>( 2 * i - 1 ) /
-                                                   static_cast<scalar_t>( d_num_sweeps ) ) +
-                                    pa );
+    // update residual
+    A->mult( x, d_r );
+    d_r->subtract( *b, *d_r );
+
+    // coefficients for first iterate
+    scalar_t rho = ma / pa, a1 = 2.0 * rho / ma;
+
+    // put first iterate into xprev and swap to prime for following iterates
+    d_r->multiply( *d_r, *d_dinv );
+    d_xprev->axpy( a1, *d_r, *x );
+    d_xprev.swap( x );
+    x->makeConsistent();
+
+    // iterate further
+    scalar_t rho_prev = rho;
+    for ( size_t i = 1; i < d_num_sweeps; ++i ) {
         // update residual
         A->mult( x, d_r );
         d_r->subtract( *b, *d_r );
-        // scale by Dinv
+
+        // update coefficients
+        rho = 1.0 / ( 2.0 * pa / ma - rho_prev );
+        a1 = 4.0 * rho / ma;
+        const auto beta = rho * rho_prev;
+
+        // apply preconditioner to residual
         d_r->multiply( *d_r, *d_dinv );
-        // update solution
-        x->axpby( om, 1.0, *d_r );
+
+        // create new iterate, in total want
+        // d_xnext = ( 1.0 + beta ) * x - beta * d_xprev + a1 * d_r
+        // do in two steps, overwriting d_xprev with next
+        // so that a swap gets xnext into x and x into xprev
+        d_xprev->axpby( ( 1.0 + beta ), beta, *x );
+        d_xprev->axpby( a1, 1.0, *d_r );
+        d_xprev.swap( x );
         x->makeConsistent();
+
+        // store rho in rho_prev for next iteration
+        rho_prev = rho;
     }
 }
 #endif
