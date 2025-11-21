@@ -96,7 +96,7 @@ void updateDatabaseIfImplicit( std::shared_ptr<AMP::Database> db )
         auto solver_db = AMP::Database::create( "name",
                                                 "CGSolver",
                                                 "print_info_level",
-                                                2,
+                                                0,
                                                 "max_iterations",
                                                 100,
                                                 "absolute_tolerance",
@@ -181,7 +181,9 @@ void runBasicIntegratorTests( const std::string &name, AMP::UnitTest &ut )
                                                                "max_integrator_steps",
                                                                1000000,
                                                                "print_info_level",
-                                                               2 );
+                                                               0 );
+
+    db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, true );
 
     updateDatabaseIfImplicit( db );
 

@@ -99,8 +99,11 @@ void DiagonalSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
 
     u->multiply( *d_pDiagonalInverse, *f );
 
-    {
-        PROFILE( "DiagonalSolver<T>:: u->makeConsistent" );
+    if ( !d_bIsNestedSolver ) {
+        // falling into this path is an error since this
+        // only works if f is the residual of some outer solve.
+        // If we ever make this a standalone solver we'll need this makeConsistent
+        AMP_WARN_ONCE( "DiagonalSolver can only be used as a nested solver" );
         u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     }
 
