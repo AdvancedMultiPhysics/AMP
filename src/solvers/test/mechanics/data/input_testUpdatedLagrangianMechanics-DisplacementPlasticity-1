@@ -24,7 +24,7 @@ NonlinearMechanicsOperator {
 PericElastoViscoPlasticModel1 {
   USE_MATERIALS_LIBRARY = FALSE
     Material = "UO2_MSRZC_09"
-    print_info_level = 2
+    print_info_level = 0
     USE_CONTINUUM_TANGENT = FALSE
     //name="PericElastoViscoPlasticModel"
     name="VonMisesElastoPlasticModel"
@@ -193,7 +193,7 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-    print_info_level = 2 
+    print_info_level = 0
     max_iterations = 100
     absolute_tolerance = 1.0e-14
     relative_tolerance = 1.0e-12
@@ -207,11 +207,11 @@ NonlinearSolver{
     EW_choice2_alpha = 2.0
     EW_choice2_gamma = 0.9
 
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
+    SNESOptions = "-snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
 
     LinearSolver{
         name = "PetscKrylovSolver"
-        print_info_level = 1
+        print_info_level = 0
         max_iterations = 200
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
@@ -222,11 +222,12 @@ NonlinearSolver{
         pc_type = "shell"
         pc_side = "RIGHT"
 
-        KSPOptions = "-ksp_monitor -ksp_converged_reason"
+        //KSPOptions = "-ksp_monitor -ksp_converged_reason"
+        KSPOptions = ""
 
         Preconditioner{
             name = "TrilinosMLSolver"
-            print_info_level = 1
+            print_info_level = 0
             PDE_equations = 3
             max_iterations = 1
             max_error = 1.0e-15
