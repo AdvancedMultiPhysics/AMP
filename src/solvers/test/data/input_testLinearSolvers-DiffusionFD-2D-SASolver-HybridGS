@@ -12,9 +12,9 @@ LinearSolver{
   kappa = 2
   agg_type = "simple"
   
-  prol_trunc = 0.015
+  prol_trunc = 0.02
   num_smooth_prol = 3
-  prol_spec_lower = 0.95
+  prol_spec_lower = 0.75
   strength_threshold = 0.4
   strength_measure = "classical_min"
   
@@ -38,7 +38,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 36
+  iterations = 33
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

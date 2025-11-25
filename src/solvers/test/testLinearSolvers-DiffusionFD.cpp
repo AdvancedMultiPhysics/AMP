@@ -231,7 +231,8 @@ int main( int argc, char **argv )
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
-        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG" );
+        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG"
+        // );
 #ifdef AMP_USE_DEVICE
         // managedExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG"
         // ); deviceExeNames.emplace_back(

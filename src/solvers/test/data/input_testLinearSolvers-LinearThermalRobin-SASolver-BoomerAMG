@@ -12,7 +12,7 @@ LinearSolver{
   min_coarse_global = 40
   kappa = 2
   agg_type = "simple"
-  prol_trunc = 0.015
+  prol_trunc = 0.02
   num_smooth_prol = 3
   strength_threshold = 0.4
   strength_measure = "classical_min"
