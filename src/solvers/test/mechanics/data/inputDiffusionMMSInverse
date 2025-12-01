@@ -59,7 +59,7 @@ LinearBVPOperator {
 ManufacturedSourceOperator {
     name = "MassLinearFEOperator"
     InputVariable = "concentration"
-    OutputVariable = "manufactured"
+    OutputVariable = "concentration"
       reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -79,7 +79,7 @@ ManufacturedSourceOperator {
 
 
 NonlinearSolver{
-  print_info_level = 1
+    print_info_level = 1
     max_iterations = 500
     max_error = 1e-10
 
@@ -92,7 +92,8 @@ NonlinearSolver{
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.0001"
 
     LinearSolver{
-      print_info_level = 0
+        name = "PetscKrylovSolver"
+        print_info_level = 0
         max_iterations = 100
         max_error = 1e-10
         ksp_type = "fgmres"
@@ -107,7 +108,8 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100"
 
         Preconditioner{
-          print_info_level = 0
+            name = "TrilinosMLSolver"
+            print_info_level = 0
             max_iterations = 1
             max_error = 1.0e-15
         }
