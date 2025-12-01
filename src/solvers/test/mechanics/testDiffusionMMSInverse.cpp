@@ -8,6 +8,7 @@
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/NonlinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
+#include "AMP/operators/OperatorFactory.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
 #include "AMP/operators/boundary/DirichletVectorCorrectionParameters.h"
 #include "AMP/operators/boundary/libmesh/NeumannVectorCorrection.h"
@@ -61,21 +62,12 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh = AMP::Mesh::MeshFactory::create( params );
 
     // Create nonlinear diffusion BVP operator and access volume nonlinear Diffusion operator
-    auto nlinBVPOperator = AMP::Operator::OperatorBuilder::createOperator(
-        mesh, "FickNonlinearBVPOperator", input_db );
+    auto nlinBVPOperator =
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "NonlinearBVPOperator", input_db );
     auto nlinBVPOp =
         std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>( nlinBVPOperator );
     auto nlinOp = std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
         nlinBVPOp->getVolumeOperator() );
-
-    // Acquire Dirichlet boundary operator and parameters
-    auto dirichletOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
-        nlinBVPOp->getBoundaryOperator() );
-
-    // Create linear diffusion BVP operator with bc's
-    auto linBVPOperator =
-        AMP::Operator::OperatorBuilder::createOperator( mesh, "FickLinearBVPOperator", input_db );
-    auto linBVPOp = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>( linBVPOperator );
 
     // Get source mass operator
     auto sourceOperator = AMP::Operator::OperatorBuilder::createOperator(
@@ -95,8 +87,8 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
     auto srcVar  = sourceOp->getOutputVariable();
     auto workVar = std::make_shared<AMP::LinearAlgebra::Variable>( "work" );
 
-    auto DOF = AMP::Discretization::simpleDOFManager::create(
-        mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+    auto Vertex = AMP::Mesh::GeomType::Vertex;
+    auto DOF    = AMP::Discretization::simpleDOFManager::create( mesh, Vertex, 1, 1, true );
 
     auto solVec  = AMP::LinearAlgebra::createVector( DOF, solVar );
     auto rhsVec  = AMP::LinearAlgebra::createVector( DOF, rhsVar );
@@ -106,15 +98,17 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
     auto srcVec  = AMP::LinearAlgebra::createVector( DOF, srcVar );
     auto workVec = AMP::LinearAlgebra::createVector( DOF, workVar );
 
-    srcVec->setToScalar( 0. );
+    resVec->zero();
+    srcVec->zero();
+    inpVec->zero();
 
     // Fill in manufactured solution in mesh interior
     const double Pi     = 3.1415926535898;
-    auto iterator       = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     std::string mfgName = mfgSolution->get_name();
     bool isCylindrical  = mfgName.find( "Cylindrical" ) < mfgName.size();
-    for ( ; iterator != iterator.end(); ++iterator ) {
-        auto coord = iterator->coord();
+    std::vector<size_t> gid;
+    for ( auto &elem : mesh->getIterator( Vertex, 0 ) ) {
+        auto coord = elem.coord();
         double x   = coord[0];
         double y   = coord[1];
         double z   = coord[2];
@@ -131,20 +125,18 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
         } else {
             poly = mfgSolution->evaluate( x, y, z );
         }
-        std::vector<size_t> gid;
-        DOF->getDOFs( iterator->globalID(), gid );
+        DOF->getDOFs( elem.globalID(), gid );
         std::vector<double> srcVal( 1 ), dumT( 1 ), dumU( 1 ), dumB( 1 );
         std::vector<libMesh::Point> point( 1, libMesh::Point( x, y, z ) );
         densityModel->getDensityManufactured( srcVal, dumT, dumU, dumB, point );
         inpVec->setValuesByGlobalID( 1, &gid[0], &srcVal[0] );
     }
+    inpVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // Fill in manufactured solution on mesh boundary
     for ( int j = 0; j <= 8; j++ ) {
-        auto beg_bnd = mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, j, 0 );
-        auto end_bnd = beg_bnd.end();
-        for ( auto iter = beg_bnd; iter != end_bnd; ++iter ) {
-            auto coord = iterator->coord();
+        for ( auto &elem : mesh->getBoundaryIDIterator( Vertex, j, 0 ) ) {
+            auto coord = elem.coord();
             double x   = coord[0];
             double y   = coord[1];
             double z   = coord[2];
@@ -161,15 +153,19 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
             } else {
                 poly = mfgSolution->evaluate( x, y, z );
             }
-            std::vector<size_t> gid;
-            DOF->getDOFs( iterator->globalID(), gid );
+            DOF->getDOFs( elem.globalID(), gid );
+            AMP_ASSERT( gid.size() == 1 );
             bndVec->setValuesByGlobalID( 1, &gid[0], &poly[0] );
         }
     }
 
     // Set boundary values for manufactured solution for sinusoid, gaussian, etc. (non constant BC)
-    dirichletOp->setVariable( bndVar );
-    dirichletOp->setDirichletValues( bndVec );
+    auto dirichletOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
+        nlinBVPOp->getBoundaryOperator() );
+    if ( dirichletOp ) {
+        dirichletOp->setVariable( bndVar );
+        dirichletOp->setDirichletValues( bndVec );
+    }
 
     // Evaluate manufactured solution as an FE source
     sourceOp->apply( inpVec, rhsVec );
@@ -194,7 +190,8 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
     auto preconditioner_db = linearSolver_db->getDatabase( "Preconditioner" );
     auto preconditionerParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( preconditioner_db );
-    preconditionerParams->d_pOperator = linBVPOp;
+    auto pc_params                    = nlinBVPOp->getParameters( "Jacobian", solVec );
+    preconditionerParams->d_pOperator = AMP::Operator::OperatorFactory::create( pc_params );
     auto preconditioner = std::make_shared<AMP::Solver::TrilinosMLSolver>( preconditionerParams );
 
     // Register the preconditioner with the Jacobian free Krylov solver
@@ -232,21 +229,16 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
                 file << "results={" << std::endl;
             }
 
-            iterator        = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-            size_t numNodes = 0;
-            for ( ; iterator != iterator.end(); ++iterator )
-                numNodes++;
-
-            iterator     = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-            size_t iNode = 0;
-            double l2err = 0.;
+            auto iterator   = mesh->getIterator( Vertex, 0 );
+            size_t numNodes = iterator.size();
+            size_t iNode    = 0;
+            double l2err    = 0.;
             for ( ; iterator != iterator.end(); ++iterator ) {
                 double x, y, z;
                 auto coord = iterator->coord();
                 x          = coord[0];
                 y          = coord[1];
                 z          = coord[2];
-                std::vector<size_t> gid;
                 DOF->getDOFs( iterator->globalID(), gid );
                 double res = resVec->getValueByGlobalID( gid[0] );
                 double sol = solVec->getValueByGlobalID( gid[0] );
@@ -285,26 +277,11 @@ int testDiffusionMMSInverse( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    // Check to see if an input file was requested on the command line
-    std::vector<std::string> files;
-    std::vector<std::string> arguments( argv + 1, argv + argc );
     if ( argc > 1 ) {
-        // Populate array with argv - easier with which to work
-        for ( size_t i = 0; i < arguments.size(); ++i ) {
-            if ( arguments[i][0] == '-' )
-                i++; // Move past the next argument - not a filename
-            else
-                files.push_back( arguments[i] ); // Store this as a file
-        }
+        for ( int i = 1; i < argc; ++i )
+            inverseTest1( &ut, argv[i] );
     } else {
-        std::cout
-            << "No input files are currently hardcoded. Files must be given as an argument.\n";
-        return 1;
-    }
-
-    // Run the tests
-    for ( auto &file : files ) {
-        inverseTest1( &ut, file );
+        inverseTest1( &ut, "inputDiffusionMMSInverse" );
     }
 
     ut.report();
