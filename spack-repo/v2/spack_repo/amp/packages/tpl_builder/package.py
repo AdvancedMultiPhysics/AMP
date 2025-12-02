@@ -132,7 +132,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("MPI_SKIP_SEARCH", False),
             self.define_from_variant("USE_OPENMP", "openmp"),
             self.define("DISABLE_GOLD", True),
-            self.define_from_variant("DISABLE_IMPLICIT_LINK", "no_implicit_links"),
             self.define("CFLAGS", self.compiler.cc_pic_flag),
             self.define("CXXFLAGS", self.compiler.cxx_pic_flag),
             self.define("FFLAGS", self.compiler.fc_pic_flag),

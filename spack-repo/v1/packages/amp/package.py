@@ -86,6 +86,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
 
         options = [
             self.define("TPL_DIRECTORY", spec["tpl-builder"].prefix),
+            self.define_from_variant("DISABLE_IMPLICIT_LINK", "no_implicit_links"),
             self.define("AMP_ENABLE_TESTS", self.run_tests),
             self.define("EXCLUDE_TESTS_FROM_ALL", not self.run_tests),
             self.define("AMP_ENABLE_EXAMPLES", False),
