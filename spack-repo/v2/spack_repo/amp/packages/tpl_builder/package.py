@@ -67,6 +67,8 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("timerutility~shared", when="~shared+timerutility")
     depends_on("timerutility+shared", when="+shared+timerutility")
+    depends_on("timerutility~no_implicit_links", when="~no_implicit_links+timerutility")
+    depends_on("timerutility+no_implicit_links", when="+no_implicit_links+timerutility")
     depends_on("timerutility+mpi", when="+mpi+timerutility")
     depends_on("timerutility~mpi", when="~mpi+timerutility")
     depends_on(f"timerutility cxxstd=17", when=f"+timerutility cxxstd=17")
