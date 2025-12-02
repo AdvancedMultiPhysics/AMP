@@ -13,9 +13,6 @@
 #ifdef AMP_USE_LIBMESH
     #include "AMP/mesh/libmesh/libmeshMesh.h"
 #endif
-#ifdef AMP_USE_MOAB
-    #include "AMP/mesh/moab/moabMesh.h"
-#endif
 
 
 #include <cmath>

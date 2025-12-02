@@ -17,9 +17,6 @@
 #ifdef AMP_USE_LIBMESH
     #include "AMP/mesh/libmesh/libmeshMesh.h"
 #endif
-#ifdef AMP_USE_MOAB
-    #include "AMP/mesh/moab/moabMesh.h"
-#endif
 
 #include "ProfilerApp.h"
 
@@ -72,12 +69,7 @@ std::shared_ptr<Mesh> MeshFactory::create( std::shared_ptr<MeshParameters> param
         AMP_ERROR( "AMP was compiled without support for STKMesh" );
 #endif
     } else if ( MeshType == "moab" || MeshType == "MOAB" ) {
-// The mesh is a MOAB mesh
-#ifdef AMP_USE_MOAB
-        mesh = std::make_shared<AMP::Mesh::moabMesh>( params );
-#else
-        AMP_ERROR( "AMP was compiled without support for MOAB" );
-#endif
+        AMP_ERROR( "MOAB support was removed on 12/02/25" );
     } else {
         // Search for a mesh generator
         mesh = FactoryStrategy<Mesh, std::shared_ptr<MeshParameters>>::create( MeshType, params );

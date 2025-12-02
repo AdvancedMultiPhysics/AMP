@@ -35,7 +35,6 @@
   STKMESH: stk::mesh is currently used within Mesh for additional functionality.  <BR>
   SUNDIALS: <BR>
   HYPRE:<BR>
-  MOAB:<BR>
   SILO:<BR>
   HDF5:<BR>
   NETCDF:<BR>
