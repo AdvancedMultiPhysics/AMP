@@ -166,7 +166,7 @@ generateSimpleVectorFactory( const std::string &name, int N, bool global, const 
     } else if ( data == "gpu" ) {
 #ifdef AMP_USE_DEVICE
         using ALLOC = ManagedAllocator<void>;
-        using DATA  = AMP::LinearAlgebra::VectorDataDefault<TYPE, ALLOC>;
+        using DATA  = AMP::LinearAlgebra::VectorDataDevice<TYPE, ALLOC>;
         factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
 #endif
     } else {
@@ -341,12 +341,11 @@ std::vector<std::string> getSimpleVectorFactories()
     list.emplace_back( "SimpleVectorFactory<45,true,double>" );
     list.emplace_back( "SimpleVectorFactory<15,false,double,openmp,cpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,double,kokkos,cpu>" );
-    // list.push_back( "SimpleVectorFactory<15,false,double,default,gpu>" ); // Requires UVM
+    list.emplace_back( "SimpleVectorFactory<15,false,double,kokkos,gpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,double,gpu,gpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float>" );
     list.emplace_back( "SimpleVectorFactory<15,true,float>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float,openmp,cpu>" );
-    // list.push_back( "SimpleVectorFactory<15,false,float,default,gpu>" ); // Requires UVM
     list.emplace_back( "SimpleVectorFactory<15,false,float,gpu,gpu>" );
     list = cleanList( list );
     return list;
