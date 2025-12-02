@@ -30,6 +30,9 @@
 #ifdef AMP_USE_OPENMP
     #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
 #endif
+#ifdef AMP_USE_KOKKOS
+    #include "AMP/vectors/operations/kokkos/VectorOperationsKokkos.h"
+#endif
 #ifdef AMP_USE_DEVICE
     #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 #endif
@@ -122,6 +125,9 @@ bool isValid( [[maybe_unused]] const std::string &name )
 #ifndef AMP_USE_OPENMP
     valid = valid && name.find( "openmp" ) == std::string::npos;
 #endif
+#ifndef AMP_USE_KOKKOS
+    valid = valid && name.find( "kokkos" ) == std::string::npos;
+#endif
 #ifndef AMP_USE_DEVICE
     valid = valid && name.find( "gpu" ) == std::string::npos;
 #endif
@@ -160,7 +166,7 @@ generateSimpleVectorFactory( const std::string &name, int N, bool global, const 
     } else if ( data == "gpu" ) {
 #ifdef AMP_USE_DEVICE
         using ALLOC = ManagedAllocator<void>;
-        using DATA  = AMP::LinearAlgebra::VectorDataDefault<TYPE, ALLOC>;
+        using DATA  = AMP::LinearAlgebra::VectorDataDevice<TYPE, ALLOC>;
         factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
 #endif
     } else {
@@ -181,6 +187,12 @@ std::shared_ptr<VectorFactory> generateSimpleVectorFactory(
 #ifdef AMP_USE_OPENMP
         factory =
             generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsOpenMP<TYPE>>(
+                name, N, global, data );
+#endif
+    } else if ( ops == "kokkos" ) {
+#ifdef AMP_USE_KOKKOS
+        factory =
+            generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsKokkos<TYPE>>(
                 name, N, global, data );
 #endif
     } else if ( ops == "gpu" ) {
@@ -328,12 +340,12 @@ std::vector<std::string> getSimpleVectorFactories()
     list.emplace_back( "SimpleVectorFactory<15,false,double>" );
     list.emplace_back( "SimpleVectorFactory<45,true,double>" );
     list.emplace_back( "SimpleVectorFactory<15,false,double,openmp,cpu>" );
-    // list.push_back( "SimpleVectorFactory<15,false,double,default,gpu>" ); // Requires UVM
+    list.emplace_back( "SimpleVectorFactory<15,false,double,kokkos,cpu>" );
+    list.emplace_back( "SimpleVectorFactory<15,false,double,kokkos,gpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,double,gpu,gpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float>" );
     list.emplace_back( "SimpleVectorFactory<15,true,float>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float,openmp,cpu>" );
-    // list.push_back( "SimpleVectorFactory<15,false,float,default,gpu>" ); // Requires UVM
     list.emplace_back( "SimpleVectorFactory<15,false,float,gpu,gpu>" );
     list = cleanList( list );
     return list;

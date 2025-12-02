@@ -280,7 +280,8 @@ void VectorTests::AbsVector( AMP::UnitTest *ut )
     vec2->copyVector( vec1 );
     vec2->scale( -1.0 );
     vec2->abs( *vec2 );
-    PASS_FAIL( vec1->equals( *vec2 ), "Abs passes" );
+    vec2->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    PASS_FAIL( vec1->equals( *vec2 ), "Abs" );
 }
 
 
@@ -402,6 +403,7 @@ void VectorTests::ScaleVector( AMP::UnitTest *ut )
     double beta = 1.2345;
     vector2->setRandomValues();
     vector1->scale( beta, *vector2 );
+    vector1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() &&
          vector2->getVectorData()->isType<double>() ) {
@@ -421,6 +423,7 @@ void VectorTests::ScaleVector( AMP::UnitTest *ut )
     PASS_FAIL( pass, "scale vector 1" );
     vector2->scale( beta );
     vector1->subtract( *vector2, *vector1 );
+    vector1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vector1 );
     PASS_FAIL( vector1->maxNorm() < tol, "scale vector 2" );
 }
@@ -516,6 +519,7 @@ void VectorTests::AddVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->add( *vector1, *vector2 );
+    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -551,6 +555,7 @@ void VectorTests::SubtractVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->subtract( *vector1, *vector2 );
+    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -576,6 +581,7 @@ void VectorTests::SubtractVector( AMP::UnitTest *ut )
     vector2->scale( -1. );
     vector4->add( *vector1, *vector2 );
     vector4->subtract( *vector3, *vector4 );
+    vector4->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vector1 );
     PASS_FAIL( vector4->maxNorm() < tol, "vector subtract 2" );
 }
@@ -590,6 +596,7 @@ void VectorTests::MultiplyVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setToScalar( 3. );
     vector3->multiply( *vector1, *vector2 );
+    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -624,6 +631,7 @@ void VectorTests::DivideVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->divide( *vector1, *vector2 );
+    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -771,6 +779,7 @@ void VectorTests::ReciprocalVector( AMP::UnitTest *ut )
     vector1->setToScalar( 1. );
     vectorc->divide( *vector1, *vectora );
     vectord->subtract( *vectorb, *vectorc );
+    vectord->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vectora );
     PASS_FAIL( vectord->maxNorm() < tol, "vector::reciprocal" );
 }
@@ -794,6 +803,7 @@ static void LinearSumVectorRun( std::shared_ptr<const VectorFactory> d_factory,
     vectorb->scale( beta );
     vectord->add( *vectora, *vectorb );
     vectord->subtract( *vectorc, *vectord );
+    vectord->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vectora );
     PASS_FAIL( vectord->maxNorm() < tol, msg );
 }
@@ -822,6 +832,7 @@ static void AxpyVectorRun( std::shared_ptr<const VectorFactory> d_factory,
     vectorc->linearSum( alpha, *vectora, 1., *vectorb );
     vectord->axpy( alpha, *vectora, *vectorb );
     vectorc->subtract( *vectorc, *vectord );
+    vectorc->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     double err = static_cast<double>( vectorc->maxNorm() );
     double tol = 10 * getTol( *vectora );
     PASS_FAIL( err < tol, msg );
