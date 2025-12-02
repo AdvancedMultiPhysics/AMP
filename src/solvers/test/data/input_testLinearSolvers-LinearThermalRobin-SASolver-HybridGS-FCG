@@ -14,7 +14,7 @@ LinearSolver{
 <<< "PC-SASolver-HGS-Parameters" >>>
 
 Reference{
-  iterations = 12
+  iterations = 13
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE
