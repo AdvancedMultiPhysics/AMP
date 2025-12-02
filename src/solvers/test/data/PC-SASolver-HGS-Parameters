@@ -1,11 +1,9 @@
-<<< input_DiffusionFDOperator-2D >>>
-
-LinearSolver{
+Preconditioner{
   name = "SASolver"
-  absolute_tolerance = 1.e-12
-  relative_tolerance = 1.e-12
+  absolute_tolerance = 0.0
+  relative_tolerance = 0.0
   print_info_level = 3
-  max_iterations = 100
+  max_iterations = 1
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
@@ -29,17 +27,10 @@ LinearSolver{
     num_sweeps = 1
     sweep_type = "symmetric"
   }
-
+  
   coarse_solver{
     name = "HybridGS"
     num_sweeps = 2
     sweep_type = "symmetric"
   }
-}
-
-Reference{
-  iterations = 56
-  res_l2_norm = -1
-  tolerance = 0
-  strict = FALSE
 }

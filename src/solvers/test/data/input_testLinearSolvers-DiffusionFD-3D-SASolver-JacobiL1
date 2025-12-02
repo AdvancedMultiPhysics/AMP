@@ -1,4 +1,4 @@
-<<< input_DiffusionFDOperator-2D >>>
+<<< input_DiffusionFDOperator-3D >>>
 
 LinearSolver{
   name = "SASolver"
@@ -19,26 +19,23 @@ LinearSolver{
   strength_measure = "classical_min"
   
   pre_relaxation{
-    name = "HybridGS"
-    num_sweeps = 1
-    sweep_type = "symmetric"
+    name = "JacobiL1"
+    num_sweeps = 2
   }
 
   post_relaxation{
-    name = "HybridGS"
-    num_sweeps = 1
-    sweep_type = "symmetric"
+    name = "JacobiL1"
+    num_sweeps = 2
   }
 
   coarse_solver{
-    name = "HybridGS"
-    num_sweeps = 2
-    sweep_type = "symmetric"
+    name = "JacobiL1"
+    num_sweeps = 4
   }
 }
 
 Reference{
-  iterations = 56
+  iterations = 43
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

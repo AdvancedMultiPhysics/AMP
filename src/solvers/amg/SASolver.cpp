@@ -300,6 +300,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
+    double prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
         kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
@@ -310,7 +311,13 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
         if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "SA: iteration " << d_iNumberIterations << ", residual " << current_res
-                      << std::endl;
+                      << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << current_res / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = current_res;
         }
 
         if ( need_norms && checkStoppingCriteria( current_res ) ) {

@@ -1,4 +1,4 @@
-<<< input_DiffusionFDOperator-2D >>>
+<<< input_DiffusionFDOperator-3D >>>
 
 LinearSolver{
   name = "CGSolver"
@@ -11,10 +11,10 @@ LinearSolver{
   print_info_level = 2
 }
 
-<<< "PC-SASolver-HGS-Parameters" >>>
+<<< "PC-SASolver-JL1-Parameters" >>>
 
 Reference{
-  iterations = 26
+  iterations = 19
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

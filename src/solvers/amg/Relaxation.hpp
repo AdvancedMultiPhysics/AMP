@@ -112,7 +112,12 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
             if ( d_iDebugPrintInfoLevel > 1 ) {
                 AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
-                          << current_res << ", conv ratio " << current_res / prev_res << std::endl;
+                          << current_res << ", conv ratio ";
+                if ( prev_res > 0.0 ) {
+                    AMP::pout << current_res / prev_res << std::endl;
+                } else {
+                    AMP::pout << "--" << std::endl;
+                }
                 prev_res = current_res;
             }
 
@@ -454,9 +459,6 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
 JacobiL1::JacobiL1( std::shared_ptr<const SolverStrategyParameters> params )
     : Relaxation( params, "JacobiL1", "JL1" )
 {
-    d_spec_lower = d_db->getWithDefault<float>( "spec_lower", 0.8f );
-    AMP_DEBUG_INSIST( d_spec_lower >= 0.0 && d_spec_lower < 1.0,
-                      "JacobiL1: Invalid damping range, need a in [0,1)" );
     if ( d_pOperator ) {
         registerOperator( d_pOperator );
     }
@@ -484,7 +486,7 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     d_dinv.swap( D );
     d_dinv->reciprocal( *d_dinv );
     d_r.reset();
-    d_xprev.reset();
+    d_z.reset();
 }
 
 void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -502,59 +504,45 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
 {
     using scalar_t = typename Config::scalar_t;
 
-    // Application of Jacobi L1 is x += omega * Dinv * r
-    // where r is (b - A * x), D is sum of absolute values
-    // in each row of A, and omega is weight determined from
-    // Chebyshev iteration knowing that we damp in range [a,1]
-
-    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
-
-    // storage for r
-    if ( !d_r ) {
-        d_r     = x->clone();
-        d_xprev = x->clone();
+    // storage for r and z
+    if ( !d_r && d_num_sweeps > 1 ) {
+        d_r = x->clone();
+    }
+    if ( !d_z ) {
+        d_z = x->clone();
     }
 
     auto run = [&]() {
-        // update residual
-        A->mult( x, d_r );
-        d_r->subtract( *b, *d_r );
-
-        // coefficients for first iterate
-        scalar_t rho = ma / pa, a1 = 2.0 * rho / ma;
+        // store initial residual in d_z instead of d_r
+        A->mult( x, d_z );
+        d_z->subtract( *b, *d_z );
+        d_z->multiply( *d_z, *d_dinv );
 
         // put first iterate into xprev and swap to prime for following iterates
-        d_r->multiply( *d_r, *d_dinv );
-        d_xprev->axpy( a1, *d_r, *x );
-        d_xprev.swap( x );
-        x->makeConsistent();
+        d_z->scale( scalar_t{ 4.0 / 3.0 } );
+        x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+        x->makeConsistent(); // needed?
 
-        // iterate further
-        scalar_t rho_prev = rho;
-        for ( size_t i = 1; i < d_num_sweeps; ++i ) {
-            // update residual
+        // iterate further, coeffs use 1-based indexing so start at k=2
+        // since k=1 set above
+        for ( size_t k = 2; k <= d_num_sweeps; ++k ) {
+            // update residual and precondition
             A->mult( x, d_r );
             d_r->subtract( *b, *d_r );
-
-            // update coefficients
-            rho             = 1.0 / ( 2.0 * pa / ma - rho_prev );
-            a1              = 4.0 * rho / ma;
-            const auto beta = rho * rho_prev;
-
-            // apply preconditioner to residual
             d_r->multiply( *d_r, *d_dinv );
 
-            // create new iterate, in total want
-            // d_xnext = ( 1.0 + beta ) * x - beta * d_xprev + a1 * d_r
-            // do in two steps, overwriting d_xprev with next
-            // so that a swap gets xnext into x and x into xprev
-            d_xprev->axpby( ( 1.0 + beta ), beta, *x );
-            d_xprev->axpby( a1, 1.0, *d_r );
-            d_xprev.swap( x );
-            x->makeConsistent();
+            // term coefficients
+            const auto alpha =
+                static_cast<scalar_t>( 2 * k - 3 ) / static_cast<scalar_t>( 2 * k + 1 );
+            const auto beta =
+                static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
 
-            // store rho in rho_prev for next iteration
-            rho_prev = rho;
+            // create new iterate, in total want
+            // d_z <- alpha * d_z + beta * d_r
+            // x <- x + d_z
+            d_z->axpby( beta, alpha, *d_r );
+            x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+            x->makeConsistent(); // needed?
         }
     };
 
@@ -588,59 +576,42 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
 {
     using scalar_t = typename Config::scalar_t;
 
-    // Application of Jacobi L1 is x += omega * Dinv * r
-    // where r is (b - A * x), D is sum of absolute values
-    // in each row of A, and omega is weight determined from
-    // Chebyshev iteration knowing that we damp in range [a,1]
-
-    const scalar_t pi = static_cast<scalar_t>( AMP::Constants::pi );
-    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
-
-    // storage for r
-    if ( !d_r ) {
+    // storage for r and z
+    if ( !d_r && d_num_sweeps > 1 ) {
         d_r = x->clone();
-        d_xprev = x->clone();
+    }
+    if ( !d_z ) {
+        d_z = x->clone();
     }
 
-    // update residual
-    A->mult( x, d_r );
-    d_r->subtract( *b, *d_r );
-
-    // coefficients for first iterate
-    scalar_t rho = ma / pa, a1 = 2.0 * rho / ma;
+    // store initial residual in d_z instead of d_r
+    A->mult( x, d_z );
+    d_z->subtract( *b, *d_z );
+    d_z->multiply( *d_z, *d_dinv );
 
     // put first iterate into xprev and swap to prime for following iterates
-    d_r->multiply( *d_r, *d_dinv );
-    d_xprev->axpy( a1, *d_r, *x );
-    d_xprev.swap( x );
-    x->makeConsistent();
+    d_z->scale( scalar_t{ 4.0 / 3.0 } );
+    x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+    x->makeConsistent(); // needed?
 
-    // iterate further
-    scalar_t rho_prev = rho;
-    for ( size_t i = 1; i < d_num_sweeps; ++i ) {
-        // update residual
+    // iterate further, coeffs use 1-based indexing so start at k=2
+    // since k=1 set above
+    for ( size_t k = 2; k <= d_num_sweeps; ++k ) {
+        // update residual and precondition
         A->mult( x, d_r );
         d_r->subtract( *b, *d_r );
-
-        // update coefficients
-        rho = 1.0 / ( 2.0 * pa / ma - rho_prev );
-        a1 = 4.0 * rho / ma;
-        const auto beta = rho * rho_prev;
-
-        // apply preconditioner to residual
         d_r->multiply( *d_r, *d_dinv );
 
-        // create new iterate, in total want
-        // d_xnext = ( 1.0 + beta ) * x - beta * d_xprev + a1 * d_r
-        // do in two steps, overwriting d_xprev with next
-        // so that a swap gets xnext into x and x into xprev
-        d_xprev->axpby( ( 1.0 + beta ), beta, *x );
-        d_xprev->axpby( a1, 1.0, *d_r );
-        d_xprev.swap( x );
-        x->makeConsistent();
+        // term coefficients
+        const auto alpha = static_cast<scalar_t>( 2 * k - 3 ) / static_cast<scalar_t>( 2 * k + 1 );
+        const auto beta = static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
 
-        // store rho in rho_prev for next iteration
-        rho_prev = rho;
+        // create new iterate, in total want
+        // d_z <- alpha * d_z + beta * d_r
+        // x <- x + d_z
+        d_z->axpby( beta, alpha, *d_r );
+        x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+        x->makeConsistent(); // needed?
     }
 }
 #endif
