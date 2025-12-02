@@ -145,7 +145,8 @@ static void linearTest( AMP::UnitTest *ut,
         std::string filename = "values-" + exeName;
         std::ofstream file( filename.c_str() );
         if ( proc == 0 ) {
-            file << "values={" << "\n";
+            file << "values={"
+                 << "\n";
         }
         curNode = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
         for ( size_t i = 0; i < nnodes; i++ ) {
