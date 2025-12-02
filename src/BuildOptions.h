@@ -32,7 +32,6 @@
      Compiling without Petsc will result in reduced functionality.  <BR>
   LIBMESH: LibMesh is required for the Operators package.  It is currently used within Mesh
      for additional functionality.  <BR>
-  STKMESH: stk::mesh is currently used within Mesh for additional functionality.  <BR>
   SUNDIALS: <BR>
   HYPRE:<BR>
   SILO:<BR>

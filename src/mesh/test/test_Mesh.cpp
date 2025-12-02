@@ -150,34 +150,6 @@ void testAMPMesh( AMP::UnitTest &ut )
 }
 
 
-// Function to test the creation/destruction of a STKmesh mesh
-void testSTKMesh( AMP::UnitTest &ut )
-{
-#if defined( AMP_USE_TRILINOS_STKCLASSIC ) && defined( USE_AMP_DATA )
-    PROFILE( "testSTKMesh" );
-    // Create a generic MeshParameters object
-    auto database = std::make_shared<AMP::Database>( "Mesh" );
-    database->putScalar( "dim", 3 );
-    database->putScalar( "MeshType", "STKMesh" );
-    database->putScalar( "MeshName", "pellet" );
-    database->putScalar( "FileName", "pellet_1x.e" );
-    auto params = std::make_shared<AMP::Mesh::MeshParameters>( database );
-    params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-
-    // Create a STKMesh mesh
-    auto mesh = AMP::Mesh::MeshFactory::create( params );
-    AMP_ASSERT( mesh );
-
-    // Run the mesh tests
-    AMP::Mesh::meshTests::MeshTestLoop( ut, mesh );
-    AMP::Mesh::meshTests::MeshVectorTestLoop( ut, mesh );
-    AMP::Mesh::meshTests::MeshMatrixTestLoop( ut, mesh );
-#else
-    ut.expected_failure( "testSTKMesh disabled (compiled without STKClassic)" );
-#endif
-}
-
-
 // Function to test the creation/destruction of a libmesh mesh
 
 void testlibMesh( AMP::UnitTest &ut )
@@ -281,9 +253,6 @@ void testDefaults( AMP::UnitTest &ut )
     AMP::Mesh::meshTests::testBoxMeshIndicies( ut, 2 );
     AMP::Mesh::meshTests::testBoxMeshIndicies( ut, 3 );
     testAMPMesh( ut );
-
-    // Run tests on a STKmesh mesh (currently disabled)
-    // testSTKMesh( ut );
 
 #if defined( AMP_USE_LIBMESH )
     // Run tests on a libmesh mesh

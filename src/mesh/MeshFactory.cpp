@@ -11,9 +11,6 @@
 #include "AMP/mesh/triangle/TriangleHelpers.h"
 #include "AMP/utils/MeshPoint.h"
 
-#ifdef AMP_USE_TRILINOS_STKCLASSIC
-// #include "AMP/mesh/STKmesh/STKMesh.h"
-#endif
 #ifdef AMP_USE_LIBMESH
     #include "AMP/mesh/libmesh/libmeshMesh.h"
 #endif
@@ -60,14 +57,8 @@ std::shared_ptr<Mesh> MeshFactory::create( std::shared_ptr<MeshParameters> param
 #else
         AMP_ERROR( "AMP was compiled without support for libMesh" );
 #endif
-    } else if ( MeshType == "STKMesh" ) {
-// The mesh is a stk mesh
-#ifdef AMP_USE_TRILINOS_STKClassic
-        // mesh = std::make_shared<AMP::Mesh::STKMesh>( params );
-        AMP_ERROR( "AMP stk mesh interface is broken" );
-#else
-        AMP_ERROR( "AMP was compiled without support for STKMesh" );
-#endif
+    } else if ( MeshType == "stk" || MeshType == "STKMesh" ) {
+        AMP_ERROR( "stk mesh support was removed on 12/02/25" );
     } else if ( MeshType == "moab" || MeshType == "MOAB" ) {
         AMP_ERROR( "MOAB support was removed on 12/02/25" );
     } else {
