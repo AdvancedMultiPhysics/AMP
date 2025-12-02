@@ -61,17 +61,6 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
     auto nlinOp = std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
         nlinBVPOp->getVolumeOperator() );
 
-    // use the linear BVP operator to create a linear diffusion operator with bc's
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> linearPhysicsModel;
-    // auto bvp_db = input_db->getDatabase("ThermalLinearBVPOperator");
-    // auto linBVPOperator =
-    //        AMP::Operator::OperatorBuilder::createOperator(mesh, bvp_db,
-    //        linearPhysicsModel);
-    // auto linBVPOp =
-    //        std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(linBVPOperator);
-    // auto linOp =
-    //        std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(linBVPOp->getVolumeOperator());
-
     // Get source mass operator
     auto sourceOperator = AMP::Operator::OperatorBuilder::createOperator(
         mesh, "ManufacturedSourceOperator", input_db );
