@@ -21,6 +21,7 @@ class Timerutility(CMakePackage):
     variant("mpi", default=True, description="build with mpi")
     variant("shared", default=False, description="Build shared libraries")
     variant("pic", default=False, description="Produce position-independent code")
+    variant("no_implicit_links", default=False, description="turn off injection of implicit lib links")
     variant(
         "cxxstd",
         default="17",
@@ -38,6 +39,7 @@ class Timerutility(CMakePackage):
             self.define_from_variant("USE_MPI", "mpi"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
             self.define("DISABLE_NEW_OVERLOAD", True),
+            self.define_from_variant("DISABLE_IMPLICIT_LINK", "no_implicit_links"),
             self.define("CFLAGS", self.compiler.cc_pic_flag),
             self.define("CXXFLAGS", self.compiler.cxx_pic_flag),
             self.define("FFLAGS", self.compiler.fc_pic_flag),

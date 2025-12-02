@@ -61,6 +61,8 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("timerutility~shared", when="~shared+timerutility")
     depends_on("timerutility+shared", when="+shared+timerutility")
+    depends_on("timerutility~no_implicit_links", when="~no_implicit_links+timerutility")
+    depends_on("timerutility+no_implicit_links", when="+no_implicit_links+timerutility")
     depends_on("timerutility+mpi", when="+mpi+timerutility")
     depends_on("timerutility~mpi", when="~mpi+timerutility")
     depends_on(f"timerutility cxxstd=17", when=f"+timerutility cxxstd=17")
@@ -124,7 +126,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("MPI_SKIP_SEARCH", False),
             self.define_from_variant("USE_OPENMP", "openmp"),
             self.define("DISABLE_GOLD", True),
-            self.define_from_variant("DISABLE_IMPLICIT_LINK", "no_implicit_links"),
             self.define("CFLAGS", self.compiler.cc_pic_flag),
             self.define("CXXFLAGS", self.compiler.cxx_pic_flag),
             self.define("FFLAGS", self.compiler.fc_pic_flag),
