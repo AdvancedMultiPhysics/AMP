@@ -442,6 +442,10 @@ int main( int argc, char *argv[] )
 #endif
             if ( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix" ) {
                 hostOnlyInputs.emplace_back(
+                    "input_testLinearSolvers-LinearThermalRobin-SASolver-JacobiL1" );
+                hostOnlyInputs.emplace_back(
+                    "input_testLinearSolvers-LinearThermalRobin-SASolver-JacobiL1-FCG" );
+                hostOnlyInputs.emplace_back(
                     "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS" );
                 hostOnlyInputs.emplace_back(
                     "input_testLinearSolvers-LinearThermalRobin-SASolver-HybridGS-FCG" );

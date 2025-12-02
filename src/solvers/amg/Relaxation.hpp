@@ -504,6 +504,9 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
 {
     using scalar_t = typename Config::scalar_t;
 
+    // Implements the optimized (but not optimal) polynomials from
+    // https://arxiv.org/pdf/2202.08830
+
     // storage for r and z
     if ( !d_r && d_num_sweeps > 1 ) {
         d_r = x->clone();

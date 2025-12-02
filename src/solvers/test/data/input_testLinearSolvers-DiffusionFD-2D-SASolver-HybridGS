@@ -10,11 +10,10 @@ LinearSolver{
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
+
   agg_type = "simple"
-  
   prol_trunc = 0.05
   num_smooth_prol = 2
-  prol_spec_lower = 0.75
   strength_threshold = 0.5
   strength_measure = "classical_min"
   
@@ -38,7 +37,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 56
+  iterations = 70
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

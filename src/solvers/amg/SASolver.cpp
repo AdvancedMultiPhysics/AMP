@@ -38,7 +38,7 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc      = db->getWithDefault<double>( "prol_trunc", 0.0 );
-    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.75 );
+    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.5 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
