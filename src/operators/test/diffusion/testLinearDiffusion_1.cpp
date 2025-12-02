@@ -88,9 +88,6 @@ static void linearTest1( AMP::UnitTest *ut, const std::string &exeName )
     diffOp->reset( diffOpParams );
 
     ut->passes( exeName );
-
-
-    ut->passes( exeName );
 }
 
 

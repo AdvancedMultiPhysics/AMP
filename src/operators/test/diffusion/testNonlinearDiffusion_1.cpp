@@ -40,8 +40,7 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
-    std::cout << "testing with input file " << input_file << std::endl;
-    std::cout.flush();
+    AMP::pout << "testing with input file " << input_file << std::endl;
 
     // Test create
     auto input_db = AMP::Database::parseInputFile( input_file );
@@ -69,7 +68,6 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
         std::dynamic_pointer_cast<AMP::Operator::DiffusionLinearFEOperator>( linearOperator );
 
     ut->passes( exeName + ": create" );
-    std::cout.flush();
 
     // set up defaults for materials arguments and create transport model
     auto transportModel_db = input_db->getDatabase( "DiffusionTransportModel" );
@@ -138,7 +136,7 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
         }
     }
     if ( diffOp->getPrincipalVariable() == "burnup" ) {
-        AMP_INSIST( false, "do not know what to do" );
+        AMP_ERROR( "do not know what to do" );
     }
 
     // set frozen vectors in parameters
@@ -156,7 +154,6 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
     {
         diffOp->reset( diffOpParams );
         ut->passes( exeName + ": reset" );
-        std::cout.flush();
     }
 
     // set up variables for apply tests
@@ -189,7 +186,6 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
         diffRhsVec->setToScalar( 0.0 );
         applyTests(
             ut, msgPrefix, nonlinearOperator, diffRhsVec, diffSolVec, diffResVec, adjustment );
-        std::cout.flush();
 
         // Test getJacobianParameters and linear operator creation
         {
@@ -200,7 +196,6 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
                 std::dynamic_pointer_cast<AMP::Operator::DiffusionLinearFEOperatorParameters>(
                     jacParams ) );
             ut->passes( exeName + ": getJacobianParameters" );
-            std::cout.flush();
         }
     }
 
@@ -232,7 +227,6 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
 
         // test apply with single variable vectors
         applyTests( ut, msgPrefix, nonlinearOperator, rhsVec, solVec, resVec, adjustment );
-        std::cout.flush();
     }
 
     // Test isValidVector function
@@ -264,7 +258,6 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
             }
         }
         testVec->setToScalar( 1.e99 );
-        std::cout.flush();
     }
 }
 

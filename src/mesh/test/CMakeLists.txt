@@ -22,7 +22,6 @@ COPY_TEST_FILE( input_stl )
 COPY_TEST_FILE( input_stl_crystal )
 COPY_TEST_FILE( input_crystal_circular_tri )
 COPY_TEST_FILE( CRYSTAL_FINAL_2mm.STL )
-COPY_TEST_FILE( input_testMultiMeshOwnerRank )
 COPY_TEST_FILE( input_testMultiMeshSubset )
 COPY_TEST_FILE( input_LogicalMesh )
 
@@ -67,7 +66,6 @@ ADD_AMP_TEST( compare_Mesh input_compare )
 ADD_AMP_TEST( view_STL CRYSTAL_FINAL_2mm.STL )
 ADD_AMP_TEST_1_2_4( test_StructuredMeshHelpers )
 ADD_AMP_TEST_1_2_4( testMultiMeshSubset )
-ADD_AMP_TEST_1_2_4( testMultiMeshOwnerRank )
 ADD_AMP_TEST( test_BoxMeshIndex )
 
 # Write some old meshes

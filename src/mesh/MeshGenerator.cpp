@@ -7,14 +7,8 @@
 #include "AMP/mesh/triangle/TriangleHelpers.h"
 #include "AMP/utils/MeshPoint.h"
 
-#ifdef AMP_USE_TRILINOS_STKCLASSIC
-// #include "AMP/mesh/STKmesh/STKMesh.h"
-#endif
 #ifdef AMP_USE_LIBMESH
     #include "AMP/mesh/libmesh/libmeshMesh.h"
-#endif
-#ifdef AMP_USE_MOAB
-    #include "AMP/mesh/moab/moabMesh.h"
 #endif
 
 
@@ -70,14 +64,10 @@ size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
 #else
         AMP_ERROR( "AMP was compiled without support for libMesh" );
 #endif
-    } else if ( MeshType == "STKMesh" ) {
-// The mesh is a stkMesh mesh
-#ifdef AMP_USE_TRILINOS_STKCLASSIC
-        // meshSize = AMP::Mesh::STKMesh::estimateMeshSize( params );
-        AMP_ERROR( "AMP stk mesh interface is broken" );
-#else
-        AMP_ERROR( "AMP was compiled without support for STKMesh" );
-#endif
+    } else if ( MeshType == "stk" || MeshType == "STKMesh" ) {
+        AMP_ERROR( "stk mesh support was removed on 12/02/25" );
+    } else if ( MeshType == "moab" || MeshType == "MOAB" ) {
+        AMP_ERROR( "MOAB support was removed on 12/02/25" );
     } else {
         // Unknown mesh type
         AMP_ERROR( "Unknown mesh type " + MeshType + " and NumberOfElements is not set" );
@@ -125,14 +115,10 @@ size_t Mesh::maxProcs( std::shared_ptr<const MeshParameters> params )
 #else
         AMP_ERROR( "AMP was compiled without support for libMesh" );
 #endif
-    } else if ( MeshType == std::string( "STKMesh" ) ) {
-// The mesh is a stkMesh mesh
-#ifdef AMP_USE_TRILINOS_STKCLASSIC
-        // maxSize = AMP::Mesh::STKMesh::maxProcs( params );
-        AMP_ERROR( "AMP stk mesh interface is broken" );
-#else
-        AMP_ERROR( "AMP was compiled without support for STKMesh" );
-#endif
+    } else if ( MeshType == "stk" || MeshType == "STKMesh" ) {
+        AMP_ERROR( "stk mesh support was removed on 12/02/25" );
+    } else if ( MeshType == "moab" || MeshType == "MOAB" ) {
+        AMP_ERROR( "MOAB support was removed on 12/02/25" );
     } else {
         // Unknown mesh type
         AMP_ERROR( "Unknown mesh type " + MeshType + " and maxProcs is not set" );
