@@ -1,17 +1,14 @@
-<<< "input_LinearThermalRobinOperator" >>>
-
-LinearSolver{
+Preconditioner{
   name = "SASolver"
-  uses_preconditioner = FALSE
-  absolute_tolerance = 1.0e-12
-  relative_tolerance = 1.0e-12
+  absolute_tolerance = 0.0
+  relative_tolerance = 0.0
   print_info_level = 3
-  max_iterations = 30
+  max_iterations = 1
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
-  
+
   agg_type = "simple"
   prol_trunc = 0.05
   num_smooth_prol = 2
@@ -29,17 +26,10 @@ LinearSolver{
     num_sweeps = 1
     sweep_type = "symmetric"
   }
-
+  
   coarse_solver{
     name = "HybridGS"
     num_sweeps = 2
     sweep_type = "symmetric"
   }
-}
-
-Reference{
-  iterations = 24
-  res_l2_norm = -1
-  tolerance = 0
-  strict = FALSE
 }
