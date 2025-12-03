@@ -1,0 +1,259 @@
+
+Mesh {
+  MeshType = "libMesh"
+    dim = 3
+    MeshName = "TestMesh"
+    FileName = "PlateWithHole-1.e"
+}
+
+NumberOfLoadingSteps = 10
+
+ExtractStressStrainData = FALSE
+
+LinearMechanicsElement {
+    name="MechanicsLinearElement"
+    USE_REDUCED_INTEGRATION = FALSE 
+    FE_ORDER = "FIRST"  
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
+}
+
+nonlinearMechanicsBVPOperator {
+  name="NonlinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator = "MechanicsNonlinearFEOperator1"
+    BoundaryOperator = "DirichletVectorCorrection1"
+}
+
+PericElastoViscoPlasticModel1 {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    print_info_level = 2
+    USE_CONTINUUM_TANGENT = FALSE
+    //name="PericElastoViscoPlasticModel"
+    //name="IsotropicElasticModel"
+    //Youngs_Modulus = 1.0e2
+    //Poissons_Ratio = 0.3
+    //Linear_Strain_Hardening = 15.0
+    //Elastic_Yield_Stress = 0.15
+    //Viscosity = 20.0
+    //Strain_Exponent = 0.5
+    //THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    //Default_Temperature = 310.0
+    //Default_Burnup = 0.0
+    //Default_Oxygen_Concentration = 0.0
+    name="VonMises_IsotropicKinematicHardening"
+    Youngs_Modulus = 70000.0
+    Poissons_Ratio = 0.2
+    Cook_Membrane_Plasticity_Test = FALSE
+    Thick_Walled_Cylinder_Plasticity_Test = TRUE
+    // The following parameters are used for the Thick Walled cylinder test
+    Linear_Strain_Hardening = 1500.0
+    Exponent_Delta = 0.1
+    Value_K_0 = 243.7
+    K_Infinity = 243.7
+    Fraction_Beta = 1.0
+    // The following parameters are used for the Cook's Membrane Plasticity test
+    //Isotropic_Linear_Hardening = 150.0
+    //Kinematic_Linear_Hardening = 135.0
+    //Initial_Yield_Strength = 243.0
+    // Parameters for the benchmark test ends here
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = .1
+}
+
+MechanicsNonlinearFEOperator1 {
+  name = "MechanicsNonlinearFEOperator"
+    print_info_level = 1
+    ActiveInputVariables {
+      DISPLACEMENT = "displacement"
+    }
+  OutputVariable = "displacement"
+    RESET_REUSES_RADIAL_RETURN = TRUE
+    JACOBIAN_REUSES_RADIAL_RETURN = TRUE
+
+    MechanicsElement {
+      name="MechanicsNonlinearElement"
+        USE_REDUCED_INTEGRATION = FALSE 
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }
+
+    MechanicsLinearElement = LinearMechanicsElement
+    LocalModel = PericElastoViscoPlasticModel1
+}
+
+DirichletVectorCorrection1 {
+  name = "DirichletVectorCorrection"
+    print_info_level = 1
+    skip_params = FALSE
+    setResidual = FALSE
+    valuesType = 1
+    isAttachedToVolumeOperator = TRUE
+
+    number_of_ids = 3
+
+    id_0 = 1
+    number_of_dofs_0 = 1
+    dof_0_0 = 1
+    value_0_0 = 0.0
+
+    id_1 = 3
+    number_of_dofs_1 = 2
+    dof_1_0 = 0
+    dof_1_1 = 2
+    value_1_0 = 0.0
+    value_1_1 = 0.0
+
+    id_2 = 4
+    number_of_dofs_2 = 1
+    dof_2_0 = 2
+    value_2_0 = 0.0
+}
+
+linearMechanicsBVPOperator {
+  name="LinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator = "MechanicsLinearFEOperator2"
+    BoundaryOperator = "DirichletMatrixCorrection2"
+}
+
+MechanicsLinearFEOperator2 {
+  name = "MechanicsLinearFEOperator"
+    print_info_level = 1
+    reset_reuses_matrix = TRUE
+    InputVariable = "displacement"
+    OutputVariable = "displacement"
+    isAttachedToNonlinearOperator = TRUE
+    MechanicsElement = LinearMechanicsElement
+}
+
+DirichletMatrixCorrection2 {
+  name = "DirichletMatrixCorrection"
+    print_info_level = 1
+    skip_params = FALSE
+    symmetric_correction = TRUE
+    zero_dirichlet_block = FALSE
+    skip_rhs_correction = TRUE
+
+    number_of_ids = 3
+
+    id_0 = 1
+    number_of_dofs_0 = 1
+    dof_0_0 = 1
+
+    id_1 = 3
+    number_of_dofs_1 = 2
+    dof_1_0 = 0
+    dof_1_1 = 2
+
+    id_2 = 4
+    number_of_dofs_2 = 1
+    dof_2_0 = 2
+}
+
+Load_Boundary {
+  name = "DirichletVectorCorrection"
+    print_info_level = 1
+    skip_params = FALSE
+    setResidual = FALSE
+    valuesType = 1
+    isAttachedToVolumeOperator = FALSE
+
+    number_of_ids = 1
+
+    id_0 = 2
+    number_of_dofs_0 = 1
+    dof_0_0 = 1
+    value_0_0 = 100.0
+}
+
+Displacement_Boundary {
+  name = "DirichletVectorCorrection"
+    print_info_level = 1
+    skip_params = FALSE
+    isAttachedToVolumeOperator = FALSE
+
+    number_of_ids = 3
+
+    id_0 = 1
+    number_of_dofs_0 = 1
+    dof_0_0 = 1
+    value_0_0 = 0.0
+
+    id_1 = 3
+    number_of_dofs_1 = 2
+    dof_1_0 = 0
+    dof_1_1 = 2
+    value_1_0 = 0.0
+    value_1_1 = 0.0
+
+    id_2 = 4
+    number_of_dofs_2 = 1
+    dof_2_0 = 2
+    value_2_0 = 0.0
+}
+
+Pressure_Boundary {
+  name = "PressureBoundaryVectorCorrection"
+    print_info_level = 1
+    FE_ORDER = "FIRST"
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
+    skip_params = FALSE
+    number_of_ids = 1
+    constant_pressure = TRUE
+    id_0 = 101
+    value_0 = 0.0
+    //value_0 = -5.0e-1
+}
+
+NonlinearSolver{
+    name = "PetscSNESSolver"
+    print_info_level = 2 
+    max_iterations = 100
+    max_error = 1e-10
+
+    absolute_tolerance = 1.0e-15
+    relative_tolerance = 1.0e-12
+    stepTolerance = 1.0e-10
+    maximumFunctionEvals = 1000
+    usesJacobian=TRUE
+
+    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
+
+    LinearSolver{
+        name = "PetscKrylovSolver"
+        print_info_level = 1
+        max_iterations = 10
+        max_error = 1e-10
+        ksp_type = "fgmres"
+        absolute_tolerance = 1.0e-15
+        relative_tolerance = 1.0e-13
+        divergence_tolerance = 1.0e03
+        max_krylov_dimension = 40
+        uses_preconditioner=TRUE
+        pc_type = "shell"
+        pc_side = "RIGHT"
+
+        KSPOptions = "-ksp_monitor -ksp_converged_reason"
+
+    }
+}
+
+Preconditior{
+    name = "TrilinosMLSolver"
+    print_info_level = 1
+    PDE_equations = 3
+    max_levels = 1
+    max_iterations = 1
+    max_error = 1.0e-15
+    aggregationtype = "Uncoupled"
+    smoothertype = "Chebyshev"
+    smoother_sweeps = 3
+}

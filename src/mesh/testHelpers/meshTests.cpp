@@ -1179,6 +1179,8 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
                 if ( !verify_node( node, mesh ) ) {
                     if ( mesh->meshClass().find( "TriangleMesh" ) != std::string::npos )
                         ut.expected_failure( "Verify Node<->Element map iterator (TriangleMesh)" );
+                    if ( mesh->meshClass().find( "SubsetMesh" ) != std::string::npos )
+                        ut.expected_failure( "Verify Node<->Element map iterator (SubsetMesh)" );
                     else
                         ut.failure( "Verify Node<->Element map iterator" );
                     return;

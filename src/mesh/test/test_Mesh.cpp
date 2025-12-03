@@ -1,4 +1,5 @@
 #include "AMP/AMP_TPLs.h"
+#include "AMP/IO/FileSystem.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
@@ -51,20 +52,22 @@ void testMeshGenerators( AMP::UnitTest &ut )
     generator->build_mesh();
     AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
     // Test the libmesh reader generator
-    #ifdef USE_AMP_DATA
-    generator = std::make_shared<AMP::unit_test::ExodusReaderGenerator>( "pellet_1x.e" );
-    generator->build_mesh();
-    AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
+    if ( AMP::IO::exists( "pellet_1x.e" ) ) {
+        generator = std::make_shared<AMP::unit_test::ExodusReaderGenerator>( "pellet_1x.e" );
+        generator->build_mesh();
+        AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
+    }
     // Test the ThreeElementLGenerator generator
     generator = std::make_shared<AMP::unit_test::libMeshThreeElementGenerator>();
     generator->build_mesh();
     AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
     // Test the multimesh generator
-    generator = std::make_shared<AMP::unit_test::MultiMeshGenerator>();
-    generator->build_mesh();
-    AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
-    AMP::Mesh::meshTests::MeshVectorTestLoop( ut, generator->getMesh() );
-    #endif
+    if ( AMP::IO::exists( "pellet_1x.e" ) ) {
+        generator = std::make_shared<AMP::unit_test::MultiMeshGenerator>();
+        generator->build_mesh();
+        AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
+        AMP::Mesh::meshTests::MeshVectorTestLoop( ut, generator->getMesh() );
+    }
 #endif
 }
 
@@ -154,7 +157,11 @@ void testAMPMesh( AMP::UnitTest &ut )
 
 void testlibMesh( AMP::UnitTest &ut )
 {
-#if defined( AMP_USE_LIBMESH ) && defined( USE_AMP_DATA )
+#if defined( AMP_USE_LIBMESH )
+    if ( !AMP::IO::exists( "pellet_1x.e" ) ) {
+        ut.expected_failure( "testlibMesh disabled (missing pellet_1x.e)" );
+        return;
+    }
     PROFILE( "testlibMesh" );
     // Create a generic MeshParameters object
     auto database = std::make_shared<AMP::Database>( "Mesh" );
@@ -182,7 +189,6 @@ void testlibMesh( AMP::UnitTest &ut )
 void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut,
                     [[maybe_unused]] const std::string &filename )
 {
-#ifdef USE_AMP_DATA
     PROFILE( "testInputMesh" );
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( filename );
@@ -201,23 +207,20 @@ void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut,
     AMP::Mesh::meshTests::MeshGeometryTestLoop( ut, mesh );
     AMP::Mesh::meshTests::MeshVectorTestLoop( ut, mesh, true );
     AMP::Mesh::meshTests::MeshMatrixTestLoop( ut, mesh, true );
-#endif
 }
 
 
 void testSubsetMesh( [[maybe_unused]] AMP::UnitTest &ut )
 {
     PROFILE( "testSubsetMesh" );
-#if defined( AMP_USE_LIBMESH ) && defined( USE_AMP_DATA )
     // Subset a mesh for a surface with ghost cells and test
     auto generator = std::make_shared<AMP::unit_test::SurfaceSubsetGenerator>(
-        std::make_shared<AMP::unit_test::ExodusReaderGenerator>( "pellet_1x.e" ), 1 );
+        std::make_shared<AMP::unit_test::AMPCylinderGenerator>(), 1 );
     generator->build_mesh();
     auto mesh = generator->getMesh();
     AMP::Mesh::meshTests::MeshTestLoop( ut, mesh );
     // MeshVectorTestLoop( ut, mesh );
     // MeshMatrixTestLoop( ut, mesh );
-#endif
 }
 
 
@@ -260,7 +263,8 @@ void testDefaults( AMP::UnitTest &ut )
     testlibMesh( ut );
 
     // Run tests on the input file
-    testInputMesh( ut, "input_libMesh" );
+    if ( AMP::IO::exists( "pellet_1x.e" ) )
+        testInputMesh( ut, "input_libMesh" );
 #endif
 
     // Run the basic tests on all mesh generators
