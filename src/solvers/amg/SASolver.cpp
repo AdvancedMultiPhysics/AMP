@@ -42,8 +42,6 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
 
 void SASolver::resetLevelOptions()
 {
-    d_num_relax_pre  = d_db->getWithDefault<size_t>( "num_relax_pre", 1 );
-    d_num_relax_post = d_db->getWithDefault<size_t>( "num_relax_post", 1 );
     d_coarsen_settings.strength_threshold =
         d_db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.strength_measure =
@@ -53,7 +51,7 @@ void SASolver::resetLevelOptions()
     d_pair_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
     d_num_smooth_prol                       = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0 );
-    d_prol_spec_lower                       = d_db->getWithDefault<float>( "prol_spec_lower", 0 );
+    d_prol_spec_lower                       = d_db->getWithDefault<float>( "prol_spec_lower", 0.5 );
     d_agg_type      = d_db->getWithDefault<std::string>( "agg_type", "simple" );
     d_pre_relax_db  = d_db->getDatabase( "pre_relaxation" );
     d_post_relax_db = d_db->getDatabase( "post_relaxation" );
@@ -71,8 +69,6 @@ void SASolver::setLevelOptions( const size_t lvl )
     if ( lvl_db ) {
         resetLevelOptions();
 
-        d_num_relax_pre  = lvl_db->getWithDefault<size_t>( "num_relax_pre", d_num_relax_pre );
-        d_num_relax_post = lvl_db->getWithDefault<size_t>( "num_relax_post", d_num_relax_post );
         d_coarsen_settings.strength_threshold = lvl_db->getWithDefault<float>(
             "strength_threshold", d_coarsen_settings.strength_threshold );
         d_coarsen_settings.strength_measure = lvl_db->getWithDefault<std::string>(

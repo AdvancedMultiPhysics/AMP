@@ -12,11 +12,7 @@ LinearSolver{
   min_coarse_global = 40
   kappa = 2
   
-  agg_type = "simple"
-  prol_trunc = 0.05
-  num_smooth_prol = 2
-  strength_threshold = 0.5
-  strength_measure = "classical_min"
+<<< SASolver-Level-0 >>>
   
   pre_relaxation{
     name = "JacobiL1"
