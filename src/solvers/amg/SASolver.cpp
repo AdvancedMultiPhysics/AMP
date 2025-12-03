@@ -284,11 +284,20 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     }
     d_dInitialResidual = current_res;
 
-    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "SASolver::apply: initial L2Norm of solution vector: " << x->L2Norm()
+    if ( need_norms && d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "SASolver: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "SASolver: Memory location " << AMP::Utilities::getString( d_mem_loc )
                   << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of residual: " << current_res << std::endl;
+        AMP::pout << "SASolver: kappa " << d_kappa << std::endl;
+    }
+
+    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "SASolver::apply: initial L2Norm of solution vector " << x->L2Norm()
+                  << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector " << b_norm << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of residual " << current_res << std::endl;
     }
 
     // return if the residual is already low enough
