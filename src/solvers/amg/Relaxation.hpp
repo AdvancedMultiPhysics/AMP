@@ -11,13 +11,19 @@
 #include "AMP/utils/Memory.h"
 
 #include <cmath>
+#include <numeric>
+
+#define AMP_AMG_RELAXATION_PROFILE
 
 namespace AMP::Solver::AMG {
 
 Relaxation::Relaxation( std::shared_ptr<const SolverStrategyParameters> params,
                         const std::string &name_,
                         const std::string &short_name_ )
-    : SolverStrategy( params ), name( name_ ), short_name( short_name_ )
+    : SolverStrategy( params ),
+      name( name_ ),
+      short_name( short_name_ ),
+      d_caller_lvl( std::numeric_limits<size_t>::max() )
 {
     AMP_ASSERT( params );
     getFromInput( params->d_db );
@@ -93,6 +99,7 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         }
     }
     auto current_res = static_cast<double>( d_dInitialResidual );
+    double prev_res  = 0.0;
 
     // apply solver for needed number of iterations
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
@@ -105,7 +112,13 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
             if ( d_iDebugPrintInfoLevel > 1 ) {
                 AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
-                          << current_res << std::endl;
+                          << current_res << ", conv ratio ";
+                if ( prev_res > 0.0 ) {
+                    AMP::pout << current_res / prev_res << std::endl;
+                } else {
+                    AMP::pout << "--" << std::endl;
+                }
+                prev_res = current_res;
             }
 
             if ( checkStoppingCriteria( current_res ) ) {
@@ -195,28 +208,146 @@ void HybridGS::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                              [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
+#ifdef AMP_AMG_RELAXATION_PROFILE
 template<typename Config>
 void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                       std::shared_ptr<const LinearAlgebra::Vector> b,
                       std::shared_ptr<LinearAlgebra::Vector> x )
 {
-    for ( size_t i = 0; i < d_num_sweeps; ++i ) {
-        switch ( d_sweep ) {
-        case Sweep::forward:
-            sweep<Config>( Direction::forward, *A, *b, *x );
-            break;
-        case Sweep::backward:
-            sweep<Config>( Direction::backward, *A, *b, *x );
-            break;
-        case Sweep::symmetric:
-            sweep<Config>( Direction::forward, *A, *b, *x );
-            sweep<Config>( Direction::backward, *A, *b, *x );
-            break;
+    auto run = [&]() {
+        auto comp = [&]() {
+            for ( size_t i = 0; i < d_num_sweeps; ++i ) {
+                switch ( d_sweep ) {
+                case Sweep::forward:
+                    sweep<Config>( Direction::forward, *A, *b, *x );
+                    break;
+                case Sweep::backward:
+                    sweep<Config>( Direction::backward, *A, *b, *x );
+                    break;
+                case Sweep::symmetric:
+                    sweep<Config>( Direction::forward, *A, *b, *x );
+                    sweep<Config>( Direction::backward, *A, *b, *x );
+                    break;
+                }
+            }
+        };
+
+        if ( d_caller_lvl == 0 ) {
+            {
+                PROFILE( "HGS-relax-comp-0" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-0" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( d_caller_lvl == 1 ) {
+            {
+                PROFILE( "HGS-relax-comp-1" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-1" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( d_caller_lvl == 2 ) {
+            {
+                PROFILE( "HGS-relax-comp-2" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-2" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( d_caller_lvl == 3 ) {
+            {
+                PROFILE( "HGS-relax-comp-3" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-3" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else if ( d_caller_lvl == 4 ) {
+            {
+                PROFILE( "HGS-relax-comp-4" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-4" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        } else {
+            {
+                PROFILE( "HGS-relax-comp-5+" );
+                comp();
+            }
+            {
+                PROFILE( "HGS-relax-comm-5+" );
+                x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+            }
+        }
+    };
+
+    if ( d_caller_lvl == 0 ) {
+        PROFILE( "HGS-relax-0" );
+        run();
+    } else if ( d_caller_lvl == 1 ) {
+        PROFILE( "HGS-relax-1" );
+        run();
+    } else if ( d_caller_lvl == 2 ) {
+        PROFILE( "HGS-relax-2" );
+        run();
+    } else if ( d_caller_lvl == 3 ) {
+        PROFILE( "HGS-relax-3" );
+        run();
+    } else if ( d_caller_lvl == 4 ) {
+        PROFILE( "HGS-relax-4" );
+        run();
+    } else {
+        PROFILE( "HGS-relax-5+" );
+        run();
+    }
+}
+
+#else
+
+template<typename Config>
+void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                      std::shared_ptr<const LinearAlgebra::Vector> b,
+                      std::shared_ptr<LinearAlgebra::Vector> x )
+{
+    #ifdef AMP_AMG_RELAXATION_PROFILE
+    PROFILE( "HGS-relax" );
+    #endif
+    {
+    #ifdef AMP_AMG_RELAXATION_PROFILE
+        PROFILE( "HGS-relax-comp" );
+    #endif
+        for ( size_t i = 0; i < d_num_sweeps; ++i ) {
+            switch ( d_sweep ) {
+            case Sweep::forward:
+                sweep<Config>( Direction::forward, *A, *b, *x );
+                break;
+            case Sweep::backward:
+                sweep<Config>( Direction::backward, *A, *b, *x );
+                break;
+            case Sweep::symmetric:
+                sweep<Config>( Direction::forward, *A, *b, *x );
+                sweep<Config>( Direction::backward, *A, *b, *x );
+                break;
+            }
         }
     }
 
-    x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+    {
+    #ifdef AMP_AMG_RELAXATION_PROFILE
+        PROFILE( "HGS-relax-comm" );
+    #endif
+        x->makeConsistent( LinearAlgebra::ScatterType::CONSISTENT_SET );
+    }
 }
+#endif
 
 template<typename Config>
 void HybridGS::sweep( const Relaxation::Direction relax_dir,
@@ -328,9 +459,6 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
 JacobiL1::JacobiL1( std::shared_ptr<const SolverStrategyParameters> params )
     : Relaxation( params, "JacobiL1", "JL1" )
 {
-    d_spec_lower = d_db->getWithDefault<float>( "spec_lower", 0.25 );
-    AMP_DEBUG_INSIST( d_spec_lower >= 0.0 && d_spec_lower < 1.0,
-                      "JacobiL1: Invalid damping range, need a in [0,1)" );
     if ( d_pOperator ) {
         registerOperator( d_pOperator );
     }
@@ -355,7 +483,10 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     std::shared_ptr<LinearAlgebra::Vector> D;
     LinearAlgebra::csrVisit( d_matrix,
                              [&D]( auto csr_ptr ) { D = csr_ptr->getRowSumsAbsolute( D, true ); } );
-    d_diag.swap( D );
+    d_dinv.swap( D );
+    d_dinv->reciprocal( *d_dinv );
+    d_r.reset();
+    d_z.reset();
 }
 
 void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -365,6 +496,7 @@ void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                              [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
+#ifdef AMP_AMG_RELAXATION_PROFILE
 template<typename Config>
 void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                       std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -372,32 +504,120 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
 {
     using scalar_t = typename Config::scalar_t;
 
-    // Application of Jacobi L1 is x += omega * Dinv * r
-    // where r is (b - A * x), D is sum of absolute values
-    // in each row of A, and omega is weight determined from
-    // Chebyshev iteration knowing that we damp in range [a,1]
+    // Implements the optimized (but not optimal) polynomials from
+    // https://arxiv.org/pdf/2202.08830
 
-    const scalar_t pi = static_cast<scalar_t>( AMP::Constants::pi );
-    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
+    // storage for r and z
+    if ( !d_r && d_num_sweeps > 1 ) {
+        d_r = x->clone();
+    }
+    if ( !d_z ) {
+        d_z = x->clone();
+    }
 
-    // storage for r
-    auto r = x->clone();
+    auto run = [&]() {
+        // store initial residual in d_z instead of d_r
+        A->mult( x, d_z );
+        d_z->subtract( *b, *d_z );
+        d_z->multiply( *d_z, *d_dinv );
 
-    for ( size_t i = 0; i < d_num_sweeps; ++i ) {
-        // find omega
-        const scalar_t om = 0.5 * ( ma * std::cos( pi * static_cast<scalar_t>( 2 * i - 1 ) /
-                                                   static_cast<scalar_t>( d_num_sweeps ) ) +
-                                    pa );
-        // update residual
-        A->mult( x, r );
-        r->subtract( *b, *r );
-        // scale by Dinv
-        r->divide( *r, *d_diag );
-        // update solution
-        x->axpby( om, 1.0, *r );
-        x->makeConsistent();
+        // put first iterate into xprev and swap to prime for following iterates
+        d_z->scale( scalar_t{ 4.0 / 3.0 } );
+        x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+        x->makeConsistent(); // needed?
+
+        // iterate further, coeffs use 1-based indexing so start at k=2
+        // since k=1 set above
+        for ( size_t k = 2; k <= d_num_sweeps; ++k ) {
+            // update residual and precondition
+            A->mult( x, d_r );
+            d_r->subtract( *b, *d_r );
+            d_r->multiply( *d_r, *d_dinv );
+
+            // term coefficients
+            const auto alpha =
+                static_cast<scalar_t>( 2 * k - 3 ) / static_cast<scalar_t>( 2 * k + 1 );
+            const auto beta =
+                static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
+
+            // create new iterate, in total want
+            // d_z <- alpha * d_z + beta * d_r
+            // x <- x + d_z
+            d_z->axpby( beta, alpha, *d_r );
+            x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+            x->makeConsistent(); // needed?
+        }
+    };
+
+    if ( d_caller_lvl == 0 ) {
+        PROFILE( "JL1-relax-0" );
+        run();
+    } else if ( d_caller_lvl == 1 ) {
+        PROFILE( "JL1-relax-1" );
+        run();
+    } else if ( d_caller_lvl == 2 ) {
+        PROFILE( "JL1-relax-2" );
+        run();
+    } else if ( d_caller_lvl == 3 ) {
+        PROFILE( "JL1-relax-3" );
+        run();
+    } else if ( d_caller_lvl == 4 ) {
+        PROFILE( "JL1-relax-4" );
+        run();
+    } else {
+        PROFILE( "JL1-relax-5+" );
+        run();
     }
 }
+
+#else
+
+template<typename Config>
+void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                      std::shared_ptr<const LinearAlgebra::Vector> b,
+                      std::shared_ptr<LinearAlgebra::Vector> x )
+{
+    using scalar_t = typename Config::scalar_t;
+
+    // storage for r and z
+    if ( !d_r && d_num_sweeps > 1 ) {
+        d_r = x->clone();
+    }
+    if ( !d_z ) {
+        d_z = x->clone();
+    }
+
+    // store initial residual in d_z instead of d_r
+    A->mult( x, d_z );
+    d_z->subtract( *b, *d_z );
+    d_z->multiply( *d_z, *d_dinv );
+
+    // put first iterate into xprev and swap to prime for following iterates
+    d_z->scale( scalar_t{ 4.0 / 3.0 } );
+    x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+    x->makeConsistent(); // needed?
+
+    // iterate further, coeffs use 1-based indexing so start at k=2
+    // since k=1 set above
+    for ( size_t k = 2; k <= d_num_sweeps; ++k ) {
+        // update residual and precondition
+        A->mult( x, d_r );
+        d_r->subtract( *b, *d_r );
+        d_r->multiply( *d_r, *d_dinv );
+
+        // term coefficients
+        const auto alpha = static_cast<scalar_t>( 2 * k - 3 ) / static_cast<scalar_t>( 2 * k + 1 );
+        const auto beta = static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
+
+        // create new iterate, in total want
+        // d_z <- alpha * d_z + beta * d_r
+        // x <- x + d_z
+        d_z->axpby( beta, alpha, *d_r );
+        x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+        x->makeConsistent(); // needed?
+    }
+}
+#endif
 
 } // namespace AMP::Solver::AMG
 

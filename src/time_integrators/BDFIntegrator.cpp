@@ -1113,7 +1113,8 @@ void BDFIntegrator::estimateTimeDerivative( void )
         estimateBDF2TimeDerivative();
     } else if ( ( current_integrator == "BDF3" ) || ( current_integrator == "BDF4" ) ||
                 ( current_integrator == "BDF5" ) || ( current_integrator == "BDF6" ) ) {
-        AMP_WARNING( "BDF 3-6 methods being used with low order BDF2 estimate of time derivative" );
+        AMP_WARN_ONCE(
+            "BDF 3-6 methods being used with low order BDF2 estimate of time derivative" );
         estimateBDF2TimeDerivative();
     } else if ( current_integrator == "CN" ) {
         estimateBETimeDerivative();

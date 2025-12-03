@@ -5,6 +5,8 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
 
+#include "ProfilerApp.h"
+
 #include <algorithm>
 #include <cstring>
 #include <numeric>
@@ -265,17 +267,15 @@ void AMP::Utilities::unique<ElementPtr>( std::vector<ElementPtr> &x )
 {
     if ( x.size() <= 1 )
         return;
-    // First perform a quicksort
-    auto compare = []( const ElementPtr &a, const ElementPtr &b ) { return *a < *b; };
-    std::sort( x.begin(), x.end(), compare );
-    // Next remove duplicate entries
-    size_t pos = 1;
-    for ( size_t i = 1; i < x.size(); i++ ) {
-        if ( *x[i] != *x[pos - 1] ) {
-            x[pos] = std::move( x[i] );
-            pos++;
-        }
-    }
-    if ( pos < x.size() )
-        x.resize( pos );
+    PROFILE( "unique<ElementPtr>" );
+    std::vector<AMP::Mesh::MeshElementID> ids( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        ids[i] = x[i]->globalID();
+    std::vector<size_t> I;
+    AMP::Utilities::unique( ids, I );
+    AMP_ASSERT( I.size() == ids.size() );
+    std::vector<ElementPtr> y( ids.size() );
+    for ( size_t i = 0; i < ids.size(); i++ )
+        y[i] = std::move( x[I[i]] );
+    x = std::move( y );
 }

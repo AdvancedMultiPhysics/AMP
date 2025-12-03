@@ -8,27 +8,25 @@ Preconditioner{
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
+
   agg_type = "simple"
-  prol_trunc = 0.015
-  num_smooth_prol = 3
-  strength_threshold = 0.4
+  prol_trunc = 0.05
+  num_smooth_prol = 2
+  strength_threshold = 0.5
   strength_measure = "classical_min"
-  
+
   pre_relaxation{
-    name = "HybridGS"
-    num_sweeps = 1
-    sweep_type = "symmetric"
+    name = "JacobiL1"
+    num_sweeps = 2
   }
 
   post_relaxation{
-    name = "HybridGS"
-    num_sweeps = 1
-    sweep_type = "symmetric"
-  }
-
-  coarse_solver{
-    name = "HybridGS"
+    name = "JacobiL1"
     num_sweeps = 2
-    sweep_type = "symmetric"
+  }
+  
+  coarse_solver{
+    name = "JacobiL1"
+    num_sweeps = 4
   }
 }

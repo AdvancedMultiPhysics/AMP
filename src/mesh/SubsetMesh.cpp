@@ -21,10 +21,8 @@ static bool binarySearch( const std::vector<std::unique_ptr<MeshElement>> &x, Me
 {
     if ( x.empty() )
         return false;
-    // Check if value is within the range of x
     if ( ( y <= x[0]->globalID() ) || ( y > x.back()->globalID() ) )
         return y == x[0]->globalID();
-    // Perform the search
     size_t lower = 0;
     size_t upper = x.size() - 1;
     size_t index;
@@ -37,6 +35,25 @@ static bool binarySearch( const std::vector<std::unique_ptr<MeshElement>> &x, Me
     }
     index = upper;
     return y == x[index]->globalID();
+}
+static bool binarySearch( const std::vector<ElementID> &x, ElementID y )
+{
+    if ( x.empty() )
+        return false;
+    if ( ( y <= x[0] ) || ( y > x.back() ) )
+        return y == x[0];
+    size_t lower = 0;
+    size_t upper = x.size() - 1;
+    size_t index;
+    while ( ( upper - lower ) != 1 ) {
+        index = ( upper + lower ) / 2;
+        if ( x[index] >= y )
+            upper = index;
+        else
+            lower = index;
+    }
+    index = upper;
+    return y == x[index];
 }
 
 
@@ -149,43 +166,44 @@ SubsetMesh::SubsetMesh( std::shared_ptr<const Mesh> mesh,
             d_elements[t][gcw]->operator[]( i ) = iterator2->clone();
             ++iterator2;
         }
-        AMP::Utilities::quicksort( *( d_elements[t][gcw] ) );
+        AMP::Utilities::quicksort( *d_elements[t][gcw] );
         if ( iterator1.size() == iterator_in.size() )
             break;
         gcw++;
     }
     // Create a list of all elements that compose the elements of GeomType
     for ( int t = 0; t < (int) GeomDim; t++ ) {
+        std::vector<std::vector<ElementID>> ids( d_max_gcw + 1 );
         for ( gcw = 0; gcw <= d_max_gcw; gcw++ ) {
             std::vector<std::unique_ptr<MeshElement>> list;
             list.reserve( iterator_in.size() );
+            ids[gcw].reserve( iterator_in.size() );
             for ( const auto &elem : this->getIterator( GeomDim, gcw ) ) {
                 auto elements = elem.getElements( (GeomType) t );
                 for ( auto &element : elements ) {
+                    auto id = element->globalID().elemID();
                     if ( gcw == 0 ) {
-                        if ( element->globalID().is_local() )
+                        if ( id.is_local() ) {
                             list.push_back( element->clone() );
+                            ids[gcw].push_back( id );
+                        }
                     } else {
                         bool found = false;
-                        for ( int j = 0; j < gcw; j++ ) {
-                            size_t index =
-                                AMP::Utilities::findfirst( *( d_elements[t][j] ), element );
-                            if ( index == d_elements[t][j]->size() ) {
-                                index--;
-                            }
-                            if ( *d_elements[t][j]->operator[]( index ) == *element ) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if ( !found )
+                        for ( int j = 0; j < gcw && !found; j++ )
+                            found = found || binarySearch( ids[j], id );
+                        if ( !found ) {
                             list.push_back( element->clone() );
+                            ids[gcw].push_back( id );
+                        }
                     }
                 }
             }
-            AMP::Utilities::unique( list );
-            for ( auto &elem : list )
-                d_elements[t][gcw]->push_back( elem->clone() );
+            std::vector<size_t> I;
+            AMP::Utilities::unique( ids[gcw], I );
+            auto &elements = *d_elements[t][gcw];
+            elements.reserve( ids[gcw].size() );
+            for ( size_t i = 0; i < ids[gcw].size(); i++ )
+                elements.push_back( std::move( list[I[i]] ) );
         }
     }
     // For each entity type, we need to check that any ghost elements are owned by somebody

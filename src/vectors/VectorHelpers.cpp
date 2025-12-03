@@ -1,6 +1,7 @@
 #include "AMP/vectors/VectorHelpers.h"
 #include "AMP/vectors/MultiVector.h"
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra::VectorHelpers {
 
@@ -11,6 +12,8 @@ namespace AMP::LinearAlgebra::VectorHelpers {
 static std::vector<std::vector<std::shared_ptr<const Vector>>>
 getVecs( std::shared_ptr<const Vector> vec, const std::vector<std::string> &names )
 {
+    PROFILE( "VectorHelpers::getVecs" );
+
     std::vector<std::vector<std::shared_ptr<const Vector>>> vecs( names.size() );
     auto multivec = dynamic_cast<const MultiVector *>( vec.get() );
     if ( multivec ) {
@@ -35,9 +38,12 @@ getVecs( std::shared_ptr<const Vector> vec, const std::vector<std::string> &name
     }
     return vecs;
 }
+
 std::vector<Scalar> L1Norm( std::shared_ptr<const Vector> vec,
                             const std::vector<std::string> &names )
 {
+    PROFILE( "VectorHelpers::L1Norm" );
+
     if ( names.empty() )
         return {};
     auto x = localL1Norm( vec, names );
@@ -49,9 +55,12 @@ std::vector<Scalar> L1Norm( std::shared_ptr<const Vector> vec,
         x[i] = y[i];
     return x;
 }
+
 std::vector<Scalar> L2Norm( std::shared_ptr<const Vector> vec,
                             const std::vector<std::string> &names )
 {
+    PROFILE( "VectorHelpers::L2Norm" );
+
     if ( names.empty() )
         return {};
     auto x = localL2Norm( vec, names );
@@ -65,9 +74,12 @@ std::vector<Scalar> L2Norm( std::shared_ptr<const Vector> vec,
         x[i] = sqrt( y[i] );
     return x;
 }
+
 std::vector<Scalar> maxNorm( std::shared_ptr<const Vector> vec,
                              const std::vector<std::string> &names )
 {
+    PROFILE( "VectorHelpers::maxNorm" );
+
     if ( names.empty() )
         return {};
     auto x = localMaxNorm( vec, names );
@@ -79,9 +91,12 @@ std::vector<Scalar> maxNorm( std::shared_ptr<const Vector> vec,
         x[i] = y[i];
     return x;
 }
+
 std::vector<Scalar> localL1Norm( std::shared_ptr<const Vector> vec,
                                  const std::vector<std::string> &names )
 {
+    PROFILE( "VectorHelpers::localL1Norm" );
+
     auto vecs = getVecs( vec, names );
     std::vector<double> x( names.size() );
     for ( size_t i = 0; i < x.size(); i++ ) {
@@ -96,9 +111,12 @@ std::vector<Scalar> localL1Norm( std::shared_ptr<const Vector> vec,
         y[i] = x[i];
     return y;
 }
+
 std::vector<Scalar> localL2Norm( std::shared_ptr<const Vector> vec,
                                  const std::vector<std::string> &names )
 {
+    PROFILE( "VectorHelpers::localL2Norm" );
+
     auto vecs = getVecs( vec, names );
     std::vector<double> x( names.size() );
     for ( size_t i = 0; i < x.size(); i++ ) {
@@ -114,9 +132,12 @@ std::vector<Scalar> localL2Norm( std::shared_ptr<const Vector> vec,
         y[i] = sqrt( x[i] );
     return y;
 }
+
 std::vector<Scalar> localMaxNorm( std::shared_ptr<const Vector> vec,
                                   const std::vector<std::string> &names )
 {
+    PROFILE( "VectorHelpers::localMaxNorm" );
+
     auto vecs = getVecs( vec, names );
     std::vector<double> x( names.size() );
     for ( size_t i = 0; i < x.size(); i++ ) {

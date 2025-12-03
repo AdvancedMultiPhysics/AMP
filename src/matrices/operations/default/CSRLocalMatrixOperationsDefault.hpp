@@ -15,6 +15,8 @@ void CSRLocalMatrixOperationsDefault<Config>::mult( const typename Config::scala
                                                     std::shared_ptr<localmatrixdata_t> A,
                                                     typename Config::scalar_t *out )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::mult" );
+
     const auto nRows = static_cast<lidx_t>( A->numLocalRows() );
     lidx_t *rs, *cols_loc;
     gidx_t *cols;
@@ -36,6 +38,8 @@ void CSRLocalMatrixOperationsDefault<Config>::multTranspose(
     std::vector<typename Config::scalar_t> &vvals,
     std::vector<size_t> &rcols )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::multTranspose" );
+
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
     A->getColumnMap( rcols );
@@ -53,6 +57,8 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::scale( typename Config::scalar_t alpha,
                                                      std::shared_ptr<localmatrixdata_t> A )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::scale" );
+
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
 
     const auto tnnz = A->numberOfNonZeros();
@@ -68,6 +74,8 @@ void CSRLocalMatrixOperationsDefault<Config>::scale( typename Config::scalar_t a
                                                      const typename Config::scalar_t *D,
                                                      std::shared_ptr<localmatrixdata_t> A )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::scale" );
+
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
 
@@ -83,6 +91,8 @@ void CSRLocalMatrixOperationsDefault<Config>::scaleInv( typename Config::scalar_
                                                         const typename Config::scalar_t *D,
                                                         std::shared_ptr<localmatrixdata_t> A )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::scaleInv" );
+
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
 
@@ -98,6 +108,8 @@ void CSRLocalMatrixOperationsDefault<Config>::axpy( typename Config::scalar_t al
                                                     std::shared_ptr<localmatrixdata_t> X,
                                                     std::shared_ptr<localmatrixdata_t> Y )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::axpy" );
+
     const auto [rs_x, cols_x, cols_loc_x, coeffs_x] = X->getDataFields();
     auto [rs_y, cols_y, cols_loc_y, coeffs_y]       = Y->getDataFields();
 
@@ -120,6 +132,8 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::setScalar( typename Config::scalar_t alpha,
                                                          std::shared_ptr<localmatrixdata_t> A )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::setScalar" );
+
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
     const auto tnnz                   = A->numberOfNonZeros();
     std::fill( coeffs, coeffs + tnnz, alpha );
@@ -135,6 +149,8 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::setDiagonal( const typename Config::scalar_t *in,
                                                            std::shared_ptr<localmatrixdata_t> A )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::setDiagonal" );
+
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
 
@@ -146,6 +162,8 @@ void CSRLocalMatrixOperationsDefault<Config>::setDiagonal( const typename Config
 template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::setIdentity( std::shared_ptr<localmatrixdata_t> A )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::setIdentity" );
+
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
 
@@ -158,6 +176,8 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::extractDiagonal( std::shared_ptr<localmatrixdata_t> A,
                                                                typename Config::scalar_t *buf )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::extractDiagonal" );
+
     AMP_DEBUG_INSIST( A, "Local Diagonal Matrix is NULL" );
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
@@ -171,6 +191,8 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::getRowSums( std::shared_ptr<localmatrixdata_t> A,
                                                           typename Config::scalar_t *buf )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::getRowSums" );
+
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
 
@@ -185,6 +207,8 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::getRowSumsAbsolute(
     std::shared_ptr<localmatrixdata_t> A, typename Config::scalar_t *buf )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::getRowSumsAbsolute" );
+
     auto [rs, cols, cols_loc, coeffs] = A->getDataFields();
     const auto nRows                  = static_cast<lidx_t>( A->numLocalRows() );
 
@@ -199,6 +223,8 @@ template<typename Config>
 void CSRLocalMatrixOperationsDefault<Config>::copy( std::shared_ptr<const localmatrixdata_t> X,
                                                     std::shared_ptr<localmatrixdata_t> Y )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::copy" );
+
     AMP_DEBUG_ASSERT( Y->numberOfNonZeros() == X->numberOfNonZeros() );
     const auto tnnz = X->numberOfNonZeros();
 
@@ -217,6 +243,8 @@ void CSRLocalMatrixOperationsDefault<Config>::copyCast(
         X,
     std::shared_ptr<localmatrixdata_t> Y )
 {
+    PROFILE( "CSRLocalMatrixOperationsDefault::copyCast" );
+
     // Check compatibility
     AMP_ASSERT( Y->getMemoryLocation() == X->getMemoryLocation() );
     AMP_ASSERT( Y->beginRow() == X->beginRow() );

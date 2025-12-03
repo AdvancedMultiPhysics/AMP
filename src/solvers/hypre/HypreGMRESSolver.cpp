@@ -69,6 +69,8 @@ void HypreGMRESSolver::setupHypreSolver(
 
 void HypreGMRESSolver::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
+    PROFILE( "HypreGMRESSolver::initialize" );
+
     AMP_ASSERT( parameters );
     HypreGMRESSolver::getFromInput( parameters->d_db );
     setupNestedSolver( parameters );
@@ -88,6 +90,8 @@ void HypreGMRESSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
 void HypreGMRESSolver::reset( std::shared_ptr<SolverStrategyParameters> params )
 {
+    PROFILE( "HypreGMRESSolver::reset" );
+
     destroyHypreSolver();
     HypreSolver::reset( params );
     setupHypreSolver( params );

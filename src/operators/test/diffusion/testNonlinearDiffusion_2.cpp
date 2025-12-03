@@ -20,8 +20,6 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/VectorBuilder.h"
 
-#include "patchfunctions.h"
-
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -34,7 +32,7 @@
  */
 static void nonlinearTest( AMP::UnitTest *ut,
                            const std::string &exeName,
-                           double function( const double, const double, const double ) )
+                           std::function<double( double, double, double )> fun )
 {
     // Initialization
     std::string input_file = "input_" + exeName;
@@ -171,7 +169,7 @@ static void nonlinearTest( AMP::UnitTest *ut,
         double z = curNode->coord()[2];
         std::vector<size_t> dofs;
         nodalDofMap->getDOFs( curNode->globalID(), dofs );
-        double fval = function( x, y, z );
+        double fval = fun( x, y, z );
         diffSolVec->setValuesByGlobalID( 1, &dofs[0], &fval );
     }
     diffSolVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -204,41 +202,6 @@ static void nonlinearTest( AMP::UnitTest *ut,
                   << ", Err = " << totalAll - totalBnd << "********" << std::endl;
     }
 
-    // write values in mathematica form
-    int nranks = globalComm.getSize();
-    if ( nranks == 1 ) {
-        size_t nnodes        = mesh->numLocalElements( AMP::Mesh::GeomType::Vertex );
-        int proc             = globalComm.getRank();
-        int nproc            = globalComm.getSize();
-        std::string filename = "values-" + exeName;
-        std::ofstream file( filename.c_str() );
-        if ( proc == 0 ) {
-            file << "values={"
-                 << "\n";
-        }
-        auto node = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-
-        int i = 0;
-        for ( ; node != node.end(); ++node ) {
-            double x = ( node->coord() )[0];
-            double y = ( node->coord() )[1];
-            double z = ( node->coord() )[2];
-
-            int ii = i;
-            i += 1;
-            double rval = diffResVec->getValueByLocalID( ii );
-            double fval = function( x, y, z );
-            file << "{" << x << "," << y << "," << z << "," << rval << "," << fval << "}";
-            if ( i < (int) nnodes - 1 )
-                file << ",\n";
-        }
-        if ( proc < nproc - 1 ) {
-            file << ",\n";
-        } else {
-            file << "}\n";
-        }
-    }
-
     ut->passes( "values-" + exeName );
 }
 
@@ -249,6 +212,7 @@ int testNonlinearDiffusion_2( int argc, char *argv[] )
     const int NUMFILES          = 1;
     std::string files[NUMFILES] = { "Diffusion-TUI-Thermal-1" };
 
+    auto x_linear = []( double x, double, double ) { return x; };
     for ( auto &file : files )
         nonlinearTest( &ut, file, x_linear );
 

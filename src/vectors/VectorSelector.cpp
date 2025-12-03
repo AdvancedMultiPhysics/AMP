@@ -7,6 +7,7 @@
 #include "AMP/vectors/StridedVariable.h"
 #include "AMP/vectors/SubsetVariable.h"
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -17,6 +18,8 @@ namespace AMP::LinearAlgebra {
 std::shared_ptr<VectorSelector>
 VectorSelector::create( const std::vector<std::shared_ptr<VectorSelector>> &selectors )
 {
+    PROFILE( "VectorSelector::create" );
+
     if ( selectors.empty() )
         return std::make_shared<NullSelector>();
     if ( selectors.size() == 1 )
@@ -33,6 +36,8 @@ bool VectorSelector::isSelected( const Vector & ) const { return true; }
 AMP_MPI VectorSelector::communicator( const Vector &p ) const { return p.getComm(); }
 std::shared_ptr<const Vector> VectorSelector::subset( std::shared_ptr<const Vector> p ) const
 {
+    PROFILE( "VectorSelector::subset" );
+
     return subset( std::const_pointer_cast<Vector>( p ) );
 }
 
@@ -56,6 +61,8 @@ bool VS_ByVariableName::isSelected( const Vector &v ) const
 }
 std::shared_ptr<Vector> VS_ByVariableName::subset( std::shared_ptr<Vector> vec ) const
 {
+    PROFILE( "VS_ByVariableName::subset" );
+
     auto var = vec->getVariable();
     if ( var ) {
         if ( var->getName() == d_VecName )
@@ -72,6 +79,8 @@ VS_Stride::VS_Stride( size_t a, size_t b ) : d_Offset( a ), d_Stride( b ) {}
 bool VS_Stride::isSelected( const Vector & ) const { return true; }
 std::shared_ptr<Vector> VS_Stride::subset( std::shared_ptr<Vector> p ) const
 {
+    PROFILE( "VS_Stride::subset" );
+
     auto variable = std::make_shared<StridedVariable>( p->getName(), d_Offset, d_Stride );
     auto vector   = variable->view( p );
     return vector;
@@ -97,6 +106,8 @@ bool VS_Components::isSelected( const Vector &vec ) const
 }
 std::shared_ptr<Vector> VS_Components::subset( std::shared_ptr<Vector> p ) const
 {
+    PROFILE( "VS_Components::subset" );
+
     if ( d_index.empty() )
         return nullptr;
     size_t N = p->getNumberOfComponents();
@@ -164,6 +175,8 @@ AMP_MPI VS_Comm::communicator( const Vector &p ) const
 }
 std::shared_ptr<Vector> VS_Comm::subset( std::shared_ptr<Vector> p ) const
 {
+    PROFILE( "VS_Comm::subset" );
+
     auto &vecComm = p->getComm();
     if ( vecComm.getSize() == 1 )
         return p;
@@ -198,6 +211,8 @@ AMP_MPI VS_Mesh::communicator( const Vector &p ) const
 }
 std::shared_ptr<Vector> VS_Mesh::subset( std::shared_ptr<Vector> p ) const
 {
+    PROFILE( "VS_Mesh::subset" );
+
     if ( !d_mesh )
         return std::shared_ptr<Vector>();
     auto variable = std::make_shared<MeshVariable>( p->getName(), d_mesh, d_useMeshComm );
@@ -217,6 +232,8 @@ VS_MeshIterator::VS_MeshIterator( const AMP::Mesh::MeshIterator &iterator,
 bool VS_MeshIterator::isSelected( const Vector & ) const { return true; }
 std::shared_ptr<Vector> VS_MeshIterator::subset( std::shared_ptr<Vector> p ) const
 {
+    PROFILE( "VS_MeshIterator::subset" );
+
     auto variable = std::make_shared<MeshIteratorVariable>( p->getName(), d_iterator, d_comm );
     auto vector   = variable->view( p );
     return vector;
@@ -239,6 +256,8 @@ bool MultiSelector::isSelected( const Vector &vec ) const
 }
 std::shared_ptr<Vector> MultiSelector::subset( std::shared_ptr<Vector> vec ) const
 {
+    PROFILE( "VS_MultiSelector::subset" );
+
     for ( auto &s : d_selectors ) {
         if ( !vec )
             return nullptr;

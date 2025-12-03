@@ -39,6 +39,7 @@ void TFQMRSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters>
 
     if ( parameters->d_pNestedSolver ) {
         d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
@@ -50,6 +51,7 @@ void TFQMRSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters>
                 innerParameters->d_global_db = parameters->d_global_db;
                 innerParameters->d_pOperator = d_pOperator;
                 d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
                 AMP_ASSERT( d_pNestedSolver );
             }
         }
@@ -143,6 +145,14 @@ void TFQMRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
     // here to potentially handle singular systems
     d_dInitialResidual =
         d_dResidualNorm > std::numeric_limits<T>::epsilon() ? d_dResidualNorm : 1.0;
+
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "TFQMR: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "TFQMR: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+    }
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "TFQMR: initial solution L2-norm: " << x->L2Norm() << std::endl;

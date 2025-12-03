@@ -384,6 +384,7 @@ void HypreSolver::preSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
 
 void HypreSolver::hypreSolve()
 {
+    PROFILE( "HypreSolver::hypreSolve" );
     // return if the residual is already low enough
     // checkStoppingCriteria responsible for setting flags on convergence reason
     if ( checkStoppingCriteria( d_dResidualNorm ) ) {

@@ -53,6 +53,7 @@ void SASolver::resetLevelOptions()
     d_pair_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
     d_num_smooth_prol                       = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0 );
+    d_prol_spec_lower                       = d_db->getWithDefault<float>( "prol_spec_lower", 0 );
     d_agg_type      = d_db->getWithDefault<std::string>( "agg_type", "simple" );
     d_pre_relax_db  = d_db->getDatabase( "pre_relaxation" );
     d_post_relax_db = d_db->getDatabase( "post_relaxation" );
@@ -83,6 +84,7 @@ void SASolver::setLevelOptions( const size_t lvl )
             lvl_db->getWithDefault<bool>( "checkdd", d_pair_coarsen_settings.checkdd );
         d_num_smooth_prol = lvl_db->getWithDefault<int>( "num_smooth_prol", d_num_smooth_prol );
         d_prol_trunc      = lvl_db->getWithDefault<float>( "prol_trunc", d_prol_trunc );
+        d_prol_spec_lower = lvl_db->getWithDefault<float>( "prol_spec_lower", d_prol_spec_lower );
         d_agg_type        = lvl_db->getWithDefault<std::string>( "agg_type", d_agg_type );
 
         // only replace these DBs if they exist
@@ -154,8 +156,8 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
     d_levels.back().A->setMatrix( mat );
-    d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
-    d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
+    d_levels.back().pre_relaxation  = createRelaxation( 0, fine_op, d_pre_relax_params );
+    d_levels.back().post_relaxation = createRelaxation( 0, fine_op, d_post_relax_params );
     d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
@@ -167,11 +169,14 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 }
 
 std::unique_ptr<SolverStrategy>
-SASolver::createRelaxation( std::shared_ptr<Operator::Operator> A,
+SASolver::createRelaxation( size_t lvl,
+                            std::shared_ptr<Operator::Operator> A,
                             std::shared_ptr<AMG::RelaxationParameters> params )
 {
     auto rel_op = Solver::SolverFactory::create( params );
     rel_op->registerOperator( A );
+    auto &op = *rel_op;
+    dynamic_cast<Relaxation &>( op ).setLevel( lvl );
     return rel_op;
 }
 
@@ -191,9 +196,8 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // Chebyshev terms
-    const double pi = static_cast<double>( AMP::Constants::pi );
-    const double a = 0.98, ma = 1.0 - a, pa = 1.0 + a;
+    // optimal weight for prescribed lower e-val estimate
+    const double omega = 2.0 / ( 1.0 + d_prol_spec_lower );
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {
@@ -201,9 +205,6 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
         auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
 
         // then apply -Dinv in-place
-        const double omega = 0.5 * ( ma * std::cos( pi * static_cast<double>( 2 * i - 1 ) /
-                                                    static_cast<double>( d_num_smooth_prol ) ) +
-                                     pa );
         P_smooth->scaleInv( -omega, D );
 
         // add back in P_tent
@@ -273,9 +274,10 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
             ->setVariables( bVar, xVar );
 
         // Relaxation operators for new level
-        d_levels.back().pre_relaxation = createRelaxation( d_levels.back().A, d_pre_relax_params );
+        d_levels.back().pre_relaxation =
+            createRelaxation( i + 1, d_levels.back().A, d_pre_relax_params );
         d_levels.back().post_relaxation =
-            createRelaxation( d_levels.back().A, d_post_relax_params );
+            createRelaxation( i + 1, d_levels.back().A, d_post_relax_params );
 
         // in/out vectors for new level
         d_levels.back().x          = Ac->createInputVector();
@@ -338,11 +340,20 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     }
     d_dInitialResidual = current_res;
 
-    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "SASolver::apply: initial L2Norm of solution vector: " << x->L2Norm()
+    if ( need_norms && d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "SASolver: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "SASolver: Memory location " << AMP::Utilities::getString( d_mem_loc )
                   << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of residual: " << current_res << std::endl;
+        AMP::pout << "SASolver: kappa " << d_kappa << std::endl;
+    }
+
+    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "SASolver::apply: initial L2Norm of solution vector " << x->L2Norm()
+                  << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector " << b_norm << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of residual " << current_res << std::endl;
     }
 
     // return if the residual is already low enough
@@ -354,6 +365,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
+    double prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
         kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
@@ -364,7 +376,13 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
         if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "SA: iteration " << d_iNumberIterations << ", residual " << current_res
-                      << std::endl;
+                      << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << current_res / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = current_res;
         }
 
         if ( need_norms && checkStoppingCriteria( current_res ) ) {

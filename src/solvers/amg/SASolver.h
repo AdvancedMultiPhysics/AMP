@@ -46,11 +46,13 @@ protected:
     size_t d_min_coarse_global;
     int d_kappa;
     float d_kcycle_tol;
+    Utilities::MemoryType d_mem_loc;
 
     int d_num_relax_pre;
     int d_num_relax_post;
     int d_num_smooth_prol;
     float d_prol_trunc;
+    float d_prol_spec_lower;
     std::string d_agg_type;
     CoarsenSettings d_coarsen_settings;
     PairwiseCoarsenSettings d_pair_coarsen_settings;
@@ -73,7 +75,8 @@ protected:
     void makeCoarseSolver();
 
     std::unique_ptr<SolverStrategy>
-    createRelaxation( std::shared_ptr<Operator::Operator> A,
+    createRelaxation( size_t lvl,
+                      std::shared_ptr<Operator::Operator> A,
                       std::shared_ptr<AMG::RelaxationParameters> params );
 
     void smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,

@@ -20,13 +20,13 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
-#include "patchfunctions.h"
-
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+
 
 /**
  * This test is designed to allow the programmer to set up a function on a mesh and compute the
@@ -35,7 +35,7 @@
  */
 static void linearTest( AMP::UnitTest *ut,
                         const std::string &exeName,
-                        double function( const double, const double, const double ) )
+                        std::function<double( double, double, double )> fun )
 {
     // Initialization
     std::string input_file = "input_" + exeName;
@@ -127,7 +127,7 @@ static void linearTest( AMP::UnitTest *ut,
         double z = pos[2];
         NodalScalarDOF->getDOFs( curNode->globalID(), dofs );
         size_t i    = dofs[0];
-        double fval = function( x, y, z );
+        double fval = fun( x, y, z );
         diffSolVec->setValuesByGlobalID( 1, &i, &fval );
         ++curNode;
     }
@@ -157,7 +157,7 @@ static void linearTest( AMP::UnitTest *ut,
 
             int ii      = i;
             double rval = diffResVec->getValueByLocalID( ii );
-            double fval = function( x, y, z );
+            double fval = fun( x, y, z );
             file << "{" << x << "," << y << "," << z << "," << rval << "," << fval << "}";
             if ( i < nnodes - 1 )
                 file << ",\n";
@@ -184,6 +184,7 @@ int testLinearDiffusion_2( int argc, char *argv[] )
       "Diffusion-UO2MSRZC09-Soret-1" */
     };
 
+    auto x_linear = []( double x, double, double ) { return x; };
     for ( auto &file : files )
         linearTest( &ut, file, x_linear );
 
