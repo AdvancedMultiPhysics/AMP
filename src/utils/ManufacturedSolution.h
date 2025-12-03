@@ -42,10 +42,9 @@ class Database;
  * Not all possibilities are non-trivial. The constructor will tell you which ones are available.
  *
  * Note: some of these are mislabeled at the moment. The cubes and rods are all good. The
- * quarter-shell
- * are suspect.
+ * quarter-shell are suspect.
  */
-class ManufacturedSolution
+class ManufacturedSolution final
 {
 public:
     explicit ManufacturedSolution( std::shared_ptr<Database> db );
@@ -56,7 +55,7 @@ public:
      *  \param y y-coordinate
      *  \param z z-coordinate
      */
-    std::array<double, 10> evaluate( const double x, const double y, const double z ) const;
+    std::array<double, 10> evaluate( double x, double y, double z ) const;
 
     size_t getNumberOfParameters() const { return d_NumberOfParameters; }
 
@@ -70,141 +69,13 @@ public:
 
     const std::string &get_name() const { return d_Name; }
 
+public:
+    const auto &getc() const { return d_c; }
+    const auto &geta() const { return d_a; }
+    const auto &geth() const { return d_h; }
+    const auto &geths() const { return d_hs; }
+
 private:
-    /**
-     *	\brief unit cube, quadratic, all Neumann BC's.
-     *	The normal derivative \f$\frac{\partial u}{\partial n}\f$
-     *	has the values \f$c_i, i=0,\dots,5\f$ on the planes \f$x=0, x=1, y=0, y=1, z=0, z=1\f$,
-     *	respectively.
-     *  Note that \f$\frac{\partial u}{\partial n} = - \frac{\partial u}{\partial x}\f$
-     *	at \f$x=0\f$ and similarly for \f$y=0\f$ and \f$z=0\f$. The derivatives up to order
-     *	two are returned in the order
-     *	\f[ u,
-     *	\frac{\partial u}{\partial x}, \frac{\partial u}{\partial y}, \frac{\partial u}{\partial z},
-     *	\frac{\partial^2 u}{\partial x^2}, \frac{\partial^2 u}{\partial x \partial y},
-     *  \frac{\partial^2 u}{\partial x \partial z},
-     *	\frac{\partial^2 u}{\partial y^2},  \frac{\partial^2 u}{\partial y \partial z},
-     *  \frac{\partial^2 u}{\partial z^2}, \f]
-     *
-     *	or more succinctly,
-     *
-     *	[0, x, y, z, xx, xy, xz, yy, yz, zz]
-     *	 0  1  2  3   4   5   6   7   8   9
-     *
-     *	which is also true for cylindrical coordinates [x,y,z]->[r,th,z]
-     *
-     *  \param x x-coordinate
-     *  \param y y-coordinate
-     *  \param z z-coordinate
-     *  \param mfs manufactured solution
-     */
-    static std::array<double, 10>
-    quad_neumann( const double x, const double y, const double z, const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> quad_dirichlet1( const double x,
-                                                   const double y,
-                                                   const double z,
-                                                   const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> quad_dirichlet2( const double x,
-                                                   const double y,
-                                                   const double z,
-                                                   const ManufacturedSolution *mfs );
-
-    static std::array<double, 10>
-    quad_none( const double x, const double y, const double z, const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_neumann( const double x,
-                                                 const double y,
-                                                 const double z,
-                                                 const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_dirichlet1( const double x,
-                                                    const double y,
-                                                    const double z,
-                                                    const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_dirichlet2( const double x,
-                                                    const double y,
-                                                    const double z,
-                                                    const ManufacturedSolution *mfs );
-
-    static std::array<double, 10>
-    cubic_none( const double x, const double y, const double z, const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> quad_cyl_rod_none( const double r,
-                                                     const double th,
-                                                     const double z,
-                                                     const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_cyl_shell_neumann( const double r,
-                                                           const double th,
-                                                           const double z,
-                                                           const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_cyl_rod_dirichletz2( const double r,
-                                                             const double th,
-                                                             const double z,
-                                                             const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_cyl_rod_rz_none( const double r,
-                                                         const double th,
-                                                         const double z,
-                                                         const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_cyl_rod_none( const double r,
-                                                      const double th,
-                                                      const double z,
-                                                      const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> quad_cyl_shell_neumann( const double r,
-                                                          const double th,
-                                                          const double z,
-                                                          const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> quad_cyl_qtr_shell_neumann( const double r,
-                                                              const double th,
-                                                              const double z,
-                                                              const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> quad_cyl_qtr_shell_dirichlet2( const double r,
-                                                                 const double th,
-                                                                 const double z,
-                                                                 const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> quad_cyl_qtr_shell_none( const double r,
-                                                           const double th,
-                                                           const double z,
-                                                           const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_cyl_qtr_shell_neumann( const double r,
-                                                               const double th,
-                                                               const double z,
-                                                               const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> cubic_cyl_qtr_shell_none( const double r,
-                                                            const double th,
-                                                            const double z,
-                                                            ManufacturedSolution *mfs );
-
-    static std::array<double, 10> general_quadratic_exponential( const double x,
-                                                                 const double y,
-                                                                 const double z,
-                                                                 const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> general_quadratic_sinusoid( const double x,
-                                                              const double y,
-                                                              const double z,
-                                                              const ManufacturedSolution *mfs );
-
-    static std::array<double, 10> general_quadratic_exponential_sinusoid(
-        const double x, const double y, const double z, const ManufacturedSolution *mfs );
-
-    const std::valarray<double> &getc() const { return d_c; }
-    const std::valarray<double> &geta() const { return d_a; }
-    const std::array<std::array<double, 3>, 3> &geth() const { return d_h; }
-    const std::array<std::array<double, 3>, 3> &geths() const { return d_hs; }
-
     enum class FunctionType { POLYNOMIAL, GENERALQUADRATIC };
     enum class Geometry { BRICK, CYLROD, CYLRODRZ, CYLSHELL, QTRCYLSHELL, LASTGeometry };
     enum class Order { QUADRATIC, CUBIC, FOURIER, GAUSSIAN, LASTOrder };
@@ -218,11 +89,8 @@ private:
     size_t d_NumberOfParameters;
     size_t d_NumberOfInputs;
 
-    std::function<std::array<double, 10>(
-        const double, const double, const double, const ManufacturedSolution * )>
+    std::function<std::array<double, 10>( double, double, double, const ManufacturedSolution * )>
         d_functionPointer;
-
-    bool d_internalParameters;
 
     std::valarray<double> d_c;
     std::valarray<double> d_a;
@@ -236,7 +104,6 @@ private:
     std::array<std::array<double, 3>, 3> d_h;
     std::array<std::array<double, 3>, 3> d_hs; // symmetrized h
 
-    double d_Pi;
     double d_MaximumTheta;
     bool d_CylindricalCoords;
 
