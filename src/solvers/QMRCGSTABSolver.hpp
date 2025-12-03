@@ -112,6 +112,14 @@ void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector
     d_dResidualNorm    = static_cast<T>( r0->L2Norm() );
     d_dInitialResidual = d_dResidualNorm;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "QMRCGSTAB: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "QMRCGSTAB: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+    }
+
     if ( d_iDebugPrintInfoLevel > 0 ) {
         AMP::pout << "QMRCGSTAB: initial L2Norm of residual: " << d_dInitialResidual << std::endl;
     }

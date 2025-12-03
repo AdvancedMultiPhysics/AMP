@@ -146,6 +146,14 @@ void TFQMRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
     d_dInitialResidual =
         d_dResidualNorm > std::numeric_limits<T>::epsilon() ? d_dResidualNorm : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "TFQMR: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "TFQMR: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+    }
+
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "TFQMR: initial solution L2-norm: " << x->L2Norm() << std::endl;
         AMP::pout << "TFQMR: initial rhs L2-norm: " << f->L2Norm() << std::endl;

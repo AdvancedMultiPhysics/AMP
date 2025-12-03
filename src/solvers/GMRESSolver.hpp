@@ -168,6 +168,16 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
     // here to potentially handle singular systems
     d_dInitialResidual = beta > std::numeric_limits<T>::epsilon() ? beta : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "GMRES: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "GMRES: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+        AMP::pout << "GMRES: Use restarts " << d_bRestart << std::endl;
+        AMP::pout << "GMRES: Max dimension " << d_iMaxKrylovDimension << std::endl;
+        AMP::pout << "GMRES: Orthogonalization method " << d_sOrthogonalizationMethod << std::endl;
+    }
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "GMRES: initial solution L2Norm: " << u->L2Norm() << std::endl;
@@ -194,7 +204,8 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
 
     auto v_norm = beta;
 
-    int k = 0;
+    int k      = 0;
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
         PROFILE( "GMRESSolver::apply: main loop" );
@@ -278,7 +289,13 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
 
         if ( d_iDebugPrintInfoLevel > 0 ) {
             AMP::pout << "GMRES: iteration " << std::setw( 8 ) << d_iNumberIterations
-                      << ", residual " << v_norm << std::endl;
+                      << ", residual " << v_norm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << v_norm / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = v_norm;
         }
 
         ++k;
