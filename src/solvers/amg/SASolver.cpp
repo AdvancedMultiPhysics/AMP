@@ -38,7 +38,7 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc      = db->getWithDefault<double>( "prol_trunc", 0.0 );
-    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.9 );
+    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.5 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
@@ -143,9 +143,8 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // Chebyshev terms
-    const double pi = static_cast<double>( AMP::Constants::pi );
-    const double ma = 1.0 - d_prol_spec_lower, pa = 1.0 + d_prol_spec_lower;
+    // optimal weight for prescribed lower e-val estimate
+    const double omega = 2.0 / ( 1.0 + d_prol_spec_lower );
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {
@@ -153,9 +152,6 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
         auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
 
         // then apply -Dinv in-place
-        const double omega = 0.5 * ( ma * std::cos( pi * static_cast<double>( 2 * i - 1 ) /
-                                                    static_cast<double>( d_num_smooth_prol ) ) +
-                                     pa );
         P_smooth->scaleInv( -omega, D );
 
         // add back in P_tent
@@ -304,6 +300,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
+    double prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
         kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
@@ -314,7 +311,13 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
         if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "SA: iteration " << d_iNumberIterations << ", residual " << current_res
-                      << std::endl;
+                      << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << current_res / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = current_res;
         }
 
         if ( need_norms && checkStoppingCriteria( current_res ) ) {
