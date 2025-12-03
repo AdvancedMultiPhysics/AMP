@@ -134,7 +134,7 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &exeName
     }
 }
 
-int main( int argc, char *argv[] )
+int testLinearOperatorFromMatrix_1( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
