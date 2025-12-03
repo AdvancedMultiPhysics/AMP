@@ -155,6 +155,15 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     ]
                 )
 
+        hip_flags = []
+
+        if spec.satisfies("+shared +rocm"):
+            hip_flags.append(self.compiler.cxx_pic_flag)
+            
+        if spec.satisfies("+mpi +rocm"):
+            hip_flags.append(spec['mpi'].headers.include_flags)
+            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),])
+
         if spec.satisfies("+rocm"):
             amdgpu_target = spec.variants["amdgpu_target"].value
             if amdgpu_target[0] != "none":
@@ -166,15 +175,10 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                             join_path(spec["llvm-amdgpu"].prefix.bin, "amdclang++"),
                         ),
                         self.define("CMAKE_HIP_ARCHITECTURES", amdgpu_target),
-                        self.define("CMAKE_HIP_FLAGS", ""),
+                        self.define("CMAKE_HIP_FLAGS", " ".join(hip_flags)),
                         self.define_from_variant("CMAKE_HIP_STANDARD", "cxxstd"),
                     ]
                 )
-                
-        if spec.satisfies("+mpi +rocm"):
-            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
-                             self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
-                             ] )
 
         tpl_list = []
 
