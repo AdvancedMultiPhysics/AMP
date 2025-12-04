@@ -44,8 +44,7 @@ protected:
     int d_num_smooth_prol;
     int d_num_relax_pre;
     int d_num_relax_post;
-    int d_kappa;
-    float d_kcycle_tol;
+    KappaKCycle::settings d_cycle_settings;
     float d_prol_trunc;
     float d_prol_spec_lower;
     Utilities::MemoryType d_mem_loc;

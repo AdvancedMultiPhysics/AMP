@@ -41,8 +41,7 @@ private:
     size_t d_num_relax_pre;
     size_t d_num_relax_post;
     bool d_boomer_cg;
-    size_t d_kappa;
-    float d_kcycle_tol;
+    KappaKCycle::settings d_cycle_settings;
     bool d_implicit_RAP;
     Utilities::MemoryType d_mem_loc;
     std::shared_ptr<Aggregator> d_aggregator;
