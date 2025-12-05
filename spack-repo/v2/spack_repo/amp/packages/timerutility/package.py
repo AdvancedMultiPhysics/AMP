@@ -18,6 +18,7 @@ class Timerutility(CMakePackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("1.0.3", tag="1.0.3", commit="d837a0e99cce971d1ff27235fecccacf736f0765")
 
     variant("mpi", default=True, description="build with mpi")
     variant("shared", default=False, description="Build shared libraries")

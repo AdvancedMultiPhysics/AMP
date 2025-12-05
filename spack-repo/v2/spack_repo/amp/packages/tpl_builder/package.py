@@ -19,6 +19,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("2.1.3", tag="2.1.3", commit="1c861c271154fa692259dade523d7e8b7728a58c")
     version("2.1.2", tag="2.1.2", commit="1a9c083972e13e1f54eda2a0e70dc297342d84e5")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
