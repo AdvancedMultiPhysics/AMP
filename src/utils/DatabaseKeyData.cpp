@@ -435,6 +435,12 @@ void AMP::FactoryStrategy<AMP::KeyData>::registerDefault()
     REGISTER_KEYDATA( AMP::EmptyKeyData );
     REGISTER_KEYDATA( AMP::DatabaseVector );
     REGISTER_KEYDATA( AMP::EquationKeyData );
+    d_factories["AMP::KeyDataScalar<std::basic_string<char>>"] = []() {
+        return std::make_unique<AMP::KeyDataScalar<std::string>>();
+    };
+    d_factories["AMP::KeyDataArray<std::basic_string<char>>"] = []() {
+        return std::make_unique<AMP::KeyDataArray<std::string>>();
+    };
 }
 
 
