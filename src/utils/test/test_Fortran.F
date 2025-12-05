@@ -10,7 +10,7 @@
         endif
 
         ! startup
-        call amp_startup_basic_f()
+        call amp_startup_basic()
 
         ! check if initialized
         if ( amp_initialized() ) then
