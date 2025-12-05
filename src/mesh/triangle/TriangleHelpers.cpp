@@ -871,6 +871,9 @@ generateGeom2( std::shared_ptr<AMP::Geometry::Geometry> geom,
         for ( int d = 0; d < NDIM; d++ )
             x1[i][d] = points[i][d];
     }
+    if ( comm.getRank() == 0 )
+        AMP_ASSERT( !tri2.empty() );
+    AMP_ASSERT( tri2.size() == tri_nab2.size() );
     return std::make_shared<TriangleMesh<NDIM>>( NDIM, x1, tri2, tri_nab2, comm, geom );
 }
 std::shared_ptr<AMP::Mesh::Mesh> generateGeom( std::shared_ptr<AMP::Geometry::Geometry> geom,

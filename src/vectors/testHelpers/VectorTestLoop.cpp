@@ -150,9 +150,11 @@ void VectorTests::testSundials( [[maybe_unused]] AMP::UnitTest *ut )
 void VectorTests::testNullVector( AMP::UnitTest *ut )
 {
     PROFILE( "testNullVector" );
-    auto viewFactory = std::make_shared<NullVectorFactory>();
-    VectorTests test( viewFactory );
-    test.InstantiateVector( ut );
+    VectorTests test1( std::make_shared<NullVectorFactory>() );
+    VectorTests test2( std::make_shared<NullVectorDataFactory>() );
+    test1.InstantiateVector( ut );
+    test2.InstantiateVector( ut );
+    test2.testBasicVector( ut );
 }
 
 

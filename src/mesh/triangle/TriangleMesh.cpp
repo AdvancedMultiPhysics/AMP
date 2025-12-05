@@ -277,8 +277,8 @@ void TriangleMesh<NG>::loadBalance( const std::vector<Point> &vertices,
                                     const std::vector<TRI> &tri_nab,
                                     const std::vector<int> &block )
 {
-    AMP_ASSERT( !vertices.empty() );
-    AMP_ASSERT( !tri.empty() && tri.size() == tri_nab.size() && tri.size() == block.size() );
+    AMP_ASSERT( !vertices.empty() && !tri.empty() );
+    AMP_ASSERT( tri.size() == tri_nab.size() && tri.size() == block.size() );
     // Get the owner rank for each node
     auto ranks = AMP::Geometry::GeometryHelpers::assignRanks( vertices, d_comm.getSize() );
     // Reorder the vertices so they are stored grouped by rank
@@ -357,8 +357,10 @@ TriangleMesh<NG>::TriangleMesh( int NP,
     setMeshID();
     // Run some basic checks
     check<NG>( tri, vertices );
+    AMP_ASSERT( tri_nab.size() == tri.size() );
     if ( block.empty() )
         block = std::vector<int>( tri.size(), 0 );
+    AMP_ASSERT( block.size() == tri.size() );
     if ( d_comm.getSize() > 1 ) {
         AMP_ASSERT( tri_nab.size() == tri.size() );
         AMP_ASSERT( block.size() == tri.size() );
