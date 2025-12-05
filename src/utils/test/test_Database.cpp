@@ -355,7 +355,7 @@ void runFileTests( UnitTest &ut, const std::string &filename )
     } catch ( ... ) {
         std::cerr << "Unhandled exception when trying to broadcast Database\n";
     }
-    if ( db )
+    if ( db2 )
         checkResult( ut, *db == *db2, filename + " - send/recv" );
     else
         ut.expected_failure( filename + " - send/recv (caught exception)" );
