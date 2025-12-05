@@ -414,7 +414,7 @@ void amp_startup_basic_f()
     AMP::AMPManagerProperties properties;
     properties.catch_signals.clear();
     properties.stack_trace_type = 2;
-    AMP::AMPManager::startup( argc, argv );
+    AMP::AMPManager::startup( argc, argv, properties );
 }
 void amp_startup_f( int argc, char **argv ) { AMP::AMPManager::startup( argc, argv ); }
 void amp_shutdown_f( void ) { AMP::AMPManager::shutdown(); }
