@@ -373,7 +373,7 @@ void testTypeID( AMP::UnitTest &ut )
     check<std::vector<std::string_view>>( "std::vector<std::string_view>", ut, true );
     check<AMP::Array<std::string>>( "AMP::Array<std::string>", ut, true );
     using namespace AMP;
-    check<Array<std::string>>( "Array<std::string>", ut, true );
+    check<Array<std::string>>( "AMP::Array<std::string>", ut, true );
 }
 
 
