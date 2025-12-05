@@ -409,7 +409,7 @@ AMPManagerProperties AMPManager::getAMPManagerProperties()
 extern "C" {
 void amp_startup_basic_f()
 {
-    int argc = 0;
+    int argc     = 0;
     char *argv[] = { nullptr };
     AMP::AMPManagerProperties properties;
     properties.catch_signals.clear();
