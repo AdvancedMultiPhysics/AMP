@@ -1,21 +1,20 @@
 <<< input_DiffusionFDOperator-3D >>>
 
 LinearSolver{
-  name = "CGSolver"
-  variant = "fcg"
-  max_dimension = 3
+  name = "HyprePCGSolver"
   uses_preconditioner = TRUE
+  diag_scale_pc = TRUE
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
-  max_iterations = 50
+  max_iterations = 100
   print_info_level = 2
 }
 
-<<< "PC-SASolver-HGS-Parameters" >>>
+repetitions = 50
 
 Reference{
-  iterations = 17
-  res_l2_norm = -1
-  tolerance = 0
+  iterations = 100
+  res_l2_norm = -1.0
+  tolerance = 0.0
   strict = FALSE
 }

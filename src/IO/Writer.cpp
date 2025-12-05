@@ -339,7 +339,6 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                     data.numDOFs  = N_dofs;
                     data.isStatic = isStatic;
                     data.dataType = precision;
-                    AMP_ASSERT( data.numDOFs != -1 );
                     mesh2.vectors.push_back( data );
                 }
             }

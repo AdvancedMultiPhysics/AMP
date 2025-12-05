@@ -40,6 +40,7 @@ void CGSolver<T>::initialize(
 
     if ( parameters->d_pNestedSolver ) {
         d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
@@ -51,6 +52,7 @@ void CGSolver<T>::initialize(
                 innerParameters->d_global_db = parameters->d_global_db;
                 innerParameters->d_pOperator = d_pOperator;
                 d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
                 AMP_ASSERT( d_pNestedSolver );
             }
         }
@@ -90,8 +92,9 @@ void CGSolver<T>::allocateScratchVectors( std::shared_ptr<const AMP::LinearAlgeb
     // ensure w does no communication
     d_w->setNoGhosts();
 
-    if ( d_bUsesPreconditioner )
+    if ( d_bUsesPreconditioner ) {
         d_z = u->clone();
+    }
 }
 
 template<typename T>
@@ -159,9 +162,19 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
     d_dInitialResidual =
         d_dResidualNorm > std::numeric_limits<T>::epsilon() ? d_dResidualNorm : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "CG: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "CG: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+        AMP::pout << "CG: Variant " << d_sVariant << std::endl;
+        AMP::pout << "CG: Max dimension " << d_max_dimension << std::endl;
+    }
+
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "CG: initial L2Norm of solution vector: " << u->L2Norm() << std::endl;
-        AMP::pout << "CG: initial L2Norm of rhs vector: " << f->L2Norm() << std::endl;
+        AMP::pout << "CG: initial L2Norm of solution vector " << u->L2Norm() << std::endl;
+        AMP::pout << "CG: initial L2Norm of rhs vector " << f->L2Norm() << std::endl;
     }
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
@@ -212,8 +225,9 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
         PROFILE( "CGSolver:: p = z (initial) " );
         d_p->copyVector( d_z );
     }
-    auto k = -1;
 
+    auto k     = -1;
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
 
@@ -263,7 +277,13 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
 
         if ( d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "CG: iteration " << std::setw( 8 ) << d_iNumberIterations << ", residual "
-                      << d_dResidualNorm << std::endl;
+                      << d_dResidualNorm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << static_cast<T>( d_dResidualNorm ) / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = static_cast<T>( d_dResidualNorm );
         }
 
         // check if converged

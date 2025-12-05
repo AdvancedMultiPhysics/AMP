@@ -26,8 +26,12 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_max_levels     = db->getWithDefault<size_t>( "max_levels", 10 );
     d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
     d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_kappa          = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol     = db->getWithDefault<double>( "kcycle_tol", 0.0 );
+
+    d_cycle_settings.kappa            = db->getWithDefault<size_t>( "kappa", 1 );
+    d_cycle_settings.tol              = db->getWithDefault<double>( "kcycle_tol", 0.0 );
+    d_cycle_settings.comm_free_interp = false;
+    d_cycle_settings.type =
+        KappaKCycle::parseType( db->getWithDefault<std::string>( "kcycle_type", "fcg" ) );
 
     d_coarsen_settings.strength_threshold =
         db->getWithDefault<double>( "strength_threshold", 0.25 );
@@ -38,7 +42,7 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
 
     d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc      = db->getWithDefault<double>( "prol_trunc", 0.0 );
-    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.9 );
+    d_prol_spec_lower = db->getWithDefault<double>( "prol_spec_lower", 0.5 );
 
     const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
     if ( agg_type == "simple" ) {
@@ -143,9 +147,8 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // Chebyshev terms
-    const double pi = static_cast<double>( AMP::Constants::pi );
-    const double ma = 1.0 - d_prol_spec_lower, pa = 1.0 + d_prol_spec_lower;
+    // optimal weight for prescribed lower e-val estimate
+    const double omega = 2.0 / ( 1.0 + d_prol_spec_lower );
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {
@@ -153,9 +156,6 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
         auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
 
         // then apply -Dinv in-place
-        const double omega = 0.5 * ( ma * std::cos( pi * static_cast<double>( 2 * i - 1 ) /
-                                                    static_cast<double>( d_num_smooth_prol ) ) +
-                                     pa );
         P_smooth->scaleInv( -omega, D );
 
         // add back in P_tent
@@ -288,11 +288,20 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     }
     d_dInitialResidual = current_res;
 
-    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "SASolver::apply: initial L2Norm of solution vector: " << x->L2Norm()
+    if ( need_norms && d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "SASolver: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "SASolver: Memory location " << AMP::Utilities::getString( d_mem_loc )
                   << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of residual: " << current_res << std::endl;
+        AMP::pout << "SASolver: kappa " << d_cycle_settings.kappa << std::endl;
+    }
+
+    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "SASolver::apply: initial L2Norm of solution vector " << x->L2Norm()
+                  << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector " << b_norm << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of residual " << current_res << std::endl;
     }
 
     // return if the residual is already low enough
@@ -304,9 +313,11 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
+    double prev_res = 0.0;
+    KappaKCycle cycle{ d_cycle_settings };
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
-        kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
+        cycle( b, x, d_levels, *d_coarse_solver );
 
         d_pOperator->residual( b, x, r );
         current_res =
@@ -314,7 +325,13 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
         if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "SA: iteration " << d_iNumberIterations << ", residual " << current_res
-                      << std::endl;
+                      << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << current_res / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = current_res;
         }
 
         if ( need_norms && checkStoppingCriteria( current_res ) ) {

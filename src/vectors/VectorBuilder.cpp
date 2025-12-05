@@ -64,11 +64,34 @@ INSTANTIATE_SIMPLE_VECTOR( double,
                            AMP::LinearAlgebra::VectorDataDefault<double> );
 
 #ifdef AMP_USE_DEVICE
-using float_op           = AMP::LinearAlgebra::VectorOperationsDevice<float>;
-using double_op          = AMP::LinearAlgebra::VectorOperationsDevice<double>;
 using float_managed_data = AMP::LinearAlgebra::VectorDataDevice<float, AMP::ManagedAllocator<void>>;
 using double_managed_data =
     AMP::LinearAlgebra::VectorDataDevice<double, AMP::ManagedAllocator<void>>;
+using float_device_data  = AMP::LinearAlgebra::VectorDataDevice<float, AMP::DeviceAllocator<void>>;
+using double_device_data = AMP::LinearAlgebra::VectorDataDevice<double, AMP::DeviceAllocator<void>>;
+#endif
+
+#ifdef AMP_USE_KOKKOS
+using float_kokkos_op  = AMP::LinearAlgebra::VectorOperationsKokkos<float>;
+using double_kokkos_op = AMP::LinearAlgebra::VectorOperationsKokkos<double>;
+    #ifdef AMP_USE_DEVICE
+INSTANTIATE_SIMPLE_VECTOR( float, float_kokkos_op, float_managed_data );
+INSTANTIATE_SIMPLE_VECTOR( double, double_kokkos_op, double_managed_data );
+INSTANTIATE_SIMPLE_VECTOR( float, float_kokkos_op, float_device_data );
+INSTANTIATE_SIMPLE_VECTOR( double, double_kokkos_op, double_device_data );
+    #else
+INSTANTIATE_SIMPLE_VECTOR( float, float_kokkos_op, AMP::LinearAlgebra::VectorDataDefault<float> );
+INSTANTIATE_SIMPLE_VECTOR( double,
+                           double_kokkos_op,
+                           AMP::LinearAlgebra::VectorDataDefault<double> );
+    #endif
+#endif
+
+#ifdef AMP_USE_DEVICE
+using float_op  = AMP::LinearAlgebra::VectorOperationsDevice<float>;
+using double_op = AMP::LinearAlgebra::VectorOperationsDevice<double>;
 INSTANTIATE_SIMPLE_VECTOR( float, float_op, float_managed_data );
 INSTANTIATE_SIMPLE_VECTOR( double, double_op, double_managed_data );
+INSTANTIATE_SIMPLE_VECTOR( float, float_op, float_device_data );
+INSTANTIATE_SIMPLE_VECTOR( double, double_op, double_device_data );
 #endif

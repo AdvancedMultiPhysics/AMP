@@ -19,6 +19,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("2.1.3", tag="2.1.3", commit="1c861c271154fa692259dade523d7e8b7728a58c")
     version("2.1.2", tag="2.1.2", commit="1a9c083972e13e1f54eda2a0e70dc297342d84e5")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
@@ -37,6 +38,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("petsc", default=False, description="Build with support for petsc")
     variant("trilinos", default=False, description="Build with support for trilinos")
     variant("test_gpus", default=-1, values=int, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
+    variant("no_implicit_links", default=False, description="turn off injection of implicit lib links")
     variant(
         "cxxstd",
         default="17",
@@ -58,11 +60,21 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("stacktrace+shared", when="+shared+stacktrace")
     depends_on("stacktrace+mpi", when="+mpi+stacktrace")
     depends_on("stacktrace~mpi", when="~mpi+stacktrace")
+    depends_on("stacktrace+timerutility", when="+timerutility+stacktrace")
+    depends_on("stacktrace~timerutility", when="~timerutility+stacktrace")
+    depends_on(f"stacktrace cxxstd=17", when=f"+stacktrace cxxstd=17")
+    depends_on(f"stacktrace cxxstd=20", when=f"+stacktrace cxxstd=20")
+    depends_on(f"stacktrace cxxstd=23", when=f"+stacktrace cxxstd=23")
 
     depends_on("timerutility~shared", when="~shared+timerutility")
     depends_on("timerutility+shared", when="+shared+timerutility")
+    depends_on("timerutility~no_implicit_links", when="~no_implicit_links+timerutility")
+    depends_on("timerutility+no_implicit_links", when="+no_implicit_links+timerutility")
     depends_on("timerutility+mpi", when="+mpi+timerutility")
     depends_on("timerutility~mpi", when="~mpi+timerutility")
+    depends_on(f"timerutility cxxstd=17", when=f"+timerutility cxxstd=17")
+    depends_on(f"timerutility cxxstd=20", when=f"+timerutility cxxstd=20")
+    depends_on(f"timerutility cxxstd=23", when=f"+timerutility cxxstd=23")
 
     depends_on("lapackwrappers~shared", when="~shared+lapackwrappers")
     depends_on("lapackwrappers+shared", when="+shared+lapackwrappers")
@@ -117,7 +129,6 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
             self.define("DISABLE_ALL_TESTS", True),
             self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
-            self.define("ENABLE_STATIC", not spec.variants["shared"].value),
             self.define_from_variant("USE_MPI", "mpi"),
             self.define("MPI_SKIP_SEARCH", False),
             self.define_from_variant("USE_OPENMP", "openmp"),
@@ -147,12 +158,23 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                         ),
                         self.define("CMAKE_CUDA_ARCHITECTURES", cuda_arch),
                         self.define("CMAKE_CUDA_FLAGS", " ".join(cuda_flags)),
+                        self.define_from_variant("CMAKE_CUDA_STANDARD", "cxxstd"),
                     ]
                 )
+
+        hip_flags = []
+
+        if spec.satisfies("+shared +rocm"):
+            hip_flags.append(self.compiler.cxx_pic_flag)
+            
+        if spec.satisfies("+mpi +rocm"):
+            hip_flags.append(spec['mpi'].headers.include_flags)
+            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),])
 
         if spec.satisfies("+rocm"):
             amdgpu_target = spec.variants["amdgpu_target"].value
             if amdgpu_target[0] != "none":
+                hip_flags.append("")
                 options.extend(
                     [
                         self.define("USE_HIP", True),
@@ -161,14 +183,10 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                             join_path(spec["llvm-amdgpu"].prefix.bin, "amdclang++"),
                         ),
                         self.define("CMAKE_HIP_ARCHITECTURES", amdgpu_target),
-                        self.define("CMAKE_HIP_FLAGS", ""),
+                        self.define("CMAKE_HIP_FLAGS", " ".join(hip_flags)),
+                        self.define_from_variant("CMAKE_HIP_STANDARD", "cxxstd"),
                     ]
                 )
-                
-        if spec.satisfies("+mpi +rocm"):
-            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
-                             self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
-                             ] )
 
         tpl_list = []
 

@@ -55,6 +55,7 @@ void GMRESSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters>
 
     if ( parameters->d_pNestedSolver ) {
         d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
@@ -66,6 +67,7 @@ void GMRESSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters>
                 innerParameters->d_global_db = parameters->d_global_db;
                 innerParameters->d_pOperator = d_pOperator;
                 d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
                 AMP_ASSERT( d_pNestedSolver );
             }
         }
@@ -166,6 +168,16 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
     // here to potentially handle singular systems
     d_dInitialResidual = beta > std::numeric_limits<T>::epsilon() ? beta : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "GMRES: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "GMRES: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+        AMP::pout << "GMRES: Use restarts " << d_bRestart << std::endl;
+        AMP::pout << "GMRES: Max dimension " << d_iMaxKrylovDimension << std::endl;
+        AMP::pout << "GMRES: Orthogonalization method " << d_sOrthogonalizationMethod << std::endl;
+    }
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "GMRES: initial solution L2Norm: " << u->L2Norm() << std::endl;
@@ -192,7 +204,8 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
 
     auto v_norm = beta;
 
-    int k = 0;
+    int k      = 0;
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
         PROFILE( "GMRESSolver::apply: main loop" );
@@ -212,12 +225,15 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                 d_vBasis[k]->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
                 d_pOperator->apply( d_vBasis[k], d_z );
                 d_pNestedSolver->apply( d_z, v );
+                v->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
             } else if ( d_preconditioner_side == "right" ) {
                 if ( !d_bFlexibleGMRES ) {
                     d_pNestedSolver->apply( d_vBasis[k], d_z );
+                    d_z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
                     d_pOperator->apply( d_z, v );
                 } else {
                     d_pNestedSolver->apply( d_vBasis[k], zb );
+                    zb->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
                     d_pOperator->apply( zb, v );
                 }
             } else {
@@ -273,7 +289,13 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
 
         if ( d_iDebugPrintInfoLevel > 0 ) {
             AMP::pout << "GMRES: iteration " << std::setw( 8 ) << d_iNumberIterations
-                      << ", residual " << v_norm << std::endl;
+                      << ", residual " << v_norm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << v_norm / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = v_norm;
         }
 
         ++k;
@@ -509,6 +531,7 @@ void GMRESSolver<T>::computeInitialResidual( bool use_zero_guess,
     if ( use_zero_guess ) {
         if ( d_bUsesPreconditioner && ( d_preconditioner_side == "left" ) ) {
             d_pNestedSolver->apply( f, res );
+            res->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         } else {
             res->copyVector( f );
         }
@@ -518,6 +541,7 @@ void GMRESSolver<T>::computeInitialResidual( bool use_zero_guess,
         if ( d_bUsesPreconditioner && ( d_preconditioner_side == "left" ) ) {
             d_pOperator->residual( f, u, tmp );
             d_pNestedSolver->apply( tmp, res );
+            res->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         } else {
             // this computes res = f - L(u)
             d_pOperator->residual( f, u, res );
@@ -545,6 +569,7 @@ void GMRESSolver<T>::addCorrection( const int nr,
 
             // this solves M z1 = V_m * y_m (so z1= inv(M) * V_m * y_m)
             d_pNestedSolver->apply( z, z1 );
+            z1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         } else {
             z1->setToScalar( static_cast<T>( 0.0 ) );
             for ( int i = 0; i <= nr; ++i ) {

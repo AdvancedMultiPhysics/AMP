@@ -67,6 +67,8 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
+            AMP_WARN_ONCE(
+                "CSRMatrixOperationsDefault::mult deep-copying column map to size_t required" );
             // Fall back to forcing a copy-cast inside matrix data
             auto colMap = offdMatrix->getColumnMapSizeT();
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );

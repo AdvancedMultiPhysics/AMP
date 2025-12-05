@@ -8,7 +8,6 @@
     #include "AMP/operators/diffusion/DiffusionTransportModel.h"
     #include "AMP/operators/diffusion/DiffusionTransportTensorModel.h"
     #include "AMP/operators/libmesh/MassDensityModel.h"
-    #include "AMP/operators/libmesh/PelletContactConductanceModel.h"
     #include "AMP/operators/libmesh/SourcePhysicsModel.h"
     #include "AMP/operators/mechanics/ElasticDamageThermalStrainModel.h"
     #include "AMP/operators/mechanics/GeneralCladThermalCreepPlasticModel.h"
@@ -59,7 +58,6 @@ std::shared_ptr<ElementPhysicsModel> ElementPhysicsModelFactory::createElementPh
     resetElementPhysicsModel( DiffusionTransportModel );
     resetElementPhysicsModel( DiffusionTransportTensorModel );
     resetElementPhysicsModel( DiffusionCylindricalTransportModel );
-    resetElementPhysicsModel( PelletContactConductanceModel );
     resetElementPhysicsModel( ConvectiveHeatCoefficient );
     resetElementPhysicsModel( SourcePhysicsModel );
     resetElementPhysicsModel( MassDensityModel );

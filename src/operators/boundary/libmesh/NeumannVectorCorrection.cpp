@@ -262,6 +262,7 @@ std::shared_ptr<OperatorParameters>
 NeumannVectorCorrection::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr )
 {
     auto db = std::make_shared<AMP::Database>( "Dummy" );
+    db->putScalar( "name", "NeumannVectorCorrection" );
     db->putScalar( "FE_ORDER", "FIRST" );
     db->putScalar( "FE_FAMILY", "LAGRANGE" );
     db->putScalar( "QRULE_TYPE", "QGAUSS" );
@@ -284,7 +285,8 @@ NeumannVectorCorrection::getJacobianParameters( AMP::LinearAlgebra::Vector::cons
         }
     }
 
-    auto outParams = std::make_shared<NeumannVectorCorrectionParameters>( db );
+    auto outParams    = std::make_shared<NeumannVectorCorrectionParameters>( db );
+    outParams->d_Mesh = d_Mesh;
 
     return outParams;
 }

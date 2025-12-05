@@ -20,11 +20,13 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("4.0.2", tag="4.0.2", commit="5212bf40985c563ab692b1cca6572f6b03954e2a")
     version("4.0.1", tag="4.0.1", commit="13d565f435019a7e163842297e657be1bc3e53fb")
     version("4.0.0", tag="4.0.0", commit="7ebbcfef5b5c9d36e828a2da2d27e2106499e454")
     version("3.1.0", tag="3.1.0", commit="c8a52e6f3124e43ebce944ee3fae8b9a994c4dbe")
     
     variant("mpi", default=True, description="Build with MPI support")
+    variant("lapack", default=False, description="Build with support for lapack")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
     variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
@@ -34,6 +36,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     variant("petsc", default=False, description="Build with support for petsc")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
     variant("trilinos", default=False, description="Build with support for Trilinos")
+    variant("no_implicit_links", default=False, description="turn off injection of implicit lib links")
     variant(
         "cxxstd",
         default="17",
@@ -48,8 +51,9 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("cmake@3.26.0:")
     depends_on("tpl-builder+stacktrace")
     depends_on("tpl-builder+stacktrace+timerutility", when="+timerutility")
+    depends_on("tpl-builder+hypre+lapack", when="+hypre")
 
-    tpl_depends = ["hypre", "kokkos", "kokkos-kernels", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc", "trilinos"]
+    tpl_depends = ["shared", "no_implicit_links", "hypre", "lapack", "kokkos", "kokkos-kernels", "mpi", "openmp", "cuda", "rocm", "libmesh", "petsc", "trilinos"]
 
     for v in tpl_depends:
         depends_on(f"tpl-builder+{v}", when=f"+{v}")
@@ -83,6 +87,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
 
         options = [
             self.define("TPL_DIRECTORY", spec["tpl-builder"].prefix),
+            self.define_from_variant("DISABLE_IMPLICIT_LINK", "no_implicit_links"),
             self.define("AMP_ENABLE_TESTS", self.run_tests),
             self.define("EXCLUDE_TESTS_FROM_ALL", not self.run_tests),
             self.define("AMP_ENABLE_EXAMPLES", False),

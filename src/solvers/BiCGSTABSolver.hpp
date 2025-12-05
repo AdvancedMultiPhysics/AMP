@@ -49,6 +49,7 @@ void BiCGSTABSolver<T>::initialize( std::shared_ptr<const SolverStrategyParamete
 
     if ( parameters->d_pNestedSolver ) {
         d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
@@ -60,6 +61,7 @@ void BiCGSTABSolver<T>::initialize( std::shared_ptr<const SolverStrategyParamete
                 innerParameters->d_global_db = parameters->d_global_db;
                 innerParameters->d_pOperator = d_pOperator;
                 d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
                 AMP_ASSERT( d_pNestedSolver );
             }
         }
@@ -159,6 +161,14 @@ void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     d_dInitialResidual =
         d_dResidualNorm > std::numeric_limits<T>::epsilon() ? d_dResidualNorm : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "BiCGSTAB: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "BiCGSTAB: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+    }
+
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "BiCGSTAB: initial solution L2Norm: " << u->L2Norm() << std::endl;
         AMP::pout << "BiCGSTAB: initial rhs L2Norm: " << f->L2Norm() << std::endl;
@@ -189,6 +199,7 @@ void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     d_p->zero();
     d_v->zero();
 
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
 
@@ -255,7 +266,6 @@ void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
             d_s_hat = d_s;
         }
 
-
         d_s_hat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         d_pOperator->apply( d_s_hat, d_t );
 
@@ -279,7 +289,13 @@ void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
 
         if ( d_iDebugPrintInfoLevel > 0 ) {
             AMP::pout << "BiCGSTAB: iteration " << std::setw( 8 ) << d_iNumberIterations
-                      << ", residual " << d_dResidualNorm << std::endl;
+                      << ", residual " << d_dResidualNorm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << static_cast<T>( d_dResidualNorm ) / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = static_cast<T>( d_dResidualNorm );
         }
 
         // break if the residual is low enough

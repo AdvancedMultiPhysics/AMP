@@ -99,6 +99,7 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         }
     }
     auto current_res = static_cast<double>( d_dInitialResidual );
+    double prev_res  = 0.0;
 
     // apply solver for needed number of iterations
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
@@ -111,7 +112,13 @@ void Relaxation::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
             if ( d_iDebugPrintInfoLevel > 1 ) {
                 AMP::pout << short_name << ": iteration " << d_iNumberIterations << ", residual "
-                          << current_res << std::endl;
+                          << current_res << ", conv ratio ";
+                if ( prev_res > 0.0 ) {
+                    AMP::pout << current_res / prev_res << std::endl;
+                } else {
+                    AMP::pout << "--" << std::endl;
+                }
+                prev_res = current_res;
             }
 
             if ( checkStoppingCriteria( current_res ) ) {
@@ -201,7 +208,7 @@ void HybridGS::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                              [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
-#if 1
+#ifdef AMP_AMG_RELAXATION_PROFILE
 template<typename Config>
 void HybridGS::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                       std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -452,9 +459,6 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
 JacobiL1::JacobiL1( std::shared_ptr<const SolverStrategyParameters> params )
     : Relaxation( params, "JacobiL1", "JL1" )
 {
-    d_spec_lower = d_db->getWithDefault<float>( "spec_lower", 0.8f );
-    AMP_DEBUG_INSIST( d_spec_lower >= 0.0 && d_spec_lower < 1.0,
-                      "JacobiL1: Invalid damping range, need a in [0,1)" );
     if ( d_pOperator ) {
         registerOperator( d_pOperator );
     }
@@ -479,7 +483,10 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     std::shared_ptr<LinearAlgebra::Vector> D;
     LinearAlgebra::csrVisit( d_matrix,
                              [&D]( auto csr_ptr ) { D = csr_ptr->getRowSumsAbsolute( D, true ); } );
-    d_diag.swap( D );
+    d_dinv.swap( D );
+    d_dinv->reciprocal( *d_dinv );
+    d_r.reset();
+    d_z.reset();
 }
 
 void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -489,7 +496,7 @@ void JacobiL1::relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                              [this, b, x]( auto csr_ptr ) { this->relax( csr_ptr, b, x ); } );
 }
 
-#if 1
+#ifdef AMP_AMG_RELAXATION_PROFILE
 template<typename Config>
 void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                       std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -497,31 +504,48 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
 {
     using scalar_t = typename Config::scalar_t;
 
-    // Application of Jacobi L1 is x += omega * Dinv * r
-    // where r is (b - A * x), D is sum of absolute values
-    // in each row of A, and omega is weight determined from
-    // Chebyshev iteration knowing that we damp in range [a,1]
+    // Implements the optimized (but not optimal) polynomials from
+    // https://arxiv.org/pdf/2202.08830
 
-    const scalar_t pi = static_cast<scalar_t>( AMP::Constants::pi );
-    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
-
-    // storage for r
-    auto r = x->clone();
+    // storage for r and z
+    if ( !d_r && d_num_sweeps > 1 ) {
+        d_r = x->clone();
+    }
+    if ( !d_z ) {
+        d_z = x->clone();
+    }
 
     auto run = [&]() {
-        for ( size_t i = 0; i < d_num_sweeps; ++i ) {
-            // find omega
-            const auto irat =
-                static_cast<scalar_t>( 2 * i - 1 ) / static_cast<scalar_t>( d_num_sweeps );
-            const scalar_t om = 0.5 * ( ma * std::cos( pi * irat ) + pa );
-            // update residual
-            A->mult( x, r );
-            r->subtract( *b, *r );
-            // scale by Dinv
-            r->divide( *r, *d_diag );
-            // update solution
-            x->axpby( om, 1.0, *r );
-            x->makeConsistent();
+        // store initial residual in d_z instead of d_r
+        A->mult( x, d_z );
+        d_z->subtract( *b, *d_z );
+        d_z->multiply( *d_z, *d_dinv );
+
+        // put first iterate into xprev and swap to prime for following iterates
+        d_z->scale( scalar_t{ 4.0 / 3.0 } );
+        x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+        x->makeConsistent(); // needed?
+
+        // iterate further, coeffs use 1-based indexing so start at k=2
+        // since k=1 set above
+        for ( size_t k = 2; k <= d_num_sweeps; ++k ) {
+            // update residual and precondition
+            A->mult( x, d_r );
+            d_r->subtract( *b, *d_r );
+            d_r->multiply( *d_r, *d_dinv );
+
+            // term coefficients
+            const auto alpha =
+                static_cast<scalar_t>( 2 * k - 3 ) / static_cast<scalar_t>( 2 * k + 1 );
+            const auto beta =
+                static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
+
+            // create new iterate, in total want
+            // d_z <- alpha * d_z + beta * d_r
+            // x <- x + d_z
+            d_z->axpby( beta, alpha, *d_r );
+            x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+            x->makeConsistent(); // needed?
         }
     };
 
@@ -555,30 +579,42 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
 {
     using scalar_t = typename Config::scalar_t;
 
-    // Application of Jacobi L1 is x += omega * Dinv * r
-    // where r is (b - A * x), D is sum of absolute values
-    // in each row of A, and omega is weight determined from
-    // Chebyshev iteration knowing that we damp in range [a,1]
+    // storage for r and z
+    if ( !d_r && d_num_sweeps > 1 ) {
+        d_r = x->clone();
+    }
+    if ( !d_z ) {
+        d_z = x->clone();
+    }
 
-    const scalar_t pi = static_cast<scalar_t>( AMP::Constants::pi );
-    const scalar_t ma = 1.0 - d_spec_lower, pa = 1.0 + d_spec_lower;
+    // store initial residual in d_z instead of d_r
+    A->mult( x, d_z );
+    d_z->subtract( *b, *d_z );
+    d_z->multiply( *d_z, *d_dinv );
 
-    // storage for r
-    auto r = x->clone();
+    // put first iterate into xprev and swap to prime for following iterates
+    d_z->scale( scalar_t{ 4.0 / 3.0 } );
+    x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+    x->makeConsistent(); // needed?
 
-    for ( size_t i = 0; i < d_num_sweeps; ++i ) {
-        // find omega
-        const scalar_t om = 0.5 * ( ma * std::cos( pi * static_cast<scalar_t>( 2 * i - 1 ) /
-                                                   static_cast<scalar_t>( d_num_sweeps ) ) +
-                                    pa );
-        // update residual
-        A->mult( x, r );
-        r->subtract( *b, *r );
-        // scale by Dinv
-        r->divide( *r, *d_diag );
-        // update solution
-        x->axpby( om, 1.0, *r );
-        x->makeConsistent();
+    // iterate further, coeffs use 1-based indexing so start at k=2
+    // since k=1 set above
+    for ( size_t k = 2; k <= d_num_sweeps; ++k ) {
+        // update residual and precondition
+        A->mult( x, d_r );
+        d_r->subtract( *b, *d_r );
+        d_r->multiply( *d_r, *d_dinv );
+
+        // term coefficients
+        const auto alpha = static_cast<scalar_t>( 2 * k - 3 ) / static_cast<scalar_t>( 2 * k + 1 );
+        const auto beta = static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
+
+        // create new iterate, in total want
+        // d_z <- alpha * d_z + beta * d_r
+        // x <- x + d_z
+        d_z->axpby( beta, alpha, *d_r );
+        x->axpy( scalar_t{ 1.0 }, *d_z, *x );
+        x->makeConsistent(); // needed?
     }
 }
 #endif
