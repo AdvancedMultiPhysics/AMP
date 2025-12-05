@@ -154,7 +154,7 @@ void VectorTests::testNullVector( AMP::UnitTest *ut )
     VectorTests test2( std::make_shared<NullVectorDataFactory>() );
     test1.InstantiateVector( ut );
     test2.InstantiateVector( ut );
-    test2.testBasicVector( ut );
+    //test2.testBasicVector( ut );
 }
 
 

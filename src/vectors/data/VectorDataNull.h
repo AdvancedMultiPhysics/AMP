@@ -60,7 +60,7 @@ public: // Functions inherited from VectorData
     void swapData( VectorData & ) override { AMP_ERROR( "Not finished" ); }
     std::shared_ptr<VectorData> cloneData( const std::string & = "" ) const override
     {
-        return nullptr;
+        return std::make_shared<VectorDataNull<TYPE>>();
     }
     void makeConsistent( ScatterType ) override {}
     using VectorData::makeConsistent;
