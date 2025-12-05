@@ -221,7 +221,14 @@ public:
         static_assert( !std::is_same_v<TYPE, std::vector<bool>::reference> );
     }
     virtual ~KeyDataScalar() {}
-    typeID getClassType() const override { return getTypeID<KeyDataScalar>(); }
+    typeID getClassType() const override
+    {
+        // Remove const/references
+        using T1 = typename std::remove_reference_t<TYPE>;
+        using T2 = typename std::remove_cv_t<T1>;
+        using T  = typename std::remove_cv_t<T2>;
+        return AMP::getTypeID<KeyDataScalar<T>>();
+    }
     std::unique_ptr<KeyData> clone() const override
     {
         return std::make_unique<KeyDataScalar>( d_data, d_unit );
@@ -325,7 +332,14 @@ public:
         data.clear(); // Suppress cppclean warning
     }
     virtual ~KeyDataArray() {}
-    typeID getClassType() const override { return getTypeID<KeyDataArray>(); }
+    typeID getClassType() const override
+    {
+        // Remove const/references
+        using T1 = typename std::remove_reference_t<TYPE>;
+        using T2 = typename std::remove_cv_t<T1>;
+        using T  = typename std::remove_cv_t<T2>;
+        return AMP::getTypeID<KeyDataArray<T>>();
+    }
     std::unique_ptr<KeyData> clone() const override
     {
         return std::make_unique<KeyDataArray>( d_data, d_unit );
