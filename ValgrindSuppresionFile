@@ -182,6 +182,77 @@
    fun:start_thread
    fun:clone
 }
+{
+   orte_init_leak
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_init
+   ...
+}
+{
+   orte_init_leak
+   Memcheck:Leak
+   fun:calloc
+   ...
+   fun:orte_init
+   ...
+}
+{
+   orte_daemon_recv
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_daemon_recv
+   ...
+}
+{
+   orte_rmaps_base_map_job
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_rmaps_base_map_job
+   ...
+}
+{
+   orte_plm_base_post_launch
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_plm_base_post_launch
+   ...
+}
+{
+   orte_debugger_init_after_spawnh
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_debugger_init_after_spawn
+   ...
+}
+{
+   orte_odls_base_default_launch_local
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_odls_base_default_launch_local
+   ...
+}
+{
+   orte_submit_init
+   Memcheck:Leak
+   ...
+   fun:orte_submit_init
+   ...
+}
+{
+   orte_exit
+   Memcheck:Leak
+   ...
+   fun:exit
+   obj:/usr/bin/orterun
+   ...
+}
 
 
 # Supress nvidia errors
