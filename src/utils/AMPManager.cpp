@@ -413,7 +413,8 @@ void amp_startup_basic_f()
     char *argv[] = { nullptr };
     AMP::AMPManagerProperties properties;
     properties.catch_signals.clear();
-    properties.stack_trace_type = 2;
+    properties.stack_trace_type  = 2;
+    properties.initialize_device = false;
     AMP::AMPManager::startup( argc, argv, properties );
 }
 void amp_startup_f( int argc, char **argv ) { AMP::AMPManager::startup( argc, argv ); }
