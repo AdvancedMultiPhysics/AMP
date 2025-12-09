@@ -25,6 +25,8 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
         return;
     }
 
+    AMP_DEBUG_ASSERT( d_tag_test >= 0 && d_tag_row >= 0 && d_tag_col >= 0 && d_tag_coeff >= 0 );
+
 #ifdef AMP_USE_DEVICE
     deviceSynchronize();
 #endif
@@ -41,12 +43,12 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
         const auto num_rs  = matrix->d_num_rows + 1;
         const auto num_nnz = matrix->d_nnz;
         d_send_requests.emplace_back(
-            d_comm.Isend( matrix->d_row_starts.get(), num_rs, dest, ROW_TAG ) );
+            d_comm.Isend( matrix->d_row_starts.get(), num_rs, dest, d_tag_row ) );
         if ( !matrix->isEmpty() ) {
             d_send_requests.emplace_back(
-                d_comm.Isend( matrix->d_cols.get(), num_nnz, dest, COL_TAG ) );
+                d_comm.Isend( matrix->d_cols.get(), num_nnz, dest, d_tag_col ) );
             d_send_requests.emplace_back(
-                d_comm.Isend( matrix->d_coeffs.get(), num_nnz, dest, COEFF_TAG ) );
+                d_comm.Isend( matrix->d_coeffs.get(), num_nnz, dest, d_tag_coeff ) );
         }
     }
     d_send_called = true;
@@ -73,17 +75,17 @@ void CSRMatrixCommunicator<Config>::countSources(
     for ( size_t n = 0; n < d_allowed_dest.size(); ++n ) {
         const auto r = d_allowed_dest[n];
         dest_used[n] = matrices.count( r ) > 0 ? 1 : 0;
-        count_dest_reqs.push_back( d_comm.Isend( &dest_used[n], 1, r, COMM_TEST ) );
+        count_dest_reqs.push_back( d_comm.Isend( &dest_used[n], 1, r, d_tag_test ) );
     }
 
     // Similarly, look for messages from all in our recv-list to tell
     // us what comms will happen.
     d_num_sources = 0;
     for ( int n = 0; n < d_num_allowed_sources; ++n ) {
-        auto [source, tag, num_bytes] = d_comm.probe( -1, COMM_TEST );
-        AMP_DEBUG_ASSERT( tag == COMM_TEST );
+        auto [source, tag, num_bytes] = d_comm.probe( -1, d_tag_test );
+        AMP_DEBUG_ASSERT( tag == d_tag_test );
         int result = 0;
-        d_comm.recv( &result, 1, source, COMM_TEST );
+        d_comm.recv( &result, 1, source, d_tag_test );
         if ( result == 1 ) {
             d_num_sources++;
         }
@@ -123,10 +125,10 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
 
     // there are d_num_sources matrices to receive
     // always sent in order row_starts, cols, coeffs
-    // start with probe on any source with ROW_TAG
+    // start with probe on any source with d_tag_row
     for ( int ns = 0; ns < d_num_sources; ++ns ) {
-        auto [source, tag, num_bytes] = d_comm.probe( -1, ROW_TAG );
-        AMP_ASSERT( tag == ROW_TAG );
+        auto [source, tag, num_bytes] = d_comm.probe( -1, d_tag_row );
+        AMP_ASSERT( tag == d_tag_row );
         // remember row_starts has extra entry
         const lidx_t num_rows = ( num_bytes / sizeof( lidx_t ) ) - 1;
         // if last_row is zero then choose based on num_rows,
@@ -148,12 +150,12 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
         AMP_ASSERT( inserted );
         auto block = ( *it ).second;
         // matrix now exists and has row_starts buffer, recv it and trigger allocations
-        d_comm.recv( block->d_row_starts.get(), num_rows + 1, source, ROW_TAG );
+        d_comm.recv( block->d_row_starts.get(), num_rows + 1, source, d_tag_row );
         block->setNNZ( false );
         if ( !block->isEmpty() ) {
             // buffers for cols and coeffs now allocated, recv them and continue to next probe
-            d_comm.recv( block->d_cols.get(), block->d_nnz, source, COL_TAG );
-            d_comm.recv( block->d_coeffs.get(), block->d_nnz, source, COEFF_TAG );
+            d_comm.recv( block->d_cols.get(), block->d_nnz, source, d_tag_col );
+            d_comm.recv( block->d_coeffs.get(), block->d_nnz, source, d_tag_coeff );
         }
     }
 
