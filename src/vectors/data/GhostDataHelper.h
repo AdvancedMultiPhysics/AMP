@@ -114,6 +114,9 @@ protected:
     int *d_recvSizes         = nullptr;
     int *d_sendDisplacements = nullptr;
     int *d_recvDisplacements = nullptr;
+
+    // MPI communication tags
+    int d_scatter_tag;
 };
 
 

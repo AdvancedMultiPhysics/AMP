@@ -22,14 +22,14 @@ namespace AMP::LinearAlgebra {
  ****************************************************************/
 template<class TYPE, class Allocator>
 GhostDataHelper<TYPE, Allocator>::GhostDataHelper()
-    : d_UpdateState{ std::make_shared<UpdateState>() }
+    : d_UpdateState{ std::make_shared<UpdateState>() }, d_scatter_tag{ -1 }
 {
     *d_UpdateState = UpdateState::UNCHANGED;
 }
 
 template<class TYPE, class Allocator>
 GhostDataHelper<TYPE, Allocator>::GhostDataHelper( std::shared_ptr<CommunicationList> list )
-    : d_UpdateState{ std::make_shared<UpdateState>() }
+    : d_UpdateState{ std::make_shared<UpdateState>() }, d_scatter_tag{ -1 }
 {
     *d_UpdateState = UpdateState::UNCHANGED;
     setCommunicationList( list );
@@ -141,6 +141,10 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
         AMP_ASSERT( commList->getStartGID() == d_localStart );
         AMP_ASSERT( commList->numLocalRows() == d_localSize );
     }
+
+    // get the communicator and generate tags
+    const auto &comm = commList->getComm();
+    d_scatter_tag    = comm.newTag();
 
     d_CommList = commList;
 
@@ -256,6 +260,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     AMP_ASSERT( d_CommList );
     if ( !d_CommList->anyCommunication() )
         return;
+    AMP_DEBUG_ASSERT( d_scatter_tag >= 0 );
     PROFILE( "GhostDataHelper::scatter_set" );
     constexpr auto type   = getTypeID<TYPE>();
     const auto &sendSizes = d_CommList->getSendSizes();
@@ -288,7 +293,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     for ( int p = 0; p < comm.getSize(); ++p ) {
         if ( recvSizes[p] > 0 ) {
             recv_request.emplace_back(
-                comm.Irecv( &ghosts_p[recvDisp[p]], recvSizes[p], p, 5151 ) );
+                comm.Irecv( &ghosts_p[recvDisp[p]], recvSizes[p], p, d_scatter_tag ) );
         }
     }
 
@@ -308,7 +313,8 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     std::vector<AMP_MPI::Request> send_request;
     for ( int p = 0; p < comm.getSize(); ++p ) {
         if ( sendSizes[p] > 0 ) {
-            send_request.emplace_back( comm.Isend( &send_p[sendDisp[p]], sendSizes[p], p, 5151 ) );
+            send_request.emplace_back(
+                comm.Isend( &send_p[sendDisp[p]], sendSizes[p], p, d_scatter_tag ) );
         }
     }
 

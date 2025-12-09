@@ -35,7 +35,14 @@ public:
     // create a host config for cases where DtoH migration is required
     using ConfigHost = typename Config::template set_alloc<alloc::host>::type;
 
-    CSRMatrixCommunicator() : d_send_called( false ), d_num_sources( 0 ), d_num_allowed_sources( 0 )
+    CSRMatrixCommunicator()
+        : d_send_called( false ),
+          d_num_sources( 0 ),
+          d_num_allowed_sources( 0 ),
+          d_tag_test( -1 ),
+          d_tag_row( -1 ),
+          d_tag_col( -1 ),
+          d_tag_coeff( -1 )
     {
     }
 
@@ -44,7 +51,11 @@ public:
         : d_comm( comm_list->getComm() ),
           d_send_called( false ),
           d_num_sources( 0 ),
-          d_num_allowed_sources( 0 )
+          d_num_allowed_sources( 0 ),
+          d_tag_test( d_comm.newTag() ),
+          d_tag_row( d_comm.newTag() ),
+          d_tag_col( d_comm.newTag() ),
+          d_tag_coeff( d_comm.newTag() )
     {
         auto send_sizes = !flip_sendrecv ? comm_list->getSendSizes() : comm_list->getReceiveSizes();
         for ( int n = 0; n < d_comm.getSize(); ++n ) {
@@ -91,10 +102,10 @@ protected:
     std::shared_ptr<CSRMatrixCommunicator<ConfigHost>> d_migrate_comm;
 
     // tags for each type of message to send/recv
-    static constexpr int COMM_TEST = 5600;
-    static constexpr int ROW_TAG   = 5601;
-    static constexpr int COL_TAG   = 5602;
-    static constexpr int COEFF_TAG = 5603;
+    int d_tag_test;
+    int d_tag_row;
+    int d_tag_col;
+    int d_tag_coeff;
 
     // flag if device matrices need migration before/after comms
 #if defined( AMP_GPU_AWARE_MPI )
