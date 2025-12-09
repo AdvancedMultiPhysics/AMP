@@ -416,6 +416,7 @@ void amp_startup_basic_f()
     properties.stack_trace_type  = 2;
     properties.initialize_device = false;
     properties.catch_exit        = false;
+    properties.catch_MPI         = false;
     AMP::AMPManager::startup( argc, argv, properties );
 }
 
@@ -426,6 +427,7 @@ void amp_startup_f( int argc, char **argv )
     properties.stack_trace_type  = 2;
     properties.initialize_device = false;
     properties.catch_exit        = false;
+    properties.catch_MPI         = false;
     AMP::AMPManager::startup( argc, argv, properties );
 }
 
