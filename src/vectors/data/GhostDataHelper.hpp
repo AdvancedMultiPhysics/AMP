@@ -59,6 +59,20 @@ void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
     if ( len > 0 ) {
         d_ghostSize = len;
 
+        // deallocate existing data
+        if ( this->d_Ghosts ) {
+            this->d_alloc.deallocate( this->d_Ghosts, this->d_ghostSize );
+            this->d_Ghosts = nullptr;
+        }
+        if ( this->d_AddBuffer ) {
+            this->d_alloc.deallocate( this->d_AddBuffer, this->d_ghostSize );
+            this->d_AddBuffer = nullptr;
+        }
+        if ( this->d_ReceiveDOFList ) {
+            this->d_size_t_alloc.deallocate( this->d_ReceiveDOFList, this->d_ghostSize );
+            this->d_ReceiveDOFList = nullptr;
+        }
+
         // allocate space for ghost and add buffers, cache ghost id's
         this->d_Ghosts         = d_alloc.allocate( d_ghostSize );
         this->d_AddBuffer      = d_alloc.allocate( d_ghostSize );
