@@ -140,7 +140,7 @@ ELSE()
 ENDIF()
 
 # Set valgrind options
-SET( VALGRIND_COMMAND_OPTIONS "--tool=memcheck --leak-check=yes --track-fds=yes --num-callers=50 --show-reachable=yes --suppressions=${${PROJ}_SOURCE_DIR}/ValgrindSuppresionFile" )
+SET( VALGRIND_COMMAND_OPTIONS "--tool=memcheck --leak-check=yes --track-fds=no --num-callers=50 --show-reachable=yes --suppressions=${${PROJ}_SOURCE_DIR}/ValgrindSuppresionFile" )
 IF ( USE_VALGRIND )
     SET( MEMORYCHECK_COMMAND ${VALGRIND_COMMAND} )
     SET( MEMORYCHECKCOMMAND ${VALGRIND_COMMAND} )
