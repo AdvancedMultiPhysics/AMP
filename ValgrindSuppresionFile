@@ -254,6 +254,14 @@
    ...
 }
 {
+   orte_iof_base_write_output
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_iof_base_write_output
+   ...
+}
+{
    orte_submit_init
    Memcheck:Leak
    ...
