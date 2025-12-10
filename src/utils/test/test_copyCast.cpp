@@ -46,6 +46,8 @@ void runTest( AMP::UnitTest &ut, const std::string &pass_msg )
     }
     if ( pass )
         ut.passes( pass_msg );
+    alloc1.deallocate( v1, 3 );
+    alloc2.deallocate( v2, 3 );
 }
 
 
@@ -72,6 +74,8 @@ void testOverflow( AMP::UnitTest &ut, const std::string &mem_type )
     } catch ( ... ) {
         ut.passes( mem_type + " overflow test succeeded." );
     }
+    alloc1.deallocate( v1, 3 );
+    alloc2.deallocate( v2, 3 );
 }
 
 int main( int argc, char *argv[] )
