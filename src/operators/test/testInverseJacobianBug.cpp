@@ -100,8 +100,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     libMesh::Hex8 currElem;
     libMesh::Node *libmeshNodes[8];
     for ( int j = 0; j < 8; j++ ) {
-        auto pt = nodes[j]->coord();
-        libmeshNodes[j] = new libMesh::Node( pt[0], pt[1], pt[2], j );
+        auto pt                = nodes[j]->coord();
+        libmeshNodes[j]        = new libMesh::Node( pt[0], pt[1], pt[2], j );
         currElem.set_node( j ) = libmeshNodes[j];
     }
 

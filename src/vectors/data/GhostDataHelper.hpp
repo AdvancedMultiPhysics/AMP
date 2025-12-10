@@ -22,14 +22,14 @@ namespace AMP::LinearAlgebra {
  ****************************************************************/
 template<class TYPE, class Allocator>
 GhostDataHelper<TYPE, Allocator>::GhostDataHelper()
-    : d_UpdateState{ std::make_shared<UpdateState>() }
+    : d_UpdateState{ std::make_shared<UpdateState>() }, d_scatter_tag{ -1 }
 {
     *d_UpdateState = UpdateState::UNCHANGED;
 }
 
 template<class TYPE, class Allocator>
 GhostDataHelper<TYPE, Allocator>::GhostDataHelper( std::shared_ptr<CommunicationList> list )
-    : d_UpdateState{ std::make_shared<UpdateState>() }
+    : d_UpdateState{ std::make_shared<UpdateState>() }, d_scatter_tag{ -1 }
 {
     *d_UpdateState = UpdateState::UNCHANGED;
     setCommunicationList( list );
@@ -156,6 +156,10 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
         AMP_ASSERT( commList->numLocalRows() == d_localSize );
     }
 
+    // get the communicator and generate tags
+    const auto &comm = commList->getComm();
+    d_scatter_tag    = comm.newTag();
+
     d_CommList = commList;
 
     // deallocate any existing buffers
@@ -270,6 +274,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     AMP_ASSERT( d_CommList );
     if ( !d_CommList->anyCommunication() )
         return;
+    AMP_DEBUG_ASSERT( d_scatter_tag >= 0 );
     PROFILE( "GhostDataHelper::scatter_set" );
     constexpr auto type   = getTypeID<TYPE>();
     const auto &sendSizes = d_CommList->getSendSizes();
@@ -277,65 +282,70 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     const auto &comm      = d_CommList->getComm();
     const auto &sendDisp  = d_CommList->getSendDisp();
     const auto &recvDisp  = d_CommList->getReceiveDisp();
-    // Pack the set buffers
-    if ( d_localRemote != nullptr ) {
-        PROFILE( "GhostDataHelper::scatter_set (pack buffer)" );
-        getValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type );
-    }
 
-    // Communicate ghosts (directly fill ghost buffer)
+    // Have special cases for device memory
     constexpr AMP::Utilities::MemoryType allocMemType =
         AMP::Utilities::getAllocatorMemoryType<Allocator>();
 
-    // set defaults
-    TYPE *send_recv_p = d_SendRecv;
-    TYPE *ghosts_p    = d_Ghosts;
-    int *send_sizes_p = const_cast<int *>( sendSizes.data() );
-    int *send_disp_p  = const_cast<int *>( sendDisp.data() );
-    int *recv_sizes_p = const_cast<int *>( recvSizes.data() );
-    int *recv_disp_p  = const_cast<int *>( recvDisp.data() );
+    // default buffers
+    TYPE *send_p   = d_SendRecv;
+    TYPE *ghosts_p = d_Ghosts;
 
-    if constexpr ( allocMemType == AMP::Utilities::MemoryType::managed ) {
-
-        // we could prefetch to host here when not using gpu aware mpi
-        send_sizes_p = d_sendSizes;
-        send_disp_p  = d_sendDisplacements;
-        recv_sizes_p = d_recvSizes;
-        recv_disp_p  = d_recvDisplacements;
-
-    } else if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
-
-#ifdef AMP_ENABLE_GPU_AWARE_MPI
-        send_sizes_p = d_sendSizes;
-        send_disp_p  = d_sendDisplacements;
-        recv_sizes_p = d_recvSizes;
-        recv_disp_p  = d_recvDisplacements;
-#else
-        PROFILE( "GhostDataHelper::scatter_set (D->H copy)" );
-        // copy into host buffers
-        d_SendRecv_h.resize( this->d_numRemote );
-        d_Ghosts_h.resize( this->d_ghostSize );
-
-        AMP::Utilities::Algorithms<TYPE>::copy_n(
-            d_SendRecv, this->d_numRemote, d_SendRecv_h.data() );
-
-        send_recv_p = d_SendRecv_h.data();
-        ghosts_p    = d_Ghosts_h.data();
-
+    if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+#ifndef AMP_ENABLE_GPU_AWARE_MPI
+        // don't have gpu aware MPI
+        // allocate host buffers and set pointers to them
+        d_SendRecv_h.resize( d_numRemote );
+        d_Ghosts_h.resize( d_ghostSize );
+        send_p   = d_SendRecv_h.data();
+        ghosts_p = d_Ghosts_h.data();
 #endif
     }
 
-    comm.allToAll<TYPE>(
-        send_recv_p, send_sizes_p, send_disp_p, ghosts_p, recv_sizes_p, recv_disp_p, true );
+    // post all receives
+    std::vector<AMP_MPI::Request> recv_request;
+    for ( int p = 0; p < comm.getSize(); ++p ) {
+        if ( recvSizes[p] > 0 ) {
+            recv_request.emplace_back(
+                comm.Irecv( &ghosts_p[recvDisp[p]], recvSizes[p], p, d_scatter_tag ) );
+        }
+    }
+
+    // Pack the send buffers and copy to host if needed
+    if ( d_localRemote != nullptr ) {
+        PROFILE( "GhostDataHelper::scatter_set (pack buffer)" );
+        getValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type );
+        if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+#ifndef AMP_ENABLE_GPU_AWARE_MPI
+            PROFILE( "GhostDataHelper::scatter_set (D->H copy)" );
+            AMP::Utilities::Algorithms<TYPE>::copy_n( d_SendRecv, d_numRemote, send_p );
+#endif
+        }
+    }
+
+    // post all sends
+    std::vector<AMP_MPI::Request> send_request;
+    for ( int p = 0; p < comm.getSize(); ++p ) {
+        if ( sendSizes[p] > 0 ) {
+            send_request.emplace_back(
+                comm.Isend( &send_p[sendDisp[p]], sendSizes[p], p, d_scatter_tag ) );
+        }
+    }
+
+    // wait all recieves
+    comm.waitAll( static_cast<int>( recv_request.size() ), recv_request.data() );
 
     // we only handle the device case at present though we could prefetch to device for managed
     // memory (TODO)
     if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
         PROFILE( "GhostDataHelper::scatter_set (H->D copy)" );
-        AMP::Utilities::Algorithms<TYPE>::copy_n( d_Ghosts_h.data(), this->d_ghostSize, d_Ghosts );
+        AMP::Utilities::Algorithms<TYPE>::copy_n( ghosts_p, this->d_ghostSize, d_Ghosts );
 #endif
     }
+
+    // wait all sends
+    comm.waitAll( static_cast<int>( send_request.size() ), send_request.data() );
 }
 
 template<class TYPE, class Allocator>
