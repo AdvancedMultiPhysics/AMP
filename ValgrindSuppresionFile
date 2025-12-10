@@ -6,28 +6,6 @@
 # valgrind --leak-check=yes --show-reachable=yes --suppressions=/projects/AMP/AMP/ValgrindSuppresionFile --log-file=memory.log ./test_AMPManager
 
 
-# Supress AMP errors
-{
-   yyMemoryLeak1
-   Memcheck:Leak
-   ...
-   fun:realloc
-   fun:_Z9yyreallocPvj
-   fun:_ZL21yyensure_buffer_stackv
-   fun:_Z9yyrestartP7__sFILE
-   ...
-}
-{
-   yyMemoryLeak2
-   Memcheck:Leak
-   ...
-   fun:malloc
-   ...
-   fun:_ZN3AMP9yyrestartEP8_IO_FILE
-   ...
-}
-
-
 #### Supress std::ios_base::sync_with_stdio memory errors
 {
    std/ios_base/sync_with_stdio
@@ -679,7 +657,7 @@
    ...
 }
 {
-   demangeLeak
+   demangleLeak
    Memcheck:Leak
    ...
    fun:malloc
