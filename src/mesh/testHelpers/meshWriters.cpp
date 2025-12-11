@@ -187,6 +187,7 @@ void writeDispValsForPatchTest( const std::string &file )
         fprintf( fp, "value_%d_2 = %lf \n", i, ( 0.0005 * ( x[i] + y[i] + ( 2 * z[i] ) ) ) );
         fprintf( fp, "\n" );
     }
+    fclose( fp );
 }
 
 
