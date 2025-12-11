@@ -101,7 +101,7 @@ without compiling AMP, the "-D ONLY_BUILD_DOCS=1" flag can be used: \verbatim
       -D ONLY_BUILD_DOCS=1                  \
       ${PATH_TO_AMP_SOURCE}<BR>
 \endverbatim
-Note that building the documenation requires doxygen and dot.  Latex is recommended.
+Note that building the documentation requires doxygen and dot.  Latex is recommended.
 
 \par Packages
 

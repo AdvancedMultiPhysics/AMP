@@ -1242,7 +1242,7 @@ std::shared_ptr<AMP::Database> readBinaryTestMesh( const std::string &filename, 
 
 /********************************************************
  * write a test mesh database to file in the same format *
- * as the original files in AMP_DATA                     *
+ * as the original files                                 *
  ********************************************************/
 void writeVector( FILE *fp, const char *key, int i, size_t N, const int *x )
 {
