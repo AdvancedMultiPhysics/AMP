@@ -587,6 +587,25 @@
 }
 
 
+# Suppress OpenMP leaks
+{
+   omp_set_num_threads
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:omp_set_num_threads
+   ...
+}
+{
+   GOMP_parallel
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:GOMP_parallel
+   ...
+}
+
+
 # Suppress all LibMesh errors
 {
    LibMeshInit

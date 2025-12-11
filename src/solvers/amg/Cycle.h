@@ -91,7 +91,9 @@ struct KappaKCycle {
     /**
      * Run cycle with system \f$Ax = b\f$.
      * @param[in] b : shared pointer to right hand side vector
-     * @param[out] u : shared pointer to approximate computed solution.
+     * @param[out] x : shared pointer to approximate computed solution.
+     * @param[in] levels : Levels
+     * @param[in,out] coarse_solver : Coarse solver
      */
     void operator()( std::shared_ptr<const LinearAlgebra::Vector> b,
                      std::shared_ptr<LinearAlgebra::Vector> x,

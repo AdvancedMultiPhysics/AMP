@@ -1,7 +1,6 @@
 #ifndef included_AMP_CopyCast_openmp_HPP_
 #define included_AMP_CopyCast_openmp_HPP_
 
-#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/Memory.h"
 
 #include <cmath>
@@ -23,15 +22,8 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::OpenMP, AMP::HostAllocator<voi
     static void apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
 #pragma omp parallel for shared( vec_out, vec_in )
-        for ( size_t i = 0; i < len; i++ ) {
-            if constexpr ( std::numeric_limits<T1>::max() > std::numeric_limits<T2>::max() ) {
-                if constexpr ( std::is_signed_v<T1> )
-                    AMP_ASSERT( std::abs( vec_in[i] ) <= std::numeric_limits<T2>::max() );
-                else
-                    AMP_ASSERT( vec_in[i] <= std::numeric_limits<T2>::max() );
-            }
+        for ( size_t i = 0; i < len; i++ )
             vec_out[i] = static_cast<T2>( vec_in[i] );
-        }
     }
 };
 
