@@ -49,10 +49,8 @@ protected:
     int d_min_coarse_local;
     //! Smallest number of global rows allowed in operator, terminates hierarchy
     size_t d_min_coarse_global;
-    //! Cycle parameter, kappa=1 for V-cycle, kappa>=levels for W-cycle
-    int d_kappa;
-    //! K-Cycle early termination tolerance
-    float d_kcycle_tol;
+    //! Cycle type, tolerance, kappa value
+    KappaKCycle::settings d_cycle_settings;
 
     // **** settings that can change level-by-level **** //
     //! Number of smoothing steps applied to tentative prolongator

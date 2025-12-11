@@ -6,28 +6,6 @@
 # valgrind --leak-check=yes --show-reachable=yes --suppressions=/projects/AMP/AMP/ValgrindSuppresionFile --log-file=memory.log ./test_AMPManager
 
 
-# Supress AMP errors
-{
-   yyMemoryLeak1
-   Memcheck:Leak
-   ...
-   fun:realloc
-   fun:_Z9yyreallocPvj
-   fun:_ZL21yyensure_buffer_stackv
-   fun:_Z9yyrestartP7__sFILE
-   ...
-}
-{
-   yyMemoryLeak2
-   Memcheck:Leak
-   ...
-   fun:malloc
-   ...
-   fun:_ZN3AMP9yyrestartEP8_IO_FILE
-   ...
-}
-
-
 #### Supress std::ios_base::sync_with_stdio memory errors
 {
    std/ios_base/sync_with_stdio
@@ -181,6 +159,100 @@
    ...
    fun:start_thread
    fun:clone
+}
+{
+   pmix_ptl_base_send_handler
+   Memcheck:Param
+   writev(vector[1])
+   ...
+   fun:pmix_ptl_base_send_handler
+   ...
+}
+{
+   ompi_mpi_init
+   Memcheck:Leak
+   ...
+   fun:ompi_mpi_init
+   ...
+}
+{
+   orte_init_leak
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_init
+   ...
+}
+{
+   orte_init_leak
+   Memcheck:Leak
+   fun:calloc
+   ...
+   fun:orte_init
+   ...
+}
+{
+   orte_daemon_recv
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_daemon_recv
+   ...
+}
+{
+   orte_rmaps_base_map_job
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_rmaps_base_map_job
+   ...
+}
+{
+   orte_plm_base_post_launch
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_plm_base_post_launch
+   ...
+}
+{
+   orte_debugger_init_after_spawnh
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_debugger_init_after_spawn
+   ...
+}
+{
+   orte_odls_base_default_launch_local
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_odls_base_default_launch_local
+   ...
+}
+{
+   orte_iof_base_write_output
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_iof_base_write_output
+   ...
+}
+{
+   orte_submit_init
+   Memcheck:Leak
+   ...
+   fun:orte_submit_init
+   ...
+}
+{
+   orte_exit
+   Memcheck:Leak
+   ...
+   fun:exit
+   obj:/usr/bin/orterun
+   ...
 }
 
 
@@ -585,7 +657,7 @@
    ...
 }
 {
-   demangeLeak
+   demangleLeak
    Memcheck:Leak
    ...
    fun:malloc

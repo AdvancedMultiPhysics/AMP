@@ -72,7 +72,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto feFamily    = libMesh::Utility::string_to_enum<libMeshEnums::FEFamily>( "LAGRANGE" );
 
     auto feType = std::make_shared<libMesh::FEType>( feTypeOrder, feFamily );
-    auto fe     = ( libMesh::FEBase::build( 3, ( *feType ) ) ).release();
+    auto fe     = libMesh::FEBase::build( 3, *feType );
 
     const auto &dphidxi   = fe->get_dphidxi();
     const auto &dphideta  = fe->get_dphideta();
@@ -87,8 +87,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto qruleType  = libMesh::Utility::string_to_enum<libMeshEnums::QuadratureType>( "QGAUSS" );
     auto qruleOrder = feType->default_quadrature_order();
-    std::shared_ptr<libMesh::QBase> qrule(
-        libMesh::QBase::build( qruleType, 3, qruleOrder ).release() );
+    auto qrule      = libMesh::QBase::build( qruleType, 3, qruleOrder );
 
     fe->attach_quadrature_rule( qrule.get() );
 
@@ -98,14 +97,15 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         globalIDs[j] = nodes[j]->globalID();
     dof_map->getDOFs( globalIDs, d_dofIndices );
 
-    libMesh::Elem *currElemPtr;
-    currElemPtr = new libMesh::Hex8;
+    libMesh::Hex8 currElem;
+    libMesh::Node *libmeshNodes[8];
     for ( int j = 0; j < 8; j++ ) {
-        auto pt                    = nodes[j]->coord();
-        currElemPtr->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
+        auto pt                = nodes[j]->coord();
+        libmeshNodes[j]        = new libMesh::Node( pt[0], pt[1], pt[2], j );
+        currElem.set_node( j ) = libmeshNodes[j];
     }
 
-    fe->reinit( currElemPtr );
+    fe->reinit( &currElem );
 
     for ( unsigned int i = 0; i < d_dofIndices.size(); i++ ) {
         const double val = 300 * ( i + 1 );
@@ -169,6 +169,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
              lib_dTdy,
              lib_dTdz );
     fclose( fp );
+    for ( int j = 0; j < 8; j++ )
+        delete libmeshNodes[j];
     ut->passes( "Ran to completion" );
 }
 

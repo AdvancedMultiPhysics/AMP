@@ -1,6 +1,13 @@
        module AMP_INTERFACE
          use, intrinsic :: iso_c_binding, only: C_INT, C_PTR, C_BOOL
          contains
+         subroutine AMP_STARTUP_BASIC( )
+           interface
+             subroutine amp_startup_basic_f( ) bind(c)
+             end subroutine amp_startup_basic_f
+           end interface
+           call amp_startup_basic_f( )
+         end subroutine
          subroutine AMP_STARTUP(argc, argv)
            use, intrinsic :: iso_c_binding, only: C_INT, C_PTR
            integer(c_int), value :: argc

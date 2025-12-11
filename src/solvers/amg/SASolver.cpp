@@ -24,11 +24,14 @@ SASolver::SASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 void SASolver::getFromInput( std::shared_ptr<Database> db )
 {
     // settings applicable to entire solver
-    d_max_levels        = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_kappa             = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol        = db->getWithDefault<float>( "kcycle_tol", 0 );
-    d_min_coarse_local  = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_min_coarse_global = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    d_max_levels                      = db->getWithDefault<size_t>( "max_levels", 10 );
+    d_min_coarse_local                = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_min_coarse_global               = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    d_cycle_settings.kappa            = db->getWithDefault<size_t>( "kappa", 1 );
+    d_cycle_settings.tol              = db->getWithDefault<double>( "kcycle_tol", 0.0 );
+    d_cycle_settings.comm_free_interp = false;
+    d_cycle_settings.type =
+        KappaKCycle::parseType( db->getWithDefault<std::string>( "kcycle_type", "fcg" ) );
 
     // get and setup coarse solver options
     AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
@@ -342,7 +345,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
                   << version[2] << std::endl;
         AMP::pout << "SASolver: Memory location " << AMP::Utilities::getString( d_mem_loc )
                   << std::endl;
-        AMP::pout << "SASolver: kappa " << d_kappa << std::endl;
+        AMP::pout << "SASolver: kappa " << d_cycle_settings.kappa << std::endl;
     }
 
     if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
@@ -362,9 +365,10 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     }
 
     double prev_res = 0.0;
+    KappaKCycle cycle{ d_cycle_settings };
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
-        kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
+        cycle( b, x, d_levels, *d_coarse_solver );
 
         d_pOperator->residual( b, x, r );
         current_res =

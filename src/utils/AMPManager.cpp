@@ -407,7 +407,30 @@ AMPManagerProperties AMPManager::getAMPManagerProperties()
  * C interfaces                                                         *
  ***********************************************************************/
 extern "C" {
-void amp_startup_f( int argc, char **argv ) { AMP::AMPManager::startup( argc, argv ); }
+void amp_startup_basic_f()
+{
+    int argc     = 0;
+    char *argv[] = { nullptr };
+    AMP::AMPManagerProperties properties;
+    properties.catch_signals.clear();
+    properties.stack_trace_type  = 2;
+    properties.initialize_device = false;
+    properties.catch_exit        = false;
+    properties.catch_MPI         = false;
+    AMP::AMPManager::startup( argc, argv, properties );
+}
+
+void amp_startup_f( int argc, char **argv )
+{
+    AMP::AMPManagerProperties properties;
+    properties.catch_signals.clear();
+    properties.stack_trace_type  = 2;
+    properties.initialize_device = false;
+    properties.catch_exit        = false;
+    properties.catch_MPI         = false;
+    AMP::AMPManager::startup( argc, argv, properties );
+}
+
 void amp_shutdown_f( void ) { AMP::AMPManager::shutdown(); }
 bool amp_initialized_f( void ) { return AMP::AMPManager::isInitialized(); }
 bool amp_finalized_f( void ) { return AMP::AMPManager::isFinalized(); }

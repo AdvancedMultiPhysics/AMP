@@ -23,6 +23,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("4.0.2", tag="4.0.2", commit="7087e262ee5c7ebcb0286bc32ccb721ec739777b")
     version("4.0.1", tag="4.0.1", commit="13d565f435019a7e163842297e657be1bc3e53fb")
     version("4.0.0", tag="4.0.0", commit="7ebbcfef5b5c9d36e828a2da2d27e2106499e454")
     version("3.1.0", tag="3.1.0", commit="c8a52e6f3124e43ebce944ee3fae8b9a994c4dbe")

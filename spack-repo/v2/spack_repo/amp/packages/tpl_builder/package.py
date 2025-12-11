@@ -19,6 +19,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("2.1.3", tag="2.1.3", commit="1c861c271154fa692259dade523d7e8b7728a58c")
     version("2.1.2", tag="2.1.2", commit="1a9c083972e13e1f54eda2a0e70dc297342d84e5")
     version("2.1.0", tag="2.1.0", commit="f2018b32623ea4a2f61fd0e7f7087ecb9b955eb5")
 
@@ -36,7 +37,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
     variant("libmesh", default=False, description="Build with support for libmesh")
     variant("petsc", default=False, description="Build with support for petsc")
     variant("trilinos", default=False, description="Build with support for trilinos")
-    variant("test_gpus", default=-1, values=int, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
+    variant("test_gpus", default="auto", values=lambda x: x == "auto" or x.isdigit(), multi=False, description="Build with NUMBER_OF_GPUs setting, defaults to use the number of gpus available")
     variant("no_implicit_links", default=False, description="turn off injection of implicit lib links")
     variant(
         "cxxstd",
@@ -161,9 +162,19 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                     ]
                 )
 
+        hip_flags = []
+
+        if spec.satisfies("+shared +rocm"):
+            hip_flags.append(self.compiler.cxx_pic_flag)
+            
+        if spec.satisfies("+mpi +rocm"):
+            hip_flags.append(spec['mpi'].headers.include_flags)
+            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),])
+
         if spec.satisfies("+rocm"):
             amdgpu_target = spec.variants["amdgpu_target"].value
             if amdgpu_target[0] != "none":
+                hip_flags.append("")
                 options.extend(
                     [
                         self.define("USE_HIP", True),
@@ -172,15 +183,10 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                             join_path(spec["llvm-amdgpu"].prefix.bin, "amdclang++"),
                         ),
                         self.define("CMAKE_HIP_ARCHITECTURES", amdgpu_target),
-                        self.define("CMAKE_HIP_FLAGS", ""),
+                        self.define("CMAKE_HIP_FLAGS", " ".join(hip_flags)),
                         self.define_from_variant("CMAKE_HIP_STANDARD", "cxxstd"),
                     ]
                 )
-                
-        if spec.satisfies("+mpi +rocm"):
-            options.extend( [self.define('CMAKE_HIP_HOST_COMPILER', spec['mpi'].mpicxx),
-                             self.define('CMAKE_HIP_FLAGS', spec['mpi'].headers.include_flags),
-                             ] )
 
         tpl_list = []
 
@@ -207,7 +213,7 @@ class TplBuilder(CMakePackage, CudaPackage, ROCmPackage):
                 ]
             )
 
-        if spec.variants["test_gpus"].value != "-1":
+        if spec.variants["test_gpus"].value != "auto":
             options.append(self.define("NUMBER_OF_GPUS", spec.variants["test_gpus"].value))
 
         for vname in ("stacktrace", "hypre", "kokkos", "kokkos-kernels", "libmesh", "petsc", "timerutility", "lapackwrappers", "trilinos"):

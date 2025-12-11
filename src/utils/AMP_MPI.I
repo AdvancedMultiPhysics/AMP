@@ -1083,6 +1083,7 @@ int AMP_MPI::allGather( [[maybe_unused]] const TYPE *send_data,
                 send_data2, send_cnt2, recv_data2, recv_cnt2.data(), recv_disp2.data(), true );
             size_t N = unpackArray( recv_data, N_recv, recv_data2 );
             AMP_ASSERT( N == bytes );
+            delete[] send_data2;
             delete[] recv_data2;
         }
         // Delete any temporary memory

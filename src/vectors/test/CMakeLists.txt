@@ -1,5 +1,4 @@
 # Configure tests
-COPY_MESH_FILE( pellet_1x.e )
 COPY_TEST_FILE( input-test64bitVectors )
 COPY_TEST_FILE( input_testMultiVector )
 
@@ -17,6 +16,4 @@ ENDIF()
 ADD_AMP_TEST( testMakeConsistentPerformance PROCS 4 )
 
 # Add a test for testing 64-bit vectors.  WARNING: this test uses a LOT of memory
-IF ( USE_LIBMESH AND AMP_DATA )
-    ADD_AMP_TEST( test64bitVectors )
-ENDIF()
+ADD_AMP_TEST( test64bitVectors )
