@@ -213,10 +213,10 @@ public: // Write/read restart data
 
     /**
      * \brief    Read restart data from file
-     * \param fid    File identifier to write
+     * \param fid       File identifier to write
      * \param manager   Restart manager
      */
-    MatrixParameters( int64_t, AMP::IO::RestartManager * );
+    MatrixParameters( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
     // Generate communication lists internally from the dof managers if not provided
