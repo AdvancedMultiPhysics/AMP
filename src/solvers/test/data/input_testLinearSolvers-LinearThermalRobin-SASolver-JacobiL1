@@ -11,6 +11,7 @@ LinearSolver{
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
+  kcycle_type = "fcg"
   
 <<< SASolver-Level-0 >>>
   

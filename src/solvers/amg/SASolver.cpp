@@ -346,6 +346,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         AMP::pout << "SASolver: Memory location " << AMP::Utilities::getString( d_mem_loc )
                   << std::endl;
         AMP::pout << "SASolver: kappa " << d_cycle_settings.kappa << std::endl;
+        AMP::pout << "SASolver: k-cycle type " << d_cycle_settings.kcycle_type << std::endl;
     }
 
     if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
