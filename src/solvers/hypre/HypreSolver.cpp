@@ -36,12 +36,7 @@ HypreSolver::HypreSolver( std::shared_ptr<SolverStrategyParameters> parameters )
     HypreSolver::initialize( parameters );
 }
 
-HypreSolver::~HypreSolver()
-{
-    HYPRE_IJVectorDestroy( d_hypre_rhs );
-    HYPRE_IJVectorDestroy( d_hypre_sol );
-    destroyHypreSolver();
-}
+HypreSolver::~HypreSolver() { destroyHypreSolver(); }
 
 void HypreSolver::createHypreSolver()
 {
@@ -50,6 +45,10 @@ void HypreSolver::createHypreSolver()
 
 void HypreSolver::destroyHypreSolver()
 {
+    HYPRE_IJVectorDestroy( d_hypre_rhs );
+    HYPRE_IJVectorDestroy( d_hypre_sol );
+    d_hypre_rhs = nullptr;
+    d_hypre_sol = nullptr;
     d_hypreDestroySolver( d_solver );
     d_solver = nullptr;
 }
