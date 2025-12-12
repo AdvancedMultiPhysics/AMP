@@ -225,7 +225,8 @@ private:
     static double start_SAMRAI();
     static double start_PETSc();
     static double start_HYPRE();
-    static double start_CudaOrHip();
+    static double initDevices();
+    static double bindDevices();
     static double start_OpenMP();
     static double stop_SAMRAI();
     static double stop_HYPRE();
