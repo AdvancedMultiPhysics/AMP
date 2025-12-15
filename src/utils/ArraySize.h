@@ -1,64 +1,64 @@
 #ifndef included_AMP_ArraySizeClass
-    #define included_AMP_ArraySizeClass
+#define included_AMP_ArraySizeClass
 
 
-    #include <array>
-    #include <cmath>
-    #include <complex>
-    #include <cstdint>
-    #include <cstdlib>
-    #include <cstring>
-    #include <initializer_list>
-    #include <vector>
+#include <array>
+#include <cmath>
+#include <complex>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <initializer_list>
+#include <vector>
 
-    #include "AMP/utils/Memory.h"
+#include "AMP/utils/Memory.h"
 
-    #if defined( __CUDA_ARCH__ )
-        #include <cuda.h>
-        #define HOST_DEVICE __host__ __device__
-    #elif defined( __HIP_DEVICE_COMPILE__ )
-        #include "hip/hip_runtime.h"
-        #define HOST_DEVICE __host__ __device__
-    #else
-        #define HOST_DEVICE
-    #endif
-    #if defined( __NVCC__ )
-        #define CONSTEXPR HOST_DEVICE constexpr
-        #define CONSTEXPR_IF
-    #elif defined( __HIPCC__ )
-        #define CONSTEXPR HOST_DEVICE constexpr
-        #define CONSTEXPR_IF constexpr
-    #else
-        #define CONSTEXPR HOST_DEVICE constexpr
-        #define CONSTEXPR_IF constexpr
-    #endif
-    #if defined( __GNUC__ ) || defined( __clang__ )
-        #define ARRAY_INLINE HOST_DEVICE inline __attribute__( ( always_inline ) )
-    #elif defined( _MSC_VER )
-        #define ARRAY_INLINE HOST_DEVICE __forceinline
-    #else
-        #define ARRAY_INLINE HOST_DEVICE inline
-    #endif
-    #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ ) && \
-        !defined( __HIP_DEVICE_COMPILE__ )
-        #define CHECK_ARRAY_LENGTH( i, length )                              \
-            do {                                                             \
-                if ( i >= length )                                           \
-                    throw std::out_of_range( "Index exceeds array bounds" ); \
-            } while ( 0 )
-        #define ARRAY_INSIST( test, msg )           \
-            do {                                    \
-                if ( !( test ) )                    \
-                    throw std::out_of_range( msg ); \
-            } while ( 0 )
-    #else
-        #define CHECK_ARRAY_LENGTH( i, length ) \
-            do {                                \
-            } while ( 0 )
-        #define ARRAY_INSIST( test, msg ) \
-            do {                          \
-            } while ( 0 )
-    #endif
+#if defined( __CUDA_ARCH__ )
+    #include <cuda.h>
+    #define HOST_DEVICE __host__ __device__
+#elif defined( __HIP_DEVICE_COMPILE__ )
+    #include "hip/hip_runtime.h"
+    #define HOST_DEVICE __host__ __device__
+#else
+    #define HOST_DEVICE
+#endif
+#if defined( __NVCC__ )
+    #define CONSTEXPR HOST_DEVICE constexpr
+    #define CONSTEXPR_IF
+#elif defined( __HIPCC__ )
+    #define CONSTEXPR HOST_DEVICE constexpr
+    #define CONSTEXPR_IF constexpr
+#else
+    #define CONSTEXPR HOST_DEVICE constexpr
+    #define CONSTEXPR_IF constexpr
+#endif
+#if defined( __GNUC__ ) || defined( __clang__ )
+    #define ARRAY_INLINE HOST_DEVICE inline __attribute__( ( always_inline ) )
+#elif defined( _MSC_VER )
+    #define ARRAY_INLINE HOST_DEVICE __forceinline
+#else
+    #define ARRAY_INLINE HOST_DEVICE inline
+#endif
+#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ ) && \
+    !defined( __HIP_DEVICE_COMPILE__ )
+    #define CHECK_ARRAY_LENGTH( i, length )                              \
+        do {                                                             \
+            if ( i >= length )                                           \
+                throw std::out_of_range( "Index exceeds array bounds" ); \
+        } while ( 0 )
+    #define ARRAY_INSIST( test, msg )           \
+        do {                                    \
+            if ( !( test ) )                    \
+                throw std::out_of_range( msg ); \
+        } while ( 0 )
+#else
+    #define CHECK_ARRAY_LENGTH( i, length ) \
+        do {                                \
+        } while ( 0 )
+    #define ARRAY_INSIST( test, msg ) \
+        do {                          \
+        } while ( 0 )
+#endif
 
 namespace AMP {
 
