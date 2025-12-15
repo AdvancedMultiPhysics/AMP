@@ -1052,7 +1052,6 @@ void AMP_MPI::abort() const
 int AMP_MPI::newTag() const
 {
 #ifdef AMP_USE_MPI
-
     int tag = ( *d_currentTag )++;
     AMP_INSIST( tag <= d_maxTag, "Maximum number of tags exceeded\n" );
     AMP_DEBUG_ASSERT( tag == bcast( tag, 0 ) );
