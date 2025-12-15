@@ -21,12 +21,6 @@ FUNCTION( SET_DEVICE_COMPILER )
         ENDFOREACH()
     ENDIF()
 ENDFUNCTION()
-  
-
-# Set the fortran module directory
-IF ( CMAKE_Fortran_COMPILER )
-    SET( CMAKE_Fortran_MODULE_DIRECTORY ${${PROJ}_INSTALL_DIR}/include CACHE PATH "Fortran module install folder" )
-ENDIF()
 
 # Set the fortran module directory ( and flags )
 IF ( CMAKE_Fortran_COMPILER )
