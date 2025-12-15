@@ -3,7 +3,6 @@
 #include <math.h>
 
 
-//#if !defined( __INTEL_COMPILER )
 using eint64   = AMP::extended::int64N<1>;
 using eint128  = AMP::extended::int128_t;
 using eint256  = AMP::extended::int256_t;

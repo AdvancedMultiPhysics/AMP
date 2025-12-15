@@ -17,7 +17,7 @@ The websites associated with the AMP package includes:
 * Wiki: https://bitbucket.org/AdvancedMultiPhysics/amp/wiki/Home
 * Doxygen documentation: https://advancedmultiphysics.bitbucket.io
 * Git repositories: git@github.com:AdvancedMultiPhysics/AMP
-* Issue tracker: https://bitbucket.org/AdvancedMultiPhysics/amp/issues?status=new&status=open
+* Issue tracker: https://github.com/AdvancedMultiPhysics/AMP/issues
 
 # Team #
 
@@ -31,6 +31,7 @@ The websites associated with the AMP package includes:
 * Brian Romero (LANL)
 * Ian May (LANL)
 * Charles Ferenbaugh (LANL)
+* Jesus Bonilla (LANL)
 
 # Alumni #
 

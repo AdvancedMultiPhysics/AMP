@@ -1,0 +1,20 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "CGSolver"
+  variant = "fcg"
+  max_dimension = 3
+  uses_preconditioner = TRUE
+  print_info_level = 2
+  max_iterations = 20
+  max_error = 1e-10
+}
+
+<<< "PC-MueLuParameters" >>>
+
+Reference{
+  iterations = 11
+  res_l2_norm = 0.0
+  tolerance = 2.0e-10
+  strict = FALSE
+}

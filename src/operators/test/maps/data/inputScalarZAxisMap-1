@@ -7,23 +7,20 @@ Mesh{
     MeshArrayDatabasePrefix = "MeshArray_"
     Mesh_1 {
         MeshName = "pellet_1"
-        MeshType = "libMesh"
-        FileName = "pellet_1x.e"
-        dim = 3
-        x_offset = 0.0
-        y_offset = 0.0
-        z_offset = 0.0
-        NumberOfElements = 3315
+        MeshType = "AMP"
+        Generator = "cylinder"
+        Size = 9, 8
+        Range = 0.004022, 0, 0.0105
+        surfaceIds = 4, 4, 4, 4, 2, 35
+        static = TRUE
     }
     Mesh_2 {
         MeshName = "clad"
-        MeshType = "libMesh"
-        FileName = "clad_1x_1pellet.e"
-        dim = 3
-        x_offset = 0.0
-        y_offset = 0.0
-        z_offset = 0.0
-        NumberOfElements = 1620
+        MeshType = "AMP"
+        Generator = "tube"
+        Size = 3, 36, 20
+        Range = 4.11e-3, 4.75e-3, 0, 0.0105
+        static = TRUE
     }
 }
 

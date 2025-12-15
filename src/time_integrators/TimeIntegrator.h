@@ -205,9 +205,8 @@ public:
      *  of vectors, but no vector may be owned by multiple solvers.
      * \param vec   The vector to append
      */
-    virtual void appendSolutionVector( AMP::LinearAlgebra::Vector::shared_ptr vec )
+    virtual void appendSolutionVector( [[maybe_unused]] AMP::LinearAlgebra::Vector::shared_ptr vec )
     {
-        NULL_USE( vec );
     }
 
     /**
@@ -217,7 +216,7 @@ public:
      *  of vectors, but no vector may be owned by multiple solvers.
      * \param vec   The vector to append
      */
-    virtual void appendRhsVector( AMP::LinearAlgebra::Vector::shared_ptr vec ) { NULL_USE( vec ); }
+    virtual void appendRhsVector( [[maybe_unused]] AMP::LinearAlgebra::Vector::shared_ptr vec ) {}
 
     /**
      * \brief  Registers a writer with the solver
@@ -258,7 +257,7 @@ public:
 
     virtual void setFinalTime( const double t ) { d_final_time = t; }
 
-    virtual void printStatistics( std::ostream &os = AMP::pout ) { NULL_USE( os ); }
+    virtual void printStatistics( std::ostream &os = AMP::pout );
 
     virtual void setSourceTerm( AMP::LinearAlgebra::Vector::shared_ptr src )
     {
@@ -365,6 +364,10 @@ protected:
     std::shared_ptr<AMP::IO::Writer> d_writer;
 
     TimeIntegrator() = default;
+
+    //! Set to true after initialization in constructors. Needed in getFromInput
+    //! to avoid reseting some parameters in subsequent reset operations.
+    bool d_initialized = false;
 
 public: // Write/read restart data
     /**

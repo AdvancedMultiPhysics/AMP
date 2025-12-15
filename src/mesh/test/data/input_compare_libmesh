@@ -1,0 +1,35 @@
+/*Mesh_1 {
+    MeshName = "cube64"
+    FileName = "cube64.with.boundary.labels.e"
+    MeshType = "libMesh"
+    dim      = 3
+}
+Mesh_2 {
+    MeshName = "cube_3d"
+    MeshType = "AMP"
+    dim = 3
+    Generator = "cube"
+    Size = 4, 4, 4
+    Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
+    static = TRUE
+}*/
+
+
+/*Mesh_1 {
+    MeshName = "brick"
+    FileName = "brick.e"
+    MeshType = "libMesh"
+    dim      = 3
+}
+Mesh_2 {
+    MeshName = "cube_3d"
+    MeshType = "AMP"
+    dim = 3
+    Generator = "cube"
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
+}*/
+
+

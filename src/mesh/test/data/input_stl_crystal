@@ -1,0 +1,6 @@
+Mesh{
+    MeshName = "crystal"
+    MeshType = "AMP"
+    FileName = "CRYSTAL_FINAL_2mm.STL"
+}
+

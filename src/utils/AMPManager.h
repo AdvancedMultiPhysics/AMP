@@ -95,6 +95,26 @@ public:
      */
     AMP_MPI::Comm COMM_WORLD;
 
+    /*!
+     *  Default number of Kokkos threads to use
+     *  Kokkos OpenMP backend will be initialized according to the following:
+     *     command line arguments: "--threads", "--kokkos-threads", "--kokkos-num-thread"
+     *     OMP_NUM_THREADS environmental value (if set)
+     *     default_Kokkos_threads (if not equal to 0)
+     *     default_OpenMP_threads (if not equal to 0)
+     *     1 thread if none of the above apply
+     */
+    int default_Kokkos_threads = 0;
+
+    /*!
+     *  Default number of OpenMP threads to use
+     *  OpenMP will be initialized according to the following:
+     *     Kokkos (may override OpenMP)
+     *     default_OpenMP_threads (if not equal to 0)
+     *     1 thread if none of the above apply
+     */
+    int default_OpenMP_threads = 0;
+
 private:
     friend class AMPManager;
 };
@@ -184,6 +204,8 @@ public:
     //! Set the global comm
     static void setCommWorld( const AMP::AMP_MPI & );
 
+    //! Register a function to perform cleanup at AMP::AMPManager::shutdown
+    static void registerShutdown( std::function<void()> );
 
 private:
     // Private constructor (we do not actually want to create an object)
@@ -194,6 +216,7 @@ private:
     static int d_argc;
     static const char *const *d_argv;
     static AMPManagerProperties d_properties;
+    static std::vector<std::function<void()>> d_atShutdown;
 
     // Function to control exit behavior
     static void exitFun();
@@ -202,10 +225,15 @@ private:
     static double start_SAMRAI();
     static double start_PETSc();
     static double start_HYPRE();
-    static double start_CudaOrHip();
+    static double initDevices();
+    static double bindDevices();
+    static double start_OpenMP();
     static double stop_SAMRAI();
     static double stop_HYPRE();
     static double stop_PETSc();
+
+    // wrapper for shutting and restarting SAMRAI
+    static void restart_SAMRAI();
 
     // Functions to set error handlers for specific packages
     static void set_PETSc_error_handler();

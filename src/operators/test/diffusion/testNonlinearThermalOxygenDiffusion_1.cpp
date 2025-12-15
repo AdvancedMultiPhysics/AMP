@@ -43,32 +43,30 @@ static void thermalOxygenDiffusionTest( AMP::UnitTest *ut, const std::string &ex
     meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
     // Create the meshes from the input database
-    auto manager     = AMP::Mesh::MeshFactory::create( meshParams );
-    auto meshAdapter = manager->Subset( "brick" );
+    auto manager = AMP::Mesh::MeshFactory::create( meshParams );
+    auto mesh    = manager->Subset( "brick" );
 
     // create a nonlinear BVP operator for nonlinear thermal
     AMP_INSIST( input_db->keyExists( "testNonlinearThermalOperator" ), "key missing!" );
 
     auto nonlinearThermalOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testNonlinearThermalOperator", input_db ) );
+            mesh, "testNonlinearThermalOperator", input_db ) );
     auto nonlinearThermalVolumeOperator =
         std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
             nonlinearThermalOperator->getVolumeOperator() );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> thermalMaterialModel =
-        nonlinearThermalVolumeOperator->getTransportModel();
+    auto thermalMaterialModel = nonlinearThermalVolumeOperator->getTransportModel();
 
     // create a nonlinear BVP operator for nonlinear oxygen diffusion
     AMP_INSIST( input_db->keyExists( "testNonlinearOxygenOperator" ), "key missing!" );
 
     auto nonlinearOxygenOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testNonlinearOxygenOperator", input_db ) );
+            mesh, "testNonlinearOxygenOperator", input_db ) );
     auto nonlinearOxygenVolumeOperator =
         std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
             nonlinearOxygenOperator->getVolumeOperator() );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> oxygenTransportModel =
-        nonlinearOxygenVolumeOperator->getTransportModel();
+    auto oxygenTransportModel = nonlinearOxygenVolumeOperator->getTransportModel();
 
     auto fickOperator = std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
         nonlinearOxygenOperator->getVolumeOperator() );
@@ -91,7 +89,7 @@ static void thermalOxygenDiffusionTest( AMP::UnitTest *ut, const std::string &ex
     int nodalGhostWidth = 1;
     bool split          = true;
     auto nodalDofMap    = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
 
     // create solution, rhs, and residual vectors
     auto solVec = AMP::LinearAlgebra::createVector( nodalDofMap, inputVariable );
@@ -137,17 +135,11 @@ static void thermalOxygenDiffusionTest( AMP::UnitTest *ut, const std::string &ex
         }
     }
 
-    // now construct the linear BVP operator for thermal
-    AMP_INSIST( input_db->keyExists( "testLinearThermalOperator" ), "key missing!" );
-    auto linearThermalOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testLinearThermalOperator", input_db, thermalMaterialModel ) );
-
-    // now construct the linear BVP operator for oxygen
-    AMP_INSIST( input_db->keyExists( "testLinearOxygenOperator" ), "key missing!" );
-    auto linearOxygenOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testLinearOxygenOperator", input_db, oxygenTransportModel ) );
+    // construct the linear BVP operatora
+    auto linearThermalOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
+        nonlinearThermalOperator->getParameters( "Jacobian", nullptr ) );
+    auto linearOxygenOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
+        nonlinearOxygenOperator->getParameters( "Jacobian", nullptr ) );
 
     // create a column operator object for linear thermomechanics
     auto linearThermalOxygenOperator = std::make_shared<AMP::Operator::ColumnOperator>();

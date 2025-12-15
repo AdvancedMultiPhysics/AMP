@@ -1,5 +1,5 @@
 #include "AMP/geometry/shapes/Box.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
@@ -10,6 +10,46 @@
 
 
 namespace AMP::Geometry {
+
+
+/********************************************************
+ * Build a Box/Grid geometry object                      *
+ ********************************************************/
+std::unique_ptr<AMP::Geometry::Geometry> buildBox( std::shared_ptr<const AMP::Database> db )
+{
+    if ( db->keyExists( "Range" ) ) {
+        int dim = db->getWithDefault<int>( "dim", db->getVector<double>( "Range" ).size() / 2 );
+        if ( dim == 1 ) {
+            return std::make_unique<Box<1>>( db );
+        } else if ( dim == 2 ) {
+            return std::make_unique<Box<2>>( db );
+        } else if ( dim == 3 ) {
+            return std::make_unique<Box<3>>( db );
+        } else {
+            AMP_ERROR( "Physical Dimensions > 3 are not supported yet" );
+        }
+    } else if ( db->keyExists( "x_grid" ) ) {
+        int dim = db->getWithDefault<int>( "dim", 0 );
+        if ( dim == 0 ) {
+            if ( db->keyExists( "z_grid" ) )
+                dim = 3;
+            else if ( db->keyExists( "y_grid" ) )
+                dim = 2;
+            else
+                dim = 1;
+        }
+        if ( dim == 1 ) {
+            return std::make_unique<Grid<1>>( db );
+        } else if ( dim == 2 ) {
+            return std::make_unique<Grid<2>>( db );
+        } else if ( dim == 3 ) {
+            return std::make_unique<Grid<3>>( db );
+        } else {
+            AMP_ERROR( "Physical Dimensions > 3 are not supported yet" );
+        }
+    }
+    AMP_ERROR( "Must set 'Range' pr 'x_grid' to define a box" );
+}
 
 
 /********************************************************
@@ -84,6 +124,7 @@ std::string Box<NDIM>::getName() const
         return "Box<2>";
     else if constexpr ( NDIM == 3 )
         return "Box<3>";
+    AMP_ERROR( "Invalid dimension" );
 }
 template<std::size_t NDIM>
 std::string Grid<NDIM>::getName() const
@@ -94,6 +135,7 @@ std::string Grid<NDIM>::getName() const
         return "Grid<2>";
     else if constexpr ( NDIM == 3 )
         return "Grid<3>";
+    AMP_ERROR( "Invalid dimension" );
 }
 
 

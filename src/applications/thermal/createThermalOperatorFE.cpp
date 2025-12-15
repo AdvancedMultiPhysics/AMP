@@ -53,7 +53,7 @@ integrateSourceVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     // Get the integration type
     std::string integrationType;
     auto srcDOFs = src->subsetVectorForVariable( srcName )->getDOFManager();
-    auto type    = srcDOFs->getElement( 0 ).elementType();
+    auto type    = srcDOFs->getElement( 0 )->elementType();
     if ( type == AMP::Mesh::GeomType::Vertex )
         integrationType = "NodalScalar";
     else if ( type == AMP::Mesh::GeomType::Cell )
@@ -148,27 +148,26 @@ createOperators( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     using namespace AMP::Operator;
 
     // Subset the temperature vector
-    auto tempVec = solVec->select( AMP::LinearAlgebra::VS_Mesh( mesh ), solVec->getName() );
+    auto tempVec = solVec->select( AMP::LinearAlgebra::VS_Mesh( mesh ) );
 
     // Create the local model for thermal diffusion
-    auto DiffusionTransportModelDB = std::make_shared<AMP::Database>( "DiffusionTransportModel" );
+    auto DiffusionTransportModelDB = std::make_unique<AMP::Database>( "DiffusionTransportModel" );
     DiffusionTransportModelDB->putScalar( "name", "DiffusionTransportModel" );
     DiffusionTransportModelDB->putScalar( "Material", material );
     DiffusionTransportModelDB->putScalar( "Property", "Thermal Conductivity" );
-    auto DiffusionTransportModel =
-        ElementPhysicsModelFactory::createElementPhysicsModel( DiffusionTransportModelDB );
 
     // Create the non-linear diffusion operator
     auto NonlinearDiffusionDB = std::make_shared<AMP::Database>( "DiffusionNonlinearFEOperator" );
     NonlinearDiffusionDB->putDatabase( "ActiveInputVariables",
                                        AMP::Database::create( "temperature", InputVariable ) );
+    NonlinearDiffusionDB->putDatabase( "LocalModel", std::move( DiffusionTransportModelDB ) );
     NonlinearDiffusionDB->putScalar( "name", "DiffusionNonlinearFEOperator" );
     NonlinearDiffusionDB->putScalar( "OutputVariable", OutputVariable );
     NonlinearDiffusionDB->putScalar( "PrincipalVariable", "temperature" );
     addDiffusionElementDB( *NonlinearDiffusionDB, "DiffusionNonlinearElement" );
-    auto nonlinearDiffusion = std::dynamic_pointer_cast<DiffusionNonlinearFEOperator>(
-        OperatorBuilder::createNonlinearDiffusionOperator(
-            mesh, NonlinearDiffusionDB, DiffusionTransportModel ) );
+    auto nonlinearDiffusion =
+        std::dynamic_pointer_cast<DiffusionNonlinearFEOperator>( OperatorBuilder::createOperator(
+            mesh, "DiffusionNonlinearFEOperator", NonlinearDiffusionDB ) );
     nonlinearDiffusion->setVector( "temperature", tempVec );
 
     // Create the column boundary operators
@@ -192,7 +191,7 @@ createOperators( std::shared_ptr<AMP::Mesh::Mesh> mesh,
         nonlinearBoundaryOp->append( DirichletOp );
     } else {
         AMP_ASSERT( boundaryIds.size() == boundaryImpedance.size() );
-        auto boundaryVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
+        auto boundaryVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "temperature" );
         auto boundaryDOFs = AMP::Discretization::simpleDOFManager::create(
             mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
         for ( size_t i = 0; i < boundaryIds.size(); i++ ) {

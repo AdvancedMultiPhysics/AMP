@@ -6,6 +6,7 @@
 
 namespace AMP::LinearAlgebra {
 
+
 std::shared_ptr<VectorData> VectorDataFactory::create( int64_t fid,
                                                        AMP::IO::RestartManager *manager )
 {
@@ -24,4 +25,13 @@ std::shared_ptr<VectorData> VectorDataFactory::create( int64_t fid,
     }
     return data;
 }
+
+
 } // namespace AMP::LinearAlgebra
+
+
+template<>
+void AMP::FactoryStrategy<AMP::LinearAlgebra::VectorData, int64_t, AMP::IO::RestartManager *>::
+    registerDefault()
+{
+}

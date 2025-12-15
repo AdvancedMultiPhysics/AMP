@@ -1,11 +1,12 @@
 #include "AMP/geometry/Geometry.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/geometry/MeshGeometry.h"
 #include "AMP/geometry/MultiGeometry.h"
 #include "AMP/geometry/shapes/Box.h"
 #include "AMP/geometry/shapes/Circle.h"
 #include "AMP/geometry/shapes/CircleFrustum.h"
+#include "AMP/geometry/shapes/CircleSurface.h"
 #include "AMP/geometry/shapes/Cylinder.h"
 #include "AMP/geometry/shapes/Parallelepiped.h"
 #include "AMP/geometry/shapes/RegularPolygon.h"
@@ -20,6 +21,7 @@
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/utils/Database.h"
 
+#include <algorithm>
 
 namespace AMP::Geometry {
 
@@ -35,32 +37,13 @@ Geometry::buildGeometry( std::shared_ptr<const AMP::Database> db )
     std::for_each( generator.begin(), generator.end(), []( char &c ) { c = ::tolower( c ); } );
     std::shared_ptr<AMP::Geometry::Geometry> geom;
     if ( generator == "cube" ) {
-        int dim = db->getScalar<int>( "dim" );
-        if ( db->keyExists( "Range" ) ) {
-            if ( dim == 1 ) {
-                geom = std::make_shared<Box<1>>( db );
-            } else if ( dim == 2 ) {
-                geom = std::make_shared<Box<2>>( db );
-            } else if ( dim == 3 ) {
-                geom = std::make_shared<Box<3>>( db );
-            } else {
-                AMP_ERROR( "Physical Dimensions > 3 are not supported yet" );
-            }
-        } else if ( db->keyExists( "x_grid" ) ) {
-            if ( dim == 1 ) {
-                geom = std::make_shared<Grid<1>>( db );
-            } else if ( dim == 2 ) {
-                geom = std::make_shared<Grid<2>>( db );
-            } else if ( dim == 3 ) {
-                geom = std::make_shared<Grid<3>>( db );
-            } else {
-                AMP_ERROR( "Physical Dimensions > 3 are not supported yet" );
-            }
-        }
+        geom = buildBox( db );
     } else if ( generator == "tube" ) {
         geom = std::make_shared<Tube>( db );
     } else if ( generator == "circle" ) {
         geom = std::make_shared<Circle>( db );
+    } else if ( generator == "circle_surface" ) {
+        geom = std::make_shared<CircleSurface>( db );
     } else if ( generator == "cylinder" ) {
         geom = std::make_shared<Cylinder>( db );
     } else if ( generator == "shell" ) {
@@ -183,6 +166,8 @@ AMP::IO::RestartManager::DataStoreType<AMP::Geometry::Geometry>::read(
         geom = std::make_shared<Tube>( gid );
     } else if ( type == "Circle" ) {
         geom = std::make_shared<Circle>( gid );
+    } else if ( type == "CircleSurface" ) {
+        geom = std::make_shared<CircleSurface>( gid );
     } else if ( type == "Cylinder" ) {
         geom = std::make_shared<Cylinder>( gid );
     } else if ( type == "Shell" ) {

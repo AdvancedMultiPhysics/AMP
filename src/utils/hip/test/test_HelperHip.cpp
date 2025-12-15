@@ -1,20 +1,20 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/hip/Helper_Hip.h"
 #include "AMP/utils/hip/HipAllocator.h"
-#include "AMP/utils/hip/helper_hip.h"
 
 #include <iostream>
 #include <memory>
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
-    #define USE_KOKKOS
+#ifdef AMP_USE_KOKKOS
     #include <Kokkos_Core.hpp>
     #include <Kokkos_Macros.hpp>
 #endif
 
 
-static inline std::string getMemorySpace( void *ptr )
+static inline std::string_view getMemorySpace( void *ptr )
 {
     return AMP::Utilities::getString( AMP::Utilities::getMemoryType( ptr ) );
 }
@@ -47,25 +47,21 @@ int main( int argc, char *argv[] )
     // Memory pointer type
     AMP::HipDevAllocator<double> devAllocator;
     AMP::HipManagedAllocator<double> managedAllocator;
-    AMP::HipHostAllocator<double> hostAllocator;
-    std::allocator<double> stdAllocator;
+    AMP::HostAllocator<double> hostAllocator;
     size_t N     = 100;
     auto device  = devAllocator.allocate( N );
     auto managed = managedAllocator.allocate( N );
     auto host    = hostAllocator.allocate( N );
-    auto std     = stdAllocator.allocate( N );
     std::cout << std::endl;
     std::cout << "Device: " << getMemorySpace( device ) << std::endl;
     std::cout << "Managed: " << getMemorySpace( managed ) << std::endl;
     std::cout << "Host: " << getMemorySpace( host ) << std::endl;
-    std::cout << "std: " << getMemorySpace( std ) << std::endl;
     devAllocator.deallocate( device, N );
     managedAllocator.deallocate( managed, N );
     hostAllocator.deallocate( host, N );
-    stdAllocator.deallocate( std, N );
 
     // Check Kokkos memory pointers
-#ifdef USE_KOKKOS
+#ifdef AMP_USE_KOKKOS
     std::cout << std::endl;
     testKokkosMemorySpace<Kokkos::HostSpace>( "HostSpace" );
     #ifdef KOKKOS_ENABLE_HIP

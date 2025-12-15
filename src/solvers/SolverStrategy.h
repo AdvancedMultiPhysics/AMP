@@ -3,6 +3,8 @@
 
 #include "AMP/operators/Operator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
+#include "AMP/utils/Backend.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/Vector.h"
 
 #include <memory>
@@ -60,9 +62,8 @@ public:
     enum class SolverStatus {
         ConvergedOnAbsTol,
         ConvergedOnRelTol,
-        ConvergedIterations,
         ConvergedUserCondition,
-        DivergedMaxIterations,
+        MaxIterations,
         DivergedLineSearch,
         DivergedStepSize,
         DivergedFunctionCount,
@@ -70,6 +71,32 @@ public:
         DivergedNestedSolver,
         DivergedOther
     };
+
+    static std::string statusToString( SolverStatus status )
+    {
+        switch ( status ) {
+        case SolverStatus::ConvergedOnAbsTol:
+            return "ConvergedOnAbsTol";
+        case SolverStatus::ConvergedOnRelTol:
+            return "ConvergedOnRelTol";
+        case SolverStatus::ConvergedUserCondition:
+            return "ConvergedUserCondition";
+        case SolverStatus::MaxIterations:
+            return "MaxIterations";
+        case SolverStatus::DivergedLineSearch:
+            return "DivergedLineSearch";
+        case SolverStatus::DivergedStepSize:
+            return "DivergedStepSize";
+        case SolverStatus::DivergedFunctionCount:
+            return "DivergedFunctionCount";
+        case SolverStatus::DivergedOnNan:
+            return "DivergedOnNan";
+        case SolverStatus::DivergedNestedSolver:
+            return "DivergedNestedSolver";
+        default:
+            return "DivergedOther";
+        }
+    }
 
     /**
      * Solve the system \f$A(u) = f\f$.  This is a pure virtual function that the derived classes
@@ -129,22 +156,26 @@ public:
      * Set a nested solver, eg, Krylov for Newton, preconditioner for Krylov etc. Null op in base
      * class
      */
-    virtual void setNestedSolver( std::shared_ptr<SolverStrategy> ) {}
+    virtual void setNestedSolver( std::shared_ptr<SolverStrategy> solver )
+    {
+        d_pNestedSolver = solver;
+        d_pNestedSolver->setIsNestedSolver( true );
+    }
+
+    //! Tell a solver that it is nested inside some outer solver
+    void setIsNestedSolver( bool is_nested ) { d_bIsNestedSolver = is_nested; }
 
     /**
      * Return a nested solver (eg preconditioner) if it exists. By default return a nullptr
      */
 
-    virtual std::shared_ptr<SolverStrategy> getNestedSolver( void ) { return nullptr; }
+    virtual std::shared_ptr<SolverStrategy> getNestedSolver( void ) { return d_pNestedSolver; }
 
     /**
      * Register the operator that the solver will use during solves
      * @param [in] op shared pointer to operator \f$A()\f$ for equation \f$A(u) = f\f$
      */
-    virtual void registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
-    {
-        d_pOperator = op;
-    }
+    virtual void registerOperator( std::shared_ptr<AMP::Operator::Operator> op );
 
     /**
      * \brief  Registers a writer with the solver
@@ -172,25 +203,16 @@ public:
     /**
      * Return a shared pointer to the operator registered with the solver.
      */
-    virtual std::shared_ptr<AMP::Operator::Operator> getOperator( void ) { return d_pOperator; }
+    virtual std::shared_ptr<AMP::Operator::Operator> getOperator( void );
 
-    /*!
-     *  Get absolute tolerance for solver.
-     */
     AMP::Scalar getAbsoluteTolerance() const { return ( d_dAbsoluteTolerance ); }
 
-    /*!
-     *  Set absolute tolerance for nonlinear solver.
-     */
     virtual void setAbsoluteTolerance( AMP::Scalar abs_tol ) { d_dAbsoluteTolerance = abs_tol; }
 
     AMP::Scalar getRelativeTolerance() const { return ( d_dRelativeTolerance ); }
 
     virtual void setRelativeTolerance( AMP::Scalar rel_tol ) { d_dRelativeTolerance = rel_tol; }
 
-    /**
-     * Set the maximum number of iterations for the solver
-     */
     virtual void setMaxIterations( const int max_iterations ) { d_iMaxIterations = max_iterations; }
 
     int getMaxIterations( void ) const { return d_iMaxIterations; }
@@ -200,22 +222,23 @@ public:
         os << "Not implemented for this solver!" << std::endl;
     }
 
-    int getConvergenceStatus( void ) const
+    bool getConverged( void ) const
     {
         return d_ConvergenceStatus <= SolverStatus::ConvergedUserCondition ? 1 : 0;
     }
 
-    virtual void print( std::ostream &os ) { NULL_USE( os ); }
+    SolverStatus getConvergenceStatus( void ) const { return d_ConvergenceStatus; }
 
-    /**
-     * Return the residual norm.
-     */
+    std::string getConvergenceStatusString( void ) const
+    {
+        return statusToString( d_ConvergenceStatus );
+    }
+
+    virtual void print( std::ostream & ) {}
+
     virtual AMP::Scalar getResidualNorm( void ) const { return d_dResidualNorm; }
 
-    /**
-     * returns whether the solver has converged or not
-     */
-    virtual bool checkConvergence( std::shared_ptr<const AMP::LinearAlgebra::Vector> residual );
+    virtual AMP::Scalar getInitialResidual( void ) const { return d_dInitialResidual; }
 
     virtual const std::vector<int> &getIterationHistory( void ) { return d_iterationHistory; }
 
@@ -230,8 +253,25 @@ public:
     {
     }
 
+    //! for multiphysics problems it may be necessary to scale the solution
+    // and nonlinear function for correct solution.
+    // The first vector is for solution scaling, the second for function
+    void setComponentScalings( std::shared_ptr<AMP::LinearAlgebra::Vector> s,
+                               std::shared_ptr<AMP::LinearAlgebra::Vector> f )
+    {
+        d_pSolutionScaling = s;
+        d_pFunctionScaling = f;
+    }
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> getSolutionScaling() { return d_pSolutionScaling; }
+    std::shared_ptr<AMP::LinearAlgebra::Vector> getFunctionScaling() { return d_pFunctionScaling; }
+
+    AMP::Utilities::ExecutionSpace getExecutionSpace() const { return d_exec_space; }
+    void setExecutionSpace( AMP::Utilities::ExecutionSpace space ) { d_exec_space = space; }
+
 protected:
-    void getFromInput( std::shared_ptr<AMP::Database> db );
+    void getBaseFromInput( std::shared_ptr<AMP::Database> db );
+    virtual bool checkStoppingCriteria( AMP::Scalar res_norm, bool check_iters = true );
 
     SolverStatus d_ConvergenceStatus = SolverStatus::DivergedOther;
 
@@ -251,6 +291,7 @@ protected:
 
     bool d_bUseZeroInitialGuess = true;
 
+    bool d_bIsNestedSolver  = false;
     bool d_bComputeResidual = false;
 
     int d_iObjectId;
@@ -269,10 +310,21 @@ protected:
      */
     std::shared_ptr<AMP::Database> d_global_db = nullptr;
 
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_pSolutionScaling;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_pFunctionScaling;
+
     std::shared_ptr<AMP::Operator::Operator> d_pOperator = nullptr;
+
+    //! nested solver used by this solver
+    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver = nullptr;
 
     std::shared_ptr<AMP::IO::Writer> d_writer = nullptr;
 
+    //! execution space for the solver
+    AMP::Utilities::ExecutionSpace d_exec_space = AMP::Utilities::ExecutionSpace::unspecified;
+
+    //! memory storage address space
+    AMP::Utilities::MemoryType d_memory_location = AMP::Utilities::MemoryType::none;
 
 private:
 };

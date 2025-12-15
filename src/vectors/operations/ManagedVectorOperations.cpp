@@ -50,6 +50,31 @@ void ManagedVectorOperations::copy( const VectorData &src, VectorData &dst )
     dst_managed->dataChanged();
     dst_managed->makeConsistent( ScatterType::CONSISTENT_SET );
 }
+void ManagedVectorOperations::copyCast( const VectorData &src, VectorData &dst )
+{
+    auto dst_managed = getManagedVectorData( dst );
+    AMP_ASSERT( dst_managed );
+    std::shared_ptr<Vector> vec1;
+    std::shared_ptr<const Vector> vec2;
+    auto src_managed = getManagedVectorData( src );
+    if ( src_managed ) {
+        // We are dealing with two managed vectors, check if they both have data engines
+        if ( dst_managed->getVectorEngine() )
+            vec1 = std::dynamic_pointer_cast<Vector>( dst_managed->getVectorEngine() );
+        if ( src_managed->getVectorEngine() != nullptr )
+            vec2 = std::dynamic_pointer_cast<const Vector>( src_managed->getVectorEngine() );
+    }
+    // Perform the copy
+    if ( vec1 != nullptr && vec2 != nullptr ) {
+        // We have two data engines, perform the copy between them
+        vec1->copyCast( vec2 );
+    } else {
+        // Default, general case
+        VectorOperationsDefault::copyCast( src, dst );
+    }
+    dst_managed->dataChanged();
+    dst_managed->makeConsistent( ScatterType::CONSISTENT_SET );
+}
 
 void ManagedVectorOperations::setToScalar( const Scalar &alpha, VectorData &x )
 {

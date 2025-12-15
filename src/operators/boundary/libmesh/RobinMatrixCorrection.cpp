@@ -1,12 +1,16 @@
-#include "RobinMatrixCorrection.h"
+#include "AMP/operators/boundary/libmesh/RobinMatrixCorrection.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
+#include "AMP/operators/LinearOperator.h"
+#include "AMP/operators/boundary/libmesh/RobinMatrixCorrectionParameters.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
-#include "RobinMatrixCorrectionParameters.h"
 
 // Libmesh files
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -24,6 +28,35 @@ using AMP::Utilities::stringf;
 
 namespace AMP::Operator {
 
+
+/****************************************************************
+ * Create the appropriate parameters                             *
+ ****************************************************************/
+static std::shared_ptr<const RobinMatrixCorrectionParameters>
+convert( std::shared_ptr<const OperatorParameters> inParams )
+{
+    AMP_ASSERT( inParams );
+    if ( std::dynamic_pointer_cast<const RobinMatrixCorrectionParameters>( inParams ) )
+        return std::dynamic_pointer_cast<const RobinMatrixCorrectionParameters>( inParams );
+    auto bndParams = std::dynamic_pointer_cast<const BoundaryOperatorParameters>( inParams );
+    AMP_ASSERT( bndParams );
+    auto linearOperator = std::dynamic_pointer_cast<LinearOperator>( bndParams->d_volumeOperator );
+    auto params         = std::make_shared<RobinMatrixCorrectionParameters>( inParams->d_db );
+    params->d_Mesh      = inParams->d_Mesh;
+    params->d_variable  = linearOperator->getOutputVariable();
+    params->d_inputMatrix = linearOperator->getMatrix();
+    if ( params->d_db->keyExists( "LocalModel" ) ) {
+        auto model_db = params->d_db->getDatabase( "LocalModel" );
+        auto model    = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+        params->d_robinPhysicsModel = std::dynamic_pointer_cast<RobinPhysicsModel>( model );
+    }
+    return params;
+}
+
+
+/****************************************************************
+ * Constructors                                                  *
+ ****************************************************************/
 RobinMatrixCorrection::RobinMatrixCorrection( std::shared_ptr<const OperatorParameters> inParams )
     : BoundaryOperator( inParams ),
       d_hef( 0 ),
@@ -33,7 +66,7 @@ RobinMatrixCorrection::RobinMatrixCorrection( std::shared_ptr<const OperatorPara
       d_JxW( nullptr ),
       d_phi( nullptr )
 {
-    auto params = std::dynamic_pointer_cast<const RobinMatrixCorrectionParameters>( inParams );
+    auto params = convert( inParams );
     AMP_ASSERT( params );
 
     d_alpha = params->d_db->getWithDefault<double>( "alpha", 0 );
@@ -64,6 +97,7 @@ RobinMatrixCorrection::RobinMatrixCorrection( std::shared_ptr<const OperatorPara
 
 void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> params )
 {
+    AMP_ASSERT( params );
 
     auto myparams = std::dynamic_pointer_cast<const RobinMatrixCorrectionParameters>( params );
 
@@ -130,7 +164,7 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
 #if 1
         d_dofManager = inputMatrix->getRightDOFManager();
 #else
-        auto inVec   = inputMatrix->getRightVector();
+        auto inVec   = inputMatrix->createInputVector();
         d_dofManager = inVec->getDOFManager();
 #endif
         unsigned int numIds  = d_boundaryIds.size();
@@ -171,7 +205,7 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
                     dofIndices.resize( currNodes.size() );
                     std::vector<AMP::Mesh::MeshElementID> globalIDs( currNodes.size() );
                     for ( size_t j = 0; j < currNodes.size(); j++ )
-                        globalIDs[j] = currNodes[j].globalID();
+                        globalIDs[j] = currNodes[j]->globalID();
 
                     // Get the libmesh element
                     const libMesh::Elem *currElemPtr =
@@ -179,7 +213,7 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
 
                     // Get the DOF indicies for the matrix
                     for ( unsigned int i = 0; i < currNodes.size(); i++ )
-                        d_dofManager->getDOFs( currNodes[i].globalID(), dofIndices[i] );
+                        d_dofManager->getDOFs( currNodes[i]->globalID(), dofIndices[i] );
 
                     dofs.resize( currNodes.size() );
                     for ( size_t n = 0; n < dofIndices.size(); n++ )

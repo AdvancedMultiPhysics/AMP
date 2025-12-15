@@ -1,1 +1,4 @@
-filename=TRUE
+data0 = 4
+data1 {
+    data2 = "string"
+}

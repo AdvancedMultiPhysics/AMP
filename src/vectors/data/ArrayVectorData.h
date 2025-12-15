@@ -5,17 +5,19 @@
 
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 
 
 namespace AMP::LinearAlgebra {
 
 /** \brief A core-local vector
- * \details This is a Vector that implements the Vector interface for a std::vector<double>.
+ * \details This is a Vector that implements the Vector interface for an AMP::Array.
  */
-template<typename T, typename FUN = FunctionTable, typename Allocator = std::allocator<T>>
-class ArrayVectorData : public VectorData
+template<typename T, typename FUN = FunctionTable<T>, typename Allocator = AMP::HostAllocator<void>>
+class ArrayVectorData : public GhostDataHelper<T, Allocator>
 {
 private:
     AMP::Array<T, FUN, Allocator> d_array;
@@ -56,7 +58,7 @@ public:
 
     /** \brief  Return the communicator this Vector spans
      */
-    AMP_MPI getComm() const override { return d_comm; }
+    const AMP_MPI &getComm() const override { return d_comm; }
 
     //! resize the ArrayVector and reset the internal data structures
     void resize( const ArraySize &localDims );
@@ -78,11 +80,7 @@ public:
      * \param[in] i  particular data block
      * \return The size of a particular block
      */
-    size_t sizeOfDataBlock( size_t i = 0 ) const override
-    {
-        NULL_USE( i );
-        return d_array.length();
-    }
+    size_t sizeOfDataBlock( size_t i = 0 ) const override { return i == 0 ? d_array.length() : 0; }
 
     /**\brief Copy data into this vector
      *\param[in] buf  Buffer to copy from
@@ -175,7 +173,7 @@ protected:
     }
 
     typeID getType( size_t ) const override { return getTypeID<T>(); }
-    size_t sizeofDataBlockType( size_t ) const override { return sizeof( double ); }
+    size_t sizeofDataBlockType( size_t ) const override { return sizeof( T ); }
     void swapData( VectorData & ) override;
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 };

@@ -3,14 +3,14 @@
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/MultiMesh.h"
-#include "AMP/mesh/libmesh/ReadTestMesh.h"
 #include "AMP/mesh/libmesh/initializeLibMesh.h"
 #include "AMP/mesh/libmesh/libmeshMesh.h"
+#include "AMP/mesh/testHelpers/meshWriters.h"
 #include "AMP/operators/ColumnOperator.h"
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/trilinos/ml/TrilinosMLSolver.h"
 #include "AMP/utils/AMPManager.h"
@@ -68,8 +68,8 @@ int myMatVec( ML_Operator *data, int in_length, double in[], int out_length, dou
     auto *op = reinterpret_cast<AMP::Operator::LinearOperator *>( ML_Get_MyMatvecData( data ) );
     auto mat = op->getMatrix();
 
-    auto inVec  = mat->getRightVector();
-    auto outVec = mat->getLeftVector();
+    auto inVec  = mat->createInputVector();
+    auto outVec = mat->createOutputVector();
 
     AMP_ASSERT( in_length == (int) inVec->getLocalSize() );
     AMP_ASSERT( out_length == (int) outVec->getLocalSize() );
@@ -132,35 +132,22 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName, int type )
 
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
-    std::string mesh_file = input_db->getString( "mesh_file" );
 
-    auto mesh_file_db = AMP::Database::parseInputFile( mesh_file );
+    [[maybe_unused]] auto libmeshInit =
+        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
 
-    auto libmeshInit = std::make_shared<AMP::Mesh::initializeLibMesh>( globalComm );
-
-    const int mesh_dim = 3;
-    libMesh::Parallel::Communicator comm( globalComm.getCommunicator() );
-    auto fusedMesh = std::make_shared<libMesh::Mesh>( comm, mesh_dim );
-
-    AMP::readTestMesh( mesh_file, fusedMesh );
-
-    libMesh::MeshCommunication().broadcast( *( fusedMesh.get() ) );
-
-    fusedMesh->prepare_for_use( false );
-
-    auto fusedMeshAdapter = std::make_shared<AMP::Mesh::libmeshMesh>( fusedMesh, "mesh" );
-
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> fusedElementPhysicsModel;
+    auto mesh_file = input_db->getString( "mesh_file" );
+    auto fusedMeshAdapter =
+        AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
     auto fusedOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            fusedMeshAdapter, "BVPOperator", input_db, fusedElementPhysicsModel ) );
+            fusedMeshAdapter, "BVPOperator", input_db ) );
 
     auto fusedVar = fusedOperator->getOutputVariable();
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> dummyModel;
     auto loadOperator = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator(
-            fusedMeshAdapter, "LoadOperator", input_db, dummyModel ) );
+            fusedMeshAdapter, "LoadOperator", input_db ) );
     loadOperator->setVariable( fusedVar );
 
     auto NodalVectorDOF = AMP::Discretization::simpleDOFManager::create(
@@ -179,7 +166,6 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName, int type )
     std::cout << std::endl;
 
     const size_t localSize = fusedSolVec->getLocalSize();
-    NULL_USE( localSize );
 
     // Matrix-based
     if ( type == 0 ) {
@@ -393,45 +379,26 @@ void myTest2( AMP::UnitTest *ut, const std::string &exeName, bool useTwoMeshes )
     input_db->print( AMP::plog );
     std::string mesh_file = input_db->getString( "mesh_file" );
 
-    auto mesh_file_db = AMP::Database::parseInputFile( mesh_file );
-
-    auto libmeshInit = std::make_shared<AMP::Mesh::initializeLibMesh>( globalComm );
-
-    const int mesh_dim = 3;
-    libMesh::Parallel::Communicator comm( globalComm.getCommunicator() );
-    auto firstFusedMesh  = std::make_shared<libMesh::Mesh>( comm, mesh_dim );
-    auto secondFusedMesh = std::make_shared<libMesh::Mesh>( comm, mesh_dim );
-
-    AMP::readTestMesh( mesh_file, firstFusedMesh );
-    AMP::readTestMesh( mesh_file, secondFusedMesh );
-
-    libMesh::MeshCommunication().broadcast( *( firstFusedMesh.get() ) );
-    libMesh::MeshCommunication().broadcast( *( secondFusedMesh.get() ) );
-
-    firstFusedMesh->prepare_for_use( false );
-    secondFusedMesh->prepare_for_use( false );
-
-    auto firstMesh  = std::make_shared<AMP::Mesh::libmeshMesh>( firstFusedMesh, "Mesh_1" );
-    auto secondMesh = std::make_shared<AMP::Mesh::libmeshMesh>( secondFusedMesh, "Mesh_2" );
+    auto firstMesh  = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
+    auto secondMesh = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
+    firstMesh->setName( "Mesh_1" );
+    firstMesh->setName( "Mesh_2" );
 
     std::vector<std::shared_ptr<AMP::Mesh::Mesh>> vectorOfMeshes;
     vectorOfMeshes.push_back( firstMesh );
-    if ( useTwoMeshes ) {
+    if ( useTwoMeshes )
         vectorOfMeshes.push_back( secondMesh );
-    } // end if
 
     auto fusedMeshes =
         std::make_shared<AMP::Mesh::MultiMesh>( "MultiMesh", globalComm, vectorOfMeshes );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> fusedElementPhysicsModel;
     auto firstFusedOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            fusedMeshes->getMeshes()[0], "BVPOperator", input_db, fusedElementPhysicsModel ) );
-    auto firstFusedVar = firstFusedOperator->getOutputVariable();
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> dummyModel;
+            fusedMeshes->getMeshes()[0], "BVPOperator", input_db ) );
+    auto firstFusedVar     = firstFusedOperator->getOutputVariable();
     auto firstLoadOperator = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator(
-            fusedMeshes->getMeshes()[0], "LoadOperator", input_db, dummyModel ) );
+            fusedMeshes->getMeshes()[0], "LoadOperator", input_db ) );
     firstLoadOperator->setVariable( firstFusedVar );
 
     auto fusedColumnOperator = std::make_shared<AMP::Operator::ColumnOperator>();
@@ -442,12 +409,12 @@ void myTest2( AMP::UnitTest *ut, const std::string &exeName, bool useTwoMeshes )
     if ( useTwoMeshes ) {
         auto secondFusedOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
             AMP::Operator::OperatorBuilder::createOperator(
-                fusedMeshes->getMeshes()[1], "BVPOperator", input_db, fusedElementPhysicsModel ) );
+                fusedMeshes->getMeshes()[1], "BVPOperator", input_db ) );
         auto secondFusedVar = secondFusedOperator->getOutputVariable();
         auto secondLoadOperator =
             std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
                 AMP::Operator::OperatorBuilder::createOperator(
-                    fusedMeshes->getMeshes()[1], "LoadOperator", input_db, dummyModel ) );
+                    fusedMeshes->getMeshes()[1], "LoadOperator", input_db ) );
         secondLoadOperator->setVariable( secondFusedVar );
         fusedColumnOperator->append( secondFusedOperator );
         loadColumnOperator->append( secondLoadOperator );

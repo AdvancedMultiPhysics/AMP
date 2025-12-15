@@ -24,6 +24,11 @@ public:
     //! Default constructor
     explicit StructuredGeometryMesh( std::shared_ptr<const MeshParameters> );
 
+    //! Create from a geometry
+    explicit StructuredGeometryMesh( std::shared_ptr<AMP::Geometry::LogicalGeometry>,
+                                     const ArraySize &size,
+                                     const AMP::AMP_MPI &comm );
+
     //! Copy constructor
     explicit StructuredGeometryMesh( const StructuredGeometryMesh & );
 
@@ -43,6 +48,8 @@ public: // Functions derived from BoxMesh
     void displaceMesh( std::shared_ptr<const AMP::LinearAlgebra::Vector> ) override;
     AMP::Geometry::Point physicalToLogical( const AMP::Geometry::Point &x ) const override;
     void coord( const MeshElementIndex &index, double *pos ) const override;
+    std::array<AMP::Array<double>, 3> localCoord() const override;
+    std::array<AMP::Array<double>, 3> globalCoord() const override;
     std::unique_ptr<Mesh> clone() const override;
 
 public: // Restart functions
@@ -50,7 +57,7 @@ public: // Restart functions
     StructuredGeometryMesh( int64_t, AMP::IO::RestartManager * );
 
 private:
-    uint32_t d_pos_hash;
+    uint32_t d_pos_hash = 0;
     std::shared_ptr<AMP::Geometry::LogicalGeometry> d_geometry2;
 };
 

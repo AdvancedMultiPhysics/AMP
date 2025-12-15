@@ -22,7 +22,7 @@ EpetraVectorData::EpetraVectorData( std::shared_ptr<EpetraVectorEngineParameters
                                     int localStart,
                                     int localSize,
                                     int globalSize )
-    : VectorData( alias->d_CommList ),
+    : GhostDataHelper<double>( alias->d_CommList ),
       d_epetraVector( method, map, getBufferPtr( bufData ) ),
       d_buf_scope{ bufData }
 {

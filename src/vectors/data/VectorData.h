@@ -1,9 +1,10 @@
 #ifndef included_AMP_VectorData
 #define included_AMP_VectorData
 
+#include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
-#include "AMP/vectors/CommunicationList.h"
+#include "AMP/vectors/Scalar.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/data/DataChangeFirer.h"
 
@@ -18,6 +19,8 @@ class RestartManager;
 namespace AMP::LinearAlgebra {
 
 
+// Forward declares
+class CommunicationList;
 template<typename TYPE>
 class VectorDataIterator;
 
@@ -72,21 +75,24 @@ public: // Get basic information
      */
     inline size_t getLocalStartID() const { return d_localStart; }
 
+    /** \brief  The local sizes on each rank
+     * \return  The local sizes on each rank
+     */
+    virtual std::vector<size_t> getLocalSizes() const;
+
     /**\brief Number of entries "owned" by other cores stored on this
      * core.
      *\return Number of entries "owned" by other cores stored on this core
      */
-    virtual size_t getGhostSize() const;
+    virtual size_t getGhostSize() const = 0;
 
     /**\brief Check if any entries "owned" by other cores are stored on this core
      *\return True if any entries "owned" by other cores are stored on this core
      */
-    virtual bool hasGhosts( void ) { return ( d_Ghosts != nullptr ); }
+    virtual bool hasGhosts() const = 0;
 
-    /**\brief Gets vector of entries "owned" by other cores that are stored on this core
-     *\return Vector of entries "owned" by other cores that are stored on this core
-     */
-    virtual std::vector<double> &getGhosts() const { return *d_Ghosts; }
+    //! Zero all ghost data (does not modify consistent status)
+    virtual void fillGhosts( const Scalar &x ) = 0;
 
     //! Return integer number of data components
     virtual size_t getNumberOfComponents() const;
@@ -133,17 +139,6 @@ public: // Get/Set data
     void setValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
-     * \brief Set owned values using global identifier
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[in] vals the values to place in the vector
-     *
-     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
-     */
-    template<class TYPE>
-    void setLocalValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
-
-    /**
      * \brief Set ghost values using global identifier
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -178,18 +173,6 @@ public: // Get/Set data
      */
     template<class TYPE>
     void addValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
-
-    /**
-     * \brief Add owned values using global identifier
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[in] vals the values to place in the vector
-     *
-     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
-     * \mathit{vals}_i \f$
-     */
-    template<class TYPE>
-    void addLocalValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
      * \brief Add owned or shared values using global identifier
@@ -247,16 +230,6 @@ public: // Get/Set data
     void getValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
 
     /**
-     * \brief Get local values in the vector by their global offset
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[out] vals the values to place in the vector
-     * \details This will get any value owned by this core.
-     */
-    template<class TYPE>
-    void getLocalValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
-
-    /**
      * \brief Get ghost values in the vector by their global offset
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -265,6 +238,14 @@ public: // Get/Set data
      */
     template<class TYPE>
     void getGhostValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
+
+    /**
+     * \brief Get all ghost values
+     * \param[out] vals the values to place in the vector
+     * \details This will get any value owned by this core.
+     */
+    template<class TYPE>
+    size_t getAllGhostValues( TYPE *vals ) const;
 
 
 public: // Advanced (virtual) get/set values
@@ -306,7 +287,7 @@ public: // Advanced (virtual) get/set values
     virtual void setGhostValuesByGlobalID( size_t num,
                                            const size_t *indices,
                                            const void *vals,
-                                           const typeID &id );
+                                           const typeID &id ) = 0;
 
     /**
      * \brief Add values to vector entities by their local offset
@@ -332,7 +313,7 @@ public: // Advanced (virtual) get/set values
     virtual void addGhostValuesByGlobalID( size_t num,
                                            const size_t *indices,
                                            const void *vals,
-                                           const typeID &id );
+                                           const typeID &id ) = 0;
 
     /**
      * \brief get ghosted values to add to off-proc elements
@@ -346,7 +327,7 @@ public: // Advanced (virtual) get/set values
     virtual void getGhostAddValuesByGlobalID( size_t num,
                                               const size_t *indices,
                                               void *vals,
-                                              const typeID &id ) const;
+                                              const typeID &id ) const = 0;
 
 
     /**
@@ -371,7 +352,15 @@ public: // Advanced (virtual) get/set values
     virtual void getGhostValuesByGlobalID( size_t num,
                                            const size_t *indices,
                                            void *vals,
-                                           const typeID &id ) const;
+                                           const typeID &id ) const = 0;
+    /**
+     * \brief Get all ghost values in the vector
+     * \param[out] vals the values to place in the vector
+     * \param[in] id   typeID of raw data
+     * \details This will get any value owned by this core.
+     * \return Returns the number of ghost values
+     */
+    virtual size_t getAllGhostValues( void *vals, const typeID &id ) const = 0;
 
 
 public: // Advanced functions
@@ -420,11 +409,6 @@ public: // Advanced functions
      */
     virtual std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const = 0;
 
-    /** \brief Associate the ghost buffer of a Vector with this Vector
-     * \param in  The Vector to share a ghost buffer with
-     */
-    void aliasGhostBuffer( std::shared_ptr<VectorData> in );
-
     /** \brief Check if the two VectorData objects are alias of each other
      * \details  This function checks if two VectorData objects are alias of each other.
      *     Two VectorData objects are alias if their data blocks are the same size and
@@ -454,7 +438,7 @@ public:
      * \param[in] out  The output stream to write to.
      * \param[in] offset  A number to add to the global ID when writing information
      */
-    virtual void dumpGhostedData( std::ostream &out, size_t offset = 0 ) const;
+    virtual void dumpGhostedData( std::ostream &out, size_t offset = 0 ) const = 0;
 
 public: // Virtual functions dealing with the update status
     /** \brief  Return the current update state of the Vector
@@ -471,7 +455,7 @@ public: // Virtual functions dealing with the update status
      *   this function will return MIXED
      *   This version returns the local state only and does not involve communication
      */
-    virtual UpdateState getLocalUpdateStatus() const;
+    virtual UpdateState getLocalUpdateStatus() const = 0;
 
 
     /** \brief  Return the current update state of the Vector
@@ -496,7 +480,7 @@ public: // Virtual functions dealing with the update status
      * This function should only be called by advanced users
      * \param[in] state  State of the vector to set
      */
-    virtual void setUpdateStatus( UpdateState state );
+    virtual void setUpdateStatus( UpdateState state ) = 0;
 
     /**
      * \brief Update shared values on entire communicator
@@ -513,7 +497,7 @@ public: // Virtual functions dealing with the update status
      * be used to make consistent.  When setting entries in a vector
      * the BROADCAST should be used.
      */
-    virtual void makeConsistent( ScatterType t );
+    virtual void makeConsistent( ScatterType t ) = 0;
 
     /**
      * \brief Update shared values on entire communicator
@@ -523,18 +507,28 @@ public: // Virtual functions dealing with the update status
     virtual void makeConsistent();
 
     //! Get the communicator
-    virtual AMP_MPI getComm() const;
-
-    virtual bool hasComm( void ) const { return ( d_CommList != nullptr ); }
+    virtual const AMP_MPI &getComm() const = 0;
 
     //! Get the CommunicationList for this Vector
-    virtual std::shared_ptr<CommunicationList> getCommunicationList() const;
+    virtual std::shared_ptr<CommunicationList> getCommunicationList() const = 0;
 
     /**\brief Set the CommunicationList for this Vector
      *\details  Setting the CommunicationList for a Vector may involve
      * reallocating ghost storage.
      */
-    virtual void setCommunicationList( std::shared_ptr<CommunicationList> comm );
+    virtual void setCommunicationList( std::shared_ptr<CommunicationList> comm ) = 0;
+
+    /**\brief Ensure this vector has no ghosts
+     *\details Calls clearBuffer for the communication list and removes any storage for ghosts
+     */
+    virtual void setNoGhosts();
+
+    /** \brief returns the memory location for data
+     */
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return AMP::Utilities::MemoryType::host;
+    }
 
     virtual void
     print( std::ostream &os, const std::string &name = "A", const std::string &prefix = "" ) const;
@@ -616,18 +610,18 @@ public: // Non-virtual functions
      * are the same without a call to makeConsistent.
      * \see makeConsistent
      */
-    void copyGhostValues( const VectorData &rhs );
+    virtual void copyGhostValues( const VectorData &rhs ) = 0;
 
 
 public:
     /** \brief Notify listeners that data has changed in this vector.
      */
-    virtual void dataChanged();
+    virtual void dataChanged() = 0;
 
     /* \brief  Returns true if this vector has this element
      * \param[in]  GID  The global ID of the element
      */
-    virtual bool containsGlobalElement( size_t GID );
+    virtual bool containsGlobalElement( size_t GID ) const = 0;
 
     /**
      * \brief This method is used to implement the assemble interface
@@ -637,13 +631,13 @@ public:
     virtual void assemble() {}
 
 
-public: // Non virtual functions
+public: // update status
     /** \brief  Return the current update state of this Vector
      * \details  This returns the pointer to the update state
      *  of the current vector only (not vectors it contains).
      *  It should NOT be used by users.
      */
-    std::shared_ptr<UpdateState> getUpdateStatusPtr() const;
+    virtual std::shared_ptr<UpdateState> getUpdateStatusPtr() const = 0;
 
     /** \brief  Tie the current update state to another
      * \details  This sets the pointer to the update state
@@ -651,8 +645,10 @@ public: // Non virtual functions
      *  It should NOT be used by users.
      * \param  rhs Pointer to share update state with
      */
-    void setUpdateStatusPtr( std::shared_ptr<UpdateState> rhs );
+    virtual void setUpdateStatusPtr( std::shared_ptr<UpdateState> rhs ) = 0;
 
+
+public: // Non virtual functions
     //! Get a unique id hash for the vector
     uint64_t getID() const;
 
@@ -679,31 +675,14 @@ protected:                   // Internal data
     size_t d_globalSize = 0; //! Number of global values
     size_t d_localStart = 0; //! Index of first local value
 
-    //! The communication list for this vector
-    std::shared_ptr<CommunicationList> d_CommList = nullptr;
-
-    /** \brief  The current update state for a vector
-     * \details A Vector can be in one of three states.
-     *  This is the current state of the vector
-     *  Because a vector can be composed of vectors,
-     *  the update state needs to be shared between them.
-     */
-    std::shared_ptr<UpdateState> d_UpdateState = nullptr;
-
-    // Ghost data
-    std::shared_ptr<std::vector<double>> d_Ghosts    = nullptr;
-    std::shared_ptr<std::vector<double>> d_AddBuffer = nullptr;
-
     // Friends
     friend class VectorOperations;
 
 
 public:
-    //! Default constructor
-    VectorData();
+    //! Default constructors
+    VectorData()                     = default;
     VectorData( const VectorData & ) = delete;
-
-    VectorData( std::shared_ptr<CommunicationList> commList );
 };
 
 

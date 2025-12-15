@@ -2,6 +2,7 @@
 #define included_AMP_Vector
 
 #include "AMP/utils/Units.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/data/VectorData.h"
@@ -63,10 +64,6 @@ public: // typedefs
      */
     typedef std::shared_ptr<const Vector> const_shared_ptr;
 
-    // Deprecated
-    typedef VectorDataIterator<double> iterator;
-    typedef VectorDataIterator<const double> const_iterator;
-
 
 public: // Constructor/destructors
     //! Empty Constructor
@@ -107,13 +104,12 @@ public: // Virtual functions
 
     //@{
     /** \brief Allocate space in the same fashion as <i>this</i>
-     * \param[in] name  The variable to associate with the new vector
      * \details  This will allocate new space with identical layout as <i>this</i>.
      * \return  A Vector shared pointer
      * It will have the same number of blocks, each with the same engines and same number of
      * entries.
      */
-    virtual std::unique_ptr<Vector> rawClone( const std::shared_ptr<Variable> name ) const;
+    virtual std::unique_ptr<Vector> rawClone() const;
 
     /** \brief  Swap the data in this Vector for another
       * \param[in]  other  Vector to swap data with
@@ -138,6 +134,8 @@ public: // Virtual functions
     virtual void copyVector( std::shared_ptr<const Vector> x )
     {
         AMP_ASSERT( x );
+        if ( x.get() == this )
+            return;
         d_VectorOps->copy( *( x->getVectorData() ), *d_VectorData );
     }
 
@@ -266,6 +264,16 @@ public: // the next set of functions defines the public math. interface for vect
     void addScalar( const Vector &x, const Scalar &alpha );
 
     /**
+     * \brief modify vector to have max value 'val' specified
+     */
+    void setMax( const Scalar &val );
+
+    /**
+     * \brief modify vector to have min value 'val' specified
+     */
+    void setMin( const Scalar &val );
+
+    /**
      * \brief Return the minimum value of the vector.  \f$\min_i \mathit{this}_i\f$.
      */
     Scalar min() const;
@@ -335,6 +343,15 @@ public: // the next set of functions defines the public math. interface for vect
     Scalar dot( const Vector &x ) const;
 
     /**
+     * \brief Return the L2 norm of this vector and the dot product with the argument vector
+     * \details Returns \f[\sum_i this_i^2 \f] and  \f[\sum_i x_i\mathit{this}_i\f].
+     *    Note that this is an unoptimized version purely meant to provide functionality
+     * \param[in] x        a vector
+     * \return std::pair of L2Norm of vector and dot in that order
+     */
+    std::pair<Scalar, Scalar> L2NormAndDot( const Vector &x ) const;
+
+    /**
      * \brief Check if two vectors are equal
      * \details Returns true if each vaue is within tol of the corresponding
      *    vaue in the other vector
@@ -373,9 +390,17 @@ public: // Clone vectors
     std::shared_ptr<Vector> clone( const std::shared_ptr<Variable> name ) const;
 
 
+public: // Up/down-cast vectors
+    /** \brief Copy up/down-casting  <i>this</i>
+     * \details  The vector will be associated with the same Variable, and will contain
+     *    a copy of the data in x after up/down-casting it.
+     * \param[in] x        a vector
+     */
+    void copyCast( std::shared_ptr<const Vector> x );
+
 public: // Get/Set data/variables/operations
     //! Get the units for this Vector
-    inline auto getUnits() const { return d_units; }
+    inline auto &getUnits() const { return d_units; }
 
     //! Get the units for this Vector
     virtual void setUnits( AMP::Units );
@@ -426,39 +451,27 @@ public: // Get/Set data/variables/operations
      */
     virtual void rename( const std::string &src, const std::string &dst );
 
+    //! Reset
+    virtual void reset();
+
 public: // Subset/Select
     /** \brief  Selects a portion of this vector and creates a view.
-      * \param[in]  criterion  The method for deciding inclusion in the view
-      * \param[in]  variable_name  The name of the vector to be created
-      * \details To use, we recommend the following pattern
-      \code
-      // Vector to be "view"ed
-      Vector::shared_ptr data;
-
-      // .. set up all the data storage in data
-
-      // Get a view on the data tagged displacement
-      auto displacement = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
-      \endcode
-      */
-    shared_ptr select( const VectorSelector &criterion, const std::string &variable_name );
+     * \details   Selects a portion of this vector and creates a view.
+     *    This function does NOT always return a multivector.
+     *    To use:
+     *        auto disp = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
+     * \param[in]  criterion  The method for deciding inclusion in the view
+     */
+    shared_ptr select( const VectorSelector &criterion );
 
     /** \brief  Selects a portion of this vector and creates a view.
-      * \param[in]  criterion  The method for deciding inclusion in the view
-      * \param[in]  variable_name  The name of the vector to be created
-      * \details To use, we recommend the following pattern
-      \code
-      // Vector to be "view"ed
-      Vector::shared_ptr   data;
-
-      // .. set up all the data storage in data
-
-      // Get a view on the data tagged displacement
-      auto displacement = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
-      \endcode
-      */
-    const_shared_ptr select( const VectorSelector &criterion,
-                             const std::string &variable_name ) const;
+     * \details   Selects a portion of this vector and creates a view.
+     *    This function does NOT always return a multivector.
+     *    To use:
+     *        auto disp = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
+     * \param[in]  criterion  The method for deciding inclusion in the view
+     */
+    const_shared_ptr select( const VectorSelector &criterion ) const;
 
     /** \brief Retrieve a sub-vector associated with a particular Variable
      * \param[in] name  Variable by which to retrieve a subvector
@@ -542,11 +555,6 @@ public: // Subset/Select
      */
     template<typename VIEW_TYPE>
     void registerView( std::shared_ptr<VIEW_TYPE> v ) const;
-
-    /** \brief Associate the ghost buffer of a Vector with this Vector
-     * \param in  The Vector to share a ghost buffer with
-     */
-    void aliasGhostBuffer( Vector::shared_ptr in );
 
 
 public: // Iterators/Data
@@ -634,8 +642,8 @@ public: // Iterators/Data
 
 
 public: // VectorData operations
-    inline bool hasComm() const { return d_VectorData->hasComm(); }
-    inline AMP_MPI getComm() const { return d_VectorData->getComm(); }
+    inline bool hasComm() const { return !d_VectorData->getComm().isNull(); }
+    inline const AMP_MPI &getComm() const { return d_VectorData->getComm(); }
     inline std::string VectorDataName() const { return d_VectorData->VectorDataName(); }
     inline size_t numberOfDataBlocks() const { return d_VectorData->numberOfDataBlocks(); }
     inline size_t sizeOfDataBlock( size_t i = 0 ) const
@@ -661,24 +669,9 @@ public: // VectorData operations
         d_VectorData->setValuesByLocalID( num, indices, vals );
     }
     template<class TYPE>
-    inline void setLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->setLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
     inline void addValuesByLocalID( int num, size_t *indices, const TYPE *vals )
     {
         d_VectorData->addValuesByLocalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void addLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->addLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void getLocalValuesByGlobalID( int num, size_t *indices, TYPE *vals ) const
-    {
-        d_VectorData->getLocalValuesByGlobalID( num, indices, vals );
     }
     inline uint64_t getDataID() const { return d_VectorData->getDataID(); }
     inline void *getRawDataBlockAsVoid( size_t i )
@@ -776,6 +769,18 @@ public: // VectorData operations
         d_VectorData->dumpGhostedData( out, offset );
     }
 
+    /**\brief Ensure this vector has no ghosts
+     *\details Calls clearBuffer for the communication list and removes any storage for ghosts
+     */
+    inline void setNoGhosts() { d_VectorData->setNoGhosts(); }
+
+    /** \brief returns the memory location for data
+     */
+    AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return d_VectorData->getMemoryLocation();
+    }
+
 public: // Get values
     /**
      * \brief Return a value from the vector.
@@ -790,7 +795,7 @@ public: // Get values
      * \brief Return a local value from the vector.
      * \param[in] i The global index into the vector
      * \return The value stored at the index
-     * \details This uses getLocalValuesByGlobalID to get the value
+     * \details This uses getValuesByGlobalID to get the value
      */
     template<typename TYPE = double>
     TYPE getLocalValueByGlobalID( size_t i ) const;

@@ -2,7 +2,7 @@
 #define included_AMP_MeshElement
 
 #include "AMP/mesh/MeshID.h"
-#include "AMP/mesh/MeshPoint.h"
+#include "AMP/utils/MeshPoint.h"
 #include "AMP/utils/typeid.h"
 
 #include <memory>
@@ -10,6 +10,9 @@
 
 
 namespace AMP::Mesh {
+
+
+class Mesh;
 
 
 /**
@@ -22,41 +25,17 @@ namespace AMP::Mesh {
 class MeshElement
 {
 public:
-    //! Empty constructor for a MeshElement
-    inline MeshElement();
-
-    //! Copy constructor
-    inline MeshElement( const MeshElement & );
-
-    //! Move constructor
-    inline MeshElement( MeshElement && );
-
-    //! Assignment operator
-    inline MeshElement &operator=( const MeshElement & );
-
-    //! Move assignment operator
-    inline MeshElement &operator=( MeshElement && );
-
-    //! Create a mesh element taking ownership
-    inline MeshElement( MeshElement * );
-
-    //! Destructor for a MeshElement
-    virtual inline ~MeshElement();
-
-    //! Is the mesh element null
-    inline bool isNull() const;
-
+    using ElementList = std::vector<std::unique_ptr<MeshElement>>;
 
 public: // non-virtual functions
-    //! Function to get a pointer to the raw mesh element (structuredMeshElement, etc.)
-    inline MeshElement *getRawElement();
+    //! Empty constructor for a MeshElement
+    MeshElement() = default;
 
-    //! Function to get a pointer to the raw mesh element (structuredMeshElement, etc.)
-    inline const MeshElement *getRawElement() const;
+    //! Is the mesh element null
+    bool isNull() const;
 
     //! Return the element type
     inline GeomType elementType() const { return globalID().type(); }
-
 
     // Overload operators
     inline bool operator==( const MeshElement &rhs ) const { return globalID() == rhs.globalID(); }
@@ -73,7 +52,7 @@ public: // non-virtual functions
     inline bool operator>=( const MeshElementID &rhs ) const { return globalID() >= rhs; }
 
     //! Return the elements composing the current element
-    inline std::vector<MeshElement> getElements( const GeomType type ) const;
+    ElementList getElements( const GeomType type ) const;
 
     /**
      *  Return the elements neighboring the current element.
@@ -82,7 +61,7 @@ public: // non-virtual functions
      *  For Verticies, a list of all vertices that share an element is returned.
      *  This list is in unsorted order.
      */
-    inline std::vector<std::unique_ptr<MeshElement>> getNeighbors() const;
+    ElementList getNeighbors() const;
 
     /**
      * \brief     Return the coordinate of the vertex
@@ -101,7 +80,7 @@ public: // non-virtual functions
      * \param pos   The coordinates of the point to check.
      * \param TOL   The tolerance to use for the computation.
      */
-    inline bool containsPoint( const std::vector<double> &pos, double TOL = 1e-12 ) const;
+    bool containsPoint( const std::vector<double> &pos, double TOL = 1e-12 ) const;
 
 
     /**
@@ -113,11 +92,14 @@ public: // non-virtual functions
 
 
 public: // Virtual functions
+    //! Return the typeID of the underlying element
+    virtual typeID getTypeID() const;
+
     //! Return the unique global ID of the element
     virtual MeshElementID globalID() const;
 
     //! Return the owner rank according to AMP_COMM_WORLD
-    virtual unsigned int globalOwnerRank() const;
+    unsigned int globalOwnerRank( const Mesh &mesh ) const;
 
     //! Return the element class
     virtual std::string elementClass() const;
@@ -186,10 +168,10 @@ public: // Virtual functions
 
 public: // Advanced functions
     //! Return the elements composing the current element
-    virtual void getElements( const GeomType type, std::vector<MeshElement> &elements ) const;
+    virtual void getElements( const GeomType type, ElementList &elements ) const;
 
     //! Return the IDs of the elements composing the current element
-    virtual void getElementsID( const GeomType type, std::vector<MeshElementID> &ID ) const;
+    virtual int getElementsID( const GeomType type, MeshElementID *ID ) const;
 
     /**
      *  Return the elements neighboring the current element.
@@ -198,7 +180,7 @@ public: // Advanced functions
      *  For Verticies, a list of all vertices that share an element is returned.
      *  This list is in unsorted order.
      */
-    virtual void getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const;
+    virtual void getNeighbors( ElementList &neighbors ) const;
 
     /**
      *  Return the vertex coordinates composing the current element.
@@ -217,21 +199,22 @@ public: // Advanced functions
      */
     virtual void getNeighborVertices( std::vector<Point> &vertices ) const;
 
+    //! Clone the element
+    virtual std::unique_ptr<MeshElement> clone() const;
 
-protected:
-    // Unique hash for identifying the underlying element
-    uint32_t d_typeHash;
+    //! Destructor for a MeshElement
+    virtual ~MeshElement() = default;
 
-    // A pointer to the derived class
-    MeshElement *d_element;
 
-    // Clone the element
-    virtual inline MeshElement *clone() const;
+protected: // Constructors
+    MeshElement( const MeshElement & ) = default;
+    MeshElement( MeshElement && )      = default;
+    MeshElement &operator=( const MeshElement & ) = default;
+    MeshElement &operator=( MeshElement && ) = default;
 };
 
 
 } // namespace AMP::Mesh
 
-#include "AMP/mesh/MeshElement.inline.h"
 
 #endif

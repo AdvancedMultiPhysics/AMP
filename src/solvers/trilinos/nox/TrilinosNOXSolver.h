@@ -81,12 +81,19 @@ public:
      12. name: operatorComponentToEnableBoundsCheck, type: integer, default value: none
      acceptable values ()
     */
-    explicit TrilinosNOXSolver( std::shared_ptr<TrilinosNOXSolverParameters> parameters );
+    explicit TrilinosNOXSolver( std::shared_ptr<SolverStrategyParameters> parameters );
 
     /**
      * Default destructor.
      */
     virtual ~TrilinosNOXSolver();
+
+    //! static create routine that is used by SolverFactory
+    static std::unique_ptr<SolverStrategy>
+    createSolver( std::shared_ptr<SolverStrategyParameters> solverStrategyParameters )
+    {
+        return std::make_unique<TrilinosNOXSolver>( solverStrategyParameters );
+    }
 
     std::string type() const override { return "TrilinosNOXSolver"; }
 
@@ -119,6 +126,9 @@ public:
 
 protected:
     void initialize( std::shared_ptr<const SolverStrategyParameters> parameters ) override;
+
+    std::shared_ptr<SolverStrategy>
+    createPreconditioner( std::shared_ptr<AMP::Database> pc_solver_db );
 
     AMP_MPI d_comm;
 

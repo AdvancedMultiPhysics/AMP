@@ -369,7 +369,8 @@ double GeneralCladThermalCreepPlasticModel::help_compute_E1( const double Temp_n
 
     effective_stress = effective_stress * scale_stress;
 
-    double e_dot   = A * pow( effective_stress, n ) * exp( -Q / ( R * Temp_np1 ) ) * scale_strain;
+    double e_dot =
+        A * std::pow( effective_stress, n ) * exp( -Q / ( R * Temp_np1 ) ) * scale_strain;
     double delta_e = e_dot * dt;
 
     return ( delta_e );
@@ -394,7 +395,7 @@ double GeneralCladThermalCreepPlasticModel::compute_dE1_dsig_e( double effective
 
     effective_stress               = effective_stress * scale_stress;
     const double d_delta_e_d_sig_e = A * dt * exp( -Q / ( R * Temp_np1 ) ) * n *
-                                     pow( effective_stress, ( n - 1.0 ) ) * scale_strain;
+                                     std::pow( effective_stress, ( n - 1.0 ) ) * scale_strain;
     const double term3      = 1.0 + ( 3.0 * G * d_delta_e_d_sig_e );
     const double dE1_dsig_e = 1.0 - term1 + ( term2 * term3 );
 
@@ -455,12 +456,12 @@ void GeneralCladThermalCreepPlasticModel::computeCreepStrain( const double Temp_
     }
 
     effective_stress_trial =
-        sqrt( three2 * ( ( deviatoric_stress_trial[0] * deviatoric_stress_trial[0] ) +
-                         ( deviatoric_stress_trial[1] * deviatoric_stress_trial[1] ) +
-                         ( deviatoric_stress_trial[2] * deviatoric_stress_trial[2] ) +
-                         ( 2.0 * deviatoric_stress_trial[3] * deviatoric_stress_trial[3] ) +
-                         ( 2.0 * deviatoric_stress_trial[4] * deviatoric_stress_trial[4] ) +
-                         ( 2.0 * deviatoric_stress_trial[5] * deviatoric_stress_trial[5] ) ) );
+        std::sqrt( three2 * ( ( deviatoric_stress_trial[0] * deviatoric_stress_trial[0] ) +
+                              ( deviatoric_stress_trial[1] * deviatoric_stress_trial[1] ) +
+                              ( deviatoric_stress_trial[2] * deviatoric_stress_trial[2] ) +
+                              ( 2.0 * deviatoric_stress_trial[3] * deviatoric_stress_trial[3] ) +
+                              ( 2.0 * deviatoric_stress_trial[4] * deviatoric_stress_trial[4] ) +
+                              ( 2.0 * deviatoric_stress_trial[5] * deviatoric_stress_trial[5] ) ) );
 
     effective_stress = tol;
 
@@ -649,7 +650,7 @@ void GeneralCladThermalCreepPlasticModel::getConstitutiveMatrix( double *&consti
 
     one3 = 1.0 / 3.0;
     two3 = 2.0 / 3.0;
-    sq23 = sqrt( two3 );
+    sq23 = std::sqrt( two3 );
 
     // If the stress is within the elastic range.
     // Only the elastic tangent is computed.
@@ -698,9 +699,9 @@ void GeneralCladThermalCreepPlasticModel::getConstitutiveMatrix( double *&consti
     }
 
     // The effective stress.
-    q_np1 = sqrt( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
-                  ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
-                  ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) );
+    q_np1 = std::sqrt( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
+                       ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
+                       ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) );
 
     // The normal direction.
     for ( int i = 0; i < 6; i++ ) {
@@ -711,7 +712,7 @@ void GeneralCladThermalCreepPlasticModel::getConstitutiveMatrix( double *&consti
     q_trial = q_np1 + ( 2.0 * G * lam );
 
     beta               = sq23 * ( sigy_np1 / q_trial );
-    double kappa_prime = sq23 * n * Ep * pow( ephbp_np1, ( n - 1.0 ) );
+    double kappa_prime = sq23 * n * Ep * std::pow( ephbp_np1, ( n - 1.0 ) );
     gamma              = 3.0 * G / ( ( 3.0 * G ) + kappa_prime );
     gamma_bar          = gamma - ( 1.0 - beta );
     term1              = 2.0 * G * beta;
@@ -778,7 +779,7 @@ void GeneralCladThermalCreepPlasticModel::radialReturn( const double *stra_np1,
 
     one3    = 1.0 / 3.0;
     two3    = 2.0 / 3.0;
-    sq23    = sqrt( two3 );
+    sq23    = std::sqrt( two3 );
     ephbp_n = eph_bar_plas_n;             // Effective plastic strain at the previous time step.
     sigy_n  = ystre_n;                    // Yield stress at the previous time step.
     G       = E / ( 2.0 * ( 1.0 + Nu ) ); // of Elastic
@@ -809,7 +810,7 @@ void GeneralCladThermalCreepPlasticModel::radialReturn( const double *stra_np1,
     sig_trial_kk = sig_kk + ( 3.0 * K * deph_kk );
 
     // Compute the trial effective stress.
-    q_trial = sqrt(
+    q_trial = std::sqrt(
         ( sig_trial_dev[0] * sig_trial_dev[0] ) + ( sig_trial_dev[1] * sig_trial_dev[1] ) +
         ( sig_trial_dev[2] * sig_trial_dev[2] ) + ( 2.0 * sig_trial_dev[3] * sig_trial_dev[3] ) +
         ( 2.0 * sig_trial_dev[4] * sig_trial_dev[4] ) +
@@ -848,9 +849,9 @@ void GeneralCladThermalCreepPlasticModel::radialReturn( const double *stra_np1,
     lam = 0.0;
     for ( int i = 0; i < 1000; i++ ) {
         ephbp_np1        = ephbp_n + ( sq23 * lam );
-        double kappa_np1 = Sig0 + ( Ep * pow( ephbp_np1, n ) );
+        double kappa_np1 = Sig0 + ( Ep * std::pow( ephbp_np1, n ) );
         double g_np1     = q_trial - ( twoG * lam ) - ( sq23 * kappa_np1 );
-        double g_prime   = -( twoG + ( two3 * Ep * n * pow( ephbp_np1, ( n - 1.0 ) ) ) );
+        double g_prime   = -( twoG + ( two3 * Ep * n * std::pow( ephbp_np1, ( n - 1.0 ) ) ) );
         double delta_lam = g_np1 / g_prime;
         lam              = lam - delta_lam;
         if ( fabs( delta_lam / lam ) < tol )
@@ -860,7 +861,7 @@ void GeneralCladThermalCreepPlasticModel::radialReturn( const double *stra_np1,
         }
     }
     ephbp_np1 = ephbp_n + ( sq23 * lam );
-    sigy_np1  = Sig0 + ( Ep * pow( ephbp_np1, n ) );
+    sigy_np1  = Sig0 + ( Ep * std::pow( ephbp_np1, n ) );
 
     // Updating the stress.
     for ( int i = 0; i < 6; i++ ) {

@@ -2,8 +2,8 @@
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/operators/map/NodeToNodeMapParameters.h"
-#include "AMP/utils/AMP_MPI.I"
-#include "AMP/utils/Utilities.hpp"
+#include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/VectorSelector.h"
 
@@ -31,7 +31,7 @@ NodeToNodeMap::NodeToNodeMap( std::shared_ptr<const AMP::Operator::OperatorParam
     : AMP::Operator::AsyncMapOperator( params )
 {
     // Cast the params appropriately
-    d_OutputVector = AMP::LinearAlgebra::Vector::shared_ptr();
+    d_OutputVector = nullptr;
     AMP_ASSERT( params );
     auto &Params = *std::dynamic_pointer_cast<const NodeToNodeMapParameters>( params );
 
@@ -111,7 +111,7 @@ void NodeToNodeMap::applyStart( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     auto var = getInputVariable();
     //    AMP::LinearAlgebra::VS_Comm commSelector( AMP_MPI( AMP_COMM_SELF ) );
     AMP::LinearAlgebra::VS_Comm commSelector( AMP_COMM_SELF );
-    auto commSubsetVec = u->select( commSelector, u->getName() );
+    auto commSubsetVec = u->select( commSelector );
     auto curPhysics    = commSubsetVec->subsetVectorForVariable( var );
     AMP_INSIST( curPhysics, "apply received bogus stuff" );
 
@@ -172,7 +172,7 @@ void NodeToNodeMap::applyFinish( AMP::LinearAlgebra::Vector::const_shared_ptr,
     waitForAllRequests();
 
     // Store the DOFs
-    d_OutputVector->setLocalValuesByGlobalID( dofs.size(), dofs.data(), d_recvBuffer.data() );
+    d_OutputVector->setValuesByGlobalID( dofs.size(), dofs.data(), d_recvBuffer.data() );
 
     // Update ghost cells (this should be done on the full output vector)
     if ( d_callMakeConsistentSet )
@@ -422,3 +422,13 @@ bool NodeToNodeMap::Point::operator>( const Point &rhs ) const { return !operato
 
 
 } // namespace AMP::Operator
+
+
+/****************************************************************
+ * Explicit instantiations                                       *
+ ****************************************************************/
+#include "AMP/utils/Utilities.hpp"
+template size_t AMP::Utilities::findfirst<AMP::Operator::NodeToNodeMap::Point>(
+    size_t,
+    AMP::Operator::NodeToNodeMap::Point const *,
+    AMP::Operator::NodeToNodeMap::Point const & );

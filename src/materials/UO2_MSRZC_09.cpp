@@ -56,7 +56,7 @@ public:
                 x = 0.001;
             double lambda0 = 1. / ( p[0] + p[1] * T );
             double Dtherm  = p[2] * exp( p[3] * T );
-            double theta   = Dtherm * sqrt( 2 * x * lambda0 );
+            double theta   = Dtherm * std::sqrt( 2 * x * lambda0 );
             double thcond  = p[4] * T * T * T + lambda0 * atan( theta ) / theta;
             result( i )    = thcond;
         }
@@ -193,8 +193,8 @@ public:
                 x = 0.001;
             double DxThCond = ( ( -0.35355339059327373 *
                                   atan( 1.4142135623730951 * exp( T * p[3] ) *
-                                        sqrt( x / ( p[0] + T * p[1] ) ) * p[2] ) *
-                                  sqrt( x / ( p[0] + T * p[1] ) ) ) /
+                                        std::sqrt( x / ( p[0] + T * p[1] ) ) * p[2] ) *
+                                  std::sqrt( x / ( p[0] + T * p[1] ) ) ) /
                                     ( exp( T * p[3] ) * p[2] ) +
                                 ( 0.5 * x ) / ( p[0] + T * p[1] +
                                                 2.0 * exp( 2 * T * p[3] ) * x * p[2] * p[2] ) ) /
@@ -227,11 +227,11 @@ public:
                     ( ( p[0] + T * p[1] ) *
                       ( p[0] + T * p[1] + 2.0 * exp( 2 * T * p[3] ) * x * p[2] * p[2] ) ) +
                 ( 1. * p[3] ) / ( p[0] + T * p[1] + 2.0 * exp( 2 * T * p[3] ) * x * p[2] * p[2] ) +
-                ( atan( 1.4142135623730951 * exp( T * p[3] ) * sqrt( x / ( p[0] + T * p[1] ) ) *
-                        p[2] ) *
+                ( atan( 1.4142135623730951 * exp( T * p[3] ) *
+                        std::sqrt( x / ( p[0] + T * p[1] ) ) * p[2] ) *
                   ( -0.7071067811865475 * p[0] * p[3] +
                     p[1] * ( -0.35355339059327373 - 0.7071067811865475 * T * p[3] ) ) ) /
-                    ( exp( T * p[3] ) * sqrt( x / ( p[0] + T * p[1] ) ) * ( p[0] + T * p[1] ) *
+                    ( exp( T * p[3] ) * std::sqrt( x / ( p[0] + T * p[1] ) ) * ( p[0] + T * p[1] ) *
                       ( p[0] + T * p[1] ) * p[2] ) +
                 3 * T * T * p[4];
             result( i ) = DTThCond;

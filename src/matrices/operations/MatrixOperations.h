@@ -1,7 +1,12 @@
 #ifndef included_MatrixOperations_H_
 #define included_MatrixOperations_H_
 
+#include "AMP/utils/typeid.h"
 #include "AMP/vectors/Scalar.h"
+
+namespace AMP::IO {
+class RestartManager;
+}
 
 namespace AMP::LinearAlgebra {
 
@@ -40,12 +45,30 @@ public:
      */
     virtual void scale( AMP::Scalar alpha, MatrixData &A ) = 0;
 
+    /** \brief  Scale the matrix by a scalar and diagonal matrix
+     * \param[in] alpha  The value to scale by
+     * \param[in] D  A vector representing the diagonal matrix
+     * \param[in] A The input matrix A
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}\mathbf{A}\f$
+     */
+    virtual void scale( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) = 0;
+
+    /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
+     * \param[in] alpha  The value to scale by
+     * \param[in] D  A vector representing the diagonal matrix
+     * \param[in] A The input matrix A
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}^{-1}\mathbf{A}\f$
+     */
+    virtual void scaleInv( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) = 0;
+
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
      * \param[in] B  A multiplicand
      * \param[out] C The product \f$\mathbf{AB}\f$.
      */
-    virtual void matMultiply( MatrixData const &A, MatrixData const &B, MatrixData &C ) = 0;
+    virtual void matMatMult( std::shared_ptr<MatrixData> A,
+                             std::shared_ptr<MatrixData> B,
+                             std::shared_ptr<MatrixData> C ) = 0;
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -72,14 +95,78 @@ public:
      */
     virtual void setDiagonal( std::shared_ptr<const Vector> in, MatrixData &A ) = 0;
 
+    /** \brief Extract the diagonal values into a vector
+     * \param[in] A The matrix to get the diagonal from
+     * \param[in] buf Vector to store the diagonal to
+     */
+    virtual void extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf ) = 0;
+
+    /** \brief Extract the row sums into a vector
+     * \param[in] A The matrix to get the row sums from
+     * \param[in] buf Vector to store the row sums to
+     */
+    virtual void getRowSums( MatrixData const &A, std::shared_ptr<Vector> buf ) = 0;
+
+    /** \brief Extract the absolute row sums into a vector
+     * \param[in] A             The matrix to get the row sums from
+     * \param[in] buf           Vector to store the row sums to
+     * \param[in] remove_zeros  If true zero values in sum are replaced with ones
+     */
+    virtual void getRowSumsAbsolute( MatrixData const &A,
+                                     std::shared_ptr<Vector> buf,
+                                     const bool remove_zeros = false ) = 0;
+
     /** \brief  Set the matrix to the identity matrix
      */
     virtual void setIdentity( MatrixData &A ) = 0;
 
-    /** \brief Compute the maximum column sum
-     * \return  The L1 norm of the matrix
+    /** \brief Compute the maximum row sum
+     * \return  The L-infinity norm of the matrix
      */
-    virtual AMP::Scalar L1Norm( const MatrixData &X ) const = 0;
+    virtual AMP::Scalar LinfNorm( const MatrixData &X ) const = 0;
+
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients
+     * \param[in] x matrix data to copy from
+     * \param[in] y matrix data to copy to
+     */
+    virtual void copy( const MatrixData &x, MatrixData &y ) = 0;
+
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients after up/down casting
+     * \param[in] x matrix data to copy from
+     * \param[in] y matrix data to copy to after up/down casting the coefficients
+     */
+    virtual void copyCast( const MatrixData &x, MatrixData &y );
+
+    //! Return the type of the matrix operations class
+    virtual std::string type() const { return "MatrixOperations"; }
+
+    //! Get a unique id hash for the vector operation
+    uint64_t getID() const;
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    virtual void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    virtual void writeRestart( int64_t fid ) const;
+
+
+protected:
+    MatrixOperations();
+
+protected:
+    //! unique hash for object
+    uint64_t d_hash = 0;
 };
 
 } // namespace AMP::LinearAlgebra

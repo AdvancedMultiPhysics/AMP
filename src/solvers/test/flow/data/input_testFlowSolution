@@ -2,13 +2,11 @@
 
 Mesh {
     MeshName = "bar"
-    MeshType = "libMesh"
-    FileName = "cube.with.12.boundaries.e"
-    dim = 3
-    x_offset = 0.0
-    y_offset = 0.0
-    z_offset = 0.0
-    NumberOfElements = 1000
+    MeshType = "AMP"
+    Generator = "cube"
+    Size = 10, 10, 10
+    Range = -1, 1, -1, 1, -1, 1
+    static = TRUE
 }
 
 FlowFrapconOperator{
@@ -48,7 +46,7 @@ FlowFrapconJacobian{
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
@@ -87,7 +85,7 @@ NonlinearSolver{
 
 JacobianSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

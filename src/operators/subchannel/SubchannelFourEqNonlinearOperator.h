@@ -5,7 +5,6 @@
 #include "AMP/operators/Operator.h"
 #include "AMP/operators/subchannel/SubchannelOperatorParameters.h"
 
-#include "AMP/mesh/MeshElementVectorIterator.h"
 
 namespace AMP::Operator {
 
@@ -17,9 +16,10 @@ namespace AMP::Operator {
 class SubchannelFourEqNonlinearOperator : public Operator
 {
 public:
+    typedef std::unique_ptr<AMP::Mesh::MeshElement> ElementPtr;
+
     //! Constructor
-    explicit SubchannelFourEqNonlinearOperator(
-        std::shared_ptr<const SubchannelOperatorParameters> params );
+    explicit SubchannelFourEqNonlinearOperator( std::shared_ptr<const OperatorParameters> params );
 
     //! Destructor
     virtual ~SubchannelFourEqNonlinearOperator() {}
@@ -37,25 +37,19 @@ public:
 
     void reset( std::shared_ptr<const OperatorParameters> params ) override;
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_inpVariable;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_outVariable;
     }
 
-    virtual AMP::LinearAlgebra::Vector::shared_ptr
-    subsetOutputVector( AMP::LinearAlgebra::Vector::shared_ptr vec ) override;
-    virtual AMP::LinearAlgebra::Vector::const_shared_ptr
-    subsetOutputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec ) override;
+    std::shared_ptr<AMP::LinearAlgebra::VectorSelector> selectOutputVector() const override;
 
-    virtual AMP::LinearAlgebra::Vector::shared_ptr
-    subsetInputVector( AMP::LinearAlgebra::Vector::shared_ptr vec ) override;
-    virtual AMP::LinearAlgebra::Vector::const_shared_ptr
-    subsetInputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec ) override;
+    std::shared_ptr<AMP::LinearAlgebra::VectorSelector> selectInputVector() const override;
 
     void setVector( AMP::LinearAlgebra::Vector::shared_ptr frozenVec )
     {
@@ -79,8 +73,8 @@ public:
 
     //! Makes map of lateral gaps to their centroids
     void getLateralFaces( std::shared_ptr<AMP::Mesh::Mesh>,
-                          std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> &,
-                          std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> & );
+                          std::map<AMP::Mesh::Point, ElementPtr> &,
+                          std::map<AMP::Mesh::Point, ElementPtr> & );
 
     //! Makes map of gap widths to their xy positions
     std::map<AMP::Mesh::Point, double> getGapWidths( std::shared_ptr<AMP::Mesh::Mesh>,
@@ -88,9 +82,7 @@ public:
                                                      const std::vector<double> &,
                                                      const std::vector<double> & );
 
-    void getAxialFaces( const AMP::Mesh::MeshElement &,
-                        AMP::Mesh::MeshElement &,
-                        AMP::Mesh::MeshElement & );
+    void getAxialFaces( const AMP::Mesh::MeshElement &, ElementPtr &, ElementPtr & );
 
     void fillSubchannelGrid( std::shared_ptr<AMP::Mesh::Mesh> ); // function to fill the subchannel
                                                                  // data for all processors
@@ -109,22 +101,6 @@ protected:
 
 private:
     bool d_initialized;
-
-    // Function used in reset to get double parameter or use default if missing
-    double
-    getDoubleParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, double );
-
-    // Function used in reset to get integer parameter or use default if missing
-    int
-    getIntegerParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, int );
-
-    // Function used in reset to get string parameter or use default if missing
-    std::string getStringParameter( std::shared_ptr<const SubchannelOperatorParameters>,
-                                    std::string,
-                                    std::string );
-
-    // Function used in reset to get bool parameter or use default if missing
-    bool getBoolParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, bool );
 
     std::shared_ptr<AMP::LinearAlgebra::Variable> d_inpVariable;
     std::shared_ptr<AMP::LinearAlgebra::Variable> d_outVariable;
@@ -171,9 +147,8 @@ private:
     std::vector<double> d_x, d_y, d_z;
     std::vector<bool> d_ownSubChannel; // does this processor own this subchannel (multiple
                                        // processors may own a subchannel)?
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
-        d_subchannelElem; // List of elements in each subchannel
-    std::vector<std::vector<AMP::Mesh::MeshElement>>
+    std::vector<std::vector<ElementPtr>> d_subchannelElem; // List of elements in each subchannel
+    std::vector<std::vector<ElementPtr>>
         d_subchannelFace;    // List of z-face elements in each subchannel
     size_t d_numSubchannels; // number of subchannels
 
@@ -183,10 +158,9 @@ private:
     double DynamicViscosity( double, double );    // evaluates dynamic viscosity
     double Enthalpy( double, double );            // evaluates specific enthalpy
 
-    AMP::Mesh::MeshElement
-    getAxiallyAdjacentLateralFace( AMP::Mesh::MeshElement *,
-                                   const AMP::Mesh::MeshElement &,
-                                   const std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> & );
+    ElementPtr getAxiallyAdjacentLateralFace( AMP::Mesh::MeshElement *,
+                                              const AMP::Mesh::MeshElement &,
+                                              const std::map<AMP::Mesh::Point, ElementPtr> & );
 };
 
 

@@ -1,4 +1,3 @@
-
 #ifndef included_AMP_NonlinearFEOperator
 #define included_AMP_NonlinearFEOperator
 
@@ -10,6 +9,8 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/elem.h"
 ENABLE_WARNINGS
 
@@ -29,7 +30,7 @@ class NonlinearFEOperator : public Operator
 public:
     //! Constructor. This copies the share pointer to the element operation from the input parameter
     //! object.
-    explicit NonlinearFEOperator( std::shared_ptr<const FEOperatorParameters> params );
+    explicit NonlinearFEOperator( std::shared_ptr<const OperatorParameters> params );
 
     //! Destructor
     virtual ~NonlinearFEOperator();

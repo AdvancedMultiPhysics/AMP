@@ -297,7 +297,7 @@ void MainWindow::open()
     QString filename = QFileDialog::getOpenFileName( this, "Select the image", d_lastPath.c_str() );
     loadFile( filename.toStdString() );
 }
-void MainWindow::loadFile( const std::string &filename, bool showFailure )
+void MainWindow::loadFile( const std::string &filename, bool )
 {
     if ( !filename.empty() ) {
         // Get the ath
@@ -534,7 +534,7 @@ void MainWindow::callLoadFile()
     loadFile( unitTestFilename, false );
     qApp->processEvents();
 }
-bool MainWindow::runUnitTests( const std::string &filename )
+bool MainWindow::runUnitTests( const std::string & )
 {
     /*    // Try to load the file
         unitTestFilename = filename;

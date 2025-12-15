@@ -37,21 +37,19 @@ void EpetraVectorTests::VerifyNorms( AMP::UnitTest *ut )
 
         ans1 = static_cast<double>( vec->L1Norm() );
         Vec.Norm1( &ans2 );
-        PASS_FAIL( fabs( ans1 - ans2 ) < 1e-12, "L1 norms match" );
+        PASS_FAIL( fabs( ans1 - ans2 ) < 1e-12 * fabs( ans1 ), "Epetra L1 norms match" );
 
         ans1 = static_cast<double>( vec->L2Norm() );
         Vec.Norm2( &ans2 );
-        PASS_FAIL( fabs( ans1 - ans2 ) < 1e-12, "L2 norms match" );
+        PASS_FAIL( fabs( ans1 - ans2 ) < 1e-12 * fabs( ans1 ), "Epetra L2 norms match" );
 
         ans1 = static_cast<double>( vec->maxNorm() );
         Vec.NormInf( &ans2 );
-        PASS_FAIL( fabs( ans1 - ans2 ) < 1e-12, "Inf norms match" );
+        PASS_FAIL( fabs( ans1 - ans2 ) < 1e-12 * fabs( ans1 ), "Epetra Inf norms match" );
     } else {
-        ut->expected_failure( "Petsc tests currently only work for double" );
+        ut->expected_failure( "Epetra tests currently only work for double" );
     }
 }
 
 
 } // namespace AMP::LinearAlgebra
-
-/// \endcond

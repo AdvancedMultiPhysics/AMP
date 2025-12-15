@@ -1,6 +1,6 @@
 #include "AMP/IO/RestartManager.h"
 #include "AMP/IO/RestartManager.hpp"
-#include "AMP/utils/AMP_MPI.I"
+#include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
@@ -116,17 +116,17 @@ AMP_MPI RestartManager::getComm( uint64_t hash )
 {
     // Check if it is a known comm
     if ( hash == AMP_MPI::hashNull )
-        return AMP::AMP_MPI( AMP_COMM_NULL );
+        return AMP_COMM_NULL;
     if ( hash == AMP_MPI::hashSelf )
-        return AMP::AMP_MPI( AMP_COMM_SELF );
+        return AMP_COMM_SELF;
     if ( hash == AMP_MPI::hashWorld )
-        return AMP::AMP_MPI( AMP_COMM_WORLD );
+        return AMP_COMM_WORLD;
 #ifdef AMP_USE_MPI
     if ( hash == AMP_MPI::hashMPI )
-        return AMP::AMP_MPI( MPI_COMM_WORLD );
+        return MPI_COMM_WORLD;
 #else
     if ( hash == AMP_MPI::hashMPI )
-        return AMP::AMP_MPI( AMP_COMM_WORLD );
+        return AMP_COMM_WORLD;
 #endif
     // Find the appropriate comm
     auto it = d_comms.find( hash );

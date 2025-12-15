@@ -10,6 +10,8 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/elem.h"
 ENABLE_WARNINGS
 
@@ -81,7 +83,7 @@ protected:
 
     void destroyCurrentLibMeshElement();
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
 
     libMesh::Elem *d_currElemPtr;
 

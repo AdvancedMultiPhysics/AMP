@@ -1,5 +1,5 @@
 #include "AMP/geometry/shapes/Circle.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
@@ -36,7 +36,7 @@ Point Circle::nearest( const Point &pos ) const
     double x = pos.x() - d_offset[0];
     double y = pos.y() - d_offset[1];
     // Calculate the nearest point
-    double r = sqrt( x * x + y * y );
+    double r = std::sqrt( x * x + y * y );
     if ( r <= d_R ) {
         return pos;
     } else {
@@ -81,7 +81,7 @@ Point Circle::surfaceNorm( const Point &pos ) const
 {
     double x = pos.x() - d_offset[0];
     double y = pos.y() - d_offset[1];
-    double n = sqrt( x * x + y * y );
+    double n = std::sqrt( x * x + y * y );
     return { x / n, y / n, 0 };
 }
 

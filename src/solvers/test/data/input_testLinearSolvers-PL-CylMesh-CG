@@ -1,0 +1,26 @@
+Mesh{
+MeshType = "AMP"
+MeshName = "cylinder"
+Generator = "cylinder"
+Size = 16, 8
+Range = 1, -2, 2
+surfaceIds = 1, 1, 1, 1, 2, 3
+static = TRUE
+}
+
+LinearOperator {
+  name="LinearOperator"
+  MemoryLocation = "managed"
+  print_info_level = 1
+}
+
+LinearSolver{
+  name = "CGSolver"
+  uses_preconditioner = FALSE
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 2
+  max_iterations = 100
+}
+
+

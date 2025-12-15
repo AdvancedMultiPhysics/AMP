@@ -7,6 +7,8 @@
 
 // Libmesh files
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
@@ -35,14 +37,20 @@ Map1Dto3D::Map1Dto3D( std::shared_ptr<const OperatorParameters> params ) : MapOp
 
 void Map1Dto3D::reset( std::shared_ptr<const OperatorParameters> params )
 {
+    AMP_ASSERT( params );
+
     auto myparams = std::dynamic_pointer_cast<const MapOperatorParameters>( params );
 
-    AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameter" );
-    AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
-    AMP_INSIST( !myparams->d_MapComm.isNull(), "NULL communicator" );
+    AMP_INSIST( myparams, "NULL parameter" );
+    AMP_INSIST( myparams->d_db, "NULL database" );
     d_Mesh    = myparams->d_Mesh;
     d_MapComm = myparams->d_MapComm;
     d_MapMesh = myparams->d_MapMesh;
+    if ( d_MapComm.isNull() && d_MapMesh )
+        d_MapComm = d_MapMesh->getComm();
+    if ( d_MapComm.isNull() && d_Mesh )
+        d_MapComm = d_Mesh->getComm();
+    AMP_INSIST( !d_MapComm.isNull(), "NULL communicator" );
     AMP_INSIST( d_MapComm.sumReduce<int>( d_MapMesh ? 1 : 0 ) > 0, "Somebody must own the mesh" );
 
     d_useGaussVec = myparams->d_db->getWithDefault<bool>( "UseGaussVec", false );
@@ -205,6 +213,8 @@ void Map1Dto3D::setZLocations( const std::vector<double> &z )
 void Map1Dto3D::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                        AMP::LinearAlgebra::Vector::shared_ptr f )
 {
+    if ( !outputVec )
+        setVector( f );
     if ( d_useGaussVec ) {
         apply_Gauss( u, f );
     } else {
@@ -216,21 +226,19 @@ void Map1Dto3D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                              AMP::LinearAlgebra::Vector::shared_ptr )
 {
 
-    if ( d_MapMesh.get() == nullptr )
+    if ( !d_MapMesh )
         return;
 
-    AMP_ASSERT( u != nullptr );
+    AMP_ASSERT( u );
 
     // Subset the input vector, it is a simple vector and we need to subset for the current comm
     // before the variable
     AMP::LinearAlgebra::VS_Comm commSelector( d_MapComm );
-    auto commSubsetVec = u->select( commSelector, d_inpVariable->getName() );
+    auto commSubsetVec = u->select( commSelector );
     auto inputVec      = commSubsetVec->subsetVectorForVariable( d_inpVariable );
 
-    // AMP::LinearAlgebra::Vector::shared_ptr outputVec =  subsetOutputVector( r );
-    AMP_ASSERT( inputVec != nullptr );
-    AMP_ASSERT( outputVec != nullptr );
-    // outputVec->zero();
+    AMP_ASSERT( inputVec );
+    AMP_ASSERT( outputVec );
 
     // Loop through the points on the surface
     AMP_ASSERT( d_zLocations.size() >= 2 );
@@ -307,23 +315,19 @@ void Map1Dto3D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                              AMP::LinearAlgebra::Vector::shared_ptr )
 {
 
-    if ( d_MapMesh.get() == nullptr )
+    if ( !d_MapMesh )
         return;
 
-    AMP_ASSERT( u != nullptr );
+    AMP_ASSERT( u );
 
     // Subset the input vector, it is a simple vector and we need to subset for the current comm
     // before the variable
     AMP::LinearAlgebra::VS_Comm commSelector( d_MapComm );
-    auto commSubsetVec = u->select( commSelector, d_inpVariable->getName() );
+    auto commSubsetVec = u->select( commSelector );
     auto inputVec      = commSubsetVec->subsetVectorForVariable( d_inpVariable );
 
-    // AMP::LinearAlgebra::Vector::shared_ptr outputVec =  subsetOutputVector( r );
-    AMP_ASSERT( inputVec != nullptr );
-    AMP_ASSERT( outputVec != nullptr );
-    // outputVec->zero();
-
-    // const unsigned int numPoints = inputVec->getLocalSize();
+    AMP_ASSERT( inputVec );
+    AMP_ASSERT( outputVec );
 
     // Loop through the points on the surface
     AMP_ASSERT( d_zLocations.size() >= 2 );

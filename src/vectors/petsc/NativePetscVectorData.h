@@ -2,6 +2,7 @@
 #define included_AMP_NativePetscVectorData
 
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 
 #include "petscvec.h"
@@ -21,7 +22,7 @@ namespace AMP::LinearAlgebra {
  * \details  This is an AMP wrapper to PETSc.   Rather, it wraps these calls.
  * This class is used when PETSc is chosen as the default linear algebra engine.
  */
-class NativePetscVectorData : public VectorData
+class NativePetscVectorData : public GhostDataHelper<PetscScalar>
 {
 public:
     /** \brief Construct a wrapper for a PETSc Vec from a set of parameters
@@ -56,8 +57,8 @@ public:
     }
     void *getRawDataBlockAsVoid( size_t i ) override;
     const void *getRawDataBlockAsVoid( size_t i ) const override;
-    size_t sizeofDataBlockType( size_t ) const override { return sizeof( double ); }
-    typeID getType( size_t ) const override { return getTypeID<double>(); }
+    size_t sizeofDataBlockType( size_t ) const override { return sizeof( PetscScalar ); }
+    typeID getType( size_t ) const override { return getTypeID<PetscScalar>(); }
     void swapData( VectorData &rhs ) override;
 
     /** \brief Clone the data
@@ -78,10 +79,10 @@ protected:
 
 private:
     friend class NativePetscVectorOperations;
-    bool d_bDeleteMe                   = false;
-    Vec d_petscVec                     = nullptr;
-    mutable double *d_pArray           = nullptr; // mutable so that we can cache the value
-    mutable const double *d_pArrayRead = nullptr;
+    bool d_bDeleteMe                        = false;
+    Vec d_petscVec                          = nullptr;
+    mutable PetscScalar *d_pArray           = nullptr; // mutable so that we can cache the value
+    mutable const PetscScalar *d_pArrayRead = nullptr;
 };
 
 

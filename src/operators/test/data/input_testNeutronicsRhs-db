@@ -1,14 +1,12 @@
 ConstructStandAlone = FALSE
 
 Mesh{
-  MeshType = "libMesh"
-  FileName = "cube64.with.boundary.labels.e"
-  MeshName = "bar"
-  dim      = 3
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 1088
+    MeshName = "bar"
+    MeshType = "AMP"
+    Generator = "cube"
+    Size = 4, 4, 4
+    Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
+    static = TRUE
 }
 
 NeutronicsRhs{

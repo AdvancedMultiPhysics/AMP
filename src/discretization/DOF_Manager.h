@@ -4,6 +4,7 @@
 #include "AMP/discretization/DOF_ManagerParameters.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"
+#include "AMP/mesh/MeshID.h"
 #include "AMP/utils/AMP_MPI.h"
 
 
@@ -65,7 +66,23 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    virtual AMP::Mesh::MeshElement getElement( size_t dof ) const;
+    virtual AMP::Mesh::MeshElementID getElementID( size_t dof ) const;
+
+
+    /** \brief Get the mesh element for a DOF
+     * \details  This will return the mesh element associated with a given DOF.
+     * \param[in] dof       The entry in the vector associated with DOF
+     * @return              The element for the given DOF.
+     */
+    virtual std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const;
+
+
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    virtual int getDOFsPerPoint() const;
 
 
     /** \brief Get the entry indices of DOFs given a mesh element ID
@@ -74,7 +91,7 @@ public:
      *                      Note: the mesh element may be any type (include a vertex).
      * \param[out] dofs     The entries in the vector associated with D.O.F.s
      */
-    virtual void getDOFs( const AMP::Mesh::MeshElementID &id, std::vector<size_t> &dofs ) const;
+    void getDOFs( const AMP::Mesh::MeshElementID &id, std::vector<size_t> &dofs ) const;
 
 
     /** \brief Get the entry indices of DOFs given a mesh element ID
@@ -83,8 +100,24 @@ public:
      *                      Note: the mesh element may be any type (include a vertex).
      * \param[out] dofs     The entries in the vector associated with D.O.F.s on the nodes
      */
-    virtual void getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
-                          std::vector<size_t> &dofs ) const;
+    void getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
+                  std::vector<size_t> &dofs ) const;
+
+
+    /** \brief Get the entry indices of DOFs given a mesh element ID
+     * \details  This will return a vector of pointers into a Vector that are associated with which.
+     * \param[in]  N_ids    The number of element ids
+     * \param[in]  ids      The element IDs to collect nodal objects for.
+     *                      Note: the mesh element may be any type (include a vertex).
+     * \param[out] dofs     The entries in the vector associated with D.O.F.s on the nodes
+     */
+    void getDOFs( int N_ids, const AMP::Mesh::MeshElementID *ids, std::vector<size_t> &dofs ) const;
+
+
+    /** \brief   Get the underlying mesh
+     * \details  This will return the mesh(es) that underly the DOF manager (if they exist)
+     */
+    virtual std::shared_ptr<const AMP::Mesh::Mesh> getMesh() const;
 
 
     /** \brief   Get an entry over the mesh elements associated with the DOFs
@@ -125,6 +158,12 @@ public:
     virtual size_t numGlobalDOF() const;
 
 
+    /** \brief  The local number of D.O.F on each rank
+     * \return  The local number of D.O.F on each rank
+     */
+    virtual std::vector<size_t> getLocalSizes() const;
+
+
     //! Get the comm for the DOFManger
     inline const AMP_MPI &getComm() const { return d_comm; }
 
@@ -132,9 +171,11 @@ public:
     //! Get the remote DOFs for a vector
     virtual std::vector<size_t> getRemoteDOFs() const;
 
+    virtual void replaceRemoteDOFs( std::vector<size_t> &newRemote ) { d_remoteDOFs = newRemote; }
+
 
     //! Get the row DOFs given a mesh element
-    virtual std::vector<size_t> getRowDOFs( const AMP::Mesh::MeshElement &obj ) const;
+    std::vector<size_t> getRowDOFs( const AMP::Mesh::MeshElementID &id ) const;
 
 
     /** \brief Subset the DOF Manager for a AMP_MPI communicator
@@ -152,7 +193,7 @@ public:
      *                          Note: if this is true, any processors that do not contain the mesh
      * will return NULL.
      */
-    virtual std::shared_ptr<DOFManager> subset( const std::shared_ptr<AMP::Mesh::Mesh> mesh,
+    virtual std::shared_ptr<DOFManager> subset( const std::shared_ptr<const AMP::Mesh::Mesh> mesh,
                                                 bool useMeshComm = true );
 
 
@@ -168,6 +209,20 @@ public:
 
     //! Get a unique id hash
     uint64_t getID() const;
+
+
+public: // Advanced interfaces
+    //! Get the row DOFs given a mesh element
+    virtual size_t getRowDOFs( const AMP::Mesh::MeshElementID &id,
+                               size_t *dofs,
+                               size_t N_alloc,
+                               bool sort = true ) const;
+
+    // Append DOFs to the list
+    virtual size_t appendDOFs( const AMP::Mesh::MeshElementID &id,
+                               size_t *dofs,
+                               size_t index,
+                               size_t capacity ) const;
 
 
 public: // Write/read restart data
@@ -203,6 +258,7 @@ protected:
 
     //! The begining DOF, ending DOF and number of local DOFs for this processor
     size_t d_begin = 0, d_end = 0, d_global = 0;
+    mutable std::vector<size_t> d_localSize;
 
     //! The remote dofs (if cached)
     std::vector<size_t> d_remoteDOFs;

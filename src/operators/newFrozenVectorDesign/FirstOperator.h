@@ -26,9 +26,15 @@ public:
 
     std::string type() const override { return "FirstOperator"; }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override { return d_var; }
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
+    {
+        return d_var;
+    }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override { return d_var; }
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
+    {
+        return d_var;
+    }
 
 protected:
     std::shared_ptr<AMP::LinearAlgebra::Variable> d_var;

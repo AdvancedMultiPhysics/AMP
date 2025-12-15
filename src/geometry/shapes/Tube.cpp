@@ -1,5 +1,5 @@
 #include "AMP/geometry/shapes/Tube.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
@@ -51,7 +51,7 @@ Point Tube::nearest( const Point &pos ) const
     // Calculate the nearest point
     z        = std::min( z, d_z_max );
     z        = std::max( z, d_z_min );
-    double r = sqrt( x * x + y * y );
+    double r = std::sqrt( x * x + y * y );
     if ( r == 0 ) {
         x = d_r_min;
     } else if ( r < d_r_min ) {
@@ -111,7 +111,7 @@ int Tube::surface( const Point &pos ) const
         return 0;
     if ( z >= d_z_max )
         return 1;
-    double r  = sqrt( x * x + y * y );
+    double r  = std::sqrt( x * x + y * y );
     double d1 = fabs( z - d_z_min );
     double d2 = fabs( z - d_z_max );
     double d3 = fabs( r - d_r_min );
@@ -136,7 +136,7 @@ Point Tube::surfaceNorm( const Point &pos ) const
         return { 0, 0, 1 };
     double x = pos.x() - d_offset[0];
     double y = pos.y() - d_offset[1];
-    double n = sqrt( x * x + y * y );
+    double n = std::sqrt( x * x + y * y );
     if ( s == 2 )
         return { -x / n, -y / n, 0 };
     if ( s == 3 )
@@ -170,8 +170,8 @@ Point Tube::logical( const Point &pos ) const
 {
     constexpr double pi = 3.141592653589793116;
     // Compute r, theta
-    double r     = sqrt( ( pos[0] - d_offset[0] ) * ( pos[0] - d_offset[0] ) +
-                     ( pos[1] - d_offset[1] ) * ( pos[1] - d_offset[1] ) );
+    double r     = std::sqrt( ( pos[0] - d_offset[0] ) * ( pos[0] - d_offset[0] ) +
+                          ( pos[1] - d_offset[1] ) * ( pos[1] - d_offset[1] ) );
     double theta = acos( ( pos[0] - d_offset[0] ) / r );
     if ( asin( ( pos[1] - d_offset[1] ) / r ) < 0 )
         theta = -theta;
@@ -221,9 +221,12 @@ ArraySize Tube::getLogicalGridSize( const ArraySize &x ) const
 }
 ArraySize Tube::getLogicalGridSize( const std::vector<double> &res ) const
 {
+    constexpr double pi = 3.141592653589793;
     AMP_INSIST( res.size() == 3u, "Resolution must be an array of length 3" );
-    AMP_ERROR( "Not finished" );
-    return {};
+    int Nx = ( d_r_max - d_r_min ) / std::min( res[0], res[1] );
+    int Ny = 2 * pi * d_r_max / std::min( res[0], res[1] );
+    int Nz = ( d_z_max - d_z_min ) / res[2];
+    return { Nx, Ny, Nz };
 }
 
 

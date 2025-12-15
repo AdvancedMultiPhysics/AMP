@@ -1,0 +1,38 @@
+Mesh{
+MeshType = "AMP"
+MeshName = "cylinder"
+Generator = "cylinder"
+Size = 16, 8
+Range = 1, -2, 2
+surfaceIds = 1, 1, 1, 1, 2, 3
+static = TRUE
+}
+
+LinearOperator {
+  name="LinearOperator"
+  MemoryLocation = "managed"
+  print_info_level = 1
+}
+
+LinearSolver{
+  name = "BoomerAMGSolver"
+  relative_tolerance = 1.0e-12
+  absolute_tolerance = 1.0e-12
+  max_levels             = 25
+  max_coarse_size        = 32
+  min_coarse_size        = 16
+  max_iterations         = 100
+  measure_type           = 1
+  coarsen_type           = 8
+  interp_type            = 6
+  relax_order            = 0
+  relax_type             = 16
+  smooth_type            = 16
+  chebyshev_order        = 2
+  chebyshev_fraction     = 0.3
+  keep_transpose         = 1
+  strong_threshold       = 0.5
+  print_info_level       = 3
+}
+
+

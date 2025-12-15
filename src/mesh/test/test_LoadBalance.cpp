@@ -4,6 +4,7 @@
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
 
+#include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -15,18 +16,20 @@ int run( int N_procs, const std::string &filename, double ratio )
     // Simulate loading the mesh
     auto input_db = AMP::Database::parseInputFile( filename );
     auto database = input_db->getDatabase( "Mesh" );
-    double t0     = AMP::AMP_MPI::time();
+    auto t1       = std::chrono::system_clock::now();
     AMP::Mesh::loadBalanceSimulator mesh( database );
-    double t1 = AMP::AMP_MPI::time();
+    auto t2 = std::chrono::system_clock::now();
     mesh.setProcs( N_procs );
-    double t2 = AMP::AMP_MPI::time();
+    auto t3      = std::chrono::system_clock::now();
+    int create   = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+    int setProcs = std::chrono::duration_cast<std::chrono::milliseconds>( t3 - t2 ).count();
 
     // Print the results of the load balance
     mesh.print();
 
     // Print the time required
-    std::cout << "Time (create) = " << t1 - t0 << std::endl;
-    std::cout << "Time (setProcs) = " << t2 - t1 << std::endl << std::endl;
+    printf( "time (create) = %i ms\n", create );
+    printf( "time (setProcs) = %i ms\n", setProcs );
 
     // Get the worst and average element count
     auto cost  = mesh.getRankCost();
@@ -48,12 +51,10 @@ int run( int N_procs, const std::string &filename, double ratio )
         N_errors++;
         std::cout << "load balance failed with empty rank" << std::endl;
     }
-#ifndef USE_GCOV
-    if ( t1 - t0 > 15 || t2 - t1 > 15 ) {
+    if ( create > 15e36 || setProcs > 15e3 ) {
         N_errors++;
         std::cout << "load balance failed run time limits" << std::endl;
     }
-#endif
     return N_errors;
 }
 
@@ -61,8 +62,6 @@ int run( int N_procs, const std::string &filename, double ratio )
 // Main function
 int main( int argc, char **argv )
 {
-    AMP::AMPManager::startup( argc, argv );
-
     // Load the inputs
     if ( argc < 3 ) {
         std::cout << "Error calling test_LoadBalancer, format should be:" << std::endl;
@@ -79,6 +78,5 @@ int main( int argc, char **argv )
     int N_errors = run( N_procs, filename, ratio );
 
     // Shutdown AMP
-    AMP::AMPManager::shutdown();
     return N_errors;
 }

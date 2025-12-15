@@ -1,7 +1,9 @@
 #include "AMP/mesh/libmesh/libmeshMeshElement.h"
-#include "AMP/utils/Utilities.hpp"
+#include "AMP/utils/Utilities.h"
 
 // libMesh includes
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/boundary_info.h"
 #include "libmesh/elem.h"
 
@@ -25,8 +27,6 @@ libmeshMeshElement::libmeshMeshElement()
       d_delete_elem( false ),
       d_globalID( MeshElementID() )
 {
-    d_typeHash = elementTypeID;
-    d_element  = nullptr;
 }
 libmeshMeshElement::libmeshMeshElement( int dim,
                                         GeomType type,
@@ -34,10 +34,9 @@ libmeshMeshElement::libmeshMeshElement( int dim,
                                         unsigned int rank,
                                         MeshID meshID,
                                         const libmeshMesh *mesh )
+    : d_delete_elem( true )
 {
-    AMP_ASSERT( libmesh_element != nullptr );
-    d_typeHash      = elementTypeID;
-    d_element       = nullptr;
+    AMP_ASSERT( libmesh_element );
     d_dim           = dim;
     d_rank          = rank;
     d_mesh          = mesh;
@@ -53,7 +52,7 @@ libmeshMeshElement::libmeshMeshElement( int dim,
         is_local   = owner_rank == d_rank;
     } else if ( type == (GeomType) dim ) {
         auto *elem = (libMesh::Elem *) ptr_element;
-        AMP_ASSERT( elem->n_neighbors() < 100 );
+        AMP_DEBUG_ASSERT( elem->n_neighbors() < 100 );
         local_id   = elem->id();
         owner_rank = elem->processor_id();
         is_local   = owner_rank == d_rank;
@@ -71,8 +70,6 @@ libmeshMeshElement::libmeshMeshElement( int dim,
     : d_delete_elem( false )
 {
     AMP_ASSERT( libmesh_element );
-    d_typeHash      = elementTypeID;
-    d_element       = nullptr;
     d_dim           = dim;
     d_rank          = rank;
     d_mesh          = mesh;
@@ -102,8 +99,6 @@ libmeshMeshElement::libmeshMeshElement( const libmeshMeshElement &rhs )
       d_delete_elem( false ),
       d_globalID( rhs.d_globalID )
 {
-    d_typeHash  = elementTypeID;
-    d_element   = nullptr;
     d_dim       = rhs.d_dim;
     ptr_element = rhs.ptr_element;
     d_rank      = rhs.d_rank;
@@ -113,8 +108,6 @@ libmeshMeshElement &libmeshMeshElement::operator=( const libmeshMeshElement &rhs
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    this->d_typeHash    = elementTypeID;
-    this->d_element     = nullptr;
     this->d_globalID    = rhs.d_globalID;
     this->d_dim         = rhs.d_dim;
     this->ptr_element   = rhs.ptr_element;
@@ -128,31 +121,24 @@ libmeshMeshElement &libmeshMeshElement::operator=( const libmeshMeshElement &rhs
 
 
 /****************************************************************
- * De-constructor                                                *
+ * Destructor                                                    *
  ****************************************************************/
-libmeshMeshElement::~libmeshMeshElement() { d_element = nullptr; }
+libmeshMeshElement::~libmeshMeshElement() {}
 
 
 /****************************************************************
  * Function to clone the element                                 *
  ****************************************************************/
-MeshElement *libmeshMeshElement::clone() const { return new libmeshMeshElement( *this ); }
-
-
-/****************************************************************
- * Return the global rank of the owner rank                      *
- ****************************************************************/
-unsigned int libmeshMeshElement::globalOwnerRank() const
+std::unique_ptr<MeshElement> libmeshMeshElement::clone() const
 {
-    return d_mesh->getComm().globalRanks()[d_globalID.owner_rank()];
+    return std::make_unique<libmeshMeshElement>( *this );
 }
 
 
 /****************************************************************
  * Function to get the elements composing the current element    *
  ****************************************************************/
-void libmeshMeshElement::getElements( const GeomType type,
-                                      std::vector<MeshElement> &children ) const
+void libmeshMeshElement::getElements( const GeomType type, ElementList &children ) const
 {
     AMP_INSIST( type <= d_globalID.type(), "sub-elements must be of a smaller or equivalent type" );
     children.clear();
@@ -162,23 +148,23 @@ void libmeshMeshElement::getElements( const GeomType type,
         if ( type != GeomType::Vertex )
             AMP_ERROR( "A vertex is the base element and cannot have and sub-elements" );
         children.resize( 1 );
-        children[0] = *this;
+        children[0] = std::make_unique<libmeshMeshElement>( *this );
     } else if ( type == d_globalID.type() ) {
         // Return the children of the current element
         if ( elem->has_children() ) {
             children.resize( elem->n_children() );
             for ( unsigned int i = 0; i < children.size(); i++ )
-                children[i] = libmeshMeshElement(
+                children[i] = std::make_unique<libmeshMeshElement>(
                     d_dim, type, (void *) elem->child_ptr( i ), d_rank, d_meshID, d_mesh );
         } else {
             children.resize( 1 );
-            children[0] = *this;
+            children[0] = std::make_unique<libmeshMeshElement>( *this );
         }
     } else if ( type == GeomType::Vertex ) {
         // Return the nodes of the current element
         children.resize( elem->n_nodes() );
         for ( unsigned int i = 0; i < children.size(); i++ )
-            children[i] = libmeshMeshElement(
+            children[i] = std::make_unique<libmeshMeshElement>(
                 d_dim, type, (void *) elem->node_ptr( i ), d_rank, d_meshID, d_mesh );
     } else {
         // Return the children
@@ -212,8 +198,53 @@ void libmeshMeshElement::getElements( const GeomType type,
             unsigned int id         = generate_id( node_ids );
             element->set_id()       = id;
             // Create the libmeshMeshElement
-            children[i] = libmeshMeshElement( d_dim, type, element, d_rank, d_meshID, d_mesh );
+            children[i] = std::make_unique<libmeshMeshElement>(
+                d_dim, type, element, d_rank, d_meshID, d_mesh );
         }
+    }
+}
+int libmeshMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
+{
+    AMP_INSIST( type <= d_globalID.type(), "sub-elements must be of a smaller or equivalent type" );
+    auto *elem = (libMesh::Elem *) ptr_element;
+    if ( d_globalID.type() == GeomType::Vertex ) {
+        // A vertex does not have children, return itself
+        if ( type != GeomType::Vertex )
+            AMP_ERROR( "A vertex is the base element and cannot have and sub-elements" );
+        ID[0] = globalID();
+        return 1;
+    } else if ( type == d_globalID.type() ) {
+        // Return the children of the current element
+        if ( elem->has_children() ) {
+            for ( unsigned int i = 0; i < elem->n_children(); i++ ) {
+                auto child     = elem->child_ptr( i );
+                int local_id   = child->id();
+                int owner_rank = child->processor_id();
+                bool is_local  = owner_rank == (int) d_rank;
+                ID[i]          = MeshElementID( is_local, type, local_id, owner_rank, d_meshID );
+            }
+            return elem->n_children();
+        } else {
+            ID[0] = globalID();
+            return 1;
+        }
+    } else if ( type == GeomType::Vertex ) {
+        // Return the nodes of the current element
+        for ( unsigned int i = 0; i < elem->n_nodes(); i++ ) {
+            auto node      = elem->node_ptr( i );
+            int local_id   = node->id();
+            int owner_rank = node->processor_id();
+            bool is_local  = owner_rank == (int) d_rank;
+            ID[i]          = MeshElementID( is_local, type, local_id, owner_rank, d_meshID );
+        }
+        return elem->n_nodes();
+    } else {
+        // Get the elements then the ids
+        ElementList elements;
+        this->getElements( type, elements );
+        for ( size_t i = 0; i < elements.size(); i++ )
+            ID[i] = elements[i]->globalID();
+        return elements.size();
     }
 }
 
@@ -221,7 +252,7 @@ void libmeshMeshElement::getElements( const GeomType type,
 /****************************************************************
  * Function to get the neighboring elements                      *
  ****************************************************************/
-void libmeshMeshElement::getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const
+void libmeshMeshElement::getNeighbors( ElementList &neighbors ) const
 {
     neighbors.clear();
     if ( d_globalID.type() == GeomType::Vertex ) {
@@ -237,12 +268,12 @@ void libmeshMeshElement::getNeighbors( std::vector<std::unique_ptr<MeshElement>>
         // Return the neighbors of the current element
         auto *elem      = (libMesh::Elem *) ptr_element;
         int n_neighbors = elem->n_neighbors();
-        neighbors.reserve( n_neighbors );
+        neighbors.resize( n_neighbors );
         for ( int i = 0; i < n_neighbors; i++ ) {
             auto *neighbor_elem = (void *) elem->neighbor_ptr( i );
             if ( neighbor_elem == nullptr )
                 continue;
-            neighbors.emplace_back( new libmeshMeshElement(
+            neighbors[i] = std::unique_ptr<MeshElement>( new libmeshMeshElement(
                 d_dim, d_globalID.type(), neighbor_elem, d_rank, d_meshID, d_mesh ) );
         }
     } else {
@@ -303,13 +334,12 @@ bool libmeshMeshElement::containsPoint( const Point &pos, double TOL ) const
 }
 bool libmeshMeshElement::isOnSurface() const
 {
-    auto type          = static_cast<int>( d_globalID.type() );
-    MeshElement search = MeshElement( *this );
+    auto type = static_cast<int>( d_globalID.type() );
     if ( d_globalID.is_local() ) {
         const auto &data = *( d_mesh->d_localSurfaceElements[type] );
         if ( data.empty() )
             return false; // There are no elements on the surface for this processor
-        size_t index = AMP::Utilities::findfirst( data, search );
+        size_t index = AMP::Utilities::findfirst( data, *this );
         if ( index < data.size() ) {
             if ( d_mesh->d_localSurfaceElements[type]->operator[]( index ).globalID() ==
                  d_globalID )
@@ -319,7 +349,7 @@ bool libmeshMeshElement::isOnSurface() const
         const auto &data = *( d_mesh->d_ghostSurfaceElements[type] );
         if ( data.empty() )
             return false; // There are no elements on the surface for this processor
-        size_t index = AMP::Utilities::findfirst( data, search );
+        size_t index = AMP::Utilities::findfirst( data, *this );
         if ( index < data.size() ) {
             if ( d_mesh->d_ghostSurfaceElements[type]->operator[]( index ).globalID() ==
                  d_globalID )
@@ -350,11 +380,11 @@ bool libmeshMeshElement::isOnBoundary( int id ) const
             on_boundary = true;
     } else {
         // All other entities are on the boundary iff all of their vertices are on the surface
-        std::vector<MeshElement> nodes;
+        ElementList nodes;
         this->getElements( GeomType::Vertex, nodes );
         on_boundary = true;
         for ( auto &node : nodes )
-            on_boundary = on_boundary && node.isOnBoundary( id );
+            on_boundary = on_boundary && node->isOnBoundary( id );
     }
     return on_boundary;
 }
@@ -410,3 +440,12 @@ unsigned int generate_id( const std::vector<unsigned int> &ids )
 
 
 } // namespace AMP::Mesh
+
+
+/********************************************************
+ * Explicit instantiations                               *
+ ********************************************************/
+#include "AMP/utils/Utilities.hpp"
+template void
+AMP::Utilities::quicksort<unsigned int, libMesh::Node *>( std::vector<unsigned int> &,
+                                                          std::vector<libMesh::Node *> & );

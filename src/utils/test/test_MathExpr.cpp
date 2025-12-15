@@ -33,8 +33,7 @@ void test_Performance( AMP::UnitTest &ut )
     auto t1 = std::chrono::steady_clock::now();
     AMP::MathExpr fun( "sin(0.1*x)", { "x" } );
     for ( int i = 1; i < N1; i++ ) {
-        AMP::MathExpr fun2( fun.getExpr(), fun.getVars() );
-        NULL_USE( fun2 );
+        [[maybe_unused]] AMP::MathExpr fun2( fun.getExpr(), fun.getVars() );
     }
     auto t2   = std::chrono::steady_clock::now();
     double s1 = 0;
@@ -75,7 +74,7 @@ int main( int, char *[] )
     test( "npr(52,5)", {}, {}, 311875200, ut );
     test( "exp(2.5)", {}, {}, 12.182493960703473, ut );
     test( "sin(0.8*pi)", {}, {}, sin( 0.8 * pi ), ut );
-    test( "sqrt(x^2+y^2)", { "x", "y" }, { 1.5, 3.5 }, sqrt( 14.5 ), ut );
+    test( "sqrt(x^2+y^2)", { "x", "y" }, { 1.5, 3.5 }, std::sqrt( 14.5 ), ut );
     test( "x*exp(y)", { "x", "y" }, { 1.5, 3.5 }, 1.5 * exp( 3.5 ), ut );
     test( "3*(a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p)",
           { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p" },

@@ -1,5 +1,7 @@
 #include "AMP/mesh/MultiIterator.h"
 #include "AMP/mesh/MeshElement.h"
+#include "AMP/utils/typeid.h"
+
 
 namespace AMP::Mesh {
 

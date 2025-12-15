@@ -1,6 +1,6 @@
 # To run clang-format
 #   find src -name "*.cpp" -or -name "*.cc" -or -name "*.h" -or -name "*.hpp" -or -name "*.I" | xargs -I{} clang-format -i {}
-#   git status -s . | sed s/^...// | grep -E "(\.cpp|\.h|\.cc|\.hpp|\.I)" | xargs -I{} clang-format -i {}
+#   git status -s . | sed s/^...// | grep -E "(\.cpp|\.h|\.cc|\.hpp|\.I|\.cu)" | xargs -I{} clang-format -i {}
 
 
 

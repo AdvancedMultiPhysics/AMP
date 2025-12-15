@@ -9,7 +9,7 @@ CartesianGeometry{
 }
 
 ThermalOperator{
-  print_info_level = 3
+  print_info_level = 2
   isLinearOperator = TRUE
   buildConductivityAtGaussPoints = TRUE
   useConstantConductivity = FALSE
@@ -22,7 +22,7 @@ timeSteps    = 1.0, 10000.
 power        = 1.0, 2.0
 numOutputs  = 2
 interleavePowerAndOxygen = FALSE
-print_info_level = 3 
+print_info_level = 2 
 }
 
 Mesh{

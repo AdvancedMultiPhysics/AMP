@@ -2,6 +2,8 @@
 #include "AMP/mesh/libmesh/libmeshMeshElement.h"
 
 // libMesh includes
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/elem.h"
 
 namespace AMP::Mesh {
@@ -17,14 +19,30 @@ static MeshElement nullElement;
 static constexpr auto MeshIteratorType = AMP::getTypeID<libmeshNodeIterator>().hash;
 static_assert( MeshIteratorType != 0 );
 libmeshNodeIterator::libmeshNodeIterator( const AMP::Mesh::libmeshMesh *mesh,
-                                          int gcw,
+                                          const libMesh::Mesh::node_iterator &begin,
+                                          const libMesh::Mesh::node_iterator &end )
+    : d_dim( mesh->getlibMesh()->mesh_dimension() ),
+      d_rank( mesh->getComm().getRank() ),
+      d_begin2( begin ),
+      d_end2( end ),
+      d_pos2( begin ),
+      d_meshID( mesh->meshID() ),
+      d_mesh( mesh )
+{
+    d_typeHash     = MeshIteratorType;
+    d_iteratorType = MeshIterator::Type::Forward;
+    d_pos          = 0;
+    d_size         = std::distance( begin, end );
+    d_element      = &d_cur_element;
+    setCurrentElement();
+}
+libmeshNodeIterator::libmeshNodeIterator( const AMP::Mesh::libmeshMesh *mesh,
                                           const libMesh::Mesh::node_iterator &begin,
                                           const libMesh::Mesh::node_iterator &end,
                                           const libMesh::Mesh::node_iterator &pos,
                                           int size,
                                           int pos2 )
-    : d_gcw( gcw ),
-      d_dim( mesh->getlibMesh()->mesh_dimension() ),
+    : d_dim( mesh->getlibMesh()->mesh_dimension() ),
       d_rank( mesh->getComm().getRank() ),
       d_begin2( begin ),
       d_end2( end ),
@@ -37,29 +55,10 @@ libmeshNodeIterator::libmeshNodeIterator( const AMP::Mesh::libmeshMesh *mesh,
     d_pos          = pos2;
     d_size         = size;
     d_element      = &d_cur_element;
-    // Count the number of elements in the iterator
-    if ( size == -1 ) {
-        d_size = 0;
-        libMesh::Mesh::node_iterator cur( begin );
-        while ( cur != d_end2 ) {
-            d_size++;
-            ++cur;
-        }
-    }
-    // Count the position
-    if ( pos2 == -1 ) {
-        d_pos = 0;
-        libMesh::Mesh::node_iterator cur( begin );
-        while ( cur != pos ) {
-            d_pos++;
-            ++cur;
-        }
-    }
     setCurrentElement();
 }
 libmeshNodeIterator::libmeshNodeIterator( const libmeshNodeIterator &rhs )
     : MeshIterator(), // Note: we never want to call the base copy constructor
-      d_gcw( rhs.d_gcw ),
       d_dim( rhs.d_dim ),
       d_rank( rhs.d_rank ),
       d_begin2( rhs.d_begin2 ),
@@ -83,7 +82,6 @@ libmeshNodeIterator &libmeshNodeIterator::operator=( const libmeshNodeIterator &
     this->d_typeHash     = MeshIteratorType;
     this->d_iteratorType = rhs.d_iteratorType;
     this->d_mesh         = rhs.d_mesh;
-    this->d_gcw          = rhs.d_gcw;
     this->d_pos          = rhs.d_pos;
     this->d_size         = rhs.d_size;
     this->d_rank         = rhs.d_rank;
@@ -109,11 +107,11 @@ MeshIterator *libmeshNodeIterator::clone() const { return new libmeshNodeIterato
  ********************************************************/
 MeshIterator libmeshNodeIterator::begin() const
 {
-    return libmeshNodeIterator( d_mesh, d_gcw, d_begin2, d_end2, d_begin2, d_size, 0 );
+    return libmeshNodeIterator( d_mesh, d_begin2, d_end2, d_begin2, d_size, 0 );
 }
 MeshIterator libmeshNodeIterator::end() const
 {
-    return libmeshNodeIterator( d_mesh, d_gcw, d_begin2, d_end2, d_end2, d_size, d_size );
+    return libmeshNodeIterator( d_mesh, d_begin2, d_end2, d_end2, d_size, d_size );
 }
 
 

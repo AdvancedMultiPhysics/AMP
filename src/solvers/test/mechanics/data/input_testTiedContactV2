@@ -51,6 +51,14 @@ MasterBVPOperator {
     BoundaryOperator = "DirichletMatrixCorrection1"
 }
 
+IsotropicElasticModel1 {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = ""
+    name="IsotropicElasticModel"
+    Youngs_Modulus = 1.0e6
+    Poissons_Ratio = 0.2
+}
+
 MechanicsLinearFEOperator1 {
   name = "MechanicsLinearFEOperator"
     print_info_level = 1
@@ -68,7 +76,7 @@ MechanicsLinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }
 
-  LocalModel = "IsotropicElasticModel1"
+  LocalModel = IsotropicElasticModel1
 }
 
 DirichletMatrixCorrection1 {
@@ -84,14 +92,6 @@ DirichletMatrixCorrection1 {
     dof_0_0 = 0
     dof_0_1 = 1
     dof_0_2 = 2
-}
-
-IsotropicElasticModel1 {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = ""
-    name="IsotropicElasticModel"
-    Youngs_Modulus = 1.0e6
-    Poissons_Ratio = 0.2
 }
 
 SlaveBVPOperator {
@@ -118,7 +118,7 @@ MechanicsLinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }
 
-  LocalModel = "IsotropicElasticModel1"
+  LocalModel = IsotropicElasticModel1
 }
 
 DirichletMatrixCorrection2 {

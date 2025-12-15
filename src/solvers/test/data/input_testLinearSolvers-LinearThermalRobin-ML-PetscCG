@@ -1,0 +1,10 @@
+<<< "input_LinearThermalRobinOperator" >>>
+<<< "PetscCGParameters" >>>
+<<< "PC-MLParameters" >>>
+
+Reference{
+  iterations = 8
+  res_l2_norm = 0.0
+  tolerance = 2.0e-10
+  strict = FALSE
+}

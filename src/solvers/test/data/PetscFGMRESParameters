@@ -1,0 +1,14 @@
+LinearSolver{
+  name = "PetscKrylovSolver"
+  ksp_type = "fgmres"
+  print_info_level = 2
+  max_iterations = 25
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  divergence_tolerance = 1.0e03
+  max_krylov_dimension = 40
+  uses_preconditioner=TRUE
+  pc_type = "shell"
+  pc_side = "RIGHT"
+  KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 25 -ksp_rtol 1.0e-12 -ksp_atol 1.0e-12"
+}

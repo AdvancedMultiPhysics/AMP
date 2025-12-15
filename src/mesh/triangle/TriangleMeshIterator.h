@@ -9,16 +9,25 @@
 namespace AMP::Mesh {
 
 
-template<uint8_t NG, uint8_t NP>
+template<uint8_t NG>
 class TriangleMesh;
 
 
-template<uint8_t NG, uint8_t NP, uint8_t TYPE>
+template<uint8_t NG>
 class TriangleMeshIterator final : public MeshIterator
 {
 public:
     //! Empty MeshIterator constructor
     TriangleMeshIterator();
+
+    /** Default constructor
+     * \param mesh      Pointer to the libMesh mesh
+     * \param list      List of elements
+     * \param pos       Pointer to iterator with the current position
+     */
+    explicit TriangleMeshIterator( const AMP::Mesh::TriangleMesh<NG> *mesh,
+                                   std::shared_ptr<const std::vector<ElementID>> list,
+                                   size_t pos = 0 );
 
     //! Deconstructor
     virtual ~TriangleMeshIterator() = default;
@@ -50,29 +59,20 @@ public:
     // Return an iterator to the begining
     MeshIterator end() const override;
 
+    //! Access the list of elements
+    auto getList() const { return d_list; }
+
     using MeshIterator::operator+;
     using MeshIterator::operator+=;
-
-protected:
-    /** Default constructor
-     * \param mesh      Pointer to the libMesh mesh
-     * \param list      List of elements
-     * \param pos       Pointer to iterator with the current position
-     */
-    explicit TriangleMeshIterator( const AMP::Mesh::TriangleMesh<NG, NP> *mesh,
-                                   std::shared_ptr<const std::vector<ElementID>> list,
-                                   size_t pos = 0 );
 
     //! Clone the iterator
     MeshIterator *clone() const override;
 
-    friend class AMP::Mesh::TriangleMesh<NG, NP>;
-
-private:
+protected:
     // Data members
-    const AMP::Mesh::TriangleMesh<NG, NP> *d_mesh;
+    const AMP::Mesh::TriangleMesh<NG> *d_mesh;
     std::shared_ptr<const std::vector<ElementID>> d_list;
-    TriangleMeshElement<NG, NP, TYPE> d_cur_element;
+    TriangleMeshElement<NG> d_cur_element;
 };
 
 

@@ -35,12 +35,22 @@ class EpetraMatrixOperations : public MatrixOperations
      */
     void scale( AMP::Scalar alpha, MatrixData &A ) override;
 
+    /** \brief  Scale the matrix by a scalar and diagonal matrix
+     */
+    void scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override;
+
+    /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
+     */
+    void scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override;
+
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
      * \param[in] B  A multiplicand
      * \param[in] C  The product \f$\mathbf{AB}\f$.
      */
-    void matMultiply( MatrixData const &A, MatrixData const &B, MatrixData &C ) override;
+    void matMatMult( std::shared_ptr<MatrixData> A,
+                     std::shared_ptr<MatrixData> B,
+                     std::shared_ptr<MatrixData> C ) override;
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -68,15 +78,36 @@ class EpetraMatrixOperations : public MatrixOperations
      */
     void setDiagonal( std::shared_ptr<const Vector> in, MatrixData &A ) override;
 
+    /** \brief Extract the diagonal values into a vector
+     * \param[in]  A    The matrix to read from
+     * \param[out] buf  Buffer to write row sums into
+     */
+    void extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
+
+    /** \brief Extract the row sums into a vector
+     */
+    void getRowSums( MatrixData const &, std::shared_ptr<Vector> ) override;
+
+    /** \brief Extract the absolute row sums into a vector
+     */
+    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector>, const bool ) override;
+
     /** \brief  Set the matrix to the identity matrix
+     * \param[out] A The matrix to set
      */
     void setIdentity( MatrixData &A ) override;
 
-    /** \brief Compute the maximum column sum
-     * \return  The L1 norm of the matrix
-     * \param[in] X The input matrix
+    /** \brief Compute the maximum row sum
+     * \return  The L-infinity norm of the matrix
+     * \param[in] X Data for the input matrix
      */
-    AMP::Scalar L1Norm( const MatrixData &X ) const override;
+    AMP::Scalar LinfNorm( const MatrixData &X ) const override;
+
+    /** \brief  Copy size and entries from X into Y
+     * \param[in] X matrix data to copy from
+     * \param[in] Y matrix data to copy to
+     */
+    void copy( const MatrixData &X, MatrixData &Y ) override;
 };
 
 } // namespace AMP::LinearAlgebra

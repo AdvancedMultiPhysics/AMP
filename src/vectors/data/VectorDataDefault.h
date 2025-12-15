@@ -1,7 +1,9 @@
 #ifndef included_AMP_VectorDataDefault
 #define included_AMP_VectorDataDefault
 
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 
 
@@ -17,18 +19,16 @@ class VectorDataIterator;
  * \details  VectorDataDefault is a default implementation of VectorData that stores
  * the local values as a single block of data on the CPU.
  */
-template<typename TYPE = double, class Allocator = std::allocator<TYPE>>
-class VectorDataDefault final : public VectorData
+template<typename TYPE = double, class Allocator = AMP::HostAllocator<void>>
+class VectorDataDefault : public GhostDataHelper<TYPE, Allocator>
 {
 public: // Member types
-    using value_type     = TYPE;
-    using allocator_type = Allocator;
+    using value_type = TYPE;
+    using scalarAllocator_t =
+        typename std::allocator_traits<Allocator>::template rebind_alloc<TYPE>;
 
 public: // Constructors
-    VectorDataDefault( size_t start,
-                       size_t localSize,
-                       size_t globalSize,
-                       const Allocator &alloc = Allocator() );
+    VectorDataDefault( size_t start, size_t localSize, size_t globalSize );
 
     VectorDataDefault( const VectorDataDefault & ) = delete;
 
@@ -154,6 +154,9 @@ public: // Advanced virtual functions
      */
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 
+    /** \brief returns the memory location for data
+     */
+    AMP::Utilities::MemoryType getMemoryLocation() const override;
 
 public: // Non-virtual functions
     /** \brief Access the raw element
@@ -166,23 +169,14 @@ public: // Non-virtual functions
      */
     const TYPE &operator[]( size_t i ) const;
 
-    //! Return the allocator associated with the container
-    Allocator get_allocator() const noexcept;
-
 
 public: // Write/read restart data
     void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
     void writeRestart( int64_t ) const override;
     VectorDataDefault( int64_t, AMP::IO::RestartManager * );
 
-
 protected:
-    VectorDataDefault( const Allocator &alloc = Allocator() ) : d_alloc( alloc ) {}
-
-
-private:
     TYPE *d_data = nullptr;
-    Allocator d_alloc;
 };
 
 

@@ -1,8 +1,7 @@
 #ifndef included_AMP_AMPUnitTest
 #define included_AMP_AMPUnitTest
 
-#include "AMP/utils/AMP_MPI.h"
-
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -10,6 +9,10 @@
 
 
 namespace AMP {
+
+
+class AMP_MPI;
+
 
 /*!
  * @brief Class UnitTest is simple utility for running unit tests.
@@ -69,6 +72,9 @@ public:
     //! Indicate an expected failed test (thread-safe)
     void expected_failure( std::string in );
 
+    //! Indicate a pass/fail test
+    void pass_fail( bool pass, std::string in );
+
     //! Return the number of passed tests locally
     inline size_t NumPassLocal() const { return d_pass.size(); }
 
@@ -87,6 +93,15 @@ public:
     //! Return the number of expected failed tests locally
     size_t NumExpectedFailGlobal() const;
 
+    //! Return the tests passed locally
+    inline const auto &getPass() const { return d_pass; }
+
+    //! Return the number of failed tests locally
+    inline const auto &getFail() const { return d_fail; }
+
+    //! Return the number of expected failed tests locally
+    inline const auto &getExpected() const { return d_expected; }
+
     /*!
      * Print a report of the passed and failed tests.
      * Note: This is a blocking call that all processors must execute together.
@@ -97,9 +112,15 @@ public:
      *                  1: Report the passed tests (if <=20) or number passed,
      *                     Report all failures,
      *                     Report the expected failed tests (if <=50) or the number passed.
-     *                  2: Report all passed, failed, and expected failed tests.
+     *                  2: Report the passed tests (if <=50)
+     *                     Report all failures,
+     *                     Report all expected
+     *                  3: Report all passed, failed, and expected failed tests.
+     * @param removeDuplicates  Remove duplicate messages.
+     *                  If set, the total number of message will be unchanged but if printed
+     *                  duplicate messages will be removed
      */
-    void report( const int level = 1 ) const;
+    void report( const int level = 1, bool removeDuplicates = true ) const;
 
     //! Clear the messages
     void reset();
@@ -113,23 +134,10 @@ private:
     std::vector<std::string> d_expected;
     bool d_verbose;
     mutable std::mutex d_mutex;
-    AMP::AMP_MPI d_comm;
-
-private:
-    // Function to pack the messages into a single data stream and send to the given processor
-    // Note: This function does not return until the message stream has been sent
-    void pack_message_stream( const std::vector<std::string> &messages,
-                              const int rank,
-                              const int tag ) const;
-
-    // Function to unpack the messages from a single data stream
-    // Note: This function does not return until the message stream has been received
-    std::vector<std::string> unpack_message_stream( const int rank, const int tag ) const;
-
-    // Gather the messages
-    inline std::vector<std::vector<std::string>>
-    gatherMessages( const std::vector<std::string> &local_messages, int tag ) const;
+    std::unique_ptr<AMP::AMP_MPI> d_comm;
 };
+
+
 } // namespace AMP
 
 #endif

@@ -1,14 +1,9 @@
 // Database for all the meshes
 Mesh{
-    MeshType = "libMesh"
-    dim = 3
-    x_offset = 0.0
-    y_offset = 0.0
-    z_offset = 0.0
-    MeshName = "cubeH27"
-    FileName = "cube343H27.e"
-    NumberOfElements = 343
-    //MeshName = "cubeH08"
-    //FileName = "cube343H8.e"
-    //NumberOfElements = 4488
+    MeshName = "cube"
+    MeshType = "AMP"
+    Generator = "cube"
+    Size = 5, 5, 5
+    Range = -1, 1, -1, 1, -1, 1
+    static = TRUE
 }

@@ -5,7 +5,7 @@
 
 // Trilinos includes
 DISABLE_WARNINGS
-//#include "Thyra_SpmdVectorBase_def.hpp"
+// #include "Thyra_SpmdVectorBase_def.hpp"
 #include "Thyra_DefaultSpmdVector_def.hpp"
 #include "Thyra_VectorStdOps_def.hpp"
 #include "Trilinos_version.h"
@@ -23,14 +23,14 @@ Teuchos::RCP<const Thyra::VectorBase<double>>
 NativeThyraVectorOperations::getThyraVec( const VectorData &v )
 {
     auto data = dynamic_cast<const NativeThyraVectorData *>( &v );
-    AMP_ASSERT( data != nullptr );
+    AMP_ASSERT( data );
     return data->getVec();
 }
 
 Teuchos::RCP<Thyra::VectorBase<double>> NativeThyraVectorOperations::getThyraVec( VectorData &v )
 {
     auto data = dynamic_cast<NativeThyraVectorData *>( &v );
-    AMP_ASSERT( data != nullptr );
+    AMP_ASSERT( data );
     return data->getVec();
 }
 

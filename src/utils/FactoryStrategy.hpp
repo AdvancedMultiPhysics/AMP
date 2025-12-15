@@ -1,6 +1,7 @@
 #ifndef AMP_FactoryStrategy_HPP_
 #define AMP_FactoryStrategy_HPP_
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
 
@@ -47,7 +48,7 @@ public:
     }
 
     //! Clear factory data and all registered functions
-    static void clear() { getFactory().d_factories.clear(); }
+    static void clear() { getFactory().d_factories = std::map<std::string, FunctionPtr>(); }
 
     static std::vector<std::string> getKeys()
     {
@@ -63,11 +64,21 @@ public:
         return factories.find( name ) != factories.end();
     }
 
+    static bool empty()
+    {
+        auto &factory = getFactory();
+        return factory.d_factories.empty();
+    }
 
 protected:
     //! Private constructor
-    FactoryStrategy() = default;
-
+    FactoryStrategy()
+    {
+        registerDefault();
+        AMP::AMPManager::registerShutdown( FactoryStrategy::clear );
+    }
+    //! Register default factories (new factories must instantiate this function, maybe be empty)
+    void registerDefault();
 
 protected:
     std::map<std::string, FunctionPtr> d_factories; //! maps from names to factories

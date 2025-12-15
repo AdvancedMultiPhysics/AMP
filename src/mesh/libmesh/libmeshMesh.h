@@ -6,9 +6,10 @@
 
 // LibMesh include
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/mesh.h"
 #include "libmesh/node.h"
-//#include "libmesh/mesh_data.h"
 ENABLE_WARNINGS
 
 
@@ -16,6 +17,7 @@ namespace AMP::Mesh {
 
 
 class libmeshMeshElement;
+class libmeshElemIterator;
 
 
 /**
@@ -40,7 +42,7 @@ class libmeshMeshElement;
  * communicators.  If multiple meshes are used, they must either share communicators or have unique
  * communicators.
  */
-class libmeshMesh : public Mesh
+class libmeshMesh final : public Mesh
 {
 public:
     /**
@@ -60,8 +62,11 @@ public:
      * initialized (using initializeLibMesh), and that the mesh is created properly.
      * \param mesh The mesh in libmesh we want to use to construct the new mesh object
      * \param name The name of the new mesh object
+     * \param libMeshComm Optional libMesh communicator to use
      */
-    explicit libmeshMesh( std::shared_ptr<libMesh::Mesh> mesh, const std::string &name );
+    explicit libmeshMesh( std::shared_ptr<libMesh::Mesh> mesh,
+                          const std::string &name,
+                          std::shared_ptr<libMesh::Parallel::Communicator> libMeshComm = nullptr );
 
     //! Deconstructor
     virtual ~libmeshMesh();
@@ -184,7 +189,7 @@ public:
      *    elements that were constructed internally.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override;
+    std::unique_ptr<MeshElement> getElement( const MeshElementID &id ) const override;
 
 
     /**
@@ -251,22 +256,30 @@ protected:
      */
     std::vector<libMesh::Node *> getNeighborNodes( const MeshElementID & ) const;
 
+
+private:
     // Friend functions to access protected functions
     friend class libmeshMeshElement;
 
-private:
-    //!  Empty constructor for a mesh
+    typedef std::shared_ptr<std::vector<libmeshMeshElement>> ElemListPtr;
+
+
+private: // Functions use for initialization
     libmeshMesh(){};
-
-    //!  Function to properly initialize the internal data once a libmesh mesh is loaded
     void initialize();
+    ElemListPtr generateGhosts() const;
+    ElemListPtr generateLocalElements( GeomType ) const;
+    ElemListPtr generateGhostElements( GeomType ) const;
+    void fillBoundaryElements();
+    libmeshElemIterator localElements() const;
 
+private:
     // Index indicating number of times the position has changed
     uint64_t d_pos_hash;
 
     // libMesh objects
-    std::shared_ptr<libMesh::Parallel::Communicator> d_libMeshComm;
     std::shared_ptr<libMesh::Mesh> d_libMesh;
+    std::shared_ptr<libMesh::Parallel::Communicator> d_libMeshComm;
 
     // Some basic internal data
     std::vector<size_t> n_local, n_global, n_ghost;
@@ -276,16 +289,16 @@ private:
     std::vector<unsigned int> neighborNodeIDs;
     std::vector<std::vector<libMesh::Node *>> neighborNodes;
 
-    // Data used to elements that libmesh doesn't create
-    std::shared_ptr<std::vector<MeshElement>> d_localElements[4];
-    std::shared_ptr<std::vector<MeshElement>> d_ghostElements[4];
+    // Data used to store elements that libmesh doesn't create
+    ElemListPtr d_localElements[4];
+    ElemListPtr d_ghostElements[4];
 
     // Data used to store the boundary elements
-    std::map<std::pair<int, GeomType>, std::shared_ptr<std::vector<MeshElement>>> d_boundarySets;
+    std::map<std::pair<int, GeomType>, ElemListPtr> d_boundarySets;
 
     // Data used to store the surface elements
-    std::vector<std::shared_ptr<std::vector<MeshElement>>> d_localSurfaceElements;
-    std::vector<std::shared_ptr<std::vector<MeshElement>>> d_ghostSurfaceElements;
+    std::vector<ElemListPtr> d_localSurfaceElements;
+    std::vector<ElemListPtr> d_ghostSurfaceElements;
 
     // Data used to store block info
     std::vector<int> d_block_ids;

@@ -1,34 +1,32 @@
 // 1D Geometries
 cube_1d{
-    dim = 1
+	dim = 1
     Generator = "cube"
     Range = -1, 1
 }
 
 grid_1d {
-    dim = 1
+	dim = 1
     Generator = "cube"
     x_grid = -1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0
 }
 
 
+// 2D Geometries
 cube_2d {
-    dim = 2
+	dim = 2
     Generator = "cube"
     Range = -1, 1, -1, 1
 }
 
-
-// 2D Geometries
 grid_2d {
-    dim = 2
+	dim = 2
     Generator = "cube"
     x_grid = -1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0
     y_grid = -0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.8, 0.9
 }
 
 circle {
-    dim = 2
     Generator = "circle"
     Range = 1
 }
@@ -43,15 +41,20 @@ hexagon {
     N = 6
     R = 1.1
 }
-Mesh_7 {
+polygon_8 {
     Generator = "regular_polygon"
     N = 8
     R = 1.2
 }
-Mesh_8 {
+polygon_13 {
     Generator = "regular_polygon"
     N = 13
     R = 1.1
+}
+
+circle_surface {
+    Generator = "circle_surface"
+    Range = 1
 }
 
 
@@ -63,31 +66,26 @@ cube_3d {
 }
 
 cylinder {
-	dim = 3
 	Generator = "cylinder"
 	Range = 1, -0.5, 0.5
 }
 
 tube {
-	dim = 3
 	Generator = "tube"
 	Range = 0.8, 1, -0.5, 0.5
 }
 
 sphere {
-	dim = 3
 	Generator = "sphere"
 	Range = 1
 }
 
 shell {
-	dim = 3
 	Generator = "shell"
 	Range = 0.8, 1
 }
 
 sphere_surface {
-	dim = 3
 	Generator = "sphere_surface"
 	Range = 1
 }
@@ -108,7 +106,6 @@ circle_frustrum {
 }
 
 Parallelepiped {
-
 	Generator = "Parallelepiped"
     a = 1, 0, 0
     b = 0, 1, 0

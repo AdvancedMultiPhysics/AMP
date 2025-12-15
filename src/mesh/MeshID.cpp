@@ -1,10 +1,34 @@
 #include "AMP/mesh/MeshID.h"
-#include "AMP/IO/HDF5.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/mesh/MeshIterator.h"
 #include "AMP/utils/Array.hpp"
-#include "AMP/utils/Utilities.hpp"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/kdtree2.hpp"
+
+
+/********************************************************
+ * GeomType                                              *
+ ********************************************************/
+std::string AMP::Mesh::to_string( GeomType x )
+{
+    if ( x == GeomType::Vertex )
+        return "Vertex";
+    else if ( x == GeomType::Edge )
+        return "Edge";
+    else if ( x == GeomType::Face )
+        return "Face";
+    else if ( x == GeomType::Cell )
+        return "Cell";
+    else if ( x == GeomType::Polytope_4D )
+        return "Polytope_4D";
+    else if ( x == GeomType::Polytope_5D )
+        return "Polytope_5D";
+    else if ( x == GeomType::Nullity )
+        return "Nullity";
+    else
+        return "Invalid";
+}
 
 
 /********************************************************
@@ -53,6 +77,55 @@ void AMP::IO::readHDF5Scalar<AMP::Mesh::MeshID>( hid_t fid,
     data = AMP::Mesh::MeshID( data2 );
 }
 #endif
+
+
+/********************************************************
+ * ElementID                                             *
+ ********************************************************/
+#ifdef AMP_USE_HDF5
+static_assert( sizeof( AMP::Mesh::ElementID ) == sizeof( uint64_t ) );
+template<>
+hid_t AMP::IO::getHDF5datatype<AMP::Mesh::ElementID>()
+{
+    return getHDF5datatype<uint64_t>();
+}
+template<>
+void AMP::IO::writeHDF5Array<AMP::Mesh::ElementID>( hid_t fid,
+                                                    const std::string &name,
+                                                    const AMP::Array<AMP::Mesh::ElementID> &data )
+{
+    AMP::Array<uint64_t> data2( data.size(), reinterpret_cast<const uint64_t *>( data.data() ) );
+    writeHDF5Array<uint64_t>( fid, name, data2 );
+}
+template<>
+void AMP::IO::readHDF5Array<AMP::Mesh::ElementID>( hid_t fid,
+                                                   const std::string &name,
+                                                   AMP::Array<AMP::Mesh::ElementID> &data )
+{
+    Array<uint64_t> data2;
+    readHDF5Array<uint64_t>( fid, name, data2 );
+    data.resize( data2.size() );
+    for ( size_t i = 0; i < data.length(); i++ )
+        data( i ) = AMP::Mesh::ElementID( data2( i ) );
+}
+template<>
+void AMP::IO::writeHDF5Scalar<AMP::Mesh::ElementID>( hid_t fid,
+                                                     const std::string &name,
+                                                     const AMP::Mesh::ElementID &data )
+{
+    writeHDF5Scalar<uint64_t>( fid, name, data.getData() );
+}
+template<>
+void AMP::IO::readHDF5Scalar<AMP::Mesh::ElementID>( hid_t fid,
+                                                    const std::string &name,
+                                                    AMP::Mesh::ElementID &data )
+{
+    uint64_t data2;
+    readHDF5Scalar<uint64_t>( fid, name, data2 );
+    data = AMP::Mesh::ElementID( data2 );
+}
+#endif
+INSTANTIATE_HDF5( AMP::Mesh::ElementID );
 
 
 /********************************************************
@@ -205,25 +278,21 @@ INSTANTIATE_HDF5( AMP::Mesh::MeshIterator::Type );
 /********************************************************
  * Explicit instantiations                               *
  ********************************************************/
-#define INSTANTIATE_SORT( TYPE )                                                   \
-    template void AMP::Utilities::quicksort<TYPE>( size_t, TYPE * );               \
-    template void AMP::Utilities::quicksort<TYPE, TYPE>( size_t, TYPE *, TYPE * ); \
-    template void AMP::Utilities::unique<TYPE>( std::vector<TYPE> & );             \
-    template void AMP::Utilities::unique<TYPE>(                                    \
-        std::vector<TYPE> &, std::vector<size_t> &, std::vector<size_t> & );       \
-    template size_t AMP::Utilities::findfirst<TYPE>( size_t, const TYPE *, const TYPE & )
+#include "AMP/utils/AMP_MPI.I"
+#include "AMP/utils/Utilities.hpp"
+INSTANTIATE_MPI_GATHER( AMP::Mesh::MeshID );
 using ElementArray1 = std::array<AMP::Mesh::ElementID, 1>;
 using ElementArray2 = std::array<AMP::Mesh::ElementID, 2>;
 using ElementArray3 = std::array<AMP::Mesh::ElementID, 3>;
 using ElementArray4 = std::array<AMP::Mesh::ElementID, 4>;
-INSTANTIATE_SORT( AMP::Mesh::GeomType );
-INSTANTIATE_SORT( AMP::Mesh::MeshID );
-INSTANTIATE_SORT( AMP::Mesh::ElementID );
-INSTANTIATE_SORT( AMP::Mesh::MeshElementID );
-INSTANTIATE_SORT( ElementArray1 );
-INSTANTIATE_SORT( ElementArray2 );
-INSTANTIATE_SORT( ElementArray3 );
-INSTANTIATE_SORT( ElementArray4 );
+AMP_INSTANTIATE_SORT( AMP::Mesh::GeomType );
+AMP_INSTANTIATE_SORT( AMP::Mesh::MeshID );
+AMP_INSTANTIATE_SORT( AMP::Mesh::ElementID );
+AMP_INSTANTIATE_SORT( AMP::Mesh::MeshElementID );
+AMP_INSTANTIATE_SORT( ElementArray1 );
+AMP_INSTANTIATE_SORT( ElementArray2 );
+AMP_INSTANTIATE_SORT( ElementArray3 );
+AMP_INSTANTIATE_SORT( ElementArray4 );
 INSTANTIATE_HDF5( AMP::Mesh::GeomType );
 INSTANTIATE_HDF5( AMP::Mesh::MeshID );
 instantiateArrayConstructors( AMP::Mesh::MeshID );
@@ -233,3 +302,8 @@ template class AMP::kdtree2<2, AMP::Mesh::MeshElementID>;
 template class AMP::kdtree2<3, AMP::Mesh::MeshElementID>;
 template void AMP::Utilities::quicksort<int, AMP::Mesh::MeshElementID>(
     size_t, int *, AMP::Mesh::MeshElementID * );
+template void
+AMP::Utilities::quicksort<int, AMP::Mesh::MeshElementID>( std::vector<int> &,
+                                                          std::vector<AMP::Mesh::MeshElementID> & );
+template void AMP::Utilities::quicksort<AMP::Mesh::MeshElementID, unsigned long>(
+    std::vector<AMP::Mesh::MeshElementID> &, std::vector<unsigned long> & );

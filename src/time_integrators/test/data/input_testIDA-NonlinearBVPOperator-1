@@ -1,25 +1,59 @@
-
 Mesh{
-  FileName = "unitCubeDirichlet.e"
-  MeshName = "ida"
-  MeshType = "libMesh"
-  dim      = 3        
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 1000
+    MeshName  = "ida"
+    MeshType  = "AMP"
+    Generator = "cube"
+    dim       = 3
+    Size      = 10, 10, 10
+    Range     = -0.5, 0.5, -0.5, 0.5, -0.5, 0.5
+    surfaceIds = 10, 10, 10, 10, 10, 10
+    static = TRUE
 }
 
+SourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Equation="ThermalSource"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    USE_MATERIALS_LIBRARY = TRUE 
+    BilogScaleCoefficient = FALSE
+}
+
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Property = "ThermalConductivity"
+        Material = "UO2_MSRZC_09"
+        Default_Concentration = .1
+        Default_Temperature   = 750.
+        Default_Burnup   = 0.0
+//        UseBilogScaling = TRUE
+//        BilogVariable = "concentration"
+//        BilogScaleCoefficient = FALSE
+       BilogScaleCoefficient = FALSE
+} 
+
+MassDensityModel{
+        name = "MassDensityModel"
+        Material = "UO2_MSRZC_09"
+        Equation = "Thermal"
+        Property = "ThermalConductivity"
+        Default_Concentration = .1
+        Default_Temperature   = 750.
+        Default_Burnup   = 0.0
+//        UseBilogScaling = TRUE
+//        BilogVariable = "concentration"
+       BilogScaleCoefficient = FALSE
+       print_info_level = 2
+}
 
 NeutronicsOperator{
-  name="NeutronicsRhsOperator"
-  type               = "Power"
-  OutputVariable     = "SpecificPowerInWattsPerGram"
-  numTimeSteps       = 2
-  timeSteps          = 1, 10000.
-  useFixedValue      = TRUE
-  fixedValues        = 100., 2.0
-  print_info_level   = 3
+    name="NeutronicsRhsOperator"
+    type               = "Power"
+    OutputVariable     = "SpecificPowerInWattsPerGram"
+    numTimeSteps       = 2
+    timeSteps          = 1, 10000.
+    useFixedValue      = TRUE
+    fixedValues        = 100., 2.0
+    print_info_level   = 3
 }
 
 VolumeIntegralOperator{
@@ -32,13 +66,13 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
   }
   OutputVariable = "HeatSource"
-  print_info_level = 3
+  print_info_level = 2
 
-  LocalModel = "SourcePhysicsModel"
+  LocalModel = SourcePhysicsModel
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -46,18 +80,9 @@ VolumeIntegralOperator{
   }
 }
 
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Equation="ThermalSource"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    USE_MATERIALS_LIBRARY = TRUE 
-    BilogScaleCoefficient = FALSE
-}
-
 NonlinearOperator {
    name="NonlinearBVPOperator"
-   print_info_level = 4
+   print_info_level = 2
    VolumeOperator = "DiffusionNonlinearFEOperator"
    BoundaryOperator="DirichletVectorCorrection"
 }
@@ -80,7 +105,7 @@ DiffusionNonlinearFEOperator{
         QRULE_ORDER = "DEFAULT"
      }    
 
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 
 }
 
@@ -98,7 +123,7 @@ DirichletVectorCorrection{
 
 LinearOperator {
    name="LinearBVPOperator"
-   print_info_level = 4
+   print_info_level = 2
    VolumeOperator = "DiffusionLinearFEOperator"
    BoundaryOperator="DirichletMatrixCorrection"
 }
@@ -121,28 +146,16 @@ DiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
  
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 }
 
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Property = "ThermalConductivity"
-        Material = "UO2_MSRZC_09"
-        Default_Concentration = .1
-        Default_Temperature   = 750.
-        Default_Burnup   = 0.0
-//        UseBilogScaling = TRUE
-//        BilogVariable = "concentration"
-//        BilogScaleCoefficient = FALSE
-       BilogScaleCoefficient = FALSE
-} 
 
 DirichletMatrixCorrection{
     name="DirichletMatrixCorrection"
     skip_params = FALSE
     skip_rhs_correction = FALSE 
     skip_rhs_add_correction = FALSE 
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -152,7 +165,7 @@ DirichletMatrixCorrection{
 
 MassLinearOperator {
    name="LinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
    VolumeOperator = "MassLinearFEOperator"
    BoundaryOperator="MassMatrixCorrection"
 }
@@ -161,7 +174,7 @@ MassLinearFEOperator {
     name = "MassLinearFEOperator"
     InputVariable = "temperature"
     OutputVariable = "temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -170,7 +183,7 @@ MassLinearFEOperator {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+        print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -178,29 +191,16 @@ MassLinearFEOperator {
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "MassDensityModel"
+    LocalModel = MassDensityModel
 }
 
-MassDensityModel{
-        name = "MassDensityModel"
-        Material = "UO2_MSRZC_09"
-        Equation = "Thermal"
-        Property = "ThermalConductivity"
-        Default_Concentration = .1
-        Default_Temperature   = 750.
-        Default_Burnup   = 0.0
-//        UseBilogScaling = TRUE
-//        BilogVariable = "concentration"
-       BilogScaleCoefficient = FALSE
-	   print_info_level = 3
-}
 
 MassMatrixCorrection{
   name="MassMatrixCorrection"
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -209,25 +209,25 @@ MassMatrixCorrection{
 }
 
 IDATimeIntegrator{
-                name = "IDATimeIntegrator"
-		linear_solver_type		= 1
-		relative_tolerance		= 1.00e-10
-		absolute_tolerance		= 1.00e-16
-		initial_time 			= 0.0
-                final_time			= 100.0
-		max_integrator_steps		= 10000
-                initial_dt                      = 0.01
-		max_dt				= 10.0
-		min_dt				= 1.0e-08
-		bLinearMassOperator             = TRUE
-                bLinearRhsOperator              = FALSE
-//              createLinearTimeOperatorInternally=TRUE
-                CallCalcIC                      = TRUE
-  Preconditioner{
+    name = "IDATimeIntegrator"
+    linear_solver_type        = 1
+    relative_tolerance        = 1.00e-10
+    absolute_tolerance        = 1.00e-16
+    initial_time             = 0.0
+            final_time            = 100.0
+    max_integrator_steps        = 10000
+            initial_dt                      = 0.01
+    max_dt                = 10.0
+    min_dt                = 1.0e-08
+    bLinearMassOperator             = TRUE
+    bLinearRhsOperator              = FALSE
+//  createLinearTimeOperatorInternally=TRUE
+    CallCalcIC                      = TRUE
+    Preconditioner{
         print_info_level = 0
         max_iterations = 1
         max_error = 1e-10
-   }
+    }
 }
 
 

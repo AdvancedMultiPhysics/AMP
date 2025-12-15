@@ -19,74 +19,76 @@
 #include <vector>
 
 
-#define MPI_CLASS AMP_MPI
-#define MPI_CLASS2 AMP::AMP_MPI
-#define MPI_CLASS_ERROR AMP_ERROR
-#define MPI_CLASS_ASSERT AMP_ASSERT
-#define MPI_CLASS_INSIST AMP_INSIST
-#define MPI_CLASS_WARNING AMP_WARNING
-
-
 // Include mpi.h (if building with MPI)
 #ifdef AMP_USE_MPI
     #include "mpi.h"
 #endif
 
 
-#define MPI_CLASS_ERROR_TYPE( MSG ) \
-    MPI_CLASS_ERROR( std::string( MSG ) + " (" + typeid( TYPE ).name() + "(" );
-
-
 /************************************************************************
  *  Instantiate common MPI functions for the given type                  *
  ************************************************************************/
-#define INSTANTIATE_MPI_REDUCE( TYPE )                                                            \
-    template TYPE MPI_CLASS2::sumReduce<TYPE>( const TYPE & ) const;                              \
-    template TYPE MPI_CLASS2::minReduce<TYPE>( const TYPE & ) const;                              \
-    template TYPE MPI_CLASS2::maxReduce<TYPE>( const TYPE & ) const;                              \
-    template void MPI_CLASS2::sumReduce<TYPE>( TYPE *, int ) const;                               \
-    template void MPI_CLASS2::minReduce<TYPE>( TYPE *, int ) const;                               \
-    template void MPI_CLASS2::maxReduce<TYPE>( TYPE *, int ) const;                               \
-    template void MPI_CLASS2::minReduce<TYPE>( TYPE *, int, int * ) const;                        \
-    template void MPI_CLASS2::maxReduce<TYPE>( TYPE *, int, int * ) const;                        \
-    template void MPI_CLASS2::sumReduce<TYPE>( const TYPE *, TYPE *, int ) const;                 \
-    template void MPI_CLASS2::minReduce<TYPE>( const TYPE *, TYPE *, int, int * ) const;          \
-    template void MPI_CLASS2::maxReduce<TYPE>( const TYPE *, TYPE *, int, int * ) const;          \
-    template AMP::Array<TYPE> MPI_CLASS2::sumReduce<AMP::Array<TYPE>>( const AMP::Array<TYPE> & ) \
-        const;                                                                                    \
-    template AMP::Array<TYPE> MPI_CLASS2::minReduce<AMP::Array<TYPE>>( const AMP::Array<TYPE> & ) \
-        const;                                                                                    \
-    template AMP::Array<TYPE> MPI_CLASS2::maxReduce<AMP::Array<TYPE>>( const AMP::Array<TYPE> & ) \
-        const;                                                                                    \
-    template TYPE MPI_CLASS2::sumScan<TYPE>( const TYPE & ) const;                                \
-    template TYPE MPI_CLASS2::minScan<TYPE>( const TYPE & ) const;                                \
-    template TYPE MPI_CLASS2::maxScan<TYPE>( const TYPE & ) const;                                \
-    template void MPI_CLASS2::sumScan<TYPE>( const TYPE *, TYPE *, int ) const;                   \
-    template void MPI_CLASS2::minScan<TYPE>( const TYPE *, TYPE *, int ) const;                   \
-    template void MPI_CLASS2::maxScan<TYPE>( const TYPE *, TYPE *, int ) const
-#define INSTANTIATE_MPI_BCAST( TYPE )                                 \
-    template TYPE MPI_CLASS2::bcast<TYPE>( const TYPE &, int ) const; \
-    template void MPI_CLASS2::bcast<TYPE>( TYPE *, int, int ) const
-#define INSTANTIATE_MPI_SENDRECV( TYPE )                                                       \
-    template void MPI_CLASS2::send<TYPE>( const TYPE &, int, int ) const;                      \
-    template void MPI_CLASS2::send<TYPE>( const TYPE *, int, int, int ) const;                 \
-    template MPI_CLASS2::Request MPI_CLASS2::Isend<TYPE>( const TYPE &, int, int ) const;      \
-    template MPI_CLASS2::Request MPI_CLASS2::Isend<TYPE>( const TYPE *, int, int, int ) const; \
-    template TYPE MPI_CLASS2::recv<TYPE>( int, int ) const;                                    \
-    template void MPI_CLASS2::recv<TYPE>( TYPE *, int, int, int ) const;                       \
-    template void MPI_CLASS2::recv<TYPE>( TYPE *, int &, int, const bool, int ) const;         \
-    template MPI_CLASS2::Request MPI_CLASS2::Irecv<TYPE>( TYPE & buf, int, int ) const;        \
-    template MPI_CLASS2::Request MPI_CLASS2::Irecv<TYPE>( TYPE * buf, int, int, int ) const
-#define INSTANTIATE_MPI_GATHER( TYPE )                                                         \
-    template std::vector<TYPE> MPI_CLASS2::allGather<TYPE>( const TYPE & ) const;              \
-    template std::vector<TYPE> MPI_CLASS2::allGather<TYPE>( const std::vector<TYPE> & ) const; \
-    template void MPI_CLASS2::allGather<TYPE>( const TYPE &, TYPE * ) const;                   \
-    template int MPI_CLASS2::allGather<TYPE>( const TYPE *, int, TYPE *, int *, int *, bool )  \
-        const;                                                                                 \
-    template void MPI_CLASS2::setGather<TYPE>( std::set<TYPE> & ) const;                       \
-    template void MPI_CLASS2::allToAll<TYPE>( int, const TYPE *, TYPE * ) const;               \
-    template int MPI_CLASS2::allToAll<TYPE>(                                                   \
-        const TYPE *, const int[], const int[], TYPE *, int *, int *, bool ) const
+#define INSTANTIATE_MPI_REDUCE( TYPE )                                                     \
+    template TYPE AMP::AMP_MPI::sumReduce<TYPE>( const TYPE & ) const;                     \
+    template TYPE AMP::AMP_MPI::minReduce<TYPE>( const TYPE & ) const;                     \
+    template TYPE AMP::AMP_MPI::maxReduce<TYPE>( const TYPE & ) const;                     \
+    template void AMP::AMP_MPI::sumReduce<TYPE>( TYPE *, int ) const;                      \
+    template void AMP::AMP_MPI::minReduce<TYPE>( TYPE *, int ) const;                      \
+    template void AMP::AMP_MPI::maxReduce<TYPE>( TYPE *, int ) const;                      \
+    template void AMP::AMP_MPI::minReduce<TYPE>( TYPE *, int, int * ) const;               \
+    template void AMP::AMP_MPI::maxReduce<TYPE>( TYPE *, int, int * ) const;               \
+    template void AMP::AMP_MPI::sumReduce<TYPE>( const TYPE *, TYPE *, int ) const;        \
+    template void AMP::AMP_MPI::minReduce<TYPE>( const TYPE *, TYPE *, int, int * ) const; \
+    template void AMP::AMP_MPI::maxReduce<TYPE>( const TYPE *, TYPE *, int, int * ) const; \
+    template AMP::Array<TYPE> AMP::AMP_MPI::sumReduce<AMP::Array<TYPE>>(                   \
+        const AMP::Array<TYPE> & ) const;                                                  \
+    template AMP::Array<TYPE> AMP::AMP_MPI::minReduce<AMP::Array<TYPE>>(                   \
+        const AMP::Array<TYPE> & ) const;                                                  \
+    template AMP::Array<TYPE> AMP::AMP_MPI::maxReduce<AMP::Array<TYPE>>(                   \
+        const AMP::Array<TYPE> & ) const;                                                  \
+    template TYPE AMP::AMP_MPI::sumScan<TYPE>( const TYPE & ) const;                       \
+    template TYPE AMP::AMP_MPI::minScan<TYPE>( const TYPE & ) const;                       \
+    template TYPE AMP::AMP_MPI::maxScan<TYPE>( const TYPE & ) const;                       \
+    template void AMP::AMP_MPI::sumScan<TYPE>( const TYPE *, TYPE *, int ) const;          \
+    template void AMP::AMP_MPI::minScan<TYPE>( const TYPE *, TYPE *, int ) const;          \
+    template void AMP::AMP_MPI::maxScan<TYPE>( const TYPE *, TYPE *, int ) const
+#define INSTANTIATE_MPI_BCAST( TYPE )                                   \
+    template TYPE AMP::AMP_MPI::bcast<TYPE>( const TYPE &, int ) const; \
+    template void AMP::AMP_MPI::bcast<TYPE>( TYPE *, int, int ) const
+#define INSTANTIATE_MPI_SENDRECV( TYPE )                                                           \
+    template void AMP::AMP_MPI::send<TYPE>( const TYPE &, int, int ) const;                        \
+    template void AMP::AMP_MPI::send<TYPE>( const TYPE *, int, int, int ) const;                   \
+    template AMP::AMP_MPI::Request AMP::AMP_MPI::Isend<TYPE>( const TYPE &, int, int ) const;      \
+    template AMP::AMP_MPI::Request AMP::AMP_MPI::Isend<TYPE>( const TYPE *, int, int, int ) const; \
+    template TYPE AMP::AMP_MPI::recv<TYPE>( int, int ) const;                                      \
+    template void AMP::AMP_MPI::recv<TYPE>( TYPE *, int, int, int ) const;                         \
+    template void AMP::AMP_MPI::recv<TYPE>( TYPE *, int &, int, const bool, int ) const;           \
+    template AMP::AMP_MPI::Request AMP::AMP_MPI::Irecv<TYPE>( TYPE & buf, int, int ) const;        \
+    template AMP::AMP_MPI::Request AMP::AMP_MPI::Irecv<TYPE>( TYPE * buf, int, int, int ) const
+#define INSTANTIATE_MPI_GATHER( TYPE )                                                             \
+    template std::vector<TYPE> AMP::AMP_MPI::allGather<TYPE>( const TYPE & ) const;                \
+    template std::vector<TYPE> AMP::AMP_MPI::allGather<TYPE>( const std::vector<TYPE> & ) const;   \
+    template void AMP::AMP_MPI::allGather<TYPE>( const TYPE &, TYPE * ) const;                     \
+    template int AMP::AMP_MPI::allGather<TYPE>( const TYPE *, int, TYPE *, int *, int *, bool )    \
+        const;                                                                                     \
+    template void AMP::AMP_MPI::setGather<TYPE>( std::set<TYPE> & ) const;                         \
+    template std::vector<TYPE> AMP::AMP_MPI::allToAll<TYPE>( const std::vector<TYPE> & ) const;    \
+    template void AMP::AMP_MPI::allToAll<TYPE>( int, const TYPE *, TYPE * ) const;                 \
+    template int AMP::AMP_MPI::allToAll<TYPE>(                                                     \
+        const TYPE *, const int[], const int[], TYPE *, int *, int *, bool ) const;                \
+    template std::vector<TYPE> AMP::AMP_MPI::allToAll<TYPE, int>( const std::vector<TYPE> &,       \
+                                                                  const std::vector<int> &,        \
+                                                                  const std::vector<int> &,        \
+                                                                  const std::vector<int> &,        \
+                                                                  const std::vector<int> & )       \
+        const;                                                                                     \
+    template std::vector<TYPE> AMP::AMP_MPI::allToAll<TYPE, size_t>( const std::vector<TYPE> &,    \
+                                                                     const std::vector<size_t> &,  \
+                                                                     const std::vector<size_t> &,  \
+                                                                     const std::vector<size_t> &,  \
+                                                                     const std::vector<size_t> & ) \
+        const
+
 #define INSTANTIATE_MPI_TYPE( TYPE )  \
     INSTANTIATE_MPI_REDUCE( TYPE );   \
     INSTANTIATE_MPI_BCAST( TYPE );    \
@@ -155,7 +157,7 @@ constexpr bool isMPItype()
            std::is_same_v<TYPE, TypeIntStruct<double>>;
 }
 template<class TYPE>
-MPI_CLASS::Datatype MPI_getType()
+AMP_MPI::Datatype MPI_getType()
 {
 #ifdef AMP_USE_MPI
     if constexpr ( std::is_same_v<TYPE, std::byte> )
@@ -203,7 +205,7 @@ MPI_CLASS::Datatype MPI_getType()
     return 0;
 #endif
 }
-inline size_t MPI_getTypeSize( MPI_CLASS::Datatype type )
+inline size_t MPI_getTypeSize( AMP_MPI::Datatype type )
 {
     if ( type == MPI_getType<std::byte>() )
         return sizeof( std::byte );
@@ -247,17 +249,17 @@ inline size_t MPI_getTypeSize( MPI_CLASS::Datatype type )
         return sizeof( TypeIntStruct<int> );
     if ( type == MPI_getType<TypeIntStruct<int>>() )
         return sizeof( TypeIntStruct<int> );
-    MPI_CLASS_ERROR( "Unknown MPI type" );
+    AMP_ERROR( "Unknown MPI type" );
     return 0;
 }
-#define MPI_CLASS_BYTE MPI_getType<std::byte>()
+#define AMP_MPI_BYTE MPI_getType<std::byte>()
 
 
 /************************************************************************
  *  sumReduce                                                            *
  ************************************************************************/
 template<class TYPE>
-void MPI_CLASS::sumReduce( const TYPE *send, TYPE *recv, int n ) const
+void AMP_MPI::sumReduce( const TYPE *send, TYPE *recv, int n ) const
 {
     if ( d_size == 1 ) {
         for ( int i = 0; i < n; i++ )
@@ -268,7 +270,7 @@ void MPI_CLASS::sumReduce( const TYPE *send, TYPE *recv, int n ) const
     PROFILE( "sumReduce", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
-        MPI_CLASS_ASSERT( d_comm != MPI_COMM_NULL );
+        AMP_ASSERT( d_comm != MPI_COMM_NULL );
         MPI_Allreduce( send, recv, n, type, MPI_SUM, d_comm );
     } else {
         throw std::logic_error( "sumReduce is not valid for arbitrary types" );
@@ -276,7 +278,7 @@ void MPI_CLASS::sumReduce( const TYPE *send, TYPE *recv, int n ) const
 #endif
 }
 template<class TYPE>
-TYPE MPI_CLASS::sumReduce( const TYPE &value ) const
+TYPE AMP_MPI::sumReduce( const TYPE &value ) const
 {
     if constexpr ( AMP::is_vector_v<TYPE> || std::is_array_v<TYPE> || AMP::is_array_v<TYPE> ) {
         auto recv = value;
@@ -297,7 +299,7 @@ TYPE MPI_CLASS::sumReduce( const TYPE &value ) const
     }
 }
 template<class TYPE>
-void MPI_CLASS::sumReduce( TYPE *x, int n ) const
+void AMP_MPI::sumReduce( TYPE *x, int n ) const
 {
     if ( d_size > 1 ) {
         auto tmp = new TYPE[n];
@@ -313,7 +315,7 @@ void MPI_CLASS::sumReduce( TYPE *x, int n ) const
  *  minReduce                                                            *
  ************************************************************************/
 template<class TYPE>
-void MPI_CLASS::minReduce( const TYPE *send, TYPE *recv, int n ) const
+void AMP_MPI::minReduce( const TYPE *send, TYPE *recv, int n ) const
 {
     if ( d_size == 1 ) {
         for ( int i = 0; i < n; i++ )
@@ -331,7 +333,7 @@ void MPI_CLASS::minReduce( const TYPE *send, TYPE *recv, int n ) const
 #endif
 }
 template<class TYPE>
-void MPI_CLASS::minReduce( const TYPE *send, TYPE *recv, int n, int *rank ) const
+void AMP_MPI::minReduce( const TYPE *send, TYPE *recv, int n, int *rank ) const
 {
     if ( rank == nullptr )
         return minReduce( send, recv, n );
@@ -364,7 +366,7 @@ void MPI_CLASS::minReduce( const TYPE *send, TYPE *recv, int n, int *rank ) cons
 #endif
 }
 template<class TYPE>
-TYPE MPI_CLASS::minReduce( const TYPE &value ) const
+TYPE AMP_MPI::minReduce( const TYPE &value ) const
 {
     if constexpr ( AMP::is_vector_v<TYPE> || std::is_array_v<TYPE> || AMP::is_array_v<TYPE> ) {
         auto recv = value;
@@ -385,7 +387,7 @@ TYPE MPI_CLASS::minReduce( const TYPE &value ) const
     }
 }
 template<class TYPE>
-void MPI_CLASS::minReduce( TYPE *x, int n ) const
+void AMP_MPI::minReduce( TYPE *x, int n ) const
 {
     if ( d_size > 1 ) {
         auto tmp = new TYPE[n];
@@ -396,7 +398,7 @@ void MPI_CLASS::minReduce( TYPE *x, int n ) const
     }
 }
 template<class TYPE>
-void MPI_CLASS::minReduce( TYPE *x, int n, int *rank ) const
+void AMP_MPI::minReduce( TYPE *x, int n, int *rank ) const
 {
     if ( rank == nullptr )
         return minReduce( x, n );
@@ -416,7 +418,7 @@ void MPI_CLASS::minReduce( TYPE *x, int n, int *rank ) const
  *  maxReduce                                                            *
  ************************************************************************/
 template<class TYPE>
-void MPI_CLASS::maxReduce( const TYPE *send, TYPE *recv, int n ) const
+void AMP_MPI::maxReduce( const TYPE *send, TYPE *recv, int n ) const
 {
     if ( d_size == 1 ) {
         for ( int i = 0; i < n; i++ )
@@ -434,7 +436,7 @@ void MPI_CLASS::maxReduce( const TYPE *send, TYPE *recv, int n ) const
 #endif
 }
 template<class TYPE>
-void MPI_CLASS::maxReduce( const TYPE *send, TYPE *recv, int n, int *rank ) const
+void AMP_MPI::maxReduce( const TYPE *send, TYPE *recv, int n, int *rank ) const
 {
     if ( rank == nullptr )
         return maxReduce( send, recv, n );
@@ -467,7 +469,7 @@ void MPI_CLASS::maxReduce( const TYPE *send, TYPE *recv, int n, int *rank ) cons
 #endif
 }
 template<class TYPE>
-TYPE MPI_CLASS::maxReduce( const TYPE &value ) const
+TYPE AMP_MPI::maxReduce( const TYPE &value ) const
 {
     if constexpr ( AMP::is_vector_v<TYPE> || std::is_array_v<TYPE> || AMP::is_array_v<TYPE> ) {
         auto recv = value;
@@ -488,7 +490,7 @@ TYPE MPI_CLASS::maxReduce( const TYPE &value ) const
     }
 }
 template<class TYPE>
-void MPI_CLASS::maxReduce( TYPE *x, int n ) const
+void AMP_MPI::maxReduce( TYPE *x, int n ) const
 {
     if ( d_size > 1 ) {
         auto tmp = new TYPE[n];
@@ -499,7 +501,7 @@ void MPI_CLASS::maxReduce( TYPE *x, int n ) const
     }
 }
 template<class TYPE>
-void MPI_CLASS::maxReduce( TYPE *x, int n, int *rank ) const
+void AMP_MPI::maxReduce( TYPE *x, int n, int *rank ) const
 {
     if ( rank == nullptr )
         return minReduce( x, n );
@@ -520,18 +522,18 @@ void MPI_CLASS::maxReduce( TYPE *x, int n, int *rank ) const
  ************************************************************************/
 #ifdef AMP_USE_MPI
 template<class TYPE>
-void MPI_CLASS::bcast( TYPE *x, int n, int root ) const
+void AMP_MPI::bcast( TYPE *x, int n, int root ) const
 {
     if ( d_size == 1 || n == 0 )
         return;
     if ( root >= d_size )
-        MPI_CLASS_ERROR( "root cannot be >= size in bcast" );
+        AMP_ERROR( "root cannot be >= size in bcast" );
     PROFILE( "bcast", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
         MPI_Bcast( x, n, type, root, d_comm );
     } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
-        MPI_Bcast( x, n * sizeof( TYPE ), MPI_CLASS_BYTE, root, d_comm );
+        MPI_Bcast( x, n * sizeof( TYPE ), AMP_MPI_BYTE, root, d_comm );
     } else if constexpr ( is_vector_v<TYPE> ) {
         for ( int i = 0; i < n; i++ ) {
             size_t N = bcast( x[i].size(), root );
@@ -539,7 +541,7 @@ void MPI_CLASS::bcast( TYPE *x, int n, int root ) const
             bcast( x[i].data(), N, root );
         }
     } else if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
-        MPI_CLASS_INSIST( n == 1, "Broadcasting arrays of pointers of objects is not supported" );
+        AMP_INSIST( n == 1, "Broadcasting arrays of pointers of objects is not supported" );
         bcast( x->get(), 1, root );
     } else {
         size_t bytes   = 0;
@@ -549,7 +551,7 @@ void MPI_CLASS::bcast( TYPE *x, int n, int root ) const
         MPI_Bcast( &bytes, 1, MPI_getType<size_t>(), root, d_comm );
         if ( buf == nullptr )
             buf = new std::byte[bytes];
-        MPI_Bcast( buf, bytes, MPI_CLASS_BYTE, root, d_comm );
+        MPI_Bcast( buf, bytes, AMP_MPI_BYTE, root, d_comm );
         if ( d_rank != root )
             unpackArray( x, n, buf );
         delete[] buf;
@@ -557,12 +559,12 @@ void MPI_CLASS::bcast( TYPE *x, int n, int root ) const
 }
 #else
 template<class TYPE>
-void MPI_CLASS::bcast( TYPE *, int, int ) const
+void AMP_MPI::bcast( TYPE *, int, int ) const
 {
 }
 #endif
 template<class TYPE>
-TYPE MPI_CLASS::bcast( const TYPE &x, int root ) const
+TYPE AMP_MPI::bcast( const TYPE &x, int root ) const
 {
     if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
         using TYPE2 = typename AMP::remove_cvref_t<decltype( *( x.get() ) )>;
@@ -591,26 +593,26 @@ std::vector<TYPE *> getPointers( const std::shared_ptr<TYPE> *x, size_t N )
     return y;
 }
 template<class TYPE>
-void MPI_CLASS::send( const TYPE &buf, int recv_proc, int tag ) const
+void AMP_MPI::send( const TYPE &buf, int recv_proc, int tag ) const
 {
     send( &buf, 1, recv_proc, tag );
 }
 inline void MPI_Send2(
-    const void *buf, int length, MPI_CLASS::Datatype type, int proc, int tag, MPI_CLASS::Comm comm )
+    const void *buf, int length, AMP_MPI::Datatype type, int proc, int tag, AMP_MPI::Comm comm )
 {
 #ifdef AMP_USE_MPI
     MPI_Send( buf, length, type, proc, tag, comm );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
-    MPI_CLASS( comm ).sendBytes( buf, bytes, proc, tag );
+    AMP_MPI( comm ).sendBytes( buf, bytes, proc, tag );
 #endif
 }
 template<class TYPE>
-void MPI_CLASS::send( const TYPE *buf, int length, int recv_proc, int tag ) const
+void AMP_MPI::send( const TYPE *buf, int length, int recv_proc, int tag ) const
 {
     // Set the tag to 0 if it is < 0
     tag = ( tag >= 0 ) ? tag : 0;
-    MPI_CLASS_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
+    AMP_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
     // Send the data
     PROFILE( "send", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
@@ -618,12 +620,12 @@ void MPI_CLASS::send( const TYPE *buf, int length, int recv_proc, int tag ) cons
         MPI_Send2( buf, length, type, recv_proc, tag, d_comm );
     } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
         size_t bytes = length * sizeof( TYPE );
-        MPI_Send2( buf, bytes, MPI_CLASS_BYTE, recv_proc, tag, d_comm );
+        MPI_Send2( buf, bytes, AMP_MPI_BYTE, recv_proc, tag, d_comm );
     } else if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
         send( getPointers( buf, length ).data(), length, recv_proc, tag );
     } else {
         auto [bytes, buf2] = packArray( buf, length );
-        MPI_Send2( buf2, bytes, MPI_CLASS_BYTE, recv_proc, tag, d_comm );
+        MPI_Send2( buf2, bytes, AMP_MPI_BYTE, recv_proc, tag, d_comm );
         delete[] buf2;
     }
 }
@@ -633,46 +635,46 @@ void MPI_CLASS::send( const TYPE *buf, int length, int recv_proc, int tag ) cons
  *  Isend                                                                *
  ************************************************************************/
 template<class TYPE>
-MPI_CLASS::Request MPI_CLASS::Isend( const TYPE &buf, int recv_proc, int tag ) const
+AMP_MPI::Request AMP_MPI::Isend( const TYPE &buf, int recv_proc, int tag ) const
 {
     return Isend( &buf, 1, recv_proc, tag );
 }
 inline void MPI_Isend2( const void *buf,
                         int length,
-                        MPI_CLASS::Datatype type,
+                        AMP_MPI::Datatype type,
                         int proc,
                         int tag,
-                        MPI_CLASS::Comm comm,
-                        MPI_CLASS::Request2 *request )
+                        AMP_MPI::Comm comm,
+                        AMP_MPI::Request2 *request )
 {
 #ifdef AMP_USE_MPI
     MPI_Isend( buf, length, type, proc, tag, comm, request );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
-    *request = MPI_CLASS( comm ).IsendBytes( buf, bytes, proc, tag );
+    *request = AMP_MPI( comm ).IsendBytes( buf, bytes, proc, tag );
 #endif
 }
 template<class TYPE>
-MPI_CLASS::Request MPI_CLASS::Isend( const TYPE *buf, int length, int recv_proc, int tag ) const
+AMP_MPI::Request AMP_MPI::Isend( const TYPE *buf, int length, int recv_proc, int tag ) const
 {
     // Set the tag to 0 if it is < 0
     tag = ( tag >= 0 ) ? tag : 0;
-    MPI_CLASS_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
+    AMP_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
     // Send the data
     PROFILE( "isend", profile_level );
-    MPI_CLASS::Request request;
+    AMP_MPI::Request request;
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
         MPI_Isend2( buf, length, type, recv_proc, tag, d_comm, request.get() );
     } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
         size_t bytes = length * sizeof( TYPE );
-        MPI_Isend2( buf, bytes, MPI_CLASS_BYTE, recv_proc, tag, d_comm, request.get() );
+        MPI_Isend2( buf, bytes, AMP_MPI_BYTE, recv_proc, tag, d_comm, request.get() );
     } else if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
         request = Isend( buf->get(), 1, recv_proc, tag );
     } else {
-        MPI_CLASS::Request2 request2;
+        AMP_MPI::Request2 request2;
         auto [bytes, buf2] = packArray( buf, length );
-        MPI_Isend2( buf2, bytes, MPI_CLASS_BYTE, recv_proc, tag, d_comm, &request2 );
+        MPI_Isend2( buf2, bytes, AMP_MPI_BYTE, recv_proc, tag, d_comm, &request2 );
         request = Request( request2, std::shared_ptr<std::byte>( buf2 ) );
     }
     return request;
@@ -683,35 +685,35 @@ MPI_CLASS::Request MPI_CLASS::Isend( const TYPE *buf, int length, int recv_proc,
  *  recv                                                                 *
  ************************************************************************/
 template<class TYPE>
-TYPE MPI_CLASS::recv( int send_proc, int tag ) const
+TYPE AMP_MPI::recv( int send_proc, int tag ) const
 {
     TYPE data;
     int length = 1;
     recv<TYPE>( &data, length, send_proc, false, tag );
     return data;
 }
-inline void MPI_Recv2(
-    void *buf, int length, MPI_CLASS::Datatype type, int proc, int tag, MPI_CLASS::Comm comm )
+inline void
+MPI_Recv2( void *buf, int length, AMP_MPI::Datatype type, int proc, int tag, AMP_MPI::Comm comm )
 {
 #ifdef AMP_USE_MPI
     MPI_Recv( buf, length, type, proc, tag, comm, MPI_STATUS_IGNORE );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
-    MPI_CLASS( comm ).recvBytes( buf, bytes, proc, tag );
+    AMP_MPI( comm ).recvBytes( buf, bytes, proc, tag );
 #endif
 }
 template<class TYPE>
-void MPI_CLASS::recv( TYPE *buf, int &length, int send_proc, bool get_length, int tag ) const
+void AMP_MPI::recv( TYPE *buf, int &length, int send_proc, bool get_length, int tag ) const
 {
     // Set the tag to 0 if it is < 0
     tag = ( tag >= 0 ) ? tag : 0;
-    MPI_CLASS_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
+    AMP_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
     PROFILE( "recv", profile_level );
     // Get the receive length if necessary
     if ( get_length ) {
-        int bytes       = probe( send_proc, tag );
+        int bytes       = std::get<2>( probe( send_proc, tag ) );
         int recv_length = bytes / sizeof( TYPE );
-        MPI_CLASS_INSIST( length >= recv_length, "Recived length is larger than allocated array" );
+        AMP_INSIST( length >= recv_length, "Received length is larger than allocated array" );
         length = recv_length;
     }
     // Receive the data
@@ -720,24 +722,24 @@ void MPI_CLASS::recv( TYPE *buf, int &length, int send_proc, bool get_length, in
         MPI_Recv2( buf, length, type, send_proc, tag, d_comm );
     } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
         size_t bytes = length * sizeof( TYPE );
-        MPI_Recv2( buf, bytes, MPI_CLASS_BYTE, send_proc, tag, d_comm );
+        MPI_Recv2( buf, bytes, AMP_MPI_BYTE, send_proc, tag, d_comm );
     } else if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
-        MPI_CLASS_INSIST( length == 1 && get_length == false,
-                          "Receiving arrays of pointers of objects is not supported" );
+        AMP_INSIST( length == 1 && get_length == false,
+                    "Receiving arrays of pointers of objects is not supported" );
         using TYPE2 = typename AMP::remove_cvref_t<decltype( *( buf->get() ) )>;
         buf->reset( new TYPE2() );
         recv( buf->get(), length, send_proc, false, tag );
     } else {
-        size_t bytes = probe( send_proc, tag );
-        auto buf2    = new std::byte[bytes];
-        MPI_Recv2( buf2, bytes, MPI_CLASS_BYTE, send_proc, tag, d_comm );
+        auto bytes = static_cast<size_t>( std::get<2>( probe( send_proc, tag ) ) );
+        auto buf2  = new std::byte[bytes];
+        MPI_Recv2( buf2, bytes, AMP_MPI_BYTE, send_proc, tag, d_comm );
         size_t N = unpackArray( buf, length, buf2 );
         delete[] buf2;
-        MPI_CLASS_ASSERT( N == bytes );
+        AMP_ASSERT( N == bytes );
     }
 }
 template<class TYPE>
-void MPI_CLASS::recv( TYPE *buf, int length, int send_proc, int tag ) const
+void AMP_MPI::recv( TYPE *buf, int length, int send_proc, int tag ) const
 {
     recv<TYPE>( buf, length, send_proc, false, tag );
 }
@@ -747,49 +749,45 @@ void MPI_CLASS::recv( TYPE *buf, int length, int send_proc, int tag ) const
  *  Irecv                                                                *
  ************************************************************************/
 template<class TYPE>
-MPI_CLASS::Request MPI_CLASS::Irecv( TYPE &data, int send_proc, int tag ) const
+AMP_MPI::Request AMP_MPI::Irecv( TYPE &data, int send_proc, int tag ) const
 {
     return Irecv<TYPE>( &data, 1, send_proc, tag );
 }
-inline void MPI_Irecv2( void *buf,
-                        int length,
-                        MPI_CLASS::Datatype type,
-                        int proc,
-                        int tag,
-                        MPI_CLASS::Comm comm,
-                        MPI_CLASS::Request2 *request )
+inline void MPI_Irecv2( [[maybe_unused]] void *buf,
+                        [[maybe_unused]] int length,
+                        [[maybe_unused]] AMP_MPI::Datatype type,
+                        [[maybe_unused]] int proc,
+                        [[maybe_unused]] int tag,
+                        [[maybe_unused]] AMP_MPI::Comm comm,
+                        [[maybe_unused]] AMP_MPI::Request2 *request )
 {
 #ifdef AMP_USE_MPI
     MPI_Irecv( buf, length, type, proc, tag, comm, request );
 #else
     size_t bytes = length * MPI_getTypeSize( type );
-    *request = MPI_CLASS( comm ).IrecvBytes( buf, bytes, proc, tag );
+    *request = AMP_MPI( comm ).IrecvBytes( buf, bytes, proc, tag );
 #endif
 }
 template<class TYPE>
-MPI_CLASS::Request MPI_CLASS::Irecv( TYPE *buf, int length, int send_proc, int tag ) const
+AMP_MPI::Request AMP_MPI::Irecv( TYPE *buf, int length, int send_proc, int tag ) const
 {
-    MPI_CLASS_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
-    MPI_CLASS_INSIST( tag >= 0, "tag must be >= 0" );
-    MPI_CLASS::Request request;
+    AMP_INSIST( tag <= d_maxTag, "Maximum tag value exceeded" );
+    AMP_INSIST( tag >= 0, "tag must be >= 0" );
+    AMP_MPI::Request request;
     PROFILE( "Irecv", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
         MPI_Irecv2( buf, length, type, send_proc, tag, d_comm, request.get() );
     } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
         size_t bytes = length * sizeof( TYPE );
-        MPI_Irecv2( buf, bytes, MPI_CLASS_BYTE, send_proc, tag, d_comm, request.get() );
+        MPI_Irecv2( buf, bytes, AMP_MPI_BYTE, send_proc, tag, d_comm, request.get() );
     } else if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
-        MPI_CLASS_INSIST( length == 1, "Receiving arrays of pointers of objects is not supported" );
+        AMP_INSIST( length == 1, "Receiving arrays of pointers of objects is not supported" );
         using TYPE2 = typename AMP::remove_cvref_t<decltype( *( buf->get() ) )>;
         buf->reset( new TYPE2() );
         request = Irecv( buf->get(), 1, send_proc, tag );
     } else {
-        NULL_USE( buf );
-        NULL_USE( length );
-        NULL_USE( send_proc );
-        NULL_USE( tag );
-        MPI_CLASS_ERROR( "Arbitrary types are not supported yet" );
+        AMP_ERROR( "Arbitrary types are not supported yet" );
     }
     return request;
 }
@@ -799,20 +797,20 @@ MPI_CLASS::Request MPI_CLASS::Irecv( TYPE *buf, int length, int send_proc, int t
  *  sendrecv                                                             *
  ************************************************************************/
 template<class TYPE>
-void MPI_CLASS::sendrecv( const TYPE *sendbuf,
-                          int sendcount,
-                          int dest,
-                          int sendtag,
-                          TYPE *recvbuf,
-                          int recvcount,
-                          int source,
-                          int recvtag ) const
+void AMP_MPI::sendrecv( const TYPE *sendbuf,
+                        int sendcount,
+                        int dest,
+                        int sendtag,
+                        TYPE *recvbuf,
+                        int recvcount,
+                        int source,
+                        int recvtag ) const
 {
     if ( getSize() <= 1 ) {
-        MPI_CLASS_ASSERT( dest == 0 );
-        MPI_CLASS_ASSERT( source == 0 );
-        MPI_CLASS_ASSERT( sendcount <= recvcount );
-        MPI_CLASS_ASSERT( sendtag == recvtag );
+        AMP_ASSERT( dest == 0 );
+        AMP_ASSERT( source == 0 );
+        AMP_ASSERT( sendcount <= recvcount );
+        AMP_ASSERT( sendtag == recvtag );
         for ( int i = 0; i < sendcount; i++ )
             recvbuf[i] = sendbuf[i];
         return;
@@ -838,18 +836,19 @@ void MPI_CLASS::sendrecv( const TYPE *sendbuf,
         size_t recvbytes = recvcount * sizeof( TYPE );
         MPI_Sendrecv( sendbuf,
                       sendbytes,
-                      MPI_CLASS_BYTE,
+                      AMP_MPI_BYTE,
                       dest,
                       sendtag,
                       recvbuf,
                       recvbytes,
-                      MPI_CLASS_BYTE,
+                      AMP_MPI_BYTE,
                       source,
                       recvtag,
                       d_comm,
                       MPI_STATUS_IGNORE );
     } else {
-        MPI_CLASS_ERROR_TYPE( "Arbitrary types are not supported" );
+        AMP_ERROR( "Arbitrary types are not supported (" + std::string( typeid( TYPE ).name() ) +
+                   ")" );
     }
 #endif
 }
@@ -859,7 +858,7 @@ void MPI_CLASS::sendrecv( const TYPE *sendbuf,
  *  gather                                                            *
  ************************************************************************/
 template<class TYPE>
-std::vector<TYPE> MPI_CLASS::gather( const TYPE &x, int root ) const
+std::vector<TYPE> AMP_MPI::gather( const TYPE &x, int root ) const
 {
     if ( d_size == 1 )
         return { x };
@@ -875,7 +874,7 @@ std::vector<TYPE> MPI_CLASS::gather( const TYPE &x, int root ) const
     return y;
 }
 template<class TYPE>
-std::vector<TYPE> MPI_CLASS::gather( const std::vector<TYPE> &x, int root ) const
+std::vector<TYPE> AMP_MPI::gather( const std::vector<TYPE> &x, int root ) const
 {
     if ( d_size == 1 )
         return x;
@@ -894,16 +893,15 @@ std::vector<TYPE> MPI_CLASS::gather( const std::vector<TYPE> &x, int root ) cons
     return y;
 }
 template<class TYPE>
-void MPI_CLASS::gather( const TYPE *sendbuf,
-                        int sendcount,
-                        TYPE *recvbuf,
-                        const int *recv_cnt,
-                        const int *recv_disp,
-                        int root ) const
+void AMP_MPI::gather( const TYPE *sendbuf,
+                      int sendcount,
+                      TYPE *recvbuf,
+                      const int *recv_cnt,
+                      const int *recv_disp,
+                      [[maybe_unused]] int root ) const
 {
-    NULL_USE( root );
     if ( d_size == 1 ) {
-        MPI_CLASS_ASSERT( sendcount == recv_cnt[0] );
+        AMP_ASSERT( sendcount == recv_cnt[0] );
         for ( int i = 0; i < sendcount; i++ )
             recvbuf[i + recv_disp[0]] = sendbuf[i];
         return;
@@ -923,11 +921,11 @@ void MPI_CLASS::gather( const TYPE *sendbuf,
         }
         MPI_Gatherv( sendbuf,
                      N * sendcount,
-                     MPI_CLASS_BYTE,
+                     AMP_MPI_BYTE,
                      recvbuf,
                      recv_cnt2.data(),
                      recv_disp2.data(),
-                     MPI_CLASS_BYTE,
+                     AMP_MPI_BYTE,
                      root,
                      d_comm );
     } else {
@@ -941,21 +939,21 @@ void MPI_CLASS::gather( const TYPE *sendbuf,
  *  allGather                                                            *
  ************************************************************************/
 template<class TYPE>
-std::vector<TYPE> MPI_CLASS::allGather( const TYPE &x ) const
+std::vector<TYPE> AMP_MPI::allGather( const TYPE &x ) const
 {
-    if ( getSize() <= 1 )
+    if ( d_size <= 1 )
         return { x };
-    std::vector<TYPE> data( getSize() );
+    std::vector<TYPE> data( d_size );
     allGather( x, data.data() );
     return data;
 }
 template<class TYPE>
-std::vector<TYPE> MPI_CLASS::allGather( const std::vector<TYPE> &x ) const
+std::vector<TYPE> AMP_MPI::allGather( const std::vector<TYPE> &x ) const
 {
-    if ( getSize() <= 1 )
+    if ( d_size <= 1 )
         return x;
     std::vector<int> count = allGather<int>( x.size() );
-    std::vector<int> disp( getSize(), 0 );
+    std::vector<int> disp( d_size, 0 );
     size_t N = count[0];
     for ( size_t i = 1; i < count.size(); i++ ) {
         disp[i] = disp[i - 1] + count[i - 1];
@@ -967,16 +965,14 @@ std::vector<TYPE> MPI_CLASS::allGather( const std::vector<TYPE> &x ) const
     allGather<TYPE>( x.data(), x.size(), data.data(), count.data(), disp.data(), true );
     return data;
 }
-// Default instantiation of MPI_CLASS::allGather
+// Default instantiation of AMP_MPI::allGather
 template<class TYPE>
-void MPI_CLASS::allGather( const TYPE &x, TYPE *y ) const
+void AMP_MPI::allGather( [[maybe_unused]] const TYPE &x, [[maybe_unused]] TYPE *y ) const
 {
-    NULL_USE( x );
-    NULL_USE( y );
     if constexpr ( !std::is_copy_assignable_v<TYPE> ) {
         STATIC_ERROR( "allGather is not valid for non-assignable objects" );
     } else {
-        MPI_CLASS_ASSERT( y );
+        AMP_ASSERT( y );
         if ( d_size == 1 ) {
             y[0] = x;
             return;
@@ -988,7 +984,7 @@ void MPI_CLASS::allGather( const TYPE &x, TYPE *y ) const
             MPI_Allgather( &x, 1, type, y, 1, type, d_comm );
         } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
             size_t N = sizeof( TYPE );
-            MPI_Allgather( &x, N, MPI_CLASS_BYTE, y, N, MPI_CLASS_BYTE, d_comm );
+            MPI_Allgather( &x, N, AMP_MPI_BYTE, y, N, AMP_MPI_BYTE, d_comm );
         } else if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
             STATIC_ERROR( "gathering array of pointers is not yet supported" );
         } else {
@@ -1003,25 +999,20 @@ void MPI_CLASS::allGather( const TYPE &x, TYPE *y ) const
             auto recv_data = new std::byte[bytes];
             allGather( send_data, send_cnt, recv_data, recv_cnt.data(), recv_disp.data(), true );
             size_t N = unpackArray( y, recv_cnt.size(), recv_data );
-            MPI_CLASS_ASSERT( N == bytes );
+            AMP_ASSERT( N == bytes );
+            delete[] recv_data;
         }
 #endif
     }
 }
 template<class TYPE>
-int MPI_CLASS::allGather( const TYPE *send_data,
-                          int send_cnt,
-                          TYPE *recv_data,
-                          int *recv_cnt0,
-                          int *recv_disp0,
-                          bool known_recv ) const
+int AMP_MPI::allGather( [[maybe_unused]] const TYPE *send_data,
+                        [[maybe_unused]] int send_cnt,
+                        [[maybe_unused]] TYPE *recv_data,
+                        [[maybe_unused]] int *recv_cnt0,
+                        [[maybe_unused]] int *recv_disp0,
+                        [[maybe_unused]] bool known_recv ) const
 {
-    NULL_USE( send_data );
-    NULL_USE( send_cnt );
-    NULL_USE( recv_data );
-    NULL_USE( recv_cnt0 );
-    NULL_USE( recv_disp0 );
-    NULL_USE( known_recv );
     if constexpr ( !std::is_copy_assignable_v<TYPE> ) {
         STATIC_ERROR( "allGather is not valid for non-assignable objects" );
         return 0;
@@ -1074,7 +1065,7 @@ int MPI_CLASS::allGather( const TYPE *send_data,
             }
             int N = send_cnt * sizeof( TYPE );
             MPI_Allgatherv(
-                send_data, N, MPI_CLASS_BYTE, recv_data, cnt, disp, MPI_CLASS_BYTE, d_comm );
+                send_data, N, AMP_MPI_BYTE, recv_data, cnt, disp, AMP_MPI_BYTE, d_comm );
             delete[] cnt;
             delete[] disp;
         } else if constexpr ( std::is_pointer_v<TYPE> || is_shared_ptr_v<TYPE> ) {
@@ -1092,7 +1083,8 @@ int MPI_CLASS::allGather( const TYPE *send_data,
             allGather(
                 send_data2, send_cnt2, recv_data2, recv_cnt2.data(), recv_disp2.data(), true );
             size_t N = unpackArray( recv_data, N_recv, recv_data2 );
-            MPI_CLASS_ASSERT( N == bytes );
+            AMP_ASSERT( N == bytes );
+            delete[] send_data2;
             delete[] recv_data2;
         }
         // Delete any temporary memory
@@ -1111,7 +1103,7 @@ int MPI_CLASS::allGather( const TYPE *send_data,
  *  setGather                                                            *
  ************************************************************************/
 template<class TYPE>
-void MPI_CLASS::setGather( std::set<TYPE> &set ) const
+void AMP_MPI::setGather( std::set<TYPE> &set ) const
 {
     std::vector<TYPE> send_buf( set.begin(), set.end() );
     std::vector<int> recv_cnt( d_size, 0 );
@@ -1141,7 +1133,7 @@ void MPI_CLASS::setGather( std::set<TYPE> &set ) const
  *  mapGather                                                            *
  ************************************************************************/
 template<class KEY, class DATA>
-void MPI_CLASS::mapGather( std::map<KEY, DATA> &map ) const
+void AMP_MPI::mapGather( std::map<KEY, DATA> &map ) const
 {
     std::vector<KEY> send_id;
     std::vector<DATA> send_data;
@@ -1182,14 +1174,14 @@ void MPI_CLASS::mapGather( std::map<KEY, DATA> &map ) const
  *  sumScan                                                              *
  ************************************************************************/
 template<class TYPE>
-TYPE MPI_CLASS::sumScan( const TYPE &x ) const
+TYPE AMP_MPI::sumScan( const TYPE &x ) const
 {
     TYPE y = x;
     sumScan<TYPE>( &x, &y, 1 );
     return y;
 }
 template<class TYPE>
-void MPI_CLASS::sumScan( const TYPE *x, TYPE *y, int n ) const
+void AMP_MPI::sumScan( const TYPE *x, TYPE *y, int n ) const
 {
     if ( d_size == 1 ) {
         for ( int i = 0; i < n; i++ )
@@ -1200,7 +1192,7 @@ void MPI_CLASS::sumScan( const TYPE *x, TYPE *y, int n ) const
     PROFILE( "sumScan", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
-        MPI_CLASS_ASSERT( d_comm != MPI_COMM_NULL );
+        AMP_ASSERT( d_comm != MPI_COMM_NULL );
         MPI_Scan( x, y, n, type, MPI_SUM, d_comm );
     } else {
         throw std::logic_error( "Default instantion of sumScan in parallel is not supported" );
@@ -1213,14 +1205,14 @@ void MPI_CLASS::sumScan( const TYPE *x, TYPE *y, int n ) const
  *  minScan                                                              *
  ************************************************************************/
 template<class TYPE>
-TYPE MPI_CLASS::minScan( const TYPE &x ) const
+TYPE AMP_MPI::minScan( const TYPE &x ) const
 {
     TYPE y = x;
     minScan<TYPE>( &x, &y, 1 );
     return y;
 }
 template<class TYPE>
-void MPI_CLASS::minScan( const TYPE *x, TYPE *y, int n ) const
+void AMP_MPI::minScan( const TYPE *x, TYPE *y, int n ) const
 {
     if ( d_size == 1 ) {
         for ( int i = 0; i < n; i++ )
@@ -1231,7 +1223,7 @@ void MPI_CLASS::minScan( const TYPE *x, TYPE *y, int n ) const
     PROFILE( "minScan", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
-        MPI_CLASS_ASSERT( d_comm != MPI_COMM_NULL );
+        AMP_ASSERT( d_comm != MPI_COMM_NULL );
         MPI_Scan( x, y, n, type, MPI_MIN, d_comm );
     } else {
         throw std::logic_error( "Default instantion of minScan in parallel is not supported" );
@@ -1244,14 +1236,14 @@ void MPI_CLASS::minScan( const TYPE *x, TYPE *y, int n ) const
  *  maxScan                                                              *
  ************************************************************************/
 template<class TYPE>
-TYPE MPI_CLASS::maxScan( const TYPE &x ) const
+TYPE AMP_MPI::maxScan( const TYPE &x ) const
 {
     TYPE y = x;
     maxScan<TYPE>( &x, &y, 1 );
     return y;
 }
 template<class TYPE>
-void MPI_CLASS::maxScan( const TYPE *x, TYPE *y, int n ) const
+void AMP_MPI::maxScan( const TYPE *x, TYPE *y, int n ) const
 {
     if ( d_size == 1 ) {
         for ( int i = 0; i < n; i++ )
@@ -1262,7 +1254,7 @@ void MPI_CLASS::maxScan( const TYPE *x, TYPE *y, int n ) const
     PROFILE( "maxScan", profile_level );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
-        MPI_CLASS_ASSERT( d_comm != MPI_COMM_NULL );
+        AMP_ASSERT( d_comm != MPI_COMM_NULL );
         MPI_Scan( x, y, n, type, MPI_MAX, d_comm );
     } else {
         throw std::logic_error( "Default instantion of maxScan in parallel is not supported" );
@@ -1275,7 +1267,7 @@ void MPI_CLASS::maxScan( const TYPE *x, TYPE *y, int n ) const
  *  allToAll                                                             *
  ************************************************************************/
 template<class TYPE>
-void MPI_CLASS::allToAll( int n, const TYPE *send, TYPE *recv ) const
+void AMP_MPI::allToAll( int n, const TYPE *send, TYPE *recv ) const
 {
     if ( d_size == 1 ) {
         for ( int i = 0; i < n; i++ )
@@ -1288,7 +1280,7 @@ void MPI_CLASS::allToAll( int n, const TYPE *send, TYPE *recv ) const
         MPI_Alltoall( send, n, type, recv, n, type, d_comm );
     } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
         int N = n * sizeof( TYPE );
-        MPI_Alltoall( send, N, MPI_CLASS_BYTE, recv, N, MPI_CLASS_BYTE, d_comm );
+        MPI_Alltoall( send, N, AMP_MPI_BYTE, recv, N, AMP_MPI_BYTE, d_comm );
     } else {
         std::vector<int> count( d_size, n );
         std::vector<int> disp( d_size, 0 );
@@ -1298,25 +1290,33 @@ void MPI_CLASS::allToAll( int n, const TYPE *send, TYPE *recv ) const
     }
 #endif
 }
+template<class type>
+std::vector<type> AMP_MPI::allToAll( const std::vector<type> &send ) const
+{
+    AMP_ASSERT( (int) send.size() == d_size );
+    std::vector<type> recv( send.size() );
+    allToAll( 1, send.data(), recv.data() );
+    return recv;
+}
 
 
 /************************************************************************
  *  allToAll                                                             *
  ************************************************************************/
 template<class TYPE>
-int MPI_CLASS::allToAll( const TYPE *send_data,
-                         const int send_cnt[],
-                         const int send_disp[],
-                         TYPE *recv_data,
-                         int *recv_cnt,
-                         int *recv_disp,
-                         bool known_recv ) const
+int AMP_MPI::allToAll( const TYPE *send_data,
+                       const int send_cnt[],
+                       const int send_disp[],
+                       TYPE *recv_data,
+                       int *recv_cnt,
+                       int *recv_disp,
+                       bool known_recv ) const
 {
     if ( d_size == 1 ) {
         // Special case for single-processor communicators
         if ( known_recv ) {
             if ( recv_cnt[0] != send_cnt[0] && send_cnt[0] > 0 )
-                MPI_CLASS_ERROR( "Single processor send/recv are different sizes" );
+                AMP_ERROR( "Single processor send/recv are different sizes" );
         } else {
             if ( recv_cnt != nullptr )
                 recv_cnt[0] = send_cnt[0];
@@ -1341,7 +1341,7 @@ int MPI_CLASS::allToAll( const TYPE *send_data,
         calcAllToAllDisp( send_cnt, nullptr, recv_cnt2, recv_disp2 );
     }
     // Perform the communication
-    MPI_CLASS_ASSERT( recv_cnt2 && recv_disp2 );
+    AMP_ASSERT( recv_cnt2 && recv_disp2 );
     if constexpr ( isMPItype<TYPE>() ) {
         auto type = MPI_getType<TYPE>();
         MPI_Alltoallv(
@@ -1360,18 +1360,18 @@ int MPI_CLASS::allToAll( const TYPE *send_data,
         MPI_Alltoallv( send_data,
                        send_cnt3,
                        send_disp3,
-                       MPI_CLASS_BYTE,
+                       AMP_MPI_BYTE,
                        recv_data,
                        recv_cnt3,
                        recv_disp3,
-                       MPI_CLASS_BYTE,
+                       AMP_MPI_BYTE,
                        d_comm );
         delete[] send_cnt3;
         delete[] send_disp3;
         delete[] recv_cnt3;
         delete[] recv_disp3;
     } else {
-        MPI_CLASS_ERROR( "Not finished" );
+        AMP_ERROR( "Not finished" );
     }
     int N_received = 0;
     for ( int i = 0; i < d_size; i++ )
@@ -1385,6 +1385,44 @@ int MPI_CLASS::allToAll( const TYPE *send_data,
 #else
     return 0;
 #endif
+}
+template<class type, class int_type>
+std::vector<type> AMP_MPI::allToAll( const std::vector<type> &send_data,
+                                     const std::vector<int_type> &send_cnt,
+                                     const std::vector<int_type> &send_disp,
+                                     const std::vector<int_type> &recv_cnt,
+                                     const std::vector<int_type> &recv_disp ) const
+{
+    if constexpr ( std::is_same_v<int_type, int> ) {
+        AMP_ASSERT( (int) send_cnt.size() == d_size );
+        AMP_ASSERT( (int) send_disp.size() == d_size );
+        AMP_ASSERT( (int) recv_cnt.size() == d_size );
+        AMP_ASSERT( (int) recv_disp.size() == d_size );
+        size_t N_recv = 0;
+        for ( size_t i = 0; i < recv_cnt.size(); i++ )
+            N_recv += recv_cnt[i];
+        std::vector<type> recv_data( N_recv );
+        allToAll<type>( send_data.data(),
+                        send_cnt.data(),
+                        send_disp.data(),
+                        recv_data.data(),
+                        const_cast<int *>( recv_cnt.data() ),
+                        const_cast<int *>( recv_disp.data() ),
+                        true );
+        return recv_data;
+    } else {
+        auto to_int = []( const std::vector<int_type> &x ) {
+            std::vector<int> y( x.size() );
+            for ( size_t i = 0; i < x.size(); i++ )
+                y[i] = x[i];
+            return y;
+        };
+        auto send_cnt2  = to_int( send_cnt );
+        auto recv_cnt2  = to_int( recv_cnt );
+        auto send_disp2 = to_int( send_disp );
+        auto recv_disp2 = to_int( recv_disp );
+        return allToAll<type, int>( send_data, send_cnt2, send_disp2, recv_cnt2, recv_disp2 );
+    }
 }
 
 

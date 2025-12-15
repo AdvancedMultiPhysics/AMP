@@ -1,7 +1,16 @@
 
 NumberOfMeshes = 1
 
-Mesh = "brick.e"
+Mesh {
+    MeshName = "TestMesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
+}
 
 NumberOfLoadingSteps = 1
 
@@ -22,6 +31,23 @@ testLinearMechanicsOperator {
    BoundaryOperator = "DirichletMatrixCorrection"
 
 }
+
+MechanicsMaterialModel { 
+       USE_MATERIALS_LIBRARY = TRUE
+       Material = "UO2_MSRZC_09"
+       name="VonMisesPlasticFuelPelletModel"
+       Use_Swelling_Strain = TRUE
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+       Linear_Strain_Hardening = 2.10e9
+       Elastic_Yield_Stress = 1.45e8
+       SWELLING_RATE = 0.00077
+       INITIAL_POROSITY = 0.05
+       POROSITY_RECOVERY_FRACTION = 0.9
+       Default_Temperature = 310.0
+       Default_Burnup = 0.0
+       Default_Oxygen_Concentration = 0.0
+     }
 
 MechanicsNonlinearFEOperator{
      name = "MechanicsNonlinearFEOperator"
@@ -44,7 +70,7 @@ MechanicsNonlinearFEOperator{
        QRULE_ORDER = "DEFAULT"
      }
 
-     LocalModel = "MechanicsMaterialModel"
+     LocalModel = MechanicsMaterialModel
 
    }
 
@@ -106,19 +132,3 @@ DirichletMatrixCorrection{
      dof_1_2 = 2
    }
 
-MechanicsMaterialModel { 
-       USE_MATERIALS_LIBRARY = TRUE
-       Material = "UO2_MSRZC_09"
-       name="VonMisesPlasticFuelPelletModel"
-       Use_Swelling_Strain = TRUE
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-       Linear_Strain_Hardening = 2.10e9
-       Elastic_Yield_Stress = 1.45e8
-       SWELLING_RATE = 0.00077
-       INITIAL_POROSITY = 0.05
-       POROSITY_RECOVERY_FRACTION = 0.9
-       Default_Temperature = 310.0
-       Default_Burnup = 0.0
-       Default_Oxygen_Concentration = 0.0
-     }

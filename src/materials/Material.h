@@ -2,33 +2,12 @@
 #define included_AMP_Material
 
 #include "AMP/materials/Property.h"
-#include "AMP/utils/FactoryStrategy.hpp"
 
 #include <map>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
-
-
-// This macro is to be placed after each material class (UO2, Pu, etc.)
-// It will register the material with the factory
-#define REGISTER_MATERIAL( NAME )                                 \
-    static struct NAME##_INIT {                                   \
-        NAME##_INIT()                                             \
-        {                                                         \
-            auto fun = []() { return std::make_unique<NAME>(); }; \
-            AMP::Materials::registerMaterial( #NAME, fun );       \
-        }                                                         \
-    } NAME##_init
-#define REGISTER_MATERIAL2( NAME, MAT )                          \
-    static struct NAME##_INIT {                                  \
-        NAME##_INIT()                                            \
-        {                                                        \
-            auto fun = []() { return std::make_unique<MAT>(); }; \
-            AMP::Materials::registerMaterial( #NAME, fun );      \
-        }                                                        \
-    } NAME##_init
 
 
 namespace AMP::Materials {

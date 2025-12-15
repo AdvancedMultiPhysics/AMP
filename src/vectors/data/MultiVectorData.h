@@ -2,10 +2,16 @@
 #define included_AMP_MultiVectorData
 
 #include "AMP/discretization/DOF_Manager.h"
+#include "AMP/discretization/MultiDOFHelper.h"
 #include "AMP/vectors/data/DataChangeListener.h"
 #include "AMP/vectors/data/VectorData.h"
 
 #include <cstddef>
+
+
+namespace AMP::Discretization {
+class multiDOFManager;
+}
 
 
 namespace AMP::LinearAlgebra {
@@ -43,8 +49,11 @@ public: // Basic virtual functions
     void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
     void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
     void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    void
+    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    size_t getAllGhostValues( void *, const typeID & ) const override;
     size_t getGhostSize() const override;
-    std::vector<double> &getGhosts() const override;
+    void fillGhosts( const Scalar & ) override;
     void makeConsistent() override;
     void makeConsistent( ScatterType t ) override;
     UpdateState getLocalUpdateStatus() const override;
@@ -53,7 +62,18 @@ public: // Basic virtual functions
     std::shared_ptr<VectorData> getComponent( size_t i = 0 ) override;
     std::shared_ptr<const VectorData> getComponent( size_t i = 0 ) const override;
     bool hasContiguousData() const override { return ( numberOfDataBlocks() <= 1 ); }
+    std::vector<size_t> getLocalSizes() const override;
 
+public:
+    std::shared_ptr<CommunicationList> getCommunicationList() const override;
+    void setCommunicationList( std::shared_ptr<CommunicationList> comm ) override;
+    void dataChanged() override;
+    void setUpdateStatusPtr( std::shared_ptr<UpdateState> rhs ) override;
+    std::shared_ptr<UpdateState> getUpdateStatusPtr() const override;
+    bool containsGlobalElement( size_t ) const override;
+    void copyGhostValues( const VectorData &rhs ) override;
+    void setNoGhosts() override;
+    bool hasGhosts() const override;
 
 public: // Advanced virtual functions
     /**\brief  A unique id for the underlying data allocation
@@ -95,6 +115,8 @@ public: // Advanced virtual functions
      */
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 
+    AMP::Utilities::MemoryType getMemoryLocation() const override;
+
     void
     dumpOwnedData( std::ostream &out, size_t GIDoffset = 0, size_t LIDoffset = 0 ) const override;
     void dumpGhostedData( std::ostream &out, size_t offset = 0 ) const override;
@@ -104,8 +126,7 @@ public: // Advanced virtual functions
 
     size_t getVectorDataSize() const { return d_data.size(); }
 
-    AMP_MPI getComm() const override { return d_comm; }
-    bool hasComm() const override { return true; }
+    const AMP_MPI &getComm() const override { return d_comm; }
 
     void assemble() override;
 
@@ -113,16 +134,13 @@ public: // Advanced virtual functions
 public:
     void receiveDataChanged() override { fireDataChange(); }
 
-    explicit MultiVectorData( const AMP::AMP_MPI &comm )
-        : d_comm( comm ), d_globalDOFManager( nullptr )
-    {
-    }
+    explicit MultiVectorData( const AMP::AMP_MPI &comm ) : d_comm( comm ) {}
 
-    void resetMultiVectorData( AMP::Discretization::DOFManager *manager,
+    explicit MultiVectorData( VectorData *data,
+                              const AMP::Discretization::DOFManager *manager = nullptr );
+
+    void resetMultiVectorData( const AMP::Discretization::DOFManager *manager,
                                const std::vector<VectorData *> &data );
-
-    void reset() override;
-
 
 public: // Write/read restart data
     /**
@@ -146,14 +164,6 @@ public: // Write/read restart data
      * \param manager   Restart manager
      */
     MultiVectorData( int64_t fid, AMP::IO::RestartManager *manager );
-
-
-protected:
-    // Internal data
-    AMP::AMP_MPI d_comm;
-    std::vector<VectorData *> d_data;
-    AMP::Discretization::DOFManager *d_globalDOFManager = nullptr;
-    std::vector<AMP::Discretization::DOFManager *> d_subDOFManager;
 
 
 protected:
@@ -196,6 +206,18 @@ protected:
                                std::vector<std::vector<size_t>> &out_indices,
                                std::vector<std::vector<std::byte>> &out_vals,
                                std::vector<std::vector<int>> *remap = nullptr ) const;
+
+    // Get all ghost values
+    template<class TYPE>
+    size_t getAllGhostValues( TYPE * ) const;
+
+
+protected:
+    // Internal data
+    AMP::AMP_MPI d_comm;
+    std::vector<VectorData *> d_data;
+    AMP::Discretization::multiDOFHelper d_dofMap;
+    std::shared_ptr<UpdateState> d_UpdateState;
 };
 
 

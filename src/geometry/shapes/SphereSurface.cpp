@@ -1,6 +1,8 @@
-#include "AMP/geometry/shapes/SphereSurface.h"
-#include "AMP/IO/HDF5.h"
+#include <algorithm>
+
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
+#include "AMP/geometry/shapes/SphereSurface.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
 
@@ -40,7 +42,7 @@ Point SphereSurface::nearest( const Point &pos ) const
     double y = pos.y() - d_offset[1];
     double z = pos.z() - d_offset[2];
     // Calculate the nearest point
-    double r = sqrt( x * x + y * y + z * z );
+    double r = std::sqrt( x * x + y * y + z * z );
     if ( r == 0 ) {
         x = d_r;
     } else {
@@ -86,7 +88,7 @@ Point SphereSurface::surfaceNorm( const Point &pos ) const
     double x = pos.x() - d_offset[0];
     double y = pos.y() - d_offset[1];
     double z = pos.z() - d_offset[2];
-    double r = sqrt( x * x + y * y + z * z );
+    double r = std::sqrt( x * x + y * y + z * z );
     if ( r < d_r )
         return { -x / r, -y / r, -z / r };
     return { x / r, y / r, z / r };
@@ -151,9 +153,9 @@ ArraySize SphereSurface::getLogicalGridSize( const ArraySize &x ) const
 }
 ArraySize SphereSurface::getLogicalGridSize( const std::vector<double> &res ) const
 {
-    AMP_INSIST( res.size() == 2u, "Resolution must be an array of length 2" );
-    AMP_ERROR( "Not finished" );
-    return {};
+    AMP_INSIST( res.size() == 3u, "Resolution must be an array of length 2" );
+    int N = d_r / std::min( { res[0], res[1], res[2] } );
+    return { 2 * N, N };
 }
 
 

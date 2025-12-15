@@ -1,37 +1,11 @@
-#ifndef included_AMP_GPUFunctionTable_cu
-#define included_AMP_GPUFunctionTable_cu
-
-#define included_AMP_AMP_GPUFunctionTable_HPP_
-
 #include <hip/hip_runtime_api.h>
 
-#include "AMP/utils/hip/GPUFunctionTable.h"
-#include "AMP/utils/hip/helper_hip.h"
-#include "GPUFunctionTable.h"
+#include "AMP/utils/hip/GPUFunctionTable.hpp"
+#include "AMP/utils/hip/Helper_Hip.h"
+
 
 namespace AMP {
 
-static void inline setKernelDims( size_t n, dim3 &BlockDim, dim3 &GridDim )
-{
-    /*
-    First attempt at getting general kernel dimensions
-    Code gotten from:
-    http://stackoverflow.com/questions/5810447/cuda-block-and-grid-size-efficiencies
-    Will adjust as needed
-    also consider cuda runtime API function
-    */
-    const int warpSize    = 32;
-    const int maxGridSize = 112; // 8 blocks per MP of tesla k20x,
-                                 //  this number might need to be tuned
-                                 //  consider querying for device info
-    int warpCount    = ( n / warpSize ) + ( ( ( n % warpSize ) == 0 ) ? 0 : 1 );
-    int warpPerBlock = max( 1, min( 4, warpCount ) );
-    int threadCount  = warpSize * warpPerBlock;
-    int blockCount   = min( maxGridSize, max( 1, warpCount / warpPerBlock ) );
-    BlockDim         = dim3( threadCount, 1, 1 );
-    GridDim          = dim3( blockCount, 1, 1 );
-    return;
-}
 
 // Kernels
 template<class TYPE, typename LAMBDA>
@@ -367,19 +341,22 @@ bool equalsW( const TYPE *d_a, const TYPE *d_b, TYPE tol, size_t n )
     return eq;
 }
 
-// Explicit Instantiation of the wrappers
-template double sumW<double>( const double *d_a, size_t n );
-template float sumW<float>( const float *d_a, size_t n );
-template bool equalsW<double>( const double *d_a, const double *d_b, double tol, size_t n );
-template bool equalsW<float>( const float *d_a, const float *d_b, float tol, size_t n );
+/********************************************************
+ *  Explicit instantiations of GPUFunctionTable          *
+ *  and the wrappers                                     *
+ ********************************************************/
+#define INSTANTIATE( T )                                                     \
+    template class GPUFunctionTable<T>;                                      \
+    template T sumW<T>( const T *d_a, size_t n );                            \
+    template bool equalsW<T>( const T *d_a, const T *d_b, T tol, size_t n ); \
+    template void transformReLUW<T>( const T *d_a, T *d_b, size_t n );       \
+    template void transformAbsW<T>( const T *d_a, T *d_b, size_t n );        \
+    template void transformTanhW<T>( const T *d_a, T *d_b, size_t n );       \
+    template void transformHardTanhW<T>( const T *d_a, T *d_b, size_t n );   \
+    template void transformSigmoidW<T>( const T *d_a, T *d_b, size_t n );    \
+    template void transformSoftPlusW<T>( const T *d_a, T *d_b, size_t n )
+INSTANTIATE( double );
+INSTANTIATE( float );
 
-template void transformReLUW( const double *d_a, double *d_b, size_t n );
-template void transformAbsW( const double *d_a, double *d_b, size_t n );
-template void transformTanhW( const double *d_a, double *d_b, size_t n );
-template void transformHardTanhW( const double *d_a, double *d_b, size_t n );
-template void transformSigmoidW( const double *d_a, double *d_b, size_t n );
-template void transformSoftPlusW( const double *d_a, double *d_b, size_t n );
 
 } // namespace AMP
-
-#endif

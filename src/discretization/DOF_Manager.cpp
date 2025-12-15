@@ -1,6 +1,8 @@
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/IO/RestartManager.h"
+#include "AMP/discretization/DOFManagerFactory.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
+#include "AMP/discretization/subsetCommSelfDOFManager.h"
 #include "AMP/discretization/subsetDOFManager.h"
 #include "AMP/mesh/MeshElementVectorIterator.h"
 #include "AMP/time_integrators/TimeIntegratorFactory.h"
@@ -41,41 +43,72 @@ std::string DOFManager::className() const { return "DOFManager"; }
 /****************************************************************
  * Get the DOFs for the element                                  *
  ****************************************************************/
-void DOFManager::getDOFs( const AMP::Mesh::MeshElementID &, std::vector<size_t> & ) const
+int DOFManager::getDOFsPerPoint() const { return -1; }
+void DOFManager::getDOFs( const AMP::Mesh::MeshElementID &id, std::vector<size_t> &dofs ) const
 {
-    AMP_ERROR( "getDOFs is not implemented for the base class" );
+    dofs.resize( 8 );
+    size_t N = appendDOFs( id, dofs.data(), 0, dofs.size() );
+    if ( N > dofs.size() ) {
+        dofs.resize( N );
+        N = appendDOFs( id, dofs.data(), 0, dofs.size() );
+    }
+    dofs.resize( N );
+#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
+    for ( size_t i = 0; i < N; i++ )
+        AMP_ASSERT( dofs[i] < d_global );
+#endif
+}
+void DOFManager::getDOFs( int N_ids,
+                          const AMP::Mesh::MeshElementID *ids,
+                          std::vector<size_t> &dofs ) const
+{
+    size_t N = 0;
+    dofs.resize( N_ids );
+    for ( int i = 0; i < N_ids; i++ ) {
+        size_t N2 = appendDOFs( ids[i], dofs.data(), N, dofs.size() );
+        if ( N + N2 >= dofs.size() ) {
+            dofs.resize( std::max( N + N2, 2 * dofs.size() ) );
+            N2 = appendDOFs( ids[i], dofs.data(), N, dofs.size() );
+        }
+        N += N2;
+    }
+    dofs.resize( N );
+#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
+    for ( size_t i = 0; i < N; i++ )
+        AMP_ASSERT( dofs[i] < d_global );
+#endif
 }
 void DOFManager::getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
                           std::vector<size_t> &dofs ) const
 {
-    // This is a simple loop to provide a vector interface
-    // Ideally this should be overwritten by derived DOFManager for performance
-    dofs.resize( 0 );
-    dofs.reserve( 2 );
-    std::vector<size_t> local_dofs;
-    for ( auto &id : ids ) {
-        getDOFs( id, local_dofs );
-        if ( local_dofs.size() + dofs.size() > dofs.capacity() )
-            dofs.reserve( 2 * dofs.capacity() );
-        for ( auto &local_dof : local_dofs )
-            dofs.push_back( local_dof );
-    }
+    return getDOFs( ids.size(), ids.data(), dofs );
+}
+size_t DOFManager::appendDOFs( const AMP::Mesh::MeshElementID &, size_t *, size_t, size_t ) const
+{
+    AMP_ERROR( "getDOFs is not implemented for the base class" );
 }
 
 
 /****************************************************************
  * Get the element ID give a dof                                 *
  ****************************************************************/
-AMP::Mesh::MeshElement DOFManager::getElement( size_t ) const
+std::unique_ptr<AMP::Mesh::MeshElement> DOFManager::getElement( size_t ) const
 {
     AMP_ERROR( "getElement is not implemented for the base class" );
-    return AMP::Mesh::MeshElement();
+    return nullptr;
+}
+AMP::Mesh::MeshElementID DOFManager::getElementID( size_t ) const
+{
+    AMP_ERROR( "getElement is not implemented for the base class" );
+    return AMP::Mesh::MeshElementID();
 }
 
+
 /****************************************************************
- * Get an entry over the mesh elements associated with the DOFs  *
+ * Get the mesh / mesh iterator                                  *
  ****************************************************************/
-AMP::Mesh::MeshIterator DOFManager::getIterator() const { return AMP::Mesh::MeshIterator(); }
+std::shared_ptr<const AMP::Mesh::Mesh> DOFManager::getMesh() const { return {}; }
+AMP::Mesh::MeshIterator DOFManager::getIterator() const { return {}; }
 
 
 /****************************************************************
@@ -94,6 +127,12 @@ size_t DOFManager::endDOF() const { return d_end; }
  * Return the local number of D.O.F.s                           *
  ****************************************************************/
 size_t DOFManager::numLocalDOF() const { return ( d_end - d_begin ); }
+std::vector<size_t> DOFManager::getLocalSizes() const
+{
+    if ( d_localSize.empty() )
+        d_localSize = d_comm.allGather( d_end - d_begin );
+    return d_localSize;
+}
 
 
 /****************************************************************
@@ -109,12 +148,23 @@ std::vector<size_t> DOFManager::getRemoteDOFs() const { return d_remoteDOFs; }
 
 
 /****************************************************************
- * Return the global number of D.O.F.s                           *
+ * Return the row D.O.F.s                                        *
  ****************************************************************/
-std::vector<size_t> DOFManager::getRowDOFs( const AMP::Mesh::MeshElement & ) const
+size_t DOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &, size_t *, size_t, bool ) const
 {
     AMP_ERROR( "getRowDOFs(element) is not implemented for the base class" );
-    return std::vector<size_t>();
+    return 0;
+}
+std::vector<size_t> DOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id ) const
+{
+    std::vector<size_t> dofs( 32 );
+    size_t N = getRowDOFs( id, dofs.data(), dofs.size() );
+    if ( N >= dofs.size() ) {
+        dofs.resize( N );
+        N = getRowDOFs( id, dofs.data(), dofs.size() );
+    }
+    dofs.resize( N );
+    return dofs;
 }
 
 
@@ -152,15 +202,17 @@ std::shared_ptr<DOFManager> DOFManager::subset( const AMP_MPI &comm )
 {
     if ( comm.compare( d_comm ) != 0 )
         return shared_from_this();
+    if ( comm.getSize() == 1 )
+        return std::make_shared<subsetCommSelfDOFManager>( shared_from_this() );
     std::vector<size_t> local_dofs( numLocalDOF(), beginDOF() );
     for ( size_t i = 0; i < numLocalDOF(); i++ )
         local_dofs[i] += i;
     return subsetDOFManager::create( shared_from_this(), local_dofs, getIterator(), comm );
 }
-std::shared_ptr<DOFManager> DOFManager::subset( const std::shared_ptr<AMP::Mesh::Mesh> mesh,
+std::shared_ptr<DOFManager> DOFManager::subset( const std::shared_ptr<const AMP::Mesh::Mesh> mesh,
                                                 bool useMeshComm )
 {
-    if ( mesh.get() == nullptr )
+    if ( !mesh || !getMesh() )
         return std::shared_ptr<DOFManager>();
     // Get a list of the elements in the mesh
     auto subsetIterator = mesh->isMember( getIterator() );
@@ -290,17 +342,7 @@ AMP::IO::RestartManager::DataStoreType<AMP::Discretization::DOFManager>::read(
     hid_t fid, const std::string &name, RestartManager *manager ) const
 {
     hid_t gid = openGroup( fid, name );
-    std::string type;
-    readHDF5( gid, "ClassType", type );
-    // Need to replace with a factory
-    std::shared_ptr<AMP::Discretization::DOFManager> dofs;
-    if ( type == "DOFManager" ) {
-        dofs = std::make_shared<AMP::Discretization::DOFManager>( gid, manager );
-    } else if ( type == "simpleDOFManager" ) {
-        dofs = std::make_shared<AMP::Discretization::simpleDOFManager>( gid, manager );
-    } else {
-        AMP_ERROR( "Unknown DOFManager: " + type );
-    }
+    auto dofs = AMP::Discretization::DOFManagerFactory::create( gid, manager );
     closeGroup( gid );
     return dofs;
 }

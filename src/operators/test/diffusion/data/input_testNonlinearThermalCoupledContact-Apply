@@ -10,32 +10,27 @@ Mesh{
     MeshType = "Multimesh"
     MeshDatabasePrefix = "Mesh_"
     MeshArrayDatabasePrefix = "MeshArray_"
-    x_offset = 0.0 
-    y_offset = 0.0 
-    z_offset = 0.0 
     
     // This is a multimesh for all pellets
     Mesh_1 {
         MeshName = "pellet"
-        MeshType = "libMesh"
-        FileName = "halden_1_pellet_9mil.e"
-        dim = 3 
-        x_offset = 0.0 
-        y_offset = 0.0 
-        z_offset = 0.0
-        NumberOfElements = 5226
+        MeshType = "AMP"
+        Generator = "cylinder"
+        Size = 13, 8
+        Range = 0.00533908, 0, 0.0127
+        surfaceIds = 4, 4, 4, 4, 1, 2
+        static = TRUE
     }   
 
     // The mesh for the clad
     Mesh_2 {
         MeshName = "clad"
-        MeshType = "libMesh"
-        FileName = "halden_1_clad.e"
-        dim = 3 
-        x_offset = 0.0 
-        y_offset = 0.0 
-        z_offset = 0.0 
-        NumberOfElements = 4488
+        MeshType = "AMP"
+        Generator = "tube"
+        Size = 2, 132, 17
+        Range = 5.46e-3, 6.35e-3, 0, 0.0127
+        surfaceIds = 8, 4, -1, -1, 1, 2
+        static = TRUE
     }   
 }
 
@@ -78,7 +73,7 @@ NonlinearThermalOperator1 {
 
 LinearThermalOperator1 {
    name = "LinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
 
    VolumeOperator = "PelletDiffusionLinearFEOperator"
    BoundaryOperator="PelletRobinMatrixCorrection"
@@ -102,6 +97,36 @@ MapPellettoClad{
   }
 }
 
+
+PelletDiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "UO2_MSRZC_09"
+          Property = "ThermalConductivity"
+          Default_Concentration = .1
+          Default_Temperature   = 557.2
+          Default_Burnup   = 0.0
+      } 
+
+CladDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Steel316_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 513.2
+    Default_Burnup   = 0.0
+ } 
+
+SourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.2 
+    Default_Burnup   = 0.0
+}
+
 NonlinearThermalOperator2 {
   name="NonlinearBVPOperator"
   print_info_level = 1
@@ -113,7 +138,7 @@ NonlinearThermalOperator2 {
 
 LinearThermalOperator2 {
    name = "LinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
 
    VolumeOperator = "CladDiffusionLinearFEOperator"
    BoundaryOperator="CladLinearColumnBoundaryOperator"
@@ -129,13 +154,13 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
   }
   OutputVariable = "heatsource"
-  print_info_level = 3
+  print_info_level = 2
 
-  LocalModel = "SourcePhysicsModel"
+  LocalModel = SourcePhysicsModel
 
   SourceElement {
     name="SourceNonlinearElement"
-    print_info_level = 3
+    print_info_level = 2
     FE_ORDER = "FIRST"  
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -145,7 +170,7 @@ VolumeIntegralOperator{
 
 PelletDiffusionNonlinearFEOperator{
       name = "DiffusionNonlinearFEOperator" 
-        print_info_level = 6
+        print_info_level = 2
         ActiveInputVariables {
           temperature = "Temperature"
         }
@@ -161,7 +186,7 @@ PelletDiffusionNonlinearFEOperator{
             QRULE_ORDER = "DEFAULT"
         }    
 
-      LocalModel = "PelletDiffusionTransportModel"
+      LocalModel = PelletDiffusionTransportModel
     }
 
 PelletRobinVectorCorrection{
@@ -173,7 +198,7 @@ PelletRobinVectorCorrection{
       alpha          = 1.0
       beta           = 2920
       gamma          = 2920.0
-      print_info_level = 3
+      print_info_level = 2
       skip_params = FALSE
       number_of_ids = 1
       IsCoupleBoundary_1 = TRUE
@@ -202,7 +227,7 @@ PelletDiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
      }    
 
-     LocalModel = "PelletDiffusionTransportModel"
+     LocalModel = PelletDiffusionTransportModel
    }
 
 PelletRobinMatrixCorrection{
@@ -214,7 +239,7 @@ PelletRobinMatrixCorrection{
    alpha          = 1.0
    beta           = 2920
    gamma          = 2920.0
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    IsCoupleBoundary_1 = TRUE
@@ -224,18 +249,10 @@ PelletRobinMatrixCorrection{
    value_0_0        =  100.
 }
 
-PelletDiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "UO2_MSRZC_09"
-          Property = "ThermalConductivity"
-          Default_Concentration = .1
-          Default_Temperature   = 557.2
-          Default_Burnup   = 0.0
-      } 
 
 CladDiffusionNonlinearFEOperator{
       name = "DiffusionNonlinearFEOperator" 
-        print_info_level = 6
+        print_info_level = 2
         ActiveInputVariables {
           temperature = "Temperature"
         }
@@ -251,7 +268,7 @@ CladDiffusionNonlinearFEOperator{
             QRULE_ORDER = "DEFAULT"
         }    
 
-      LocalModel = "CladDiffusionTransportModel"
+      LocalModel = CladDiffusionTransportModel
 
     }
 
@@ -271,7 +288,7 @@ CladRobinVectorCorrection {
    alpha          = 1.0
    beta           = 2920
    gamma          = 2920.0
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    IsCoupleBoundary_1 = TRUE
@@ -287,7 +304,7 @@ CladDirichletVectorCorrection{
    isAttachedToVolumeOperator = TRUE
    skip_rhs_correction = FALSE
    skip_rhs_add_correction = FALSE
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids = 1
    id_0             =   4
    number_of_dofs_0 =   1
@@ -315,7 +332,7 @@ CladDiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
      }    
 
-     LocalModel = "CladDiffusionTransportModel"
+     LocalModel = CladDiffusionTransportModel
 
    }
 
@@ -336,7 +353,7 @@ CladRobinMatrixCorrection {
    alpha          = 1.0
    beta           = 2920
    gamma          = 2920.0
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    IsCoupleBoundary_1 = TRUE
@@ -351,7 +368,7 @@ CladDirichletMatrixCorrection{
    skip_params = FALSE
    skip_rhs_correction = FALSE
    skip_rhs_add_correction = FALSE
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids = 1
    id_0             =   4
    number_of_dofs_0 =   1
@@ -359,25 +376,6 @@ CladDirichletMatrixCorrection{
    value_0_0        =   0.0
   }
 
-CladDiffusionTransportModel{
-    name = "DiffusionTransportModel"
-    Material = "Steel316_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 513.2
-    Default_Burnup   = 0.0
- } 
-
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.2 
-    Default_Burnup   = 0.0
-}
 
 
 

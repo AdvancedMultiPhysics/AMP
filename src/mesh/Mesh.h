@@ -64,6 +64,9 @@ public:
     typedef std::function<std::shared_ptr<Mesh>( std::shared_ptr<const MeshParameters> )>
         generatorType;
 
+    //! Pointer to MeshElement
+    using MeshElementPtr = std::unique_ptr<MeshElement>;
+
     //! Enumeration for basic mesh-based quantities
     enum class Movable : uint8_t { Fixed = 0, Displace = 1, Deform = 2 };
 
@@ -303,7 +306,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    virtual MeshElement getElement( const MeshElementID &id ) const;
+    virtual MeshElementPtr getElement( const MeshElementID &id ) const;
 
 
     /**
@@ -313,8 +316,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const;
+    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
+                                                           const GeomType type ) const;
 
 
     //! Get the largest geometric type in the mesh
@@ -347,23 +350,6 @@ public:
 
     //! Check if two meshes are not equal
     inline bool operator!=( const Mesh &mesh ) const { return !operator==( mesh ); }
-
-
-    /**
-     * \brief    Compare two meshes
-     * \details  This function compares two meshes.
-     * \param[in] a     First mesh to compare
-     * \param[in] b     Second mesh to compare
-     * \return          Result of comparison
-     *                  0 - The meshes are different
-     *                  1 - The meshes are equal (a == b)
-     *                  2 - The meshes are equivalent:
-     *                      Nodes match, elements match, block/surface ids match
-     *                  3 - The meshes are similar:
-     *                      Nodes do not match but map the same domain
-     *                      within tolerance, block/surface ids match
-     */
-    static int compare( const Mesh &a, const Mesh &b );
 
 
     /**
@@ -409,7 +395,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    virtual std::vector<double> getBoundingBox() const { return d_box; }
+    inline const auto &getBoundingBox() const { return d_box; }
 
 
     /**
@@ -418,7 +404,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    virtual std::vector<double> getLocalBoundingBox() const { return d_box_local; }
+    inline const auto &getLocalBoundingBox() const { return d_box_local; }
 
 
     /**
@@ -489,6 +475,35 @@ public:
                                     const std::string &prefix = "" );
 
 
+public:
+    //! Structure used to compare matricies
+    struct CompareResult {
+        bool equal;         //!< Meshes are equal (operator==)
+        bool nodes;         //!< Nodes match
+        bool surface;       //!< surface ids match
+        bool block;         //!< block ids match
+        bool domain;        //!< domain matches
+        bool geometry;      //!< geometries match
+        int result() const; //!< 0 - The meshes are different
+                            //!< 1 - The meshes are equal (a == b)
+                            //!< 2 - The meshes are equivalent:
+                            //!<     Nodes match, elements match, block/surface ids match
+                            //!< 3 - The meshes are similar: Nodes do not match but map the
+                            //!<     same domain within tolerance, block/surface ids match
+        CompareResult( int state = 0 );
+        bool operator==( const CompareResult & ) const;
+    };
+
+    /**
+     * \brief    Compare two meshes
+     * \details  This function compares two meshes.
+     * \param[in] a     First mesh to compare
+     * \param[in] b     Second mesh to compare
+     * \return          Result of comparison
+     */
+    static CompareResult compare( const Mesh &a, const Mesh &b );
+
+
 public: // Write/read restart data
     /**
      * \brief    Register child objects
@@ -508,6 +523,16 @@ protected:
     //! Initialize the base class from file
     Mesh( int64_t fid, AMP::IO::RestartManager *manager );
 
+    //! Fill the domain box from the local box (requires communication)
+    static std::vector<double> reduceBox( const std::vector<double> &, const AMP_MPI & );
+
+    /**
+     *  A function to create a unique id for the mesh (requires the comm to be set)
+     *  Note: this requires a global communication across the mesh communicator.
+     *  Note: this function is NOT thread safe, and will need to be modified before threads are
+     * used.
+     */
+    void setMeshID();
 
 protected:
     //!  Empty constructor for a mesh
@@ -519,37 +544,16 @@ protected:
     // Private assigment operator
     Mesh &operator=( const Mesh &old ) = delete;
 
-    //! The geometry parameters
-    std::shared_ptr<Geometry::Geometry> d_geometry;
-
-    //! The geometric dimension (highest geometric object that can be represented)
-    GeomType GeomDim;
-
-    //! The physical dimension
-    uint8_t PhysicalDim;
-
-    //! The maximum ghost cell width
-    uint8_t d_max_gcw;
-
-    //! The communicator over which the mesh is stored
-    AMP_MPI d_comm;
-
-    //! A unique id for each mesh
-    MeshID d_meshID;
-
-    //! A name for the mesh
-    std::string d_name;
-
-    //! The bounding box for the mesh
-    std::vector<double> d_box, d_box_local;
-
-    /**
-     *  A function to create a unique id for the mesh (requires the comm to be set)
-     *  Note: this requires a global communication across the mesh communicator.
-     *  Note: this function is NOT thread safe, and will need to be modified before threads are
-     * used.
-     */
-    void setMeshID();
+protected:
+    GeomType GeomDim;                //!< The geometric dimension
+    uint8_t PhysicalDim;             //!< The physical dimension
+    uint8_t d_max_gcw;               //!< The maximum ghost cell width
+    MeshID d_meshID;                 //!< A unique id for each mesh
+    AMP_MPI d_comm;                  //!< The communicator over which the mesh is stored
+    std::string d_name;              //!< A name for the mesh
+    std::vector<double> d_box;       //!< The bounding box for the mesh
+    std::vector<double> d_box_local; //!< The bounding box for the mesh
+    std::shared_ptr<Geometry::Geometry> d_geometry; //!< The geometry parameters
 };
 
 } // namespace AMP::Mesh

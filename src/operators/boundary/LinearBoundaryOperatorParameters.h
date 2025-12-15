@@ -1,17 +1,16 @@
-
 #ifndef included_AMP_LinearBoundaryOperatorParameters
 #define included_AMP_LinearBoundaryOperatorParameters
 
 #include "AMP/matrices/Matrix.h"
-#include "AMP/operators/OperatorParameters.h"
+#include "AMP/operators/boundary/BoundaryOperatorParameters.h"
 
 namespace AMP::Operator {
 
-class LinearBoundaryOperatorParameters : public OperatorParameters
+class LinearBoundaryOperatorParameters : public BoundaryOperatorParameters
 {
 public:
     explicit LinearBoundaryOperatorParameters( std::shared_ptr<AMP::Database> db )
-        : OperatorParameters( db )
+        : BoundaryOperatorParameters( db )
     {
     }
 

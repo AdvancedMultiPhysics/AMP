@@ -12,6 +12,17 @@ LinearMechanicsElement {
     QRULE_ORDER = "DEFAULT"
 }
 
+MechanicsMaterialModel {
+    USE_MATERIALS_LIBRARY = FALSE
+      Material = ""
+      name="IsotropicElasticModel"
+      Youngs_Modulus = 1.0
+      Poissons_Ratio = 0.0
+      Default_Temperature = 0.0
+      Default_Burnup = 0.0
+      Default_Oxygen_Concentration = 0.0
+  }
+
 NonlinearMechanicsOperator {
   name = "MechanicsNonlinearFEOperator"
     print_info_level = 1
@@ -32,7 +43,7 @@ NonlinearMechanicsOperator {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "MechanicsMaterialModel"
+  LocalModel = MechanicsMaterialModel
 }
 
 
@@ -46,16 +57,5 @@ LinearMechanicsOperator {
     OutputVariable = "displacement"
     MechanicsElement = LinearMechanicsElement
 }
-
-MechanicsMaterialModel {
-    USE_MATERIALS_LIBRARY = FALSE
-      Material = ""
-      name="IsotropicElasticModel"
-      Youngs_Modulus = 1.0
-      Poissons_Ratio = 0.0
-      Default_Temperature = 0.0
-      Default_Burnup = 0.0
-      Default_Oxygen_Concentration = 0.0
-  }
 
 

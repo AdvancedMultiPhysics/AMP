@@ -175,11 +175,11 @@ static size_t getMATLABAxialIndex( const AMP::Mesh::MeshElement &face, bool is_a
 
 
 // function used to get all lateral gaps
-static std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement>
+static std::map<AMP::Mesh::Point, std::unique_ptr<AMP::Mesh::MeshElement>>
 getLateralFaces( std::shared_ptr<AMP::Mesh::Mesh> mesh, bool )
 {
     // map of lateral gaps to their centroids
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> lateralFaceMap;
+    std::map<AMP::Mesh::Point, std::unique_ptr<AMP::Mesh::MeshElement>> lateralFaceMap;
     // get iterator over all faces of mesh
     AMP::Mesh::MeshIterator face = mesh->getIterator( AMP::Mesh::GeomType::Face, 0 );
     // loop over faces
@@ -196,7 +196,7 @@ getLateralFaces( std::shared_ptr<AMP::Mesh::Mesh> mesh, bool )
         // loop over vertices of current face
         for ( auto &vertice : vertices ) {
             // get coordinates of current vertex
-            auto vertexCoord = vertice.coord();
+            auto vertexCoord = vertice->coord();
             // if any vertex does not have the same x-coordinate as the face centroid,
             if ( !AMP::Utilities::approx_equal( vertexCoord[0], faceCentroid[0], 1.0e-6 ) )
                 // then the face is not perpindicular to x-axis
@@ -214,7 +214,7 @@ getLateralFaces( std::shared_ptr<AMP::Mesh::Mesh> mesh, bool )
             if ( ( mesh->getElementParents( *face, AMP::Mesh::GeomType::Cell ) ).size() > 1 ) {
                 // insert face into map with centroid
                 lateralFaceMap.insert(
-                    std::pair<AMP::Mesh::Point, AMP::Mesh::MeshElement>( faceCentroid, *face ) );
+                    decltype( lateralFaceMap )::value_type( faceCentroid, face->clone() ) );
             }
         }
     } // end loop over faces
@@ -290,10 +290,11 @@ static size_t AMP_to_MATLAB( const AMP::Mesh::MeshElement &face, size_t variable
 }
 
 // function to create map of global IDs to elements and variables
-static void createGlobalIDMaps( std::shared_ptr<AMP::Discretization::DOFManager> dof_manager,
-                                std::shared_ptr<AMP::Mesh::Mesh> mesh,
-                                std::map<size_t, AMP::Mesh::MeshElement> &elements_by_globalID,
-                                std::map<size_t, size_t> &variables_by_globalID )
+static void
+createGlobalIDMaps( std::shared_ptr<AMP::Discretization::DOFManager> dof_manager,
+                    std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                    std::map<size_t, std::unique_ptr<AMP::Mesh::MeshElement>> &elements_by_globalID,
+                    std::map<size_t, size_t> &variables_by_globalID )
 {
     // loop over axial faces
     auto xyMesh     = mesh->Subset( AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( mesh, 0 ) );
@@ -301,9 +302,9 @@ static void createGlobalIDMaps( std::shared_ptr<AMP::Discretization::DOFManager>
     for ( ; axial_face != axial_face.end(); ++axial_face ) {
         std::vector<size_t> dofs;
         dof_manager->getDOFs( axial_face->globalID(), dofs );
-        elements_by_globalID.insert( std::make_pair( dofs[0], *axial_face ) );
-        elements_by_globalID.insert( std::make_pair( dofs[1], *axial_face ) );
-        elements_by_globalID.insert( std::make_pair( dofs[2], *axial_face ) );
+        elements_by_globalID.insert( std::make_pair( dofs[0], axial_face->clone() ) );
+        elements_by_globalID.insert( std::make_pair( dofs[1], axial_face->clone() ) );
+        elements_by_globalID.insert( std::make_pair( dofs[2], axial_face->clone() ) );
         variables_by_globalID.insert( std::make_pair( dofs[0], 0 ) );
         variables_by_globalID.insert( std::make_pair( dofs[1], 1 ) );
         variables_by_globalID.insert( std::make_pair( dofs[2], 2 ) );
@@ -316,23 +317,24 @@ static void createGlobalIDMaps( std::shared_ptr<AMP::Discretization::DOFManager>
         auto centroid              = face->centroid();
         auto lateral_face_iterator = lateral_face_map.find( centroid );
         if ( lateral_face_iterator != lateral_face_map.end() ) {
-            AMP::Mesh::MeshElement lateral_face = lateral_face_iterator->second;
+            auto &lateral_face = lateral_face_iterator->second;
             std::vector<size_t> dofs;
-            dof_manager->getDOFs( lateral_face.globalID(), dofs );
-            elements_by_globalID.insert( std::make_pair( dofs[0], lateral_face ) );
+            dof_manager->getDOFs( lateral_face->globalID(), dofs );
+            elements_by_globalID.insert( std::make_pair( dofs[0], lateral_face->clone() ) );
             variables_by_globalID.insert( std::make_pair( dofs[0], 3 ) );
         }
     }
 }
 
 // function to check that Jacobian matches known values
-static bool JacobianIsCorrect( std::shared_ptr<AMP::LinearAlgebra::Matrix> J_test_AMP,
-                               double J_reference[num_dofs_MATLAB][num_dofs_MATLAB],
-                               std::shared_ptr<AMP::Discretization::DOFManager> dof_manager,
-                               std::shared_ptr<AMP::Mesh::Mesh> mesh,
-                               std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> lateral_face_map,
-                               std::map<size_t, AMP::Mesh::MeshElement> elements_by_globalID,
-                               std::map<size_t, size_t> variables_by_globalID )
+static bool JacobianIsCorrect(
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> J_test_AMP,
+    double J_reference[num_dofs_MATLAB][num_dofs_MATLAB],
+    std::shared_ptr<AMP::Discretization::DOFManager> dof_manager,
+    std::shared_ptr<AMP::Mesh::Mesh> mesh,
+    const std::map<AMP::Mesh::Point, std::unique_ptr<AMP::Mesh::MeshElement>> &lateral_face_map,
+    const std::map<size_t, std::unique_ptr<AMP::Mesh::MeshElement>> &elements_by_globalID,
+    const std::map<size_t, size_t> &variables_by_globalID )
 {
     double J_test_MATLAB[num_dofs_MATLAB][num_dofs_MATLAB] = { { 0.0 } };
     // loop over axial faces
@@ -356,12 +358,12 @@ static bool JacobianIsCorrect( std::shared_ptr<AMP::LinearAlgebra::Matrix> J_tes
         for ( size_t j_AMP = 0; j_AMP < num_dofs_AMP; j_AMP++ ) {
             auto face_iterator = elements_by_globalID.find( j_AMP );
             if ( face_iterator != elements_by_globalID.end() ) {
-                auto face                 = face_iterator->second;
+                auto &face                = face_iterator->second;
                 auto variable_id_iterator = variables_by_globalID.find( j_AMP );
                 if ( variable_id_iterator == variables_by_globalID.end() )
                     AMP_ERROR( "index exists only for face" );
                 size_t variable_id = variable_id_iterator->second;
-                size_t j_MATLAB    = AMP_to_MATLAB( face, variable_id );
+                size_t j_MATLAB    = AMP_to_MATLAB( *face, variable_id );
                 auto nonzero_ind_m = std::find( ind_m.begin(), ind_m.end(), j_AMP );
                 auto nonzero_ind_h = std::find( ind_h.begin(), ind_h.end(), j_AMP );
                 auto nonzero_ind_p = std::find( ind_p.begin(), ind_p.end(), j_AMP );
@@ -398,12 +400,12 @@ static bool JacobianIsCorrect( std::shared_ptr<AMP::LinearAlgebra::Matrix> J_tes
             for ( size_t j_AMP = 0; j_AMP < num_dofs_AMP; j_AMP++ ) {
                 auto face_iterator = elements_by_globalID.find( j_AMP );
                 if ( face_iterator != elements_by_globalID.end() ) {
-                    auto face                 = face_iterator->second;
+                    auto &face                = face_iterator->second;
                     auto variable_id_iterator = variables_by_globalID.find( j_AMP );
                     if ( variable_id_iterator == variables_by_globalID.end() )
                         AMP_ERROR( "index exists only for face" );
                     size_t variable_id = variable_id_iterator->second;
-                    size_t j_MATLAB    = AMP_to_MATLAB( face, variable_id );
+                    size_t j_MATLAB    = AMP_to_MATLAB( *face, variable_id );
                     auto nonzero_ind_w = std::find( ind_w.begin(), ind_w.end(), j_AMP );
                     if ( nonzero_ind_w != ind_w.end() ) {
                         size_t w_ind = std::distance( ind_w.begin(), nonzero_ind_w );
@@ -539,7 +541,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
     subchannelOperator->fillSubchannelGrid( subchannelMesh );
 
     // put all cells in an array by subchannel
-    AMP::Mesh::MeshElement
+    std::unique_ptr<AMP::Mesh::MeshElement>
         d_elem[numSubchannels][numAxialIntervals]; // array of array of elements for each subchannel
     auto cell =
         subchannelMesh->getIterator( AMP::Mesh::GeomType::Cell, 0 ); // iterator for cells of mesh
@@ -554,7 +556,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
             double center_interval_j = ( j + 0.5 ) * dz;
             // check if center of cell is equal to center of axial interval j
             if ( AMP::Utilities::approx_equal( center[2], center_interval_j, 1.0e-12 ) ) {
-                d_elem[isub][j]   = *cell;
+                d_elem[isub][j]   = cell->clone();
                 found_axial_index = true;
                 break;
             }
@@ -576,9 +578,9 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
         // loop over axial intervals
         for ( unsigned int j = 0; j < numAxialIntervals; ++j ) {
             // get axial faces
-            AMP::Mesh::MeshElement plusFace;  // upper axial face for current cell
-            AMP::Mesh::MeshElement minusFace; // lower axial face for current cell
-            subchannelOperator->getAxialFaces( d_elem[isub][j], plusFace, minusFace );
+            std::unique_ptr<AMP::Mesh::MeshElement> plusFace;  // upper axial face for current cell
+            std::unique_ptr<AMP::Mesh::MeshElement> minusFace; // lower axial face for current cell
+            subchannelOperator->getAxialFaces( *d_elem[isub][j], plusFace, minusFace );
 
             double val;
             if ( j == 0 ) // for first axial interval only, set the quantities for the lower face
@@ -586,7 +588,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
                 size_t jj = j + 1; // corresponding MATLAB index for this axial face
                 // get dofs on minus face
                 std::vector<size_t> minusDofs;
-                subchannelDOFManager->getDOFs( minusFace.globalID(), minusDofs );
+                subchannelDOFManager->getDOFs( minusFace->globalID(), minusDofs );
                 // set values of minus face
                 val = m_scale * 0.35 * ( 1.0 + 1.0 / 100.0 * cos( ii ) * cos( 17.3 * jj ) );
                 FrozenVec->setValuesByGlobalID( 1, &minusDofs[0], &val );
@@ -605,7 +607,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
             size_t jj = j + 2; // corresponding MATLAB index for this axial face
             // get dofs on plus face
             std::vector<size_t> plusDofs;
-            subchannelDOFManager->getDOFs( plusFace.globalID(), plusDofs );
+            subchannelDOFManager->getDOFs( plusFace->globalID(), plusDofs );
             // set values of plus face
             val = m_scale * 0.35 * ( 1.0 + 1.0 / 100.0 * cos( ii ) * cos( 17.3 * jj ) );
             FrozenVec->setValuesByGlobalID( 1, &plusDofs[0], &val );
@@ -627,7 +629,8 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
 
     // set lateral face quantities (lateral mass flow rates) of input vector
     // array of gap faces
-    AMP::Mesh::MeshElement gapFaces[numGaps_MATLAB][numAxialIntervals]; // gap faces
+    [[maybe_unused]] std::unique_ptr<AMP::Mesh::MeshElement>
+        gapFaces[numGaps_MATLAB][numAxialIntervals]; // gap faces
     // loop over all faces in mesh
     auto face = subchannelMesh->getIterator( AMP::Mesh::GeomType::Face, 0 );
     for ( ; face != face.end(); ++face ) { // loop over all faces in mesh
@@ -636,16 +639,16 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
         auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
         if ( lateralFaceIterator != interiorLateralFaceMap.end() ) { // if face in lateral face map,
             // get lateral face
-            auto lateralFace = lateralFaceIterator->second;
+            auto &lateralFace = lateralFaceIterator->second;
             // get MATLAB index for gap
-            unsigned int k = getMATLABGapIndex( lateralFace );
+            unsigned int k = getMATLABGapIndex( *lateralFace );
             // get MATLAB axial index
-            unsigned int j = getMATLABAxialIndex( lateralFace, false );
+            unsigned int j = getMATLABAxialIndex( *lateralFace, false );
             // put gap face in array
-            gapFaces[k][j] = lateralFace;
+            gapFaces[k][j] = lateralFace->clone();
             // get crossflow from solution vector
             std::vector<size_t> gapDofs;
-            subchannelDOFManager->getDOFs( lateralFace.globalID(), gapDofs );
+            subchannelDOFManager->getDOFs( lateralFace->globalID(), gapDofs );
             // set test value for crossflow
             double val =
                 w_scale * 0.001 * ( 1.0 + 1.0 / 100.0 * cos( k + 1 ) * cos( 17.3 * ( j + 1 ) ) );
@@ -655,7 +658,6 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
         }
     }
     SolVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    NULL_USE( gapFaces );
 
     // apply the operator
     subchannelOperator->setFrozenVector( FrozenVec );
@@ -826,7 +828,7 @@ static void Test( AMP::UnitTest *ut, const std::string &exeName )
     AMP_ASSERT( equal_to_rightDOFManager );
 
     // create global ID maps
-    std::map<size_t, AMP::Mesh::MeshElement> elements_by_globalID;
+    std::map<size_t, std::unique_ptr<AMP::Mesh::MeshElement>> elements_by_globalID;
     std::map<size_t, size_t> variables_by_globalID;
     createGlobalIDMaps(
         subchannelDOFManager, subchannelMesh, elements_by_globalID, variables_by_globalID );

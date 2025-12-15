@@ -45,6 +45,14 @@ public:
     virtual void copy( const VectorData &x, VectorData &z ) = 0;
 
     /**
+     * \brief  Set vector equal to x (with different precision)
+     *      For Vectors, \f$z_i = x_i\f$.
+     * \param[in] x         a vector
+     * \param[out] z        a vector
+     */
+    virtual void copyCast( const VectorData &x, VectorData &z ) = 0;
+
+    /**
      *\brief Set vector entries (including ghosts) to zero
      *\details This is equivalent (but more efficient) to calling setToScalar ( 0.0 ) followed by a
      *     makeConsistent(SET)
@@ -177,6 +185,20 @@ public:
      * \param[out] y       Output vector y
      */
     virtual void addScalar( const VectorData &x, const Scalar &alpha, VectorData &y ) = 0;
+
+    /**
+     * \brief modify vector to set \f$x_i = max(x_i, val)\f$.
+     * \param[in] x a vector
+     * \param[in] val a scalar
+     */
+    virtual void setMax( const Scalar &val, VectorData &x ) = 0;
+
+    /**
+     * \brief modify vector to set \f$x_i = min(x_i, val)\f$.
+     * \param[in] x a vector
+     * \param[in] val a scalar
+     */
+    virtual void setMin( const Scalar &val, VectorData &x ) = 0;
 
     /**
      * \brief Return the minimum value of the vector.  \f$\min_i x_i\f$.

@@ -2,6 +2,9 @@ dir = "test/"
 
 
 db1 {
+
+<<< "input_InputManager" >>>    // Import another file into the current database
+
 number = 5
 
     string = "test with wildcards .\/*'"
@@ -23,6 +26,8 @@ number = 5
     eq2 = @(x) 4*x;
 
     filename := dir + "file"                // Add paths
+
+    var.with:special&chars = 26
 }
 
 

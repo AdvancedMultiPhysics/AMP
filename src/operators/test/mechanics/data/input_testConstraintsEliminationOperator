@@ -1,9 +1,8 @@
-
 Mesh {
-  MeshType = "libMesh"
+    MeshType = "libMesh"
     dim = 3
     MeshName = "TestMesh"
-    FileName = "brick.e"
+    ReadTestMesh = "brick"
 }
 
 BVPOperator {
@@ -52,6 +51,14 @@ DummyDirichletMatrixCorrection{
     number_of_ids = 0
 }
 
+MechanicsMaterialModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = ""
+    name="IsotropicElasticModel"
+    Youngs_Modulus = 1.0e6
+    Poissons_Ratio = 0.3
+}
+
 MechanicsLinearFEOperator{
   name = "MechanicsLinearFEOperator"
     print_info_level = 1
@@ -68,16 +75,9 @@ MechanicsLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "MechanicsMaterialModel"
+  LocalModel = MechanicsMaterialModel
 }
 
-MechanicsMaterialModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = ""
-    name="IsotropicElasticModel"
-    Youngs_Modulus = 1.0e6
-    Poissons_Ratio = 0.3
-}
 
 LoadOperator {
   name="DirichletVectorCorrection"

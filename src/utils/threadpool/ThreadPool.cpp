@@ -259,8 +259,15 @@ ThreadPool::~ThreadPool()
         return;
     }
     // Destroy the threads
-    setNumThreads( 0 );
-    delete[] d_thread;
+    try {
+        setNumThreads( 0 );
+        delete[] d_thread;
+    } catch ( std::exception &e ) {
+        AMP::perr << "Error destroying thread pool, may be in a bad state:" << e.what()
+                  << std::endl;
+    } catch ( ... ) {
+        AMP::perr << "Error destroying thread pool, may be in a bad state (unknown exception)\n";
+    }
     // Delete all remaining data
     d_N_threads = ~0;
     d_NULL_HEAD = 0;

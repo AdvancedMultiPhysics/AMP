@@ -3,7 +3,9 @@
 #include "AMP/IO/RestartManager.h"
 #include "AMP/vectors/MultiVector.h"
 
+
 namespace AMP::LinearAlgebra {
+
 
 std::shared_ptr<Vector> VectorFactory::create( int64_t fid, AMP::IO::RestartManager *manager )
 {
@@ -20,4 +22,13 @@ std::shared_ptr<Vector> VectorFactory::create( int64_t fid, AMP::IO::RestartMana
     }
     return vec;
 }
+
+
 } // namespace AMP::LinearAlgebra
+
+
+template<>
+void AMP::FactoryStrategy<AMP::LinearAlgebra::Vector, int64_t, AMP::IO::RestartManager *>::
+    registerDefault()
+{
+}

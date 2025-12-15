@@ -125,14 +125,14 @@ private:
 
     bool d_use_fixed_dt = false;
 
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_new_solution = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k1_vec       = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k2_vec       = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k3_vec       = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k4_vec       = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k5_vec       = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k6_vec       = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_z_vec        = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_new_solution;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k1_vec;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k2_vec;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k3_vec;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k4_vec;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k5_vec;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k6_vec;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_z_vec;
 };
 } // namespace AMP::TimeIntegrator
 

@@ -1,9 +1,9 @@
 #include "AMP/operators/subchannel/SubchannelTwoEqNonlinearOperator.h"
+#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/operators/subchannel/SubchannelConstants.h"
 #include "AMP/operators/subchannel/SubchannelHelpers.h"
 #include "AMP/operators/subchannel/SubchannelOperatorParameters.h"
-
-#include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
 #include "ProfilerApp.h"
@@ -14,10 +14,25 @@
 namespace AMP::Operator {
 
 
+template<class TYPE>
+static TYPE get( std::shared_ptr<const SubchannelOperatorParameters> params,
+                 const std::string &key,
+                 const TYPE &val )
+{
+    auto &db = params->d_db;
+    if ( db->keyExists( key ) ) {
+        return db->getScalar<TYPE>( key );
+    } else {
+        AMP_WARNING( "Key '" + key + "' was not provided. Using default value: " << val );
+        return val;
+    }
+}
+
+
 // Constructor
 SubchannelTwoEqNonlinearOperator::SubchannelTwoEqNonlinearOperator(
-    std::shared_ptr<const SubchannelOperatorParameters> params )
-    : Operator( params ),
+    std::shared_ptr<const OperatorParameters> inparams )
+    : Operator( inparams ),
       d_Pout( 0 ),
       d_Tin( 0 ),
       d_mass( 0 ),
@@ -31,6 +46,7 @@ SubchannelTwoEqNonlinearOperator::SubchannelTwoEqNonlinearOperator(
       d_NGrid( 0 ),
       d_numSubchannels( 0 )
 {
+    auto params = Subchannel::convert( inparams );
     AMP_INSIST( params->d_db->keyExists( "InputVariable" ), "Key 'InputVariable' does not exist" );
     std::string inpVar = params->d_db->getString( "InputVariable" );
     d_inpVariable.reset( new AMP::LinearAlgebra::Variable( inpVar ) );
@@ -48,122 +64,124 @@ SubchannelTwoEqNonlinearOperator::SubchannelTwoEqNonlinearOperator(
 // reset
 void SubchannelTwoEqNonlinearOperator::reset( std::shared_ptr<const OperatorParameters> params )
 {
-    auto myparams = std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params );
-    AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameters" );
-    AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
-    d_params = myparams;
+    if ( params ) {
 
-    // Get the subchannel mesh coordinates
-    AMP::Mesh::StructuredMeshHelper::getXYZCoordinates( d_Mesh, d_x, d_y, d_z );
-    d_numSubchannels = ( d_x.size() - 1 ) * ( d_y.size() - 1 );
+        auto myparams = std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params );
+        AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameters" );
+        AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
+        d_params = myparams;
 
-    // Get the properties from the database
-    d_Pout     = getDoubleParameter( myparams, "Exit_Pressure", 15.5132e6 );
-    d_Tin      = getDoubleParameter( myparams, "Inlet_Temperature", 569.26 );
-    d_mass     = getDoubleParameter( myparams, "Inlet_Mass_Flow_Rate", 0.3522 * d_numSubchannels );
-    d_gamma    = getDoubleParameter( myparams, "Fission_Heating_Coefficient", 0.0 );
-    d_theta    = getDoubleParameter( myparams, "Channel_Angle", 0.0 );
-    d_reynolds = getDoubleParameter( myparams, "Reynolds", 0.0 );
-    d_prandtl  = getDoubleParameter( myparams, "Prandtl", 0.0 );
-    d_friction = getDoubleParameter( myparams, "Friction_Factor", 0.001 );
-    d_source   = getStringParameter( myparams, "Heat_Source_Type", "totalHeatGeneration" );
-    d_frictionModel = getStringParameter( myparams, "Friction_Model", "Constant" );
-    d_NGrid         = getIntegerParameter( myparams, "Number_GridSpacers", 0 );
+        // Get the subchannel mesh coordinates
+        AMP::Mesh::StructuredMeshHelper::getXYZCoordinates( d_Mesh, d_x, d_y, d_z );
+        d_numSubchannels = ( d_x.size() - 1 ) * ( d_y.size() - 1 );
 
-    // Check for obsolete properites
-    if ( myparams->d_db->keyExists( "Rod_Diameter" ) )
-        AMP_WARNING( "Field 'Rod_Diameter' is obsolete and should be removed from database" );
-    if ( myparams->d_db->keyExists( "Channel_Diameter" ) )
-        AMP_WARNING( "Field 'Channel_Diameter' is obsolete and should be removed from database" );
-    if ( myparams->d_db->keyExists( "Lattice_Pitch" ) )
-        AMP_WARNING( "Field 'Lattice_Pitch' is obsolete and should be removed from database" );
-    if ( myparams->d_db->keyExists( "ChannelFractions" ) )
-        AMP_WARNING( "Field 'ChannelFractions' is obsolete and should be removed from database" );
-    if ( myparams->d_db->keyExists( "Mass_Flow_Rate" ) )
-        AMP_WARNING( "Field 'Mass_Flow_Rate' is obsolete and should be removed from database" );
+        // Get the properties from the database
+        d_Pout     = get<double>( myparams, "Exit_Pressure", 15.5132e6 );
+        d_Tin      = get<double>( myparams, "Inlet_Temperature", 569.26 );
+        d_mass     = get<double>( myparams, "Inlet_Mass_Flow_Rate", 0.3522 * d_numSubchannels );
+        d_gamma    = get<double>( myparams, "Fission_Heating_Coefficient", 0.0 );
+        d_theta    = get<double>( myparams, "Channel_Angle", 0.0 );
+        d_reynolds = get<double>( myparams, "Reynolds", 0.0 );
+        d_prandtl  = get<double>( myparams, "Prandtl", 0.0 );
+        d_friction = get<double>( myparams, "Friction_Factor", 0.001 );
+        d_source   = get<std::string>( myparams, "Heat_Source_Type", "totalHeatGeneration" );
+        d_frictionModel = get<std::string>( myparams, "Friction_Model", "Constant" );
+        d_NGrid         = get<int>( myparams, "Number_GridSpacers", 0 );
 
-    // Get the subchannel properties from the mesh
-    std::vector<double> x, y;
-    Subchannel::getSubchannelProperties( d_Mesh,
-                                         myparams->clad_x,
-                                         myparams->clad_y,
-                                         myparams->clad_d,
-                                         x,
-                                         y,
-                                         d_channelArea,
-                                         d_channelDiam,
-                                         d_rodDiameter,
-                                         d_rodFraction );
-    AMP_ASSERT( d_channelArea.size() == d_numSubchannels );
-    double total_area = 0.0;
-    for ( size_t i = 0; i < d_numSubchannels; i++ )
-        total_area += d_channelArea[i];
-    d_channelMass.resize( d_numSubchannels, 0.0 );
-    for ( size_t i = 0; i < d_numSubchannels; i++ )
-        d_channelMass[i] = d_mass * d_channelArea[i] / total_area;
+        // Check for obsolete properites
+        if ( myparams->d_db->keyExists( "Rod_Diameter" ) )
+            AMP_WARNING( "Field 'Rod_Diameter' is obsolete and should be removed from database" );
+        if ( myparams->d_db->keyExists( "Channel_Diameter" ) )
+            AMP_WARNING(
+                "Field 'Channel_Diameter' is obsolete and should be removed from database" );
+        if ( myparams->d_db->keyExists( "Lattice_Pitch" ) )
+            AMP_WARNING( "Field 'Lattice_Pitch' is obsolete and should be removed from database" );
+        if ( myparams->d_db->keyExists( "ChannelFractions" ) )
+            AMP_WARNING(
+                "Field 'ChannelFractions' is obsolete and should be removed from database" );
+        if ( myparams->d_db->keyExists( "Mass_Flow_Rate" ) )
+            AMP_WARNING( "Field 'Mass_Flow_Rate' is obsolete and should be removed from database" );
 
-    // get additional parameters based on heat source type
-    if ( ( d_source == "totalHeatGeneration" ) ||
-         ( d_source == "totalHeatGenerationWithDiscretizationError" ) ) {
-        d_Q         = getDoubleParameter( myparams, "Rod_Power", 66.81e3 );
-        d_heatShape = getStringParameter( myparams, "Heat_Shape", "Sinusoidal" );
-    }
+        // Get the subchannel properties from the mesh
+        std::vector<double> x, y;
+        Subchannel::getSubchannelProperties( d_Mesh,
+                                             myparams->clad_x,
+                                             myparams->clad_y,
+                                             myparams->clad_d,
+                                             x,
+                                             y,
+                                             d_channelArea,
+                                             d_channelDiam,
+                                             d_rodDiameter,
+                                             d_rodFraction );
+        AMP_ASSERT( d_channelArea.size() == d_numSubchannels );
+        double total_area = 0.0;
+        for ( size_t i = 0; i < d_numSubchannels; i++ )
+            total_area += d_channelArea[i];
+        d_channelMass.resize( d_numSubchannels, 0.0 );
+        for ( size_t i = 0; i < d_numSubchannels; i++ )
+            d_channelMass[i] = d_mass * d_channelArea[i] / total_area;
 
-    // get additional parameters based on friction model
-    if ( d_frictionModel == "Constant" ) {
-        d_friction = getDoubleParameter( myparams, "Friction_Factor", 0.001 );
-    } else if ( d_frictionModel == "Selander" ) {
-        d_roughness = getDoubleParameter( myparams, "Surface_Roughness", 0.0015e-3 );
-    }
-
-    // get form loss parameters if there are grid spacers
-    if ( d_NGrid > 0 ) {
-        d_zMinGrid = myparams->d_db->getVector<double>( "zMin_GridSpacers" );
-        d_zMaxGrid = myparams->d_db->getVector<double>( "zMax_GridSpacers" );
-        d_lossGrid = myparams->d_db->getVector<double>( "LossCoefficient_GridSpacers" );
-        // check that sizes of grid spacer loss vectors are consistent with the provided number of
-        // grid spacers
-        if ( !( d_NGrid == d_zMinGrid.size() && d_NGrid == d_zMaxGrid.size() &&
-                d_NGrid == d_lossGrid.size() ) )
-            AMP_ERROR( "The size of a grid spacer loss vector is inconsistent with the provided "
-                       "number of grid spacers" );
-    }
-
-    // get subchannel physics model
-    d_subchannelPhysicsModel = myparams->d_subchannelPhysicsModel;
-
-    // Get the subchannel elements
-    d_ownSubChannel  = std::vector<bool>( d_numSubchannels, false );
-    d_subchannelElem = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-        d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
-    auto el = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    for ( size_t i = 0; i < el.size(); i++ ) {
-        auto center = el->centroid();
-        int index   = getSubchannelIndex( center[0], center[1] );
-        if ( index >= 0 ) {
-            d_ownSubChannel[index] = true;
-            d_subchannelElem[index].push_back( *el );
+        // get additional parameters based on heat source type
+        if ( ( d_source == "totalHeatGeneration" ) ||
+             ( d_source == "totalHeatGenerationWithDiscretizationError" ) ) {
+            d_Q         = get<double>( myparams, "Rod_Power", 66.81e3 );
+            d_heatShape = get<std::string>( myparams, "Heat_Shape", "Sinusoidal" );
         }
-        ++el;
-    }
-    d_subchannelFace = std::vector<std::vector<AMP::Mesh::MeshElement>>(
-        d_numSubchannels, std::vector<AMP::Mesh::MeshElement>( 0 ) );
-    for ( size_t i = 0; i < d_numSubchannels; i++ ) {
-        if ( !d_ownSubChannel[i] )
-            continue;
-        AMP::Mesh::MeshIterator localSubchannelIt =
-            AMP::Mesh::MultiVectorIterator( d_subchannelElem[i] );
-        std::shared_ptr<AMP::Mesh::Mesh> localSubchannel =
-            d_Mesh->Subset( localSubchannelIt, false );
-        AMP::Mesh::MeshIterator face =
-            AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
-        for ( size_t j = 0; j < face.size(); j++ ) {
-            d_subchannelFace[i].push_back( *face );
-            ++face;
-        }
-    }
 
-    d_initialized = true;
+        // get additional parameters based on friction model
+        if ( d_frictionModel == "Constant" ) {
+            d_friction = get<double>( myparams, "Friction_Factor", 0.001 );
+        } else if ( d_frictionModel == "Selander" ) {
+            d_roughness = get<double>( myparams, "Surface_Roughness", 0.0015e-3 );
+        }
+
+        // get form loss parameters if there are grid spacers
+        if ( d_NGrid > 0 ) {
+            d_zMinGrid = myparams->d_db->getVector<double>( "zMin_GridSpacers" );
+            d_zMaxGrid = myparams->d_db->getVector<double>( "zMax_GridSpacers" );
+            d_lossGrid = myparams->d_db->getVector<double>( "LossCoefficient_GridSpacers" );
+            // check that sizes of grid spacer loss vectors are consistent with the provided number
+            // of grid spacers
+            if ( !( d_NGrid == d_zMinGrid.size() && d_NGrid == d_zMaxGrid.size() &&
+                    d_NGrid == d_lossGrid.size() ) )
+                AMP_ERROR(
+                    "The size of a grid spacer loss vector is inconsistent with the provided "
+                    "number of grid spacers" );
+        }
+
+        // get subchannel physics model
+        d_subchannelPhysicsModel = myparams->d_subchannelPhysicsModel;
+
+        // Get the subchannel elements
+        d_ownSubChannel  = std::vector<bool>( d_numSubchannels, false );
+        d_subchannelElem = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
+        auto el          = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+        for ( size_t i = 0; i < el.size(); i++ ) {
+            auto center = el->centroid();
+            int index   = getSubchannelIndex( center[0], center[1] );
+            if ( index >= 0 ) {
+                d_ownSubChannel[index] = true;
+                d_subchannelElem[index].push_back( el->clone() );
+            }
+            ++el;
+        }
+        d_subchannelFace = std::vector<std::vector<ElementPtr>>( d_numSubchannels );
+        for ( size_t i = 0; i < d_numSubchannels; i++ ) {
+            if ( !d_ownSubChannel[i] )
+                continue;
+            std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
+            auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
+            auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
+            auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
+            for ( size_t j = 0; j < face.size(); j++ ) {
+                d_subchannelFace[i].push_back( face->clone() );
+                ++face;
+            }
+        }
+
+        d_initialized = true;
+    }
 }
 
 
@@ -207,8 +225,8 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
         PROFILE( "apply-subchannel" );
 
         // Get the iterator over the faces in the local subchannel
-        AMP::Mesh::MeshIterator localSubchannelIt =
-            AMP::Mesh::MultiVectorIterator( d_subchannelFace[isub] );
+        std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub], []( auto ) {} );
+        auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
         AMP_ASSERT( localSubchannelIt.size() == d_z.size() );
 
         // get solution sizes
@@ -274,9 +292,9 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
         double D    = d_channelDiam[isub]; // Channel hydraulic diameter
         double mass = d_channelMass[isub]; // Mass flow rate in the current subchannel
         double R_h, R_p;
-        int j                            = 1;
-        AMP::Mesh::MeshIterator face     = localSubchannelIt.begin();
-        AMP::Mesh::MeshIterator end_face = localSubchannelIt.end();
+        int j         = 1;
+        auto face     = localSubchannelIt.begin();
+        auto end_face = localSubchannelIt.end();
         for ( size_t iface = 0; iface < localSubchannelIt.size(); ++iface, ++j ) {
 
             // ======================================================
@@ -495,6 +513,7 @@ std::shared_ptr<OperatorParameters> SubchannelTwoEqNonlinearOperator::getJacobia
     AMP::LinearAlgebra::Vector::const_shared_ptr u_in )
 {
     std::shared_ptr<AMP::Database> tmp_db = d_params->d_db->cloneDatabase();
+    Operator::setMemoryAndBackendParameters( tmp_db );
     tmp_db->putScalar( "name", "SubchannelTwoEqLinearOperator" );
     tmp_db->putScalar( "InputVariable", d_inpVariable->getName() );
     tmp_db->putScalar( "OutputVariable", d_outVariable->getName() );
@@ -510,55 +529,6 @@ std::shared_ptr<OperatorParameters> SubchannelTwoEqNonlinearOperator::getJacobia
     outParams->clad_d                   = d_params->clad_d;
 
     return outParams;
-}
-
-
-// function used in reset to get double parameter or set default if missing
-double SubchannelTwoEqNonlinearOperator::getDoubleParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    double defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getScalar<double>( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
-}
-
-// function used in reset to get integer parameter or set default if missing
-int SubchannelTwoEqNonlinearOperator::getIntegerParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    int defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getScalar<int>( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
-}
-
-// function used in reset to get string parameter or set default if missing
-std::string SubchannelTwoEqNonlinearOperator::getStringParameter(
-    std::shared_ptr<const SubchannelOperatorParameters> myparams,
-    std::string paramString,
-    std::string defaultValue )
-{
-    bool keyExists = myparams->d_db->keyExists( paramString );
-    if ( keyExists ) {
-        return myparams->d_db->getString( paramString );
-    } else {
-        AMP_WARNING( "Key '" + paramString + "' was not provided. Using default value: "
-                     << defaultValue << "\n" );
-        return defaultValue;
-    }
 }
 
 

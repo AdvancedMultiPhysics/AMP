@@ -1,16 +1,12 @@
-// Database for all the meshes
-Mesh{
-    // This is the main multimesh that will contain all meshes
-    MeshName = "bar"
-    MeshType = "libMesh"
-    FileName = "cube64.with.boundary.labels.e"
-    dim = 3
-    x_offset = 0.0
-    y_offset = 0.0
-    z_offset = 0.0
-    NumberOfElements = 1088
+Mesh {
+MeshName = "cube_3d"
+MeshType = "AMP"
+Generator = "cube"
+dim = 3
+Size = 4, 4, 4
+Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
+static = TRUE
 }
-
 
 FlowFrapconOperator{
   id = 2

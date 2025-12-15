@@ -1,0 +1,11 @@
+Preconditioner{
+  name = "BoomerAMGSolver"
+  max_iterations = 1
+  max_coarse_size = 25
+  strong_threshold = 0.5
+  cycle_type = 1
+  relax_type = 16
+  coarsen_type = 8
+  interp_type = 18
+  relax_order = 0
+}

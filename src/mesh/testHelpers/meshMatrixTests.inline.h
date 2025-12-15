@@ -82,10 +82,6 @@ void meshTests::GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Me
     auto vector2 = AMP::LinearAlgebra::createVector( DOFs, variable, SPLIT );
     auto matrix  = AMP::LinearAlgebra::createMatrix( vector1, vector2 );
 
-    // For each mesh, get a mapping of it's processor id's to the comm of the mesh
-    auto proc_map = createRankMap( mesh );
-    NULL_USE( proc_map );
-
     // For each processor, make sure it can write to all entries
     auto comm = mesh->getComm();
     for ( int p = 0; p < comm.getSize(); p++ ) {
@@ -97,13 +93,13 @@ void meshTests::GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Me
                 double proc = mesh->getComm().getRank();
                 bool passes = true;
                 // Loop through the owned nodes
-                auto it = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-                for ( size_t i = 0; i < it.size(); i++, ++it ) {
+                auto nodes = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+                for ( auto &node : nodes ) {
                     // Get the DOFs for the node and it's neighbors
                     std::vector<size_t> localDOFs;
-                    DOFs->getDOFs( it->globalID(), localDOFs );
+                    DOFs->getDOFs( node.globalID(), localDOFs );
                     std::vector<size_t> neighborDOFs, dofs;
-                    auto neighbors = it->getNeighbors();
+                    auto neighbors = node.getNeighbors();
                     for ( const auto &neighbor : neighbors ) {
                         if ( neighbor == nullptr )
                             continue;

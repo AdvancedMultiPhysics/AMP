@@ -3,7 +3,6 @@
 
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/utils/enable_shared_from_this.h"
-#include "AMP/utils/typeid.h"
 
 #include <iterator>
 #include <memory>
@@ -168,6 +167,12 @@ public: // non-virtual functions
 
     //! Dereference the iterator
     inline const MeshElement *operator->() const;
+
+    //! Dereference the iterator
+    inline MeshElement *get();
+
+    //! Dereference the iterator
+    inline const MeshElement *get() const;
 
     /**
      * \brief Post-Increment

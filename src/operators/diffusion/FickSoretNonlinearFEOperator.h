@@ -36,21 +36,21 @@ public:
         return d_FickOperator->getParameters( type, u, params );
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_OutputVariable;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_FickOperator->getInputVariable();
     }
 
     //! checks input to apply operator for satisfaction of range conditions
-    bool isValidInput( AMP::LinearAlgebra::Vector::const_shared_ptr u ) override
+    bool isValidVector( AMP::LinearAlgebra::Vector::const_shared_ptr u ) override
     {
         bool result;
-        result = d_FickOperator->isValidInput( u ) and d_SoretOperator->isValidInput( u );
+        result = d_FickOperator->isValidVector( u ) and d_SoretOperator->isValidVector( u );
         return result;
     }
 

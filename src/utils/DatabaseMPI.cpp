@@ -1,5 +1,6 @@
 #include "AMP/utils/AMP_MPI.I"
 #include "AMP/utils/Database.hpp"
+#include "AMP/utils/FactoryStrategy.hpp"
 
 #include <cstddef>
 
@@ -65,6 +66,7 @@ size_t AMP::Database::unpack( const std::byte *p )
     d_hash.resize( N_key, 0 );
     d_keys.resize( N_key );
     d_data.resize( N_key );
+    d_used.resize( N_key, true );
     for ( size_t i = 0; i < d_keys.size(); i++ ) {
         AMP::typeID type;
         N += AMP::unpack( d_keys[i], &p[N] );            // Unpack key value

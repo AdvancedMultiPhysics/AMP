@@ -53,21 +53,6 @@ static inline std::string operator+( std::string_view x, std::string_view y )
  */
 
 
-/*! \def NULL_USE(variable)
- *  \brief    A null use of a variable
- *  \details  A null use of a variable, use to avoid GNU compiler warnings about unused variables.
- *  \param variable  Variable to pretend to use
- */
-#undef NULL_USE
-#define NULL_USE( variable )                                     \
-    do {                                                         \
-        if ( 0 ) {                                               \
-            [[maybe_unused]] auto static t = (char *) &variable; \
-            t++;                                                 \
-        }                                                        \
-    } while ( 0 )
-
-
 /*! \def STATIC_ERROR(variable)
  *  \brief      Fail assert
  *  \details    Fail assert at compile time
@@ -175,6 +160,7 @@ static inline std::string operator+( std::string_view x, std::string_view y )
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
     #define AMP_DEBUG_ASSERT( EXP ) AMP_ASSERT( EXP )
     #define AMP_DEBUG_INSIST( EXP, MSG ) AMP_INSIST( EXP, MSG )
+    #define AMP_DEBUG
 #else
     #define AMP_DEBUG_ASSERT( EXP ) \
         do {                        \
@@ -198,8 +184,8 @@ static inline std::string operator+( std::string_view x, std::string_view y )
  */
 #ifndef DISABLE_WARNINGS
     #if defined( _MSC_VER )
-        #define DISABLE_WARNINGS __pragma( warning( push, 0 ) )
-        #define ENABLE_WARNINGS __pragma( warning( pop ) )
+        #define DISABLE_WARNINGS
+        #define ENABLE_WARNINGS
     #elif defined( __clang__ )
         #define DISABLE_WARNINGS                                                      \
             _Pragma( "clang diagnostic push" )                                        \
@@ -211,10 +197,29 @@ static inline std::string operator+( std::string_view x, std::string_view y )
             _Pragma( "clang diagnostic ignored \"-Winconsistent-missing-override\"" ) \
             _Pragma( "clang diagnostic ignored \"-Wimplicit-int-float-conversion\"" )
         #define ENABLE_WARNINGS _Pragma( "clang diagnostic pop" )
+    #elif defined( __INTEL_COMPILER )
+        #if defined ( __INTEL_LLVM_COMPILER )
+            // have to figure these warnings out
+            #define DISABLE_WARNINGS                \
+                _Pragma( "warning (push)" )         \
+                _Pragma( "clang diagnostic ignored \"-Wunused-lambda-capture\"" )
+            #define ENABLE_WARNINGS _Pragma( "warning(pop)" )
+        #else
+           #define DISABLE_WARNINGS                \
+               _Pragma( "warning (push)" )         \
+               _Pragma( "warning disable 488" )    \
+               _Pragma( "warning disable 1011" )   \
+               _Pragma( "warning disable 61" )     \
+               _Pragma( "warning disable 1478" )   \
+               _Pragma( "warning disable 488" )    \
+               _Pragma( "warning disable 2651" )
+           #define ENABLE_WARNINGS _Pragma( "warning(pop)" )
+        #endif
     #elif defined( __GNUC__ )
         #define DISABLE_WARNINGS                                                \
             _Pragma( "GCC diagnostic push" )                                    \
             _Pragma( "GCC diagnostic ignored \"-Wpragmas\"" )                   \
+            _Pragma( "GCC diagnostic ignored \"-Wcpp\"" )                       \
             _Pragma( "GCC diagnostic ignored \"-Wall\"" )                       \
             _Pragma( "GCC diagnostic ignored \"-Wextra\"" )                     \
             _Pragma( "GCC diagnostic ignored \"-Wpedantic\"" )                  \
@@ -235,25 +240,9 @@ static inline std::string operator+( std::string_view x, std::string_view y )
             _Pragma( "GCC diagnostic ignored \"-Wmaybe-uninitialized\"" )       \
             _Pragma( "GCC diagnostic ignored \"-Winaccessible-base\"" )         \
             _Pragma( "GCC diagnostic ignored \"-Wclass-memaccess\"" )           \
+            _Pragma( "GCC diagnostic ignored \"-Wcast-function-type\"" )        \
             _Pragma( "GCC diagnostic ignored \"-Waggressive-loop-optimizations\"" )
         #define ENABLE_WARNINGS _Pragma( "GCC diagnostic pop" )
-    #elif defined( __INTEL_COMPILER )
-        #if defined ( __INTEL_LLVM_COMPILER )
-            // have to figure these warnings out
-            #define DISABLE_WARNINGS                \
-                _Pragma( "warning (push)" )
-            #define ENABLE_WARNINGS _Pragma( "warning(pop)" )
-        #else
-           #define DISABLE_WARNINGS                \
-               _Pragma( "warning (push)" )         \
-               _Pragma( "warning disable 488" )    \
-               _Pragma( "warning disable 1011" )   \
-               _Pragma( "warning disable 61" )     \
-               _Pragma( "warning disable 1478" )   \
-               _Pragma( "warning disable 488" )    \
-               _Pragma( "warning disable 2651" )
-           #define ENABLE_WARNINGS _Pragma( "warning(pop)" )
-        #endif
     #else
         #define DISABLE_WARNINGS
         #define ENABLE_WARNINGS

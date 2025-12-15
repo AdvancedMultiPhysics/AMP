@@ -1,12 +1,12 @@
 #include <algorithm>
 #include <iostream>
 
-static void createNodeSet( AMP::Mesh::MeshManager::Adapter::shared_ptr meshAdapter,
+static void createNodeSet( AMP::Mesh::MeshManager::Adapter::shared_ptr mesh,
                            const unsigned int bndId,
                            std::vector<PointAndId> &nodeSet )
 {
-    auto bnd     = meshAdapter->beginOwnedBoundary( bndId );
-    auto end_bnd = meshAdapter->endOwnedBoundary( bndId );
+    auto bnd     = mesh->beginOwnedBoundary( bndId );
+    auto end_bnd = mesh->endOwnedBoundary( bndId );
 
     nodeSet.clear();
 
@@ -21,8 +21,7 @@ static void createNodeSet( AMP::Mesh::MeshManager::Adapter::shared_ptr meshAdapt
 
     std::sort( nodeSet.begin(), nodeSet.end() );
 
-    std::cout << "Created contact surface nodeset for " << ( meshAdapter->getMeshName() )
-              << std::endl;
+    std::cout << "Created contact surface nodeset for " << ( mesh->getMeshName() ) << std::endl;
 }
 
 static void createMasterSlaveMap( AMP::Mesh::MeshManager::Adapter::shared_ptr masterMeshAdapter,

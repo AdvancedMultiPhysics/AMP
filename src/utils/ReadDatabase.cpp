@@ -37,9 +37,9 @@ double readValue<double>( std::string_view str )
     double data = 0;
     if ( strcmpi( str, "inf" ) || strcmpi( str, "infinity" ) ) {
         data = std::numeric_limits<double>::infinity();
-    } else if ( strcmpi( str, "inf" ) || strcmpi( str, "infinity" ) ) {
+    } else if ( strcmpi( str, "-inf" ) || strcmpi( str, "-infinity" ) ) {
         data = -std::numeric_limits<double>::infinity();
-    } else if ( strcmpi( str, "nan" ) ) {
+    } else if ( strcmpi( str, "nan" ) || strcmpi( str, "-nan" ) ) {
         data = std::numeric_limits<double>::quiet_NaN();
     } else if ( str.find( '/' ) != std::string::npos ) {
         AMP_ERROR( "Error reading value (double): " + std::string( str ) );
@@ -130,9 +130,8 @@ static std::vector<char> readFile( const std::string &filename, Database::source
     size_t bytes = ftell( fid );
     rewind( fid );
     std::vector<char> data( bytes + 1, 0 );
-    size_t result = fread( data.data(), 1, bytes, fid );
+    [[maybe_unused]] size_t result = fread( data.data(), 1, bytes, fid );
     fclose( fid );
-    NULL_USE( result );
     return data;
 }
 
@@ -151,9 +150,10 @@ enum class token_type {
     define,
     bracket,
     end_bracket,
-    end
+    end,
+    import_data
 };
-static inline size_t length( token_type type )
+static constexpr size_t length( token_type type )
 {
     size_t len = 0;
     if ( type == token_type::newline || type == token_type::quote || type == token_type::equal ||
@@ -163,13 +163,14 @@ static inline size_t length( token_type type )
     } else if ( type == token_type::line_comment || type == token_type::block_start ||
                 type == token_type::block_stop || type == token_type::define ) {
         len = 2;
+    } else if ( type == token_type::import_data ) {
+        len = 3;
     }
     return len;
 }
-static inline std::tuple<size_t, token_type> find_next_token( const char *buffer )
+static inline std::tuple<size_t, token_type> find_next_token( std::string_view buffer )
 {
-    size_t i = 0;
-    while ( true ) {
+    for ( size_t i = 0; i < buffer.size(); i++ ) {
         if ( buffer[i] == '\n' || buffer[i] == '\r' ) {
             return std::make_tuple( i + 1, token_type::newline );
         } else if ( buffer[i] == 0 ) {
@@ -198,12 +199,14 @@ static inline std::tuple<size_t, token_type> find_next_token( const char *buffer
         } else if ( buffer[i] == '*' ) {
             if ( buffer[i + 1] == '/' )
                 return std::make_tuple( i + 2, token_type::block_stop );
+        } else if ( std::string_view( &buffer[i], 3 ) == "<<<" ) {
+            return std::make_tuple( i + 3, token_type::import_data );
         }
-        i++;
     }
+    AMP_WARNING( "Token not found" );
     return std::make_tuple<size_t, token_type>( 0, token_type::end );
 }
-static size_t skip_comment( const char *buffer )
+static size_t skip_comment( std::string_view buffer )
 {
     auto tmp          = find_next_token( buffer );
     auto comment_type = std::get<1>( tmp );
@@ -213,7 +216,7 @@ static size_t skip_comment( const char *buffer )
         while ( std::get<1>( tmp ) != token_type::newline &&
                 std::get<1>( tmp ) != token_type::end ) {
             pos += std::get<0>( tmp );
-            tmp = find_next_token( &buffer[pos] );
+            tmp = find_next_token( buffer.substr( pos ) );
         }
         pos += std::get<0>( tmp );
     } else {
@@ -222,7 +225,7 @@ static size_t skip_comment( const char *buffer )
             if ( comment_type == token_type::block_start && std::get<1>( tmp ) == token_type::end )
                 throw std::logic_error( "Encountered end of file before block comment end" );
             pos += std::get<0>( tmp );
-            tmp = find_next_token( &buffer[pos] );
+            tmp = find_next_token( buffer.substr( pos ) );
         }
         pos += std::get<0>( tmp );
     }
@@ -624,7 +627,7 @@ read_value( std::string_view buffer,
                 pos++;
             AMP_INSIST( buffer[pos] == ';', "Equations must terminate with a ';'" );
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else if ( buffer[pos0] == '(' ) {
             // We are dealing with a complex number
@@ -632,7 +635,7 @@ read_value( std::string_view buffer,
             while ( buffer[pos] != ')' )
                 pos++;
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else if ( buffer[pos0] == '"' ) {
             // We are in a string
@@ -642,7 +645,7 @@ read_value( std::string_view buffer,
                 pos++;
             pos++;
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else if ( buffer[pos0] == '[' && nextChar( &buffer[pos0 + 1] ) == '(' ) {
             // We are (probably) reading a SAMRAI box
@@ -650,7 +653,7 @@ read_value( std::string_view buffer,
             while ( buffer[pos] != ']' )
                 pos++;
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
             // Check that it is a box and not an array of complex numbers
         } else if ( buffer[pos0] == '[' ) {
@@ -666,16 +669,16 @@ read_value( std::string_view buffer,
                 pos++;
             }
             size_t i;
-            std::tie( i, type ) = find_next_token( &buffer[pos] );
+            std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
             pos += i;
         } else {
-            std::tie( pos, type ) = find_next_token( &buffer[pos0] );
+            std::tie( pos, type ) = find_next_token( buffer.substr( pos0 ) );
             pos += pos0;
             if ( buffer[pos - 1] == '"' ) {
                 while ( buffer[pos] != '"' )
                     pos++;
                 size_t pos2           = pos + 1;
-                std::tie( pos, type ) = find_next_token( &buffer[pos2] );
+                std::tie( pos, type ) = find_next_token( buffer.substr( pos2 ) );
                 pos += pos2;
             }
         }
@@ -692,7 +695,7 @@ read_value( std::string_view buffer,
         }
         if ( type == token_type::line_comment || type == token_type::block_start ) {
             // We encountered a comment
-            pos += skip_comment( &buffer[pos - length( type )] ) - length( type );
+            pos += skip_comment( buffer.substr( pos - length( type ) ) ) - length( type );
             break;
         }
     }
@@ -763,7 +766,7 @@ read_operator_value( std::string_view buffer,
     token_type type = token_type::equal;
     while ( type != token_type::line_comment && type != token_type::block_start &&
             type != token_type::newline && type != token_type::end ) {
-        std::tie( i, type ) = find_next_token( &buffer[pos] );
+        std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
         pos += i;
     }
     if ( type == token_type::line_comment && type != token_type::block_start )
@@ -826,7 +829,6 @@ static std::string generateMsg( const std::string &errMsgPrefix,
 static std::tuple<size_t, std::set<std::string>>
 loadDatabase( const std::string &errMsgPrefix,
               std::string_view buffer,
-              size_t N,
               Database &db,
               std::map<std::string, const KeyData *> databaseKeys = {},
               int line0                                           = 0 )
@@ -839,18 +841,17 @@ loadDatabase( const std::string &errMsgPrefix,
                 usedKeys.insert( key );
         }
     };
-    while ( pos < N ) {
+    while ( pos < buffer.size() ) {
         size_t i;
         token_type type;
-        std::tie( i, type ) = find_next_token( &buffer[pos] );
+        std::tie( i, type ) = find_next_token( buffer.substr( pos ) );
         std::string_view tmp( &buffer[pos], i - length( type ) );
         const auto key = deblank( tmp );
         int line =
             line0 + std::count_if( &buffer[0], &buffer[pos], []( char c ) { return c == '\n'; } );
         if ( type == token_type::line_comment || type == token_type::block_start ) {
             // Comment
-            AMP_INSIST( key.empty(), generateMsg( errMsgPrefix, "Error reading comment", line ) );
-            size_t k = skip_comment( &buffer[pos] );
+            size_t k = skip_comment( buffer.substr( pos ) );
             pos += k;
         } else if ( type == token_type::newline ) {
             if ( !key.empty() ) {
@@ -899,7 +900,7 @@ loadDatabase( const std::string &errMsgPrefix,
             pos += i;
             auto database = std::make_unique<Database>();
             auto tmp =
-                loadDatabase( errMsgPrefix, &buffer[pos], N - pos, *database, databaseKeys, line );
+                loadDatabase( errMsgPrefix, buffer.substr( pos ), *database, databaseKeys, line );
             pos += std::get<0>( tmp );
             updateUsedKeys( std::get<1>( tmp ) );
             database->setName( std::string( key ) );
@@ -909,6 +910,19 @@ loadDatabase( const std::string &errMsgPrefix,
             // Finished with the database
             pos += i;
             break;
+        } else if ( type == token_type::import_data ) {
+            // Import another file into the current database
+            auto pos2 = buffer.substr( pos ).find( ">>>" );
+            AMP_INSIST( pos2 != std::string::npos,
+                        generateMsg( errMsgPrefix, "Error reading line:", line ) );
+            auto filename = deblank( buffer.substr( pos + 3, pos2 - 3 ) );
+            pos += pos2 + 3;
+            if ( ( filename[0] == '"' && filename.back() == '"' ) ||
+                 ( filename[0] == '\'' && filename.back() == '\'' ) )
+                filename = filename.substr( 1, filename.size() - 2 );
+            auto db2 = Database::parseInputFile( std::string( filename ) );
+            for ( auto &key : db2->getAllKeys() )
+                db.putData( key, db2->getData( key )->clone() );
         } else {
             throw std::logic_error( "Error loading data" );
         }
@@ -1004,7 +1018,7 @@ size_t loadYAMLDatabase( const char *buffer, Database &db, size_t pos = 0, size_
                 line3 = AMP::Utilities::strrep( line3, "  ", " " );
                 line3 = AMP::Utilities::strrep( line3, " ", "," );
                 line3 += '\n';
-                auto tmp = read_value( line3.data(), key );
+                auto tmp = read_value( line3, key );
                 auto y   = std::get<1>( tmp )->convertToDouble();
                 size_t i = x.size( 0 );
                 x.resize( i + 1, y.length() );
@@ -1059,15 +1073,12 @@ void Database::readDatabase( const std::string &filename, source_location src )
     // Read the input file into memory
     auto buffer = readFile( filename, src );
     // Create the database entries
-    loadDatabase( "Error loading database from file \"" + filename + "\"\n",
-                  buffer.data(),
-                  buffer.size(),
-                  *this );
+    loadDatabase( "Error loading database from file \"" + filename + "\"\n", buffer.data(), *this );
 }
 std::unique_ptr<Database> Database::createFromString( std::string_view data )
 {
     auto db = std::make_unique<Database>();
-    loadDatabase( "Error creating database from file\n", data.data(), data.size(), *db );
+    loadDatabase( "Error creating database from file\n", data, *db );
     return db;
 }
 

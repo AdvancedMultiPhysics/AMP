@@ -5,7 +5,8 @@
 
 #include "HYPRE.h"
 #include "HYPRE_IJ_mv.h"
-#include "HYPRE_utilities.h"
+
+#include <vector>
 
 namespace AMP::LinearAlgebra {
 
@@ -28,14 +29,15 @@ public:
 
 private:
     //! Main internal routine for initializing the matrix
-    void initializeHypreMatrix( HYPRE_BigInt first_row,
-                                HYPRE_BigInt last_row,
-                                HYPRE_Int *const csr_ia,
-                                HYPRE_BigInt const *const csr_ja,
-                                HYPRE_Real const *const csr_aa );
+    template<class csr_data_type>
+    void initializeHypreMatrix( std::shared_ptr<csr_data_type>,
+                                HYPRE_MemoryLocation memory_location );
 
     //! hypre IJ matrix that this class wraps
     HYPRE_IJMatrix d_matrix;
+
+    //! Storage for migrated matrix data
+    std::shared_ptr<MatrixData> d_csrdata_dev;
 };
 
 } // namespace AMP::LinearAlgebra

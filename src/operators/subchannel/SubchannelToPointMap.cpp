@@ -15,7 +15,7 @@ SubchannelToPointMap::SubchannelToPointMap(
     std::shared_ptr<const SubchannelToPointMapParameters> params )
 {
     // Copy the inputs
-    AMP_ASSERT( params != nullptr );
+    AMP_ASSERT( params );
     d_Mesh                   = params->d_Mesh;
     d_comm                   = params->d_comm;
     d_point_x                = params->x;
@@ -25,16 +25,16 @@ SubchannelToPointMap::SubchannelToPointMap(
     d_subchannelPhysicsModel = params->d_subchannelPhysicsModel;
     // Check the inputs
     AMP_INSIST( !d_comm.isNull(), "d_comm must not by NULL" );
-    AMP_INSIST( d_comm.anyReduce( d_Mesh != nullptr ),
+    AMP_INSIST( d_comm.anyReduce( d_Mesh.get() != nullptr ),
                 "d_Mesh must be set on at least one processor" );
     AMP_MPI mesh_comm( AMP_COMM_SELF );
-    if ( d_Mesh != nullptr )
+    if ( d_Mesh )
         mesh_comm = d_Mesh->getComm();
     AMP_INSIST( d_comm >= mesh_comm, "d_comm must be >= comm of the subchannel mesh" );
     AMP_ASSERT( d_point_x.size() == d_point_y.size() && d_point_x.size() == d_point_z.size() );
-    AMP_ASSERT( d_subchannelPhysicsModel != nullptr );
+    AMP_ASSERT( d_subchannelPhysicsModel );
     if ( !d_point_x.empty() ) {
-        AMP_INSIST( d_outputVar != nullptr, "Output variable is NULL for subchannel to point map" );
+        AMP_INSIST( d_outputVar, "Output variable is NULL for subchannel to point map" );
         AMP_INSIST( d_outputVar->getName() == "Density" || d_outputVar->getName() == "Temperature",
                     "Invalid output variable for subchannel to point map" );
     }
@@ -50,11 +50,10 @@ void SubchannelToPointMap::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u
     PROFILE( "apply" );
     // Get the list of all subchannel face densities
     std::vector<double> output( N_subchannels * d_subchannel_z.size(), 0.0 );
-    if ( d_Mesh != nullptr ) {
-        AMP::LinearAlgebra::Vector::const_shared_ptr uInternal = subsetInputVector( u );
-        AMP_ASSERT( uInternal != nullptr );
-        std::shared_ptr<AMP::Discretization::DOFManager> faceDOFManager =
-            uInternal->getDOFManager();
+    if ( d_Mesh ) {
+        auto uInternal = subsetInputVector( u );
+        AMP_ASSERT( uInternal );
+        auto faceDOFManager = uInternal->getDOFManager();
         AMP::Mesh::MeshIterator it =
             AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( d_Mesh, 0 );
         std::vector<size_t> dofs;
@@ -108,8 +107,8 @@ void SubchannelToPointMap::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u
 
     // Perform tri-linear interpolation to fill the output
     AMP::LinearAlgebra::VS_Comm commSelector( d_comm );
-    auto outputVec = r->select( commSelector, u->getName() );
-    if ( outputVec != nullptr )
+    auto outputVec = r->select( commSelector );
+    if ( outputVec )
         outputVec = outputVec->subsetVectorForVariable( getOutputVariable() );
     std::vector<double> localOutput( d_point_x.size(), 0.0 );
     if ( d_subchannel_x.size() > 1 && d_subchannel_y.size() > 1 ) {
@@ -134,7 +133,7 @@ void SubchannelToPointMap::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u
             localOutput[i] = AMP::Utilities::linear( d_subchannel_z, output, d_point_z[i] );
     }
     if ( d_point_x.size() > 0 ) {
-        AMP_ASSERT( outputVec != nullptr );
+        AMP_ASSERT( outputVec );
         AMP_ASSERT( outputVec->getLocalSize() == d_point_x.size() );
         std::vector<size_t> dofs( d_point_x.size() );
         for ( size_t i = 0; i < d_point_x.size(); i++ )
@@ -153,7 +152,7 @@ void SubchannelToPointMap::createGrid()
     // Create the grid for all processors
     std::vector<double> x, y, z;
     int root = -1;
-    if ( d_Mesh != nullptr ) {
+    if ( d_Mesh ) {
         root = d_comm.getRank();
         AMP::Mesh::StructuredMeshHelper::getXYZCoordinates( d_Mesh, x, y, z );
     }

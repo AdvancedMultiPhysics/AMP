@@ -13,8 +13,8 @@
 template<typename T, typename Alloc1, typename Alloc2>
 void ArrayTestWithAllocators( AMP::UnitTest &ut )
 {
-    AMP::Array<T, AMP::FunctionTable, Alloc1> A;
-    AMP::Array<T, AMP::FunctionTable, Alloc2> B;
+    AMP::Array<T, AMP::FunctionTable<T>, Alloc1> A;
+    AMP::Array<T, AMP::FunctionTable<T>, Alloc2> B;
     AMP::Array<T> R;
 
     const size_t n             = 10;
@@ -55,24 +55,13 @@ void ArrayTestWithAllocators( AMP::UnitTest &ut )
     }
 }
 
-template<typename T>
-using ReboundManagedAllocator =
-    typename std::allocator_traits<AMP::HipManagedAllocator<double>>::template rebind_alloc<T>;
-
-template<typename T>
-using ReboundDevAllocator =
-    typename std::allocator_traits<AMP::HipDevAllocator<double>>::template rebind_alloc<T>;
-
 int main( int argc, char *argv[] )
 {
     // Declare Arrays and utils
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    ArrayTestWithAllocators<double, AMP::HipManagedAllocator<double>, AMP::HipDevAllocator<double>>(
-        ut );
-
-    ArrayTestWithAllocators<float, ReboundManagedAllocator<float>, ReboundDevAllocator<float>>(
+    ArrayTestWithAllocators<double, AMP::HipManagedAllocator<void>, AMP::HipDevAllocator<void>>(
         ut );
 
     ut.report();

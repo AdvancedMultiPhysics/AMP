@@ -2,6 +2,7 @@
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Database.hpp"
+#include "AMP/utils/FactoryStrategy.hpp"
 #include "AMP/utils/MathExpr.h"
 #include "AMP/utils/Utilities.h"
 
@@ -21,19 +22,10 @@ namespace AMP {
 
 
 /********************************************************************
- * KeyData factory functions                                         *
- ********************************************************************/
-void registerMaterial( const std::string &name, std::function<std::unique_ptr<KeyData>()> fun )
-{
-    AMP::FactoryStrategy<KeyData>::registerFactory( name, fun );
-}
-
-
-/********************************************************************
  * Scale data                                                        *
  ********************************************************************/
 template<class TYPE>
-void scaleData( TYPE &data, double factor )
+void scaleData( TYPE &data, [[maybe_unused]] double factor )
 {
     if constexpr ( std::is_same_v<TYPE, bool> ) {
         throw std::logic_error( "Unable to scale bool" );
@@ -44,20 +36,18 @@ void scaleData( TYPE &data, double factor )
     } else if constexpr ( std::is_arithmetic_v<TYPE> ) {
         data = static_cast<TYPE>( factor ) * data;
     } else {
-        NULL_USE( factor );
         std::string type = typeid( TYPE ).name();
         throw std::logic_error( "Unable to scale " + type );
     }
 }
 template<class TYPE>
-void scaleData( Array<TYPE> &data, double factor )
+void scaleData( Array<TYPE> &data, [[maybe_unused]] double factor )
 {
     if constexpr ( std::is_same_v<TYPE, bool> ) {
         throw std::logic_error( "Unable to scale bool" );
     } else if constexpr ( std::is_arithmetic_v<TYPE> ) {
         data.scale( factor );
     } else {
-        NULL_USE( factor );
         std::string type = typeid( TYPE ).name();
         throw std::logic_error( "Unable to scale " + type );
     }
@@ -406,39 +396,52 @@ instantiate( instantiatePutArray );       // Database::putArray
 instantiate( instantiateGetWithDefault ); // Database::getWithDefault
 template void
 Database::putScalar<const char *>( std::string_view, const char *, Units, Check, source_location );
-template void Database::putScalar<std::_Bit_reference>(
-    std::string_view key, std::_Bit_reference, Units, Check, source_location );
+template void Database::putScalar<std::vector<bool>::reference>(
+    std::string_view key, std::vector<bool>::reference, Units, Check, source_location );
+
+
+} // namespace AMP
 
 
 /********************************************************
  *  Register KeyData with factory                        *
  ********************************************************/
-#define registerkeyData2( TYPE, TYPENAME )                             \
-    REGISTER_KEYDATA( KeyDataScalar<TYPE>, KeyDataScalar_##TYPENAME ); \
-    REGISTER_KEYDATA( KeyDataArray<TYPE>, KeyDataArray##TYPENAME )
-#define registerkeyData( TYPE ) registerkeyData2( TYPE, TYPE )
-registerkeyData( bool );
-registerkeyData( char );
-registerkeyData( int8_t );
-registerkeyData( int16_t );
-registerkeyData( int32_t );
-registerkeyData( int64_t );
-registerkeyData( uint8_t );
-registerkeyData( uint16_t );
-registerkeyData( uint32_t );
-registerkeyData( uint64_t );
-registerkeyData( float );
-registerkeyData( double );
-registerkeyData2( long double, long_double );
-registerkeyData2( std::complex<float>, complex_float );
-registerkeyData2( std::complex<double>, complex_double );
-registerkeyData2( std::string, string );
-registerkeyData( DatabaseBox );
-REGISTER_KEYDATA( EmptyKeyData, EmptyKeyData );
-REGISTER_KEYDATA( DatabaseVector, DatabaseVector );
-REGISTER_KEYDATA( EquationKeyData, EquationKeyData );
-
-} // namespace AMP
+#define REGISTER_KEYDATA( TYPE ) \
+    d_factories[AMP::getTypeID<TYPE>().name] = []() { return std::make_unique<TYPE>(); }
+#define REGISTER_KEYDATA2( TYPE )                 \
+    REGISTER_KEYDATA( AMP::KeyDataScalar<TYPE> ); \
+    REGISTER_KEYDATA( AMP::KeyDataArray<TYPE> )
+template<>
+void AMP::FactoryStrategy<AMP::KeyData>::registerDefault()
+{
+    REGISTER_KEYDATA2( bool );
+    REGISTER_KEYDATA2( char );
+    REGISTER_KEYDATA2( int8_t );
+    REGISTER_KEYDATA2( int16_t );
+    REGISTER_KEYDATA2( int32_t );
+    REGISTER_KEYDATA2( int64_t );
+    REGISTER_KEYDATA2( uint8_t );
+    REGISTER_KEYDATA2( uint16_t );
+    REGISTER_KEYDATA2( uint32_t );
+    REGISTER_KEYDATA2( uint64_t );
+    REGISTER_KEYDATA2( float );
+    REGISTER_KEYDATA2( double );
+    REGISTER_KEYDATA2( long double );
+    REGISTER_KEYDATA2( std::complex<float> );
+    REGISTER_KEYDATA2( std::complex<double> );
+    REGISTER_KEYDATA2( std::string );
+    REGISTER_KEYDATA2( DatabaseBox );
+    REGISTER_KEYDATA( AMP::Database );
+    REGISTER_KEYDATA( AMP::EmptyKeyData );
+    REGISTER_KEYDATA( AMP::DatabaseVector );
+    REGISTER_KEYDATA( AMP::EquationKeyData );
+    d_factories["AMP::KeyDataScalar<std::basic_string<char>>"] = []() {
+        return std::make_unique<AMP::KeyDataScalar<std::string>>();
+    };
+    d_factories["AMP::KeyDataArray<std::basic_string<char>>"] = []() {
+        return std::make_unique<AMP::KeyDataArray<std::string>>();
+    };
+}
 
 
 /********************************************************

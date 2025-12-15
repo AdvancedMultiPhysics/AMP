@@ -54,6 +54,10 @@ public:
     bool getTransportAtGauss() { return d_transportAtGauss; }
 
 protected:
+    void applyScalar();
+    void applyTensor();
+
+protected:
     std::map<std::string, std::vector<double>> d_elementInputVectors;
 
     std::vector<double> *d_elementOutputVector;

@@ -90,7 +90,8 @@ void make_vector_from_two_points( double const *start_point,
 
 double compute_vector_norm( double const *vector )
 {
-    return sqrt( std::inner_product( &( vector[0] ), &( vector[0] ) + 3, &( vector[0] ), 0.0 ) );
+    return std::sqrt(
+        std::inner_product( &( vector[0] ), &( vector[0] ) + 3, &( vector[0] ), 0.0 ) );
 }
 
 void normalize_vector( double *vector )

@@ -9,6 +9,15 @@ testOperator {
    BoundaryOperator="DirichletMatrixCorrection"
 }
 
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "Ox_MSRZC_09"
+        Property = "FickCoefficient"
+        Default_Concentration = .1
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+    } 
+
 DiffusionLinearFEOperator{
     name = "DiffusionLinearFEOperator"
     InputVariable = "concentration"
@@ -27,7 +36,7 @@ DiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 
 }
 
@@ -35,7 +44,7 @@ DirichletMatrixCorrection{
     name="DirichletMatrixCorrection"
     skip_params = FALSE
     skip_rhs_correction = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
@@ -43,11 +52,4 @@ DirichletMatrixCorrection{
     value_0_0        = 300.
   }
 
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Ox_MSRZC_09"
-        Property = "FickCoefficient"
-        Default_Concentration = .1
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-    } 
+

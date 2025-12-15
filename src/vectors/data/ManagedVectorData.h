@@ -3,6 +3,7 @@
 
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/DataChangeListener.h"
+#include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 
 #include <stdexcept>
@@ -20,7 +21,7 @@ namespace AMP::LinearAlgebra {
    A ManagedVector has two pointers: data and engine.  If the data pointer
    is null, then the engine is assumed to have the data.
 */
-class ManagedVectorData : public VectorData, public DataChangeListener
+class ManagedVectorData : public GhostDataHelper<double>, public DataChangeListener
 {
 
 public:
@@ -61,6 +62,7 @@ public: // Derived from VectorData
     void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
     void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
     void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    size_t getAllGhostValues( void *, const typeID & ) const override;
     void putRawData( const void *, const typeID & ) override;
     void getRawData( void *, const typeID & ) const override;
     UpdateState getLocalUpdateStatus() const override;
@@ -78,6 +80,8 @@ public: // Derived from VectorData
 
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
     bool hasContiguousData() const override;
+    void makeConsistent( ScatterType t ) override;
+    using VectorData::makeConsistent;
 
 protected: // Derived from VectorData
     void *getRawDataBlockAsVoid( size_t i ) override;

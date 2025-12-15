@@ -125,20 +125,17 @@ bool are_tri_neighbors( const int ndim, const int tri1[], const int tri2[], int 
  *    tri       The current list of triangles (NDIM+1xN_tri)         *
  *    tri_nab   The current list of triangle neighbors (NDIM+1xN_tri)*
  *    N_unused  The number of unused coordinates                     *
- *    TOL_VOL   The tolerance to useto check if a simplex is valid   *
  ********************************************************************/
-template<int NDIM, class TYPE, class ETYPE>
+template<int NDIM>
 bool check_current_triangles( int N,
-                              const std::array<TYPE, NDIM> x[],
+                              const std::array<int, NDIM> x[],
                               size_t N_tri,
                               const std::array<int, NDIM + 1> tri[],
                               const std::array<int, NDIM + 1> tri_nab[],
-                              const std::vector<size_t> &unused,
-                              double TOL_VOL )
+                              const std::vector<size_t> &unused )
 {
     if ( N_tri == 0 )
         return false;
-    NULL_USE( TOL_VOL );
     PROFILE( "check_current_triangles", 4 );
     bool pass = true;
     for ( size_t i = 0; i < N_tri; i++ ) {
@@ -151,7 +148,7 @@ bool check_current_triangles( int N,
         if ( !used )
             break;
         // Check if the triangle is valid
-        std::array<TYPE, NDIM> x2[NDIM + 1];
+        std::array<int, NDIM> x2[NDIM + 1];
         for ( int d = 0; d <= NDIM; d++ ) {
             int k = tri[i][d];
             if ( k < 0 || k >= N ) {
@@ -164,7 +161,7 @@ bool check_current_triangles( int N,
         if ( !pass ) {
             break;
         }
-        double vol = fabs( DelaunayHelpers::calcVolume<NDIM, TYPE, ETYPE>( x2 ) );
+        double vol = fabs( DelaunayHelpers::calcVolume<NDIM, int>( x2 ) );
         if ( vol < 0.0 ) {
             // The volume of each triangle must be strickly > 0
             printf( "Invalid triangle volume detected\n" );
@@ -214,13 +211,12 @@ static inline uint32_t get_hash_key( uint32_t key )
     key >>= 22;        // mod(key,1024)
     return key;
 }
-template<int NDIM, class TYPE, class ETYPE>
-DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::FaceList( const int Nx_in,
-                                                             const Point *x_in,
-                                                             const int tri0_id,
-                                                             const std::array<int, NDIM + 1> &tri0,
-                                                             const TYPE TOL_VOL )
-    : Nx( Nx_in ), x0( x_in ), TOL_vol( TOL_VOL )
+template<int NDIM>
+DelaunayTessellation::FaceList<NDIM>::FaceList( const int Nx_in,
+                                                const Point *x_in,
+                                                const int tri0_id,
+                                                const std::array<int, NDIM + 1> &tri0 )
+    : Nx( Nx_in ), x0( x_in )
 {
     for ( auto &elem : hash_table )
         elem = -1; // Initialize the hash table to -1
@@ -246,16 +242,16 @@ DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::FaceList( const int Nx_in,
         }
     }
     // Initialize the "center" of the volume
-    for ( auto &elem : xc )
-        elem = 0.0;
+    for ( int d = 0; d < NDIM; d++ )
+        xc[d] = 0.0;
     for ( size_t i = 0; i < data.size(); i++ ) {
         for ( int j = 0; j < NDIM; j++ ) {
             for ( int d = 0; d < NDIM; d++ )
-                xc[d] += static_cast<double>( data[i].x[j][d] );
+                xc[d] += data[i].x[j][d];
         }
     }
-    for ( auto &elem : xc )
-        elem /= ( NDIM ) * ( NDIM + 1 );
+    for ( int d = 0; d < NDIM; d++ )
+        xc[d] /= NDIM * data.size();
     check_data();
 }
 
@@ -263,8 +259,8 @@ DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::FaceList( const int Nx_in,
 /********************************************************************
  * Delete a face                                                     *
  ********************************************************************/
-template<int NDIM, class TYPE, class ETYPE>
-void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::delete_faces( std::vector<int> &ids )
+template<int NDIM>
+void DelaunayTessellation::FaceList<NDIM>::delete_faces( std::vector<int> &ids )
 {
     // Sort the ids to delete
     AMP::Utilities::quicksort( ids );
@@ -304,8 +300,8 @@ void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::delete_faces( std::vecto
  * This function adds a node to the convex hull                      *
  * Note: currently this algorithum scales as O(N)                    *
  ********************************************************************/
-template<int NDIM, class TYPE, class ETYPE>
-void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::add_node(
+template<int NDIM>
+void DelaunayTessellation::FaceList<NDIM>::add_node(
     const int node_id,
     std::vector<size_t> &unused,
     size_t &N_tri,
@@ -331,22 +327,16 @@ void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::add_node(
         // Get the triangle number and face id
         int tri_num  = data[i].tri_id;
         int face_num = data[i].face_id;
-// We will need to for a new triangle with each face where the distance
-// from the face to the point is > 0 and the volume is >= TOL_vol
-#if 0
-            bool pass = calc_surface_distance(data[i].x,&x0[node_id*NDIM]) > 0;
-#else
+        // We will need to for a new triangle with each face
         bool pass = outside_triangle( data[i].x, x0[node_id] );
-#endif
         if ( !pass )
             continue;
         for ( int j = 0; j < NDIM; j++ )
             x2[j] = data[i].x[j];
         x2[NDIM]      = x0[node_id];
-        double volume = fabs( DelaunayHelpers::calcVolume<NDIM, TYPE, ETYPE>( x2 ) );
-        if ( volume <= TOL_vol ) {
+        double volume = fabs( DelaunayHelpers::calcVolume<NDIM, int>( x2 ) );
+        if ( volume <= 0 )
             continue;
-        }
         // Create a new triangle consisting of the current point and the current face
         Triangle tri, nab;
         for ( int j = 0; j < NDIM; j++ )
@@ -380,8 +370,8 @@ void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::add_node(
             int k  = new_tri[i][j1];
             x2[j1] = x0[k];
         }
-        double volume = DelaunayHelpers::calcVolume<NDIM, TYPE, ETYPE>( x2 );
-        if ( fabs( volume ) <= TOL_vol ) {
+        double volume = DelaunayHelpers::calcVolume<NDIM, int>( x2 );
+        if ( fabs( volume ) <= 0 ) {
             // The triangle is invalid
             AMP_ERROR( "Invalid triangle created" );
         } else if ( volume < 0 ) {
@@ -393,9 +383,9 @@ void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::add_node(
             int k  = new_tri[i][j1];
             x2[j1] = x0[k];
         }
-        volume = DelaunayHelpers::calcVolume<NDIM, TYPE, ETYPE>( x2 );
-        if ( volume <= 0.0 )
-            printf( "Warning: volume is still negitive\n" );
+        auto volume2 = DelaunayHelpers::calcVolume<NDIM, int>( x2 );
+        if ( volume2 <= 0.0 )
+            printf( "Warning: volume is still negative\n" );
     }
     // Check if the current triangle shares a face with one of the other new triangles
     for ( size_t i1 = 0; i1 < ids.size(); i1++ ) {
@@ -472,7 +462,7 @@ void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::add_node(
             tri_nab_tmp[i][d] = k;
         }
     }
-    bool all_valid = check_current_triangles<NDIM, TYPE, ETYPE>(
+    bool all_valid = check_current_triangles<NDIM>(
         Nx, x0, new_tri.size(), new_tri, tri_nab_tmp, std::vector<size_t>(), 0 );
     if ( !all_valid )
         printf( "Warning: new triangle neighbors are inconsistent\n" );
@@ -497,8 +487,8 @@ inline bool compare_index<3>( const int *i1, const int *i2 )
            ( i1[1] == i2[0] || i1[1] == i2[1] || i1[1] == i2[2] ) &&
            ( i1[2] == i2[0] || i1[2] == i2[1] || i1[2] == i2[2] );
 }
-template<int NDIM, class TYPE, class ETYPE>
-void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::check_data()
+template<int NDIM>
+void DelaunayTessellation::FaceList<NDIM>::check_data()
 {
     for ( size_t i = 0; i < data.size(); i++ ) {
         int Nf = 0;
@@ -533,13 +523,13 @@ void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::check_data()
  * Note:  Special attention must be paid to triangle indicies that   *
  * are in both the old and new lists.                                *
  ********************************************************************/
-template<int NDIM, class TYPE, class ETYPE>
-void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::update_face( const int N,
-                                                                     const int old_tid[],
-                                                                     const int old_fid[],
-                                                                     const int new_tid[],
-                                                                     const int new_fid[],
-                                                                     const Triangle *tri_in )
+template<int NDIM>
+void DelaunayTessellation::FaceList<NDIM>::update_face( const int N,
+                                                        const int old_tid[],
+                                                        const int old_fid[],
+                                                        const int new_tid[],
+                                                        const int new_fid[],
+                                                        const Triangle *tri_in )
 {
     PROFILE( "update_face", 4 );
     // Check the inputs
@@ -668,121 +658,61 @@ void DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::update_face( const int N
  *    | (A1-An).e1  (A1-An).e2  ...  (A1-An).en |                    *
  *                                                                   *
  ********************************************************************/
-template<class ETYPE>
-inline void calc_surface_normal( const ETYPE x[1][1], ETYPE norm[1] )
+template<int NDIM>
+std::array<int64_t, NDIM>
+DelaunayTessellation::FaceList<NDIM>::calc_surface_normal( const std::array<int, NDIM> *x )
 {
-    NULL_USE( x );
-    norm[0] = ETYPE( 1 );
-}
-template<class ETYPE>
-inline void calc_surface_normal( const ETYPE x[2][2], ETYPE norm[2] )
-{
-    norm[0] = x[0][1] - x[1][1];
-    norm[1] = x[1][0] - x[0][0];
-}
-template<class ETYPE>
-inline void calc_surface_normal( const ETYPE x[3][3], ETYPE norm[3] )
-{
-    norm[0] = ( x[0][1] - x[1][1] ) * ( x[0][2] - x[2][2] ) -
-              ( x[0][2] - x[1][2] ) * ( x[0][1] - x[2][1] );
-    norm[1] = ( x[0][2] - x[1][2] ) * ( x[0][0] - x[2][0] ) -
-              ( x[0][0] - x[1][0] ) * ( x[0][2] - x[2][2] );
-    norm[2] = ( x[0][0] - x[1][0] ) * ( x[0][1] - x[2][1] ) -
-              ( x[0][1] - x[1][1] ) * ( x[0][0] - x[2][0] );
-}
-
-
-/********************************************************************
- * This function calculates distance between a hyperplane and a      *
- *   point. The distance can be determined from  D_i=dot(n,x_0-x_i), *
- *   while the sign can be determined by comparing to a known point  *
- *   inside the convex hull (xc).                                    *
- * Note: this uses a mixture of exact and inexact math, but should   *
- *   be accurate.  The exact math portion requires N^D precision.    *
- ********************************************************************/
-template<int NDIM, class TYPE, class ETYPE>
-double DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::calc_surface_distance(
-    const std::array<TYPE, NDIM> x[NDIM], const std::array<TYPE, NDIM> &xi ) const
-{
-    // First compute the normal
-    // Note: the normal is not normalized and may point inward
-    ETYPE norm[NDIM], x2[NDIM][NDIM];
-    for ( int i = 0; i < NDIM; i++ ) {
-        for ( int j = 0; j < NDIM; j++ ) {
-            x2[i][j] = ETYPE( x[i][j] );
-        }
+    std::array<int64_t, NDIM> norm;
+    if constexpr ( NDIM == 1 ) {
+        norm[0] = int64_t( 1 );
+    } else if constexpr ( NDIM == 2 ) {
+        norm[0] = x[0][1] - x[1][1];
+        norm[1] = x[1][0] - x[0][0];
+    } else if constexpr ( NDIM == 3 ) {
+        norm[0] = int64_t( x[0][1] - x[1][1] ) * int64_t( x[0][2] - x[2][2] ) -
+                  int64_t( x[0][2] - x[1][2] ) * int64_t( x[0][1] - x[2][1] );
+        norm[1] = int64_t( x[0][2] - x[1][2] ) * int64_t( x[0][0] - x[2][0] ) -
+                  int64_t( x[0][0] - x[1][0] ) * int64_t( x[0][2] - x[2][2] );
+        norm[2] = int64_t( x[0][0] - x[1][0] ) * int64_t( x[0][1] - x[2][1] ) -
+                  int64_t( x[0][1] - x[1][1] ) * int64_t( x[0][0] - x[2][0] );
+    } else {
+        AMP_ERROR( "Invalid dimension" );
     }
-    calc_surface_normal( x2, norm );
-    // Compute the distance from the surface
-    ETYPE dist( 0 );
-    long double dot = 0.0;
-    long double tmp = 0.0;
-    for ( int i = 0; i < NDIM; i++ ) {
-        long double norm2 = static_cast<double>( norm[i] );
-        dot += norm2 * ( x[0][i] - xc[i] );
-        dist += norm[i] * ETYPE( xi[i] - x[0][i] );
-        tmp += norm2 * norm2;
-    }
-    double sign = ( dot < 0 ) ? -1.0 : 1.0;
-    return sign * static_cast<double>( dist ) / sqrt( tmp );
+    return norm;
 }
 
 
 /********************************************************************
  * This function determines if a point is outside a triangle on the  *
- *    convex hull.  This is done by using the calculation for the    *
- *    distance to the plane and the point inside the hull in the     *
- *    same mannor as calc_surface_distance, but should be more       *
- *    efficient.                                                     *
+ *    convex hull.  This can be done by computing the distance       *
+ *    between a hyperplane and a point.                              *
+ * This distance between a hyperplane and a point can be determined  *
+ *   from  D_i=dot(n,x_0-x_i), while the sign can be determined by   *
+ *   comparing to a known point inside the convex hull (xc).         *
  * Note: this uses a mixture of exact and inexact math, but should   *
  *   be accurate.  The exact math portion requires N^D precision.    *
  ********************************************************************/
-template<>
-bool DelaunayTessellation::FaceList<2, int, int>::outside_triangle(
-    const std::array<int, 2> x[2], const std::array<int, 2> &xi ) const
-{
-    int nx     = x[0][1] - x[1][1];
-    int ny     = x[1][0] - x[0][0];
-    int dist   = nx * ( xi[0] - x[0][0] ) + ny * ( xi[1] - x[0][1] );
-    double dot = nx * ( x[0][0] - xc[0] ) + ny * ( x[0][1] - xc[1] );
-    return dot * dist > 0;
-}
-template<>
-bool DelaunayTessellation::FaceList<3, int, int>::outside_triangle(
-    const std::array<int, 3> x[3], const std::array<int, 3> &xi ) const
-{
-    int nx = ( x[0][1] - x[1][1] ) * ( x[0][2] - x[2][2] ) -
-             ( x[0][2] - x[1][2] ) * ( x[0][1] - x[2][1] );
-    int ny = ( x[0][2] - x[1][2] ) * ( x[0][0] - x[2][0] ) -
-             ( x[0][0] - x[1][0] ) * ( x[0][2] - x[2][2] );
-    int nz = ( x[0][0] - x[1][0] ) * ( x[0][1] - x[2][1] ) -
-             ( x[0][1] - x[1][1] ) * ( x[0][0] - x[2][0] );
-    int dist   = nx * ( xi[0] - x[0][0] ) + ny * ( xi[1] - x[0][1] ) + nz * ( xi[2] - x[0][2] );
-    double dot = nx * ( x[0][0] - xc[0] ) + ny * ( x[0][1] - xc[1] ) + nz * ( x[0][2] - xc[2] );
-    return dot * dist > 0;
-}
-template<int NDIM, class TYPE, class ETYPE>
-bool DelaunayTessellation::FaceList<NDIM, TYPE, ETYPE>::outside_triangle(
-    const std::array<TYPE, NDIM> x[NDIM], const std::array<TYPE, NDIM> &xi ) const
+template<int NDIM>
+bool DelaunayTessellation::FaceList<NDIM>::outside_triangle( const std::array<int, NDIM> *x,
+                                                             const std::array<int, NDIM> &xi ) const
 {
     // First compute the normal
     // Note: the normal is not normalized and may point inward
-    ETYPE norm[NDIM], x2[NDIM][NDIM];
-    for ( int i = 0; i < NDIM; i++ ) {
-        for ( int j = 0; j < NDIM; j++ ) {
-            x2[i][j] = ETYPE( x[i][j] );
-        }
-    }
-    calc_surface_normal( x2, norm );
+    auto norm = calc_surface_normal( x );
     // Compute the distance from the surface
-    ETYPE dist( 0 );
-    long double dot = 0.0;
+    using ETYPE = typename AMP::DelaunayHelpers::getETYPE<NDIM, int>::ETYPE;
+    ETYPE dist2( 0 );
+    double dot = 0.0;
+    double tmp = 0.0;
     for ( int i = 0; i < NDIM; i++ ) {
-        long double norm2 = static_cast<double>( norm[i] );
+        double norm2 = static_cast<double>( norm[i] );
         dot += norm2 * ( x[0][i] - xc[i] );
-        dist += norm[i] * ETYPE( xi[i] - x[0][i] );
+        dist2 += ETYPE( norm[i] ) * ETYPE( xi[i] - x[0][i] );
+        tmp += norm2 * norm2;
     }
-    return dot * static_cast<double>( dist ) > 0;
+    double sign = ( dot < 0 ) ? -1.0 : 1.0;
+    double dist = sign * static_cast<double>( dist2 ) / std::sqrt( tmp );
+    return dist > 0;
 }
 
 

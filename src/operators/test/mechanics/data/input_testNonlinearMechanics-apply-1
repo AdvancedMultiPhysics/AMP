@@ -1,9 +1,13 @@
 
 Mesh {
-  MeshType = "libMesh"
-    dim = 3
-    MeshName = "TestMesh"
-    FileName = "brick.e"
+  MeshType = "AMP"
+  MeshName = "cube_3d"
+  Generator = "cube"
+  Size = 8, 8, 17
+  Range = -5, 5, -5, 5, -10, 10
+  surfaceIds = 8, 8, 8, 8, 8, 8
+  dim = 3
+  static = TRUE
 }
 
 LinearMechanicsElement {
@@ -13,6 +17,19 @@ LinearMechanicsElement {
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
     QRULE_ORDER = "DEFAULT"
+}
+
+MechanicsMaterialModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    name="VonMisesElastoPlasticModel"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+    Linear_Strain_Hardening = 2.10e9
+    Elastic_Yield_Stress = 1.45e8
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = 0.0
 }
 
 testNonlinearMechanicsOperator {
@@ -35,21 +52,8 @@ testNonlinearMechanicsOperator {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "MechanicsMaterialModel"
+  LocalModel = MechanicsMaterialModel
 
-}
-
-MechanicsMaterialModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = "UO2_MSRZC_09"
-    name="VonMisesElastoPlasticModel"
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23
-    Linear_Strain_Hardening = 2.10e9
-    Elastic_Yield_Stress = 1.45e8
-    Default_Temperature = 310.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = 0.0
 }
 
 

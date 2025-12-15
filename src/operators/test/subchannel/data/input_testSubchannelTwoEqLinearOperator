@@ -18,6 +18,20 @@ CladProperties{
     d = 0.0095, 0.0095, 0.0095, 0.0095
 }
 
+SubchannelPhysicsModel{
+	name = "SubchannelPhysicsModel"
+	Material = "WaterLibrary"
+	Formulation = "FunctionsTesting"
+	Defaults{
+		enthalpy = 200.0e3
+		pressure = 0.5e6
+		temperature = 350.0
+		density = 973.919
+                reynolds = 4.4e5
+                prandtl = 1.0
+                diameter = 0.0095
+	}
+}
 
 SubchannelTwoEqLinearOperator{
     name = "SubchannelTwoEqNonlinearOperator"
@@ -32,7 +46,7 @@ SubchannelTwoEqLinearOperator{
     Rod_Power = 66.9e3             // Rod power in W
     Heat_Source_Type = "totalHeatGeneration"
     Heat_Shape = "Sinusoidal"
-    LocalModel = "SubchannelPhysicsModel"
+    LocalModel = SubchannelPhysicsModel
     Friction_Model = "Selander"
     Surface_Roughness = 0.5e-6
     Number_GridSpacers = 7
@@ -41,19 +55,4 @@ SubchannelTwoEqLinearOperator{
     LossCoefficient_GridSpacers = 0.684, 0.684, 0.684, 0.684, 0.684, 0.684, 0.684
     Reynolds = 95432.91
     Prandtl = 1.0
-}
-
-SubchannelPhysicsModel{
-	name = "SubchannelPhysicsModel"
-	Material = "WaterLibrary"
-	Formulation = "FunctionsTesting"
-	Defaults{
-		enthalpy = 200.0e3
-		pressure = 0.5e6
-		temperature = 350.0
-		density = 973.919
-                reynolds = 4.4e5
-                prandtl = 1.0
-                diameter = 0.0095
-	}
 }

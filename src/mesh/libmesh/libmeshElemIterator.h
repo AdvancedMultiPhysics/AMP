@@ -2,13 +2,18 @@
 #define included_AMP_libmeshElemIterator
 
 #include "AMP/mesh/MeshIterator.h"
-#include "AMP/mesh/libmesh/libmeshMesh.h"
+#include "AMP/mesh/libmesh/libmeshMeshElement.h"
 
 // libMesh includes
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/elem.h"
 
 
 namespace AMP::Mesh {
+
+
+class libmeshMesh;
 
 
 class libmeshElemIterator : public MeshIterator
@@ -47,13 +52,27 @@ public:
     // Return an iterator to the begining
     MeshIterator end() const override;
 
+    // Return the current libmeshMeshElement
+    const libmeshMeshElement &current() const;
+
+    // Return the current libMesh Elem
+    libMesh::Elem *elem() const;
+
     using MeshIterator::operator+;
     using MeshIterator::operator+=;
 
 protected:
     /** Default constructor
      * \param mesh      Pointer to the libMesh mesh
-     * \param gcw       gcw to use
+     * \param begin     Pointer to iterator with the begining position
+     * \param end       Pointer to iterator with the end position
+     */
+    libmeshElemIterator( const AMP::Mesh::libmeshMesh *mesh,
+                         const libMesh::Mesh::element_iterator &begin,
+                         const libMesh::Mesh::element_iterator &end );
+
+    /** Default constructor
+     * \param mesh      Pointer to the libMesh mesh
      * \param begin     Pointer to iterator with the begining position
      * \param end       Pointer to iterator with the end position
      * \param pos       Pointer to iterator with the current position
@@ -61,12 +80,11 @@ protected:
      * \param pos2      Index of the current position in the iterator (-1: unknown)
      */
     libmeshElemIterator( const AMP::Mesh::libmeshMesh *mesh,
-                         int gcw,
                          const libMesh::Mesh::element_iterator &begin,
                          const libMesh::Mesh::element_iterator &end,
                          const libMesh::Mesh::element_iterator &pos,
-                         int size = -1,
-                         int pos2 = -1 );
+                         int size,
+                         int pos2 );
 
     //! Clone the iterator
     MeshIterator *clone() const override;
@@ -75,15 +93,14 @@ protected:
 
 private:
     // Data members
-    int d_gcw;
     int d_dim;
     int d_rank;
     libMesh::Mesh::element_iterator d_begin2;
     libMesh::Mesh::element_iterator d_end2;
     libMesh::Mesh::element_iterator d_pos2;
     MeshID d_meshID;
-    const AMP::Mesh::libmeshMesh *d_mesh;
-    MeshElement d_cur_element;
+    const libmeshMesh *d_mesh;
+    libmeshMeshElement d_cur_element;
 
     void setCurrentElement();
 };

@@ -1,27 +1,46 @@
-
-Mesh{
-    FileName = "brick.e"
-    MeshName = "brick"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 1088
+Mesh {
+  MeshType = "AMP"
+  MeshName = "cube_3d"
+  Generator = "cube"
+  Size = 8, 8, 17
+  Range = -5, 5, -5, 5, -10, 10
+  surfaceIds = 8, 8, 8, 8, 8, 8
+  dim = 3
+  static = TRUE
 }
 
 NumberOfLoadingSteps = 1
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+ThermalStrainMaterialModel1 {
+    USE_MATERIALS_LIBRARY = FALSE
+    USE_CONTINUUM_TANGENT = FALSE
+    USE_UPDATED_LAGRANGIAN = TRUE
+    USE_JAUMANN_RATE = FALSE
+    print_info_level = 2
+    Material = ""
+    //name = "VonMisesElastoPlasticModel"
+    //name = "IsotropicElasticModel"
+    name = "ThermalStrainMaterialModel"
+    Youngs_Modulus = 1.0e2
+    Poissons_Ratio = 0.3
+    Linear_Strain_Hardening = 5.0
+    Elastic_Yield_Stress = 0.1
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    Default_Temperature = 0.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = 0.0
+}
+
 MechanicsNonlinearFEOperator1 {
       name = "MechanicsNonlinearFEOperator"
-        print_info_level = 3
+        print_info_level = 2
         ActiveInputVariables {
           DISPLACEMENT = "displacement"
           TEMPERATURE = "temperature"
@@ -42,28 +61,18 @@ MechanicsNonlinearFEOperator1 {
             QRULE_ORDER = "DEFAULT"
         }
 
-        LocalModel = "ThermalStrainMaterialModel1"
-    }
+        MechanicsLinearElement {
+          name="MechanicsLinearUpdatedLagrangianElement"
+            USE_REDUCED_INTEGRATION = FALSE 
+            USE_JAUMANN_RATE = FALSE
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }
 
-ThermalStrainMaterialModel1 {
-        USE_MATERIALS_LIBRARY = FALSE
-        USE_CONTINUUM_TANGENT = FALSE
-        USE_UPDATED_LAGRANGIAN = TRUE
-        USE_JAUMANN_RATE = FALSE
-        print_info_level = 6
-          Material = ""
-          //name = "VonMisesElastoPlasticModel"
-          //name = "IsotropicElasticModel"
-          name = "ThermalStrainMaterialModel"
-          Youngs_Modulus = 1.0e2
-          Poissons_Ratio = 0.3
-          Linear_Strain_Hardening = 5.0
-          Elastic_Yield_Stress = 0.1
-          THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
-          Default_Temperature = 0.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = 0.0
-      }
+        LocalModel = ThermalStrainMaterialModel1
+    }
 
 DirichletVectorCorrection1 {
     name = "DirichletVectorCorrection"
@@ -143,27 +152,29 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
-    max_error = 1e-10
-
     absolute_tolerance = 1.0e-15
     relative_tolerance = 1.0e-10
     stepTolerance = 1.0e-10
     maximumFunctionEvals = 1000
-    usesJacobian=TRUE
+    usesJacobian=FALSE
+    forcing_term_strategy            =  "EWCHOICE3"
+    EW_choice2_alpha = 2.0
+    EW_choice2_gamma = 0.9
 
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.000000000001"
+
+#    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.000000000001"
 
     LinearSolver{
-      print_info_level = 1
-        max_iterations = 10
-        max_error = 1e-10
+        name = "PetscKrylovSolver"
+        print_info_level = 1
+        max_iterations = 100
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
         relative_tolerance = 1.0e-11
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 100
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
@@ -171,11 +182,11 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
         Preconditioner{
-          print_info_level = 1
+            name = "TrilinosMLSolver"
+            print_info_level = 1
             PDE_equations = 3
             max_levels = 1
             max_iterations = 1
-            max_error = 1.0e-15
         }
     }
 }

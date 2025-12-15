@@ -7,7 +7,7 @@
 #include "AMP/mesh/MultiIterator.h"
 #include "AMP/mesh/SubsetMesh.h"
 #include "AMP/mesh/loadBalance/loadBalanceSimulator.h"
-#include "AMP/utils/AMP_MPI.I"
+#include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/MultiVector.h"
@@ -52,6 +52,7 @@ MultiMesh::MultiMesh( std::shared_ptr<const MeshParameters> params_in ) : Mesh( 
     // Create the load balancer and comms
     loadBalanceSimulator loadBalance( db );
     loadBalance.setProcs( d_comm.getSize() );
+    AMP_ASSERT( loadBalance.maxProcs() >= d_comm.getSize() );
     const auto &submeshes = loadBalance.getSubmeshes();
     std::vector<std::vector<int>> groups( submeshes.size() );
     for ( size_t i = 0; i < submeshes.size(); i++ )
@@ -78,46 +79,8 @@ MultiMesh::MultiMesh( std::shared_ptr<const MeshParameters> params_in ) : Mesh( 
         AMP_ASSERT( new_mesh );
         d_meshes.push_back( new_mesh );
     }
-    // Get the physical dimension
-    PhysicalDim = 0;
-    if ( !d_meshes.empty() )
-        PhysicalDim = d_meshes[0]->getDim();
-    PhysicalDim = d_comm.maxReduce( PhysicalDim );
-    for ( auto &mesh : d_meshes )
-        AMP_INSIST( PhysicalDim == mesh->getDim(),
-                    "Physical dimension must match for all meshes in multimesh" );
-    // Get the highest geometric type
-    GeomDim   = AMP::Mesh::GeomType::Vertex;
-    d_max_gcw = 0;
-    for ( auto &mesh : d_meshes ) {
-        AMP_INSIST( PhysicalDim == mesh->getDim(),
-                    "Physical dimension must match for all meshes in multimesh" );
-        if ( mesh->getGeomType() > GeomDim )
-            GeomDim = mesh->getGeomType();
-        if ( mesh->getMaxGhostWidth() > d_max_gcw )
-            d_max_gcw = mesh->getMaxGhostWidth();
-    }
-    GeomDim   = (GeomType) d_comm.maxReduce( (int) GeomDim );
-    d_max_gcw = d_comm.maxReduce( d_max_gcw );
-    // Compute the bounding box of the multimesh
-    d_box_local = { 1e200, -1e200, 1e200, -1e200, 1e200, -1e200 };
-    d_box_local.resize( 2 * PhysicalDim );
-    for ( auto &mesh : d_meshes ) {
-        auto meshBox = mesh->getBoundingBox();
-        for ( int j = 0; j < PhysicalDim; j++ ) {
-            if ( meshBox[2 * j + 0] < d_box_local[2 * j + 0] ) {
-                d_box_local[2 * j + 0] = meshBox[2 * j + 0];
-            }
-            if ( meshBox[2 * j + 1] > d_box_local[2 * j + 1] ) {
-                d_box_local[2 * j + 1] = meshBox[2 * j + 1];
-            }
-        }
-    }
-    d_box = std::vector<double>( PhysicalDim * 2 );
-    for ( int i = 0; i < PhysicalDim; i++ ) {
-        d_box[2 * i + 0] = d_comm.minReduce( d_box_local[2 * i + 0] );
-        d_box[2 * i + 1] = d_comm.maxReduce( d_box_local[2 * i + 1] );
-    }
+    // Finish initializing the mesh
+    initialize();
     // Displace the meshes
     std::vector<double> displacement( PhysicalDim, 0.0 );
     if ( db->keyExists( "x_offset" ) )
@@ -140,19 +103,11 @@ MultiMesh::MultiMesh( std::shared_ptr<const MeshParameters> params_in ) : Mesh( 
         if ( view )
             d_meshes.push_back( view );
     }
-    // Construct the geometry object for the multimesh
-    std::vector<std::shared_ptr<AMP::Geometry::Geometry>> geom;
-    for ( auto &mesh : d_meshes ) {
-        auto tmp = mesh->getGeometry();
-        if ( tmp )
-            geom.push_back( tmp );
-    }
-    if ( !geom.empty() )
-        d_geometry.reset( new AMP::Geometry::MultiGeometry( geom ) );
 }
 MultiMesh::MultiMesh( const std::string &name,
                       const AMP_MPI &comm,
-                      const std::vector<std::shared_ptr<Mesh>> &meshes )
+                      const std::vector<std::shared_ptr<Mesh>> &meshes,
+                      bool checkMeshComm )
 {
     d_name = name;
     d_comm = comm;
@@ -167,49 +122,12 @@ MultiMesh::MultiMesh( const std::string &name,
         AMP_ERROR( "Empty multimeshes have not been tested yet" );
     }
     // Check the comm (note: the order for the comparison matters)
-    for ( auto &mesh : d_meshes ) {
-        AMP_ASSERT( mesh->getComm() <= d_comm );
+    if ( checkMeshComm ) {
+        for ( auto &mesh : d_meshes )
+            AMP_ASSERT( mesh->getComm() <= d_comm );
     }
-    // Get the physical dimension and the highest geometric type
-    PhysicalDim = d_meshes[0]->getDim();
-    GeomDim     = d_meshes[0]->getGeomType();
-    d_max_gcw   = 0;
-    for ( size_t i = 1; i < d_meshes.size(); i++ ) {
-        AMP_INSIST( PhysicalDim == d_meshes[i]->getDim(),
-                    "Physical dimension must match for all meshes in multimesh" );
-        if ( d_meshes[i]->getGeomType() > GeomDim )
-            GeomDim = d_meshes[i]->getGeomType();
-        if ( d_meshes[i]->getMaxGhostWidth() > d_max_gcw )
-            d_max_gcw = d_meshes[i]->getMaxGhostWidth();
-    }
-    GeomDim   = (GeomType) d_comm.maxReduce( (int) GeomDim );
-    d_max_gcw = d_comm.maxReduce( d_max_gcw );
-    // Compute the bounding box of the multimesh
-    d_box_local = d_meshes[0]->getBoundingBox();
-    for ( size_t i = 1; i < d_meshes.size(); i++ ) {
-        auto meshBox = d_meshes[i]->getBoundingBox();
-        for ( int j = 0; j < PhysicalDim; j++ ) {
-            if ( meshBox[2 * j + 0] < d_box_local[2 * j + 0] ) {
-                d_box_local[2 * j + 0] = meshBox[2 * j + 0];
-            }
-            if ( meshBox[2 * j + 1] > d_box_local[2 * j + 1] ) {
-                d_box_local[2 * j + 1] = meshBox[2 * j + 1];
-            }
-        }
-    }
-    d_box = std::vector<double>( PhysicalDim * 2 );
-    for ( int i = 0; i < PhysicalDim; i++ ) {
-        d_box[2 * i + 0] = d_comm.minReduce( d_box_local[2 * i + 0] );
-        d_box[2 * i + 1] = d_comm.maxReduce( d_box_local[2 * i + 1] );
-    }
-    // Construct the geometry object for the multimesh
-    std::vector<std::shared_ptr<AMP::Geometry::Geometry>> geom;
-    for ( auto &mesh : d_meshes ) {
-        auto tmp = mesh->getGeometry();
-        if ( tmp )
-            geom.push_back( tmp );
-    }
-    d_geometry.reset( new AMP::Geometry::MultiGeometry( geom ) );
+    // Finish initializing the mesh
+    initialize();
 }
 MultiMesh::MultiMesh( const MultiMesh &rhs ) : Mesh( rhs )
 {
@@ -224,6 +142,55 @@ MultiMesh::MultiMesh( const MultiMesh &rhs ) : Mesh( rhs )
             geom.push_back( tmp );
     }
     d_geometry.reset( new AMP::Geometry::MultiGeometry( geom ) );
+}
+void MultiMesh::initialize()
+{
+    // Get the physical dimension and the highest geometric type
+    AMP_ASSERT( !d_meshes.empty() );
+    PhysicalDim = d_meshes[0]->getDim();
+    GeomDim     = d_meshes[0]->getGeomType();
+    d_max_gcw   = d_meshes[0]->getMaxGhostWidth();
+    for ( size_t i = 1; i < d_meshes.size(); i++ ) {
+        AMP_INSIST( PhysicalDim == d_meshes[i]->getDim(),
+                    "Physical dimension must match for all meshes in multimesh" );
+        GeomDim   = std::max( GeomDim, d_meshes[i]->getGeomType() );
+        d_max_gcw = std::min( d_max_gcw, d_meshes[i]->getMaxGhostWidth() );
+    }
+    GeomDim   = (GeomType) d_comm.maxReduce( (int) GeomDim );
+    d_max_gcw = d_comm.minReduce( d_max_gcw );
+    // Compute the bounding box of the multimesh
+    d_box       = d_meshes[0]->getBoundingBox();
+    d_box_local = d_meshes[0]->getLocalBoundingBox();
+    AMP_ASSERT( d_box.size() == 2 * PhysicalDim );
+    AMP_ASSERT( d_box_local.size() == 2 * PhysicalDim );
+    for ( size_t i = 1; i < d_meshes.size(); i++ ) {
+        auto meshBox  = d_meshes[i]->getBoundingBox();
+        auto localBox = d_meshes[i]->getLocalBoundingBox();
+        AMP_ASSERT( meshBox.size() == 2 * PhysicalDim );
+        AMP_ASSERT( localBox.size() == 2 * PhysicalDim );
+        for ( int j = 0; j < PhysicalDim; j++ ) {
+            d_box[2 * j + 0]       = std::min( d_box[2 * j + 0], meshBox[2 * j + 0] );
+            d_box[2 * j + 1]       = std::max( d_box[2 * j + 1], meshBox[2 * j + 1] );
+            d_box_local[2 * j + 0] = std::min( d_box_local[2 * j + 0], localBox[2 * j + 0] );
+            d_box_local[2 * j + 1] = std::max( d_box_local[2 * j + 1], localBox[2 * j + 1] );
+        }
+    }
+    d_box = Mesh::reduceBox( d_box, d_comm );
+    // Construct the geometry object for the multimesh
+    std::vector<std::shared_ptr<AMP::Geometry::Geometry>> geom;
+    for ( auto &mesh : d_meshes ) {
+        auto tmp = mesh->getGeometry();
+        if ( tmp )
+            geom.push_back( tmp );
+    }
+    if ( !geom.empty() )
+        d_geometry.reset( new AMP::Geometry::MultiGeometry( geom ) );
+    // Cache key data
+    int value = 2;
+    for ( auto &mesh : d_meshes )
+        value = std::min( value, static_cast<int>( mesh->isMeshMovable() ) );
+    value       = d_comm.minReduce( value );
+    d_isMovable = static_cast<Mesh::Movable>( value );
 }
 
 
@@ -326,7 +293,7 @@ MultiMesh::createDatabases( std::shared_ptr<const AMP::Database> database )
         return meshDatabases;
     }
     // Find all of the meshes in the database
-    AMP_ASSERT( database != nullptr );
+    AMP_ASSERT( database );
     if ( !database->keyExists( "MeshDatabasePrefix" ) ||
          !database->keyExists( "MeshArrayDatabasePrefix" ) ) {
         std::string msg = "Missing field MeshDatabasePrefix/MeshArrayDatabasePrefix in database:\n";
@@ -498,33 +465,13 @@ MultiMesh::getBoundaryIDIterator( const GeomType type, const int id, const int g
 }
 std::vector<int> MultiMesh::getBlockIDs() const
 {
-    // Get all local id sets
-    std::set<int> ids_set;
+    std::set<int> ids;
     for ( auto &mesh : d_meshes ) {
-        std::vector<int> mesh_idSet = mesh->getBlockIDs();
-        ids_set.insert( mesh_idSet.begin(), mesh_idSet.end() );
+        auto ids2 = mesh->getBlockIDs();
+        ids.insert( ids2.begin(), ids2.end() );
     }
-    std::vector<int> local_ids( ids_set.begin(), ids_set.end() );
-    // Perform a global communication to syncronize the id sets across all processors
-    auto N_id_local = (int) local_ids.size();
-    std::vector<int> count( d_comm.getSize(), 0 );
-    std::vector<int> disp( d_comm.getSize(), 0 );
-    d_comm.allGather( N_id_local, &count[0] );
-    for ( int i = 1; i < d_comm.getSize(); i++ )
-        disp[i] = disp[i - 1] + count[i - 1];
-    int N_id_global = disp[d_comm.getSize() - 1] + count[d_comm.getSize() - 1];
-    if ( N_id_global == 0 )
-        return std::vector<int>();
-    std::vector<int> global_id_list( N_id_global, 0 );
-    int *ptr = nullptr;
-    if ( N_id_local > 0 )
-        ptr = &local_ids[0];
-    d_comm.allGather( ptr, N_id_local, &global_id_list[0], &count[0], &disp[0], true );
-    // Get the unique set
-    for ( auto &mesh : global_id_list )
-        ids_set.insert( mesh );
-    // Return the final vector of ids
-    return std::vector<int>( ids_set.begin(), ids_set.end() );
+    d_comm.setGather( ids );
+    return std::vector<int>( ids.begin(), ids.end() );
 }
 MeshIterator MultiMesh::getBlockIDIterator( const GeomType type, const int id, const int gcw ) const
 {
@@ -604,7 +551,7 @@ MeshIterator MultiMesh::isMember( const MeshIterator &iterator ) const
 /********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-MeshElement MultiMesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &elem_id ) const
 {
     MeshID mesh_id = elem_id.meshID();
     for ( auto &mesh : d_meshes ) {
@@ -618,15 +565,15 @@ MeshElement MultiMesh::getElement( const MeshElementID &elem_id ) const
             return mesh->getElement( elem_id );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
-    return MeshElement();
+    return std::make_unique<MeshElement>();
 }
 
 
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> MultiMesh::getElementParents( const MeshElement &elem,
-                                                       const GeomType type ) const
+std::vector<std::unique_ptr<MeshElement>> MultiMesh::getElementParents( const MeshElement &elem,
+                                                                        const GeomType type ) const
 {
     MeshID mesh_id = elem.globalID().meshID();
     for ( auto &mesh : d_meshes ) {
@@ -640,7 +587,7 @@ std::vector<MeshElement> MultiMesh::getElementParents( const MeshElement &elem,
             return mesh->getElementParents( elem, type );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
-    return std::vector<MeshElement>();
+    return {};
 }
 
 
@@ -757,13 +704,7 @@ std::shared_ptr<Mesh> MultiMesh::Subset( std::string name ) const
 /********************************************************
  * Displace a mesh                                       *
  ********************************************************/
-Mesh::Movable MultiMesh::isMeshMovable() const
-{
-    int value = 2;
-    for ( auto &mesh : d_meshes )
-        value = std::min( value, static_cast<int>( mesh->isMeshMovable() ) );
-    return static_cast<Mesh::Movable>( value );
-}
+Mesh::Movable MultiMesh::isMeshMovable() const { return d_isMovable; }
 uint64_t MultiMesh::positionHash() const
 {
     uint64_t hash = 0;

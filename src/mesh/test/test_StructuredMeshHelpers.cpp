@@ -12,7 +12,7 @@ void runTest( AMP::UnitTest *ut )
 {
     // Create a simple structured mesh
     size_t N_faces_tot = 227;
-    AMP::unit_test::AMPCubeGenerator3<3, 4, 5> generator;
+    AMP::unit_test::AMPCubeGenerator generator( 3, 4, 5 );
     generator.build_mesh();
     auto mesh = generator.getMesh();
 

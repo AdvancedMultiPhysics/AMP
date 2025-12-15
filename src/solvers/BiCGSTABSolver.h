@@ -78,35 +78,29 @@ public:
     void initialize( std::shared_ptr<const SolverStrategyParameters> params ) override;
 
     /**
-     * sets a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     * @param pc shared pointer to preconditioner
+     * Register the operator that the solver will use during solves
+     * @param [in] op shared pointer to operator $A()$ for equation \f$A(u) = f\f$
      */
-    inline void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override
-    {
-        d_pPreconditioner = pc;
-    }
-
-    inline std::shared_ptr<AMP::Solver::SolverStrategy> getNestedSolver() override
-    {
-        return d_pPreconditioner;
-    }
-
-    /**
-     * Resets the registered operator internally with new parameters if necessary
-     * @param params    OperatorParameters object that is NULL by default
-     */
-    void resetOperator( std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override;
+    void registerOperator( std::shared_ptr<AMP::Operator::Operator> op ) override;
 
 protected:
     void getFromInput( std::shared_ptr<AMP::Database> db );
+    void allocateScratchVectors( std::shared_ptr<const AMP::LinearAlgebra::Vector> u );
 
 private:
     int d_restarts = 0; //! number of times the solver is restarted
 
     bool d_bUsesPreconditioner = false;
 
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pPreconditioner;
+    //! scratch vectors required for BiCGSTAB
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_r;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_r_tilde;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_p;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_p_hat;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_s;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_s_hat;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_t;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_v;
 };
 } // namespace AMP::Solver
 

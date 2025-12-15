@@ -1,8 +1,8 @@
 #include "AMP/geometry/GeometryHelpers.h"
-#include "AMP/mesh/MeshPoint.h"
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/DelaunayHelpers.h"
-#include "AMP/utils/Utilities.hpp"
-#include "AMP/utils/arrayHelpers.h"
+#include "AMP/utils/MeshPoint.h"
+#include "AMP/utils/Utilities.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,75 +16,79 @@ namespace AMP::Geometry::GeometryHelpers {
  ****************************************************************/
 static inline std::array<double, 2> map_c2p( int method, double xc, double yc )
 {
-    if ( fabs( xc ) < 1e-12 && fabs( yc ) < 1e-12 )
-        return { 0.0, 0.0 };
-    if ( fabs( yc ) > fabs( xc ) ) {
-        auto [yp, xp] = map_c2p( method, yc, xc );
-        return { xp, yp };
-    }
-    double scale = std::max( { 1.0, xc, yc } );
-    if ( scale > 1.0 ) {
-        xc /= scale;
-        yc /= scale;
-    }
     // map xc > 0 and |yc| < xc = d to (xp,yp) in r=1 using the mapping by:
     //    Dona Calhoun, Christiane Helzel, Randall LeVeque, "Logically Rectangular Grids
     //       and Finite Volume Methods for PDEs in Circular and Spherical Domains",
     //       SIAM Review, Vol. 50, No. 4, pp. 723-752 (2008)
-    double xp             = 0;
-    double yp             = 0;
-    const double invsqrt2 = 0.7071067811865475244;
+    if ( fabs( yc ) > fabs( xc ) ) {
+        auto [yp, xp] = map_c2p( method, yc, xc );
+        return { xp, yp };
+    }
+    // map xc > 0 and |yc| < xc = d
+    constexpr double invsqrt2 = 0.7071067811865475244;
+    AMP_DEBUG_ASSERT( xc >= 0 && xc >= fabs( yc ) );
+    if ( fabs( xc ) < 1e-12 )
+        return { 0.0, 0.0 };
+    if ( xc > 1.0 ) {
+        double scale = xc;
+        yc /= scale;
+        double yp = invsqrt2 * yc;
+        double xp = std::sqrt( 1 - yp * yp );
+        return { scale * xp, scale * yp };
+    }
+    double xp = 0;
+    double yp = 0;
     if ( method == 1 ) {
         yp = invsqrt2 * yc;
-        xp = sqrt( xc * xc - yp * yp );
+        xp = std::sqrt( xc * xc - yp * yp );
     } else if ( method == 2 ) {
-        double center = invsqrt2 * xc - sqrt( 1.0 - 0.5 * xc * xc );
+        double center = invsqrt2 * xc - std::sqrt( 1.0 - 0.5 * xc * xc );
         yp            = invsqrt2 * yc;
-        xp            = center + sqrt( 1.0 - yp * yp );
+        xp            = center + std::sqrt( 1.0 - yp * yp );
     } else if ( method == 3 ) {
         double D      = invsqrt2 * xc * ( 2 - xc );
-        double center = D - sqrt( 1.0 - D * D );
+        double center = D - std::sqrt( 1.0 - D * D );
         yp            = invsqrt2 * ( 2 - xc ) * yc;
-        xp            = center + sqrt( 1.0 - yp * yp );
+        xp            = center + std::sqrt( 1.0 - yp * yp );
     } else {
         AMP_ERROR( "Invalid method" );
     }
-    return { scale * xp, scale * yp };
+    return { xp, yp };
 }
 static inline std::array<double, 2> map_p2c( int method, double xp, double yp )
 {
     // Perform the inverse mapping as map_c2p
-    if ( fabs( xp ) < 1e-12 && fabs( yp ) < 1e-12 )
-        return { 0.0, 0.0 };
     if ( fabs( yp ) > fabs( xp ) ) {
         auto [yc, xc] = map_p2c( method, yp, xp );
         return { xc, yc };
     }
-    double scale = std::max( sqrt( xp * xp + yp * yp ), 1.0 );
-    if ( scale > 1.0 ) {
-        xp /= scale;
-        yp /= scale;
-    }
-    double xc             = 0;
-    double yc             = 0;
-    const double sqrt2    = 1.4142135623730950488;
-    const double invsqrt2 = 0.7071067811865475244;
+    // map |xp| > |yp| to logical
+    constexpr double sqrt2    = 1.4142135623730950488;
+    constexpr double invsqrt2 = 0.7071067811865475244;
+    if ( fabs( xp ) < 1e-12 )
+        return { 0.0, 0.0 };
+    double R = std::sqrt( xp * xp + yp * yp );
+    if ( R > 1.0 )
+        return { R, sqrt2 * yp };
+    double xc = 0;
+    double yc = 0;
     if ( method == 1 ) {
         yc = yp * sqrt2;
-        xc = sqrt( xp * xp + yp * yp );
+        xc = std::sqrt( xp * xp + yp * yp );
     } else if ( method == 2 ) {
         yc     = yp * sqrt2;
-        auto z = xp - sqrt( 1 - yp * yp );
-        xc     = invsqrt2 * ( z + sqrt( 2 - z * z ) );
+        auto z = xp - std::sqrt( 1 - yp * yp );
+        xc     = invsqrt2 * ( z + std::sqrt( 2 - z * z ) );
     } else if ( method == 3 ) {
-        auto z = xp - sqrt( 1 - yp * yp );
-        auto D = 0.5 * ( z + sqrt( 2 - z * z ) );
-        xc     = 1.0 - sqrt( std::max( 1 - D * sqrt2, 0.0 ) );
+        auto z = xp - std::sqrt( 1 - yp * yp );
+        auto D = 0.5 * ( z + std::sqrt( 2 - z * z ) );
+        xc     = 1.0 - std::sqrt( std::max( 1 - D * sqrt2, 0.0 ) );
+        xc     = xc - ( sqrt2 * D - xc * ( 2 - xc ) ) / std::max( xc - 1, 1e-3 );
         yc     = yp * sqrt2 / ( 2 - xc );
     } else {
         AMP_ERROR( "Invalid method" );
     }
-    return { scale * xc, scale * yc };
+    return { xc, yc };
 }
 std::array<double, 2> map_logical_circle( double r, int method, double x, double y )
 {
@@ -147,7 +151,7 @@ std::array<double, 2> map_poly_logical( int N, double R, double x, double y )
     a            = fabs( a - pi / N );
     double m     = get_m( N );
     double tan_a = tan( a );
-    double r     = m * sqrt( 1.0 + tan_a * tan_a ) / ( m + tan_a );
+    double r     = m * std::sqrt( 1.0 + tan_a * tan_a ) / ( m + tan_a );
     double x2    = x / r;
     double y2    = y / r;
     // Map the coordinates to a circle
@@ -171,7 +175,7 @@ std::array<double, 2> map_logical_poly( int N, double R, double x, double y )
     a            = fabs( a - pi / N );
     double m     = get_m( N );
     double tan_a = tan( a );
-    double r     = m * sqrt( 1.0 + tan_a * tan_a ) / ( m + tan_a );
+    double r     = m * std::sqrt( 1.0 + tan_a * tan_a ) / ( m + tan_a );
     x2 *= r;
     y2 *= r;
     return { x2, y2 };
@@ -198,7 +202,7 @@ std::vector<Point2D> get_poly_vertices( int N, double R )
  ****************************************************************/
 Point3D map_logical_sphere( double r, double x, double y, double z )
 {
-    constexpr double sqrt3 = 1.732050807568877; // sqrt(3)
+    constexpr double sqrt3 = 1.732050807568877; // std::sqrt(3)
     // This maps from a a logically rectangular 3D mesh to a sphere mesh using the mapping by:
     //    Dona Calhoun, Christiane Helzel, Randall LeVeque, "Logically Rectangular Grids
     //       and Finite Volume Methods for PDEs in Circular and Spherical Domains",
@@ -207,7 +211,7 @@ Point3D map_logical_sphere( double r, double x, double y, double z )
     double yc = 2 * y - 1; // Change domain to [-1,1]
     double zc = 2 * z - 1; // Change domain to [-1,1]
     double d  = std::max( { fabs( xc ), fabs( yc ), fabs( zc ) } );
-    double r2 = sqrt( xc * xc + yc * yc + zc * zc );
+    double r2 = std::sqrt( xc * xc + yc * yc + zc * zc );
     r2        = std::max( r2, 1e-10 );
     double d2 = d * d;
     double c  = r * ( d * d2 / r2 + ( 1.0 - d2 ) / sqrt3 );
@@ -224,7 +228,7 @@ Point3D map_sphere_logical( double r, double x2, double y2, double z2 )
     //       and Finite Volume Methods for PDEs in Circular and Spherical Domains",
     //       SIAM Review, Vol. 50, No. 4, pp. 723-752 (2008)
     double d1  = std::max( { fabs( x2 ), fabs( y2 ), fabs( z2 ) } );
-    double r21 = sqrt( x2 * x2 + y2 * y2 + z2 * z2 );
+    double r21 = std::sqrt( x2 * x2 + y2 * y2 + z2 * z2 );
     r21        = std::max( r21, 1e-10 );
     // Solve c = a + b/c^2
     double a  = r * sqrt1_3;
@@ -235,7 +239,7 @@ Point3D map_sphere_logical( double r, double x2, double y2, double z2 )
         c = a;
         c = a + b / ( c * c );
     } else {
-        c = 1.5 * sqrt( 12 * a2 * a * b + 81 * b * b ) + a2 * a + 13.5 * b;
+        c = 1.5 * std::sqrt( 12 * a2 * a * b + 81 * b * b ) + a2 * a + 13.5 * b;
         c = cbrt( c );
         c = 0.33333333333333333 * ( c + a2 / c + a );
     }
@@ -268,7 +272,7 @@ Point3D map_logical_sphere_surface( int method, double R, double x, double y )
         auto point = map_logical_circle( 1.0, 3, x3, y );
         double xp  = point[0];
         double yp  = point[1];
-        double zp  = sqrt( fabs( 1.0 - ( xp * xp + yp * yp ) ) );
+        double zp  = std::sqrt( fabs( 1.0 - ( xp * xp + yp * yp ) ) );
         if ( zp < 1e-7 )
             zp = 0;
         else if ( x2 < 0 )
@@ -280,7 +284,7 @@ Point3D map_logical_sphere_surface( int method, double R, double x, double y )
     } else if ( method == 2 ) {
         // Maps to half of spherical surface, but I don't know what else to do
         auto [xp, yp] = map_logical_circle( 1.0, 3, x, y );
-        double zp     = sqrt( 1 - ( xp * xp + yp * yp ) );
+        double zp     = std::sqrt( 1 - ( xp * xp + yp * yp ) );
         if ( zp != zp )
             zp = 0;
         return { R * xp, R * yp, R * zp };
@@ -312,7 +316,7 @@ map_sphere_surface_logical( int method, double R, double x, double y, double z )
         double x2  = z < 0 ? -point[0] : point[0];
         return { 0.5 + 0.5 * x2, point[1] };
     } else if ( method == 2 ) {
-        double R2 = std::max( sqrt( x * x + y * y + z * z ), 1e-10 );
+        double R2 = std::max( std::sqrt( x * x + y * y + z * z ), 1e-10 );
         double xp = x / R2;
         double yp = y / R2;
         return map_circle_logical( 1.0, 3, xp, yp );
@@ -320,7 +324,9 @@ map_sphere_surface_logical( int method, double R, double x, double y, double z )
         // Spherical coordinates, not my favorite but at least it maps
         double pi    = 3.14159265358979323;
         double theta = acos( z / R );
-        double phi   = sgn( y ) * acos( x / sqrt( x * x + y * y ) );
+        double phi   = sgn( y ) * acos( x / std::sqrt( x * x + y * y ) );
+        if ( phi < 0 )
+            phi += 2 * pi;
         return { theta / pi, phi / ( 2 * pi ) };
     } else {
         AMP_ERROR( "Unknown method" );
@@ -348,7 +354,7 @@ Point3D map_shell_logical( double r1, double r2, double x0, double y0, double z0
     // Dona Calhoun, Christiane Helzel, Randall LeVeque, "Logically Rectangular Grids and
     //    Finite Volume Methods for PDEs in Circular and Spherical Domains",
     //    SIAM Review, Vol. 50, No. 4, pp. 723-752 (2008)
-    double R = sqrt( x0 * x0 + y0 * y0 + z0 * z0 );
+    double R = std::sqrt( x0 * x0 + y0 * y0 + z0 * z0 );
     auto xy  = map_sphere_surface_logical( 1, R, x0, y0, z0 );
     double z = ( R - r1 ) / ( r2 - r1 );
     return { std::get<0>( xy ), std::get<1>( xy ), z };
@@ -363,7 +369,7 @@ static inline double dist2( const Point3D &x, const Point3D &y )
     return ( x[0] - y[0] ) * ( x[0] - y[0] ) + ( x[1] - y[1] ) * ( x[1] - y[1] ) +
            ( x[2] - y[2] ) * ( x[2] - y[2] );
 }
-double distance( const Point3D &x, const Point3D &y ) { return sqrt( dist2( x, y ) ); }
+double distance( const Point3D &x, const Point3D &y ) { return std::sqrt( dist2( x, y ) ); }
 
 
 /****************************************************************
@@ -376,12 +382,18 @@ distanceToLine( const Point2D &pos, const Point2D &ang, const Point2D &p1, const
     Point2D v2 = p2 - p1;
     Point2D v3 = { -ang[1], ang[0] };
     double d23 = dot( v2, v3 );
-    if ( fabs( d23 ) < 1e-12 )
+    int sign   = d23 >= 0 ? 1 : -1;
+    d23        = fabs( d23 );
+    double tol = 1e-12;
+    if ( d23 < tol )
         return std::numeric_limits<double>::infinity();
-    double t1 = cross( v2, v1 ) / d23;
-    double t2 = dot( v1, v3 ) / d23;
-    if ( t1 >= 0.0 && t2 >= -1e-10 && t2 <= 1.0 + 1e-10 )
-        return t1;
+    double t1 = sign * cross( v2, v1 );
+    double t2 = sign * dot( v1, v3 );
+    double x  = -tol * d23;
+    double y1 = -1e-10 * d23;
+    double y2 = ( 1.0 + 1e-10 ) * d23;
+    if ( t1 >= x && t2 >= y1 && t2 <= y2 )
+        return t1 / d23;
     return std::numeric_limits<double>::infinity();
 }
 double
@@ -531,12 +543,12 @@ double distanceToCircle( double r, const Point2D &pos, const Point2D &ang )
     bool inside = r2 < r * r;
     double dx   = ang[0];
     double dy   = ang[1];
-    double dr   = sqrt( dx * dx + dy * dy );
+    double dr   = std::sqrt( dx * dx + dy * dy );
     double D    = pos[0] * ( pos[1] + ang[1] ) - ( pos[0] + ang[0] ) * pos[1];
     double t    = r * r * dr * dr - D * D;
     if ( t < 0 )
         return std::numeric_limits<double>::infinity();
-    t = sqrt( t );
+    t = std::sqrt( t );
     double x1, x2, d1, d2;
     if ( ang[0] != 0.0 ) {
         double s = dy < 0 ? -1 : 1;
@@ -624,6 +636,8 @@ distanceToTube( double r_min, double r_max, double h, const Point3D &pos, const 
         if ( ang[0] == 0 && ang[1] == 0 )
             return std::numeric_limits<double>::infinity();
         double d = std::abs( distanceToCircle( r, { pos[0], pos[1] }, { ang[0], ang[1] } ) );
+        if ( fabs( d ) > 1e200 )
+            return std::numeric_limits<double>::infinity();
         double z = pos[2] + d * ang[2];
         // We did not intersect with the surface, check for a second intersection
         if ( fabs( z ) > 0.5 * h ) {
@@ -659,7 +673,7 @@ double distanceToSphere( double r, const Point3D &pos, const Point3D &ang )
     double t = b * b - 4 * a * c;
     if ( t < 0 )
         return std::numeric_limits<double>::infinity();
-    t         = sqrt( t );
+    t         = std::sqrt( t );
     double d1 = ( -b + t ) / ( 2 * a );
     double d2 = ( -b - t ) / ( 2 * a );
     if ( d1 < 0 )
@@ -689,7 +703,7 @@ double distanceToCone( const Point3D &V, double theta, const Point3D &pos, const
     double t   = b * b - 4 * a * c;
     if ( t < 0 )
         return std::numeric_limits<double>::infinity();
-    t         = sqrt( t );
+    t         = std::sqrt( t );
     double d1 = ( -b + t ) / ( 2 * a );
     double d2 = ( -b - t ) / ( 2 * a );
     if ( d1 < 0 )
@@ -1173,13 +1187,90 @@ std::vector<Point3D> sampleQuad( const std::array<Point3D, 4> &v, double d0, boo
         AMP::Utilities::unique( p );
     return p;
 }
-std::vector<Point3D> sampleTet( const std::array<Point3D, 4> &v, double d0, bool interior )
+std::vector<Point3D> sampleTet( const std::array<Point3D, 4> &, double, bool )
 {
-    NULL_USE( v );
-    NULL_USE( d0 );
-    NULL_USE( interior );
     AMP_ERROR( "sampleTet: Not finished" );
     return {};
+}
+
+
+/********************************************************
+ * Assign ranks to a point cloud                         *
+ ********************************************************/
+std::vector<int> assignRanks( const std::vector<double> &x, int N_ranks )
+{
+    std::vector<int> ranks( x.size(), 0 );
+    if ( N_ranks == 0 )
+        return ranks;
+    std::vector<size_t> index( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        index[i] = i;
+    auto x2 = x;
+    Utilities::quicksort( x.size(), x2.data(), index.data() );
+    double N = static_cast<double>( x.size() ) / static_cast<double>( N_ranks );
+    for ( size_t i = 0; i < x.size(); i++ )
+        ranks[index[i]] = std::min<int>( floor( i / N ), N_ranks - 1 );
+    return ranks;
+}
+std::vector<int> assignRanks( const std::vector<Point1D> &x, int N_ranks )
+{
+    std::vector<double> x2( x.size(), 0 );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x2[i] = x[i][0];
+    return assignRanks( x2, N_ranks );
+}
+std::vector<int> assignRanks( const std::vector<Point2D> &x, int N_ranks )
+{
+    std::vector<int> ranks( x.size(), 0 );
+    std::vector<Point3D> x2( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        x2[i] = { x[i][0], x[i][1], 0 };
+    }
+    return assignRanks( x2, N_ranks );
+}
+std::vector<int> assignRanks( const std::vector<Point3D> &x, int N_ranks )
+{
+    std::vector<int> ranks( x.size(), 0 );
+    if ( N_ranks == 1 )
+        return ranks;
+    double range[6] = { 1e200, -1e200, 1e200, -1e200, 1e200, -1e200 };
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        range[0] = std::min( x[i][0], range[0] );
+        range[1] = std::max( x[i][0], range[1] );
+        range[2] = std::min( x[i][1], range[2] );
+        range[3] = std::max( x[i][1], range[3] );
+        range[4] = std::min( x[i][2], range[4] );
+        range[5] = std::max( x[i][2], range[5] );
+    }
+    double dx[3] = { range[1] - range[0], range[3] - range[2], range[5] - range[4] };
+    int dir      = 0;
+    if ( dx[1] > std::max( dx[0], dx[2] ) )
+        dir = 1;
+    else if ( dx[2] > std::max( dx[0], dx[1] ) )
+        dir = 2;
+    std::vector<double> x2( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x2[i] = x[i][dir];
+    auto factors = AMP::Utilities::factor( N_ranks );
+    if ( factors.size() == 1 )
+        return assignRanks( x2, N_ranks );
+    int N_split  = *factors.rbegin();
+    int N_ranks2 = N_ranks / N_split;
+    auto group   = assignRanks( x2, N_split );
+    std::vector<Point3D> xg( x.size() );
+    for ( int r = 0; r < N_split; r++ ) {
+        xg.clear();
+        for ( size_t i = 0; i < x.size(); i++ ) {
+            if ( group[i] == r )
+                xg.push_back( x[i] );
+        }
+        auto ranks2 = assignRanks( xg, N_ranks2 );
+        for ( size_t i = 0, j = 0; i < x.size(); i++ ) {
+            if ( group[i] == r )
+                ranks[i] = r * N_ranks2 + ranks2[j++];
+        }
+    }
+    return ranks;
 }
 
 

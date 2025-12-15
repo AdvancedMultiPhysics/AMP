@@ -10,33 +10,54 @@ Mesh{
     MeshType = "Multimesh"
     MeshDatabasePrefix = "Mesh_"
     MeshArrayDatabasePrefix = "MeshArray_"
-    x_offset = 0.0 
-    y_offset = 0.0 
-    z_offset = 0.0 
-    
-    // This is a multimesh for all pellets
+    LoadBalanceMethod = 0
     Mesh_1 {
         MeshName = "pellet"
-        MeshType = "libMesh"
-        FileName = "halden_1_pellet_9mil.e"
-        dim = 3 
-        x_offset = 0.0 
-        y_offset = 0.0 
-        z_offset = 0.0
-        NumberOfElements = 5226
-    }   
-
-    // The mesh for the clad
+        MeshType = "AMP"
+        Generator = "cylinder"
+        Size = 13, 8
+        Range = 0.00533908, 0, 0.0127
+        surfaceIds = 4, 4, 4, 4, 1, 2
+        static = TRUE
+    }
     Mesh_2 {
         MeshName = "clad"
-        MeshType = "libMesh"
-        FileName = "halden_1_clad.e"
-        dim = 3 
-        x_offset = 0.0 
-        y_offset = 0.0 
-        z_offset = 0.0 
-        NumberOfElements = 4488
-    }   
+        MeshType = "AMP"
+        Generator = "tube"
+        Size = 2, 132, 17
+        Range = 5.46e-3, 6.35e-3, 0, 0.0127
+        surfaceIds = 8, 4, -1, -1, 1, 2
+        static = TRUE
+    }
+}
+
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+} 
+
+DiffusionTransportModel2{
+  name = "DiffusionTransportModel"
+    Material = "Steel316_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 513.2
+    Default_Burnup   = 0.0
+}
+
+SourcePhysicsModel {
+  name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.2 
+    Default_Burnup   = 0.0
 }
 
 NeutronicsOperator{
@@ -47,13 +68,12 @@ NeutronicsOperator{
     timeSteps          = .1
     useFixedValue      = TRUE
     fixedValues        = 4045.3147905 
-    print_info_level   = 3
+    print_info_level   = 1
 }
 
 NonlinearThermalOperator1 {
   name="NonlinearBVPOperator"
     print_info_level = 1
-
     VolumeOperator = "DiffusionNonlinearFEOperator1"
     BoundaryOperator = "RobinVectorCorrection1"
 
@@ -61,16 +81,14 @@ NonlinearThermalOperator1 {
 
 LinearThermalOperator1 {
   name = "LinearBVPOperator"
-    print_info_level = 3
-
+    print_info_level = 1
     VolumeOperator = "DiffusionLinearFEOperator1"
     BoundaryOperator="RobinMatrixCorrection1"
 }
 
 LinearThermalOperator2 {
   name = "LinearBVPOperator"
-    print_info_level = 3
-
+    print_info_level = 1
     VolumeOperator = "DiffusionLinearFEOperator2"
     BoundaryOperator="ColumnBoundaryOperator2"
 }
@@ -85,12 +103,12 @@ VolumeIntegralOperator{
       ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
     }
   OutputVariable = "heatsource"
-    print_info_level = 3
-    LocalModel = "SourcePhysicsModel"
+    print_info_level = 1
+    LocalModel = SourcePhysicsModel
 
     SourceElement {
       name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 1
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
@@ -99,26 +117,35 @@ VolumeIntegralOperator{
 }
 
 NonlinearSolver{
-  print_info_level = 7
+    print_info_level = 2
+    name = "PetscSNESSolver"
     max_iterations = 500
-    max_error = 1e-10
 
-    absolute_tolerance = 1.0e-10
-    relative_tolerance = 1.0e-10
-    stepTolerance = 1.0e-10
+    absolute_tolerance = 1e-10
+    relative_tolerance = 1e-3
+    stepTolerance = 1e-10
     maximumFunctionEvals = 100
     usesJacobian=FALSE
+    linear_solver_type               =  "fgmres"
+//    differencing_parameter_strategy  =  "ds"
+    differencing_parameter_strategy  =  "ds"
+    forcing_term_strategy            =  "EWCHOICE3"
+    EW_choice2_alpha = 2.0
+    EW_choice2_gamma = 0.9
+//    constant_forcing_term            =  0.01
+    constant_forcing_term            =  0.01
+//    constant_forcing_term            =  0.1
 
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_maxstep 10000.0 -snes_ls_alpha 1.0e-4"
+#    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_maxstep 10000.0 -snes_ls_alpha 1.0e-4"
 
     LinearSolver{
-      print_info_level = 0
+        print_info_level = 0
+        name = "PetscKrylovSolver"
         max_iterations = 100
-        max_error = 1e-10
         ksp_type = "fgmres"
-        absolute_tolerance = 1.0e-9
-        relative_tolerance = 1.0e-06
-        divergence_tolerance = 1.0e03
+        absolute_tolerance = 1e-9
+        relative_tolerance = 1e-3
+        divergence_tolerance = 1e3
         max_krylov_dimension = 40
         uses_preconditioner=TRUE
         pc_type = "shell"
@@ -127,9 +154,10 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100 -ksp_rtol 1.0e-9 -ksp_atol 1.0e-9"
 
         Preconditioner{
-          print_info_level = 0
+    	    name = "BoomerAMGSolver"
+            print_info_level = 0
             max_iterations = 1
-            max_error = 1.0e-15
+            max_error = 1e-7
         }
     }
 }
@@ -193,15 +221,14 @@ FlowFrapconOperator{
     value_0        = 300. 
 }
 
-
 DiffusionNonlinearFEOperator1{
   name = "DiffusionNonlinearFEOperator" 
     print_info_level = 1
     ActiveInputVariables {
-      temperature = "Temperature"
+      Temperature = "Temperature"
     }
   OutputVariable = "Temperature"
-    PrincipalVariable = "temperature" 
+    PrincipalVariable = "Temperature" 
 
     DiffusionElement{
       name = "DiffusionNonlinearElement"
@@ -211,7 +238,7 @@ DiffusionNonlinearFEOperator1{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
-  LocalModel = "DiffusionTransportModel1"
+    LocalModel = DiffusionTransportModel1
 }
 
 RobinVectorCorrection1{
@@ -223,23 +250,16 @@ RobinVectorCorrection1{
     alpha          = 1.0
     beta           = 2920
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 1
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   4
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        =  0.0
+    constant_flux = false
+    IsFluxGaussPtVector = false
 }
-
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-} 
 
 DiffusionLinearFEOperator1{
   name = "DiffusionLinearFEOperator"
@@ -259,6 +279,7 @@ DiffusionLinearFEOperator1{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
+    LocalModel = DiffusionTransportModel1
 }
 
 RobinMatrixCorrection1{
@@ -270,13 +291,14 @@ RobinMatrixCorrection1{
     alpha          = 1.0
     beta           = 2920
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 1
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   4
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        =  100.
+    IsFluxGaussPtVector = false
 }
 
 DiffusionLinearFEOperator2{
@@ -297,42 +319,14 @@ DiffusionLinearFEOperator2{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
-  LocalModel = "DiffusionTransportModel2"
+    LocalModel = DiffusionTransportModel2
 }
 
-DiffusionTransportModel2{
-  name = "DiffusionTransportModel"
-    Material = "Steel316_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 513.2
-    Default_Burnup   = 0.0
-}
 
 ColumnBoundaryOperator2{
   name="ColumnBoundaryOperator"
     numberOfBoundaryOperators=2
     boundaryOperators="RobinMatrixCorrection1","RobinMatrixCorrection2"
-
-
-}
-
-RobinMatrixCorrection1 {
-  name="RobinMatrixCorrection"
-    FE_ORDER = "FIRST"  
-    FE_FAMILY = "LAGRANGE"
-    QRULE_TYPE = "QGAUSS"
-    QRULE_ORDER = "DEFAULT"
-    alpha          = 1.0
-    beta           = 2920
-    gamma          = 1.0
-    print_info_level = 3
-    skip_params = FALSE
-    number_of_ids = 1
-    id_0         =   8
-    number_of_dofs_0 =   1
-    dof_0_0          =   0
-    value_0_0        =  100.
 }
 
 
@@ -345,22 +339,13 @@ RobinMatrixCorrection2 {
     alpha          = 1.0
     beta           = 12000
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 1
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   4
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        =  100.
+    IsFluxGaussPtVector = false
 }
 
-SourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.2 
-    Default_Burnup   = 0.0
-}

@@ -1,6 +1,8 @@
 #ifndef included_AMP_NativeTpetraVectorOperations_HPP_
 #define included_AMP_NativeTpetraVectorOperations_HPP_
 
+#include "AMP/utils/Algorithms.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/vectors/trilinos/tpetra/TpetraVectorData.h"
 #include "AMP/vectors/trilinos/tpetra/TpetraVectorOperations.h"
 
@@ -35,17 +37,40 @@ void TpetraVectorOperations<ST, LO, GO, NT>::setToScalar( const AMP::Scalar &alp
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorOperations<ST, LO, GO, NT>::addScalar( const VectorData &,
-                                                        const Scalar &,
-                                                        VectorData & )
+void TpetraVectorOperations<ST, LO, GO, NT>::addScalar( const VectorData &x,
+                                                        const Scalar &val,
+                                                        VectorData &y )
 {
-    AMP_ERROR( "TpetraVectorOperations::addScalar not implemented" );
+    const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    auto &yt       = getTpetraVector<ST, LO, GO, NT>( y );
+    AMP_ASSERT( xt.getNumVectors() == 1 && yt.getNumVectors() == 1 );
+    auto xData = xt.getData( 0 );
+    auto yData = yt.getDataNonConst( 0 );
+
+    AMP_DEBUG_ASSERT( xData.size() == yData.size() );
+    using size_type = typename decltype( xData )::size_type;
+    size_type i     = 0;
+    for ( ; i < xData.size(); ++i ) {
+        yData[i] = xData[i] + static_cast<ST>( val );
+    }
+}
+
+template<typename ST, typename LO, typename GO, typename NT>
+void TpetraVectorOperations<ST, LO, GO, NT>::setMin( const AMP::Scalar &, VectorData & )
+{
+    AMP_ERROR( "TpetraVectorOperations::setMin not implemented" );
+}
+
+template<typename ST, typename LO, typename GO, typename NT>
+void TpetraVectorOperations<ST, LO, GO, NT>::setMax( const AMP::Scalar &, VectorData & )
+{
+    AMP_ERROR( "TpetraVectorOperations::setMax not implemented" );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraVectorOperations<ST, LO, GO, NT>::setRandomValues( VectorData &x )
 {
-    getTpetraVector<ST, LO, GO, NT>( x ).randomize();
+    getTpetraVector<ST, LO, GO, NT>( x ).randomize( 0, 1 );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -109,11 +134,26 @@ void TpetraVectorOperations<ST, LO, GO, NT>::divide( const VectorData &x,
                                                      const VectorData &y,
                                                      VectorData &z )
 {
-    getTpetraVector<ST, LO, GO, NT>( z ).reciprocal( getTpetraVector<ST, LO, GO, NT>( y ) );
-    getTpetraVector<ST, LO, GO, NT>( z ).elementWiseMultiply( static_cast<ST>( 1.0 ),
-                                                              getTpetraVector<ST, LO, GO, NT>( x ),
-                                                              getTpetraVector<ST, LO, GO, NT>( z ),
-                                                              static_cast<ST>( 0.0 ) );
+    const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    const auto &yt = getTpetraVector<ST, LO, GO, NT>( y );
+    auto &zt       = getTpetraVector<ST, LO, GO, NT>( z );
+    AMP_ASSERT( xt.getNumVectors() == 1 && yt.getNumVectors() == 1 && zt.getNumVectors() == 1 );
+    const auto xData = xt.getData( 0 );
+    const auto yData = yt.getData( 0 );
+    auto zData       = zt.getDataNonConst( 0 );
+
+    AMP_DEBUG_ASSERT( xData.size() == yData.size() && xData.size() == zData.size() );
+    using size_type = typename decltype( xData )::size_type;
+    size_type i     = 0;
+    for ( ; i < xData.size(); ++i ) {
+        zData[i] = xData[i] / yData[i];
+    }
+    // seems to be a bug in the elementWiseMultiply that zeroes out z
+    // getTpetraVector<ST, LO, GO, NT>( z ).reciprocal( getTpetraVector<ST, LO, GO, NT>( y ) );
+    // getTpetraVector<ST, LO, GO, NT>( z ).elementWiseMultiply( static_cast<ST>( 1.0 ),
+    //                                                           getTpetraVector<ST, LO, GO, NT>( x
+    //                                                           ), getTpetraVector<ST, LO, GO, NT>(
+    //                                                           z ), static_cast<ST>( 0.0 ) );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -166,17 +206,19 @@ void TpetraVectorOperations<ST, LO, GO, NT>::abs( const VectorData &x, VectorDat
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-Scalar TpetraVectorOperations<ST, LO, GO, NT>::min( const VectorData & ) const
+Scalar TpetraVectorOperations<ST, LO, GO, NT>::min( const VectorData &x ) const
 {
-    AMP_ERROR( "Not implemented" );
-    return 0;
+    auto lmin  = localMin( x );
+    auto &comm = x.getComm();
+    return comm.minReduce( lmin );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-Scalar TpetraVectorOperations<ST, LO, GO, NT>::max( const VectorData & ) const
+Scalar TpetraVectorOperations<ST, LO, GO, NT>::max( const VectorData &x ) const
 {
-    AMP_ERROR( "Not implemented" );
-    return 0;
+    auto lmax  = localMax( x );
+    auto &comm = x.getComm();
+    return comm.maxReduce( lmax );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -259,26 +301,31 @@ Scalar TpetraVectorOperations<ST, LO, GO, NT>::localDot( const VectorData &x,
 
 template<typename ST, typename LO, typename GO, typename NT>
 Scalar
-TpetraVectorOperations<ST, LO, GO, NT>::localMin( const AMP::LinearAlgebra::VectorData & ) const
+TpetraVectorOperations<ST, LO, GO, NT>::localMin( const AMP::LinearAlgebra::VectorData &x ) const
 {
-    AMP_ERROR( "TpetraVectorOperations::localMax not implemented" );
-    return 0;
+    const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    auto xData     = xt.getData( 0 );
+    return AMP::Utilities::Algorithms<ST>::min_element( xData.get(), xData.size() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 Scalar
-TpetraVectorOperations<ST, LO, GO, NT>::localMax( const AMP::LinearAlgebra::VectorData & ) const
+TpetraVectorOperations<ST, LO, GO, NT>::localMax( const AMP::LinearAlgebra::VectorData &x ) const
 {
-    AMP_ERROR( "TpetraVectorOperations::localMax not implemented" );
-    return 0;
+    const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    auto xData     = xt.getData( 0 );
+    return AMP::Utilities::Algorithms<ST>::max_element( xData.get(), xData.size() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 Scalar
-TpetraVectorOperations<ST, LO, GO, NT>::localSum( const AMP::LinearAlgebra::VectorData & ) const
+TpetraVectorOperations<ST, LO, GO, NT>::localSum( const AMP::LinearAlgebra::VectorData &x ) const
 {
-    AMP_ERROR( "TpetraVectorOperations::localSum not implemented" );
-    return 0;
+    const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    AMP_ASSERT( xt.getNumVectors() == 1 );
+    auto xData = xt.getData( 0 );
+    return AMP::Utilities::Algorithms<ST>::accumulate(
+        xData.get(), xData.size(), static_cast<ST>( 0 ) );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -307,12 +354,28 @@ Scalar TpetraVectorOperations<ST, LO, GO, NT>::localWrmsNormMask(
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-bool TpetraVectorOperations<ST, LO, GO, NT>::localEquals( const AMP::LinearAlgebra::VectorData &,
-                                                          const AMP::LinearAlgebra::VectorData &,
-                                                          const Scalar & ) const
+bool TpetraVectorOperations<ST, LO, GO, NT>::localEquals( const AMP::LinearAlgebra::VectorData &x,
+                                                          const AMP::LinearAlgebra::VectorData &y,
+                                                          const Scalar &tol ) const
 {
-    AMP_ERROR( "TpetraVectorOperations::localEquals not implemented" );
-    return false;
+    auto rval      = true;
+    const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    const auto &yt = getTpetraVector<ST, LO, GO, NT>( y );
+    AMP_ASSERT( xt.getNumVectors() == 1 && yt.getNumVectors() == 1 );
+    auto xData = xt.getData( 0 );
+    auto yData = yt.getData( 0 );
+
+    if ( xData.size() != yData.size() )
+        return false;
+
+    for ( int i = 0; i < xData.size(); ++i ) {
+        if ( !AMP::Utilities::approx_equal( xData[i], yData[i], static_cast<ST>( tol ) ) ) {
+            rval = false;
+            break;
+        }
+    }
+
+    return rval;
 }
 
 } // namespace AMP::LinearAlgebra

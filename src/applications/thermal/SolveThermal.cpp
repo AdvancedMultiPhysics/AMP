@@ -88,9 +88,6 @@ solveTemperature( std::shared_ptr<AMP::Mesh::Mesh> mesh,
 {
     PROFILE( "solveTemperature" );
 
-    // Register the solver factories
-    AMP::Solver::registerSolverFactories();
-
     // Create the operator and solution vector
     auto [nonlinearOp, solVec] = createThermalOperatorsFE( mesh, input_db );
 

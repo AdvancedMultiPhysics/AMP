@@ -33,6 +33,7 @@ StridedVariable::getSubsetDOF( std::shared_ptr<AMP::Discretization::DOFManager> 
     return subsetDOF;
 }
 
+AMP::AMP_MPI StridedVariable::getComm( const AMP::AMP_MPI &comm ) const { return comm; }
 
 std::shared_ptr<VectorSelector> StridedVariable::createVectorSelector() const
 {

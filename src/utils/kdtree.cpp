@@ -1,5 +1,5 @@
 #include "AMP/utils/kdtree.h"
-#include "AMP/mesh/MeshPoint.h"
+#include "AMP/utils/MeshPoint.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/kdtree2.h"
 
@@ -24,7 +24,7 @@ static inline double calcDist( const std::array<double, NDIM> &x,
     double dist = 0;
     for ( int d = 0; d < NDIM; d++ )
         dist += ( x[d] - y[d] ) * ( x[d] - y[d] );
-    return sqrt( dist );
+    return std::sqrt( dist );
 }
 
 
@@ -43,7 +43,7 @@ void *createTree( const size_t N, const double *const *x )
         for ( int d = 0; d < NDIM; d++ )
             x2[i][d] = x[d][i];
     }
-    return new kdtree2<NDIM, int>( N, x2.data(), index.data() );
+    return new kdtree2<NDIM, int>( x2, index );
 }
 kdtree::kdtree( const int N_dim, const size_t N, const double *const *x )
     : d_dim( N_dim ), d_N( N ), d_tree( nullptr )

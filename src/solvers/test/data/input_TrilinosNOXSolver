@@ -1,0 +1,23 @@
+// This is the input file for testTrilinosNOXSolver
+
+
+NonlinearSolver{
+    name = "TrilinosNOXSolver"
+    print_info_level = 2
+    solver = "JFNK"
+    max_iterations = 500
+    absolute_tolerance = 1.0e-10
+    relative_tolerance = 1.0e-10
+
+    LinearSolver{
+        print_info_level = 2
+        linearSolverType = "Belos"
+        linearSolver = "Pseudo Block GMRES"
+        max_iterations = 100
+        absolute_tolerance = 1.0e-9
+        relative_tolerance = 1.0e-01
+    }
+
+}
+
+

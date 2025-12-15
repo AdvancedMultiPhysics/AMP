@@ -13,6 +13,17 @@
 namespace AMP::DelaunayTessellation {
 
 
+//! Check if
+/*!
+ * @brief  Check if the points are collinear
+ * @details  This function will check if all the points in a set are collinear
+ * @param x         The coordinates of the vertices (ndim x N)
+ * @return          Returns true if the points are collinear
+ */
+template<class TYPE>
+bool collinear( const Array<TYPE> &x );
+
+
 //! Function that creates the Delaunay Tessellation
 /*!
  * This function will create a valid Delaunay Tessellation in multiple dimensions.
@@ -52,28 +63,25 @@ double calc_volume( int ndim, const double x[] );
  * Note:  If we are checking the surface between 2 simplicies and they are both valid
  *    (have a positive, non-zero volume), it is suffcient to check the vertix of 1 volume
  *    against the circumcircle of the other.  We do not need to perform both checks.
- * @param ndim      The number of dimensions
  * @param x         The coordinates of the vertices of the simplex
  * @param xi        The coordinates of the vertex to check
  * @param TOL_VOL   A tolerance on the volume to use
  */
-int test_in_circumsphere( const int ndim,
-                          const double x[],
-                          const double xi[],
-                          const double TOL_VOL );
-int test_in_circumsphere( const int ndim, const int x[], const int xi[], const double TOL_VOL );
+template<int NDIM, class TYPE>
+int test_in_circumsphere( const std::array<TYPE, NDIM> x[],
+                          const std::array<TYPE, NDIM> &xi,
+                          double TOL_VOL );
 
 
 //! Function to return the circumsphere containing a simplex
 /*!
  * This function computes the circumsphere that contains a simplex
- * @param[in]  ndim     The number of dimensions
- * @param[in]  x        The coordinates of the vertices of the simplex
+ * @param[in]  x0       The coordinates of the vertices of the simplex
  * @param[out] R        The radius of the circumsphere
- * @param[out] c        The center of the circumsphere
+ * @param[out] center   The center of the circumsphere
  */
-void get_circumsphere( const int ndim, const double x[], double &R, double *c );
-void get_circumsphere( const int ndim, const int x[], double &R, double *c );
+template<int NDIM, class TYPE>
+void get_circumsphere( const std::array<TYPE, NDIM> x0[], double &R, double *center );
 
 
 //! Subroutine to compute the Barycentric coordinates

@@ -1,24 +1,47 @@
 #include "AMP/operators/libmesh/MassLinearFEOperator.h"
+#include "AMP/discretization/simpleDOF_Manager.h"
+#include "AMP/operators/ElementOperationFactory.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 #include "AMP/utils/Utilities.h"
 
 
 namespace AMP::Operator {
 
 
-std::shared_ptr<AMP::LinearAlgebra::Variable> MassLinearFEOperator::getInputVariable()
+static std::shared_ptr<const MassLinearFEOperatorParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
 {
-    return d_inpVariable;
+    if ( std::dynamic_pointer_cast<const MassLinearFEOperatorParameters>( params ) )
+        return std::dynamic_pointer_cast<const MassLinearFEOperatorParameters>( params );
+    auto db = params->d_db;
+    // first create a source physics model
+    auto model_db            = db->getDatabase( "LocalModel" );
+    auto elementPhysicsModel = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+    auto densityModel        = std::dynamic_pointer_cast<MassDensityModel>( elementPhysicsModel );
+    AMP_INSIST( densityModel, "NULL density model" );
+    // next create a ElementOperation object
+    auto densityLinElem =
+        ElementOperationFactory::createElementOperation( db->getDatabase( "MassElement" ) );
+    // now create the linear density operator
+    AMP_ASSERT( db->getString( "name" ) == "MassLinearFEOperator" );
+    auto scalarDofs = AMP::Discretization::simpleDOFManager::create(
+        params->d_Mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+    auto densityOpParams            = std::make_shared<MassLinearFEOperatorParameters>( db );
+    densityOpParams->d_Mesh         = params->d_Mesh;
+    densityOpParams->d_densityModel = densityModel;
+    densityOpParams->d_elemOp       = densityLinElem;
+    densityOpParams->d_inDofMap     = scalarDofs;
+    densityOpParams->d_outDofMap    = scalarDofs;
+    return densityOpParams;
 }
 
 
-std::shared_ptr<AMP::LinearAlgebra::Variable> MassLinearFEOperator::getOutputVariable()
+MassLinearFEOperator::MassLinearFEOperator( std::shared_ptr<const OperatorParameters> params )
+    : MassLinearFEOperator( convert( params ), true )
 {
-    return d_outVariable;
 }
-
-
 MassLinearFEOperator::MassLinearFEOperator(
-    std::shared_ptr<const MassLinearFEOperatorParameters> params )
+    std::shared_ptr<const MassLinearFEOperatorParameters> params, bool )
     : LinearFEOperator( params )
 {
     AMP_INSIST( params, "NULL parameter" );
@@ -51,6 +74,18 @@ MassLinearFEOperator::MassLinearFEOperator(
     d_outVariable      = std::make_shared<AMP::LinearAlgebra::Variable>( outVar );
 
     reset( params );
+}
+
+
+std::shared_ptr<AMP::LinearAlgebra::Variable> MassLinearFEOperator::getInputVariable() const
+{
+    return d_inpVariable;
+}
+
+
+std::shared_ptr<AMP::LinearAlgebra::Variable> MassLinearFEOperator::getOutputVariable() const
+{
+    return d_outVariable;
 }
 
 
@@ -95,7 +130,7 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_temperature->getDOFManager();
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localTemperature[r] = d_temperature->getValueByGlobalID( dofs[0] );
         }
@@ -108,7 +143,7 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_concentration->getDOFManager();
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localConcentration[r] = d_concentration->getValueByGlobalID( dofs[0] );
         }
@@ -121,7 +156,7 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_burnup->getDOFManager();
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localBurnup[r] = d_burnup->getValueByGlobalID( dofs[0] );
         }
@@ -139,9 +174,11 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
 
 void MassLinearFEOperator::postElementOperation()
 {
+    PROFILE( "postElementOperation", 5 );
+
     std::vector<size_t> d_dofIndices( d_currNodes.size() ), dofs( 1 );
     for ( size_t i = 0; i < d_currNodes.size(); i++ ) {
-        d_inDofMap->getDOFs( d_currNodes[i].globalID(), dofs );
+        d_inDofMap->getDOFs( d_currNodes[i]->globalID(), dofs );
         AMP_ASSERT( dofs.size() == 1 );
         d_dofIndices[i] = dofs[0];
     }

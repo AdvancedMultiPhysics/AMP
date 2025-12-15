@@ -126,7 +126,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     for ( int i = 0; i < max_num; i++ ) {
         diff_norm += ( ( sig11_init[i] - sig11[i] ) * ( sig11_init[i] - sig11[i] ) );
     }
-    diff_norm = sqrt( diff_norm ) / sig11[max_num - 1];
+    diff_norm = std::sqrt( diff_norm ) / sig11[max_num - 1];
     if ( diff_norm > ( 1.0e-8 ) ) {
         ut->failure( "Gauss point test for Linear Isotropic Hardening" );
     } else {

@@ -140,7 +140,7 @@ public:
     }
 };
 
-static void createNodeSet( AMP::Mesh::MeshManager::Adapter::shared_ptr meshAdapter,
+static void createNodeSet( AMP::Mesh::MeshManager::Adapter::shared_ptr mesh,
                            const unsigned int bndId,
                            std::vector<PointAndId> &nodeSet );
 

@@ -2,8 +2,8 @@
 #define included_AMP_Geometry
 
 #include "AMP/mesh/MeshID.h"
-#include "AMP/mesh/MeshPoint.h"
 #include "AMP/utils/Database.h"
+#include "AMP/utils/MeshPoint.h"
 
 #include <memory>
 #include <vector>

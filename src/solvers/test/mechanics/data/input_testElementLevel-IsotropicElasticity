@@ -1,8 +1,4 @@
-
-//mesh_file = "mesh7elem-1"
 mesh_file = "oneBrick0"
-//mesh_file = "distortedBrick0"
-//mesh_file = "twentyBrick0"
 
 NumberOfMeshes = 0
 
@@ -56,7 +52,7 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 
@@ -92,9 +88,20 @@ NonlinearSolver{
     }
 }
 
+MechanicsMaterialModel {
+        USE_MATERIALS_LIBRARY = FALSE
+          Material = ""
+          name = "IsotropicElasticModel"
+          Youngs_Modulus = 100.0
+          Poissons_Ratio = 0.0
+          Default_Temperature = 0.0
+          Default_Burnup = 0.0
+          Default_Oxygen_Concentration = 0.0
+      }
+
 MechanicsNonlinearFEOperator{
       name = "MechanicsNonlinearFEOperator"
-        print_info_level = 3
+        print_info_level = 2
         ActiveInputVariables {
           DISPLACEMENT = "displacement"
         }
@@ -110,7 +117,7 @@ MechanicsNonlinearFEOperator{
             QRULE_TYPE = "QGAUSS"
             QRULE_ORDER = "DEFAULT"
         }
-	LocalModel = "MechanicsMaterialModel"
+	LocalModel = MechanicsMaterialModel
     }
 
 DirichletVectorCorrection{
@@ -199,14 +206,3 @@ MechanicsLinearFEOperator{
         }
     }
 
-
-MechanicsMaterialModel {
-        USE_MATERIALS_LIBRARY = FALSE
-          Material = ""
-          name = "IsotropicElasticModel"
-          Youngs_Modulus = 100.0
-          Poissons_Ratio = 0.0
-          Default_Temperature = 0.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = 0.0
-      }

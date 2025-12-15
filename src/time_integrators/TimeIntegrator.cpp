@@ -32,6 +32,8 @@ TimeIntegrator::TimeIntegrator(
     AMP_INSIST( d_pParameters, "Null parameter" );
 
     initialize( d_pParameters );
+
+    d_initialized = true;
 }
 
 TimeIntegrator::~TimeIntegrator() { AMPManager::decrementResource( "TimeIntegrator" ); }
@@ -66,12 +68,10 @@ uint64_t TimeIntegrator::getID() const
 
 void TimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> parameters )
 {
-    // for now the solution is set to the initial conditions by Jungho
     d_ic_vector = parameters->d_ic_vector;
     AMP_ASSERT( d_ic_vector );
 
     // for now the solution is set to the initial conditions
-    //    d_solution_vector = d_ic_vector->clone( "current solution" );
     d_solution_vector = d_ic_vector->clone();
     d_solution_vector->copyVector( d_ic_vector );
 
@@ -133,10 +133,15 @@ void TimeIntegrator::getFromInput( std::shared_ptr<const AMP::Database> db )
         AMP_ERROR( " -- Key data `name' missing in input." );
     }
 
-    if ( db->keyExists( "initial_time" ) ) {
-        d_initial_time = db->getScalar<double>( "initial_time" );
-    } else {
-        AMP_ERROR( d_object_name + " -- Key data `initial_time' missing in input" );
+    if ( !d_initialized ) {
+        if ( db->keyExists( "initial_time" ) ) {
+            d_initial_time = db->getScalar<double>( "initial_time" );
+        } else {
+            AMP_ERROR( d_object_name + " -- Key data `initial_time' missing in input" );
+        }
+
+        d_integrator_step = db->getWithDefault<int>( "integrator_step", 0 );
+        d_initial_dt      = db->getWithDefault<double>( "initial_dt", 0.0 );
     }
 
     if ( db->keyExists( "final_time" ) ) {
@@ -169,12 +174,12 @@ void TimeIntegrator::getFromInput( std::shared_ptr<const AMP::Database> db )
         AMP_ERROR( d_object_name + " -- Error in input data min_dt < 0." );
     }
 
-    d_initial_dt = db->getWithDefault<double>( "initial_dt", 0.0 );
-
     d_iDebugPrintInfoLevel = db->getWithDefault<int>( "print_info_level", 0 );
 
-    d_current_dt = d_initial_dt;
-    d_old_dt     = d_initial_dt;
+    if ( !d_initialized ) {
+        d_current_dt = d_initial_dt;
+        d_old_dt     = d_initial_dt;
+    }
 }
 
 /*
@@ -229,11 +234,16 @@ void TimeIntegrator::registerChildObjects( AMP::IO::RestartManager *manager ) co
 }
 void TimeIntegrator::writeRestart( int64_t fid ) const
 {
-    d_pParameters->d_db->putScalar<double>( "initial_time", d_current_time );
-    d_pParameters->d_db->putScalar<double>( "initial_dt", d_current_dt );
+    d_pParameters->d_db->putScalar<double>(
+        "initial_time", d_current_time, {}, AMP::Database::Check::Overwrite );
+    d_pParameters->d_db->putScalar<double>(
+        "initial_dt", d_current_dt, {}, AMP::Database::Check::Overwrite );
+    d_pParameters->d_db->putScalar<double>(
+        "integrator_step", d_integrator_step, {}, AMP::Database::Check::Overwrite );
     IO::writeHDF5( fid, "ti_db", *( d_pParameters->d_db ) );
-    IO::writeHDF5( fid, "ic_vec", d_solution_vector->getID() );
     IO::writeHDF5( fid, "global_db", *( d_pParameters->d_global_db ) );
+    uint64_t vecID = d_solution_vector->getID();
+    IO::writeHDF5( fid, "ic_vec", vecID );
 }
 TimeIntegrator::TimeIntegrator( int64_t fid, AMP::IO::RestartManager *manager )
 {
@@ -251,9 +261,19 @@ TimeIntegrator::TimeIntegrator( int64_t fid, AMP::IO::RestartManager *manager )
     d_pParameters->d_global_db = std::make_shared<AMP::Database>( db_global );
     d_pParameters->d_ic_vector = ic_vector;
     TimeIntegrator::initialize( d_pParameters );
+
+    d_initialized = true;
 }
 
+
+/********************************************************
+ *  Simple functions                                     *
+ ********************************************************/
+void TimeIntegrator::printStatistics( std::ostream & ) {}
+
+
 } // namespace AMP::TimeIntegrator
+
 
 /********************************************************
  *  Restart operations                                   *

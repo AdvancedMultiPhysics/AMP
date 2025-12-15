@@ -56,7 +56,7 @@ void IDATimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> pa
     d_solution_prime = ( params->d_ic_vector_prime )->clone();
     d_solution_prime->copyVector( params->d_ic_vector_prime );
 
-    d_pPreconditioner = params->d_pPreconditioner;
+    d_pNestedSolver = params->d_pNestedSolver;
 
     // reuse the time integrator database, and put additional fields in
     auto timeOperator_db = params->d_db;
@@ -97,12 +97,12 @@ void IDATimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> pa
                       << std::endl;
         }
 
-        AMP_INSIST( d_pPreconditioner,
+        AMP_INSIST( d_pNestedSolver,
                     "ERROR: IDATimeIntegrator::initialize(): creation of linear time "
                     "operators internally is only currently supported with a valid "
                     "non NULL preconditioner " );
 
-        d_pPreconditioner->registerOperator( d_pLinearTimeOperator );
+        d_pNestedSolver->registerOperator( d_pLinearTimeOperator );
         AMP::pout << " linear op being created internally" << std::endl;
     }
 
@@ -124,7 +124,7 @@ void IDATimeIntegrator::initializeIDA()
     id = N_VClone( pSundials_sol->getNVector() );
 
     d_ida_mem = IDACreate();
-    AMP_ASSERT( d_ida_mem != nullptr );
+    AMP_ASSERT( d_ida_mem );
 
     int ierr = IDASetUserData( d_ida_mem, this );
     AMP_ASSERT( ierr == IDA_SUCCESS );
@@ -428,8 +428,9 @@ int IDATimeIntegrator::IDAPrecSetup( realtype tt,
         auto amp_yy    = getAMP( yy );
         auto jacParams = user_data->getIDATimeOperator()->getParameters( "Jacobian", amp_yy );
         auto &db       = jacParams->d_db;
-        db->putScalar( "ScalingFactor", cj );
-        db->putScalar( "CurrentTime", tt );
+        auto Overwrite = AMP::Database::Check::Overwrite;
+        db->putScalar( "ScalingFactor", cj, {}, Overwrite );
+        db->putScalar( "CurrentTime", tt, {}, Overwrite );
         std::shared_ptr<AMP::Solver::SolverStrategy> pSolver = user_data->getPreconditioner();
         // double currentTime = user_data->getCurrentTime();
 

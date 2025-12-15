@@ -97,13 +97,29 @@ void structuredFaceDOFManager::initialize()
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int structuredFaceDOFManager::getDOFsPerPoint() const
+{
+    int N = d_DOFsPerFace[0];
+    for ( size_t i = 1; i < 3; i++ ) {
+        if ( d_DOFsPerFace[i] != N )
+            return -1;
+    }
+    return N;
+}
+
+
+/****************************************************************
  * Get the DOFs for the element                                  *
  ****************************************************************/
-inline void structuredFaceDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,
-                                                  std::vector<size_t> &dofs ) const
+size_t structuredFaceDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,
+                                             size_t *dofs,
+                                             size_t N,
+                                             size_t capacity ) const
 {
     if ( id.type() != AMP::Mesh::GeomType::Face )
-        return;
+        return 0;
     // Search for the dof locally
     for ( int d = 0; d < 3; d++ ) {
         if ( !d_local_ids[d].empty() ) {
@@ -113,9 +129,9 @@ inline void structuredFaceDOFManager::appendDOFs( const AMP::Mesh::MeshElementID
             }
             if ( id == d_local_ids[d][index] ) {
                 // The id was found
-                for ( int j = 0; j < d_DOFsPerFace[d]; j++ )
-                    dofs.emplace_back( d_local_dofs[d][index] + j );
-                return;
+                for ( size_t j = 0, k = N; j < d_DOFsPerFace[d] && k < capacity; j++, k++ )
+                    dofs[k] = d_local_dofs[d][index] + j;
+                return d_DOFsPerFace[d];
             }
         }
     }
@@ -128,32 +144,20 @@ inline void structuredFaceDOFManager::appendDOFs( const AMP::Mesh::MeshElementID
             }
             if ( id == d_remote_ids[d][index] ) {
                 // The id was found
-                for ( int j = 0; j < d_DOFsPerFace[d]; j++ )
-                    dofs.emplace_back( d_remote_dofs[d][index] + j );
-                return;
+                for ( size_t j = 0, k = N; j < d_DOFsPerFace[d] && k < capacity; j++, k++ )
+                    dofs[k] = d_remote_dofs[d][index] + j;
+                return d_DOFsPerFace[d];
             }
         }
     }
-}
-void structuredFaceDOFManager::getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
-                                        std::vector<size_t> &dofs ) const
-{
-    dofs.resize( 0 );
-    for ( auto id : ids )
-        appendDOFs( id, dofs );
-}
-void structuredFaceDOFManager::getDOFs( const AMP::Mesh::MeshElementID &id,
-                                        std::vector<size_t> &dofs ) const
-{
-    dofs.resize( 0 );
-    appendDOFs( id, dofs );
+    return 0;
 }
 
 
 /****************************************************************
  * Get the element ID give a dof                                 *
  ****************************************************************/
-AMP::Mesh::MeshElement structuredFaceDOFManager::getElement( size_t dof ) const
+AMP::Mesh::MeshElementID structuredFaceDOFManager::getElementID( size_t dof ) const
 {
     AMP::Mesh::MeshElementID id;
     if ( dof >= d_begin && dof < d_end ) {
@@ -173,10 +177,21 @@ AMP::Mesh::MeshElement structuredFaceDOFManager::getElement( size_t dof ) const
             }
         }
     }
+    return id;
+}
+std::unique_ptr<AMP::Mesh::MeshElement> structuredFaceDOFManager::getElement( size_t dof ) const
+{
+    auto id = getElementID( dof );
     if ( id.isNull() )
-        return AMP::Mesh::MeshElement();
+        return {};
     return d_mesh->getElement( id );
 }
+
+
+/****************************************************************
+ * Return the mesh                                               *
+ ****************************************************************/
+std::shared_ptr<const AMP::Mesh::Mesh> structuredFaceDOFManager::getMesh() const { return d_mesh; }
 
 
 /****************************************************************
@@ -220,22 +235,25 @@ std::vector<size_t> structuredFaceDOFManager::getRemoteDOFs() const
 /****************************************************************
  * Return the row DOFs                                           *
  ****************************************************************/
-std::vector<size_t> structuredFaceDOFManager::getRowDOFs( const AMP::Mesh::MeshElement &obj ) const
+size_t structuredFaceDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
+                                             size_t *dofs_out,
+                                             size_t N_alloc,
+                                             bool sort ) const
 {
-    if ( obj.elementType() != AMP::Mesh::GeomType::Face )
-        return std::vector<size_t>();
+    if ( id.type() != AMP::Mesh::GeomType::Face )
+        return 0;
     // Get a list of all element ids that are part of the row
     // Only faces that share an element are part of the row
-    std::vector<AMP::Mesh::MeshElement> parents =
-        d_mesh->getElementParents( obj, AMP::Mesh::GeomType::Cell );
+    auto obj     = d_mesh->getElement( id );
+    auto parents = d_mesh->getElementParents( *obj, AMP::Mesh::GeomType::Cell );
     AMP_ASSERT( parents.size() == 1 || parents.size() == 2 );
     // Temporarily add neighbor elements
     size_t p_size = parents.size();
     for ( size_t i = 0; i < p_size; i++ ) {
-        auto neighbors = parents[i].getNeighbors();
+        auto neighbors = parents[i]->getNeighbors();
         for ( auto &neighbor : neighbors ) {
             if ( neighbor != nullptr )
-                parents.push_back( *neighbor );
+                parents.push_back( neighbor->clone() );
         }
     }
     AMP::Utilities::unique( parents );
@@ -243,16 +261,15 @@ std::vector<size_t> structuredFaceDOFManager::getRowDOFs( const AMP::Mesh::MeshE
     std::vector<AMP::Mesh::MeshElementID> ids;
     ids.reserve( 6 * parents.size() );
     for ( auto &parent : parents ) {
-        std::vector<AMP::Mesh::MeshElement> children =
-            parent.getElements( AMP::Mesh::GeomType::Face );
+        auto children = parent->getElements( AMP::Mesh::GeomType::Face );
         AMP_ASSERT( children.size() == 6 );
         for ( auto &elem : children )
-            ids.push_back( elem.globalID() );
+            ids.push_back( elem->globalID() );
     }
     AMP::Utilities::unique( ids );
     // AMP_ASSERT(ids.size()==6||ids.size()==11);
     // Get all dofs for each element id
-    int maxDOFsPerFace = 0;
+    uint8_t maxDOFsPerFace = 0;
     for ( auto &elem : d_DOFsPerFace )
         maxDOFsPerFace = std::max( maxDOFsPerFace, elem );
     std::vector<size_t> dofs;
@@ -264,8 +281,11 @@ std::vector<size_t> structuredFaceDOFManager::getRowDOFs( const AMP::Mesh::MeshE
             dofs.push_back( elem );
     }
     // Sort the row dofs
-    AMP::Utilities::quicksort( dofs );
-    return dofs;
+    if ( sort )
+        AMP::Utilities::quicksort( dofs );
+    for ( size_t i = 0; i < std::min( dofs.size(), N_alloc ); i++ )
+        dofs_out[i] = dofs[i];
+    return dofs.size();
 }
 
 

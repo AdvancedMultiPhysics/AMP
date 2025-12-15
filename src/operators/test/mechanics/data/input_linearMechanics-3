@@ -9,6 +9,11 @@ testOperator {
    BoundaryOperator="DirichletMatrixCorrection"
 }
 
+MechanicsMaterialModel { 
+       name="IsotropicElasticModel"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+      }
 
 MechanicsLinearFEOperator{
       name = "MechanicsLinearFEOperator"
@@ -26,7 +31,7 @@ MechanicsLinearFEOperator{
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel = "MechanicsMaterialModel"
+      LocalModel = MechanicsMaterialModel
 
    }
 
@@ -43,11 +48,6 @@ DirichletMatrixCorrection{
       dof_0_2          =  2
    }
 
-MechanicsMaterialModel { 
-       name="IsotropicElasticModel"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-      }
 
 
 

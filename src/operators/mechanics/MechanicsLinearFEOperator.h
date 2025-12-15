@@ -89,9 +89,13 @@ public:
     void printStressAndStrain( AMP::LinearAlgebra::Vector::shared_ptr disp,
                                const std::string &fname );
 
+    std::shared_ptr<MechanicsMaterialModel> getMaterialModel() { return d_materialModel; }
+
 protected:
     void getDofIndicesForCurrentElement();
+    MechanicsLinearFEOperator( std::shared_ptr<const MechanicsLinearFEOperatorParameters>, bool );
 
+protected:
     std::vector<std::vector<size_t>> d_dofIndices; /**< DOF indices */
 
     std::vector<std::vector<double>> d_elementStiffnessMatrix; /**< Element stiffness matrix. */

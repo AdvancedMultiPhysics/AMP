@@ -1,10 +1,20 @@
 mesh_file = "testAMGmesh5"
 
+DiffusionTransportModel {
+    name="DiffusionTransportModel"
+    Material = "Independent"
+    Property = "ThermalConductivity"
+    print_info_level = 0
+    Default_Concentration = 0.0
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+}
+
 LinearBVPOperator {
-name="LinearBVPOperator"
-   print_info_level = 1
-   VolumeOperator = "DiffusionLinearFEOperator"
-   BoundaryOperator = "DirichletMatrixCorrection"
+    name="LinearBVPOperator"
+    print_info_level = 1
+    VolumeOperator = "DiffusionLinearFEOperator"
+    BoundaryOperator = "DirichletMatrixCorrection"
 }
 
 DiffusionLinearFEOperator{
@@ -24,18 +34,9 @@ DiffusionLinearFEOperator{
      QRULE_TYPE = "QGAUSS"
      QRULE_ORDER = "DEFAULT"
    }
-   LocalModel = "DiffusionTransportModel"
+   LocalModel = DiffusionTransportModel
 }
 
-DiffusionTransportModel {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "ThermalConductivity"
-     print_info_level = 0
-     Default_Concentration = 0.0
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-   }
 
 DirichletMatrixCorrection {
    name="DirichletMatrixCorrection"

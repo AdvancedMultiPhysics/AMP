@@ -34,13 +34,11 @@ Mesh{
             iterator = "%i"
             indicies = 1, 2
             MeshName = "pellet_%i"
-            MeshType = "libMesh"
-            FileName = "simple_pellet_1x.e"
-            dim = 3
-            x_offset = 0.0
-            y_offset = 0.0
+            MeshType = "AMP"
+            Generator = "cylinder"
+            Size = 15, 6
+            Range = 0.004022, 0, 0.0105
             z_offset = 0.0, 0.0105
-            NumberOfElements = 1300
         }
     }
 }
@@ -64,6 +62,15 @@ PointLoad {
     number_of_dofs_0 = 1
     dof_0_0 = 2
     value_0_0 = -1.0e-1
+}
+
+LinearMechanicsElement {
+    name="MechanicsLinearElement"
+    USE_REDUCED_INTEGRATION = FALSE 
+    FE_ORDER = "FIRST"  
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
 }
 
 BottomPelletMechanicsNonlinearBVPOperator {
@@ -90,9 +97,18 @@ PelletMechanicsLinearBVPOperator {
     BoundaryOperator = "PelletMechanicsLinearBC"
 }
 
+PelletMechanicsMaterialModel {
+  name="ThermalVonMisesMatModel" 
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23  
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    Linear_Strain_Hardening = 5.10e10   
+    Elastic_Yield_Stress = 3.45e9  
+}
+
 PelletMechanicsNonlinearFEOperator {
   name = "MechanicsNonlinearFEOperator"
-    LocalModel = "PelletMechanicsMaterialModel"
+    LocalModel = PelletMechanicsMaterialModel
     MechanicsElement {
       name="MechanicsNonlinearElement"
     }
@@ -101,6 +117,7 @@ PelletMechanicsNonlinearFEOperator {
       TEMPERATURE = "temperature"
   }
   OutputVariable = "displacement"
+  MechanicsLinearElement = LinearMechanicsElement
 }
 
 PelletMechanicsLinearFEOperator {
@@ -122,6 +139,9 @@ BottomPelletMechanicsNonlinearBC {
     dof_0_0 = 0
     dof_0_1 = 1
     dof_0_2 = 2
+    value_0_0 = 0.0
+    value_0_1 = 0.0
+    value_0_2 = 0.0
 }
 
 PelletMechanicsNonlinearBC {
@@ -136,6 +156,9 @@ PelletMechanicsNonlinearBC {
     dof_0_0 = 0
     dof_0_1 = 1
     dof_0_2 = 2
+    value_0_0 = 0.0
+    value_0_1 = 0.0
+    value_0_2 = 0.0
 }
 
 PelletMechanicsLinearBC {
@@ -149,17 +172,10 @@ PelletMechanicsLinearBC {
     dof_0_2 = 2
 }
 
-PelletMechanicsMaterialModel {
-  name="ThermalVonMisesMatModel" 
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23  
-    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
-    Linear_Strain_Hardening = 5.10e10   
-    Elastic_Yield_Stress = 3.45e9  
-}
 
 NonlinearSolver {
-  max_iterations = 50
+    name = "PetscSNESSolver"
+    max_iterations = 50
     max_error = 1e-12
     zero_initial_guess = FALSE
     absolute_tolerance = 1.0e-12
@@ -170,7 +186,8 @@ NonlinearSolver {
     SNESOptions = "-snes_monitor -snes_type ls -snes_ksp_ew -snes_converged_reason -snes_ls_alpha 1.0e-4"
 
     LinearSolver {
-      max_iterations = 100
+        name = "PetscKrylovSolver"
+        max_iterations = 100
         max_error = 1e-12
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-12

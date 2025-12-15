@@ -93,13 +93,13 @@ void DenseSerialMatrixOperations::scale( AMP::Scalar alpha_in, MatrixData &A )
         m1RawData[i] *= alpha;
 }
 
-void DenseSerialMatrixOperations::matMultiply( MatrixData const &Am,
-                                               MatrixData const &Bm,
-                                               MatrixData &Cm )
+void DenseSerialMatrixOperations::matMatMult( std::shared_ptr<MatrixData> Am,
+                                              std::shared_ptr<MatrixData> Bm,
+                                              std::shared_ptr<MatrixData> Cm )
 {
-    auto Amat = getDenseSerialMatrixData( Am );
-    auto Bmat = getDenseSerialMatrixData( Bm );
-    auto Cmat = getDenseSerialMatrixData( Cm );
+    auto Amat = getDenseSerialMatrixData( *Am );
+    auto Bmat = getDenseSerialMatrixData( *Bm );
+    auto Cmat = getDenseSerialMatrixData( *Cm );
 
     size_t N = Amat->numGlobalRows();
     size_t K = Amat->numGlobalColumns();
@@ -195,6 +195,7 @@ void DenseSerialMatrixOperations::setDiagonal( std::shared_ptr<const Vector> in,
     for ( size_t i = 0; i < nrows; i++ )
         m1RawData[i + i * nrows] = x[i];
     delete[] x;
+    delete[] k;
 }
 
 void DenseSerialMatrixOperations::setIdentity( MatrixData &A )
@@ -210,7 +211,19 @@ void DenseSerialMatrixOperations::setIdentity( MatrixData &A )
         m1RawData[i + i * nrows] = 1.0;
 }
 
-AMP::Scalar DenseSerialMatrixOperations::L1Norm( MatrixData const &A ) const
+void DenseSerialMatrixOperations::extractDiagonal( MatrixData const &A,
+                                                   std::shared_ptr<Vector> buf )
+{
+    auto m1Data      = getDenseSerialMatrixData( A );
+    const auto nrows = m1Data->d_rows;
+    auto *m1RawData  = m1Data->d_M;
+    auto *rawVecData = buf->getRawDataBlock<double>();
+
+    for ( size_t i = 0; i < nrows; i++ )
+        rawVecData[i] = m1RawData[i + i * nrows];
+}
+
+AMP::Scalar DenseSerialMatrixOperations::LinfNorm( MatrixData const &A ) const
 {
     auto m1Data      = getDenseSerialMatrixData( A );
     const auto nrows = m1Data->d_rows;
@@ -218,13 +231,63 @@ AMP::Scalar DenseSerialMatrixOperations::L1Norm( MatrixData const &A ) const
     auto *m1RawData  = m1Data->d_M;
 
     double norm = 0.0;
-    for ( size_t j = 0; j < ncols; j++ ) {
+    for ( size_t i = 0; i < nrows; i++ ) {
         double sum = 0.0;
-        for ( size_t i = 0; i < nrows; i++ )
+        for ( size_t j = 0; j < ncols; j++ ) {
             sum += fabs( m1RawData[i + j * nrows] );
+        }
         norm = std::max( norm, sum );
     }
     return norm;
 }
+
+void DenseSerialMatrixOperations::copy( const MatrixData &X, MatrixData &Y )
+{
+    auto m1Data      = getDenseSerialMatrixData( Y );
+    auto *m1RawData  = m1Data->d_M;
+    const auto nrows = m1Data->d_rows;
+    const auto ncols = m1Data->d_cols;
+
+    AMP_ASSERT( X.numGlobalRows() == m1Data->numGlobalRows() );
+    AMP_ASSERT( X.numGlobalColumns() == m1Data->numGlobalColumns() );
+    if ( X.type() != "DenseSerialMatrixData" ) {
+        // X is an unknown matrix type
+        std::vector<size_t> cols;
+        std::vector<double> values;
+        for ( size_t i = 0; i < nrows; i++ ) {
+            X.getRowByGlobalID( static_cast<int>( i ), cols, values );
+            for ( size_t j = 0; j < cols.size(); j++ )
+                m1RawData[i + cols[j] * nrows] = values[j];
+        }
+    } else {
+        // We are dealing with two DenseSerialMatrix classes
+        auto m2Data = getDenseSerialMatrixData( X );
+        AMP_ASSERT( m2Data );
+        auto *m2RawData = m2Data->d_M;
+        memcpy( m1RawData, m2RawData, ncols * nrows * sizeof( double ) );
+    }
+}
+
+void DenseSerialMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::scaleInv( AMP::Scalar,
+                                            std::shared_ptr<const Vector>,
+                                            MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::getRowSumsAbsolute( MatrixData const &,
+                                                      std::shared_ptr<Vector>,
+                                                      const bool )
+{
+    AMP_ERROR( "Not implemented" );
+}
+
 
 } // namespace AMP::LinearAlgebra

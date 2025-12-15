@@ -160,8 +160,7 @@ protected:
     void buildHierarchyByLevel( void );
 
     //! utility function to extract Xpetra Matrix from AMP LinearOperator
-    Teuchos::RCP<Xpetra::Matrix<SC, LO, GO, NO>>
-    getXpetraMatrix( std::shared_ptr<AMP::Operator::LinearOperator> &op );
+    Teuchos::RCP<Xpetra::Matrix<SC, LO, GO, NO>> getXpetraMatrix();
 
     Teuchos::RCP<MueLu::TentativePFactory<SC, LO, GO, NO>> getTentativePFactory( void );
     Teuchos::RCP<MueLu::SaPFactory<SC, LO, GO, NO>> getSaPFactory( void );
@@ -170,6 +169,7 @@ protected:
     Teuchos::RCP<MueLu::SmootherFactory<SC, LO, GO, NO>> getSmootherFactory( const int level );
 
     Teuchos::ParameterList &getSmootherParameters( const int level );
+    MueLu::MsgType getVerbosityLevel();
 
 private:
     bool d_bUseEpetra      = true;  //! whether we are using Epetra
@@ -194,13 +194,16 @@ private:
     std::shared_ptr<AMP::LinearAlgebra::ManagedEpetraMatrix> d_matrix;
     Teuchos::ParameterList d_MueLuParameterList;
 
-    Teuchos::RCP<MueLu::HierarchyManager<SC, LO, GO, NO>>
-        d_mueluHierarchyManager; //! manager that creates hierarchy
+    //! manager that creates hierarchy
+    Teuchos::RCP<MueLu::HierarchyManager<SC, LO, GO, NO>> d_mueluHierarchyManager;
 
-    Teuchos::RCP<MueLu::Hierarchy<SC, LO, GO, NO>> d_mueluHierarchy; //! AMG hierarchy
-    MueLu::FactoryManager<SC, LO, GO, NO> d_factoryManager; //! factory manager for MueLu components
-    std::vector<Teuchos::RCP<MueLu::FactoryManager<SC, LO, GO, NO>>>
-        d_levelFactoryManager; //! factory manager for MueLu components by level
+    //! AMG hierarchy
+    Teuchos::RCP<MueLu::Hierarchy<SC, LO, GO, NO>> d_mueluHierarchy;
+
+    //! factory manager for MueLu components
+    MueLu::FactoryManager<SC, LO, GO, NO> d_factoryManager;
+    //! factory manager for MueLu components by level
+    std::vector<Teuchos::RCP<MueLu::FactoryManager<SC, LO, GO, NO>>> d_levelFactoryManager;
 };
 } // namespace Solver
 } // namespace AMP

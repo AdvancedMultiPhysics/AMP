@@ -44,7 +44,7 @@ private:
 };
 
 
-// Run the commands across all threas/ranks
+// Run the commands across all threads/ranks
 void run( int N_threads, const std::string &filename )
 {
     // Create the thread pool

@@ -16,6 +16,8 @@
 
 // Libmesh files
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
@@ -80,7 +82,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto nodes = bnd->getElements( AMP::Mesh::GeomType::Vertex );
         std::vector<size_t> bndGlobalIds;
         for ( auto &node : nodes ) {
-            nodalScalarDOF->getDOFs( node.globalID(), dofs );
+            nodalScalarDOF->getDOFs( node->globalID(), dofs );
             for ( auto &dof : dofs )
                 bndGlobalIds.push_back( dof );
         }
@@ -105,7 +107,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         fe->attach_quadrature_rule( qrule.get() );
         libMesh::Elem *currElemPtr = new libMesh::Quad4;
         for ( size_t i = 0; i < nodes.size(); i++ ) {
-            auto pt                    = nodes[i].coord();
+            auto pt                    = nodes[i]->coord();
             currElemPtr->set_node( i ) = new libMesh::Node( pt[0], pt[1], pt[2], i );
         }
         fe->reinit( currElemPtr );

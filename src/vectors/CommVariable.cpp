@@ -21,6 +21,12 @@ CommVariable::getSubsetDOF( std::shared_ptr<AMP::Discretization::DOFManager> par
 }
 
 
+AMP::AMP_MPI CommVariable::getComm( const AMP::AMP_MPI &comm ) const
+{
+    return AMP::AMP_MPI::intersect( d_comm, comm );
+}
+
+
 std::shared_ptr<VectorSelector> CommVariable::createVectorSelector() const
 {
     return std::make_shared<VS_Comm>( d_comm );

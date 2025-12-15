@@ -1,8 +1,9 @@
-#include "AMP/IO/HDF5.h"
 #include "AMP/AMP_TPLs.h"
-#include "AMP/IO/HDF5.hpp"
-#include "AMP/mesh/MeshPoint.h"
-#include "AMP/utils/Array.hpp"
+#include "AMP/IO/HDF.h"
+#include "AMP/IO/HDF.hpp"
+#include "AMP/utils/Array.h"
+#include "AMP/utils/MeshPoint.h"
+#include "AMP/utils/TypeTraits.h"
 #include "AMP/utils/Utilities.h"
 
 #include <array>
@@ -65,14 +66,18 @@ hid_t getHDF5datatype()
         return H5Tcopy( H5T_NATIVE_UINT16 );
     } else if constexpr ( std::is_same_v<TYPE, int16_t> ) {
         return H5Tcopy( H5T_NATIVE_INT16 );
-    } else if constexpr ( std::is_same_v<TYPE, int> ) {
+    } else if constexpr ( is_same_int_v<TYPE, int> ) {
         return H5Tcopy( H5T_NATIVE_INT );
-    } else if constexpr ( std::is_same_v<TYPE, unsigned int> ) {
+    } else if constexpr ( is_same_int_v<TYPE, unsigned int> ) {
         return H5Tcopy( H5T_NATIVE_UINT );
-    } else if constexpr ( std::is_same_v<TYPE, long int> ) {
+    } else if constexpr ( is_same_int_v<TYPE, long int> ) {
         return H5Tcopy( H5T_NATIVE_LONG );
-    } else if constexpr ( std::is_same_v<TYPE, unsigned long int> ) {
+    } else if constexpr ( is_same_int_v<TYPE, unsigned long int> ) {
         return H5Tcopy( H5T_NATIVE_ULONG );
+    } else if constexpr ( is_same_int_v<TYPE, long long> ) {
+        return H5Tcopy( H5T_NATIVE_LLONG );
+    } else if constexpr ( is_same_int_v<TYPE, unsigned long long> ) {
+        return H5Tcopy( H5T_NATIVE_ULLONG );
     } else if constexpr ( std::is_same_v<TYPE, float> ) {
         return H5Tcopy( H5T_NATIVE_FLOAT );
     } else if constexpr ( std::is_same_v<TYPE, double> ) {
@@ -454,6 +459,7 @@ void writeHDF5Array<AMP::typeID>( hid_t fid, const std::string &name, const AMP:
 } // namespace AMP::IO
 
 
+#include "AMP/utils/Array.hpp"
 instantiateArrayConstructors( AMP::Mesh::Point );
 
 
@@ -510,6 +516,11 @@ INSTANTIATE_DEFAULT( float );
 INSTANTIATE_DEFAULT( double );
 INSTANTIATE_DEFAULT( long double );
 INSTANTIATE_DEFAULT( std::byte );
+INSTANTIATE_DEFAULT( long long );
+#if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 )
+INSTANTIATE_DEFAULT( long int );
+INSTANTIATE_DEFAULT( unsigned long int );
+#endif
 
 
 /************************************************************************

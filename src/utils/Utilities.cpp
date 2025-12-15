@@ -2,14 +2,15 @@
 #include "AMP/utils/Utilities.hpp"
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
-#include "AMP/mesh/MeshID.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
 
 #include "StackTrace/StackTrace.h"
+#include "StackTrace_Version.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <csignal>
 #include <cstdio>
@@ -20,6 +21,7 @@
 #include <iomanip>
 #include <iostream>
 #include <mutex>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <sys/stat.h>
@@ -28,21 +30,21 @@
     #include "MemoryApp.h"
 #endif
 
-#if defined( AMP_USE_CUDA ) || defined( USE_CUDA )
-    #include "AMP/utils/cuda/helper_cuda.h"
+#ifdef AMP_USE_CUDA
+    #include "AMP/utils/cuda/Helper_Cuda.h"
 #endif
-#if defined( AMP_USE_HIP ) || defined( USE_HIP )
-    #include "AMP/utils/hip/helper_hip.h"
+#ifdef AMP_USE_HIP
+    #include "AMP/utils/hip/Helper_Hip.h"
 #endif
 
 // Include system dependent headers
 // clang-format off
 #if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 ) || defined( _MSC_VER )
     #include <process.h>
-    #include <psapi.h>
     #include <stdio.h>
     #include <tchar.h>
     #include <windows.h>
+    #include <psapi.h>  // Must be after windows.h
 #else
     #include <dlfcn.h>
     #include <execinfo.h>
@@ -63,6 +65,74 @@ namespace AMP::Utilities {
 
 // Mutex for Utility functions
 static std::mutex Utilities_mutex;
+
+
+/****************************************************************************
+ * Check if valgrind is running                                              *
+ * We will eveuntually remove this function once everyone has had time to    *
+ * update to a more recent version of StackTrace                             *
+ ****************************************************************************/
+#ifndef StackTrace_BUILD_VERSION
+    #define StackTrace_BUILD_VERSION 0
+#endif
+bool running_valgrind()
+{
+#if StackTrace_BUILD_VERSION >= 125
+    return StackTrace::Utilities::running_valgrind();
+#else
+    auto x = getenv( "LD_PRELOAD" );
+    return std::min( x.find( "/valgrind/" ), x.find( "/vgpreload" ) ) != std::string::npos;
+#endif
+}
+
+
+/****************************************************************************
+ *  Check if a number is nan or infinity                                     *
+ *  Note this routine needs to be robust in case -ffast_math is set          *
+ ****************************************************************************/
+/*template<class TYPE>
+static std::string getHex( const TYPE& x )
+{
+    auto data = reinterpret_cast<const uint8_t*>( &x );
+    std::string str;
+    str.resize( 2 * ( sizeof(TYPE) + 1 ), '0' );
+    str[0] = '0';
+    str[1] = 'x';
+    for ( size_t i = 0, j = 2*sizeof(TYPE); i < sizeof(TYPE); i++, j-=2) {
+        char tmp[8];
+        snprintf( tmp, 8, "%02x", data[i] );
+        str[j+0] = tmp[0];
+        str[j+1] = tmp[1];
+    }
+    return str;
+}*/
+template<class TYPE>
+bool isInf( TYPE x )
+{
+    auto y = std::numeric_limits<TYPE>::infinity();
+    if ( x == y )
+        return true;
+    if ( std::memcmp( &x, &y, sizeof( x ) ) == 0 )
+        return true;
+    return false;
+}
+template<class TYPE>
+bool isNaN( TYPE x )
+{
+    if ( x != x )
+        return true;
+    auto y1 = std::numeric_limits<TYPE>::quiet_NaN();
+    auto y2 = -std::numeric_limits<TYPE>::quiet_NaN();
+    if ( std::memcmp( &x, &y1, sizeof( x ) ) == 0 || std::memcmp( &x, &y2, sizeof( x ) ) == 0 )
+        return true;
+    return false;
+}
+template bool isInf<float>( float );
+template bool isNaN<float>( float );
+template bool isInf<double>( double );
+template bool isNaN<double>( double );
+template bool isInf<long double>( long double );
+template bool isNaN<long double>( long double );
 
 
 /****************************************************************************
@@ -105,40 +175,6 @@ std::string strrep( const std::string &in, const std::string &s, const std::stri
  *  Basic checks                                                             *
  ****************************************************************************/
 static_assert( getOS() != OS::Unknown );
-
-
-/****************************************************************************
- *  Get pointer location                                                     *
- ****************************************************************************/
-MemoryType getMemoryType( const void *ptr )
-{
-    NULL_USE( ptr );
-    auto type = MemoryType::unregistered;
-#if defined( AMP_USE_CUDA ) || defined( USE_CUDA )
-    type = getCudaMemoryType( ptr );
-    if ( type != MemoryType::unregistered )
-        return type;
-#endif
-#if defined( AMP_USE_HIP ) || defined( USE_HIP )
-    type = getHipMemoryType( ptr );
-    if ( type != MemoryType::unregistered )
-        return type;
-#endif
-    return type;
-}
-std::string getString( MemoryType type )
-{
-    if ( type == MemoryType::unregistered )
-        return "unregistered";
-    else if ( type == MemoryType::host )
-        return "host";
-    else if ( type == MemoryType::device )
-        return "device";
-    else if ( type == MemoryType::managed )
-        return "managed";
-    else
-        AMP_ERROR( "Unknown pointer type" );
-}
 
 
 /****************************************************************************
@@ -221,8 +257,8 @@ std::vector<int> factor( uint64_t n )
     if ( n <= 3 )
         return { static_cast<int>( n ) };
     // Initialize factors
-    size_t N = 0;
-    int factors[64];
+    size_t N        = 0;
+    int factors[64] = { 0 };
     // Remove all factors of 2
     while ( ( n & 0x01 ) == 0 ) {
         factors[N++] = 2;
@@ -235,10 +271,10 @@ std::vector<int> factor( uint64_t n )
     }
     // Use brute force to find remaining factors
     uint64_t f = 5;
-    while ( true ) {
+    while ( n > 1 ) {
         // Determine the largest number we need to check
-        auto f_max = static_cast<uint64_t>( floor( 1.000000000000001 * sqrt( n ) ) );
-        // Search all remaining numbers (note  we skip every 3rd odd number)
+        auto f_max = static_cast<uint64_t>( floor( 1.000000000000001 * std::sqrt( n ) ) );
+        // Search all remaining numbers (note: we skip every 3rd odd number)
         bool found = false;
         for ( ; f <= f_max && !found; f += 6 ) {
             while ( n % f == 0 ) {
@@ -266,7 +302,7 @@ bool isPrime( uint64_t n )
     if ( ( n & 0x01 ) == 0 || n % 3 == 0 )
         return false;
     // Determine the largest number we need to check
-    auto f_max = static_cast<uint64_t>( floor( 1.000000000000001 * sqrt( n ) ) );
+    auto f_max = static_cast<uint64_t>( floor( 1.000000000000001 * std::sqrt( n ) ) );
     // Check if the number is prime
     for ( uint64_t f = 5; f <= f_max; f += 6 ) {
         if ( ( n % f == 0 ) || ( n % ( f + 2 ) == 0 ) )
@@ -283,46 +319,47 @@ std::vector<uint64_t> primes( uint64_t n )
         return { 2u };
     // Create our bit array
     uint64_t n2 = ( n + 1 ) / 2;
-    double tmp  = 1.000000000000001 * sqrt( static_cast<double>( n ) );
-    uint64_t ub = static_cast<uint64_t>( tmp ) >> 1;
+    uint64_t ub = static_cast<uint64_t>( std::sqrt( n + 0.1 ) + 1 );
     auto N      = ( n2 + 63 ) / 64;
     auto p      = new uint64_t[N];
     memset( p, 0xFF, sizeof( uint64_t ) * N );
     // Helper functions to get/set the bits
-    auto get = [p]( size_t i ) {
-        size_t i1 = i >> 6;
-        size_t i2 = i & 0x3F;
-        return ( p[i1] & ( 1UL << i2 ) ) != 0;
+    auto get = [p]( uint64_t i ) {
+        uint64_t i1 = i >> 6;
+        uint64_t i2 = i & 0x3F;
+        return ( p[i1] & ( ( (uint64_t) 1 ) << i2 ) ) != 0;
     };
-    auto unset = [p]( size_t i ) {
-        size_t i1 = i >> 6;
-        size_t i2 = i & 0x3F;
-        p[i1] &= ~( 1UL << i2 );
+    auto unset = [p]( uint64_t i ) {
+        uint64_t i1 = i >> 6;
+        uint64_t i2 = i & 0x3F;
+        p[i1] &= ~( ( (uint64_t) 1 ) << i2 );
     };
     // Set all non-prime values to false
-    static_assert( sizeof( unsigned long ) == sizeof( uint64_t ) );
     for ( uint64_t k = 1; k <= ub; k++ ) {
         if ( get( k ) ) {
             uint64_t k2 = 2 * k + 1;
-            for ( size_t j = 2 * k * ( k + 1 ); j < n2; j += k2 )
+            for ( uint64_t j = 2 * k * ( k + 1 ); j < n2; j += k2 )
                 unset( j );
         }
     }
     // Store the prime numbers (note: this takes longer than computing them)
-    auto M = static_cast<size_t>( n / log2( n ) );
-    M      = 1UL << static_cast<int>( round( log2( M ) ) );
+    auto M = static_cast<uint64_t>( n / log2( n ) );
+    M      = ( (uint64_t) 1 ) << static_cast<int>( round( log2( M ) ) );
     std::vector<uint64_t> p2;
     p2.reserve( M );
     p2.push_back( 2 );
-    for ( size_t i = 1; i < n2; i++ ) {
+    for ( uint64_t i = 1; i < n2; i++ ) {
         if ( get( i ) )
             p2.push_back( 2 * i + 1 );
     }
+    delete[] p;
     return p2;
 }
 
 
-// Function to perform linear interpolation
+/****************************************************************************
+ *  Interpolation routines                                                   *
+ ****************************************************************************/
 double linear( const std::vector<double> &x, const std::vector<double> &f, double xi )
 {
     size_t Nx = x.size();
@@ -338,9 +375,6 @@ double linear( const std::vector<double> &x, const std::vector<double> &f, doubl
     double dx = ( xi - x[i - 1] ) / ( x[i] - x[i - 1] );
     return dx * f[i] + ( 1.0 - dx ) * f[i - 1];
 }
-
-
-// Function to perform bi-linear interpolation
 double bilinear( const std::vector<double> &x,
                  const std::vector<double> &y,
                  const std::vector<double> &f,
@@ -375,9 +409,6 @@ double bilinear( const std::vector<double> &x,
     double dy2 = 1.0 - dy;
     return ( dx * f2 + dx2 * f1 ) * dy2 + ( dx * f4 + dx2 * f3 ) * dy;
 }
-
-
-// Function to perform tri-linear interpolation
 double trilinear( const std::vector<double> &x,
                   const std::vector<double> &y,
                   const std::vector<double> &z,
@@ -432,11 +463,92 @@ double trilinear( const std::vector<double> &x,
 }
 
 
-// Dummy function to prevent compiler from optimizing away variable
-void nullUse( void *data ) { NULL_USE( data ); }
+/****************************************************************************
+ *  Dummy function to prevent compiler from optimizing away variable         *
+ ****************************************************************************/
+void nullUse( const void * ) {}
 
 
-// Function to demangle a string (e.g. from typeid)
+/****************************************************************************
+ *  Busy wait functions                                                      *
+ ****************************************************************************/
+void busy_ms( int N )
+{
+    auto t0 = std::chrono::high_resolution_clock::now();
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dis;
+    auto duration = [t0]() {
+        auto t1 = std::chrono::high_resolution_clock::now();
+        return std::chrono::duration_cast<std::chrono::milliseconds>( t1 - t0 ).count();
+    };
+    while ( duration() < N ) {
+        [[maybe_unused]] double x = dis( gen );
+        for ( int i = 0; i < 500; i++ )
+            x = sqrt( x );
+    }
+}
+
+
+/****************************************************************************
+ *   Function to return a unique alpha-numeric string on the comm            *
+ ****************************************************************************/
+std::string randomString( const AMP::AMP_MPI &comm )
+{
+    // Get a random number that is consistent across the communicator
+    //    key = rand() * 2^64*0.5*(sqrt(5)-1)
+    uint64_t key = ( ( (uint64_t) comm.rand() ) * 0x9E3779B97F4A7C15 );
+    // Convert the hash key to an alpha-numeric string
+    char cname[64] = { 0 };
+    size_t i       = 0;
+    while ( key != 0 ) {
+        size_t tmp = key % 62;
+        key /= 62;
+        if ( tmp < 10 )
+            cname[i] = static_cast<char>( tmp + 48 );
+        else if ( tmp < 36 )
+            cname[i] = static_cast<char>( tmp - 10 + 97 );
+        else if ( tmp < 62 )
+            cname[i] = static_cast<char>( tmp - 36 + 65 );
+        else
+            AMP_ERROR( "Internal error" );
+        i++;
+    }
+    return std::string( cname, i );
+}
+
+
+/****************************************************************************
+ *  Fill with random values in [0,1]                                         *
+ ****************************************************************************/
+void fillRandom( std::vector<double> &x )
+{
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<> dis( 0, 1 );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x[i] = dis( gen );
+}
+template<size_t NDIM>
+void fillRandom( std::vector<std::array<double, NDIM>> &x )
+{
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<> dis( 0, 1 );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        for ( size_t d = 0; d < NDIM; d++ )
+            x[i][d] = dis( gen );
+    }
+}
+template void fillRandom<1>( std::vector<std::array<double, 1>> & );
+template void fillRandom<2>( std::vector<std::array<double, 2>> & );
+template void fillRandom<3>( std::vector<std::array<double, 3>> & );
+template void fillRandom<4>( std::vector<std::array<double, 4>> & );
+
+
+/****************************************************************************
+ *  Function to demangle a string (e.g. from typeid)                         *
+ ****************************************************************************/
 #ifdef __GNUC__
     #define USE_ABI
     #include <cxxabi.h>
@@ -457,24 +569,243 @@ std::string demangle( const std::string &name )
 }
 
 
-// Print a database to an output stream
-template<class TYPE>
-static void printVar( const std::string &name,
-                      const std::vector<TYPE> &data,
-                      std::ostream &os,
-                      const std::string &indent )
+/****************************************************************************
+ *  Get the string for the last errno                                        *
+ ****************************************************************************/
+std::string_view getLastErrnoString()
 {
-    os << indent << name << " = ";
-    if ( !data.empty() ) {
-        os << data[0];
-        for ( size_t i = 1; i < data.size(); i++ )
-            os << ", " << data[i];
+    int err = errno;
+    if ( err == E2BIG ) {
+        return "Argument list too long";
+    } else if ( err == EACCES ) {
+        return "Permission denied";
+    } else if ( err == EADDRINUSE ) {
+        return "Address in use";
+    } else if ( err == EADDRNOTAVAIL ) {
+        return "Address not available";
+    } else if ( err == EAFNOSUPPORT ) {
+        return "Address family not supported";
+    } else if ( err == EAGAIN ) {
+        return "Resource unavailable, try again";
+    } else if ( err == EALREADY ) {
+        return "Connection already in progress";
+    } else if ( err == EBADF ) {
+        return "Bad file descriptor";
+    } else if ( err == EBADMSG ) {
+        return "Bad message";
+    } else if ( err == EBUSY ) {
+        return "Device or resource busy";
+    } else if ( err == ECANCELED ) {
+        return "Operation canceled";
+    } else if ( err == ECHILD ) {
+        return "No child processes";
+    } else if ( err == ECONNABORTED ) {
+        return "Connection aborted";
+    } else if ( err == ECONNREFUSED ) {
+        return "Connection refused";
+    } else if ( err == ECONNRESET ) {
+        return "Connection reset";
+    } else if ( err == EDEADLK ) {
+        return "Resource deadlock would occur";
+    } else if ( err == EDESTADDRREQ ) {
+        return "Destination address required";
+    } else if ( err == EDOM ) {
+        return "Mathematics argument out of domain of function";
+    } else if ( err == EEXIST ) {
+        return "File exists";
+    } else if ( err == EFAULT ) {
+        return "Bad address";
+    } else if ( err == EFBIG ) {
+        return "File too large";
+    } else if ( err == EHOSTUNREACH ) {
+        return "Host is unreachable";
+    } else if ( err == EIDRM ) {
+        return "Identifier removed";
+    } else if ( err == EILSEQ ) {
+        return "Illegal byte sequence";
+    } else if ( err == EINPROGRESS ) {
+        return "Operation in progress";
+    } else if ( err == EINTR ) {
+        return "Interrupted function";
+    } else if ( err == EINVAL ) {
+        return "Invalid argument";
+    } else if ( err == EIO ) {
+        return "I/O error";
+    } else if ( err == EISCONN ) {
+        return "Socket is connected";
+    } else if ( err == EISDIR ) {
+        return "Is a directory";
+    } else if ( err == ELOOP ) {
+        return "Too many levels of symbolic links";
+    } else if ( err == EMFILE ) {
+        return "File descriptor value too large";
+    } else if ( err == EMLINK ) {
+        return "Too many links";
+    } else if ( err == EMSGSIZE ) {
+        return "Message too large";
+    } else if ( err == ENAMETOOLONG ) {
+        return "Filename too long";
+    } else if ( err == ENETDOWN ) {
+        return "Network is down";
+    } else if ( err == ENETRESET ) {
+        return "Connection aborted by network";
+    } else if ( err == ENETUNREACH ) {
+        return "Network unreachable";
+    } else if ( err == ENFILE ) {
+        return "Too many files open in system";
+    } else if ( err == ENOBUFS ) {
+        return "No buffer space available";
+    } else if ( err == ENODATA ) {
+        return "No message is available on the STREAM head read queue";
+    } else if ( err == ENODEV ) {
+        return "No such device";
+    } else if ( err == ENOENT ) {
+        return "No such file or directory";
+    } else if ( err == ENOEXEC ) {
+        return "Executable file format error";
+    } else if ( err == ENOLCK ) {
+        return "No locks available";
+    } else if ( err == ENOLINK ) {
+        return "Link has been severed";
+    } else if ( err == ENOMEM ) {
+        return "Not enough space";
+    } else if ( err == ENOMSG ) {
+        return "No message of the desired type";
+    } else if ( err == ENOPROTOOPT ) {
+        return "Protocol not available";
+    } else if ( err == ENOSPC ) {
+        return "No space left on device";
+    } else if ( err == ENOSR ) {
+        return "No STREAM resources";
+    } else if ( err == ENOSTR ) {
+        return "Not a STREAM";
+    } else if ( err == ENOSYS ) {
+        return "Function not supported";
+    } else if ( err == ENOTCONN ) {
+        return "The socket is not connected";
+    } else if ( err == ENOTDIR ) {
+        return "Not a directory";
+    } else if ( err == ENOTEMPTY ) {
+        return "Directory not empty";
+    } else if ( err == ENOTRECOVERABLE ) {
+        return "State not recoverable";
+    } else if ( err == ENOTSOCK ) {
+        return "Not a socket";
+    } else if ( err == ENOTSUP ) {
+        return "Not supported";
+    } else if ( err == ENOTTY ) {
+        return "Inappropriate I/O control operation";
+    } else if ( err == ENXIO ) {
+        return "No such device or address";
+    } else if ( err == EOPNOTSUPP ) {
+        return "Operation not supported on socket";
+    } else if ( err == EOVERFLOW ) {
+        return "Value too large to be stored in data type";
+    } else if ( err == EOWNERDEAD ) {
+        return "Previous owner died";
+    } else if ( err == EPERM ) {
+        return "Operation not permitted";
+    } else if ( err == EPIPE ) {
+        return "Broken pipe";
+    } else if ( err == EPROTO ) {
+        return "Protocol error";
+    } else if ( err == EPROTONOSUPPORT ) {
+        return "Protocol not supported";
+    } else if ( err == EPROTOTYPE ) {
+        return "Protocol wrong type for socket";
+    } else if ( err == ERANGE ) {
+        return "Result too large";
+    } else if ( err == EROFS ) {
+        return "Read-only file system";
+    } else if ( err == ESPIPE ) {
+        return "Invalid seek";
+    } else if ( err == ESRCH ) {
+        return "No such process";
+    } else if ( err == ETIME ) {
+        return "Stream ioctl() timeout";
+    } else if ( err == ETIMEDOUT ) {
+        return "Connection timed out";
+    } else if ( err == ETXTBSY ) {
+        return "Text file busy";
+    } else if ( err == EWOULDBLOCK ) {
+        return "Operation would block";
+    } else if ( err == EXDEV ) {
+        return "Cross-device link";
+    } else {
+        AMP_ERROR( "Unknown errno (" + std::to_string( err ) + ")" );
     }
-    os << std::endl;
 }
-void printDatabase( const Database &db, std::ostream &os, const std::string &indent )
+
+
+/****************************************************************************
+ *  Modify database entries to ensure consistent memory spaces               *
+ ****************************************************************************/
+void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
+                                       std::string outerOperatorName,
+                                       std::vector<std::string> nestedOperatorNames )
 {
-    db.print( os, indent );
+    auto outer_db = input_db->getDatabase( outerOperatorName );
+    AMP_INSIST( outer_db, "OperatorBuilder: outer DB is null" );
+
+    if ( outer_db->keyExists( "MemoryLocation" ) ) {
+        // if outer operator requests a memory location it takes precedent
+        auto memLoc = outer_db->getScalar<std::string>( "MemoryLocation" );
+        for ( auto &innerName : nestedOperatorNames ) {
+            auto inner_db = input_db->getDatabase( innerName );
+            AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null" );
+            inner_db->putScalar(
+                "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+        }
+    } else {
+        // outer db does not specify a memory location, check if any internal one does
+        // if multiple are specified use most restrictive one
+        std::string memLoc{ "device" };
+        auto memRestrict = []( const std::string &m1, const std::string &m2 ) -> std::string {
+            int c1 = 3, c2 = 3;
+            if ( m1 == "device" || m1 == "Device" ) {
+                c1 = 2;
+            } else if ( m1 == "managed" || m1 == "Managed" ) {
+                c1 = 1;
+            } else if ( m1 == "host" || m1 == "host" ) {
+                c1 = 0;
+            }
+            if ( m2 == "device" || m2 == "Device" ) {
+                c2 = 2;
+            } else if ( m2 == "managed" || m2 == "Managed" ) {
+                c2 = 1;
+            } else if ( m2 == "host" || m2 == "host" ) {
+                c2 = 0;
+            }
+            if ( c1 == 3 && c2 == 3 ) {
+                // both spaces unrecognized
+                AMP_WARNING( "Unrecognized memory space, returning host" );
+                return "host";
+            } else if ( c1 < c2 ) {
+                return m1;
+            }
+            return m2;
+        };
+        bool found = false;
+        for ( auto &innerName : nestedOperatorNames ) {
+            auto inner_db = input_db->getDatabase( innerName );
+            AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null (" + innerName + ")" );
+            if ( inner_db->keyExists( "MemoryLocation" ) ) {
+                found        = true;
+                auto memLocI = inner_db->getScalar<std::string>( "MemoryLocation" );
+                memLoc       = memRestrict( memLoc, memLocI );
+            }
+        }
+        if ( found ) {
+            outer_db->putScalar(
+                "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+            for ( auto &innerName : nestedOperatorNames ) {
+                auto inner_db = input_db->getDatabase( innerName );
+                AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null" );
+                inner_db->putScalar(
+                    "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+            }
+        }
+    }
 }
 
 
@@ -484,22 +815,32 @@ void printDatabase( const Database &db, std::ostream &os, const std::string &ind
 /************************************************************************
  * Explicit instantiations                                               *
  ************************************************************************/
-#define INSTANTIATE( TYPE )                                                            \
-    template std::string AMP::Utilities::to_string<TYPE>( std::vector<TYPE> const & ); \
-    template void AMP::Utilities::quicksort<TYPE>( size_t, TYPE * );                   \
-    template void AMP::Utilities::quicksort<TYPE, TYPE>( size_t, TYPE *, TYPE * );     \
-    template void AMP::Utilities::unique<TYPE>( std::vector<TYPE> & );                 \
-    template void AMP::Utilities::unique<TYPE>(                                        \
-        std::vector<TYPE> &, std::vector<size_t> &, std::vector<size_t> & );           \
-    template size_t AMP::Utilities::findfirst<TYPE>( size_t, const TYPE *, const TYPE & )
-INSTANTIATE( int8_t );
-INSTANTIATE( int16_t );
-INSTANTIATE( int32_t );
-INSTANTIATE( int64_t );
-INSTANTIATE( uint8_t );
-INSTANTIATE( uint16_t );
-INSTANTIATE( uint32_t );
-INSTANTIATE( uint64_t );
-INSTANTIATE( float );
-INSTANTIATE( double );
-INSTANTIATE( long double );
+using Point1D = std::array<double, 1>;
+using Point2D = std::array<double, 2>;
+using Point3D = std::array<double, 3>;
+AMP_INSTANTIATE_SORT( int8_t );
+AMP_INSTANTIATE_SORT( int16_t );
+AMP_INSTANTIATE_SORT( int32_t );
+AMP_INSTANTIATE_SORT( int64_t );
+AMP_INSTANTIATE_SORT( uint8_t );
+AMP_INSTANTIATE_SORT( uint16_t );
+AMP_INSTANTIATE_SORT( uint32_t );
+AMP_INSTANTIATE_SORT( uint64_t );
+AMP_INSTANTIATE_SORT( float );
+AMP_INSTANTIATE_SORT( double );
+AMP_INSTANTIATE_SORT( long double );
+AMP_INSTANTIATE_SORT( Point1D );
+AMP_INSTANTIATE_SORT( Point2D );
+AMP_INSTANTIATE_SORT( Point3D );
+template void AMP::Utilities::quicksort<double, size_t>( size_t, double *, size_t * );
+template std::string AMP::Utilities::to_string<int8_t>( std::vector<int8_t> const & );
+template std::string AMP::Utilities::to_string<int16_t>( std::vector<int16_t> const & );
+template std::string AMP::Utilities::to_string<int32_t>( std::vector<int32_t> const & );
+template std::string AMP::Utilities::to_string<int64_t>( std::vector<int64_t> const & );
+template std::string AMP::Utilities::to_string<uint8_t>( std::vector<uint8_t> const & );
+template std::string AMP::Utilities::to_string<uint16_t>( std::vector<uint16_t> const & );
+template std::string AMP::Utilities::to_string<uint32_t>( std::vector<uint32_t> const & );
+template std::string AMP::Utilities::to_string<uint64_t>( std::vector<uint64_t> const & );
+template std::string AMP::Utilities::to_string<float>( std::vector<float> const & );
+template std::string AMP::Utilities::to_string<double>( std::vector<double> const & );
+template std::string AMP::Utilities::to_string<long double>( std::vector<long double> const & );

@@ -42,8 +42,7 @@ void StridedZAxisMap::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     auto inpVar = getInputVariable();
     auto inpVec = u->subsetVectorForVariable( inpVar );
     if ( d_inpDofs != 1 ) {
-        auto strided = inpVec->select( AMP::LinearAlgebra::VS_Stride( d_inpStride, d_inpDofs ),
-                                       inpVar->getName() );
+        auto strided = inpVec->select( AMP::LinearAlgebra::VS_Stride( d_inpStride, d_inpDofs ) );
         AMP_ASSERT( strided );
         AMP::Operator::AsyncMapOperator::apply( strided, r );
     } else {
@@ -56,8 +55,7 @@ void StridedZAxisMap::setVector( AMP::LinearAlgebra::Vector::shared_ptr result )
     auto outVar = getOutputVariable();
     auto outVec = result->subsetVectorForVariable( outVar );
     if ( d_outDofs != 1 ) {
-        auto strided = outVec->select( AMP::LinearAlgebra::VS_Stride( d_outStride, d_outDofs ),
-                                       outVar->getName() );
+        auto strided = outVec->select( AMP::LinearAlgebra::VS_Stride( d_outStride, d_outDofs ) );
         AMP_ASSERT( strided );
         AMP::Operator::Map3to1to3::setVector( strided );
     } else {

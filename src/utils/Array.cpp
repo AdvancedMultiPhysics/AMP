@@ -3,94 +3,83 @@
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/typeid.h"
 
+#include <bitset>
 #include <complex>
 #include <cstddef>
+#include <string>
+#include <string_view>
 
 
-namespace AMP {
+#define instantiateFull( T )      \
+    template class AMP::Array<T>; \
+    PACK_UNPACK_ARRAY( T );       \
+    template AMP::Array<T>::Array( AMP::Range<T> const & )
 
-
-/********************************************************
- *  Explicit instantiations of Array                     *
- ********************************************************/
-#if defined( __INTEL_COMPILER )
-DISABLE_WARNINGS
-#endif
-template class Array<bool>;
-template class Array<char>;
-template class Array<uint8_t>;
-template class Array<uint16_t>;
-template class Array<uint32_t>;
-template class Array<uint64_t>;
-template class Array<int8_t>;
-template class Array<int16_t>;
-template class Array<int32_t>;
-template class Array<int64_t>;
-template class Array<long long>;
-template class Array<float>;
-template class Array<double>;
-template class Array<long double>;
-instantiateArrayConstructors( std::byte );
-instantiateArrayConstructors( std::string );
-instantiateArrayConstructors( std::string_view );
-instantiateArrayConstructors( typeID );
+#define instantiateData( T )           \
+    instantiateArrayConstructors( T ); \
+    PACK_UNPACK_ARRAY( T );            \
+    PACK_UNPACK_ARRAY2( T )
 
 
 /********************************************************
- *  Explicit instantiations of Array<std::complex>       *
+ *  Basic numeric Ts                                  *
  ********************************************************/
-instantiateArrayConstructors( std::complex<float> );
-instantiateArrayConstructors( std::complex<double> );
-template Array<std::complex<float>>::Array( const Range<std::complex<float>> &range );
-template Array<std::complex<double>>::Array( const Range<std::complex<double>> &range );
-template Array<std::complex<float>>
-Array<std::complex<float>>::repmat( std::vector<unsigned long> const & ) const;
-template Array<std::complex<double>>
-Array<std::complex<double>>::repmat( std::vector<unsigned long> const & ) const;
-template void Array<std::complex<float>>::copySubset( std::vector<unsigned long> const &,
-                                                      Array<std::complex<float>> const & );
-template void Array<std::complex<double>>::copySubset( std::vector<unsigned long> const &,
-                                                       Array<std::complex<double>> const & );
-template Array<std::complex<float>>
-Array<std::complex<float>>::subset( std::vector<unsigned long> const & ) const;
-template Array<std::complex<double>>
-Array<std::complex<double>>::subset( std::vector<unsigned long> const & ) const;
-template bool Array<std::complex<float>>::NaNs() const;
-template bool Array<std::complex<double>>::NaNs() const;
-template void AMP::Array<std::complex<double>, AMP::FunctionTable>::rand();
-
-#if defined( __INTEL_COMPILER )
-ENABLE_WARNINGS
-#endif
+instantiateFull( char );
+instantiateFull( uint8_t );
+instantiateFull( uint16_t );
+instantiateFull( uint32_t );
+instantiateFull( uint64_t );
+instantiateFull( int8_t );
+instantiateFull( int16_t );
+instantiateFull( int32_t );
+instantiateFull( int64_t );
+instantiateFull( long long );
+instantiateFull( float );
+instantiateFull( double );
+instantiateFull( long double );
 
 
 /********************************************************
- *  Pack/Unpack                                          *
+ *  std::complex                                         *
  ********************************************************/
-PACK_UNPACK_ARRAY( std::byte * );
+#define instantiateComplex( T )                                                                    \
+    instantiateArrayConstructors( T );                                                             \
+    template AMP::Array<T>::Array( const Range<T> &range );                                        \
+    template AMP::Array<T> AMP::Array<T>::repmat( AMP::ArraySize const & ) const;                  \
+    template void AMP::Array<T>::copySubset( std::vector<size_t> const &, AMP::Array<T> const & ); \
+    template AMP::Array<T> AMP::Array<T>::subset( const std::vector<size_t> & ) const;             \
+    template bool AMP::Array<T>::NaNs() const;                                                     \
+    template void AMP::Array<T>::rand();                                                           \
+    template void AMP::Array<T>::scale( const T & );                                               \
+    template AMP::Array<T> &AMP::Array<T>::operator+=( const AMP::Array<T> & );                    \
+    template AMP::Array<T> &AMP::Array<T>::operator-=( const AMP::Array<T> & );                    \
+    template AMP::Array<T> &AMP::Array<T>::operator+=( const T & );                                \
+    template AMP::Array<T> &AMP::Array<T>::operator-=( const T & );                                \
+    PACK_UNPACK_ARRAY( T );                                                                        \
+    PACK_UNPACK_ARRAY2( T )
+instantiateComplex( std::complex<float> );
+instantiateComplex( std::complex<double> );
+
+
+/********************************************************
+ *  bool                                                 *
+ ********************************************************/
+template class AMP::Array<bool>;
 PACK_UNPACK_ARRAY( bool );
-PACK_UNPACK_ARRAY( char );
-PACK_UNPACK_ARRAY( uint8_t );
-PACK_UNPACK_ARRAY( uint16_t );
-PACK_UNPACK_ARRAY( uint32_t );
-PACK_UNPACK_ARRAY( uint64_t );
-PACK_UNPACK_ARRAY( int8_t );
-PACK_UNPACK_ARRAY( int16_t );
-PACK_UNPACK_ARRAY( int32_t );
-PACK_UNPACK_ARRAY( int64_t );
-PACK_UNPACK_ARRAY( long long );
-PACK_UNPACK_ARRAY( float );
-PACK_UNPACK_ARRAY( double );
-PACK_UNPACK_ARRAY( long double );
-PACK_UNPACK_ARRAY( std::complex<float> );
-PACK_UNPACK_ARRAY( std::complex<double> );
-PACK_UNPACK_ARRAY( std::byte );
-PACK_UNPACK_ARRAY( std::string );
-PACK_UNPACK_ARRAY( std::string_view );
-PACK_UNPACK_ARRAY2( std::byte * );
-PACK_UNPACK_ARRAY2( std::string );
-PACK_UNPACK_ARRAY2( std::complex<float> );
-PACK_UNPACK_ARRAY2( std::complex<double> );
 
 
-} // namespace AMP
+/********************************************************
+ *  byte, typeid, string                                 *
+ ********************************************************/
+instantiateData( std::byte );
+instantiateData( AMP::typeID );
+instantiateData( std::string );
+instantiateData( std::string_view );
+PACK_UNPACK_ARRAY( std::byte * );
+
+
+/********************************************************
+ *  MPI routines                                         *
+ ********************************************************/
+#include "AMP/utils/AMP_MPI.I"
+template AMP::Array<int> AMP::AMP_MPI::bcast<AMP::Array<int>>( AMP::Array<int> const &, int ) const;

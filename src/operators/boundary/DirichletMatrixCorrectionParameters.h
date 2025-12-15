@@ -1,4 +1,3 @@
-
 #ifndef included_AMP_DirichletMatrixCorrectionParameters
 #define included_AMP_DirichletMatrixCorrectionParameters
 

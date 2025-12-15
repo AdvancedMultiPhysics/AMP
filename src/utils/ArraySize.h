@@ -1,69 +1,74 @@
 #ifndef included_AMP_ArraySizeClass
-#define included_AMP_ArraySizeClass
+    #define included_AMP_ArraySizeClass
 
 
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <initializer_list>
-#include <vector>
+    #include <array>
+    #include <cmath>
+    #include <complex>
+    #include <cstdint>
+    #include <cstdlib>
+    #include <cstring>
+    #include <initializer_list>
+    #include <vector>
 
+    #include "AMP/utils/Memory.h"
 
-#if defined( __CUDA_ARCH__ )
-    #include <cuda.h>
-    #define HOST_DEVICE __host__ __device__
-#else
-    #define HOST_DEVICE
-#endif
-#if defined( __NVCC__ )
-    #define CONSTEXPR HOST_DEVICE constexpr
-    #define CONSTEXPR_IF
-#else
-    #define CONSTEXPR HOST_DEVICE constexpr
-    #define CONSTEXPR_IF constexpr
-#endif
-#if defined( __GNUC__ ) || defined( __clang__ )
-    #define ARRAY_INLINE HOST_DEVICE inline __attribute__( ( always_inline ) )
-#elif defined( _MSC_VER )
-    #define ARRAY_INLINE HOST_DEVICE __forceinline
-#else
-    #define ARRAY_INLINE HOST_DEVICE inline
-#endif
-#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ )
-    #define CHECK_ARRAY_LENGTH( i, length )                              \
-        do {                                                             \
-            if ( i >= length )                                           \
-                throw std::out_of_range( "Index exceeds array bounds" ); \
-        } while ( 0 )
-    #define ARRAY_INSIST( test, msg )           \
-        do {                                    \
-            if ( !( test ) )                    \
-                throw std::out_of_range( msg ); \
-        } while ( 0 )
-#else
-    #define CHECK_ARRAY_LENGTH( i, length ) \
-        do {                                \
-        } while ( 0 )
-    #define ARRAY_INSIST( test, msg ) \
-        do {                          \
-        } while ( 0 )
-#endif
-
-#if defined( __INTEL_COMPILER )
-    #include "AMP/utils/UtilityMacros.h"
-DISABLE_WARNINGS
-#endif
-
+    #if defined( __CUDA_ARCH__ )
+        #include <cuda.h>
+        #define HOST_DEVICE __host__ __device__
+    #elif defined( __HIP_DEVICE_COMPILE__ )
+        #include "hip/hip_runtime.h"
+        #define HOST_DEVICE __host__ __device__
+    #else
+        #define HOST_DEVICE
+    #endif
+    #if defined( __NVCC__ )
+        #define CONSTEXPR HOST_DEVICE constexpr
+        #define CONSTEXPR_IF
+    #elif defined( __HIPCC__ )
+        #define CONSTEXPR HOST_DEVICE constexpr
+        #define CONSTEXPR_IF constexpr
+    #else
+        #define CONSTEXPR HOST_DEVICE constexpr
+        #define CONSTEXPR_IF constexpr
+    #endif
+    #if defined( __GNUC__ ) || defined( __clang__ )
+        #define ARRAY_INLINE HOST_DEVICE inline __attribute__( ( always_inline ) )
+    #elif defined( _MSC_VER )
+        #define ARRAY_INLINE HOST_DEVICE __forceinline
+    #else
+        #define ARRAY_INLINE HOST_DEVICE inline
+    #endif
+    #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ ) && \
+        !defined( __HIP_DEVICE_COMPILE__ )
+        #define CHECK_ARRAY_LENGTH( i, length )                              \
+            do {                                                             \
+                if ( i >= length )                                           \
+                    throw std::out_of_range( "Index exceeds array bounds" ); \
+            } while ( 0 )
+        #define ARRAY_INSIST( test, msg )           \
+            do {                                    \
+                if ( !( test ) )                    \
+                    throw std::out_of_range( msg ); \
+            } while ( 0 )
+    #else
+        #define CHECK_ARRAY_LENGTH( i, length ) \
+            do {                                \
+            } while ( 0 )
+        #define ARRAY_INSIST( test, msg ) \
+            do {                          \
+            } while ( 0 )
+    #endif
 
 namespace AMP {
 
 
 // Forward declerations
+template<class TYPE>
 class FunctionTable;
-template<class TYPE, class FUN = FunctionTable, class Allocator = std::allocator<TYPE>>
+template<class TYPE>
+class GPUFunctionTable;
+template<class TYPE, class FUN = FunctionTable<TYPE>, class Allocator = AMP::HostAllocator<void>>
 class Array;
 
 
@@ -73,7 +78,7 @@ class Range final
 {
 public:
     //! Empty constructor
-    CONSTEXPR Range() : i( 0 ), j( -1 ), k( 1 ) {}
+    CONSTEXPR Range() : i( 0 ), j( 0 ), k( 1 ) {}
 
     /*!
      * Create a range i:k:j (or i:j)
@@ -453,6 +458,12 @@ CONSTEXPR ArraySize operator*( const ArraySize &x, size_t v )
     size_t N[5] = { v * x[0], v * x[1], v * x[2], v * x[3], v * x[4] };
     return ArraySize( x.ndim(), N );
 }
+CONSTEXPR ArraySize operator*( const ArraySize &x, const ArraySize &y )
+{
+    int ndim    = std::max( x.ndim(), y.ndim() );
+    size_t N[5] = { x[0] * y[0], x[1] * y[1], x[2] * y[2], x[3] * y[3], x[4] * y[4] };
+    return ArraySize( ndim, N );
+}
 CONSTEXPR ArraySize operator-( const ArraySize &x, size_t v )
 {
     size_t N[5] = { x[0] - v, x[1] - v, x[2] - v, x[3] - v, x[4] - v };
@@ -471,10 +482,6 @@ CONSTEXPR ArraySize operator+( size_t v, const ArraySize &x )
 
 
 } // namespace AMP
-
-#if defined( __INTEL_COMPILER )
-ENABLE_WARNINGS
-#endif
 
 
 #endif

@@ -1,6 +1,7 @@
 #include "AMP/operators/boundary/libmesh/NeumannVectorCorrection.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 #include "AMP/operators/boundary/libmesh/NeumannVectorCorrectionParameters.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
@@ -9,6 +10,8 @@
 
 // Libmesh files
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -27,12 +30,37 @@ using AMP::Utilities::stringf;
 namespace AMP::Operator {
 
 
-// Constructor
+/****************************************************************
+ * Create the appropriate parameters                             *
+ ****************************************************************/
+static std::shared_ptr<const NeumannVectorCorrectionParameters>
+convert( std::shared_ptr<const OperatorParameters> inParams )
+{
+    AMP_ASSERT( inParams );
+    if ( std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams ) )
+        return std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams );
+    auto bndParams = std::dynamic_pointer_cast<const BoundaryOperatorParameters>( inParams );
+    AMP_ASSERT( bndParams );
+    auto params        = std::make_shared<NeumannVectorCorrectionParameters>( inParams->d_db );
+    params->d_Mesh     = inParams->d_Mesh;
+    params->d_variable = bndParams->d_volumeOperator->getOutputVariable();
+    if ( params->d_db->keyExists( "LocalModel" ) ) {
+        auto model_db = params->d_db->getDatabase( "LocalModel" );
+        auto model    = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+        params->d_robinPhysicsModel = std::dynamic_pointer_cast<RobinPhysicsModel>( model );
+    }
+    return params;
+}
+
+
+/****************************************************************
+ * Constructor                                                   *
+ ****************************************************************/
 NeumannVectorCorrection::NeumannVectorCorrection(
     std::shared_ptr<const OperatorParameters> inParams )
     : BoundaryOperator( inParams )
 {
-    auto params = std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams );
+    auto params = convert( inParams );
     AMP_ASSERT( params );
     d_params = params;
 
@@ -63,6 +91,8 @@ NeumannVectorCorrection::NeumannVectorCorrection(
 
 void NeumannVectorCorrection::reset( std::shared_ptr<const OperatorParameters> params )
 {
+    AMP_ASSERT( params );
+
     auto myparams = std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( params );
 
     AMP_INSIST( myparams, "NULL parameters" );
@@ -107,8 +137,7 @@ void NeumannVectorCorrection::reset( std::shared_ptr<const OperatorParameters> p
     // Create the libmesh elements
     AMP::Mesh::MeshIterator iterator;
     for ( auto &elem : d_boundaryIds ) {
-        AMP::Mesh::MeshIterator iterator2 =
-            d_Mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, elem, 0 );
+        auto iterator2 = d_Mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, elem, 0 );
         iterator = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, iterator, iterator2 );
     }
     d_libmeshElements.reinit( iterator, d_qruleType, d_qruleOrder, d_type );
@@ -119,12 +148,12 @@ void NeumannVectorCorrection::addRHScorrection(
     AMP::LinearAlgebra::Vector::shared_ptr rhsCorrection )
 {
 
-    AMP::LinearAlgebra::Vector::shared_ptr myRhs = subsetInputVector( rhsCorrection );
+    auto myRhs = subsetInputVector( rhsCorrection );
 
     auto gammaValue = ( d_params->d_db )->getWithDefault<double>( "gamma", 1.0 );
 
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal            = myRhs->clone();
-    std::shared_ptr<AMP::Discretization::DOFManager> dofManager = rInternal->getDOFManager();
+    auto rInternal  = myRhs->clone();
+    auto dofManager = rInternal->getDOFManager();
     rInternal->zero();
 
     unsigned int numBndIds = d_boundaryIds.size();
@@ -142,29 +171,28 @@ void NeumannVectorCorrection::addRHScorrection(
 
             for ( unsigned int k = 0; k < numDofIds; k++ ) {
 
-                AMP::Mesh::MeshIterator bnd =
+                auto bnd =
                     d_Mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, d_boundaryIds[j], 0 );
-                AMP::Mesh::MeshIterator end_bnd = bnd.end();
 
-                for ( ; bnd != end_bnd; ++bnd ) {
+                for ( auto &elem : bnd ) {
 
-                    d_currNodes = bnd->getElements( AMP::Mesh::GeomType::Vertex );
+                    d_currNodes = elem.getElements( AMP::Mesh::GeomType::Vertex );
                     unsigned int numNodesInCurrElem = d_currNodes.size();
 
                     dofIndices.resize( numNodesInCurrElem );
                     for ( unsigned int i = 0; i < numNodesInCurrElem; i++ ) {
-                        dofManager->getDOFs( d_currNodes[i].globalID(), dofIndices[i] );
+                        dofManager->getDOFs( d_currNodes[i]->globalID(), dofIndices[i] );
                     }
 
                     std::shared_ptr<AMP::Discretization::DOFManager> fluxDOFManager;
                     if ( !d_isConstantFlux && d_isFluxGaussPtVector ) {
                         fluxDOFManager = d_variableFlux->getDOFManager();
-                        fluxDOFManager->getDOFs( bnd->globalID(), fluxDofs );
+                        fluxDOFManager->getDOFs( elem.globalID(), fluxDofs );
                     }
 
                     // Get the current libmesh element
-                    const libMesh::FEBase *fe  = d_libmeshElements.getFEBase( bnd->globalID() );
-                    const libMesh::QBase *rule = d_libmeshElements.getQBase( bnd->globalID() );
+                    const libMesh::FEBase *fe  = d_libmeshElements.getFEBase( elem.globalID() );
+                    const libMesh::QBase *rule = d_libmeshElements.getQBase( elem.globalID() );
                     AMP_ASSERT( fe );
                     AMP_ASSERT( rule );
                     const unsigned int numGaussPts = rule->n_points();
@@ -234,6 +262,7 @@ std::shared_ptr<OperatorParameters>
 NeumannVectorCorrection::getJacobianParameters( AMP::LinearAlgebra::Vector::const_shared_ptr )
 {
     auto db = std::make_shared<AMP::Database>( "Dummy" );
+    db->putScalar( "name", "NeumannVectorCorrection" );
     db->putScalar( "FE_ORDER", "FIRST" );
     db->putScalar( "FE_FAMILY", "LAGRANGE" );
     db->putScalar( "QRULE_TYPE", "QGAUSS" );
@@ -251,12 +280,13 @@ NeumannVectorCorrection::getJacobianParameters( AMP::LinearAlgebra::Vector::cons
             if ( d_isConstantFlux ) {
                 db->putScalar( stringf( "value_%i_%i", i, j ), d_neumannValues[i][j] );
             } else {
-                // d_variableFlux ??
+                db->putScalar( stringf( "value_%i_%i", i, j ), 0 );
             }
         }
     }
 
-    auto outParams = std::make_shared<NeumannVectorCorrectionParameters>( db );
+    auto outParams    = std::make_shared<NeumannVectorCorrectionParameters>( db );
+    outParams->d_Mesh = d_Mesh;
 
     return outParams;
 }
@@ -264,9 +294,9 @@ NeumannVectorCorrection::getJacobianParameters( AMP::LinearAlgebra::Vector::cons
 
 void NeumannVectorCorrection::setFrozenVector( AMP::LinearAlgebra::Vector::shared_ptr f )
 {
-    AMP::LinearAlgebra::Vector::shared_ptr f2 = f;
+    auto f2 = f;
     if ( d_Mesh )
-        f2 = f->select( AMP::LinearAlgebra::VS_Mesh( d_Mesh ), f->getName() );
+        f2 = f->select( AMP::LinearAlgebra::VS_Mesh( d_Mesh ) );
     if ( !f2 )
         return;
     if ( !d_Frozen )
@@ -279,9 +309,8 @@ void NeumannVectorCorrection::setVariableFlux( const AMP::LinearAlgebra::Vector:
 {
     if ( d_Mesh ) {
         AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
-        AMP::LinearAlgebra::Vector::shared_ptr meshSubsetVec =
-            flux->select( meshSelector, d_variable->getName() );
-        d_variableFlux = meshSubsetVec->subsetVectorForVariable( d_variable );
+        auto meshSubsetVec = flux->select( meshSelector );
+        d_variableFlux     = meshSubsetVec->subsetVectorForVariable( d_variable );
     } else {
         d_variableFlux = flux->subsetVectorForVariable( d_variable );
     }

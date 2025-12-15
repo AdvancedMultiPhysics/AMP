@@ -1,17 +1,21 @@
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/data/VectorDataDefault.h"
 
-#ifdef USE_OPENMP
+#ifdef AMP_USE_OPENMP
     #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
 #endif
-#ifdef USE_DEVICE
-    #include "AMP/vectors/operations/VectorOperationsDevice.h"
+#ifdef AMP_USE_DEVICE
+    #include "AMP/vectors/data/device/VectorDataDevice.h"
+    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 #endif
-#include "AMP/utils/memory.h"
-
+#ifdef AMP_USE_KOKKOS
+    #include "AMP/vectors/operations/kokkos/VectorOperationsKokkos.h"
+#endif
 
 #include "ProfilerApp.h"
 
@@ -166,30 +170,53 @@ int main( int argc, char **argv )
             AMP::pout << std::endl;
         }
 
-#ifdef USE_OPENMP
-        vec = AMP::LinearAlgebra::
-            createSimpleVector<double, AMP::LinearAlgebra::VectorOperationsOpenMP<double>>(
-                N, var, globalComm );
-        auto time_openmp = testPerformance( vec );
-        if ( rank == 0 ) {
-            AMP::pout << "SimpleVector<OpenMP>:" << std::endl;
-            time_openmp.print();
-            time_openmp.print_speedup( time0 );
-            AMP::pout << std::endl;
+#ifdef AMP_USE_OPENMP
+        {
+            vec = AMP::LinearAlgebra::
+                createSimpleVector<double, AMP::LinearAlgebra::VectorOperationsOpenMP<double>>(
+                    N, var, globalComm );
+            auto time_openmp = testPerformance( vec );
+            if ( rank == 0 ) {
+                AMP::pout << "SimpleVector<OpenMP>:" << std::endl;
+                time_openmp.print();
+                time_openmp.print_speedup( time0 );
+                AMP::pout << std::endl;
+            }
         }
 #endif
 
-#ifdef USE_DEVICE
-        using ALLOC = AMP::ManagedAllocator<double>;
-        using DATA  = AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>;
-        using OPS   = AMP::LinearAlgebra::VectorOperationsDevice<double>;
-        vec = AMP::LinearAlgebra::createSimpleVector<double, OPS, DATA>( N, var, globalComm );
-        auto time_cuda = testPerformance( vec );
-        if ( rank == 0 ) {
-            AMP::pout << "SimpleVector<CUDA>:" << std::endl;
-            time_cuda.print();
-            time_cuda.print_speedup( time0 );
-            AMP::pout << std::endl;
+        // #ifdef AMP_USE_KOKKOS
+        //         {
+        //             using ALLOC = AMP::DeviceAllocator<void>;
+        //     #ifdef AMP_USE_DEVICE
+        //             using DATA = AMP::LinearAlgebra::VectorDataDevice<double, ALLOC>;
+        //     #else
+        //             using DATA = AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>;
+        //     #endif
+        //             using OPS = AMP::LinearAlgebra::VectorOperationsKokkos<double>;
+        //             vec = AMP::LinearAlgebra::createSimpleVector<double, OPS, DATA>( N, var,
+        //             globalComm ); auto time_kokkos = testPerformance( vec ); if ( rank == 0 ) {
+        //                 AMP::pout << "SimpleVector<Managed>:" << std::endl;
+        //                 time_kokkos.print();
+        //                 time_kokkos.print_speedup( time0 );
+        //                 AMP::pout << std::endl;
+        //             }
+        //         }
+        // #endif
+
+#ifdef AMP_USE_DEVICE
+        {
+            using ALLOC = AMP::ManagedAllocator<void>;
+            using DATA  = AMP::LinearAlgebra::VectorDataDevice<double, ALLOC>;
+            using OPS   = AMP::LinearAlgebra::VectorOperationsDevice<double>;
+            vec = AMP::LinearAlgebra::createSimpleVector<double, OPS, DATA>( N, var, globalComm );
+            auto time_cuda = testPerformance( vec );
+            if ( rank == 0 ) {
+                AMP::pout << "SimpleVector<Managed>:" << std::endl;
+                time_cuda.print();
+                time_cuda.print_speedup( time0 );
+                AMP::pout << std::endl;
+            }
         }
 #endif
     }

@@ -225,6 +225,10 @@ public:
     const std::string &getObjectName() const { return d_object_name; }
 
     std::shared_ptr<AMP::Solver::SolverStrategy> getSolver( void ) { return d_solver; }
+    void resetSolver( std::shared_ptr<AMP::Solver::SolverStrategy> solver = nullptr )
+    {
+        d_solver = solver;
+    }
 
     using TimeIntegrator::initialize;
 
@@ -235,24 +239,19 @@ public:
     // and nonlinear function for correct solution of the implicit problem
     // each timestep. The first vector is for solution scaling, the second for function
     void setComponentScalings( std::shared_ptr<AMP::LinearAlgebra::Vector> s,
-                               std::shared_ptr<AMP::LinearAlgebra::Vector> f )
-    {
-        d_solution_scaling = s;
-        d_function_scaling = f;
-        AMP_INSIST( d_operator,
-                    "Operator must be registered prior to calling setComponentScalings" );
-        auto timeOperator =
-            std::dynamic_pointer_cast<AMP::TimeIntegrator::TimeOperator>( d_operator );
-        AMP_INSIST( timeOperator, "setComponentScalings only works with TimeOperator" );
-        timeOperator->setComponentScalings( s, f );
-    }
+                               std::shared_ptr<AMP::LinearAlgebra::Vector> f );
 
     void setTimeScalingFunction( std::function<void( AMP::Scalar )> fnPtr )
     {
         d_fTimeScalingFnPtr = fnPtr;
     }
 
-    double getGamma( void ) override;
+    void setComponentScalingFunction(
+        std::function<void( std::shared_ptr<AMP::LinearAlgebra::Vector>,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> )> fnPtr )
+    {
+        d_fComponentScalingFnPtr = fnPtr;
+    }
 
     virtual std::shared_ptr<AMP::LinearAlgebra::Vector> getTimeHistorySourceTerm()
     {
@@ -299,6 +298,9 @@ protected:
 
     bool d_time_history_initialized = false;
 
+    //! user manages time operator
+    bool d_user_managed_time_operator = false;
+
     //! allows for specialization of advanceSolution for classes of time
     //! integrators
     virtual int
@@ -309,7 +311,13 @@ protected:
 
     void createSolver( void );
 
+    //! registered callback function to set gamma, typically when the user needs to know gamma
     std::function<void( AMP::Scalar )> d_fTimeScalingFnPtr;
+
+    //! registered callback function to set multiphysics component scalings
+    std::function<void( std::shared_ptr<AMP::LinearAlgebra::Vector>,
+                        std::shared_ptr<AMP::LinearAlgebra::Vector> )>
+        d_fComponentScalingFnPtr;
 
 public: // Write/read restart data
     /**

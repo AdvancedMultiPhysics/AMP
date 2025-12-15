@@ -52,8 +52,8 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
     // Create the meshes from the input database
-    auto manager     = AMP::Mesh::MeshFactory::create( params );
-    auto meshAdapter = manager->Subset( "ida" );
+    auto manager = AMP::Mesh::MeshFactory::create( params );
+    auto mesh    = manager->Subset( "ida" );
 
     // Create a DOF manager for a nodal vector
     int DOFsPerNode          = 1;
@@ -62,30 +62,27 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     int gaussPointGhostWidth = 1;
     bool split               = true;
     auto nodalDofMap         = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
     auto gaussPointDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Cell, gaussPointGhostWidth, DOFsPerElement, split );
+        mesh, AMP::Mesh::GeomType::Cell, gaussPointGhostWidth, DOFsPerElement, split );
     {
         // create a linear BVP operator
         std::shared_ptr<AMP::Operator::LinearBVPOperator> linearPCOperator;
-        std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementModel;
         auto IDARhsOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-            AMP::Operator::OperatorBuilder::createOperator(
-                meshAdapter, "LinearOperator", input_db, elementModel ) );
+            AMP::Operator::OperatorBuilder::createOperator( mesh, "LinearOperator", input_db ) );
 
         // create a mass linear BVP operator
-        std::shared_ptr<AMP::Operator::ElementPhysicsModel> massElementModel;
         auto massOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
             AMP::Operator::OperatorBuilder::createOperator(
-                meshAdapter, "MassLinearOperator", input_db, massElementModel ) );
+                mesh, "MassLinearOperator", input_db ) );
 
         //  create neutronics source
         AMP_INSIST( input_db->keyExists( "NeutronicsOperator" ),
                     "Key ''NeutronicsOperator'' is missing!" );
         auto neutronicsOp_db = input_db->getDatabase( "NeutronicsOperator" );
         auto neutronicsParams =
-            std::make_shared<AMP::Operator::NeutronicsRhsParameters>( neutronicsOp_db );
-        neutronicsParams->d_Mesh = meshAdapter;
+            std::make_shared<AMP::Operator::OperatorParameters>( neutronicsOp_db );
+        neutronicsParams->d_Mesh = mesh;
         auto neutronicsOperator =
             std::make_shared<AMP::Operator::NeutronicsRhs>( neutronicsParams );
 
@@ -101,10 +98,9 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
         //  Integrate Nuclear Rhs over Density * GeomType::Cell //
         AMP_INSIST( input_db->keyExists( "VolumeIntegralOperator" ), "key missing!" );
 
-        std::shared_ptr<AMP::Operator::ElementPhysicsModel> sourceTransportModel;
         auto sourceOperator = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
             AMP::Operator::OperatorBuilder::createOperator(
-                meshAdapter, "VolumeIntegralOperator", input_db, sourceTransportModel ) );
+                mesh, "VolumeIntegralOperator", input_db ) );
 
         // Create the power (heat source) vector.
         auto powerInWattsVar = sourceOperator->getOutputVariable();
@@ -123,7 +119,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
         auto f                     = AMP::LinearAlgebra::createVector( nodalDofMap, outputVar );
 
         // set initial conditions, initialize created vectors
-        auto node     = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+        auto node     = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
         auto end_node = node.end();
 
         // int counter=0;
@@ -184,9 +180,9 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
             ut->passes( "Testing IDATimeIntegratorParameters' Constructor" );
         }
 
-        time_Params->d_pMassOperator   = massOperator;
-        time_Params->d_operator        = IDARhsOperator;
-        time_Params->d_pPreconditioner = pcSolver;
+        time_Params->d_pMassOperator = massOperator;
+        time_Params->d_operator      = IDARhsOperator;
+        time_Params->d_pNestedSolver = pcSolver;
 
         time_Params->d_ic_vector       = initialCondition;
         time_Params->d_ic_vector_prime = initialConditionPrime;

@@ -34,7 +34,7 @@ public:
             double x = Coordinates[qp]( 0 );
             double y = Coordinates[qp]( 1 );
             double z = Coordinates[qp]( 2 );
-            double r = sqrt( x * x + y * y + z * z );
+            double r = std::sqrt( x * x + y * y + z * z );
 
             double temp = 12 * d_Dzero * r * r * r * r * r * exp( -r * T[qp] );
 

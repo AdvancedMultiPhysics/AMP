@@ -10,34 +10,70 @@ Mesh{
     MeshType = "Multimesh"
     MeshDatabasePrefix = "Mesh_"
     MeshArrayDatabasePrefix = "MeshArray_"
-    x_offset = 0.0 
-    y_offset = 0.0 
-    z_offset = 0.0 
-    
-    // This is a multimesh for all pellets
     Mesh_1 {
         MeshName = "pellet"
-        MeshType = "libMesh"
-        FileName = "halden_1_pellet_9mil.e"
-        dim = 3 
-        x_offset = 0.0 
-        y_offset = 0.0 
-        z_offset = 0.0
-        NumberOfElements = 5226
-    }   
-
-    // The mesh for the clad
+        MeshType = "AMP"
+        Generator = "cylinder"
+        Size = 13, 8
+        Range = 0.00533908, 0, 0.0127
+        surfaceIds = 4, 4, 4, 4, 1, 2
+        static = TRUE
+    }
     Mesh_2 {
         MeshName = "clad"
-        MeshType = "libMesh"
-        FileName = "halden_1_clad.e"
-        dim = 3 
-        x_offset = 0.0 
-        y_offset = 0.0 
-        z_offset = 0.0 
-        NumberOfElements = 4488
-    }   
+        MeshType = "AMP"
+        Generator = "tube"
+        Size = 2, 132, 17
+        Range = 5.46e-3, 6.35e-3, 0, 0.0127
+        surfaceIds = 8, 4, -1, -1, 1, 2
+        static = TRUE
+    }  
 }
+
+
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .01
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+    //          UseBilogScaling = TRUE
+    //          BilogVariable = "concentration"
+    //          BilogScaleCoefficient = FALSE
+} 
+
+DiffusionTransportModel2{
+  name = "DiffusionTransportModel"
+    Material = "Ox_MSRZC_09"
+    Property = "FickCoefficient"
+    Default_Concentration = .01
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+    //          UseBilogScaling = TRUE
+    //          BilogVariable = "concentration"
+} 
+
+DiffusionTransportModel5{
+  name = "DiffusionTransportModel"
+    Material = "Steel316_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .01
+    Default_Temperature   = 513.2
+    Default_Burnup   = 0.0
+} 
+
+SourcePhysicsModel {
+  name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.2 
+    Default_Burnup   = 0.0
+}
+
 
 NeutronicsOperator{
   name="NeutronicsRhsOperator"
@@ -91,8 +127,9 @@ DiffusionNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
+
 
 RobinVectorCorrection1 {
   name = "RobinVectorCorrection"
@@ -111,18 +148,6 @@ RobinVectorCorrection1 {
     dof_0_0          =   0
     value_0_0        =  0.0
 }
-
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .01
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-    //          UseBilogScaling = TRUE
-    //          BilogVariable = "concentration"
-    //          BilogScaleCoefficient = FALSE
-} 
 
 LinearThermalOperator1 {
   name = "LinearBVPOperator"
@@ -192,7 +217,7 @@ DiffusionNonlinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel2"
+  LocalModel = DiffusionTransportModel2
 }
 
 DirichletVectorCorrection2 {
@@ -205,17 +230,6 @@ DirichletVectorCorrection2 {
     dof_0_0 = 0
     value_0_0 = 0.01
 }
-
-DiffusionTransportModel2{
-  name = "DiffusionTransportModel"
-    Material = "Ox_MSRZC_09"
-    Property = "FickCoefficient"
-    Default_Concentration = .01
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-    //          UseBilogScaling = TRUE
-    //          BilogVariable = "concentration"
-} 
 
 testLinearOxygenOperator1 {
   name = "LinearBVPOperator"
@@ -252,16 +266,6 @@ DirichletMatrixCorrection2 {
     dof_0_0          =  0
 }
 
-DiffusionTransportModel2{
-  name = "DiffusionTransportModel"
-    Material = "Ox_MSRZC_09"
-    Property = "FickCoefficient"
-    Default_Concentration = .01
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-    //          UseBilogScaling = TRUE
-    //          BilogVariable = "concentration"
-} 
 
 MapPellettoClad{
   BoundaryId = 0
@@ -303,7 +307,7 @@ DiffusionNonlinearFEOperator5 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel5"
+  LocalModel = DiffusionTransportModel5
 }
 
 ColumnBoundaryOperator5 {
@@ -346,14 +350,6 @@ DirichletVectorCorrection{
     value_0_0        =   513.15
 }
 
-DiffusionTransportModel5{
-  name = "DiffusionTransportModel"
-    Material = "Steel316_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .01
-    Default_Temperature   = 513.2
-    Default_Burnup   = 0.0
-} 
 
 LinearThermalOperator2 {
   name = "LinearBVPOperator"
@@ -379,7 +375,7 @@ DiffusionLinearFEOperator6 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel5"
+  LocalModel = DiffusionTransportModel5
 }
 
 ColumnBoundaryOperator6 {
@@ -431,7 +427,7 @@ VolumeIntegralOperator{
       ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
     }
   OutputVariable = "heatsource"
-      LocalModel = "SourcePhysicsModel"
+      LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
               FE_ORDER = "FIRST"  
@@ -439,17 +435,6 @@ VolumeIntegralOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-}
-
-SourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.2 
-    Default_Burnup   = 0.0
 }
 
 

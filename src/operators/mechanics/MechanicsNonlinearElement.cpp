@@ -372,7 +372,7 @@ void MechanicsNonlinearElement::apply_Normal()
         d_materialModel->preNonlinearAssemblyGaussPointOperation();
 
         // The value of radius is very important.
-        // double radius = sqrt((xyz[qp](0) * xyz[qp](0)) + (xyz[qp](1) * xyz[qp](1)));
+        // double radius = std::sqrt((xyz[qp](0) * xyz[qp](0)) + (xyz[qp](1) * xyz[qp](1)));
 
         /* Compute Strain From Given Displacement */
 
@@ -894,4 +894,152 @@ void MechanicsNonlinearElement::apply_Reduced()
 
     d_materialModel->postNonlinearAssemblyElementOperation();
 }
+
+void MechanicsNonlinearElement::materialModelPreNonlinearElementOperation( MaterialUpdateType type )
+{
+    if ( type == MaterialUpdateType::RESET )
+        d_materialModel->preNonlinearResetElementOperation();
+    else if ( type == MaterialUpdateType::JACOBIAN )
+        d_materialModel->preNonlinearJacobianElementOperation();
+}
+
+void MechanicsNonlinearElement::materialModelPreNonlinearGaussPointOperation(
+    MaterialUpdateType type )
+{
+    if ( type == MaterialUpdateType::RESET )
+        d_materialModel->preNonlinearResetGaussPointOperation();
+    else if ( type == MaterialUpdateType::JACOBIAN )
+        d_materialModel->preNonlinearJacobianGaussPointOperation();
+}
+
+void MechanicsNonlinearElement::materialModelPostNonlinearElementOperation(
+    MaterialUpdateType type )
+{
+    if ( type == MaterialUpdateType::RESET )
+        d_materialModel->postNonlinearResetElementOperation();
+    else if ( type == MaterialUpdateType::JACOBIAN )
+        d_materialModel->postNonlinearJacobianElementOperation();
+}
+
+void MechanicsNonlinearElement::materialModelPostNonlinearGaussPointOperation(
+    MaterialUpdateType type )
+{
+    if ( type == MaterialUpdateType::RESET )
+        d_materialModel->postNonlinearResetGaussPointOperation();
+    else if ( type == MaterialUpdateType::JACOBIAN )
+        d_materialModel->postNonlinearJacobianGaussPointOperation();
+}
+
+void MechanicsNonlinearElement::materialModelNonlinearGaussPointOperation(
+    MaterialUpdateType type, const std::vector<std::vector<double>> &strain )
+{
+    if ( type == MaterialUpdateType::RESET )
+        d_materialModel->nonlinearResetGaussPointOperation( strain );
+    else if ( type == MaterialUpdateType::JACOBIAN )
+        d_materialModel->nonlinearJacobianGaussPointOperation( strain );
+}
+
+void MechanicsNonlinearElement::updateMaterialModel(
+    MaterialUpdateType type, const std::vector<std::vector<double>> &elementInputVectors )
+{
+    const std::vector<std::vector<libMesh::RealGradient>> &dphi = ( *d_dphi );
+
+    const std::vector<std::vector<libMesh::Real>> &phi = ( *d_phi );
+
+    d_fe->reinit( d_elem );
+
+    materialModelPreNonlinearElementOperation( type );
+
+    const unsigned int num_nodes = d_elem->n_nodes();
+
+    for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
+        materialModelPreNonlinearGaussPointOperation( type );
+
+        /* Compute Strain From Given Displacement */
+
+        double dudx = 0;
+        double dudy = 0;
+        double dudz = 0;
+        double dvdx = 0;
+        double dvdy = 0;
+        double dvdz = 0;
+        double dwdx = 0;
+        double dwdy = 0;
+        double dwdz = 0;
+
+        for ( unsigned int k = 0; k < num_nodes; k++ ) {
+            dudx +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 0] * dphi[k][qp]( 0 ) );
+            dudy +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 0] * dphi[k][qp]( 1 ) );
+            dudz +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 0] * dphi[k][qp]( 2 ) );
+
+            dvdx +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 1] * dphi[k][qp]( 0 ) );
+            dvdy +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 1] * dphi[k][qp]( 1 ) );
+            dvdz +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 1] * dphi[k][qp]( 2 ) );
+
+            dwdx +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 2] * dphi[k][qp]( 0 ) );
+            dwdy +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 2] * dphi[k][qp]( 1 ) );
+            dwdz +=
+                ( elementInputVectors[Mechanics::DISPLACEMENT][( 3 * k ) + 2] * dphi[k][qp]( 2 ) );
+        } // end for k
+
+        std::vector<std::vector<double>> fieldsAtGaussPt( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
+
+        // Strain
+        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( dudx );
+        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( dvdy );
+        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( dwdz );
+        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 0.5 * ( dvdz + dwdy ) );
+        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 0.5 * ( dudz + dwdx ) );
+        fieldsAtGaussPt[Mechanics::DISPLACEMENT].push_back( 0.5 * ( dudy + dvdx ) );
+
+        if ( !( elementInputVectors[Mechanics::TEMPERATURE].empty() ) ) {
+            double valAtGaussPt = 0;
+            for ( unsigned int k = 0; k < num_nodes; k++ ) {
+                valAtGaussPt += ( elementInputVectors[Mechanics::TEMPERATURE][k] * phi[k][qp] );
+            } // end for k
+            fieldsAtGaussPt[Mechanics::TEMPERATURE].push_back( valAtGaussPt );
+        }
+
+        if ( !( elementInputVectors[Mechanics::BURNUP].empty() ) ) {
+            double valAtGaussPt = 0;
+            for ( unsigned int k = 0; k < num_nodes; k++ ) {
+                valAtGaussPt += ( elementInputVectors[Mechanics::BURNUP][k] * phi[k][qp] );
+            } // end for k
+            fieldsAtGaussPt[Mechanics::BURNUP].push_back( valAtGaussPt );
+        }
+
+        if ( !( elementInputVectors[Mechanics::OXYGEN_CONCENTRATION].empty() ) ) {
+            double valAtGaussPt = 0;
+            for ( unsigned int k = 0; k < num_nodes; k++ ) {
+                valAtGaussPt +=
+                    ( elementInputVectors[Mechanics::OXYGEN_CONCENTRATION][k] * phi[k][qp] );
+            } // end for k
+            fieldsAtGaussPt[Mechanics::OXYGEN_CONCENTRATION].push_back( valAtGaussPt );
+        }
+
+        if ( !( elementInputVectors[Mechanics::LHGR].empty() ) ) {
+            double valAtGaussPt = 0;
+            for ( unsigned int k = 0; k < num_nodes; k++ ) {
+                valAtGaussPt += ( elementInputVectors[Mechanics::LHGR][k] * phi[k][qp] );
+            } // end for k
+            fieldsAtGaussPt[Mechanics::LHGR].push_back( valAtGaussPt );
+        }
+
+        materialModelNonlinearGaussPointOperation( type, fieldsAtGaussPt );
+
+        materialModelPostNonlinearGaussPointOperation( type );
+    } // end for qp
+
+    materialModelPostNonlinearElementOperation( type );
+}
+
+
 } // namespace AMP::Operator

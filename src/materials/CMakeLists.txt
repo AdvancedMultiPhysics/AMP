@@ -1,4 +1,4 @@
-BEGIN_PACKAGE_CONFIG ( materials )
-INSTALL_AMP_TARGET ( materials )
+BEGIN_PACKAGE_CONFIG( materials )
+INSTALL_AMP_TARGET( materials )
 
-ADD_SUBDIRECTORY ( test )
+ADD_SUBDIRECTORY( test )

@@ -1,11 +1,13 @@
 #include "AMP/vectors/trilinos/epetra/EpetraVectorData.h"
 
+DISABLE_WARNINGS
 #ifdef AMP_USE_MPI
     #include <Epetra_MpiComm.h>
     #include <utility>
 #else
     #include <Epetra_SerialComm.h>
 #endif
+ENABLE_WARNINGS
 
 
 namespace AMP::LinearAlgebra {

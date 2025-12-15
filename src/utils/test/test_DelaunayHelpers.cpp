@@ -81,17 +81,6 @@ std::string className<int512_t>()
 }
 
 
-// Convert a value
-template<class TYPE>
-inline TYPE convert( const int128_t &x )
-{
-    if constexpr ( std::is_floating_point_v<TYPE> )
-        return static_cast<double>( x );
-    else
-        return TYPE( x );
-}
-
-
 // Run the test for a matrix
 template<class TYPE, std::size_t NDIM>
 void runMatTest( const int64_t *M0,
@@ -102,16 +91,18 @@ void runMatTest( const int64_t *M0,
 {
     std::string name = "<" + className<TYPE>() + "," + std::to_string( NDIM ) + ">";
     auto tol         = static_cast<double>( std::numeric_limits<TYPE>::epsilon() );
+    if ( std::is_same_v<TYPE, long double> && AMP::Utilities::running_valgrind() )
+        tol = std::numeric_limits<double>::epsilon();
     TYPE M[NDIM * NDIM], b[NDIM];
     for ( size_t i = 0; i < NDIM * NDIM; i++ )
         M[i] = TYPE( M0[i] );
     for ( size_t i = 0; i < NDIM; i++ )
         b[i] = TYPE( b0[i] );
     // Check the determinant
-    TYPE d   = convert<TYPE>( d0 );
+    TYPE d   = static_cast<TYPE>( d0 );
     TYPE det = AMP::DelaunayHelpers::det<TYPE, NDIM>( M );
     auto err = fabs( static_cast<double>( det - d ) / static_cast<double>( d0 ) );
-    if ( err <= 1000 * tol )
+    if ( err <= 10 * tol )
         ut.passes( "determinant" + name );
     else
         ut.failure( AMP::Utilities::stringf( "determinant%s: %e", name.data(), err ) );
@@ -121,11 +112,11 @@ void runMatTest( const int64_t *M0,
     AMP::DelaunayHelpers::solve<TYPE, NDIM>( M, b, x, det_M );
     err = fabs( static_cast<double>( det_M - d ) / static_cast<double>( d0 ) );
     for ( size_t i = 0; i < NDIM; i++ ) {
-        auto x2 = convert<TYPE>( x0[i] );
+        auto x2 = static_cast<TYPE>( x0[i] );
         auto e2 = fabs( static_cast<double>( x[i] - x2 ) / static_cast<double>( x0[i] ) );
         err     = std::max( err, e2 );
     }
-    if ( fabs( err ) <= 1000 * tol )
+    if ( fabs( err ) <= 10 * tol )
         ut.passes( "solve" + name );
     else
         ut.failure( AMP::Utilities::stringf( "solve%s: %e", name.data(), err ) );
@@ -198,7 +189,6 @@ int main( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-    srand( static_cast<unsigned int>( time( nullptr ) ) );
     PROFILE_ENABLE( 3 ); // 0: code, 1: tests, 3: basic timers, 5: all timers
 
     // Check that we can create "random" points

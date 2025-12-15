@@ -1,7 +1,6 @@
-//#ifndef included_AMP_CladToSubchannelMap
+// #ifndef included_AMP_CladToSubchannelMap
 #define included_AMP_CladToSubchannelMap
 
-#include "AMP/mesh/MeshElementVectorIterator.h"
 #include "AMP/operators/map/ScalarZAxisMap.h"
 
 namespace AMP::Operator {

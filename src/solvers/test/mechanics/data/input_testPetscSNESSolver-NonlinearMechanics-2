@@ -7,12 +7,15 @@ FINAL_TEMP_CONST = 12.0
 NumberOfLoadingSteps = 10
 
 Mesh {
-  MeshType = "libMesh"
-    dim = 3
-    MeshName = "TestMesh"
-    FileName = "brick.e"
+  MeshType = "AMP"
+  MeshName = "cube_3d"
+  Generator = "cube"
+  Size = 8, 8, 17
+  Range = -5, 5, -5, 5, -10, 10
+  surfaceIds = 8, 8, 8, 8, 8, 8
+  dim = 3
+  static = TRUE
 }
-
 
 LinearMechanicsElement {
     name="MechanicsLinearElement"
@@ -28,6 +31,22 @@ nonlinearMechanicsBVPOperator {
     print_info_level = 1
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
+}
+
+ThermalVonMisesMatModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    name="ThermalVonMisesMatModel"
+    Use_Thermal_Strain = TRUE
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+    Linear_Strain_Hardening = 2.10e9
+    Elastic_Yield_Stress = 1.45e8
+    THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = .1
 }
 
 MechanicsNonlinearFEOperator1 {
@@ -53,7 +72,7 @@ MechanicsNonlinearFEOperator1 {
 
   MechanicsLinearElement = LinearMechanicsElement
 
-  LocalModel = "ThermalVonMisesMatModel"
+  LocalModel = ThermalVonMisesMatModel
 }
 
 DirichletVectorCorrection1 {
@@ -69,22 +88,6 @@ DirichletVectorCorrection1 {
     value_0_0 = 0.0
     value_0_1 = 0.0
     value_0_2 = 0.0
-}
-
-ThermalVonMisesMatModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = "UO2_MSRZC_09"
-    name="ThermalVonMisesMatModel"
-    Use_Thermal_Strain = TRUE
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23
-    Linear_Strain_Hardening = 2.10e9
-    Elastic_Yield_Stress = 1.45e8
-    THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
-    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
-    Default_Temperature = 310.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = .1
 }
 
 linearMechanicsBVPOperator {
@@ -144,7 +147,7 @@ Displacement_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7
+  print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

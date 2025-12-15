@@ -2,19 +2,60 @@
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/operators/ElementOperationFactory.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 #include "AMP/operators/mechanics/MechanicsLinearElement.h"
 #include "AMP/operators/mechanics/MechanicsLinearFEOperatorParameters.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/VectorSelector.h"
+
 #include "libmesh/cell_hex8.h"
 #include "libmesh/node.h"
 
+
 namespace AMP::Operator {
 
+
+static std::shared_ptr<const MechanicsNonlinearFEOperatorParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
+{
+    if ( std::dynamic_pointer_cast<const MechanicsNonlinearFEOperatorParameters>( params ) )
+        return std::dynamic_pointer_cast<const MechanicsNonlinearFEOperatorParameters>( params );
+    auto db = params->d_db;
+    // first create a MechanicsMaterialModel
+    auto model_db = db->getDatabase( "LocalModel" );
+    auto model    = std::dynamic_pointer_cast<MechanicsMaterialModel>(
+        ElementPhysicsModelFactory::createElementPhysicsModel( model_db ) );
+    // next create a ElementOperation object
+    auto elem_db       = db->getDatabase( "MechanicsElement" );
+    auto mechanicsElem = ElementOperationFactory::createElementOperation( elem_db );
+    // now create the nonlinear mechanics operator parameters
+    AMP_ASSERT( db->getString( "name" ) == "MechanicsNonlinearFEOperator" );
+    auto scalarDofs = AMP::Discretization::simpleDOFManager::create(
+        params->d_Mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+    auto vecDofs = AMP::Discretization::simpleDOFManager::create(
+        params->d_Mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+    auto myparams             = std::make_shared<MechanicsNonlinearFEOperatorParameters>( db );
+    myparams->d_Mesh          = params->d_Mesh;
+    myparams->d_materialModel = model;
+    myparams->d_elemOp        = mechanicsElem;
+    myparams->d_dofMap[Mechanics::DISPLACEMENT]         = vecDofs;
+    myparams->d_dofMap[Mechanics::TEMPERATURE]          = scalarDofs;
+    myparams->d_dofMap[Mechanics::BURNUP]               = scalarDofs;
+    myparams->d_dofMap[Mechanics::OXYGEN_CONCENTRATION] = scalarDofs;
+    myparams->d_dofMap[Mechanics::LHGR]                 = scalarDofs;
+    return myparams;
+}
+
+
 MechanicsNonlinearFEOperator::MechanicsNonlinearFEOperator(
-    std::shared_ptr<const MechanicsNonlinearFEOperatorParameters> params )
+    std::shared_ptr<const OperatorParameters> params )
+    : MechanicsNonlinearFEOperator( convert( params ), true )
+{
+}
+MechanicsNonlinearFEOperator::MechanicsNonlinearFEOperator(
+    std::shared_ptr<const MechanicsNonlinearFEOperatorParameters> params, bool )
     : NonlinearFEOperator( params )
 {
     AMP_INSIST( params, "NULL parameter!" );
@@ -46,11 +87,10 @@ MechanicsNonlinearFEOperator::MechanicsNonlinearFEOperator(
     }
 
     if ( d_useUpdatedLagrangian ) {
-        AMP_INSIST( ( ( d_mechNULElem.get() ) != nullptr ),
+        AMP_INSIST( d_mechNULElem,
                     "d_elemOp is not of type MechanicsNonlinearUpdatedLagrangianElement" );
     } else {
-        AMP_INSIST( ( ( d_mechNonlinElem.get() ) != nullptr ),
-                    "d_elemOp is not of type MechanicsNonlinearElement" );
+        AMP_INSIST( d_mechNonlinElem, "d_elemOp is not of type MechanicsNonlinearElement" );
     }
 
     d_materialModel = params->d_materialModel;
@@ -100,7 +140,7 @@ MechanicsNonlinearFEOperator::MechanicsNonlinearFEOperator(
             auto dummyVar       = std::make_shared<AMP::LinearAlgebra::Variable>( varName );
             d_inpVariables->setVariable( i, dummyVar );
             if ( d_isFrozen[i] ) {
-                if ( params->d_FrozenVec[i] != nullptr ) {
+                if ( params->d_FrozenVec[i] ) {
                     setVector( i, params->d_FrozenVec[i] );
                 }
             }
@@ -113,18 +153,19 @@ MechanicsNonlinearFEOperator::MechanicsNonlinearFEOperator(
         d_refXYZ = AMP::LinearAlgebra::createVector(
             d_dofMap[Mechanics::DISPLACEMENT],
             d_inpVariables->getVariable( Mechanics::DISPLACEMENT ),
-            true );
+            true,
+            d_memory_location );
         d_refXYZ->zero();
         for ( unsigned int i = 0; i < Mechanics::TOTAL_NUMBER_OF_VARIABLES; i++ ) {
             if ( d_isActive[i] ) {
                 d_inVec_pre[i] = AMP::LinearAlgebra::createVector(
-                    d_dofMap[i], d_inpVariables->getVariable( i ), true );
+                    d_dofMap[i], d_inpVariables->getVariable( i ), true, d_memory_location );
                 d_inVec_pre[i]->zero();
             }
         }
     }
 
-    if ( params->d_ReferenceTemperature != nullptr ) {
+    if ( params->d_ReferenceTemperature ) {
         setReferenceTemperature( params->d_ReferenceTemperature );
     }
 
@@ -138,7 +179,7 @@ MechanicsNonlinearFEOperator::MechanicsNonlinearFEOperator(
 void MechanicsNonlinearFEOperator::preAssembly( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                                                 std::shared_ptr<AMP::LinearAlgebra::Vector> r )
 {
-    AMP_INSIST( ( u != nullptr ), "NULL Input Vector" );
+    AMP_INSIST( u, "NULL Input Vector" );
 
     if ( !d_isInitialized ) {
         init();
@@ -278,6 +319,7 @@ void MechanicsNonlinearFEOperator::preElementOperation( const AMP::Mesh::MeshEle
 
 void MechanicsNonlinearFEOperator::postElementOperation()
 {
+    PROFILE( "postElementOperation", 5 );
     AMP_ASSERT( d_dofIndices.size() == 8 );
     for ( unsigned int r = 0; r < d_dofIndices.size(); r++ ) {
         AMP_ASSERT( d_dofIndices[r].size() == 3 );
@@ -360,13 +402,15 @@ void MechanicsNonlinearFEOperator::init()
 
 void MechanicsNonlinearFEOperator::reset( std::shared_ptr<const OperatorParameters> params )
 {
+    AMP_ASSERT( params );
+
     if ( !d_isInitialized )
         init();
 
     auto myParams =
         std::dynamic_pointer_cast<const MechanicsNonlinearFEOperatorParameters>( params );
 
-    AMP_INSIST( ( ( myParams.get() ) != nullptr ), "Null parameter!" );
+    AMP_INSIST( myParams, "Null parameter!" );
 
     if ( d_resetReusesRadialReturn ) {
         d_materialModel->globalReset();
@@ -377,27 +421,27 @@ void MechanicsNonlinearFEOperator::reset( std::shared_ptr<const OperatorParamete
         setVector( Mechanics::DISPLACEMENT, myParams->d_EquilibriumVec[Mechanics::DISPLACEMENT] );
 
         if ( d_isActive[Mechanics::TEMPERATURE] ) {
-            if ( myParams->d_EquilibriumVec[Mechanics::TEMPERATURE] != nullptr ) {
+            if ( myParams->d_EquilibriumVec[Mechanics::TEMPERATURE] ) {
                 setVector( Mechanics::TEMPERATURE,
                            myParams->d_EquilibriumVec[Mechanics::TEMPERATURE] );
             }
         }
 
         if ( d_isActive[Mechanics::BURNUP] ) {
-            if ( myParams->d_EquilibriumVec[Mechanics::BURNUP] != nullptr ) {
+            if ( myParams->d_EquilibriumVec[Mechanics::BURNUP] ) {
                 setVector( Mechanics::BURNUP, myParams->d_EquilibriumVec[Mechanics::BURNUP] );
             }
         }
 
         if ( d_isActive[Mechanics::OXYGEN_CONCENTRATION] ) {
-            if ( myParams->d_EquilibriumVec[Mechanics::OXYGEN_CONCENTRATION] != nullptr ) {
+            if ( myParams->d_EquilibriumVec[Mechanics::OXYGEN_CONCENTRATION] ) {
                 setVector( Mechanics::OXYGEN_CONCENTRATION,
                            myParams->d_EquilibriumVec[Mechanics::OXYGEN_CONCENTRATION] );
             }
         }
 
         if ( d_isActive[Mechanics::LHGR] ) {
-            if ( myParams->d_EquilibriumVec[Mechanics::LHGR] != nullptr ) {
+            if ( myParams->d_EquilibriumVec[Mechanics::LHGR] ) {
                 setVector( Mechanics::LHGR, myParams->d_EquilibriumVec[Mechanics::LHGR] );
             }
         }
@@ -407,11 +451,11 @@ void MechanicsNonlinearFEOperator::reset( std::shared_ptr<const OperatorParamete
         d_materialModel->preNonlinearReset();
 
         for ( d_currElemIdx = 0; el != end_el; ++el, ++d_currElemIdx ) {
+            auto RESET = MechanicsNonlinearElement::MaterialUpdateType::RESET;
             if ( d_useUpdatedLagrangian ) {
-                updateMaterialForUpdatedLagrangianElement<
-                    MechanicsNonlinearUpdatedLagrangianElement::RESET>( *el );
+                updateMaterialForUpdatedLagrangianElement( RESET, *el );
             } else {
-                updateMaterialForElement<MechanicsNonlinearElement::RESET>( *el );
+                updateMaterialForElement( RESET, *el );
             }
         } // end for el
         d_currElemIdx = static_cast<unsigned int>( -1 );
@@ -436,7 +480,7 @@ void MechanicsNonlinearFEOperator::reset( std::shared_ptr<const OperatorParamete
     for ( unsigned int i = 0; i < Mechanics::TOTAL_NUMBER_OF_VARIABLES; i++ ) {
         if ( d_isActive[i] ) {
             if ( d_isFrozen[i] ) {
-                if ( myParams->d_FrozenVec[i] != nullptr ) {
+                if ( myParams->d_FrozenVec[i] ) {
                     setVector( i, myParams->d_FrozenVec[i] );
                 }
             }
@@ -447,12 +491,10 @@ void MechanicsNonlinearFEOperator::reset( std::shared_ptr<const OperatorParamete
 std::shared_ptr<OperatorParameters> MechanicsNonlinearFEOperator::getJacobianParameters(
     AMP::LinearAlgebra::Vector::const_shared_ptr u_in )
 {
-    if ( !d_isInitialized ) {
+    if ( !d_isInitialized )
         init();
-    }
 
-    AMP::LinearAlgebra::Vector::shared_ptr u =
-        std::const_pointer_cast<AMP::LinearAlgebra::Vector>( u_in );
+    auto u = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( u_in );
 
     // set up a database for the linear operator params
     auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
@@ -484,20 +526,19 @@ std::shared_ptr<OperatorParameters> MechanicsNonlinearFEOperator::getJacobianPar
     // the linear element level.
     if ( d_useUpdatedLagrangian ) {
         auto displacementVector =
-            mySubsetVector( u, ( d_inpVariables->getVariable( Mechanics::DISPLACEMENT ) ) );
+            mySubsetVector( u, d_inpVariables->getVariable( Mechanics::DISPLACEMENT ) );
         outParams->d_dispVec = displacementVector;
-        outParams->d_dispVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     }
 
     if ( d_jacobianReusesRadialReturn == false ) {
         auto dispVector =
-            mySubsetVector( u, ( d_inpVariables->getVariable( Mechanics::DISPLACEMENT ) ) );
+            mySubsetVector( u, d_inpVariables->getVariable( Mechanics::DISPLACEMENT ) );
         setVector( Mechanics::DISPLACEMENT, dispVector );
 
         if ( d_isActive[Mechanics::TEMPERATURE] ) {
             if ( !( d_isFrozen[Mechanics::TEMPERATURE] ) ) {
                 auto tempVector =
-                    mySubsetVector( u, ( d_inpVariables->getVariable( Mechanics::TEMPERATURE ) ) );
+                    mySubsetVector( u, d_inpVariables->getVariable( Mechanics::TEMPERATURE ) );
                 setVector( Mechanics::TEMPERATURE, tempVector );
             }
         }
@@ -513,15 +554,15 @@ std::shared_ptr<OperatorParameters> MechanicsNonlinearFEOperator::getJacobianPar
         if ( d_isActive[Mechanics::OXYGEN_CONCENTRATION] ) {
             if ( !( d_isFrozen[Mechanics::OXYGEN_CONCENTRATION] ) ) {
                 auto oxyVector = mySubsetVector(
-                    u, ( d_inpVariables->getVariable( Mechanics::OXYGEN_CONCENTRATION ) ) );
+                    u, d_inpVariables->getVariable( Mechanics::OXYGEN_CONCENTRATION ) );
                 setVector( Mechanics::OXYGEN_CONCENTRATION, oxyVector );
             }
         }
 
         if ( d_isActive[Mechanics::LHGR] ) {
             if ( !( d_isFrozen[Mechanics::LHGR] ) ) {
-                auto lhgrVar = d_inpVariables->getVariable( Mechanics::LHGR );
-                AMP::LinearAlgebra::Vector::shared_ptr lhgrVector = mySubsetVector( u, lhgrVar );
+                auto lhgrVar    = d_inpVariables->getVariable( Mechanics::LHGR );
+                auto lhgrVector = mySubsetVector( u, lhgrVar );
                 setVector( Mechanics::LHGR, lhgrVector );
             }
         }
@@ -534,11 +575,11 @@ std::shared_ptr<OperatorParameters> MechanicsNonlinearFEOperator::getJacobianPar
         auto end_el = el.end();
 
         for ( d_currElemIdx = 0; el != end_el; ++el, ++d_currElemIdx ) {
+            auto JACOBIAN = MechanicsNonlinearElement::MaterialUpdateType::JACOBIAN;
             if ( d_useUpdatedLagrangian ) {
-                updateMaterialForUpdatedLagrangianElement<
-                    MechanicsNonlinearUpdatedLagrangianElement::JACOBIAN>( *el );
+                updateMaterialForUpdatedLagrangianElement( JACOBIAN, *el );
             } else {
-                updateMaterialForElement<MechanicsNonlinearElement::JACOBIAN>( *el );
+                updateMaterialForElement( JACOBIAN, *el );
             }
         } // end for el
         d_currElemIdx = static_cast<unsigned int>( -1 );
@@ -752,7 +793,7 @@ void MechanicsNonlinearFEOperator::getDofIndicesForCurrentElement(
 {
     dofIds.resize( d_currNodes.size() );
     for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-        d_dofMap[varId]->getDOFs( d_currNodes[j].globalID(), dofIds[j] );
+        d_dofMap[varId]->getDOFs( d_currNodes[j]->globalID(), dofIds[j] );
     } // end of j
 }
 
@@ -783,10 +824,11 @@ AMP::LinearAlgebra::Vector::shared_ptr
 MechanicsNonlinearFEOperator::mySubsetVector( AMP::LinearAlgebra::Vector::shared_ptr vec,
                                               std::shared_ptr<AMP::LinearAlgebra::Variable> var )
 {
+    if ( !vec )
+        return nullptr;
     if ( d_Mesh ) {
         AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
-        AMP::LinearAlgebra::Vector::shared_ptr meshSubsetVec =
-            vec->select( meshSelector, vec->getName() );
+        auto meshSubsetVec = vec->select( meshSelector );
         return meshSubsetVec->subsetVectorForVariable( var );
     } else {
         return vec->subsetVectorForVariable( var );
@@ -797,13 +839,41 @@ AMP::LinearAlgebra::Vector::const_shared_ptr
 MechanicsNonlinearFEOperator::mySubsetVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec,
                                               std::shared_ptr<AMP::LinearAlgebra::Variable> var )
 {
+    if ( !vec )
+        return nullptr;
     if ( d_Mesh ) {
         AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
-        AMP::LinearAlgebra::Vector::const_shared_ptr meshSubsetVec =
-            vec->select( meshSelector, vec->getName() );
+        auto meshSubsetVec = vec->select( meshSelector );
         return meshSubsetVec->subsetVectorForVariable( var );
     } else {
         return vec->subsetVectorForVariable( var );
     }
 }
+
+void MechanicsNonlinearFEOperator::updateMaterialForElement(
+    MechanicsNonlinearElement::MaterialUpdateType updateType, const AMP::Mesh::MeshElement &elem )
+{
+    std::vector<std::vector<double>> elementInputVectors1( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
+    std::vector<std::vector<double>> elementInputVectors_pre1(
+        Mechanics::TOTAL_NUMBER_OF_VARIABLES );
+
+    updateMaterialForElementCommonFunction( elem, elementInputVectors1, elementInputVectors_pre1 );
+
+    d_mechNonlinElem->updateMaterialModel( updateType, elementInputVectors1 );
+}
+
+void MechanicsNonlinearFEOperator::updateMaterialForUpdatedLagrangianElement(
+    MechanicsNonlinearElement::MaterialUpdateType updateType, const AMP::Mesh::MeshElement &elem )
+{
+    std::vector<std::vector<double>> elementInputVectors2( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
+    std::vector<std::vector<double>> elementInputVectors_pre2(
+        Mechanics::TOTAL_NUMBER_OF_VARIABLES );
+
+    updateMaterialForElementCommonFunction( elem, elementInputVectors2, elementInputVectors_pre2 );
+
+    d_mechNULElem->updateMaterialModel(
+        updateType, elementInputVectors2, elementInputVectors_pre2 );
+}
+
+
 } // namespace AMP::Operator

@@ -17,7 +17,7 @@ namespace AMP::LinearAlgebra {
  *
  * \see MultiVector
  */
-class MultiVariable : public Variable
+class MultiVariable final : public Variable
 {
 public:
     /** \brief Get the first variable in the MultiVariable
@@ -53,13 +53,11 @@ public:
      *
      */
     explicit MultiVariable( const std::string &name,
-                            const std::vector<std::shared_ptr<Variable>> &vars =
-                                std::vector<std::shared_ptr<Variable>>() );
+                            std::vector<std::shared_ptr<Variable>> vars = {} );
 
-    /** \brief Destructor
-     *
-     */
-    virtual ~MultiVariable();
+    //! Create a multivariable from a single variable
+    explicit MultiVariable( std::shared_ptr<Variable> var );
+
 
     /** \brief  Get a particular variable from the list of variables
       * \param  which  the index of the variable sought
@@ -120,6 +118,15 @@ public:
     virtual std::shared_ptr<Variable> clone( const std::string &name ) const override;
     virtual void setUnits( const Units &units ) override;
 
+
+public: // Default constructors
+    MultiVariable() : Variable() {}
+    MultiVariable( MultiVariable && )      = default;
+    MultiVariable( const MultiVariable & ) = default;
+    MultiVariable &operator=( MultiVariable && ) = default;
+    MultiVariable &operator=( const MultiVariable & ) = default;
+    virtual ~MultiVariable()                          = default;
+
 public: // Functions inherited from Variable
     std::string className() const override { return "MultiVariable"; }
     std::shared_ptr<VectorSelector> createVectorSelector() const override;
@@ -150,7 +157,6 @@ public:
 public: // Functions inherited from VectorSelector
     bool isSelected( const Vector & ) const override;
     Vector::shared_ptr subset( Vector::shared_ptr vec ) const override;
-    Vector::const_shared_ptr subset( Vector::const_shared_ptr vec ) const override;
 
 protected:
     std::shared_ptr<MultiVariable> d_var;

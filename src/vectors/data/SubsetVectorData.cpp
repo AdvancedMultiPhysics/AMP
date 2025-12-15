@@ -11,13 +11,42 @@ namespace AMP::LinearAlgebra {
 
 
 /****************************************************************
- * Constructors                                                   *
+ * Constructors                                                  *
  ****************************************************************/
+template<class T>
+static std::tuple<std::vector<void *>, std::vector<size_t>>
+getDataBlocks( const std::vector<T *> &data )
+{
+    PROFILE( "SubsetVectorData::getDataBlocks" );
+
+    if ( data.empty() )
+        return std::tuple<std::vector<void *>, std::vector<size_t>>();
+    std::vector<void *> ptr;
+    std::vector<size_t> size;
+    ptr.reserve( data.size() );
+    size.reserve( data.size() );
+    ptr.push_back( data[0] );
+    size.push_back( 1 );
+    T *last = data[0];
+    for ( size_t i = 1; i < data.size(); i++ ) {
+        if ( data[i] == ( ++last ) ) {
+            size.back()++;
+        } else {
+            last = data[i];
+            ptr.push_back( last );
+            size.push_back( 1 );
+        }
+    }
+    return std::tie( ptr, size );
+}
+
 SubsetVectorData::SubsetVectorData( std::shared_ptr<SubsetVectorParameters> params )
-    : VectorData( params->d_CommList ),
+    : GhostDataHelper<double>( params->d_CommList ),
       d_ViewVector( params->d_ViewVector ),
       d_DOFManager{ params->d_DOFManager }
 {
+    PROFILE( "SubsetVectorData::constructor" );
+
     auto parentDOF       = d_ViewVector->getDOFManager();
     d_parentLocalStartID = parentDOF->beginDOF();
     auto tmp = std::dynamic_pointer_cast<AMP::Discretization::subsetDOFManager>( d_DOFManager );
@@ -32,11 +61,10 @@ SubsetVectorData::SubsetVectorData( std::shared_ptr<SubsetVectorParameters> para
     } else {
         AMP_ERROR( "Internal error with SubsetVector" );
     }
-
+    // Get a pointer to every value in the subset
     if ( d_ViewVector->getVectorData()->isType<double>() ) {
         d_typeID = getTypeID<double>();
         std::vector<double *> data_ptr( d_SubsetLocalIDToViewGlobalID.size(), nullptr );
-        // Get a pointer to every value in the subset
         auto iterator   = d_ViewVector->constBegin();
         size_t last_pos = d_ViewVector->getCommunicationList()->getStartGID();
         for ( size_t i = 0; i < data_ptr.size(); i++ ) {
@@ -44,13 +72,8 @@ SubsetVectorData::SubsetVectorData( std::shared_ptr<SubsetVectorParameters> para
             last_pos    = d_SubsetLocalIDToViewGlobalID[i];
             data_ptr[i] = const_cast<double *>( std::addressof( *iterator ) );
         }
-        // Create the data blocks
-        // For now use one datablock for each value, this needs to be changed
-        for ( auto &addr : data_ptr )
-            d_dataBlockPtr.push_back( addr );
-        d_dataBlockSize = std::vector<size_t>( data_ptr.size(), 1 );
+        std::tie( d_dataBlockPtr, d_dataBlockSize ) = getDataBlocks<double>( data_ptr );
     } else if ( d_ViewVector->getVectorData()->isType<float>() ) {
-        // Get a pointer to every value in the subset
         d_typeID = getTypeID<float>();
         std::vector<float *> data_ptr( d_SubsetLocalIDToViewGlobalID.size(), nullptr );
         auto iterator   = d_ViewVector->constBegin<float>();
@@ -60,11 +83,7 @@ SubsetVectorData::SubsetVectorData( std::shared_ptr<SubsetVectorParameters> para
             last_pos    = d_SubsetLocalIDToViewGlobalID[i];
             data_ptr[i] = const_cast<float *>( std::addressof( *iterator ) );
         }
-        // Create the data blocks
-        // For now use one datablock for each value, this needs to be changed
-        for ( auto &addr : data_ptr )
-            d_dataBlockPtr.push_back( addr );
-        d_dataBlockSize = std::vector<size_t>( data_ptr.size(), 1 );
+        std::tie( d_dataBlockPtr, d_dataBlockSize ) = getDataBlocks<float>( data_ptr );
     } else {
         AMP_ERROR( "scalar data type no handled at present" );
     }
@@ -88,6 +107,8 @@ static void putData( const void *in,
                      std::vector<void *> &dataBlockPtr,
                      const std::vector<size_t> &dataBlockSize )
 {
+    PROFILE( "SubsetVectorData::putData" );
+
     auto data = reinterpret_cast<const T *>( in );
     size_t k  = 0;
     for ( size_t i = 0; i < dataBlockPtr.size(); i++ ) {
@@ -102,6 +123,8 @@ static void getData( void *out,
                      const std::vector<void *> &dataBlockPtr,
                      const std::vector<size_t> &dataBlockSize )
 {
+    PROFILE( "SubsetVectorData::getData" );
+
     auto data = reinterpret_cast<T *>( out );
     size_t k  = 0;
     for ( size_t i = 0; i < dataBlockPtr.size(); i++ ) {
@@ -122,6 +145,7 @@ void SubsetVectorData::putRawData( const void *in, const typeID &id )
         AMP_ERROR( "scalar data type no handled at present" );
     }
 }
+
 void SubsetVectorData::getRawData( void *out, const typeID &id ) const
 {
     AMP_ASSERT( id == getTypeID<double>() );
@@ -143,28 +167,36 @@ void SubsetVectorData::addValuesByLocalID( size_t N,
                                            const void *vals,
                                            const typeID &id )
 {
+    PROFILE( "SubsetVectorData::addValuesByLocalID" );
+
     AMP_ASSERT( d_ViewVector );
     std::vector<size_t> index( N );
     for ( size_t i = 0; i != N; i++ )
         index[i] = d_SubsetLocalIDToViewGlobalID[ndx[i]] - d_parentLocalStartID;
     d_ViewVector->getVectorData()->addValuesByLocalID( N, index.data(), vals, id );
 }
+
 void SubsetVectorData::setValuesByLocalID( size_t N,
                                            const size_t *ndx,
                                            const void *vals,
                                            const typeID &id )
 {
+    PROFILE( "SubsetVectorData::setValuesByLocalID" );
+
     AMP_ASSERT( d_ViewVector );
     std::vector<size_t> index( N );
     for ( size_t i = 0; i != N; i++ )
         index[i] = d_SubsetLocalIDToViewGlobalID[ndx[i]] - d_parentLocalStartID;
     d_ViewVector->getVectorData()->setValuesByLocalID( N, index.data(), vals, id );
 }
+
 void SubsetVectorData::getValuesByLocalID( size_t N,
                                            const size_t *ndx,
                                            void *vals,
                                            const typeID &id ) const
 {
+    PROFILE( "SubsetVectorData::getValuesByLocalID" );
+
     AMP_ASSERT( d_ViewVector );
     std::vector<size_t> index( N );
     for ( size_t i = 0; i != N; i++ )
@@ -174,8 +206,10 @@ void SubsetVectorData::getValuesByLocalID( size_t N,
 
 void SubsetVectorData::swapData( VectorData &rhs )
 {
+    PROFILE( "SubsetVectorData::" );
+
     auto s = dynamic_cast<SubsetVectorData *>( &rhs );
-    AMP_ASSERT( s != nullptr );
+    AMP_ASSERT( s );
     std::swap( d_ViewVector, s->d_ViewVector );
     std::swap( d_SubsetLocalIDToViewGlobalID, s->d_SubsetLocalIDToViewGlobalID );
     std::swap( d_dataBlockSize, s->d_dataBlockSize );
@@ -184,9 +218,14 @@ void SubsetVectorData::swapData( VectorData &rhs )
 
 std::shared_ptr<VectorData> SubsetVectorData::cloneData( const std::string & ) const
 {
+    PROFILE( "SubsetVectorData::cloneData" );
+
     AMP_ERROR( "Not finished" );
     return std::shared_ptr<VectorData>();
 }
+
+
+const AMP_MPI &SubsetVectorData::getComm() const { return d_DOFManager->getComm(); }
 
 
 } // namespace AMP::LinearAlgebra

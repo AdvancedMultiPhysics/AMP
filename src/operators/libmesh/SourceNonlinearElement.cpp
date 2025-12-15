@@ -82,7 +82,6 @@ void SourceNonlinearElement::initializeForCurrentElement(
 
 void SourceNonlinearElement::apply()
 {
-
     PROFILE( "apply", 5 );
 
     d_fe->reinit( d_elem );

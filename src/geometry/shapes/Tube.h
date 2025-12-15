@@ -38,7 +38,7 @@ public:
 
 public: // Functions inherited from Geometry
     std::string getName() const override final { return "Tube"; }
-    bool isConvex() const override final { return true; }
+    bool isConvex() const override final { return false; }
     Point nearest( const Point &pos ) const override final;
     double distance( const Point &pos, const Point &dir ) const override final;
     bool inside( const Point &pos ) const override final;

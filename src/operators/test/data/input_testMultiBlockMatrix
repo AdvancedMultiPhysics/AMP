@@ -1,20 +1,41 @@
 
 Mesh{
-  FileName = "multiElementMesh.e"
-  MeshName = "ida"
-  MeshType = "libMesh"
-  dim      = 3        
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 1000
+    MeshName = "ida"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 13, 13, 13
+    Range = -5, 5, -5, 5, -5, 5
+    static = TRUE
 }
 
 LinearOperator {
    name="LinearBVPOperator"
-   print_info_level = 4
+   print_info_level = 2
    VolumeOperator = "DiffusionLinearFEOperator"
    BoundaryOperator="DirichletMatrixCorrection"
+}
+
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Property = "ThermalConductivity"
+        Material = "UO2_MSRZC_09"
+        Default_Concentration = .1
+        Default_Temperature   = 750.
+        Default_Burnup   = 0.0
+        BilogScaleCoefficient = FALSE
+} 
+
+MassDensityModel{
+        name = "MassDensityModel"
+        Material = "UO2_MSRZC_09"
+        Equation = "Thermal"
+        Property = "ThermalConductivity"
+        Default_Concentration = .1
+        Default_Temperature   = 750.
+        Default_Burnup   = 0.0
+        BilogScaleCoefficient = FALSE
+	print_info_level = 2
 }
 
 DiffusionLinearFEOperator{
@@ -35,25 +56,15 @@ DiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
  
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 }
-
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Property = "ThermalConductivity"
-        Material = "UO2_MSRZC_09"
-        Default_Concentration = .1
-        Default_Temperature   = 750.
-        Default_Burnup   = 0.0
-        BilogScaleCoefficient = FALSE
-} 
 
 DirichletMatrixCorrection{
     name="DirichletMatrixCorrection"
     skip_params = FALSE
     skip_rhs_correction = FALSE 
     skip_rhs_add_correction = FALSE 
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1
@@ -63,7 +74,7 @@ DirichletMatrixCorrection{
 
 MassLinearOperator {
    name="LinearBVPOperator"
-   print_info_level = 3
+   print_info_level = 2
    VolumeOperator = "MassLinearFEOperator"
    BoundaryOperator="MassMatrixCorrection"
 }
@@ -72,7 +83,7 @@ MassLinearFEOperator {
     name = "MassLinearFEOperator"
     InputVariable = "temperature"
     OutputVariable = "temperature"
-    print_info_level = 3
+    print_info_level = 2
     reset_reuses_matrix = TRUE
     FixedConcentration = 0.15
     FixedTemperature   = 750
@@ -81,7 +92,7 @@ MassLinearFEOperator {
 
     MassElement {
         name = "MassLinearElement"
-		print_info_level = 3
+		print_info_level = 2
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
@@ -89,19 +100,7 @@ MassLinearFEOperator {
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "MassDensityModel"
-}
-
-MassDensityModel{
-        name = "MassDensityModel"
-        Material = "UO2_MSRZC_09"
-        Equation = "Thermal"
-        Property = "ThermalConductivity"
-        Default_Concentration = .1
-        Default_Temperature   = 750.
-        Default_Burnup   = 0.0
-        BilogScaleCoefficient = FALSE
-	print_info_level = 3
+    LocalModel = MassDensityModel
 }
 
 MassMatrixCorrection{
@@ -109,7 +108,7 @@ MassMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = TRUE
     skip_rhs_add_correction = TRUE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 10
     number_of_dofs_0 =   1

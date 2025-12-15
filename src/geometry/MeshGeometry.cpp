@@ -1,10 +1,10 @@
 #include "AMP/geometry/MeshGeometry.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/mesh/MeshUtilities.h"
-#include "AMP/utils/arrayHelpers.h"
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/kdtree2.h"
 
 #include "ProfilerApp.h"
@@ -22,7 +22,7 @@ namespace AMP::Geometry {
 MeshGeometry::MeshGeometry( std::shared_ptr<AMP::Mesh::Mesh> mesh )
     : Geometry( mesh->getDim() ),
       d_mesh( mesh ),
-      d_pos_hash( -1 ),
+      d_pos_hash( static_cast<size_t>( -1 ) ),
       d_isConvex( false ),
       d_volume( 0 )
 {
@@ -67,16 +67,21 @@ void MeshGeometry::updateCache() const
         std::uniform_real_distribution<double> dis( 0, 1 );
         std::array<double, 3> dir = { dis( gen ), dis( gen ), dis( gen ) };
         dir                       = normalize( dir );
-        // Add points on each side of the surface to identify if we we are inside/outside
+        // Get the points associated with each mesh element
         const auto &tree = d_find.getTree();
+        std::map<AMP::Mesh::MeshElementID, std::vector<std::array<double, 3>>> map;
+        for ( auto &[p, id] : tree.getPointsAndData() )
+            map[id].push_back( p );
+        // Add points on each side of the surface to identify if we we are inside/outside
         std::vector<std::array<double, 3>> points;
         points.emplace_back( centroid );
-        for ( auto p : tree.getPoints() ) {
-            AMP::Mesh::MeshElementID id;
-            std::tie( std::ignore, id ) = tree.findNearest( p );
-            std::array<double, 3> n     = d_mesh->getElement( id ).norm();
-            points.push_back( p + 1e-6 * n );
-            points.push_back( p - 1e-6 * n );
+        for ( auto &[id, elemPoints] : map ) {
+            auto elem               = d_mesh->getElement( id );
+            std::array<double, 3> n = elem->norm();
+            for ( auto &p : elemPoints ) {
+                points.push_back( p + 1e-6 * n );
+                points.push_back( p - 1e-6 * n );
+            }
         }
         std::vector<bool> data( points.size() );
         for ( size_t i = 0; i < points.size(); i++ )
@@ -191,9 +196,9 @@ int MeshGeometry::surface( const Point &x ) const
     if ( d_surfaceIds.size() == 1 )
         return d_surfaceIds[0];
     auto elem = d_find.nearest( x ).first;
-    AMP_ASSERT( !elem.isNull() );
+    AMP_ASSERT( !elem->isNull() );
     for ( auto id : d_surfaceIds ) {
-        if ( elem.isInBlock( id ) )
+        if ( elem->isInBlock( id ) )
             return id;
     }
     return 0;
@@ -201,8 +206,8 @@ int MeshGeometry::surface( const Point &x ) const
 Point MeshGeometry::surfaceNorm( const Point &x ) const
 {
     auto elem = d_find.nearest( x ).first;
-    AMP_ASSERT( !elem.isNull() );
-    return elem.norm();
+    AMP_ASSERT( !elem->isNull() );
+    return elem->norm();
 }
 
 
@@ -278,7 +283,7 @@ void MeshGeometry::writeRestart( int64_t fid ) const
     AMP_ERROR( "Not finished" );
 }
 MeshGeometry::MeshGeometry( int64_t fid )
-    : Geometry( fid ), d_pos_hash( -1 ), d_isConvex( false ), d_volume( 0 )
+    : Geometry( fid ), d_pos_hash( static_cast<size_t>( -1 ) ), d_isConvex( false ), d_volume( 0 )
 {
     AMP_ERROR( "Not finished" );
 }

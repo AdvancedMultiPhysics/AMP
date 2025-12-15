@@ -10,6 +10,8 @@
 
 // Libmesh files
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
@@ -53,7 +55,7 @@ ScalarN2GZAxisMap::ScalarN2GZAxisMap( std::shared_ptr<const AMP::Operator::Opera
             d_mesh2->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, params->d_BoundaryID2, 0 );
     }
 
-    AMP::Mesh::MeshIterator iterator =
+    auto iterator =
         AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, d_dstIterator1, d_dstIterator2 );
     libmeshElements.reinit( iterator );
 
@@ -94,14 +96,15 @@ ScalarN2GZAxisMap::buildMap( AMP::LinearAlgebra::Vector::const_shared_ptr vec,
         return std::multimap<double, double>();
     PROFILE( "buildMap" );
     std::multimap<double, double> map;
-    std::shared_ptr<AMP::Discretization::DOFManager> dof = vec->getDOFManager();
-    size_t N                                             = iterator.size();
+    auto dof = vec->getDOFManager();
+    size_t N = iterator.size();
     std::vector<AMP::Mesh::MeshElementID> ids( N );
     std::vector<double> z( N, 0.0 );
-    AMP::Mesh::MeshIterator it = iterator.begin();
+    auto it = iterator.begin();
     for ( size_t i = 0; i < N; ++i, ++it ) {
         ids[i] = it->globalID();
         z[i]   = it->coord( 2 );
+        AMP_ASSERT( ids[i].is_local() );
     }
     std::vector<size_t> dofs( N );
     dof->getDOFs( ids, dofs );
@@ -126,12 +129,9 @@ ScalarN2GZAxisMap::getGaussPoints( const AMP::Mesh::MeshIterator &iterator )
     if ( iterator == d_dstIterator2 && d_z_coord2 )
         return d_z_coord2;
     PROFILE( "getGaussPoints" );
-    std::shared_ptr<AMP::Discretization::DOFManager> GpDofMap =
-        AMP::Discretization::simpleDOFManager::create( iterator, 4 );
-    std::shared_ptr<AMP::LinearAlgebra::Variable> var(
-        new AMP::LinearAlgebra::Variable( "gauss_z" ) );
-    AMP::LinearAlgebra::Vector::shared_ptr z_pos =
-        AMP::LinearAlgebra::createVector( GpDofMap, var );
+    auto GpDofMap               = AMP::Discretization::simpleDOFManager::create( iterator, 4 );
+    auto var                    = std::make_shared<AMP::LinearAlgebra::Variable>( "gauss_z" );
+    auto z_pos                  = AMP::LinearAlgebra::createVector( GpDofMap, var );
     AMP::Mesh::MeshIterator cur = iterator.begin();
     std::vector<size_t> ids;
     for ( size_t i = 0; i < cur.size(); i++ ) {
@@ -152,7 +152,7 @@ ScalarN2GZAxisMap::getGaussPoints( const AMP::Mesh::MeshIterator &iterator )
         GpDofMap->getDOFs( cur->globalID(), ids );
         for ( unsigned int qp = 0; qp < ids.size(); qp++ ) {
             const double pos = coordinates[qp]( 2 );
-            z_pos->setLocalValuesByGlobalID( 1, &ids[qp], &pos );
+            z_pos->setValuesByGlobalID( 1, &ids[qp], &pos );
         }
         ++cur;
     }
@@ -191,8 +191,8 @@ void ScalarN2GZAxisMap::buildReturn( AMP::LinearAlgebra::Vector::shared_ptr vec,
     AMP_ASSERT( z_pos );
 
     // Get the DOF managers
-    std::shared_ptr<AMP::Discretization::DOFManager> DOFs      = vec->getDOFManager();
-    std::shared_ptr<AMP::Discretization::DOFManager> gaussDOFs = z_pos->getDOFManager();
+    auto DOFs      = vec->getDOFManager();
+    auto gaussDOFs = z_pos->getDOFManager();
 
     // Loop through the points in the output vector
     size_t N0 = iterator.size();
@@ -202,7 +202,7 @@ void ScalarN2GZAxisMap::buildReturn( AMP::LinearAlgebra::Vector::shared_ptr vec,
     zi.reserve( N0 );
     std::vector<size_t> id1, id2;
     std::vector<double> zi2;
-    AMP::Mesh::MeshIterator it_mesh = iterator.begin();
+    auto it_mesh = iterator.begin();
     for ( size_t i = 0; i < N0; ++i, ++it_mesh ) {
         // Get the local DOFs
         DOFs->getDOFs( it_mesh->globalID(), id1 );
@@ -211,7 +211,7 @@ void ScalarN2GZAxisMap::buildReturn( AMP::LinearAlgebra::Vector::shared_ptr vec,
         size_t N2 = id1.size();
         // Get the coordinates of the gauss points
         zi2.resize( N2 );
-        z_pos->getLocalValuesByGlobalID( N2, &id2[0], &zi2[0] );
+        z_pos->getValuesByGlobalID( N2, &id2[0], &zi2[0] );
         for ( size_t j = 0; j < N2; j++ ) {
             if ( zi2[j] < z0 - TOL || zi2[j] > z1 + TOL ) {
                 // We are outside the bounds of the map
@@ -231,7 +231,7 @@ void ScalarN2GZAxisMap::buildReturn( AMP::LinearAlgebra::Vector::shared_ptr vec,
         double wt = ( zi[i] - z[k - 1] ) / ( z[k] - z[k - 1] );
         fi[i]     = ( 1.0 - wt ) * f[k - 1] + wt * f[k];
     }
-    vec->setLocalValuesByGlobalID( dofs.size(), &dofs[0], &fi[0] );
+    vec->setValuesByGlobalID( dofs.size(), &dofs[0], &fi[0] );
 }
 
 

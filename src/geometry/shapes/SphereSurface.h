@@ -35,7 +35,6 @@ public:
 
 public: // Functions inherited from Geometry
     std::string getName() const override final { return "SphereSurface"; }
-    AMP::Mesh::GeomType getGeomType() const override final { return AMP::Mesh::GeomType::Face; }
     bool isConvex() const override final { return true; }
     Point nearest( const Point &pos ) const override final;
     double distance( const Point &pos, const Point &dir ) const override final;

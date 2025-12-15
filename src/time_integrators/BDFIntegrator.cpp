@@ -6,14 +6,12 @@
 #include "AMP/time_integrators/TimeOperator.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
+#include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/Vector.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iomanip>
-
-#ifdef ENABLE_RESTART
-    #include "RestartData.h"
-#endif
 
 #include "ProfilerApp.h"
 
@@ -23,19 +21,19 @@ BDFIntegrator::BDFIntegrator(
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> params )
     : AMP::TimeIntegrator::ImplicitIntegrator( params )
 {
+    d_initialized = false;
     d_object_name = "BDFIntegrator";
     auto parameters =
         std::dynamic_pointer_cast<AMP::TimeIntegrator::TimeIntegratorParameters>( params );
-    AMP_ASSERT( parameters.get() != nullptr );
+    AMP_ASSERT( parameters );
 
     auto input_db = params->d_db;
-    // used to be SAMRAI, eventually bring in new restart capabilities
-    bool is_from_restart = false;
 
     // read parameters from input
-    getFromInput( input_db, is_from_restart );
+    getFromInput( input_db );
 
     initialize();
+    d_initialized = true;
 }
 
 BDFIntegrator::~BDFIntegrator() {}
@@ -152,160 +150,180 @@ void BDFIntegrator::integratorSpecificInitialize( void )
 
     auto params = std::make_shared<AMP::Solver::SolverStrategyParameters>();
     params->d_vectors.push_back( d_solution_vector );
-
-    //    if ( d_solver )
-    //        d_solver->initialize( params );
 }
 
-void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db, bool is_from_restart )
+void BDFIntegrator::getFromInput( std::shared_ptr<AMP::Database> db )
 {
-    NULL_USE( is_from_restart );
+    if ( db ) {
+        if ( !d_initialized )
+            d_first_initial_dt = db->getWithDefault<double>( "first_initial_dt", d_initial_dt );
 
-    if ( db->keyExists( "variable_names" ) ) {
-        d_var_names = db->getVector<std::string>( "variable_names" );
-    } else {
-        //        AMP_ERROR( "For now variable names MUST be specified in input" );
-    }
+        if ( db->keyExists( "variable_names" ) ) {
+            d_var_names = db->getVector<std::string>( "variable_names" );
+        }
 
-    if ( db->keyExists( "implicit_integrator" ) ) {
+        if ( db->keyExists( "implicit_integrator" ) ) {
 
-        d_implicit_integrator = db->getString( "implicit_integrator" );
-        if ( ( d_implicit_integrator == "BDF1" ) || ( d_implicit_integrator == "Backward Euler" ) )
-            d_implicit_integrator = "BE";
+            d_implicit_integrator = db->getString( "implicit_integrator" );
+            if ( ( d_implicit_integrator == "BDF1" ) ||
+                 ( d_implicit_integrator == "Backward Euler" ) )
+                d_implicit_integrator = "BE";
 
-    } else {
-        AMP_ERROR( d_object_name + " -- Key data `implicit_integrator' missing in input." );
-    }
-
-    if ( d_implicit_integrator == "BE" ) {
-        // start with BE itself
-        d_bdf_starting_integrator = "BE";
-    } else {
-        // when BDF2 starts up another one step time integration scheme is required for the first
-        // step
-        // the options are BE and CN
-        d_bdf_starting_integrator =
-            db->getWithDefault<std::string>( "bdf_starting_integrator", "CN" );
-        //  d_bdf_starting_integrator = db->getStringWithDefault("bdf_starting_integrator", "BE");
-    }
-
-    if ( ( d_bdf_starting_integrator != "BE" ) && ( d_bdf_starting_integrator != "CN" ) ) {
-        AMP_ERROR( d_object_name +
-                   " -- Key data `d_bdf_starting_integrator' valid values are BE and CN" );
-    }
-
-    if ( db->keyExists( "timestep_selection_strategy" ) ) {
-        d_timestep_strategy = db->getString( "timestep_selection_strategy" );
-    } else {
-        AMP_ERROR( d_object_name + " -- Key data `timestep_selection_strategy' missing in input." );
-    }
-
-    d_use_predictor = db->getWithDefault<bool>( "use_predictor", true );
-    //        d_use_initial_predictor = db->getWithDefault<bool>( "use_initial_predictor", true );
-    d_use_initial_predictor = db->getWithDefault<bool>( "use_initial_predictor", d_use_predictor );
-
-    if ( d_use_predictor ) {
-        if ( db->keyExists( "predictor_type" ) ) {
-            d_predictor_type = db->getString( "predictor_type" );
         } else {
-            AMP_ERROR(
-                "Time integrator parameters:: -- Required key `predictor_type' missing in input." );
+            AMP_ERROR( d_object_name + " -- Key data `implicit_integrator' missing in input." );
         }
 
-        // override and set to true if we are using the predictor
-        d_calculateTimeTruncError = true;
-    }
+        if ( d_implicit_integrator == "BE" ) {
+            // start with BE itself
+            d_bdf_starting_integrator = "BE";
+        } else {
+            // when BDF2 starts up another one step time integration scheme is required for the
+            // first step the options are BE and CN
+            d_bdf_starting_integrator =
+                db->getWithDefault<std::string>( "bdf_starting_integrator", "CN" );
+        }
 
-    d_time_rtol = db->getWithDefault<double>( "truncation_error_rtol", 1e-09 );
-    d_time_atol = db->getWithDefault<double>( "truncation_error_atol", 1e-15 );
+        if ( ( d_bdf_starting_integrator != "BE" ) && ( d_bdf_starting_integrator != "CN" ) ) {
+            AMP_ERROR( d_object_name +
+                       " -- Key data `d_bdf_starting_integrator' valid values are BE and CN" );
+        }
 
-    if ( d_timestep_strategy != "constant" ) {
+        if ( db->keyExists( "timestep_selection_strategy" ) ) {
+            d_timestep_strategy = db->getString( "timestep_selection_strategy" );
+        } else {
+            AMP_ERROR( d_object_name +
+                       " -- Key data `timestep_selection_strategy' missing in input." );
+        }
+
+        d_use_predictor = db->getWithDefault<bool>( "use_predictor", true );
+
+        d_use_initial_predictor =
+            db->getWithDefault<bool>( "use_initial_predictor", d_use_predictor );
+
+        if ( d_use_predictor ) {
+            d_predictor_type = db->getWithDefault<std::string>( "predictor_type", "" );
+            setPredictorType( d_predictor_type );
+            // override and set to true if we are using the predictor
+            //            d_calculateTimeTruncError = true;
+        }
+
+        d_time_atol = db->getWithDefault<double>( "truncation_error_rtol", 1e-09 );
+        d_time_rtol = db->getWithDefault<double>( "truncation_error_atol", 1e-06 );
+
+        d_auto_component_scaling = db->getWithDefault<bool>( "auto_component_scaling", true );
+
+        if ( d_timestep_strategy != "constant" ) {
 
 
-        if ( d_timestep_strategy == "truncationErrorStrategy" ) {
+            if ( d_timestep_strategy == "truncationErrorStrategy" ) {
 
-            d_use_bdf1_estimator_on_regrid =
-                db->getWithDefault<bool>( "use_bdf1_estimator_on_regrid", true );
+                d_use_bdf1_estimator_on_regrid =
+                    db->getWithDefault<bool>( "use_bdf1_estimator_on_regrid", true );
 
-            d_enable_picontrol_regrid_steps =
-                db->getWithDefault<int>( "enable_picontrol_regrid_steps", 3 );
+                d_enable_picontrol_regrid_steps =
+                    db->getWithDefault<int>( "enable_picontrol_regrid_steps", 3 );
 
-            d_bdf1_eps_regrid_steps = db->getWithDefault<int>( "bdf1_eps_regrid_steps", 10 );
+                d_bdf1_eps_regrid_steps = db->getWithDefault<int>( "bdf1_eps_regrid_steps", 10 );
 
-            d_combine_timestep_estimators =
-                db->getWithDefault<bool>( "combine_timestep_estimators", false );
-            d_control_timestep_variation =
-                db->getWithDefault<bool>( "control_timestep_variation", false );
+                d_combine_timestep_estimators =
+                    db->getWithDefault<bool>( "combine_timestep_estimators", false );
+                d_control_timestep_variation =
+                    db->getWithDefault<bool>( "control_timestep_variation", false );
 
-            // these bounds are based on the paper by Emmrich, 2008 for nonlinear evolution
-            // equations //
-            d_DtCutLowerBound    = db->getWithDefault<double>( "dt_cut_lower_bound", 0.58754407 );
-            d_DtGrowthUpperBound = db->getWithDefault<double>( "dt_growth_upper_bound", 1.702 );
+                // these bounds are based on the paper by Emmrich, 2008 for nonlinear evolution
+                // equations //
+                d_DtCutLowerBound = db->getWithDefault<double>( "dt_cut_lower_bound", 0.58754407 );
+                d_DtGrowthUpperBound = db->getWithDefault<double>( "dt_growth_upper_bound", 1.702 );
 
-            d_use_pi_controller = db->getWithDefault<bool>( "use_pi_controller", true );
+                d_use_pi_controller = db->getWithDefault<bool>( "use_pi_controller", true );
 
-            if ( d_use_pi_controller ) {
-                d_pi_controller_type =
-                    db->getWithDefault<std::string>( "pi_controller_type", "PC.4.7" );
-            } else {
-                d_pi_controller_type = "";
+                if ( d_use_pi_controller ) {
+                    d_pi_controller_type =
+                        db->getWithDefault<std::string>( "pi_controller_type", "PC.4.7" );
+                }
+
+                // override and set to true if we are using the truncation error strategy
+                d_calculateTimeTruncError = true;
+                d_use_predictor           = true;
+            }
+            if ( d_timestep_strategy == "final constant" ) {
+
+                // these bounds are based on the paper by Emmrich, 2008 for nonlinear evolution
+                // equations //
+                //            d_DtCutLowerBound    = db->getWithDefault<double>(
+                //            "dt_cut_lower_bound", 0.58754407 );
+                d_DtCutLowerBound =
+                    db->getWithDefault<double>( "dt_cut_lower_bound", 0.9 ); // to match old for now
+                d_DtGrowthUpperBound = db->getWithDefault<double>( "dt_growth_upper_bound", 1.702 );
+                if ( !d_initialized )
+                    d_final_constant_timestep_current_step =
+                        db->getWithDefault<int>( "final_constant_timestep_current_step", 1 );
             }
 
-            // override and set to true if we are using the truncation error strategy
-            d_calculateTimeTruncError = true;
-            d_use_predictor           = true;
+            if ( !d_calculateTimeTruncError ) {
+                // keep the next line above the choice of truncation error strategy so overriding
+                // can happen if the truncation error strategy is chosen
+                d_calculateTimeTruncError =
+                    db->getWithDefault<bool>( "calculate_time_trunc_error", false );
+            }
         }
+
         if ( d_timestep_strategy == "final constant" ) {
-
-            // these bounds are based on the paper by Emmrich, 2008 for nonlinear evolution
-            // equations //
-            //            d_DtCutLowerBound    = db->getWithDefault<double>( "dt_cut_lower_bound",
-            //            0.58754407 );
-            d_DtCutLowerBound =
-                db->getWithDefault<double>( "dt_cut_lower_bound", 0.9 ); // to match old for now
-            d_DtGrowthUpperBound = db->getWithDefault<double>( "dt_growth_upper_bound", 1.702 );
+            d_number_of_time_intervals = db->getWithDefault<int>( "number_of_time_intervals", 100 );
+            d_number_initial_fixed_steps =
+                db->getWithDefault<int>( "number_initial_fixed_steps", 0 );
         }
 
-        if ( !d_calculateTimeTruncError ) {
-            // keep the next line above the choice of truncation error strategy so overriding
-            // can happen if the truncation error strategy is chosen
-            d_calculateTimeTruncError =
-                db->getWithDefault<bool>( "calculate_time_trunc_error", false );
-        }
-
-        if ( ( d_timestep_strategy == "limit relative change" ) ||
-             ( d_combine_timestep_estimators ) ) {
-            if ( db->keyExists( "target_relative_change" ) ) {
-                d_target_relative_change = db->getScalar<double>( "target_relative_change" );
-            } else {
-                AMP_ERROR( d_object_name +
-                           " -- Key data `target_relative_change' missing in input." );
+        // keep this towards the end so if the d_calculateTimeTruncError has to be overridden it is
+        // done
+        if ( d_calculateTimeTruncError ) {
+            // we have to use a predictor if we are going to calculate truncation errors
+            d_use_predictor = true;
+            d_timeTruncationErrorNormType =
+                db->getWithDefault<std::string>( "timeTruncationErrorNormType", "maxNorm" );
+            d_time_error_scaling =
+                db->getWithDefault<std::string>( "time_error_scaling", "fixed_scaling" );
+            if ( d_time_error_scaling == "fixed_scaling" ) {
+                if ( db->keyExists( "problem_fixed_scaling" ) ) {
+                    d_problem_scales = db->getVector<double>( "problem_fixed_scaling" );
+                } else {
+                    AMP_ERROR( d_object_name +
+                               " -- Key data `problem_fixed_scaling' missing in input." );
+                }
             }
         }
     }
+}
 
-    if ( d_timestep_strategy == "final constant" ) {
-        d_number_of_time_intervals   = db->getWithDefault<int>( "number_of_time_intervals", 100 );
-        d_number_initial_fixed_steps = db->getWithDefault<int>( "number_initial_fixed_steps", 0 );
-    }
-
-    // keep this towards the end so if the d_calculateTimeTruncError has to be overridden it is done
-    if ( d_calculateTimeTruncError ) {
-        // we have to use a predictor if we are going to calculate truncation errors
-        d_use_predictor = true;
-        d_timeTruncationErrorNormType =
-            db->getWithDefault<std::string>( "timeTruncationErrorNormType", "maxNorm" );
-        d_time_error_scaling =
-            db->getWithDefault<std::string>( "time_error_scaling", "fixed_scaling" );
-        if ( d_time_error_scaling == "fixed_scaling" ) {
-            if ( db->keyExists( "problem_fixed_scaling" ) ) {
-                d_problem_scales = db->getVector<double>( "problem_fixed_scaling" );
-            } else {
-                AMP_ERROR( d_object_name +
-                           " -- Key data `problem_fixed_scaling' missing in input." );
-            }
+void BDFIntegrator::setPredictorType( const std::string &predictor )
+{
+    d_predictor_type = predictor;
+    // set defaults if necessary
+    if ( d_predictor_type == "" ) {
+        if ( ( d_implicit_integrator == "BDF2" ) || ( d_implicit_integrator == "BDF3" ) ||
+             ( d_implicit_integrator == "BDF4" ) || ( d_implicit_integrator == "BDF5" ) ||
+             ( d_implicit_integrator == "BDF6" ) ) {
+            // this is the only predictor for these at present
+            d_predictor_type = "leapfrog";
+        } else if ( d_implicit_integrator == "CN" ) {
+            d_predictor_type = "ab2";
+        } else if ( d_implicit_integrator == "BE" ) {
+            d_predictor_type = "forward_euler";
+        } else {
+            d_predictor_type = "previous_solution";
         }
     }
+
+    d_initial_predictor_type = "forward_euler";
+}
+
+double BDFIntegrator::getGamma( void )
+{
+    if ( !d_time_history_initialized ) {
+        setTimeHistoryScalings();
+        d_time_history_initialized = true;
+    }
+    return d_gamma;
 }
 
 std::vector<double> BDFIntegrator::getTimeHistoryScalings( void )
@@ -484,7 +502,7 @@ void BDFIntegrator::setTimeHistoryScalings( void )
                                           ( h5 - h4 ) * ( h6 - h4 ) );
         const double a5 = ( n5 * n5 ) / ( alpha * ( h1 - h5 ) * ( h2 - h5 ) * ( h3 - h5 ) *
                                           ( h4 - h5 ) * ( h6 - h5 ) );
-        const double a6 = ( n6 * n6 ) / ( alpha * ( h1 - h5 ) * ( h2 - h6 ) * ( h3 - h6 ) *
+        const double a6 = ( n6 * n6 ) / ( alpha * ( h1 - h6 ) * ( h2 - h6 ) * ( h3 - h6 ) *
                                           ( h4 - h6 ) * ( h5 - h6 ) );
 
         d_a.resize( 6 );
@@ -505,10 +523,8 @@ void BDFIntegrator::setTimeHistoryScalings( void )
     if ( timeOperator ) {
         timeOperator->setTimeOperatorScaling( d_gamma );
     } else {
-        AMP_INSIST( d_fTimeScalingFnPtr,
-                    "Error: BDFIntegrator -- a function pointer must be set to enable scaling of "
-                    "the operator by gamma" );
-        d_fTimeScalingFnPtr( d_gamma );
+        if ( d_fTimeScalingFnPtr )
+            d_fTimeScalingFnPtr( d_gamma );
     }
 }
 
@@ -518,17 +534,21 @@ void BDFIntegrator::computeIntegratorSourceTerm( void )
 
     f->zero();
 
+    // note that we have to subtract since the signs are the opposite of what should be there!!
+    // should be fixed in future!!
     for ( size_t i = 0; i <= d_integrator_index; ++i ) {
         f->axpy( -d_a[i], *d_prev_solutions[i], *f );
     }
 
+    const auto &current_integrator = d_integrator_names[d_integrator_index];
+
     // add in a time dependent source, g, for problems of the form u_t = f(u)+g
     // or for MGRIT it adds in the FAS correction
     if ( d_pSourceTerm ) {
-        f->axpy( -d_gamma, *d_pSourceTerm, *f );
+        const auto alpha = ( current_integrator == "CN" ) ? -2.0 * d_gamma : -d_gamma;
+        f->axpy( alpha, *d_pSourceTerm, *f );
     }
 
-    const auto &current_integrator = d_integrator_names[d_integrator_index];
     if ( current_integrator == "CN" ) {
 
         AMP_ASSERT( d_integrator_index == 0 );
@@ -538,10 +558,6 @@ void BDFIntegrator::computeIntegratorSourceTerm( void )
 
         // set the source term to -( u^{n}+(dt/2-\eps)f(u^n) )
         f->axpy( -beta, *d_prev_function_vector, *f );
-        // we have to add this in again for CN
-        if ( d_pSourceTerm ) {
-            f->axpy( -d_gamma, *d_pSourceTerm, *f );
-        }
     }
 }
 
@@ -576,30 +592,6 @@ void BDFIntegrator::printVectorComponentNorms(
 /*
 *************************************************************************
 *                                                                       *
-* Return the time increment used for the first solution advance step.   *
-*                                                                       *
-*************************************************************************
-*/
-double BDFIntegrator::getInitialDt()
-{
-    double returnVal = d_initial_dt;
-
-#ifdef ENABLE_RESTART
-    if ( d_restart_data != nullptr ) {
-        if ( d_restart_data->readTimeStepFromRestart() ) {
-            returnVal = d_restart_data->getInitialDt();
-            // Set d_current_dt to be the time step read from restart data.
-            d_current_dt = returnVal;
-        }
-    }
-#endif
-
-    return returnVal;
-}
-
-/*
-*************************************************************************
-*                                                                       *
 * Return the next time increment through which to advance the solution. *
 *                                                                       *
 *************************************************************************
@@ -620,20 +612,6 @@ double BDFIntegrator::getNextDtTruncationError( const bool good_solution, const 
                 AMP::pout << "Truncation error limited timestep" << std::endl;
         }
 
-#ifdef ENABLE_RESTART
-        if ( d_restart_data != nullptr ) {
-
-            if ( d_restart_data->getCurrentCheckPointTime() > 0.0 ) {
-                double currentCheckPointTime = d_restart_data->getCurrentCheckPointTime();
-
-                if ( ( d_current_dt + d_current_time > currentCheckPointTime ) &&
-                     ( currentCheckPointTime - d_current_time > 1.0e-10 ) ) {
-                    // make sure we hit the checkpoint
-                    d_current_dt = currentCheckPointTime - d_current_time;
-                }
-            }
-        }
-#endif
     } else {
         PROFILE( "getNextDt-truncation-bad", 2 );
         // the rejection could be due to the truncation error being too large or
@@ -696,24 +674,21 @@ double BDFIntegrator::getNextDtConstant( const bool, const int ) { return d_init
 
 double BDFIntegrator::getNextDtPredefined( const bool good_solution, const int solver_retcode )
 {
-#ifdef ENABLE_RESTART
-    return d_restart_data->getNextDt();
-#else
     return getNextDtConstant( good_solution, solver_retcode );
-#endif
 }
 
 double BDFIntegrator::getNextDtFinalConstant( const bool, const int )
 {
-    static int i = 1;
-    if ( i <= d_number_initial_fixed_steps ) {
+    if ( d_final_constant_timestep_current_step <= d_number_initial_fixed_steps ) {
         d_current_dt = d_initial_dt;
-        ++i;
-    } else if ( i < d_number_of_time_intervals + d_number_initial_fixed_steps ) {
-        d_current_dt = d_initial_dt + ( (double) i - d_number_initial_fixed_steps ) /
-                                          ( (double) d_number_of_time_intervals ) *
-                                          ( d_max_dt - d_initial_dt );
-        ++i;
+        ++d_final_constant_timestep_current_step;
+    } else if ( d_final_constant_timestep_current_step <
+                d_number_of_time_intervals + d_number_initial_fixed_steps ) {
+        d_current_dt =
+            d_first_initial_dt +
+            ( (double) d_final_constant_timestep_current_step - d_number_initial_fixed_steps ) /
+                ( (double) d_number_of_time_intervals ) * ( d_max_dt - d_first_initial_dt );
+        ++d_final_constant_timestep_current_step;
     } else {
         d_current_dt = d_max_dt;
     }
@@ -744,33 +719,11 @@ double BDFIntegrator::integratorSpecificGetNextDt( const bool good_solution,
                     d_current_dt = getNextDtConstant( good_solution, solver_retcode );
                 } else if ( d_timestep_strategy == "final constant" ) {
                     d_current_dt = getNextDtFinalConstant( good_solution, solver_retcode );
-                } else if ( d_timestep_strategy == "limit relative change" ) {
-                    d_current_dt = estimateDynamicalTimeScale( d_current_dt );
                 } else {
                     AMP_ERROR( "Unknown time step control strategy selected:  " +
                                d_timestep_strategy );
                 }
             }
-
-#ifdef ENABLE_RESTART
-            // new code to make sure we hit checkpoints
-            // BP: 03/23/04
-            if ( d_restart_data != nullptr ) {
-                if ( d_restart_data->getCurrentCheckPointTime() > 0.0 ) {
-                    double currentCheckPointTime = d_restart_data->getCurrentCheckPointTime();
-
-                    if ( ( d_current_dt + d_current_time > currentCheckPointTime ) &&
-                         ( currentCheckPointTime - d_current_time > 1.0e-10 ) ) {
-                        // make sure we hit the checkpoint
-                        d_current_dt           = currentCheckPointTime - d_current_time;
-                        dtLimitedForCheckPoint = true;
-                        dtBeforeCheckPoint     = d_old_dt;
-                    } else {
-                        dtLimitedForCheckPoint = false;
-                    }
-                }
-            }
-#endif
 
         } else {
 
@@ -778,7 +731,7 @@ double BDFIntegrator::integratorSpecificGetNextDt( const bool good_solution,
                 // solution method failure, decrease step by d_DtCutLowerBound*d_current_dt
                 if ( d_iDebugPrintInfoLevel > 0 ) {
                     AMP::pout << std::setprecision( 16 )
-                              << "The solution process failed. Timestep is being decreased by "
+                              << "The implicit solver failed. Timestep is being decreased by "
                                  "max allowable factor:: "
                               << d_DtCutLowerBound << std::endl;
                 }
@@ -797,9 +750,6 @@ double BDFIntegrator::integratorSpecificGetNextDt( const bool good_solution,
     return ( d_current_dt );
 }
 
-
-double BDFIntegrator::getPredictorTimestepBound( void ) { return 0; }
-
 void BDFIntegrator::evaluatePredictor()
 {
     PROFILE( "evaluatePredictor" );
@@ -809,40 +759,38 @@ void BDFIntegrator::evaluatePredictor()
         // the commented out version can be used if using BE at the first step after regrid
         //      if(d_first_step || ((!d_is_after_regrid)&& (d_timesteps_after_regrid<2)))
         if ( d_first_step ) {
-            if ( d_bdf_starting_integrator == "CN" ) {
-                // use forward Euler as a predictor
-                evaluateForwardEulerPredictor();
-            } else if ( d_bdf_starting_integrator == "BE" ) {
-                evaluateForwardEulerPredictor();
-            } else {
-                AMP_ERROR( "ERROR: Valid options for d_bdf_starting_integrator are CN or BE" );
-            }
+            AMP_INSIST( ( d_bdf_starting_integrator == "CN" ) ||
+                            ( d_bdf_starting_integrator == "BE" ),
+                        "ERROR: Valid options for d_bdf_starting_integrator are CN or BE" );
+            // use forward Euler as a predictor for both BE and CN for now
+            evaluateForwardEulerPredictor();
         } else {
             if ( d_predictor_type == "leapfrog" ) {
                 evaluateLeapFrogPredictor();
             } else if ( d_predictor_type == "bdf_interpolant" ) {
                 evaluateBDFInterpolantPredictor();
             } else {
-                AMP_ERROR( "ERROR: Valid option for BDF2 predictor is only leapfrog currently" );
+                AMP_ERROR( "ERROR: Valid options for BDF predictor are leapfrog  and  "
+                           "bdf_interpolant currently" );
             }
         }
     } else if ( d_implicit_integrator == "CN" ) {
-        if ( d_predictor_type == "ab2" ) {
+        AMP_INSIST( d_predictor_type == "ab2",
+                    "ERROR: Valid option for Crank-Nicolson predictor is only ab2 currently" );
+        if ( d_first_step )
+            evaluateForwardEulerPredictor();
+        else
             evaluateAB2Predictor();
-        } else {
-            AMP_ERROR( "ERROR: Valid option for Crank-Nicolson predictor is only ab2 currently" );
-        }
     } else if ( d_implicit_integrator == "BE" ) {
         evaluateForwardEulerPredictor();
     } else {
-        AMP_ERROR( "ERROR: Valid option for time integrator are BDF2, CN, or BE currently" );
+        AMP_ERROR( "ERROR: Valid option for time integrator are BDF2-6, CN, or BE currently" );
     }
 
     if ( !d_operator->isValidVector( d_predictor_vector ) ) {
         // do a constant extrapolation in time for the
         // predictor
-        evaluateForwardEulerPredictor();
-        //        d_predictor_vector->copyVector( d_prev_solutions[0] );
+        d_predictor_vector->copyVector( d_prev_solutions[0] );
     }
 }
 
@@ -914,7 +862,11 @@ void BDFIntegrator::evaluateForwardEulerPredictor()
         if ( timeOperator ) {
             timeOperator->applyRhs( d_scratch_vector, d_current_function_vector );
         } else {
+            // it is assumed the user supplied operator is calculating (u^{n+1}-\gamma
+            // f(u^{n+1}) so we do the necessary operations to back calculate f(u^{n+1})
             d_operator->apply( d_scratch_vector, d_current_function_vector );
+            d_current_function_vector->subtract( *d_current_function_vector, *d_scratch_vector );
+            d_current_function_vector->scale( -1.0 / d_gamma );
         }
 
         d_timederivative_vector->copyVector( d_current_function_vector );
@@ -950,12 +902,9 @@ void BDFIntegrator::evaluateForwardEulerPredictor()
 */
 void BDFIntegrator::setInitialGuess( const bool first_step,
                                      const double current_time,
-                                     const double current_dt,
-                                     const double old_dt )
+                                     const double,
+                                     const double )
 {
-    NULL_USE( current_dt );
-    NULL_USE( old_dt );
-
     PROFILE( "setInitialGuess" );
     (void) current_time;
 
@@ -970,12 +919,18 @@ void BDFIntegrator::setInitialGuess( const bool first_step,
             AMP_ASSERT( d_prev_solutions[0] );
             AMP_ASSERT( d_prev_function_vector );
             d_scratch_vector->copyVector( d_prev_solutions[0] );
+            d_scratch_vector->makeConsistent();
+
             auto timeOperator =
                 std::dynamic_pointer_cast<AMP::TimeIntegrator::TimeOperator>( d_operator );
             if ( timeOperator ) {
                 timeOperator->applyRhs( d_scratch_vector, d_prev_function_vector );
             } else {
+                // it is assumed the user supplied operator is calculating (u^{n+1}-\gamma
+                // f(u^{n+1}) so we do the necessary operations to back calculate f(u^{n+1})
                 d_operator->apply( d_scratch_vector, d_prev_function_vector );
+                d_prev_function_vector->subtract( *d_prev_function_vector, *d_scratch_vector );
+                d_prev_function_vector->scale( -1.0 / d_gamma );
             }
             //	    AMP::pout << "applyRhs: L2Norm " << d_prev_function_vector->L2Norm() <<
             // std::endl;
@@ -1021,6 +976,7 @@ void BDFIntegrator::setInitialGuess( const bool first_step,
              */
             d_solution_vector->copyVector( d_prev_solutions[0] );
         }
+        d_solution_vector->makeConsistent();
     }
 
     computeIntegratorSourceTerm();
@@ -1042,7 +998,7 @@ bool BDFIntegrator::integratorSpecificCheckNewSolution( const int solver_retcode
     // the first check is whether the solver passed or failed
     if ( solver_retcode == 1 ) {
         if ( d_iDebugPrintInfoLevel > 4 ) {
-            AMP::pout << "Nonlinear solver checks: PASSED" << std::endl;
+            AMP::pout << "Solver checks: PASSED" << std::endl;
         }
 
         if ( d_calculateTimeTruncError ) {
@@ -1157,7 +1113,8 @@ void BDFIntegrator::estimateTimeDerivative( void )
         estimateBDF2TimeDerivative();
     } else if ( ( current_integrator == "BDF3" ) || ( current_integrator == "BDF4" ) ||
                 ( current_integrator == "BDF5" ) || ( current_integrator == "BDF6" ) ) {
-        AMP_WARNING( "BDF 3-6 methods being used with low order BDF2 estimate of time derivative" );
+        AMP_WARN_ONCE(
+            "BDF 3-6 methods being used with low order BDF2 estimate of time derivative" );
         estimateBDF2TimeDerivative();
     } else if ( current_integrator == "CN" ) {
         estimateBETimeDerivative();
@@ -1225,18 +1182,6 @@ void BDFIntegrator::integratorSpecificUpdateSolution( const double new_time )
         printVectorComponentNorms( d_prev_solutions[0], " of current ", ": ", "L2Norm" );
     }
 
-#ifdef ENABLE_RESTART
-    if ( d_restart_data != nullptr ) {
-        if ( d_restart_data->isWriteErrorCheckPoint( d_current_time ) ) {
-            d_restart_data->writeErrorCheckPoint( d_current_time );
-        } else {
-            if ( d_restart_data->isReadErrorCheckPoint( d_current_time ) ) {
-                AMP_ERROR( "Now BDFIntegrator does not compute error approximations." );
-                // computeErrorApproximation(d_current_time);
-            }
-        }
-    }
-#endif
     // the fact that an updateSolution has happened implies that atleast
     // one step is completed. However, SAMRAI only updates the status
     // after the call to getNextDt. So going into getNextDt and in particular
@@ -1257,79 +1202,6 @@ void BDFIntegrator::integratorSpecificUpdateSolution( const double new_time )
 
 double BDFIntegrator::getTimeOperatorScaling( void ) { return d_gamma; }
 
-/*
-************************************************************************
-*                                                                      *
-*  Estimate dynamical time scale.  Implements time step control that   *
-*  limits relative change in the solution.                             *
-*                                                                      *
-*  N.B.  Currently an extra copy of u and f are kept, just to store    *
-*  absolute values.  This implementation can be changed to perform the *
-*  needed operation level-by-level, and storage for the absolute       *
-*  values can be dynamically managed here, to reduce storage costs.    *
-*  When that's done, don't forget to 'unregister' the indices from     *
-*  d_problem_data.                                                     *
-*                                                                      *
-************************************************************************
-*/
-double BDFIntegrator::estimateDynamicalTimeScale( double current_dt )
-{
-    PROFILE( "estimateDynamicalTimeScale" );
-
-    if ( d_implicit_integrator == "CN" ) {
-        AMP_ERROR( "Implemented only for BE and BDF2" );
-    }
-
-    d_scratch_vector->addScalar( *d_prev_solutions[0], std::numeric_limits<double>::epsilon() );
-    d_scratch_vector->divide( *d_prev_solutions[1], *d_scratch_vector );
-    d_scratch_vector->addScalar( *d_scratch_vector, -1 );
-    d_scratch_vector->abs( *d_scratch_vector );
-
-    std::vector<double> actual_relative_change_in_vars;
-
-    const size_t nComponents = d_scratch_vector->getNumberOfComponents();
-    for ( size_t i = 0u; i < nComponents; ++i ) {
-
-        // subset for each component (cheap)
-        auto component_vector = d_scratch_function_vector->subsetVectorForComponent( i );
-
-        // the L2 Norm tends to under-estimate the error for the AMR calculations
-        // but might be useful immediately after regrid as the max norm will probably
-        // over predict at that point.
-        if ( d_timeTruncationErrorNormType == "maxNorm" ) {
-            actual_relative_change_in_vars.push_back(
-                static_cast<double>( component_vector->maxNorm() ) );
-        } else {
-            actual_relative_change_in_vars.push_back(
-                static_cast<double>( component_vector->L2Norm() ) );
-        }
-    }
-
-    auto actual_relative_change = std::max_element( actual_relative_change_in_vars.begin(),
-                                                    actual_relative_change_in_vars.end() );
-
-    if ( d_iDebugPrintInfoLevel > 4 ) {
-        for ( size_t i = 0u; i < nComponents; ++i ) {
-            std::string var_name =
-                ( d_var_names.size() == (unsigned int) nComponents ) ? d_var_names[i] : "var";
-            AMP::plog << " Actual relative change in " << var_name << " = "
-                      << actual_relative_change_in_vars[i] << std::endl;
-        }
-    }
-
-    double factor = ( current_dt > 0.5 ) ? 1.05 : 1.1;
-    factor        = ( current_dt > 10.0 ) ? 1.03 : factor;
-
-    // this is the factor used in Dana's paper
-    double cfl_new_dt =
-        std::sqrt( d_target_relative_change / ( *actual_relative_change ) ) * d_current_dt;
-    //   double cfl_new_dt = (d_target_relative_change/actual_relative_change)*current_dt;
-
-    current_dt = std::min( cfl_new_dt, factor * current_dt );
-
-    return current_dt;
-}
-
 double BDFIntegrator::estimateDtWithTruncationErrorEstimates( double current_dt,
                                                               bool good_solution )
 {
@@ -1342,8 +1214,9 @@ double BDFIntegrator::estimateDtWithTruncationErrorEstimates( double current_dt,
 
     if ( ( d_implicit_integrator != "BE" ) && ( d_implicit_integrator != "BDF2" ) &&
          ( d_implicit_integrator != "BDF3" ) && ( d_implicit_integrator != "BDF4" ) &&
-         ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) ) {
-        AMP_ERROR( "Unknown time integrator, current implementation is for BDF1-6" );
+         ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) &&
+         ( d_implicit_integrator != "CN" ) ) {
+        AMP_ERROR( "Unknown time integrator, current implementation is for BDF1-6 and CN" );
     }
 
     // the truncation error estimate should already have been calculated while checking the
@@ -1352,7 +1225,7 @@ double BDFIntegrator::estimateDtWithTruncationErrorEstimates( double current_dt,
         AMP::pout << std::setprecision( 16 )
                   << "Truncation error estimate is: " << d_timeTruncationErrorEstimate << std::endl;
         //   AMP::pout << "Cube root of truncation error estimate is: " <<
-        //   pow(d_timeTruncationErrorEstimate,1.0/3.0) << std::endl;
+        //   std::pow(d_timeTruncationErrorEstimate,1.0/3.0) << std::endl;
     }
 
     double dtFactor = 0.0;
@@ -1376,26 +1249,30 @@ double BDFIntegrator::estimateDtWithTruncationErrorEstimates( double current_dt,
         //   const double safetyFactor     = 0.9;
         if ( d_pi_controller_type == "H211b" ) {
             const double b = 4.0;
-            dtFactor = pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
-                            1.0 / ( b * ( p + 1.0 ) ) );
+            dtFactor =
+                std::pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
+                          1.0 / ( b * ( p + 1.0 ) ) );
             dtFactor *=
-                pow( safetyFactor / ( std::max( d_prevTimeTruncationErrorEstimate, m_eps ) ),
-                     1.0 / ( b * ( p + 1.0 ) ) );
-            dtFactor *= pow( d_alpha, -0.25 );
+                std::pow( safetyFactor / ( std::max( d_prevTimeTruncationErrorEstimate, m_eps ) ),
+                          1.0 / ( b * ( p + 1.0 ) ) );
+            dtFactor *= std::pow( d_alpha, -0.25 );
 
         } else if ( d_pi_controller_type == "PC.4.7" ) {
-            dtFactor = pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
-                            0.4 / ( p + 1.0 ) );
-            dtFactor = dtFactor * pow( d_timeErrorEstimateRatio, 0.7 / ( p + 1.0 ) ) * d_alpha;
+            dtFactor =
+                std::pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
+                          0.4 / ( p + 1.0 ) );
+            dtFactor = dtFactor * std::pow( d_timeErrorEstimateRatio, 0.7 / ( p + 1.0 ) ) * d_alpha;
 
         } else if ( d_pi_controller_type == "PC11" ) {
-            dtFactor = pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
-                            1.0 / ( p + 1.0 ) );
-            dtFactor = dtFactor * pow( d_timeErrorEstimateRatio, 1.0 / ( p + 1.0 ) ) * d_alpha;
+            dtFactor =
+                std::pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
+                          1.0 / ( p + 1.0 ) );
+            dtFactor = dtFactor * std::pow( d_timeErrorEstimateRatio, 1.0 / ( p + 1.0 ) ) * d_alpha;
 
         } else if ( d_pi_controller_type == "Deadbeat" ) {
-            dtFactor = pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
-                            1.0 / ( p + 1.0 ) );
+            dtFactor =
+                std::pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
+                          1.0 / ( p + 1.0 ) );
         } else {
             AMP_ERROR( "ERROR: Unknown PI controller type" );
         }
@@ -1434,8 +1311,8 @@ double BDFIntegrator::estimateDtWithTruncationErrorEstimates( double current_dt,
         //       p=1;
         //     }
 
-        dtFactor = pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
-                        1.0 / ( p + 1.0 ) );
+        dtFactor = std::pow( safetyFactor / ( std::max( d_timeTruncationErrorEstimate, m_eps ) ),
+                             1.0 / ( p + 1.0 ) );
 
         // when regridding has taken place and a resolve is done the potential
         // exists for a situation where the convergence rate of the solve on the
@@ -1528,12 +1405,14 @@ double BDFIntegrator::calculateLTEScalingFactor()
             // check!! the expressions given in Gresho and Sani appear to be wrong!
             if ( d_predictor_type == "leapfrog" ) {
                 // there might be an error here!!
-                //      errorFactor = 1.0/((1+alpha)*(1.0+ pow (alpha/(1.0+alpha), 2.0 ) ) );
+                //      errorFactor = 1.0/((1+alpha)*(1.0+std::pow(alpha/(1.0+alpha),2) ) );
 
                 errorFactor = ( 1.0 + d_alpha ) / ( 2.0 + 3.0 * d_alpha );
             } else if ( d_predictor_type == "ab2" ) {
                 // compute error factor from M. Pernice communication for AB2 and BDF2
-                errorFactor = 2.0 / ( 6.0 - 1.0 / ( pow( d_alpha + 1, 2.0 ) ) );
+                errorFactor = 2.0 / ( 6.0 - 1.0 / ( std::pow( d_alpha + 1, 2.0 ) ) );
+            } else if ( d_predictor_type == "forward_euler" ) {
+                errorFactor = 0.5;
             } else {
                 AMP_ERROR( "ERROR: Unknown BDF2 predictor" );
             }
@@ -1623,14 +1502,16 @@ void BDFIntegrator::calculateTemporalTruncationError()
          */
         if ( ( d_implicit_integrator != "BE" ) && ( d_implicit_integrator != "BDF2" ) &&
              ( d_implicit_integrator != "BDF3" ) && ( d_implicit_integrator != "BDF4" ) &&
-             ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) ) {
-            AMP_ERROR( "Unknown time integrator, current implementation is for BDF1-6" );
+             ( d_implicit_integrator != "BDF5" ) && ( d_implicit_integrator != "BDF6" ) &&
+             ( d_implicit_integrator != "CN" ) ) {
+            AMP_ERROR(
+                "Unknown time integrator, current implementation is for BDF1-6, Crank-Nicolson" );
         }
 
         d_alpha            = d_current_dt / d_old_dt;
         double errorFactor = 0.0;
 
-        if ( d_scratch_vector.get() == nullptr ) {
+        if ( !d_scratch_vector ) {
             d_scratch_vector = d_solution_vector->clone();
         }
 
@@ -1670,12 +1551,6 @@ void BDFIntegrator::calculateTemporalTruncationError()
 
                 // use predictor and corrector solutions for E & T to estimate LTE
                 calculateScaledLTENorm( d_solution_vector, d_predictor_vector, normOfError );
-
-                if ( d_predictor_type == "leapfrog" ) {
-                    errorFactor = ( 1.0 + d_alpha ) / ( 2.0 + 3.0 * d_alpha );
-                } else {
-                    AMP_ERROR( "ERROR: Unknown BDF2 predictor" );
-                }
 
                 std::vector<double> t2( nComponents );
 
@@ -1890,9 +1765,14 @@ void BDFIntegrator::registerVectorsForMemoryManagement( void )
 *
 *************************************************************************
 */
-void BDFIntegrator::reset( std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> )
+void BDFIntegrator::reset(
+    std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> params )
 {
     PROFILE( "BDFIntegrator::reset" );
+    ImplicitIntegrator::reset( params );
+
+    if ( params )
+        BDFIntegrator::getFromInput( params->d_db );
 
     registerVectorsForMemoryManagement();
 
@@ -1901,72 +1781,161 @@ void BDFIntegrator::reset( std::shared_ptr<const AMP::TimeIntegrator::TimeIntegr
         d_timesteps_after_regrid = 0;
     }
 
-    d_scratch_vector->getVectorData()->reset();
-    d_scratch_function_vector->getVectorData()->reset();
+    d_scratch_vector->reset();
+    d_scratch_function_vector->reset();
 
     if ( d_implicit_integrator != "BE" ) {
-        d_prev_function_vector->getVectorData()->reset();
+        d_prev_function_vector->reset();
     }
 
-    d_integrator_source_vector->getVectorData()->reset();
+    d_integrator_source_vector->reset();
 
     if ( d_use_predictor ) {
-        d_current_function_vector->getVectorData()->reset();
+        d_current_function_vector->reset();
 
         if ( d_predictor_type == "ab2" ) {
-            d_old_td_vector->getVectorData()->reset();
+            d_old_td_vector->reset();
         }
     }
 
-    if ( d_integrator_step > 0 ) {
-        d_solution_vector->getVectorData()->reset();
+    if ( d_solution_vector ) {
+        d_solution_vector->reset();
     }
 
     for ( auto i = 0u; i <= d_max_integrator_index; ++i ) {
-        d_prev_solutions[i]->getVectorData()->reset();
+        d_prev_solutions[i]->reset();
     }
 
     if ( d_use_predictor ) {
 
-        d_predictor_vector->getVectorData()->reset();
-        d_timederivative_vector->getVectorData()->reset();
+        d_predictor_vector->reset();
+        d_timederivative_vector->reset();
     }
 
-    std::shared_ptr<AMP::Operator::OperatorParameters> opParams;
-    d_operator->reset( opParams );
-    d_operator->reInitializeVector( d_solution_vector );
-    // experimental, should all previous vectors be also cleaned up??
-    for ( auto i = 0u; i <= d_max_integrator_index; ++i ) {
-        d_operator->reInitializeVector( d_prev_solutions[i] );
+    if ( d_operator ) {
+        std::shared_ptr<AMP::Operator::OperatorParameters> opParams;
+        d_operator->reset( opParams );
+        d_operator->reInitializeVector( d_solution_vector );
+        // experimental, should all previous vectors be also cleaned up??
+        for ( auto i = 0u; i <= d_max_integrator_index; ++i ) {
+            d_operator->reInitializeVector( d_prev_solutions[i] );
+        }
+
+        // we re-evaluate the rhs using the current variables (not the new)
+        // so as to restore information lost ie f(u_n) which will be needed
+        // at the next step
+        if ( d_use_predictor && ( !d_reset_after_restart ) ) {
+
+            if ( d_predictor_type == "ab2" ) {
+                // right now I am going to leave this as is
+                // but probably the right approach would be to interpolate
+                // the time derivative if we are following the Gresho/Sani approach
+                // evaluate f(u_{n-1})
+                d_scratch_vector->copyVector( d_prev_solutions[1] );
+                auto timeOperator =
+                    std::dynamic_pointer_cast<AMP::TimeIntegrator::TimeOperator>( d_operator );
+                if ( timeOperator ) {
+                    timeOperator->applyRhs( d_scratch_vector, d_old_td_vector );
+                } else {
+                    // it is assumed the user supplied operator is calculating (u^{n+1}-\gamma
+                    // f(u^{n+1}) so we do the necessary operations to back calculate f(u^{n+1})
+                    d_operator->apply( d_scratch_vector, d_old_td_vector );
+                    d_old_td_vector->subtract( *d_old_td_vector, *d_scratch_vector );
+                    d_old_td_vector->scale( -1.0 / d_gamma );
+                }
+            }
+
+            // re-evaluates the AB2 or Leapfrog predictor
+            // it is important to re-evaluate because the truncation error estimate will
+            // be calculated off of the predicted values
+            evaluatePredictor();
+        }
     }
+    d_reset_after_restart = false;
+}
 
-    // we re-evaluate the rhs using the current variables (not the new)
-    // so as to restore information lost ie f(u_n) which will be needed
-    // at the next step
-    if ( d_use_predictor && ( !d_reset_after_restart ) ) {
+void BDFIntegrator::setMultiPhysicsScalings( void )
+{
+    if ( d_auto_component_scaling ) {
+        if ( !d_solution_scaling )
+            d_solution_scaling = d_solution_vector->clone();
+        if ( !d_function_scaling )
+            d_function_scaling = d_solution_vector->clone();
+        d_solution_scaling->zero();
+        d_function_scaling->zero();
 
-        if ( d_predictor_type == "ab2" ) {
-            // right now I am going to leave this as is
-            // but probably the right approach would be to interpolate
-            // the time derivative if we are following the Gresho/Sani approach
-            // evaluate f(u_{n-1})
-            d_scratch_vector->copyVector( d_prev_solutions[1] );
-            auto timeOperator =
-                std::dynamic_pointer_cast<AMP::TimeIntegrator::TimeOperator>( d_operator );
-            if ( timeOperator ) {
-                timeOperator->applyRhs( d_scratch_vector, d_old_td_vector );
-            } else {
-                d_operator->apply( d_scratch_vector, d_old_td_vector );
+        if ( !d_scratch_function_vector )
+            d_scratch_function_vector = d_function_scaling->clone();
+        d_scratch_function_vector->zero();
+
+        auto mv = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( d_solution_vector );
+        if ( d_iDebugPrintInfoLevel >= 2 ) {
+            if ( mv ) {
+                const auto n = mv->getNumberOfSubvectors();
+                for ( size_t i = 0u; i < n; ++i ) {
+                    const auto s    = mv->getVector( i );
+                    const auto name = s->getVariable()->getName();
+                    auto snorm      = static_cast<double>( s->L2Norm() );
+                    AMP::pout << "BDFIntegrator::setMultiPhysicsScalings() Input solution vector "
+                                 "component: "
+                              << name << "  " << snorm << std::endl;
+                }
             }
         }
 
-        // re-evaluates the AB2 or Leapfrog predictor
-        // it is important to re-evaluate because the truncation error estimate will
-        // be calculated off of the predicted values
-        evaluatePredictor();
-    }
+        auto op = std::dynamic_pointer_cast<TimeOperator>( d_operator );
+        if ( op ) {
+            // this should be only called after a call to setInitialGuess for a timestep
+            op->applyRhs( d_solution_vector, d_function_scaling );
+            d_function_scaling->axpy( -d_gamma, *d_function_scaling, *d_solution_vector );
+        } else {
+            d_operator->apply( d_solution_vector, d_function_scaling );
+        }
+        d_function_scaling->add( *d_function_scaling, *d_integrator_source_vector );
 
-    d_reset_after_restart = false;
+        auto mf = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( d_function_scaling );
+        auto ms = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( d_solution_scaling );
+
+        if ( mf && ms && mv ) {
+            const auto n = mf->getNumberOfSubvectors();
+            std::vector<double> rnorms( n );
+            std::vector<double> snorms( n );
+            for ( size_t i = 0u; i < n; ++i ) {
+                // residual scaling
+                const auto r     = mf->getVector( i );
+                const auto s     = ms->getVector( i );
+                const auto sol   = mv->getVector( i );
+                const auto rnorm = static_cast<double>( r->L2Norm() );
+                const auto snorm = static_cast<double>( sol->L2Norm() );
+                rnorms[i]        = ( rnorm == 0.0 ) ? 1.0 : rnorm;
+                snorms[i]        = ( snorm == 0.0 ) ? 1.0 : snorm;
+            }
+            double resNorm{ 0.0 }, solNorm{ 0.0 };
+            for ( size_t i = 0u; i < n; ++i ) {
+                resNorm += rnorms[i] * rnorms[i];
+                solNorm += snorms[i] * snorms[i];
+            }
+            const auto &vnorm = ( resNorm > solNorm ) ? rnorms : snorms;
+            // for now both are set to the same
+            for ( size_t i = 0u; i < n; ++i ) {
+                const auto r = mf->getVector( i );
+                const auto s = ms->getVector( i );
+                r->setToScalar( vnorm[i] );
+                s->setToScalar( vnorm[i] );
+            }
+        } else {
+            // residual scaling
+            auto fnorm = static_cast<double>( d_function_scaling->L2Norm() );
+            fnorm      = ( fnorm == 0.0 ) ? 1.0 : fnorm;
+            auto snorm = static_cast<double>( d_solution_vector->L2Norm() );
+            snorm      = ( snorm == 0.0 ) ? 1.0 : snorm;
+            auto norm  = ( fnorm > snorm ) ? fnorm : snorm;
+            // for now both are set to the same
+            d_function_scaling->setToScalar( norm );
+            d_solution_scaling->setToScalar( norm );
+        }
+        setComponentScalings( d_solution_scaling, d_function_scaling );
+    }
 }
 
 // provide a default implementation
@@ -1981,30 +1950,82 @@ int BDFIntegrator::integratorSpecificAdvanceSolution(
 
     d_current_dt = dt;
 
-    d_solution_vector->getVectorData()->reset();
-
     d_prev_solutions[0]->copyVector( in );
 
     setInitialGuess( first_step, d_current_time, d_current_dt, d_old_dt );
 
     if ( !d_scratch_function_vector )
         d_scratch_function_vector = in->clone();
-    auto rhs = d_scratch_function_vector;
-    rhs->scale( -1.0, *d_integrator_source_vector );
+
+    setMultiPhysicsScalings();
+
+    if ( !d_scratch_vector )
+        d_scratch_vector = in->clone();
 
     if ( d_solution_scaling ) {
-        // ensure both scalings are available
-        AMP_ASSERT( d_function_scaling );
         d_solution_vector->divide( *d_solution_vector, *d_solution_scaling );
-        rhs->divide( *rhs, *d_function_scaling );
+        d_solution_vector->makeConsistent();
     }
 
-    d_solver->apply( rhs, d_solution_vector );
-    d_solver_retcode = d_solver->getConvergenceStatus();
+    if ( !d_scratch_function_vector )
+        d_scratch_function_vector = in->clone();
 
-    if ( d_solution_scaling ) {
+    if ( d_function_scaling ) {
+        d_scratch_function_vector->divide( *d_integrator_source_vector, *d_function_scaling );
+    } else {
+        d_scratch_function_vector->copyVector( d_integrator_source_vector );
+    }
+
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        AMP::pout << "Scaled incoming TI solution component norms: ";
+        auto mv = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( d_scratch_vector );
+        if ( mv ) {
+            const auto n = mv->getNumberOfSubvectors();
+            for ( size_t i = 0u; i < n; ++i ) {
+                const auto v    = mv->getVector( i );
+                const auto name = v->getVariable()->getName();
+                AMP::pout << name << " " << static_cast<double>( v->L2Norm() ) << " ";
+            }
+        } else {
+            const auto name = d_scratch_vector->getVariable()->getName();
+            AMP::pout << name << " " << static_cast<double>( d_scratch_vector->L2Norm() ) << " ";
+        }
+        AMP::pout << std::endl;
+    }
+
+    if ( !d_solver ) {
+        createSolver();
+        d_solver->setComponentScalings( d_solution_scaling, d_function_scaling );
+    } else {
+        d_solver->reset( {} );
+    }
+
+    d_scratch_function_vector->scale( -1.0 );
+
+    d_solver->apply( d_scratch_function_vector, d_solution_vector );
+
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        AMP::pout << "Scaled outgoing TI solution component norms: ";
+        auto mv = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVector>( d_scratch_vector );
+        if ( mv ) {
+            const auto n = mv->getNumberOfSubvectors();
+            for ( size_t i = 0u; i < n; ++i ) {
+                const auto v    = mv->getVector( i );
+                const auto name = v->getVariable()->getName();
+                AMP::pout << name << " " << static_cast<double>( v->L2Norm() ) << " ";
+            }
+        } else {
+            const auto name = d_scratch_vector->getVariable()->getName();
+            AMP::pout << name << " " << static_cast<double>( d_scratch_vector->L2Norm() ) << " ";
+        }
+        AMP::pout << std::endl;
+    }
+    const auto convStatus = d_solver->getConvergenceStatus();
+    d_solver_retcode =
+        convStatus <= AMP::Solver::SolverStrategy::SolverStatus::ConvergedUserCondition ? 1 : 0;
+
+    if ( d_solution_scaling )
         d_solution_vector->multiply( *d_solution_vector, *d_solution_scaling );
-    }
 
     out->copyVector( d_solution_vector );
 
@@ -2019,14 +2040,25 @@ void BDFIntegrator::registerChildObjects( AMP::IO::RestartManager *manager ) con
     ImplicitIntegrator::registerChildObjects( manager );
 }
 
-void BDFIntegrator::writeRestart( int64_t fid ) const { ImplicitIntegrator::writeRestart( fid ); }
+void BDFIntegrator::writeRestart( int64_t fid ) const
+{
+    d_pParameters->d_db->putScalar<int>( "final_constant_timestep_current_step",
+                                         d_final_constant_timestep_current_step,
+                                         {},
+                                         AMP::Database::Check::Overwrite );
+    d_pParameters->d_db->putScalar<double>(
+        "first_initial_dt", d_first_initial_dt, {}, AMP::Database::Check::Overwrite );
+    ImplicitIntegrator::writeRestart( fid );
+}
 
 BDFIntegrator::BDFIntegrator( int64_t fid, AMP::IO::RestartManager *manager )
     : ImplicitIntegrator( fid, manager )
 {
+    d_initialized = false;
     d_object_name = "BDFIntegrator";
-    BDFIntegrator::getFromInput( d_pParameters->d_db, true );
+    BDFIntegrator::getFromInput( d_pParameters->d_db );
     BDFIntegrator::initialize();
+    d_initialized = true;
 }
 
 } // namespace AMP::TimeIntegrator

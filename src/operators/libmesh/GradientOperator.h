@@ -46,13 +46,16 @@ public:
 
 
     //! Return the output variable
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_outputVar;
     }
 
     //! Return the input variable
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override { return d_inputVar; }
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
+    {
+        return d_inputVar;
+    }
 
 private:
     std::shared_ptr<AMP::Database> d_db;

@@ -3,6 +3,17 @@ mesh_file = "mesh1"
 
 NumberOfMeshes = 0
 
+MechanicsMaterialModel {
+    USE_MATERIALS_LIBRARY = FALSE
+      Material = ""
+      name="IsotropicElasticModel"
+      Youngs_Modulus = 1.0
+      Poissons_Ratio = 0.0
+      Default_Temperature = 0.0
+      Default_Burnup = 0.0
+      Default_Oxygen_Concentration = 0.0
+  }
+
 LinearMechanicsElement {
     name="MechanicsLinearElement"
     USE_REDUCED_INTEGRATION = TRUE 
@@ -31,7 +42,7 @@ NonlinearMechanicsOperator {
         QRULE_ORDER = "DEFAULT"
     }
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "MechanicsMaterialModel"
+  LocalModel = MechanicsMaterialModel
 
 }
 
@@ -46,15 +57,4 @@ LinearMechanicsOperator {
     OutputVariable = "displacement"
     MechanicsElement = LinearMechanicsElement
 }
-
-MechanicsMaterialModel {
-    USE_MATERIALS_LIBRARY = FALSE
-      Material = ""
-      name="IsotropicElasticModel"
-      Youngs_Modulus = 1.0
-      Poissons_Ratio = 0.0
-      Default_Temperature = 0.0
-      Default_Burnup = 0.0
-      Default_Oxygen_Concentration = 0.0
-  }
 

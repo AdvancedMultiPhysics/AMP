@@ -185,25 +185,24 @@ static void sourceTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
     //   CREATE THE VOLUME INTEGRAL OPERATOR -----------
     AMP_INSIST( input_db->keyExists( "VolumeIntegralOperator" ), "key missing!" );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> transportModel;
     auto sourceDatabase = input_db->getDatabase( "VolumeIntegralOperator" );
     AMP::pout << "before sourceOp" << std::endl;
     auto sourceOperator = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "VolumeIntegralOperator", input_db, transportModel ) );
+            mesh, "VolumeIntegralOperator", input_db ) );
     AMP::pout << "after sourceOp" << std::endl;
     auto inputVariable  = sourceOperator->getInputVariable();
     auto outputVariable = sourceOperator->getOutputVariable();
 
     // Create a DOF manager for a gauss point vector
     auto gaussPointDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Cell, 0, 8, true );
+        mesh, AMP::Mesh::GeomType::Cell, 0, 8, true );
     auto nodalDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
     auto solVec  = AMP::LinearAlgebra::createVector( gaussPointDofMap, inputVariable, true );
     auto rhsVec  = AMP::LinearAlgebra::createVector( nodalDofMap, outputVariable, true );
     auto resVec  = AMP::LinearAlgebra::createVector( nodalDofMap, outputVariable, true );

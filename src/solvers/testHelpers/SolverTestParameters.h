@@ -32,6 +32,10 @@ struct SolverParameters {
 
     static std::unique_ptr<AMP::Database> getHyprePCGParameters( bool use_nested );
 
+    static std::unique_ptr<AMP::Database> getHypreGMRESParameters( bool use_nested );
+
+    static std::unique_ptr<AMP::Database> getHypreBiCGSTABParameters( bool use_nested );
+
     static std::unique_ptr<AMP::Database> getBoomerAMGParameters( bool use_nested );
 
     static std::unique_ptr<AMP::Database> getMLParameters( bool use_nested );

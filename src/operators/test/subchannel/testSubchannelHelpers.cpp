@@ -19,7 +19,7 @@
 #include <string>
 
 
-static void testSubchannelHelpers( AMP::UnitTest *ut, std::string input_file )
+static void testSubchannelHelpers( AMP::UnitTest *ut, const std::string &input_file )
 {
 
     const double pi = 3.1415926535897932;
@@ -142,8 +142,8 @@ static void testSubchannelHelpers( AMP::UnitTest *ut, std::string input_file )
             std::make_pair( "pressure", std::make_shared<std::vector<double>>( 1, pressure ) ) );
         std::vector<double> enthalpyResult( 1 );
         subchannelPhysicsModel->getProperty( "Enthalpy", enthalpyResult, enthalpyArgMap );
-        auto subchannelEnthalpy = flowVec->select( AMP::LinearAlgebra::VS_Stride( 0, 2 ), "H" );
-        auto subchannelPressure = flowVec->select( AMP::LinearAlgebra::VS_Stride( 1, 2 ), "P" );
+        auto subchannelEnthalpy = flowVec->select( AMP::LinearAlgebra::VS_Stride( 0, 2 ) );
+        auto subchannelPressure = flowVec->select( AMP::LinearAlgebra::VS_Stride( 1, 2 ) );
         subchannelEnthalpy->setToScalar( AMP::Operator::Subchannel::scaleEnthalpy *
                                          enthalpyResult[0] );
         subchannelPressure->setToScalar( AMP::Operator::Subchannel::scalePressure * pressure );

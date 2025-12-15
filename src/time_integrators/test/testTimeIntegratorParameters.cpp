@@ -20,7 +20,7 @@ public:
 };
 
 
-int testTimeIntegratorParameters( int argc, char **argv )
+int testTimeIntegratorParameters( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;

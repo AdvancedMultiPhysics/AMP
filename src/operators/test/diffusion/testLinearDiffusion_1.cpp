@@ -46,25 +46,25 @@ static void linearTest1( AMP::UnitTest *ut, const std::string &exeName )
     params->setComm( globalComm );
 
     // Create the meshes from the input database
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    auto mesh = AMP::Mesh::MeshFactory::create( params );
 
 
     auto diffLinFEOp_db = input_db->getDatabase( "LinearDiffusionOp" );
     auto diffOp         = std::dynamic_pointer_cast<AMP::Operator::DiffusionLinearFEOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "LinearDiffusionOp", input_db ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "LinearDiffusionOp", input_db ) );
     auto elementModel = diffOp->getTransportModel();
 
     auto diffSolVar = diffOp->getInputVariable();
     auto diffRhsVar = diffOp->getOutputVariable();
     auto diffResVar = diffOp->getOutputVariable();
+    auto memLoc     = diffOp->getMemoryLocation();
 
     auto NodalScalarDOF = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
 
-    auto diffSolVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, diffSolVar, true );
-    auto diffRhsVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, diffRhsVar, true );
-    auto diffResVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, diffResVar, true );
+    auto diffSolVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, diffSolVar, true, memLoc );
+    auto diffRhsVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, diffRhsVar, true, memLoc );
+    auto diffResVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, diffResVar, true, memLoc );
 
     ut->passes( exeName );
 
@@ -86,9 +86,6 @@ static void linearTest1( AMP::UnitTest *ut, const std::string &exeName )
     diffOpParams->d_transportModel =
         std::dynamic_pointer_cast<AMP::Operator::DiffusionTransportModel>( elementModel );
     diffOp->reset( diffOpParams );
-
-    ut->passes( exeName );
-
 
     ut->passes( exeName );
 }

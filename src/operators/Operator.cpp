@@ -16,6 +16,7 @@ Operator::Operator()
     d_iObject_id           = Operator::d_iInstance_id;
     d_iDebugPrintInfoLevel = 0;
     Operator::d_iInstance_id++;
+    d_memory_location = AMP::Utilities::MemoryType::none;
 }
 
 
@@ -31,18 +32,17 @@ Operator::Operator( std::shared_ptr<const OperatorParameters> params )
     // try and keep the next call the last in the function
     // so as not to override any parameters set through it
     // by accident
-    getFromInput( params->d_db );
+    getBackendFromInput( params->d_db );
 }
 
 
 void Operator::reset( std::shared_ptr<const OperatorParameters> params )
 {
-    AMP_INSIST( params, "NULL parameter" );
-
     // try and keep the next call the last in the function
     // so as not to override any parameters set through it
     // by accident
-    getFromInput( params->d_db );
+    if ( params )
+        getBackendFromInput( params->d_db );
 }
 
 
@@ -50,6 +50,8 @@ void Operator::residual( AMP::LinearAlgebra::Vector::const_shared_ptr f,
                          AMP::LinearAlgebra::Vector::const_shared_ptr u,
                          AMP::LinearAlgebra::Vector::shared_ptr r )
 {
+    PROFILE( "Operator::residual" );
+
     AMP_INSIST( u, "NULL Solution Vector" );
     AMP_INSIST( r, "NULL Residual Vector" );
     AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
@@ -66,19 +68,20 @@ void Operator::residual( AMP::LinearAlgebra::Vector::const_shared_ptr f,
     } else {
         rInternal->scale( -1.0 );
     }
-
-    rInternal->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 
 std::shared_ptr<OperatorParameters>
 Operator::getParameters( const std::string &type,
                          std::shared_ptr<const AMP::LinearAlgebra::Vector> u,
-                         std::shared_ptr<OperatorParameters> params )
+                         std::shared_ptr<OperatorParameters> )
 {
-    NULL_USE( params );
     if ( type == "Jacobian" ) {
-        return getJacobianParameters( u );
+        auto params = getJacobianParameters( u );
+        if ( params ) {
+            setMemoryAndBackendParameters( params->d_db );
+        }
+        return params;
     } else {
         // Derived class should implement this
         AMP_ERROR( "Unknown OperatorParameters type specified" );
@@ -87,87 +90,108 @@ Operator::getParameters( const std::string &type,
 }
 
 
-void Operator::getFromInput( std::shared_ptr<AMP::Database> db )
+void Operator::getBackendFromInput( std::shared_ptr<AMP::Database> db )
 {
     AMP_INSIST( db, "NULL database" );
 
     d_iDebugPrintInfoLevel = db->getWithDefault<int>( "print_info_level", 0 );
-}
 
-
-AMP::LinearAlgebra::Vector::shared_ptr
-Operator::subsetOutputVector( AMP::LinearAlgebra::Vector::shared_ptr vec )
-{
-    PROFILE( "subsetOutputVector", 1 );
-    auto var = getOutputVariable();
-    AMP::LinearAlgebra::Vector::shared_ptr retvec;
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
-        auto meshSubsetVec = vec->select( meshSelector, vec->getName() );
-        auto varSubsetVec  = meshSubsetVec->subsetVectorForVariable( var );
-        retvec             = varSubsetVec;
-    } else {
-        retvec = vec->subsetVectorForVariable( var );
+    if ( d_memory_location == AMP::Utilities::MemoryType::none ) {
+        auto memLoc       = db->getWithDefault<std::string>( "MemoryLocation", "host" );
+        d_memory_location = AMP::Utilities::memoryLocationFromString( memLoc );
     }
-    return retvec;
+    if ( d_backend == AMP::Utilities::Backend::Serial ) {
+        if ( db->keyExists( "AccelerationBackend" ) ) {
+            auto bcknd = db->getString( "AccelerationBackend" );
+            d_backend  = AMP::Utilities::backendFromString( bcknd );
+        } else {
+            d_backend = AMP::Utilities::getDefaultBackend( d_memory_location );
+        }
+    }
 }
 
+void Operator::setMemoryAndBackendParameters( std::shared_ptr<AMP::Database> db )
+{
+    if ( d_memory_location != AMP::Utilities::MemoryType::none )
+        db->putScalar<std::string>( "MemoryLocation",
+                                    AMP::Utilities::getString( d_memory_location ).data() );
+    if ( d_backend != AMP::Utilities::Backend::Serial )
+        db->putScalar<std::string>( "AccelerationBackend",
+                                    AMP::Utilities::getString( d_backend ).data() );
+}
 
-AMP::LinearAlgebra::Vector::shared_ptr
-Operator::subsetInputVector( AMP::LinearAlgebra::Vector::shared_ptr vec )
+/********************************************************
+ * Return the default VectorSelector                     *
+ ********************************************************/
+std::shared_ptr<AMP::LinearAlgebra::VectorSelector> Operator::selectOutputVector() const
+{
+    std::vector<std::shared_ptr<AMP::LinearAlgebra::VectorSelector>> selectors;
+    if ( d_Mesh )
+        selectors.push_back( std::make_shared<AMP::LinearAlgebra::VS_Mesh>( d_Mesh ) );
+    auto var = getOutputVariable();
+    if ( var )
+        selectors.push_back( var->createVectorSelector() );
+    return AMP::LinearAlgebra::VectorSelector::create( selectors );
+}
+std::shared_ptr<AMP::LinearAlgebra::VectorSelector> Operator::selectInputVector() const
+{
+    std::vector<std::shared_ptr<AMP::LinearAlgebra::VectorSelector>> selectors;
+    if ( d_Mesh )
+        selectors.push_back( std::make_shared<AMP::LinearAlgebra::VS_Mesh>( d_Mesh ) );
+    auto var = getInputVariable();
+    if ( var )
+        selectors.push_back( var->createVectorSelector() );
+    return AMP::LinearAlgebra::VectorSelector::create( selectors );
+}
+
+/********************************************************
+ * Create input and output vectors                      *
+ ********************************************************/
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> Operator::createInputVector() const { return nullptr; }
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> Operator::createOutputVector() const { return nullptr; }
+
+/********************************************************
+ * Subset vectors                                        *
+ ********************************************************/
+std::shared_ptr<AMP::LinearAlgebra::Vector>
+Operator::subsetInputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec ) const
 {
     PROFILE( "subsetInputVector", 1 );
-    auto var = getInputVariable();
-    AMP::LinearAlgebra::Vector::shared_ptr retvec;
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
-        auto meshSubsetVec = vec->select( meshSelector, vec->getName() );
-        auto varSubsetVec  = meshSubsetVec->subsetVectorForVariable( var );
-        retvec             = varSubsetVec;
-    } else {
-        retvec = vec->subsetVectorForVariable( var );
-    }
-    return retvec;
+    auto sel = selectInputVector();
+    return vec->select( *sel );
 }
-
-
-AMP::LinearAlgebra::Vector::const_shared_ptr
-Operator::subsetOutputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec )
-{
-    PROFILE( "constSubsetOutputVector", 1 );
-    auto var = getOutputVariable();
-    AMP::LinearAlgebra::Vector::const_shared_ptr retvec;
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
-        auto meshSubsetVec = vec->select( meshSelector, vec->getName() );
-        auto varSubsetVec  = meshSubsetVec->subsetVectorForVariable( var );
-        retvec             = varSubsetVec;
-    } else {
-        retvec = vec->subsetVectorForVariable( var );
-    }
-    return retvec;
-}
-
-
-AMP::LinearAlgebra::Vector::const_shared_ptr
-Operator::subsetInputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec )
+std::shared_ptr<const AMP::LinearAlgebra::Vector>
+Operator::subsetInputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec ) const
 {
     PROFILE( "constSubsetInputVector", 1 );
-    auto var = getInputVariable();
-    AMP::LinearAlgebra::Vector::const_shared_ptr retvec;
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
-        auto meshSubsetVec = vec->select( meshSelector, vec->getName() );
-        auto varSubsetVec  = meshSubsetVec->subsetVectorForVariable( var );
-        retvec             = varSubsetVec;
-    } else {
-        retvec = vec->subsetVectorForVariable( var );
-    }
-    return retvec;
+    auto sel = selectInputVector();
+    return vec->select( *sel );
+}
+std::shared_ptr<AMP::LinearAlgebra::Vector>
+Operator::subsetOutputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec ) const
+{
+    PROFILE( "subsetOutputVector", 1 );
+    auto sel = selectOutputVector();
+    return vec->select( *sel );
+}
+std::shared_ptr<const AMP::LinearAlgebra::Vector>
+Operator::subsetOutputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec ) const
+{
+    PROFILE( "constSubsetOutputVector", 1 );
+    auto sel = selectOutputVector();
+    return vec->select( *sel );
 }
 
+
+/********************************************************
+ * makeConsistent                                        *
+ ********************************************************/
 void Operator::makeConsistent( std::shared_ptr<AMP::LinearAlgebra::Vector> vec )
 {
+    PROFILE( "Operator::makeConsistent" );
+
     AMP_ASSERT( vec );
     vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }

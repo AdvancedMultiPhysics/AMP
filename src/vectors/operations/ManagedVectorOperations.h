@@ -1,7 +1,7 @@
 #ifndef included_AMP_ManagedVectorOperations
 #define included_AMP_ManagedVectorOperations
 
-#include "AMP/vectors/operations/VectorOperationsDefault.h"
+#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
 
 namespace AMP::LinearAlgebra {
@@ -22,6 +22,7 @@ public:
     // functions that operate on VectorData
     std::string VectorOpName() const override { return "ManagedVectorOperations"; }
     void copy( const VectorData &src, VectorData &dst ) override;
+    void copyCast( const VectorData &src, VectorData &dst ) override;
     void setToScalar( const Scalar &alpha, VectorData &z ) override;
     void setRandomValues( VectorData &x ) override;
     void scale( const Scalar &alpha, const VectorData &x, VectorData &y ) override;

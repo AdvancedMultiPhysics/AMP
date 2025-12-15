@@ -5,6 +5,7 @@
 #include "ProfilerApp.h"
 
 #include <cmath>
+#include <iomanip>
 #include <limits>
 
 namespace AMP::Solver {
@@ -38,22 +39,30 @@ BiCGSTABSolver<T>::~BiCGSTABSolver() = default;
 template<typename T>
 void BiCGSTABSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
+    PROFILE( "BiCGSTABSolver::initialize" );
+
     AMP_ASSERT( parameters );
     auto db = parameters->d_db;
     getFromInput( db );
 
+    registerOperator( d_pOperator );
+
     if ( parameters->d_pNestedSolver ) {
-        d_pPreconditioner = parameters->d_pNestedSolver;
+        d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
             auto outerDB = db->keyExists( pcName ) ? db : parameters->d_global_db;
             if ( outerDB ) {
-                auto pcDB       = outerDB->getDatabase( pcName );
-                auto parameters = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
-                parameters->d_pOperator = d_pOperator;
-                d_pPreconditioner       = AMP::Solver::SolverFactory::create( parameters );
-                AMP_ASSERT( d_pPreconditioner );
+                auto pcDB = outerDB->getDatabase( pcName );
+                auto innerParameters =
+                    std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
+                innerParameters->d_global_db = parameters->d_global_db;
+                innerParameters->d_pOperator = d_pOperator;
+                d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
+                AMP_ASSERT( d_pNestedSolver );
             }
         }
     }
@@ -66,97 +75,135 @@ void BiCGSTABSolver<T>::getFromInput( std::shared_ptr<AMP::Database> db )
     d_bUsesPreconditioner = db->getWithDefault<bool>( "uses_preconditioner", false );
 }
 
+template<typename T>
+void BiCGSTABSolver<T>::allocateScratchVectors(
+    std::shared_ptr<const AMP::LinearAlgebra::Vector> u )
+{
+    PROFILE( "BiCGSTABSolver::allocateScratchVectors" );
+
+    // allocates d_p, d_w, d_z (if necessary)
+    AMP_INSIST( u, "Input to BiCGSTABSolver::allocateScratchVectors must be non-null" );
+    d_r_tilde = u->clone();
+    d_p       = u->clone();
+    d_s       = u->clone();
+    d_t       = u->clone();
+    d_v       = u->clone();
+
+    // ensure t, v do no communication
+    d_t->setNoGhosts();
+    d_v->setNoGhosts();
+
+    if ( d_bUsesPreconditioner ) {
+        d_p_hat = u->clone();
+        d_s_hat = u->clone();
+    }
+}
+
+template<typename T>
+void BiCGSTABSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
+{
+    PROFILE( "BiCGSTABSolver::registerOperator" );
+
+    // not sure about excluding op == d_pOperator
+    d_pOperator = op;
+
+    if ( d_pOperator ) {
+        auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
+        if ( linearOp ) {
+            d_r = linearOp->createInputVector();
+            allocateScratchVectors( d_r );
+        }
+    }
+}
+
 /****************************************************************
  *  Solve                                                        *
- * TODO: store convergence history, iterations, convergence reason
  ****************************************************************/
 template<typename T>
 void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                                std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
-    PROFILE( "solve" );
+    // NOTE:: Things that need to be rechecked
+    // 1. Should p = res initially
+    // 2. Should res be the preconditioned residual
+    // 3. Should the algorithm use the residual and a zero initial solution
+    //    and add the solution back at the end. Literature suggests so
+    // 4. Will 3, be affected by the transition to using checkStoppingCriteria
+    // 5. This implementation is both BiCGSTAB & Flexible BiCGSTAB with right preconditioning
+    //    See J. Vogels paper
+    PROFILE( "BiCGSTABSolver::apply" );
+
+    if ( !d_r ) {
+        d_r = u->clone();
+        allocateScratchVectors( d_r );
+    }
+
+    // Always zero before checking stopping criteria for any reason
+    d_iNumberIterations = 1;
 
     // Check input vector states
-    AMP_ASSERT( ( f->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED ) ||
-                ( f->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::LOCAL_CHANGED ) );
     AMP_ASSERT( ( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED ) ||
                 ( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::LOCAL_CHANGED ) );
 
-    // compute the norm of the rhs in order to compute
-    // the termination criterion
-    auto f_norm = static_cast<T>( f->L2Norm() );
-
-    // if the rhs is zero we try to converge to the relative convergence
-    if ( f_norm == static_cast<T>( 0.0 ) ) {
-        f_norm = static_cast<T>( 1.0 );
-    }
-
-    const T terminate_tol = std::max( static_cast<T>( d_dRelativeTolerance * f_norm ),
-                                      static_cast<T>( d_dAbsoluteTolerance ) );
-
-    if ( d_iDebugPrintInfoLevel > 2 ) {
-        AMP::pout << "BiCGSTABSolver<T>::solve: initial L2Norm of solution vector: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "BiCGSTABSolver<T>::solve: initial L2Norm of rhs vector: " << f_norm
-                  << std::endl;
-    }
-
-    if ( d_pOperator ) {
-        registerOperator( d_pOperator );
-    }
-
-    // residual vector
-    AMP::LinearAlgebra::Vector::shared_ptr res = f->clone();
-
     // compute the initial residual
     if ( d_bUseZeroInitialGuess ) {
-        res->copyVector( f );
+        d_r->copyVector( f );
+        u->zero();
     } else {
-        d_pOperator->residual( f, u, res );
+        d_pOperator->residual( f, u, d_r );
     }
 
     // compute the current residual norm
-    auto res_norm     = static_cast<T>( res->L2Norm() );
-    auto r_tilde_norm = res_norm;
+    d_dResidualNorm   = d_r->L2Norm();
+    auto r_tilde_norm = static_cast<T>( d_dResidualNorm );
+    // Override zero initial residual to force relative tolerance convergence
+    // here to potentially handle singular systems
+    d_dInitialResidual =
+        d_dResidualNorm > std::numeric_limits<T>::epsilon() ? d_dResidualNorm : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "BiCGSTAB: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "BiCGSTAB: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+    }
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "BiCGSTAB: initial solution L2Norm: " << u->L2Norm() << std::endl;
+        AMP::pout << "BiCGSTAB: initial rhs L2Norm: " << f->L2Norm() << std::endl;
+    }
     if ( d_iDebugPrintInfoLevel > 0 ) {
-        AMP::pout << "BiCGSTAB: initial residual " << res_norm << std::endl;
+        AMP::pout << "BiCGSTAB: initial residual " << std::setw( 19 ) << d_dResidualNorm
+                  << std::endl;
     }
 
     // return if the residual is already low enough
-    if ( res_norm < terminate_tol ) {
-        // provide a convergence reason
-        // provide history (iterations, conv history etc)
+    if ( checkStoppingCriteria( d_dResidualNorm ) ) {
         if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "BiCGSTABSolver<T>::solve: initial residual norm " << res_norm
-                      << " is below convergence tolerance: " << terminate_tol << std::endl;
+            AMP::pout << "BiCGSTAB: initial residual below tolerance" << std::endl;
         }
         return;
     }
 
     // parameters in BiCGSTAB
-    T alpha = static_cast<T>( 1.0 );
-    T beta  = static_cast<T>( 0.0 );
-    T omega = static_cast<T>( 1.0 );
-    std::vector<T> rho( 2, static_cast<T>( 1.0 ) );
-    NULL_USE( beta );
+    [[maybe_unused]] T alpha = static_cast<T>( 1.0 );
+    [[maybe_unused]] T beta  = static_cast<T>( 0.0 );
+    [[maybe_unused]] T omega = static_cast<T>( 1.0 );
+    [[maybe_unused]] std::vector<T> rho( 2, static_cast<T>( 1.0 ) );
 
     // r_tilde is a non-zero initial direction chosen to be r
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r_tilde;
     // traditional choice is the initial residual
-    r_tilde = res->clone();
-    r_tilde->copyVector( res );
+    d_r_tilde->copyVector( d_r );
 
-    auto p = res->clone();
-    auto v = res->clone();
-    p->zero();
-    v->zero();
+    d_p->zero();
+    d_v->zero();
 
-    std::shared_ptr<AMP::LinearAlgebra::Vector> p_hat, s, s_hat, t;
+    T prev_res = 0.0;
+    for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
+          ++d_iNumberIterations ) {
 
-    for ( d_iNumberIterations = 0; d_iNumberIterations < d_iMaxIterations; ++d_iNumberIterations ) {
-
-        rho[1] = static_cast<T>( r_tilde->dot( *res ) );
+        rho[1] = static_cast<T>( d_r_tilde->dot( *d_r ) );
 
         auto angle = std::sqrt( std::fabs( rho[1] ) );
         auto eps   = std::numeric_limits<T>::epsilon();
@@ -165,110 +212,100 @@ void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
             // the method breaks down as the vectors are orthogonal to r0
             // attempt to restart with a new r0
             u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-            d_pOperator->residual( f, u, res );
-            r_tilde->copyVector( res );
-            p->copyVector( res );
-            res_norm = static_cast<T>( res->L2Norm() );
-            rho[1] = r_tilde_norm = res_norm;
-            NULL_USE( rho[1] );
+            d_pOperator->residual( f, u, d_r );
+            d_r_tilde->copyVector( d_r );
+            d_p->copyVector( d_r );
+            d_dResidualNorm = d_r->L2Norm();
+            rho[1] = r_tilde_norm = static_cast<T>( d_dResidualNorm );
             d_restarts++;
             continue;
         }
 
-        if ( d_iNumberIterations == 0 ) {
-
-            p->copyVector( res );
+        if ( d_iNumberIterations == 1 ) {
+            // NOTE: there are differences in the literature in what the initial p is
+            // Van der Vorst, Eigen, Petsc : p = 0
+            // J. Vogel, J. Chen et. al on FBiCGSTAB: p = res
+            d_p->copyVector( d_r );
         } else {
 
             beta = ( rho[1] / rho[0] ) * ( alpha / omega );
-            p->axpy( -omega, *v, *p );
-            p->axpy( beta, *p, *res );
-        }
-
-        if ( !p_hat ) {
-            p_hat = u->clone();
-            p_hat->zero();
+            d_p->axpy( -omega, *d_v, *d_p );
+            d_p->axpy( beta, *d_p, *d_r );
         }
 
         // apply the preconditioner if it exists
         if ( d_bUsesPreconditioner ) {
-            d_pPreconditioner->apply( p, p_hat );
+            d_pNestedSolver->apply( d_p, d_p_hat );
         } else {
-            p_hat->copyVector( p );
+            d_p_hat = d_p;
         }
 
-        p_hat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-        d_pOperator->apply( p_hat, v );
+        d_p_hat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+        d_pOperator->apply( d_p_hat, d_v );
 
-        alpha = static_cast<T>( r_tilde->dot( *v ) );
+        alpha = static_cast<T>( d_r_tilde->dot( *d_v ) );
         AMP_ASSERT( alpha != static_cast<T>( 0.0 ) );
         alpha = rho[1] / alpha;
 
-        if ( !s ) {
-            s = res->clone();
-        }
-        s->axpy( -alpha, *v, *res );
+        d_s->axpy( -alpha, *d_v, *d_r );
 
-        const auto s_norm = s->L2Norm();
+        const auto s_norm = d_s->L2Norm();
 
-        if ( s_norm < d_dRelativeTolerance ) {
-            // early convergence
-            u->axpy( alpha, *p_hat, *u );
-            // add in code for final relative residual
+        // Check for early convergence
+        // s is residual wrt. h, if good replace u with h
+        if ( checkStoppingCriteria( s_norm, false ) ) {
+            u->axpy( alpha, *d_p_hat, *u );
+            d_dResidualNorm = static_cast<T>( s_norm );
             break;
-        }
-
-        if ( !s_hat ) {
-            s_hat = u->clone();
-            s_hat->zero();
         }
 
         // apply the preconditioner if it exists
         if ( d_bUsesPreconditioner ) {
-            d_pPreconditioner->apply( s, s_hat );
+            d_pNestedSolver->apply( d_s, d_s_hat );
         } else {
-            s_hat->copyVector( s );
+            d_s_hat = d_s;
         }
 
+        d_s_hat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+        d_pOperator->apply( d_s_hat, d_t );
 
-        if ( !t ) {
-            t = res->clone();
-        }
+        // the L2NormAndDot is not optimized in vectors and needs to be
+        // if BiCGSTAB becomes a priority
+        auto [norm_sq, dot] = d_t->L2NormAndDot( *d_s );
+        auto t_sqnorm       = static_cast<T>( norm_sq );
+        auto t_dot_s        = static_cast<T>( dot );
 
-        s_hat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-        d_pOperator->apply( s_hat, t );
-
-        auto t_sqnorm = static_cast<T>( t->dot( *t ) );
-        auto t_dot_s  = static_cast<T>( t->dot( *s ) );
+        // note the choice of omega below corresponds to what van der Vorst calls BiCGSTAB-P
         omega = ( t_sqnorm == static_cast<T>( 0.0 ) ) ? static_cast<T>( 0.0 ) : t_dot_s / t_sqnorm;
 
-        u->axpy( alpha, *p_hat, *u );
-        u->axpy( omega, *s_hat, *u );
+        // this should be replaced by vec->axpbycz  when it is ready
+        u->axpy( alpha, *d_p_hat, *u );
+        u->axpy( omega, *d_s_hat, *u );
 
-        res->axpy( -omega, *t, *s );
+        d_r->axpy( -omega, *d_t, *d_s );
 
         // compute the current residual norm
-        res_norm = static_cast<T>( res->L2Norm() );
+        d_dResidualNorm = static_cast<T>( d_r->L2Norm() );
 
         if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "BiCGSTAB: iteration " << ( d_iNumberIterations + 1 ) << ", residual "
-                      << res_norm << std::endl;
+            AMP::pout << "BiCGSTAB: iteration " << std::setw( 8 ) << d_iNumberIterations
+                      << ", residual " << d_dResidualNorm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << static_cast<T>( d_dResidualNorm ) / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = static_cast<T>( d_dResidualNorm );
         }
 
-        // break if the residual is already low enough
-        if ( res_norm < terminate_tol ) {
-            // provide a convergence reason
-            // provide history (iterations, conv history etc)
+        // break if the residual is low enough
+        if ( checkStoppingCriteria( d_dResidualNorm ) ) {
             break;
         }
 
         if ( omega == static_cast<T>( 0.0 ) ) {
-            // this is a breakdown of the iteration
-            // need to flag
-            if ( d_iDebugPrintInfoLevel > 0 ) {
-                AMP::pout << "BiCGSTABSolver<T>::solve: breakdown encountered, omega == 0"
-                          << std::endl;
-            }
+            d_ConvergenceStatus = SolverStatus::DivergedOther;
+            AMP_WARNING( "BiCGSTAB: breakdown encountered, omega == 0" );
             break;
         }
 
@@ -278,29 +315,20 @@ void BiCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>
     u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     if ( d_bComputeResidual ) {
-        d_pOperator->residual( f, u, res );
-        d_dResidualNorm = static_cast<T>( res->L2Norm() );
-    } else
-        d_dResidualNorm = res_norm;
-
-    if ( d_iDebugPrintInfoLevel > 2 ) {
-        AMP::pout << "L2Norm of solution: " << u->L2Norm() << std::endl;
-    }
-}
-
-template<typename T>
-void BiCGSTABSolver<T>::resetOperator(
-    std::shared_ptr<const AMP::Operator::OperatorParameters> params )
-{
-    if ( d_pOperator ) {
-        d_pOperator->reset( params );
+        d_pOperator->residual( f, u, d_r );
+        d_dResidualNorm = static_cast<T>( d_r->L2Norm() );
+        // final check updates flags if needed
+        checkStoppingCriteria( d_dResidualNorm );
     }
 
-    // should add a mechanism for the linear operator to provide updated parameters for the
-    // preconditioner operator
-    // though it's unclear where this might be necessary
-    if ( d_pPreconditioner ) {
-        d_pPreconditioner->resetOperator( params );
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "BiCGSTAB: final residual: " << d_dResidualNorm
+                  << ", iterations: " << d_iNumberIterations << ", convergence reason: "
+                  << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+    }
+
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "BiCGSTAB: final solution L2Norm: " << u->L2Norm() << std::endl;
     }
 }
 } // namespace AMP::Solver

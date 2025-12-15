@@ -430,7 +430,7 @@ double hex8_element_t::solve_newton(
     compute_initial_guess( &( x[0] ) );
 
     compute_residual_vector( &x[0], &( residual_vector[0] ) );
-    double residual_norm = sqrt( std::inner_product(
+    double residual_norm = std::sqrt( std::inner_product(
         residual_vector.begin(), residual_vector.end(), residual_vector.begin(), 0.0 ) );
     double tol           = abs_tol + rel_tol * residual_norm;
 
@@ -461,7 +461,7 @@ double hex8_element_t::solve_newton(
                 tmp[i] = x[i] - alpha * inverse_jacobian_matrix_times_residual_vector[i];
             };
             compute_residual_vector( &( tmp[0] ), &( residual_vector[0] ) );
-            double tmp_residual_norm = sqrt( std::inner_product(
+            double tmp_residual_norm = std::sqrt( std::inner_product(
                 residual_vector.begin(), residual_vector.end(), residual_vector.begin(), 0.0 ) );
             if ( tmp_residual_norm < residual_norm ) {
                 std::copy( tmp.begin(), tmp.end(), &( x[0] ) );

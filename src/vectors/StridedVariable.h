@@ -21,8 +21,10 @@ public:
      */
     StridedVariable( const std::string &name, size_t offset, size_t stride );
 
-    virtual std::shared_ptr<AMP::Discretization::DOFManager>
+    std::shared_ptr<AMP::Discretization::DOFManager>
         getSubsetDOF( std::shared_ptr<AMP::Discretization::DOFManager> ) const override;
+
+    AMP::AMP_MPI getComm( const AMP::AMP_MPI &comm ) const override;
 
     std::shared_ptr<VectorSelector> createVectorSelector() const override;
 

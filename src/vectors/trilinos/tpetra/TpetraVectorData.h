@@ -2,6 +2,7 @@
 #define included_TpetraVectorData_H_
 
 #include "AMP/discretization/DOF_Manager.h"
+#include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 
 #include <Teuchos_Comm.hpp>
@@ -18,13 +19,14 @@ template<typename ST = double,
          typename LO = int32_t,
          typename GO = int64_t,
          typename NT = Tpetra::Vector<>::node_type>
-class TpetraVectorData : public VectorData
+class TpetraVectorData : public GhostDataHelper<ST>
 {
 public:
-    TpetraVectorData( std::shared_ptr<AMP::Discretization::DOFManager> dofManager );
+    TpetraVectorData( std::shared_ptr<CommunicationList> commList,
+                      std::shared_ptr<AMP::Discretization::DOFManager> dofManager );
     std::string VectorDataName() const override { return "TpetraVectorData"; }
     size_t numberOfDataBlocks() const override { return 1; }
-    size_t sizeOfDataBlock( size_t i ) const override { return i == 0 ? d_localSize : 0; }
+    size_t sizeOfDataBlock( size_t i ) const override { return i == 0 ? this->d_localSize : 0; }
     void setValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
     void addValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
     void getValuesByLocalID( size_t, const size_t *, void *, const typeID & ) const override;
@@ -32,7 +34,7 @@ public:
     void getRawData( void *out, const typeID &id ) const override;
     uint64_t getDataID() const override
     {
-        return reinterpret_cast<uint64_t>( getRawDataBlockAsVoid( 0 ) );
+        return reinterpret_cast<uint64_t>( this->getRawDataBlockAsVoid( 0 ) );
     }
     void *getRawDataBlockAsVoid( size_t i ) override;
     const void *getRawDataBlockAsVoid( size_t i ) const override;
@@ -41,10 +43,10 @@ public:
     void swapData( VectorData & ) override;
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 
-    Teuchos::RCP<Tpetra::Vector<ST, LO, GO, NT>> getTpetraVector() { return d_pTpetraVector; }
+    Teuchos::RCP<Tpetra::Vector<ST, LO, GO, NT>> getTpetraVector() { return this->d_pTpetraVector; }
     Teuchos::RCP<const Tpetra::Vector<ST, LO, GO, NT>> getTpetraVector() const
     {
-        return d_pTpetraVector;
+        return this->d_pTpetraVector;
     }
 
 protected:

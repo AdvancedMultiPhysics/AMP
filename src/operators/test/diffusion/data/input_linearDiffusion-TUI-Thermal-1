@@ -1,6 +1,15 @@
 
 dofsPerNode = 1
   
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "Independent"
+        Property = "ThermalConductivity"
+        Default_Concentration = .15
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+    } 
+
 testOperator{
     name = "DiffusionLinearFEOperator"
     InputVariable = "concentration"
@@ -19,16 +28,7 @@ testOperator{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 
 }
-
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Independent"
-        Property = "ThermalConductivity"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-    } 
 

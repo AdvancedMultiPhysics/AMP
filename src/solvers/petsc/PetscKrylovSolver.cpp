@@ -128,7 +128,10 @@ void PetscKrylovSolver::initialize( std::shared_ptr<const SolverStrategyParamete
             checkErr( KSPGMRESSetCGSRefinementType( d_KrylovSolver, KSP_GMRES_CGS_REFINE_ALWAYS ) );
         }
     } else if ( d_sKspType == "bcgs" ) {
-        checkErr( KSPSetNormType( d_KrylovSolver, KSP_NORM_NONE ) );
+    } else if ( d_sKspType == "cg" ) {
+        d_PcSide = "LEFT";
+        // BP, I prefer to see the unpreconditioned norms for uniformity
+        checkErr( KSPSetNormType( d_KrylovSolver, KSP_NORM_UNPRECONDITIONED ) );
     } else if ( d_sKspType == "preonly" ) {
         // if only preconditioner, override preconditioner side
         d_PcSide = "LEFT";
@@ -166,7 +169,7 @@ void PetscKrylovSolver::initialize( std::shared_ptr<const SolverStrategyParamete
 
         if ( d_sPcType != "shell" ) {
             // the pointer to the preconditioner should be NULL if we are using a Petsc internal PC
-            AMP_ASSERT( d_pPreconditioner.get() == nullptr );
+            AMP_ASSERT( d_pNestedSolver.get() == nullptr );
             PCSetType( pc, d_sPcType.c_str() );
         } else {
             // for a shell preconditioner the user context is set to an instance of this class
@@ -230,43 +233,106 @@ void PetscKrylovSolver::getFromInput( std::shared_ptr<AMP::Database> db )
 void PetscKrylovSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                                std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
-    PROFILE( "apply" );
+    PROFILE( "PetscKrylovSolver::apply" );
 
-    // Get petsc views of the vectors
-    auto fVecView = AMP::LinearAlgebra::PetscVector::constView( f );
-    auto uVecView = AMP::LinearAlgebra::PetscVector::view( u );
+    // Always zero before checking stopping criteria for any reason
+    d_iNumberIterations = 0;
 
     // Check input vector states
     AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
-    AMP::pout << "Beginning PetscKrylovSolver::apply" << std::endl;
-    if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "PetscKrylovSolver::solve: initial L2Norm of solution vector: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "PetscKrylovSolver::solve: initial L2Norm of rhs vector: " << f->L2Norm()
-                  << std::endl;
-    }
-
+    // this register operation seems to be necessary for Petsc mat shell operations
+    // to somehow work
     if ( d_pOperator ) {
         registerOperator( d_pOperator );
     }
 
-    // This will replace any PETSc references to pointers we also track
-    // After this, we are free to delet f_thisGetsAroundPETScSharedPtrIssue without memory leak.
-    Vec fVec = fVecView->getVec();
-    Vec uVec = uVecView->getVec();
-    KSPSolve( d_KrylovSolver, fVec, uVec );
-    u->makeConsistent();
+    const auto f_norm = static_cast<PetscReal>( f->L2Norm() );
 
-    if ( d_iDebugPrintInfoLevel > 2 ) {
-        AMP::pout << "L2Norm of solution from KSP: " << u->L2Norm() << std::endl;
+    // Zero rhs implies zero solution, bail out early
+    if ( f_norm == static_cast<PetscReal>( 0.0 ) ) {
+        u->zero();
+        d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
+        d_dResidualNorm     = 0.0;
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << "PetscKrylovSolverSolver::apply: solution is zero" << std::endl;
+        }
+        return;
     }
 
-    PetscReal ksp_norm;
-    KSPGetResidualNorm( d_KrylovSolver, &ksp_norm );
-    d_dResidualNorm = ksp_norm;
+    // Compute initial residual, used mostly for reporting in this case
+    // since Petsc tracks this internally
+    // Can we get that value from Petsc and remove one global reduce?
+    auto r = f->clone();
+    if ( d_bUseZeroInitialGuess ) {
+        u->zero();
+        r->copyVector( f );
+    } else {
+        checkErr( KSPConvergedDefaultSetUIRNorm( d_KrylovSolver ) );
+        d_pOperator->residual( f, u, r );
+    }
+    d_dResidualNorm    = r->L2Norm();
+    d_dInitialResidual = d_dResidualNorm;
 
-    KSPGetIterationNumber( d_KrylovSolver, &d_iNumberIterations );
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "PetscKrylovSolverSolver::apply: initial L2Norm of solution vector: "
+                  << u->L2Norm() << std::endl;
+        AMP::pout << "PetscKrylovSolverSolver::apply: initial L2Norm of rhs vector: " << f_norm
+                  << std::endl;
+        AMP::pout << "PetscKrylovSolverSolver::apply: initial L2Norm of residual: "
+                  << d_dResidualNorm << std::endl;
+    }
+
+    // return if the residual is already low enough
+    // checkStoppingCriteria responsible for setting flags on convergence reason
+    if ( checkStoppingCriteria( d_dResidualNorm ) ) {
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << "PetscKrylovSolverSolver::apply: initial residual below tolerance"
+                      << std::endl;
+        }
+        return;
+    }
+
+    // Get petsc views of the vectors
+    // This will replace any PETSc references to pointers we also track
+    // After this, we are free to delet f_thisGetsAroundPETScSharedPtrIssue without memory leak.
+    auto fVecView = AMP::LinearAlgebra::PetscVector::constView( f );
+    auto uVecView = AMP::LinearAlgebra::PetscVector::view( u );
+    Vec fVec      = fVecView->getVec();
+    Vec uVec      = uVecView->getVec();
+    PetscReal norm;
+    VecNorm( fVec, NORM_2, &norm );
+    KSPSolve( d_KrylovSolver, fVec, uVec );
+    // Manually update state, needed for mixing different (tpl) solvers
+    u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+    // Query iteration count and store on AMP side
+    PetscInt iters;
+    KSPGetIterationNumber( d_KrylovSolver, &iters );
+    d_iNumberIterations = iters;
+    // Re-compute or query final residual
+    if ( d_bComputeResidual ) {
+        d_pOperator->residual( f, u, r );
+        d_dResidualNorm = r->L2Norm();
+    } else {
+        PetscReal current_res;
+        KSPGetResidualNorm( d_KrylovSolver, &current_res );
+        d_dResidualNorm = current_res;
+    }
+
+    // Update convergence status
+    checkStoppingCriteria( d_dResidualNorm );
+
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "PetscKrylovSolver::apply: final L2Norm of solution: " << u->L2Norm()
+                  << std::endl;
+        AMP::pout << "PetscKrylovSolver::apply: final L2Norm of residual: " << d_dResidualNorm
+                  << std::endl;
+        AMP::pout << "PetscKrylovSolver::apply: iterations: " << d_iNumberIterations << std::endl;
+        AMP::pout << "PetscKrylovSolver::apply: convergence reason: "
+                  << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+    }
+
     // Reset the solvers
     KSPReset( d_KrylovSolver );
     AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
@@ -353,25 +419,32 @@ void PetscKrylovSolver::resetOperator(
 
     // should add a mechanism for the linear operator to provide updated parameters for the
     // preconditioner operator though it's unclear where this might be necessary
-    if ( d_pPreconditioner ) {
-        d_pPreconditioner->resetOperator( params );
+    if ( d_pNestedSolver && ( d_pOperator != d_pNestedSolver->getOperator() ) ) {
+        d_pNestedSolver->resetOperator( params );
     }
+}
+
+void PetscKrylovSolver::setZeroInitialGuess( bool use_zero_guess )
+{
+    d_bUseZeroInitialGuess    = use_zero_guess;
+    PetscBool useNonzeroGuess = ( !d_bUseZeroInitialGuess ) ? PETSC_TRUE : PETSC_FALSE;
+    checkErr( KSPSetInitialGuessNonzero( d_KrylovSolver, useNonzeroGuess ) );
 }
 
 void PetscKrylovSolver::initializePreconditioner(
     std::shared_ptr<const SolverStrategyParameters> parameters )
 {
-    d_pPreconditioner = parameters->d_pNestedSolver;
+    d_pNestedSolver = parameters->d_pNestedSolver;
 
-    if ( d_pPreconditioner ) {
+    if ( d_pNestedSolver ) {
 
         // if the operator has not been initialized
         // attempt to initialize and register and operator
         if ( d_pOperator ) {
-            auto op = d_pPreconditioner->getOperator();
+            auto op = d_pNestedSolver->getOperator();
             if ( !op ) {
                 auto pcOperator = createPCOperator();
-                d_pPreconditioner->registerOperator( pcOperator );
+                d_pNestedSolver->registerOperator( pcOperator );
             }
         }
 
@@ -387,8 +460,8 @@ void PetscKrylovSolver::initializePreconditioner(
                 auto parameters = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
                 parameters->d_pOperator = d_pOperator;
                 parameters->d_comm      = d_comm;
-                d_pPreconditioner       = AMP::Solver::SolverFactory::create( parameters );
-                AMP_ASSERT( d_pPreconditioner );
+                d_pNestedSolver         = AMP::Solver::SolverFactory::create( parameters );
+                AMP_ASSERT( d_pNestedSolver );
             }
         }
     }
@@ -420,7 +493,7 @@ PetscErrorCode PetscKrylovSolver::matVec( Mat mat, Vec x, Vec y )
     int ierr  = 0;
     void *ctx = nullptr;
     checkErr( MatShellGetContext( mat, &ctx ) );
-    AMP_ASSERT( ctx != nullptr );
+    AMP_ASSERT( ctx );
     auto solver = reinterpret_cast<PetscKrylovSolver *>( ctx );
     auto op     = solver->getOperator();
     auto sp_x   = PETSC::getAMP( x );
@@ -440,7 +513,7 @@ PetscErrorCode PetscKrylovSolver::applyPreconditioner( PC pc, Vec r, Vec z )
     int ierr = 0;
     void *ctx;
     PCShellGetContext( pc, &ctx );
-    AMP_ASSERT( ctx != nullptr );
+    AMP_ASSERT( ctx );
     auto solver = reinterpret_cast<PetscKrylovSolver *>( ctx );
 
     auto sp_r = PETSC::getAMP( r );
@@ -452,15 +525,15 @@ PetscErrorCode PetscKrylovSolver::applyPreconditioner( PC pc, Vec r, Vec z )
 
     // these tests were helpful in finding a bug
     if ( solver->getDebugPrintInfoLevel() > 5 ) {
-        double norm = 0.0;
+        PetscReal norm = 0.0;
         VecNorm( r, NORM_2, &norm );
-        double sp_r_norm = static_cast<double>( sp_r->L2Norm() );
+        auto sp_r_norm = static_cast<PetscReal>( sp_r->L2Norm() );
         AMP_ASSERT( AMP::Utilities::approx_equal( norm, sp_r_norm ) );
     }
 
     // Call the preconditioner
     auto preconditioner = solver->getNestedSolver();
-    if ( preconditioner != nullptr ) {
+    if ( preconditioner ) {
         preconditioner->apply( sp_r, sp_z );
     } else {
         // Use the identity preconditioner
@@ -468,8 +541,8 @@ PetscErrorCode PetscKrylovSolver::applyPreconditioner( PC pc, Vec r, Vec z )
     }
 
     // Check for nans (no communication necessary)
-    double localNorm =
-        static_cast<double>( sp_z->getVectorOperations()->localL2Norm( *sp_z->getVectorData() ) );
+    auto localNorm = static_cast<PetscReal>(
+        sp_z->getVectorOperations()->localL2Norm( *sp_z->getVectorData() ) );
     AMP_INSIST( localNorm == localNorm, "NaNs detected in preconditioner" );
 
     // not sure why, but the state of sp_z is not updated and petsc uses the cached norm
@@ -477,7 +550,7 @@ PetscErrorCode PetscKrylovSolver::applyPreconditioner( PC pc, Vec r, Vec z )
 
     // these tests were helpful in finding a bug
     if ( solver->getDebugPrintInfoLevel() > 5 ) {
-        double norm = 0.0;
+        PetscReal norm = 0.0;
         AMP::pout << "L2 Norm of sp_z " << sp_z->L2Norm() << std::endl;
         VecNorm( z, NORM_2, &norm );
         AMP::pout << "L2 Norm of z " << norm << std::endl;

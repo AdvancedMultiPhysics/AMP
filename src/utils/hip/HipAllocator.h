@@ -1,8 +1,12 @@
 #ifndef included_AMP_GPUDevAllocator
 #define included_AMP_GPUDevAllocator
 
-#include "AMP/utils/hip/helper_hip.h"
+#include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/hip/Helper_Hip.h"
+
+DISABLE_WARNINGS
 #include <hip/hip_runtime.h>
+ENABLE_WARNINGS
 
 namespace AMP {
 
@@ -52,31 +56,6 @@ public:
     void deallocate( T *p, size_t )
     {
         auto err = hipFree( p );
-        checkHipErrors( err );
-    }
-};
-
-/**
- * \class  HipHostAllocator
- * @brief  Allocator based on hipMallocHost
- */
-template<typename T>
-class HipHostAllocator
-{
-public:
-    using value_type = T;
-
-    T *allocate( size_t n )
-    {
-        T *ptr;
-        auto err = hipHostMalloc( &ptr, n * sizeof( T ) );
-        checkHipErrors( err );
-        return ptr;
-    }
-
-    void deallocate( T *p, size_t )
-    {
-        auto err = hipHostFree( p );
         checkHipErrors( err );
     }
 };

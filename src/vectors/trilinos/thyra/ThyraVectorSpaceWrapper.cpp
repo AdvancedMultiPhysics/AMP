@@ -81,16 +81,14 @@ ThyraVectorSpaceWrapper::createMembers( int numMembers ) const
     return Teuchos::RCP<Thyra::VectorBase<double>>( new ThyraVectorWrapper( vecs ) );
 }
 Teuchos::RCP<Thyra::VectorBase<double>>
-ThyraVectorSpaceWrapper::createMemberView( const RTOpPack::SubVectorView<double> &raw_v ) const
+ThyraVectorSpaceWrapper::createMemberView( const RTOpPack::SubVectorView<double> & ) const
 {
-    NULL_USE( raw_v );
     AMP_ERROR( "Not finished" );
     return Teuchos::RCP<Thyra::VectorBase<double>>();
 }
 Teuchos::RCP<const Thyra::VectorBase<double>>
-ThyraVectorSpaceWrapper::createMemberView( const RTOpPack::ConstSubVectorView<double> &raw_v ) const
+ThyraVectorSpaceWrapper::createMemberView( const RTOpPack::ConstSubVectorView<double> & ) const
 {
-    NULL_USE( raw_v );
     AMP_ERROR( "Not finished" );
     return Teuchos::RCP<const Thyra::VectorBase<double>>();
 }
@@ -112,13 +110,10 @@ Teuchos::RCP<const Thyra::MultiVectorBase<double>> ThyraVectorSpaceWrapper::crea
     auto view     = Thyra::createMembersView<double>( space, raw_mv, "" );
     return view;
 }
-void ThyraVectorSpaceWrapper::scalarProdsImpl( const Thyra::MultiVectorBase<double> &X,
-                                               const Thyra::MultiVectorBase<double> &Y,
-                                               const Teuchos::ArrayView<double> &scalarProds ) const
+void ThyraVectorSpaceWrapper::scalarProdsImpl( const Thyra::MultiVectorBase<double> &,
+                                               const Thyra::MultiVectorBase<double> &,
+                                               const Teuchos::ArrayView<double> & ) const
 {
-    NULL_USE( X );
-    NULL_USE( Y );
-    NULL_USE( scalarProds );
     AMP_ERROR( "Not finished" );
 }
 } // namespace AMP::LinearAlgebra

@@ -1,15 +1,25 @@
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
     MeshName = "Pellet"
-    dim      = 3
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
 }
 
 MechanicsBVPOperator {
     name="LinearBVPOperator"
     VolumeOperator="MechanicsLinearFEOperator"
     BoundaryOperator="DirichletMatrixCorrection"
+}
+
+MechanicsMaterialModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = ""
+    name="IsotropicElasticModel"
+    Youngs_Modulus = 1.0e6
+    Poissons_Ratio = 0.2
 }
 
 MechanicsLinearFEOperator{
@@ -26,7 +36,7 @@ MechanicsLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "MechanicsMaterialModel"
+  LocalModel = MechanicsMaterialModel
 }
 
 DirichletMatrixCorrection{
@@ -64,14 +74,6 @@ DirichletMatrixCorrection{
     number_of_dofs_3 = 1
     dof_3_0 = 1
     value_3_0 = 0.0
-}
-
-MechanicsMaterialModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = ""
-    name="IsotropicElasticModel"
-    Youngs_Modulus = 1.0e6
-    Poissons_Ratio = 0.2
 }
 
 TemperatureRHS {

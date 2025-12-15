@@ -36,12 +36,10 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh_db    = input_db->getDatabase( "Mesh" );
     auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( meshParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel;
     auto bvpOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "MechanicsBVPOperator", input_db, elementPhysicsModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "MechanicsBVPOperator", input_db ) );
 
     AMP::pout << "Constructed BVP operator" << std::endl;
 
@@ -49,10 +47,10 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto tempVar = std::make_shared<AMP::LinearAlgebra::Variable>( "temperature" );
 
     auto tempDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
 
     auto dispDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     auto mechSolVec = AMP::LinearAlgebra::createVector( dispDofMap, dispVar, true );
@@ -70,13 +68,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto temperatureRhsDatabase = input_db->getDatabase( "TemperatureRHS" );
 
-    computeTemperatureRhsVector( meshAdapter,
-                                 temperatureRhsDatabase,
-                                 tempVar,
-                                 dispVar,
-                                 currTempVec,
-                                 prevTempVec,
-                                 mechRhsVec );
+    computeTemperatureRhsVector(
+        mesh, temperatureRhsDatabase, tempVar, dispVar, currTempVec, prevTempVec, mechRhsVec );
     bvpOperator->modifyRHSvector( mechRhsVec );
 
     auto linearSolver_db = input_db->getDatabase( "LinearSolver" );
@@ -94,7 +87,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     linearSolver->apply( mechRhsVec, mechSolVec );
 
-    meshAdapter->displaceMesh( mechSolVec );
+    mesh->displaceMesh( mechSolVec );
 
     ut->passes( exeName );
 }

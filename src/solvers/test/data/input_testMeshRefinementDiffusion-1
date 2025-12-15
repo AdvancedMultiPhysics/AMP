@@ -37,6 +37,17 @@ MeshToMeshMaps{
     VariableName = "Temperature"
 }
 
+
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "Independent"
+        Property = "ThermalConductivity"
+        Default_Concentration = 0.1
+        Default_Temperature   = 557.0
+        Default_Burnup   = 0.0
+      }
+
+
 BottomNonlinearThermalOperator {
     name="NonlinearBVPOperator"
     VolumeOperator = "DiffusionNonlinearFEOperator"
@@ -100,7 +111,7 @@ DiffusionNonlinearFEOperator {
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
       }
-      LocalModel = "DiffusionTransportModel"
+      LocalModel = DiffusionTransportModel
 }
 
 DiffusionLinearFEOperator {
@@ -119,7 +130,7 @@ DiffusionLinearFEOperator {
           QRULE_TYPE = "QGAUSS"
           QRULE_ORDER = "DEFAULT"
       }
-      LocalModel = "DiffusionTransportModel"
+      LocalModel = DiffusionTransportModel
 }
 
 BottomRobinVectorCorrection {
@@ -233,15 +244,6 @@ TopVolumeIntegralOperator{
       QRULE_ORDER = "DEFAULT"
     }
 }
-
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Independent"
-        Property = "ThermalConductivity"
-        Default_Concentration = 0.1
-        Default_Temperature   = 557.0
-        Default_Burnup   = 0.0
-      }
 
 initialThermalGuess = 500.0
 

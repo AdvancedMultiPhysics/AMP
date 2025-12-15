@@ -21,7 +21,7 @@ CoupledChannelToCladMapOperator::CoupledChannelToCladMapOperator(
     d_subchannelPhysicsModel = params->d_subchannelPhysicsModel;
     d_subchannelTemperature  = params->d_vector;
     if ( d_Mesh ) {
-        AMP_ASSERT( d_subchannelPhysicsModel != nullptr );
+        AMP_ASSERT( d_subchannelPhysicsModel );
     }
     if ( d_subchannelTemperature ) {
         d_subchannelDensity = d_subchannelTemperature->clone();
@@ -37,13 +37,9 @@ void CoupledChannelToCladMapOperator::apply( AMP::LinearAlgebra::Vector::const_s
 {
 
     // Compute the subchannel temperature and density
-    if ( d_Mesh != nullptr ) {
-        const double h_scale =
-            1.0 /
-            Subchannel::scaleEnthalpy; // Scale to change the input vector back to correct units
-        const double P_scale =
-            1.0 /
-            Subchannel::scalePressure; // Scale to change the input vector back to correct units
+    if ( d_Mesh ) {
+        const double h_scale = 1.0 / Subchannel::scaleEnthalpy; // Scale to correct units
+        const double P_scale = 1.0 / Subchannel::scalePressure; // Scale to correct units
 
         AMP::LinearAlgebra::Vector::const_shared_ptr uInternal = subsetInputVector( u );
 

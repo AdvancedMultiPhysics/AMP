@@ -30,13 +30,13 @@ static void test_with_shape( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
     //  Construct PowerShape.
     AMP_INSIST( input_db->keyExists( "MyPowerShape" ), "Key ''MyPowerShape'' is missing!" );
     auto shape_db        = input_db->getDatabase( "MyPowerShape" );
     auto shape_params    = std::make_shared<AMP::Operator::PowerShapeParameters>( shape_db );
-    shape_params->d_Mesh = meshAdapter;
+    shape_params->d_Mesh = mesh;
     auto shape           = std::make_shared<AMP::Operator::PowerShape>( shape_params );
 
     // Create a DOF manager for a gauss point vector
@@ -44,7 +44,7 @@ static void test_with_shape( AMP::UnitTest *ut, const std::string &exeName )
     int ghostWidth  = 1;
     bool split      = true;
     auto dof_map    = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerNode, split );
 
     // Create a shared pointer to a Variable - Power - Output because it will be used in the
     // "residual" location of apply
@@ -74,7 +74,7 @@ static void test_with_shape( AMP::UnitTest *ut, const std::string &exeName )
               << std::endl;
     // Check that the data is non-negative
     bool itpasses  = true;
-    auto elem      = meshAdapter->getIterator( AMP::Mesh::GeomType::Cell, ghostWidth );
+    auto elem      = mesh->getIterator( AMP::Mesh::GeomType::Cell, ghostWidth );
     auto end_elems = elem.end();
 
     for ( ; elem != end_elems; ++elem ) {

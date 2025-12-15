@@ -9,10 +9,7 @@
 // RK12 method
 //
 #include "AMP/time_integrators/RK12TimeIntegrator.h"
-
-
 #include "AMP/time_integrators/TimeIntegratorParameters.h"
-
 #include "AMP/utils/AMPManager.h"
 #include "AMP/vectors/Vector.h"
 
@@ -31,7 +28,9 @@ RK12TimeIntegrator::RK12TimeIntegrator(
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
     : AMP::TimeIntegrator::TimeIntegrator( parameters )
 {
+    d_initialized = false;
     initialize( parameters );
+    d_initialized = true;
 }
 
 /*
@@ -53,6 +52,7 @@ RK12TimeIntegrator::~RK12TimeIntegrator() = default;
 void RK12TimeIntegrator::initialize(
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
 {
+    d_initialized = false;
 
     AMP::TimeIntegrator::TimeIntegrator::initialize( parameters );
 
@@ -62,16 +62,24 @@ void RK12TimeIntegrator::initialize(
      * Initialize data members from input.
      */
     getFromInput( parameters->d_db );
+    d_initialized = true;
 }
 
 void RK12TimeIntegrator::reset(
-    std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> )
+    std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
 {
-    // AMP_ASSERT(parameters!=nullptr);
-    d_new_solution->getVectorData()->reset();
-    d_k1_vec->getVectorData()->reset();
-    d_k2_vec->getVectorData()->reset();
-    d_z_vec->getVectorData()->reset();
+    if ( parameters ) {
+        TimeIntegrator::getFromInput( parameters->d_db );
+        d_pParameters =
+            std::const_pointer_cast<AMP::TimeIntegrator::TimeIntegratorParameters>( parameters );
+        AMP_ASSERT( parameters->d_db );
+        getFromInput( parameters->d_db );
+    }
+
+    d_new_solution->reset();
+    d_k1_vec->reset();
+    d_k2_vec->reset();
+    d_z_vec->reset();
 }
 
 void RK12TimeIntegrator::setupVectors()
@@ -99,8 +107,8 @@ int RK12TimeIntegrator::advanceSolution( const double dt,
 {
     PROFILE( "advanceSolution" );
 
-    d_solution_vector = in;
-    d_current_dt      = dt;
+    d_solution_vector->copyVector( in );
+    d_current_dt = dt;
 
     if ( d_iDebugPrintInfoLevel > 5 ) {
         AMP::pout << "*****************************************" << std::endl;
@@ -169,8 +177,7 @@ bool RK12TimeIntegrator::checkNewSolution()
 {
     bool retcode = false;
 
-    auto l2Norm                 = d_z_vec->L2Norm();
-    auto l2NormOfEstimatedError = l2Norm.get<double>();
+    auto l2NormOfEstimatedError = static_cast<double>( d_z_vec->L2Norm() );
 
     // we flag the solution as being acceptable if the l2 norm of the error
     // is less than the required tolerance or we are at the minimum time step
@@ -222,7 +229,7 @@ void RK12TimeIntegrator::getFromInput( std::shared_ptr<AMP::Database> input_db )
 
     d_safety_factor = input_db->getWithDefault<double>( "safety_factor", 0.9 );
 
-    d_atol = input_db->getWithDefault<double>( "absolute_tolerance", 1.0e-09 );
+    d_atol = input_db->getWithDefault<double>( "absolute_tolerance", 6.0e-08 );
 
     d_use_fixed_dt = input_db->getWithDefault<bool>( "use_fixed_dt", false );
 }
@@ -239,7 +246,7 @@ double RK12TimeIntegrator::getNextDt( const bool good_solution )
             auto l2NormOfEstimatedError = d_z_vec->L2Norm().get<double>();
 
             next_dt = d_safety_factor * d_current_dt *
-                      pow( ( d_atol / l2NormOfEstimatedError ), 1.0 / 2.0 );
+                      std::pow( ( d_atol / l2NormOfEstimatedError ), 1.0 / 2.0 );
 
             // check to make sure the timestep is not too small or large
             next_dt = std::min( std::max( next_dt, d_min_dt ), d_max_dt );
@@ -276,6 +283,9 @@ void RK12TimeIntegrator::writeRestart( int64_t fid ) const { TimeIntegrator::wri
 RK12TimeIntegrator::RK12TimeIntegrator( int64_t fid, AMP::IO::RestartManager *manager )
     : TimeIntegrator( fid, manager )
 {
+    d_initialized = false;
+    RK12TimeIntegrator::initialize( d_pParameters );
+    d_initialized = true;
 }
 
 } // namespace AMP::TimeIntegrator

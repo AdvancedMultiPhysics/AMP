@@ -81,7 +81,7 @@ Scalar::Scalar( const TYPE &x )
             AMP_ASSERT( x == z );
         } else if constexpr ( std::is_floating_point_v<TYPE> ) {
             constexpr TYPE inf = std::numeric_limits<TYPE>::infinity();
-            constexpr TYPE tol = 10 * std::abs( std::numeric_limits<TYPE>::epsilon() );
+            constexpr TYPE tol = 10 * std::numeric_limits<TYPE>::epsilon();
             if ( x != inf && x != -inf && x == x ) {
                 auto z = get<TYPE>();
                 AMP_ASSERT( std::abs( x - z ) <= tol * std::abs( x ) );
@@ -98,9 +98,9 @@ Scalar Scalar::create( const TYPE &x ) const
     y.d_type = d_type;
     if constexpr ( AMP::is_complex_v<TYPE> ) {
         if ( d_type == 'i' ) {
-            y.d_data = std::make_any<int64_t>( x.real() );
+            y.d_data = std::make_any<int64_t>( static_cast<int64_t>( x.real() ) );
         } else if ( d_type == 'f' ) {
-            y.d_data = std::make_any<double>( x.real() );
+            y.d_data = std::make_any<double>( static_cast<double>( x.real() ) );
         } else if ( d_type == 'c' ) {
             y.d_data = std::make_any<std::complex<double>>( x.real(), x.imag() );
         } else {
@@ -154,18 +154,22 @@ inline TYPE Scalar::get( double tol ) const
             auto x = std::any_cast<double>( d_data );
             y      = static_cast<TYPE>( x );
             e      = std::abs<double>( x - static_cast<double>( y ) );
+            tol *= std::abs<double>( x );
         } else if ( d_hash == longHash ) {
             auto x = std::any_cast<long double>( d_data );
             y      = static_cast<TYPE>( x );
             e      = std::abs<double>( static_cast<double>( x - static_cast<long double>( y ) ) );
+            tol *= std::abs<double>( x );
         } else if ( d_hash == int64Hash ) {
             auto x = std::any_cast<int64_t>( d_data );
             y      = static_cast<TYPE>( x );
             e      = std::abs<double>( x - static_cast<int64_t>( y ) );
+            tol *= std::abs<double>( x );
         } else if ( d_hash == complexHash ) {
             auto x = std::any_cast<std::complex<double>>( d_data );
             y      = static_cast<TYPE>( x.real() );
             e      = std::abs<double>( x - static_cast<std::complex<double>>( y ) );
+            tol *= std::abs<double>( x );
         } else if ( !d_data.has_value() ) {
             // Data does not exist
             AMP_ERROR( "Scalar has no data" );

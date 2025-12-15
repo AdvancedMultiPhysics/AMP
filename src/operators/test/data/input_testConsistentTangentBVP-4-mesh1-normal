@@ -30,6 +30,17 @@ LinearMechanicsOperator {
 
 }
 
+MechanicsMaterialModel {
+        USE_MATERIALS_LIBRARY = FALSE
+          Material = ""
+          name="IsotropicElasticModel"
+          Youngs_Modulus = 1.0e6
+          Poissons_Ratio = 0.25
+          Default_Temperature = 0.0
+          Default_Burnup = 0.0
+          Default_Oxygen_Concentration = 0.0
+      }
+
 MechanicsNonlinearFEOperator{
       name = "MechanicsNonlinearFEOperator"
         print_info_level = 1
@@ -50,7 +61,7 @@ MechanicsNonlinearFEOperator{
         }
 
      MechanicsLinearElement = LinearMechanicsElement
-     LocalModel = "MechanicsMaterialModel"
+     LocalModel = MechanicsMaterialModel
       
     }
 
@@ -97,17 +108,4 @@ DirichletMatrixCorrection{
       dof_0_1 = 1
       dof_0_2 = 2
   }
-
-MechanicsMaterialModel {
-        USE_MATERIALS_LIBRARY = FALSE
-          Material = ""
-          name="IsotropicElasticModel"
-          Youngs_Modulus = 1.0e6
-          Poissons_Ratio = 0.25
-          Default_Temperature = 0.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = 0.0
-      }
-
-
 

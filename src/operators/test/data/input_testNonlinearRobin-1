@@ -2,17 +2,34 @@
 InitialGuess = 310.0
 
 Mesh{
-    // This is the main multimesh that will contain all meshes
     MeshName = "cylinder"
-    MeshType = "libMesh"
-    FileName = "cylinder.e"
-    dim = 3
-    x_offset = 0.0
-    y_offset = 0.0
-    z_offset = 0.0
-    NumberOfElements = 5226
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 16, 5
+    Range = 3, -5, 5
+    surfaceIds = 1, 1, 1, 1, 2, 3
+    static = TRUE
 }
 
+DiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 557.
+    Default_Burnup   = 0.0
+} 
+
+SourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "Independent"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.
+    Default_Burnup   = 0.0
+}
 
 NeutronicsOperator{
   name="NeutronicsRhsOperator"
@@ -37,11 +54,11 @@ VolumeIntegralOperator{
     OutputVariable = "heatsource"
     print_info_level = 0
   
-    LocalModel = "SourcePhysicsModel"
+    LocalModel = SourcePhysicsModel
 
     SourceElement {
     name="SourceNonlinearElement"
-      print_info_level = 3
+      print_info_level = 2
       FE_ORDER = "FIRST"  
       FE_FAMILY = "LAGRANGE"
       QRULE_TYPE = "QGAUSS"
@@ -87,7 +104,7 @@ DiffusionNonlinearFEOperator{
             QRULE_ORDER = "DEFAULT"
         }    
 
-      LocalModel = "DiffusionTransportModel"
+      LocalModel = DiffusionTransportModel
     }
 
 RobinVectorCorrection{
@@ -99,7 +116,7 @@ RobinVectorCorrection{
     alpha          = 1.0
     beta           = 2920.
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 2
     IsFluxGaussPtVector = FALSE
     skip_params = FALSE
     number_of_ids = 1
@@ -127,7 +144,7 @@ DiffusionLinearFEOperator{
             QRULE_ORDER = "DEFAULT"
         }    
 
-      LocalModel ="DiffusionTransportModel"
+      LocalModel =DiffusionTransportModel
     }
 
 RobinMatrixCorrection{
@@ -139,7 +156,7 @@ RobinMatrixCorrection{
    alpha          = 1.0
    beta           = 2920
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    id_0         =   3
@@ -148,22 +165,3 @@ RobinMatrixCorrection{
    value_0_0        = 1234567891234567.0 
 }
 
-DiffusionTransportModel{
-    name = "DiffusionTransportModel"
-    Material = "Independent"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 557.
-    Default_Burnup   = 0.0
-} 
-
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.
-    Default_Burnup   = 0.0
-}

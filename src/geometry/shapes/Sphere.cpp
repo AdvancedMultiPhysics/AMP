@@ -1,9 +1,10 @@
 #include "AMP/geometry/shapes/Sphere.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
 
+#include <algorithm>
 
 namespace AMP::Geometry {
 
@@ -12,7 +13,7 @@ namespace AMP::Geometry {
  * Constructor                                           *
  ********************************************************/
 Sphere::Sphere( std::shared_ptr<const AMP::Database> db )
-    : LogicalGeometry( 3, 3, { 4, 4, 4, 4, 2, 1 } )
+    : LogicalGeometry( 3, 3, { 1, 1, 1, 1, 1, 1 } )
 {
     d_offset[0] = 0;
     d_offset[1] = 0;
@@ -21,7 +22,7 @@ Sphere::Sphere( std::shared_ptr<const AMP::Database> db )
     AMP_INSIST( range.size() == 1u, "Range must be an array of length 1" );
     d_r = range[0];
 }
-Sphere::Sphere( double r ) : LogicalGeometry( 3, 3, { 4, 4, 4, 4, 2, 1 } ), d_r( r )
+Sphere::Sphere( double r ) : LogicalGeometry( 3, 3, { 1, 1, 1, 1, 1, 1 } ), d_r( r )
 {
     d_offset[0] = 0;
     d_offset[1] = 0;
@@ -39,7 +40,7 @@ Point Sphere::nearest( const Point &pos ) const
     double y = pos.y() - d_offset[1];
     double z = pos.z() - d_offset[2];
     // Calculate the nearest point
-    double r = sqrt( x * x + y * y + z * z );
+    double r = std::sqrt( x * x + y * y + z * z );
     if ( r <= d_r ) {
         return pos;
     } else {
@@ -84,7 +85,7 @@ Point Sphere::surfaceNorm( const Point &pos ) const
     double x = pos.x() - d_offset[0];
     double y = pos.y() - d_offset[1];
     double z = pos.z() - d_offset[2];
-    double r = sqrt( x * x + y * y + z * z );
+    double r = std::sqrt( x * x + y * y + z * z );
     return { x / r, y / r, z / r };
 }
 

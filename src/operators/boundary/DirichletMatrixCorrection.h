@@ -35,12 +35,15 @@ public:
         d_variable = var;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_variable;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override { return d_variable; }
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
+    {
+        return d_variable;
+    }
 
     virtual void apply( AMP::LinearAlgebra::Vector::const_shared_ptr,
                         AMP::LinearAlgebra::Vector::shared_ptr ) override
@@ -68,9 +71,9 @@ public:
       */
     void setRHScorrection( AMP::LinearAlgebra::Vector::shared_ptr rhs ) override;
 
-    std::vector<short int> getBoundaryIds() { return d_boundaryIds; }
+    const auto &getBoundaryIds() { return d_boundaryIds; }
 
-    std::vector<std::vector<unsigned int>> getDofIds() { return d_dofIds; }
+    const auto &getDofIds() { return d_dofIds; }
 
 
 protected:

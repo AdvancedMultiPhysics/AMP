@@ -1,9 +1,13 @@
+#include "AMP/AMP_TPLs.h"
+#include "AMP/IO/FileSystem.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/DelaunayInterpolation.h"
 #include "AMP/utils/DelaunayTessellation.h"
 #include "AMP/utils/NearestPairSearch.h"
 #include "AMP/utils/UnitTest.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
 
 #include "test_DelaunayInterpolation.h"
@@ -24,6 +28,9 @@
 
 
 #define printp printf
+
+
+using AMP::Utilities::stringf;
 
 
 constexpr int NDIM_MAX = 3; // The maximum number of dimensions supported (currently 3)
@@ -68,9 +75,9 @@ void writePoints<int>( const char *filename, const AMP::Array<int> &x )
 
 
 // Helper function to read points from a file
-AMP::Array<double> readPoints( const char *filename )
+AMP::Array<double> readPoints( const std::string &filename )
 {
-    auto fid = fopen( filename, "rb" );
+    auto fid = fopen( filename.data(), "rb" );
     AMP_INSIST( fid, "Input file not found" );
     char tline[200];
     char *tmp1 = fgets( tline, 200, fid );
@@ -96,7 +103,7 @@ AMP::Array<double> readPoints( const char *filename )
 
 // Test for the nearest pair search
 template<class TYPE>
-void testPointSearch( AMP::UnitTest *ut, const AMP::Array<TYPE> &x )
+void testPointSearch( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
 {
     PROFILE( "testPointSearch" );
     if ( x.empty() )
@@ -141,20 +148,20 @@ void testPointSearch( AMP::UnitTest *ut, const AMP::Array<TYPE> &x )
             dist2 += tmp * tmp;
         }
     }
-    auto msg = AMP::Utilities::stringf(
-        "Test point search (%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
+    auto msg =
+        stringf( "Test point search (%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
     if ( approx_equal( dist1, dist2, 1e-12 ) ) {
-        ut->passes( msg );
+        ut.passes( msg );
     } else {
-        auto msg2 = AMP::Utilities::stringf( "%s:  (%i,%i,%e) - (%i,%i,%e)",
-                                             msg.data(),
-                                             index1.first,
-                                             index1.second,
-                                             dist1,
-                                             index2.first,
-                                             index2.second,
-                                             dist2 );
-        ut->failure( msg2 );
+        auto msg2 = stringf( "%s:  (%i,%i,%e) - (%i,%i,%e)",
+                             msg.data(),
+                             index1.first,
+                             index1.second,
+                             dist1,
+                             index2.first,
+                             index2.second,
+                             dist2 );
+        ut.failure( msg2 );
         writePoints( "failed_points", x );
     }
 }
@@ -163,23 +170,22 @@ void testPointSearch( AMP::UnitTest *ut, const AMP::Array<TYPE> &x )
 // Function to create and test the construction of the tessellation
 template<class TYPE>
 std::shared_ptr<AMP::DelaunayInterpolation<TYPE>>
-createAndTestDelaunayInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x )
+createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
 {
-    PROFILE( "createAndTestDelaunayInterpolation" );
     if ( x.empty() )
         return nullptr;
     int ndim = x.size( 0 );
     size_t N = x.size( 1 );
-    auto msg = AMP::Utilities::stringf( "(%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
+    auto msg = stringf( "(%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
 
     // Create the tessellation
     auto data = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
     data->create_tessellation( x );
     size_t N_tri = data->get_N_tri();
     if ( N_tri > 0 ) {
-        ut->passes( "Created tessellation " + msg );
+        ut.passes( "Created tessellation " + msg );
     } else {
-        ut->failure( "Created tessellation " + msg );
+        ut.failure( "Created tessellation " + msg );
         return nullptr;
     }
 
@@ -194,8 +200,19 @@ createAndTestDelaunayInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x
         }
     }
     if ( !pass ) {
-        ut->failure( "Triangle neighbors are invalid " + msg );
+        ut.failure( "Triangle neighbors are invalid " + msg );
         return nullptr;
+    }
+
+    // Check building using a predefined triangle list
+    auto data2 = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
+    data2->create_tessellation( x, data->get_tri() );
+    auto tri1 = data->get_tri();
+    auto tri2 = data2->get_tri();
+    auto nab1 = data->get_tri_nab();
+    auto nab2 = data2->get_tri_nab();
+    if ( tri1 != tri2 || nab1 != nab2 ) {
+        ut.failure( "Building triangles from exisitng failed " + msg );
     }
 
     // Copy the tessellation
@@ -220,9 +237,9 @@ createAndTestDelaunayInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x
         if ( data2.get_N_tri() != N_tri )
             error = true;
         if ( !error )
-            ut->passes( "Copy of tessellation " + msg );
+            ut.passes( "Copy of tessellation " + msg );
         else
-            ut->failure( "Copy of tessellation " + msg );
+            ut.failure( "Copy of tessellation " + msg );
     }
 
     // Check the behavior of get_circumsphere and test_in_circumsphere
@@ -243,37 +260,35 @@ createAndTestDelaunayInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x
                     x2[d2 + d1 * ndim] = x( d2, k );
                 }
             }
-            AMP::DelaunayTessellation::get_circumsphere( ndim, x1, R, c );
-            if ( R < 0 ) {
-                pass = false;
-            }
+            get_circumsphere( ndim, x1, R, c );
+            AMP_ASSERT( R > 0 );
             for ( int j = 0; j < ndim + 1; j++ ) {
                 double dist = 0.0;
                 for ( int d = 0; d < ndim; d++ )
                     dist += ( x2[d + j * ndim] - c[d] ) * ( x2[d + j * ndim] - c[d] );
-                if ( fabs( sqrt( dist ) - R ) / R > 1e-7 )
+                if ( fabs( std::sqrt( dist ) - R ) / R > 1e-7 )
                     pass = false;
             }
             for ( int j = 0; j < ndim; j++ ) {
                 for ( int d = 0; d < ndim; d++ )
                     xi[d] = c[d];
                 xi[j]     = c[j] - 10.0 * R;
-                int test1 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test1 = test_in_circumsphere( ndim, x2, xi, 0 );
                 xi[j]     = c[j] - 0.1 * R;
-                int test2 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test2 = test_in_circumsphere( ndim, x2, xi, 0 );
                 xi[j]     = c[j] + 10.0 * R;
-                int test3 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test3 = test_in_circumsphere( ndim, x2, xi, 0 );
                 xi[j]     = c[j] + 0.1 * R;
-                int test4 = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 0 );
+                int test4 = test_in_circumsphere( ndim, x2, xi, 0 );
                 if ( test1 != -1 || test2 != 1 || test3 != -1 || test4 != 1 ) {
                     pass = false;
                 }
             }
         }
         if ( pass )
-            ut->passes( "get_circumsphere and test_in_circumsphere " + msg );
+            ut.passes( "get_circumsphere and test_in_circumsphere " + msg );
         else
-            ut->expected_failure( "get_circumsphere and test_in_circumsphere " + msg );
+            ut.expected_failure( "get_circumsphere and test_in_circumsphere " + msg );
     }
 
     // Check that the volume of each triangle is positive and > 0
@@ -300,9 +315,9 @@ createAndTestDelaunayInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x
             vol_max = std::max( vol_max, vol );
         }
         if ( !neg_vol && vol_min > 0.0 && vol_min >= 1e-10 * vol_max )
-            ut->passes( "Tessellation volume is valid " + msg );
+            ut.passes( "Tessellation volume is valid " + msg );
         else
-            ut->failure( "Tessellation volume is invalid " + msg );
+            ut.failure( "Tessellation volume is invalid " + msg );
     }
 
     // Perform a rigorous check of the tessellation by checking that no point in the
@@ -324,7 +339,7 @@ createAndTestDelaunayInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x
             for ( size_t j = 0; j < N; j++ ) {
                 for ( int d = 0; d < ndim; d++ )
                     xi[d] = x( d, j );
-                int test = AMP::DelaunayTessellation::test_in_circumsphere( ndim, x2, xi, 1e-8 );
+                int test = test_in_circumsphere( ndim, x2, xi, 1e-8 );
                 if ( test == 1 ) {
                     pass_circumsphere = false;
                     break;
@@ -332,9 +347,9 @@ createAndTestDelaunayInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x
             }
         }
         if ( pass_circumsphere )
-            ut->passes( "Tessellation is valid " + msg );
+            ut.passes( "Tessellation is valid " + msg );
         else
-            ut->failure( "Tessellation is invalid " + msg );
+            ut.failure( "Tessellation is invalid " + msg );
     }
 
     return data;
@@ -355,6 +370,7 @@ std::string initialize_problem( int p,
                                 double &tol_cubic_extrap1,
                                 double &tol_cubic_extrap2 )
 {
+    PROFILE( "initialize_problem" );
     int ndim = x0.size( 0 );
     size_t N = x0.size( 1 );
     std::string problem;
@@ -387,9 +403,9 @@ std::string initialize_problem( int p,
     } else if ( p == 2 ) {
         // Quadratic profile
         problem           = "f(x) = 1+x-y+2*z+0.1*x^2+0.2*y^2-0.3*z^2";
-        double dx2        = 1.0 / pow( 1.0 * N, 1.0 / ndim );
+        double dx2        = 1.0 / std::pow( 1.0 * N, 1.0 / ndim );
         tol_grad          = 2.0 * dx2;
-        tol_linear        = std::min( 4 * pow( 3.0, ndim ) * dx2, 0.5 );
+        tol_linear        = std::min( 4 * std::pow( 3.0, ndim ) * dx2, 0.5 );
         tol_cubic         = 1e-8;
         tol_cubic_grad    = 1e-6;
         tol_cubic_extrap1 = tol_linear;
@@ -422,10 +438,10 @@ std::string initialize_problem( int p,
     } else {
         throw std::logic_error( "Unknown problem" );
     }
-    tol_grad *=
-        sqrt( grad_max[0] * grad_max[0] + grad_max[1] * grad_max[1] + grad_max[2] * grad_max[2] );
-    tol_cubic_grad *=
-        sqrt( grad_max[0] * grad_max[0] + grad_max[1] * grad_max[1] + grad_max[2] * grad_max[2] );
+    tol_grad *= std::sqrt( grad_max[0] * grad_max[0] + grad_max[1] * grad_max[1] +
+                           grad_max[2] * grad_max[2] );
+    tol_cubic_grad *= std::sqrt( grad_max[0] * grad_max[0] + grad_max[1] * grad_max[1] +
+                                 grad_max[2] * grad_max[2] );
     tol_grad       = std::max( tol_grad, 1e-12 );
     tol_cubic_grad = std::max( tol_cubic_grad, 1e-12 );
     return problem;
@@ -433,22 +449,10 @@ std::string initialize_problem( int p,
 
 
 template<class TYPE>
-std::vector<double> convert_to_double( const std::vector<TYPE> &x0 );
-template<>
-std::vector<double> convert_to_double<double>( const std::vector<double> &x0 )
-{
-    return x0;
-}
-template<>
-std::vector<double> convert_to_double<int>( const std::vector<int> &x0 )
-{
-    std::vector<double> x( x0.size(), 0.0 );
-    for ( size_t i = 0; i < x0.size(); i++ )
-        x[i] = static_cast<double>( x0[i] ) / static_cast<double>( R_INT );
-    return x;
-}
-template<class TYPE>
-void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check_extrap = true )
+void testInterpolation( AMP::UnitTest &ut,
+                        const std::string &problem,
+                        const AMP::Array<TYPE> &x,
+                        bool check_extrap = true )
 {
     check_extrap = false; // Extrapolation is having major issues (disable for now)
 
@@ -456,6 +460,13 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
     size_t N = x.size( 1 );
     if ( N == 0 )
         return;
+
+    std::string name;
+    if constexpr ( std::is_same_v<TYPE, int> )
+        name = stringf( "%s<%i,%i,int>", problem.data(), ndim, N );
+    else if constexpr ( std::is_same_v<TYPE, double> )
+        name = stringf( "%s<%i,%i,double>", problem.data(), ndim, N );
+    PROFILE2( name );
 
     // Check the points
     if ( N < 10000 )
@@ -489,7 +500,7 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
     // Create a second grid for interpolation
     double dx[3]     = { 0, 0, 0 };
     double xrange[3] = { 1, 1, 1 };
-    double tol       = std::min( 1e-2, 1.0 / pow( 1.0 * N, 1.0 / ndim ) );
+    double tol       = std::min( 1e-2, 1.0 / std::pow( 1.0 * N, 1.0 / ndim ) );
     for ( int d = 0; d < ndim; d++ ) {
         double x_min = 1e100;
         double x_max = -1e100;
@@ -503,10 +514,13 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
     int Nn    = 3;
     size_t N2 = Nn * N;
     AMP::Array<TYPE> x2( ndim, N2 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dist( -1, 1 );
     for ( size_t i = 0; i < N; i++ ) {
         for ( int j = 0; j < Nn; j++ ) {
             for ( int d = 0; d < ndim; d++ )
-                x2( d, j + i * Nn ) = x( d, i ) + 0.1 * dx[d] * ( 2 * rand_double() - 1 );
+                x2( d, j + i * Nn ) = x( d, i ) + 0.1 * dx[d] * dist( gen );
         }
     }
 
@@ -518,9 +532,9 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
             pass_nearest = false;
     }
     if ( pass_nearest )
-        ut->passes( "Found nearest point" );
+        ut.passes( "Found nearest point" );
     else
-        ut->failure( "Found nearest point" );
+        ut.failure( "Found nearest point" );
 
     // Test find_tri
     auto index1        = data->find_tri( x1, false );
@@ -532,9 +546,9 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
     }
     delete[] order;
     if ( pass_find_tri )
-        ut->passes( "Found triangle centroids" );
+        ut.passes( "Found triangle centroids" );
     else
-        ut->failure( "Found triangle centroids" );
+        ut.failure( "Found triangle centroids" );
 
     for ( int p = 0; p < 3; p++ ) {
         if ( N < 10 )
@@ -555,15 +569,15 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
             p, x2, xrange, f2, g2, tol_grad, tol_linear, tol_cubic, tol_c_grad, tol_ce1, tol_ce2 );
         problem = initialize_problem(
             p, x, xrange, f, g, tol_grad, tol_linear, tol_cubic, tol_c_grad, tol_ce1, tol_ce2 );
-        auto msg = AMP::Utilities::stringf( "%s (%i,%i,%s)",
-                                            problem.c_str(),
-                                            (int) x.size( 0 ),
-                                            (int) x.size( 1 ),
-                                            AMP::getTypeID<TYPE>().name );
+        auto msg = stringf( "%s (%i,%i,%s)",
+                            problem.c_str(),
+                            (int) x.size( 0 ),
+                            (int) x.size( 1 ),
+                            AMP::getTypeID<TYPE>().name );
 
         // Test the gradient
         AMP::Array<double> grad( ndim, N );
-        double error[4] = { 0 };
+        [[maybe_unused]] double error[4] = { 0 };
         for ( int method = 1; method <= 4; method++ ) {
             if ( method == 2 || N < 20 )
                 continue;
@@ -573,20 +587,19 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
                 for ( int d = 0; d < ndim; d++ )
                     err += ( grad( d, i ) - g( d, i ) ) * ( grad( d, i ) - g( d, i ) );
             }
-            err               = sqrt( err / N );
+            err               = std::sqrt( err / N );
             error[method - 1] = err;
-            auto message      = AMP::Utilities::stringf( "calc_gradient (%i,%s) (%i,%i) (%e)",
-                                                    method,
-                                                    problem.c_str(),
-                                                    (int) x.size( 0 ),
-                                                    (int) x.size( 1 ),
-                                                    err );
+            auto message      = stringf( "calc_gradient (%i,%s) (%i,%i) (%e)",
+                                    method,
+                                    problem.c_str(),
+                                    (int) x.size( 0 ),
+                                    (int) x.size( 1 ),
+                                    err );
             if ( err <= tol_grad )
-                ut->passes( message );
+                ut.passes( message );
             else
-                ut->failure( message );
+                ut.failure( message );
         }
-        NULL_USE( error );
 
         // Test nearest-neighbor interpolation
         auto fi                  = data->interp_nearest( f, x, nearest );
@@ -596,9 +609,9 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
                 pass_interp_nearest = false;
         }
         if ( pass_interp_nearest )
-            ut->passes( "nearest-neighbor interpolation: " + msg );
+            ut.passes( "nearest-neighbor interpolation: " + msg );
         else
-            ut->failure( "nearest-neighbor interpolation: " + msg );
+            ut.failure( "nearest-neighbor interpolation: " + msg );
 
         // Allocate variables for interpolation
         AMP::Array<double> fi1, fi2, fi3, fi4, gi1, gi2, gi3, gi4;
@@ -619,7 +632,7 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
         std::tie( fi2, std::ignore ) = data->interp_linear( f, x2, index2, false );
         std::tie( fi3, std::ignore ) = data->interp_linear( f, x2, index2, true );
         for ( unsigned int i = 0; i < N2; i++ ) {
-            f_mask[i] = fi2( i ) == fi2( i );
+            f_mask[i] = !AMP::Utilities::isNaN( fi2( i ) );
             for ( int d = 0; d < ndim; d++ )
                 g_mask[d + i * ndim] = f_mask[i];
         }
@@ -630,10 +643,15 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
         f2_err  = L2errNorm( f2, fi2, f_mask );
         f3_err  = L2errNorm( f2, fi3, f_extrap_mask );
         if ( f1_err <= tol_linear * f1_norm && f2_err <= tol_linear * f2_norm &&
-             f3_err <= tol_linear * f3_norm )
-            ut->passes( "linear interpolation: " + msg );
-        else
-            ut->failure( "linear interpolation: " + msg );
+             f3_err <= tol_linear * f3_norm ) {
+            ut.passes( "linear interpolation: " + msg );
+        } else {
+            printf( "Failed linear interpolation: %s (%e)\n", msg.data(), tol_linear );
+            printf( "   %e %e\n", f1_err, f1_norm );
+            printf( "   %e %e\n", f2_err, f2_norm );
+            printf( "   %e %e\n", f3_err, f3_norm );
+            ut.failure( "linear interpolation: " + msg );
+        }
         // Test the cubic interpolation (using the exact gradient)
         std::tie( fi1, gi1 )    = data->interp_cubic( f, g, x1, index1, false );
         std::tie( fi2, gi2 )    = data->interp_cubic( f, g, x2, index2, 0 );
@@ -657,23 +675,42 @@ void testInterpolation( AMP::UnitTest *ut, const AMP::Array<TYPE> &x, bool check
         g4_err                  = L2errNorm( g2, gi4, g_extrap_mask );
         bool pass_interp_cubic1 = f1_err <= tol_cubic * f1_norm && g1_err <= tol_c_grad * g1_norm;
         bool pass_interp_cubic2 = f2_err <= tol_cubic * f2_norm && g2_err <= tol_c_grad * g2_norm;
-        bool pass_interp_cubic3 = f3_err <= tol_linear * f3_norm; // The error in the gradient (and
-                                                                  // points) is large for points
-                                                                  // outside the domain
+        // The error in the gradient (and points) is large for points outside the domain
+        bool pass_interp_cubic3 =
+            f3_err <= tol_linear * f3_norm && g3_norm <= 1e100 && g3_err < 1e100;
         bool pass_interp_cubic4 = f4_err <= tol_cubic * f4_norm && g4_err <= tol_c_grad * g4_norm;
-        NULL_USE( g3_norm );
-        NULL_USE( g3_err );
         if ( pass_interp_cubic1 && pass_interp_cubic2 && pass_interp_cubic3 &&
              pass_interp_cubic4 ) {
-            ut->passes( "cubic interpolation: " + msg );
+            ut.passes( "cubic interpolation: " + msg );
         } else {
-            ut->failure( "cubic interpolation: " + msg );
+            printf( "Failed cubic interpolation: %s (%e,%e)\n", msg.data(), tol_cubic, tol_c_grad );
+            printf( "   %e %e %e %e\n", f1_err, f1_norm, g1_err, g1_norm );
+            printf( "   %e %e %e %e\n", f2_err, f2_norm, g2_err, g2_norm );
+            printf( "   %e %e %e %e\n", f3_err, f3_norm, g3_err, g3_norm );
+            printf( "   %e %e %e %e\n", f4_err, f4_norm, g4_err, g4_norm );
+            ut.failure( "cubic interpolation: " + msg );
         }
 
         // Free some memory
         delete[] f_mask;
         delete[] g_mask;
     }
+}
+template<class TYPE>
+void testInterpolationRandom( AMP::UnitTest &ut, int d, int N )
+{
+    // Generate random points
+    auto x = createRandomPoints<TYPE>( d, N );
+    // Verify small number of points are not collinear
+    if ( d == 2 && N <= 10 ) {
+        int i = 0;
+        while ( AMP::DelaunayTessellation::collinear( x ) && i < 5 ) {
+            x = createRandomPoints<TYPE>( d, N );
+            i++;
+        }
+    }
+    // Run the tests
+    testInterpolation( ut, "random", x );
 }
 
 
@@ -744,6 +781,7 @@ createBoxPoints( int ndim, const int *box1, const int *dx, const int *box2 = nul
 template<class TYPE>
 AMP::Array<TYPE> createProblem( int problem )
 {
+    PROFILE( "createProblem" );
     AMP::Array<TYPE> points;
     if ( problem == 1 ) {
         // This is a simple problem of a uniform mesh
@@ -814,37 +852,30 @@ AMP::Array<TYPE> createProblem( int problem )
 }
 
 
-// Test the random number generator
-void testRandomNumber( AMP::UnitTest *ut, size_t N )
+// Test the frequency with which random points are collinear
+// Note the number of collinear sets is primarilly determined by TOL_COLLINEAR
+void testCollinear( AMP::UnitTest &ut )
 {
-    PROFILE( "testRandomNumber" );
-    std::vector<double> data( N );
-    for ( auto &elem : data )
-        elem = rand_double();
-    std::sort( data.begin(), data.end() );
-    size_t N_dup = 0;
-    for ( size_t i = 1; i < data.size(); i++ ) {
-        if ( data[i] == data[i - 1] )
-            N_dup++;
+    PROFILE( "testCollinear" );
+    int N = 100000;
+    int C = 0;
+    for ( int i = 0; i < N; i++ ) {
+        auto x    = createRandomPoints<double>( 2, 3 );
+        bool test = AMP::DelaunayTessellation::collinear( x );
+        if ( test )
+            C++;
     }
-    if ( data[0] < 0.0 || data[N - 1] > 1.0 )
-        ut->failure( "Point outside of [0,1] found" );
-    if ( N_dup == 0 ) {
-        ut->passes( "No duplicate random numbers" );
-    } else {
-        auto message = AMP::Utilities::stringf(
-            "Found %i duplicates, expected %e\n", static_cast<int>( N_dup ), N * 2.2204e-16 );
-        if ( N_dup < 5 )
-            ut->expected_failure( message );
-        else
-            ut->failure( message );
-    }
+    printf( "   %i of %i sets of points were collinear\n", C, N );
+    if ( C <= 0.04 * N )
+        ut.passes( "expected number of sets are collinear" );
+    else
+        ut.failure( "excessive number of sets are collinear" );
 }
 
 
 // Get the convergence
 template<class TYPE>
-void testConvergence( AMP::UnitTest *ut, int ndim )
+void testConvergence( AMP::UnitTest &ut, int ndim )
 {
     // Create two grids with different resolution
     int box[6] = { -1000, 1000, -1000, 1000, -1000, 1000 };
@@ -853,12 +884,90 @@ void testConvergence( AMP::UnitTest *ut, int ndim )
     auto set1  = createBoxPoints<TYPE>( 3, box, dx1 );
     auto set2  = createBoxPoints<TYPE>( 3, box, dx2 );
     // Create the tessellation
-    auto data1 = createAndTestDelaunayInterpolation<TYPE>( ut, ndim, set1 );
-    auto data2 = createAndTestDelaunayInterpolation<TYPE>( ut, ndim, set2 );
+    [[maybe_unused]] auto data1 = createAndTestDelaunayInterpolation<TYPE>( ut, ndim, set1 );
+    [[maybe_unused]] auto data2 = createAndTestDelaunayInterpolation<TYPE>( ut, ndim, set2 );
     // Check the convergence for different interpolation method
     for ( int method = 0; method < 3; method++ ) {}
-    NULL_USE( data1 );
-    NULL_USE( data2 );
+}
+
+
+// Run an input
+void runInput( AMP::UnitTest &ut, const std::string &filename )
+{
+    printp( "Running input: %s\n", filename.data() );
+    auto s = AMP::IO::getSuffix( filename );
+    if ( s == "h5" || s == "hdf" || s == "hdf5" ) {
+#ifdef USE_AMP_HDF5
+        auto fid  = AMP::IO::openHDF5( filename, "r" );
+        auto type = AMP::IO::getHDF5datatype( fid, "x" );
+        if ( type == AMP::IO::getHDF5datatype<int>() ) {
+            AMP::Array<int> x;
+            AMP::IO::readHDF5( fid, "x", x );
+            testInterpolation<int>( ut, filename, x, false );
+        } else {
+            AMP::Array<double> x;
+            AMP::IO::readHDF5( fid, "x", x );
+            testInterpolation<double>( ut, filename, x, false );
+        }
+        AMP::IO::closeDatatype( type );
+        AMP::IO::closeHDF5( fid );
+#else
+        ut.expected_failure( filename + " - No HDF5" );
+#endif
+    } else {
+        auto x   = readPoints( filename );
+        int ndim = x.size( 0 );
+        if ( ndim <= NDIM_MAX )
+            testInterpolation<double>( ut, filename, x, false );
+        else
+            testPointSearch( ut, x );
+    }
+}
+
+
+// Run default tests
+void runDefault( AMP::UnitTest &ut )
+{
+    printp( "Running point search tests\n" );
+    for ( int d = 1; d <= 5; d++ ) {
+        testPointSearch( ut, createRandomPoints<double>( d, 10 ) );
+        testPointSearch( ut, createRandomPoints<double>( d, 20 ) );
+        testPointSearch( ut, createRandomPoints<double>( d, 50 ) );
+        testPointSearch( ut, createRandomPoints<double>( d, 3000 ) );
+        testPointSearch( ut, createRandomPoints<int>( d, 100 ) );
+    }
+
+    // Test collinear
+    printp( "Running collinear test\n" );
+    testCollinear( ut );
+
+    // Test DelaunayInterpolation with random points in 1D, 2D and 3D
+    for ( int d = 1; d <= NDIM_MAX; d++ ) {
+        printp( "Running interpolation tests with random points %iD (double)\n", d );
+        testInterpolationRandom<double>( ut, d, d + 1 ); // minimum # of points
+        testInterpolationRandom<double>( ut, d, 10 );    // small # of points
+        testInterpolationRandom<double>( ut, d, 1000 );  // medium # of points
+        testInterpolationRandom<double>( ut, d, 10000 ); // large # of points
+        printp( "Running interpolation tests with random points %iD (int)\n", d );
+        testInterpolationRandom<int>( ut, d, d + 1 ); // minimum # of points
+        testInterpolationRandom<int>( ut, d, 10 );    // small # of points
+        testInterpolationRandom<int>( ut, d, 1000 );  // medium # of points
+        testInterpolationRandom<int>( ut, d, 10000 ); // large # of points
+    }
+
+    // Run some predefined tests
+    for ( int i = 1; i <= 6; i++ ) {
+        printp( "Running predefined test %i\n", i );
+        auto tmp = stringf( "Problem %i", i );
+        PROFILE2( tmp );
+        testInterpolation( ut, tmp, createProblem<int>( i ) );
+        testInterpolation( ut, tmp, createProblem<double>( i ) );
+    }
+
+    // Run any input file problems
+    auto inputs = { "point_set_2d", "point_set_2d_2", "point_set_2d_3", "point_set_2d_4" };
+    for ( auto input : inputs )
+        runInput( ut, input );
 }
 
 
@@ -867,55 +976,13 @@ int main( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-    srand( static_cast<unsigned int>( time( nullptr ) ) );
     PROFILE_ENABLE( 5 ); // 0: code, 1: tests, 3: basic timers, 5: all timers
 
-    // Check that we can create "random" points
-    printp( "Running random number test\n" );
-    testRandomNumber( &ut, 100000 );
-
-    // Run some basic tests on the point search
-    printp( "Running point search tests\n" );
-    for ( int d = 1; d <= 5; d++ ) {
-        testPointSearch( &ut, createRandomPoints<double>( d, 10 ) );
-        testPointSearch( &ut, createRandomPoints<double>( d, 20 ) );
-        testPointSearch( &ut, createRandomPoints<double>( d, 50 ) );
-        testPointSearch( &ut, createRandomPoints<double>( d, 3000 ) );
-        testPointSearch( &ut, createRandomPoints<int>( d, 100 ) );
-    }
-
-    // Test DelaunayInterpolation with random points in 1D, 2D and 3D
-    for ( int d = 1; d <= NDIM_MAX; d++ ) {
-        printp( "Running interpolation tests with random points %iD (double)\n", d );
-        testInterpolation( &ut, createRandomPoints<double>( d, d + 1 ) ); // minimum # of points
-        testInterpolation( &ut, createRandomPoints<double>( d, 10 ) );    // small # of points
-        testInterpolation( &ut, createRandomPoints<double>( d, 1000 ) );  // medium # of points
-        testInterpolation( &ut, createRandomPoints<double>( d, 10000 ) ); // large # of points
-        printp( "Running interpolation tests with random points %iD (int)\n", d );
-        testInterpolation( &ut, createRandomPoints<int>( d, d + 1 ) ); // minimum # of points
-        testInterpolation( &ut, createRandomPoints<int>( d, 10 ) );    // small # of points
-        testInterpolation( &ut, createRandomPoints<int>( d, 1000 ) );  // medium # of points
-        // testInterpolation<int>( &ut, createRandomPoints<int>(d,10000) ); // large # of points
-    }
-
-    // Run some predefined tests
-    for ( int i = 1; i <= 6; i++ ) {
-        printp( "Running predefined test %i\n", i );
-        auto tmp = AMP::Utilities::stringf( "Problem %i", i );
-        PROFILE2( tmp );
-        testInterpolation( &ut, createProblem<int>( i ) );
-        testInterpolation( &ut, createProblem<double>( i ) );
-    }
-
-    // Run any input file problems
-    for ( int i = 1; i < argc; i++ ) {
-        printp( "Running input: %s\n", argv[i] );
-        auto data = readPoints( argv[i] );
-        int ndim  = data.size( 0 );
-        if ( ndim <= NDIM_MAX )
-            testInterpolation<double>( &ut, data, false );
-        else
-            testPointSearch( &ut, data );
+    if ( argc == 1 ) {
+        runDefault( ut );
+    } else {
+        for ( int i = 1; i < argc; i++ )
+            runInput( ut, argv[i] );
     }
 
     PROFILE_SAVE( "test_DelaunayInterpolation" );

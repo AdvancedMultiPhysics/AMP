@@ -56,6 +56,8 @@ public:
 
     void testEpetra( AMP::UnitTest *ut );
 
+    void testTpetra( AMP::UnitTest *ut );
+
 
 public:
     void InstantiateVector( AMP::UnitTest *utils );
@@ -130,6 +132,9 @@ public:
     // This should always return one copy of the superset of the data
     void TestMultivectorDuplicate( AMP::UnitTest *utils );
 
+    void TestContainsGlobalElement( AMP::UnitTest *utils );
+
+    void VerifyVectorSetZeroGhosts( AMP::UnitTest *utils );
 
 public: // Vector selector tests
     // Test to check that Vector::select, Vector::select, VectorSelector::subset,

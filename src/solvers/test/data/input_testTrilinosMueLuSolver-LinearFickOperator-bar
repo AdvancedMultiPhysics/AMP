@@ -1,69 +1,18 @@
-
-Mesh{
-    FileName = "cube4096.e"
-    MeshName = "bar"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 4096
-}
-
-DiffusionBVPOperator {
-   name="LinearBVPOperator"
-   print_info_level = 1
-   VolumeOperator = "DiffusionLinearFEOperator1"
-   BoundaryOperator = "DirichletMatrixCorrection1"
-}
-
-DiffusionLinearFEOperator1{
-   name="DiffusionLinearFEOperator"
-   FixedTemperature = TRUE
-   FixedConcentration = TRUE
-   FixedBurnup   = TRUE
-   InputVariable = "therm"
-   OutputVariable = "therm"
- 
-   DiffusionElement {
-     name="DiffusionLinearElement"
-        FE_ORDER = "FIRST"  
-     FE_FAMILY = "LAGRANGE"
-     QRULE_TYPE = "QGAUSS"
-     QRULE_ORDER = "DEFAULT"
-   }
-   LocalModel = "DiffusionTransportModel1"
-}
-
-DirichletMatrixCorrection1 {
-   name="DirichletMatrixCorrection"
-   skip_params = FALSE
-   skip_rhs_correction = FALSE
-   skip_rhs_add_correction = FALSE
-    number_of_ids = 2
-   id_0             = 2
-   number_of_dofs_0 =   1
-   dof_0_0          =   0
-   value_0_0        = .15
-   id_1             = 1
-   number_of_dofs_1 =   1
-   dof_1_0          =   0
-   value_1_0        = .1
-}
-
-DiffusionTransportModel1 {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "FickCoefficient"
-        Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-     Parameters = 1.0
-   }
+<<< "input_LinearFickOperator-bar" >>>
 
 LinearSolver{
+  name = "TrilinosMueLuSolver"
+  print_info_level = 0
   max_iterations = 10
-  max_error = 1e-10
+  absolute_tolerance = 1e-10
+  relative_tolerance = 1e-10
+  problem_symmetric =TRUE
+  smoother_pre_or_post = "both"
+  smoother_params{
+    relaxation_type = "Gauss-Seidel"
+    relaxation_sweeps = 2
+  }
+  coarse_max_size = 100
 }
 
 

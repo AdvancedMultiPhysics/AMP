@@ -1,10 +1,11 @@
+#include <algorithm>
 #include <cmath>
 #include <complex>
 #include <iomanip>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
-#include <unistd.h>
 #include <vector>
 
 #include "AMP/utils/AMPManager.h"
@@ -33,7 +34,17 @@ void run_thread( size_t message_size,
 }
 
 
-//  This will test the behavior of asyncronous communication under different behaviors
+// Function to erase elements from an array
+template<class T>
+void erase( std::vector<T> &x, std::vector<int> index )
+{
+    std::sort( index.begin(), index.end() );
+    for ( int i = index.size() - 1; i >= 0; i-- )
+        x.erase( x.begin() + index[i] );
+}
+
+
+//  This will test the behavior of asynchronous communication under different behaviors
 void run_test( size_t message_size, int N_messages, double sleep_duration, ThreadPool *tpool )
 {
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
@@ -65,7 +76,7 @@ void run_test( size_t message_size, int N_messages, double sleep_duration, Threa
         requests.clear();
         requests.push_back( globalComm.Isend( data_src, message_size, send_proc, i ) );
         requests.push_back( globalComm.Irecv( data_dst[i], message_size, recv_proc, i ) );
-        globalComm.waitAll( requests.size(), &requests[0] );
+        globalComm.waitAll( requests.size(), requests.data() );
         AMP::Utilities::sleep_ms( ms_sleep_duration ); // Mimic work
     }
     double end = globalComm.time();
@@ -79,14 +90,14 @@ void run_test( size_t message_size, int N_messages, double sleep_duration, Threa
         requests.push_back( globalComm.Isend( data_src, message_size, send_proc, i ) );
         requests.push_back( globalComm.Irecv( data_dst[i], message_size, recv_proc, i ) );
     }
-    std::vector<int> completed;
-    while ( requests.size() > completed.size() ) {
-        std::vector<int> index = globalComm.waitSome( requests.size(), &requests[0] );
+    std::set<int> completed;
+    while ( !requests.empty() ) {
+        auto index = globalComm.waitSome( requests.size(), requests.data() );
         for ( int i : index ) {
             if ( i % 2 == 1 )
                 AMP::Utilities::sleep_ms( ms_sleep_duration ); // Mimic work
-            completed.push_back( i );
         }
+        erase( requests, index );
     }
     end = globalComm.time();
     if ( rank == 0 )
@@ -94,7 +105,6 @@ void run_test( size_t message_size, int N_messages, double sleep_duration, Threa
     // Send the messages in parallel using isend / irecv (many threads)
     globalComm.barrier();
     start = globalComm.time();
-    requests.clear();
     for ( int i = 0; i < N_messages; i++ ) {
         TPOOL_ADD_WORK(
             tpool,

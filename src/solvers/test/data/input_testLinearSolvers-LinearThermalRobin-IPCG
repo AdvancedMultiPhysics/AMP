@@ -1,0 +1,18 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "CGSolver"
+  variant = "ipcg"
+  uses_preconditioner = FALSE
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 2
+  max_iterations = 100
+}
+
+Reference{
+  iterations = 65
+  res_l2_norm = 3.906183586243958e-09
+  tolerance = 4.0e-10
+  strict = FALSE
+}

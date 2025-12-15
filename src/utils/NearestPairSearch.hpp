@@ -38,7 +38,7 @@ inline std::pair<int, int> find_min_dist2( const size_t N, const TYPE *const *x,
                 }
             }
         }
-        dist = sqrt( dist1 );
+        dist = std::sqrt( dist1 );
         return index;
     }
     // Choose the split direction as the largest dimension
@@ -125,7 +125,7 @@ inline std::pair<int, int> find_min_dist2( const size_t N, const TYPE *const *x,
                 }
             }
         }
-        dist = sqrt( dist3 );
+        dist = std::sqrt( dist3 );
     } else {
         // Search recursively
         for ( int d = 0; d < NDIM; d++ )

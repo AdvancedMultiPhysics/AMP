@@ -1,21 +1,19 @@
 #include "AMP/IO/FileSystem.h"
 #include "AMP/utils/AMP_MPI.h"
-#include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/Utilities.h"
 
 #include <algorithm>
+#include <chrono>
+#include <filesystem>
 #include <fstream>
+#include <thread>
 
 
 /****************************************************************************
  *  Filesystem utilities                                                     *
  ****************************************************************************/
 constexpr static char slash[] = { 0x2F, 0x5C, 0x0 };
-bool AMP::IO::fileExists( const std::string &filename )
-{
-    std::ifstream ifile( filename.c_str() );
-    return ifile.good();
-}
-
+bool AMP::IO::exists( const std::string &filename ) { return std::filesystem::exists( filename ); }
 std::string AMP::IO::path( const std::string &filename )
 {
     size_t pos = filename.find_last_of( slash );
@@ -23,7 +21,6 @@ std::string AMP::IO::path( const std::string &filename )
         return {};
     return filename.substr( 0, pos );
 }
-
 std::string AMP::IO::filename( const std::string &filename )
 {
     size_t pos = filename.find_last_of( slash );
@@ -31,32 +28,23 @@ std::string AMP::IO::filename( const std::string &filename )
         return filename;
     return filename.substr( pos + 1 );
 }
-
-void AMP::IO::renameFile( const std::string &old_filename, const std::string &new_filename )
+void AMP::IO::rename( const std::string &old_filename, const std::string &new_filename )
 {
     AMP_ASSERT( !old_filename.empty() );
     AMP_ASSERT( !new_filename.empty() );
-    rename( old_filename.c_str(), new_filename.c_str() );
+    std::filesystem::rename( old_filename, new_filename );
 }
-
 void AMP::IO::deleteFile( const std::string &filename )
 {
-    AMP_ASSERT( !filename.empty() );
-    if ( fileExists( filename ) ) {
-        int error = remove( filename.c_str() );
-        AMP_INSIST( error == 0, "Error deleting file" );
-    }
+    std::filesystem::remove( filename );
+    if ( std::filesystem::exists( filename ) )
+        AMP_ERROR( "Error deleting file" );
 }
 size_t AMP::IO::fileSize( const std::string &filename )
 {
-    AMP_ASSERT( !filename.empty() );
-    if ( !fileExists( filename ) )
+    if ( !std::filesystem::exists( filename ) )
         return 0;
-    auto f = fopen( filename.data(), "rb" );
-    fseek( f, 0, SEEK_END );
-    size_t bytes = ftell( f );
-    fclose( f );
-    return bytes;
+    return std::filesystem::file_size( filename );
 }
 std::string AMP::IO::getSuffix( const std::string &filename )
 {
@@ -68,41 +56,49 @@ std::string AMP::IO::getSuffix( const std::string &filename )
         c = std::tolower( c );
     return suffix;
 }
-
-void AMP::IO::recursiveMkdir( const std::string &path, mode_t mode, bool only_node_zero_creates )
+static bool recursiveMkdir2( const std::string &path )
 {
-    AMP_MPI comm = AMP_MPI( AMP_COMM_WORLD );
-    // Create/check a directory
-    auto check = []( const std::string &path ) {
-        struct stat status;
-        if ( stat( path.c_str(), &status ) == 0 ) {
-            if ( S_ISDIR( status.st_mode ) ) {
-                return true;
-            } else {
-                AMP_ERROR( "Cannot create directory \"" + path +
-                           "\" because it exists and is NOT a directory" );
-            }
-        }
+    if ( path.empty() || path == "." )
         return false;
-    };
-    auto create = [check, mode]( const std::string &path ) {
-        if ( check( path ) )
-            return;
-        if ( mkdir( path.c_str(), mode ) != 0 )
-            AMP_ERROR( "Cannot create directory " + path );
-    };
-    // Create the parent directories (if they exist)
-    bool createPath = comm.getRank() == 0 || !only_node_zero_creates;
-    if ( !path.empty() && createPath ) {
-        std::string split = "\\/";
-        size_t pos        = path.find_first_of( split, 0 );
-        while ( pos != std::string::npos ) {
-            create( path.substr( 0, pos ) );
-            pos = path.find_first_of( split, pos + 1 );
-        }
-        create( path );
+    // Create the directories
+    bool created = std::filesystem::create_directories( path );
+    // Verify they exist
+    bool exists = std::filesystem::exists( path );
+    if ( !exists ) {
+        std::this_thread::sleep_for( std::chrono::milliseconds( 20 ) );
+        exists = std::filesystem::exists( path );
     }
-    // Make sure all processors wait until node zero creates the directory structure.
-    if ( only_node_zero_creates )
-        comm.barrier();
+    if ( !exists )
+        AMP_ERROR( "Cannot create directory " + path );
+    return created;
 }
+void AMP::IO::recursiveMkdir( const std::string &path ) { recursiveMkdir2( path ); }
+void AMP::IO::permissions( const std::string &filename, std::filesystem::perms mode )
+{
+    std::filesystem::permissions( filename, mode );
+}
+
+
+/****************************************************************************
+ *  deprecated functions                                                     *
+ ****************************************************************************/
+bool AMP::IO::fileExists( const std::string &filename ) { return exists( filename ); }
+void AMP::IO::renameFile( const std::string &old_filename, const std::string &new_filename )
+{
+    rename( old_filename, new_filename );
+}
+#if !( defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 ) || \
+       defined( _MSC_VER ) )
+void AMP::IO::recursiveMkdir( const std::string &path, mode_t mode )
+{
+    bool created = recursiveMkdir2( path );
+    if ( created )
+        std::filesystem::permissions( path, static_cast<std::filesystem::perms>( mode ) );
+}
+void AMP::IO::recursiveMkdir( const std::string &path, mode_t mode, bool )
+{
+    bool created = recursiveMkdir2( path );
+    if ( created )
+        std::filesystem::permissions( path, static_cast<std::filesystem::perms>( mode ) );
+}
+#endif

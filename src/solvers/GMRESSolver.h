@@ -82,31 +82,34 @@ public:
     void initialize( std::shared_ptr<const SolverStrategyParameters> params ) override;
 
     /**
-     * sets a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     * @param pc shared pointer to preconditioner
+     * Register the operator that the solver will use during solves
+     * @param [in] op shared pointer to operator $A()$ for equation \f$A(u) = f\f$
      */
-    inline void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override
-    {
-        d_pPreconditioner = pc;
-    }
-
-    inline std::shared_ptr<AMP::Solver::SolverStrategy> getNestedSolver() override
-    {
-        return d_pPreconditioner;
-    }
+    void registerOperator( std::shared_ptr<AMP::Operator::Operator> op ) override;
 
     /**
-     * Resets the registered operator internally with new parameters if necessary
-     * @param params    OperatorParameters object that is NULL by default
+     * Checks if the restart is allowed
      */
-    void resetOperator( std::shared_ptr<const AMP::Operator::OperatorParameters> params ) override;
+    bool restarted() { return d_bRestart; }
 
 protected:
     //! orthogonalize the vector against the existing vectors in the basis
     // stored internally. Store the coefficients of the Arnoldi
     // iteration internally in a upper Hessenberg matrix
     virtual void orthogonalize( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v );
+
+    //! return the inner products of v against the first k basis vectors
+    std::vector<T> basisInnerProducts( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v );
+
+    //! orthogonalize the vector against the existing vectors in the basis
+    // stored internally using classical Gram-Schmidt. Store the coefficients of the Arnoldi
+    // iteration internally in a upper Hessenberg matrix
+    void cgs( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v );
+
+    //! orthogonalize the vector against the existing vectors in the basis
+    // stored internally using classical Gram-Schmidt with re-orthogonalization. Store the
+    // coefficients of the Arnoldi iteration internally in a upper Hessenberg matrix
+    void cgs2( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v );
 
     //! apply the i-th Givens rotation to the k-th column of the Hessenberg matrix
     void applyGivensRotation( const int i, const int k );
@@ -150,10 +153,17 @@ protected:
     void getFromInput( std::shared_ptr<AMP::Database> db );
 
 private:
+    /**
+     * Allocate the vector basis in d_iBasisAllocSize chunks (d_vBasis & d_zBasis)
+     */
+    void allocateBasis( std::shared_ptr<const AMP::LinearAlgebra::Vector> u = nullptr );
+
     bool d_bRestart = false; //! whether to restart
 
     int d_iMaxKrylovDimension = 50; //! maximum dimension of the Krylov subspace before a restart or
                                     //! termination happens
+
+    int d_iBasisAllocSize = 4; //! size of the allocation increases for the vector basis
 
     int d_restarts; //! logs number of times the solver is restarted
 
@@ -191,16 +201,17 @@ private:
     //! stores the solution for the least squares system
     std::vector<T> d_dy;
 
-    //! shared pointer to preconditioner if it exists
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pPreconditioner;
-
     //! stores the orthonormal basis for the Krylov space
     //! we do not preallocate by default
-    std::vector<AMP::LinearAlgebra::Vector::shared_ptr> d_vBasis;
+    std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> d_vBasis;
 
     //! stores the orthonormal basis for the Krylov space in case of FGMRES
     //! we do not preallocate by default
-    std::vector<AMP::LinearAlgebra::Vector::shared_ptr> d_zBasis;
+    std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> d_zBasis;
+
+    //! stores the vectors needed for right and left preconditioning
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_z;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_z1;
 };
 } // namespace AMP::Solver
 

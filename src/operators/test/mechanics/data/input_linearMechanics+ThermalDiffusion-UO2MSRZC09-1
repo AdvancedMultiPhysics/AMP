@@ -2,6 +2,23 @@
 numberOfOperators=2
 dofsPerNode = 3, 1
 
+MechanicsMaterialModel { 
+       name="IsotropicElasticModel"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+      }
+
+
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "UO2_MSRZC_09"
+        Property = "ThermalConductivity"
+        Default_Concentration = .15
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+    } 
+
+
 testOperator1 {
       name = "MechanicsLinearFEOperator"
       print_info_level = 1
@@ -18,7 +35,7 @@ testOperator1 {
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel = "MechanicsMaterialModel"
+      LocalModel = MechanicsMaterialModel
 }
   
 testOperator2{
@@ -39,22 +56,7 @@ testOperator2{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 }
 
-MechanicsMaterialModel { 
-       name="IsotropicElasticModel"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-      }
-
-
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "UO2_MSRZC_09"
-        Property = "ThermalConductivity"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-    } 
 

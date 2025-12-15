@@ -1,6 +1,7 @@
 #include "AMP/vectors/Scalar.hpp"
 #include "AMP/utils/AMP_MPI.h"
 
+#include <cmath>
 #include <math.h>
 
 
@@ -141,11 +142,11 @@ Scalar Scalar::sqrt() const
     if ( !has_value() )
         return 0.0;
     if ( is_floating_point() ) {
-        return ( ::sqrt( get<double>() ) );
+        return ( std::sqrt( get<double>() ) );
     } else if ( is_integral() ) {
-        return ( ::sqrt( get<int64_t>() ) );
+        return ( std::sqrt( get<int64_t>() ) );
     } else if ( is_complex() ) {
-        return ( ::sqrt( get<std::complex<double>>() ) );
+        return ( std::sqrt( get<std::complex<double>>() ) );
     } else {
         AMP_ERROR( "Unable to get types for Scalar" );
     }
@@ -298,7 +299,6 @@ INSTANTIATE_SCALAR( uint64_t );
 INSTANTIATE_SCALAR( float );
 INSTANTIATE_SCALAR( double );
 INSTANTIATE_SCALAR( long double );
-INSTANTIATE_SCALAR( std::complex<int> );
 INSTANTIATE_SCALAR( std::complex<float> );
 INSTANTIATE_SCALAR( std::complex<double> );
 

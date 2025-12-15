@@ -1,5 +1,4 @@
 #include "AMP/utils/typeid.h"
-#include "AMP/vectors/Vector.h"
 
 #include <memory>
 
@@ -16,7 +15,6 @@ static constexpr bool check( std::string_view name )
     auto type = getTypeID<T>();
     return std::string_view( type.name ) == name && type.bytes == sizeof( T ) && type.hash != 0;
 }
-using AMP::LinearAlgebra::Vector;
 static_assert( sizeof( uint8_t ) == sizeof( unsigned char ) );
 static_assert( check<int8_t>( "int8_t" ) );
 static_assert( check<int16_t>( "int16_t" ) );
@@ -38,17 +36,10 @@ static_assert( check<std::complex<float>>( "std::complex<float>" ) );
 static_assert( check<std::complex<double>>( "std::complex<double>" ) );
 static_assert( check<const double>( "double" ) );
 static_assert( check<const double &>( "double" ) );
-#if !defined( __INTEL_COMPILER )
-static_assert( check<std::shared_ptr<double>>( "std::shared_ptr<double>" ) );
+// static_assert( check<std::shared_ptr<double>>( "std::shared_ptr<double>" ) ); // Fails windows
 // static_assert( check<double *>( "double*" ) );  // Fails clang-16
 // static_assert( check<const double *>( "const double*" ) ); // Fails clang-16
 // static_assert( check<double const *>( "const double*" ) ); // Fails clang-16
-// static_assert( check<Vector>( "AMP::LinearAlgebra::Vector" ) );
-// static_assert( check<AMP::LinearAlgebra::Vector>( "AMP::LinearAlgebra::Vector" ) );
-// static_assert( check<AMP::LinearAlgebra::VectorData>( "AMP::LinearAlgebra::VectorData" ) );
-// static_assert( check<AMP::LinearAlgebra::VectorOperations>(
-//     "AMP::LinearAlgebra::VectorOperations" ) );
-#endif
 
 
 } // namespace AMP

@@ -2,10 +2,16 @@
 #define included_AMP_Utilities
 
 
+#include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Backend.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 
 #include "StackTrace/Utilities.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdarg>
 #include <limits>
@@ -32,7 +38,7 @@ inline T type_default_tol()
     else if constexpr ( std::is_same_v<T, double> )
         return 1e-12;
     else if constexpr ( std::is_floating_point_v<T> )
-        return pow( std::numeric_limits<T>::epsilon(), (T) 0.77 );
+        return std::pow( std::numeric_limits<T>::epsilon(), (T) 0.77 );
     else
         return T();
 }
@@ -58,14 +64,22 @@ using StackTrace::Utilities::tick;
 using StackTrace::Utilities::time;
 
 
-//! Enum to store pointer type
-enum class MemoryType : uint8_t { unregistered = 0, host = 1, managed = 2, device = 3 };
+//! Return the string description for the last value in errno
+std::string_view getLastErrnoString();
 
-//! Return the pointer type
-MemoryType getMemoryType( const void *ptr );
 
-//! Return a string for the memory type
-std::string getString( MemoryType );
+//! Check if valgrind is running
+bool running_valgrind();
+
+
+//! Check if a number infinity
+template<class TYPE>
+bool isInf( TYPE x );
+
+
+//! Check if a number NaN
+template<class TYPE>
+bool isNaN( TYPE x );
 
 
 /*!
@@ -152,6 +166,20 @@ inline bool approx_equal_abs( const T &v1, const T &v2, const T tol = type_defau
 
 
 /*!
+ * Helper function to copy and cast (single<->double precision) values between two arrays
+ * @param[in]    len      Length of above vectors
+ * @param[in]    vec_in   The incoming vector to get the values from
+ * @param[inout] vec_out  The outgoing vector to with the up/down-casted values from vec_in
+ *                        It is assumed that vec_out is properly allocated
+ */
+template<typename T1, typename T2, Backend, class Allocator>
+void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out );
+
+template<typename T1, typename T2, Backend>
+void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out );
+
+
+/*!
  * Quicksort a std::vector
  * \param N      Number of entries to sort
  * \param x      vector to sort
@@ -170,7 +198,7 @@ inline void quicksort( std::vector<T> &x )
 }
 
 /*!
- * Quicksort a std::vector
+ * Quicksort a vector
  * \param N      Number of entries to sort
  * \param x      Vector to sort
  * \param y      Extra values to be sorted with X
@@ -181,15 +209,24 @@ void quicksort( size_t N, T1 *x, T2 *y );
 /*!
  * Quicksort a std::vector
  * \param x      Vector to sort
- * \param y      Extra values to be sorted with X
+ * \param y      Extra values to be sorted with x
  */
 template<class T1, class T2>
 inline void quicksort( std::vector<T1> &x, std::vector<T2> &y )
 {
-    if ( x.size() != y.size() )
-        AMP_ERROR( "x and y must be the same size" );
+    AMP_INSIST( x.size() == y.size(), "x and y must be the same size" );
     quicksort( x.size(), x.data(), y.data() );
 }
+
+/*!
+ * Quicksort a vector
+ * \param N      Number of entries to sort
+ * \param x      Vector to sort
+ * \param y      Extra values to be sorted with x
+ * \param z      Extra values to be sorted with x
+ */
+template<class T1, class T2, class T3>
+void quicksort( size_t N, T1 *x, T2 *y, T3 *z );
 
 
 /*!
@@ -202,13 +239,12 @@ void unique( std::vector<T> &x );
 /*!
  * Subroutine to perform the unique operation on the elements in X
  * This function performs the unique operation on the values in X storing them in Y.
- * It also returns the index vectors I and J such that Y[k] = X[I[k]] and X[k] = Y[J[k]].
+ * It also returns the index vector I such that Y[k] = X[I[k]].
  * @param X         Points to sort (nx)
  * @param I         The index vector I (ny)
- * @param J         The index vector J (nx)
  */
 template<class T>
-void unique( std::vector<T> &X, std::vector<size_t> &I, std::vector<size_t> &J );
+void unique( std::vector<T> &X, std::vector<size_t> &I );
 
 
 /*!
@@ -317,11 +353,45 @@ inline void sleep_ms( int N ) { std::this_thread::sleep_for( std::chrono::millis
  */
 inline void sleep_s( int N ) { std::this_thread::sleep_for( std::chrono::seconds( N ) ); }
 
+/*!
+ * Busy wait for X ms
+ * @param N         Time to wait (ms)
+ */
+void busy_ms( int N );
+
+/*!
+ * Busy wait for X s
+ * @param N         Time to wait (s)
+ */
+inline void busy_s( int N ) { busy_ms( 1000 * N ); }
+
+
 //! Print AMP Banner
 void printBanner();
 
+
 //! Null use function
-void nullUse( void * );
+void nullUse( const void * );
+
+
+/*!
+ * \brief Function to return a unique alpha-numeric string across a given communicator.
+ * \details This will return a unique alpha-numeric string on the given communicator.
+ *   The string will be the same on all processors, but unique for all subsequent calls
+ *   to this routine regardless of the communicator used.
+ *   Note: this is a blocking call on the given communicator.
+ */
+std::string randomString( const AMP::AMP_MPI &comm = AMP_COMM_NULL );
+
+
+//! Fill with random values in [0,1]
+void fillRandom( std::vector<double> & );
+
+
+//! Fill with random values in [0,1]
+template<size_t N>
+void fillRandom( std::vector<std::array<double, N>> & );
+
 
 //! std::string version of sprintf
 inline std::string stringf( const char *format, ... )
@@ -397,6 +467,10 @@ private:
     TYPE d_data[CAPACITY];
 };
 
+
+void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
+                                       std::string outerOperatorName,
+                                       std::vector<std::string> nestedOperatorNames );
 
 } // namespace Utilities
 } // namespace AMP

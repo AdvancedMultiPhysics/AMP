@@ -1,10 +1,12 @@
-// Database for the mesh
-Mesh{
+Mesh {
     MeshName = "mesh"
-    MeshType = "libMesh"
-    FileName = "brick.e"
+    MeshType = "AMP"
+    Generator = "cube"
     dim = 3
-    NumberOfElements = 100
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
 }
 
 ThisTestOperator {
@@ -13,53 +15,51 @@ ThisTestOperator {
         SoretOperator = "SoretDiffusionLinearFEOperator"
 }
 
+DiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "FickCoefficient"
+    Default_Concentration = .15
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
 FickDiffusionLinearFEOperator{
-	    name = "DiffusionLinearFEOperator"
-	    InputVariable = "concentration"
-	    OutputVariable = "concentration"
-	    print_info_level = 1
-	    reset_reuses_matrix = TRUE
-	    FixedTemperature = TRUE
-	    FixedBurnup = TRUE
+    name = "DiffusionLinearFEOperator"
+    InputVariable = "concentration"
+    OutputVariable = "concentration"
+    print_info_level = 1
+    reset_reuses_matrix = TRUE
+    FixedTemperature = TRUE
+    FixedBurnup = TRUE
 
-	    DiffusionElement {
-	        name = "DiffusionLinearElement"
-	        TransportAtGaussPoints = TRUE
-	        FE_ORDER = "FIRST"  
-	        FE_FAMILY = "LAGRANGE"
-	        QRULE_TYPE = "QGAUSS"
-	        QRULE_ORDER = "DEFAULT"
-	    }    
-
-            LocalModel = "DiffusionTransportModel"
+    DiffusionElement {
+        name = "DiffusionLinearElement"
+        TransportAtGaussPoints = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }    
+    LocalModel = DiffusionTransportModel
 }
 
 SoretDiffusionLinearFEOperator{
-	    name = "DiffusionLinearFEOperator"
-	    InputVariable = "temperature"
-	    OutputVariable = "temperature"
-	    print_info_level = 1
-	    reset_reuses_matrix = TRUE
-	    FixedConcentration = TRUE
-	    FixedBurnup = TRUE
-
-	    DiffusionElement {
-	        name = "DiffusionLinearElement"
-	        TransportAtGaussPoints = TRUE
-	        FE_ORDER = "FIRST"  
-	        FE_FAMILY = "LAGRANGE"
-	        QRULE_TYPE = "QGAUSS"
-	        QRULE_ORDER = "DEFAULT"
-	    }    
-
-            LocalModel = "DiffusionTransportModel"
+    name = "DiffusionLinearFEOperator"
+    InputVariable = "temperature"
+    OutputVariable = "temperature"
+    print_info_level = 1
+    reset_reuses_matrix = TRUE
+    FixedConcentration = TRUE
+    FixedBurnup = TRUE
+    DiffusionElement {
+        name = "DiffusionLinearElement"
+        TransportAtGaussPoints = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }    
+    LocalModel = DiffusionTransportModel
 }
 
-DiffusionTransportModel{
-	        name = "DiffusionTransportModel"
-	        Material = "Independent"
-	        Property = "FickCoefficient"
-	        Default_Concentration = .15
-	        Default_Temperature   = 300.
-	        Default_Burnup   = 0.0
-} 

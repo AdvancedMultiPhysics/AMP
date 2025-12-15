@@ -97,16 +97,13 @@ protected:
     KeyData( const Units &unit ) : d_unit( unit ) {}
     KeyData( KeyData && )      = delete;
     KeyData( const KeyData & ) = delete;
+
     KeyData &operator=( KeyData && ) = delete;
     KeyData &operator=( const KeyData & ) = delete;
 
 protected:
     Units d_unit;
 };
-
-
-//! Register KeyData with the factory
-void registerKeyData( const std::string &name, std::function<std::unique_ptr<KeyData>()> fun );
 
 
 //! Class to a database

@@ -69,6 +69,15 @@ public: // Basic tests
     static void testID( AMP::UnitTest &ut );
 
 
+    /**
+     * \brief Check box mesh indicies
+     * \details  This tests checks conversion of box mesh indicies
+     * \param[in,out] ut        Unit test class to report the results
+     * \param[in] ndim          Number of dimensions for test
+     */
+    static void testBoxMeshIndicies( AMP::UnitTest &ut, int ndim );
+
+
 public: // Mesh based tests
     /**
      * \brief Checks the mesh iterators
@@ -198,6 +207,15 @@ public: // Mesh based tests
 
 
     /**
+     * \brief Check BoxMesh
+     * \details  Test specific BoxMesh tests
+     * \param[in,out] ut        Unit test class to report the results
+     * \param[in] mesh          Mesh to test
+     */
+    static void testBoxMesh( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::Mesh> mesh );
+
+
+    /**
      * \brief Check mesh performance
      * \details Test the performance of some common mesh operations
      * \param[in,out] ut        Unit test class to report the results
@@ -313,28 +331,13 @@ public: // Matrix based tests
     static void GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh );
 
 
-private: // Private data
-         /**
-          * \brief Check a mesh iterator
-          * \details  This test performs a series of simple tests on a single mesh element iterator
-          * \param[out] ut           Unit test class to report the results
-          * \param[in] mesh          mesh for the iterator
-          * \param[in] iterator      local iterator over elements
-          * \param[in] N_local       number of local elements for the iterator
-          * \param[in] N_ghost       number of ghost elements for the iterator
-          * \param[in] type          Geometric type
-          */
-    static void ElementIteratorTest( AMP::UnitTest &ut,
-                                     std::shared_ptr<AMP::Mesh::Mesh> mesh,
-                                     const AMP::Mesh::MeshIterator &iterator,
-                                     const size_t N_local,
-                                     const size_t N_ghost,
-                                     const AMP::Mesh::GeomType type );
-
-    // Helper function to create a map from the base mesh communicator rank to the main mesh
-    // communicator
-    static std::map<AMP::Mesh::MeshID, std::vector<int>>
-    createRankMap( std::shared_ptr<AMP::Mesh::Mesh> mesh );
+private:
+    static std::pair<size_t, size_t> ElementIteratorTest( AMP::UnitTest &ut,
+                                                          std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                                                          const AMP::Mesh::MeshIterator &iterator,
+                                                          const AMP::Mesh::GeomType type,
+                                                          const std::vector<int> &blockIds,
+                                                          const std::string &name );
 
     static std::shared_ptr<AMP::Mesh::Mesh> globalMeshForMeshVectorFactory;
 };

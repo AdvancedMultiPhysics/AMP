@@ -98,9 +98,10 @@ LinearTimeOperator::getParameters( const std::string &type,
                                    std::shared_ptr<AMP::Operator::OperatorParameters> params )
 {
     auto timeOperator_db = std::make_shared<AMP::Database>( "LinearTimeOperatorDatabase" );
-    timeOperator_db->putScalar( "CurrentDt", d_dCurrentDt );
-    timeOperator_db->putScalar( "name", "LinearTimeOperator" );
-    timeOperator_db->putScalar( "ScalingFactor", 1.0 / d_dCurrentDt );
+    auto Overwrite       = AMP::Database::Check::Overwrite;
+    timeOperator_db->putScalar( "CurrentDt", d_dCurrentDt, {}, Overwrite );
+    timeOperator_db->putScalar( "name", "LinearTimeOperator", {}, Overwrite );
+    timeOperator_db->putScalar( "ScalingFactor", 1.0 / d_dCurrentDt, {}, Overwrite );
 
     auto timeOperatorParameters =
         std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );

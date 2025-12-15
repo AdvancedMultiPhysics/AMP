@@ -6,28 +6,6 @@
 # valgrind --leak-check=yes --show-reachable=yes --suppressions=/projects/AMP/AMP/ValgrindSuppresionFile --log-file=memory.log ./test_AMPManager
 
 
-#### Supress AMP errors
-{
-   yyMemoryLeak1
-   Memcheck:Leak
-   ...
-   fun:realloc
-   fun:_Z9yyreallocPvj
-   fun:_ZL21yyensure_buffer_stackv
-   fun:_Z9yyrestartP7__sFILE
-   ...
-}
-{
-   yyMemoryLeak2
-   Memcheck:Leak
-   ...
-   fun:malloc
-   ...
-   fun:_ZN3AMP9yyrestartEP8_IO_FILE
-   ...
-}
-
-
 #### Supress std::ios_base::sync_with_stdio memory errors
 {
    std/ios_base/sync_with_stdio
@@ -39,7 +17,7 @@
 }
 
 
-#### Supress static_initialization_and_destruction
+# Supress static_initialization_and_destruction
 {
    static_initialization_and_destruction
    Memcheck:Leak
@@ -50,7 +28,113 @@
 }
 
 
-#### Supress MPI memory errors
+# ACML supressions
+{
+   IdentifyCPUCond
+   Memcheck:Cond
+   ...
+   fun:acmlcpuid2
+   ...
+}
+{
+   IdentifyCPUValue
+   Memcheck:Value8
+   ...
+   fun:acmlcpuid_once
+   fun:acmlcpuid2
+   ...
+}
+{
+   acmlfma3_cond
+   Memcheck:Cond
+   fun:acmlfma3_supported_
+   ...
+}
+{
+   acmlfma4_cond
+   Memcheck:Cond
+   fun:acmlfma4_supported_
+   ...
+}
+
+
+# MPI supressions
+{
+   MPI_init_cond
+   Memcheck:Cond
+   ...
+   fun:PMPI_Init
+   ...
+}
+{
+   MPI_init_value
+   Memcheck:Value8
+   ...
+   fun:PMPI_Init
+   ...
+}
+{
+   MPI_init_addr16
+   Memcheck:Addr16
+   ...
+   fun:PMPI_Init
+   ...
+}
+{
+   MPI_init_addr8
+   Memcheck:Addr8
+   ...
+   fun:PMPI_Init
+   ...
+}
+{
+   MPI_init_addr4
+   Memcheck:Addr4
+   ...
+   fun:PMPI_Init
+   ...
+}
+{
+   MPI_init_addr1
+   Memcheck:Addr1
+   ...
+   fun:PMPI_Init
+   ...
+}
+{
+   gethostname_cond
+   Memcheck:Cond
+   ...
+   fun:gethostbyname_r
+   fun:gethostbyname
+   ...
+}
+{
+   gethostname_value
+   Memcheck:Value8
+   ...
+   fun:gethostbyname_r
+   fun:gethostbyname
+   ...
+}
+{
+   PMPI_Init_malloc_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   ...
+   fun:PMPI_Init
+   ...
+}
+{
+   PMPI_Init_malloc_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   ...
+   fun:PMPI_Init
+   ...
+}
 {
    mpichInitThread
    Memcheck:Leak
@@ -59,9 +143,120 @@
    fun:_ZN3AMP7AMP_MPI9start_MPIERiPPci
    ...
 }
+{
+   orte_finalize
+   Memcheck:Leak
+   ...
+   fun:orte_finalize
+   fun:ompi_mpi_finalize
+   ...
+}
+{
+   clone_event
+   Memcheck:Leak
+   ...
+   fun:event_base_loop
+   ...
+   fun:start_thread
+   fun:clone
+}
+{
+   pmix_ptl_base_send_handler
+   Memcheck:Param
+   writev(vector[1])
+   ...
+   fun:pmix_ptl_base_send_handler
+   ...
+}
+{
+   ompi_mpi_init
+   Memcheck:Leak
+   ...
+   fun:ompi_mpi_init
+   ...
+}
+{
+   orte_init_leak
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_init
+   ...
+}
+{
+   orte_init_leak
+   Memcheck:Leak
+   fun:calloc
+   ...
+   fun:orte_init
+   ...
+}
+{
+   orte_daemon_recv
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_daemon_recv
+   ...
+}
+{
+   orte_rmaps_base_map_job
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_rmaps_base_map_job
+   ...
+}
+{
+   orte_plm_base_post_launch
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_plm_base_post_launch
+   ...
+}
+{
+   orte_debugger_init_after_spawnh
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_debugger_init_after_spawn
+   ...
+}
+{
+   orte_odls_base_default_launch_local
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_odls_base_default_launch_local
+   ...
+}
+{
+   orte_iof_base_write_output
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:orte_iof_base_write_output
+   ...
+}
+{
+   orte_submit_init
+   Memcheck:Leak
+   ...
+   fun:orte_submit_init
+   ...
+}
+{
+   orte_exit
+   Memcheck:Leak
+   ...
+   fun:exit
+   obj:/usr/bin/orterun
+   ...
+}
 
 
-#### Supress nvidia errors
+# Supress nvidia errors
 {
    libnvidia-opencl
    Memcheck:Leak
@@ -71,7 +266,228 @@
 }
 
 
-#### Supress HDF5 memory errors
+# hwloc
+{
+   hwloc_leak
+   Memcheck:Leak
+   ...
+   obj:*/libhwloc.so*
+}
+{
+   hwloc_topology_load_leak
+   Memcheck:Leak
+   ...
+   fun:hwloc_topology_load
+   ...
+}
+{
+   hwloc_PMPI_Init_leak
+   Memcheck:Leak
+   obj:*/libhwloc.so*
+   ...
+   fun:PMPI_Init
+   ...
+}
+
+
+# System errors
+{
+   map_doit_memory
+   Memcheck:Cond
+   fun:index
+   fun:expand_dynamic_string_token
+   fun:_dl_map_object
+   fun:map_doit
+   fun:_dl_catch_error
+   ...
+}
+{
+   expand_dynamic_string_token
+   Memcheck:Cond
+   fun:index
+   fun:expand_dynamic_string_token
+   ...
+   fun:dl_main
+   fun:_dl_sysdep_start
+   fun:_dl_start
+   ...
+}
+{
+   call_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:call_init
+   fun:_dl_init
+   ...
+}
+{
+   dl_open_worker_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:dl_open_worker
+   ...
+}
+{
+   dl_open_worker_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   ...
+   fun:dl_open_worker
+   ...
+}
+{
+   dl_open_worker_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:dl_open_worker
+   ...
+}
+{
+   start_thread_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:start_thread
+   fun:clone
+}
+{
+   start_thread_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   ...
+   fun:start_thread
+   fun:clone
+}
+{
+   start_thread_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+
+# pthread errors
+{
+   pthread_initialize_param
+   Memcheck:Param
+   set_robust_list(head)
+   fun:__pthread_initialize_minimal
+   fun:(below main)
+}
+{
+   pthread_initialize_cond
+   Memcheck:Cond
+   fun:__register_atfork
+   fun:__libc_pthread_init
+   fun:__pthread_initialize_minimal
+   fun:(below main)
+}
+
+
+# std
+{
+   libc_cond
+   Memcheck:Cond
+   ...
+   fun:_dl_init_paths
+   fun:_dl_non_dynamic_init
+   fun:__libc_init_first
+   fun:(below main)
+}
+{
+   libc_val8
+   Memcheck:Value8
+   ...
+   fun:_dl_init_paths
+   fun:_dl_non_dynamic_init
+   fun:__libc_init_first
+   fun:(below main)
+}
+{
+   mallinfo_cond
+   Memcheck:Cond
+   fun:int_mallinfo
+   fun:mallinfo
+   ...
+}
+{
+   mallinfo_value
+   Memcheck:Value8
+   fun:int_mallinfo
+   fun:mallinfo
+   ...
+}
+{
+   int_free_cond
+   Memcheck:Cond
+   fun:_int_free
+   ...
+}
+{
+   string_len_cond
+   Memcheck:Cond
+   fun:strlen
+   ...
+}
+{
+   int_malloc_cond
+   Memcheck:Cond
+   fun:_int_malloc
+   fun:malloc
+   ...
+}
+{
+   malloc_consolidate_malloc
+   Memcheck:Cond
+   fun:malloc_consolidate
+   fun:_int_malloc
+   ...
+}
+{
+   malloc_consolidate_free
+   Memcheck:Cond
+   fun:malloc_consolidate
+   fun:_int_free
+   ...
+}
+{
+   catch_cond
+   Memcheck:Cond
+   fun:__cxa_begin_catch
+   ...
+}
+{
+   popen
+   Memcheck:Param
+   set_robust_list(head)
+   fun:__nptl_set_robust
+   fun:__libc_fork
+   fun:_IO_proc_open
+   fun:popen
+   ...
+}
+{
+   exit
+   Memcheck:Value8
+   fun:__run_exit_handlers
+   ...
+   fun:exit
+   ...
+}
+{
+   sse42
+   Memcheck:Cond
+   fun:__strstr_sse42
+   ...
+}
+
+
+# HDF5 memory errors
 {
    HDF5_H5Eset_auto2
    Memcheck:Leak
@@ -82,7 +498,7 @@
 }
 
 
-#### Suppress minor PETsc memory errors
+# PETsc memory errors
 {
    PetscGetUserName/getpwuid
    Memcheck:Leak
@@ -147,7 +563,7 @@
 }
 
 
-#### Suppress all libgfortran errors
+# libgfortran errors
 {
    LibGFortranCond
     Memcheck:Cond
@@ -171,30 +587,31 @@
 }
 
 
-#### Suppress all LibMesh errors
+# Suppress OpenMP leaks
+{
+   omp_set_num_threads
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:omp_set_num_threads
+   ...
+}
+{
+   GOMP_parallel
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:GOMP_parallel
+   ...
+}
+
+
+# Suppress all LibMesh errors
 {
    LibMeshInit
    Memcheck:Leak
    ...
    fun:_ZN11LibMeshInitC1ERiRPPci
-   ...
-}
-
-
-#### Suppress ACML errors
-{
-   acmlcpuid1
-   Memcheck:Cond
-   ...
-   fun:acmlcpuid2
-   ...
-}
-{
-   acmlcpuid2
-   Memcheck:Value8
-   ...
-   fun:acmlcpuid_once
-   fun:acmlcpuid2
    ...
 }
 
@@ -259,7 +676,7 @@
    ...
 }
 {
-   demangeLeak
+   demangleLeak
    Memcheck:Leak
    ...
    fun:malloc
@@ -321,30 +738,6 @@
    ...
    fun:map_images_nolock
    fun:map_images
-   ...
-}
-
-
-# Supress linux errors 
-{
-   expand_dynamic_string_token
-   Memcheck:Cond
-   fun:index
-   fun:expand_dynamic_string_token
-   ...
-   fun:dl_main
-   fun:_dl_sysdep_start
-   fun:_dl_start
-   ...
-}
-{
-   call_init
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   ...
-   fun:call_init
-   fun:_dl_init
    ...
 }
 

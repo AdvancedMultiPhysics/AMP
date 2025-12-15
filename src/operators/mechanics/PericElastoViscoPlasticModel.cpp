@@ -340,7 +340,7 @@ void PericElastoViscoPlasticModel::getEffectiveStress( double *& )
     for(int i = 0; i < 6; i++) {
     stress[i] = d_tmp1Stress[(6*d_gaussPtCnt)+i];
     }
-    eff_stress = sqrt((stress[0] * stress[0]) + (stress[1] * stress[1]) +
+    eff_stress = std::sqrt((stress[0] * stress[0]) + (stress[1] * stress[1]) +
         (stress[2] * stress[2]) + (2.0 * stress[3] * stress[3]) +
         (2.0 * stress[4] * stress[4]) + (2.0 * stress[5] * stress[5]));
     sigma_e = &(eff_stress);*/
@@ -431,7 +431,7 @@ void PericElastoViscoPlasticModel::constructConstitutiveMatrix()
 
     one3 = 1.0 / 3.0;
     two3 = 2.0 / 3.0;
-    // sq23 = sqrt(two3);
+    // sq23 = std::sqrt(two3);
 
     d_Delta_Time = d_currentTime - d_previousTime;
 
@@ -511,10 +511,10 @@ void PericElastoViscoPlasticModel::constructConstitutiveMatrix()
     }*/
 
     // The effective stress.
-    q_np1 = sqrt( ( 3.0 / 2.0 ) *
-                  ( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
-                    ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
-                    ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) ) );
+    q_np1 = std::sqrt( ( 3.0 / 2.0 ) *
+                       ( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
+                         ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
+                         ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) ) );
 
     // The normal direction.
     for ( int i = 0; i < 6; i++ ) {
@@ -527,7 +527,7 @@ void PericElastoViscoPlasticModel::constructConstitutiveMatrix()
 
     term1 = ( d_Viscosity * d_Epsilon ) / ( ( d_Viscosity * lam ) + d_Delta_Time );
     term2 = d_Delta_Time / ( ( d_Viscosity * lam ) + d_Delta_Time );
-    term3 = pow( term2, -d_Epsilon );
+    term3 = std::pow( term2, -d_Epsilon );
     term4 = ( 3.0 * G ) + ( q_np1 * term1 ) + ( d_H * term3 );
     AMP_INSIST( term4 > tol, "Divide by zero in term4 of PericElastoViscoPlasticModel." );
     dlam_dqtr = 1.0 / term4;
@@ -603,7 +603,7 @@ double PericElastoViscoPlasticModel::calculate_E1( const double lambda,
     double E1, term1, term2;
     term1 = q_np1_trial - ( 3.0 * G * lambda );
     term2 = d_Delta_Time / ( ( lambda * d_Viscosity ) + d_Delta_Time );
-    E1    = ( term1 * pow( term2, d_Epsilon ) ) - yield_stress_np1;
+    E1    = ( term1 * std::pow( term2, d_Epsilon ) ) - yield_stress_np1;
     return ( E1 );
 }
 
@@ -618,8 +618,8 @@ double PericElastoViscoPlasticModel::calculate_dE1_dlambda( const double lambda,
     term3 = ( d_Epsilon * d_Delta_Time * d_Viscosity ) /
             ( ( ( lambda * d_Viscosity ) + d_Delta_Time ) *
               ( ( lambda * d_Viscosity ) + d_Delta_Time ) );
-    term4       = 3.0 * G * pow( term2, d_Epsilon );
-    term5       = term1 * term3 * pow( term2, ( d_Epsilon - 1.0 ) );
+    term4       = 3.0 * G * std::pow( term2, d_Epsilon );
+    term5       = term1 * term3 * std::pow( term2, ( d_Epsilon - 1.0 ) );
     dE1_dlambda = -term4 - term5 - d_H;
     return ( dE1_dlambda );
 }
@@ -698,7 +698,7 @@ void PericElastoViscoPlasticModel::radialReturn( const double *stra_np1,
             double E        = d_E[d_gaussPtCnt];
             double exp_term = 1.0 / ( 1.0 - n );
 
-            d_Sig0 = pow( ( ( K / pow( E, n ) ) * pow( str_term, m ) ), exp_term );
+            d_Sig0 = std::pow( ( ( K / std::pow( E, n ) ) * std::pow( str_term, m ) ), exp_term );
         }
     }
 
@@ -789,7 +789,7 @@ void PericElastoViscoPlasticModel::radialReturn( const double *stra_np1,
     */
     one3 = 1.0 / 3.0;
     // two3 = 2.0/3.0;
-    // sq23 = sqrt(two3);
+    // sq23 = std::sqrt(two3);
     ephbp_n = eph_bar_plas_n; // Effective plastic strain at the previous time step.
     sigy_n  = ystre_n;        // Yield stress at the previous time step.
     term1   = 2.0 * ( 1.0 + Nu );
@@ -824,7 +824,7 @@ void PericElastoViscoPlasticModel::radialReturn( const double *stra_np1,
     sig_trial_kk = sig_kk + ( 3.0 * K * deph_kk );
 
     // Compute the trial effective stress.
-    q_trial = sqrt(
+    q_trial = std::sqrt(
         three2 *
         ( ( sig_trial_dev[0] * sig_trial_dev[0] ) + ( sig_trial_dev[1] * sig_trial_dev[1] ) +
           ( sig_trial_dev[2] * sig_trial_dev[2] ) + ( 2.0 * sig_trial_dev[3] * sig_trial_dev[3] ) +

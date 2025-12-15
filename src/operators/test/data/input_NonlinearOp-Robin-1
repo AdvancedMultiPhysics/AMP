@@ -1,4 +1,13 @@
-Mesh = "brick.e"
+Mesh {
+    MeshName = "mesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
+}
 
 NonlinearDiffusionBVPOperator {
    name="NonlinearBVPOperator"
@@ -17,6 +26,16 @@ LinearDiffusionBVPOperator {
 
 }
 
+DiffusionTransportModel {
+    name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    print_info_level = 2 
+    Default_Concentration = .15
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+}
+
 
 DiffusionNonlinearFEOperator{
 	 name="DiffusionNonlinearFEOperator"
@@ -28,7 +47,7 @@ DiffusionNonlinearFEOperator{
 	   temperature="temperature"
 	 }
 	 PrincipalVariable = "temperature"
-         LocalModel = "DiffusionTransportModel"
+         LocalModel = DiffusionTransportModel
          DiffusionElement {
 	      name = "DiffusionNonlinearElement"
 	      FE_ORDER = "FIRST"  
@@ -48,7 +67,7 @@ RobinVectorCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 1
    number_of_dofs_0 =   1
@@ -60,18 +79,18 @@ DiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="temperature"
       OutputVariable="temperature"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
        QRULE_ORDER = "DEFAULT"
      }
 
-     LocalModel = "DiffusionTransportModel"
+     LocalModel = DiffusionTransportModel
   }
 
 RobinMatrixCorrection{
@@ -84,22 +103,12 @@ RobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 1
    number_of_dofs_0 =   1
    dof_0_0          =   0
    value_0_0        = 101.
-}
-
-DiffusionTransportModel {
-    name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    print_info_level = 3 
-    Default_Concentration = .15
-    Default_Temperature   = 300.
-    Default_Burnup   = 0.0
 }
 
 

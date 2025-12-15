@@ -132,7 +132,7 @@ public:
      * Currently
      * this is the output variable associated with the rhs operator.
      */
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_pRhsOperator->getOutputVariable();
     }
@@ -187,7 +187,7 @@ public:
     }
 
     //! given a vector return whether it is valid or not
-    bool isValidVector( std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override
+    bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> u ) override
     {
         AMP_ASSERT( d_pRhsOperator );
         return d_pRhsOperator->isValidVector( u );
@@ -235,7 +235,7 @@ protected:
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_pScratchVector;
 
     /**
-     * vector containing source terms if any
+     * vector containing time independent source terms if any (for now)
      */
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_pSourceTerm;
 

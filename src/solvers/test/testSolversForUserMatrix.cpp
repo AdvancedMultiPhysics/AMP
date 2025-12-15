@@ -94,11 +94,11 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &inputFi
     params->setComm( globalComm );
 
     // create the mesh
-    const auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    const auto mesh = AMP::Mesh::MeshFactory::create( params );
 
     // create a linear diffusion operator
-    auto linearOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "DiffusionBVPOperator", input_db );
+    auto linearOperator =
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "DiffusionBVPOperator", input_db );
     auto diffOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( linearOperator );
 
     // extract the internal matrix
@@ -107,7 +107,7 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &inputFi
     AMP_INSIST( userMat->numGlobalColumns() == userMat->numGlobalRows(), "matrix is not square" );
 
     // extract the right vector
-    const auto userVector = userMat->getRightVector();
+    const auto userVector = userMat->createInputVector();
 
     // concludes creation of a native linear operator
     // ************************************************************************************************
@@ -117,7 +117,10 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &inputFi
     const auto ampComm   = userVector->getComm();
 
     // construct a dof manager
-    const auto dofManager = std::make_shared<AMP::Discretization::DOFManager>( localSize, ampComm );
+    const auto userDM     = userVector->getDOFManager();
+    const auto dofManager = std::make_shared<AMP::Discretization::DOFManager>(
+        localSize, ampComm, userDM->getRemoteDOFs() );
+
     const auto copyVariable = std::make_shared<AMP::LinearAlgebra::Variable>( "copyVariable" );
 
     // create a vector based on the dofs and variable
@@ -193,7 +196,6 @@ int main( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-    AMP::Solver::registerSolverFactories();
 
     std::vector<std::string> files;
 

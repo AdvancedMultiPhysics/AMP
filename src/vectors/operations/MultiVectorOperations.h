@@ -20,6 +20,9 @@ public:
     // Constructor
     MultiVectorOperations() : VectorOperations() {}
 
+    // Create from a single vector operations
+    MultiVectorOperations( std::shared_ptr<VectorOperations> op );
+
     //! Destructor
     virtual ~MultiVectorOperations() {}
 
@@ -32,6 +35,7 @@ private:
     static const VectorData *getVectorDataComponent( const VectorData &, size_t );
     static MultiVectorData *getMultiVectorData( VectorData & );
     static const MultiVectorData *getMultiVectorData( const VectorData & );
+    static size_t getVectorDataSize( const VectorData & );
 
 public:
     std::string VectorOpName() const override { return "MultiVectorOperations"; }
@@ -39,6 +43,7 @@ public:
     void setToScalar( const Scalar &, VectorData & ) override;
     void setRandomValues( VectorData & ) override;
     void copy( const VectorData &, VectorData & ) override;
+    void copyCast( const VectorData &x, VectorData &z ) override;
     void scale( const Scalar &, const VectorData &, VectorData & ) override;
     void scale( const Scalar &, VectorData & ) override;
     void add( const VectorData &, const VectorData &, VectorData & ) override;
@@ -55,6 +60,9 @@ public:
     void axpby( const Scalar &, const Scalar &, const VectorData &, VectorData & ) override;
     void abs( const VectorData &, VectorData & ) override;
     void addScalar( const VectorData &, const Scalar &, VectorData & ) override;
+
+    void setMax( const Scalar &val, VectorData &x ) override;
+    void setMin( const Scalar &val, VectorData &x ) override;
 
     Scalar localMin( const VectorData & ) const override;
     Scalar localMax( const VectorData & ) const override;
@@ -96,6 +104,8 @@ public: // Pull VectorOperations into the current scope
     using VectorOperations::multiply;
     using VectorOperations::reciprocal;
     using VectorOperations::scale;
+    using VectorOperations::setMax;
+    using VectorOperations::setMin;
     using VectorOperations::setRandomValues;
     using VectorOperations::subtract;
     using VectorOperations::wrmsNorm;

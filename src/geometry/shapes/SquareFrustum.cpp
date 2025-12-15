@@ -1,5 +1,5 @@
 #include "AMP/geometry/shapes/SquareFrustum.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
@@ -117,11 +117,12 @@ void SquareFrustum::initialize( const std::vector<double> &range, int dir, doubl
     S1 = fabs( S1 );
     S2 = fabs( S2 );
     // Compute the volume
-    d_volume = h / 3.0 * ( S1 + S2 + sqrt( S1 * S2 ) );
+    d_volume = h / 3.0 * ( S1 + S2 + std::sqrt( S1 * S2 ) );
     // Compute the centroid
     if ( S2 > S1 )
         std::swap( S1, S2 );
-    double z   = 0.25 * ( S1 + 2 * sqrt( S1 * S2 ) + 3 * S2 ) / ( S1 + sqrt( S1 * S2 ) * S2 );
+    double z =
+        0.25 * ( S1 + 2 * std::sqrt( S1 * S2 ) + 3 * S2 ) / ( S1 + std::sqrt( S1 * S2 ) * S2 );
     d_centroid = physical( { 0.5, 0.5, z } );
 }
 
@@ -319,8 +320,11 @@ ArraySize SquareFrustum::getLogicalGridSize( const ArraySize &x ) const
 ArraySize SquareFrustum::getLogicalGridSize( const std::vector<double> &res ) const
 {
     AMP_INSIST( res.size() == 3u, "Resolution must be an array of length 3" );
-    AMP_ERROR( "Not finished" );
-    return {};
+    double dx[3] = { d_range[1] - d_range[0], d_range[3] - d_range[2], d_range[5] - d_range[4] };
+    int Nx       = dx[0] / res[0];
+    int Ny       = dx[1] / res[1];
+    int Nz       = dx[2] / res[2];
+    return { Nx, Ny, Nz };
 }
 
 

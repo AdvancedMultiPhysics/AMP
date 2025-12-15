@@ -4,7 +4,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <tuple>
 #include <vector>
+
 
 namespace AMP {
 
@@ -27,18 +30,6 @@ public: // Convience typedef
     using Point = std::array<double, NDIM>;
 
 public:
-    //! Empty constructor
-    kdtree2() = default;
-
-    /**
-     * \brief   Constructor
-     * \details  This is the default constructor for creating the kdtree
-     * \param[in] N     The number of points in the tree
-     * \param[in] x     The coordinates of each point in the tree
-     * \param[in] data  Data to associate with the nodes
-     */
-    kdtree2( size_t N, const Point *x, const TYPE *data );
-
     /**
      * \brief   Constructor
      * \details  This is the default constructor for creating the kdtree
@@ -46,22 +37,6 @@ public:
      * \param[in] data  Data to associate with the nodes
      */
     kdtree2( const std::vector<Point> &x, const std::vector<TYPE> &data );
-
-    //!  Destructor
-    ~kdtree2();
-
-    //! Copy constructor
-    kdtree2( const kdtree2 & ) = delete;
-
-    //! Move constructor
-    kdtree2( kdtree2 && );
-
-    //! Assignment operator
-    kdtree2 &operator=( const kdtree2 & ) = delete;
-
-    //! Move operator
-    kdtree2 &operator=( kdtree2 && );
-
 
     //! Return the bounding box for the tree
     std::array<double, 2 * NDIM> box() const;
@@ -74,6 +49,9 @@ public:
 
     //! Return the points in the tree
     std::vector<Point> getPoints() const;
+
+    //! Return the points in the tree
+    std::vector<std::pair<Point, TYPE>> getPointsAndData() const;
 
     /**
      * \brief   Add a point
@@ -123,11 +101,24 @@ public:
     findNearestRay( const Point &x, const Point &dir, double dist ) const;
 
 
+public: // Copy/assignment operators
+    kdtree2()                  = default;
+    ~kdtree2()                 = default;
+    kdtree2( const kdtree2 & ) = delete;
+    kdtree2( kdtree2 && )      = default;
+    kdtree2 &operator=( const kdtree2 & ) = delete;
+    kdtree2 &operator=( kdtree2 && ) = default;
+
+
 private: // Internal data
     // Structure used to store point data in the lowest leaf
     struct data_struct {
-        std::vector<Point> x;
-        std::vector<TYPE> data;
+        size_t N   = 0;
+        Point *x   = nullptr;
+        TYPE *data = nullptr;
+        data_struct( size_t N );
+        ~data_struct();
+        void add( const Point &x2, const TYPE &d2 );
     };
 
     // Internal data
@@ -136,17 +127,19 @@ private: // Internal data
     double d_split      = 0;
     Point d_lb          = { 0 };
     Point d_ub          = { 0 };
-    kdtree2 *d_left     = nullptr;
-    kdtree2 *d_right    = nullptr;
-    data_struct *d_data = nullptr;
+    std::unique_ptr<kdtree2> d_left;
+    std::unique_ptr<kdtree2> d_right;
+    std::unique_ptr<data_struct> d_data;
 
 
 private: // Internal functions
-    void initialize( const std::vector<Point> &x, const std::vector<TYPE> &data );
+    kdtree2( size_t N, Point *x, TYPE *data );
+    void initialize( size_t N, Point *x, TYPE *data );
     static size_t find_split( size_t N, const double *x );
-    void splitData( const std::vector<Point> &x, const std::vector<TYPE> &data );
+    void splitData( size_t N, Point *x, TYPE *data );
     bool intersect( const Point &x, double dist2 ) const;
     void getPoints( std::vector<Point> &x ) const;
+    void getPoints( std::vector<std::pair<Point, TYPE>> &x ) const;
     void
     findNearest( const Point &x, size_t N, std::tuple<Point, TYPE> *nearest, double *dist ) const;
     void findNearest( const Point &x,

@@ -28,6 +28,11 @@ public:
     virtual std::shared_ptr<AMP::Discretization::DOFManager>
     getSubsetDOF( std::shared_ptr<AMP::Discretization::DOFManager> manager ) const = 0;
 
+    /** \brief Return the comm for the subset
+     * \return The comm
+     * \param[in]  comm  The comm of the original vector / DOFManager
+     */
+    virtual AMP::AMP_MPI getComm( const AMP::AMP_MPI &comm ) const = 0;
 
     /** \brief  This vector is a subset of an AMP Vector
      *  \details  Given an AMP Vector, this will create a view of a subset of the vector.
@@ -56,7 +61,7 @@ public:
      *        vec2.copyVector( vec3 );
      *    \endcode
      */
-    static Vector::shared_ptr view( Vector::shared_ptr, std::shared_ptr<Variable> );
+    virtual Vector::shared_ptr view( Vector::shared_ptr ) const;
 
     /** \brief  This vector is a subset of an AMP Vector
      *  \details  Given an AMP Vector, this will create a view of a subset of the vector.
@@ -85,7 +90,7 @@ public:
      *        vec2.copyVector( vec3 );
      *    \endcode
      */
-    static Vector::const_shared_ptr view( Vector::const_shared_ptr, std::shared_ptr<Variable> );
+    virtual Vector::const_shared_ptr view( Vector::const_shared_ptr ) const;
 
 public: // Functions inherited from Variable
     std::string className() const override { return "SubsetVariable"; }

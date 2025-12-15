@@ -31,93 +31,30 @@
 
 namespace AMP::Operator {
 
-/*!
- *************************************************************************
- * \brief Constructor for PowerShape.  The constructor initializes the  *
- * values from the parameters.                                          *
- *************************************************************************
- */
+/*************************************************************************
+ * Constructor                                                           *
+ ************************************************************************/
 PowerShape::PowerShape( std::shared_ptr<PowerShapeParameters> parameters ) : Operator( parameters )
+{
+    reset( parameters );
+}
+PowerShape::~PowerShape() = default;
+
+
+/*************************************************************************
+ * reset                                                                 *
+ ************************************************************************/
+void PowerShape::reset( std::shared_ptr<const OperatorParameters> parameters )
 {
     AMP_ASSERT( parameters );
     d_Mesh = parameters->d_Mesh;
     d_db   = parameters->d_db;
-    getFromDatabase( d_db );
-}
-
-/*!
- *************************************************************************
- * \brief Destructor.                                                    *
- *************************************************************************
- */
-PowerShape::~PowerShape() = default;
-
-/*!
- *************************************************************************
- * \brief Resets all of the available coordinate system variables to the *
- *  default values.                                                      *
- *************************************************************************
- */
-void PowerShape::reset( std::shared_ptr<const OperatorParameters> parameters )
-{
-    AMP_ASSERT( parameters );
-    d_db = parameters->d_db;
-
-    if ( d_coordinateSystem == "cartesian" ) {
-
-        if ( d_type == "legendre" ) {
-            d_useFixedPower = true;
-            d_numXmoments   = 0;
-            d_numYmoments   = 0;
-            d_numZmoments   = 0;
-        } else if ( d_type == "gaussian" ) {
-            d_muX    = 0.;
-            d_muY    = 0.;
-            d_sigmaX = 3;
-            d_sigmaY = 3;
-        } else {
-            AMP_INSIST(
-                0, "The power shape type used is not valid for cartesian coordinate systems." );
-        }
-    } else if ( d_coordinateSystem == "cylindrical" ) {
-
-        if ( d_type == "frapcon" ) {
-            //      AMP_ASSERT(!(d_type == "frapcon"))
-            d_numZmoments     = 0;
-            d_frapconConstant = 3.45;
-            d_angularConstant = 0.0;
-        } else if ( d_type == "zernikeRadial" ) {
-            d_numMoments  = 0;
-            d_numZmoments = 0;
-        } else if ( d_type == "zernike" ) {
-            d_numZmoments = 0;
-            d_numMoments  = 0;
-        } else if ( d_type == "diffusion" ) {
-            d_numZmoments = 0;
-        } else {
-            AMP_INSIST(
-                0, "The power shape type used is not valid for cylindrical coordinate systems." );
-        }
-    } else {
-        AMP_INSIST( 0, "The coordinate system is not valid." );
-    }
-}
-
-/*!
- ****************************************************************************
- * \brief If simulation is not from restart, read data from input database. *
- * Otherwise, override restart values for a subset of the data members      *
- * with those found in input.                                               *
- ****************************************************************************
- */
-void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
-{
-    AMP_ASSERT( db );
+    AMP_ASSERT( d_db );
 
     // d_Variable = createOutputVariable("RelativePower");
 
     // Coordinate System
-    d_coordinateSystem = db->getWithDefault<std::string>( "coordinateSystem", "cartesian" );
+    d_coordinateSystem = d_db->getWithDefault<std::string>( "coordinateSystem", "cartesian" );
 
     // Create the cylindrical bounding box
     auto min_max_pos = d_Mesh->getBoundingBox();
@@ -132,8 +69,8 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
         auto coord = iterator->coord();
         double rx  = ( coord[0] - centerx );
         double ry  = ( coord[1] - centery );
-        minR       = std::min( minR, sqrt( rx * rx + ry * ry ) );
-        maxR       = std::max( maxR, sqrt( rx * rx + ry * ry ) );
+        minR       = std::min( minR, std::sqrt( rx * rx + ry * ry ) );
+        maxR       = std::max( maxR, std::sqrt( rx * rx + ry * ry ) );
         ++iterator;
     }
     d_radialBoundingBox[0] = centerx;
@@ -145,37 +82,37 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
 
     if ( d_coordinateSystem == "cartesian" ) {
 
-        d_type = db->getWithDefault<std::string>( "type", "legendre" );
+        d_type = d_db->getWithDefault<std::string>( "type", "legendre" );
         if ( d_type == "legendre" ) {
 
             // Number of moments in the X direction. Default = 0
-            d_numXmoments = db->getWithDefault<int>( "numXmoments", 0 );
+            d_numXmoments = d_db->getWithDefault<int>( "numXmoments", 0 );
             AMP_ASSERT( (int) d_numXmoments > -1 );
             if ( d_numXmoments > 0 ) {
-                AMP_ASSERT( db->keyExists( "Xmoments" ) );
-                d_Xmoments = db->getVector<double>( "Xmoments" );
+                AMP_ASSERT( d_db->keyExists( "Xmoments" ) );
+                d_Xmoments = d_db->getVector<double>( "Xmoments" );
                 for ( unsigned int i = 0; i < d_numXmoments; i++ ) {
                     AMP_ASSERT( fabs( d_Xmoments[i] ) <= 1.0 );
                 }
             }
 
             // Number of moments in the Y direction. Default = 0
-            d_numYmoments = db->getWithDefault<int>( "numYmoments", 0 );
+            d_numYmoments = d_db->getWithDefault<int>( "numYmoments", 0 );
             AMP_ASSERT( (int) d_numYmoments > -1 );
             if ( d_numYmoments > 0 ) {
-                AMP_ASSERT( db->keyExists( "Ymoments" ) );
-                d_Ymoments = db->getVector<double>( "Ymoments" );
+                AMP_ASSERT( d_db->keyExists( "Ymoments" ) );
+                d_Ymoments = d_db->getVector<double>( "Ymoments" );
                 for ( unsigned int i = 0; i < d_numYmoments; i++ ) {
                     AMP_ASSERT( fabs( d_Ymoments[i] ) <= 1.0 );
                 }
             }
 
             // Number of moments in the Z direction. Default = 0
-            d_numZmoments = db->getWithDefault<int>( "numZmoments", 0 );
+            d_numZmoments = d_db->getWithDefault<int>( "numZmoments", 0 );
             AMP_ASSERT( (int) d_numZmoments > -1 );
             if ( d_numZmoments > 0 ) {
-                AMP_ASSERT( db->keyExists( "Zmoments" ) );
-                d_Zmoments = db->getVector<double>( "Zmoments" );
+                AMP_ASSERT( d_db->keyExists( "Zmoments" ) );
+                d_Zmoments = d_db->getVector<double>( "Zmoments" );
                 for ( unsigned int i = 0; i < d_numZmoments; i++ ) {
                     AMP_ASSERT( fabs( d_Zmoments[i] ) <= 1.0 );
                 }
@@ -187,17 +124,17 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
             centery     = 0.5 * ( min_max_pos[2] + min_max_pos[3] );
 
             // Read mu and sigma for gaussian distribution.
-            d_muX    = db->getWithDefault<double>( "muX", centerx );
-            d_muY    = db->getWithDefault<double>( "muY", centery );
-            d_sigmaX = db->getWithDefault<double>( "sigmaX", 3.0 );
-            d_sigmaY = db->getWithDefault<double>( "sigmaY", 3.0 );
+            d_muX    = d_db->getWithDefault<double>( "muX", centerx );
+            d_muY    = d_db->getWithDefault<double>( "muY", centery );
+            d_sigmaX = d_db->getWithDefault<double>( "sigmaX", 3.0 );
+            d_sigmaY = d_db->getWithDefault<double>( "sigmaY", 3.0 );
 
             // Number of moments in the Z direction. Default = 0
-            d_numZmoments = db->getWithDefault<int>( "numZmoments", 0 );
+            d_numZmoments = d_db->getWithDefault<int>( "numZmoments", 0 );
             AMP_ASSERT( (int) d_numZmoments > -1 );
             if ( d_numZmoments > 0 ) {
-                AMP_ASSERT( db->keyExists( "Zmoments" ) );
-                d_Zmoments = db->getVector<double>( "Zmoments" );
+                AMP_ASSERT( d_db->keyExists( "Zmoments" ) );
+                d_Zmoments = d_db->getVector<double>( "Zmoments" );
                 for ( unsigned int i = 0; i < d_numZmoments; i++ ) {
                     AMP_ASSERT( fabs( d_Zmoments[i] ) <= 1.0 );
                 }
@@ -209,32 +146,32 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
     } else if ( d_coordinateSystem == "cylindrical" ) {
 
         // Number of moments in the Z direction. Default =0
-        d_numZmoments = db->getWithDefault<int>( "numZmoments", 0 );
+        d_numZmoments = d_db->getWithDefault<int>( "numZmoments", 0 );
         AMP_ASSERT( (int) d_numZmoments > -1 );
         if ( d_numZmoments > 0 ) {
-            AMP_ASSERT( db->keyExists( "Zmoments" ) );
-            d_Zmoments = db->getVector<double>( "Zmoments" );
+            AMP_ASSERT( d_db->keyExists( "Zmoments" ) );
+            d_Zmoments = d_db->getVector<double>( "Zmoments" );
             for ( unsigned int i = 0; i < d_numZmoments; i++ ) {
                 AMP_ASSERT( fabs( d_Zmoments[i] ) <= 1.0 );
             }
         }
 
         // Read the powershope model from input database.
-        d_type = db->getWithDefault<std::string>( "type", "frapcon" );
+        d_type = d_db->getWithDefault<std::string>( "type", "frapcon" );
 
         // frapcon power shape
         if ( d_type == "frapcon" ) {
 
             // Read the Frapcon constant from input database.
-            d_frapconConstant = db->getWithDefault<double>( "frapconConstant", 3.45 );
+            d_frapconConstant = d_db->getWithDefault<double>( "frapconConstant", 3.45 );
 
             // Read the angular constant from input database.
-            d_angularConstant = db->getWithDefault<double>( "angularConstant", 0.0 );
+            d_angularConstant = d_db->getWithDefault<double>( "angularConstant", 0.0 );
             AMP_ASSERT( fabs( d_angularConstant ) <= 1.0 );
         } else if ( d_type == "zernikeRadial" ) {
 
             // Number of moments in the Radial direction. Default =0
-            d_numMoments = db->getWithDefault<int>( "numMoments", 4 );
+            d_numMoments = d_db->getWithDefault<int>( "numMoments", 4 );
             d_Moments.resize( d_numMoments );
 
             // Establish default values
@@ -250,12 +187,12 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
             AMP_ASSERT( (int) d_numMoments > -1 );
             if ( d_numMoments > 0 ) {
                 if ( d_numMoments != 4 )
-                    AMP_INSIST( db->keyExists( "Moments" ),
+                    AMP_INSIST( d_db->keyExists( "Moments" ),
                                 "if numMoments are not zero, and "
                                 "default is not used, you must define "
                                 "the Moments to use." );
-                if ( db->keyExists( "Moments" ) ) {
-                    d_Moments = db->getVector<double>( "Moments" );
+                if ( d_db->keyExists( "Moments" ) ) {
+                    d_Moments = d_db->getVector<double>( "Moments" );
                     for ( unsigned int i = 0; i < d_numMoments; i++ ) {
                         AMP_ASSERT( fabs( d_Moments[i] ) <= 1.0 );
                     }
@@ -263,12 +200,12 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
             }
 
             // Read the angular constant from input database.
-            d_angularConstant = db->getWithDefault<double>( "angularConstant", 0.0 );
+            d_angularConstant = d_db->getWithDefault<double>( "angularConstant", 0.0 );
             AMP_ASSERT( fabs( d_angularConstant ) <= 1.0 );
         } else if ( d_type == "zernike" ) {
 
             // Number of "m" moments in the zernike polynomial. Default =0
-            d_numMoments = db->getWithDefault<int>( "numMoments", 0 );
+            d_numMoments = d_db->getWithDefault<int>( "numMoments", 0 );
             // m=1; n=-1, 1
             // m=2; n=-2, 0, 2
             // m=3; n=-3, -1, 1, 3
@@ -277,8 +214,8 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
             // these are only the m=even, n=zero moments.
             AMP_ASSERT( (int) d_numMoments > -1 );
             if ( d_numMoments > 0 ) {
-                AMP_ASSERT( db->keyExists( "Moments" ) );
-                d_Moments = db->getVector<double>( "Moments" );
+                AMP_ASSERT( d_db->keyExists( "Moments" ) );
+                d_Moments = d_db->getVector<double>( "Moments" );
                 for ( unsigned int i = 0; i < d_numMNmoments; i++ ) {
                     AMP_ASSERT( fabs( d_Moments[i] ) <= 1.0 );
                 }
@@ -320,8 +257,7 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
     }
 }
 
-/*!
- *************************************************************************
+/*************************************************************************
  * \brief Provide the Apply function for the power shape. Power shape   *
  * is chosen based on the coordinate system and the model type.         *
  * Available power shapes:                                              *
@@ -334,8 +270,7 @@ void PowerShape::getFromDatabase( std::shared_ptr<AMP::Database> db )
  * is calculated by using the model parameters that are input by the    *
  * user. Then, the resultant shape function is applied to a constant    *
  * power by keeping the total power the same over the problem domain.   *
- *************************************************************************
- */
+ ************************************************************************/
 void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                         AMP::LinearAlgebra::Vector::shared_ptr r )
 {
@@ -345,8 +280,7 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
     constexpr double PI = 3.14159265359;
-    double newval, val;
-    int countGP = 0;
+    int countGP         = 0;
 
     // quick exit if the answer is obvious.
     if ( ( u->max() < 1e-14 ) && ( u->min() > -1e-14 ) ) {
@@ -403,11 +337,11 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     // X moments
                     x = ( 2 * x - ( xmax + xmin ) ) /
                         ( xmax - xmin ); // map x coordinate to (-1 to 1)
-                    newval = 1.;
+                    double newval = 1.;
                     for ( unsigned int m = 0; m < d_numXmoments; m++ ) {
                         newval += d_Xmoments[m] * evalLegendre( m + 1, x );
                     } // end for
-                    val = newval;
+                    double val = newval;
 
                     // Y moments
                     y = ( 2 * y - ( ymax + ymin ) ) /
@@ -449,6 +383,15 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
 
             if ( d_iDebugPrintInfoLevel > 3 )
                 AMP::pout << "Power Shape: Processing all Gauss-Points." << std::endl;
+            const double sqrt2 = std::sqrt( 2.0 );
+            const double exmax = erf( -( xmax - d_muX ) / ( sqrt2 * d_sigmaX ) );
+            const double eymax = erf( -( ymax - d_muY ) / ( sqrt2 * d_sigmaY ) );
+            const double exmin = erf( -( xmin - d_muX ) / ( sqrt2 * d_sigmaX ) );
+            const double eymin = erf( -( ymin - d_muY ) / ( sqrt2 * d_sigmaY ) );
+            const double C     = ( xmax - xmin ) * ( ymax - ymin ) /
+                             ( ( exmax * eymax + exmin * eymin - exmax * eymin - exmin * eymax ) *
+                               d_sigmaX * d_sigmaY * PI / 2.0 );
+
             // Loop over all elements on the mesh
             for ( ; elem != end_elems; ++elem ) {
                 d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
@@ -462,23 +405,11 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     double z = d_fe->get_xyz()[i]( 2 );
 
                     // 2D Gaussian (Normal) distribution.
-                    newval = ( xmax - xmin ) * ( ymax - ymin ) * getGaussianF( x, y );
-                    newval =
-                        newval / ( ( erf( -( xmax - d_muX ) / ( sqrt( 2. ) * d_sigmaX ) ) *
-                                         erf( -( ymax - d_muY ) / ( sqrt( 2. ) * d_sigmaY ) ) +
-                                     erf( -( xmin - d_muX ) / ( sqrt( 2. ) * d_sigmaX ) ) *
-                                         erf( -( ymin - d_muY ) / ( sqrt( 2. ) * d_sigmaY ) ) -
-                                     erf( -( xmax - d_muX ) / ( sqrt( 2. ) * d_sigmaX ) ) *
-                                         erf( -( ymin - d_muY ) / ( sqrt( 2. ) * d_sigmaY ) ) -
-                                     erf( -( xmin - d_muX ) / ( sqrt( 2. ) * d_sigmaX ) ) *
-                                         erf( -( ymax - d_muY ) / ( sqrt( 2. ) * d_sigmaY ) ) ) *
-                                   d_sigmaX * d_sigmaY * PI / 2.0 );
-                    val = newval;
+                    double val = C * getGaussianF( x, y );
 
                     // Z moments
-                    z = ( 2 * z - ( zmax + zmin ) ) /
-                        ( zmax - zmin ); // Mapping z coordinate to (-1 to 1)
-                    newval = 1.;
+                    z = ( 2 * z - ( zmax + zmin ) ) / ( zmax - zmin ); // Map z to (-1 to 1)
+                    double newval = 1.;
                     for ( unsigned int m = 0; m < d_numZmoments; m++ ) {
                         newval += d_Zmoments[m] * evalLegendre( m + 1, z );
                     } // end for m
@@ -529,10 +460,10 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     double z = d_fe->get_xyz()[i]( 2 );
 
                     // r based on Frapcon.
-                    double radius = sqrt( x * x + y * y );
+                    double radius = std::sqrt( x * x + y * y );
                     double Fr     = getFrapconFr( radius, rmax );
-                    newval        = Fr / volumeIntegral;
-                    val           = newval;
+                    double newval = Fr / volumeIntegral;
+                    double val    = newval;
 
                     // phi.
                     double theta = atan2( y, x );
@@ -582,12 +513,13 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     double x = d_fe->get_xyz()[i]( 0 ) - centerx;
                     double y = d_fe->get_xyz()[i]( 1 ) - centery;
                     // r based on Frapcon.
-                    double relativeRadius = sqrt( x * x + y * y ) / rmax;
+                    double relativeRadius = std::sqrt( x * x + y * y ) / rmax;
                     double besArg         = 2.405 * relativeRadius;
                     // Taylor expansion of bessel function
 
-                    val = 1 + ( besArg * besArg ) / 4 + ( besArg * besArg * besArg * besArg ) / 64 +
-                          ( besArg * besArg * besArg * besArg * besArg * besArg ) / 2304;
+                    double val = 1 + ( besArg * besArg ) / 4 +
+                                 ( besArg * besArg * besArg * besArg ) / 64 +
+                                 ( besArg * besArg * besArg * besArg * besArg * besArg ) / 2304;
 
 
                     // Set newval to this gauss point on this element of the vector r.
@@ -638,8 +570,8 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             auto nodalDofMap    = AMP::Discretization::simpleDOFManager::create(
                 d_Mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
             auto nodalVariable = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
-            auto nodalVector =
-                AMP::LinearAlgebra::createVector( nodalDofMap, nodalVariable, split );
+            auto nodalVector   = AMP::LinearAlgebra::createVector(
+                nodalDofMap, nodalVariable, split, d_memory_location );
             auto unodalPower = nodalVector->clone();
             auto rnodalPower = nodalVector->clone();
 
@@ -674,12 +606,12 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     double z = d_fe->get_xyz()[i]( 2 );
 
                     // r based on Frapcon.
-                    double relativeRadius = sqrt( x * x + y * y ) / rmax;
-                    val                   = 1 + getZernikeRadial( relativeRadius );
+                    double relativeRadius = std::sqrt( x * x + y * y ) / rmax;
+                    double val            = 1 + getZernikeRadial( relativeRadius );
 
                     // phi.
-                    double theta = atan2( y, x );
-                    newval       = 1 + d_angularConstant * sin( theta );
+                    double theta  = atan2( y, x );
+                    double newval = 1 + d_angularConstant * sin( theta );
                     val *= newval;
 
                     // Z moments.
@@ -728,14 +660,14 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     double z = d_fe->get_xyz()[i]( 2 );
 
                     // r based on Frapcon.
-                    double relativeRadius = sqrt( x * x + y * y ) / rmax;
+                    double relativeRadius = std::sqrt( x * x + y * y ) / rmax;
                     double phi            = atan2( y, x );
-                    val                   = 1 + getZernike( relativeRadius, phi );
+                    double val            = 1 + getZernike( relativeRadius, phi );
 
                     // Z moments.
                     z = ( 2 * z - ( zmax + zmin ) ) /
                         ( zmax - zmin ); // mapping z coordinate to (-1 to 1)
-                    newval = 1.;
+                    double newval = 1.;
                     for ( unsigned int m = 0; m < d_numZmoments; m++ ) {
                         newval += d_Zmoments[m] * evalLegendre( m + 1, z );
                     } // end for m
@@ -840,7 +772,7 @@ double PowerShape::getVolumeIntegralSum( double rmax, double cx, double cy )
         for ( int i = 0; i < DOFsPerElement; i++ ) {
             double x      = d_fe->get_xyz()[i]( 0 ) - cx;
             double y      = d_fe->get_xyz()[i]( 1 ) - cy;
-            double radius = sqrt( x * x + y * y );
+            double radius = std::sqrt( x * x + y * y );
             elemSum += getFrapconFr( radius, rmax );
         } // end for gauss-points
         integralFr += ( elemSum / 8.0 ) * elemVolume;
@@ -860,7 +792,7 @@ void PowerShape::createCurrentLibMeshElement()
 {
     d_currElemPtr = new libMesh::Hex8;
     for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-        auto pt                      = d_currNodes[j].coord();
+        auto pt                      = d_currNodes[j]->coord();
         d_currElemPtr->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
     } // end for j
 }
@@ -882,7 +814,8 @@ void PowerShape::destroyCurrentLibMeshElement()
  */
 double PowerShape::getFrapconFr( double radius, double rmax )
 {
-    double fR = ( 1.0 + d_frapconConstant * exp( -3.0 * pow( 1000.0 * ( rmax - radius ), 0.45 ) ) );
+    double fR =
+        ( 1.0 + d_frapconConstant * exp( -3.0 * std::pow( 1000.0 * ( rmax - radius ), 0.45 ) ) );
     return fR;
 }
 
@@ -919,60 +852,6 @@ double PowerShape::getZernike( const double rhor, const double phi )
             j++;
         }
     }
-
-    if ( d_iDebugPrintInfoLevel > 8 ) {
-        if ( d_numMoments < 5 ) {
-            double Zr = fR;
-            fR        = 0;
-            if ( d_numMoments > 0 ) {
-                fR += d_Moments[0] * rho * sin( phi );
-                fR += d_Moments[1] * rho * cos( phi );
-            }
-            if ( d_numMoments > 1 ) {
-                double rho2 = rho * rho;
-                double phi2 = 2 * phi;
-                fR += d_Moments[2] * rho2 * sin( phi2 );
-                fR += d_Moments[3] * ( 2. * rho2 - 1. );
-                fR += d_Moments[4] * rho2 * cos( phi2 );
-            }
-            if ( d_numMoments > 2 ) {
-                double rho2 = rho * rho;
-                double rho3 = rho2 * rho;
-                double phi3 = 3 * phi;
-                fR += d_Moments[5] * rho3 * sin( phi3 );
-                fR += d_Moments[6] * rho * ( 3. * rho2 - 2. ) * sin( phi );
-                fR += d_Moments[7] * rho * ( 3. * rho2 - 2. ) * cos( phi );
-                fR += d_Moments[8] * rho3 * cos( phi3 );
-            }
-            if ( d_numMoments > 3 ) {
-                double rho2 = rho * rho;
-                double rho4 = rho2 * rho2;
-                double phi2 = 2 * phi;
-                double phi4 = 2 * phi2;
-                fR += d_Moments[9] * rho4 * sin( phi4 );
-                fR += d_Moments[10] * rho2 * ( 4 * rho2 - 3 ) * sin( phi2 );
-                fR += d_Moments[11] * ( 1 - 6 * rho2 * ( 1. - rho2 ) );
-                fR += d_Moments[12] * rho2 * ( 4 * rho2 - 3 ) * cos( phi2 );
-                fR += d_Moments[13] * rho4 * cos( phi4 );
-            }
-            if ( d_iDebugPrintInfoLevel > 9 ) {
-                if ( !AMP::Utilities::approx_equal( Zr, fR, 1e-8 ) ) {
-                    AMP::pout << "getZernike fails for rho = " << rho << " and phi = " << phi
-                              << " for m = " << d_numMoments << std::endl;
-                    AMP::pout << "fR is " << fR << " Zr is " << Zr << std::endl;
-                    if ( d_numMoments == 3 ) {
-                        AMP::pout << "Moments are " << d_Moments[5] << " " << d_Moments[6] << " "
-                                  << d_Moments[7] << " " << d_Moments[8] << std::endl;
-                    }
-                }
-            } // if d_iDebugPrintInfoLevel>9
-
-            AMP_ASSERT( AMP::Utilities::approx_equal( Zr, fR, 1e-8 ) );
-
-        } // if d_numMoments<5
-
-    } // if d_iDebugPrintInfoLevel>8
-
     return fR;
 }
 
@@ -1028,19 +907,19 @@ double PowerShape::evalZernike( int m, int n, const double rho, const double phi
     //  multiplying/dividing factorials, probably doesn't matter
     //  but can't hurt
     for ( int k = 0; k <= ( m - n ) / 2; ++k ) {
-        rhoFact += pow( -1, k ) * pow( rho, m - 2 * k ) * choose( m - k, k ) *
+        rhoFact += std::pow( -1, k ) * std::pow( rho, m - 2 * k ) * choose( m - k, k ) *
                    choose( m - 2 * k, ( n + m ) / 2 - k );
     }
 
     // Apply normalization (should be consistent with Denovo?)
     /*    double pi = 4.0*atan(1.0);
           if( m==0 )
-          rhoFact *= sqrt( (n+1)/pi );
+          rhoFact *= std::sqrt( (n+1)/pi );
           else
-          rhoFact *= sqrt( 2*(n+1)/pi );
+          rhoFact *= std::sqrt( 2*(n+1)/pi );
           */
     /*    for(int k=0;k<=(m-n)/2;++k) {
-          rhoFact += pow(rho,m-2*k) * ( pow(-1,k) * evalFactorial(m-k) )
+          rhoFact += std::pow(rho,m-2*k) * ( std::pow(-1,k) * evalFactorial(m-k) )
           / (             evalFactorial(k)
      * evalFactorial((m+n)/2-k)
      * evalFactorial((m-n)/2-k) );
@@ -1059,12 +938,10 @@ double PowerShape::evalZernike( int m, int n, const double rho, const double phi
  */
 double PowerShape::getGaussianF( double x, double y )
 {
-    double gaussianF = exp( -( pow( x - d_muX, 2 ) / ( 2 * pow( d_sigmaX, 2.0 ) ) +
-                               pow( y - d_muY, 2 ) / ( 2 * pow( d_sigmaY, 2.0 ) ) ) );
+    double gaussianF = exp( -( std::pow( x - d_muX, 2 ) / ( 2 * std::pow( d_sigmaX, 2.0 ) ) +
+                               std::pow( y - d_muY, 2 ) / ( 2 * std::pow( d_sigmaY, 2.0 ) ) ) );
     return gaussianF;
 }
-} // namespace AMP::Operator
 
-//---------------------------------------------------------------------------//
-//                 end of PowerShape.cc
-//---------------------------------------------------------------------------//
+
+} // namespace AMP::Operator

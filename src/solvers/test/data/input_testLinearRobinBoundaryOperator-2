@@ -1,13 +1,11 @@
 
 Mesh{
-    FileName = "cube.with.12.boundaries.2.e"
     MeshName = "brick"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 1000
+    MeshType = "AMP"
+    Generator = "cube"
+    Size = 10, 10, 10
+    Range = -1, 1, -1, 1, -1, 1
+    static = TRUE
 }
 
 DiffusionBVPOperator {
@@ -22,8 +20,8 @@ DirichletVectorCorrection {
    name="DirichletVectorCorrection"
    skip_params = FALSE
     number_of_ids = 3
-   id_0             = 9
-   id_1             = 11
+   id_0             = 3
+   id_1             = 5
    number_of_dofs_0 =   1
    number_of_dofs_1 =   1
    dof_0_0          =   0
@@ -37,6 +35,15 @@ LinearSolver{
   max_error = 1e-10
   }
 
+DiffusionTransportModel {
+     name="DiffusionTransportModel"
+     Material = "Independent"
+     Property = "ThermalConductivity"
+        Default_Concentration = .1
+     Default_Temperature   = 300.
+     Default_Burnup   = 0.0
+   }
+
 DiffusionLinearFEOperator{
    name="DiffusionLinearFEOperator"
    FixedTemperature = TRUE
@@ -44,7 +51,7 @@ DiffusionLinearFEOperator{
    FixedBurnup   = TRUE
    InputVariable = "therm"
    OutputVariable = "therm"
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
    DiffusionElement {
      name="DiffusionLinearElement"
         FE_ORDER = "FIRST"  
@@ -102,8 +109,8 @@ DirichletMatrixCorrection{
    skip_rhs_correction = FALSE
    skip_rhs_add_correction = FALSE
     number_of_ids = 2
-   id_0             = 9
-   id_1             = 11
+   id_0             = 3
+   id_1             = 5
    number_of_dofs_0 =   1
    number_of_dofs_1 =   1
    dof_0_0          =   0
@@ -111,13 +118,4 @@ DirichletMatrixCorrection{
    value_0_0        = 300.
    value_1_0        = 300.
   }
-
-DiffusionTransportModel {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "ThermalConductivity"
-        Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-   }
 

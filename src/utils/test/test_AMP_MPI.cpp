@@ -604,7 +604,7 @@ int testSendRecv( MPI_CLASS comm, UnitTest &ut, type v1, type v2 )
                 comm.send( &x, 0, j, tag );
             } else if ( j == comm.getRank() ) {
                 // We are recieving
-                int size = comm.probe( i, tag );
+                int size = std::get<2>( comm.probe( i, tag ) );
                 comm.recv( &x, size, i, false, tag );
                 record( ut, size == 0, msg );
             }
@@ -961,22 +961,35 @@ testCommTimerResults testComm( MPI_CLASS comm, UnitTest &ut )
     for ( int i = 0; i < rank; i++ )
         pass = pass && any[i] && !all[i];
     record( ut, pass, "anyReduce/allReduce" );
-    // Test serializeStart()
-    if ( size < 64 ) {
-        double start = MPI_CLASS::time();
-        comm.serializeStart();
-        std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-        comm.serializeStop();
-        double stop = MPI_CLASS::time();
-        double avg  = 1e3 * ( stop - start ) / size;
-        if ( avg > 98 && avg < 130 )
-            ut.passes( "serialize" );
-        else
-            ut.failure( "serialize: " + std::to_string( avg ) );
-    }
     // Test commRanks
     testCommRanks( comm, ut );
     return timer;
+}
+
+
+// Test serialize
+void testSerialize( UnitTest &ut )
+{
+    AMP::AMP_MPI comm( AMP_COMM_WORLD );
+    const int size = comm.getSize();
+    if ( size > 32 )
+        return;
+    constexpr int ms   = 200;
+    constexpr int N_it = 3;
+    const double start = MPI_CLASS::time();
+    for ( int i = 0; i < N_it; i++ ) {
+        comm.serializeStart();
+        AMP::Utilities::busy_ms( ms );
+        comm.serializeStop();
+    }
+    double time     = ( MPI_CLASS::time() - start ) / N_it;
+    double avg      = 1e3 * time / size;
+    double overhead = time - 1e-3 * size * ms;
+    AMP::printp( "serialize overhead: %i us\n", static_cast<int>( 1e6 * overhead ) );
+    if ( avg > 0.9 * ms && avg < 1.4 * ms )
+        ut.passes( "serialize" );
+    else
+        ut.failure( "serialize: " + std::to_string( avg ) );
 }
 
 
@@ -997,11 +1010,10 @@ void testCommDup( UnitTest &ut )
         ut.failure( "dup comm" );
         return;
     }
-    #if defined( USE_PETSC ) && !defined( AMP_USE_MPI )
+    #if defined( AMP_USE_PETSC ) && !defined( AMP_USE_MPI )
     ut.expected_failure( "Skipping dup tests, PETSc (no-mpi) has a limit of 128 unique comms" );
-    return;
-    #endif
-    int N_comm_try = 2000; // Maximum number of comms to try and create
+    #else
+    const int N_comm_try = 2000; // Maximum number of comms to try and create
     std::vector<MPI_CLASS> comms;
     comms.reserve( N_comm_try );
     try {
@@ -1050,6 +1062,7 @@ void testCommDup( UnitTest &ut )
         AMP::pout << "Maximum number of communicators created with destruction: " << N_dup
                   << std::endl;
     }
+    #endif
 #endif
 }
 
@@ -1101,6 +1114,37 @@ void testRand( UnitTest &ut )
     }
     if ( pass )
         ut.passes( "rand()" );
+    // Test randomString
+    auto str  = AMP::Utilities::randomString( comm );
+    auto str0 = comm.bcast( str, 0 );
+    if ( str == str0 )
+        ut.passes( "randomString" );
+    else
+        ut.failure( "randomString" );
+}
+void testBasicCommCreatePerformance()
+{
+    if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getRank() != 0 )
+        return;
+    int N_it = 5000;
+    auto t1  = MPI_CLASS::time();
+    for ( int i = 0; i < N_it; i++ )
+        [[maybe_unused]] AMP::AMP_MPI comm;
+    auto t2 = MPI_CLASS::time();
+    for ( int i = 0; i < N_it; i++ )
+        [[maybe_unused]] AMP::AMP_MPI comm( AMP_COMM_NULL );
+    auto t3 = MPI_CLASS::time();
+    for ( int i = 0; i < N_it; i++ )
+        [[maybe_unused]] AMP::AMP_MPI comm( AMP_COMM_SELF );
+    auto t4 = MPI_CLASS::time();
+    for ( int i = 0; i < N_it; i++ )
+        [[maybe_unused]] AMP::AMP_MPI comm( AMP_COMM_WORLD );
+    auto t5 = MPI_CLASS::time();
+    printf( "Time to create empty comm: %i ns\n", (int) ( 1e9 * ( t2 - t1 ) / N_it ) );
+    printf( "Time to create AMP_COMM_NULL: %i ns\n", (int) ( 1e9 * ( t3 - t2 ) / N_it ) );
+    printf( "Time to create AMP_COMM_SELF: %i ns\n", (int) ( 1e9 * ( t4 - t3 ) / N_it ) );
+    printf( "Time to create AMP_COMM_WORLD: %i ns\n", (int) ( 1e9 * ( t5 - t4 ) / N_it ) );
+    printf( "\n" );
 }
 
 
@@ -1130,6 +1174,9 @@ int main( int argc, char *argv[] )
         global_size = 1;
 #endif
 
+        // Test performance of create
+        testBasicCommCreatePerformance();
+
         // Test the global communicator (AMP_COMM_WORLD)
         MPI_CLASS globalComm = MPI_CLASS( AMP_COMM_WORLD );
         record( ut, !globalComm.isNull(), "Global communicator created" );
@@ -1148,6 +1195,7 @@ int main( int argc, char *argv[] )
             commTimer.print();
             std::cout << std::endl;
         }
+
 
         // Test a call to sleepBarrier
         globalComm.sleepBarrier();
@@ -1184,6 +1232,9 @@ int main( int argc, char *argv[] )
                 "Communicator == MPI_COMM_NULL",
                 !useMPI );
 #endif
+
+        // Test serialize
+        testSerialize( ut );
 
         // Test dup
 #if !defined( AMP_USE_MPI ) && defined( AMP_USE_PETSC )

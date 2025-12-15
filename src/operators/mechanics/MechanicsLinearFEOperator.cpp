@@ -1,16 +1,51 @@
 #include "AMP/operators/mechanics/MechanicsLinearFEOperator.h"
+#include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/matrices/MatrixBuilder.h"
+#include "AMP/operators/ElementOperationFactory.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/VectorBuilder.h"
 
 
 namespace AMP::Operator {
 
-MechanicsLinearFEOperator::MechanicsLinearFEOperator(
-    std::shared_ptr<const OperatorParameters> inParams )
-    : LinearFEOperator( inParams )
+
+static std::shared_ptr<const MechanicsLinearFEOperatorParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
 {
-    auto params = std::dynamic_pointer_cast<const MechanicsLinearFEOperatorParameters>( inParams );
+    if ( std::dynamic_pointer_cast<const MechanicsLinearFEOperatorParameters>( params ) )
+        return std::dynamic_pointer_cast<const MechanicsLinearFEOperatorParameters>( params );
+    auto db = params->d_db;
+    // first create a MechanicsMaterialModel
+    auto model_db = db->getDatabase( "LocalModel" );
+    auto model    = std::dynamic_pointer_cast<MechanicsMaterialModel>(
+        ElementPhysicsModelFactory::createElementPhysicsModel( model_db ) );
+    // next create a ElementOperation object
+    auto elem_db       = db->getDatabase( "MechanicsElement" );
+    auto mechanicsElem = ElementOperationFactory::createElementOperation( elem_db );
+    // now create the linear mechanics operator parameters
+    AMP_ASSERT( db->getString( "name" ) == "MechanicsLinearFEOperator" );
+    auto dofManager = AMP::Discretization::simpleDOFManager::create(
+        params->d_Mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+    auto myparams             = std::make_shared<MechanicsLinearFEOperatorParameters>( db );
+    myparams->d_Mesh          = params->d_Mesh;
+    myparams->d_materialModel = model;
+    myparams->d_elemOp        = mechanicsElem;
+    myparams->d_inDofMap      = dofManager;
+    myparams->d_outDofMap     = dofManager;
+    return myparams;
+}
+
+
+MechanicsLinearFEOperator::MechanicsLinearFEOperator(
+    std::shared_ptr<const OperatorParameters> params )
+    : MechanicsLinearFEOperator( convert( params ), true )
+{
+}
+MechanicsLinearFEOperator::MechanicsLinearFEOperator(
+    std::shared_ptr<const MechanicsLinearFEOperatorParameters> params, bool )
+    : LinearFEOperator( params )
+{
     AMP_INSIST( params, "NULL parameter" );
     d_useUpdatedLagrangian = params->d_db->getWithDefault<bool>( "USE_UPDATED_LAGRANGIAN", false );
     if ( d_useUpdatedLagrangian ) {
@@ -33,11 +68,12 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
     d_outputVariable.reset( new AMP::LinearAlgebra::Variable( outVarName ) );
 
     if ( d_useUpdatedLagrangian ) {
-        d_refXYZ = AMP::LinearAlgebra::createVector( d_inDofMap, d_inputVariable, true );
+        d_refXYZ = AMP::LinearAlgebra::createVector(
+            d_inDofMap, d_inputVariable, true, d_memory_location );
         d_refXYZ->zero();
 
-        AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-        AMP::Mesh::MeshIterator end_el = el.end();
+        auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+        auto end_el = el.end();
 
         for ( ; el != end_el; ++el ) {
             d_currNodes               = el->getElements( AMP::Mesh::GeomType::Vertex );
@@ -75,10 +111,10 @@ MechanicsLinearFEOperator::MechanicsLinearFEOperator(
         if ( isNonlinearOperatorInitialized ) {
             reset( params );
         } else {
-            AMP::LinearAlgebra::Vector::shared_ptr tmpInVec =
-                AMP::LinearAlgebra::createVector( d_inDofMap, d_inputVariable, true );
-            AMP::LinearAlgebra::Vector::shared_ptr tmpOutVec =
-                AMP::LinearAlgebra::createVector( d_outDofMap, d_outputVariable, true );
+            auto tmpInVec = AMP::LinearAlgebra::createVector(
+                d_inDofMap, d_inputVariable, true, d_memory_location );
+            auto tmpOutVec = AMP::LinearAlgebra::createVector(
+                d_outDofMap, d_outputVariable, true, d_memory_location );
             d_matrix = AMP::LinearAlgebra::createMatrix( tmpInVec, tmpOutVec );
         }
     } else {
@@ -156,6 +192,7 @@ void MechanicsLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
 
 void MechanicsLinearFEOperator::postElementOperation()
 {
+    PROFILE( "postElementOperation", 5 );
     size_t numNodesInCurrElem = d_dofIndices.size();
     for ( size_t r = 0; r < numNodesInCurrElem; r++ ) {
         for ( size_t dr = 0; dr < 3; dr++ ) {
@@ -188,8 +225,8 @@ void MechanicsLinearFEOperator::printStressAndStrain( AMP::LinearAlgebra::Vector
     disp->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     d_materialModel->preLinearAssembly();
 
-    AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    AMP::Mesh::MeshIterator end_el = el.end();
+    auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto end_el = el.end();
 
     for ( ; el != end_el; ++el ) {
         d_currNodes               = el->getElements( AMP::Mesh::GeomType::Vertex );
@@ -221,7 +258,7 @@ void MechanicsLinearFEOperator::getDofIndicesForCurrentElement()
 {
     d_dofIndices.resize( d_currNodes.size() );
     for ( size_t j = 0; j < d_currNodes.size(); j++ ) {
-        d_inDofMap->getDOFs( d_currNodes[j].globalID(), d_dofIndices[j] );
+        d_inDofMap->getDOFs( d_currNodes[j]->globalID(), d_dofIndices[j] );
     } // end of j
 }
 } // namespace AMP::Operator

@@ -29,13 +29,13 @@ NonlinearKrylovAccelerator<T>::NonlinearKrylovAccelerator(
         auto parameters =
             std::dynamic_pointer_cast<AMP::Solver::SolverStrategyParameters>( params );
         if ( parameters ) {
-            d_preconditioner = parameters->d_pNestedSolver;
+            d_pNestedSolver = parameters->d_pNestedSolver;
         }
 
-        if ( d_preconditioner ) {
-            if ( d_pOperator && ( !d_preconditioner->getOperator() ) ) {
+        if ( d_pNestedSolver ) {
+            if ( d_pOperator && ( !d_pNestedSolver->getOperator() ) ) {
                 auto pcOperator = createPreconditionerOperator( d_pOperator );
-                d_preconditioner->registerOperator( pcOperator );
+                d_pNestedSolver->registerOperator( pcOperator );
             }
         } else {
             // construct the preconditioner
@@ -47,12 +47,13 @@ NonlinearKrylovAccelerator<T>::NonlinearKrylovAccelerator(
                 auto pc_solver_db = global_db->getDatabase( pc_solver_name );
                 auto pcSolverParameters =
                     std::make_shared<AMP::Solver::SolverStrategyParameters>( pc_solver_db );
+                pcSolverParameters->d_global_db = params->d_global_db;
                 if ( d_pOperator ) {
                     auto pcOperator                 = createPreconditionerOperator( d_pOperator );
                     pcSolverParameters->d_pOperator = pcOperator;
                 }
 
-                d_preconditioner = AMP::Solver::SolverFactory::create( pcSolverParameters );
+                d_pNestedSolver = AMP::Solver::SolverFactory::create( pcSolverParameters );
             }
         }
     }
@@ -75,7 +76,7 @@ NonlinearKrylovAccelerator<T>::NonlinearKrylovAccelerator(
 template<typename T>
 NonlinearKrylovAccelerator<T>::~NonlinearKrylovAccelerator( void )
 {
-    if ( d_h != nullptr ) {
+    if ( d_h ) {
         delete[] d_h[0];
         delete[] d_h;
     }
@@ -126,20 +127,10 @@ void NonlinearKrylovAccelerator<T>::getFromInput( std::shared_ptr<AMP::Database>
 
 template<typename T>
 void NonlinearKrylovAccelerator<T>::initialize(
-    std::shared_ptr<const AMP::Solver::SolverStrategyParameters> params )
+    std::shared_ptr<AMP::LinearAlgebra::Vector> solution_vector )
 {
-    // temporary if-then-else till a cleanup
-    if ( params->d_vectors.size() > 0 ) {
-        d_solution_vector = params->d_vectors[0]->clone();
-        d_solution_vector->copyVector( params->d_vectors[0] );
-    } else {
-        d_solution_vector = params->d_pInitialGuess;
-        AMP_INSIST( d_solution_vector, "Initial guess vector cannot be null" );
-    }
-
-    AMP_ASSERT( d_solution_vector );
-
-    d_solution_vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    AMP_ASSERT( solution_vector );
+    d_solution_vector = solution_vector;
 
     int n = d_mvec + 1;
 
@@ -168,12 +159,31 @@ void NonlinearKrylovAccelerator<T>::initialize(
 }
 
 template<typename T>
+void NonlinearKrylovAccelerator<T>::initialize(
+    std::shared_ptr<const AMP::Solver::SolverStrategyParameters> params )
+{
+    if ( params ) {
+        std::shared_ptr<AMP::LinearAlgebra::Vector> v;
+        if ( params->d_vectors.size() > 0 ) {
+            v = params->d_vectors[0];
+        } else {
+            v = params->d_pInitialGuess;
+        }
+        if ( v ) {
+            d_solution_vector = v->clone();
+            d_solution_vector->copyVector( v );
+            initialize( d_solution_vector );
+        }
+    }
+}
+
+template<typename T>
 void NonlinearKrylovAccelerator<T>::reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> )
 {
     // the preconditioner reset needs to be thought about more..
     if ( d_uses_preconditioner ) {
-        AMP_ASSERT( d_preconditioner );
-        d_preconditioner->reset( {} );
+        AMP_ASSERT( d_pNestedSolver );
+        d_pNestedSolver->reset( {} );
     }
     restart();
 }
@@ -334,29 +344,33 @@ template<typename T>
 void NonlinearKrylovAccelerator<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                                            std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
-    PROFILE( "solve" );
+    PROFILE( "NonlinearKrylovAccelerator<T>::apply" );
+    // reset so that basis info from previous solve if any is reset
+    reset( {} );
     d_ConvergenceStatus = AMP::Solver::SolverStrategy::SolverStatus::DivergedOther;
-    AMP_ASSERT( u.get() != nullptr );
-    AMP_ASSERT( d_pOperator != nullptr );
+    AMP_ASSERT( u && d_pOperator );
 
     if ( d_uses_preconditioner ) {
-        AMP_ASSERT( d_preconditioner );
-        AMP_ASSERT( d_preconditioner->getOperator() );
+        AMP_ASSERT( d_pNestedSolver );
+        AMP_ASSERT( d_pNestedSolver->getOperator() );
     }
 
     d_iNumberIterations = 0;
 
-    d_solution_vector->copyVector( u );
-    d_solution_vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    if ( !d_solver_initialized ) {
+        initialize( u );
+    }
 
-    AMP_ASSERT( d_pOperator.get() != nullptr );
+    if ( d_bUseZeroInitialGuess ) {
+        d_solution_vector->zero();
+    } else {
+        d_solution_vector->copyVector( u );
+    }
+    d_solution_vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // compute residual
     d_pOperator->residual( f, d_solution_vector, d_residual_vector );
     d_function_apply_count++;
-
-    d_residual_vector->scale( static_cast<T>( -1.0 ), *d_residual_vector );
-    d_residual_vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     auto residual_norm = d_residual_vector->L2Norm();
 
@@ -371,9 +385,9 @@ void NonlinearKrylovAccelerator<T>::apply( std::shared_ptr<const AMP::LinearAlge
     std::shared_ptr<AMP::Operator::Operator> pc_operator;
     if ( d_uses_preconditioner ) {
         auto pc_parameters = d_pOperator->getParameters( "Jacobian", d_solution_vector );
-        AMP_ASSERT( pc_parameters.get() != nullptr );
-        pc_operator = d_preconditioner->getOperator();
-        AMP_ASSERT( pc_operator.get() != nullptr );
+        AMP_ASSERT( pc_parameters );
+        pc_operator = d_pNestedSolver->getOperator();
+        AMP_ASSERT( pc_operator );
 
         // if using a frozen preconditioner set it up first
         if ( d_freeze_pc ) {
@@ -392,13 +406,27 @@ void NonlinearKrylovAccelerator<T>::apply( std::shared_ptr<const AMP::LinearAlge
                 AMP_ASSERT( pc_parameters );
 
                 pc_operator->reset( pc_parameters );
-                d_preconditioner->reset( {} ); // PC's like MG might regenerate matrices/coeffs
+                d_pNestedSolver->reset( {} ); // PC's like MG might regenerate matrices/coeffs
             }
 
-            AMP_ASSERT( d_preconditioner->getOperator() );
+            AMP_ASSERT( d_pNestedSolver->getOperator() );
+
+            auto solnScaling = this->getSolutionScaling();
+            auto funcScaling = this->getFunctionScaling();
+            if ( solnScaling )
+                d_correction_vector->multiply( *d_correction_vector, *solnScaling );
+            if ( funcScaling )
+                d_residual_vector->multiply( *d_residual_vector, *funcScaling );
+
             // apply the preconditioner
-            d_preconditioner->apply( d_residual_vector, d_correction_vector );
-            d_preconditioner_apply_count++;
+            d_pNestedSolver->apply( d_residual_vector, d_correction_vector );
+
+            if ( solnScaling )
+                d_correction_vector->divide( *d_correction_vector, *solnScaling );
+            if ( funcScaling )
+                d_residual_vector->divide( *d_residual_vector, *funcScaling );
+
+            ++d_preconditioner_apply_count;
 
         } else {
             // identity preconditioning
@@ -409,15 +437,14 @@ void NonlinearKrylovAccelerator<T>::apply( std::shared_ptr<const AMP::LinearAlge
         this->correction( d_correction_vector );
 
         // correct current solution
-        d_solution_vector->axpy( static_cast<T>( -1.0 ), *d_correction_vector, *d_solution_vector );
+        //        d_solution_vector->axpy( static_cast<T>( -1.0 ), *d_correction_vector,
+        //        *d_solution_vector );
+        d_solution_vector->add( *d_correction_vector, *d_solution_vector );
         d_solution_vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
         // compute the residual
         d_pOperator->residual( f, d_solution_vector, d_residual_vector );
         d_function_apply_count++;
-
-        d_residual_vector->scale( static_cast<T>( -1.0 ), *d_residual_vector );
-        d_residual_vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
         // auto prev_residual_norm = residual_norm;
         residual_norm = d_residual_vector->L2Norm();
@@ -562,7 +589,7 @@ void NonlinearKrylovAccelerator<T>::factorizeNormalMatrix( void )
         }
 
         if ( hkk > d_vtol * d_vtol ) {
-            hk[k] = sqrt( hkk );
+            hk[k] = std::sqrt( hkk );
         } else {
             // The current w nearly lies in the span of the previous vectors so drop
             // it
@@ -610,13 +637,6 @@ NonlinearKrylovAccelerator<T>::forwardbackwardSolve( std::shared_ptr<AMP::Linear
     }
 
     return cv;
-}
-
-template<typename T>
-void NonlinearKrylovAccelerator<T>::setNestedSolver(
-    std::shared_ptr<AMP::Solver::SolverStrategy> pc )
-{
-    d_preconditioner = pc;
 }
 
 /*
@@ -673,9 +693,9 @@ void NonlinearKrylovAccelerator<T>::registerOperator( std::shared_ptr<AMP::Opera
     AMP_ASSERT( op );
     d_pOperator = op;
     if ( d_uses_preconditioner ) {
-        AMP_ASSERT( d_preconditioner );
+        AMP_ASSERT( d_pNestedSolver );
         auto pc_operator = createPreconditionerOperator( op );
-        d_preconditioner->registerOperator( pc_operator );
+        d_pNestedSolver->registerOperator( pc_operator );
     }
 }
 

@@ -17,8 +17,6 @@ DenseSerialMatrixData::DenseSerialMatrixData( std::shared_ptr<MatrixParametersBa
 {
     auto params = std::dynamic_pointer_cast<MatrixParameters>( inparams );
     AMP_ASSERT( params );
-    d_VariableLeft    = params->d_VariableLeft;
-    d_VariableRight   = params->d_VariableRight;
     d_DOFManagerLeft  = params->getLeftDOFManager();
     d_DOFManagerRight = params->getRightDOFManager();
     d_rows            = params->getGlobalNumberOfRows();
@@ -39,9 +37,7 @@ std::shared_ptr<MatrixData> DenseSerialMatrixData::cloneMatrixData() const
 {
     // Create the matrix parameters
     auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        d_DOFManagerLeft, d_DOFManagerRight, getComm() );
-    params->d_VariableLeft  = d_VariableLeft;
-    params->d_VariableRight = d_VariableRight;
+        d_DOFManagerLeft, d_DOFManagerRight, getComm(), getLeftVariable(), getRightVariable() );
     // Create the matrix
     auto newMatrixData = std::make_shared<AMP::LinearAlgebra::DenseSerialMatrixData>( params );
     double *M2         = newMatrixData->d_M;
@@ -53,9 +49,7 @@ std::shared_ptr<MatrixData> DenseSerialMatrixData::transpose() const
 {
     // Create the matrix parameters
     auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        d_DOFManagerRight, d_DOFManagerLeft, getComm() );
-    params->d_VariableLeft  = d_VariableRight;
-    params->d_VariableRight = d_VariableLeft;
+        d_DOFManagerRight, d_DOFManagerLeft, getComm(), getLeftVariable(), getRightVariable() );
     // Create the matrix
     auto newMatrixData = std::make_shared<AMP::LinearAlgebra::DenseSerialMatrixData>( params );
 
@@ -72,21 +66,6 @@ std::shared_ptr<MatrixData> DenseSerialMatrixData::transpose() const
     }
 
     return newMatrixData;
-}
-
-void DenseSerialMatrixData::extractDiagonal( std::shared_ptr<Vector> diag ) const
-{
-    AMP_ASSERT( diag );
-    AMP_ASSERT( diag->getGlobalSize() == d_cols );
-
-    std::vector<double> y( d_cols );
-    std::vector<size_t> cols( d_cols );
-
-    for ( size_t i = 0; i < d_cols; i++ )
-        y[i] = d_M[i + i * d_rows];
-
-    std::iota( cols.begin(), cols.end(), 0 );
-    diag->setValuesByGlobalID( d_cols, cols.data(), y.data() );
 }
 
 /********************************************************

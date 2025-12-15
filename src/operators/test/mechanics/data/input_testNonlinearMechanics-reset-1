@@ -1,9 +1,13 @@
 
 Mesh {
-  MeshType = "libMesh"
-    dim = 3
-    MeshName = "TestMesh"
-    FileName = "brick.e"
+  MeshType = "AMP"
+  MeshName = "cube_3d"
+  Generator = "cube"
+  Size = 8, 8, 17
+  Range = -5, 5, -5, 5, -10, 10
+  surfaceIds = 8, 8, 8, 8, 8, 8
+  dim = 3
+  static = TRUE
 }
 
 

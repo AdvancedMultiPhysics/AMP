@@ -1,19 +1,225 @@
 #ifndef included_AMP_VectorBuider_hpp
 #define included_AMP_VectorBuider_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
+#include "AMP/discretization/MultiDOF_Manager.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/vectors/MultiVariable.h"
+#include "AMP/vectors/MultiVector.h"
+#include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/data/ArrayVectorData.h"
-#ifdef USE_DEVICE
-    #include "AMP/utils/device/GPUFunctionTable.h"
-    #include "AMP/vectors/operations/VectorOperationsDevice.h"
+// #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
+#ifdef AMP_USE_KOKKOS
+    #include "AMP/vectors/operations/kokkos/VectorOperationsKokkos.h"
 #endif
-#include "AMP/utils/memory.h"
+
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/GPUFunctionTable.h"
+    #include "AMP/vectors/data/device/VectorDataDevice.h"
+    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
+#endif
 
 #include "math.h"
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
+
+/********************************************************
+ * Vector builder                                        *
+ ********************************************************/
+template<typename TYPE, typename OPS, typename DATA>
+Vector::shared_ptr createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                 std::shared_ptr<Variable> variable,
+                                 bool split )
+{
+    PROFILE( "createVector" );
+
+    if ( !DOFs )
+        return Vector::shared_ptr();
+    AMP_ASSERT( variable );
+    // Check if we are dealing with a multiDOFManager
+    std::shared_ptr<AMP::Discretization::multiDOFManager> multiDOF;
+    if ( split )
+        multiDOF = std::dynamic_pointer_cast<AMP::Discretization::multiDOFManager>( DOFs );
+    // Check if we are dealing with a multiVariable
+    auto multiVariable = std::dynamic_pointer_cast<MultiVariable>( variable );
+    if ( multiVariable ) {
+        // We are dealing with a MultiVariable, first check that there are no duplicate or null
+        // variables
+        for ( size_t i = 0; i < multiVariable->numVariables(); i++ ) {
+            auto var1 = multiVariable->getVariable( i );
+            AMP_INSIST( var1,
+                        "Error using a MultiVariable in createVector, NULL variables detected" );
+            for ( size_t j = 0; j < i; j++ ) {
+                auto var2 = multiVariable->getVariable( j );
+                AMP_INSIST(
+                    ( *var1 ) != ( *var2 ),
+                    "Error using a MultiVariable in createVector, duplicate variables detected" );
+            }
+        }
+        // Check that all processors have the same number of variables
+        size_t N_var  = multiVariable->numVariables();
+        size_t N_var0 = DOFs->getComm().bcast( N_var, 0 );
+        AMP_INSIST(
+            N_var == N_var0,
+            "The multivariable has a different number of varaibles on different processors" );
+        // Create the Vector for each variable, then combine
+        std::vector<Vector::shared_ptr> vectors;
+        for ( auto var : *multiVariable )
+            vectors.push_back( createVector<TYPE, OPS, DATA>( DOFs, var, split ) );
+        // Create the multivector
+        AMP_MPI comm = DOFs->getComm();
+        AMP_ASSERT( !comm.isNull() );
+        comm.barrier();
+        auto multiVector = MultiVector::create( variable, comm );
+        multiVector->addVector( vectors );
+        return multiVector;
+    } else if ( multiDOF ) {
+        // We are dealing with a multiDOFManager and want to split the vector based on the DOF
+        // managers
+        auto subDOFs = multiDOF->getDOFManagers();
+        // Get the vectors for each DOF manager
+        std::vector<Vector::shared_ptr> vectors( subDOFs.size() );
+        for ( size_t i = 0; i < subDOFs.size(); i++ )
+            vectors[i] = createVector( subDOFs[i], variable, split );
+        // Create the multivector
+        AMP_MPI comm = DOFs->getComm();
+        AMP_ASSERT( !comm.isNull() );
+        comm.barrier();
+        auto multiVector = MultiVector::create( variable, comm );
+        multiVector->addVector( vectors );
+        return multiVector;
+    } else {
+        // We are ready to create a single vector
+        // Create the communication list
+        AMP_MPI comm = DOFs->getComm();
+        AMP_ASSERT( !comm.isNull() );
+        comm.barrier();
+        std::shared_ptr<CommunicationList> comm_list;
+        auto remote_DOFs = DOFs->getRemoteDOFs();
+        bool ghosts      = comm.anyReduce( !remote_DOFs.empty() );
+        if ( !ghosts ) {
+            // No need for a communication list
+            comm_list = std::make_shared<CommunicationList>( DOFs->numLocalDOF(), DOFs->getComm() );
+        } else {
+            // Construct the communication list
+            auto params           = std::make_shared<CommunicationListParameters>();
+            params->d_comm        = comm;
+            params->d_localsize   = DOFs->numLocalDOF();
+            params->d_remote_DOFs = remote_DOFs;
+            comm_list             = std::make_shared<CommunicationList>( params );
+        }
+        comm.barrier();
+        // Create the vector
+        auto vector = createSimpleVector<TYPE, OPS, DATA>( variable, DOFs, comm_list );
+        return vector;
+    }
+}
+
+template<typename TYPE, typename DATA>
+Vector::shared_ptr createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                 std::shared_ptr<Variable> variable,
+                                 bool split,
+                                 AMP::Utilities::Backend backend )
+{
+    if ( backend == AMP::Utilities::Backend::Serial ) {
+        return createVector<TYPE>( DOFs, variable, split );
+    } else if ( backend == AMP::Utilities::Backend::OpenMP ) {
+        AMP_WARN_ONCE( "createVector: OpenMP backend not yet support, reverting to serial" );
+        // return createVector<TYPE, VectorOperationsOpenMP<TYPE>, DATA>( DOFs, variable, split );
+        return createVector<TYPE>( DOFs, variable, split );
+    }
+
+#ifdef AMP_USE_KOKKOS
+    if ( backend == AMP::Utilities::Backend::Kokkos ) {
+        return createVector<TYPE, VectorOperationsKokkos<TYPE>, DATA>( DOFs, variable, split );
+    }
+#endif
+
+#ifdef AMP_USE_DEVICE
+    if ( backend == AMP::Utilities::Backend::Hip_Cuda ) {
+        return createVector<TYPE, VectorOperationsDevice<TYPE>, DATA>( DOFs, variable, split );
+    }
+#endif
+
+    AMP_ERROR( "createVector: Unrecognized/unsupported backend type" );
+    return nullptr;
+}
+
+template<typename TYPE>
+std::shared_ptr<Vector> createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                      std::shared_ptr<Variable> variable,
+                                      bool split,
+                                      AMP::Utilities::MemoryType memType )
+{
+    PROFILE( "createVector" );
+
+    auto backend = AMP::Utilities::getDefaultBackend( memType );
+    return createVector<TYPE>( DOFs, variable, split, memType, backend );
+}
+
+template<typename TYPE>
+std::shared_ptr<Vector> createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                      std::shared_ptr<Variable> variable,
+                                      bool split,
+                                      AMP::Utilities::MemoryType memType,
+                                      [[maybe_unused]] AMP::Utilities::Backend backend )
+{
+    PROFILE( "createVector" );
+
+    if ( memType <= AMP::Utilities::MemoryType::host ) {
+        return createVector<TYPE>( DOFs, variable, split );
+    } else if ( memType == AMP::Utilities::MemoryType::managed ) {
+#ifdef AMP_USE_DEVICE
+        return createVector<TYPE, VectorDataDevice<TYPE, AMP::ManagedAllocator<void>>>(
+            DOFs, variable, split, backend );
+#else
+        AMP_ERROR( "Creating Vector in managed memory requires device support" );
+#endif
+    } else if ( memType == AMP::Utilities::MemoryType::device ) {
+#ifdef AMP_USE_DEVICE
+        return createVector<TYPE, VectorDataDevice<TYPE, AMP::DeviceAllocator<void>>>(
+            DOFs, variable, split, backend );
+#else
+        AMP_ERROR( "Creating Vector in device memory requires device support" );
+#endif
+    } else {
+        AMP_ERROR( "Unknown memory space in createVector" );
+    }
+}
+
+template<typename TYPE>
+std::shared_ptr<Vector> createVector( std::shared_ptr<Vector> vector,
+                                      AMP::Utilities::MemoryType memType )
+{
+    auto backend = AMP::Utilities::getDefaultBackend( memType );
+    return createVector<TYPE>( vector, memType, backend );
+}
+
+template<typename TYPE>
+std::shared_ptr<Vector> createVector( std::shared_ptr<Vector> vector,
+                                      AMP::Utilities::MemoryType memType,
+                                      AMP::Utilities::Backend backend )
+{
+    if ( !vector )
+        return nullptr;
+    // Check if we are dealing with a multiVector
+    auto multiVector = std::dynamic_pointer_cast<MultiVector>( vector );
+    if ( multiVector ) {
+        std::vector<std::shared_ptr<Vector>> vecs;
+        for ( auto vec : *multiVector )
+            vecs.push_back( createVector<TYPE>( vec, memType, backend ) );
+        auto multiVector = MultiVector::create( vector->getVariable(), vector->getComm() );
+        multiVector->addVector( vecs );
+        return multiVector;
+    }
+    // Create a vector that mimics the original vector
+    return createVector<TYPE>(
+        vector->getDOFManager(), vector->getVariable(), false, memType, backend );
+}
 
 
 /****************************************************************
@@ -33,6 +239,7 @@ Vector::shared_ptr createSimpleVector( size_t localSize, std::shared_ptr<Variabl
     AMP_MPI comm( AMP_COMM_SELF );
     return createSimpleVector<TYPE, OPS, DATA>( localSize, var, comm );
 }
+
 template<typename TYPE, typename OPS, typename DATA>
 Vector::shared_ptr
 createSimpleVector( size_t localSize, std::shared_ptr<Variable> var, AMP_MPI comm )
@@ -42,8 +249,12 @@ createSimpleVector( size_t localSize, std::shared_ptr<Variable> var, AMP_MPI com
     auto data =
         std::make_shared<DATA>( DOFs->beginDOF(), DOFs->numLocalDOF(), DOFs->numGlobalDOF() );
     data->setCommunicationList( std::make_shared<CommunicationList>( localSize, comm ) );
+    // set the state to be unchanged since
+    // setCommunicationList sets it to LOCAL_CHANGED
+    data->setUpdateStatus( UpdateState::UNCHANGED );
     return std::make_shared<Vector>( data, ops, var, DOFs );
 }
+
 template<typename TYPE, typename OPS, typename DATA>
 Vector::shared_ptr createSimpleVector( std::shared_ptr<Variable> var,
                                        std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
@@ -53,6 +264,9 @@ Vector::shared_ptr createSimpleVector( std::shared_ptr<Variable> var,
     auto data =
         std::make_shared<DATA>( DOFs->beginDOF(), DOFs->numLocalDOF(), DOFs->numGlobalDOF() );
     data->setCommunicationList( commlist );
+    // set the state to be unchanged since
+    // setCommunicationList sets it to LOCAL_CHANGED
+    data->setUpdateStatus( UpdateState::UNCHANGED );
     return std::make_shared<Vector>( data, ops, var, DOFs );
 }
 
@@ -101,34 +315,107 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
     auto commList         = std::make_shared<CommunicationList>( params );
 
     auto memType = AMP::Utilities::getMemoryType( data );
+    auto backend = AMP::Utilities::getDefaultBackend( memType );
 
     std::shared_ptr<VectorData> vecData;
-    std::shared_ptr<VectorOperations> vecOps;
     if ( memType <= AMP::Utilities::MemoryType::host ) {
-        vecOps  = std::make_shared<VectorOperationsDefault<T>>();
         vecData = ArrayVectorData<T>::create( DOFs->numLocalDOF(), commList, data );
     } else if ( memType == AMP::Utilities::MemoryType::managed ) {
-#ifdef USE_DEVICE
-        vecOps  = std::make_shared<VectorOperationsDevice<T>>();
-        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::ManagedAllocator<T>>::create(
+#ifdef AMP_USE_DEVICE
+        vecData = ArrayVectorData<T, GPUFunctionTable<T>, AMP::ManagedAllocator<T>>::create(
             DOFs->numLocalDOF(), commList, data );
 #endif
     } else if ( memType == AMP::Utilities::MemoryType::device ) {
-#ifdef USE_DEVICE
-        vecOps  = std::make_shared<VectorOperationsDevice<T>>();
-        vecData = ArrayVectorData<T, AMP::GPUFunctionTable, AMP::DeviceAllocator<T>>::create(
+#ifdef AMP_USE_DEVICE
+        vecData = ArrayVectorData<T, GPUFunctionTable<T>, AMP::DeviceAllocator<T>>::create(
             DOFs->numLocalDOF(), commList, data );
 #endif
     } else {
         AMP_ERROR( "Unknown memory location specified for data" );
     }
 
+    std::shared_ptr<VectorOperations> vecOps;
+    if ( backend == AMP::Utilities::Backend::Serial ) {
+        vecOps = std::make_shared<VectorOperationsDefault<T>>();
+    } else if ( backend == AMP::Utilities::Backend::OpenMP ) {
+        AMP_WARN_ONCE( "createVector: OpenMP backend not yet support, reverting to serial" );
+        // vecOps = std::make_shared<VectorOperationsOpenMP<T>>();
+        vecOps = std::make_shared<VectorOperationsDefault<T>>();
+    }
+#ifdef AMP_USE_KOKKOS
+    if ( backend == AMP::Utilities::Backend::Kokkos ) {
+        vecOps = std::make_shared<VectorOperationsKokkos<T>>();
+    }
+#endif
+#ifdef AMP_USE_DEVICE
+    if ( backend == AMP::Utilities::Backend::Hip_Cuda ) {
+        vecOps = std::make_shared<VectorOperationsDevice<T>>();
+    }
+#endif
+    if ( !vecOps ) {
+        AMP_ERROR( "Unknown backend" );
+    }
+
     auto vec = std::make_shared<Vector>( vecData, vecOps, var, DOFs );
-    vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vec->makeConsistent( ScatterType::CONSISTENT_SET );
     return vec;
 }
 
 
 } // namespace AMP::LinearAlgebra
+
+
+/********************************************************
+ *  Macros to instantiate vectors                        *
+ ********************************************************/
+#define INSTANTIATE_SIMPLE_VECTOR( TYPE, OP, DATA )                                          \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                     \
+    AMP::LinearAlgebra::createVector<TYPE, OP, DATA>(                                        \
+        std::shared_ptr<AMP::Discretization::DOFManager>, std::shared_ptr<Variable>, bool ); \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                     \
+    AMP::LinearAlgebra::createSimpleVector<TYPE, OP, DATA>( size_t, const std::string & );   \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                     \
+        AMP::LinearAlgebra::createSimpleVector<TYPE, OP, DATA>( size_t,                      \
+                                                                std::shared_ptr<Variable> ); \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                     \
+        AMP::LinearAlgebra::createSimpleVector<TYPE, OP, DATA>(                              \
+            size_t, std::shared_ptr<Variable>, AMP_MPI );                                    \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                     \
+    AMP::LinearAlgebra::createSimpleVector<TYPE, OP, DATA>(                                  \
+        std::shared_ptr<Variable>,                                                           \
+        std::shared_ptr<AMP::Discretization::DOFManager>,                                    \
+        std::shared_ptr<CommunicationList> )
+
+#define INSTANTIATE_CREATE_VECTOR( TYPE )                                                        \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector> AMP::LinearAlgebra::createVector<TYPE>( \
+        std::shared_ptr<AMP::LinearAlgebra::Vector>, AMP::Utilities::MemoryType );               \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector> AMP::LinearAlgebra::createVector<TYPE>( \
+        std::shared_ptr<AMP::LinearAlgebra::Vector>,                                             \
+        AMP::Utilities::MemoryType,                                                              \
+        AMP::Utilities::Backend );                                                               \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector> AMP::LinearAlgebra::createVector<TYPE>( \
+        std::shared_ptr<AMP::Discretization::DOFManager>,                                        \
+        std::shared_ptr<Variable> variable,                                                      \
+        bool,                                                                                    \
+        AMP::Utilities::MemoryType,                                                              \
+        AMP::Utilities::Backend );
+
+#define INSTANTIATE_ARRAY_VECTOR( TYPE )                                                         \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                         \
+    AMP::LinearAlgebra::createArrayVector<TYPE>( const ArraySize &, const std::string & );       \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                         \
+    AMP::LinearAlgebra::createArrayVector<TYPE>( const ArraySize &, std::shared_ptr<Variable> ); \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                         \
+    AMP::LinearAlgebra::createArrayVector<TYPE>(                                                 \
+        const ArraySize &, const ArraySize &, const AMP_MPI &, std::shared_ptr<Variable> );      \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector>                                         \
+    AMP::LinearAlgebra::createVectorAdaptor<TYPE>(                                               \
+        const std::string &, std::shared_ptr<AMP::Discretization::DOFManager>, TYPE * );         \
+    template std::shared_ptr<AMP::LinearAlgebra::Vector> AMP::LinearAlgebra::createVector<TYPE>( \
+        std::shared_ptr<AMP::Discretization::DOFManager> DOFs,                                   \
+        std::shared_ptr<AMP::LinearAlgebra::Variable> variable,                                  \
+        bool split,                                                                              \
+        AMP::Utilities::MemoryType memType )
+
 
 #endif

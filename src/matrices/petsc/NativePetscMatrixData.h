@@ -9,8 +9,6 @@ namespace AMP::LinearAlgebra {
 
 /** \class NativePetscMatrixData
  * \brief  This is a thin wrapper around PETSc Mat
- * \details  As opposed to ManagedPetscMatrixData, this is a
- *    thin wrapper around a PETSc Mat.
  */
 class NativePetscMatrixData : public MatrixData
 {
@@ -48,7 +46,7 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
-    void extractDiagonal( std::shared_ptr<Vector> buf ) const override;
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
 
     void addValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
     void setValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
@@ -60,8 +58,8 @@ public:
 
     void makeConsistent( AMP::LinearAlgebra::ScatterType t ) override;
 
-    std::shared_ptr<Vector> getRightVector() const;
-    std::shared_ptr<Vector> getLeftVector() const;
+    std::shared_ptr<Vector> createInputVector() const;
+    std::shared_ptr<Vector> createOutputVector() const;
     std::shared_ptr<Discretization::DOFManager> getRightDOFManager() const override;
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
 
@@ -70,13 +68,17 @@ public:
 
     Mat getMat() { return d_Mat; }
 
-    void setMat( Mat mat, bool manage = true )
-    {
-        d_Mat                  = mat;
-        d_MatCreatedInternally = manage;
-    }
+    void setMat( Mat mat, bool manage = true );
 
     AMP_MPI getComm() const override;
+
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    typeID getCoeffType() const override
+    {
+        constexpr auto type = getTypeID<PetscScalar>();
+        return type;
+    }
 
 private:
     Mat d_Mat                   = nullptr;

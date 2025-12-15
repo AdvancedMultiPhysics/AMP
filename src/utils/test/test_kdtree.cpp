@@ -1,7 +1,7 @@
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/arrayHelpers.h"
 #include "AMP/utils/kdtree.h"
 #include "AMP/utils/kdtree2.h"
 
@@ -46,7 +46,7 @@ double compute_avg_dist( int DIM, int N )
     } else if ( DIM == 5 ) {
         C = 60.0 / pi * pi;
     }
-    return pow( C / ( (double) N ), 1.0 / ( (double) DIM ) );
+    return std::pow( C / ( (double) N ), 1.0 / ( (double) DIM ) );
 }
 
 
@@ -58,9 +58,9 @@ void run_kdtree_test( AMP::UnitTest &ut, int DIM, size_t Nx, size_t Ns )
     prefix += "::";
 
     // Initialize the random number
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dis( 0, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dis( 0, 1 );
 
     // Create the coordinates
     std::vector<std::vector<double>> points( DIM, std::vector<double>( Nx, 0.0 ) );
@@ -114,7 +114,7 @@ void run_kdtree_test( AMP::UnitTest &ut, int DIM, size_t Nx, size_t Ns )
     {
         PROFILE( "search_unknown" );
         pass            = true;
-        double dist_max = sqrt( (double) DIM ); // Maximum possible distance between two points
+        double dist_max = std::sqrt( (double) DIM ); // Maximum possible distance between two points
         double dist_avg = compute_avg_dist( DIM, (int) Nx ); // Average distance between two points
         double dist, xs[100], pos[100];
         for ( size_t i = 0; i < Ns; i++ ) {
@@ -131,14 +131,12 @@ void run_kdtree_test( AMP::UnitTest &ut, int DIM, size_t Nx, size_t Ns )
 
 // Run the kdtree2 specific tests (note: kdtree uses kdtree2 under the hood)
 template<int DIM>
-void run_kdtree2_test( AMP::UnitTest &ut, size_t N )
+void run_kdtree2_test( [[maybe_unused]] AMP::UnitTest &ut, size_t N )
 {
-    NULL_USE( ut );
-
     // Initialize the random number
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dis( 0, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dis( 0, 1 );
 
     // Create the coordinates
     std::vector<int> index( N, -1 );
@@ -150,7 +148,7 @@ void run_kdtree2_test( AMP::UnitTest &ut, size_t N )
     }
 
     // Create the tree
-    auto tree = AMP::kdtree2<DIM, int>( N, x.data(), index.data() );
+    auto tree = AMP::kdtree2<DIM, int>( x, index );
 
     // Check for ray intersections
     std::array<double, 3> p0 = { 10, 20, 20 };
@@ -168,7 +166,7 @@ void run_kdtree2_test( AMP::UnitTest &ut, size_t N )
     for ( auto tmp : result ) {
         auto p  = std::get<0>( tmp );
         auto pi = intersect( p0, v, p );
-        auto d  = sqrt( norm( pi - p ) );
+        auto d  = std::sqrt( norm( pi - p ) );
         printf( "   (%0.2f,%0.2f,%0.2f)  (%0.2f,%0.2f,%0.2f)  %0.5f\n",
                 p[0],
                 p[1],
@@ -189,6 +187,7 @@ int main( int argc, char *argv[] )
 
     PROFILE_ENABLE( 3 );
     PROFILE_ENABLE_TRACE();
+
     // Run a 1D test
     run_kdtree_test( ut, 1, 10, 10 );
     run_kdtree_test( ut, 1, 10000, 1000 );

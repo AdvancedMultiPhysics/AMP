@@ -1,0 +1,9 @@
+Preconditioner{
+  name = "TrilinosMLSolver"
+  print_info_level = 0
+  max_iterations = 1
+  problem_symmetric =TRUE
+  smoother_preorpost = "both"
+  smoother_sweeps = 2
+  coarse_maxsize = 10  
+}

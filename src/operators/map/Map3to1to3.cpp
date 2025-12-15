@@ -1,6 +1,6 @@
 #include "AMP/operators/map/Map3to1to3.h"
 #include "AMP/operators/map/Map3to1to3Parameters.h"
-#include "AMP/utils/AMP_MPI.I"
+#include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/VectorSelector.h"
@@ -68,14 +68,14 @@ Map3to1to3::~Map3to1to3() { waitForAllRequests(); }
  ********************************************************/
 void Map3to1to3::addTo1DMap( std::multimap<double, double> &map, double z, double val )
 {
-    map.insert( std::make_pair( z, val ) );
+    map.insert( { z, val } );
 }
 void Map3to1to3::addTo1DMap( std::multimap<double, double> &map,
                              const std::vector<double> &z,
                              const std::vector<double> &val )
 {
     for ( size_t i = 0; i < z.size(); i++ )
-        map.insert( std::make_pair( z[i], val[i] ) );
+        map.insert( { z[i], val[i] } );
 }
 
 
@@ -91,7 +91,7 @@ void Map3to1to3::applyStart( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     // Subset the vector (we only need to deal with the locally owned portion)
     auto var = getInputVariable();
     AMP::LinearAlgebra::VS_Comm commSelector( AMP_COMM_SELF );
-    auto commVec = u->select( commSelector, u->getName() );
+    auto commVec = u->select( commSelector );
     auto vec     = commVec->subsetVectorForVariable( var );
 
     // Build the local maps
@@ -209,7 +209,8 @@ void Map3to1to3::applyFinish( AMP::LinearAlgebra::Vector::const_shared_ptr,
                 continue; // We already copied the local data
             if ( d_own_mesh2[i] ) {
                 // Get the received data
-                int inSize = d_MapComm.probe( i, d_commTag + 1 ) / sizeof( comm_data );
+                int num_bytes = std::get<2>( d_MapComm.probe( i, d_commTag + 1 ) );
+                int inSize    = num_bytes / sizeof( comm_data );
                 recvBuf.resize( inSize );
                 d_MapComm.recv( recvBuf.data(), inSize, i, false, d_commTag + 1 );
                 // Add it to the map
@@ -227,7 +228,8 @@ void Map3to1to3::applyFinish( AMP::LinearAlgebra::Vector::const_shared_ptr,
                 continue; // We already copied the local data
             if ( d_own_mesh1[i] ) {
                 // Get the received data
-                int inSize = d_MapComm.probe( i, d_commTag + 0 ) / sizeof( comm_data );
+                int num_bytes = std::get<2>( d_MapComm.probe( i, d_commTag + 0 ) );
+                int inSize    = num_bytes / sizeof( comm_data );
                 recvBuf.resize( inSize );
                 d_MapComm.recv( recvBuf.data(), inSize, i, false, d_commTag + 0 );
                 // Add it to the map
@@ -241,12 +243,12 @@ void Map3to1to3::applyFinish( AMP::LinearAlgebra::Vector::const_shared_ptr,
     for ( const auto &tmp : map1 ) {
         double sum = tmp.second.second;
         double N   = tmp.second.first;
-        final_map1.insert( std::make_pair( tmp.first, sum / N ) );
+        final_map1.insert( { tmp.first, sum / N } );
     }
     for ( const auto &tmp : map2 ) {
         double sum = tmp.second.second;
         double N   = tmp.second.first;
-        final_map2.insert( std::make_pair( tmp.first, sum / N ) );
+        final_map2.insert( { tmp.first, sum / N } );
     }
 
     // Build the return vector
@@ -326,3 +328,13 @@ void Map3to1to3::buildReturn( AMP::LinearAlgebra::Vector::shared_ptr,
     AMP_ERROR( "buildReturn should never be called for the BaseClass" );
 }
 } // namespace AMP::Operator
+
+
+/********************************************************
+ * Explicit instantiations                               *
+ ********************************************************/
+#include "AMP/utils/AMP_MPI.I"
+template void AMP::AMP_MPI::recv<AMP::Operator::Map3to1to3::comm_data>(
+    AMP::Operator::Map3to1to3::comm_data *, int &, int, bool, int ) const;
+template AMP::AMP_MPI::Request AMP::AMP_MPI::Isend<AMP::Operator::Map3to1to3::comm_data>(
+    AMP::Operator::Map3to1to3::comm_data const *, int, int, int ) const;

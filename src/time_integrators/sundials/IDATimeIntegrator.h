@@ -197,7 +197,7 @@ public:
      */
     inline std::shared_ptr<AMP::Solver::SolverStrategy> getPreconditioner( void )
     {
-        return d_pPreconditioner;
+        return d_pNestedSolver;
     }
 
     /**
@@ -278,7 +278,7 @@ private:
     std::shared_ptr<LinearTimeOperator> d_pLinearTimeOperator;
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_solution_prime;
 
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pPreconditioner;
+    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver;
 };
 } // namespace AMP::TimeIntegrator
 

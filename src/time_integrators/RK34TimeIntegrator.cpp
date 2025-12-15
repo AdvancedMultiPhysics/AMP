@@ -31,7 +31,9 @@ RK34TimeIntegrator::RK34TimeIntegrator(
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
     : AMP::TimeIntegrator::TimeIntegrator( parameters )
 {
+    d_initialized = false;
     initialize( parameters );
+    d_initialized = true;
 }
 
 /*
@@ -65,18 +67,23 @@ void RK34TimeIntegrator::initialize(
 }
 
 void RK34TimeIntegrator::reset(
-    std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> )
+    std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
 {
-    //    AMP_ASSERT( parameters != nullptr );
-    d_new_solution->getVectorData()->reset();
-    d_k1_vec->getVectorData()->reset();
-    d_k2_vec->getVectorData()->reset();
-    d_k3_vec->getVectorData()->reset();
-    d_k4_vec->getVectorData()->reset();
-    d_z3_vec->getVectorData()->reset();
-    d_z_vec->getVectorData()->reset();
+    if ( parameters ) {
+        TimeIntegrator::getFromInput( parameters->d_db );
+        d_pParameters =
+            std::const_pointer_cast<AMP::TimeIntegrator::TimeIntegratorParameters>( parameters );
+        AMP_ASSERT( parameters->d_db );
+        getFromInput( parameters->d_db );
+    }
 
-    abort();
+    d_new_solution->reset();
+    d_k1_vec->reset();
+    d_k2_vec->reset();
+    d_k3_vec->reset();
+    d_k4_vec->reset();
+    d_z3_vec->reset();
+    d_z_vec->reset();
 }
 
 void RK34TimeIntegrator::setupVectors()
@@ -110,8 +117,8 @@ int RK34TimeIntegrator::advanceSolution( const double dt,
 {
     PROFILE( "advanceSolution" );
 
-    d_solution_vector = in;
-    d_current_dt      = dt;
+    d_solution_vector->copyVector( in );
+    d_current_dt = dt;
 
     // k1 = f(tn,un)
     d_operator->apply( d_solution_vector, d_k1_vec );
@@ -184,8 +191,7 @@ bool RK34TimeIntegrator::checkNewSolution()
 {
     bool retcode = false;
 
-    auto l2Norm                 = d_z_vec->L2Norm();
-    auto l2NormOfEstimatedError = l2Norm.get<double>();
+    auto l2NormOfEstimatedError = static_cast<double>( d_z_vec->L2Norm() );
 
     // we flag the solution as being acceptable if the l2 norm of the error
     // is less than the required tolerance or we are at the minimum time step
@@ -212,7 +218,13 @@ bool RK34TimeIntegrator::checkNewSolution()
 */
 void RK34TimeIntegrator::updateSolution()
 {
-    d_solution_vector->swapVectors( d_new_solution );
+    // instead of swap we are doing this manually so that the d_solution_vector
+    // object is not changed, which otherwise leads to the wrong vector being
+    // written at restart
+    d_k1_vec->copyVector( d_solution_vector );
+    d_solution_vector->copyVector( d_new_solution );
+    d_new_solution->copyVector( d_k1_vec );
+
     d_current_time += d_current_dt;
     ++d_integrator_step;
 
@@ -249,7 +261,7 @@ double RK34TimeIntegrator::getNextDt( const bool good_solution )
     } else {
 
         auto l2NormOfEstimatedError = d_z_vec->L2Norm().get<double>();
-        next_dt = 0.84 * d_current_dt * pow( ( d_atol / l2NormOfEstimatedError ), 1.0 / 4.0 );
+        next_dt = 0.84 * d_current_dt * std::pow( ( d_atol / l2NormOfEstimatedError ), 1.0 / 4.0 );
         // check to make sure the timestep is not too small or large
         next_dt = std::min( std::max( next_dt, d_min_dt ), d_max_dt );
         // check to make sure we don't step past final time
@@ -285,5 +297,8 @@ void RK34TimeIntegrator::writeRestart( int64_t fid ) const { TimeIntegrator::wri
 RK34TimeIntegrator::RK34TimeIntegrator( int64_t fid, AMP::IO::RestartManager *manager )
     : TimeIntegrator( fid, manager )
 {
+    d_initialized = false;
+    RK34TimeIntegrator::initialize( d_pParameters );
+    d_initialized = true;
 }
 } // namespace AMP::TimeIntegrator

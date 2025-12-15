@@ -239,8 +239,8 @@ void Database::erase( std::string_view key, bool check )
             AMP_ERROR( std::string( key ) + " does not exist in database" );
         return;
     }
-    std::vector<bool>::swap( d_used[index], d_used.back() );
-    std::swap( d_hash[index], d_hash.back() );
+    d_used[index] = d_used.back();
+    d_hash[index] = d_hash.back();
     std::swap( d_keys[index], d_keys.back() );
     std::swap( d_data[index], d_data.back() );
     d_used.pop_back();
@@ -488,8 +488,25 @@ bool Database::is_integral() const
 }
 
 
-// Register Database
-REGISTER_KEYDATA( Database, Database );
+// Print a database to an output stream
+template<class TYPE>
+static void printVar( const std::string &name,
+                      const std::vector<TYPE> &data,
+                      std::ostream &os,
+                      const std::string &indent )
+{
+    os << indent << name << " = ";
+    if ( !data.empty() ) {
+        os << data[0];
+        for ( size_t i = 1; i < data.size(); i++ )
+            os << ", " << data[i];
+    }
+    os << std::endl;
+}
+void Utilities::printDatabase( const Database &db, std::ostream &os, const std::string &indent )
+{
+    db.print( os, indent );
+}
 
 
 } // namespace AMP

@@ -16,6 +16,8 @@ Writer::WriterProperties NullWriter::getProperties() const
     properties.registerVector         = true;
     properties.registerVectorWithMesh = true;
     properties.registerMatrix         = true;
+    properties.enabled                = true;
+    properties.isNull                 = true;
     return properties;
 }
 

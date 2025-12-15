@@ -1,6 +1,7 @@
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/utils/Utilities.h"
 
+#include "ProfilerApp.h"
 
 namespace AMP::Operator {
 
@@ -23,10 +24,25 @@ void LinearOperator::setMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> in_m
     d_matrix = in_mat;
 }
 
+std::shared_ptr<AMP::LinearAlgebra::Vector> LinearOperator::createInputVector() const
+{
+    if ( d_matrix )
+        return d_matrix->createInputVector();
+    return nullptr;
+}
+
+std::shared_ptr<AMP::LinearAlgebra::Vector> LinearOperator::createOutputVector() const
+{
+    if ( d_matrix )
+        return d_matrix->createOutputVector();
+    return nullptr;
+}
 
 void LinearOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                             AMP::LinearAlgebra::Vector::shared_ptr f )
 {
+    PROFILE( "LinearOperator::apply" );
+
     AMP_INSIST( u, "NULL Solution Vector" );
     AMP_INSIST( f, "NULL Residual Vector" );
     AMP_INSIST( d_matrix, "NULL Matrix" );

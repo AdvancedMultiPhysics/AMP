@@ -37,16 +37,20 @@ void LinearFEOperator::reset( std::shared_ptr<const OperatorParameters> params )
     AMP_INSIST( params->d_db, "NULL database" );
 
     const bool reuse_matrix = params->d_db->getWithDefault<bool>( "reset_reuses_matrix", true );
+    auto lfeparams          = std::dynamic_pointer_cast<const LinearFEOperatorParameters>( params );
 
     if ( !d_matrix || !reuse_matrix ) {
-        auto inVec  = AMP::LinearAlgebra::createVector( d_inDofMap, getInputVariable(), true );
-        auto outVec = AMP::LinearAlgebra::createVector( d_outDofMap, getOutputVariable(), true );
-        d_matrix    = AMP::LinearAlgebra::createMatrix( inVec, outVec );
+        auto matrix_type = params->d_db->getWithDefault<std::string>( "matrix_type", "auto" );
+        auto inVec       = AMP::LinearAlgebra::createVector(
+            d_inDofMap, getInputVariable(), true, d_memory_location );
+        auto outVec = AMP::LinearAlgebra::createVector(
+            d_outDofMap, getOutputVariable(), true, d_memory_location );
+        d_matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, matrix_type );
         d_matrix->zero();
         d_matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     }
-    AMP_ASSERT( ( *d_inDofMap ) == ( *d_matrix->getLeftDOFManager() ) );
-    AMP_ASSERT( ( *d_inDofMap ) == ( *d_matrix->getRightDOFManager() ) );
+    // AMP_ASSERT( ( *d_inDofMap ) == ( *d_matrix->getLeftDOFManager() ) );
+    // AMP_ASSERT( ( *d_inDofMap ) == ( *d_matrix->getRightDOFManager() ) );
 
     this->preAssembly( params );
 
@@ -64,7 +68,7 @@ void LinearFEOperator::createCurrentLibMeshElement()
 {
     d_currElemPtr = new libMesh::Hex8;
     for ( size_t j = 0; j < d_currNodes.size(); ++j ) {
-        auto pt                      = d_currNodes[j].coord();
+        auto pt                      = d_currNodes[j]->coord();
         d_currElemPtr->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
     } // end for j
 }

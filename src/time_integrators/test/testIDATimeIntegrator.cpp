@@ -61,16 +61,13 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
         // create a linear BVP operator
         std::shared_ptr<AMP::Operator::LinearBVPOperator> linearPCOperator;
-        std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementModel;
         auto IDARhsOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-            AMP::Operator::OperatorBuilder::createOperator(
-                mesh, "LinearOperator", input_db, elementModel ) );
+            AMP::Operator::OperatorBuilder::createOperator( mesh, "LinearOperator", input_db ) );
 
         // create a mass linear BVP operator
-        std::shared_ptr<AMP::Operator::ElementPhysicsModel> massElementModel;
         auto massOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
             AMP::Operator::OperatorBuilder::createOperator(
-                mesh, "MassLinearOperator", input_db, massElementModel ) );
+                mesh, "MassLinearOperator", input_db ) );
 
         // create vectors for initial conditions (IC) and time derivative at IC
         auto outputVar             = IDARhsOperator->getOutputVariable();
@@ -93,7 +90,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
             std::make_shared<AMP::TimeIntegrator::IDATimeIntegratorParameters>( ida_db );
         time_Params->d_pMassOperator   = massOperator;
         time_Params->d_operator        = IDARhsOperator;
-        time_Params->d_pPreconditioner = pcSolver;
+        time_Params->d_pNestedSolver   = pcSolver;
         time_Params->d_ic_vector       = initialCondition;
         time_Params->d_ic_vector_prime = initialConditionPrime;
         time_Params->d_name            = "IDATimeIntegratorParameters";

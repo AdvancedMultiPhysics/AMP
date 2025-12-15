@@ -1,10 +1,12 @@
 // Database for the mesh
-Mesh{
-    MeshName = "cube64.with.boundary.labels.e"
-    MeshType = "libMesh"
-    FileName = "brick.e"
-    dim = 3
-    NumberOfElements = 100
+Mesh {
+MeshName = "cube_3d"
+MeshType = "AMP"
+dim = 3
+Generator = "cube"
+Size = 4, 4, 4
+Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
+static = TRUE
 }
 
 ThermalNonlinearBVPOperator {
@@ -23,6 +25,16 @@ ThermalLinearBVPOperator {
    BoundaryOperator="DirichletMatrixCorrection"
 }
 
+DiffusionTransportModel {
+	     name = "DiffusionTransportModel"
+	     Material = "Independent"
+	     Property = "ThermalDiffusionCoefficient"
+	     print_info_level = 2 
+	     Default_Concentration = .15
+	     Default_Temperature   = 300.
+	     Default_Burnup   = 0.0
+}
+
 DiffusionNonlinearFEOperator{
 	 name="DiffusionNonlinearFEOperator"
 	 InputVariable="temperature"
@@ -33,7 +45,7 @@ DiffusionNonlinearFEOperator{
 	   temperature="temperature"
 	 }
 	 PrincipalVariable = "temperature"
-         LocalModel = "DiffusionTransportModel"
+         LocalModel = DiffusionTransportModel
 	
 	 DiffusionElement {
 	      name = "DiffusionNonlinearElement"
@@ -48,11 +60,11 @@ DiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="Linear"
       OutputVariable="Linear"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
@@ -65,7 +77,7 @@ DirichletMatrixCorrection{
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
     skip_params = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
@@ -75,7 +87,7 @@ DirichletMatrixCorrection{
 
 DirichletVectorCorrection{
    	 name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 1
      id_0         =   1 
@@ -84,12 +96,3 @@ DirichletVectorCorrection{
      value_0_0        = 500.
    }
 
-DiffusionTransportModel {
-	     name = "DiffusionTransportModel"
-	     Material = "Independent"
-	     Property = "ThermalDiffusionCoefficient"
-	     print_info_level = 3 
-	     Default_Concentration = .15
-	     Default_Temperature   = 300.
-	     Default_Burnup   = 0.0
-}

@@ -16,10 +16,12 @@ public:
 
     void setVariable( std::shared_ptr<AMP::LinearAlgebra::Variable> var );
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override;
 
     void apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                 AMP::LinearAlgebra::Vector::shared_ptr f ) override;
+
+    void reset( std::shared_ptr<const OperatorParameters> params ) override;
 
 protected:
     std::shared_ptr<AMP::LinearAlgebra::Variable> d_var;

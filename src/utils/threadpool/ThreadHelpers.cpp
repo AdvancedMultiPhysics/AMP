@@ -1,4 +1,5 @@
 #include "AMP/utils/threadpool/ThreadHelpers.h"
+#include "AMP/AMP_TPLs.h"
 
 #include <climits>
 #include <stdexcept>
@@ -62,7 +63,7 @@ int getCurrentProcessor()
 #if defined( USE_LINUX )
     return sched_getcpu() + 1;
 #elif defined( USE_MAC )
-    pout << "Warning: MAC does not support getCurrentProcessor" << std::endl;
+    OS_warning( "Warning: MAC does not support getCurrentProcessor" );
     return 0;
 #elif defined( USE_WINDOWS )
     return GetCurrentProcessorNumber() + 1;
@@ -79,7 +80,7 @@ std::thread::native_handle_type getCurrentThread()
 #if defined( USE_LINUX ) || defined( USE_MAC )
     return pthread_self();
 #elif defined( USE_WINDOWS )
-    return AMP::Thread::getThreadAffinity( GetCurrentThread() );
+    return GetCurrentThread();
 #else
     #error Unknown OS
 #endif
@@ -103,12 +104,11 @@ std::vector<int> getProcessAffinity()
             procs.push_back( i );
     }
     #else
-        #warning sched_getaffinity is not supported for this compiler/OS
-    pout << "Warning: sched_getaffinity is not supported for this compiler/OS" << std::endl;
+    OS_warning( "Warning: sched_getaffinity is not supported for this compiler/OS" );
     #endif
 #elif defined( USE_MAC )
     // MAC does not support getting or setting the affinity
-    OS_warning( "MAC does not support getting the process affinity" << std::endl;
+    OS_warning( "MAC does not support getting the process affinity" );
 #elif defined( USE_WINDOWS )
     HANDLE hProc = GetCurrentProcess();
     size_t procMask;
@@ -138,12 +138,11 @@ void setProcessAffinity( const std::vector<int> &procs )
     if ( error != 0 )
         throw std::logic_error( "Error setting process affinity" );
     #else
-        #warning sched_setaffinity is not supported for this compiler/OS
-    pout << "Warning: sched_setaffinity is not supported for this compiler/OS" << std::endl;
+    OS_warning( "Warning: sched_setaffinity is not supported for this compiler/OS" );
     #endif
 #elif defined( USE_MAC )
     // MAC does not support getting or setting the affinity
-    pout << "Warning: MAC does not support setting the process affinity" << std::endl;
+    OS_warning( "Warning: MAC does not support setting the process affinity" );
 #elif defined( USE_WINDOWS )
     DWORD mask = 0;
     for ( size_t i = 0; i < procs.size(); i++ )
@@ -179,7 +178,7 @@ static DWORD GetThreadAffinityMask( HANDLE thread )
     return 0;
 }
 #endif
-std::vector<int> getThreadAffinity( std::thread::native_handle_type handle )
+std::vector<int> getThreadAffinity( [[maybe_unused]] std::thread::native_handle_type handle )
 {
     std::vector<int> procs;
 #ifdef USE_LINUX
@@ -193,11 +192,9 @@ std::vector<int> getThreadAffinity( std::thread::native_handle_type handle )
             procs.push_back( i );
     }
     #else
-        #warning pthread_getaffinity_np is not supported
     OS_warning( "pthread does not support pthread_getaffinity_np" );
     #endif
 #elif defined( USE_MAC )
-    NULL_USE( handle );
     // MAC does not support getting or setting the affinity
     OS_warning( "MAC does not support getting the thread affinity" );
 #elif defined( USE_WINDOWS )
@@ -217,7 +214,8 @@ std::vector<int> getThreadAffinity( std::thread::native_handle_type handle )
 /******************************************************************
  * Function to set the thread affinity                             *
  ******************************************************************/
-void setThreadAffinity( std::thread::native_handle_type handle, const std::vector<int> &procs )
+void setThreadAffinity( [[maybe_unused]] std::thread::native_handle_type handle,
+                        [[maybe_unused]] const std::vector<int> &procs )
 {
 #ifdef USE_LINUX
     #ifdef __USE_GNU
@@ -229,13 +227,10 @@ void setThreadAffinity( std::thread::native_handle_type handle, const std::vecto
     if ( error != 0 )
         throw std::logic_error( "Error setting thread affinity" );
     #else
-        #warning pthread_getaffinity_np is not supported
     OS_warning( "pthread does not support pthread_setaffinity_np" );
     #endif
 #elif defined( USE_MAC )
     // MAC does not support getting or setting the affinity
-    NULL_USE( handle );
-    NULL_USE( procs );
     OS_warning( "MAC does not support getting the process affinity" );
 #elif defined( USE_WINDOWS )
     DWORD mask = 0;

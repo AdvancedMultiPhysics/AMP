@@ -1,14 +1,21 @@
 
 Mesh{
-    FileName = "cube.with.12.boundaries.2.e"
     MeshName = "brick"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 1000
+    MeshType = "AMP"
+    Generator = "cube"
+    Size = 10, 10, 10
+    Range = -1, 1, -1, 1, -1, 1
+    static = TRUE
 }
+
+DiffusionTransportModel {
+     name="DiffusionTransportModel"
+     Material = "Independent"
+     Property = "ThermalConductivity"
+        Default_Concentration = .1
+     Default_Temperature   = 300.
+     Default_Burnup   = 0.0
+   }
 
 DiffusionBVPOperator {
    name="LinearBVPOperator"
@@ -49,7 +56,7 @@ DiffusionLinearFEOperator{
    FixedBurnup   = TRUE
    InputVariable = "therm"
    OutputVariable = "therm"
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 
    DiffusionElement {
      name="DiffusionLinearElement"
@@ -106,11 +113,4 @@ RobinMatrixCorrection{
    value_5_0        = 111110.
   }
 
-DiffusionTransportModel {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "ThermalConductivity"
-        Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-   }
+

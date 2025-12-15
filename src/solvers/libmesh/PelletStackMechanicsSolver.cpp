@@ -53,33 +53,30 @@ void PelletStackMechanicsSolver::solveSerial( std::shared_ptr<const AMP::LinearA
     int locPellIdx = d_pelletStackOp->getLocalIndexForPellet( 0 );
 
     if ( locPellIdx != -1 ) {
-        std::shared_ptr<AMP::Solver::SolverStrategy> currSolver =
-            d_columnSolver->getSolver( locPellIdx );
-        std::shared_ptr<AMP::Operator::Operator> currOp = currSolver->getOperator();
-        AMP::LinearAlgebra::Vector::shared_ptr subUvec  = currOp->subsetInputVector( u );
-        AMP_ASSERT( subUvec != nullptr );
-        AMP::LinearAlgebra::Vector::const_shared_ptr subFvec = currOp->subsetOutputVector( f );
-        AMP_ASSERT( subFvec != nullptr );
+        auto currSolver = d_columnSolver->getSolver( locPellIdx );
+        auto currOp     = currSolver->getOperator();
+        auto subUvec    = currOp->subsetInputVector( u );
+        auto subFvec    = currOp->subsetOutputVector( f );
+        AMP_ASSERT( subUvec );
+        AMP_ASSERT( subFvec );
         currSolver->apply( subFvec, subUvec );
     }
 
     for ( unsigned int pellId = 1; pellId < totalNumberOfPellets; pellId++ ) {
         std::shared_ptr<AMP::Database> emptyDb;
-        std::shared_ptr<AMP::Operator::PelletStackOperatorParameters> pelletStackOpParams(
-            new AMP::Operator::PelletStackOperatorParameters( emptyDb ) );
+        auto pelletStackOpParams =
+            std::make_shared<AMP::Operator::PelletStackOperatorParameters>( emptyDb );
         pelletStackOpParams->d_currentPellet = pellId;
         d_pelletStackOp->reset( pelletStackOpParams );
         d_pelletStackOp->residual( f, u, d_fbuffer2 );
         locPellIdx = d_pelletStackOp->getLocalIndexForPellet( pellId );
         if ( locPellIdx != -1 ) {
-            std::shared_ptr<AMP::Solver::SolverStrategy> currSolver =
-                d_columnSolver->getSolver( locPellIdx );
-            std::shared_ptr<AMP::Operator::Operator> currOp = currSolver->getOperator();
-            AMP::LinearAlgebra::Vector::shared_ptr subUvec  = currOp->subsetInputVector( u );
-            AMP_ASSERT( subUvec != nullptr );
-            AMP::LinearAlgebra::Vector::shared_ptr subFvec =
-                currOp->subsetOutputVector( d_fbuffer2 );
-            AMP_ASSERT( subFvec != nullptr );
+            auto currSolver = d_columnSolver->getSolver( locPellIdx );
+            auto currOp     = currSolver->getOperator();
+            auto subUvec    = currOp->subsetInputVector( u );
+            auto subFvec    = currOp->subsetOutputVector( d_fbuffer2 );
+            AMP_ASSERT( subUvec );
+            AMP_ASSERT( subFvec );
             currSolver->apply( subFvec, subUvec );
         }
     } // end for pellId

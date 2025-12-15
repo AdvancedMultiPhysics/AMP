@@ -1,44 +1,12 @@
-
-Mesh = "brick.e"
-
-testNonlinearMechanicsOperator {
-      name = "MechanicsNonlinearFEOperator"
-      print_info_level = 1
-      ActiveInputVariables {
-         DISPLACEMENT = "disp"
-      }
-      OutputVariable = "disp"
-      RESET_REUSES_RADIAL_RETURN = TRUE
-      JACOBIAN_REUSES_RADIAL_RETURN = TRUE
-
-      MechanicsElement {
-       name="MechanicsNonlinearElement"
-       USE_REDUCED_INTEGRATION = FALSE 
-       FE_ORDER = "FIRST"  
-       FE_FAMILY = "LAGRANGE"
-       QRULE_TYPE = "QGAUSS"
-       QRULE_ORDER = "DEFAULT"
-      }
-
-      LocalModel = "MechanicsMaterialModel"
-}
-
-testLinearMechanicsOperator {
-      name = "MechanicsLinearFEOperator"
-      print_info_level = 1
-      reset_reuses_matrix = TRUE
-      InputVariable = "disp"
-      OutputVariable = "disp"
-
-      MechanicsElement {
-       name="MechanicsLinearElement"
-       USE_REDUCED_INTEGRATION = FALSE 
-       FE_ORDER = "FIRST"  
-       FE_FAMILY = "LAGRANGE"
-       QRULE_TYPE = "QGAUSS"
-       QRULE_ORDER = "DEFAULT"
-      }
-
+Mesh {
+    MeshName = "TestMesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
 }
 
 MechanicsMaterialModel { 
@@ -60,5 +28,45 @@ MechanicsMaterialModel {
        Default_Oxygen_Concentration = 0.0
       }
 
+
+testNonlinearMechanicsOperator {
+      name = "MechanicsNonlinearFEOperator"
+      print_info_level = 1
+      ActiveInputVariables {
+         DISPLACEMENT = "disp"
+      }
+      OutputVariable = "disp"
+      RESET_REUSES_RADIAL_RETURN = TRUE
+      JACOBIAN_REUSES_RADIAL_RETURN = TRUE
+
+      MechanicsElement {
+       name="MechanicsNonlinearElement"
+       USE_REDUCED_INTEGRATION = FALSE 
+       FE_ORDER = "FIRST"  
+       FE_FAMILY = "LAGRANGE"
+       QRULE_TYPE = "QGAUSS"
+       QRULE_ORDER = "DEFAULT"
+      }
+
+      LocalModel = MechanicsMaterialModel
+}
+
+testLinearMechanicsOperator {
+      name = "MechanicsLinearFEOperator"
+      print_info_level = 1
+      reset_reuses_matrix = TRUE
+      InputVariable = "disp"
+      OutputVariable = "disp"
+
+      MechanicsElement {
+       name="MechanicsLinearElement"
+       USE_REDUCED_INTEGRATION = FALSE 
+       FE_ORDER = "FIRST"  
+       FE_FAMILY = "LAGRANGE"
+       QRULE_TYPE = "QGAUSS"
+       QRULE_ORDER = "DEFAULT"
+      }
+
+}
 
 

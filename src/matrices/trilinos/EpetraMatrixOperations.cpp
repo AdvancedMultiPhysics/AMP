@@ -3,11 +3,13 @@
 #include "AMP/matrices/trilinos/EpetraMatrixData.h"
 #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
 
-#include <EpetraExt_MatrixMatrix.h>
-#include <Epetra_FECrsMatrix.h>
 DISABLE_WARNINGS
+#include <EpetraExt_MatrixMatrix.h>
 #include <EpetraExt_Transpose_RowMatrix.h>
+#include <Epetra_FECrsMatrix.h>
 ENABLE_WARNINGS
+
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -39,6 +41,7 @@ void EpetraMatrixOperations::mult( std::shared_ptr<const Vector> in,
                                    MatrixData const &A,
                                    std::shared_ptr<Vector> out )
 {
+    PROFILE( "EpetraMatrixOperations::mult" );
     AMP_ASSERT( in->getGlobalSize() == A.numGlobalColumns() );
     AMP_ASSERT( out->getGlobalSize() == A.numGlobalRows() );
     auto in_view                = EpetraVector::constView( in );
@@ -53,6 +56,7 @@ void EpetraMatrixOperations::multTranspose( std::shared_ptr<const Vector> in,
                                             MatrixData const &A,
                                             std::shared_ptr<Vector> out )
 {
+    PROFILE( "EpetraMatrixOperations::multTranspose" );
     AMP_ASSERT( in->getGlobalSize() == A.numGlobalColumns() );
     AMP_ASSERT( out->getGlobalSize() == A.numGlobalRows() );
     auto in_view  = EpetraVector::constView( in );
@@ -106,20 +110,54 @@ void EpetraMatrixOperations::setIdentity( MatrixData &A )
     }
 }
 
-AMP::Scalar EpetraMatrixOperations::L1Norm( MatrixData const &A ) const
+void EpetraMatrixOperations::extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf )
 {
-    return getEpetra_CrsMatrix( A ).NormOne();
+    auto view = EpetraVector::view( buf );
+    VerifyEpetraReturn( getEpetra_CrsMatrix( A ).ExtractDiagonalCopy( view->getEpetra_Vector() ),
+                        "extractDiagonal" );
 }
 
-void EpetraMatrixOperations::matMultiply( MatrixData const &A, MatrixData const &B, MatrixData &C )
+AMP::Scalar EpetraMatrixOperations::LinfNorm( MatrixData const &A ) const
 {
-    int ierr = EpetraExt::MatrixMatrix::Multiply( getEpetra_CrsMatrix( A ),
+    return getEpetra_CrsMatrix( A ).NormInf();
+}
+
+void EpetraMatrixOperations::matMatMult( std::shared_ptr<MatrixData> A,
+                                         std::shared_ptr<MatrixData> B,
+                                         std::shared_ptr<MatrixData> C )
+{
+    int ierr = EpetraExt::MatrixMatrix::Multiply( getEpetra_CrsMatrix( *A ),
                                                   false,
-                                                  getEpetra_CrsMatrix( B ),
+                                                  getEpetra_CrsMatrix( *B ),
                                                   false,
-                                                  getEpetra_CrsMatrix( C ),
+                                                  getEpetra_CrsMatrix( *C ),
                                                   true );
     AMP_ASSERT( ierr == 0 );
+}
+
+void EpetraMatrixOperations::copy( const MatrixData &X, MatrixData &Y )
+{
+    EpetraExt::MatrixMatrix::Add(
+        getEpetra_CrsMatrix( X ), false, 1.0, getEpetra_CrsMatrix( Y ), 0.0 );
+}
+
+void EpetraMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::getRowSumsAbsolute( MatrixData const &,
+                                                 std::shared_ptr<Vector>,
+                                                 const bool )
+{
+    AMP_ERROR( "Not implemented" );
 }
 
 } // namespace AMP::LinearAlgebra

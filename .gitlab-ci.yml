@@ -1,7 +1,6 @@
 variables:
   PROJECT: AMP
   GROUP: nerd-project
-  
 include:
   - project: 'xcap/oss/solvers/dev-ops/ci'
     ref: master

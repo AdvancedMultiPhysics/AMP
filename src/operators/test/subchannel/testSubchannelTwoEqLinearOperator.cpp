@@ -16,6 +16,7 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/VectorBuilder.h"
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -37,50 +38,29 @@ bool JacobianIsCorrect( std::shared_ptr<AMP::LinearAlgebra::Matrix> testJacobian
         std::vector<double> matVals; // values of nonzero entries in row i
         testJacobian->getRowByGlobalID(
             i, matCols, matVals ); // get nonzero entries of row i of Jacobian
-        std::cout << "{";
-        size_t col = 0;
         // loop over nonzero entries of row i
         for ( size_t j = 0; j < matCols.size(); j++ ) {
-            // zeros before first nonzero entry
-            while ( col < matCols[j] ) {
-                std::cout << "0";
-                std::cout << ",";
-                if ( !AMP::Utilities::approx_equal( 0.0, knownJacobian[i][col], 0.01 ) ) {
-                    passed = false;
-                    mismatch << "Entry does not match. i = " << i << ", j = " << col
-                             << ", Computed = 0.0, Known = " << knownJacobian[i][col] << std::endl;
-                }
-                col++;
-            }
-            std::cout << matVals[j];
-            if ( !AMP::Utilities::approx_equal( matVals[j], knownJacobian[i][col], 0.01 ) ) {
+
+            if ( !AMP::Utilities::approx_equal( matVals[j], knownJacobian[i][matCols[j]], 0.01 ) ) {
                 passed = false;
-                mismatch << "Entry does not match. i = " << i << ", j = " << col
-                         << ", Computed = " << matVals[j] << ", Known = " << knownJacobian[i][col]
-                         << std::endl;
+                mismatch << "Entry does not match. i = " << i << ", j = " << matCols[j]
+                         << ", Computed = " << matVals[j]
+                         << ", Known = " << knownJacobian[i][matCols[j]] << std::endl;
             }
-            if ( matCols[j] < num_dofs - 1 )
-                std::cout << ",";
-            col++;
-        } // end for j
-        // zeros after last nonzero entry
-        while ( col < num_dofs ) {
-            std::cout << "0";
-            if ( col < num_dofs - 1 )
-                std::cout << ",";
-            if ( !AMP::Utilities::approx_equal( 0.0, knownJacobian[i][col], 0.01 ) ) {
-                passed = false;
-                mismatch << "Entry does not match. i = " << i << ", j = " << col
-                         << ", Computed = 0.0, Known = " << knownJacobian[i][col] << std::endl;
-            }
-            col++;
         }
-        std::cout << "}";
-        if ( i < num_dofs - 1 )
-            std::cout << "," << std::endl;
+        // verify that zero positions of matrix are supposed to be zero
+        for ( size_t j = 0; j < num_dofs; j++ ) {
+            if ( std::any_of(
+                     matCols.cbegin(), matCols.cend(), [j]( size_t i ) { return i == j; } ) ) {
+                continue;
+            }
+            if ( knownJacobian[i][j] != 0.0 ) {
+                passed = false;
+                mismatch << "Entry does not match. i = " << i << ", j = " << j
+                         << ", Computed = 0.0, Known = " << knownJacobian[i][j] << std::endl;
+            }
+        }
     } // end for i
-    std::cout << std::endl;
-    std::cout << mismatch.str();
 
     return passed;
 }

@@ -2,6 +2,8 @@
 #define included_AMP_ArrayClass
 
 #include "AMP/utils/ArraySize.h"
+#include "AMP/utils/FunctionTable.h"
+#include "AMP/utils/Memory.h"
 
 #include <array>
 #include <cstddef>
@@ -25,7 +27,12 @@ class Array final
 public: // Typedefs
     typedef TYPE value_type;
     typedef FUN function_table;
-    static_assert( !std::is_same_v<TYPE, std::_Bit_reference> );
+    static_assert( !std::is_same_v<TYPE, std::vector<bool>::reference> );
+    static_assert( std::is_same_v<typename FUN::value_type, TYPE> );
+    static_assert( std::is_same_v<typename Allocator::value_type, void> ||
+                   std::is_same_v<typename Allocator::value_type, TYPE> );
+    using scalarAllocator_t =
+        typename std::allocator_traits<Allocator>::template rebind_alloc<TYPE>;
 
 public: // Constructors / assignment operators
     /*!
@@ -84,7 +91,8 @@ public: // Constructors / assignment operators
      * Create a 1D Array with the range
      * @param range         Range of the data
      */
-    explicit Array( const Range<TYPE> &range );
+    template<typename U = TYPE, typename = typename std::enable_if<std::is_same_v<U, TYPE>>::type>
+    explicit Array( const Range<U> &range );
 
     /*!
      * Create a 1D Array using a string that mimic's MATLAB
@@ -168,6 +176,11 @@ public: // Views/copies/subset
     static std::unique_ptr<const Array> constView( const ArraySize &N,
                                                    const std::shared_ptr<const TYPE> &data );
 
+    /*!
+     * Create an Array view to this array
+     */
+    Array<TYPE, FUN, Allocator> view();
+
 
     /*!
      * Make this object a view of the src
@@ -195,7 +208,7 @@ public: // Views/copies/subset
      * @param isCopyable    Once the view is created, can the array be copied
      * @param isFixedSize   Once the view is created, is the array size fixed
      */
-    ARRAY_INLINE void viewRaw(
+    void viewRaw(
         int ndim, const size_t *dims, TYPE *data, bool isCopyable = true, bool isFixedSize = true )
     {
         viewRaw( ArraySize( ndim, dims ), data, isCopyable, isFixedSize );
@@ -213,7 +226,14 @@ public: // Views/copies/subset
      * @param isCopyable    Once the view is created, can the array be copied
      * @param isFixedSize   Once the view is created, is the array size fixed
      */
-    void viewRaw( const ArraySize &N, TYPE *data, bool isCopyable = true, bool isFixedSize = true );
+    void viewRaw( const ArraySize &N, TYPE *data, bool isCopyable = true, bool isFixedSize = true )
+    {
+        d_isCopyable  = isCopyable;
+        d_isFixedSize = isFixedSize;
+        d_ptr.reset();
+        d_size = N;
+        d_data = data;
+    }
 
     /*!
      * Create an array view of the given data (expert use only).
@@ -225,7 +245,7 @@ public: // Views/copies/subset
      * @param N             Number of elements in each dimension
      * @param data          Pointer to the data
      */
-    static ARRAY_INLINE Array staticView( const ArraySize &N, TYPE *data )
+    static Array staticView( const ArraySize &N, TYPE *data )
     {
         Array x;
         x.viewRaw( N, data, true, true );
@@ -237,10 +257,12 @@ public: // Views/copies/subset
      * @param array         Input array
      */
     template<class TYPE2>
-    static inline std::unique_ptr<Array<TYPE2, FUN, Allocator>>
-    convert( std::shared_ptr<Array<TYPE, FUN, Allocator>> array )
+    static inline auto convert( std::shared_ptr<Array<TYPE, FUN, Allocator>> array )
     {
-        auto array2 = std::make_unique<Array<TYPE2>>( array->size() );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        using ARRAY2 = Array<TYPE2, FUN2, Allocator>;
+        auto array2  = std::make_unique<ARRAY2>( array->size() );
         array2.copy( *array );
         return array2;
     }
@@ -251,10 +273,12 @@ public: // Views/copies/subset
      * @param array         Input array
      */
     template<class TYPE2>
-    static inline std::unique_ptr<const Array<TYPE2, FUN, Allocator>>
-    convert( std::shared_ptr<const Array<TYPE, FUN, Allocator>> array )
+    static inline auto convert( std::shared_ptr<const Array<TYPE, FUN, Allocator>> array )
     {
-        auto array2 = std::make_unique<Array<TYPE2>>( array->size() );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        using ARRAY2 = Array<TYPE2, FUN2, Allocator>;
+        auto array2  = std::make_unique<ARRAY2>( array->size() );
         array2.copy( *array );
         return array2;
     }
@@ -290,9 +314,11 @@ public: // Views/copies/subset
      * Copy and convert data from this array to a new array
      */
     template<class TYPE2>
-    Array<TYPE2, FUN, std::allocator<TYPE2>> inline cloneTo() const
+    inline auto cloneTo() const
     {
-        Array<TYPE2, FUN, std::allocator<TYPE2>> dst( this->size() );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        Array<TYPE2, FUN2, AMP::HostAllocator<void>> dst( this->size() );
         copyTo( dst.data() );
         return dst;
     }
@@ -302,11 +328,13 @@ public: // Views/copies/subset
      * Reinterpret the array as a new type (use with caution)
      */
     template<class TYPE2>
-    Array<TYPE2, FUN, std::allocator<TYPE2>> inline reinterpretArray() const
+    inline auto reinterpretArray() const
     {
         static_assert( sizeof( TYPE ) == sizeof( TYPE2 ) );
-        auto ptr = std::reinterpret_pointer_cast<TYPE2>( std::const_pointer_cast<TYPE>( d_ptr ) );
-        AMP::Array<TYPE2> y;
+        auto ptr   = std::reinterpret_pointer_cast<TYPE2>( std::const_pointer_cast<TYPE>( d_ptr ) );
+        using FUN2 = typename FUN::template cloneTo<TYPE2>;
+        static_assert( std::is_same_v<typename FUN2::value_type, TYPE2> );
+        Array<TYPE2, FUN2, Allocator> y;
         y.view2( d_size, ptr );
         return y;
     }
@@ -330,12 +358,7 @@ public: // Views/copies/subset
      * Scale the array by the given value
      * @param y         Value to scale by
      */
-    template<class TYPE2>
-    ARRAY_INLINE void scale( const TYPE2 &y )
-    {
-        for ( auto &x : *this )
-            x *= y;
-    }
+    void scale( const TYPE &y );
 
 
     /*!
@@ -378,7 +401,7 @@ public: // Views/copies/subset
      * Resize the Array
      * @param N             Number of elements
      */
-    inline void resize( size_t N ) { resize( ArraySize( N ) ); }
+    void resize( size_t N );
 
 
     /*!
@@ -386,7 +409,7 @@ public: // Views/copies/subset
      * @param N_row         Number of rows
      * @param N_col         Number of columns
      */
-    inline void resize( size_t N_row, size_t N_col ) { resize( ArraySize( N_row, N_col ) ); }
+    void resize( size_t N_row, size_t N_col );
 
     /*!
      * Resize the Array
@@ -394,7 +417,7 @@ public: // Views/copies/subset
      * @param N2            Number of columns
      * @param N3            Number of elements in the third dimension
      */
-    inline void resize( size_t N1, size_t N2, size_t N3 ) { resize( ArraySize( N1, N2, N3 ) ); }
+    void resize( size_t N1, size_t N2, size_t N3 );
 
     /*!
      * Resize the Array
@@ -574,6 +597,19 @@ public: // Accessors
     }
 
     /*!
+     * Access the desired element
+     * @param i             The element index
+     */
+    ARRAY_INLINE TYPE &operator[]( size_t i ) { return d_data[i]; }
+
+    /*!
+     * Access the desired element
+     * @param i             The element index
+     */
+    ARRAY_INLINE const TYPE &operator[]( size_t i ) const { return d_data[i]; }
+
+
+    /*!
      * Access the desired element as a raw pointer
      * @param i             The global index
      */
@@ -601,10 +637,10 @@ public: // Accessors
     ARRAY_INLINE const TYPE *end() const { return d_data + d_size.length(); }
 
     //! Return the pointer to the raw data
-    ARRAY_INLINE std::shared_ptr<TYPE> getPtr() { return d_ptr; }
+    std::shared_ptr<TYPE> getPtr() { return d_ptr; }
 
     //! Return the pointer to the raw data
-    ARRAY_INLINE std::shared_ptr<const TYPE> getPtr() const { return d_ptr; }
+    std::shared_ptr<const TYPE> getPtr() const { return d_ptr; }
 
     //! Return the pointer to the raw data
     ARRAY_INLINE TYPE *data() { return d_data; }
@@ -619,7 +655,7 @@ public: // Operator overloading
     bool operator==( const Array &rhs ) const;
 
     //! Check if two matrices are not equal
-    ARRAY_INLINE bool operator!=( const Array &rhs ) const { return !this->operator==( rhs ); }
+    bool operator!=( const Array &rhs ) const;
 
     //! Add another array
     Array &operator+=( const Array &rhs );
@@ -718,14 +754,13 @@ public: // Math operations
     Array reverseDim() const;
 
     //! Replicate an array a given number of times in each direction
-    Array repmat( const std::vector<size_t> &N ) const;
+    Array repmat( const ArraySize &N ) const;
 
     //! Coarsen an array using the given filter
     Array coarsen( const Array &filter ) const;
 
     //! Coarsen an array using the given filter
-    Array coarsen( const std::vector<size_t> &ratio,
-                   std::function<TYPE( const Array & )> filter ) const;
+    Array coarsen( const ArraySize &ratio, std::function<TYPE( const Array & )> filter ) const;
 
     /*!
      * Perform a element-wise operation y = f(x)
@@ -771,7 +806,7 @@ public: // Math operations
      * \param[in] tol Tolerance of comparison
      * \return  True iff \f$||\mathit{rhs} - x||_\infty < \mathit{tol}\f$
      */
-    bool equals( const Array &rhs, TYPE tol = 0.000001 ) const;
+    bool equals( const Array &rhs, const TYPE &tol = 0.000001 ) const;
 
 public:
     //! Return the number of bytes required to pack the data
@@ -782,7 +817,7 @@ public:
     size_t unpack( const std::byte * );
 
 private:
-    Allocator d_alloc;
+    scalarAllocator_t d_alloc;
     bool d_isCopyable;           // Can the array be copied
     bool d_isFixedSize;          // Can the array be resized
     ArraySize d_size;            // Size of each dimension
@@ -803,7 +838,7 @@ private:
     class Deleter
     {
     public:
-        Deleter( const Allocator &alloc, size_t N ) : d_alloc( alloc ), d_N( N ) {}
+        Deleter( const scalarAllocator_t &alloc, size_t N ) : d_alloc( alloc ), d_N( N ) {}
         void operator()( TYPE *p )
         {
             if constexpr ( !std::is_trivially_copyable<TYPE>::value ) {
@@ -814,7 +849,7 @@ private:
         }
 
     private:
-        Allocator d_alloc;
+        scalarAllocator_t d_alloc;
         size_t d_N;
     };
 };
@@ -846,35 +881,34 @@ template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator+( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c;
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    FUN::transform( op, a, b, c );
+    auto c = a;
+    c += b;
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator-( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c;
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a - b; };
-    FUN::transform( op, a, b, c );
+    auto c = a;
+    c -= b;
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c;
-    FUN::multiply( a, b, c );
+    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>::multiplySize( a.size(), b.size() ) );
+    FUN::multiply( a.size(), a.data(), b.size(), b.data(), c.size(), c.data() );
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a,
                                               const std::vector<TYPE> &b )
 {
-    Array<TYPE, FUN, Allocator> b2, c;
+    Array<TYPE, FUN, Allocator> b2;
     b2.viewRaw( { b.size() }, const_cast<TYPE *>( b.data() ) );
-    FUN::multiply( a, b2, c );
+    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>::multiplySize( a.size(), b.size() ) );
+    FUN::multiply( a.size(), a.data(), b2.size(), b2.data(), c.size(), c.data() );
     return c;
 }
 template<class TYPE, class FUN, class Allocator>
@@ -900,7 +934,7 @@ template<class TYPE, class FUN, class Allocator>
 template<class TYPE2>
 inline void AMP::Array<TYPE, FUN, Allocator>::copy( const TYPE2 *data )
 {
-    if ( std::is_same_v<TYPE, TYPE2> ) {
+    if constexpr ( std::is_same_v<TYPE, TYPE2> ) {
         std::copy( data, data + d_size.length(), d_data );
     } else {
         for ( size_t i = 0; i < d_size.length(); i++ )
@@ -911,7 +945,7 @@ template<class TYPE, class FUN, class Allocator>
 template<class TYPE2>
 inline void AMP::Array<TYPE, FUN, Allocator>::copyTo( TYPE2 *data ) const
 {
-    if ( std::is_same_v<TYPE, TYPE2> ) {
+    if constexpr ( std::is_same_v<TYPE, TYPE2> ) {
         std::copy( d_data, d_data + d_size.length(), data );
     } else {
         for ( size_t i = 0; i < d_size.length(); i++ )

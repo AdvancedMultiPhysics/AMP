@@ -28,46 +28,46 @@ PetscMonitor::~PetscMonitor() = default;
 std::string PetscMonitor::removeMonitor( std::string options )
 {
     size_t i2 = options.find( "monitor" );
-    i2 += 6;
     if ( i2 == std::string::npos )
         return options;
-    size_t i1            = options.find_last_of( "-", i2 );
-    std::string options2 = options;
-    options2.erase( i1, i2 - i1 + 1 );
-    return options2;
+    i2 += 6;
+    size_t i1 = options.find_last_of( "-", i2 );
+    options.erase( i1, i2 - i1 + 1 );
+    return options;
 }
 
 
 /********************************************************************
  *  Routines to provide petsc with function pointers for monitoring  *
  ********************************************************************/
-PetscErrorCode PetscMonitor::monitorKSP( KSP ksp, int iteration, double L2norm, void *ctx )
+PetscErrorCode PetscMonitor::monitorKSP( KSP ksp, PetscInt iteration, PetscReal L2norm, void *ctx )
 {
     auto *monitor = reinterpret_cast<PetscMonitor *>( ctx );
     monitor->printKSPStatus( ksp, iteration, L2norm );
     return 0;
 }
-PetscErrorCode PetscMonitor::monitorSNES( SNES snes, int iteration, double L2norm, void *ctx )
+PetscErrorCode
+PetscMonitor::monitorSNES( SNES snes, PetscInt iteration, PetscReal L2norm, void *ctx )
 {
     auto *monitor = reinterpret_cast<PetscMonitor *>( ctx );
     monitor->printSNESStatus( snes, iteration, L2norm );
     return 0;
 }
-void PetscMonitor::printKSPStatus( KSP ksp, int iteration, double L2norm )
+void PetscMonitor::printKSPStatus( KSP ksp, PetscInt iteration, PetscReal L2norm )
 {
     if ( d_comm.getRank() == 0 ) {
         std::string indent = "  ";
-        for ( int i = 0; i < ( (PetscObject) ksp )->tablevel; i++ )
+        for ( PetscInt i = 0; i < ( (PetscObject) ksp )->tablevel; i++ )
             indent += "  ";
         AMP::pout << indent << iteration << " KSP Residual norm " << std::scientific
                   << std::setprecision( 12 ) << L2norm << std::endl;
     }
 }
-void PetscMonitor::printSNESStatus( SNES snes, int iteration, double L2norm )
+void PetscMonitor::printSNESStatus( SNES snes, PetscInt iteration, PetscReal L2norm )
 {
     if ( d_comm.getRank() == 0 ) {
         std::string indent = "  ";
-        for ( int i = 0; i < ( (PetscObject) snes )->tablevel; i++ )
+        for ( PetscInt i = 0; i < ( (PetscObject) snes )->tablevel; i++ )
             indent += "  ";
         AMP::pout << indent << iteration << " SNES Function norm " << std::scientific
                   << std::setprecision( 12 ) << L2norm << std::endl;

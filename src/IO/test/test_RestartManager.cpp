@@ -47,8 +47,9 @@ void testRestartManager( AMP::UnitTest &ut, const std::string &input_file )
     bool enable_ti = false;
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegrator> timeIntegrator;
     if ( db->keyExists( "TimeIntegrator" ) ) {
-        enable_ti      = true;
-        auto ti_db     = db->getDatabase( "TimeIntegrator" );
+        enable_ti  = true;
+        auto ti_db = db->getDatabase( "TimeIntegrator" );
+        ti_db->putScalar<int>( "integrator_step", 0 );
         auto ti_params = std::make_shared<AMP::TimeIntegrator::TimeIntegratorParameters>( ti_db );
         ti_params->d_global_db = db;
         ti_params->d_ic_vector = vec;
@@ -110,8 +111,6 @@ int main( int argc, char **argv )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-
-    AMP::TimeIntegrator::registerTimeIntegratorFactories();
 
     if ( argc != 2 )
         std::cerr << "test_RestartManager <input>\n";

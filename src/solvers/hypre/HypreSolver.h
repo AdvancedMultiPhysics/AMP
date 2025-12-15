@@ -24,7 +24,7 @@ class HypreMatrixAdaptor;
 namespace AMP::Solver {
 
 
-typedef SolverStrategyParameters HypreSolverParameters;
+using HypreSolverParameters = SolverStrategyParameters;
 
 
 /**
@@ -89,21 +89,42 @@ public:
      */
     void reset( std::shared_ptr<SolverStrategyParameters> params ) override;
 
-    void getFromInput( std::shared_ptr<const AMP::Database> db );
-
     /**
      * Set the desired HYPRE memory location for HYPRE objects
      */
-    void setMemoryLocation( HYPRE_MemoryLocation location ) { d_memory_location = location; }
+    void setMemoryLocation( HYPRE_MemoryLocation location ) { d_hypre_memory_location = location; }
 
     /**
      * Set the desired HYPRE execution policy for the solver
      */
-    void setExecutionPolicy( HYPRE_ExecutionPolicy policy ) { d_exec_policy = policy; }
+    void setExecutionPolicy( HYPRE_ExecutionPolicy policy ) { d_hypre_exec_policy = policy; }
 
     HYPRE_Solver getHYPRESolver() { return d_solver; }
 
+    /**
+     * Solve the system \f$Au = f\f$.
+     @param [in] f : shared pointer to right hand side vector
+     @param [out] u : shared pointer to approximate computed solution
+     */
+    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
+
 protected:
+    /**
+     * Create Hypre solvers uniformly when possible
+     */
+    void createHypreSolver();
+
+    /**
+     * Destroy Hypre solvers uniformly
+     */
+    void destroyHypreSolver();
+
+    /**
+     * get inputs common to all/most Hypre solvers
+     */
+    void setCommonParameters( std::shared_ptr<const AMP::Database> db );
+
     /**
      * create the internal HYPRE_IJMatrix based on the AMP matrix
      */
@@ -128,17 +149,61 @@ protected:
 
     void setParameters( void ); //! set parameters based on internally set variables
 
+    void setupHypreMatrixAndRhs();
+
+    void setupSolver();
+
+    void setupNestedSolver( std::shared_ptr<const SolverStrategyParameters> parameters );
+
+    void hypreSolve();
+
+    void preSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                   std::shared_ptr<AMP::LinearAlgebra::Vector> u );
+    void postSolve( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
+                    std::shared_ptr<AMP::LinearAlgebra::Vector> u );
+
+    bool d_bMatrixInitialized = false;
+
+    bool d_bUsesPreconditioner = false;
+    bool d_bDiagScalePC        = false; //! use diagonal scaled preconditioner
+
+
     AMP_MPI d_comm;
 
     std::shared_ptr<AMP::LinearAlgebra::HypreMatrixAdaptor> d_HypreMatrixAdaptor;
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_r;
 
     HYPRE_IJMatrix d_ijMatrix  = nullptr; //! pointer to HYPRE matrix struct
     HYPRE_IJVector d_hypre_rhs = nullptr; //! pointer to HYPRE representation of rhs
     HYPRE_IJVector d_hypre_sol = nullptr; //! pointer to HYPRE representation of solution
     HYPRE_Solver d_solver      = nullptr; //! pointer to HYPRE solver
 
-    HYPRE_MemoryLocation d_memory_location;
-    HYPRE_ExecutionPolicy d_exec_policy;
+    HYPRE_MemoryLocation d_hypre_memory_location;
+    HYPRE_ExecutionPolicy d_hypre_exec_policy;
+
+    HYPRE_Int d_logging = 0;
+
+    HYPRE_Int ( *d_hypreCreateSolver )( MPI_Comm comm, HYPRE_Solver *solver ) = nullptr;
+    HYPRE_Int ( *d_hypreDestroySolver )( HYPRE_Solver solver )                = nullptr;
+
+    HYPRE_PtrToSolverFcn d_hypreSolve                                      = nullptr;
+    HYPRE_Int ( *d_hypreGetNumIterations )( HYPRE_Solver solver,
+                                            HYPRE_Int *num_iterations )    = nullptr;
+    HYPRE_Int ( *d_hypreSetPreconditioner )( HYPRE_Solver solver,
+                                             HYPRE_PtrToSolverFcn precond,
+                                             HYPRE_PtrToSolverFcn precond_setup,
+                                             HYPRE_Solver precond_solver ) = nullptr;
+    HYPRE_Int ( *d_hypreSolverSetup )( HYPRE_Solver solver,
+                                       HYPRE_Matrix A,
+                                       HYPRE_Vector b,
+                                       HYPRE_Vector x )                    = nullptr;
+
+    HYPRE_Int ( *d_hypreSetRelativeTolerance )( HYPRE_Solver solver, HYPRE_Real tol ) = nullptr;
+    HYPRE_Int ( *d_hypreSetAbsoluteTolerance )( HYPRE_Solver solver, HYPRE_Real tol ) = nullptr;
+    HYPRE_Int ( *d_hypreSetMaxIterations )( HYPRE_Solver solver, HYPRE_Int max_iter ) = nullptr;
+    HYPRE_Int ( *d_hypreSetPrintLevel )( HYPRE_Solver solver, HYPRE_Int level )       = nullptr;
+    HYPRE_Int ( *d_hypreSetLogging )( HYPRE_Solver solver, HYPRE_Int logging )        = nullptr;
 };
 } // namespace AMP::Solver
 

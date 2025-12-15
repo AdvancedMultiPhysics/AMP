@@ -1,11 +1,49 @@
 #include "AMP/operators/boundary/MassMatrixCorrection.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
+#include "AMP/operators/LinearOperator.h"
 #include "AMP/utils/Database.h"
 
 
 namespace AMP::Operator {
 
+
+/****************************************************************
+ * Create the appropriate parameters                             *
+ ****************************************************************/
+static std::shared_ptr<const MassMatrixCorrectionParameters>
+convert( std::shared_ptr<const OperatorParameters> inParams )
+{
+    AMP_ASSERT( inParams );
+    if ( std::dynamic_pointer_cast<const MassMatrixCorrectionParameters>( inParams ) )
+        return std::dynamic_pointer_cast<const MassMatrixCorrectionParameters>( inParams );
+    auto bndParams = std::dynamic_pointer_cast<const BoundaryOperatorParameters>( inParams );
+    AMP_ASSERT( bndParams );
+    auto linearOperator = std::dynamic_pointer_cast<LinearOperator>( bndParams->d_volumeOperator );
+    auto params         = std::make_shared<MassMatrixCorrectionParameters>( inParams->d_db );
+    params->d_Mesh      = inParams->d_Mesh;
+    params->d_variable  = linearOperator->getOutputVariable();
+    params->d_inputMatrix = linearOperator->getMatrix();
+    return params;
+}
+
+
+/****************************************************************
+ * Constructors                                                  *
+ ****************************************************************/
+MassMatrixCorrection::MassMatrixCorrection( std::shared_ptr<const OperatorParameters> inParams )
+    : BoundaryOperator( inParams ), d_bSetIdentityOnDiagonal( false )
+{
+    auto params = convert( inParams );
+    AMP_ASSERT( params );
+    d_variable = params->d_variable;
+    reset( params );
+}
+
+
+/****************************************************************
+ * reset                                                         *
+ ****************************************************************/
 void MassMatrixCorrection::resetBoundaryIds(
     std::shared_ptr<const MassMatrixCorrectionParameters> params )
 {
@@ -40,10 +78,9 @@ void MassMatrixCorrection::resetBoundaryIds(
         }     // end for j
     }
 }
-
 void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> params )
 {
-
+    AMP_ASSERT( params );
 
     auto myParams = std::dynamic_pointer_cast<const MassMatrixCorrectionParameters>( params );
 
@@ -56,7 +93,7 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
     auto inputMatrix = myParams->d_inputMatrix;
     AMP_INSIST( inputMatrix, "NULL matrix" );
 
-    auto inVec   = inputMatrix->getRightVector();
+    auto inVec   = inputMatrix->createInputVector();
     auto dof_map = inVec->getDOFManager();
 
     unsigned int numIds = d_boundaryIds.size();
@@ -74,7 +111,8 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
             auto neighbors = bnd->getNeighbors();
 
             for ( auto &neighbor : neighbors ) {
-                AMP_ASSERT( ( *( neighbor ) ) != ( *bnd ) );
+                if ( neighbor )
+                    AMP_ASSERT( *neighbor != *bnd );
             } // end for el
 
             for ( unsigned int j = 0; j < d_dofIds[k].size(); ++j ) {
@@ -91,6 +129,8 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
                     }
                 } // end for i
                 for ( auto &neighbor : neighbors ) {
+                    if ( !neighbor )
+                        continue;
                     std::vector<size_t> nhDofIds;
                     dof_map->getDOFs( neighbor->globalID(), nhDofIds );
                     for ( auto &nhDofId : nhDofIds ) {

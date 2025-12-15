@@ -43,8 +43,8 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     meshParams->setComm( globalComm );
 
     // Create the meshes from the input database
-    auto manager     = AMP::Mesh::MeshFactory::create( meshParams );
-    auto meshAdapter = manager->Subset( "bar" );
+    auto manager = AMP::Mesh::MeshFactory::create( meshParams );
+    auto mesh    = manager->Subset( "bar" );
 
 
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
@@ -53,11 +53,9 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     AMP_INSIST( input_db->keyExists( "FlowFrapconOperator" ),
                 "Key ''FlowFrapconOperator'' is missing!" );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> flowtransportModel;
     auto flowDatabase = input_db->getDatabase( "FlowFrapconOperator" );
     auto flowOperator = std::dynamic_pointer_cast<AMP::Operator::FlowFrapconOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "FlowFrapconOperator", input_db, flowtransportModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "FlowFrapconOperator", input_db ) );
 
     auto inputVariable  = flowOperator->getInputVariable();
     auto outputVariable = flowOperator->getOutputVariable();
@@ -70,8 +68,7 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     auto tmpVec = AMP::LinearAlgebra::createSimpleVector<double>( 10, inputVariable );
 
     auto flowJacobian = std::dynamic_pointer_cast<AMP::Operator::FlowFrapconJacobian>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "FlowFrapconJacobian", input_db, flowtransportModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "FlowFrapconJacobian", input_db ) );
 
     //    MANUFACTURE THE INPUT SOLUTION
     //     FROM PRESCRIBED FLOW SOLUTION
@@ -88,7 +85,7 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     Pr = ( flowDatabase )->getScalar<double>( "Prandtl" );
     nP = ( flowDatabase )->getScalar<double>( "numpoints" );
 
-    heff = ( 0.023 * K / De ) * pow( Re, 0.8 ) * pow( Pr, 0.4 );
+    heff = ( 0.023 * K / De ) * std::pow( Re, 0.8 ) * std::pow( Pr, 0.4 );
     dz   = 2. / nP;
 
     std::cout << "Original Flow Solution  " << std::endl;
@@ -173,7 +170,6 @@ int testFlowSolution( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-    AMP::Solver::registerSolverFactories();
 
     flowTest( &ut, "testFlowSolution" );
 

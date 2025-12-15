@@ -1,7 +1,7 @@
 #ifndef included_AMP_XDMF
 #define included_AMP_XDMF
 
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Array.h"
 

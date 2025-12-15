@@ -2,9 +2,11 @@
 #define included_AMP_EpetraVectorOperations
 
 
-#include "AMP/vectors/operations/VectorOperationsDefault.h"
+#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
+DISABLE_WARNINGS
 #include <Epetra_Vector.h>
+ENABLE_WARNINGS
 
 
 namespace AMP::LinearAlgebra {

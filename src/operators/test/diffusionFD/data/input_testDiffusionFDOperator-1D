@@ -1,0 +1,18 @@
+# 1D Example
+
+# Mesh data
+Mesh {
+    MeshName = "mesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 1
+    Size = 32768
+    Range = -1, 1
+    surfaceIds = 1, 2
+    static = TRUE
+}
+
+# Rotation and anisotropy coefficients
+RACoefficients{
+    dim   = 1
+}

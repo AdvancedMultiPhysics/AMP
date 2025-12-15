@@ -21,11 +21,13 @@ public:
      * \param[in] useMeshComm  Use the comm of the mesh (otherwise use comm of parent)
      */
     MeshVariable( const std::string &name,
-                  std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                  std::shared_ptr<const AMP::Mesh::Mesh> mesh,
                   bool useMeshComm = true );
 
-    virtual std::shared_ptr<AMP::Discretization::DOFManager>
+    std::shared_ptr<AMP::Discretization::DOFManager>
         getSubsetDOF( std::shared_ptr<AMP::Discretization::DOFManager> ) const override;
+
+    AMP::AMP_MPI getComm( const AMP::AMP_MPI &comm ) const override;
 
 public: // Functions inherited from Variable
     std::string className() const override { return "MeshVariable"; }
@@ -37,7 +39,7 @@ public: // Functions inherited from Variable
 private:
     MeshVariable();
     bool d_useMeshComm = false;
-    std::shared_ptr<AMP::Mesh::Mesh> d_mesh;
+    std::shared_ptr<const AMP::Mesh::Mesh> d_mesh;
 };
 
 
@@ -57,8 +59,10 @@ public:
                           const AMP::Mesh::MeshIterator &iterator,
                           const AMP_MPI &comm );
 
-    virtual std::shared_ptr<AMP::Discretization::DOFManager>
+    std::shared_ptr<AMP::Discretization::DOFManager>
         getSubsetDOF( std::shared_ptr<AMP::Discretization::DOFManager> ) const override;
+
+    AMP::AMP_MPI getComm( const AMP::AMP_MPI &comm ) const override;
 
 public: // Functions inherited from Variable
     std::string className() const override { return "MeshIteratorVariable"; }

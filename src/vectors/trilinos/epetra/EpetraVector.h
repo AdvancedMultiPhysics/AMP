@@ -2,8 +2,12 @@
 #define included_AMP_EpetraVector
 
 #include "AMP/vectors/Vector.h"
+
+DISABLE_WARNINGS
 #include <Epetra_Map.h>
 #include <Epetra_Vector.h>
+ENABLE_WARNINGS
+
 
 namespace AMP::LinearAlgebra {
 

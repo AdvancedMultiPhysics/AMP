@@ -57,7 +57,7 @@ void DiffusionCylindricalTransportModel::getTensorTransport(
     for ( size_t k = 0; k < radius.size(); k++ ) {
         double x  = coordinates[k]( 0 );
         double y  = coordinates[k]( 1 );
-        double r  = sqrt( x * x + y * y );
+        double r  = std::sqrt( x * x + y * y );
         radius[k] = r;
     }
     d_property->evalv( radialCoefficient, {}, args );

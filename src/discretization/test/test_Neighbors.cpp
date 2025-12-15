@@ -16,7 +16,7 @@ int main( int argc, char **argv )
     AMP::AMPManager::startup( argc, argv, startup_properties );
     AMP::UnitTest ut;
 
-    auto mesh_generator = AMP::unit_test::AMPCubeGenerator<10>();
+    auto mesh_generator = AMP::unit_test::AMPCubeGenerator( 10 );
     mesh_generator.build_mesh();
     auto mesh        = mesh_generator.getMesh();
     const auto &comm = mesh->getComm();
@@ -29,7 +29,7 @@ int main( int argc, char **argv )
 
     auto it = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     for ( ; it != it.end(); ++it ) {
-        const auto row = vDOF->getRowDOFs( *it );
+        const auto row = vDOF->getRowDOFs( it->globalID() );
         vneighbors[row.size()]++;
     }
 
@@ -69,7 +69,7 @@ int main( int argc, char **argv )
 
     auto cit = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
     for ( ; cit != cit.end(); ++cit ) {
-        const auto row = cDOF->getRowDOFs( *cit );
+        const auto row = cDOF->getRowDOFs( cit->globalID() );
         cneighbors[row.size()]++;
     }
 

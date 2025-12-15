@@ -2,7 +2,7 @@
 #define included_AMP_MeshID
 
 #include <memory>
-#include <vector>
+#include <string>
 
 
 namespace AMP::Mesh {
@@ -39,7 +39,16 @@ public:
     }
     constexpr MeshID( uint64_t id ) : data( id ) {}
     constexpr uint64_t getData() const { return data; }
-    constexpr uint64_t getHash() const { return 0xF958F86D61D1B36B ^ data; }
+    // Hash the id
+    constexpr uint64_t getHash() const
+    {
+        uint64_t d1  = data & 0xFFFF;
+        uint64_t d2  = ( data >> 16 ) & 0xFFFF;
+        uint64_t d3  = ( data >> 32 ) & 0xFFFF;
+        uint64_t d4  = data >> 48;
+        uint64_t tmp = ( d1 << 48 ) | ( d3 << 32 ) | ( d2 << 16 ) | d4;
+        return 0xF958F86D61D1B36B ^ tmp;
+    }
     // Overload key operators
     constexpr bool operator==( const MeshID &rhs ) const { return data == rhs.data; }
     constexpr bool operator!=( const MeshID &rhs ) const { return data != rhs.data; }
@@ -113,6 +122,7 @@ public:
         return ( data << 1 ) < ( rhs.data << 1 );
     }
     // Access local data
+    constexpr uint64_t getData() const { return data; }
     constexpr bool is_local() const { return ( data >> 63 ) != 0; }
     constexpr GeomType type() const { return static_cast<GeomType>( ( data >> 32 ) & 0x00FF ); }
     constexpr unsigned int local_id() const { return data & 0x00000000FFFFFFFF; }
@@ -210,6 +220,7 @@ std::ostream &operator<<( std::ostream &out, GeomType x );
 std::ostream &operator<<( std::ostream &out, MeshID x );
 std::ostream &operator<<( std::ostream &out, ElementID x );
 std::ostream &operator<<( std::ostream &out, MeshElementID x );
+std::string to_string( GeomType x );
 
 
 // Arithmetic operators

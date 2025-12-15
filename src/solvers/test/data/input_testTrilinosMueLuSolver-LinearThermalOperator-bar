@@ -1,78 +1,10 @@
-
-Mesh{
-    FileName = "cube4096.e"
-    MeshName = "bar"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 4096
-}
-
-NeutronicsOperator{
-  name="NeutronicsRhsOperator"
-  type               = "Power"
-  OutputVariable     = "SpecificPowerInWattsPerKg"
-  numTimeSteps       = 2
-  timeSteps          = 1, 10000.
-  useFixedValue      = TRUE
-  fixedValues        = 1.0, 2.0
-}
-
-DiffusionBVPOperator {
-   name="LinearBVPOperator"
-   print_info_level = 1
-   VolumeOperator = "DiffusionLinearFEOperator1"
-   BoundaryOperator = "DirichletMatrixCorrection1"
-}
-
-DiffusionLinearFEOperator1{
-   name="DiffusionLinearFEOperator"
-   FixedTemperature = TRUE
-   FixedConcentration = TRUE
-   FixedBurnup   = TRUE
-   InputVariable = "therm"
-   OutputVariable = "therm"
- 
-   DiffusionElement {
-     name="DiffusionLinearElement"
-        FE_ORDER = "FIRST"  
-     FE_FAMILY = "LAGRANGE"
-     QRULE_TYPE = "QGAUSS"
-     QRULE_ORDER = "DEFAULT"
-   }
-   LocalModel = "DiffusionTransportModel1"
-}
-
-DirichletMatrixCorrection1 {
-   name="DirichletMatrixCorrection"
-   skip_params = FALSE
-   skip_rhs_correction = FALSE
-   skip_rhs_add_correction = FALSE
-    number_of_ids = 2
-   id_0             = 2
-   number_of_dofs_0 =   1
-   dof_0_0          =   0
-   value_0_0        = 488.0928
-   id_1             = 1
-   number_of_dofs_1 =   1
-   dof_1_0          =   0
-   value_1_0        = 385.6928
-}
-
-DiffusionTransportModel1 {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "ThermalConductivity"
-        Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-   }
+<<< "input_LinearThermalOperator-bar" >>>
 
 LinearSolver{
+  name = "TrilinosMueLuSolver"
   max_iterations = 10
-  max_error = 1e-10
+  absolute_tolerance = 1e-10
+  relative_tolerance = 1e-8
   problem_symmetric =TRUE
   smoother_pre_or_post = "both"
   smoother_params{
@@ -82,32 +14,3 @@ LinearSolver{
   coarse_max_size = 100
   
 }
-
-VolumeIntegralOperator{
-  name="VolumeIntegralOperator"
-  InputVariableType = "IntegrationPointScalar"
-  Number_Active_Variables = 1
-  Number_Auxillary_Variables = 0
-  ConstantSource   = FALSE
-  ActiveInputVariables{
-    ActiveVariable_0 = "SpecificPowerInWattsPerKg" 
-  }
-  OutputVariable = "heatsource"
-  LocalModel = "SourcePhysicsModel"
-
-  SourceElement {
-    name="SourceNonlinearElement"
-      FE_ORDER = "FIRST"  
-    FE_FAMILY = "LAGRANGE"
-    QRULE_TYPE = "QGAUSS"
-    QRULE_ORDER = "DEFAULT"
-  }
-}
-
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-  }

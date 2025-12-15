@@ -1,13 +1,12 @@
 
 Mesh{
-    FileName = "cylinder1K.e"
     MeshName = "cylinder"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 1088
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 4, 8
+    Range = 1, -2, 2
+    surfaceIds = 1, 1, 1, 1, 2, 3
+    static = TRUE
 }
 
 MechanicsBVPOperator {
@@ -74,6 +73,14 @@ LinearSolver {
     }
 }
 
+MechanicsMaterialModel {
+        USE_MATERIALS_LIBRARY = FALSE
+          Material = "UO2_MSRZC_09"
+          name="IsotropicElasticModel"
+          Youngs_Modulus = 2.08e11
+          Poissons_Ratio = 0.23
+      }
+
 MechanicsLinearFEOperator{
       name="MechanicsLinearFEOperator"
         print_info_level = 1
@@ -89,7 +96,7 @@ MechanicsLinearFEOperator{
             QRULE_TYPE = "QGAUSS"
             QRULE_ORDER = "DEFAULT"
         }
-	LocalModel = "MechanicsMaterialModel"
+	LocalModel = MechanicsMaterialModel
     }
 
 DirichletMatrixCorrection{
@@ -123,10 +130,3 @@ DirichletMatrixCorrection{
       //value_1_1 = 0.0
   }
 
-MechanicsMaterialModel {
-        USE_MATERIALS_LIBRARY = FALSE
-          Material = "UO2_MSRZC_09"
-          name="IsotropicElasticModel"
-          Youngs_Modulus = 2.08e11
-          Poissons_Ratio = 0.23
-      }

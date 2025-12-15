@@ -21,7 +21,7 @@ public:
     {
         auto vec        = d_factory->getVector();
         auto criterion  = AMP::LinearAlgebra::VS_Stride( 1, 3 );
-        auto vec_select = vec->select( criterion, "thirds" );
+        auto vec_select = vec->select( criterion );
         size_t N1       = vec->getGlobalSize();
         size_t N2       = vec_select->getGlobalSize();
         AMP_ASSERT( N1 / 3 == N2 );

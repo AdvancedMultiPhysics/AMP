@@ -5,14 +5,6 @@
 #include <sstream>
 
 
-#ifdef USE_CUDA
-    #include <cuda.h>
-    #include <cuda_runtime_api.h>
-#endif
-#ifdef USE_HIP
-    #include <hip/hip_runtime_api.h>
-#endif
-
 #ifdef AMP_USE_LAPACK_WRAPPERS
     #include "LapackWrappers.h"
 #endif
@@ -72,7 +64,8 @@ int LIBMESH_MICRO_VERSION = 0;
 {
     if ( version.size() > 0 ) {
         auto it = version.begin();
-        out << *it;
+        out << '.' << *it;
+        ++it;
         for ( ; it != version.end(); ++it )
             out << '.' << *it;
     }

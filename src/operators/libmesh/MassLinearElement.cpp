@@ -1,6 +1,8 @@
 #include "AMP/operators/libmesh/MassLinearElement.h"
 #include "AMP/utils/Utilities.h"
 
+#include "ProfilerApp.h"
+
 #include "libmesh/point.h"
 
 
@@ -8,6 +10,8 @@ namespace AMP::Operator {
 
 void MassLinearElement::apply()
 {
+    PROFILE( "apply", 5 );
+
     const std::vector<libMesh::Real> &JxW = ( *d_JxW );
 
     const std::vector<std::vector<libMesh::Real>> &phi = ( *d_phi );

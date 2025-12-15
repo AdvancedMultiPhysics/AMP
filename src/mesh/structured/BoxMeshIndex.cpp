@@ -1,6 +1,6 @@
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/mesh/structured/BoxMesh.h"
-#include "AMP/utils/Array.hpp"
+#include "AMP/utils/Array.h"
 
 
 using MeshElementIndex = AMP::Mesh::BoxMesh::MeshElementIndex;
@@ -78,4 +78,5 @@ INSTANTIATE_HDF5( MeshElementIndex );
 /********************************************************
  * HDF5 operators                                        *
  ********************************************************/
-instantiateArrayConstructors( MeshElementIndex );
+#include "AMP/utils/Array.hpp"
+instantiateArrayConstructors( AMP::Mesh::BoxMesh::MeshElementIndex );

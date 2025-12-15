@@ -30,21 +30,19 @@ Vector::shared_ptr VS_MultiVariable::subset( Vector::shared_ptr vec ) const
     }
     return Vector::shared_ptr();
 }
-Vector::const_shared_ptr VS_MultiVariable::subset( Vector::const_shared_ptr vec ) const
-{
-    return subset( std::const_pointer_cast<Vector>( vec ) );
-}
 
 
 /****************************************************************
  * Constructors/Destructors                                      *
  ****************************************************************/
-MultiVariable::MultiVariable( const std::string &name,
-                              const std::vector<std::shared_ptr<Variable>> &vars )
-    : Variable( name ), d_vVariables( vars )
+MultiVariable::MultiVariable( const std::string &name, std::vector<std::shared_ptr<Variable>> vars )
+    : Variable( name ), d_vVariables( std::move( vars ) )
 {
 }
-MultiVariable::~MultiVariable() = default;
+MultiVariable::MultiVariable( std::shared_ptr<Variable> var )
+    : Variable( var->getName() ), d_vVariables( 1, var )
+{
+}
 
 
 /****************************************************************

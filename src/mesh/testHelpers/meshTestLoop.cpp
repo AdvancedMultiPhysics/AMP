@@ -35,6 +35,8 @@ void meshTests::MeshTestLoop( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh
     VerifyNodeElemMapIteratorTest( ut, mesh );
     VerifyBoundaryIteratorTest( ut, mesh );
     VerifyElementForNode( ut, mesh );
+    // Test BoxMesh
+    testBoxMesh( ut, mesh );
     // Test performance
     MeshPerformance( ut, mesh );
 }
@@ -78,16 +80,14 @@ void meshTests::MeshMatrixTestLoop( AMP::UnitTest &ut,
     if ( run_tests ) {
         PROFILE( "MeshMatrixTestLoop" );
         VerifyGetMatrixTrivialTest<1, true>( ut, mesh );
-        if ( AMP::LinearAlgebra::haveSparseMatrix() ) {
-            GhostWriteTest<1, true>( ut, mesh );
-            if ( !fast ) {
-                VerifyGetMatrixTrivialTest<3, true>( ut, mesh );
-                VerifyGetMatrixTrivialTest<1, false>( ut, mesh );
-                VerifyGetMatrixTrivialTest<3, false>( ut, mesh );
-                GhostWriteTest<3, true>( ut, mesh );
-                GhostWriteTest<1, false>( ut, mesh );
-                GhostWriteTest<3, false>( ut, mesh );
-            }
+        GhostWriteTest<1, true>( ut, mesh );
+        if ( !fast ) {
+            VerifyGetMatrixTrivialTest<3, true>( ut, mesh );
+            VerifyGetMatrixTrivialTest<1, false>( ut, mesh );
+            VerifyGetMatrixTrivialTest<3, false>( ut, mesh );
+            GhostWriteTest<3, true>( ut, mesh );
+            GhostWriteTest<1, false>( ut, mesh );
+            GhostWriteTest<3, false>( ut, mesh );
         }
     }
 }

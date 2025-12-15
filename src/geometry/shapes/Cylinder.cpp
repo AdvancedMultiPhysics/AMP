@@ -1,9 +1,10 @@
 #include "AMP/geometry/shapes/Cylinder.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
 
+#include <algorithm>
 
 namespace AMP::Geometry {
 
@@ -19,6 +20,7 @@ Cylinder::Cylinder() : LogicalGeometry( 3, 3, { 4, 4, 4, 4, 2, 1 } )
 }
 Cylinder::Cylinder( std::shared_ptr<const AMP::Database> db ) : Cylinder()
 {
+    d_method   = db->getWithDefault<int>( "Method", 2 );
     auto range = db->getVector<double>( "Range" );
     if ( range.size() == 3u ) {
         d_r     = range[0];
@@ -36,9 +38,10 @@ Cylinder::Cylinder( std::shared_ptr<const AMP::Database> db ) : Cylinder()
 }
 Cylinder::Cylinder( double r, double z_min, double z_max ) : Cylinder()
 {
-    d_r     = r;
-    d_z_min = z_min;
-    d_z_max = z_max;
+    d_r      = r;
+    d_z_min  = z_min;
+    d_z_max  = z_max;
+    d_method = 2;
 }
 
 
@@ -66,7 +69,7 @@ Point Cylinder::nearest( const Point &pos ) const
     // Calculate the nearest point
     z        = std::min( z, d_z_max );
     z        = std::max( z, d_z_min );
-    double r = sqrt( x * x + y * y );
+    double r = std::sqrt( x * x + y * y );
     double R = getR( z );
     if ( r > R ) {
         x *= R / r;
@@ -131,7 +134,7 @@ int Cylinder::surface( const Point &pos ) const
     double x  = pos.x() - d_offset[0];
     double y  = pos.y() - d_offset[1];
     double z  = pos.z() - d_offset[2];
-    double r  = sqrt( x * x + y * y );
+    double r  = std::sqrt( x * x + y * y );
     double R  = getR( z );
     double d1 = std::abs( r - R );
     double d2 = std::abs( z - d_z_min );
@@ -158,7 +161,7 @@ Point Cylinder::surfaceNorm( const Point &pos ) const
         // r
         double x = pos.x() - d_offset[0];
         double y = pos.y() - d_offset[1];
-        double n = sqrt( x * x + y * y );
+        double n = std::sqrt( x * x + y * y );
         return { x / n, y / n, 0 };
     }
 }
@@ -171,7 +174,7 @@ Point Cylinder::physical( const Point &pos ) const
 {
     double z0 = d_z_min + pos[2] * ( d_z_max - d_z_min );
     double R  = getR( z0 );
-    auto tmp  = GeometryHelpers::map_logical_circle( R, 2, pos[0], pos[1] );
+    auto tmp  = GeometryHelpers::map_logical_circle( R, d_method, pos[0], pos[1] );
     double x  = tmp[0] + d_offset[0];
     double y  = tmp[1] + d_offset[1];
     double z  = z0 + d_offset[2];
@@ -185,8 +188,8 @@ Point Cylinder::physical( const Point &pos ) const
 Point Cylinder::logical( const Point &pos ) const
 {
     double R = getR( pos[2] - d_offset[2] );
-    auto tmp =
-        GeometryHelpers::map_circle_logical( R, 2, pos[0] - d_offset[0], pos[1] - d_offset[1] );
+    auto tmp = GeometryHelpers::map_circle_logical(
+        R, d_method, pos[0] - d_offset[0], pos[1] - d_offset[1] );
     double z = ( pos[2] - d_z_min - d_offset[2] ) / ( d_z_max - d_z_min );
     return Point( tmp[0], tmp[1], z );
 }
@@ -230,8 +233,9 @@ ArraySize Cylinder::getLogicalGridSize( const ArraySize &x ) const
 ArraySize Cylinder::getLogicalGridSize( const std::vector<double> &res ) const
 {
     AMP_INSIST( res.size() == 3u, "Resolution must be an array of length 3" );
-    return { (size_t) ( ( d_z_max - d_z_min ) / res[2] ),
-             (size_t) ( d_r / std::min( res[0], res[1] ) ) };
+    size_t Nxy = d_r / std::min( res[0], res[1] );
+    size_t Nz  = ( d_z_max - d_z_min ) / res[2];
+    return { Nxy, Nxy, Nz };
 }
 
 

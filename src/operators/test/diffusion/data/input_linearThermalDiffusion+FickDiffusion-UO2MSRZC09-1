@@ -1,6 +1,24 @@
 numberOfOperators=2
 dofsPerNode = 1, 1
 
+ThermalDiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "UO2_MSRZC_09"
+        Property = "ThermalConductivity"
+        Default_Concentration = .15
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+    } 
+
+FickDiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "Ox_MSRZC_09"
+        Property = "FickCoefficient"
+        Default_Concentration = .15
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+    } 
+
 testOperator1{
     name = "DiffusionLinearFEOperator"
     InputVariable = "temperature"
@@ -19,7 +37,7 @@ testOperator1{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "ThermalDiffusionTransportModel"
+    LocalModel = ThermalDiffusionTransportModel
 }
   
 testOperator2{
@@ -40,23 +58,6 @@ testOperator2{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "FickDiffusionTransportModel"
+    LocalModel = FickDiffusionTransportModel
 }
 
-ThermalDiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "UO2_MSRZC_09"
-        Property = "ThermalConductivity"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-    } 
-
-FickDiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Ox_MSRZC_09"
-        Property = "FickCoefficient"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-    } 

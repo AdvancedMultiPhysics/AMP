@@ -31,6 +31,10 @@ public:
     std::shared_ptr<DiffusionTransportModel> getTransportModel();
 
 protected:
+    explicit DiffusionLinearFEOperator(
+        std::shared_ptr<const DiffusionLinearFEOperatorParameters> params, bool );
+
+protected:
     std::set<std::string> d_constantVecs;
     std::map<std::string, std::shared_ptr<const AMP::LinearAlgebra::Vector>> d_inputVecs;
 

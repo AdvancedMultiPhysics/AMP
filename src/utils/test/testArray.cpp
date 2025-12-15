@@ -9,11 +9,13 @@
 #include <sys/stat.h>
 #include <vector>
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Array.hpp"
+#include "AMP/utils/FunctionTable.hpp"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.hpp"
 
@@ -121,15 +123,12 @@ void test_interp( UnitTest &ut, const std::vector<size_t> &N )
             }
         }
     }
-    if ( pass )
-        ut.passes( testname + " (input points)" );
-    else
-        ut.failure( testname + " (input points)" );
+    ut.pass_fail( pass, testname + " (input points)" );
 
     // Test random points
-    static std::random_device rd;
-    static std::mt19937 gen( rd() );
-    static std::uniform_real_distribution<double> dis( 0, 1 );
+    std::random_device rd;
+    std::mt19937 gen( rd() );
+    std::uniform_real_distribution<double> dis( 0, 1 );
     pass = true;
     std::vector<double> x1( 3, 0 );
     std::vector<double> x2( 3, 0 );
@@ -143,10 +142,7 @@ void test_interp( UnitTest &ut, const std::vector<size_t> &N )
         if ( fabs( y1 - y2 ) > 1e-3 * y1 )
             pass = false;
     }
-    if ( pass )
-        ut.passes( testname + " (random points)" );
-    else
-        ut.failure( testname + " (random points)" );
+    ut.pass_fail( pass, testname + " (random points)" );
 }
 
 
@@ -170,10 +166,7 @@ void testArraySize( UnitTest &ut )
     auto ijk  = s3.ijk( 23 );
     pass      = pass && ijk[0] == 1 && ijk[1] == 2 && ijk[2] == 3 && ijk[3] == 0 && ijk[4] == 0;
     pass      = pass && s3.index( ijk ) == 23;
-    if ( pass )
-        ut.passes( "ArraySize tests" );
-    else
-        ut.failure( "ArraySize tests" );
+    ut.pass_fail( pass, "ArraySize tests" );
     // Test performance of index and ijk
     pass      = true;
     double t1 = Utilities::time();
@@ -219,10 +212,7 @@ void testArrayInitializerList( UnitTest &ut )
     pass             = pass && M2( 1, 0 ) == 4;
     pass             = pass && M2( 1, 1 ) == 5;
     pass             = pass && M2( 1, 2 ) == 6;
-    if ( pass )
-        ut.passes( "Array constructor - initializer list" );
-    else
-        ut.failure( "Array constructor - initializer list" );
+    ut.pass_fail( pass, "Array constructor - initializer list" );
 }
 
 
@@ -243,46 +233,42 @@ void testArray( UnitTest &ut )
     Array<double> M4 = M2;
     Array<double> M5 = M1;
     M5( 0, 0 )       = -1;
-    if ( M1 == M2 && M1 == M3 && M1 == M4 && M1 != M5 )
-        ut.passes( "Array constructors" );
-    else
-        ut.failure( "Array constructors" );
+    bool pass        = M1 == M2 && M1 == M3 && M1 == M4 && M1 != M5;
+    ut.pass_fail( pass, "Array constructors" );
 
     // Test construction based on initializer lists
     testArrayInitializerList( ut );
 
     // Test range based creation
     Array<double> Mr( Range<double>( 1, 6, 0.5 ) );
-    if ( Mr.length() == 11 && Mr.ndim() == 1 && Mr( 2 ) == 2.0 )
-        ut.passes( "Array range-based constructor" );
-    else
-        ut.failure( "Array range-based constructor" );
+    pass = Mr.length() == 11 && Mr.ndim() == 1 && Mr( 2 ) == 2.0;
+    ut.pass_fail( pass, "Array range-based constructor" );
 
     // Test std::string
-    bool pass = true;
     Array<std::string> S;
-    pass = pass && S.length() == 0;
+    pass = S.length() == 0;
     S.resize( 1 );
     pass   = pass && S.length() == 1;
     pass   = pass && S( 0 ).size() == 0;
     S( 0 ) = std::string( "test" );
     pass   = pass && S( 0 ) == "test";
-    if ( pass )
-        ut.passes( "Array string" );
-    else
-        ut.failure( "Array string" );
+    ut.pass_fail( pass, "Array string" );
 
     // Test a failed allocation
     // Note: testing the allocation failure causes issues on a MAC
     try {
-#if !defined( __APPLE__ )
-        size_t N = 10000;
-        Array<double> M( N, N, N );
-        ut.failure( "Failed allocation succeeded???" );
-        AMP_ASSERT( M.length() == N * N * N );
-#else
-        ut.expected_failure( "Skipping failed allocation test on MAC" );
+        bool test_alloc = !AMP::Utilities::running_valgrind();
+#if defined( __APPLE__ ) || defined( AMP_USE_DEVICE )
+        test_alloc = false;
 #endif
+        if ( test_alloc ) {
+            size_t N = 10000;
+            Array<double> M( N, N, N );
+            ut.failure( "Failed allocation succeeded???" );
+            AMP_ASSERT( M.length() == N * N * N );
+        } else {
+            ut.expected_failure( "Skipping failed allocation test (MAC, DEVICE, valgrind)" );
+        }
     } catch ( std::logic_error &err ) {
         std::string msg = err.what();
         if ( msg == "Failed to allocate array" )
@@ -294,72 +280,36 @@ void testArray( UnitTest &ut )
     }
 
     // Test math opertors
-    if ( M1.min() == 0 && M1.min( 0 ).min() == 0 )
-        ut.passes( "min" );
-    else
-        ut.failure( "min" );
-    if ( M1.max() == 49 && M1.max( 0 ).max() == 49 )
-        ut.passes( "max" );
-    else
-        ut.failure( "max" );
-    if ( M1.sum() == 1225 && M1.sum( 0 ).sum() == 1225 )
-        ut.passes( "sum" );
-    else
-        ut.failure( "sum" );
-    if ( M1.mean() == 24.5 )
-        ut.passes( "mean" );
-    else
-        ut.failure( "mean" );
-    if ( !M1.NaNs() )
-        ut.passes( "NaNs" );
-    else
-        ut.failure( "NaNs" );
+    ut.pass_fail( M1.min() == 0 && M1.min( 0 ).min() == 0, "min" );
+    ut.pass_fail( M1.max() == 49 && M1.max( 0 ).max() == 49, "max" );
+    ut.pass_fail( M1.sum() == 1225 && M1.sum( 0 ).sum() == 1225, "sum" );
+    ut.pass_fail( M1.mean() == 24.5, "mean" );
+    ut.pass_fail( !M1.NaNs(), "NaNs" );
 
     // Test math operators with index subsets
     std::vector<size_t> idx{ 0, 4, 0, 2 };
-    if ( M1.min( idx ) == 0 )
-        ut.passes( "min on subset" );
-    else
-        ut.failure( "min on subset" );
-    if ( M1.max( idx ) == 24 )
-        ut.passes( "max on subset" );
-    else
-        ut.failure( "max on subset" );
-    if ( M1.sum( idx ) == 180 )
-        ut.passes( "sum on subset" );
-    else {
-        ut.failure( "sum on subset" );
-    }
-    if ( M1.mean( idx ) == 12 )
-        ut.passes( "mean on subset" );
-    else
-        ut.failure( "mean on subset" );
+    ut.pass_fail( M1.min( idx ) == 0, "min on subset" );
+    ut.pass_fail( M1.max( idx ) == 24, "max on subset" );
+    ut.pass_fail( M1.sum( idx ) == 180, "sum on subset" );
+    ut.pass_fail( M1.mean( idx ) == 12, "mean on subset" );
 
     // Test find
     std::vector<size_t> index = M1.find( 7, []( double a, double b ) { return a == b; } );
     if ( index.size() != 1 )
         ut.failure( "find" );
-    else if ( index[0] == 7 )
-        ut.passes( "find" );
     else
-        ut.failure( "find" );
+        ut.pass_fail( index[0] == 7, "find" );
 
     // Test subset
     M3 = M1.subset( { 0, 9, 0, 4 } );
-    if ( M3 == M1 )
-        ut.passes( "full subset" );
-    else
-        ut.failure( "full subset" );
+    ut.pass_fail( M3 == M1, "full subset" );
     M3   = M1.subset( { 3, 7, 1, 3 } );
     pass = true;
     for ( size_t i = 0; i < M3.size( 0 ); i++ ) {
         for ( size_t j = 0; j < M3.size( 1 ); j++ )
             pass = pass && M3( i, j ) == ( i + 3 ) + 10 * ( j + 1 );
     }
-    if ( pass )
-        ut.passes( "partial subset" );
-    else
-        ut.failure( "partial subset" );
+    ut.pass_fail( pass, "partial subset" );
     M3.scale( 2 );
     M2.copySubset( { 3, 7, 1, 3 }, M3 );
     pass = true;
@@ -367,23 +317,16 @@ void testArray( UnitTest &ut )
         for ( size_t j = 0; j < M3.size( 1 ); j++ )
             pass = pass && M3( i, j ) == M2( i + 3, j + 1 );
     }
-    if ( pass )
-        ut.passes( "copyFromSubset" );
-    else
-        ut.failure( "copyFromSubset" );
+    ut.pass_fail( pass, "copyFromSubset" );
 
     // Test the time required to create a view
-    Array<double> M_view;
+    [[maybe_unused]] Array<double> M_view;
     double t1 = Utilities::time();
     for ( size_t i = 0; i < 100000; i++ ) {
         M_view.viewRaw( { M1.size( 0 ), M1.size( 1 ) }, M1.data() );
-        NULL_USE( M_view );
     }
     double t2 = Utilities::time();
-    if ( M_view == M1 )
-        ut.passes( "view" );
-    else
-        ut.failure( "view" );
+    ut.pass_fail( M_view == M1, "view" );
     printf( "Time to create view: %0.2f ns\n", ( t2 - t1 ) * 1e9 / 100000 );
     // Test time to access elements
     {
@@ -402,16 +345,10 @@ void testArray( UnitTest &ut )
     M2.scale( 2 );
     M3 = M1;
     M3 += M1;
-    if ( M1 + M1 == M2 && M3 == M2 )
-        ut.passes( "operator+(Array&)" );
-    else
-        ut.failure( "operator+(Array&)" );
+    ut.pass_fail( M1 + M1 == M2 && M3 == M2, "operator+(Array&)" );
     M3 = M2;
     M3 -= M1;
-    if ( M2 - M1 == M1 && M3 == M1 )
-        ut.passes( "operator-(Array&)" );
-    else
-        ut.failure( "operator-(Array&)" );
+    ut.pass_fail( M2 - M1 == M1 && M3 == M1, "operator-(Array&)" );
 
     M1 += 3;
     pass = true;
@@ -419,10 +356,7 @@ void testArray( UnitTest &ut )
         for ( size_t j = 0; j < M1.size( 1 ); j++ )
             pass = pass && ( M1( i, j ) == i + 3 + 10 * j );
     }
-    if ( pass )
-        ut.passes( "operator+(scalar)" );
-    else
-        ut.failure( "operator+(scalar)" );
+    ut.pass_fail( pass, "operator+(scalar)" );
 
     M1 -= 3;
     pass = true;
@@ -430,20 +364,91 @@ void testArray( UnitTest &ut )
         for ( size_t j = 0; j < M1.size( 1 ); j++ )
             pass = pass && ( M1( i, j ) == i + 10 * j );
     }
-    if ( pass )
-        ut.passes( "operator-(scalar)" );
-    else
-        ut.failure( "operator-(scalar)" );
+    ut.pass_fail( pass, "operator-(scalar)" );
 
     // swap test
     auto dA1 = M1.data();
     auto dA2 = M2.data();
     M1.swap( M2 );
     pass = ( ( M1.data() == dA2 ) && ( M2.data() == dA1 ) );
-    if ( pass )
-        ut.passes( "swap" );
-    else
-        ut.failure( "swap" );
+    ut.pass_fail( pass, "swap" );
+
+    // clone test
+    auto F1 = M1.cloneTo<float>();
+    pass    = F1.size() == M1.size();
+    for ( size_t i = 0; i < M1.length(); i++ )
+        pass = pass && static_cast<float>( M1( i ) ) == F1( i );
+    ut.pass_fail( pass, "cloneTo" );
+}
+
+
+// Test repmat
+void testRepMat( AMP::UnitTest &ut )
+{
+    int N[2] = { 3, 4 };
+    Array<double> M1( N[0], N[1] );
+    M1.rand();
+    auto M2 = M1.repmat( { 2, 3 } );
+    if ( M2.size() != ArraySize( 2 * N[0], 3 * N[1] ) ) {
+        ut.failure( "repmat1" );
+        return;
+    }
+    bool pass = true;
+    for ( int j = 0; j < N[1]; j++ ) {
+        for ( int i = 0; i < N[0]; i++ ) {
+            for ( int j2 = 0; j2 < 3; j2++ ) {
+                for ( size_t i2 = 0; i2 < 2; i2++ ) {
+                    pass = pass && M2( i + i2 * N[0], j + j2 * N[1] ) == M1( i, j );
+                }
+            }
+        }
+    }
+    ut.pass_fail( pass, "repmat2" );
+}
+
+
+// Test reverseDim
+void testReverseDim( AMP::UnitTest &ut )
+{
+    int N[2] = { 3, 4 };
+    Array<double> M1( N[0], N[1] );
+    M1.rand();
+    auto M2 = M1.reverseDim();
+    if ( M2.size() != ArraySize( N[1], N[0] ) ) {
+        ut.failure( "reverseDim" );
+        return;
+    }
+    bool pass = true;
+    for ( int j = 0; j < N[1]; j++ ) {
+        for ( int i = 0; i < N[0]; i++ ) {
+            pass = pass && M2( j, i ) == M1( i, j );
+        }
+    }
+    ut.pass_fail( pass, "reverseDim" );
+}
+
+
+// Test coarsen
+void testCoarsen( AMP::UnitTest &ut )
+{
+    int N[2] = { 300, 90 };
+    Array<int> M1( N[0], N[1] );
+    M1.rand();
+    Array<int> filter = { { 0, 0, 0 }, { 0, 1, 0 }, { 0, 0, 0 } };
+    auto filter2      = []( const Array<int> &x ) { return x( 1, 1 ); };
+    auto M2           = M1.coarsen( filter );
+    auto M3           = M1.coarsen( { 3, 3 }, filter2 );
+    if ( M2.size() != M3.size() || M2.size() != ArraySize( N[0] / 3, N[1] / 3 ) ) {
+        ut.failure( "coarsen" );
+        return;
+    }
+    bool pass = M2 == M3;
+    for ( size_t j = 0; j < M2.size( 1 ); j++ ) {
+        for ( size_t i = 0; i < M2.size( 0 ); i++ ) {
+            pass = pass && M2( i, j ) == M1( 3 * i + 1, 3 * j + 1 );
+        }
+    }
+    ut.pass_fail( pass, "coarsen" );
 }
 
 
@@ -473,10 +478,7 @@ int main( int argc, char *argv[] )
         for ( size_t i = 0; i < N; i++ )
             s2 += data[i];
         double t3 = Utilities::time();
-        if ( fabs( s1 - s2 ) / s1 < 1e-12 )
-            ut.passes( "sum" );
-        else
-            ut.failure( "sum" );
+        ut.pass_fail( fabs( s1 - s2 ) / s1 < 1e-12, "sum" );
         printf( "Time to perform sum (sum()): %0.2f ns\n", ( t2 - t1 ) * 1e9 / N );
         printf( "Time to perform sum (raw): %0.2f ns\n", ( t3 - t2 ) * 1e9 / N );
     }
@@ -495,10 +497,7 @@ int main( int argc, char *argv[] )
         pass = pass && TestAllocateClass::get_N_alloc() == 2;
         ptr.reset();
         pass = pass && TestAllocateClass::get_N_alloc() == 0;
-        if ( pass )
-            ut.passes( "Allocator" );
-        else
-            ut.failure( "Allocator" );
+        ut.pass_fail( pass, "Allocator" );
     }
 
     // Test cat
@@ -508,10 +507,7 @@ int main( int argc, char *argv[] )
         Array<double> r3( Range<double>( 0.05, 1, 0.05 ) );
         Array<double> r4( Range<double>( 1.1, 2, 0.1 ) );
         auto tmp = Array<double>::cat( { r1, r2, r3, r4 } );
-        if ( tmp.length() == 145 )
-            ut.passes( "cat" );
-        else
-            ut.failure( "cat" );
+        ut.pass_fail( tmp.length() == 145, "cat" );
     }
 
     // Test string range based constructor
@@ -529,10 +525,7 @@ int main( int argc, char *argv[] )
                                                createRange( 0.05, 1, 0.05 ),
                                                createRange( 1.1, 2, 0.1 ) } );
         pass      = pass && tmp1 == tmp3;
-        if ( pass )
-            ut.passes( "range-string" );
-        else
-            ut.failure( "range-string" );
+        ut.pass_fail( pass, "range-string" );
     }
 
     // Test resize
@@ -544,10 +537,7 @@ int main( int argc, char *argv[] )
         bool pass = M2.size( 0 ) == 20 && M2( 19, 0 ) == -1;
         M2.resize( M1.size() );
         pass = pass && M2 == M1;
-        if ( pass )
-            ut.passes( "resize" );
-        else
-            ut.failure( "resize" );
+        ut.pass_fail( pass, "resize" );
     }
 
     // Test interpolation
@@ -565,6 +555,11 @@ int main( int argc, char *argv[] )
         M1.print( std::cout, "M1" );
         std::cout << std::endl;
     }
+
+    // Run remaining tests
+    testRepMat( ut );
+    testReverseDim( ut );
+    testCoarsen( ut );
 
     // Finished
     ut.report( 1 );

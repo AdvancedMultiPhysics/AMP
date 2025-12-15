@@ -1,0 +1,31 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "GMRESRSolver"
+  variant = "gmresr"
+  nested_solver = "GMRES"
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 2
+  max_iterations = 30
+  max_dimension = 100
+}
+
+GMRES{
+  name = "GMRESSolver"
+  uses_preconditioner = TRUE
+  flexible_gmres = TRUE
+  print_info_level = 2
+  max_iterations = 3
+  max_dimension = 10
+  relative_tolerance = 1.0e-2
+}
+
+<<< "PC-BoomerAMGParameters" >>>
+
+Reference{
+  iterations = 4
+  res_l2_norm = -1.0
+  tolerance = 0.0
+  strict = FALSE
+}

@@ -1,0 +1,10 @@
+<<< "input_LinearThermalRobinOperator" >>>
+<<< "BiCGSTABParameters" >>>
+<<< "PC-DiagParameters" >>>
+
+Reference{
+  iterations = 17
+  res_l2_norm = 7.667351121331605e-11
+  tolerance = 0.0
+  strict = FALSE
+}

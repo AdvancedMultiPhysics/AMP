@@ -100,8 +100,12 @@ enum class UnitType : int8_t {
 class alignas( 8 ) Units final
 {
 public:
+    using unit_type = std::array<char, 31>;
+    using SI_type   = std::array<int8_t, 9>;
+
+public:
     //! Empty constructor
-    constexpr Units();
+    constexpr Units() = default;
 
     /**
      * \brief  Construct the units from a const char array
@@ -127,6 +131,22 @@ public:
      * \param value     Value of constant scalar
      */
     constexpr Units( const std::string_view &unit, double value );
+
+    /**
+     * \brief  Construct the units
+     * \details  Construct units directly by specifying the SI units and scale
+     * \param unit      Input string
+     * \param scale     Value of constant scalar
+     */
+    explicit constexpr Units( const SI_type &unit, double scale = 1.0 );
+
+    /**
+     * \brief  Construct the units
+     * \details  Construct units directly by specifying the SI units and scale
+     * \param unit      Input string
+     * \param scale     Value of constant scalar
+     */
+    explicit constexpr Units( const UnitType &unit, double scale = 1.0 );
 
     /**
      * \brief  Get the unit type
@@ -175,6 +195,9 @@ public:
     //! Operator *=
     constexpr void operator*=( const Units &rhs ) noexcept;
 
+    //! Operator *=
+    constexpr void operator*=( double x ) noexcept { d_scale *= x; }
+
     //! Operator /=
     constexpr void operator/=( const Units &rhs ) noexcept;
 
@@ -209,18 +232,19 @@ public:
     //! Get all supported units
     static inline std::vector<std::string> getAllUnits();
 
+    // Convert string to int
+    static constexpr int atoi( std::string_view, bool = true );
+
+    // Convert string to double
+    static constexpr double strtod( std::string_view );
+
+
 protected:
-    using unit_type = std::array<char, 31>;
-    using SI_type   = std::array<int8_t, 9>;
-
-    unit_type d_unit;
-    SI_type d_SI;
-    double d_scale;
+    unit_type d_unit = { 0 };
+    SI_type d_SI     = { 0 };
+    double d_scale   = { 0.0 };
 
 protected:
-    explicit constexpr Units( const SI_type &u, double s = 1.0 );
-    explicit constexpr Units( const UnitType &u, double s = 1.0 );
-
     std::string printSIBase() const;
     static constexpr Units read( std::string_view str );
     static constexpr Units read2( std::string_view str );

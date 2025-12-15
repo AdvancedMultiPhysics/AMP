@@ -48,18 +48,19 @@ public:
      * \details   This function will get the parent elements of the current element
      * \param type  The desired type of the parents to get
      */
-    std::vector<MeshElement> getParents( GeomType type ) const;
+    ElementList getParents( GeomType type ) const;
 
     //! Return the index of the element
-    BoxMesh::MeshElementIndex getIndex() const { return d_index; }
+    const auto &getIndex() const { return d_index; }
 
 
 public: // Functions derived from MeshElement
+    typeID getTypeID() const override { return AMP::getTypeID<structuredMeshElement>(); }
     MeshElementID globalID() const override { return d_mesh->convert( d_index ); }
     inline std::string elementClass() const override { return "structuredMeshElement"; }
-    virtual void getElements( const GeomType, std::vector<MeshElement> & ) const override;
-    virtual void getElementsID( const GeomType, std::vector<MeshElementID> & ) const override;
-    void getNeighbors( std::vector<std::unique_ptr<MeshElement>> & ) const override;
+    virtual void getElements( const GeomType, ElementList & ) const override;
+    virtual int getElementsID( const GeomType, MeshElementID * ) const override;
+    void getNeighbors( ElementList & ) const override;
     Point centroid() const override;
     double volume() const override;
     Point norm() const override;
@@ -76,13 +77,16 @@ public: // Functions derived from MeshElement
     bool isOnSurface() const override;
     bool isOnBoundary( int id ) const override;
     bool isInBlock( int id ) const override;
-    unsigned int globalOwnerRank() const override;
     void getVertices( std::vector<Point> &vertices ) const override;
+    using MeshElement::getElements;
+    using MeshElement::getNeighbors;
 
+public: // Expert interfaces
+    int getNeighborIndex( BoxMesh::MeshElementIndex *index ) const;
 
 protected:
     // Clone the iterator
-    MeshElement *clone() const override;
+    std::unique_ptr<MeshElement> clone() const override;
 
     // Internal data
     GeomType d_meshType;               // Mesh logical dimension
@@ -91,7 +95,6 @@ protected:
     const AMP::Mesh::BoxMesh *d_mesh;  // Pointer to mesh
 
     // Helper functions
-    void getNeighborIndex( int &N, BoxMesh::MeshElementIndex *index ) const;
     void getElementIndex( const GeomType type, int &N, BoxMesh::MeshElementIndex *index ) const;
     std::array<int8_t, 3> getBC() const;
 

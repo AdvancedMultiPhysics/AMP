@@ -1,5 +1,24 @@
+Mesh {
+    MeshName = "TestMesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
+}
 
-Mesh = "brick.e"
+MechanicsMaterialModel { 
+       USE_MATERIALS_LIBRARY = TRUE
+       Material = "UO2_MSRZC_09"
+       name="ExplicitCreepMaterialModel"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+       Creep_Coefficient_A = 1.0e-10
+       Creep_Stress_Exponent_n = 1.12
+       Creep_Delta_Time = 0.001
+      }
 
 testNonlinearMechanicsOperator {
       name = "MechanicsNonlinearFEOperator"
@@ -20,7 +39,7 @@ testNonlinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel = "MechanicsMaterialModel"
+      LocalModel = MechanicsMaterialModel
 
 }
 
@@ -40,17 +59,6 @@ testLinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 }
-
-MechanicsMaterialModel { 
-       USE_MATERIALS_LIBRARY = TRUE
-       Material = "UO2_MSRZC_09"
-       name="ExplicitCreepMaterialModel"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-       Creep_Coefficient_A = 1.0e-10
-       Creep_Stress_Exponent_n = 1.12
-       Creep_Delta_Time = 0.001
-      }
 
 
 

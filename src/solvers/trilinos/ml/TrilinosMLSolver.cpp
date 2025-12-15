@@ -4,7 +4,7 @@
 #include "AMP/matrices/trilinos/ManagedEpetraMatrix.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/operators/LinearOperator.h"
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
 
 #include "ProfilerApp.h"
@@ -214,15 +214,20 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 {
     PROFILE( "solve" );
 
+    if ( u->getUpdateStatus() != AMP::LinearAlgebra::UpdateState::UNCHANGED ) {
+        u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    }
+
     // in this case we make the assumption we can access a EpetraMat for now
     AMP_INSIST( d_pOperator, "ERROR: TrilinosMLSolver::apply() operator cannot be NULL" );
 
+    auto r = f->clone();
     if ( d_bUseZeroInitialGuess ) {
         u->zero();
+        r->copyVector( f );
+    } else {
+        d_pOperator->residual( f, u, r );
     }
-
-    u->makeConsistent();
-    AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
     if ( d_bCreationPhase ) {
         if ( d_bUseEpetra ) {
@@ -236,26 +241,12 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
         d_bCreationPhase = false;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Vector> r;
+    d_dInitialResidual = d_dResidualNorm = r->L2Norm();
+    checkStoppingCriteria( d_dResidualNorm );
 
-    bool computeResidual = false;
-    if ( d_bRobustMode || ( d_iDebugPrintInfoLevel > 1 ) ) {
-        computeResidual = true;
-    }
-
-    double initialResNorm = 0., finalResNorm = 0.;
-
-    if ( computeResidual ) {
-        r = f->clone();
-        AMP_ASSERT( f->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
-        AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
-        d_pOperator->residual( f, u, r );
-        initialResNorm = static_cast<double>( r->L2Norm() );
-
-        if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << "TrilinosMLSolver::apply(), L2 norm of residual before solve "
-                      << std::setprecision( 15 ) << initialResNorm << std::endl;
-        }
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "TrilinosMLSolver::apply(), L2 norm of residual before solve "
+                  << std::setprecision( 15 ) << d_dInitialResidual << std::endl;
     }
 
     if ( d_iDebugPrintInfoLevel > 2 ) {
@@ -265,7 +256,7 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 
     if ( d_bUseEpetra ) {
         // These functions throw exceptions if this cannot be performed.
-        AMP_ASSERT( f != nullptr );
+        AMP_ASSERT( f );
 
         auto f_epetra             = AMP::LinearAlgebra::EpetraVector::constView( f );
         auto u_epetra             = AMP::LinearAlgebra::EpetraVector::view( u );
@@ -300,25 +291,23 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                   << u->L2Norm() << std::endl;
     }
 
-    if ( computeResidual ) {
-        d_pOperator->residual( f, u, r );
-        finalResNorm = static_cast<double>( r->L2Norm() );
+    d_pOperator->residual( f, u, r );
+    d_dResidualNorm = r->L2Norm();
+    checkStoppingCriteria( d_dResidualNorm );
 
-        if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << "TrilinosMLSolver::apply(), L2 norm of residual after solve "
-                      << std::setprecision( 15 ) << finalResNorm << std::endl;
-        }
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "TrilinosMLSolver::apply(), L2 norm of residual after solve "
+                  << std::setprecision( 15 ) << d_dResidualNorm << std::endl;
     }
 
-
     if ( d_bRobustMode ) {
-        if ( finalResNorm > initialResNorm ) {
+        if ( d_dResidualNorm > d_dInitialResidual ) {
             AMP::pout << "Warning: ML was not able to reduce the residual. Using LU instead."
                       << std::endl;
             reSolveWithLU( f, u );
         }
     }
-    AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
+    AMP_DEBUG_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 }
 
 

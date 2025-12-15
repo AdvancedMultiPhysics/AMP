@@ -42,7 +42,7 @@ static void myTest( AMP::UnitTest *ut )
     params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
     // Create the meshes from the input database
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    auto mesh = AMP::Mesh::MeshFactory::create( params );
 
     AMP_INSIST( outerInput_db->keyExists( "number_of_tests" ), "key missing!" );
     int numTests = outerInput_db->getScalar<int>( "number_of_tests" );
@@ -59,8 +59,8 @@ static void myTest( AMP::UnitTest *ut )
 
         AMP_INSIST( innerInput_db->keyExists( "testOperator" ), "key missing!" );
 
-        auto testOperator = AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testOperator", innerInput_db );
+        auto testOperator =
+            AMP::Operator::OperatorBuilder::createOperator( mesh, "testOperator", innerInput_db );
 
         msgPrefix = exeName + " : " + innerInput_file;
 
@@ -80,7 +80,7 @@ static void myTest( AMP::UnitTest *ut )
         auto myInpVar = myLinOp->getInputVariable();
         auto myOutVar = myLinOp->getOutputVariable();
         auto NodalDOF = AMP::Discretization::simpleDOFManager::create(
-            meshAdapter, AMP::Mesh::GeomType::Vertex, 1, dofsPerNode, true );
+            mesh, AMP::Mesh::GeomType::Vertex, 1, dofsPerNode, true );
 
         {
             auto solVec = AMP::LinearAlgebra::createVector( NodalDOF, myInpVar, true );

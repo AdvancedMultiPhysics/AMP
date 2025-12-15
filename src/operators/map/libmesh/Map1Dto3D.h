@@ -55,13 +55,13 @@ public:
     void apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                       AMP::LinearAlgebra::Vector::shared_ptr f );
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_inpVariable;
     }
 
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_outVariable;
     }
@@ -77,7 +77,7 @@ public:
 
 
     //!  This function returns the 1D locations stl vector.
-    std::vector<double> getZLocations() { return d_zLocations; }
+    const auto &getZLocations() { return d_zLocations; }
 
 
     /**

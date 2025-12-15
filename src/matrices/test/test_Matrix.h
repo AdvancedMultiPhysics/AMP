@@ -22,11 +22,11 @@ namespace AMP::LinearAlgebra {
 
 
 // Class to create a matrix from a simpleDOFManager
-template<int NUM_DOF_ROW, int NUM_DOF_COL, class GENERATOR, int TYPE>
+template<int NUM_DOF_ROW, int NUM_DOF_COL, class GENERATOR>
 class DOFMatrixTestFactory : public MatrixFactory
 {
 public:
-    DOFMatrixTestFactory()
+    DOFMatrixTestFactory( const std::string &type ) : MatrixFactory( type )
     {
         PROFILE( "DOFMatrixTestFactory" );
         // Create the mesh
@@ -48,27 +48,13 @@ public:
 
     std::string name() const override
     {
-        return AMP::Utilities::stringf( "DOFMatrixTestFactory<%i,%i,%s,%i>",
+        GENERATOR meshGenerator;
+        auto name = meshGenerator.name();
+        return AMP::Utilities::stringf( "DOFMatrixTestFactory<%i,%i,%s,%s>",
                                         NUM_DOF_ROW,
                                         NUM_DOF_COL,
-                                        GENERATOR::name().c_str(),
-                                        TYPE );
-    }
-
-    std::string type() const override
-    {
-        if ( TYPE == 0 ) {
-            return "auto";
-        } else if ( TYPE == 1 ) {
-            return "ManagedEpetraMatrix";
-        } else if ( TYPE == 2 ) {
-            return "DenseSerialMatrix";
-        } else if ( TYPE == 3 ) {
-            return "NativePetscMatrix";
-        } else if ( TYPE == 4 ) {
-            return "CSRMatrix";
-        }
-        return "unknown";
+                                        name.c_str(),
+                                        d_type.data() );
     }
 
     std::shared_ptr<AMP::Mesh::Mesh> getMesh() const override { return mesh; }
@@ -88,7 +74,7 @@ public:
         auto variable_b = std::make_shared<AMP::LinearAlgebra::Variable>( "b" );
         auto vector_a   = AMP::LinearAlgebra::createVector( DOFs, variable_a );
         auto vector_b   = AMP::LinearAlgebra::createVector( DOFs, variable_b );
-        auto matrix     = AMP::LinearAlgebra::createMatrix( vector_a, vector_b, type() );
+        auto matrix     = AMP::LinearAlgebra::createMatrix( vector_a, vector_b, d_type );
         return matrix;
     }
 

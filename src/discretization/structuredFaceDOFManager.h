@@ -43,28 +43,18 @@ public:
     virtual ~structuredFaceDOFManager();
 
 
-    /** \brief Get the entry indices of DOFs given a mesh element ID
-     * \details  This will return a vector of pointers into a Vector that are associated with which.
-     *  Note: this function only works if the element we are search for is a element on which a DOF
-     * exists
-     *  (the underlying mesh element type must match the geometric entity type specified at
-     * construction).
-     * \param[in]  id       The element ID to collect nodal objects for.  Note: the mesh element may
-     * be any type
-     * (include a vertex).
-     * \param[out] dofs     The entries in the vector associated with D.O.F.s on the nodes
+    /** \brief   Get the underlying mesh
+     * \details  This will return the mesh(es) that underly the DOF manager (if they exist)
      */
-    void getDOFs( const AMP::Mesh::MeshElementID &id, std::vector<size_t> &dofs ) const override;
+    std::shared_ptr<const AMP::Mesh::Mesh> getMesh() const override;
 
 
-    /** \brief Get the entry indices of DOFs given a mesh element ID
-     * \details  This will return a vector of pointers into a Vector that are associated with which.
-     * \param[in]  ids      The element IDs to collect nodal objects for.
-     *                      Note: the mesh element may be any type (include a vertex).
-     * \param[out] dofs     The entries in the vector associated with D.O.F.s on the nodes
+    /** \brief Get the mesh element ID for a DOF
+     * \details  This will return the mesh element id associated with a given DOF.
+     * \param[in] dof       The entry in the vector associated with DOF
+     * @return              The element id for the given DOF.
      */
-    void getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
-                  std::vector<size_t> &dofs ) const override;
+    AMP::Mesh::MeshElementID getElementID( size_t dof ) const override;
 
 
     /** \brief Get the mesh element for a DOF
@@ -72,7 +62,7 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    AMP::Mesh::MeshElement getElement( size_t dof ) const override;
+    std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const override;
 
 
     /** \brief   Get an entry over the mesh elements associated with the DOFs
@@ -88,9 +78,27 @@ public:
     //! Get the remote DOFs for a vector
     std::vector<size_t> getRemoteDOFs() const override;
 
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    int getDOFsPerPoint() const override;
 
+
+public: // Advanced interfaces
     //! Get the row DOFs given a mesh element
-    std::vector<size_t> getRowDOFs( const AMP::Mesh::MeshElement &obj ) const override;
+    size_t getRowDOFs( const AMP::Mesh::MeshElementID &id,
+                       size_t *dofs,
+                       size_t N_alloc,
+                       bool sort = true ) const override;
+    using DOFManager::getRowDOFs;
+
+    // Append DOFs to the list
+    size_t appendDOFs( const AMP::Mesh::MeshElementID &id,
+                       size_t *dofs,
+                       size_t index,
+                       size_t capacity ) const override;
 
 
 private:
@@ -101,13 +109,10 @@ private:
     // Function to initialize the data
     void initialize();
 
-    // Append DOFs
-    inline void appendDOFs( const AMP::Mesh::MeshElementID &id, std::vector<size_t> &dofs ) const;
-
     // Data members
     std::shared_ptr<AMP::Mesh::Mesh> d_mesh;
-    int d_DOFsPerFace[3] = { 0, 0, 0 };
-    int d_gcw            = 0;
+    uint8_t d_DOFsPerFace[3] = { 0, 0, 0 };
+    uint8_t d_gcw            = 0;
 
     std::vector<AMP::Mesh::MeshElementID> d_local_ids[3];
     std::vector<AMP::Mesh::MeshElementID> d_remote_ids[3];

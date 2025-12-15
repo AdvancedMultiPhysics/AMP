@@ -46,8 +46,12 @@ inline constexpr bool is_braces_constructible_v = is_braces_constructible<T, Arg
 template<class T>
 auto to_tuple( T &&object ) noexcept
 {
+#ifndef DISABLE_TO_TUPLE
     using type = std::decay_t<T>;
     AMP_TO_TUPLE_BLOCK( 64 ) { return std::make_tuple(); }
+#else
+    AMP_ERROR( "to_tuple is not supported by compiler" )
+#endif
 }
 
 

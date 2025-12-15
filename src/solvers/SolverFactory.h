@@ -20,10 +20,6 @@ public:
 };
 
 
-//! Register solvers known by AMP
-void registerSolverFactories();
-
-
 } // namespace AMP::Solver
 
 #endif

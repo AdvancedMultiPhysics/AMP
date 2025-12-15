@@ -550,6 +550,7 @@ static size_t size( const Xdmf::MeshData &data )
     bytes += size( data.x );
     bytes += size( data.y );
     bytes += size( data.z );
+    bytes += size( data.dofMap );
     bytes += size( N_vars );
     for ( int i = 0; i < N_vars; i++ )
         bytes += size( data.vars[i] );
@@ -565,6 +566,7 @@ static char *pack( char *ptr, const Xdmf::MeshData &data )
     ptr        = pack( ptr, data.x );
     ptr        = pack( ptr, data.y );
     ptr        = pack( ptr, data.z );
+    ptr        = pack( ptr, data.dofMap );
     ptr        = pack( ptr, N_vars );
     for ( int i = 0; i < N_vars; i++ )
         ptr = pack( ptr, data.vars[i] );
@@ -580,6 +582,7 @@ static char *unpack( char *ptr, Xdmf::MeshData &data )
     ptr        = unpack( ptr, data.x );
     ptr        = unpack( ptr, data.y );
     ptr        = unpack( ptr, data.z );
+    ptr        = unpack( ptr, data.dofMap );
     ptr        = unpack( ptr, N_vars );
     data.vars.resize( N_vars );
     for ( int i = 0; i < N_vars; i++ )
@@ -655,13 +658,15 @@ static char *unpack( char *ptr, std::map<std::string, std::vector<Xdmf::MeshData
  ****************************************************************/
 void Xdmf::gather( const AMP::AMP_MPI &comm )
 {
+    auto tag1 = comm.newTag();
+    auto tag2 = comm.newTag();
     if ( comm.getRank() == 0 ) {
         for ( int i = 1; i < comm.getSize(); i++ ) {
-            // Recieve the data
+            // Receive the data
             size_t N_bytes = 0;
-            comm.recv( &N_bytes, 1, i, 718 );
+            comm.recv( &N_bytes, 1, i, tag1 );
             auto buf = new char[N_bytes];
-            comm.recv( buf, N_bytes, i, 719 );
+            comm.recv( buf, N_bytes, i, tag2 );
             // Unpack the data
             std::map<std::string, std::vector<MeshData>> data;
             unpack( buf, data );
@@ -678,8 +683,6 @@ void Xdmf::gather( const AMP::AMP_MPI &comm )
                     // Add the domains
                     auto &meshes = d_meshData[name];
                     for ( auto domain : domains ) {
-                        for ( const auto &tmp2 : meshes )
-                            AMP_ASSERT( tmp2.name != domain.name );
                         meshes.push_back( domain );
                     }
                 }
@@ -688,11 +691,11 @@ void Xdmf::gather( const AMP::AMP_MPI &comm )
     } else {
         // Pack the send data
         size_t N_bytes = size( d_meshData );
-        comm.send( &N_bytes, 1, 0, 718 );
+        comm.send( &N_bytes, 1, 0, tag1 );
         auto buf = new char[N_bytes];
         pack( buf, d_meshData );
         // Send the data to rank 0
-        comm.send( buf, N_bytes, 0, 719 );
+        comm.send( buf, N_bytes, 0, tag2 );
         delete[] buf;
         // Clear the internal data
         d_meshData.clear();

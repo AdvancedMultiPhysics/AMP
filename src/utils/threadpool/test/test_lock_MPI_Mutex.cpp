@@ -7,49 +7,54 @@
 
 #include "ProfilerApp.h"
 
+#include <chrono>
+#include <random>
+#include <thread>
 #include <vector>
 
 
-volatile int _global_count  = 0;
-volatile bool _global_start = false;
-AMP::Mutex _global_lock( true );
+std::atomic<int> global_count  = 0;
+std::atomic<bool> global_start = false;
+AMP::Mutex global_lock( true );
 
 
 void test_lock( AMP::AMP_MPI comm, int N, bool call_sleep )
 {
-    while ( !_global_start )
-        sched_yield();
+    while ( !global_start )
+        std::this_thread::yield();
+    std::random_device rd;
+    std::mt19937 gen( rd() );
     for ( int i = 0; i < N; i++ ) {
         // Acquire the lock
-        AMP::lock_MPI_Mutex( _global_lock, comm );
+        AMP::lock_MPI_Mutex( global_lock, comm );
         {
             PROFILE( "work", 2 );
             comm.barrier();
             // Check and increment count
-            int tmp = _global_count++;
+            int tmp = global_count++;
             if ( tmp != 0 )
                 AMP_ERROR( "Invalid count" );
             // Acquire the lock a second time, then release
-            _global_lock.lock();
-            _global_lock.unlock();
+            global_lock.lock();
+            global_lock.unlock();
             // Sleep for a while
-            sched_yield();
+            std::this_thread::yield();
             if ( call_sleep )
                 AMP::Utilities::sleep_ms( 20 );
             // Check and decrement count
-            tmp = _global_count--;
+            tmp = global_count--;
             if ( tmp != 1 )
                 AMP_ERROR( "Invalid count" );
         }
         // Release the mutex
-        _global_lock.unlock();
+        global_lock.unlock();
         // Try to add some random waits
-        for ( int j = 0; j < rand() % 10; j++ ) {
-            sched_yield();
-            timespec duration;
-            duration.tv_sec  = 0;
-            duration.tv_nsec = 100000 * ( rand() % 5 );
-            nanosleep( &duration, nullptr );
+        std::uniform_int_distribution<int> dist( 0, 10 );
+        for ( int j = 0; j < dist( gen ); j++ ) {
+            std::this_thread::yield();
+            std::uniform_int_distribution<int> dist2( 0, 500000 );
+            std::chrono::nanoseconds ns( dist2( gen ) );
+            std::this_thread::sleep_for( ns );
         }
     }
 }
@@ -81,10 +86,10 @@ int main( int argc, char *argv[] )
         std::vector<AMP::ThreadPoolID> ids;
         {
             PROFILE( "single" );
-            _global_start = false;
+            global_start = false;
             for ( int i = 0; i < N_threads; i++ )
                 ids.push_back( TPOOL_ADD_WORK( &tpool, test_lock, ( comm_world.dup(), 1, true ) ) );
-            _global_start = true;
+            global_start = true;
             tpool.wait_all( ids );
             ids.clear();
             comm_world.barrier();
@@ -97,12 +102,12 @@ int main( int argc, char *argv[] )
         double stop  = 0;
         {
             PROFILE( "multiple" );
-            _global_start = false;
-            start         = AMP::AMP_MPI::time();
+            global_start = false;
+            start        = AMP::AMP_MPI::time();
             for ( int i = 0; i < N_threads; i++ )
                 ids.push_back(
                     TPOOL_ADD_WORK( &tpool, test_lock, ( comm_world.dup(), N_it, false ) ) );
-            _global_start = true;
+            global_start = true;
             tpool.wait_all( ids );
             ids.clear();
             comm_world.barrier();

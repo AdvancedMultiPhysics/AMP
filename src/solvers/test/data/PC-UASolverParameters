@@ -1,0 +1,34 @@
+Preconditioner{
+  name = "UASolver"
+  checkdd = true
+  max_levels = 4
+  max_iterations = 1
+  max_error = 1e-10
+  implicit_RAP = true
+  agg_type = "pairwise"
+  min_coarse_global = 10
+  min_coarse_local = 10
+  strong_threshold = 0.5
+  pairwise_passes = 3
+  kappa = 100000
+  pre_relaxation {
+    name = "HybridGS"
+	num_sweeps = 1
+  }
+  post_relaxation {
+    name = "HybridGS"
+	num_sweeps = 1
+  }
+  coarse_solver {
+    name = "BoomerAMGSolver"
+    max_iterations = 1
+	print_info_level = 0
+	max_coarse_size = 25
+    strong_threshold = 0.5
+    cycle_type = 1
+    relax_type = 16
+    coarsen_type = 8
+    interp_type = 18
+    relax_order = 0
+  }
+}

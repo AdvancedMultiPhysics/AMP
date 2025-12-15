@@ -40,7 +40,7 @@ void OxideModel::get_equilibrium_concetration( double T, double *Ci )
     if ( source == 1 ) {
         // "Zirconium Metal-Water Oxidation Kinetics IV. Reaction Rate Studies", p. 36.
         if ( T >= 1346 ) {
-            Ci[3] = ( -0.2263 + sqrt( T / 63.385 - 16.877 ) ) *
+            Ci[3] = ( -0.2263 + std::sqrt( T / 63.385 - 16.877 ) ) *
                     0.0649; // Oxygen concentration in the alpha at the beta interface (g/cm^3)
         } else if ( T >= 1073 ) {
             // Just assume a fixed value for low temps for now
@@ -72,7 +72,7 @@ void OxideModel::get_equilibrium_concetration( double T, double *Ci )
             Ci[4] = ( ( T - 1081.7 ) / 491.159 ) *
                     0.0649; // Oxygen concentration in the alpha at the beta interface (g/cm^3)
         } else if ( T >= 1506 ) {
-            Ci[4] = ( -0.00428 + sqrt( T / 392.46 - 3.1417 ) ) *
+            Ci[4] = ( -0.00428 + std::sqrt( T / 392.46 - 3.1417 ) ) *
                     0.0649; // Oxygen concentration in the alpha at the beta interface (g/cm^3)
         } else {
             AMP_ERROR( "Invalid temperature" );

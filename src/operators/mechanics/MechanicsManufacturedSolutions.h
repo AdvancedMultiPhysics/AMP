@@ -29,12 +29,6 @@ public:
      */
     MMS( double YM = 0.0, double PR = 0.0 );
 
-    //! Copy constructor
-    MMS( const MMS &mms );
-
-    //! Assignment operator
-    MMS &operator=( const MMS &mms );
-
     //! Destructor
     virtual ~MMS() {}
 

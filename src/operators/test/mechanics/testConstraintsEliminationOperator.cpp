@@ -15,7 +15,7 @@
 #include "AMP/solvers/ColumnSolver.h"
 #include "AMP/solvers/ConstraintsEliminationSolver.h"
 #include "AMP/solvers/petsc/PetscKrylovSolver.h"
-//#include "AMP/solvers/trilinos/ml/TrilinosMLSolver.h"
+// #include "AMP/solvers/trilinos/ml/TrilinosMLSolver.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
@@ -44,13 +44,13 @@ static void myTest( AMP::UnitTest *ut )
     auto mesh_db    = input_db->getDatabase( "Mesh" );
     auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     meshParams->setComm( globalComm );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( meshParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
 
     int const dofsPerNode = 3;
     int const gostWidth   = 1;
     bool const split      = true;
     auto dofMap           = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, gostWidth, dofsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, gostWidth, dofsPerNode, split );
 
     AMP::LinearAlgebra::Vector::shared_ptr vec1;
     AMP::LinearAlgebra::Vector::shared_ptr vec2;
@@ -64,13 +64,9 @@ static void myTest( AMP::UnitTest *ut )
         preconditionerParams->d_pOperator = colOp;
         auto colPre = std::make_shared<AMP::Solver::ColumnSolver>( preconditionerParams );
 
-        std::shared_ptr<AMP::Operator::ElementPhysicsModel> physicsModel;
         auto bvpOp = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
             AMP::Operator::OperatorBuilder::createOperator(
-                meshAdapter,
-                ( dummy ? "DummyBVPOperator" : "BVPOperator" ),
-                input_db,
-                physicsModel ) );
+                mesh, ( dummy ? "DummyBVPOperator" : "BVPOperator" ), input_db ) );
         colOp->append( bvpOp );
 
         auto solver_db    = preconditioner_db->getDatabase( "Solver" );
@@ -93,7 +89,7 @@ static void myTest( AMP::UnitTest *ut )
             std::vector<double> slaveValues;
             int const boundaryID = 2;
             AMP::Mesh::MeshIterator it =
-                meshAdapter->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, boundaryID );
+                mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, boundaryID );
             size_t const numDOFs = it.size() * dofsPerNode;
             slaveIndices.resize( numDOFs );
             slaveValues.resize( numDOFs );
@@ -132,8 +128,7 @@ static void myTest( AMP::UnitTest *ut )
         } // end if
 
         auto loadOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
-            AMP::Operator::OperatorBuilder::createOperator(
-                meshAdapter, "LoadOperator", input_db, physicsModel ) );
+            AMP::Operator::OperatorBuilder::createOperator( mesh, "LoadOperator", input_db ) );
         auto var = bvpOp->getOutputVariable();
         loadOp->setVariable( var );
 
@@ -142,7 +137,7 @@ static void myTest( AMP::UnitTest *ut )
         shell_db->putScalar( "print_info_level", 1 );
         auto shellParams = std::make_shared<AMP::Operator::OperatorParameters>( shell_db );
         auto shellOp     = std::make_shared<AMP::Operator::PetscMatrixShellOperator>( shellParams );
-        int const numLocalNodes = meshAdapter->numLocalElements( AMP::Mesh::GeomType::Vertex );
+        int const numLocalNodes = mesh->numLocalElements( AMP::Mesh::GeomType::Vertex );
         int const matLocalSize  = dofsPerNode * numLocalNodes;
         AMP_ASSERT( matLocalSize == static_cast<int>( dofMap->numLocalDOF() ) );
         shellOp->setComm( globalComm );

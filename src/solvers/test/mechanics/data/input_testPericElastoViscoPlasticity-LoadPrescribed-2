@@ -16,6 +16,23 @@ NonlinearMechanicsOperator {
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+VonMisesElastoPlasticModel {
+    USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    print_info_level = 2
+    name="PericElastoViscoPlasticModel"
+    Youngs_Modulus = 1.0e2
+    Poissons_Ratio = 0.3
+    Linear_Strain_Hardening = 5.0
+    Elastic_Yield_Stress = 0.25
+    Viscosity = 10.0
+    Strain_Exponent = 0.5
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = 0.0
+}
+
 MechanicsNonlinearFEOperator1 {
       name = "MechanicsNonlinearFEOperator"
         print_info_level = 1
@@ -35,7 +52,16 @@ MechanicsNonlinearFEOperator1 {
             QRULE_ORDER = "DEFAULT"
         }
 
-	LocalModel = "VonMisesElastoPlasticModel"
+        MechanicsLinearElement {
+          name="MechanicsLinearElement"
+            USE_REDUCED_INTEGRATION = FALSE 
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }
+
+	LocalModel = VonMisesElastoPlasticModel
     }
 
 DirichletVectorCorrection1 {
@@ -65,44 +91,6 @@ DirichletVectorCorrection1 {
       dof_2_0 = 2
       value_2_0 = 0.0
   }
-
-VonMisesElastoPlasticModel {
-        USE_MATERIALS_LIBRARY = FALSE
-          Material = "UO2_MSRZC_09"
-          print_info_level = 6
-          //name="VonMisesElastoPlasticModel"
-          //name="IsotropicElasticModel"
-          name="PericElastoViscoPlasticModel"
-          Youngs_Modulus = 1.0e2
-          Poissons_Ratio = 0.3
-          Linear_Strain_Hardening = 5.0
-          Elastic_Yield_Stress = 0.25
-          Viscosity = 10.0
-          Strain_Exponent = 0.5
-          THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
-          Default_Temperature = 310.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = 0.0
-          //name="VonMises_IsotropicKinematicHardening"
-          //Youngs_Modulus = 70.0
-          //Poissons_Ratio = 0.3333333
-          //Cook_Membrane_Plasticity_Test = TRUE
-          //Thick_Walled_Cylinder_Plasticity_Test = FALSE
-// The following parameters are used for the Thick Walled cylinder test
-          //Linear_Strain_Hardening = 0.15
-          //Exponent_Delta = 0.1
-          //Value_K_0 = 0.2437
-          //K_Infinity = 0.343
-          //Fraction_Beta = 0.1
-// The following parameters are used for the Cook's Membrane Plasticity test
-          //Isotropic_Linear_Hardening = 0.015
-          //Kinematic_Linear_Hardening = 0.135
-          //Initial_Yield_Strength = 0.243
-// Parameters for the benchmark test ends here
-          //Default_Temperature = 310.0
-          //Default_Burnup = 0.0
-          //Default_Oxygen_Concentration = .1
-      }
 
 LinearMechanicsOperator {
     name="LinearBVPOperator"
@@ -184,38 +172,39 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 2 
+    print_info_level = 0
     max_iterations = 100
-    max_error = 1e-10
-
-    absolute_tolerance = 1.0e-15
-    relative_tolerance = 1.0e-12
-    stepTolerance = 1.0e-10
+    absolute_tolerance = 1.0e-14
+    relative_tolerance = 1.0e-08
+    stepTolerance = 1.0e-15
     maximumFunctionEvals = 1000
-    usesJacobian=TRUE
+    usesJacobian=FALSE
+    forcing_term_strategy = "CONSTANT"
+    constant_forcing_term = 0.1
 
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
+    // SNESOptions = "-snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
 
     LinearSolver{
-      print_info_level = 1
-        max_iterations = 10
-        max_error = 1e-10
+        name = "PetscKrylovSolver"
+        print_info_level = 0
+        max_iterations = 300
         ksp_type = "fgmres"
-        absolute_tolerance = 1.0e-15
-        relative_tolerance = 1.0e-13
+//        absolute_tolerance = 1.0e-15
+//        relative_tolerance = 1.0e-13
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 300
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
 
-        KSPOptions = "-ksp_monitor -ksp_converged_reason"
+        //KSPOptions = "-ksp_monitor -ksp_converged_reason"
+        KSPOptions = ""
 
         Preconditioner{
-          print_info_level = 1
+            name = "TrilinosMLSolver"
+            print_info_level = 0
             PDE_equations = 3
             max_iterations = 1
-            max_error = 1.0e-15
         }
     }
 }

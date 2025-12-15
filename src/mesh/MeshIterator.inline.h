@@ -69,6 +69,14 @@ inline const MeshElement *MeshIterator::operator->() const
 {
     return d_iterator == nullptr ? d_element : d_iterator->d_element;
 }
+inline MeshElement *MeshIterator::get()
+{
+    return d_iterator == nullptr ? d_element : d_iterator->d_element;
+}
+inline const MeshElement *MeshIterator::get() const
+{
+    return d_iterator == nullptr ? d_element : d_iterator->d_element;
+}
 
 
 } // namespace AMP::Mesh

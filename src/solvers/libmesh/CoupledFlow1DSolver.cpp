@@ -18,7 +18,7 @@ CoupledFlow1DSolver::CoupledFlow1DSolver( std::shared_ptr<SolverStrategyParamete
 
     auto params = std::dynamic_pointer_cast<CoupledFlow1DSolverParameters>( parameters );
 
-    std::string flowOutVar = ( ( params->d_pOperator )->getOutputVariable() )->getName();
+    std::string flowOutVar = params->d_pOperator->getOutputVariable()->getName();
 
     d_pOperator =
         std::dynamic_pointer_cast<AMP::Operator::CoupledFlowFrapconOperator>( params->d_pOperator );

@@ -297,7 +297,7 @@ public:
      *   For worker threads this may eventually lead to a deadlock.
      * @param id                The work item to wait for
      */
-    inline void wait( ThreadPoolID id ) const;
+    inline void wait( const ThreadPoolID &id ) const;
 
 
     /*!

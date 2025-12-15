@@ -367,7 +367,7 @@ void MassDensityModel::getDensityManufactured( std::vector<double> &result,
         double Pi = 3.1415926535898;
         for ( size_t k = 0; k < neval; k++ ) {
             double x = xyz[k]( 0 ), y = xyz[k]( 1 ), z = xyz[k]( 2 );
-            double r = sqrt( x * x + y * y ), th = acos( x / r );
+            double r = std::sqrt( x * x + y * y ), th = acos( x / r );
             if ( y < 0 )
                 th = 2 * Pi - th;
             radius[k] = r;
@@ -388,7 +388,7 @@ void MassDensityModel::getDensityManufactured( std::vector<double> &result,
         // compute div (K . grad u) = div K . grad u + K : grad grad u
         for ( size_t k = 0; k < neval; k++ ) {
             double x = xyz[k]( 0 ), y = xyz[k]( 1 ), z = xyz[k]( 2 );
-            double r = sqrt( x * x + y * y );
+            double r = std::sqrt( x * x + y * y );
             if ( r == 0. ) {
                 r = std::numeric_limits<double>::min();
             }

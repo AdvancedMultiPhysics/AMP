@@ -1,0 +1,55 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "SASolver"
+  uses_preconditioner = FALSE
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 3
+  max_iterations = 30
+  max_levels = 10
+  min_coarse_local = 10
+  min_coarse_global = 40
+  kappa = 2
+
+  agg_type = "simple"
+  prol_trunc = 0.05
+  num_smooth_prol = 2
+  strength_threshold = 0.5
+  strength_measure = "classical_min"
+
+  pre_relaxation{
+    name = "HybridGS"
+    num_sweeps = 1
+    sweep_type = "symmetric"
+  }
+
+  post_relaxation{
+    name = "HybridGS"
+    num_sweeps = 1
+    sweep_type = "symmetric"
+  }
+
+  coarse_solver{
+    name = "BoomerAMGSolver"
+    absolute_tolerance = 0.0
+    relative_tolerance = 0.0
+    max_iterations = 1
+    min_coarse_size = 10
+    max_coarse_size = 100
+    strong_threshold = 0.5
+    cycle_type = 1
+    relax_type = 6
+    coarsen_type = 8
+    interp_type = 18
+    relax_order = 0
+    print_info_level = 0
+  }
+}
+
+Reference{
+  iterations = 24
+  res_l2_norm = -1
+  tolerance = 0
+  strict = FALSE
+}

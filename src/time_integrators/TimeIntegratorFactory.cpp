@@ -37,7 +37,7 @@ namespace AMP::TimeIntegrator {
 std::unique_ptr<TimeIntegrator>
 TimeIntegratorFactory::create( std::shared_ptr<TimeIntegratorParameters> parameters )
 {
-    AMP_ASSERT( parameters != nullptr );
+    AMP_ASSERT( parameters );
     auto inputDatabase = parameters->d_db;
     AMP_ASSERT( inputDatabase );
     auto objectName = inputDatabase->getString( "name" );
@@ -51,7 +51,9 @@ std::shared_ptr<TimeIntegrator> TimeIntegratorFactory::create( int64_t fid,
     std::string type;
     AMP::IO::readHDF5( fid, "type", type );
     std::shared_ptr<TimeIntegrator> ti;
-    if ( type == "RK12" )
+    if ( type == "ExplicitEuler" )
+        ti = std::make_shared<RK12TimeIntegrator>( fid, manager );
+    else if ( type == "RK12" )
         ti = std::make_shared<RK12TimeIntegrator>( fid, manager );
     else if ( type == "RK23" )
         ti = std::make_shared<RK23TimeIntegrator>( fid, manager );
@@ -72,35 +74,36 @@ std::shared_ptr<TimeIntegrator> TimeIntegratorFactory::create( int64_t fid,
     return ti;
 }
 
-// register all known time integrator factories
-void registerTimeIntegratorFactories()
-{
-    auto &timeIntegratorFactory = TimeIntegratorFactory::getFactory();
-
-    timeIntegratorFactory.registerFactory(
-        "ExplicitEuler", AMP::TimeIntegrator::ExplicitEuler::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "ImplicitIntegrator",
-                                           BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "Backward Euler", BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "BDF1", BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "BDF2", BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "BDF3", BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "BDF4", BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "BDF5", BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory( "BDF6", BDFIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory(
-        "RK2", AMP::TimeIntegrator::RK2TimeIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory(
-        "RK4", AMP::TimeIntegrator::RK4TimeIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory(
-        "RK12", AMP::TimeIntegrator::RK12TimeIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory(
-        "RK23", AMP::TimeIntegrator::RK23TimeIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory(
-        "RK34", AMP::TimeIntegrator::RK34TimeIntegrator::createTimeIntegrator );
-    timeIntegratorFactory.registerFactory(
-        "RK45", AMP::TimeIntegrator::RK45TimeIntegrator::createTimeIntegrator );
-}
-
 
 } // namespace AMP::TimeIntegrator
+
+
+// register all known time integrator factories
+template<>
+void AMP::FactoryStrategy<
+    AMP::TimeIntegrator::TimeIntegrator,
+    std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters>>::registerDefault()
+{
+    using namespace AMP::TimeIntegrator;
+    d_factories["ExplicitEuler"]      = AMP::TimeIntegrator::ExplicitEuler::createTimeIntegrator;
+    d_factories["ImplicitIntegrator"] = BDFIntegrator::createTimeIntegrator;
+    d_factories["Backward Euler"]     = BDFIntegrator::createTimeIntegrator;
+    d_factories["BDF1"]               = BDFIntegrator::createTimeIntegrator;
+    d_factories["BDF2"]               = BDFIntegrator::createTimeIntegrator;
+    d_factories["BDF3"]               = BDFIntegrator::createTimeIntegrator;
+    d_factories["BDF4"]               = BDFIntegrator::createTimeIntegrator;
+    d_factories["BDF5"]               = BDFIntegrator::createTimeIntegrator;
+    d_factories["BDF6"]               = BDFIntegrator::createTimeIntegrator;
+    d_factories["CN"]                 = BDFIntegrator::createTimeIntegrator;
+    d_factories["RK2"]  = AMP::TimeIntegrator::RK2TimeIntegrator::createTimeIntegrator;
+    d_factories["RK4"]  = AMP::TimeIntegrator::RK4TimeIntegrator::createTimeIntegrator;
+    d_factories["RK12"] = AMP::TimeIntegrator::RK12TimeIntegrator::createTimeIntegrator;
+    d_factories["RK23"] = AMP::TimeIntegrator::RK23TimeIntegrator::createTimeIntegrator;
+    d_factories["RK34"] = AMP::TimeIntegrator::RK34TimeIntegrator::createTimeIntegrator;
+    d_factories["RK45"] = AMP::TimeIntegrator::RK45TimeIntegrator::createTimeIntegrator;
+}
+template<>
+void AMP::FactoryStrategy<AMP::TimeIntegrator::TimeIntegrator, int64_t, AMP::IO::RestartManager *>::
+    registerDefault()
+{
+}

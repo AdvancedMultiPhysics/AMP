@@ -5,9 +5,16 @@
 
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
+#include "AMP/vectors/CommunicationList.h"
+#include "AMP/vectors/Scalar.h"
 #include "AMP/vectors/Variable.h"
+
+namespace AMP::IO {
+class RestartManager;
+}
 
 namespace AMP::Discretization {
 class DOFManager;
@@ -40,8 +47,8 @@ public:
     //! Transpose
     virtual std::shared_ptr<MatrixData> transpose() const = 0;
 
-    //! Extract the diagonal vector
-    virtual void extractDiagonal( std::shared_ptr<Vector> buf ) const = 0;
+    //! \brief Remove matrix entries within given range
+    virtual void removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up ) = 0;
 
     //! Return the type of the matrix
     virtual std::string type() const = 0;
@@ -173,6 +180,26 @@ public:
      */
     virtual std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const = 0;
 
+    /** \brief Get the variable associated with a right vector ( For
+     * \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$
+     * is a right vector )
+     * \return  The variable associated with a right vector
+     */
+    virtual std::shared_ptr<Variable> getRightVariable() const
+    {
+        return d_pParameters->getRightVariable();
+    }
+
+    /** \brief Get the variable associated with a left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$,
+     * \f$\mathbf{y}\f$ is
+     * a left vector )
+     * \return  The variable associated with a left vector
+     */
+    virtual std::shared_ptr<Variable> getLeftVariable() const
+    {
+        return d_pParameters->getLeftVariable();
+    }
+
     /** \brief  Get the number of local rows in the matrix
      * \return  The number of local rows
      */
@@ -203,6 +230,16 @@ public:
      */
     virtual size_t endRow() const;
 
+    /** \brief  Get the global id of first column in diagonal block
+     * \return  beginning global column id
+     */
+    virtual size_t beginCol() const;
+
+    /** \brief  Get the global id of last column in diagonal block
+     * \return  ending global column id
+     */
+    virtual size_t endCol() const;
+
     //! Get the comm
     inline virtual AMP_MPI getComm() const
     {
@@ -210,8 +247,51 @@ public:
         return d_pParameters->getComm();
     }
 
+    //! Get the backend
+    inline virtual AMP::Utilities::Backend getBackend() const
+    {
+        AMP_ASSERT( d_pParameters );
+        return d_pParameters->d_backend;
+    }
+
+    inline virtual void setBackend( AMP::Utilities::Backend backend )
+    {
+        AMP_ASSERT( d_pParameters );
+        d_pParameters->d_backend = backend;
+    }
+
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    virtual typeID getCoeffType() const = 0;
+
+
+public: // Non virtual functions
+    //! Get a unique id hash for the vector
+    uint64_t getID() const;
+
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    virtual void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    virtual void writeRestart( int64_t fid ) const;
+
+    MatrixData( int64_t fid, AMP::IO::RestartManager *manager );
+
 protected:
     std::shared_ptr<MatrixParametersBase> d_pParameters;
+
+    // unique hash to identify this object
+    uint64_t d_hash = 0;
 };
 
 } // namespace AMP::LinearAlgebra

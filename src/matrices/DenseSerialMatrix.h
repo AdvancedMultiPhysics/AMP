@@ -55,17 +55,31 @@ public:
     Vector::shared_ptr
     extractDiagonal( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
 
+    /** \brief  Get sum of each row in matrix
+     */
+    Vector::shared_ptr getRowSums( Vector::shared_ptr ) const override
+    {
+        AMP_ERROR( "Not implemented" );
+    }
+
+    /** \brief  Get absolute sum of each row in matrix
+     */
+    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr, const bool ) const override
+    {
+        AMP_ERROR( "Not implemented" );
+    }
+
     /** \brief Get a right vector( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a right
      * vector )
      * \return  A newly created right vector
      */
-    Vector::shared_ptr getRightVector() const override;
+    Vector::shared_ptr createInputVector() const override;
 
     /** \brief Get a left vector( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{y}\f$ is a left
      * vector )
      * \return  A newly created left vector
      */
-    Vector::shared_ptr getLeftVector() const override;
+    Vector::shared_ptr createOutputVector() const override;
 
 protected:
     //! Unimplemented constructor

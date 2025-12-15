@@ -3,14 +3,23 @@
 
 
 #include "AMP/mesh/MeshElement.h"
-#include "AMP/mesh/libmesh/libmeshElemIterator.h"
 #include "AMP/mesh/libmesh/libmeshMesh.h"
-#include "AMP/mesh/libmesh/libmeshNodeIterator.h"
+
 #include <memory>
 #include <vector>
 
+// libMesh includes
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
+#include "libmesh/elem.h"
+
 
 namespace AMP::Mesh {
+
+
+class libmeshMesh;
+class libmeshElemIterator;
+class libmeshNodeIterator;
 
 
 /**
@@ -20,7 +29,7 @@ namespace AMP::Mesh {
  * A mesh element can be thought of as the smallest unit of a mesh.  It is of a type
  * of GeomType.  This class is derived to store a libMesh element.
  */
-class libmeshMeshElement : public MeshElement
+class libmeshMeshElement final : public MeshElement
 {
 public:
     //! Empty constructor for a MeshElement
@@ -38,15 +47,20 @@ public:
     //! Return the unique global ID of the element
     MeshElementID globalID() const override { return d_globalID; }
 
+    //! Return the typeID of the underlying element
+    typeID getTypeID() const override { return AMP::getTypeID<libmeshMeshElement>(); }
+
     //! Return the element class
     inline std::string elementClass() const override { return "libmeshMeshElement"; }
 
     //! Return the elements composing the current element
-    virtual void getElements( const GeomType type,
-                              std::vector<MeshElement> &elements ) const override;
+    void getElements( const GeomType type, ElementList &elements ) const override;
+
+    //! Return the IDs of the elements composing the current element
+    int getElementsID( const GeomType type, MeshElementID *ID ) const override;
 
     //! Return the elements neighboring the current element
-    void getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const override;
+    void getNeighbors( ElementList &neighbors ) const override;
 
     //! Return the volume of the current element (does not apply to vertices)
     double volume() const override;
@@ -92,11 +106,11 @@ public:
      */
     bool isInBlock( int id ) const override;
 
-    //! Return the owner rank according to AMP_COMM_WORLD
-    unsigned int globalOwnerRank() const override;
+    //! Return the raw pointer to the element/node (if it exists)
+    const void *get() const { return ptr_element; }
 
 
-protected:
+public:
     /** Default constructors
      * \param dim       Spatial dimension
      * \param type      Element type
@@ -119,9 +133,10 @@ protected:
                         const libmeshMesh *mesh );
 
     //! Clone the iterator
-    MeshElement *clone() const override;
+    std::unique_ptr<MeshElement> clone() const override;
 
-    // Internal data
+
+protected:                               // Internal data
     int d_dim;                           // The dimension of the mesh
     unsigned int d_rank;                 // The rank of the current processor
     void *ptr_element;                   // The underlying libmesh element properties (raw pointer)
@@ -129,12 +144,6 @@ protected:
     const libmeshMesh *d_mesh;           // The pointer to the current mesh
     MeshID d_meshID;                     // The ID of the current mesh
     bool d_delete_elem;                  // Do we need to delete the libMesh element
-
-    friend class AMP::Mesh::libmeshMesh;
-    friend class AMP::Mesh::libmeshNodeIterator;
-    friend class AMP::Mesh::libmeshElemIterator;
-
-private:
     MeshElementID d_globalID;
 };
 

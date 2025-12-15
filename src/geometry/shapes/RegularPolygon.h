@@ -57,9 +57,9 @@ public: // Functions inherited from Geometry
 
 protected:
     // Internal data
-    int d_N;
-    double d_R;
-    std::array<double, 2> d_offset;
+    int d_N                        = 0;
+    double d_R                     = 0;
+    std::array<double, 2> d_offset = { 0, 0 };
     std::vector<std::array<double, 2>> d_vertices;
     std::vector<Point> d_norm;
 

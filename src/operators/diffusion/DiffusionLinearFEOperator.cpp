@@ -1,13 +1,49 @@
 #include "AMP/operators/diffusion/DiffusionLinearFEOperator.h"
+#include "AMP/discretization/simpleDOF_Manager.h"
+#include "AMP/operators/ElementOperationFactory.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 
 
 namespace AMP::Operator {
 
-DiffusionLinearFEOperator::DiffusionLinearFEOperator(
-    std::shared_ptr<const OperatorParameters> inParams )
-    : LinearFEOperator( inParams )
+
+static std::shared_ptr<const DiffusionLinearFEOperatorParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
 {
-    auto params = std::dynamic_pointer_cast<const DiffusionLinearFEOperatorParameters>( inParams );
+    if ( std::dynamic_pointer_cast<const DiffusionLinearFEOperatorParameters>( params ) )
+        return std::dynamic_pointer_cast<const DiffusionLinearFEOperatorParameters>( params );
+    auto db = params->d_db;
+    // first create a DiffusionTransportModel
+    auto model_db            = db->getDatabase( "LocalModel" );
+    auto elementPhysicsModel = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+    auto transportModel = std::dynamic_pointer_cast<DiffusionTransportModel>( elementPhysicsModel );
+    AMP_INSIST( transportModel, "NULL transport model" );
+    // next create a ElementOperation object
+    auto diffusionElem =
+        ElementOperationFactory::createElementOperation( db->getDatabase( "DiffusionElement" ) );
+    // now create the linear diffusion operator
+    AMP_ASSERT( db->getString( "name" ) == "DiffusionLinearFEOperator" );
+    auto scalarDOF = AMP::Discretization::simpleDOFManager::create(
+        params->d_Mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+    auto diffusionOpParams    = std::make_shared<DiffusionLinearFEOperatorParameters>( db );
+    diffusionOpParams->d_Mesh = params->d_Mesh;
+    diffusionOpParams->d_transportModel = transportModel;
+    diffusionOpParams->d_elemOp         = diffusionElem;
+    diffusionOpParams->d_inDofMap       = scalarDOF;
+    diffusionOpParams->d_outDofMap      = scalarDOF;
+    return diffusionOpParams;
+}
+
+
+DiffusionLinearFEOperator::DiffusionLinearFEOperator(
+    std::shared_ptr<const OperatorParameters> params )
+    : DiffusionLinearFEOperator( convert( params ), true )
+{
+}
+DiffusionLinearFEOperator::DiffusionLinearFEOperator(
+    std::shared_ptr<const DiffusionLinearFEOperatorParameters> params, bool )
+    : LinearFEOperator( params )
+{
     AMP_INSIST( params, "NULL parameter" );
 
     d_diffLinElem = std::dynamic_pointer_cast<DiffusionLinearElement>( d_elemOp );
@@ -34,6 +70,8 @@ DiffusionLinearFEOperator::DiffusionLinearFEOperator(
 
 void DiffusionLinearFEOperator::preAssembly( std::shared_ptr<const OperatorParameters> oparams )
 {
+    PROFILE( "preAssembly", 1 );
+
     auto params = std::dynamic_pointer_cast<const DiffusionLinearFEOperatorParameters>( oparams );
 
     if ( d_iDebugPrintInfoLevel > 7 ) {
@@ -59,6 +97,7 @@ void DiffusionLinearFEOperator::preAssembly( std::shared_ptr<const OperatorParam
 
 void DiffusionLinearFEOperator::postAssembly()
 {
+    PROFILE( "postAssembly", 1 );
 
     if ( d_iDebugPrintInfoLevel > 7 ) {
         AMP::pout << "DiffusionLinearFEOperator::postAssembly, entering" << std::endl;
@@ -105,7 +144,7 @@ void DiffusionLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
         auto DOF = vec->getDOFManager();
         std::vector<size_t> dofs;
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             tmp[r] = vec->getValueByGlobalID( dofs[0] );
         }
@@ -127,13 +166,14 @@ void DiffusionLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
 
 void DiffusionLinearFEOperator::postElementOperation()
 {
+    PROFILE( "postElementOperation", 5 );
 
     if ( d_iDebugPrintInfoLevel > 7 )
         AMP::pout << "DiffusionLinearFEOperator::postElementOperation, entering" << std::endl;
 
     std::vector<size_t> d_dofIndices( d_currNodes.size() ), dofs( 1 );
     for ( size_t i = 0; i < d_currNodes.size(); i++ ) {
-        d_inDofMap->getDOFs( d_currNodes[i].globalID(), dofs );
+        d_inDofMap->getDOFs( d_currNodes[i]->globalID(), dofs );
         AMP_ASSERT( dofs.size() == 1 );
         d_dofIndices[i] = dofs[0];
     }

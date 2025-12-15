@@ -44,10 +44,12 @@ public:
      * \param name      Name of the new mesh
      * \param comm      Desired communicator for the multimesh
      * \param meshes    Meshes to be used as part of the multimesh
+     * \param checkComm Check that the comm spans all meshes (advanced option)
      */
     MultiMesh( const std::string &name,
                const AMP_MPI &comm,
-               const std::vector<std::shared_ptr<Mesh>> &meshes );
+               const std::vector<std::shared_ptr<Mesh>> &meshes,
+               bool checkComm = true );
 
 
     //! Deconstructor
@@ -222,7 +224,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override;
+    MeshElementPtr getElement( const MeshElementID &id ) const override;
 
 
     /**
@@ -232,8 +234,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override;
+    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
+                                                           const GeomType type ) const override;
 
 
     //! Is the current mesh a base mesh
@@ -363,8 +365,11 @@ public: // Write/read restart data
 
 
 private:
-    //! A list of all meshes in the multimesh
-    std::vector<std::shared_ptr<AMP::Mesh::Mesh>> d_meshes;
+    void initialize();
+
+private:
+    std::vector<std::shared_ptr<Mesh>> d_meshes;       //!< A list of all meshes in the multimesh
+    Mesh::Movable d_isMovable = Mesh::Movable::Deform; //!< Are all meshes movable
 };
 
 } // namespace AMP::Mesh

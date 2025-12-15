@@ -1,15 +1,18 @@
 // Database for the mesh
-Mesh{
+Mesh {
     MeshName = "mesh"
-    MeshType = "libMesh"
-    FileName = "brick.e"
+    MeshType = "AMP"
+    Generator = "cube"
     dim = 3
-    NumberOfElements = 100
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
 }
 
 testFickSoretBVPOperator {
   name="NonlinearBVPOperator"
-  print_info_level = 3
+  print_info_level = 2
 
   VolumeOperator = "FickSoretNonlinearFEOperator"
   BoundaryOperator = "DirichletVectorCorrection"
@@ -17,11 +20,29 @@ testFickSoretBVPOperator {
 
 testLinearFickBVPOperator {
     name = "LinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
 
     VolumeOperator = "LinearFickDiffusionLinearFEOperator"
     BoundaryOperator = "DirichletMatrixCorrection"
 }
+
+FickDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "FickCoefficient"
+    Default_Concentration = .1
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
+ThermalDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "ThermalDiffusionCoefficient"
+    Default_Concentration = .1
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
 
 LinearFickDiffusionLinearFEOperator{
         name = "DiffusionLinearFEOperator"
@@ -41,7 +62,7 @@ LinearFickDiffusionLinearFEOperator{
             QRULE_ORDER = "DEFAULT"
         }    
 
-        LocalModel = "FickDiffusionTransportModel"
+        LocalModel = FickDiffusionTransportModel
 
 }
 
@@ -53,48 +74,48 @@ FickSoretNonlinearFEOperator{
 
 
 FickDiffusionNonlinearFEOperator{
-                  name = "DiffusionNonlinearFEOperator" 
-                  print_info_level = 1
-                  ActiveInputVariables {
-                  temperature = "temperature"
-                  concentration = "concentration"
-                  }
-                  OutputVariable = "concentration"
-                  PrincipalVariable = "concentration"
+      name = "DiffusionNonlinearFEOperator" 
+      print_info_level = 1
+      ActiveInputVariables {
+      temperature = "temperature"
+      concentration = "concentration"
+      }
+      OutputVariable = "concentration"
+      PrincipalVariable = "concentration"
 
-                  DiffusionElement{
-                       name = "DiffusionNonlinearElement"
-                       TransportAtGaussPoints = TRUE
-                       FE_ORDER = "FIRST"  
-                       FE_FAMILY = "LAGRANGE"
-                       QRULE_TYPE = "QGAUSS"
-                       QRULE_ORDER = "DEFAULT"
-                 }    
+      DiffusionElement{
+           name = "DiffusionNonlinearElement"
+           TransportAtGaussPoints = TRUE
+           FE_ORDER = "FIRST"  
+           FE_FAMILY = "LAGRANGE"
+           QRULE_TYPE = "QGAUSS"
+           QRULE_ORDER = "DEFAULT"
+     }    
 
-                 LocalModel = "FickDiffusionTransportModel"
+     LocalModel = FickDiffusionTransportModel
 }
 
 SoretDiffusionNonlinearFEOperator{
-        name = "DiffusionNonlinearFEOperator" 
+    name = "DiffusionNonlinearFEOperator" 
 
-        print_info_level = 1    
-        ActiveInputVariables {
-          temperature = "temperature"
-          concentration = "concentration"
-          }
-        OutputVariable = "concentration"
-        PrincipalVariable = "temperature" 
-  
-        DiffusionElement{
-          name = "DiffusionNonlinearElement"
-          TransportAtGaussPoints = TRUE
-          FE_ORDER = "FIRST"  
-          FE_FAMILY = "LAGRANGE"
-          QRULE_TYPE = "QGAUSS"
-          QRULE_ORDER = "DEFAULT"
-        }    
+    print_info_level = 1    
+    ActiveInputVariables {
+      temperature = "temperature"
+      concentration = "concentration"
+      }
+    OutputVariable = "concentration"
+    PrincipalVariable = "temperature" 
 
-        LocalModel = "ThermalDiffusionTransportModel"
+    DiffusionElement{
+      name = "DiffusionNonlinearElement"
+      TransportAtGaussPoints = TRUE
+      FE_ORDER = "FIRST"  
+      FE_FAMILY = "LAGRANGE"
+      QRULE_TYPE = "QGAUSS"
+      QRULE_ORDER = "DEFAULT"
+    }    
+
+    LocalModel = ThermalDiffusionTransportModel
 }
 
 DirichletVectorCorrection{
@@ -126,23 +147,5 @@ DirichletMatrixCorrection{
       dof_1_0 = 0
 
 }
-
-FickDiffusionTransportModel{
-          name = "DiffusionTransportModel"
-          Material = "Independent"
-          Property = "FickCoefficient"
-          Default_Concentration = .1
-          Default_Temperature   = 300.
-          Default_Burnup   = 0.0
-} 
-
-ThermalDiffusionTransportModel{
-          name = "DiffusionTransportModel"
-          Material = "Independent"
-          Property = "ThermalDiffusionCoefficient"
-          Default_Concentration = .1
-          Default_Temperature   = 300.
-          Default_Burnup   = 0.0
-} 
 
 

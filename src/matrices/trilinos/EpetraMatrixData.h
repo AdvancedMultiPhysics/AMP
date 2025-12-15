@@ -60,13 +60,6 @@ protected:
      */
     void VerifyEpetraReturn( int err, const char *func ) const;
 
-    /** \brief Constructor
-     * \param[in]  m1  Rowmap to create the Epetra matrix
-     * \param m2  Unused
-     * \param[in] entriesRow  The number of entries in the matrix per local row
-     */
-    EpetraMatrixData( Epetra_Map &m1, Epetra_Map *m2, int *entriesRow );
-
 public:
     explicit EpetraMatrixData( std::shared_ptr<MatrixParametersBase> params );
 
@@ -82,7 +75,7 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
-    void extractDiagonal( std::shared_ptr<Vector> diag ) const override;
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
 
     /** \brief Change the EpetraMaps for the matrix
      * \param[in] range  A vector that represents the range: y in y = A*x (row map)
@@ -155,8 +148,17 @@ public:
     AMP::AMP_MPI getComm() const override;
     std::shared_ptr<Discretization::DOFManager> getRightDOFManager() const override;
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
-    std::shared_ptr<Vector> getRightVector() const;
-    std::shared_ptr<Vector> getLeftVector() const;
+    std::shared_ptr<Vector> createInputVector() const;
+    std::shared_ptr<Vector> createOutputVector() const;
+
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    typeID getCoeffType() const override
+    {
+        // Epetra matrix are double only for the moment
+        constexpr auto type = getTypeID<double>();
+        return type;
+    }
 };
 
 

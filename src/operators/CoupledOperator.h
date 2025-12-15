@@ -45,7 +45,7 @@ public:
 
     void setBVPOperator( std::shared_ptr<AMP::Operator::Operator> op ) { d_operators[3] = op; }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_operators[3]->getOutputVariable();
     }
@@ -57,9 +57,9 @@ public:
         d_operators.push_back( op );
     }
 
-    bool isValidInput( std::shared_ptr<const AMP::LinearAlgebra::Vector> u ) override
+    bool isValidVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> u ) override
     {
-        return d_operators[3]->isValidInput( u );
+        return d_operators[3]->isValidVector( u );
     }
 
     void setFrozenGaussPointVector( AMP::LinearAlgebra::Vector::shared_ptr u )

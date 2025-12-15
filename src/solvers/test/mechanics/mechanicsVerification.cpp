@@ -5,8 +5,8 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
-#include "AMP/mesh/libmesh/ReadTestMesh.h"
 #include "AMP/mesh/libmesh/libmeshMesh.h"
+#include "AMP/mesh/testHelpers/meshWriters.h"
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletMatrixCorrection.h"
@@ -102,9 +102,9 @@ computeForcingTerms( std::shared_ptr<AMP::Mesh::Mesh> mesh,
             V[i]     = manufacturedSolution->getForcingTermY( x, y, z );
             W[i]     = manufacturedSolution->getForcingTermZ( x, y, z );
         } // end loop over all integration points of the element
-        dummyIntegrationPointVecU->setLocalValuesByGlobalID( dofs.size(), dofs.data(), U.data() );
-        dummyIntegrationPointVecV->setLocalValuesByGlobalID( dofs.size(), dofs.data(), V.data() );
-        dummyIntegrationPointVecW->setLocalValuesByGlobalID( dofs.size(), dofs.data(), W.data() );
+        dummyIntegrationPointVecU->setValuesByGlobalID( dofs.size(), dofs.data(), U.data() );
+        dummyIntegrationPointVecV->setValuesByGlobalID( dofs.size(), dofs.data(), V.data() );
+        dummyIntegrationPointVecW->setValuesByGlobalID( dofs.size(), dofs.data(), W.data() );
     } // end loop over all elements
     dummyIntegrationPointVecU->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     dummyIntegrationPointVecV->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -134,7 +134,7 @@ computeForcingTerms( std::shared_ptr<AMP::Mesh::Mesh> mesh,
         double val[3] = { dummyNodalVecU->getLocalValueByGlobalID( nd1GlobalIds[0] ),
                           dummyNodalVecV->getLocalValueByGlobalID( nd1GlobalIds[0] ),
                           dummyNodalVecW->getLocalValueByGlobalID( nd1GlobalIds[0] ) };
-        forcingTermsVec->setLocalValuesByGlobalID( nd3GlobalIds.size(), nd3GlobalIds.data(), val );
+        forcingTermsVec->setValuesByGlobalID( nd3GlobalIds.size(), nd3GlobalIds.data(), val );
     } // end loop over all nodes
     if ( verbose ) {
         AMP::pout << "------------------------------------------\n"
@@ -166,8 +166,7 @@ computeExactSolution( std::shared_ptr<AMP::Mesh::Mesh> mesh,
             manufacturedSolution->getExactSolutions( coord[0], coord[1], coord[2] );
         // Distribute values in the vector object
         for ( unsigned int xyz = 0; xyz < 3; ++xyz ) {
-            exactSolutionsVec->setLocalValuesByGlobalID(
-                1, &globalIDs[xyz], &displacementXYZ[xyz] );
+            exactSolutionsVec->setValuesByGlobalID( 1, &globalIDs[xyz], &displacementXYZ[xyz] );
         } // end loop over the coordinates
     }     // end soop over all nodes
     if ( verbose ) {
@@ -180,9 +179,8 @@ computeExactSolution( std::shared_ptr<AMP::Mesh::Mesh> mesh,
 }
 
 
-static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, int exampleNum )
+static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, int )
 {
-    NULL_USE( exampleNum );
     std::string inputFile = "input_" + exeName;
     std::string logFile   = "output_" + exeName + ".txt";
 
@@ -193,25 +191,17 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
     auto inputDatabase = AMP::Database::parseInputFile( inputFile );
     inputDatabase->print( AMP::plog );
 
-    std::shared_ptr<AMP::Mesh::Mesh> mesh;
-    std::shared_ptr<AMP::Mesh::initializeLibMesh> libmeshInit;
-
     // Regular grid mesh file
+    std::shared_ptr<AMP::Mesh::Mesh> mesh;
     bool useRegularGridMesh = inputDatabase->getScalar<bool>( "UseRegularGridMesh" );
     if ( useRegularGridMesh ) {
-        libmeshInit = std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
-        libMesh::Parallel::Communicator comm( globalComm.getCommunicator() );
         auto mesh_file    = inputDatabase->getString( "mesh_file" );
-        auto myMesh       = std::make_shared<libMesh::Mesh>( comm, 3 );
         bool binaryMeshes = inputDatabase->getScalar<bool>( "BinaryMeshes" );
         if ( binaryMeshes ) {
-            AMP::readBinaryTestMesh( mesh_file, myMesh );
+            mesh = AMP::Mesh::MeshWriters::readBinaryTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
         } else {
-            AMP::readTestMesh( mesh_file, myMesh );
+            mesh = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
         }
-        libMesh::MeshCommunication().broadcast( *myMesh );
-        myMesh->prepare_for_use( false );
-        mesh = std::make_shared<AMP::Mesh::libmeshMesh>( myMesh, "myMesh" );
     } else {
         // Create the Mesh.
         AMP_INSIST( inputDatabase->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
@@ -220,17 +210,20 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
         mgrParams->setComm( AMP_COMM_WORLD );
         mesh = AMP::Mesh::MeshFactory::create( mgrParams );
     }
-    NULL_USE( libmeshInit );
 
     auto scaleMeshFactor = inputDatabase->getWithDefault<double>( "scale_mesh", 1.0 );
     AMP::pout << "Scaling mesh by a factor " << scaleMeshFactor << "\n";
 
     // Create the linear mechanics operator
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel;
     auto bvpOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            mesh, "MechanicsBVPOperator", inputDatabase, elementPhysicsModel ) );
+            mesh, "MechanicsBVPOperator", inputDatabase ) );
     AMP_ASSERT( bvpOperator );
+    auto mechanicsVolumeOperator =
+        std::dynamic_pointer_cast<AMP::Operator::MechanicsLinearFEOperator>(
+            bvpOperator->getVolumeOperator() );
+    auto elementPhysicsModel = mechanicsVolumeOperator->getMaterialModel();
+
     AMP_ASSERT( elementPhysicsModel );
     // auto var = bvpOperator->getOutputVariable();
 
@@ -285,7 +278,6 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
         AMP_ERROR( "Unknown value for typeCoeffAB" );
     } // end if typeCoeffAB
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> dummyModel;
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     // Vectors: solution, right-hand side, residual
     auto NodalVectorDOF =
@@ -298,8 +290,8 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
         AMP::LinearAlgebra::createVector( NodalVectorDOF, bvpOperator->getOutputVariable() );
 
     // Create an operator to get manufactured solution and forcing terms
-    auto volumeOp = AMP::Operator::OperatorBuilder::createOperator(
-        mesh, "VolumeIntegral", inputDatabase, dummyModel );
+    auto volumeOp =
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "VolumeIntegral", inputDatabase );
 
     // Compute the forcing terms
     rhsVec->zero();
@@ -322,11 +314,17 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
         }
     }
 
-    // Compute Neumann values
-    auto neumannVecOp = std::dynamic_pointer_cast<AMP::Operator::NeumannVectorCorrection>(
-        AMP::Operator::OperatorBuilder::createBoundaryOperator(
-            mesh, "NeumannCorrection", inputDatabase, volumeOp, dummyModel ) );
+    // Create Neumann boundary operator
+    auto neumannDB = inputDatabase->getDatabase( "NeumannCorrection" );
+    auto vectorCorrectionParameters =
+        std::make_shared<AMP::Operator::NeumannVectorCorrectionParameters>( neumannDB );
+    vectorCorrectionParameters->d_variable = volumeOp->getOutputVariable();
+    vectorCorrectionParameters->d_Mesh     = mesh;
+    auto neumannVecOp =
+        std::make_shared<AMP::Operator::NeumannVectorCorrection>( vectorCorrectionParameters );
     // neumannVecOp->setVariable(var);
+
+    // Compute Neumann values
     auto neumannBoundaryIds = neumannVecOp->getBoundaryIds();
     for ( short neumannBoundaryId : neumannBoundaryIds ) {
         auto bnd = mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, neumannBoundaryId );
@@ -336,8 +334,9 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
             std::vector<double> gradientY( 3, 1.0 );
             std::vector<double> gradientZ( 3, 1.0 );
             // The tensor is stored under the form xx yy zz yz xz xy
-            // autostressTensor = manufacturedSolution->getStressTensor(bnd->x(), bnd->y(),
-            // bnd->z());
+            auto pos = node.coord();
+            [[maybe_unused]] auto stressTensor =
+                manufacturedSolution->getStressTensor( pos.x(), pos.y(), pos.z() );
             double normalDotGradientX = 0.0;
             double normalDotGradientY = 0.0;
             double normalDotGradientZ = 0.0;
@@ -350,7 +349,7 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
             double bndVals[3] = { normalDotGradientX, normalDotGradientY, normalDotGradientZ };
             NodalVectorDOF->getDOFs( node.globalID(), dofs );
             AMP_ASSERT( dofs.size() == 3 );
-            rhsVec->addLocalValuesByGlobalID( dofs.size(), dofs.data(), bndVals );
+            rhsVec->addValuesByGlobalID( dofs.size(), dofs.data(), bndVals );
         }
     }
 
@@ -420,7 +419,7 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
     double Ly          = Lx;
     double Lz          = Lx;
     double nElements   = mesh->numGlobalElements( AMP::Mesh::GeomType::Cell );
-    double scaleFactor = sqrt( Lx * Ly * Lz / nElements );
+    double scaleFactor = std::sqrt( Lx * Ly * Lz / nElements );
     AMP::pout << "number of elements = " << nElements << "\n";
     AMP::pout << "scale factor = " << scaleFactor << "\n";
     AMP::pout << "using manufactured solution " << manufacturedSolution->getName() << "\n";
@@ -465,10 +464,10 @@ int mechanicsVerification( int argc, char *argv[] )
 
     if ( argc == 1 ) {
         exeNames.emplace_back( "mechanicsVerification-Linear" );
-        // exeNames.push_back("mechanicsVerification-HaldenPellet");
+        exeNames.emplace_back( "mechanicsVerification-Trigonometric" );
     } else {
         for ( int i = 1; i < argc; i++ )
-            exeNames.emplace_back( "mechanicsVerification-" + std::string( argv[i] ) );
+            exeNames.emplace_back( argv[i] );
     }
 
     for ( unsigned int i = 0; i < exeNames.size(); i++ )

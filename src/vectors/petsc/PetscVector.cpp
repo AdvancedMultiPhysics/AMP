@@ -13,7 +13,7 @@ namespace AMP::LinearAlgebra {
  ****************************************************************/
 std::shared_ptr<const PetscVector> PetscVector::constView( Vector::const_shared_ptr inVector )
 {
-    return view( std::const_pointer_cast<Vector>( inVector ) );
+    return inVector ? view( std::const_pointer_cast<Vector>( inVector ) ) : nullptr;
 }
 std::shared_ptr<PetscVector> PetscVector::view( Vector::shared_ptr inVector )
 {

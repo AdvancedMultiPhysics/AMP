@@ -47,10 +47,6 @@ public:
 };
 
 
-//! Register time integrators known by AMP
-void registerTimeIntegratorFactories();
-
-
 } // namespace  AMP::TimeIntegrator
 
 

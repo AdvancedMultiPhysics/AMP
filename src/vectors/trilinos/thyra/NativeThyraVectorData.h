@@ -1,6 +1,7 @@
 #ifndef included_AMP_NativeThyraVectorData
 #define included_AMP_NativeThyraVectorData
 
+#include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/trilinos/thyra/ThyraVector.h"
 
@@ -18,7 +19,7 @@ namespace AMP::LinearAlgebra {
  * \see ThyraVector
  * \see ManagedThyraVector
  */
-class NativeThyraVectorData : public VectorData
+class NativeThyraVectorData : public GhostDataHelper<double>
 {
 public:
     /** \brief Construct a wrapper for a Thyra Vec from a set of parameters

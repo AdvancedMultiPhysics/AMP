@@ -1,0 +1,107 @@
+
+Mesh{
+    MeshName = "Pellet"
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
+    static = TRUE
+}
+
+DiffusionTransportModel1{
+        name = "DiffusionTransportModel"
+          Material = "Ox_MSRZC_09"
+          Property = "FickCoefficient"
+          Default_Concentration = .05
+          Default_Temperature   = 1350.
+          Default_Burnup   = 0.0
+      } 
+
+testNonlinearFickOperator {
+    name="NonlinearBVPOperator"
+    print_info_level = 0
+    VolumeOperator = "DiffusionNonlinearFEOperator1"
+    BoundaryOperator = "DirichletVectorCorrection1"
+}
+
+DiffusionNonlinearFEOperator1 {
+      name = "DiffusionNonlinearFEOperator" 
+        print_info_level = 0
+        ActiveInputVariables {
+          concentration = "concentration"
+        }
+      OutputVariable = "concentration"
+        PrincipalVariable = "concentration"
+
+        DiffusionElement{
+          name = "DiffusionNonlinearElement"
+            TransportAtGaussPoints = TRUE
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }    
+
+	LocalModel = DiffusionTransportModel1
+    }
+
+DirichletVectorCorrection1 {
+    name = "DirichletVectorCorrection"
+      print_info_level = 0
+      skip_set_boundary_ids = FALSE
+      isAttachedToVolumeOperator = TRUE
+      number_of_ids = 2
+      id_0             = 1
+      number_of_dofs_0 =   1
+      dof_0_0          =   0
+      value_0_0        = .15
+      id_1             = 2
+      number_of_dofs_1 =   1
+      dof_1_0          =   0
+      value_1_0        = .05
+  }
+
+testLinearFickOperator {
+    name = "LinearBVPOperator"
+    print_info_level = 0
+    VolumeOperator = "DiffusionLinearFEOperator2"
+    BoundaryOperator = "DirichletMatrixCorrection2"
+}
+
+DiffusionLinearFEOperator2 {
+      name = "DiffusionLinearFEOperator"
+        print_info_level = 0
+        reset_reuses_matrix = TRUE
+        InputVariable = "concentration"
+        OutputVariable = "concentration"
+        FixedTemperature = TRUE
+        FixedBurnup = TRUE
+
+        DiffusionElement {
+          name = "DiffusionLinearElement"
+            TransportAtGaussPoints = TRUE
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }    
+
+ 	LocalModel = DiffusionTransportModel1
+    }
+
+DirichletMatrixCorrection2 {
+    name = "DirichletMatrixCorrection"
+      print_info_level = 0
+      skip_set_boundary_ids = FALSE
+      skip_rhs_correction = TRUE
+      number_of_ids = 2
+      id_0             = 1
+      number_of_dofs_0 =   1
+      dof_0_0          =   0
+      value_0_0        = .15
+      id_1             = 2
+      number_of_dofs_1 =   1
+      dof_1_0          =   0
+      value_1_0        = .05
+  }

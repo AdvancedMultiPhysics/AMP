@@ -383,7 +383,7 @@ void ThermalVonMisesMatModel::getConstitutiveMatrix( double *&constitutiveMatrix
 
     one3 = 1.0 / 3.0;
     two3 = 2.0 / 3.0;
-    sq23 = sqrt( two3 );
+    sq23 = std::sqrt( two3 );
 
     // If the stress is within the elastic range.
     // Only the elastic tangent is computed.
@@ -431,9 +431,9 @@ void ThermalVonMisesMatModel::getConstitutiveMatrix( double *&constitutiveMatrix
     }
 
     // The effective stress.
-    q_np1 = sqrt( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
-                  ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
-                  ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) );
+    q_np1 = std::sqrt( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
+                       ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
+                       ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) );
 
     // The normal direction.
     for ( int i = 0; i < 6; i++ ) {
@@ -509,7 +509,7 @@ void ThermalVonMisesMatModel::radialReturn( const double *stra_np1,
 
     one3    = 1.0 / 3.0;
     two3    = 2.0 / 3.0;
-    sq23    = sqrt( two3 );
+    sq23    = std::sqrt( two3 );
     ephbp_n = eph_bar_plas_n;             // Effective plastic strain at the previous time step.
     sigy_n  = ystre_n;                    // Yield stress at the previous time step.
     G       = E / ( 2.0 * ( 1.0 + Nu ) ); // of Elastic
@@ -540,7 +540,7 @@ void ThermalVonMisesMatModel::radialReturn( const double *stra_np1,
     sig_trial_kk = sig_kk + ( 3.0 * K * deph_kk );
 
     // Compute the trial effective stress.
-    q_trial = sqrt(
+    q_trial = std::sqrt(
         ( sig_trial_dev[0] * sig_trial_dev[0] ) + ( sig_trial_dev[1] * sig_trial_dev[1] ) +
         ( sig_trial_dev[2] * sig_trial_dev[2] ) + ( 2.0 * sig_trial_dev[3] * sig_trial_dev[3] ) +
         ( 2.0 * sig_trial_dev[4] * sig_trial_dev[4] ) +

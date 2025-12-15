@@ -10,6 +10,22 @@
 namespace AMP::LinearAlgebra {
 
 
+void testBasics( AMP::UnitTest &ut, const std::string &type )
+{
+    // Test creating a non-square matrix and ensure it is the proper size
+    auto left  = AMP::LinearAlgebra::createSimpleVector<double>( 5, "left" );
+    auto right = AMP::LinearAlgebra::createSimpleVector<double>( 10, "right" );
+    auto mat   = AMP::LinearAlgebra::createMatrix(
+        right, left, type, []( size_t row ) { return std::vector<size_t>( 1, row ); } );
+    int rows = mat->numGlobalRows();
+    int cols = mat->numGlobalColumns();
+    if ( rows == 5 && cols == 10 )
+        ut.passes( "Created non-square matrix (" + type + ")" );
+    else
+        ut.failure( "Failed non-square matrix (" + type + ")" );
+}
+
+
 void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
                               std::shared_ptr<AMP::Discretization::DOFManager> dofmap )
 {
@@ -72,11 +88,26 @@ void MatrixTests::InstantiateMatrix( AMP::UnitTest *utils )
         utils->failure( "created " );
 }
 
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+MatrixTests::getCopyMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
+{
+    // if the copy factory does not exist return the input matrix
+    if ( d_copy_factory ) {
+        auto copyMatrix = d_copy_factory->getMatrix();
+        copyMatrix->zero(); // src and dst matricies may store zeros differently
+        copyMatrix->copy( matrix );
+        return copyMatrix;
+    } else {
+        return matrix;
+    }
+}
+
 
 void MatrixTests::VerifyGetLeftRightVector( AMP::UnitTest *utils )
 {
     PROFILE( "VerifyGetLeftRightVector" );
     auto matrix   = d_factory->getMatrix();
+    matrix        = getCopyMatrix( matrix );
     auto factory1 = std::make_shared<AmpInterfaceRightVectorFactory>( matrix );
     auto factory2 = std::make_shared<AmpInterfaceLeftVectorFactory>( matrix );
     VectorTests tests1( factory1 );
@@ -102,6 +133,7 @@ void MatrixTests::VerifyGetSetValuesMatrix( AMP::UnitTest *utils )
 
     //    matrix->makeConsistent();
     fillWithPseudoLaplacian( matrix, d_factory );
+    matrix = getCopyMatrix( matrix );
     for ( size_t i = dofmap->beginDOF(); i != dofmap->endDOF(); i++ ) {
         std::vector<size_t> cols;
         std::vector<double> vals;
@@ -124,20 +156,28 @@ void MatrixTests::VerifyAXPYMatrix( AMP::UnitTest *utils )
     PROFILE( "VerifyAXPYMatrix" );
 
     // Create vectors/matricies from the factory
-    auto matrix1      = d_factory->getMatrix();
-    auto matrix2      = d_factory->getMatrix();
-    auto vector1lhs   = matrix1->getRightVector();
-    auto vector2lhs   = matrix2->getRightVector();
-    auto vector1rhs   = matrix1->getRightVector();
-    auto vector2rhs   = matrix2->getRightVector();
-    auto vectorresult = matrix2->getRightVector();
+    auto matrix1 = d_factory->getMatrix();
+    auto matrix2 = d_factory->getMatrix();
+
     fillWithPseudoLaplacian( matrix1, d_factory );
     fillWithPseudoLaplacian( matrix2, d_factory );
+    matrix1 = getCopyMatrix( matrix1 );
+    matrix2 = getCopyMatrix( matrix2 );
 
     // Test axpy
     matrix2->axpy( -2., matrix1 ); // matrix2 = -matrix1
+
+    auto vector1lhs   = matrix1->createInputVector();
+    auto vector2lhs   = matrix2->createInputVector();
+    auto vector1rhs   = matrix1->createInputVector();
+    auto vector2rhs   = matrix2->createInputVector();
+    auto vectorresult = matrix2->createInputVector();
+
     vector1lhs->setRandomValues();
+    vector1lhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
     vector2lhs->copyVector( vector1lhs );
+
     matrix1->mult( vector1lhs, vector1rhs );
     matrix2->mult( vector2lhs, vector2rhs ); // vector2rhs = - vector1rhs
     vectorresult->add( *vector1rhs, *vector2rhs );
@@ -171,24 +211,85 @@ void MatrixTests::VerifyAXPYMatrix( AMP::UnitTest *utils )
 #endif
 }
 
+void MatrixTests::VerifyCopyMatrix( AMP::UnitTest *utils )
+{
+    PROFILE( "VerifyCopyMatrix" );
+
+    // Create vectors/matrices from the factory
+    auto matrix1 = d_factory->getMatrix();
+    fillWithPseudoLaplacian( matrix1, d_factory );
+    auto matrix2 = getCopyMatrix( matrix1 );
+
+    auto u1 = matrix1->createInputVector();
+    auto v1 = matrix1->createInputVector();
+
+    auto u2           = matrix2->createInputVector();
+    auto v2           = matrix2->createInputVector();
+    auto vectorresult = matrix2->createInputVector();
+
+    u1->setRandomValues();
+    u1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+    u2->copyVector( u1 );
+    u2->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+    matrix1->mult( u1, v1 );
+    matrix2->mult( u2, v2 ); // v2 = v1
+    vectorresult->copyVector( v1 );
+    vectorresult->subtract( *vectorresult, *v2 );
+    if ( vectorresult->L1Norm() < 0.000001 )
+        utils->passes( "matrices are not equal after copy " + matrix1->type() );
+    else
+        utils->failure( "matrices are not equal after copy " + matrix1->type() );
+    if ( v1->L1Norm() > 0.00001 )
+        utils->passes( "non-trivial vector " + matrix1->type() );
+    else
+        utils->passes( "trivial vector " + matrix1->type() );
+
+        // currently can't seem to correctly catch signal that PETSc throws
+#if !defined( AMP_USE_PETSC )
+    // Test that copy fails with different sized matricies
+    std::vector<size_t> row( 7 );
+    for ( size_t i = 0; i < row.size(); i++ )
+        row[i] = i;
+    auto smallVec = AMP::LinearAlgebra::createSimpleVector<double>( 7, u1->getVariable() );
+    auto smallMat = AMP::LinearAlgebra::createMatrix(
+        smallVec, smallVec, d_factory->type(), [row]( size_t ) { return row; } );
+    try {
+        matrix2->copy( smallMat ); // matrix2 = matrix1
+        utils->failure( "copy did not crash with different sized matrices " + matrix1->type() );
+    } catch ( std::exception &err ) {
+        utils->passes( "copy correctly fails with different sized matrices " + matrix1->type() );
+    } catch ( ... ) {
+        utils->failure( "copy fails with different sized matrices (unknown failure) " +
+                        matrix1->type() );
+    }
+#endif
+}
+
 
 void MatrixTests::VerifyScaleMatrix( AMP::UnitTest *utils )
 {
     PROFILE( "VerifyScaleMatrix" );
-    auto matrix1      = d_factory->getMatrix();
-    auto matrix2      = d_factory->getMatrix();
-    auto vector1lhs   = matrix1->getRightVector();
-    auto vector2lhs   = matrix2->getRightVector();
-    auto vector1rhs   = matrix1->getRightVector();
-    auto vector2rhs   = matrix2->getRightVector();
-    auto vectorresult = matrix2->getRightVector();
+    auto matrix1 = d_factory->getMatrix();
+    auto matrix2 = d_factory->getMatrix();
 
     fillWithPseudoLaplacian( matrix1, d_factory );
     fillWithPseudoLaplacian( matrix2, d_factory );
+    matrix1 = getCopyMatrix( matrix1 );
+    matrix2 = getCopyMatrix( matrix2 );
 
     matrix2->scale( 1.234567 ); // matrix2 = matrix1
 
+    auto vector1lhs   = matrix1->createInputVector();
+    auto vector2lhs   = matrix2->createInputVector();
+    auto vector1rhs   = matrix1->createInputVector();
+    auto vector2rhs   = matrix2->createInputVector();
+    auto vectorresult = matrix2->createInputVector();
+
     vector1lhs->setRandomValues();
+    vector1lhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
     vector2lhs->copyVector( vector1lhs );
 
     matrix1->mult( vector1lhs, vector1rhs );
@@ -213,7 +314,7 @@ void MatrixTests::VerifyExtractDiagonal( AMP::UnitTest *utils )
     PROFILE( "VerifyExtractDiagonal" );
     auto matrix = d_factory->getMatrix();
     //    matrix->makeConsistent(); // required by PETSc
-    auto vector     = matrix->getRightVector();
+    auto vector     = matrix->createInputVector();
     size_t firstRow = vector->getCommunicationList()->getStartGID();
     size_t maxCols  = matrix->numGlobalColumns();
     for ( size_t i = 0; i != vector->getCommunicationList()->numLocalRows(); i++ ) {
@@ -223,6 +324,7 @@ void MatrixTests::VerifyExtractDiagonal( AMP::UnitTest *utils )
         matrix->setValueByGlobalID( row, row, static_cast<double>( row + 1 ) );
     }
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD ); // required by PETSc
+    matrix            = getCopyMatrix( matrix );
     auto diag         = matrix->extractDiagonal();
     double l1norm     = static_cast<double>( diag->L1Norm() );
     auto numRows      = static_cast<double>( matrix->numGlobalRows() );
@@ -239,20 +341,24 @@ void MatrixTests::VerifyExtractDiagonal( AMP::UnitTest *utils )
 void MatrixTests::VerifyMultMatrix( AMP::UnitTest *utils )
 {
     PROFILE( "VerifyMultMatrix" );
-    auto matrix    = d_factory->getMatrix();
-    auto vectorlhs = matrix->getRightVector();
-    auto vectorrhs = matrix->getRightVector();
-    double normlhs, normrhs;
+    auto matrix = d_factory->getMatrix();
 
     // Verify 0 matrix from factory
-    if ( matrix->L1Norm() == 0.0 )
+    if ( matrix->LinfNorm() == 0.0 )
         utils->passes( "Factory returns 0 matrix" + matrix->type() );
     else
         utils->failure( "Factory returns 0 matrix" + matrix->type() );
 
     // Verify mult with 0 matrix
+    matrix = getCopyMatrix( matrix );
     matrix->zero();
+    auto vectorlhs = matrix->createInputVector();
+    auto vectorrhs = matrix->createInputVector();
+    double normlhs, normrhs;
+
     vectorlhs->setRandomValues();
+    vectorlhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
     matrix->mult( vectorlhs, vectorrhs );
     normlhs = static_cast<double>( vectorlhs->L2Norm() );
     normrhs = static_cast<double>( vectorrhs->L2Norm() );
@@ -265,6 +371,7 @@ void MatrixTests::VerifyMultMatrix( AMP::UnitTest *utils )
     vectorlhs->setToScalar( 1.0 );
     matrix->setDiagonal( vectorlhs );
     vectorlhs->setRandomValues();
+    vectorlhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     matrix->mult( vectorlhs, vectorrhs );
     normlhs = static_cast<double>( vectorlhs->L2Norm() );
     vectorrhs->subtract( *vectorlhs, *vectorrhs );
@@ -277,6 +384,7 @@ void MatrixTests::VerifyMultMatrix( AMP::UnitTest *utils )
     // Try the non-trivial matrix
     fillWithPseudoLaplacian( matrix, d_factory );
     vectorlhs->setRandomValues();
+    vectorlhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     matrix->mult( vectorlhs, vectorrhs );
     normlhs = static_cast<double>( vectorlhs->L2Norm() );
     normrhs = static_cast<double>( vectorrhs->L2Norm() );
@@ -286,89 +394,158 @@ void MatrixTests::VerifyMultMatrix( AMP::UnitTest *utils )
         utils->failure( "mult by other matrix " + matrix->type() );
 }
 
+void MatrixTests::VerifyMatMultMatrix_IA( AMP::UnitTest *utils )
+{
+    PROFILE( "VerifyMatMultMatrix_IA" );
+
+    auto matLap = d_factory->getMatrix();
+    fillWithPseudoLaplacian( matLap, d_factory );
+    matLap = getCopyMatrix( matLap );
+
+    auto x = matLap->createInputVector();
+    auto y = matLap->createOutputVector();
+
+    x->setToScalar( 1.0 );
+    const auto l1x = static_cast<double>( x->L1Norm() );
+    AMP_ASSERT( l1x > 0.0 );
+
+    auto matId = d_factory->getMatrix();
+    matId      = getCopyMatrix( matId );
+    matId->zero();
+    matId->setDiagonal( x );
+
+    matLap->mult( x, y );
+    const auto l1y = static_cast<double>( y->L1Norm() );
+
+    auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matId, matLap );
+    auto xp      = matProd->createInputVector();
+    auto yp      = matProd->createOutputVector();
+    xp->setToScalar( 1.0 );
+    matProd->mult( xp, yp );
+    auto l1yp = static_cast<double>( yp->L1Norm() );
+
+    if ( AMP::Utilities::approx_equal( l1y, l1yp ) ) {
+        utils->passes( "matMatMult I*A " + matProd->type() );
+    } else {
+        AMP::pout << "matMatMult I*A(" << matProd->type() << "), || A * x || = " << l1y
+                  << ", || (I * A) * x || = " << l1yp << ", || x || = " << l1x << std::endl;
+        utils->failure( "matMatMult I*A  " + matProd->type() );
+    }
+}
+
+void MatrixTests::VerifyMatMultMatrix_AI( AMP::UnitTest *utils )
+{
+    PROFILE( "VerifyMatMultMatrix_AI" );
+
+    auto matLap = d_factory->getMatrix();
+    fillWithPseudoLaplacian( matLap, d_factory );
+    matLap = getCopyMatrix( matLap );
+
+    auto x = matLap->createInputVector();
+    auto y = matLap->createOutputVector();
+
+    x->setToScalar( 1.0 );
+    const auto l1x = static_cast<double>( x->L1Norm() );
+    AMP_ASSERT( l1x > 0.0 );
+
+    auto matId = d_factory->getMatrix();
+    matId      = getCopyMatrix( matId );
+    matId->zero();
+    matId->setDiagonal( x );
+
+    matLap->mult( x, y );
+    const auto l1y = static_cast<double>( y->L1Norm() );
+
+    auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matLap, matId );
+    auto xp      = matProd->createInputVector();
+    auto yp      = matProd->createOutputVector();
+    xp->setToScalar( 1.0 );
+    matProd->mult( xp, yp );
+    auto l1yp = static_cast<double>( yp->L1Norm() );
+
+    if ( AMP::Utilities::approx_equal( l1y, l1yp ) ) {
+        utils->passes( "matMatMult A*I " + matProd->type() );
+    } else {
+        AMP::pout << "matMatMult A*I(" << matProd->type() << "), || A * x || = " << l1y
+                  << ", || (A * I) * x || = " << l1yp << ", || x || = " << l1x << std::endl;
+        utils->failure( "matMatMult A*I  " + matProd->type() );
+    }
+}
+
+void MatrixTests::VerifyMatMultMatrix_AA( AMP::UnitTest *utils )
+{
+    PROFILE( "VerifyMatMultMatrix_AA" );
+
+    auto matLap = d_factory->getMatrix();
+    fillWithPseudoLaplacian( matLap, d_factory );
+    matLap = getCopyMatrix( matLap );
+
+    auto x = matLap->createInputVector();
+    auto y = matLap->createOutputVector();
+
+    x->setToScalar( 1.0 );
+    const auto l1x = static_cast<double>( x->L1Norm() );
+    AMP_ASSERT( l1x > 0.0 );
+
+    matLap->mult( x, y );
+    const auto l1y = static_cast<double>( y->L1Norm() );
+
+    auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matLap, matLap );
+    auto xp      = matProd->createInputVector();
+    auto yp      = matProd->createOutputVector();
+    xp->setToScalar( 1.0 );
+    matProd->mult( xp, yp );
+    auto l1yp = static_cast<double>( yp->L1Norm() );
+
+    if ( AMP::Utilities::approx_equal( l1y, l1yp ) ) {
+        utils->passes( "matMatMult A*A " + matProd->type() );
+    } else {
+        AMP::pout << "matMatMult(" << matProd->type() << ") A*A, || A * ( A * x ) || = " << l1y
+                  << ", || ( A * A ) * x || = " << l1yp << ", || x || = " << l1x << std::endl;
+        utils->failure( "matMatMult A*A  " + matProd->type() );
+    }
+}
+
 
 // Test matrix-matrix multiplication (this tests takes a long time for large matrices)
 void MatrixTests::VerifyMatMultMatrix( AMP::UnitTest *utils )
 {
     PROFILE( "VerifyMatMultMatrix" );
     auto matZero   = d_factory->getMatrix();
-    auto matIdent  = d_factory->getMatrix();
     auto matLaplac = d_factory->getMatrix();
-    auto vector1   = matZero->getRightVector();
-    auto vector2   = matZero->getRightVector();
-    auto vector3   = matZero->getRightVector();
 
-    if ( vector1->getGlobalSize() > 1000 ) {
+    if ( matLaplac->numGlobalRows() > 1000 && matZero->type() == "DenseSerialMatrix" ) {
         // Matrix-matrix multiplies take a long time (skip it)
         return;
     }
 
-    // Create the matrices and vectors of interest
     matZero->zero();
-    matIdent->zero();
-    vector2->setToScalar( 1.0 );
-    matIdent->setDiagonal( vector2 );
+    matZero = getCopyMatrix( matZero );
     fillWithPseudoLaplacian( matLaplac, d_factory );
-    vector1->setRandomValues();
-    vector1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    vector2->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    AMP_ASSERT( static_cast<double>( vector1->L2Norm() ) > 0.0 );
+    matLaplac = getCopyMatrix( matLaplac );
 
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> matSol;
-
-    // Verify matMultiply with 0 matrix
-    if ( matZero->type() == "CSRMatrix" || matLaplac->type() == "CSRMatrix" ) {
-        utils->expected_failure( "Mat GEMM not implemented" );
+    // Verify matMatMult with 0 matrix
+    auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matZero, matLaplac );
+    if ( matProd->LinfNorm() == 0.0 ) {
+        utils->passes( "matMatMult 0*A " + matZero->type() );
     } else {
-        matSol = AMP::LinearAlgebra::Matrix::matMultiply( matZero, matLaplac );
-        if ( matSol->L1Norm() == 0.0 )
-            utils->passes( "matMultiply with 0 matrix " + matZero->type() );
-        else
-            utils->failure( "matMultiply with 0 matrix " + matZero->type() );
+        utils->failure( "matMatMult 0*A " + matZero->type() );
     }
 
-    // Verify mult with identity
-    if ( matIdent->type() == "CSRMatrix" || matLaplac->type() == "CSRMatrix" ) {
-        utils->expected_failure( "Mat GEMM not implemented" );
-    } else {
-        matLaplac->mult( vector1, vector2 );
-        if ( vector2->getUpdateStatus() != AMP::LinearAlgebra::UpdateState::UNCHANGED )
-            utils->failure( "matMultiply leaves vector in an inconsistent state" );
-        auto ans1 = static_cast<double>( vector2->L2Norm() );
-        matSol    = AMP::LinearAlgebra::Matrix::matMultiply( matIdent, matLaplac );
-        matSol->mult( vector1, vector2 );
-        auto ans2 = static_cast<double>( vector2->L2Norm() );
-        matSol    = AMP::LinearAlgebra::Matrix::matMultiply( matLaplac, matIdent );
-        matSol->mult( vector1, vector2 );
-        auto ans3 = static_cast<double>( vector2->L2Norm() );
-        if ( AMP::Utilities::approx_equal( ans1, ans2 ) &&
-             AMP::Utilities::approx_equal( ans1, ans3 ) && ans1 != 0.0 )
-            utils->passes( "matMultiply with identity matrix " + matSol->type() );
-        else
-            utils->failure( "matMultiply with identity matrix " + matSol->type() );
-    }
+    // Verify mult with identity on left
+    VerifyMatMultMatrix_IA( utils );
 
-    // Verify mult with two trivial matrices
-    if ( matLaplac->type() == "CSRMatrix" ) {
-        utils->expected_failure( "Mat GEMM not implemented" );
-    } else {
-        matLaplac->mult( vector1, vector2 );
-        matLaplac->mult( vector2, vector3 );
-        auto ans1 = static_cast<double>( vector3->L2Norm() );
-        matSol    = AMP::LinearAlgebra::Matrix::matMultiply( matLaplac, matLaplac );
-        matSol->mult( vector1, vector2 );
-        auto ans2 = static_cast<double>( vector2->L2Norm() );
-        if ( AMP::Utilities::approx_equal( ans1, ans2 ) && ans1 != 0.0 )
-            utils->passes( "matMultiply with trivial matrix " + matSol->type() );
-        else
-            utils->failure( "matMultiply with trivial matrix " + matSol->type() );
-    }
+    // Verify mult with identity on right
+    VerifyMatMultMatrix_AI( utils );
+
+    // Verify mult with two pseudo-Laplacian matrices
+    VerifyMatMultMatrix_AA( utils );
 }
 
 
 void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
 {
-    PROFILE( "VerifySetElementNode" );
+    PROFILE( "VerifyAddElementNode" );
     auto mesh   = d_factory->getMesh();
     auto dofmap = d_factory->getDOFMap();
     auto matrix = d_factory->getMatrix();
@@ -384,7 +561,7 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
         dofs.clear();
         for ( auto &node : nodes ) {
             std::vector<size_t> dofsNode;
-            dofmap->getDOFs( node.globalID(), dofsNode );
+            dofmap->getDOFs( node->globalID(), dofsNode );
             for ( auto &elem : dofsNode )
                 dofs.push_back( elem );
 #if 0            
@@ -444,6 +621,34 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
         utils->passes( "VerifyAddElementNode " + matrix->type() );
     else
         utils->failure( "VerifyAddElementNode " + matrix->type() );
+}
+
+
+void test_matrix_loop( AMP::UnitTest &ut, std::shared_ptr<MatrixTests> tests )
+{
+    tests->InstantiateMatrix( &ut );
+    tests->VerifyGetSetValuesMatrix( &ut );
+    tests->VerifyAXPYMatrix( &ut );
+    tests->VerifyCopyMatrix( &ut );
+    tests->VerifyScaleMatrix( &ut );
+    tests->VerifyGetLeftRightVector( &ut );
+    tests->VerifyExtractDiagonal( &ut );
+    tests->VerifyMultMatrix( &ut );
+    tests->VerifyMatMultMatrix( &ut );
+    tests->VerifyAddElementNode( &ut );
+}
+
+
+void test_matrix_loop( AMP::UnitTest &ut,
+                       std::shared_ptr<MatrixFactory> factory,
+                       std::shared_ptr<MatrixFactory> copy_factory )
+{
+    std::string name = factory->name();
+    if ( copy_factory )
+        name += "->" + copy_factory->name();
+    PROFILE2( name );
+    auto tests = std::make_shared<MatrixTests>( factory, copy_factory );
+    test_matrix_loop( ut, tests );
 }
 
 

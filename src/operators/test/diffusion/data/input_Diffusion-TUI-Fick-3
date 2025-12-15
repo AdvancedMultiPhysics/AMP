@@ -1,10 +1,12 @@
 // Database for the mesh
-Mesh{
-    MeshName = "mesh"
-    MeshType = "libMesh"
-    FileName = "cube64.with.boundary.labels.e"
-    dim = 3
-    NumberOfElements = 100
+Mesh {
+MeshName = "cube_3d"
+MeshType = "AMP"
+dim = 3
+Generator = "cube"
+Size = 4, 4, 4
+Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
+static = TRUE
 }
 
 ThermalNonlinearBVPOperator {
@@ -25,6 +27,15 @@ ThermalLinearBVPOperator {
    BoundaryOperator="RobinMatrixCorrection"
 }
 
+DiffusionTransportModel {
+     name = "DiffusionTransportModel"
+     Material = "Independent"
+     Property = "FickCoefficient"
+     print_info_level = 2 
+     Default_Concentration = .15
+     Default_Temperature   = 300.
+     Default_Burnup   = 0.0
+}
 
 DiffusionNonlinearFEOperator{
 	 name="DiffusionNonlinearFEOperator"
@@ -36,7 +47,7 @@ DiffusionNonlinearFEOperator{
 	   concentration = "concentration"
 	 }
 	 PrincipalVariable = "concentration"
-	 LocalModel= "DiffusionTransportModel"
+	 LocalModel= DiffusionTransportModel
 	
 	   DiffusionElement {
 	      name = "DiffusionNonlinearElement"
@@ -52,27 +63,17 @@ DiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="inputLinear"
       OutputVariable="outputLinear"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
        QRULE_ORDER = "DEFAULT"
      }
-     LocalModel= "DiffusionTransportModel"
-}
-
-DiffusionTransportModel {
-     name = "DiffusionTransportModel"
-     Material = "Independent"
-     Property = "FickCoefficient"
-     print_info_level = 3 
-     Default_Concentration = .15
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
+     LocalModel= DiffusionTransportModel
 }
 
 RobinVectorCorrection{
@@ -85,7 +86,7 @@ RobinVectorCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1
@@ -103,7 +104,7 @@ RobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1

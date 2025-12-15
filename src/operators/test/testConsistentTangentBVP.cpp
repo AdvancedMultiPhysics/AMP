@@ -2,8 +2,8 @@
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
-#include "AMP/mesh/libmesh/ReadTestMesh.h"
 #include "AMP/mesh/libmesh/libmeshMesh.h"
+#include "AMP/mesh/testHelpers/meshWriters.h"
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/NonlinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
@@ -40,38 +40,21 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName, int callLinRe
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    std::string mesh_file = input_db->getString( "mesh_file" );
 
-    const unsigned int mesh_dim = 3;
-    AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
-    libMesh::Parallel::Communicator comm( globalComm.getCommunicator() );
-    auto mesh = std::make_shared<libMesh::Mesh>( comm, mesh_dim );
-
-    if ( globalComm.getRank() == 0 )
-        AMP::readTestMesh( mesh_file, mesh );
-
-    libMesh::MeshCommunication().broadcast( *( mesh.get() ) );
-
-    mesh->prepare_for_use( false );
-
-    auto meshAdapter = std::make_shared<AMP::Mesh::libmeshMesh>( mesh, "TestMesh" );
+    auto mesh_file = input_db->getString( "mesh_file" );
+    auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
 
     auto nonlinOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "NonlinearMechanicsOperator", input_db ) );
+            mesh, "NonlinearMechanicsOperator", input_db ) );
 
     auto mechNonlinOperator =
         std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
             nonlinOperator->getVolumeOperator() );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel =
-        mechNonlinOperator->getMaterialModel();
-
-    auto linOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "LinearMechanicsOperator", input_db, elementPhysicsModel ) );
+    auto elementPhysicsModel = mechNonlinOperator->getMaterialModel();
 
     auto dofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     auto var = nonlinOperator->getOutputVariable();
 
@@ -87,13 +70,16 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName, int callLinRe
     double solNorm = static_cast<double>( solVec->L2Norm() );
     AMP::pout << "sol-Norm-2 = " << solNorm << std::endl;
 
+    auto linOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
+        nonlinOperator->getParameters( "Jacobian", nullptr ) );
+
     nonlinOperator->apply( solVec, resVecNonlin );
     linOperator->reset( nonlinOperator->getParameters( "Jacobian", solVec ) );
     linOperator->apply( solVec, resVecLin );
     resDiffVec->subtract( *resVecNonlin, *resVecLin );
 
-    double epsilon = 1.0e-13 * static_cast<double>(
-                                   ( ( linOperator->getMatrix() )->extractDiagonal() )->L1Norm() );
+    double epsilon =
+        1.0e-13 * static_cast<double>( linOperator->getMatrix()->extractDiagonal()->L1Norm() );
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
     double nonLinNorm = static_cast<double>( resVecNonlin->L1Norm() );
@@ -181,7 +167,6 @@ int testConsistentTangentBVP( int argc, char *argv[] )
     exeNames.emplace_back( "testConsistentTangentBVP-2-mesh1-normal" );
     exeNames.emplace_back( "testConsistentTangentBVP-3-mesh1-normal" );
     exeNames.emplace_back( "testConsistentTangentBVP-4-mesh1-normal" );
-
     exeNames.emplace_back( "testConsistentTangentBVP-4-mesh1-reduced" );
 
     for ( int j = 0; j < 2; j++ ) {

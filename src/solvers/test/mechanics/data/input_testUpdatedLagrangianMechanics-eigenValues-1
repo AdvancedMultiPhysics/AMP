@@ -24,6 +24,18 @@ NonlinearMechanicsOperator {
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+IsotropicElasticModel1 {
+  USE_MATERIALS_LIBRARY = FALSE
+    USE_UPDATED_LAGRANGIAN = TRUE
+    Material = ""
+    name = "IsotropicElasticModel"
+    Youngs_Modulus = 1.0e2
+    Poissons_Ratio = 0.3
+    Default_Temperature = 0.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = 0.0
+}
+
 MechanicsNonlinearFEOperator1 {
   name = "MechanicsNonlinearFEOperator"
     print_info_level = 1
@@ -45,7 +57,7 @@ MechanicsNonlinearFEOperator1 {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "IsotropicElasticModel1"
+  LocalModel = IsotropicElasticModel1
 }
 
 DirichletVectorCorrection1 {
@@ -84,18 +96,6 @@ DirichletVectorCorrection1 {
     //value_0_0 = 0.0
     //value_0_1 = 0.0
     //value_0_2 = 0.0
-}
-
-IsotropicElasticModel1 {
-  USE_MATERIALS_LIBRARY = FALSE
-    USE_UPDATED_LAGRANGIAN = TRUE
-    Material = ""
-    name = "IsotropicElasticModel"
-    Youngs_Modulus = 1.0e2
-    Poissons_Ratio = 0.3
-    Default_Temperature = 0.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = 0.0
 }
 
 LinearMechanicsOperator {
@@ -162,7 +162,7 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 

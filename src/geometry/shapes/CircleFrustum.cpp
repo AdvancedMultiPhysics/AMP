@@ -1,5 +1,5 @@
 #include "AMP/geometry/shapes/CircleFrustum.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
@@ -126,7 +126,7 @@ Point CircleFrustum::nearest( const Point &pos ) const
         double z  = d_h * L.z();
         double rz = d_r[0] * ( 1.0 - z ) + d_r[1] * z;
         auto pl   = GeometryHelpers::map_logical_circle( rz, 2, L.x(), L.y() );
-        double r  = sqrt( pl[0] * pl[0] + pl[1] * pl[1] );
+        double r  = std::sqrt( pl[0] * pl[0] + pl[1] * pl[1] );
         if ( L.z() < 0.0 && r < d_r[0] ) {
             // Closest point is on the bottom surface
             L.z() = 0.0;
@@ -216,22 +216,22 @@ Point CircleFrustum::surfaceNorm( const Point &pos ) const
         double sin_t = sin( theta );
         double cos_t = cos( theta );
         if ( d_dir == 0 ) {
-            double r = sqrt( y * y + z * z );
+            double r = std::sqrt( y * y + z * z );
             v        = { -sin_t, cos_t * y / r, cos_t * z / r };
         } else if ( d_dir == 1 ) {
-            double r = sqrt( y * y + z * z );
+            double r = std::sqrt( y * y + z * z );
             v        = { sin_t, cos_t * y / r, cos_t * z / r };
         } else if ( d_dir == 2 ) {
-            double r = sqrt( x * x + z * z );
+            double r = std::sqrt( x * x + z * z );
             v        = { cos_t * x / r, -sin_t, cos_t * z / r };
         } else if ( d_dir == 3 ) {
-            double r = sqrt( x * x + z * z );
+            double r = std::sqrt( x * x + z * z );
             v        = { cos_t * x / r, sin_t, cos_t * z / r };
         } else if ( d_dir == 4 ) {
-            double r = sqrt( x * x + y * y );
+            double r = std::sqrt( x * x + y * y );
             v        = { cos_t * x / r, cos_t * y / r, -sin_t };
         } else {
-            double r = sqrt( x * x + y * y );
+            double r = std::sqrt( x * x + y * y );
             v        = { cos_t * x / r, cos_t * y / r, sin_t };
         }
     }

@@ -5,7 +5,7 @@
 #include "petsc/private/vecimpl.h"
 #include "petscvec.h"
 
-#include "AMP/vectors/operations/VectorOperationsDefault.h"
+#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 #include "AMP/vectors/petsc/NativePetscVectorData.h"
 
 namespace AMP::LinearAlgebra {
@@ -21,7 +21,7 @@ namespace AMP::LinearAlgebra {
  * \details  This is an AMP wrapper to PETSc.
  * This class is used when PETSc is chosen as the default linear algebra engine.
  */
-class NativePetscVectorOperations : public VectorOperationsDefault<double>
+class NativePetscVectorOperations : public VectorOperationsDefault<PetscScalar>
 {
 private:
     void resetArray();

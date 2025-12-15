@@ -8,7 +8,8 @@
 
 namespace AMP::LinearAlgebra {
 
-NativePetscVectorData::NativePetscVectorData( Vec v, bool deleteable, AMP_MPI comm ) : VectorData()
+NativePetscVectorData::NativePetscVectorData( Vec v, bool deleteable, AMP_MPI comm )
+    : GhostDataHelper<PetscScalar>()
 {
     // Set the vector
     d_petscVec   = v;
@@ -28,6 +29,9 @@ NativePetscVectorData::NativePetscVectorData( Vec v, bool deleteable, AMP_MPI co
     params->d_comm      = comm;
     params->d_localsize = lsize;
     setCommunicationList( std::make_shared<CommunicationList>( params ) );
+    // set the state to be unchanged since setCommunicationList sets
+    // it to LOCAL_CHANGED
+    setUpdateStatus( UpdateState::UNCHANGED );
     // Cache vector sizes
     d_localStart = d_CommList->getStartGID();
     d_localSize  = lsize;
@@ -43,31 +47,32 @@ NativePetscVectorData::~NativePetscVectorData()
     }
 }
 
-void NativePetscVectorData::makeConsistent( ScatterType t )
+void NativePetscVectorData::makeConsistent( [[maybe_unused]] ScatterType t )
 {
-    (void) t;
     // resetArray ensures that any grabbed raw data is returned
     resetArray();
     // assemble inserts/adds any values that have changed
     assemble();
+    setUpdateStatus( UpdateState::UNCHANGED );
 }
 
 void NativePetscVectorData::makeConsistent()
 {
     resetArray();
     assemble();
+    setUpdateStatus( UpdateState::UNCHANGED );
 }
 
 void NativePetscVectorData::putRawData( const void *in, const typeID &id )
 {
     resetArray();
-    constexpr auto type = getTypeID<double>();
+    constexpr auto type = getTypeID<PetscScalar>();
     AMP_ASSERT( id == type );
-    auto data = reinterpret_cast<const double *>( in );
-    int a, b;
+    auto data = reinterpret_cast<const PetscScalar *>( in );
+    PetscInt a, b;
     VecGetOwnershipRange( d_petscVec, &a, &b );
-    AMP_ASSERT( b - a == (int) getLocalSize() );
-    std::vector<int> offs( b - a );
+    AMP_ASSERT( b - a == static_cast<PetscInt>( getLocalSize() ) );
+    std::vector<PetscInt> offs( b - a );
     for ( size_t j = 0; j != offs.size(); j++ )
         offs[j] = a + j;
     VecSetValues( d_petscVec, offs.size(), offs.data(), data, INSERT_VALUES );
@@ -76,10 +81,12 @@ void NativePetscVectorData::putRawData( const void *in, const typeID &id )
 void NativePetscVectorData::getRawData( void *out, const typeID &id ) const
 {
     resetArray(); // return possibly outstanding raw data block
-    constexpr auto type = getTypeID<double>();
+    constexpr auto type = getTypeID<PetscScalar>();
     AMP_ASSERT( id == type );
-    auto data = reinterpret_cast<double *>( out );
-    std::copy( getRawDataBlock<double>( 0 ), getRawDataBlock<double>( 0 ) + getLocalSize(), data );
+    auto data = reinterpret_cast<PetscScalar *>( out );
+    std::copy( getRawDataBlock<PetscScalar>( 0 ),
+               getRawDataBlock<PetscScalar>( 0 ) + getLocalSize(),
+               data );
     resetArray(); // return block just requested
 }
 
@@ -139,8 +146,8 @@ void NativePetscVectorData::setValuesByLocalID( size_t N,
                                                 const typeID &id )
 {
     resetArray();
-    AMP_ASSERT( id == getTypeID<double>() );
-    auto data = reinterpret_cast<const double *>( vals );
+    AMP_ASSERT( id == getTypeID<PetscScalar>() );
+    auto data = reinterpret_cast<const PetscScalar *>( vals );
     std::vector<PetscInt> idx( N );
     for ( size_t i = 0; i < N; i++ ) {
         idx[i] = indices[i] + d_localStart;
@@ -155,8 +162,8 @@ void NativePetscVectorData::addValuesByLocalID( size_t N,
                                                 const typeID &id )
 {
     resetArray();
-    AMP_ASSERT( id == getTypeID<double>() );
-    auto data = reinterpret_cast<const double *>( vals );
+    AMP_ASSERT( id == getTypeID<PetscScalar>() );
+    auto data = reinterpret_cast<const PetscScalar *>( vals );
     std::vector<PetscInt> idx( N );
     for ( size_t i = 0; i < N; i++ ) {
         idx[i] = indices[i] + d_localStart;
@@ -170,8 +177,8 @@ void NativePetscVectorData::getValuesByLocalID( size_t N,
                                                 const typeID &id ) const
 {
     resetArray();
-    AMP_ASSERT( id == getTypeID<double>() );
-    auto data = reinterpret_cast<double *>( vals );
+    AMP_ASSERT( id == getTypeID<PetscScalar>() );
+    auto data = reinterpret_cast<PetscScalar *>( vals );
     std::vector<PetscInt> idx( N );
     for ( size_t i = 0; i < N; i++ ) {
         idx[i] = indices[i] + d_localStart;

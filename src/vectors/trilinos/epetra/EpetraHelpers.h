@@ -2,12 +2,14 @@
 #ifndef AMP_EpetraHelpers
 #define AMP_EpetraHelpers
 
+#include "AMP/utils/UtilityMacros.h"
 
-#include <memory>
-
+DISABLE_WARNINGS
 #include <Epetra_Map.h>
 #include <Epetra_Vector.h>
+ENABLE_WARNINGS
 
+#include <memory>
 
 namespace AMP::LinearAlgebra {
 

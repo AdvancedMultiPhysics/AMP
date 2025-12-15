@@ -1,11 +1,13 @@
 #ifndef included_AMP_ArrayClass_hpp
 #define included_AMP_ArrayClass_hpp
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMP_MPI_pack.hpp"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
-#include "AMP/utils/FunctionTable.hpp"
+#include "AMP/utils/TypeTraits.h"
 #include "AMP/utils/UtilityMacros.h"
+
 
 #include <algorithm>
 #include <cmath>
@@ -20,84 +22,55 @@
  *  Macros to help instantiate functions                 *
  ********************************************************/
 // clang-format off
-#if defined(__INTEL_COMPILER) && !defined(INTEL_LLVM_COMPILER)
-
-#define instantiateArrayConstructors( TYPE )                                       \
-    template AMP::Array<TYPE>::Array();                                            \
-    template AMP::Array<TYPE>::~Array();                                           \
-    template AMP::Array<TYPE>::Array( const AMP::ArraySize&, TYPE const* );        \
-    template AMP::Array<TYPE>::Array( size_t );                                    \
-    template AMP::Array<TYPE>::Array( size_t, size_t );                            \
-    template AMP::Array<TYPE>::Array( size_t, size_t, size_t );                    \
-    template AMP::Array<TYPE>::Array( size_t, size_t, size_t, size_t );            \
-    template AMP::Array<TYPE>::Array( size_t, size_t, size_t, size_t, size_t );    \
-    template AMP::Array<TYPE>::Array( std::initializer_list<TYPE> );               \
-    template AMP::Array<TYPE>::Array( std::initializer_list<std::initializer_list<TYPE>> ); \
-    template AMP::Array<TYPE>::Array( const AMP::Array<TYPE>& );                   \
-    template AMP::Array<TYPE>::Array( AMP::Array<TYPE>&& );                        \
-    template void AMP::Array<TYPE>::allocate( const AMP::ArraySize& );             \
-    template void AMP::Array<TYPE>::reshape( const AMP::ArraySize& );              \
-    template std::unique_ptr<const AMP::Array<TYPE>>                               \
-        AMP::Array<TYPE>::constView( const AMP::ArraySize&, const std::shared_ptr<TYPE const>& ); \
-    template void AMP::Array<TYPE>::viewRaw( const AMP::ArraySize&, TYPE*, bool, bool ); \
-    template void AMP::Array<TYPE>::view2( const AMP::ArraySize&, std::shared_ptr<TYPE> ); \
-    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( const AMP::Array<TYPE>& ); \
-    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( AMP::Array<TYPE>&& );  \
-    template TYPE* AMP::Array<TYPE>::data();                                       \
-    template TYPE const* AMP::Array<TYPE>::data() const;                           \
-    template void AMP::Array<TYPE>::resize( size_t );                              \
-    template void AMP::Array<TYPE>::resize( size_t, size_t );                      \
-    template void AMP::Array<TYPE>::resize( size_t, size_t, size_t );              \
-    template void AMP::Array<TYPE>::resize( AMP::ArraySize const& );               \
-    template void AMP::Array<TYPE>::clear();                                       \
-    template int AMP::Array<TYPE>::ndim() const;                                   \
-    template const AMP::ArraySize& AMP::Array<TYPE>::size() const;                 \
-    template size_t AMP::Array<TYPE>::size( int ) const;                           \
-    template size_t AMP::Array<TYPE>::length() const;                              \
-    template bool AMP::Array<TYPE>::empty() const;                                 \
-    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( const std::vector<TYPE>& ); \
-    template bool AMP::Array<TYPE>::operator==( const AMP::Array<TYPE>& ) const
-
-#else
-
-#define instantiateArrayConstructors( TYPE )                                       \
-    template AMP::Array<TYPE>::Array();                                            \
-    template AMP::Array<TYPE>::~Array<TYPE>();                                     \
-    template AMP::Array<TYPE>::Array( const AMP::ArraySize&, TYPE const* );        \
-    template AMP::Array<TYPE>::Array( size_t );                                    \
-    template AMP::Array<TYPE>::Array( size_t, size_t );                            \
-    template AMP::Array<TYPE>::Array( size_t, size_t, size_t );                    \
-    template AMP::Array<TYPE>::Array( size_t, size_t, size_t, size_t );            \
-    template AMP::Array<TYPE>::Array( size_t, size_t, size_t, size_t, size_t );    \
-    template AMP::Array<TYPE>::Array( std::initializer_list<TYPE> );               \
-    template AMP::Array<TYPE>::Array( std::initializer_list<std::initializer_list<TYPE>> ); \
-    template AMP::Array<TYPE>::Array( const AMP::Array<TYPE>& );                   \
-    template AMP::Array<TYPE>::Array( AMP::Array<TYPE>&& );                        \
-    template void AMP::Array<TYPE>::allocate( const AMP::ArraySize& );             \
-    template void AMP::Array<TYPE>::reshape( const AMP::ArraySize& );              \
-    template std::unique_ptr<const AMP::Array<TYPE>>                               \
-        AMP::Array<TYPE>::constView( const AMP::ArraySize&, const std::shared_ptr<TYPE const>& ); \
-    template void AMP::Array<TYPE>::viewRaw( const AMP::ArraySize&, TYPE*, bool, bool ); \
-    template void AMP::Array<TYPE>::view2( const AMP::ArraySize&, std::shared_ptr<TYPE> ); \
-    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( const AMP::Array<TYPE>& ); \
-    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( AMP::Array<TYPE>&& );  \
-    template TYPE* AMP::Array<TYPE>::data();                                       \
-    template TYPE const* AMP::Array<TYPE>::data() const;                           \
-    template void AMP::Array<TYPE>::resize( size_t );                              \
-    template void AMP::Array<TYPE>::resize( size_t, size_t );                      \
-    template void AMP::Array<TYPE>::resize( size_t, size_t, size_t );              \
-    template void AMP::Array<TYPE>::resize( AMP::ArraySize const& );               \
-    template void AMP::Array<TYPE>::clear();                                       \
-    template int AMP::Array<TYPE>::ndim() const;                                   \
-    template const AMP::ArraySize& AMP::Array<TYPE>::size() const;                 \
-    template size_t AMP::Array<TYPE>::size( int ) const;                           \
-    template size_t AMP::Array<TYPE>::length() const;                              \
-    template bool AMP::Array<TYPE>::empty() const;                                 \
-    template AMP::Array<TYPE>& AMP::Array<TYPE>::operator=( const std::vector<TYPE>& ); \
-    template bool AMP::Array<TYPE>::operator==( const AMP::Array<TYPE>& ) const
-
+#ifndef AMP_CXX_STANDARD
+    #define AMP_CXX_STANDARD 17
 #endif
-  
+#if AMP_CXX_STANDARD >= 20
+#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
+#elif defined( __NVCOMPILER )
+#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
+#else
+#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array<TYPE,FUN,A>();
+#endif
+#define instantiateArrayConstructors2( TYPE, FUN, A )                                    \
+    instantiateDestructor(TYPE,FUN,A)                                                    \
+    template AMP::Array<TYPE,FUN,A>::Array();                                            \
+    template AMP::Array<TYPE,FUN,A>::Array( const AMP::ArraySize&, TYPE const* );        \
+    template AMP::Array<TYPE,FUN,A>::Array( size_t );                                    \
+    template AMP::Array<TYPE,FUN,A>::Array( size_t, size_t );                            \
+    template AMP::Array<TYPE,FUN,A>::Array( size_t, size_t, size_t );                    \
+    template AMP::Array<TYPE,FUN,A>::Array( size_t, size_t, size_t, size_t );            \
+    template AMP::Array<TYPE,FUN,A>::Array( size_t, size_t, size_t, size_t, size_t );    \
+    template AMP::Array<TYPE,FUN,A>::Array( std::initializer_list<TYPE> );               \
+    template AMP::Array<TYPE,FUN,A>::Array( std::initializer_list<std::initializer_list<TYPE>> ); \
+    template AMP::Array<TYPE,FUN,A>::Array( const AMP::Array<TYPE,FUN,A>& );             \
+    template AMP::Array<TYPE,FUN,A>::Array( AMP::Array<TYPE,FUN,A>&& );                  \
+    template AMP::Array<TYPE,FUN,A> AMP::Array<TYPE,FUN,A>::view();                      \
+    template void AMP::Array<TYPE,FUN,A>::allocate( const AMP::ArraySize& );             \
+    template void AMP::Array<TYPE,FUN,A>::reshape( const AMP::ArraySize& );              \
+    template std::unique_ptr<const AMP::Array<TYPE,FUN,A>>                               \
+        AMP::Array<TYPE,FUN,A>::constView( const AMP::ArraySize&, const std::shared_ptr<TYPE const>& ); \
+    template void AMP::Array<TYPE,FUN,A>::viewRaw( const AMP::ArraySize&, TYPE*, bool, bool ); \
+    template void AMP::Array<TYPE,FUN,A>::view2( const AMP::ArraySize&, std::shared_ptr<TYPE> ); \
+    template AMP::Array<TYPE,FUN,A>& AMP::Array<TYPE,FUN,A>::operator=( const AMP::Array<TYPE,FUN,A>& ); \
+    template AMP::Array<TYPE,FUN,A>& AMP::Array<TYPE,FUN,A>::operator=( AMP::Array<TYPE,FUN,A>&& ); \
+    template TYPE* AMP::Array<TYPE,FUN,A>::data();                                       \
+    template TYPE const* AMP::Array<TYPE,FUN,A>::data() const;                           \
+    template void AMP::Array<TYPE,FUN,A>::resize( size_t );                              \
+    template void AMP::Array<TYPE,FUN,A>::resize( size_t, size_t );                      \
+    template void AMP::Array<TYPE,FUN,A>::resize( size_t, size_t, size_t );              \
+    template void AMP::Array<TYPE,FUN,A>::resize( AMP::ArraySize const& );               \
+    template void AMP::Array<TYPE,FUN,A>::clear();                                       \
+    template int AMP::Array<TYPE,FUN,A>::ndim() const;                                   \
+    template const AMP::ArraySize& AMP::Array<TYPE,FUN,A>::size() const;                 \
+    template size_t AMP::Array<TYPE,FUN,A>::size( int ) const;                           \
+    template size_t AMP::Array<TYPE,FUN,A>::length() const;                              \
+    template bool AMP::Array<TYPE,FUN,A>::empty() const;                                 \
+    template AMP::Array<TYPE,FUN,A>& AMP::Array<TYPE,FUN,A>::operator=( const std::vector<TYPE>& ); \
+    template bool AMP::Array<TYPE,FUN,A>::operator==( const AMP::Array<TYPE,FUN,A>& ) const; \
+    template bool AMP::Array<TYPE,FUN,A>::operator!=( const AMP::Array<TYPE,FUN,A>& ) const
+#define instantiateArrayConstructors( TYPE )                              \
+    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, std::allocator<void> )
 #define PACK_UNPACK_ARRAY( TYPE )                                         \
     template size_t AMP::packSize( const AMP::Array<TYPE> & );            \
     template size_t AMP::pack( const AMP::Array<TYPE> &, std::byte * );   \
@@ -134,50 +107,50 @@ extern template class Array<float>;
  ********************************************************/
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array()
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false ), d_data( nullptr )
+    : d_isCopyable( true ), d_isFixedSize( false ), d_data( nullptr )
 {
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array( const ArraySize &N, const TYPE *data )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( N );
     if ( data )
         copy( data );
 }
 template<class TYPE, class FUN, class Allocator>
-Array<TYPE, FUN, Allocator>::Array( size_t N )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+Array<TYPE, FUN, Allocator>::Array( size_t N ) : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( ArraySize( N ) );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array( size_t N_rows, size_t N_cols )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( ArraySize( N_rows, N_cols ) );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array( size_t N1, size_t N2, size_t N3 )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( ArraySize( N1, N2, N3 ) );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array( size_t N1, size_t N2, size_t N3, size_t N4 )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( ArraySize( N1, N2, N3, N4 ) );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array( size_t N1, size_t N2, size_t N3, size_t N4, size_t N5 )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( ArraySize( N1, N2, N3, N4, N5 ) );
 }
 template<class TYPE, class FUN, class Allocator>
-Array<TYPE, FUN, Allocator>::Array( const Range<TYPE> &range )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+template<typename U, typename>
+Array<TYPE, FUN, Allocator>::Array( const Range<U> &range )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     size_t N = range.size();
     allocate( { N } );
@@ -185,8 +158,7 @@ Array<TYPE, FUN, Allocator>::Array( const Range<TYPE> &range )
         d_data[i] = range.get( i );
 }
 template<class TYPE, class FUN, class Allocator>
-Array<TYPE, FUN, Allocator>::Array( std::string str )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+Array<TYPE, FUN, Allocator>::Array( std::string str ) : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( 0 );
     if ( (int) std::count( str.begin(), str.end(), ' ' ) == (int) str.length() ) {
@@ -270,7 +242,7 @@ Array<TYPE, FUN, Allocator>::Array( std::string str )
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array( std::initializer_list<TYPE> x )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     allocate( { x.size() } );
     auto it = x.begin();
@@ -279,7 +251,7 @@ Array<TYPE, FUN, Allocator>::Array( std::initializer_list<TYPE> x )
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>::Array( std::initializer_list<std::initializer_list<TYPE>> x )
-    : d_alloc( Allocator() ), d_isCopyable( true ), d_isFixedSize( false )
+    : d_isCopyable( true ), d_isFixedSize( false )
 {
     size_t Nx = x.size();
     size_t Ny = 0;
@@ -369,7 +341,6 @@ Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator=( Array &&rhs
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator=( const std::vector<TYPE> &rhs )
 {
-    d_alloc = Allocator();
     allocate( ArraySize( rhs.size() ) );
     if constexpr ( std::is_same_v<TYPE, bool> ) {
         for ( size_t i = 0; i < rhs.size(); i++ )
@@ -435,6 +406,21 @@ copyValues( const ArraySize &N1, const ArraySize &N2, const TYPE *data1, TYPE *d
 /********************************************************
  *  Resize the array                                     *
  ********************************************************/
+template<class TYPE, class FUN, class Allocator>
+void Array<TYPE, FUN, Allocator>::resize( size_t N )
+{
+    resize( ArraySize( N ) );
+}
+template<class TYPE, class FUN, class Allocator>
+void Array<TYPE, FUN, Allocator>::resize( size_t N_row, size_t N_col )
+{
+    resize( ArraySize( N_row, N_col ) );
+}
+template<class TYPE, class FUN, class Allocator>
+void Array<TYPE, FUN, Allocator>::resize( size_t N1, size_t N2, size_t N3 )
+{
+    resize( ArraySize( N1, N2, N3 ) );
+}
 template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::resize( const ArraySize &N )
 {
@@ -608,23 +594,27 @@ template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::addSubset( const std::vector<Range<size_t>> &index,
                                              const Array<TYPE, FUN, Allocator> &subset )
 {
-    // Get the subset indices
-    checkSubsetIndex( index );
-    std::array<size_t, 5> first, last, inc, N1;
-    getSubsetArrays( index, first, last, inc, N1 );
-    // add the sub-array
-    static_assert( ArraySize::maxDim() == 5, "Not programmed for more than 5 dimensions" );
-    for ( size_t i4 = first[4], k1 = 0; i4 <= last[4]; i4 += inc[4] ) {
-        for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
-            for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
-                for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
-                    for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0], k1++ ) {
-                        size_t k2 = d_size.index( i0, i1, i2, i3, i4 );
-                        d_data[k2] += subset.d_data[k1];
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        // Get the subset indices
+        checkSubsetIndex( index );
+        std::array<size_t, 5> first, last, inc, N1;
+        getSubsetArrays( index, first, last, inc, N1 );
+        // add the sub-array
+        static_assert( ArraySize::maxDim() == 5, "Not programmed for more than 5 dimensions" );
+        for ( size_t i4 = first[4], k1 = 0; i4 <= last[4]; i4 += inc[4] ) {
+            for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
+                for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
+                    for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
+                        for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0], k1++ ) {
+                            size_t k2 = d_size.index( i0, i1, i2, i3, i4 );
+                            d_data[k2] += subset.d_data[k1];
+                        }
                     }
                 }
             }
         }
+    } else {
+        AMP_ERROR( "addSubset not supported for non-arithmetic types" );
     }
 }
 template<class TYPE, class FUN, class Allocator>
@@ -659,6 +649,11 @@ bool Array<TYPE, FUN, Allocator>::operator==( const Array &rhs ) const
         match = match && d_data[i] == rhs.d_data[i];
     return match;
 }
+template<class TYPE, class FUN, class Allocator>
+bool Array<TYPE, FUN, Allocator>::operator!=( const Array &rhs ) const
+{
+    return !this->operator==( rhs );
+}
 
 
 /********************************************************
@@ -686,6 +681,18 @@ Array<TYPE, FUN, Allocator>::constView( const ArraySize &N,
     return array;
 }
 template<class TYPE, class FUN, class Allocator>
+Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::view()
+{
+    Array<TYPE, FUN, Allocator> x;
+    x.d_alloc       = d_alloc;
+    x.d_isCopyable  = d_isCopyable;
+    x.d_isFixedSize = d_isFixedSize;
+    x.d_size        = d_size;
+    x.d_data        = d_data;
+    x.d_ptr         = d_ptr;
+    return x;
+}
+template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::view2( Array<TYPE, FUN, Allocator> &src )
 {
     view2( src.size(), src.getPtr() );
@@ -697,18 +704,6 @@ void Array<TYPE, FUN, Allocator>::view2( const ArraySize &N, std::shared_ptr<TYP
     d_size = N;
     d_ptr  = data;
     d_data = d_ptr.get();
-}
-template<class TYPE, class FUN, class Allocator>
-void Array<TYPE, FUN, Allocator>::viewRaw( const ArraySize &N,
-                                           TYPE *data,
-                                           bool isCopyable,
-                                           bool isFixedSize )
-{
-    d_isCopyable  = isCopyable;
-    d_isFixedSize = isFixedSize;
-    d_ptr.reset();
-    d_size = N;
-    d_data = data;
 }
 
 
@@ -748,36 +743,37 @@ void Array<TYPE, FUN, Allocator>::pow( const Array<TYPE, FUN, Allocator> &baseAr
  *  Replicate the array                                  *
  ********************************************************/
 template<class TYPE, class FUN, class Allocator>
-Array<TYPE, FUN, Allocator>
-Array<TYPE, FUN, Allocator>::repmat( const std::vector<size_t> &N_rep ) const
+Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::repmat( const ArraySize &N_rep ) const
 {
-    std::vector<size_t> N2( d_size.begin(), d_size.end() );
-    if ( N2.size() < N_rep.size() )
-        N2.resize( N_rep.size(), 1 );
+    auto N2 = N_rep * d_size;
     std::array<size_t, 5> N1, Nr;
     N1.fill( 1 );
     Nr.fill( 1 );
-    for ( size_t d = 0; d < N_rep.size(); d++ ) {
+    for ( size_t d = 0; d < N_rep.ndim(); d++ ) {
         N1[d] = d_size[d];
         Nr[d] = N_rep[d];
-        N2[d] *= N_rep[d];
     }
     Array<TYPE, FUN, Allocator> y( N2 );
     static_assert( ArraySize::maxDim() <= 5, "Not programmed for dimensions > 5" );
     TYPE *y2 = y.data();
-    for ( size_t i4 = 0, index = 0; i4 < N1[4]; i4++ ) {
-        for ( size_t j4 = 0; j4 < Nr[4]; j4++ ) {
-            for ( size_t i3 = 0; i3 < N1[3]; i3++ ) {
-                for ( size_t j3 = 0; j3 < Nr[3]; j3++ ) {
-                    for ( size_t i2 = 0; i2 < N1[2]; i2++ ) {
-                        for ( size_t j2 = 0; j2 < Nr[2]; j2++ ) {
-                            for ( size_t i1 = 0; i1 < N1[1]; i1++ ) {
-                                for ( size_t j1 = 0; j1 < Nr[1]; j1++ ) {
-                                    for ( size_t i0 = 0; i0 < N1[0]; i0++ ) {
-                                        size_t k = d_size.index( i0, i1, i2, i3, i4 );
-                                        TYPE x   = d_data[k];
-                                        for ( size_t j0 = 0; j0 < Nr[0]; j0++, index++ )
-                                            y2[index] = x;
+    for ( size_t i4 = 0; i4 < N1[4]; i4++ ) {
+        for ( size_t i3 = 0; i3 < N1[3]; i3++ ) {
+            for ( size_t i2 = 0; i2 < N1[2]; i2++ ) {
+                for ( size_t i1 = 0; i1 < N1[1]; i1++ ) {
+                    for ( size_t i0 = 0; i0 < N1[0]; i0++ ) {
+                        TYPE x = operator()( i0, i1, i2, i3, i4 );
+                        for ( size_t j4 = 0; j4 < Nr[4]; j4++ ) {
+                            for ( size_t j3 = 0; j3 < Nr[3]; j3++ ) {
+                                for ( size_t j2 = 0; j2 < Nr[2]; j2++ ) {
+                                    for ( size_t j1 = 0; j1 < Nr[1]; j1++ ) {
+                                        for ( size_t j0 = 0; j0 < Nr[0]; j0++ ) {
+                                            size_t index = N2.index( i0 + j0 * N1[0],
+                                                                     i1 + j1 * N1[1],
+                                                                     i2 + j2 * N1[2],
+                                                                     i3 + j3 * N1[3],
+                                                                     i4 + j4 * N1[4] );
+                                            y2[index]    = x;
+                                        }
                                     }
                                 }
                             }
@@ -797,171 +793,207 @@ Array<TYPE, FUN, Allocator>::repmat( const std::vector<size_t> &N_rep ) const
 template<class TYPE, class FUN, class Allocator>
 bool Array<TYPE, FUN, Allocator>::NaNs() const
 {
-    bool test = false;
-    for ( size_t i = 0; i < d_size.length(); i++ )
-        test = test || d_data[i] != d_data[i];
-    return test;
+    if constexpr ( std::is_floating_point_v<TYPE> || AMP::is_complex_v<TYPE> ) {
+        bool test = false;
+        for ( size_t i = 0; i < d_size.length(); i++ )
+            test = test || d_data[i] != d_data[i];
+        return test;
+    } else {
+        return false;
+    }
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::mean( void ) const
 {
-    TYPE x = sum() / d_size.length();
-    return x;
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        TYPE x = sum() / d_size.length();
+        return x;
+    } else {
+        AMP_ERROR( "mean is not supported for non-arithmetic types" );
+    }
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::min( int dir ) const
 {
-    auto size_ans = d_size;
-    size_ans.resize( dir, 1 );
-    Array<TYPE, FUN, Allocator> ans( size_ans );
-    size_t N1 = 1, N2 = 1, N3 = 1;
-    for ( int d = 0; d < std::min<int>( dir, d_size.ndim() ); d++ )
-        N1 *= d_size[d];
-    N2 = d_size[dir];
-    for ( size_t d = dir + 1; d < d_size.ndim(); d++ )
-        N3 *= d_size[d];
-    TYPE *data2 = ans.d_data;
-    for ( size_t i3 = 0; i3 < N3; i3++ ) {
-        for ( size_t i1 = 0; i1 < N1; i1++ ) {
-            TYPE x = d_data[i1 + i3 * N1 * N2];
-            for ( size_t i2 = 0; i2 < N2; i2++ )
-                x = std::min( x, d_data[i1 + i2 * N1 + i3 * N1 * N2] );
-            data2[i1 + i3 * N1] = x;
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        auto size_ans = d_size;
+        size_ans.resize( dir, 1 );
+        Array<TYPE, FUN, Allocator> ans( size_ans );
+        size_t N1 = 1, N2 = 1, N3 = 1;
+        for ( int d = 0; d < std::min<int>( dir, d_size.ndim() ); d++ )
+            N1 *= d_size[d];
+        N2 = d_size[dir];
+        for ( size_t d = dir + 1; d < d_size.ndim(); d++ )
+            N3 *= d_size[d];
+        TYPE *data2 = ans.d_data;
+        for ( size_t i3 = 0; i3 < N3; i3++ ) {
+            for ( size_t i1 = 0; i1 < N1; i1++ ) {
+                TYPE x = d_data[i1 + i3 * N1 * N2];
+                for ( size_t i2 = 0; i2 < N2; i2++ )
+                    x = std::min( x, d_data[i1 + i2 * N1 + i3 * N1 * N2] );
+                data2[i1 + i3 * N1] = x;
+            }
         }
+        return ans;
+    } else {
+        AMP_ERROR( "min is not supported for non-arithmetic types" );
     }
-    return ans;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::max( int dir ) const
 {
-    auto size_ans = d_size;
-    size_ans.resize( dir, 1 );
-    Array<TYPE, FUN, Allocator> ans( size_ans );
-    size_t N1 = 1, N2 = 1, N3 = 1;
-    for ( int d = 0; d < std::min<int>( dir, d_size.ndim() ); d++ )
-        N1 *= d_size[d];
-    N2 = d_size[dir];
-    DISABLE_WARNINGS // Suppress false array subscript is above array bounds
-        for ( size_t d = dir + 1; d < d_size.ndim(); d++ ) N3 *= d_size[d];
-    ENABLE_WARNINGS // Enable warnings
-        TYPE *data2 = ans.d_data;
-    for ( size_t i3 = 0; i3 < N3; i3++ ) {
-        for ( size_t i1 = 0; i1 < N1; i1++ ) {
-            TYPE x = d_data[i1 + i3 * N1 * N2];
-            for ( size_t i2 = 0; i2 < N2; i2++ )
-                x = std::max( x, d_data[i1 + i2 * N1 + i3 * N1 * N2] );
-            data2[i1 + i3 * N1] = x;
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        auto size_ans = d_size;
+        size_ans.resize( dir, 1 );
+        Array<TYPE, FUN, Allocator> ans( size_ans );
+        size_t N1 = 1, N2 = 1, N3 = 1;
+        for ( int d = 0; d < std::min<int>( dir, d_size.ndim() ); d++ )
+            N1 *= d_size[d];
+        N2 = d_size[dir];
+        DISABLE_WARNINGS // Suppress false array subscript is above array bounds
+            for ( size_t d = dir + 1; d < d_size.ndim(); d++ ) N3 *= d_size[d];
+        ENABLE_WARNINGS // Enable warnings
+            TYPE *data2 = ans.d_data;
+        for ( size_t i3 = 0; i3 < N3; i3++ ) {
+            for ( size_t i1 = 0; i1 < N1; i1++ ) {
+                TYPE x = d_data[i1 + i3 * N1 * N2];
+                for ( size_t i2 = 0; i2 < N2; i2++ )
+                    x = std::max( x, d_data[i1 + i2 * N1 + i3 * N1 * N2] );
+                data2[i1 + i3 * N1] = x;
+            }
         }
+        return ans;
+    } else {
+        AMP_ERROR( "max is not supported for non-arithmetic types" );
     }
-    return ans;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::sum( int dir ) const
 {
-    auto size_ans = d_size;
-    size_ans.resize( dir, 1 );
-    Array<TYPE, FUN, Allocator> ans( size_ans );
-    size_t N1 = 1, N2 = 1, N3 = 1;
-    for ( int d = 0; d < std::min<int>( dir, d_size.ndim() ); d++ )
-        N1 *= d_size[d];
-    N2 = d_size[dir];
-    DISABLE_WARNINGS
-    for ( size_t d = dir + 1; d < d_size.ndim(); d++ )
-        N3 *= d_size[d];
-    ENABLE_WARNINGS
-    TYPE *data2 = ans.d_data;
-    for ( size_t i3 = 0; i3 < N3; i3++ ) {
-        for ( size_t i1 = 0; i1 < N1; i1++ ) {
-            TYPE x = 0;
-            for ( size_t i2 = 0; i2 < N2; i2++ )
-                x += d_data[i1 + i2 * N1 + i3 * N1 * N2];
-            data2[i1 + i3 * N1] = x;
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        auto size_ans = d_size;
+        size_ans.resize( dir, 1 );
+        Array<TYPE, FUN, Allocator> ans( size_ans );
+        size_t N1 = 1, N2 = 1, N3 = 1;
+        for ( int d = 0; d < std::min<int>( dir, d_size.ndim() ); d++ )
+            N1 *= d_size[d];
+        N2 = d_size[dir];
+        DISABLE_WARNINGS
+        for ( size_t d = dir + 1; d < d_size.ndim(); d++ )
+            N3 *= d_size[d];
+        ENABLE_WARNINGS
+        TYPE *data2 = ans.d_data;
+        for ( size_t i3 = 0; i3 < N3; i3++ ) {
+            for ( size_t i1 = 0; i1 < N1; i1++ ) {
+                TYPE x = 0;
+                for ( size_t i2 = 0; i2 < N2; i2++ )
+                    x += d_data[i1 + i2 * N1 + i3 * N1 * N2];
+                data2[i1 + i3 * N1] = x;
+            }
         }
+        return ans;
+    } else {
+        AMP_ERROR( "sum is not supported for non-arithmetic types" );
     }
-    return ans;
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::min( const std::vector<Range<size_t>> &range ) const
 {
-    // Get the subset indicies
-    checkSubsetIndex( range );
-    std::array<size_t, 5> first, last, inc, N1;
-    getSubsetArrays( range, first, last, inc, N1 );
-    static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
-    TYPE x = std::numeric_limits<TYPE>::max();
-    for ( size_t i4 = first[4]; i4 <= last[4]; i4 += inc[4] ) {
-        for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
-            for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
-                for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
-                    for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0] ) {
-                        size_t k1 = d_size.index( i0, i1, i2, i3, i4 );
-                        x         = std::min( x, d_data[k1] );
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        // Get the subset indicies
+        checkSubsetIndex( range );
+        std::array<size_t, 5> first, last, inc, N1;
+        getSubsetArrays( range, first, last, inc, N1 );
+        static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
+        TYPE x = std::numeric_limits<TYPE>::max();
+        for ( size_t i4 = first[4]; i4 <= last[4]; i4 += inc[4] ) {
+            for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
+                for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
+                    for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
+                        for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0] ) {
+                            size_t k1 = d_size.index( i0, i1, i2, i3, i4 );
+                            x         = std::min( x, d_data[k1] );
+                        }
                     }
                 }
             }
         }
+        return x;
+    } else {
+        AMP_ERROR( "min not supported for non-arithmetic types" );
     }
-    return x;
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::max( const std::vector<Range<size_t>> &range ) const
 {
-    // Get the subset indicies
-    checkSubsetIndex( range );
-    std::array<size_t, 5> first, last, inc, N1;
-    getSubsetArrays( range, first, last, inc, N1 );
-    static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
-    TYPE x = std::numeric_limits<TYPE>::min();
-    for ( size_t i4 = first[4]; i4 <= last[4]; i4 += inc[4] ) {
-        for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
-            for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
-                for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
-                    for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0] ) {
-                        size_t k1 = d_size.index( i0, i1, i2, i3, i4 );
-                        x         = std::max( x, d_data[k1] );
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        // Get the subset indicies
+        checkSubsetIndex( range );
+        std::array<size_t, 5> first, last, inc, N1;
+        getSubsetArrays( range, first, last, inc, N1 );
+        static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
+        TYPE x = std::numeric_limits<TYPE>::min();
+        for ( size_t i4 = first[4]; i4 <= last[4]; i4 += inc[4] ) {
+            for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
+                for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
+                    for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
+                        for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0] ) {
+                            size_t k1 = d_size.index( i0, i1, i2, i3, i4 );
+                            x         = std::max( x, d_data[k1] );
+                        }
                     }
                 }
             }
         }
+        return x;
+    } else {
+        AMP_ERROR( "max not supported for non-arithmetic types" );
     }
-    return x;
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::sum( const std::vector<Range<size_t>> &range ) const
 {
-    // Get the subset indicies
-    checkSubsetIndex( range );
-    std::array<size_t, 5> first, last, inc, N1;
-    getSubsetArrays( range, first, last, inc, N1 );
-    static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
-    TYPE x = 0;
-    for ( size_t i4 = first[4]; i4 <= last[4]; i4 += inc[4] ) {
-        for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
-            for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
-                for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
-                    for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0] ) {
-                        size_t k1 = d_size.index( i0, i1, i2, i3, i4 );
-                        x += d_data[k1];
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        // Get the subset indicies
+        checkSubsetIndex( range );
+        std::array<size_t, 5> first, last, inc, N1;
+        getSubsetArrays( range, first, last, inc, N1 );
+        static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
+        TYPE x = 0;
+        for ( size_t i4 = first[4]; i4 <= last[4]; i4 += inc[4] ) {
+            for ( size_t i3 = first[3]; i3 <= last[3]; i3 += inc[3] ) {
+                for ( size_t i2 = first[2]; i2 <= last[2]; i2 += inc[2] ) {
+                    for ( size_t i1 = first[1]; i1 <= last[1]; i1 += inc[1] ) {
+                        for ( size_t i0 = first[0]; i0 <= last[0]; i0 += inc[0] ) {
+                            size_t k1 = d_size.index( i0, i1, i2, i3, i4 );
+                            x += d_data[k1];
+                        }
                     }
                 }
             }
         }
+        return x;
+    } else {
+        AMP_ERROR( "sum not supported for non-arithmetic types" );
     }
-    return x;
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::mean( const std::vector<Range<size_t>> &range ) const
 {
-    // Get the subset indicies
-    checkSubsetIndex( range );
-    std::array<size_t, 5> first, last, inc, N1;
-    getSubsetArrays( range, first, last, inc, N1 );
-    static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
-    size_t n = 1;
-    for ( auto &d : N1 )
-        n *= d;
-    TYPE x = sum( range ) / n;
-    return x;
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        // Get the subset indicies
+        checkSubsetIndex( range );
+        std::array<size_t, 5> first, last, inc, N1;
+        getSubsetArrays( range, first, last, inc, N1 );
+        static_assert( ArraySize::maxDim() <= 5, "Function programmed for more than 5 dimensions" );
+        size_t n = 1;
+        for ( auto &d : N1 )
+            n *= d;
+        TYPE x = sum( range ) / n;
+        return x;
+    } else {
+        AMP_ERROR( "mean not supported for non-arithmetic types" );
+    }
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::min( const std::vector<size_t> &index ) const
@@ -1058,28 +1090,55 @@ void Array<TYPE, FUN, Allocator>::print( std::ostream &os,
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::reverseDim() const
 {
-    size_t N2[ArraySize::maxDim()];
-    for ( int d = 0; d < ArraySize::maxDim(); d++ )
-        N2[d] = d_size[ArraySize::maxDim() - d - 1];
-    ArraySize S2( ArraySize::maxDim(), N2 );
-    Array<TYPE, FUN, Allocator> y( S2 );
-    static_assert( ArraySize::maxDim() == 5, "Not programmed for dimensions other than 5" );
-    TYPE *y2 = y.data();
-    for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
-        for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
-            for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
-                for ( size_t i3 = 0; i3 < d_size[3]; i3++ ) {
-                    for ( size_t i4 = 0; i4 < d_size[4]; i4++ ) {
-                        y2[S2.index( i4, i3, i2, i1, i0 )] =
-                            d_data[d_size.index( i0, i1, i2, i3, i4 )];
+    if ( ndim() == 1 )
+        return *this;
+    auto &N = d_size;
+    Array<TYPE, FUN, Allocator> y;
+    if ( ndim() == 2 ) {
+        ArraySize N2( N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                y( i1, i0 ) = d_data[d_size.index( i0, i1 )];
+            }
+        }
+    } else if ( ndim() == 3 ) {
+        ArraySize N2( N[2], N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
+                    y( i2, i1, i0 ) = d_data[d_size.index( i0, i1, i2 )];
+                }
+            }
+        }
+    } else if ( ndim() == 4 ) {
+        ArraySize N2( N[3], N[2], N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
+                    for ( size_t i3 = 0; i3 < d_size[3]; i3++ ) {
+                        y( i3, i2, i1, i0 ) = d_data[d_size.index( i0, i1, i2, i3 )];
+                    }
+                }
+            }
+        }
+    } else if ( ndim() == 5 ) {
+        ArraySize N2( N[4], N[3], N[2], N[1], N[0] );
+        y.allocate( N2 );
+        for ( size_t i0 = 0; i0 < d_size[0]; i0++ ) {
+            for ( size_t i1 = 0; i1 < d_size[1]; i1++ ) {
+                for ( size_t i2 = 0; i2 < d_size[2]; i2++ ) {
+                    for ( size_t i3 = 0; i3 < d_size[3]; i3++ ) {
+                        for ( size_t i4 = 0; i4 < d_size[4]; i4++ ) {
+                            y( i4, i3, i2, i1, i0 ) = d_data[d_size.index( i0, i1, i2, i3, i4 )];
+                        }
                     }
                 }
             }
         }
     }
-    for ( int d = 0; d < d_size.ndim(); d++ )
-        N2[d] = d_size[d_size.ndim() - d - 1];
-    y.reshape( ArraySize( d_size.ndim(), N2 ) );
     return y;
 }
 
@@ -1091,39 +1150,43 @@ template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>
 Array<TYPE, FUN, Allocator>::coarsen( const Array<TYPE, FUN, Allocator> &filter ) const
 {
-    auto S2 = size();
-    for ( size_t i = 0; i < S2.size(); i++ ) {
-        size_t s = S2[i] / filter.size( i );
-        S2.resize( i, s );
-        if ( S2[i] * filter.size( i ) != size( i ) )
-            throw std::invalid_argument( "Array must be multiple of filter size" );
-    }
-    Array<TYPE, FUN, Allocator> y( S2 );
-    if ( d_size.ndim() > 3 )
-        throw std::logic_error( "Function not programmed for more than 3 dimensions" );
-    const auto &Nh = filter.d_size;
-    for ( size_t k1 = 0; k1 < y.d_size[2]; k1++ ) {
-        for ( size_t j1 = 0; j1 < y.d_size[1]; j1++ ) {
-            for ( size_t i1 = 0; i1 < y.d_size[0]; i1++ ) {
-                TYPE tmp = 0;
-                for ( size_t k2 = 0; k2 < Nh[2]; k2++ ) {
-                    for ( size_t j2 = 0; j2 < Nh[1]; j2++ ) {
-                        for ( size_t i2 = 0; i2 < Nh[0]; i2++ ) {
-                            tmp += filter( i2, j2, k2 ) * operator()( i1 *Nh[0] + i2,
-                                                                      j1 * Nh[1] + j2,
-                                                                      k1 * Nh[2] + k2 );
+    if constexpr ( std::is_arithmetic_v<TYPE> && !std::is_same_v<TYPE, bool> ) {
+        auto S2 = size();
+        for ( size_t i = 0; i < S2.size(); i++ ) {
+            size_t s = S2[i] / filter.size( i );
+            S2.resize( i, s );
+            if ( S2[i] * filter.size( i ) != size( i ) )
+                throw std::invalid_argument( "Array must be multiple of filter size" );
+        }
+        Array<TYPE, FUN, Allocator> y( S2 );
+        if ( d_size.ndim() > 3 )
+            throw std::logic_error( "Function not programmed for more than 3 dimensions" );
+        const auto &Nh = filter.d_size;
+        for ( size_t k1 = 0; k1 < y.d_size[2]; k1++ ) {
+            for ( size_t j1 = 0; j1 < y.d_size[1]; j1++ ) {
+                for ( size_t i1 = 0; i1 < y.d_size[0]; i1++ ) {
+                    TYPE tmp = 0;
+                    for ( size_t k2 = 0; k2 < Nh[2]; k2++ ) {
+                        for ( size_t j2 = 0; j2 < Nh[1]; j2++ ) {
+                            for ( size_t i2 = 0; i2 < Nh[0]; i2++ ) {
+                                tmp += filter( i2, j2, k2 ) * operator()( i1 *Nh[0] + i2,
+                                                                          j1 * Nh[1] + j2,
+                                                                          k1 * Nh[2] + k2 );
+                            }
                         }
                     }
+                    y( i1, j1, k1 ) = tmp;
                 }
-                y( i1, j1, k1 ) = tmp;
             }
         }
+        return y;
+    } else {
+        AMP_ERROR( "coarsen not supported for non-arithmetic types" );
     }
-    return y;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> Array<TYPE, FUN, Allocator>::coarsen(
-    const std::vector<size_t> &ratio,
+    const ArraySize &ratio,
     std::function<TYPE( const Array<TYPE, FUN, Allocator> & )> filter ) const
 {
     if ( ratio.size() != d_size.ndim() )
@@ -1333,71 +1396,71 @@ TYPE Array<TYPE, FUN, Allocator>::interp( const double *x ) const
 template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::rand()
 {
-    FUN::rand( *this );
+    FUN::rand( d_size.length(), d_data );
+}
+template<class TYPE, class FUN, class Allocator>
+void Array<TYPE, FUN, Allocator>::scale( const TYPE &x )
+{
+    FUN::scale( d_size.length(), x, d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator+=( const Array<TYPE, FUN, Allocator> &rhs )
 {
-    auto op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    FUN::transform( op, *this, rhs, *this );
+    AMP_ASSERT( d_size == rhs.d_size );
+    FUN::px( d_size.length(), rhs.d_data, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &
 Array<TYPE, FUN, Allocator>::operator-=( const Array<TYPE, FUN, Allocator> &rhs )
 {
-    auto op = []( const TYPE &a, const TYPE &b ) { return a - b; };
-    FUN::transform( op, *this, rhs, *this );
+    AMP_ASSERT( d_size == rhs.d_size );
+    FUN::mx( d_size.length(), rhs.d_data, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator+=( const TYPE &rhs )
 {
-    auto op = [rhs]( const TYPE &x ) { return x + rhs; };
-    FUN::transform( op, *this, *this );
+    FUN::px( d_size.length(), rhs, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator> &Array<TYPE, FUN, Allocator>::operator-=( const TYPE &rhs )
 {
-    auto op = [rhs]( const TYPE &x ) { return x - rhs; };
-    FUN::transform( op, *this, *this );
+    FUN::mx( d_size.length(), rhs, d_data );
     return *this;
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::min() const
 {
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a < b ? a : b; };
-    return FUN::reduce( op, *this, d_data[0] );
+    return FUN::min( d_size.length(), d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::max() const
 {
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a > b ? a : b; };
-    return FUN::reduce( op, *this, d_data[0] );
+    return FUN::max( d_size.length(), d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 TYPE Array<TYPE, FUN, Allocator>::sum() const
 {
-    const auto &op = []( const TYPE &a, const TYPE &b ) { return a + b; };
-    return FUN::reduce( op, *this, static_cast<TYPE>( 0 ) );
+    return FUN::sum( d_size.length(), d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 void Array<TYPE, FUN, Allocator>::axpby( const TYPE &alpha,
                                          const Array<TYPE, FUN, Allocator> &x,
                                          const TYPE &beta )
 {
-    const auto &op = [alpha, beta]( const TYPE &x, const TYPE &y ) { return alpha * x + beta * y; };
-    return FUN::transform( op, x, *this, *this );
+    AMP_ASSERT( x.d_size == d_size );
+    FUN::axpby( alpha, d_size.length(), x.d_data, beta, d_data );
 }
 template<class TYPE, class FUN, class Allocator>
 Array<TYPE, FUN, Allocator>
 Array<TYPE, FUN, Allocator>::transform( std::function<TYPE( const TYPE & )> fun,
                                         const Array<TYPE, FUN, Allocator> &x )
 {
-    Array<TYPE, FUN, Allocator> y;
-    FUN::transform( fun, x, y );
+    Array<TYPE, FUN, Allocator> y( x.size() );
+    FUN::transform( fun, x.length(), x.data(), y.data() );
     return y;
 }
 template<class TYPE, class FUN, class Allocator>
@@ -1406,14 +1469,14 @@ Array<TYPE, FUN, Allocator>::transform( std::function<TYPE( const TYPE &, const 
                                         const Array<TYPE, FUN, Allocator> &x,
                                         const Array<TYPE, FUN, Allocator> &y )
 {
-    Array<TYPE, FUN, Allocator> z;
-    FUN::transform( fun, x, y, z );
+    Array<TYPE, FUN, Allocator> z( x.size() );
+    FUN::transform( fun, x.length(), x.data(), y.data(), z.data() );
     return z;
 }
 template<class TYPE, class FUN, class Allocator>
-bool Array<TYPE, FUN, Allocator>::equals( const Array &rhs, TYPE tol ) const
+bool Array<TYPE, FUN, Allocator>::equals( const Array &rhs, const TYPE &tol ) const
 {
-    return FUN::equals( *this, rhs, tol );
+    return FUN::equals( d_size.length(), d_data, rhs.d_data, tol );
 }
 
 

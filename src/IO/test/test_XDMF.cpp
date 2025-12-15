@@ -31,7 +31,7 @@ void write_points( size_t N, hid_t fid, const std::string &filename, AMP::Xdmf &
         double dist = 0;
         for ( size_t d = 0; d < NDIM; d++ )
             dist += x( d, i ) * x( d, i );
-        distance( i ) = sqrt( dist );
+        distance( i ) = std::sqrt( dist );
     }
 
     // Write the data to HDF5
@@ -80,7 +80,7 @@ void write_rays(
     AMP::Array<double> distance( nodesPerElement, N_elem );
     for ( size_t i = 0; i < distance.length(); i++ )
         distance( i ) =
-            sqrt( x( 0, i ) * x( 0, i ) + x( 1, i ) * x( 1, i ) + x( 2, i ) * x( 2, i ) );
+            std::sqrt( x( 0, i ) * x( 0, i ) + x( 1, i ) * x( 1, i ) + x( 2, i ) * x( 2, i ) );
 
     // Write the data to HDF5
     AMP::IO::writeHDF5( gid, "XYZ", x );

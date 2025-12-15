@@ -1,14 +1,17 @@
-#include "RobinVectorCorrection.h"
+#include "AMP/operators/boundary/libmesh/RobinVectorCorrection.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
+#include "AMP/operators/boundary/libmesh/RobinMatrixCorrectionParameters.h"
 #include "AMP/utils/Database.h"
 #include "AMP/vectors/VectorSelector.h"
-#include "RobinMatrixCorrectionParameters.h"
 
 #include "ProfilerApp.h"
 
 // Libmesh headers
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -21,10 +24,36 @@ ENABLE_WARNINGS
 namespace AMP::Operator {
 
 
+/****************************************************************
+ * Create the appropriate parameters                             *
+ ****************************************************************/
+static std::shared_ptr<const NeumannVectorCorrectionParameters>
+convert( std::shared_ptr<const OperatorParameters> inParams )
+{
+    AMP_ASSERT( inParams );
+    if ( std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams ) )
+        return std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams );
+    auto bndParams = std::dynamic_pointer_cast<const BoundaryOperatorParameters>( inParams );
+    AMP_ASSERT( bndParams );
+    auto params        = std::make_shared<NeumannVectorCorrectionParameters>( inParams->d_db );
+    params->d_Mesh     = inParams->d_Mesh;
+    params->d_variable = bndParams->d_volumeOperator->getOutputVariable();
+    if ( params->d_db->keyExists( "LocalModel" ) ) {
+        auto model_db = params->d_db->getDatabase( "LocalModel" );
+        auto model    = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+        params->d_robinPhysicsModel = std::dynamic_pointer_cast<RobinPhysicsModel>( model );
+    }
+    return params;
+}
+
+
+/****************************************************************
+ * Constructors                                                  *
+ ****************************************************************/
 RobinVectorCorrection::RobinVectorCorrection( std::shared_ptr<const OperatorParameters> inParams )
     : NeumannVectorCorrection( inParams )
 {
-    auto params = std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams );
+    auto params = convert( inParams );
     AMP_ASSERT( params );
     d_hef        = 0;
     d_alpha      = 0;
@@ -83,17 +112,17 @@ void RobinVectorCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_ptr 
         for ( size_t i = 0; i < variableNames.size(); i++ ) {
             std::string cview = variableNames[i] + " view";
             if ( d_Frozen ) {
-                if ( d_Frozen->select( AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ),
-                                       cview ) ) {
+                if ( d_Frozen->select(
+                         AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ) ) ) {
                     d_elementInputVec[i + 1] = d_Frozen->select(
-                        AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ), cview );
+                        AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ) );
                 } else {
                     d_elementInputVec[i + 1] = uInternal->select(
-                        AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ), cview );
+                        AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ) );
                 }
             } else {
-                d_elementInputVec[i + 1] = uInternal->select(
-                    AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ), cview );
+                d_elementInputVec[i + 1] =
+                    uInternal->select( AMP::LinearAlgebra::VS_ByVariableName( variableNames[i] ) );
             }
             AMP_INSIST( d_elementInputVec[i + 1],
                         "Did not find vector '" + variableNames[i] + "'" );
@@ -143,10 +172,10 @@ void RobinVectorCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_ptr 
                 // Get the dofs for the vectors
                 std::vector<AMP::Mesh::MeshElementID> ids( d_currNodes.size() );
                 for ( size_t i = 0; i < d_currNodes.size(); i++ )
-                    ids[i] = d_currNodes[i].globalID();
+                    ids[i] = d_currNodes[i]->globalID();
 
                 for ( unsigned int i = 0; i < numNodesInCurrElem; i++ )
-                    dofManager->getDOFs( d_currNodes[i].globalID(), dofIndices[i] );
+                    dofManager->getDOFs( d_currNodes[i]->globalID(), dofIndices[i] );
 
                 dofs.resize( numNodesInCurrElem );
                 for ( size_t n = 0; n < dofIndices.size(); n++ )

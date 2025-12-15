@@ -33,7 +33,7 @@ static void test_with_shape( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
     std::string interfaceVarName = "interVar";
 
@@ -41,7 +41,7 @@ static void test_with_shape( AMP::UnitTest *ut, const std::string &exeName )
     AMP_INSIST( input_db->keyExists( "PowerShape" ), "Key ''PowerShape'' is missing!" );
     auto shape_db        = input_db->getDatabase( "PowerShape" );
     auto shape_params    = std::make_shared<AMP::Operator::PowerShapeParameters>( shape_db );
-    shape_params->d_Mesh = meshAdapter;
+    shape_params->d_Mesh = mesh;
     auto shape           = std::make_shared<AMP::Operator::PowerShape>( shape_params );
 
     // Create a DOF manager for a gauss point vector
@@ -51,9 +51,9 @@ static void test_with_shape( AMP::UnitTest *ut, const std::string &exeName )
     int nodalGhostWidth   = 1;
     bool split            = true;
     auto gaussPointDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerElement, split );
+        mesh, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerElement, split );
     auto nodalDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
 
     // Create a shared pointer to a Variable - Power - Output because it will be used in the
     // "residual" location of apply
@@ -72,7 +72,7 @@ static void test_with_shape( AMP::UnitTest *ut, const std::string &exeName )
     inputVarDB->putScalar( "ActiveVariable_0", interfaceVarName );
     auto volumeOp = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "VolumeIntegralOperator", input_db ) );
+            mesh, "VolumeIntegralOperator", input_db ) );
 
     auto outputVariable = std::make_shared<AMP::LinearAlgebra::Variable>( "heatsource" );
 

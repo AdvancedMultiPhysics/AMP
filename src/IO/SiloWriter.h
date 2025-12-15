@@ -59,7 +59,7 @@ private:
 
     // Function to write the summary file (the file should already be created, ready to reopen)
     // This function requires global communication
-    void writeSummary( std::string filename, int cycle, double time );
+    void writeSummary( const std::string &filename, int cycle, double time );
 
     // The dimension
     int d_dim;

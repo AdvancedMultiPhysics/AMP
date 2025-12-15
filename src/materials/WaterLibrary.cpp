@@ -4,6 +4,7 @@
 #include "AMP/materials/MaterialList.h"
 #include "AMP/materials/Property.h"
 
+#include <cmath>
 #include <iomanip>
 #include <string>
 #include <vector>
@@ -233,15 +234,15 @@ static double evalSaturatedLiquidEnthalpy( double P )
     {
         // Eq. III.1-4a
         for ( int i = 0; i < 9; i++ )
-            Hf = Hf + a[i] * pow( log( P ), (double) i );
+            Hf = Hf + a[i] * std::pow( log( P ), i );
     } else if ( P >= 900 && P < 2450 ) {
         // Eq. III.1-4b
         for ( int i = 0; i < 9; i++ )
-            Hf = Hf + b[i] * pow( log( P ), (double) i );
+            Hf = Hf + b[i] * std::pow( log( P ), i );
     } else if ( P >= 2450 && P < P_crit ) {
         // Eq. III.1-4c
         for ( int i = 0; i < 9; i++ )
-            Hf = Hf + c[i] * pow( pow( ( P_crit - P ), 0.41 ), (double) i );
+            Hf = Hf + c[i] * std::pow( std::pow( ( P_crit - P ), 0.41 ), i );
     } else {
         AMP_ERROR( "Saturated Liquid Enthalpy: Pressure out of range of correlation." );
     }
@@ -284,15 +285,15 @@ static double evalSaturatedVaporEnthalpy( double P )
     {
         // Eq. III.1-5a
         for ( int i = 0; i < 12; i++ )
-            Hf = Hf + a[i] * pow( log( P ), (double) i );
+            Hf = Hf + a[i] * std::pow( log( P ), i );
     } else if ( P >= 1300 && P < 2600 ) {
         // Eq. III.1-5b
         for ( int i = 0; i < 9; i++ )
-            Hf = Hf + b[i] * pow( log( P ), (double) i );
+            Hf = Hf + b[i] * std::pow( log( P ), i );
     } else if ( P >= 2600 && P < P_crit ) {
         // Eq. III.1-5c
         for ( int i = 0; i < 7; i++ )
-            Hf = Hf + c[i] * pow( pow( ( P_crit - P ), 0.41 ), (double) i );
+            Hf = Hf + c[i] * std::pow( std::pow( ( P_crit - P ), 0.41 ), i );
     } else {
         AMP_ERROR( "Saturated Vapor Enthalpy: Pressure out of range of correlation." );
     }
@@ -354,12 +355,12 @@ static double evalTemperature( double H, double P )
             // Eq. III.1-6b
             for ( int i = 0; i < 5; i++ )
                 for ( int j = 0; j < 5; j++ )
-                    T = T + ct2[i][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    T = T + ct2[i][j] * std::pow( P, i ) * std::pow( H, j );
         } else {
             // Eq. III.1-6d
             for ( int i = 0; i < 5; i++ )
                 for ( int j = 0; j < 5; j++ )
-                    T = T + ct4[i][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    T = T + ct4[i][j] * std::pow( P, i ) * std::pow( H, j );
         }
     } else {
         // Evaluate saturated liquid/vapor properties
@@ -372,20 +373,19 @@ static double evalTemperature( double H, double P )
             // Eq. III.1-6a
             for ( int i = 0; i < 2; i++ )
                 for ( int j = 0; j < 4; j++ )
-                    T = T + ct1[i][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    T = T + ct1[i][j] * std::pow( P, i ) * std::pow( H, j );
         } else if ( H <= Hg ) {
             // Eq. III.1-6a with H=Hf
             for ( int i = 0; i < 2; i++ )
                 for ( int j = 0; j < 4; j++ )
-                    T = T + ct1[i][j] * pow( P, (double) i ) * pow( Hf, (double) j );
+                    T = T + ct1[i][j] * std::pow( P, i ) * std::pow( Hf, j );
         } else {
             // Eq. III.1-6c
             for ( int i = 0; i < 5; i++ )
                 for ( int j = 0; j < 5; j++ )
-                    T = T + ct3[i][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    T = T + ct3[i][j] * std::pow( P, i ) * std::pow( H, j );
         }
     }
-    NULL_USE( H_crit );
 
     // convert result to SI units
     T = 5. / 9. * ( T - 32. ) + 273.15; // [F] to [K]
@@ -463,13 +463,13 @@ static double evalSpecificVolume( double H, double P )
         for ( int i = 0; i < 3; i++ ) {
             for ( int j = 2; j < 5; j++ ) {
                 int jj = j - 2;
-                V += cn0[i][jj] * pow( P, (double) i ) * pow( ( 250 - H ), (double) j );
+                V += cn0[i][jj] * std::pow( P, i ) * std::pow( ( 250 - H ), j );
             }
         }
         double ExpSum = 0;
         for ( int i = 0; i < 3; i++ ) {
             for ( int j = 0; j < 5; j++ ) {
-                ExpSum += cn1[i][j] * pow( P, (double) i ) * pow( H, (double) j );
+                ExpSum += cn1[i][j] * std::pow( P, i ) * std::pow( H, j );
             }
         }
         V += exp( ExpSum );
@@ -482,7 +482,7 @@ static double evalSpecificVolume( double H, double P )
             double ExpSum = 0;
             for ( int i = 0; i < 3; i++ ) {
                 for ( int j = 0; j < 5; j++ ) {
-                    ExpSum += cn1[i][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    ExpSum += cn1[i][j] * std::pow( P, i ) * std::pow( H, j );
                 }
             }
             V = exp( ExpSum );
@@ -493,18 +493,18 @@ static double evalSpecificVolume( double H, double P )
             std::vector<double> C( 4, 0.0 );
             double ExpSum = 0.0;
             for ( int i = 0; i < 3; ++i ) {
-                ExpSum += cp[i] * pow( P, (double) i );
+                ExpSum += cp[i] * std::pow( P, i );
             }
             C[0] = exp( ExpSum );
             for ( int i = -1; i < 3; ++i ) {
-                C[1] += cx[i + 1] * pow( P, (double) i );
+                C[1] += cx[i + 1] * std::pow( P, i );
             }
             for ( int i = 0; i < 3; ++i ) {
-                C[2] += ct[i] * pow( P, (double) i );
+                C[2] += ct[i] * std::pow( P, i );
             }
             C[2] *= C[0];
             for ( int i = -1; i < 3; ++i ) {
-                C[3] += cj[i + 1] * pow( P, (double) i );
+                C[3] += cj[i + 1] * std::pow( P, i );
             }
 
             for ( int i = 0; i < 4; ++i ) {
@@ -512,13 +512,13 @@ static double evalSpecificVolume( double H, double P )
                 for ( int j = 0; j < 4; ++j ) {
                     tmpSum += cn3[i][j] * C[j];
                 }
-                V += pow( H, (double) i ) * d * tmpSum;
+                V += std::pow( H, i ) * d * tmpSum;
             }
         } else {
             // Eq. III.1-8c
             for ( int i = -1; i < 3; ++i ) {
                 for ( int j = 0; j < 3; ++j ) {
-                    V += cn2[i + 1][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    V += cn2[i + 1][j] * std::pow( P, i ) * std::pow( H, j );
                 }
             }
         }
@@ -535,7 +535,7 @@ static double evalSpecificVolume( double H, double P )
             double ExpSum = 0.0;
             for ( int i = 0; i < 3; i++ ) {
                 for ( int j = 0; j < 5; j++ ) {
-                    ExpSum += cn1[i][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    ExpSum += cn1[i][j] * std::pow( P, i ) * std::pow( H, j );
                 }
             }
             V = exp( ExpSum );
@@ -550,13 +550,13 @@ static double evalSpecificVolume( double H, double P )
             double ExpSum = 0.0;
             for ( int i = 0; i < 3; i++ ) {
                 for ( int j = 0; j < 5; j++ ) {
-                    ExpSum += cn1[i][j] * pow( P, (double) i ) * pow( Hf, (double) j );
+                    ExpSum += cn1[i][j] * std::pow( P, i ) * std::pow( Hf, j );
                 }
             }
             Vf = exp( ExpSum );
             for ( int i = -1; i < 3; ++i ) {
                 for ( int j = 0; j < 3; ++j ) {
-                    Vg += cn2[i + 1][j] * pow( P, (double) i ) * pow( Hg, (double) j );
+                    Vg += cn2[i + 1][j] * std::pow( P, i ) * std::pow( Hg, j );
                 }
             }
             V = Vf + X * ( Vg - Vf );
@@ -569,18 +569,18 @@ static double evalSpecificVolume( double H, double P )
             std::vector<double> C( 4, 0.0 );
             double ExpSum = 0.0;
             for ( int i = 0; i < 3; ++i ) {
-                ExpSum += cp[i] * pow( P, (double) i );
+                ExpSum += cp[i] * std::pow( P, i );
             }
             C[0] = exp( ExpSum );
             for ( int i = -1; i < 3; ++i ) {
-                C[1] += cx[i + 1] * pow( P, (double) i );
+                C[1] += cx[i + 1] * std::pow( P, i );
             }
             for ( int i = 0; i < 3; ++i ) {
-                C[2] += ct[i] * pow( P, (double) i );
+                C[2] += ct[i] * std::pow( P, i );
             }
             C[2] *= C[0];
             for ( int i = -1; i < 3; ++i ) {
-                C[3] += cj[i + 1] * pow( P, (double) i );
+                C[3] += cj[i + 1] * std::pow( P, i );
             }
 
             for ( int i = 0; i < 4; ++i ) {
@@ -588,7 +588,7 @@ static double evalSpecificVolume( double H, double P )
                 for ( int j = 0; j < 4; ++j ) {
                     tmpSum += cn3[i][j] * C[j];
                 }
-                V += pow( H, (double) i ) * d * tmpSum;
+                V += std::pow( H, i ) * d * tmpSum;
             }
         }
         // Vapor
@@ -596,12 +596,11 @@ static double evalSpecificVolume( double H, double P )
             // Eq. III.1-8c
             for ( int i = -1; i < 3; ++i ) {
                 for ( int j = 0; j < 3; ++j ) {
-                    V += cn2[i + 1][j] * pow( P, (double) i ) * pow( H, (double) j );
+                    V += cn2[i + 1][j] * std::pow( P, i ) * std::pow( H, j );
                 }
             }
         }
     }
-    NULL_USE( H_crit );
 
     // convert result to SI units
     V = V * 6.24279605761446e-2; // [ft3/lbm] to [m3/kg]
@@ -643,26 +642,26 @@ static double evalThermalConductivity( double T, double rho )
     // calculate temperature
     double Tratiosum = 0.0;
     for ( size_t i = 0; i < 4; i++ )
-        Tratiosum = Tratiosum + a[i] * pow( ( T / Tstar ), (double) i );
-    double k0 = pow( T / Tstar, 0.5 ) * Tratiosum;
+        Tratiosum = Tratiosum + a[i] * std::pow( ( T / Tstar ), i );
+    double k0 = std::pow( T / Tstar, 0.5 ) * Tratiosum;
 
-    double kbar = b0 + b1 * ( rho / rhostar ) + b2 * exp( B1 * pow( rho / rhostar + B2, 2 ) );
+    double kbar = b0 + b1 * ( rho / rhostar ) + b2 * exp( B1 * std::pow( rho / rhostar + B2, 2 ) );
 
     double dT = fabs( T / Tstar - 1.0 ) + C4;
-    double Q  = 2.0 + C5 * pow( dT, -0.6 );
+    double Q  = 2.0 + C5 * std::pow( dT, -0.6 );
     double R  = Q + 1.0;
     double S;
     if ( T / Tstar >= 1.0 )
-        S = pow( dT, -1 );
+        S = std::pow( dT, -1 );
     else {
         double C6 = 1.00932e1;
-        S         = C6 * pow( dT, -0.6 );
+        S         = C6 * std::pow( dT, -0.6 );
     }
-    double dk1 = ( d1 * pow( Tstar / T, 10 ) + d2 ) * pow( rho / rhostar, 1.8 ) *
-                 exp( C1 * ( 1.0 - pow( rho / rhostar, 2.8 ) ) );
-    double dk2 = d3 * S * pow( rho / rhostar, Q ) *
-                 exp( Q / R * ( 1.0 - pow( rho / rhostar, (double) R ) ) );
-    double dk3 = d4 * exp( C2 * pow( T / Tstar, 1.5 ) + C3 * pow( rhostar / rho, 5.0 ) );
+    double dk1 = ( d1 * std::pow( Tstar / T, 10 ) + d2 ) * std::pow( rho / rhostar, 1.8 ) *
+                 exp( C1 * ( 1.0 - std::pow( rho / rhostar, 2.8 ) ) );
+    double dk2 = d3 * S * std::pow( rho / rhostar, Q ) *
+                 exp( Q / R * ( 1.0 - std::pow( rho / rhostar, R ) ) );
+    double dk3 = d4 * exp( C2 * std::pow( T / Tstar, 1.5 ) + C3 * std::pow( rhostar / rho, 5.0 ) );
     double dk  = dk1 + dk2 + dk3;
 
     k = k0 + kbar + dk;
@@ -695,7 +694,7 @@ static double evalConvectiveHeat( double T, double rho, double D, double rey, do
     k = evalThermalConductivity( T, rho );
 
     // Get the Nusselt number
-    double Nu = 0.023 * pow( rey, 0.8 ) * pow( prt, 0.4 ); // Dittus-Boelter correlation
+    double Nu = 0.023 * std::pow( rey, 0.8 ) * std::pow( prt, 0.4 ); // Dittus-Boelter correlation
     if ( Nu < 8.0 )
         AMP_WARNING( "Convective Heat should take into account laminar heat transfer" );
 
@@ -735,14 +734,14 @@ static double evalDynamicViscosity( double T, double rho )
 
     double sum = 0;
     for ( size_t k = 0; k < 4; k++ )
-        sum = sum + a[k] * pow( Tstar / T, (double) k );
-    double u0 = 1e-6 * pow( T / Tstar, 0.5 ) * pow( sum, -1.0 );
+        sum = sum + a[k] * std::pow( Tstar / T, k );
+    double u0 = 1e-6 * std::pow( T / Tstar, 0.5 ) * std::pow( sum, -1.0 );
 
     double expsum = 0;
     for ( size_t i = 0; i < 5; i++ )
         for ( size_t j = 0; j < 6; j++ )
-            expsum = expsum + b[i][j] * pow( Tstar / T - 1, (double) j ) *
-                                  pow( rho / rhostar - 1, (double) i );
+            expsum =
+                expsum + b[i][j] * std::pow( Tstar / T - 1, j ) * std::pow( rho / rhostar - 1, i );
     u = u0 * exp( rho / rhostar * expsum );
 
     // According to the source of the correlation, it seems that the viscosity

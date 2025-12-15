@@ -194,7 +194,7 @@ inline TYPE ThreadPool::getFunctionRet( const ThreadPoolID &id )
 /******************************************************************
  * Inline functions to wait for the work items to finish           *
  ******************************************************************/
-inline void ThreadPool::wait( ThreadPoolID id ) const
+inline void ThreadPool::wait( const ThreadPoolID &id ) const
 {
     PROFILE( "ThreadPool::wait" );
     auto finished = wait_some( 1, &id, 1, 10000000 );

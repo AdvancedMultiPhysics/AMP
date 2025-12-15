@@ -14,8 +14,7 @@ namespace AMP::Operator {
 class DiffusionNonlinearFEOperator : public NonlinearFEOperator
 {
 public:
-    explicit DiffusionNonlinearFEOperator(
-        std::shared_ptr<const DiffusionNonlinearFEOperatorParameters> params );
+    explicit DiffusionNonlinearFEOperator( std::shared_ptr<const OperatorParameters> params );
 
     virtual ~DiffusionNonlinearFEOperator() {}
 
@@ -31,15 +30,15 @@ public:
     std::shared_ptr<AMP::LinearAlgebra::Variable> createOutputVariable( const std::string &name,
                                                                         int varId = -1 );
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override;
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override;
 
-    unsigned int numberOfDOFMaps();
+    unsigned int numberOfDOFMaps() { return 1; }
 
     std::shared_ptr<AMP::LinearAlgebra::Variable> getVariableForDOFMap( unsigned int id );
 
-    std::string getPrincipalVariable();
+    const auto &getPrincipalVariable() { return d_PrincipalVariable; }
 
     std::vector<std::string> getNonPrincipalVariableIds();
 
@@ -58,7 +57,7 @@ public:
     /**
      * checks input to apply operator for satisfaction of range conditions
      */
-    bool isValidInput( AMP::LinearAlgebra::Vector::const_shared_ptr u ) override;
+    bool isValidVector( AMP::LinearAlgebra::Vector::const_shared_ptr u ) override;
 
 protected:
     std::shared_ptr<OperatorParameters>
@@ -81,7 +80,7 @@ protected:
 
     std::shared_ptr<DiffusionTransportModel> d_transportModel;
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
 
     AMP::LinearAlgebra::Vector::shared_ptr d_outVec;
 
@@ -104,6 +103,9 @@ private:
     std::string d_PrincipalVariable;
 
     void resetFrozen( std::shared_ptr<const DiffusionNonlinearFEOperatorParameters> params );
+
+    explicit DiffusionNonlinearFEOperator(
+        std::shared_ptr<const DiffusionNonlinearFEOperatorParameters> params, bool );
 };
 } // namespace AMP::Operator
 

@@ -9,9 +9,12 @@
 namespace AMP::Operator {
 
 
-NonlinearFEOperator::NonlinearFEOperator( std::shared_ptr<const FEOperatorParameters> params )
-    : Operator( params ), d_elemOp( params->d_elemOp )
+NonlinearFEOperator::NonlinearFEOperator( std::shared_ptr<const OperatorParameters> in )
+    : Operator( in )
 {
+    auto params = std::dynamic_pointer_cast<const FEOperatorParameters>( in );
+    AMP_INSIST( params, "NULL parameter!" );
+    d_elemOp = params->d_elemOp;
     createLibMeshElementList();
     d_currElemIdx = static_cast<unsigned int>( -1 );
 }
@@ -26,7 +29,7 @@ void NonlinearFEOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     PROFILE( "apply" );
 
     AMP_INSIST( ( r != nullptr ), "NULL Residual/Output Vector" );
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal = this->subsetOutputVector( r );
+    auto rInternal = this->subsetOutputVector( r );
     AMP_INSIST( ( rInternal != nullptr ), "NULL Residual/Output Vector" );
 
     if ( u )
@@ -35,12 +38,13 @@ void NonlinearFEOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     d_currElemIdx = static_cast<unsigned int>( -1 );
     this->preAssembly( u, rInternal );
 
-    AMP::Mesh::MeshIterator el = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    for ( d_currElemIdx = 0; d_currElemIdx < el.size(); ++d_currElemIdx, ++el ) {
-        this->preElementOperation( *el );
+    d_currElemIdx = 0;
+    for ( auto &el : d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 ) ) {
+        this->preElementOperation( el );
         d_elemOp->apply();
         this->postElementOperation();
-    } // end for el
+        d_currElemIdx++;
+    }
 
     d_currElemIdx = static_cast<unsigned int>( -1 );
     this->postAssembly();
@@ -57,14 +61,13 @@ void NonlinearFEOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
 
 void NonlinearFEOperator::createLibMeshElementList()
 {
-    AMP::Mesh::MeshIterator el = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto el = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
     d_currElemPtrs.resize( d_Mesh->numLocalElements( AMP::Mesh::GeomType::Cell ) );
     for ( size_t i = 0; i < el.size(); ++el, ++i ) {
-        std::vector<AMP::Mesh::MeshElement> currNodes =
-            el->getElements( AMP::Mesh::GeomType::Vertex );
+        auto currNodes    = el->getElements( AMP::Mesh::GeomType::Vertex );
         d_currElemPtrs[i] = new libMesh::Hex8;
         for ( size_t j = 0; j < currNodes.size(); ++j ) {
-            auto pt                          = currNodes[j].coord();
+            auto pt                          = currNodes[j]->coord();
             d_currElemPtrs[i]->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
         } // end for j
     }     // end for i

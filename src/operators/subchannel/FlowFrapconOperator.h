@@ -3,7 +3,6 @@
 #define included_AMP_FlowFrapconOperator
 
 #include "AMP/operators/Operator.h"
-#include "AMP/operators/subchannel/FlowFrapconOperatorParameters.h"
 
 
 namespace AMP::Operator {
@@ -61,28 +60,19 @@ public:
         return d_outVariable->clone( name );
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_inpVariable;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_outVariable;
     }
 
-    virtual AMP::LinearAlgebra::Vector::shared_ptr
-    subsetOutputVector( AMP::LinearAlgebra::Vector::shared_ptr vec ) override;
+    std::shared_ptr<AMP::LinearAlgebra::VectorSelector> selectOutputVector() const override;
 
-    virtual AMP::LinearAlgebra::Vector::shared_ptr
-    subsetInputVector( AMP::LinearAlgebra::Vector::shared_ptr vec ) override;
-
-    virtual AMP::LinearAlgebra::Vector::const_shared_ptr
-    subsetOutputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec ) override;
-
-    virtual AMP::LinearAlgebra::Vector::const_shared_ptr
-    subsetInputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec ) override;
-
+    std::shared_ptr<AMP::LinearAlgebra::VectorSelector> selectInputVector() const override;
 
     /**
       @param [in] zloc is the location vector in z direction.
@@ -93,10 +83,8 @@ public:
 
     AMP::LinearAlgebra::Vector::shared_ptr getVector() { return d_cladVec; }
 
-    /**
-      This member function returns the 1D locations stl vector.
-      */
-    std::vector<double> getZLocations() { return zPoints; }
+    //! This member function returns the 1D locations stl vector.
+    const auto &getZLocations() { return zPoints; }
 
     double getHeatCapacity( double T_b )
     {

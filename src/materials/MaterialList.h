@@ -72,18 +72,6 @@ public:
 };
 
 
-// Register the materials
-REGISTER_MATERIAL( CylindricallySymmetric );
-REGISTER_MATERIAL( Dr_nonlinear );
-REGISTER_MATERIAL( FixedClad );
-REGISTER_MATERIAL( FixedFuel );
-REGISTER_MATERIAL( Independent );
-REGISTER_MATERIAL( Ox_MSRZC_09 );
-REGISTER_MATERIAL( Steel316_MSRZC_09 );
-REGISTER_MATERIAL( UO2_MSRZC_09 );
-REGISTER_MATERIAL( WaterLibrary );
-
-
 } // namespace AMP::Materials
 
 #endif

@@ -88,6 +88,14 @@ MLCGsolver {
     }
 }
 
+MechanicsMaterialModel {
+    USE_MATERIALS_LIBRARY = FALSE
+    Material = ""
+    name="IsotropicElasticModel"
+    Youngs_Modulus = 1.0e6
+    Poissons_Ratio = 0.2
+}
+
 MechanicsLinearFEOperator{
       name="MechanicsLinearFEOperator"
         print_info_level = 1
@@ -104,8 +112,8 @@ MechanicsLinearFEOperator{
             QRULE_TYPE = "QGAUSS"
             QRULE_ORDER = "DEFAULT"
         }
-	LocalModel = "MechanicsMaterialModel"
-     }
+	LocalModel = MechanicsMaterialModel
+ }
 
 DirichletMatrixCorrection{
     name="DirichletMatrixCorrection"
@@ -124,10 +132,3 @@ DirichletMatrixCorrection{
   }
 
 
-MechanicsMaterialModel {
-        USE_MATERIALS_LIBRARY = FALSE
-          Material = ""
-          name="IsotropicElasticModel"
-          Youngs_Modulus = 1.0e6
-          Poissons_Ratio = 0.2
-      }

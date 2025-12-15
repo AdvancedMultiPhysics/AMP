@@ -1,0 +1,12 @@
+// Database for all the meshes
+Mesh{
+    MeshName = "cube"
+    MeshType = "AMP"
+    dim = 3
+    Generator = "cube"
+    Size = 50,50,50
+    Range = 0, 1, 0, 1, 0, 1
+    x_offset = -0.5
+    y_offset = -0.5
+    z_offset = -0.5
+}

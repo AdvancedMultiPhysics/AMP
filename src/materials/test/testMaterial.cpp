@@ -769,7 +769,7 @@ void testMaterial( std::string &name, AMP::UnitTest &ut )
 
 
 // Register a dummy material created from a database
-void registerDatabaseMaterial( AMP::UnitTest &ut )
+void registerDatabaseMaterial( [[maybe_unused]] AMP::UnitTest &ut )
 {
     // Create the material
     auto fun = []() {
@@ -788,7 +788,6 @@ void registerDatabaseMaterial( AMP::UnitTest &ut )
     AMP::Materials::registerMaterial( "databaseMaterial", fun );
     // Run some basic checks
     auto mat = AMP::Materials::getMaterial( "databaseMaterial" );
-    NULL_USE( ut );
 }
 
 

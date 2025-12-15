@@ -12,12 +12,14 @@ DISABLE_WARNINGS
 #include <Epetra_Map.h>
 #include <Epetra_Vector.h>
 #ifdef AMP_USE_TRILINOS_BELOS
-    //#include "Thyra_SpmdVectorBase_def.hpp"
+    // #include "Thyra_SpmdVectorBase_def.hpp"
     #include "BelosMVOPTester.hpp"
     #include "BelosThyraAdapter.hpp"
 #endif
 #include "Thyra_DefaultSpmdVector_def.hpp"
-#include "Thyra_EpetraThyraWrappers.hpp"
+#ifdef AMP_USE_TRILINOS_THYRAEPETRAADAPTERS
+    #include "Thyra_EpetraThyraWrappers.hpp"
+#endif
 #ifdef AMP_USE_MPI
     #include <Epetra_MpiComm.h>
 
@@ -25,8 +27,6 @@ DISABLE_WARNINGS
     #include <Epetra_SerialComm.h>
 #endif
 ENABLE_WARNINGS
-
-/// \cond UNDOCUMENTED
 
 
 namespace AMP::LinearAlgebra {
@@ -128,5 +128,3 @@ void testBelosThyraVector( AMP::UnitTest &ut, const VectorFactory &factory )
 
 #endif
 } // namespace AMP::LinearAlgebra
-
-/// \endcond

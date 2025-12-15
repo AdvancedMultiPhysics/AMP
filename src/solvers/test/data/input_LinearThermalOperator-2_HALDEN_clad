@@ -1,13 +1,12 @@
 
 Mesh{
-    FileName = "halden_1_clad.e"
-    dim = 3
-    MeshType = "libMesh"
     MeshName = "cylinder"
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 270
+    MeshType = "AMP"
+    Generator = "tube"
+    Size = 2, 132, 17
+    Range = 5.46e-3, 6.35e-3, 0, 0.0127
+    surfaceIds = 8, 4, -1, -1, 1, 2
+    static = TRUE
 }
 
 NeutronicsOperator{
@@ -26,6 +25,23 @@ DiffusionBVPOperator {
     BoundaryOperator = "DirichletMatrixCorrection1"
 }
 
+DiffusionTransportModel1 {
+  name="DiffusionTransportModel"
+    Material = "Clad_Zr_MATPRO.h"
+    Property = "ThermalConductivity"
+      Default_Concentration = .1
+    Default_Temperature   = 557.16
+    Default_Burnup   = 0.0
+}
+
+SourcePhysicsModel {	
+  name = "SourcePhysicsModel"
+    Material = "Independent"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+}
+
 DiffusionLinearFEOperator1{
   name="DiffusionLinearFEOperator"
     FixedTemperature = TRUE
@@ -42,7 +58,7 @@ DiffusionLinearFEOperator1{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection1{
@@ -55,15 +71,6 @@ DirichletMatrixCorrection1{
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        = 557.16
-}
-
-DiffusionTransportModel1 {
-  name="DiffusionTransportModel"
-    Material = "Clad_Zr_MATPRO.h"
-    Property = "ThermalConductivity"
-      Default_Concentration = .1
-    Default_Temperature   = 557.16
-    Default_Burnup   = 0.0
 }
 
 LinearSolver{
@@ -83,7 +90,7 @@ VolumeIntegralOperator{
       ActiveVariable_0 = "SpecificPowerInWattsPerKg" 
     }
   OutputVariable = "heatsource"
-      LocalModel = "SourcePhysicsModel"
+      LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
               FE_ORDER = "FIRST"  
@@ -91,14 +98,6 @@ VolumeIntegralOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-}
-
-SourcePhysicsModel {	
-  name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
 }
 
 

@@ -6,7 +6,7 @@
 namespace AMP::Operator {
 
 
-//  An abstract base class for representing a linear operator.
+//  An abstract base class for representing an operator on a boundary.
 class BoundaryOperator : public Operator
 {
 

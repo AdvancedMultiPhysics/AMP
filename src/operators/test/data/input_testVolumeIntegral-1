@@ -7,29 +7,6 @@ Mesh{
   Range = 0, 1, 0, 1, 0, 1
 }
 
-VolumeIntegralOperator{
-  name="VolumeIntegralOperator"
-  InputVariableType = "IntegrationPointScalar"
-  Number_Active_Variables = 1
-  Number_Auxillary_Variables = 0
-  ConstantSource   = FALSE
-  ActiveInputVariables{
-    ActiveVariable_0 = "specificpower" 
-  }
-  OutputVariable = "heatsource"
-  print_info_level = 3
-  LocalModel = "SourcePhysicsModel"
-
-  SourceElement {
-    name="SourceNonlinearElement"
-    print_info_level = 3
-    FE_ORDER = "FIRST"  
-    FE_FAMILY = "LAGRANGE"
-    QRULE_TYPE = "QGAUSS"
-    QRULE_ORDER = "DEFAULT"
-  }
-}
-
 SourcePhysicsModel {
     name = "SourcePhysicsModel"
     Material = "Independent"
@@ -40,4 +17,27 @@ SourcePhysicsModel {
     Default_Temperature   = 300.
     Default_Burnup   = 0.0
   }
+
+VolumeIntegralOperator{
+  name="VolumeIntegralOperator"
+  InputVariableType = "IntegrationPointScalar"
+  Number_Active_Variables = 1
+  Number_Auxillary_Variables = 0
+  ConstantSource   = FALSE
+  ActiveInputVariables{
+    ActiveVariable_0 = "specificpower" 
+  }
+  OutputVariable = "heatsource"
+  print_info_level = 2
+  LocalModel = SourcePhysicsModel
+
+  SourceElement {
+    name="SourceNonlinearElement"
+    print_info_level = 2
+    FE_ORDER = "FIRST"  
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
+  }
+}
 

@@ -21,6 +21,7 @@
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
+#include "AMP/vectors/VectorSelector.h"
 
 #include <memory>
 #include <string>
@@ -201,8 +202,8 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
         ++face;
     }
     // get lateral face map
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> interiorLateralFaceMap;
-    std::map<AMP::Mesh::Point, AMP::Mesh::MeshElement> exteriorLateralFaceMap;
+    std::map<AMP::Mesh::Point, std::unique_ptr<AMP::Mesh::MeshElement>> interiorLateralFaceMap;
+    std::map<AMP::Mesh::Point, std::unique_ptr<AMP::Mesh::MeshElement>> exteriorLateralFaceMap;
     nonlinearOperator->getLateralFaces(
         nonlinearOpParams->d_Mesh, interiorLateralFaceMap, exteriorLateralFaceMap );
     // loop over lateral faces
@@ -211,10 +212,10 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
         auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
         if ( lateralFaceIterator != interiorLateralFaceMap.end() ) {
             // get lateral face
-            auto lateralFace = lateralFaceIterator->second;
+            auto &lateralFace = lateralFaceIterator->second;
             // get crossflow from solution vector
             std::vector<size_t> gapDofs;
-            subchannelDOFManager->getDOFs( lateralFace.globalID(), gapDofs );
+            subchannelDOFManager->getDOFs( lateralFace->globalID(), gapDofs );
             double w = 0.0;
             val      = w / w_scale;
             manufacturedVec->setValuesByGlobalID( 1, &gapDofs[0], &val );
@@ -244,10 +245,10 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
         auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
         if ( lateralFaceIterator != interiorLateralFaceMap.end() ) {
             // get lateral face
-            AMP::Mesh::MeshElement lateralFace = lateralFaceIterator->second;
+            auto &lateralFace = lateralFaceIterator->second;
             // get crossflow from solution vector
             std::vector<size_t> gapDofs;
-            subchannelDOFManager->getDOFs( lateralFace.globalID(), gapDofs );
+            subchannelDOFManager->getDOFs( lateralFace->globalID(), gapDofs );
             val = w_in / w_scale;
             solVec->setValuesByGlobalID( 1, &gapDofs[0], &val );
         }
@@ -396,29 +397,12 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     std::cout << "L2 Norm of Relative Error: " << relErrorNorm << std::endl;
 
     input_db.reset();
-
-#if 0
-    // Rescale the solution to get the correct units
-    auto mass     = solVec->select( AMP::LinearAlgebra::VS_Stride( 0, 3 ), "M" );
-    auto enthalpy = solVec->select( AMP::LinearAlgebra::VS_Stride( 1, 3 ), "H" );
-    auto pressure = solVec->select( AMP::LinearAlgebra::VS_Stride( 2, 3 ), "P" );
-    mass->scale( m_scale );
-    enthalpy->scale( h_scale );
-    pressure->scale( P_scale );
-    mass     = manufacturedVec->select( AMP::LinearAlgebra::VS_Stride( 0, 3 ), "M" );
-    enthalpy = manufacturedVec->select( AMP::LinearAlgebra::VS_Stride( 1, 3 ), "H" );
-    pressure = manufacturedVec->select( AMP::LinearAlgebra::VS_Stride( 2, 3 ), "P" );
-    mass->scale( m_scale );
-    enthalpy->scale( h_scale );
-    pressure->scale( P_scale );3
-#endif
 }
 
 int testSubchannelFourEqMMS( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-    AMP::Solver::registerSolverFactories();
 
     std::vector<std::string> files;
     if ( argc >= 2 ) {

@@ -41,13 +41,6 @@ public:
     std::string type() const override { return "ConstraintsEliminationOperator"; }
 
     /**
-     * This function is useful for re-initializing/updating an operator
-     * \param params
-     *        parameter object containing parameters to change
-     */
-    void reset( std::shared_ptr<const OperatorParameters> params ) override;
-
-    /**
       Calls first addSlaveToMaster(...) and second setSlaveToZero(...) on the residual vector:
       r^m = r^m + C^T r^s
       r^s = 0
@@ -64,12 +57,12 @@ public:
     /**
       @return The variable for the input vector.
       */
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override;
 
     /**
       @return The variable for the output vector.
       */
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override;
 
     /**
       u^m = u^m + C^T u^s

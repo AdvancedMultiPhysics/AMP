@@ -44,7 +44,7 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
-    void extractDiagonal( std::shared_ptr<Vector> buf ) const override;
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
 
     /** \brief  Add values to those in the matrix
      * \param[in] num_rows The number of rows represented in values
@@ -153,13 +153,16 @@ public:
      */
     size_t numGlobalColumns() const override { return d_cols; }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getLeftVariable() { return d_VariableLeft; }
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getRightVariable() { return d_VariableRight; }
+    /** \brief Return the typeid of the matrix coeffs
+     */
+    typeID getCoeffType() const override
+    {
+        constexpr auto type = getTypeID<double>();
+        return type;
+    }
 
 protected:
     // AMP variables and DOFManagers for the left and right vectors
-    std::shared_ptr<AMP::LinearAlgebra::Variable> d_VariableLeft;
-    std::shared_ptr<AMP::LinearAlgebra::Variable> d_VariableRight;
     std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerLeft;
     std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerRight;
 

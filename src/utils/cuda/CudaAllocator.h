@@ -5,7 +5,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include "AMP/utils/cuda/helper_cuda.h"
+#include "AMP/utils/cuda/Helper_Cuda.h"
 
 
 namespace AMP {
@@ -50,39 +50,15 @@ public:
     {
         T *ptr;
         auto err = cudaMallocManaged( &ptr, n * sizeof( T ), cudaMemAttachGlobal );
+        //        auto err = cudaMalloc( &ptr, n * sizeof( T ) );
         checkCudaErrors( err );
+        checkCudaErrors( cudaMemset( ptr, 0, n ) );
         return ptr;
     }
 
     void deallocate( T *p, size_t )
     {
         auto err = cudaFree( p );
-        checkCudaErrors( err );
-    }
-};
-
-
-/**
- * \class  CudaHostAllocator
- * @brief  Allocator based on cudaMallocHost
- */
-template<typename T>
-class CudaHostAllocator
-{
-public:
-    using value_type = T;
-
-    T *allocate( size_t n )
-    {
-        T *ptr;
-        auto err = cudaMallocHost( &ptr, n * sizeof( T ) );
-        checkCudaErrors( err );
-        return ptr;
-    }
-
-    void deallocate( T *p, size_t )
-    {
-        auto err = cudaFreeHost( p );
         checkCudaErrors( err );
     }
 };

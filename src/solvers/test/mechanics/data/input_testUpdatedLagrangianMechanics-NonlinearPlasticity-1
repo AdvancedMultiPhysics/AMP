@@ -14,14 +14,31 @@ NumberOfLoadingSteps = 10
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+VonMisesElastoPlasticModel1 {
+        USE_MATERIALS_LIBRARY = FALSE
+        USE_UPDATED_LAGRANGIAN = TRUE
+        USE_JAUMANN_RATE = FALSE
+        print_info_level = 2
+          Material = ""
+          name = "VonMisesElastoPlasticModel"
+          //name = "IsotropicElasticModel"
+          Youngs_Modulus = 1.0e2
+          Poissons_Ratio = 0.3
+          Linear_Strain_Hardening = 5.0
+          Elastic_Yield_Stress = 0.1
+          Default_Temperature = 0.0
+          Default_Burnup = 0.0
+          Default_Oxygen_Concentration = 0.0
+      }
+
 MechanicsNonlinearFEOperator1 {
       name = "MechanicsNonlinearFEOperator"
-        print_info_level = 3
+        print_info_level = 2
         ActiveInputVariables {
           DISPLACEMENT = "displacement"
         }
@@ -39,8 +56,18 @@ MechanicsNonlinearFEOperator1 {
             QRULE_TYPE = "QGAUSS"
             QRULE_ORDER = "DEFAULT"
         }
+        MechanicsLinearElement {
+          name="MechanicsLinearUpdatedLagrangianElement"
+            USE_REDUCED_INTEGRATION = FALSE 
+            USE_JAUMANN_RATE = FALSE
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }
 
-	LocalModel = "VonMisesElastoPlasticModel1"
+
+	LocalModel = VonMisesElastoPlasticModel1
 }
 
 DirichletVectorCorrection1 {
@@ -70,23 +97,6 @@ DirichletVectorCorrection1 {
       dof_2_0 = 2
       value_2_0 = 0.0
 }
-
-VonMisesElastoPlasticModel1 {
-        USE_MATERIALS_LIBRARY = FALSE
-        USE_UPDATED_LAGRANGIAN = TRUE
-        USE_JAUMANN_RATE = FALSE
-        print_info_level = 6
-          Material = ""
-          name = "VonMisesElastoPlasticModel"
-          //name = "IsotropicElasticModel"
-          Youngs_Modulus = 1.0e2
-          Poissons_Ratio = 0.3
-          Linear_Strain_Hardening = 5.0
-          Elastic_Yield_Stress = 0.1
-          Default_Temperature = 0.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = 0.0
-      }
 
 LinearMechanicsOperator {
   name="LinearBVPOperator"
@@ -156,27 +166,25 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
-    max_error = 1e-10
-
-    absolute_tolerance = 1.0e-15
-    relative_tolerance = 1.0e-11
+    absolute_tolerance = 1.0e-9
+    relative_tolerance = 1.0e-9
     stepTolerance = 1.0e-10
     maximumFunctionEvals = 1000
-    usesJacobian=TRUE
+    usesJacobian=FALSE
 
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
 
     LinearSolver{
-      print_info_level = 1
-        max_iterations = 10
-        max_error = 1e-10
+        name = "PetscKrylovSolver"
+        print_info_level = 1
+        max_iterations = 100
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
         relative_tolerance = 1.0e-12
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 1000
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
@@ -184,14 +192,15 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
         Preconditioner{
+          name = "TrilinosMLSolver"
           print_info_level = 1
             PDE_equations = 3
             max_levels = 1
             max_iterations = 1
             max_error = 1.0e-15
-              aggregationtype = "Uncoupled"
-              smoothertype = "Chebyshev"
-              smoother_sweeps = 3
+            aggregationtype = "Uncoupled"
+            smoothertype = "Chebyshev"
+            smoother_sweeps = 3
         }
     }
 }

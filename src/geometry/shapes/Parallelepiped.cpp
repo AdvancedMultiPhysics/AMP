@@ -1,5 +1,5 @@
 #include "AMP/geometry/shapes/Parallelepiped.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
@@ -241,9 +241,9 @@ ArraySize Parallelepiped::getLogicalGridSize( const ArraySize &x ) const
 ArraySize Parallelepiped::getLogicalGridSize( const std::vector<double> &res ) const
 {
     AMP_INSIST( res.size() == 3u, "Resolution must be an array of length 3" );
-    double a  = sqrt( d_a[0] * d_a[0] + d_a[1] * d_a[1] + d_a[2] * d_a[2] );
-    double b  = sqrt( d_b[0] * d_b[0] + d_b[1] * d_b[1] + d_b[2] * d_b[2] );
-    double c  = sqrt( d_c[0] * d_c[0] + d_c[1] * d_c[1] + d_c[2] * d_c[2] );
+    double a  = std::sqrt( d_a[0] * d_a[0] + d_a[1] * d_a[1] + d_a[2] * d_a[2] );
+    double b  = std::sqrt( d_b[0] * d_b[0] + d_b[1] * d_b[1] + d_b[2] * d_b[2] );
+    double c  = std::sqrt( d_c[0] * d_c[0] + d_c[1] * d_c[1] + d_c[2] * d_c[2] );
     size_t N1 = std::max<int>( a / res[0], 1 );
     size_t N2 = std::max<int>( b / res[1], 1 );
     size_t N3 = std::max<int>( c / res[2], 1 );

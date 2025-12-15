@@ -20,9 +20,12 @@ ImplicitIntegrator::ImplicitIntegrator(
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> params )
     : AMP::TimeIntegrator::TimeIntegrator( params )
 {
+    d_initialized = false;
+    AMP_ASSERT( params );
+    auto db                      = d_pParameters->d_db;
+    d_user_managed_time_operator = db->getWithDefault<bool>( "user_managed_time_operator", false );
     registerOperator( d_operator );
-    if ( d_operator )
-        createSolver();
+    d_initialized = true;
 }
 
 ImplicitIntegrator::~ImplicitIntegrator() = default;
@@ -65,6 +68,11 @@ void ImplicitIntegrator::createSolver( void )
         solverDB = globalDB->getDatabase( solverName );
     }
 
+    // unless explicitly set, let solver use non-zero guess
+    if ( !solverDB->keyExists( "zero_initial_guess" ) ) {
+        solverDB->putScalar<bool>( "zero_initial_guess", false );
+    }
+
     solverDB->print( AMP::plog );
     auto solver_params = std::make_shared<AMP::Solver::SolverStrategyParameters>( solverDB );
 
@@ -80,10 +88,12 @@ void ImplicitIntegrator::registerOperator( std::shared_ptr<AMP::Operator::Operat
     d_operator = op;
     AMP_INSIST( d_operator, "Operator is null" );
 
-    // check if the operator is a TimeOperator
-    bool isTimeOperator = ( std::dynamic_pointer_cast<TimeOperator>( d_operator ) != nullptr );
+    if ( d_user_managed_time_operator ) {
+        d_operator = op;
+    } else {
+        // user supplied operators cannot be TimeOperators for now
+        AMP_ASSERT( std::dynamic_pointer_cast<TimeOperator>( d_operator ) == nullptr );
 
-    if ( !isTimeOperator ) {
         auto timeOperator_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
         timeOperator_db->putScalar( "name", "TimeOperator" );
         timeOperator_db->putScalar( "print_info_level", d_iDebugPrintInfoLevel );
@@ -92,15 +102,9 @@ void ImplicitIntegrator::registerOperator( std::shared_ptr<AMP::Operator::Operat
             std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );
         timeOperatorParameters->d_pSourceTerm  = d_pSourceTerm;
         timeOperatorParameters->d_pRhsOperator = d_operator;
-        timeOperatorParameters->d_Mesh         = d_operator->getMesh();
 
         d_operator = std::make_shared<TimeOperator>( timeOperatorParameters );
     }
-
-    if ( !d_solver )
-        createSolver();
-
-    d_solver->registerOperator( d_operator );
 }
 
 /*
@@ -175,7 +179,9 @@ int ImplicitIntegrator::integratorSpecificAdvanceSolution(
     // set a NULL rhs
     std::shared_ptr<AMP::LinearAlgebra::Vector> rhs = nullptr;
     d_solver->apply( rhs, d_solution_vector );
-    d_solver_retcode = d_solver->getConvergenceStatus();
+    const auto convStatus = d_solver->getConvergenceStatus();
+    d_solver_retcode =
+        convStatus <= AMP::Solver::SolverStrategy::SolverStatus::ConvergedUserCondition ? 1 : 0;
 
     out->copyVector( d_solution_vector );
 
@@ -267,7 +273,6 @@ bool ImplicitIntegrator::integratorSpecificCheckNewSolution( const int )
 void ImplicitIntegrator::updateSolution()
 {
     d_current_time += d_current_dt;
-    d_integrator_step++;
 
     integratorSpecificUpdateSolution( d_current_time );
 
@@ -277,6 +282,8 @@ void ImplicitIntegrator::updateSolution()
         AMP::pout << "Simulation time is " << d_current_time << std::endl;
         AMP::pout << "++++++++++++++++++++++++++++++++++++++++++++++++\n" << std::endl;
     }
+
+    d_integrator_step++;
 }
 
 // provide a default implementation
@@ -289,8 +296,12 @@ void ImplicitIntegrator::integratorSpecificUpdateSolution( double )
 void ImplicitIntegrator::reset(
     std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
 {
-    AMP_ASSERT( parameters != nullptr );
-    abort();
+    if ( parameters ) {
+        d_pParameters =
+            std::const_pointer_cast<AMP::TimeIntegrator::TimeIntegratorParameters>( parameters );
+        AMP_ASSERT( parameters->d_db );
+        TimeIntegrator::getFromInput( parameters->d_db );
+    }
 }
 
 void ImplicitIntegrator::reset()
@@ -334,17 +345,24 @@ void ImplicitIntegrator::printStatistics( std::ostream &os )
  *************************************************************************
  */
 
-double ImplicitIntegrator::getGamma( void )
+void ImplicitIntegrator::setComponentScalings( std::shared_ptr<AMP::LinearAlgebra::Vector> s,
+                                               std::shared_ptr<AMP::LinearAlgebra::Vector> f )
 {
-    if ( !d_time_history_initialized ) {
-        setTimeHistoryScalings();
-        d_time_history_initialized = true;
+    d_solution_scaling = s;
+    d_function_scaling = f;
+    AMP_INSIST( d_operator, "Operator must be registered prior to calling setComponentScalings" );
+    auto timeOperator = std::dynamic_pointer_cast<AMP::TimeIntegrator::TimeOperator>( d_operator );
+    if ( timeOperator ) {
+        timeOperator->setComponentScalings( s, f );
+    } else {
+        if ( d_fComponentScalingFnPtr )
+            d_fComponentScalingFnPtr( s, f );
     }
 
-    auto op = std::dynamic_pointer_cast<TimeOperator>( d_operator );
-    AMP_ASSERT( op );
-    return op->getGamma();
+    if ( d_solver )
+        d_solver->setComponentScalings( s, f );
 }
+
 
 /********************************************************
  *  Restart operations                                   *

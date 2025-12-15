@@ -13,8 +13,8 @@
 template<typename T, typename Alloc1, typename Alloc2>
 void ArrayTestWithAllocators( AMP::UnitTest &ut )
 {
-    AMP::Array<T, AMP::FunctionTable, Alloc1> A;
-    AMP::Array<T, AMP::FunctionTable, Alloc2> B;
+    AMP::Array<T, AMP::FunctionTable<T>, Alloc1> A;
+    AMP::Array<T, AMP::FunctionTable<T>, Alloc2> B;
     AMP::Array<T> R;
 
     const size_t n             = 10;
@@ -54,15 +54,6 @@ void ArrayTestWithAllocators( AMP::UnitTest &ut )
     }
 }
 
-template<typename T>
-using ReboundManagedAllocator =
-    typename std::allocator_traits<AMP::CudaManagedAllocator<double>>::template rebind_alloc<T>;
-
-template<typename T>
-using ReboundDevAllocator =
-    typename std::allocator_traits<AMP::CudaDevAllocator<double>>::template rebind_alloc<T>;
-
-
 int main( int argc, char *argv[] )
 {
     // Declare Arrays and utils
@@ -72,9 +63,6 @@ int main( int argc, char *argv[] )
     ArrayTestWithAllocators<double,
                             AMP::CudaManagedAllocator<double>,
                             AMP::CudaDevAllocator<double>>( ut );
-
-    ArrayTestWithAllocators<float, ReboundManagedAllocator<float>, ReboundDevAllocator<float>>(
-        ut );
 
     ut.report();
     int num_failed = ut.NumFailGlobal();

@@ -23,93 +23,47 @@ class VectorDataIterator;
 template<typename TYPE = double>
 class VectorDataNull : public VectorData
 {
-public:
-    VectorDataNull() {}
-
-public: // Virtual functions
-    //! Virtual destructor
-    virtual ~VectorDataNull() {}
-
-
-    //! Get the type name
-    virtual std::string VectorDataName() const override { return "VectorDataNull"; }
-
-
-    /** \brief Number of blocks of contiguous data in the Vector
-     * \return Number of blocks in the Vector
-     * \details  A vector is not necessarily contiguous in memory.  This method
-     * returns the number of contiguous blocks in memory used by this vector
-     */
+public: // Functions inherited from VectorData
+    std::string VectorDataName() const override { return "VectorDataNull"; }
     inline size_t numberOfDataBlocks() const override { return 0; }
-
-    /** \brief Number of elements in a data block
-     * \return The size of a particular block
-     */
     inline size_t sizeOfDataBlock( size_t = 0 ) const override { return 0; }
-
-
-    /**\brief Copy data into this vector
-     */
     inline void putRawData( const void *, const typeID & ) override {}
-
-    /**\brief Copy data out of this vector
-     *\details The Vector should be pre-allocated to the correct size (getLocalSize())
-     */
     inline void getRawData( void *, const typeID & ) const override {}
-
-    inline void
-    getValuesByLocalID( size_t N, const size_t *, void *, const typeID & ) const override
+    bool hasGhosts() const override { return false; }
+    void fillGhosts( const Scalar & ) override {}
+    void getValuesByLocalID( size_t N, const size_t *, void *, const typeID & ) const override;
+    void setValuesByLocalID( size_t N, const size_t *, const void *, const typeID & ) override;
+    void addValuesByLocalID( size_t N, const size_t *, const void *, const typeID & ) override;
+    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
+    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
+    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    void
+    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    size_t getAllGhostValues( void *, const typeID & ) const override;
+    typeID getType( size_t ) const override { return getTypeID<TYPE>(); }
+    UpdateState getLocalUpdateStatus() const override { return UpdateState::UNCHANGED; }
+    void setUpdateStatus( UpdateState ) override {}
+    void setUpdateStatusPtr( std::shared_ptr<UpdateState> ) override {}
+    std::shared_ptr<UpdateState> getUpdateStatusPtr() const override { return nullptr; }
+    bool containsGlobalElement( size_t ) const override { return false; }
+    void dataChanged() override {}
+    void dumpGhostedData( std::ostream &, size_t ) const override {}
+    void copyGhostValues( const VectorData & ) override {}
+    std::shared_ptr<CommunicationList> getCommunicationList() const override { return nullptr; }
+    void setCommunicationList( std::shared_ptr<CommunicationList> ) override {}
+    const AMP_MPI &getComm() const override;
+    size_t getGhostSize() const override { return 0; }
+    uint64_t getDataID() const override { return 0; }
+    void *getRawDataBlockAsVoid( size_t ) override { return nullptr; }
+    const void *getRawDataBlockAsVoid( size_t ) const override { return nullptr; }
+    size_t sizeofDataBlockType( size_t ) const override { return sizeof( TYPE ); }
+    void swapData( VectorData & ) override { AMP_ERROR( "Not finished" ); }
+    std::shared_ptr<VectorData> cloneData( const std::string & = "" ) const override
     {
-        AMP_INSIST( N == 0, "Cannot get values in NullVectorData" );
+        return std::make_shared<VectorDataNull<TYPE>>();
     }
-    inline void
-    setValuesByLocalID( size_t N, const size_t *, const void *, const typeID & ) override
-    {
-        AMP_INSIST( N == 0, "Cannot set values in NullVectorData" );
-    }
-    inline void
-    addValuesByLocalID( size_t N, const size_t *, const void *, const typeID & ) override
-    {
-        AMP_INSIST( N == 0, "Cannot add values in NullVectorData" );
-    }
-
-
-public: // Advanced virtual functions
-    /**\brief  A unique id for the underlying data allocation
-     *\details This is a unique id that is associated with the data
-     *   data allocation.  Views of a vector should preserve the id of
-     *   the original vector.  Vectors that are not allocated, or contain
-     *   multiple vectors (such as Multivector) should return 0.
-     *   Note: this id is not consistent across multiple processors.
-     */
-    inline uint64_t getDataID() const override { return 0; }
-
-    /** \brief Return a pointer to a particular block of memory in the vector
-     */
-    inline void *getRawDataBlockAsVoid( size_t ) override { return nullptr; }
-
-    /** \brief Return a pointer to a particular block of memory in the
-     * vector
-     */
-    inline const void *getRawDataBlockAsVoid( size_t ) const override { return nullptr; }
-
-    /** \brief Return the result of sizeof(TYPE) for the given data block
-     */
-    inline size_t sizeofDataBlockType( size_t ) const override { return sizeof( TYPE ); }
-
-    typeID getType( size_t ) const override
-    {
-        constexpr auto type = getTypeID<TYPE>();
-        return type;
-    }
-
-    inline void swapData( VectorData & ) override { AMP_ERROR( "Not finished" ); }
-
-    inline std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override
-    {
-        NULL_USE( name );
-        return std::make_shared<VectorDataNull>();
-    }
+    void makeConsistent( ScatterType ) override {}
+    using VectorData::makeConsistent;
 };
 
 

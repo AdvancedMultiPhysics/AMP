@@ -1,5 +1,5 @@
-#ifndef included_AMP_MultiVectorIterator
-#define included_AMP_MultiVectorIterator
+#ifndef included_AMP_MeshElementVectorIterator
+#define included_AMP_MeshElementVectorIterator
 
 #include "AMP/mesh/MeshIterator.h"
 #include "AMP/utils/Utilities.h"
@@ -12,34 +12,30 @@ namespace AMP::Mesh {
 
 
 /**
- * \class MultiVectorIterator
+ * \class MeshElementVectorIterator
  * \brief A class used to iterate over a set of mesh elements.
  * \details  This class provides routines for iterating over a set
  * of mesh elments that are in a std::vector.
  */
-class MultiVectorIterator : public MeshIterator
+template<class TYPE = MeshElement>
+class MeshElementVectorIterator final : public MeshIterator
 {
 public:
-    //! Empty MultiVectorIterator constructor
-    MultiVectorIterator();
+    //! Empty MeshElementVectorIterator constructor
+    MeshElementVectorIterator();
 
-    //! Default MultiVectorIterator constructor
-    explicit MultiVectorIterator( std::shared_ptr<std::vector<MeshElement>> elements,
-                                  size_t pos = 0 );
-
-    /** MultiVectorIterator constructor
-     *  Note that this version of the constructor will create a copy of the elements
-     */
-    explicit MultiVectorIterator( const std::vector<MeshElement> &elements, size_t pos = 0 );
+    //! Default MeshElementVectorIterator constructor
+    explicit MeshElementVectorIterator( std::shared_ptr<std::vector<TYPE>> elements,
+                                        size_t pos = 0 );
 
     //! Deconstructor
-    virtual ~MultiVectorIterator();
+    virtual ~MeshElementVectorIterator() = default;
 
     //! Copy constructor
-    MultiVectorIterator( const MultiVectorIterator & );
+    MeshElementVectorIterator( const MeshElementVectorIterator & );
 
     //! Assignment operator
-    MultiVectorIterator &operator=( const MultiVectorIterator & );
+    MeshElementVectorIterator &operator=( const MeshElementVectorIterator & );
 
     //! Increment
     MeshIterator &operator++() override;
@@ -70,8 +66,9 @@ protected:
     MeshIterator *clone() const override;
 
     // A pointer to a std::vector containing the desired mesh elements
-    std::shared_ptr<std::vector<MeshElement>> d_elements;
+    std::shared_ptr<std::vector<TYPE>> d_elements;
 };
+
 } // namespace AMP::Mesh
 
 #endif

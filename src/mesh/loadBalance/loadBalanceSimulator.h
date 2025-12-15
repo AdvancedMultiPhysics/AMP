@@ -108,6 +108,8 @@ private: // Private functions
     inline void setRanks( int rank ) { setRanks( rank, rank + 1 ); }
     void addRankCost( std::vector<double> &cost ) const;
     void addRank();
+    void addRanks( int N );
+    void copyRanks( const loadBalanceSimulator &x, int offset );
     void loadBalance( int, std::vector<int> &N );
 };
 

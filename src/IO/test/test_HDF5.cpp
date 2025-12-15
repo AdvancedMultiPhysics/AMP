@@ -9,11 +9,12 @@
 #include <string>
 #include <vector>
 
-#include "AMP/IO/HDF5.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/IO/HDF5_Class.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Array.h"
+#include "AMP/utils/Array.hpp"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
@@ -28,6 +29,57 @@ static inline void record( bool pass, const std::string &name, AMP::UnitTest &ut
         ut.passes( name );
     else
         ut.failure( name );
+}
+
+
+// Structure to test HDF5 compounds
+struct compoundStruct {
+    compoundStruct()                         = default;
+    compoundStruct( const compoundStruct & ) = default;
+    compoundStruct &operator=( const compoundStruct & ) = default;
+    compoundStruct( int x, float y, double z ) : a( x ), b( y ), c( z ) {}
+    bool operator==( const compoundStruct &x ) const { return x.a == a && x.b == b && x.c == c; }
+    int a;
+    float b;
+    double c;
+};
+template<>
+hid_t AMP::IO::getHDF5datatype<compoundStruct>()
+{
+    auto datatype = H5Tcreate( H5T_COMPOUND, sizeof( compoundStruct ) );
+    H5Tinsert( datatype, "a", HOFFSET( compoundStruct, a ), H5T_NATIVE_INT );
+    H5Tinsert( datatype, "b", HOFFSET( compoundStruct, b ), H5T_NATIVE_FLOAT );
+    H5Tinsert( datatype, "c", HOFFSET( compoundStruct, c ), H5T_NATIVE_DOUBLE );
+    return datatype;
+}
+template<>
+void AMP::IO::writeHDF5Array<compoundStruct>( hid_t fid,
+                                              const std::string &name,
+                                              const AMP::Array<compoundStruct> &data )
+{
+    AMP::IO::writeHDF5ArrayDefault<compoundStruct>( fid, name, data );
+}
+template<>
+void AMP::IO::writeHDF5Scalar<compoundStruct>( hid_t fid,
+                                               const std::string &name,
+                                               const compoundStruct &data )
+{
+    AMP::IO::writeHDF5ArrayDefault( fid, name, AMP::Array<compoundStruct>( { 1 }, &data ) );
+}
+
+
+// Function to write an opaque object
+template<class TYPE>
+void writeOpaque( hid_t fid, const std::string &name, const TYPE &data )
+{
+    hid_t datatype  = H5Tcreate( H5T_OPAQUE, sizeof( TYPE ) );
+    hid_t dataspace = H5Screate( H5S_SCALAR );
+    hid_t dataset =
+        H5Dcreate2( fid, name.data(), datatype, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+    H5Dwrite( dataset, datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data );
+    H5Dclose( dataset );
+    H5Tclose( datatype );
+    H5Sclose( dataspace );
 }
 
 
@@ -50,10 +102,16 @@ void checkScalar( const AMP::IO::HDF5data &ptr,
 {
     AMP::Array<TYPE> data;
     auto ptr2 = ptr.getData( 0, name );
+    AMP_ASSERT( *ptr2 == *ptr2 );
     ptr2->getData( data );
     AMP_ASSERT( data.length() == 1 );
-    auto y = data( 0 );
-    record( x == y, "HDF5Class: " + name, ut );
+    auto test = data( 0 ) == x;
+    if ( std::is_arithmetic_v<TYPE> ) {
+        AMP::Array<double> data2;
+        ptr2->getData( data2 );
+        test = test && data( 0 ) == x;
+    }
+    record( test, "HDF5Class: " + name, ut );
 }
 template<class TYPE>
 void checkVector( const AMP::IO::HDF5data &ptr,
@@ -102,7 +160,7 @@ public:
     template<class Generator>
     std::complex<double> operator()( Generator &g )
     {
-        std::uniform_real_distribution<double> dist( 0, 1 );
+        static std::uniform_real_distribution<double> dist( 0, 1 );
         return { dist( g ), dist( g ) };
     }
 };
@@ -112,8 +170,26 @@ public:
     template<class Generator>
     char operator()( Generator &g )
     {
-        std::uniform_int_distribution<int> dist( 32, 126 );
+        static std::uniform_int_distribution<int> dist( 32, 126 );
         return dist( g );
+    }
+};
+template<class TYPE>
+class random_integral
+{
+public:
+    template<class Generator>
+    TYPE operator()( Generator &g )
+    {
+        if constexpr ( std::is_signed_v<TYPE> ) {
+            static std::uniform_int_distribution<long long> dist(
+                std::numeric_limits<TYPE>::min(), std::numeric_limits<TYPE>::max() );
+            return dist( g );
+        } else {
+            static std::uniform_int_distribution<unsigned long long> dist(
+                std::numeric_limits<TYPE>::min(), std::numeric_limits<TYPE>::max() );
+            return dist( g );
+        }
     }
 };
 class random_string
@@ -122,13 +198,24 @@ public:
     template<class Generator>
     std::string operator()( Generator &g )
     {
-        std::uniform_int_distribution<int> length( 3, 10 );
-        std::uniform_int_distribution<int> dist( 32, 126 );
+        static std::uniform_int_distribution<int> length( 3, 10 );
+        static std::uniform_int_distribution<int> dist( 32, 126 );
         std::string str;
         str.resize( length( g ) );
         for ( size_t i = 0; i < str.size(); i++ )
             str[i] = dist( g );
         return str;
+    }
+};
+class random_compound
+{
+public:
+    template<class Generator>
+    compoundStruct operator()( Generator &g )
+    {
+        static std::uniform_int_distribution<int> dist_i( 3, 10 );
+        static std::uniform_real_distribution<double> dist_d( 0, 1 );
+        return compoundStruct( dist_i( g ), dist_d( g ), dist_d( g ) );
     }
 };
 
@@ -149,8 +236,7 @@ public:
             random_char dist;
             fill( dist, gen );
         } else if constexpr ( std::is_integral_v<TYPE> ) {
-            std::uniform_int_distribution<TYPE> dist( std::numeric_limits<TYPE>::min(),
-                                                      std::numeric_limits<TYPE>::max() );
+            random_integral<TYPE> dist;
             fill( dist, gen );
         } else if constexpr ( std::is_floating_point_v<TYPE> ) {
             std::uniform_real_distribution<TYPE> dist( 0, 1 );
@@ -160,6 +246,9 @@ public:
             fill( dist, gen );
         } else if constexpr ( std::is_same_v<TYPE, std::string> ) {
             random_string dist;
+            fill( dist, gen );
+        } else if constexpr ( std::is_same_v<TYPE, compoundStruct> ) {
+            random_compound dist;
             fill( dist, gen );
         } else {
             static_assert( !std::is_same_v<TYPE, TYPE>, "Not finished" );
@@ -186,17 +275,21 @@ public:
     }
     void check( hid_t fid, const AMP::IO::HDF5data *ptr, AMP::UnitTest &ut )
     {
-        // Check a direct read
-        checkHDF5( fid, name, scalar, ut );
-        checkHDF5( fid, "std::vector<" + name + ">", vec, ut );
-        checkHDF5( fid, "std::array<" + name + ">", array, ut );
-        checkHDF5( fid, "AMP::Array<" + name + ">", Array, ut );
-        // Check reading through HDF5 class interface
-        if ( ptr ) {
-            checkScalar( *ptr, name, scalar, ut );
-            checkVector( *ptr, "std::vector<" + name + ">", vec, ut );
-            checkArray( *ptr, "std::array<" + name + ">", array, ut );
-            checkArray( *ptr, "AMP::Array<" + name + ">", Array, ut );
+        if constexpr ( std::is_same_v<TYPE, compoundStruct> ) {
+            // Special case (skip loading the data)
+        } else {
+            // Check a direct read
+            checkHDF5( fid, name, scalar, ut );
+            checkHDF5( fid, "std::vector<" + name + ">", vec, ut );
+            checkHDF5( fid, "std::array<" + name + ">", array, ut );
+            checkHDF5( fid, "AMP::Array<" + name + ">", Array, ut );
+            // Check reading through HDF5 class interface
+            if ( ptr ) {
+                checkScalar( *ptr, name, scalar, ut );
+                checkVector( *ptr, "std::vector<" + name + ">", vec, ut );
+                checkArray( *ptr, "std::array<" + name + ">", array, ut );
+                checkArray( *ptr, "AMP::Array<" + name + ">", Array, ut );
+            }
         }
     }
 
@@ -229,6 +322,8 @@ public: // Functions
         d.write( fid );
         cmplx.write( fid );
         str.write( fid );
+        compound.write( fid );
+        writeOpaque( fid, "opaque", 3.0 );
     }
     void check( hid_t fid, AMP::UnitTest &ut )
     {
@@ -247,6 +342,7 @@ public: // Functions
         d.check( fid, ptr, ut );
         cmplx.check( fid, ptr, ut );
         str.check( fid, ptr, ut );
+        compound.check( fid, ptr, ut );
     }
 
 public: // Data members
@@ -263,11 +359,12 @@ public: // Data members
     testTYPE<double> d;
     testTYPE<std::complex<double>> cmplx;
     testTYPE<std::string> str;
+    testTYPE<compoundStruct> compound;
 };
 
 
 // Test compression
-void testCompression( AMP::UnitTest &ut )
+void testCompression( [[maybe_unused]] AMP::UnitTest &ut )
 {
     // Write data using different compression formats
     AMP::Array<int> zeros1( 500, 1000 );
@@ -291,12 +388,11 @@ void testCompression( AMP::UnitTest &ut )
     AMP::IO::closeHDF5( fid1 );
     AMP::IO::closeHDF5( fid2 );
     AMP::IO::closeHDF5( fid3 );
-    NULL_USE( ut );
 }
 
 
 // Test writing a large array with compression
-void testLarge( AMP::UnitTest &ut )
+void testLarge( [[maybe_unused]] AMP::UnitTest &ut )
 {
     printf( "Allocating large array\n" );
     AMP::Array<int> data( 40000, 40000 );
@@ -309,7 +405,6 @@ void testLarge( AMP::UnitTest &ut )
     auto fid = AMP::IO::openHDF5( "test_HDF5.large.hdf5", "w", AMP::IO::Compression::GZIP );
     AMP::IO::writeHDF5( fid, "data", data );
     AMP::IO::closeHDF5( fid, true );
-    NULL_USE( ut );
 }
 
 

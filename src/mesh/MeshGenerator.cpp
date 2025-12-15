@@ -2,19 +2,13 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/FileSystem.h"
 #include "AMP/mesh/Mesh.h"
-#include "AMP/mesh/MeshPoint.h"
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/mesh/structured/BoxMesh.h"
 #include "AMP/mesh/triangle/TriangleHelpers.h"
+#include "AMP/utils/MeshPoint.h"
 
-#ifdef AMP_USE_TRILINOS_STKCLASSIC
-//#include "AMP/mesh/STKmesh/STKMesh.h"
-#endif
 #ifdef AMP_USE_LIBMESH
     #include "AMP/mesh/libmesh/libmeshMesh.h"
-#endif
-#ifdef AMP_USE_MOAB
-    #include "AMP/mesh/moab/moabMesh.h"
 #endif
 
 
@@ -30,7 +24,7 @@ namespace AMP::Mesh {
 size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
 {
     auto db = params->d_db;
-    AMP_ASSERT( db != nullptr );
+    AMP_ASSERT( db );
     size_t meshSize = 0;
     if ( db->keyExists( "NumberOfElements" ) ) {
         // User specified the number of elements, this should override everything
@@ -56,19 +50,13 @@ size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
         auto suffix   = IO::getSuffix( filename );
         if ( suffix == "stl" ) {
             // We are reading an stl file
-            meshSize = AMP::Mesh::TriangleHelpers::readSTLHeader( filename );
+            meshSize = AMP::Mesh::TriangleHelpers::estimateMeshSize( params );
         } else {
             meshSize = AMP::Mesh::BoxMesh::estimateMeshSize( params );
         }
     } else if ( MeshType == "TriangleGeometryMesh" ) {
         // We will build a triangle mesh from a geometry
-        auto geom_db    = db->getDatabase( "Geometry" );
-        auto geometry   = AMP::Geometry::Geometry::buildGeometry( geom_db );
-        auto [lb, ub]   = geometry->box();
-        auto resolution = db->getScalar<double>( "Resolution" );
-        meshSize        = 1;
-        for ( int d = 0; d < lb.ndim(); d++ )
-            meshSize *= std::max<int64_t>( ( ub[d] - lb[d] ) / resolution, 1 );
+        meshSize = AMP::Mesh::TriangleHelpers::estimateMeshSize( params );
     } else if ( MeshType == "libMesh" ) {
 // The mesh is a libmesh mesh
 #ifdef AMP_USE_LIBMESH
@@ -76,14 +64,10 @@ size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
 #else
         AMP_ERROR( "AMP was compiled without support for libMesh" );
 #endif
-    } else if ( MeshType == "STKMesh" ) {
-// The mesh is a stkMesh mesh
-#ifdef AMP_USE_TRILINOS_STKCLASSIC
-        // meshSize = AMP::Mesh::STKMesh::estimateMeshSize( params );
-        AMP_ERROR( "AMP stk mesh interface is broken" );
-#else
-        AMP_ERROR( "AMP was compiled without support for STKMesh" );
-#endif
+    } else if ( MeshType == "stk" || MeshType == "STKMesh" ) {
+        AMP_ERROR( "stk mesh support was removed on 12/02/25" );
+    } else if ( MeshType == "moab" || MeshType == "MOAB" ) {
+        AMP_ERROR( "MOAB support was removed on 12/02/25" );
     } else {
         // Unknown mesh type
         AMP_ERROR( "Unknown mesh type " + MeshType + " and NumberOfElements is not set" );
@@ -98,7 +82,7 @@ size_t Mesh::estimateMeshSize( std::shared_ptr<const MeshParameters> params )
 size_t Mesh::maxProcs( std::shared_ptr<const MeshParameters> params )
 {
     auto db = params->d_db;
-    AMP_ASSERT( db != nullptr );
+    AMP_ASSERT( db );
     // Check if the user is specifying the maximum number of processors
     if ( db->keyExists( "maxProcs" ) )
         return db->getScalar<int64_t>( "maxProcs" );
@@ -117,20 +101,13 @@ size_t Mesh::maxProcs( std::shared_ptr<const MeshParameters> params )
         auto suffix   = IO::getSuffix( filename );
         if ( suffix == "stl" ) {
             // We are reading an stl file
-            maxSize = AMP::Mesh::TriangleHelpers::readSTLHeader( filename );
+            maxSize = AMP::Mesh::TriangleHelpers::maxProcs( params );
         } else {
             maxSize = AMP::Mesh::BoxMesh::maxProcs( params );
         }
     } else if ( MeshType == "TriangleGeometryMesh" ) {
         // We will build a triangle mesh from a geometry
-        /*auto geom_db  = db->getDatabase( "Geometry" );
-        auto geometry   = AMP::Geometry::Geometry::buildGeometry( geom_db );
-        auto [lb, ub]   = geometry->box();
-        auto resolution = db->getScalar<double>( "Resolution" );
-        meshSize        = 1;
-        for ( int d = 0; d < lb.ndim(); d++ )
-            meshSize *= std::max<int64_t>( ( ub[d] - lb[d] ) / resolution, 1 ); */
-        maxSize = 1;
+        maxSize = AMP::Mesh::TriangleHelpers::maxProcs( params );
     } else if ( MeshType == std::string( "libMesh" ) ) {
 // The mesh is a libmesh mesh
 #ifdef AMP_USE_LIBMESH
@@ -138,14 +115,10 @@ size_t Mesh::maxProcs( std::shared_ptr<const MeshParameters> params )
 #else
         AMP_ERROR( "AMP was compiled without support for libMesh" );
 #endif
-    } else if ( MeshType == std::string( "STKMesh" ) ) {
-// The mesh is a stkMesh mesh
-#ifdef AMP_USE_TRILINOS_STKCLASSIC
-        // maxSize = AMP::Mesh::STKMesh::maxProcs( params );
-        AMP_ERROR( "AMP stk mesh interface is broken" );
-#else
-        AMP_ERROR( "AMP was compiled without support for STKMesh" );
-#endif
+    } else if ( MeshType == "stk" || MeshType == "STKMesh" ) {
+        AMP_ERROR( "stk mesh support was removed on 12/02/25" );
+    } else if ( MeshType == "moab" || MeshType == "MOAB" ) {
+        AMP_ERROR( "MOAB support was removed on 12/02/25" );
     } else {
         // Unknown mesh type
         AMP_ERROR( "Unknown mesh type " + MeshType + " and maxProcs is not set" );

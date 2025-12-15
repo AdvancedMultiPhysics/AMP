@@ -1,3 +1,4 @@
+#include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/FunctionTable.h"
@@ -5,6 +6,7 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/cuda/CudaAllocator.h"
 #include "AMP/utils/cuda/GPUFunctionTable.h"
+
 #include <cuda.h>
 
 
@@ -13,9 +15,6 @@ void TestFunctionTable( AMP::UnitTest *ut,
                         AMP::Array<TYPE, FUN, ALLOC> &A,
                         AMP::Array<TYPE, FUN, ALLOC> &B )
 {
-    //    AMP::Array<TYPE, FUN, ALLOC> A;
-    //    AMP::Array<TYPE, FUN, ALLOC> B;
-
     bool pass     = true;
     double thresh = 1e-6;
     double val;
@@ -31,8 +30,8 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n1; i++ ) {
         A.data()[i] = 1.0;
     }
-    TYPE r1 = FUN::sum( A );
-    TYPE r2 = FUN::sum( B );
+    TYPE r1 = FUN::sum( A.length(), A.data() );
+    TYPE r2 = FUN::sum( B.length(), B.data() );
     if ( fabs( r1 - (float) n1 ) > thresh || fabs( r2 - (float) n2 > thresh ) ) {
         pass = false;
     }
@@ -42,14 +41,14 @@ void TestFunctionTable( AMP::UnitTest *ut,
         A.data()[i] = 1.0;
         B.data()[i] = 1.0;
     }
-    bool eq = FUN::equals( A, B, thresh );
+    bool eq = FUN::equals( A.length(), A.data(), B.data(), thresh );
     if ( !eq ) {
         pass = false;
     }
 
     int rind       = std::rand() % n2;
     B.data()[rind] = 0.0;
-    eq             = FUN::equals( A, B, thresh );
+    eq             = FUN::equals( A.length(), A.data(), B.data(), thresh );
     if ( eq ) {
         pass = false;
     }
@@ -59,7 +58,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = -1.0;
     }
-    FUN::transformReLU( A, B );
+    FUN::transformReLU( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( B.data()[i] ) > thresh ) {
             pass = false;
@@ -68,7 +67,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = 1.0;
     }
-    FUN::transformReLU( A, B );
+    FUN::transformReLU( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( B.data()[i] - 1.0 ) > thresh ) {
             pass = false;
@@ -79,7 +78,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = -1.0;
     }
-    FUN::transformAbs( A, B );
+    FUN::transformAbs( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( B.data()[i] - 1.0 ) > thresh ) {
             pass = false;
@@ -89,7 +88,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = 1.0;
     }
-    FUN::transformAbs( A, B );
+    FUN::transformAbs( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( B.data()[i] - 1.0 ) > thresh ) {
             pass = false;
@@ -104,7 +103,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
             A.data()[i] = -2.0;
         }
     }
-    FUN::transformHardTanh( A, B );
+    FUN::transformHardTanh( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( i % 2 == 0 ) {
             if ( fabs( B.data()[i] - 1.0 ) > thresh ) {
@@ -121,7 +120,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = ( 1.0 / 2.0 ) * log( 1.0 );
     }
-    FUN::transformTanh( A, B );
+    FUN::transformTanh( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( B.data()[i] ) > thresh ) {
             pass = false;
@@ -131,7 +130,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 1; i <= n2; i++ ) {
         A.data()[i - 1] = ( 1.0 / 2.0 ) * log( i );
     }
-    FUN::transformTanh( A, B );
+    FUN::transformTanh( A.length(), A.data(), B.data() );
     for ( size_t i = 1; i <= n2; i++ ) {
         val = ( i - 1.0 ) / ( i + 1.0 );
         if ( fabs( val - B.data()[i - 1] ) > thresh ) {
@@ -143,7 +142,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = ( 1.0 / 2.0 ) * log( 1.0 );
     }
-    FUN::transformSigmoid( A, B );
+    FUN::transformSigmoid( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( B.data()[i] - ( 1.0 / 2.0 ) ) > thresh ) {
             pass = false;
@@ -153,7 +152,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 1; i <= n2; i++ ) {
         A.data()[i - 1] = log( 1.0 / i );
     }
-    FUN::transformSigmoid( A, B );
+    FUN::transformSigmoid( A.length(), A.data(), B.data() );
     for ( size_t i = 1; i <= n2; i++ ) {
         val = 1.0 / ( 1.0 + i );
         if ( fabs( val - B.data()[i - 1] ) > thresh ) {
@@ -165,7 +164,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = log( expm1( 1.0 ) );
     }
-    FUN::transformSoftPlus( A, B );
+    FUN::transformSoftPlus( A.length(), A.data(), B.data() );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( 1.0 - B.data()[i] ) > thresh ) {
             pass = false;
@@ -175,7 +174,7 @@ void TestFunctionTable( AMP::UnitTest *ut,
     for ( size_t i = 0; i < n2; i++ ) {
         A.data()[i] = -1.0;
     }
-    FUN::transformSoftPlus( A, B );
+    FUN::transformSoftPlus( A.length(), A.data(), B.data() );
     val = log1p( exp( -1.0 ) );
     for ( size_t i = 0; i < n2; i++ ) {
         if ( fabs( B.data()[i] - val ) > thresh ) {
@@ -200,9 +199,9 @@ int main( int argc, char *argv[] )
     AMP::Array<double> B;
     TestFunctionTable( &ut, A, B );
 
-#if USE_CUDA
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<double>> C;
-    AMP::Array<double, AMP::GPUFunctionTable, AMP::CudaManagedAllocator<double>> D;
+#ifdef AMP_USE_CUDA
+    AMP::Array<double, AMP::GPUFunctionTable<double>, AMP::CudaManagedAllocator<double>> C;
+    AMP::Array<double, AMP::GPUFunctionTable<double>, AMP::CudaManagedAllocator<double>> D;
     TestFunctionTable( &ut, C, D );
 #endif
 

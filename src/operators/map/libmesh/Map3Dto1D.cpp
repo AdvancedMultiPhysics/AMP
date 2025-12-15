@@ -5,6 +5,8 @@
 
 // Libmesh files
 DISABLE_WARNINGS
+#include "libmesh/libmesh_config.h"
+#undef LIBMESH_ENABLE_REFERENCE_COUNTING
 #include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
@@ -31,14 +33,20 @@ Map3Dto1D::Map3Dto1D( std::shared_ptr<const OperatorParameters> params ) : MapOp
 
 void Map3Dto1D::reset( std::shared_ptr<const OperatorParameters> params )
 {
+    AMP_ASSERT( params );
+
     auto myparams = std::dynamic_pointer_cast<const MapOperatorParameters>( params );
 
-    AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameter" );
-    AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
-    AMP_INSIST( !myparams->d_MapComm.isNull(), "NULL communicator" );
+    AMP_INSIST( myparams, "NULL parameter" );
+    AMP_INSIST( myparams->d_db, "NULL database" );
     d_Mesh    = myparams->d_Mesh;
     d_MapMesh = myparams->d_MapMesh;
     d_MapComm = myparams->d_MapComm;
+    if ( d_MapComm.isNull() && d_MapMesh )
+        d_MapComm = d_MapMesh->getComm();
+    if ( d_MapComm.isNull() && d_Mesh )
+        d_MapComm = d_Mesh->getComm();
+    AMP_INSIST( !d_MapComm.isNull(), "NULL communicator" );
     AMP_INSIST( d_MapComm.sumReduce<int>( d_MapMesh ? 1 : 0 ) > 0, "Somebody must own the mesh" );
 
     d_useGaussVec = myparams->d_db->getWithDefault<bool>( "UseGaussVec", false );
@@ -62,7 +70,8 @@ void Map3Dto1D::reset( std::shared_ptr<const OperatorParameters> params )
 void Map3Dto1D::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                        AMP::LinearAlgebra::Vector::shared_ptr f )
 {
-
+    if ( !outputVec )
+        setVector( f );
     if ( d_useGaussVec ) {
         apply_Gauss( u, f );
     } else {
@@ -78,10 +87,10 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     std::vector<int> numFaceGauss( numPoints, 0 );
 
     // Get the local contributions to the map
-    if ( d_MapMesh != nullptr ) {
-        AMP_ASSERT( u != nullptr );
+    if ( d_MapMesh ) {
+        AMP_ASSERT( u );
         AMP::LinearAlgebra::Vector::const_shared_ptr inputVec = subsetInputVector( u );
-        AMP_ASSERT( inputVec != nullptr );
+        AMP_ASSERT( inputVec );
         AMP_ASSERT( inputVec->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
         std::shared_ptr<AMP::Discretization::DOFManager> dof_map = inputVec->getDOFManager();
@@ -91,7 +100,7 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             AMP::pout << inputVec << std::endl;
         }
 
-        AMP_ASSERT( outputVec != nullptr );
+        AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
         AMP::Mesh::MeshIterator bnd =
@@ -159,8 +168,8 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             }
 
             int pickId;
-            if ( pow( ( y[0] - y[3] ), 2 ) + pow( ( x[0] - x[3] ), 2 ) <
-                 pow( ( y[0] - y[2] ), 2 ) + pow( ( x[0] - x[2] ), 2 ) ) {
+            if ( std::pow( ( y[0] - y[3] ), 2 ) + std::pow( ( x[0] - x[3] ), 2 ) <
+                 std::pow( ( y[0] - y[2] ), 2 ) + std::pow( ( x[0] - x[2] ), 2 ) ) {
                 pickId = 3;
             } else {
                 pickId = 2;
@@ -213,12 +222,12 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     std::vector<int> numFaceNodes( numPoints, 0 );
 
     // Get the local contributions to the map
-    if ( d_MapMesh != nullptr ) {
-        AMP_ASSERT( u != nullptr );
+    if ( d_MapMesh ) {
+        AMP_ASSERT( u );
 
         // Subset u for the local vector of interest
         AMP::LinearAlgebra::Vector::const_shared_ptr inputVec = subsetInputVector( u );
-        AMP_ASSERT( inputVec != nullptr );
+        AMP_ASSERT( inputVec );
         AMP_ASSERT( inputVec->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
         std::shared_ptr<AMP::Discretization::DOFManager> dof_map = inputVec->getDOFManager();
@@ -228,7 +237,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             AMP::pout << inputVec << std::endl;
         }
 
-        AMP_ASSERT( outputVec != nullptr );
+        AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
         AMP::Mesh::MeshIterator bnd =
@@ -238,14 +247,13 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
         // Iterator for the solid-clad boundary
         for ( ; bnd != end_bnd; ++bnd ) {
 
-            AMP::Mesh::MeshElement cur_side = *bnd;
-            std::vector<AMP::Mesh::MeshElement> nodes =
-                cur_side.getElements( AMP::Mesh::GeomType::Vertex );
+            auto &cur_side = *bnd;
+            auto nodes     = cur_side.getElements( AMP::Mesh::GeomType::Vertex );
             AMP_ASSERT( nodes.size() == 4 );
 
             std::vector<double> zcoords;
             for ( auto &node : nodes ) {
-                auto coord = node.coord();
+                auto coord = node->coord();
                 zcoords.push_back( coord[2] );
             }
 
@@ -261,7 +269,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             std::vector<int> originalNodeOrder( zcoords.size() );
 
             for ( size_t i = 0; i < nodes.size(); i++ ) {
-                auto coord = nodes[i].coord();
+                auto coord = nodes[i]->coord();
                 double myZ = coord[2];
                 for ( unsigned int j = 0; j < tmpZcoords.size(); j++ ) {
                     if ( fabs( tmpZcoords[j] - myZ ) <= 1.e-12 ) {
@@ -277,15 +285,15 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             std::vector<double> y( 4, 0 );
             std::vector<double> x( 4, 0 );
             for ( int i = 0; i < 4; i++ ) {
-                auto coord = nodes[originalNodeOrder[i]].coord();
+                auto coord = nodes[originalNodeOrder[i]]->coord();
                 x[i]       = coord[0];
                 y[i]       = coord[1];
                 z[i]       = coord[2];
             }
 
             int pickId;
-            if ( pow( ( y[0] - y[3] ), 2 ) + pow( ( x[0] - x[3] ), 2 ) <
-                 pow( ( y[0] - y[2] ), 2 ) + pow( ( x[0] - x[2] ), 2 ) ) {
+            if ( std::pow( ( y[0] - y[3] ), 2 ) + std::pow( ( x[0] - x[3] ), 2 ) <
+                 std::pow( ( y[0] - y[2] ), 2 ) + std::pow( ( x[0] - x[2] ), 2 ) ) {
                 pickId = 3;
             } else {
                 pickId = 2;
@@ -300,8 +308,8 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                 if ( cur_node >= z[0] && cur_node <= z[pickId] ) {
                     std::vector<size_t> dof1;
                     std::vector<size_t> dof2;
-                    dof_map->getDOFs( nodes[originalNodeOrder[0]].globalID(), dof1 );
-                    dof_map->getDOFs( nodes[originalNodeOrder[pickId]].globalID(), dof2 );
+                    dof_map->getDOFs( nodes[originalNodeOrder[0]]->globalID(), dof1 );
+                    dof_map->getDOFs( nodes[originalNodeOrder[pickId]]->globalID(), dof2 );
                     AMP_ASSERT( dof1.size() == 1 && dof2.size() == 1 );
 
                     mapValues[i] +=

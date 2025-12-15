@@ -19,9 +19,9 @@ class DenseSerialMatrixOperations : public MatrixOperations
                std::shared_ptr<Vector> y ) override;
 
     /** \brief  Matrix transpose-vector multiplication
-     * \param[in]  in  The vector to multiply
-     * \param[in]  A  The input matrix A
-     * \param[out] out The resulting vectory
+     * \param[in]  in   The vector to multiply
+     * \param[in]  A    The input matrix A
+     * \param[out] out  The resulting vectory
      * \details  Compute \f$\mathbf{A}^T\mathbf{in} = \mathbf{out}\f$.
      */
     void multTranspose( std::shared_ptr<const Vector> in,
@@ -35,12 +35,22 @@ class DenseSerialMatrixOperations : public MatrixOperations
      */
     void scale( AMP::Scalar alpha, MatrixData &A ) override;
 
+    /** \brief  Scale the matrix by a scalar and diagonal matrix
+     */
+    void scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override;
+
+    /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
+     */
+    void scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & ) override;
+
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
      * \param[in] B  A multiplicand
      * \param[in] C  The product \f$\mathbf{AB}\f$.
      */
-    void matMultiply( MatrixData const &A, MatrixData const &B, MatrixData &C ) override;
+    void matMatMult( std::shared_ptr<MatrixData> A,
+                     std::shared_ptr<MatrixData> B,
+                     std::shared_ptr<MatrixData> C ) override;
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -68,16 +78,37 @@ class DenseSerialMatrixOperations : public MatrixOperations
      */
     void setDiagonal( std::shared_ptr<const Vector> in, MatrixData &A ) override;
 
+    /** \brief Extract the diagonal values into a vector
+     * \param[in]  A    The matrix to read from
+     * \param[out] buf  Buffer to write row sums into
+     */
+    void extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
+
+    /** \brief Extract the row sums into a vector
+     */
+    void getRowSums( MatrixData const &, std::shared_ptr<Vector> ) override;
+
+    /** \brief Extract the absolute row sums into a vector
+     */
+    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector>, const bool ) override;
+
     /** \brief  Set the matrix to the identity matrix
      * \param[out] A The matrix to set
      */
     void setIdentity( MatrixData &A ) override;
 
-    /** \brief Compute the maximum column sum
-     * \return  The L1 norm of the matrix
-     * \param[in] X The input matrix
+    /** \brief Compute the maximum row sum
+     * \return  The L-infinity norm of the matrix
+     * \param[in] X Data for the input matrix
      */
-    AMP::Scalar L1Norm( const MatrixData &X ) const override;
+    AMP::Scalar LinfNorm( const MatrixData &X ) const override;
+
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as x and copy the coefficients
+     * \param[in] x matrix data to copy from
+     * \param[in] y matrix data to copy to
+     */
+    void copy( const MatrixData &x, MatrixData &y ) override;
 };
 
 } // namespace AMP::LinearAlgebra

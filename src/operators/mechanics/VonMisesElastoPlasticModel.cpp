@@ -329,7 +329,7 @@ void VonMisesElastoPlasticModel::getEffectiveStress( double *& )
     for(int i = 0; i < 6; i++) {
         stress[i] = d_tmp1Stress[(6*d_gaussPtCnt)+i];
     }
-    eff_stress = sqrt((stress[0] * stress[0]) + (stress[1] * stress[1]) +
+    eff_stress = std::sqrt((stress[0] * stress[0]) + (stress[1] * stress[1]) +
         (stress[2] * stress[2]) + (2.0 * stress[3] * stress[3]) +
         (2.0 * stress[4] * stress[4]) + (2.0 * stress[5] * stress[5]));
     sigma_e = &(eff_stress);*/
@@ -418,7 +418,7 @@ void VonMisesElastoPlasticModel::constructConstitutiveMatrix()
 
     one3 = 1.0 / 3.0;
     two3 = 2.0 / 3.0;
-    sq23 = sqrt( two3 );
+    sq23 = std::sqrt( two3 );
 
     /*for(int i = 0; i < 6; i++) {
     std::cout << "stre_np1[" << i << "] = " << stre_np1[i] << std::endl;
@@ -496,9 +496,9 @@ void VonMisesElastoPlasticModel::constructConstitutiveMatrix()
     }*/
 
     // The effective stress.
-    q_np1 = sqrt( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
-                  ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
-                  ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) );
+    q_np1 = std::sqrt( ( sig_dev[0] * sig_dev[0] ) + ( sig_dev[1] * sig_dev[1] ) +
+                       ( sig_dev[2] * sig_dev[2] ) + ( 2.0 * sig_dev[3] * sig_dev[3] ) +
+                       ( 2.0 * sig_dev[4] * sig_dev[4] ) + ( 2.0 * sig_dev[5] * sig_dev[5] ) );
 
     // The normal direction.
     for ( int i = 0; i < 6; i++ ) {
@@ -647,7 +647,7 @@ void VonMisesElastoPlasticModel::radialReturn( const double *stra_np1,
             double E        = d_E[d_gaussPtCnt];
             double exp_term = 1.0 / ( 1.0 - n );
 
-            d_Sig0 = pow( ( ( K / pow( E, n ) ) * pow( str_term, m ) ), exp_term );
+            d_Sig0 = std::pow( ( ( K / std::pow( E, n ) ) * std::pow( str_term, m ) ), exp_term );
         }
     }
 
@@ -744,7 +744,7 @@ void VonMisesElastoPlasticModel::radialReturn( const double *stra_np1,
     */
     one3    = 1.0 / 3.0;
     two3    = 2.0 / 3.0;
-    sq23    = sqrt( two3 );
+    sq23    = std::sqrt( two3 );
     ephbp_n = eph_bar_plas_n; // Effective plastic strain at the previous time step.
     sigy_n  = ystre_n;        // Yield stress at the previous time step.
     term1   = 2.0 * ( 1.0 + Nu );
@@ -779,7 +779,7 @@ void VonMisesElastoPlasticModel::radialReturn( const double *stra_np1,
     sig_trial_kk = sig_kk + ( 3.0 * K * deph_kk );
 
     // Compute the trial effective stress.
-    q_trial = sqrt(
+    q_trial = std::sqrt(
         ( sig_trial_dev[0] * sig_trial_dev[0] ) + ( sig_trial_dev[1] * sig_trial_dev[1] ) +
         ( sig_trial_dev[2] * sig_trial_dev[2] ) + ( 2.0 * sig_trial_dev[3] * sig_trial_dev[3] ) +
         ( 2.0 * sig_trial_dev[4] * sig_trial_dev[4] ) +

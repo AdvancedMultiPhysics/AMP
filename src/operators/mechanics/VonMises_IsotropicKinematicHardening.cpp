@@ -381,7 +381,7 @@ void VonMises_IsotropicKinematicHardening::getConstitutiveMatrix( double *&const
 
     const double one3 = 1.0 / 3.0;
     const double two3 = 2.0 / 3.0;
-    sq23              = sqrt( two3 );
+    sq23              = std::sqrt( two3 );
 
     // std::cout << "sig_0 = " << sig_0 << " sig_inf = " << sig_inf << std::endl;
 
@@ -472,16 +472,16 @@ void VonMises_IsotropicKinematicHardening::getConstitutiveMatrix( double *&const
 
     // The effective stress.
     /*
-        q_np1 = sqrt((sig_dev[0] * sig_dev[0]) +
+        q_np1 = std::sqrt((sig_dev[0] * sig_dev[0]) +
             (sig_dev[1] * sig_dev[1]) +
             (sig_dev[2] * sig_dev[2]) +
             (2.0 * sig_dev[3] * sig_dev[3]) +
             (2.0 * sig_dev[4] * sig_dev[4]) +
             (2.0 * sig_dev[5] * sig_dev[5]));
     */
-    xi_np1 = sqrt( ( xi_dev[0] * xi_dev[0] ) + ( xi_dev[1] * xi_dev[1] ) +
-                   ( xi_dev[2] * xi_dev[2] ) + ( 2.0 * xi_dev[3] * xi_dev[3] ) +
-                   ( 2.0 * xi_dev[4] * xi_dev[4] ) + ( 2.0 * xi_dev[5] * xi_dev[5] ) );
+    xi_np1 = std::sqrt( ( xi_dev[0] * xi_dev[0] ) + ( xi_dev[1] * xi_dev[1] ) +
+                        ( xi_dev[2] * xi_dev[2] ) + ( 2.0 * xi_dev[3] * xi_dev[3] ) +
+                        ( 2.0 * xi_dev[4] * xi_dev[4] ) + ( 2.0 * xi_dev[5] * xi_dev[5] ) );
 
     // The normal direction.
     for ( int i = 0; i < 6; i++ ) {
@@ -494,9 +494,9 @@ void VonMises_IsotropicKinematicHardening::getConstitutiveMatrix( double *&const
     }
 
     xi_trial_eff =
-        sqrt( ( xi_trial[0] * xi_trial[0] ) + ( xi_trial[1] * xi_trial[1] ) +
-              ( xi_trial[2] * xi_trial[2] ) + ( 2.0 * xi_trial[3] * xi_trial[3] ) +
-              ( 2.0 * xi_trial[4] * xi_trial[4] ) + ( 2.0 * xi_trial[5] * xi_trial[5] ) );
+        std::sqrt( ( xi_trial[0] * xi_trial[0] ) + ( xi_trial[1] * xi_trial[1] ) +
+                   ( xi_trial[2] * xi_trial[2] ) + ( 2.0 * xi_trial[3] * xi_trial[3] ) +
+                   ( 2.0 * xi_trial[4] * xi_trial[4] ) + ( 2.0 * xi_trial[5] * xi_trial[5] ) );
 
     // The trial effective stress.
     // q_trial = q_np1 + (2.0 * G * lam);
@@ -620,8 +620,6 @@ void VonMises_IsotropicKinematicHardening::radialReturn(
     }
     double H_alpha_prime = 1.0;
     double a_n[6], xi_trial, xi_trial_dev[6], alpha_n_kk;
-    NULL_USE( h_alpha );
-    NULL_USE( h_alpha_prime );
 
     double dstra[6];
 
@@ -636,7 +634,7 @@ void VonMises_IsotropicKinematicHardening::radialReturn(
 
     constexpr double one3 = 1.0 / 3.0;
     constexpr double two3 = 2.0 / 3.0;
-    sq23                  = sqrt( two3 );
+    sq23                  = std::sqrt( two3 );
     ephbp_n               = eph_bar_plas_n; // Effective plastic strain at the previous time step.
     // sigy_n = ystre_n;           //Yield stress at the previous time step.
 
@@ -688,14 +686,14 @@ void VonMises_IsotropicKinematicHardening::radialReturn(
 
     // Compute the trial effective stress.
     /*
-        q_trial = sqrt((sig_trial_dev[0] * sig_trial_dev[0]) +
+        q_trial = std::sqrt((sig_trial_dev[0] * sig_trial_dev[0]) +
             (sig_trial_dev[1] * sig_trial_dev[1]) +
             (sig_trial_dev[2] * sig_trial_dev[2]) +
             (2.0 * sig_trial_dev[3] * sig_trial_dev[3]) +
             (2.0 * sig_trial_dev[4] * sig_trial_dev[4]) +
             (2.0 * sig_trial_dev[5] * sig_trial_dev[5]));
     */
-    xi_trial = sqrt(
+    xi_trial = std::sqrt(
         ( xi_trial_dev[0] * xi_trial_dev[0] ) + ( xi_trial_dev[1] * xi_trial_dev[1] ) +
         ( xi_trial_dev[2] * xi_trial_dev[2] ) + ( 2.0 * xi_trial_dev[3] * xi_trial_dev[3] ) +
         ( 2.0 * xi_trial_dev[4] * xi_trial_dev[4] ) + ( 2.0 * xi_trial_dev[5] * xi_trial_dev[5] ) );

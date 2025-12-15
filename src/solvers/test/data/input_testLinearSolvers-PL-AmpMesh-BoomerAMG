@@ -1,0 +1,38 @@
+Mesh{
+    MeshName = "cube"
+    MeshType = "AMP"
+    dim = 3
+    Generator = "cube"
+    Size = 50,50,50
+    Range = 0, 1, 0, 1, 0, 1
+    x_offset = -0.5
+    y_offset = -0.5
+    z_offset = -0.5
+}
+
+LinearOperator {
+  name="LinearOperator"
+  MemoryLocation = "managed"
+  print_info_level = 1
+}
+
+LinearSolver{
+  name = "BoomerAMGSolver"
+  relative_tolerance = 1.0e-12
+  absolute_tolerance = 1.0e-12
+  max_levels             = 25
+  max_coarse_size        = 32
+  min_coarse_size        = 16
+  max_iterations         = 100
+  measure_type           = 1
+  coarsen_type           = 8
+  interp_type            = 6
+  relax_order            = 0
+  relax_type             = 16
+  smooth_type            = 16
+  chebyshev_order        = 2
+  chebyshev_fraction     = 0.3
+  keep_transpose         = 1
+  strong_threshold       = 0.5
+  print_info_level       = 3
+}

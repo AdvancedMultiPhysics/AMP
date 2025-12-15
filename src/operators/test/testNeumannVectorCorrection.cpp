@@ -66,7 +66,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         std::make_shared<AMP::Operator::NeumannVectorCorrection>( vectorCorrectionParameters );
 
     neumannBndOp->addRHScorrection( vectorVec );
-    auto vectorVec2 = vectorVec->select( AMP::LinearAlgebra::VS_Stride( 1, 2 ), "V2" );
+    auto vectorVec2 = vectorVec->select( AMP::LinearAlgebra::VS_Stride( 1, 2 ) );
 
     ut->passes( "Ran to completion" );
 }

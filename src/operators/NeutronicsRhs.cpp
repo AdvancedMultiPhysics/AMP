@@ -1,7 +1,6 @@
 #include "AMP/operators/NeutronicsRhs.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
-#include "AMP/operators/NeutronicsRhsParameters.h"
 #include "AMP/operators/Operator.h"
 #include "AMP/utils/Database.h"
 #include "AMP/vectors/Vector.h"
@@ -19,7 +18,7 @@ namespace AMP::Operator {
  * values from the parameters.                                           *
  *************************************************************************
  */
-NeutronicsRhs::NeutronicsRhs( std::shared_ptr<NeutronicsRhsParameters> parameters )
+NeutronicsRhs::NeutronicsRhs( std::shared_ptr<OperatorParameters> parameters )
     : Operator( parameters ), d_useFixedValue( false ), d_type( SourceType::Power ), d_timeStep( 0 )
 {
     AMP_ASSERT( parameters );
@@ -125,14 +124,11 @@ void NeutronicsRhs::printClassData( std::ostream &os ) const
  * Reset the class.                                                      *
  *************************************************************************
  */
-void NeutronicsRhs::reset( std::shared_ptr<const OperatorParameters> parameters )
+void NeutronicsRhs::reset( std::shared_ptr<const OperatorParameters> params )
 {
-
-    AMP_ASSERT( parameters );
-    d_db        = parameters->d_db;
-    auto params = std::dynamic_pointer_cast<const NeutronicsRhsParameters>( parameters );
     AMP_ASSERT( params );
-    AMP_ASSERT( ( ( params->d_db ).get() ) != nullptr );
+    AMP_ASSERT( params->d_db );
+    d_db = params->d_db;
     getFromInput( params->d_db );
 
     if ( !d_useFixedValue ) {
@@ -160,9 +156,9 @@ void NeutronicsRhs::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     (void) u;
 
     // subsetOutputVector is from Operator.h
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal = this->subsetOutputVector( r );
+    auto rInternal = this->subsetOutputVector( r );
 
-    AMP_ASSERT( rInternal != nullptr );
+    AMP_ASSERT( rInternal );
 
     // determine the present time
     int this_step = d_timeStep;
@@ -240,7 +236,7 @@ void NeutronicsRhs::setOutputVariableName( const std::string &name, int varId )
     d_outputVariable = std::make_shared<AMP::LinearAlgebra::Variable>( name );
 }
 
-std::shared_ptr<AMP::LinearAlgebra::Variable> NeutronicsRhs::getOutputVariable()
+std::shared_ptr<AMP::LinearAlgebra::Variable> NeutronicsRhs::getOutputVariable() const
 {
     return d_outputVariable;
 }

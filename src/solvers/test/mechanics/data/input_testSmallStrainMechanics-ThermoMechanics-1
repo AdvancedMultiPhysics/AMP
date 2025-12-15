@@ -1,28 +1,64 @@
 
 Mesh{
-    FileName = "cylinder1K.e"
-    //FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
     MeshName = "cylinder"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 5226
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 4, 8
+    Range = 1, -2, 2
+    surfaceIds = 1, 1, 1, 1, 2, 3
+    static = TRUE
 }
 
-NumberOfLoadingSteps = 10
+NumberOfLoadingSteps = 8
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+VonMisesElastoPlasticModel1 {
+    USE_MATERIALS_LIBRARY = TRUE
+    print_info_level = 2
+    Material = "UO2_MSRZC_09"
+    //name = "VonMisesElastoPlasticModel"
+    //name = "IsotropicElasticModel"
+    //name="ThermalStrainMaterialModel"
+    //name="ThermalSwellingDensificationElasticity"
+    name="ElasticDamageThermalStrainModel"
+    Use_Thermal_Strain = TRUE                     // (Optional, default - false) Whether to use thermal strain or not.
+    Use_Swelling_Strain = FALSE                    // (Optional, default - false) Whether to use swelling strain or not.
+    Use_Densification_Strain = FALSE               // (Optional, default - false) Whether to use densification strain or not.
+    Use_Relocation_Strain = FALSE                  // (Optional, default - false) Whether to use relocation strain or not.
+    Use_Creep_Strain = FALSE                       // (Optional, default - false) Whether to use creep strain or not.
+    LinearHeatGenerationRate=35.5                 // (Optional, default - 35.5 KW/m) Value of the linear heat generation rate in KW/m (Killo Watt per Meter) units. Range between 0.0 KW/m to 80.0 KW/m.
+    ColdPelletDiameter=0.011734                   // (Optional, default - 0.011734 m) Initial pellet diameter in m (meter) units. This value should be greater than zero.
+    ColdGapDistance=0.0002286                     // (Optional, default - 0.0002286 m) Initial gap between pellet and clad, in m (meter) units. This value should be greater than zero.
+    Youngs_Modulus = 2.08e11                      // (Optional, no default, directly read from materials library) Default value of the Young's Modulus, in Pa (Pascal) units. This should be greater than zero.
+    Poissons_Ratio = 0.23                         // (Optional, no default, directly read from materials library) Default value of the Poisson's Ratio (unitless). Ranges between 0.0 and 0.5.
+    Linear_Strain_Hardening = 5.10e10              // (Optional, not used in the ThermalSwellingDensificationElasticity) Linear strain hardening is used in elasto-plastic models. Unit is Pa. This should be greater than zero.
+    Elastic_Yield_Stress = 3.45e9                // (Optional, not used in the ThermalSwellingDensificationElasticity) Elastic yield stress signifies the end of elastic deformation and only used in elasto-plastic models. Unit is Pa. This also must be greater than zero.
+    Density_Change=2.0                            // (Optional, default - 2.0 %) The maximum density change in densification models. Given as % of theoretical density. Ranges between 0.0% to 6.0%.
+    Cutoff_Burnup=1.0                             // (Optional, default - 1.0 GWd/MUT) Maximum burnup beyond which densification does not occur. Given in GWd/MTU (Giga Watt Days per Metric Ton Uranium) units. Range is 0.0 GWd/MTU to 5.0 GWd/MTU.
+    Use_As_Source_Term = FALSE                    // (Optional, default - false) This must be kept false (or removed from the database).
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6        // (Optional, no default, directly read from materials library) Default thermal expansion coefficient, unit is /K (per degree Kelvin). Ranges between 0.0 /K to 5.0e-5 /K.
+    FractionalAxialSwelling = 1.0                 // (Optional, default is 1.0)
+    FractionalRadialSwelling = 1.0                // (Optional, default is 1.0)
+    FractionalAxialDensification = 1.0                 // (Optional, default is 1.0)
+    FractionalRadialDensification = 1.0                // (Optional, default is 1.0)
+    FractionalAxialRelocation = 0.0                 // (Optional, default is 0.0)
+    FractionalRadialRelocation = 1.0                // (Optional, default is 1.0)
+    Default_Oxygen_Concentration = 0.0            // (Optional, default - 0.0) Default oxygen concentration (unitless). Range is 0.0 to 0.2.
+    Default_Temperature = 750.0                   // (Optional, default - 310.0 K) Default temperature (in Kelvin units). Must be greater than 300.0 K and smaller than 3000.0 K.
+    Default_Burnup = 0.0                          // (Optional, default - 0.0 GWd/MTU) Default value of burnup in GWd/MTU (Giga Watt Days per Metric Ton Uranium) units. This must be greater than zero.
+    Initial_Damage_Threshold = 0.1
+    Critical_Damage_Threshold = 0.6
+}
+
 MechanicsNonlinearFEOperator1 {
       name = "MechanicsNonlinearFEOperator"
-        print_info_level = 3
+        print_info_level = 2
         ActiveInputVariables {
           DISPLACEMENT = "displacement"
           TEMPERATURE = "Temperature"
@@ -45,7 +81,16 @@ MechanicsNonlinearFEOperator1 {
             QRULE_ORDER = "DEFAULT"
         }
 
-	LocalModel = "VonMisesElastoPlasticModel1"
+        MechanicsLinearElement {
+          name="MechanicsLinearElement"
+            USE_REDUCED_INTEGRATION = FALSE 
+            FE_ORDER = "FIRST"  
+            FE_FAMILY = "LAGRANGE"
+            QRULE_TYPE = "QGAUSS"
+            QRULE_ORDER = "DEFAULT"
+        }
+
+	LocalModel = VonMisesElastoPlasticModel1
     }
 
 DirichletVectorCorrection1 {
@@ -92,43 +137,6 @@ DirichletVectorCorrection1 {
       //value_2_1 = 0.0
   }
 
-VonMisesElastoPlasticModel1 {
-        USE_MATERIALS_LIBRARY = TRUE
-        print_info_level = 6
-          Material = "UO2_MSRZC_09"
-          //name = "VonMisesElastoPlasticModel"
-          //name = "IsotropicElasticModel"
-          //name="ThermalStrainMaterialModel"
-          //name="ThermalSwellingDensificationElasticity"
-          name="ElasticDamageThermalStrainModel"
-          Use_Thermal_Strain = TRUE                     // (Optional, default - false) Whether to use thermal strain or not.
-          Use_Swelling_Strain = FALSE                    // (Optional, default - false) Whether to use swelling strain or not.
-          Use_Densification_Strain = FALSE               // (Optional, default - false) Whether to use densification strain or not.
-          Use_Relocation_Strain = FALSE                  // (Optional, default - false) Whether to use relocation strain or not.
-          Use_Creep_Strain = FALSE                       // (Optional, default - false) Whether to use creep strain or not.
-          LinearHeatGenerationRate=35.5                 // (Optional, default - 35.5 KW/m) Value of the linear heat generation rate in KW/m (Killo Watt per Meter) units. Range between 0.0 KW/m to 80.0 KW/m.
-          ColdPelletDiameter=0.011734                   // (Optional, default - 0.011734 m) Initial pellet diameter in m (meter) units. This value should be greater than zero.
-          ColdGapDistance=0.0002286                     // (Optional, default - 0.0002286 m) Initial gap between pellet and clad, in m (meter) units. This value should be greater than zero.
-          Youngs_Modulus = 2.08e11                      // (Optional, no default, directly read from materials library) Default value of the Young's Modulus, in Pa (Pascal) units. This should be greater than zero.
-          Poissons_Ratio = 0.23                         // (Optional, no default, directly read from materials library) Default value of the Poisson's Ratio (unitless). Ranges between 0.0 and 0.5.
-          Linear_Strain_Hardening = 5.10e10              // (Optional, not used in the ThermalSwellingDensificationElasticity) Linear strain hardening is used in elasto-plastic models. Unit is Pa. This should be greater than zero.
-          Elastic_Yield_Stress = 3.45e9                // (Optional, not used in the ThermalSwellingDensificationElasticity) Elastic yield stress signifies the end of elastic deformation and only used in elasto-plastic models. Unit is Pa. This also must be greater than zero.
-          Density_Change=2.0                            // (Optional, default - 2.0 %) The maximum density change in densification models. Given as % of theoretical density. Ranges between 0.0% to 6.0%.
-          Cutoff_Burnup=1.0                             // (Optional, default - 1.0 GWd/MUT) Maximum burnup beyond which densification does not occur. Given in GWd/MTU (Giga Watt Days per Metric Ton Uranium) units. Range is 0.0 GWd/MTU to 5.0 GWd/MTU.
-          Use_As_Source_Term = FALSE                    // (Optional, default - false) This must be kept false (or removed from the database).
-          THERMAL_EXPANSION_COEFFICIENT = 2.0e-6        // (Optional, no default, directly read from materials library) Default thermal expansion coefficient, unit is /K (per degree Kelvin). Ranges between 0.0 /K to 5.0e-5 /K.
-          FractionalAxialSwelling = 1.0                 // (Optional, default is 1.0)
-          FractionalRadialSwelling = 1.0                // (Optional, default is 1.0)
-          FractionalAxialDensification = 1.0                 // (Optional, default is 1.0)
-          FractionalRadialDensification = 1.0                // (Optional, default is 1.0)
-          FractionalAxialRelocation = 0.0                 // (Optional, default is 0.0)
-          FractionalRadialRelocation = 1.0                // (Optional, default is 1.0)
-          Default_Oxygen_Concentration = 0.0            // (Optional, default - 0.0) Default oxygen concentration (unitless). Range is 0.0 to 0.2.
-          Default_Temperature = 750.0                   // (Optional, default - 310.0 K) Default temperature (in Kelvin units). Must be greater than 300.0 K and smaller than 3000.0 K.
-          Default_Burnup = 0.0                          // (Optional, default - 0.0 GWd/MTU) Default value of burnup in GWd/MTU (Giga Watt Days per Metric Ton Uranium) units. This must be greater than zero.
-          Initial_Damage_Threshold = 0.1
-          Critical_Damage_Threshold = 0.6
-      }
 
 LinearMechanicsOperator {
   name="LinearBVPOperator"
@@ -209,27 +217,30 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
-    max_error = 1e-10
-
     absolute_tolerance = 1.0e-15
-    relative_tolerance = 1.0e-10
-    stepTolerance = 1.0e-10
+    relative_tolerance = 1.0e-12
+    stepTolerance = 1.0e-18
     maximumFunctionEvals = 1000
-    usesJacobian=TRUE
+    usesJacobian=FALSE
+    forcing_term_strategy            =  "CONSTANT"
+    constant_forcing_term            =  0.01
+//    forcing_term_strategy            =  "EWCHOICE3"
+//    EW_choice2_alpha = 2.0
+//    EW_choice2_gamma = 0.9
 
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.0001"
 
     LinearSolver{
-      print_info_level = 1
-        max_iterations = 10
-        max_error = 1e-10
+        name = "PetscKrylovSolver"
+        print_info_level = 1
+        max_iterations = 100
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
-        relative_tolerance = 1.0e-11
+        relative_tolerance = 1.0e-15
         divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        max_krylov_dimension = 100
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
@@ -237,14 +248,14 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
         Preconditioner{
-          print_info_level = 1
+            name = "TrilinosMLSolver"
+            print_info_level = 1
             PDE_equations = 3
             max_iterations = 1
-            max_error = 1.0e-15
-              max_levels = 1
-              aggregationtype = "Uncoupled"
-              smoothertype = "Chebyshev"
-              smoother_sweeps = 3
+            max_levels = 1
+            aggregationtype = "Uncoupled"
+            smoothertype = "Chebyshev"
+            smoother_sweeps = 3
         }
     }
 }

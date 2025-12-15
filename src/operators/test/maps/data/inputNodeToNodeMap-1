@@ -18,9 +18,6 @@ Mesh{
         x_offset = 0.0
         y_offset = 0.0
         z_offset = 0.0, 0.01016, 0.02032
-        //MeshType = "libMesh"
-        //FileName = "TC1-PELL-COARSE.e"
-        //NumberOfElements = 80
     }
 }
 

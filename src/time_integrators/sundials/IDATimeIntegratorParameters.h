@@ -58,7 +58,7 @@ public:
     std::shared_ptr<LinearTimeOperator> d_pLinearTimeOperator;
     std::shared_ptr<TimeOperatorParameters> d_pLinearTimeOperatorParameters;
 
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pPreconditioner;
+    std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver;
     std::shared_ptr<AMP::Operator::LinearOperator> d_pLinearOperator;
 
 
@@ -69,10 +69,7 @@ public:
 
 protected:
 private:
-    // not implemented
-    // IDATimeIntegratorParameters(){}
-
-    explicit IDATimeIntegratorParameters(); // Just following ImplicitTimeIntegratorParameters();
+    explicit IDATimeIntegratorParameters() = delete;
     explicit IDATimeIntegratorParameters( const IDATimeIntegratorParameters & );
     void operator=( const IDATimeIntegratorParameters & );
 };

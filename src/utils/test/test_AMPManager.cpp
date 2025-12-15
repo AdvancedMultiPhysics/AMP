@@ -77,10 +77,7 @@ int main( int argc, char *argv[] )
     // Shutdown
     int rank = AMP::AMP_MPI( AMP_COMM_WORLD ).getRank();
     AMP::AMPManager::shutdown();
-#ifdef AMP_USE_MPI
-    if ( procMax > 0 )
-        MPI_Comm_free( &AMP_comm );
-#endif
+    AMP_comm = AMP_COMM_NULL;
 
     // Test a reinitialization of AMP
     try {

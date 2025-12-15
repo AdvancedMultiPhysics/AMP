@@ -8,7 +8,7 @@
 #include "AMP/mesh/MeshUtilities.h"
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/mesh/SubsetMesh.h"
-#include "AMP/utils/AMP_MPI.I"
+#include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/kdtree.h"
 #include "AMP/vectors/Variable.h"
@@ -34,14 +34,7 @@ static unsigned int nextLocalMeshID = 1;
 /********************************************************
  * Constructors                                          *
  ********************************************************/
-Mesh::Mesh()
-    : d_geometry( nullptr ),
-      GeomDim( GeomType::Vertex ),
-      PhysicalDim( 0 ),
-      d_max_gcw( 0 ),
-      d_meshID( 0 )
-{
-}
+Mesh::Mesh() : GeomDim( GeomType::Vertex ), PhysicalDim( 0 ), d_max_gcw( 0 ), d_meshID( 0 ) {}
 Mesh::Mesh( std::shared_ptr<const MeshParameters> params )
 {
     // Set the base properties
@@ -59,12 +52,11 @@ Mesh::Mesh( std::shared_ptr<const MeshParameters> params )
         d_name = db->getWithDefault<std::string>( "MeshName", d_name );
 }
 Mesh::Mesh( const Mesh &rhs )
-    : d_geometry( nullptr ),
-      GeomDim( rhs.GeomDim ),
+    : GeomDim( rhs.GeomDim ),
       PhysicalDim( rhs.PhysicalDim ),
       d_max_gcw( rhs.d_max_gcw ),
-      d_comm( rhs.d_comm ),
       d_meshID( 0 ),
+      d_comm( rhs.d_comm ),
       d_name( rhs.d_name ),
       d_box( rhs.d_box ),
       d_box_local( rhs.d_box_local )
@@ -73,11 +65,6 @@ Mesh::Mesh( const Mesh &rhs )
     if ( rhs.d_geometry )
         d_geometry = rhs.d_geometry->clone();
 }
-
-
-/********************************************************
- * De-constructor                                        *
- ********************************************************/
 Mesh::~Mesh() = default;
 
 
@@ -108,6 +95,30 @@ std::vector<MeshID> Mesh::getAllMeshIDs() const { return std::vector<MeshID>( 1,
 std::vector<MeshID> Mesh::getBaseMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getLocalMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getLocalBaseMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
+
+
+/********************************************************
+ * Fill the domain box from the local box                *
+ ********************************************************/
+std::vector<double> Mesh::reduceBox( const std::vector<double> &x, const AMP_MPI &comm )
+{
+    int ndim = x.size() / 2;
+    AMP_ASSERT( ndim && (int) x.size() == 2 * ndim );
+    double localMin[3] = { 0 }, localMax[3] = { 0 }, globalMin[3] = { 0 }, globalMax[3] = { 0 };
+    for ( int d = 0; d < ndim; d++ ) {
+        localMin[d] = x[2 * d + 0];
+        localMax[d] = x[2 * d + 1];
+        AMP_ASSERT( fabs( localMax[d] ) < 1e100 && fabs( localMax[d] ) < 1e100 );
+    }
+    comm.minReduce( localMin, globalMin, ndim );
+    comm.maxReduce( localMax, globalMax, ndim );
+    std::vector<double> y( x.size() );
+    for ( int d = 0; d < ndim; d++ ) {
+        y[2 * d + 0] = globalMin[d];
+        y[2 * d + 1] = globalMax[d];
+    }
+    return y;
+}
 
 
 /********************************************************
@@ -153,26 +164,27 @@ std::shared_ptr<Mesh> Mesh::Subset( const MeshIterator &iterator, bool isGlobal 
 /********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-MeshElement Mesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> Mesh::getElement( const MeshElementID &elem_id ) const
 {
     MeshID mesh_id = elem_id.meshID();
     AMP_INSIST( mesh_id == d_meshID, "mesh id must match the mesh id of the element" );
     auto it = getIterator( elem_id.type() );
     for ( size_t i = 0; i < it.size(); i++, ++it ) {
         if ( it->globalID() == elem_id )
-            return *it;
+            return it->clone();
     }
-    return MeshElement();
+    return std::make_unique<MeshElement>();
 }
 
 
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> Mesh::getElementParents( const MeshElement &, const GeomType ) const
+std::vector<std::unique_ptr<MeshElement>> Mesh::getElementParents( const MeshElement &,
+                                                                   const GeomType ) const
 {
     AMP_ERROR( "getElementParents is not implemented: " + meshClass() );
-    return std::vector<MeshElement>();
+    return {};
 }
 
 
@@ -208,13 +220,13 @@ bool Mesh::isMember( const MeshElementID &id ) const { return id.meshID() == d_m
 MeshIterator Mesh::isMember( const MeshIterator &iterator ) const
 {
     PROFILE( "isMember" );
-    auto elements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>();
+    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>();
     elements->reserve( iterator.size() );
     for ( const auto &elem : iterator ) {
         if ( isMember( elem.globalID() ) )
-            elements->push_back( elem );
+            elements->push_back( elem.clone() );
     }
-    return AMP::Mesh::MultiVectorIterator( elements, 0 );
+    return AMP::Mesh::MeshElementVectorIterator( elements, 0 );
 }
 
 
@@ -276,14 +288,49 @@ size_t Mesh::numGhostElements( const GeomType, int ) const
 /********************************************************
  * Compare two meshes                                    *
  ********************************************************/
+int Mesh::CompareResult::result() const
+{
+    if ( equal )
+        return 1;
+    if ( nodes && surface && block && domain )
+        return 2;
+    if ( surface && block && domain )
+        return 3;
+    return 0;
+}
+Mesh::CompareResult::CompareResult( int state )
+    : equal( state == 1 ),
+      nodes( state > 0 && state < 3 ),
+      surface( state > 0 ),
+      block( state > 0 ),
+      domain( state > 0 ),
+      geometry( state == 1 )
+{
+}
+bool Mesh::CompareResult::operator==( const Mesh::CompareResult &rhs ) const
+{
+    return equal == rhs.equal && nodes == rhs.nodes && surface == rhs.surface &&
+           block == rhs.block && domain == rhs.domain && geometry == rhs.geometry;
+}
+Mesh::CompareResult operator&&( const Mesh::CompareResult &a, const Mesh::CompareResult &b )
+{
+    Mesh::CompareResult c;
+    c.equal    = a.equal && b.equal;
+    c.nodes    = a.nodes && b.nodes;
+    c.surface  = a.surface && b.surface;
+    c.block    = a.block && b.block;
+    c.domain   = a.domain && b.domain;
+    c.geometry = a.geometry && b.geometry;
+    return c;
+}
 static double getTol( const std::vector<double> &box, size_t N )
 {
     int ndim     = box.size();
-    size_t N2    = pow( N, 1.0 / ndim );
+    size_t N2    = std::pow( N, 1.0 / ndim );
     double dx[3] = { 0, 0, 0 };
     for ( int d = 0; d < ndim / 2; d++ )
         dx[d] = ( box[2 * d + 1] - box[2 * d] ) / N2;
-    return 0.2 * sqrt( dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2] );
+    return 0.2 * std::sqrt( dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2] );
 }
 static inline std::vector<Point> getPoints( MeshIterator it )
 {
@@ -292,7 +339,7 @@ static inline std::vector<Point> getPoints( MeshIterator it )
         p[i] = it->centroid();
     return p;
 }
-int Mesh::compare( const Mesh &a, const Mesh &b )
+Mesh::CompareResult Mesh::compare( const Mesh &a, const Mesh &b )
 {
     // Check if the meshes are equal
     if ( a == b )
@@ -302,40 +349,41 @@ int Mesh::compare( const Mesh &a, const Mesh &b )
     auto b2 = dynamic_cast<const MultiMesh *>( &b );
     if ( a2 || b2 ) {
         if ( !a2 || !b2 )
-            return false;
+            return 0;
         auto list1 = a2->getMeshes();
         auto list2 = b2->getMeshes();
         if ( list1.size() != list2.size() )
-            return false;
-        int result = 1;
+            return 0;
+        CompareResult result( 1 );
         for ( size_t i = 0; i < list1.size(); i++ ) {
-            int test = compare( *list1[i], *list2[i] );
-            if ( test == 0 )
-                return 0;
-            result = std::max( result, test );
+            auto test = compare( *list1[i], *list2[i] );
+            result    = result && test;
         }
         return result;
     }
-    // Default comparison
-    // Perform simple comparisons
+    // Check dimensions and comm
     if ( a.GeomDim != b.GeomDim || a.PhysicalDim != b.PhysicalDim ||
          a.d_comm.compare( b.d_comm ) == 0 )
         return 0;
-    if ( a.getBoundaryIDs() != b.getBoundaryIDs() || a.getBlockIDs() != b.getBlockIDs() )
-        return 0;
+    // Default comparison
+    Mesh::CompareResult result( 0 );
+    // Perform simple comparisons
+    result.surface = a.getBoundaryIDs() == b.getBoundaryIDs();
+    result.block   = a.getBlockIDs() == b.getBlockIDs();
     // Compare domains
-    size_t N1  = a.numLocalElements( a.GeomDim );
-    size_t N2  = b.numLocalElements( b.GeomDim );
-    auto box1  = a.getBoundingBox();
-    auto box2  = b.getBoundingBox();
-    double tol = getTol( box1, std::min( N1, N2 ) );
+    size_t N1     = a.numLocalElements( a.GeomDim );
+    size_t N2     = b.numLocalElements( b.GeomDim );
+    auto box1     = a.getBoundingBox();
+    auto box2     = b.getBoundingBox();
+    double tol    = getTol( box1, std::min( N1, N2 ) );
+    result.domain = true;
     for ( size_t i = 0; i < box1.size(); i++ ) {
         if ( fabs( box1[i] - box2[i] ) > tol )
-            return 0;
+            result.domain = false;
     }
     // Compare the coordinates
     if ( N1 == N2 ) {
-        bool test    = true;
+        result.nodes = true;
         auto nodes_a = getPoints( a.getIterator( GeomType::Vertex ) );
         auto nodes_b = getPoints( b.getIterator( GeomType::Vertex ) );
         auto elems_a = getPoints( a.getIterator( a.GeomDim ) );
@@ -343,32 +391,21 @@ int Mesh::compare( const Mesh &a, const Mesh &b )
         kdtree tree_a_node( nodes_a );
         kdtree tree_a_elem( elems_a );
         for ( const auto &p : nodes_b ) {
-            auto p2 = tree_a_node.find_nearest( p );
-            test    = test && ( p - p2 ).norm() < tol * tol;
+            auto p2      = tree_a_node.find_nearest( p );
+            result.nodes = result.nodes && ( p - p2 ).norm() < tol * tol;
         }
         for ( const auto &p : elems_b ) {
-            auto p2 = tree_a_elem.find_nearest( p );
-            test    = test && ( p - p2 ).norm() < tol * tol;
+            auto p2      = tree_a_elem.find_nearest( p );
+            result.nodes = result.nodes && ( p - p2 ).norm() < tol * tol;
         }
-        if ( test )
-            return 2;
     }
     // Get the geometries
     auto geom1 = a.getGeometry();
     auto geom2 = b.getGeometry();
-    if ( !geom1 ) {
-        auto ptr = std::const_pointer_cast<Mesh>( a.shared_from_this() );
-        geom1    = std::make_shared<AMP::Geometry::MeshGeometry>( ptr );
+    if ( geom1 && geom2 ) {
+        result.geometry = ( *geom1 == *geom2 );
     }
-    if ( !geom2 ) {
-        auto ptr = std::const_pointer_cast<Mesh>( b.shared_from_this() );
-        geom2    = std::make_shared<AMP::Geometry::MeshGeometry>( ptr );
-    }
-    if ( *geom1 == *geom2 )
-        return 3;
-
-    AMP_WARNING( "Not finished" );
-    return -1;
+    return result;
 }
 
 
@@ -434,12 +471,12 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
     if ( ids.empty() )
         return MeshIterator();
     size_t N      = 0;
-    auto elements = std::make_shared<std::vector<MeshElement>>( ids.size() );
+    auto elements = std::make_shared<std::vector<std::unique_ptr<MeshElement>>>( ids.size() );
     for ( auto &elem : A ) {
         auto idA = elem.globalID();
         size_t i = std::min( Utilities::findfirst( ids, idA ), ids.size() - 1 );
         if ( ids[i] == idA ) {
-            ( *elements )[i] = elem;
+            ( *elements )[i] = elem.clone();
             N++;
         }
     }
@@ -448,13 +485,13 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
             auto idB = elem.globalID();
             size_t i = std::min( Utilities::findfirst( ids, idB ), ids.size() - 1 );
             if ( ids[i] == idB ) {
-                ( *elements )[i] = elem;
+                ( *elements )[i] = elem.clone();
                 N++;
             }
         }
         AMP_ASSERT( N == elements->size() );
     }
-    return MultiVectorIterator( elements, 0 );
+    return MeshElementVectorIterator( elements, 0 );
 }
 
 
@@ -601,6 +638,7 @@ GeomType operator-( int x, GeomType y ) noexcept
 /********************************************************
  * Instantiate communication of MeshElementID            *
  ********************************************************/
+#include "AMP/utils/AMP_MPI.I"
 INSTANTIATE_MPI_BCAST( AMP::Mesh::MeshElementID );
 INSTANTIATE_MPI_SENDRECV( AMP::Mesh::MeshElementID );
 INSTANTIATE_MPI_GATHER( AMP::Mesh::MeshElementID );

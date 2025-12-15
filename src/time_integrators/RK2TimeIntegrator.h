@@ -110,9 +110,9 @@ private:
      */
     void setupVectors( void );
 
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_new_solution = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k1_vec       = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k2_vec       = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_new_solution;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k1_vec;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_k2_vec;
 };
 } // namespace AMP::TimeIntegrator
 

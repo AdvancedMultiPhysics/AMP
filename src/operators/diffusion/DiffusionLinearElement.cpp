@@ -1,11 +1,15 @@
 #include "AMP/operators/diffusion/DiffusionLinearElement.h"
 
+#include "ProfilerApp.h"
+
 
 namespace AMP::Operator {
 
 
 void DiffusionLinearElement::apply()
 {
+    PROFILE( "apply", 5 );
+
     const auto &JxW  = ( *d_JxW );
     const auto &phi  = ( *d_phi );
     const auto &dphi = ( *d_dphi );

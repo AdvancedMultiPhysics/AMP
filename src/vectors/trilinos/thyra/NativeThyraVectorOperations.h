@@ -2,7 +2,7 @@
 #define included_AMP_NativeThyraVectorOperations
 
 #include "AMP/vectors/Vector.h"
-#include "AMP/vectors/operations/VectorOperationsDefault.h"
+#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 #include "AMP/vectors/trilinos/thyra/ThyraVector.h"
 
 namespace AMP::LinearAlgebra {

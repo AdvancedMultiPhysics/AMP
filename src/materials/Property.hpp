@@ -267,7 +267,7 @@ TYPE Property::getAuxiliaryData( const std::string &key ) const
 template<class TYPE>
 void Property::setAuxiliaryData( const std::string &key, const TYPE &data )
 {
-    return d_auxiliaryData.putScalar( key, data );
+    return d_auxiliaryData.putScalar( key, data, {}, AMP::Database::Check::Overwrite );
 }
 
 

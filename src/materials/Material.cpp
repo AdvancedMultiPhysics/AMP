@@ -1,6 +1,7 @@
 #include "AMP/materials/Material.h"
 #include "AMP/materials/MaterialList.h"
 #include "AMP/materials/ScalarProperty.h"
+#include "AMP/utils/FactoryStrategy.hpp"
 
 
 namespace AMP::Materials {
@@ -101,7 +102,7 @@ DatabaseMaterial::DatabaseMaterial( std::string_view name, std::shared_ptr<Datab
     if ( !db )
         return;
     auto keys = db->getAllKeys();
-    for ( auto key : keys )
+    for ( auto &key : keys )
         d_propertyMap[key] = createProperty( key, *db );
 }
 
@@ -109,18 +110,37 @@ DatabaseMaterial::DatabaseMaterial( std::string_view name, std::shared_ptr<Datab
 /********************************************************************
  * Material factory functions                                        *
  ********************************************************************/
-std::vector<std::string> getMaterialList() { return AMP::FactoryStrategy<Material>::getKeys(); }
+using MaterialFactory = AMP::FactoryStrategy<Material>;
+std::vector<std::string> getMaterialList() { return MaterialFactory::getKeys(); }
 std::unique_ptr<Material> getMaterial( const std::string &name )
 {
-    return AMP::FactoryStrategy<Material>::create( name );
+    return MaterialFactory::create( name );
 }
 void registerMaterial( const std::string &name, std::function<std::unique_ptr<Material>()> fun )
 {
-    AMP::FactoryStrategy<Material>::registerFactory( name, fun );
+    MaterialFactory::registerFactory( name, fun );
 }
-bool isMaterial( const std::string &name )
-{
-    return AMP::FactoryStrategy<Material>::exists( name );
-}
+bool isMaterial( const std::string &name ) { return MaterialFactory::exists( name ); }
+
 
 } // namespace AMP::Materials
+
+
+/********************************************************************
+ * Register default materials                                        *
+ ********************************************************************/
+#define REGISTER_MATERIAL( NAME ) d_factories[#NAME] = []() { return std::make_unique<NAME>(); };
+template<>
+void AMP::FactoryStrategy<AMP::Materials::Material>::registerDefault()
+{
+    using namespace AMP::Materials;
+    REGISTER_MATERIAL( CylindricallySymmetric );
+    REGISTER_MATERIAL( Dr_nonlinear );
+    REGISTER_MATERIAL( FixedClad );
+    REGISTER_MATERIAL( FixedFuel );
+    REGISTER_MATERIAL( Independent );
+    REGISTER_MATERIAL( WaterLibrary );
+    REGISTER_MATERIAL( Steel316_MSRZC_09 );
+    REGISTER_MATERIAL( Ox_MSRZC_09 );
+    REGISTER_MATERIAL( UO2_MSRZC_09 );
+}

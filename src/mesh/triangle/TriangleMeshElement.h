@@ -10,20 +10,19 @@
 namespace AMP::Mesh {
 
 
-template<uint8_t NG, uint8_t NP>
+template<uint8_t NG>
 class TriangleMesh;
-template<uint8_t NG, uint8_t NP, uint8_t TYPE>
-class TriangleMeshIterator;
 
 
 /**
  * \class TriangleMeshElement
  * \brief A derived class used to define a mesh element
  * \details  This class provides routines for accessing and using a mesh element.
- * A mesh element can be thought of as the smallest unit of a mesh.  It is of a type
- * of GeomType.  This class is derived to store a TriangleMesh element.
+ * A mesh element can be thought of as the smallest unit of a mesh.
+ *    It is of a typeof GeomType.  This class is derived to store a TriangleMesh
+ *    element.
  */
-template<uint8_t NG, uint8_t NP, uint8_t TYPE>
+template<uint8_t NG>
 class TriangleMeshElement final : public MeshElement
 {
 public:
@@ -52,15 +51,13 @@ public:
     std::string elementClass() const override;
 
     //! Return the elements composing the current element
-    virtual void getElements( const GeomType type,
-                              std::vector<MeshElement> &elements ) const override;
+    virtual void getElements( const GeomType type, ElementList &elements ) const override;
 
     //! Return the IDs of the elements composing the current element
-    virtual void getElementsID( const GeomType type,
-                                std::vector<MeshElementID> &ID ) const override;
+    virtual int getElementsID( const GeomType type, MeshElementID *ID ) const override;
 
     //! Return the elements neighboring the current element
-    void getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const override;
+    void getNeighbors( ElementList &neighbors ) const override;
 
     //! Return the volume of the current element (does not apply to vertices)
     double volume() const override;
@@ -124,32 +121,24 @@ public:
      */
     bool isInBlock( int id ) const override;
 
-    //! Return the owner rank according to AMP_COMM_WORLD
-    unsigned int globalOwnerRank() const override;
+    //! Get the typeID
+    typeID getTypeID() const override { return AMP::getTypeID<TriangleMesh<NG>>(); }
 
 
-protected:
+public: // Advanced interfaces
     // Default constructors
-    TriangleMeshElement( const MeshElementID &id, const TriangleMesh<NG, NP> *mesh );
+    TriangleMeshElement( const MeshElementID &id, const TriangleMesh<NG> *mesh );
 
     // Reset the element data
     inline void resetElemId( const ElementID &id ) { d_globalID.resetElemID( id ); }
 
     //! Clone the iterator
-    MeshElement *clone() const override;
+    std::unique_ptr<MeshElement> clone() const override;
 
-    //! Get the vertices composing the element
-    inline std::array<std::array<double, NP>, TYPE + 1> getVertexCoord() const;
-
-    // The pointer to the current mesh
-    const TriangleMesh<NG, NP> *d_mesh;
-
-    // Friends
-    friend class AMP::Mesh::TriangleMesh<NG, NP>;
-    friend class AMP::Mesh::TriangleMeshIterator<NG, NP, TYPE>;
 
 private:
     MeshElementID d_globalID;
+    const TriangleMesh<NG> *d_mesh;
 };
 
 

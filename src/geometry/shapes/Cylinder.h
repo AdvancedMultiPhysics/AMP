@@ -57,6 +57,7 @@ public: // Functions inherited from Geometry
     void writeRestart( int64_t ) const override;
 
 protected: // Internal data
+    int d_method                    = 2;
     double d_r                      = 0;
     double d_z_min                  = 0;
     double d_z_max                  = 0;

@@ -1,10 +1,10 @@
 #ifndef included_AMP_Database_hpp
 #define included_AMP_Database_hpp
 
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/AMP_MPI_pack.hpp"
 #include "AMP/utils/Database.h"
-#include "AMP/utils/FactoryStrategy.hpp"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/UtilityMacros.h"
 
 #include <cstddef>
@@ -50,20 +50,6 @@
 
 
 namespace AMP {
-
-
-/********************************************************************
- * Macro to register KeyData with the factory                        *
- ********************************************************************/
-#define REGISTER_KEYDATA( TYPE, CLASS_NAME )                                  \
-    static struct CLASS_NAME##_INIT {                                         \
-        CLASS_NAME##_INIT()                                                   \
-        {                                                                     \
-            auto fun            = []() { return std::make_unique<TYPE>(); };  \
-            constexpr auto type = AMP::getTypeID<TYPE>();                     \
-            AMP::FactoryStrategy<KeyData>::registerFactory( type.name, fun ); \
-        }                                                                     \
-    } CLASS_NAME##_init
 
 
 /********************************************************************
@@ -113,6 +99,11 @@ Array<TYPE2> convert( const Array<TYPE1> &x )
 {
     if constexpr ( std::is_same_v<TYPE1, TYPE2> ) {
         return x;
+    } else if constexpr ( std::is_same_v<TYPE1, bool> && std::is_arithmetic_v<TYPE2> ) {
+        Array<TYPE2> y( x.size() );
+        for ( size_t i = 0; i < x.length(); i++ )
+            y( i ) = static_cast<TYPE2>( x( i ) ? 1 : 0 );
+        return y;
     } else if constexpr ( std::is_arithmetic_v<TYPE1> && std::is_arithmetic_v<TYPE2> ) {
         Array<TYPE2> y( x.size() );
         y.fill( 0 );
@@ -146,11 +137,11 @@ template<class TYPE>
 inline void printValue( std::ostream &os, const TYPE &value )
 {
     if constexpr ( std::is_floating_point_v<TYPE> ) {
-        if ( value != value ) {
+        if ( AMP::Utilities::isNaN( value ) ) {
             os << "nan";
-        } else if ( value == std::numeric_limits<TYPE>::infinity() ) {
+        } else if ( AMP::Utilities::isInf( value ) ) {
             os << "inf";
-        } else if ( value == -std::numeric_limits<TYPE>::infinity() ) {
+        } else if ( AMP::Utilities::isInf( -value ) ) {
             os << "-inf";
         } else {
             os << std::setprecision( 14 ) << value;
@@ -227,10 +218,17 @@ public:
     explicit KeyDataScalar( TYPE data, const Units &unit = Units() )
         : KeyData( unit ), d_data( std::move( data ) )
     {
-        static_assert( !std::is_same_v<TYPE, std::_Bit_reference> );
+        static_assert( !std::is_same_v<TYPE, std::vector<bool>::reference> );
     }
     virtual ~KeyDataScalar() {}
-    typeID getClassType() const override { return getTypeID<KeyDataScalar>(); }
+    typeID getClassType() const override
+    {
+        // Remove const/references
+        using T1 = typename std::remove_reference_t<TYPE>;
+        using T2 = typename std::remove_cv_t<T1>;
+        using T  = typename std::remove_cv_t<T2>;
+        return AMP::getTypeID<KeyDataScalar<T>>();
+    }
     std::unique_ptr<KeyData> clone() const override
     {
         return std::make_unique<KeyDataScalar>( d_data, d_unit );
@@ -303,7 +301,7 @@ public:
             AMP::IO::writeHDF5<TYPE2>( fid, name, d_data );
         }
     }
-    void readHDF5( int64_t fid, const std::string &name ) override
+    void readHDF5( [[maybe_unused]] int64_t fid, [[maybe_unused]] const std::string &name ) override
     {
         if constexpr ( AMP::is_shared_ptr_v<TYPE> ) {
             typedef typename TYPE::element_type TYPE2;
@@ -312,8 +310,6 @@ public:
             else
                 AMP::IO::readHDF5( fid, name, *d_data );
         } else if constexpr ( std::is_const_v<TYPE> ) {
-            NULL_USE( fid );
-            NULL_USE( name );
             AMP_ERROR( "Unable to read into const object" );
         } else {
             typedef typename std::remove_reference_t<TYPE> TYPE2;
@@ -332,11 +328,18 @@ public:
     explicit KeyDataArray( Array<TYPE> data, const Units &unit = Units() )
         : KeyData( unit ), d_data( std::move( data ) )
     {
-        static_assert( !std::is_same_v<TYPE, std::_Bit_reference> );
+        static_assert( !std::is_same_v<TYPE, std::vector<bool>::reference> );
         data.clear(); // Suppress cppclean warning
     }
     virtual ~KeyDataArray() {}
-    typeID getClassType() const override { return getTypeID<KeyDataArray>(); }
+    typeID getClassType() const override
+    {
+        // Remove const/references
+        using T1 = typename std::remove_reference_t<TYPE>;
+        using T2 = typename std::remove_cv_t<T1>;
+        using T  = typename std::remove_cv_t<T2>;
+        return AMP::getTypeID<KeyDataArray<T>>();
+    }
     std::unique_ptr<KeyData> clone() const override
     {
         return std::make_unique<KeyDataArray>( d_data, d_unit );
@@ -413,10 +416,14 @@ public:
         if constexpr ( AMP::is_shared_ptr_v<TYPE> ) {
             typedef typename TYPE::element_type TYPE1;
             typedef typename AMP::remove_cvref_t<TYPE1> TYPE2;
-            AMP::Array<TYPE2> y( d_data.size() );
-            for ( size_t i = 0; i < d_data.length(); i++ )
-                y( i ) = *d_data( i );
-            AMP::IO::writeHDF5( fid, name, y );
+            if constexpr ( std::is_copy_constructible_v<TYPE2> ) {
+                AMP::Array<TYPE2> y( d_data.size() );
+                for ( size_t i = 0; i < d_data.length(); i++ )
+                    y( i ) = *d_data( i );
+                AMP::IO::writeHDF5( fid, name, y );
+            } else {
+                throw std::logic_error( name + " is not copy constructible" );
+            }
         } else {
             AMP::IO::writeHDF5( fid, name, d_data );
         }
@@ -426,11 +433,15 @@ public:
         if constexpr ( AMP::is_shared_ptr_v<TYPE> ) {
             typedef typename TYPE::element_type TYPE1;
             typedef typename AMP::remove_cvref_t<TYPE1> TYPE2;
-            AMP::Array<TYPE2> y;
-            AMP::IO::readHDF5( fid, name, y );
-            d_data.resize( y.size() );
-            for ( size_t i = 0; i < d_data.length(); i++ )
-                d_data( i ) = std::make_shared<TYPE2>( y( i ) );
+            if constexpr ( std::is_copy_constructible_v<TYPE2> ) {
+                AMP::Array<TYPE2> y;
+                AMP::IO::readHDF5( fid, name, y );
+                d_data.resize( y.size() );
+                for ( size_t i = 0; i < d_data.length(); i++ )
+                    d_data( i ) = std::make_shared<TYPE2>( y( i ) );
+            } else {
+                throw std::logic_error( name + " is not copy constructible" );
+            }
         } else {
             AMP::IO::readHDF5( fid, name, d_data );
         }
@@ -541,7 +552,7 @@ bool KeyDataScalar<TYPE>::operator==( const KeyData &rhs ) const
     if ( tmp1 ) {
         return compare( d_data, tmp1->d_data );
     } else if ( tmp2 ) {
-        if ( tmp2->get().size() != 1 )
+        if ( tmp2->get().size() != ArraySize( 1 ) )
             return false;
         return compare( d_data, tmp2->get()( 0 ) );
     } else if ( ( is_floating_point() || is_integral() ) &&
@@ -563,7 +574,7 @@ bool KeyDataArray<TYPE>::operator==( const KeyData &rhs ) const
     auto tmp1 = dynamic_cast<const KeyDataScalar<TYPE> *>( &rhs );
     auto tmp2 = dynamic_cast<const KeyDataArray<TYPE> *>( &rhs );
     if ( tmp1 ) {
-        if ( d_data.size() != 1 )
+        if ( d_data.size() != ArraySize( 1 ) )
             return false;
         return compare( d_data( 0 ), tmp1->get() );
     } else if ( tmp2 ) {
@@ -724,7 +735,7 @@ template<class TYPE>
 void Database::putScalar(
     std::string_view key, TYPE value, Units unit, Check check, source_location src )
 {
-    if constexpr ( std::is_same_v<TYPE, std::_Bit_reference> ) {
+    if constexpr ( std::is_same_v<TYPE, std::vector<bool>::reference> ) {
         // Guard against storing a bit reference (store a bool instead)
         putScalar<bool>( key, value, unit, check, src );
     } else if constexpr ( std::is_same_v<TYPE, char *> || std::is_same_v<TYPE, const char *> ||
@@ -766,7 +777,7 @@ bool Database::isType( std::string_view key, source_location src ) const
 {
     auto data = getData( key );
     DATABASE_INSIST( data, src, "Variable %s was not found in database", key.data() );
-    if constexpr ( std::is_same_v<TYPE, std::_Bit_reference> ) {
+    if constexpr ( std::is_same_v<TYPE, std::vector<bool>::reference> ) {
         // Guard against checking a bit reference (use a bool instead)
         return data->isType<bool>();
     } else {
