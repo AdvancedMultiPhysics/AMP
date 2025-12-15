@@ -217,7 +217,7 @@ void testCSRMatrixRestartWithDOFs( AMP::UnitTest *ut,
     compareMatrices<Config>( ut, matrix, restartedMatrix );
 }
 
-void compareCSRMatrixRestart( AMP::UnitTest *ut, std::string input_file )
+void compareCSRMatrixRestart( AMP::UnitTest *ut, const std::string &input_file )
 {
     constexpr auto allocator = AMP::LinearAlgebra::alloc::host;
     using Config             = AMP::LinearAlgebra::DefaultCSRConfig<allocator>;

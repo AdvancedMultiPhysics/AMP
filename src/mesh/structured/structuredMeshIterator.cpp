@@ -9,10 +9,6 @@
 namespace AMP::Mesh {
 
 
-// unused global variable to prevent compiler warning
-static MeshElement nullElement;
-
-
 /********************************************************
  * Constructors                                          *
  ********************************************************/
@@ -33,14 +29,14 @@ BoxMesh::MeshElementIndex structuredMeshIterator::getCurrentIndex() const
 static constexpr auto MeshIteratorType = AMP::getTypeID<structuredMeshIterator>().hash;
 static_assert( MeshIteratorType != 0 );
 structuredMeshIterator::structuredMeshIterator()
+    : d_mesh( nullptr ), d_cur_element( structuredMeshElement() )
+
 {
-    d_typeHash    = MeshIteratorType;
-    d_iterator    = nullptr;
-    d_pos         = 0;
-    d_size        = 0;
-    d_mesh        = nullptr;
-    d_element     = &d_cur_element;
-    d_cur_element = structuredMeshElement();
+    d_typeHash = MeshIteratorType;
+    d_iterator = nullptr;
+    d_pos      = 0;
+    d_size     = 0;
+    d_element  = &d_cur_element;
 }
 structuredMeshIterator::structuredMeshIterator( const BoxMesh::MeshElementIndexIterator &it,
                                                 const AMP::Mesh::BoxMesh *mesh,

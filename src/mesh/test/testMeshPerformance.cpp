@@ -1,3 +1,4 @@
+#include "AMP/IO/FileSystem.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/mesh/MeshFactory.h"
@@ -34,14 +35,13 @@ void testMeshGenerators( AMP::UnitTest &ut )
 #ifdef AMP_USE_LIBMESH
     runTest<AMP::unit_test::LibMeshCubeGenerator>( ut, 5 );
     runTest<AMP::unit_test::libMeshThreeElementGenerator>( ut );
-    #ifdef USE_AMP_DATA
-    runTest<AMP::unit_test::ExodusReaderGenerator>( ut, "pellet_1x.e" );
-    #endif
+    if ( AMP::IO::exists( "pellet_1x.e" ) )
+        runTest<AMP::unit_test::ExodusReaderGenerator>( ut, "pellet_1x.e" );
 #endif
 }
 
 
-void testInputMesh( AMP::UnitTest &ut, std::string filename )
+void testInputMesh( AMP::UnitTest &ut, const std::string &filename )
 {
     PROFILE( "testInputMesh" );
     // Read the input file

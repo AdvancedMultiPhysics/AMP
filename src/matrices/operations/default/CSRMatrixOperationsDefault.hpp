@@ -58,23 +58,22 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsDefault::mult (ghost)" );
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        std::vector<scalar_t> ghosts( nGhosts );
+        auto ghosts        = offdMatrix->getGhostCache();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             auto colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            // type mismatch, need to copy/cast into temporary vector
             AMP_WARN_ONCE(
-                "CSRMatrixOperationsDefault::mult: Deep copy/cast of column map required" );
-            std::vector<size_t> colMap;
-            offdMatrix->getColumnMap( colMap );
-            in->getGhostValuesByGlobalID( nGhosts, colMap.data(), ghosts.data() );
+                "CSRMatrixOperationsDefault::mult deep-copying column map to size_t required" );
+            // Fall back to forcing a copy-cast inside matrix data
+            auto colMap = offdMatrix->getColumnMapSizeT();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         }
-        d_localops_offd->mult( ghosts.data(), offdMatrix, outDataBlock );
+        d_localops_offd->mult( ghosts, offdMatrix, outDataBlock );
     }
 }
 
@@ -129,6 +128,8 @@ void CSRMatrixOperationsDefault<Config>::multTranspose( std::shared_ptr<const Ve
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::scale( AMP::Scalar alpha_in, MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDefault::scale" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -153,6 +154,8 @@ void CSRMatrixOperationsDefault<Config>::scale( AMP::Scalar alpha_in,
                                                 std::shared_ptr<const Vector> D,
                                                 MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDefault::scale" );
+
     // constrain to one data block
     AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
     auto D_data                  = D->getVectorData();
@@ -178,6 +181,8 @@ void CSRMatrixOperationsDefault<Config>::scaleInv( AMP::Scalar alpha_in,
                                                    std::shared_ptr<const Vector> D,
                                                    MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDefault::scaleInv" );
+
     // constrain to one data block
     AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
     auto D_data                  = D->getVectorData();
@@ -203,6 +208,8 @@ void CSRMatrixOperationsDefault<Config>::matMatMult( std::shared_ptr<MatrixData>
                                                      std::shared_ptr<MatrixData> B,
                                                      std::shared_ptr<MatrixData> C )
 {
+    PROFILE( "CSRMatrixOperationsDefault::matMatMult" );
+
     auto csrDataA = std::dynamic_pointer_cast<CSRMatrixData<Config>>( A );
     auto csrDataB = std::dynamic_pointer_cast<CSRMatrixData<Config>>( B );
     auto csrDataC = std::dynamic_pointer_cast<CSRMatrixData<Config>>( C );
@@ -251,6 +258,8 @@ void CSRMatrixOperationsDefault<Config>::axpy( AMP::Scalar alpha_in,
                                                const MatrixData &X,
                                                MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsDefault::axpy" );
+
     const auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
     auto csrDataY       = getCSRMatrixData<Config>( Y );
 
@@ -280,6 +289,8 @@ void CSRMatrixOperationsDefault<Config>::axpy( AMP::Scalar alpha_in,
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::setScalar( AMP::Scalar alpha_in, MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDefault::setScalar" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
@@ -295,13 +306,15 @@ void CSRMatrixOperationsDefault<Config>::setScalar( AMP::Scalar alpha_in, Matrix
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::zero( MatrixData &A )
 {
-    setScalar( static_cast<scalar_t>( 0.0 ), A );
+    setScalar( 0, A );
 }
 
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::setDiagonal( std::shared_ptr<const Vector> in,
                                                       MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDefault::setDiagonal" );
+
     // constrain to one data block for now
     AMP_DEBUG_ASSERT( in && in->numberOfDataBlocks() == 1 && in->isType<scalar_t>( 0 ) );
 
@@ -324,6 +337,8 @@ void CSRMatrixOperationsDefault<Config>::setDiagonal( std::shared_ptr<const Vect
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::setIdentity( MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDefault::setIdentity" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
@@ -338,6 +353,8 @@ template<typename Config>
 void CSRMatrixOperationsDefault<Config>::extractDiagonal( MatrixData const &A,
                                                           std::shared_ptr<Vector> buf )
 {
+    PROFILE( "CSRMatrixOperationsDefault::extractDiagonal" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
@@ -356,6 +373,8 @@ template<typename Config>
 void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
                                                      std::shared_ptr<Vector> buf )
 {
+    PROFILE( "CSRMatrixOperationsDefault::getRowSums" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
@@ -371,7 +390,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0 );
 
     d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
@@ -384,6 +403,8 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
                                                              std::shared_ptr<Vector> buf,
                                                              const bool remove_zeros )
 {
+    PROFILE( "CSRMatrixOperationsDefault::getRowSumsAbsolute" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
@@ -400,7 +421,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0.0 );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0 );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
@@ -409,7 +430,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
 
     if ( remove_zeros ) {
         for ( lidx_t row = 0; row < nRows; ++row ) {
-            rawVecData[row] = rawVecData[row] != 0.0 ? rawVecData[row] : 1.0;
+            rawVecData[row] = rawVecData[row] != 0 ? rawVecData[row] : 1;
         }
     }
 }
@@ -417,13 +438,15 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
 template<typename Config>
 AMP::Scalar CSRMatrixOperationsDefault<Config>::LinfNorm( MatrixData const &A ) const
 {
+    PROFILE( "CSRMatrixOperationsDefault::LinfNorm" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
                       "CSRMatrixOperationsDefault is not implemented for device memory" );
 
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
-    std::vector<scalar_t> rowSums( nRows, 0.0 );
+    std::vector<scalar_t> rowSums( nRows, 0 );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rowSums.data() );
     if ( csrData->hasOffDiag() ) {
@@ -439,6 +462,8 @@ AMP::Scalar CSRMatrixOperationsDefault<Config>::LinfNorm( MatrixData const &A ) 
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::copy( const MatrixData &X, MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsDefault::copy" );
+
     const auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
     auto csrDataY       = getCSRMatrixData<Config>( Y );
 
@@ -466,6 +491,8 @@ void CSRMatrixOperationsDefault<Config>::copy( const MatrixData &X, MatrixData &
 template<typename Config>
 void CSRMatrixOperationsDefault<Config>::copyCast( const MatrixData &X, MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsDefault::copyCast" );
+
     auto csrDataY = getCSRMatrixData<Config>( Y );
     AMP_DEBUG_ASSERT( csrDataY );
     if ( X.getCoeffType() == getTypeID<double>() ) {
@@ -492,6 +519,8 @@ template<typename ConfigIn>
 void CSRMatrixOperationsDefault<Config>::copyCast(
     CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
 {
+    PROFILE( "CSRMatrixOperationsDefault::copyCast" );
+
     AMP_DEBUG_INSIST( X->d_memory_location != AMP::Utilities::MemoryType::device,
                       "CSRMatrixOperationsDefault is not implemented for device memory" );
     AMP_DEBUG_INSIST( Y->d_memory_location != AMP::Utilities::MemoryType::device,

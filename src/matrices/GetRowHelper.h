@@ -25,6 +25,13 @@ public:
     //! Destructor
     ~GetRowHelper();
 
+    // Copy/assignment operators
+    GetRowHelper()                       = default;
+    GetRowHelper( GetRowHelper && )      = default;
+    GetRowHelper( const GetRowHelper & ) = delete;
+    GetRowHelper &operator=( GetRowHelper && ) = default;
+    GetRowHelper &operator=( const GetRowHelper & ) = delete;
+
     //! Release all internal storage
     void deallocate();
 
@@ -62,9 +69,7 @@ private: // Private routines
 
 
 private: // Member data
-    bool d_hasFields;
-    std::shared_ptr<const AMP::Discretization::DOFManager> d_leftDOF;
-    std::shared_ptr<const AMP::Discretization::DOFManager> d_rightDOF;
+    bool d_hasFields             = true;
     std::array<size_t, 2> *d_NNZ = nullptr;
     size_t *d_local              = nullptr;
     size_t *d_remote             = nullptr;
@@ -72,6 +77,8 @@ private: // Member data
     size_t *d_remoteOffset       = nullptr;
     size_t d_size[2]             = { 0, 0 };
     size_t d_capacity[2]         = { 0, 0 };
+    std::shared_ptr<const AMP::Discretization::DOFManager> d_leftDOF;
+    std::shared_ptr<const AMP::Discretization::DOFManager> d_rightDOF;
 };
 
 

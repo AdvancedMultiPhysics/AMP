@@ -17,10 +17,6 @@ typedef struct _p_Mat *Mat;
 namespace AMP::LinearAlgebra {
 
 
-//! Check if we have a sparse matrix availible
-bool haveSparseMatrix();
-
-
 //! Return the default matrix type
 std::string getDefaultMatrixType();
 
@@ -44,7 +40,7 @@ std::string getDefaultMatrixType();
 std::shared_ptr<Matrix>
 createMatrix( AMP::LinearAlgebra::Vector::shared_ptr right,
               AMP::LinearAlgebra::Vector::shared_ptr left,
-              std::string type = "auto",
+              const std::string &type = "auto",
               std::function<std::vector<size_t>( size_t row )> getColumnIDs =
                   std::function<std::vector<size_t>( size_t )>() );
 

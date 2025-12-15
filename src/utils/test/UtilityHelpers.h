@@ -3,6 +3,7 @@
 
 #include "AMP/IO/FileSystem.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Array.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/Utilities.hpp"
@@ -336,6 +337,11 @@ void test_precision( [[maybe_unused]] AMP::UnitTest &ut )
 /********************************************************
  *  Test typeid                                          *
  ********************************************************/
+struct MyType {
+};
+template<class T>
+struct MyType2 {
+};
 template<class T>
 void check( const std::string &name, AMP::UnitTest &ut, bool expected = false )
 {
@@ -356,6 +362,8 @@ void testTypeID( AMP::UnitTest &ut )
     check<const double *>( "const double*", ut );
     check<double const *>( "const double*", ut );
     check<decltype( argv )>( "char*[3]", ut );
+    check<MyType>( "MyType", ut );
+    check<MyType2<int>>( "MyType2<int>", ut );
     check<std::shared_ptr<double>>( "std::shared_ptr<double>", ut );
     check<std::string>( "std::string", ut );
     check<std::string_view>( "std::string_view", ut );
@@ -363,6 +371,9 @@ void testTypeID( AMP::UnitTest &ut )
     check<std::vector<double>>( "std::vector<double>", ut, true );
     check<std::vector<std::string>>( "std::vector<std::string>", ut, true );
     check<std::vector<std::string_view>>( "std::vector<std::string_view>", ut, true );
+    check<AMP::Array<std::string>>( "AMP::Array<std::string>", ut, true );
+    using namespace AMP;
+    check<Array<std::string>>( "AMP::Array<std::string>", ut, true );
 }
 
 

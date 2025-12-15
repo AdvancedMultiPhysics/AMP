@@ -119,7 +119,7 @@ private:
     std::vector<face_data_struct> data; // The stored data
 
     // Function that determines the location of the triangle
-    bool outside_triangle( const Point x[NDIM], const Point &xi ) const;
+    bool outside_triangle( const Point *x, const Point &xi ) const;
 
     // Function to get a unique index for each face
     inline size_t get_face_index( int face, int tri ) { return face + tri * ( NDIM + 1 ); }

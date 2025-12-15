@@ -136,6 +136,12 @@ public:
     std::shared_ptr<DOFManager> subset( const std::shared_ptr<const AMP::Mesh::Mesh> mesh,
                                         bool useMeshComm = true ) override;
 
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    int getDOFsPerPoint() const override;
 
 public: // Advanced interfaces
     //! Get the row DOFs given a mesh element
@@ -162,7 +168,7 @@ protected:
     simpleDOFManager() = delete;
 
     // Function to find the remote DOF given a set of mesh element IDs
-    std::vector<size_t> getRemoteDOF( std::vector<AMP::Mesh::MeshElementID> remote_ids ) const;
+    std::vector<size_t> getRemoteDOF( const std::vector<AMP::Mesh::MeshElementID> &ids ) const;
 
     // Function to initialize the data
     void initialize();

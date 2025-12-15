@@ -1,4 +1,5 @@
 #include "AMP/AMP_TPLs.h"
+#include "AMP/IO/FileSystem.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
@@ -51,20 +52,22 @@ void testMeshGenerators( AMP::UnitTest &ut )
     generator->build_mesh();
     AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
     // Test the libmesh reader generator
-    #ifdef USE_AMP_DATA
-    generator = std::make_shared<AMP::unit_test::ExodusReaderGenerator>( "pellet_1x.e" );
-    generator->build_mesh();
-    AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
+    if ( AMP::IO::exists( "pellet_1x.e" ) ) {
+        generator = std::make_shared<AMP::unit_test::ExodusReaderGenerator>( "pellet_1x.e" );
+        generator->build_mesh();
+        AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
+    }
     // Test the ThreeElementLGenerator generator
     generator = std::make_shared<AMP::unit_test::libMeshThreeElementGenerator>();
     generator->build_mesh();
     AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
     // Test the multimesh generator
-    generator = std::make_shared<AMP::unit_test::MultiMeshGenerator>();
-    generator->build_mesh();
-    AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
-    AMP::Mesh::meshTests::MeshVectorTestLoop( ut, generator->getMesh() );
-    #endif
+    if ( AMP::IO::exists( "pellet_1x.e" ) ) {
+        generator = std::make_shared<AMP::unit_test::MultiMeshGenerator>();
+        generator->build_mesh();
+        AMP::Mesh::meshTests::MeshTestLoop( ut, generator->getMesh() );
+        AMP::Mesh::meshTests::MeshVectorTestLoop( ut, generator->getMesh() );
+    }
 #endif
 }
 
@@ -150,39 +153,15 @@ void testAMPMesh( AMP::UnitTest &ut )
 }
 
 
-// Function to test the creation/destruction of a STKmesh mesh
-void testSTKMesh( AMP::UnitTest &ut )
-{
-#if defined( AMP_USE_TRILINOS_STKCLASSIC ) && defined( USE_AMP_DATA )
-    PROFILE( "testSTKMesh" );
-    // Create a generic MeshParameters object
-    auto database = std::make_shared<AMP::Database>( "Mesh" );
-    database->putScalar( "dim", 3 );
-    database->putScalar( "MeshType", "STKMesh" );
-    database->putScalar( "MeshName", "pellet" );
-    database->putScalar( "FileName", "pellet_1x.e" );
-    auto params = std::make_shared<AMP::Mesh::MeshParameters>( database );
-    params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-
-    // Create a STKMesh mesh
-    auto mesh = AMP::Mesh::MeshFactory::create( params );
-    AMP_ASSERT( mesh );
-
-    // Run the mesh tests
-    AMP::Mesh::meshTests::MeshTestLoop( ut, mesh );
-    AMP::Mesh::meshTests::MeshVectorTestLoop( ut, mesh );
-    AMP::Mesh::meshTests::MeshMatrixTestLoop( ut, mesh );
-#else
-    ut.expected_failure( "testSTKMesh disabled (compiled without STKClassic)" );
-#endif
-}
-
-
 // Function to test the creation/destruction of a libmesh mesh
 
 void testlibMesh( AMP::UnitTest &ut )
 {
-#if defined( AMP_USE_LIBMESH ) && defined( USE_AMP_DATA )
+#if defined( AMP_USE_LIBMESH )
+    if ( !AMP::IO::exists( "pellet_1x.e" ) ) {
+        ut.expected_failure( "testlibMesh disabled (missing pellet_1x.e)" );
+        return;
+    }
     PROFILE( "testlibMesh" );
     // Create a generic MeshParameters object
     auto database = std::make_shared<AMP::Database>( "Mesh" );
@@ -207,36 +186,9 @@ void testlibMesh( AMP::UnitTest &ut )
 }
 
 
-// Function to test the creation/destruction of a moab mesh
-void testMoabMesh( [[maybe_unused]] AMP::UnitTest &ut )
+void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut,
+                    [[maybe_unused]] const std::string &filename )
 {
-#if defined( AMP_USE_MOAB ) && defined( USE_AMP_DATA )
-    PROFILE( "testMoabMesh" );
-    // Create a generic MeshParameters object
-    auto database = std::make_shared<AMP::Database>( "Mesh" );
-    database->putScalar( "dim", 3 );
-    database->putScalar( "MeshType", "MOAB" );
-    database->putScalar( "MeshName", "pellet" );
-    database->putScalar( "FileName", "pellet_1x.e" );
-    auto params = std::make_shared<AMP::Mesh::MeshParameters>( database );
-    params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-
-    // Create a MOAB mesh
-    auto mesh = AMP::Mesh::MeshFactory::create( params );
-    AMP_ASSERT( mesh );
-
-    // Run the mesh tests
-    ut.expected_failure( "Mesh tests not working on a MOAB mesh yet" );
-    // MeshTestLoop( ut, mesh );
-    // MeshVectorTestLoop( ut, mesh );
-    // MeshMatrixTestLoop( ut, mesh );
-#endif
-}
-
-
-void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut, [[maybe_unused]] std::string filename )
-{
-#ifdef USE_AMP_DATA
     PROFILE( "testInputMesh" );
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( filename );
@@ -255,23 +207,20 @@ void testInputMesh( [[maybe_unused]] AMP::UnitTest &ut, [[maybe_unused]] std::st
     AMP::Mesh::meshTests::MeshGeometryTestLoop( ut, mesh );
     AMP::Mesh::meshTests::MeshVectorTestLoop( ut, mesh, true );
     AMP::Mesh::meshTests::MeshMatrixTestLoop( ut, mesh, true );
-#endif
 }
 
 
 void testSubsetMesh( [[maybe_unused]] AMP::UnitTest &ut )
 {
     PROFILE( "testSubsetMesh" );
-#if defined( AMP_USE_LIBMESH ) && defined( USE_AMP_DATA )
     // Subset a mesh for a surface with ghost cells and test
     auto generator = std::make_shared<AMP::unit_test::SurfaceSubsetGenerator>(
-        std::make_shared<AMP::unit_test::ExodusReaderGenerator>( "pellet_1x.e" ), 1 );
+        std::make_shared<AMP::unit_test::AMPCylinderGenerator>(), 1 );
     generator->build_mesh();
     auto mesh = generator->getMesh();
     AMP::Mesh::meshTests::MeshTestLoop( ut, mesh );
     // MeshVectorTestLoop( ut, mesh );
     // MeshMatrixTestLoop( ut, mesh );
-#endif
 }
 
 
@@ -308,21 +257,14 @@ void testDefaults( AMP::UnitTest &ut )
     AMP::Mesh::meshTests::testBoxMeshIndicies( ut, 3 );
     testAMPMesh( ut );
 
-    // Run tests on a STKmesh mesh (currently disabled)
-    // testSTKMesh( ut );
-
 #if defined( AMP_USE_LIBMESH )
     // Run tests on a libmesh mesh
     testIntializeLibmesh( ut );
     testlibMesh( ut );
-#endif
 
-    // Run tests on a moab mesh
-    testMoabMesh( ut );
-
-#if defined( AMP_USE_LIBMESH )
     // Run tests on the input file
-    testInputMesh( ut, "input_libMesh" );
+    if ( AMP::IO::exists( "pellet_1x.e" ) )
+        testInputMesh( ut, "input_libMesh" );
 #endif
 
     // Run the basic tests on all mesh generators

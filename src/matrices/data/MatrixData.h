@@ -254,6 +254,12 @@ public:
         return d_pParameters->d_backend;
     }
 
+    inline virtual void setBackend( AMP::Utilities::Backend backend )
+    {
+        AMP_ASSERT( d_pParameters );
+        d_pParameters->d_backend = backend;
+    }
+
     /** \brief Return the typeid of the matrix coeffs
      */
     virtual typeID getCoeffType() const = 0;

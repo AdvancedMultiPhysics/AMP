@@ -9,10 +9,7 @@ ADD_TB_TEST( testStridedZAxisMap )
 COPY_TEST_FILE( input_testStridedZAxisMap )
 
 # Test maps that use libmesh
-IF ( AMP_DATA AND USE_LIBMESH )
-
-    # Add Jacobian map
-    ADD_TB_PROVISIONAL_TEST( testJacobianMap )
+IF ( USE_LIBMESH )
 
     # Test ScalarN2GZAxis map
     ADD_TB_TEST_1_2_4( testScalarN2GZAxisMap )

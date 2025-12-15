@@ -11,7 +11,7 @@ LinearSolver{
   print_info_level = 2
 }
 
-<<< "PC-SASolverParameters" >>>
+<<< "PC-SASolver-HGS-Parameters" >>>
 
 Reference{
   iterations = 17

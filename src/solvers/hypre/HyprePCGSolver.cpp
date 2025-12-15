@@ -53,6 +53,7 @@ HyprePCGSolver::~HyprePCGSolver() {}
 void HyprePCGSolver::setupHypreSolver( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
     PROFILE( "HyprePCGSolver::setupHypreSolver" );
+
     createHypreSolver();
     // this routine should assume that the solver, matrix and vectors have been created
     // so that it can be used both in the constructor and in reset
@@ -66,6 +67,8 @@ void HyprePCGSolver::setupHypreSolver( std::shared_ptr<const SolverStrategyParam
 
 void HyprePCGSolver::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
+    PROFILE( "HyprePCGSolver::initialize" );
+
     AMP_ASSERT( parameters );
     HyprePCGSolver::getFromInput( parameters->d_db );
     setupNestedSolver( parameters );
@@ -86,6 +89,8 @@ void HyprePCGSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
 void HyprePCGSolver::reset( std::shared_ptr<SolverStrategyParameters> params )
 {
+    PROFILE( "HyprePCGSolver::reset" );
+
     destroyHypreSolver();
     HypreSolver::reset( params );
     setupHypreSolver( params );

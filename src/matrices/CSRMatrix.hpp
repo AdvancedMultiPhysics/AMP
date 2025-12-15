@@ -31,6 +31,8 @@ namespace AMP::LinearAlgebra {
 template<typename Config>
 CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixParametersBase> params ) : Matrix( params )
 {
+    PROFILE( "CSRMatrix::constructor" );
+
     bool set_ops = false;
 
     if ( params->d_backend == AMP::Utilities::Backend::Hip_Cuda ) {
@@ -62,6 +64,8 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixParametersBase> params ) : M
 template<typename Config>
 CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixData> data ) : Matrix( data )
 {
+    PROFILE( "CSRMatrix::constructor" );
+
     auto backend = data->getBackend();
     bool set_ops = false;
 
@@ -100,6 +104,8 @@ CSRMatrix<Config>::~CSRMatrix()
 template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::clone() const
 {
+    PROFILE( "CSRMatrix::clone" );
+
     return std::make_shared<CSRMatrix<Config>>( d_matrixData->cloneMatrixData() );
 }
 
@@ -113,6 +119,8 @@ template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType memType,
                                                     AMP::Utilities::Backend backend ) const
 {
+    PROFILE( "CSRMatrix::migrate" );
+
     using ConfigHost = typename Config::template set_alloc_t<alloc::host>;
 #ifdef AMP_USE_DEVICE
     using ConfigManaged = typename Config::template set_alloc_t<alloc::managed>;
@@ -154,6 +162,8 @@ template<typename Config>
 template<typename ConfigOut>
 std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend backend ) const
 {
+    PROFILE( "CSRMatrix::migrate" );
+
     if constexpr ( std::is_same_v<Config, ConfigOut> )
         return this->clone();
 
@@ -165,6 +175,8 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend back
 template<typename Config>
 void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 {
+    PROFILE( "CSRMatrix::setBackend" );
+
     if ( backend == AMP::Utilities::Backend::Serial ||
          backend == AMP::Utilities::Backend::OpenMP ) {
         if ( std::dynamic_pointer_cast<CSRMatrixOperationsDefault<Config>>( d_matrixOps ) ) {
@@ -180,6 +192,7 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
             return;
         }
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
+        d_matrixData->setBackend( AMP::Utilities::Backend::Hip_Cuda );
 #else
         AMP_ERROR( "CSRMatrix::setBackend Can't set Hip_Cuda backend in non-device build" );
 #endif
@@ -189,6 +202,7 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
             return;
         }
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
+        d_matrixData->setBackend( AMP::Utilities::Backend::Kokkos );
 #else
         AMP_ERROR( "CSRMatrix::setBackend Can't set Kokkos backend in non-Kokkos build" );
 #endif
@@ -200,7 +214,7 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
 {
-    PROFILE( "CSRMatrix<Config>::transpose" );
+    PROFILE( "CSRMatrix::transpose" );
 
     auto data = d_matrixData->transpose();
     AMP_ASSERT( data->getBackend() == d_matrixData->getBackend() );
@@ -216,7 +230,8 @@ template<typename Config>
 void CSRMatrix<Config>::multiply( std::shared_ptr<Matrix> other_op,
                                   std::shared_ptr<Matrix> &result )
 {
-    PROFILE( "CSRMatrix<Config>::multiply" );
+    PROFILE( "CSRMatrix::multiply" );
+
     // pull out matrix data objects and ensure they are of correct type
     auto thisData  = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData );
     auto otherData = std::dynamic_pointer_cast<matrixdata_t>( other_op->getMatrixData() );
@@ -255,6 +270,8 @@ void CSRMatrix<Config>::multiply( std::shared_ptr<Matrix> other_op,
 template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::extractDiagonal( Vector::shared_ptr buf ) const
 {
+    PROFILE( "CSRMatrix::extractDiagonal" );
+
     Vector::shared_ptr out = buf;
     if ( !buf )
         out = this->createInputVector();
@@ -270,6 +287,8 @@ Vector::shared_ptr CSRMatrix<Config>::extractDiagonal( Vector::shared_ptr buf ) 
 template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::getRowSums( Vector::shared_ptr buf ) const
 {
+    PROFILE( "CSRMatrix::getRowSums" );
+
     Vector::shared_ptr out = buf;
     if ( !buf ) {
         out = this->createOutputVector();
@@ -285,6 +304,8 @@ template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf,
                                                           const bool remove_zeros ) const
 {
+    PROFILE( "CSRMatrix::getRowSumsAbsolute" );
+
     Vector::shared_ptr out = buf;
     if ( !buf ) {
         out = this->createOutputVector();
@@ -302,17 +323,23 @@ Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf
 template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::createInputVector() const
 {
+    PROFILE( "CSRMatrix::createInputVector" );
+
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getRightVariable();
+    auto backend      = d_matrixData->getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
-    return createVector( getRightDOFManager(), var, true, memloc );
+    return createVector( getRightDOFManager(), var, true, memloc, backend );
 }
 
 template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::createOutputVector() const
 {
+    PROFILE( "CSRMatrix::createOutputVector" );
+
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getLeftVariable();
+    auto backend      = d_matrixData->getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
-    return createVector( getLeftDOFManager(), var, true, memloc );
+    return createVector( getLeftDOFManager(), var, true, memloc, backend );
 }
 
 template<typename Config>

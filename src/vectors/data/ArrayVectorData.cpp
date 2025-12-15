@@ -9,12 +9,10 @@ template class AMP::LinearAlgebra::ArrayVectorData<float>;
 
 #ifdef AMP_USE_DEVICE
     #include "AMP/utils/device/GPUFunctionTable.h"
-template class AMP::LinearAlgebra::
-    ArrayVectorData<double, AMP::GPUFunctionTable, AMP::DeviceAllocator<double>>;
-template class AMP::LinearAlgebra::
-    ArrayVectorData<float, AMP::GPUFunctionTable, AMP::DeviceAllocator<float>>;
-template class AMP::LinearAlgebra::
-    ArrayVectorData<double, AMP::GPUFunctionTable, AMP::ManagedAllocator<double>>;
-template class AMP::LinearAlgebra::
-    ArrayVectorData<float, AMP::GPUFunctionTable, AMP::ManagedAllocator<float>>;
+    #define INSTANTIATE( T, ALLOC ) \
+        template class AMP::LinearAlgebra::ArrayVectorData<T, AMP::GPUFunctionTable<T>, ALLOC<T>>
+INSTANTIATE( float, AMP::DeviceAllocator );
+INSTANTIATE( float, AMP::ManagedAllocator );
+INSTANTIATE( double, AMP::DeviceAllocator );
+INSTANTIATE( double, AMP::ManagedAllocator );
 #endif

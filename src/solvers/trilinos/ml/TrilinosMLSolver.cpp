@@ -4,7 +4,7 @@
 #include "AMP/matrices/trilinos/epetra/ManagedEpetraMatrix.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/operators/LinearOperator.h"
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
 
 #include "ProfilerApp.h"

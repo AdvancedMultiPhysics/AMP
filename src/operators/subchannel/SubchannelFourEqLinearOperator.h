@@ -84,22 +84,6 @@ protected:
 private:
     bool d_initialized;
 
-    // Function used in reset to get double parameter or use default if missing
-    double
-    getDoubleParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, double );
-
-    // Function used in reset to get integer parameter or use default if missing
-    int
-    getIntegerParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, int );
-
-    // Function used in reset to get string parameter or use default if missing
-    std::string getStringParameter( std::shared_ptr<const SubchannelOperatorParameters>,
-                                    std::string,
-                                    std::string );
-
-    // Function used in reset to get bool parameter or use default if missing
-    bool getBoolParameter( std::shared_ptr<const SubchannelOperatorParameters>, std::string, bool );
-
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_cladTemperature;
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_frozenVec;
 

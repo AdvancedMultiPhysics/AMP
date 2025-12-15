@@ -110,6 +110,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         } // end for j
         fprintf( fp, "\n" );
     } // end for i
+    fclose( fp );
 
     ut->passes( exeName );
 }

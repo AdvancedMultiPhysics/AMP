@@ -46,16 +46,6 @@ std::string getDefaultMatrixType() { return DEFAULT_MATRIX; }
 
 
 /********************************************************
- * Check if we have a spare matrix available             *
- ********************************************************/
-#if defined( AMP_USE_TRILINOS ) || defined( AMP_USE_PETSC )
-bool haveSparseMatrix() { return true; }
-#else
-bool haveSparseMatrix() { return false; }
-#endif
-
-
-/********************************************************
  * Build a ManagedEpetraMatrix                           *
  ********************************************************/
 std::shared_ptr<AMP::LinearAlgebra::Matrix>
@@ -330,7 +320,7 @@ static void test( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
 std::shared_ptr<AMP::LinearAlgebra::Matrix>
 createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
               AMP::LinearAlgebra::Vector::shared_ptr leftVec,
-              std::string type,
+              const std::string &type,
               std::function<std::vector<size_t>( size_t )> getRow )
 {
 

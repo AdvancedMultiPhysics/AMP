@@ -1,0 +1,240 @@
+Mesh{
+    MeshName = "bar"
+	MeshType = "AMP"
+	Generator = "cube"
+    dim = 3
+	Size = 16, 16, 16
+	Range = -5, 5, -5, 5, -5, 5
+    surfaceIds = 4, 6, 3, 5, 2, 1
+    static = TRUE
+}
+
+MassDensityModel{
+    name = "MassDensityModel"
+    Material = "Independent"
+	Equation = "ManufacturedSource"
+	ManufacturedSourceEquation = "Fick"
+	ManufacturedVariable = "Concentration"
+    Property = "FickCoefficient"
+    Default_Concentration = .1
+    Default_Temperature   = 750.
+    Default_Burnup   = 0.0
+       	ManufacturedSolution {
+ 		Geometry = "Brick"
+ 		Order = "Cubic"
+ 		BoundaryType = "Dirichlet-2"
+ 		Coefficients = -1.8023277635210588, -2.361073902135764, -4.343511850424764, 8.421386241135252, 8.695277438846993, 10.274362612511801, 2.7259162080046773, -13.370245913573076
+ 		BoundaryData = -4.982361720289004, -4.426041611890331
+ 		MinX = -5.12000000001
+ 		MinY = -5.12000000001
+ 		MinZ = -5.12000000001
+ 		MaxX = 5.12000000001
+ 		MaxY = 5.12000000001
+ 		MaxZ = 5.12000000001
+ 	}
+}
+
+DiffusionTransportModel {
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "FickCoefficient"
+    Default_Concentration = .15
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+    Parameters = 1.0
+}
+
+NonlinearBVPOperator {
+   name="NonlinearBVPOperator"
+   VolumeOperator="DiffusionNonlinearFEOperator"
+   BoundaryOperator = "ColumnBoundaryOperator"
+}
+
+LinearBVPOperator {
+   name="LinearBVPOperator"
+   VolumeOperator="DiffusionLinearFEOperator"
+   BoundaryOperator = "LinearColumnBoundaryOperator"
+}
+
+ManufacturedSourceOperator {
+    name = "MassLinearFEOperator"
+    InputVariable = "concentration"
+    OutputVariable = "concentration"
+      reset_reuses_matrix = TRUE
+    FixedConcentration = 0.15
+    FixedTemperature   = 750
+    FixedBurnup   = 0.0
+
+    MassElement {
+        name = "MassLinearElement"
+        TransportAtGaussPoints = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }    
+
+    LocalModel = MassDensityModel
+}
+
+
+NonlinearSolver{
+    print_info_level = 1
+    max_iterations = 500
+    max_error = 1e-10
+
+    absolute_tolerance = 1.0e-10
+    relative_tolerance = 1.0e-10
+    stepTolerance = 1.0e-10
+    maximumFunctionEvals = 100
+    usesJacobian=FALSE
+
+    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.0001"
+
+    LinearSolver{
+        name = "PetscKrylovSolver"
+        print_info_level = 0
+        max_iterations = 100
+        max_error = 1e-10
+        ksp_type = "fgmres"
+        absolute_tolerance = 1.0e-9
+        relative_tolerance = 1.0e-01
+        divergence_tolerance = 1.0e03
+        max_krylov_dimension = 40
+        uses_preconditioner=TRUE
+        pc_type = "shell"
+        pc_side = "RIGHT"
+
+        KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100"
+
+        Preconditioner{
+            name = "TrilinosMLSolver"
+            print_info_level = 0
+            max_iterations = 1
+            max_error = 1.0e-15
+        }
+    }
+}
+
+DiffusionNonlinearFEOperator{
+	 name="DiffusionNonlinearFEOperator"
+	 InputVariable="concentration"
+	 OutputVariable="concentration"
+	
+	 ActiveInputVariables { 
+	   concentration = "concentration"
+	 }
+	 PrincipalVariable = "concentration"
+
+	 DiffusionElement {
+	      name = "DiffusionNonlinearElement"
+	      FE_ORDER = "FIRST"  
+	      FE_FAMILY = "LAGRANGE"
+	      QRULE_TYPE = "QGAUSS"
+	      QRULE_ORDER = "DEFAULT"
+         }
+
+         LocalModel = DiffusionTransportModel
+}
+
+ColumnBoundaryOperator{
+		name = "ColumnBoundaryOperator"
+		numberOfBoundaryOperators=2
+                boundaryOperators="DirichletVectorBoundary","NeumannVectorBoundary"
+
+	}
+
+DirichletVectorBoundary {
+    name = "DirichletVectorCorrection"
+    skip_params = FALSE
+    number_of_ids = 2
+    id_0         =   4
+    number_of_dofs_0 =   1
+    dof_0_0          =   0
+    value_0_0        =  -4.982361720289004
+    id_1         =   6 
+    number_of_dofs_1 =   1
+    dof_1_0          =   0
+    value_1_0        =  -4.426041611890331
+}
+
+NeumannVectorBoundary {
+    name = "NeumannVectorCorrection"
+    skip_params = FALSE
+    number_of_ids = 4
+    id_0         =   1
+    number_of_dofs_0 =   1
+    dof_0_0          =   0
+    value_0_0        =   0
+    id_1         =   2 
+    number_of_dofs_1 =   1
+    dof_1_0          =   0
+    value_1_0        =   0
+    id_2         =   3 
+    number_of_dofs_2 =   1
+    dof_2_0          =   0
+    value_2_0        =   0
+    id_3         =   5 
+    number_of_dofs_3 =   1
+    dof_3_0          =   0
+    value_3_0        =   0
+}
+
+DiffusionLinearFEOperator{
+      name="DiffusionLinearFEOperator"
+      InputVariable="concentration"
+      OutputVariable="concentration"
+    
+     DiffusionElement {
+       name = "DiffusionLinearElement"
+            FE_ORDER = "FIRST"  
+       FE_FAMILY = "LAGRANGE"
+       QRULE_TYPE = "QGAUSS"
+       QRULE_ORDER = "DEFAULT"
+     }
+}
+
+LinearColumnBoundaryOperator{
+	name = "ColumnBoundaryOperator"
+	numberOfBoundaryOperators=2
+        boundaryOperators="DirichletBoundary","NeumannBoundary"
+}
+
+
+
+DirichletBoundary {
+    name = "DirichletMatrixCorrection"
+    skip_params = FALSE
+    number_of_ids = 2
+    id_0         =   4
+    number_of_dofs_0 =   1
+    dof_0_0          =   0
+    value_0_0        =  -4.982361720289004
+    id_1         =   6 
+    number_of_dofs_1 =   1
+    dof_1_0          =   0
+    value_1_0        =  -4.426041611890331
+}
+
+NeumannBoundary {
+    name = "NeumannMatrixCorrection"
+    skip_params = FALSE
+    number_of_ids = 4
+    id_0         =   1
+    number_of_dofs_0 =   1
+    dof_0_0          =   0
+    value_0_0        =   0
+    id_1         =   2 
+    number_of_dofs_1 =   1
+    dof_1_0          =   0
+    value_1_0        =   0
+    id_2         =   3 
+    number_of_dofs_2 =   1
+    dof_2_0          =   0
+    value_2_0        =   0
+    id_3         =   5 
+    number_of_dofs_3 =   1
+    dof_3_0          =   0
+    value_3_0        =   0
+}
+

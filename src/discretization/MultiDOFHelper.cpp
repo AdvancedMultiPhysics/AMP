@@ -177,7 +177,7 @@ multiDOFHelper &multiDOFHelper::operator=( const multiDOFHelper &rhs )
  ****************************************************************/
 size_t multiDOFHelper::subToGlobal( int manager, size_t dof ) const
 {
-    AMP_ASSERT( manager <= (int) d_index.size() );
+    AMP_ASSERT( manager < (int) d_index.size() );
     size_t index = d_index[manager];
     int rank     = -1;
     for ( size_t i = 0; i < d_localSize.size( 1 ); i++ ) {

@@ -9,14 +9,18 @@
     #include "petscvec.h"
 #endif
 #ifdef AMP_USE_TRILINOS
-    #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
-    #include "AMP/vectors/trilinos/epetra/EpetraVectorData.h"
-    #include "AMP/vectors/trilinos/epetra/EpetraVectorOperations.h"
-    #include "AMP/vectors/trilinos/thyra/NativeThyraVectorData.h"
-    #include "AMP/vectors/trilinos/thyra/NativeThyraVectorOperations.h"
+    #ifdef AMP_USE_TRILINOS_EPETRA
+        #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
+        #include "AMP/vectors/trilinos/epetra/EpetraVectorData.h"
+        #include "AMP/vectors/trilinos/epetra/EpetraVectorOperations.h"
+    #endif
+    #ifdef AMP_USE_TRILINOS_THYRA
+        #include "AMP/vectors/trilinos/thyra/NativeThyraVectorData.h"
+        #include "AMP/vectors/trilinos/thyra/NativeThyraVectorOperations.h"
 DISABLE_WARNINGS
-    #include "Thyra_VectorDefaultBase_decl.hpp"
+        #include "Thyra_VectorDefaultBase_decl.hpp"
 ENABLE_WARNINGS
+    #endif
     #ifdef AMP_USE_TRILINOS_TPETRA
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorData.h"
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorOperations.h"
@@ -70,13 +74,6 @@ std::shared_ptr<Vector> createVector( Teuchos::RCP<Thyra::VectorBase<double>> ve
     auto ops  = std::make_shared<NativeThyraVectorOperations>();
     auto data = std::make_shared<NativeThyraVectorData>( vec, local, comm );
     return std::make_shared<Vector>( data, ops, var, nullptr );
-}
-#else
-std::shared_ptr<Vector>
-createVector( Teuchos::RCP<Thyra::VectorBase<double>>, size_t, AMP_MPI, std::shared_ptr<Variable> )
-{
-    AMP_ERROR( "Thyra support not enabled" );
-    return nullptr;
 }
 #endif
 

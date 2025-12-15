@@ -56,10 +56,10 @@ public:
     inline const auto &operator()() const { return d_x; }
 
 private:
-    GeomType d_type;
-    int d_start;
-    int d_end;
-    int d_rank;
+    GeomType d_type = GeomType::Vertex;
+    int d_start     = 0;
+    int d_end       = 0;
+    int d_rank      = 0;
     std::vector<int> d_offset;
     std::vector<std::array<TYPE, N>> d_x;
 };
@@ -378,7 +378,7 @@ private:
 
 
 private:
-    std::array<size_t, 4> d_N_global;          //!< The number of global elements
+    std::array<size_t, 4> d_N_global = { 0 };  //!< The number of global elements
     StoreTriData<double, 3> d_vertex;          //!< Store the global coordinates
     StoreTriData<int, NG + 1> d_globalTri;     //!< Store the global triangles
     std::vector<TRI> d_globalNab;              //!< Store the global triangle neighbors
@@ -394,7 +394,7 @@ private:
     std::vector<IteratorSet> d_surface_it;     //!< [gcw][type]
     std::vector<std::vector<IteratorSet>> d_boundary_it; //!< [id][gcw][type]
     std::vector<std::vector<IteratorSet>> d_block_it;    //!< [id][gcw][type]
-    uint64_t d_pos_hash; //!< Index indicating number of times the position has changed
+    uint64_t d_pos_hash = 0;                             //!< Number of times position has changed
 };
 
 

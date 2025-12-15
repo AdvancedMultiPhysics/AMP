@@ -3,16 +3,11 @@
 #include "AMP/utils/cuda/GPUFunctionTable.h"
 
 
-namespace AMP {
-
-
 /********************************************************
  *  Explicit instantiations of Array                     *
  ********************************************************/
-template class Array<double, AMP::GPUFunctionTable, CudaDevAllocator<double>>;
-template class Array<double, AMP::GPUFunctionTable, CudaManagedAllocator<double>>;
-template class Array<float, AMP::GPUFunctionTable, CudaDevAllocator<float>>;
-template class Array<float, AMP::GPUFunctionTable, CudaManagedAllocator<float>>;
-
-
-} // namespace AMP
+#define INSTANTIATE( T, ALLOC ) template class AMP::Array<T, AMP::GPUFunctionTable<T>, ALLOC<T>>
+INSTANTIATE( float, AMP::CudaDevAllocator );
+INSTANTIATE( float, AMP::CudaManagedAllocator );
+INSTANTIATE( double, AMP::CudaDevAllocator );
+INSTANTIATE( double, AMP::CudaManagedAllocator );

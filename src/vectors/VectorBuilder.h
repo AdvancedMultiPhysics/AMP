@@ -3,18 +3,12 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/discretization/DOF_Manager.h"
+#include "AMP/utils/Backend.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorDataDefault.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
-
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/GPUFunctionTable.h"
-    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
-#else
-    #include "AMP/utils/FunctionTable.h"
-#endif
 
 #include <string>
 
@@ -23,15 +17,20 @@
 extern "C" {
 typedef struct _p_Vec *Vec;
 }
+#if defined( AMP_USE_TRILINOS )
 namespace Teuchos {
 template<class TYPE>
 class RCP;
 }
+
+    #if defined( AMP_USE_TRILINOS_THYRA )
 namespace Thyra {
 template<class TYPE>
 class VectorBase;
 }
+    #endif
 
+#endif
 
 namespace AMP::LinearAlgebra {
 
@@ -57,6 +56,16 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
               bool split = true );
 
 /**
+ * \brief  This function will create a vector from a DOFManager with a given ops backend
+ */
+template<typename TYPE = double, typename DATA = VectorDataDefault<TYPE>>
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+              std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
+              bool split,
+              AMP::Utilities::Backend backend );
+
+/**
  * \brief  This function will create a vector from an arbitrary DOFManager
  * \details  This function is responsible for creating vectors from a DOFManager and variable.
  * \param[in] DOFs          DOFManager to use for constucting the vector
@@ -71,6 +80,24 @@ createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
               std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
               bool split,
               AMP::Utilities::MemoryType memType );
+
+/**
+ * \brief  This function will create a vector from an arbitrary DOFManager
+ * \details  This function is responsible for creating vectors from a DOFManager and variable.
+ * \param[in] DOFs          DOFManager to use for constucting the vector
+ * \param[in] variable      Variable for the vector
+ * \param[in] split         If we are given a multiDOFManager, do we want to split the vector
+ *                              based on the individual DOFManagers to create a MultiVector
+ * \param[in] memType       Memory space in which to create vector
+ * \param[in] backend       Backend for operations
+ */
+template<typename TYPE = double>
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+              std::shared_ptr<AMP::LinearAlgebra::Variable> variable,
+              bool split,
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend backend );
 
 /**
  * \brief  This function will create a vector from a vector
@@ -93,6 +120,32 @@ createVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
 AMP::LinearAlgebra::Vector::shared_ptr
 createVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vector,
               AMP::Utilities::MemoryType memType );
+
+/**
+ * \brief  This function will create a vector from a vector
+ * \details  This function is responsible for creating vectors from an existing vector.
+ * \param[in] vector        Vector we want to mimic
+ * \param[in] memType       Memory space in which to create vector
+ * \param[in] backend       Backend for operations
+ */
+template<typename TYPE = double>
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend backend );
+
+
+/**
+ * \brief  This function will create a vector from a vector
+ * \details  This function is responsible for creating vectors from an existing vector.
+ * \param[in] vector        Vector we want to mimic
+ * \param[in] memType       Memory space in which to create vector
+ * \param[in] backend       Backend for operations
+ */
+AMP::LinearAlgebra::Vector::shared_ptr
+createVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vector,
+              AMP::Utilities::MemoryType memType,
+              AMP::Utilities::Backend backend );
 
 /**
  * \brief  Create a vector from an arbitrary PETSc Vec
@@ -128,6 +181,7 @@ std::shared_ptr<Vector> createEpetraVector( std::shared_ptr<CommunicationList> c
 std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> commList,
                                             std::shared_ptr<AMP::Discretization::DOFManager> DOFs );
 
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_THYRA )
 
 /**
  * \brief  Create a vector from an arbitrary Thyra Vector
@@ -141,7 +195,7 @@ std::shared_ptr<Vector> createVector( Teuchos::RCP<Thyra::VectorBase<double>> ve
                                       size_t local,
                                       AMP_MPI comm,
                                       std::shared_ptr<Variable> var = nullptr );
-
+#endif
 
 /** \brief   Create a simple AMP vector
  * \details  This is a factory method to create a simple AMP vector.
@@ -198,7 +252,7 @@ Vector::shared_ptr createSimpleVector( std::shared_ptr<Variable> var,
  * \param    localSize  The number of elements in the vector on this processor
  * \param    var The variable name for the new vector
  */
-template<typename T, typename FUN = FunctionTable, typename Allocator = AMP::HostAllocator<void>>
+template<typename T, typename FUN = FunctionTable<T>, typename Allocator = AMP::HostAllocator<void>>
 Vector::shared_ptr createArrayVector( const ArraySize &localSize, const std::string &var );
 
 /** \brief    Cre
@@ -207,7 +261,7 @@ ate a ArrayVector
  * \param    localSize  The number of elements in the vector on this processor
  * \param    var The variable associated with the new vector
  */
-template<typename T, typename FUN = FunctionTable, typename Allocator = AMP::HostAllocator<void>>
+template<typename T, typename FUN = FunctionTable<T>, typename Allocator = AMP::HostAllocator<void>>
 Vector::shared_ptr createArrayVector( const ArraySize &localSize, std::shared_ptr<Variable> var );
 
 
@@ -218,7 +272,7 @@ Vector::shared_ptr createArrayVector( const ArraySize &localSize, std::shared_pt
  * \param    comm  The communicator for the vector
  * \param    var The variable associated with the new vector
  */
-template<typename T, typename FUN = FunctionTable, typename Allocator = AMP::HostAllocator<void>>
+template<typename T, typename FUN = FunctionTable<T>, typename Allocator = AMP::HostAllocator<void>>
 Vector::shared_ptr createArrayVector( const ArraySize &localSize,
                                       const ArraySize &blockIndex,
                                       const AMP_MPI &comm,

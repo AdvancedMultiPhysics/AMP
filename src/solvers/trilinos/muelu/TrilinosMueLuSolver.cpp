@@ -126,6 +126,7 @@ TrilinosMueLuSolver::getSmootherFactory( const int level )
     return Teuchos::rcp( new MueLu::SmootherFactory<SC, LO, GO, NO>( smootherPrototype ) );
 }
 
+DISABLE_WARNINGS
 Teuchos::RCP<Xpetra::Matrix<SC, LO, GO, NO>> TrilinosMueLuSolver::getXpetraMatrix()
 {
     // wrap in a Xpetra matrix
@@ -147,9 +148,9 @@ Teuchos::RCP<Xpetra::Matrix<SC, LO, GO, NO>> TrilinosMueLuSolver::getXpetraMatri
 
     auto crsWrapMat = Teuchos::rcp( new Xpetra::CrsMatrixWrap<SC, LO, GO, NO>( exA ) );
     auto xA         = Teuchos::rcp_dynamic_cast<Xpetra::Matrix<SC, LO, GO, NO>>( crsWrapMat );
-
     return xA;
 }
+ENABLE_WARNINGS
 
 Teuchos::ParameterList &TrilinosMueLuSolver::getSmootherParameters( const int )
 {
@@ -493,14 +494,13 @@ void TrilinosMueLuSolver::reset( std::shared_ptr<SolverStrategyParameters> )
     registerOperator( d_pOperator );
 }
 
+DISABLE_WARNINGS
 void TrilinosMueLuSolver::solveWithHierarchy( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                                               std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
     PROFILE( "TrilinosMueLuSolver::solveWithHierarchy" );
 
     if ( d_bUseEpetra ) {
-
-
         // These functions throw exceptions if this cannot be performed.
         auto fView          = AMP::LinearAlgebra::EpetraVector::constView( f );
         auto uView          = AMP::LinearAlgebra::EpetraVector::view( u );
@@ -520,6 +520,7 @@ void TrilinosMueLuSolver::solveWithHierarchy( std::shared_ptr<const AMP::LinearA
         AMP_ERROR( "Only Epetra interface currently supported" );
     }
 }
+ENABLE_WARNINGS
 
 void TrilinosMueLuSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                                  std::shared_ptr<AMP::LinearAlgebra::Vector> u )

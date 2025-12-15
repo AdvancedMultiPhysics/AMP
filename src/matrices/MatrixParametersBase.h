@@ -117,7 +117,7 @@ public: // Write/read restart data
      * \param fid    File identifier to write
      * \param manager   Restart manager
      */
-    MatrixParametersBase( int64_t, AMP::IO::RestartManager * );
+    MatrixParametersBase( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
     // The comm of the matrix
@@ -133,7 +133,7 @@ protected:
 
 public:
     // The backend used for cpus and/or gpu acceleration
-    AMP::Utilities::Backend d_backend;
+    AMP::Utilities::Backend d_backend = AMP::Utilities::Backend::Serial;
 
     // unique hash to identify this object
     uint64_t d_hash = 0;

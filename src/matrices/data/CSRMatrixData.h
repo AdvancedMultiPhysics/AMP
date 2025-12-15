@@ -282,6 +282,8 @@ public:
     void printStats( bool verbose, bool show_zeros ) const
     {
         std::cout << "CSRMatrixData stats:" << std::endl;
+        std::cout << "  Memory location: " << AMP::Utilities::getString( d_memory_location )
+                  << std::endl;
         std::cout << "  Global size: (" << numGlobalRows() << " x " << numGlobalColumns() << ")"
                   << std::endl;
         d_diag_matrix->printStats( verbose, show_zeros );

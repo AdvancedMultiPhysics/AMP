@@ -8,6 +8,7 @@
 #include "AMP/vectors/operations/device/DeviceOperationsHelpers.h"
 #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 
+#include "ProfilerApp.h"
 
 namespace AMP {
 namespace LinearAlgebra {
@@ -74,6 +75,8 @@ VectorOperationsDevice<TYPE>::getDefaultOps( void ) const
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::zero( VectorData &x )
 {
+    PROFILE( "VectorOperationsDevice::zero" );
+
     VectorOperationsDevice<TYPE>::setToScalar( 0.0, x );
     x.setUpdateStatus( UpdateState::UNCHANGED );
 }
@@ -81,6 +84,8 @@ void VectorOperationsDevice<TYPE>::zero( VectorData &x )
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "VectorOperationsDevice::setToScalar" );
+
     bool useGPU = checkData( x );
     TYPE alpha  = alpha_in.get<TYPE>();
     if ( useGPU ) {
@@ -99,14 +104,13 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
     x.fillGhosts( alpha );
     // Override the status state since we set the ghost values
     x.setUpdateStatus( UpdateState::UNCHANGED );
-    // Wait for cuda data to complete
-    if ( useGPU )
-        deviceSynchronize();
 }
 
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::setRandomValues( VectorData &x )
 {
+    PROFILE( "VectorOperationsDevice::setRandomValues" );
+
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     TYPE *data     = x.getRawDataBlock<TYPE>( 0 );
     const size_t N = x.sizeOfDataBlock( 0 );
@@ -116,12 +120,16 @@ void VectorOperationsDevice<TYPE>::setRandomValues( VectorData &x )
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::copy( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::copy" );
+
     getDefaultOps()->copy( x, y );
 }
 
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::copyCast" );
+
     constexpr auto Hip_Cuda = AMP::Utilities::Backend::Hip_Cuda;
     if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
         for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
@@ -148,12 +156,13 @@ void VectorOperationsDevice<TYPE>::copyCast( const VectorData &x, VectorData &y 
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in, VectorData &x )
 {
+    PROFILE( "VectorOperationsDevice::scale" );
+
     if ( checkData( x ) ) {
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::scale( alpha, N, data );
-        deviceSynchronize();
         x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -166,13 +175,14 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in,
                                           const VectorData &x,
                                           VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::scale" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto N     = y.sizeOfDataBlock( 0 );
         auto alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::scale( alpha, N, xdata, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -183,13 +193,14 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in,
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::add( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "VectorOperationsDevice::add" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         auto N     = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::add( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -202,13 +213,14 @@ void VectorOperationsDevice<TYPE>::subtract( const VectorData &x,
                                              const VectorData &y,
                                              VectorData &z )
 {
+    PROFILE( "VectorOperationsDevice::subtract" );
+
     if ( checkData<TYPE>( x, y, z ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::subtract( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -221,13 +233,14 @@ void VectorOperationsDevice<TYPE>::multiply( const VectorData &x,
                                              const VectorData &y,
                                              VectorData &z )
 {
+    PROFILE( "VectorOperationsDevice::multiply" );
+
     if ( checkData<TYPE>( x, y, z ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::multiply( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -238,13 +251,14 @@ void VectorOperationsDevice<TYPE>::multiply( const VectorData &x,
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::divide( const VectorData &x, const VectorData &y, VectorData &z )
 {
+    PROFILE( "VectorOperationsDevice::divide" );
+
     if ( checkData<TYPE>( x, y, z ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::divide( N, xdata, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -256,12 +270,13 @@ void VectorOperationsDevice<TYPE>::divide( const VectorData &x, const VectorData
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::reciprocal( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::reciprocal" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::reciprocal( N, xdata, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -277,6 +292,8 @@ void VectorOperationsDevice<TYPE>::linearSum( const Scalar &alpha_in,
                                               const VectorData &y,
                                               VectorData &z )
 {
+    PROFILE( "VectorOperationsDevice::linearSum" );
+
     if ( checkData<TYPE>( x, y, z ) ) {
         TYPE alpha = alpha_in.get<TYPE>();
         TYPE beta  = beta_in.get<TYPE>();
@@ -285,7 +302,6 @@ void VectorOperationsDevice<TYPE>::linearSum( const Scalar &alpha_in,
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::linearSum( alpha, N, xdata, beta, ydata, zdata );
-        deviceSynchronize();
         z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -299,6 +315,8 @@ void VectorOperationsDevice<TYPE>::axpy( const Scalar &alpha_in,
                                          const VectorData &y,
                                          VectorData &z )
 {
+    PROFILE( "VectorOperationsDevice::axpy" );
+
     VectorOperationsDevice<TYPE>::linearSum( alpha_in, x, 1.0, y, z );
 }
 
@@ -308,18 +326,21 @@ void VectorOperationsDevice<TYPE>::axpby( const Scalar &alpha_in,
                                           const VectorData &x,
                                           VectorData &z )
 {
+    PROFILE( "VectorOperationsDevice::axpby" );
+
     VectorOperationsDevice<TYPE>::linearSum( alpha_in, x, beta_in, z, z );
 }
 
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::abs( const VectorData &x, VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::abs" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         DeviceOperationsHelpers<TYPE>::abs( N, xdata, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -332,13 +353,14 @@ void VectorOperationsDevice<TYPE>::addScalar( const VectorData &x,
                                               const Scalar &alpha_in,
                                               VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::addScalar" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::addScalar( N, xdata, alpha, ydata );
-        deviceSynchronize();
         y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -349,12 +371,13 @@ void VectorOperationsDevice<TYPE>::addScalar( const VectorData &x,
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::setMin( const Scalar &alpha_in, VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::setMin" );
+
     if ( checkData( y ) ) {
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::setMin( N, alpha, ydata );
-        deviceSynchronize();
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->setMin( alpha_in, y );
@@ -364,12 +387,13 @@ void VectorOperationsDevice<TYPE>::setMin( const Scalar &alpha_in, VectorData &y
 template<typename TYPE>
 void VectorOperationsDevice<TYPE>::setMax( const Scalar &alpha_in, VectorData &y )
 {
+    PROFILE( "VectorOperationsDevice::setMax" );
+
     if ( checkData( y ) ) {
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
         DeviceOperationsHelpers<TYPE>::setMax( N, alpha, ydata );
-        deviceSynchronize();
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->setMax( alpha_in, y );
@@ -379,6 +403,8 @@ void VectorOperationsDevice<TYPE>::setMax( const Scalar &alpha_in, VectorData &y
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localMin( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDevice::localMin" );
+
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
@@ -392,6 +418,8 @@ Scalar VectorOperationsDevice<TYPE>::localMin( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localMax( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDevice::localMax" );
+
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
@@ -405,6 +433,8 @@ Scalar VectorOperationsDevice<TYPE>::localMax( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localSum( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDevice::localSum" );
+
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
@@ -418,6 +448,8 @@ Scalar VectorOperationsDevice<TYPE>::localSum( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localL1Norm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDevice::localL1Norm" );
+
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
@@ -431,6 +463,8 @@ Scalar VectorOperationsDevice<TYPE>::localL1Norm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localL2Norm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDevice::localL2Norm" );
+
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
@@ -444,6 +478,8 @@ Scalar VectorOperationsDevice<TYPE>::localL2Norm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localMaxNorm( const VectorData &x ) const
 {
+    PROFILE( "VectorOperationsDevice::localMaxNorm" );
+
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
@@ -457,6 +493,8 @@ Scalar VectorOperationsDevice<TYPE>::localMaxNorm( const VectorData &x ) const
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localDot( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDevice::localDot" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
@@ -472,6 +510,8 @@ template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localMinQuotient( const VectorData &x,
                                                        const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDevice::localMinQuotient" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
@@ -486,6 +526,8 @@ Scalar VectorOperationsDevice<TYPE>::localMinQuotient( const VectorData &x,
 template<typename TYPE>
 Scalar VectorOperationsDevice<TYPE>::localWrmsNorm( const VectorData &x, const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDevice::localWrmsNorm" );
+
     if ( checkData<TYPE>( x, y ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
@@ -502,6 +544,8 @@ Scalar VectorOperationsDevice<TYPE>::localWrmsNormMask( const VectorData &x,
                                                         const VectorData &mask,
                                                         const VectorData &y ) const
 {
+    PROFILE( "VectorOperationsDevice::localWrmsNormMask" );
+
     // Default to VectorOperationsDefault (on cpu)
     return getDefaultOps()->localWrmsNormMask( x, mask, y );
 }
@@ -511,6 +555,8 @@ bool VectorOperationsDevice<TYPE>::localEquals( const VectorData &x,
                                                 const VectorData &y,
                                                 const Scalar &tol_in ) const
 {
+    PROFILE( "VectorOperationsDevice::localEquals" );
+
     TYPE tol = tol_in.get<TYPE>();
     if ( checkData<TYPE>( x, y ) ) {
         // Call Cuda

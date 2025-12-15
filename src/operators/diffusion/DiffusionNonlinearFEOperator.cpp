@@ -66,11 +66,6 @@ DiffusionNonlinearFEOperator::getOutputVariable() const
     return d_outVariable;
 }
 
-unsigned int DiffusionNonlinearFEOperator::numberOfDOFMaps() { return 1; }
-
-
-std::string DiffusionNonlinearFEOperator::getPrincipalVariable() { return d_PrincipalVariable; }
-
 
 std::shared_ptr<DiffusionTransportModel> DiffusionNonlinearFEOperator::getTransportModel()
 {
@@ -157,7 +152,7 @@ DiffusionNonlinearFEOperator::DiffusionNonlinearFEOperator(
     d_transportModel = params->d_transportModel;
 
     auto activeVariables = getActiveVariables( params->d_db, "ActiveInputVariables" );
-    for ( auto name : activeVariables ) {
+    for ( auto &name : activeVariables ) {
         InputVectorStruct data;
         data.isFrozen  = params->d_db->getWithDefault<bool>( "Freeze" + name, false );
         d_active[name] = data;

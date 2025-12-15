@@ -32,7 +32,7 @@ Operator::Operator( std::shared_ptr<const OperatorParameters> params )
     // try and keep the next call the last in the function
     // so as not to override any parameters set through it
     // by accident
-    getFromInput( params->d_db );
+    getBackendFromInput( params->d_db );
 }
 
 
@@ -42,7 +42,7 @@ void Operator::reset( std::shared_ptr<const OperatorParameters> params )
     // so as not to override any parameters set through it
     // by accident
     if ( params )
-        getFromInput( params->d_db );
+        getBackendFromInput( params->d_db );
 }
 
 
@@ -50,6 +50,8 @@ void Operator::residual( AMP::LinearAlgebra::Vector::const_shared_ptr f,
                          AMP::LinearAlgebra::Vector::const_shared_ptr u,
                          AMP::LinearAlgebra::Vector::shared_ptr r )
 {
+    PROFILE( "Operator::residual" );
+
     AMP_INSIST( u, "NULL Solution Vector" );
     AMP_INSIST( r, "NULL Residual Vector" );
     AMP_ASSERT( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
@@ -88,7 +90,7 @@ Operator::getParameters( const std::string &type,
 }
 
 
-void Operator::getFromInput( std::shared_ptr<AMP::Database> db )
+void Operator::getBackendFromInput( std::shared_ptr<AMP::Database> db )
 {
     AMP_INSIST( db, "NULL database" );
 
@@ -188,6 +190,8 @@ Operator::subsetOutputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
  ********************************************************/
 void Operator::makeConsistent( std::shared_ptr<AMP::LinearAlgebra::Vector> vec )
 {
+    PROFILE( "Operator::makeConsistent" );
+
     AMP_ASSERT( vec );
     vec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }

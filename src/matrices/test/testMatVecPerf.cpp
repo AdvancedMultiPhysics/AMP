@@ -21,6 +21,7 @@
 
 #include "ProfilerApp.h"
 
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -30,12 +31,14 @@
 // profiling information regarding matvec products with different matrix
 // classes
 
+#define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
+
 // Number of products to evaluate to average out timings
-#define NUM_PRODUCTS 1000
-#define NUM_PRODUCTS_TRANS 100
+#define NUM_PRODUCTS 10000
+#define NUM_PRODUCTS_TRANS 10
 
 size_t matVecTestWithDOFs( AMP::UnitTest *ut,
-                           std::string type,
+                           const std::string &type,
                            std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                            bool testTranspose,
                            const std::string &accelerationBackend,
@@ -55,7 +58,10 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
     outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
     auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-    fillWithPseudoLaplacian( matrix_h, dofManager );
+    {
+        PROFILE( "fillWithPseudoLaplacian" );
+        fillWithPseudoLaplacian( matrix_h, dofManager );
+    }
 
     auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
@@ -86,9 +92,16 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     y->zero();
 
+    auto t1 = std::chrono::high_resolution_clock::now();
     for ( int nProd = 0; nProd < NUM_PRODUCTS; ++nProd ) {
         matrix->mult( x, y );
     }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    AMP::pout << std::endl
+              << "SpMV on backend " << accelerationBackend << " in space " << memoryLocation
+              << ":  total time: (" << 1e-3 * to_ms( t2 - t1 ) << " s) " << NUM_PRODUCTS
+              << " repetitions, average: ("
+              << to_ms( t2 - t1 ) / static_cast<double>( NUM_PRODUCTS ) << "ms)" << std::endl;
 
     auto yNorm = static_cast<scalar_t>( y->L1Norm() );
 
@@ -128,7 +141,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
+size_t matVecTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatVecPerf";
     //    AMP::logOnlyNodeZero( log_file );
@@ -173,19 +186,19 @@ size_t matVecTest( AMP::UnitTest *ut, std::string input_file )
     }
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
-    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
 #ifdef USE_OPENMP
-    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
 #endif
 #if defined( AMP_USE_KOKKOS )
-    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
-    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
-    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
     backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
 

@@ -30,6 +30,9 @@
 #ifdef AMP_USE_OPENMP
     #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
 #endif
+#ifdef AMP_USE_KOKKOS
+    #include "AMP/vectors/operations/kokkos/VectorOperationsKokkos.h"
+#endif
 #ifdef AMP_USE_DEVICE
     #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
 #endif
@@ -122,6 +125,9 @@ bool isValid( [[maybe_unused]] const std::string &name )
 #ifndef AMP_USE_OPENMP
     valid = valid && name.find( "openmp" ) == std::string::npos;
 #endif
+#ifndef AMP_USE_KOKKOS
+    valid = valid && name.find( "kokkos" ) == std::string::npos;
+#endif
 #ifndef AMP_USE_DEVICE
     valid = valid && name.find( "gpu" ) == std::string::npos;
 #endif
@@ -160,7 +166,7 @@ generateSimpleVectorFactory( const std::string &name, int N, bool global, const 
     } else if ( data == "gpu" ) {
 #ifdef AMP_USE_DEVICE
         using ALLOC = ManagedAllocator<void>;
-        using DATA  = AMP::LinearAlgebra::VectorDataDefault<TYPE, ALLOC>;
+        using DATA  = AMP::LinearAlgebra::VectorDataDevice<TYPE, ALLOC>;
         factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
 #endif
     } else {
@@ -181,6 +187,12 @@ std::shared_ptr<VectorFactory> generateSimpleVectorFactory(
 #ifdef AMP_USE_OPENMP
         factory =
             generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsOpenMP<TYPE>>(
+                name, N, global, data );
+#endif
+    } else if ( ops == "kokkos" ) {
+#ifdef AMP_USE_KOKKOS
+        factory =
+            generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsKokkos<TYPE>>(
                 name, N, global, data );
 #endif
     } else if ( ops == "gpu" ) {
@@ -328,12 +340,12 @@ std::vector<std::string> getSimpleVectorFactories()
     list.emplace_back( "SimpleVectorFactory<15,false,double>" );
     list.emplace_back( "SimpleVectorFactory<45,true,double>" );
     list.emplace_back( "SimpleVectorFactory<15,false,double,openmp,cpu>" );
-    // list.push_back( "SimpleVectorFactory<15,false,double,default,gpu>" ); // Requires UVM
+    list.emplace_back( "SimpleVectorFactory<15,false,double,kokkos,cpu>" );
+    list.emplace_back( "SimpleVectorFactory<15,false,double,kokkos,gpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,double,gpu,gpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float>" );
     list.emplace_back( "SimpleVectorFactory<15,true,float>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float,openmp,cpu>" );
-    // list.push_back( "SimpleVectorFactory<15,false,float,default,gpu>" ); // Requires UVM
     list.emplace_back( "SimpleVectorFactory<15,false,float,gpu,gpu>" );
     list = cleanList( list );
     return list;
@@ -431,7 +443,7 @@ std::vector<std::string> getManagedVectorFactories()
 std::vector<std::string> getCloneVectorFactories()
 {
     std::vector<std::string> list;
-    for ( auto factory : getNativeVectorFactories() )
+    for ( auto &factory : getNativeVectorFactories() )
         list.push_back( "CloneFactory<" + factory + ">" );
     list.push_back( "CloneFactory<" + getSimpleVectorFactories()[0] + ">" );
     list.push_back( "CloneFactory<" + getArrayVectorFactories()[0] + ">" );
@@ -478,7 +490,7 @@ std::vector<std::string> getViewVectorFactories()
     list.push_back( ViewMVFactory4 );
     list.push_back( ViewMVFactory5 );
     list.push_back( ViewMVFactory6 );
-    for ( auto factory : getManagedVectorFactories() )
+    for ( auto &factory : getManagedVectorFactories() )
         list.push_back( "ViewFactory<PetscVector," + factory + ">" );
     list = cleanList( list );
     return list;
@@ -487,7 +499,7 @@ std::vector<std::string> getViewVectorFactories()
 std::vector<std::string> getCloneViewVectorFactories()
 {
     std::vector<std::string> list;
-    for ( auto view : getViewVectorFactories() )
+    for ( auto &view : getViewVectorFactories() )
         list.push_back( "CloneFactory<" + view + ">" );
     std::string CloneViewSNEVFactory = "CloneFactory<ViewFactory<PetscVector,NativeEpetraFactory>>";
     std::string CloneViewSNTVFactory = "CloneFactory<ViewFactory<PetscVector,NativeTpetraFactory>>";
@@ -522,23 +534,23 @@ std::vector<std::string> getCloneViewVectorFactories()
 std::vector<std::string> getAllFactories()
 {
     std::vector<std::string> list;
-    for ( auto factory : getSimpleVectorFactories() )
+    for ( auto &factory : getSimpleVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getArrayVectorFactories() )
+    for ( auto &factory : getArrayVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getNativeVectorFactories() )
+    for ( auto &factory : getNativeVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getMeshVectorFactories() )
+    for ( auto &factory : getMeshVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getMultiVectorFactories() )
+    for ( auto &factory : getMultiVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getManagedVectorFactories() )
+    for ( auto &factory : getManagedVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getCloneVectorFactories() )
+    for ( auto &factory : getCloneVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getViewVectorFactories() )
+    for ( auto &factory : getViewVectorFactories() )
         list.push_back( factory );
-    for ( auto factory : getCloneViewVectorFactories() )
+    for ( auto &factory : getCloneViewVectorFactories() )
         list.push_back( factory );
     list = cleanList( list );
     return list;

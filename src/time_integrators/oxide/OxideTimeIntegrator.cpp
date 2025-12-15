@@ -67,13 +67,10 @@ void OxideTimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> 
     d_solution_vector->setToScalar( 0.0 );
 
     // Create the internal vectors for storing the data
-    N_layer     = std::vector<int>( 3 );
-    N_layer[0]  = 20; // Number of zones in the oxide layer
-    N_layer[1]  = 20; // Number of zones in the alpha layer
-    N_layer[2]  = 5;  // Number of zones in the zirconium layer
+    N_layer     = { 20, 20, 5 }; // Number of zones in the [oxide,alpha,zirconium] layers
     int N_total = 0;
-    for ( auto &elem : N_layer )
-        N_total += elem;
+    for ( auto &N : N_layer )
+        N_total += N;
     auto DOF_d = AMP::Discretization::simpleDOFManager::create(
         d_mesh, AMP::Mesh::GeomType::Vertex, 0, N_layer.size(), true );
     auto DOF_C = AMP::Discretization::simpleDOFManager::create(

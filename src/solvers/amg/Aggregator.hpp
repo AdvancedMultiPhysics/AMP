@@ -9,14 +9,19 @@
 #include <limits>
 #include <numeric>
 
+// DEBUG
+#include <fstream>
+#include <iostream>
+
 namespace AMP::Solver::AMG {
 
 std::shared_ptr<LinearAlgebra::Matrix>
 Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::Matrix> A,
                                 std::shared_ptr<LinearAlgebra::MatrixParameters> matParams )
 {
-    return LinearAlgebra::csrVisit(
-        A, [=]( auto csr_ptr ) { return getAggregateMatrix( csr_ptr, matParams ); } );
+    return LinearAlgebra::csrVisit( A, [this, matParams]( auto csr_ptr ) {
+        return this->getAggregateMatrix( csr_ptr, matParams );
+    } );
 }
 
 template<typename Config>

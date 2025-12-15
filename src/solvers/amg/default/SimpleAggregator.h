@@ -3,12 +3,13 @@
 
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
+#include "AMP/solvers/amg/Aggregation.h"
 #include "AMP/solvers/amg/Aggregator.h"
 
 namespace AMP::Solver::AMG {
 
 struct SimpleAggregator : Aggregator {
-    SimpleAggregator( const float strength_threshold ) : Aggregator( strength_threshold ) {}
+    SimpleAggregator( const CoarsenSettings &settings ) : Aggregator( settings ) {}
 
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
 

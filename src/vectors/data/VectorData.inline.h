@@ -106,24 +106,35 @@ const TYPE *VectorData::getRawDataBlock( size_t i ) const
 template<typename TYPE>
 void VectorData::getValuesByLocalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
+    PROFILE( "VectorData::getValuesByLocalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     getValuesByLocalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::setValuesByLocalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::setValuesByLocalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     setValuesByLocalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::addValuesByLocalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::addValuesByLocalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     addValuesByLocalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ ) const
 {
+    PROFILE( "VectorData::getValuesByGlobalID" );
+
     auto ndx           = ndx_;
     auto vals          = vals_;
     bool allocate_ndx  = false;
@@ -179,9 +190,12 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ 
         delete[] vals;
     }
 }
+
 template<typename TYPE>
 void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
 {
+    PROFILE( "VectorData::setValuesByGlobalID" );
+
     auto ndx           = ndx_;
     auto vals          = vals_;
     bool allocate_ndx  = false;
@@ -227,9 +241,12 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
     if ( allocate_vals )
         delete[] vals;
 }
+
 template<typename TYPE>
 void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
 {
+    PROFILE( "VectorData::addValuesByGlobalID" );
+
     auto ndx           = ndx_;
     auto vals          = vals_;
     bool allocate_ndx  = false;
@@ -283,30 +300,44 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
 template<typename TYPE>
 void VectorData::setGhostValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::setGhostValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     setGhostValuesByGlobalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::addGhostValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::addGhostValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     addGhostValuesByGlobalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::getGhostValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
+    PROFILE( "VectorData::getGhostValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     getGhostValuesByGlobalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::getGhostAddValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
+    PROFILE( "VectorData::getGhostAddValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     getGhostAddValuesByGlobalID( N, ndx, vals, type );
 }
+
 template<class TYPE>
 size_t VectorData::getAllGhostValues( TYPE *vals ) const
 {
+    PROFILE( "VectorData::getAllGhostValues" );
+
     constexpr auto type = getTypeID<TYPE>();
     size_t N            = getAllGhostValues( vals, type );
     return N;

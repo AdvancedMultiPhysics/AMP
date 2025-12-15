@@ -316,6 +316,12 @@ AMP::Mesh::MeshIterator simpleDOFManager::getIterator() const { return d_localIt
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int simpleDOFManager::getDOFsPerPoint() const { return d_DOFsPerElement; }
+
+
+/****************************************************************
  * Return the remote DOFs for a vector                           *
  ****************************************************************/
 std::vector<size_t> simpleDOFManager::getRemoteDOFs() const
@@ -399,7 +405,7 @@ size_t simpleDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
  * must be sorted, and d_local_id must be set                    *
  ****************************************************************/
 std::vector<size_t>
-simpleDOFManager::getRemoteDOF( std::vector<AMP::Mesh::MeshElementID> remote_ids ) const
+simpleDOFManager::getRemoteDOF( const std::vector<AMP::Mesh::MeshElementID> &remote_ids ) const
 {
     if ( d_comm.getSize() == 1 )
         return std::vector<size_t>(); // There are no remote DOFs

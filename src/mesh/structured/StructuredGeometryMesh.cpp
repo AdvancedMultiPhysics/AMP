@@ -11,7 +11,7 @@ namespace AMP::Mesh {
  * Constructors                                                 *
  ****************************************************************/
 StructuredGeometryMesh::StructuredGeometryMesh( std::shared_ptr<const MeshParameters> params )
-    : BoxMesh( params ), d_pos_hash( 0 )
+    : BoxMesh( params )
 {
     // Check for valid inputs
     AMP_INSIST( params.get(), "Params must not be null" );
@@ -125,6 +125,15 @@ StructuredGeometryMesh::physicalToLogical( const AMP::Geometry::Point &x ) const
 {
     return d_geometry2->logical( x );
 }
+std::unique_ptr<Mesh> StructuredGeometryMesh::clone() const
+{
+    return std::make_unique<StructuredGeometryMesh>( *this );
+}
+
+
+/****************************************************************
+ * Return the coordinates                                        *
+ ****************************************************************/
 void StructuredGeometryMesh::coord( const MeshElementIndex &index, double *pos ) const
 {
     AMP_ASSERT( index.type() == AMP::Mesh::GeomType::Vertex );
@@ -135,9 +144,62 @@ void StructuredGeometryMesh::coord( const MeshElementIndex &index, double *pos )
     for ( int d = 0; d < PhysicalDim; d++ )
         pos[d] = tmp[d];
 }
-std::unique_ptr<Mesh> StructuredGeometryMesh::clone() const
+std::array<AMP::Array<double>, 3> StructuredGeometryMesh::localCoord() const
 {
-    return std::make_unique<StructuredGeometryMesh>( *this );
+    auto local = getLocalBlock( d_comm.getRank() );
+    ArraySize size( { local[1] - local[0] + 2, local[3] - local[2] + 2, local[5] - local[4] + 2 },
+                    static_cast<int>( GeomDim ) );
+    AMP::Array<double> x( size ), y( size ), z( size );
+    double Ng[3] = { static_cast<double>( d_globalSize[0] ),
+                     static_cast<double>( d_globalSize[1] ),
+                     static_cast<double>( d_globalSize[2] ) };
+    for ( size_t k = 0; k < size[2]; k++ ) {
+        for ( size_t j = 0; j < size[1]; j++ ) {
+            for ( size_t i = 0; i < size[0]; i++ ) {
+                double x2    = static_cast<double>( i + local[0] ) / Ng[0];
+                double y2    = static_cast<double>( j + local[2] ) / Ng[1];
+                double z2    = static_cast<double>( k + local[4] ) / Ng[2];
+                auto tmp     = d_geometry2->physical( AMP::Geometry::Point( x2, y2, z2 ) );
+                x( i, j, k ) = tmp.x();
+                y( i, j, k ) = tmp.y();
+                z( i, j, k ) = tmp.z();
+            }
+        }
+    }
+    if ( PhysicalDim == 1 )
+        return { x, {}, {} };
+    else if ( PhysicalDim == 2 )
+        return { x, y, {} };
+    else
+        return { x, y, z };
+}
+std::array<AMP::Array<double>, 3> StructuredGeometryMesh::globalCoord() const
+{
+    ArraySize size( { d_globalSize[0] + 1, d_globalSize[1] + 1, d_globalSize[2] + 1 },
+                    static_cast<int>( GeomDim ) );
+    AMP::Array<double> x( size ), y( size ), z( size );
+    double Ng[3] = { static_cast<double>( d_globalSize[0] ),
+                     static_cast<double>( d_globalSize[1] ),
+                     static_cast<double>( d_globalSize[2] ) };
+    for ( size_t k = 0; k < size[2]; k++ ) {
+        for ( size_t j = 0; j < size[1]; j++ ) {
+            for ( size_t i = 0; i < size[0]; i++ ) {
+                double x2    = static_cast<double>( i ) / Ng[0];
+                double y2    = static_cast<double>( j ) / Ng[1];
+                double z2    = static_cast<double>( k ) / Ng[2];
+                auto tmp     = d_geometry2->physical( AMP::Geometry::Point( x2, y2, z2 ) );
+                x( i, j, k ) = tmp.x();
+                y( i, j, k ) = tmp.y();
+                z( i, j, k ) = tmp.z();
+            }
+        }
+    }
+    if ( PhysicalDim == 1 )
+        return { x, {}, {} };
+    else if ( PhysicalDim == 2 )
+        return { x, y, {} };
+    else
+        return { x, y, z };
 }
 
 

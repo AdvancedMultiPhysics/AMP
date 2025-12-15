@@ -17,6 +17,10 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/copycast/CopyCastHelper.h"
 
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
+#endif
+
 #include "ProfilerApp.h"
 
 #include <type_traits>
@@ -38,7 +42,7 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
     : MatrixData( params ),
       d_memory_location( AMP::Utilities::getAllocatorMemoryType<allocator_type>() )
 {
-    PROFILE( "CSRMatrixData::CSRMatrixData" );
+    PROFILE( "CSRMatrixData::constructor" );
 
     AMPManager::incrementResource( "CSRMatrixData" );
 
@@ -168,6 +172,8 @@ CSRMatrixData<Config>::~CSRMatrixData()
 template<typename Config>
 std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
 {
+    PROFILE( "CSRMatrixData::cloneMatrixData" );
+
     std::shared_ptr<CSRMatrixData> cloneData;
 
     cloneData = std::make_shared<CSRMatrixData<Config>>();
@@ -200,6 +206,8 @@ template<typename ConfigOut>
 std::shared_ptr<CSRMatrixData<ConfigOut>>
 CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
 {
+    PROFILE( "CSRMatrixData::migrate" );
+
     using outdata_t = CSRMatrixData<ConfigOut>;
     auto outData    = std::make_shared<outdata_t>();
 
@@ -405,6 +413,8 @@ void CSRMatrixData<Config>::setNNZ( bool do_accum )
 template<typename Config>
 void CSRMatrixData<Config>::assemble( bool force_dm_reset )
 {
+    PROFILE( "CSRMatrixData::assemble" );
+
     globalToLocalColumns();
     resetDOFManagers( force_dm_reset );
 }
@@ -416,6 +426,8 @@ void CSRMatrixData<Config>::globalToLocalColumns()
 
     d_diag_matrix->globalToLocalColumns();
     d_offd_matrix->globalToLocalColumns();
+
+    makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
 template<typename Config>
@@ -484,6 +496,7 @@ template<typename Config>
 void CSRMatrixData<Config>::removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up )
 {
     PROFILE( "CSRMatrixData::removeRange" );
+
     const auto blo = static_cast<scalar_t>( bnd_lo );
     const auto bup = static_cast<scalar_t>( bnd_up );
     d_diag_matrix->removeRange( blo, bup );
@@ -609,6 +622,8 @@ void CSRMatrixData<Config>::getRowByGlobalID( size_t row,
                                               std::vector<size_t> &cols,
                                               std::vector<double> &vals ) const
 {
+    PROFILE( "CSRMatrixData::getRowByGlobalID" );
+
     AMP_DEBUG_INSIST( row >= static_cast<size_t>( d_first_row ) &&
                           row < static_cast<size_t>( d_last_row ),
                       "row must be owned by rank" );
@@ -637,6 +652,8 @@ void CSRMatrixData<Config>::getValuesByGlobalID( size_t num_rows,
                                                  void *vals,
                                                  [[maybe_unused]] const typeID &id ) const
 {
+    PROFILE( "CSRMatrixData::getValuesByGlobalID" );
+
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::getValuesByGlobalID called with inconsistent typeID" );
 
@@ -673,6 +690,8 @@ void CSRMatrixData<Config>::addValuesByGlobalID( size_t num_rows,
                                                  void *vals,
                                                  [[maybe_unused]] const typeID &id )
 {
+    PROFILE( "CSRMatrixData::addValuesByGlobalID" );
+
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::addValuesByGlobalID called with inconsistent typeID" );
 
@@ -707,6 +726,8 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
                                                  void *vals,
                                                  [[maybe_unused]] const typeID &id )
 {
+    PROFILE( "CSRMatrixData::setValuesByGlobalID" );
+
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::setValuesByGlobalID called with inconsistent typeID" );
 
@@ -737,6 +758,8 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
 template<typename Config>
 std::vector<size_t> CSRMatrixData<Config>::getColumnIDs( size_t row ) const
 {
+    PROFILE( "CSRMatrixData::getColumnIDs" );
+
     AMP_DEBUG_INSIST( row >= static_cast<size_t>( d_first_row ) &&
                           row < static_cast<size_t>( d_last_row ),
                       "CSRMatrixData::getColumnIDs row must be owned by rank" );
@@ -757,6 +780,8 @@ template<typename Config>
 void CSRMatrixData<Config>::setOtherData( std::map<gidx_t, std::map<gidx_t, scalar_t>> &other_data,
                                           AMP::LinearAlgebra::ScatterType t )
 {
+    PROFILE( "CSRMatrixData::setOtherData" );
+
     AMP_MPI comm   = getComm();
     auto ndxLen    = other_data.size();
     auto totNdxLen = comm.sumReduce( ndxLen );
@@ -843,6 +868,13 @@ void CSRMatrixData<Config>::setOtherData( std::map<gidx_t, std::map<gidx_t, scal
 template<typename Config>
 void CSRMatrixData<Config>::makeConsistent( AMP::LinearAlgebra::ScatterType t )
 {
+    PROFILE( "CSRMatrixData::makeConsistent" );
+
+#ifdef AMP_USE_DEVICE
+    deviceSynchronize();
+    getLastDeviceError( "CSRMatrixData::makeConsistent" );
+#endif
+
     if ( t == AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD )
         setOtherData( d_other_data, AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     else
@@ -979,7 +1011,7 @@ void CSRMatrixData<Config>::writeRestartMapData(
         size_t i = 0;
         for ( const auto &[key, inner_map] : data ) {
             AMP::Array<gidx_t> inner_keys_v( inner_map.size() );
-            AMP::Array<gidx_t> inner_vals_v( inner_map.size() );
+            AMP::Array<scalar_t> inner_vals_v( inner_map.size() );
             size_t j = 0;
             for ( const auto &[inner_key, inner_val] : inner_map ) {
                 inner_keys_v[j] = inner_key;
@@ -1015,7 +1047,7 @@ void CSRMatrixData<Config>::readRestartMapData( const int64_t fid,
         for ( size_t i = 0u; i < keys_v.length(); ++i ) {
             const auto key = keys_v[i];
             AMP::Array<gidx_t> inner_keys_v;
-            AMP::Array<gidx_t> inner_vals_v;
+            AMP::Array<scalar_t> inner_vals_v;
             const auto key_name = prefix + "_keyvector_" + std::to_string( key );
             const auto val_name = prefix + "_valvector_" + std::to_string( key );
             IO::readHDF5( fid, key_name, inner_keys_v );

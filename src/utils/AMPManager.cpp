@@ -15,23 +15,13 @@
 #ifdef AMP_USE_OPENMP
     #include <omp.h>
 #endif
-#ifdef AMP_USE_CUDA
-    #include <cuda.h>
-    #include <cuda_runtime_api.h>
-    #include "AMP/utils/cuda/Helper_Cuda.h"
+
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
 #endif
-#ifdef AMP_USE_HIP
-    #include <hip/hip_runtime_api.h>
-    #include "AMP/utils/hip/Helper_Hip.h"
-#endif
+
 #ifdef AMP_USE_TIMER
     #include "MemoryApp.h"
-#endif
-#ifdef AMP_USE_SAMRAI
-    #include "SAMRAI/tbox/Logger.h"
-    #include "SAMRAI/tbox/SAMRAIManager.h"
-    #include "SAMRAI/tbox/Schedule.h"
-    #include "SAMRAI/tbox/StartupShutdownManager.h"
 #endif
 // clang-format on
 
@@ -144,6 +134,8 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
     d_argv       = copy_args( argc, argv );
     // Initialize the timers (default is disabled)
     PROFILE_DISABLE();
+    // initialize CUDA/HIP before MPI
+    initDevices();
     // Initialize MPI
     auto MPI_start = std::chrono::steady_clock::now();
     AMP_MPI::start_MPI( argc, argv, d_properties.profile_MPI_level );
@@ -159,8 +151,8 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
         new_comm = MPI_COMM_SELF;
 #endif
     comm_world = AMP_MPI( new_comm, true );
-    // Initialize cuda/hip
-    start_CudaOrHip();
+    // bind devices to mpi ranks
+    bindDevices();
     // Initialize OpenMP
     start_OpenMP();
     // Initialize Kokkos
@@ -294,10 +286,8 @@ void AMPManager::restart()
 {
     if ( d_initialized != 1 )
         AMP_ERROR( "AMP is not initialized or has been shutdown" );
-#ifdef AMP_USE_SAMRAI
-    SAMRAI::tbox::SAMRAIManager::shutdown();
-    SAMRAI::tbox::SAMRAIManager::startup();
-#endif
+
+    restart_SAMRAI();
 }
 
 
@@ -308,93 +298,41 @@ void AMPManager::registerShutdown( std::function<void()> fun ) { d_atShutdown.pu
 
 
 /****************************************************************************
- * Function to start/stop SAMRAI                                             *
- ****************************************************************************/
-#ifdef AMP_USE_SAMRAI
-template<typename T>
-class hasClearTimers
-{
-private:
-    template<typename C>
-    static char &test( decltype( &C::clearTimers ) );
-    template<typename C>
-    static int &test( ... );
-
-public:
-    static constexpr bool value = sizeof( test<T>( 0 ) ) == sizeof( char );
-};
-template<typename T>
-typename std::enable_if_t<hasClearTimers<T>::value, void> clearTimers( const T &obj )
-{
-    obj.clearTimers();
-}
-template<typename T>
-typename std::enable_if_t<!hasClearTimers<T>::value, void> clearTimers( const T & )
-{
-}
-double AMPManager::start_SAMRAI()
-{
-    auto start = std::chrono::steady_clock::now();
-    #ifdef AMP_USE_MPI
-    SAMRAI::tbox::SAMRAI_MPI::init( AMP_MPI( AMP_COMM_WORLD ).getCommunicator() );
-    #else
-    SAMRAI::tbox::SAMRAI_MPI::initMPIDisabled();
-    #endif
-    SAMRAI::tbox::SAMRAIManager::initialize();
-    SAMRAI::tbox::SAMRAIManager::startup();
-    SAMRAI::tbox::SAMRAIManager::setMaxNumberPatchDataEntries( 2048 );
-    return getDuration( start );
-}
-double AMPManager::stop_SAMRAI()
-{
-    auto start = std::chrono::steady_clock::now();
-    SAMRAI::tbox::PIO::finalize();
-    SAMRAI::tbox::SAMRAIManager::shutdown();
-    SAMRAI::tbox::SAMRAIManager::finalize();
-    SAMRAI::tbox::SAMRAI_MPI::finalize();
-    clearTimers( SAMRAI::tbox::Schedule() );
-    return getDuration( start );
-}
-#else
-double AMPManager::start_SAMRAI() { return 0; }
-double AMPManager::stop_SAMRAI() { return 0; }
-#endif
-
-
-/****************************************************************************
  * Function to start/stop CUDA                                               *
  ****************************************************************************/
-double AMPManager::start_CudaOrHip()
+double AMPManager::initDevices()
 {
     if ( !d_properties.initialize_device )
         return 0;
     auto start = std::chrono::steady_clock::now();
 #ifdef AMP_USE_DEVICE
+    deviceInit( 0 );
+#endif
+    return getDuration( start );
+}
+
+double AMPManager::bindDevices()
+{
+    if ( !d_properties.initialize_device )
+        return 0;
+    auto start = std::chrono::steady_clock::now();
+#ifdef AMP_USE_DEVICE
+
     if ( d_properties.bind_process_to_accelerator ) {
         AMP::Utilities::setenv( "RDMAV_FORK_SAFE", "1" );
         auto nodeComm = comm_world.splitByNode();
         auto nodeRank = nodeComm.getRank();
         int deviceCount;
 
-    #ifdef AMP_USE_CUDA
-        checkCudaErrors( cudaGetDeviceCount( &deviceCount ) ); // How many GPUs?
+        deviceGetCount( &deviceCount ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
-        checkCudaErrors( cudaSetDevice( device_id ) ); // Map MPI-process to a GPU
-    #else
-        checkHipErrors( hipGetDeviceCount( &deviceCount ) ); // How many GPUs?
-        int device_id = nodeRank % deviceCount;
-        checkHipErrors( hipSetDevice( device_id ) ); // Map MPI-process to a GPU
-    #endif
+        deviceBind( device_id ); // Map MPI-process to a GPU
     }
 
     void *tmp;
-    #ifdef AMP_USE_CUDA
-    checkCudaErrors( cudaMallocManaged( &tmp, 10, cudaMemAttachGlobal ) );
-    checkCudaErrors( cudaFree( tmp ) );
-    #else
-    checkHipErrors( hipMallocManaged( &tmp, 10, hipMemAttachGlobal ) );
-    checkHipErrors( hipFree( tmp ) );
-    #endif
+    deviceMallocManaged( &tmp, 10, deviceMemAttachGlobal );
+    deviceFree( tmp );
+
 #endif
     return getDuration( start );
 }
@@ -469,7 +407,30 @@ AMPManagerProperties AMPManager::getAMPManagerProperties()
  * C interfaces                                                         *
  ***********************************************************************/
 extern "C" {
-void amp_startup_f( int argc, char **argv ) { AMP::AMPManager::startup( argc, argv ); }
+void amp_startup_basic_f()
+{
+    int argc     = 0;
+    char *argv[] = { nullptr };
+    AMP::AMPManagerProperties properties;
+    properties.catch_signals.clear();
+    properties.stack_trace_type  = 2;
+    properties.initialize_device = false;
+    properties.catch_exit        = false;
+    properties.catch_MPI         = false;
+    AMP::AMPManager::startup( argc, argv, properties );
+}
+
+void amp_startup_f( int argc, char **argv )
+{
+    AMP::AMPManagerProperties properties;
+    properties.catch_signals.clear();
+    properties.stack_trace_type  = 2;
+    properties.initialize_device = false;
+    properties.catch_exit        = false;
+    properties.catch_MPI         = false;
+    AMP::AMPManager::startup( argc, argv, properties );
+}
+
 void amp_shutdown_f( void ) { AMP::AMPManager::shutdown(); }
 bool amp_initialized_f( void ) { return AMP::AMPManager::isInitialized(); }
 bool amp_finalized_f( void ) { return AMP::AMPManager::isFinalized(); }

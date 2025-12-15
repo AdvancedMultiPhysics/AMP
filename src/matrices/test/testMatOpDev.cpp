@@ -34,7 +34,6 @@
 
 template<typename Config>
 void createMatrixAndVectors( AMP::UnitTest *ut,
-                             std::string type,
                              std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                              std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
@@ -44,7 +43,6 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-    // clang-format off
 #ifdef AMP_USE_DEVICE
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
@@ -54,51 +52,19 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
     auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
 #endif
-    // clang-format on
 
-    // Create the matrix
-#if 0
-    auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-#else
-    ///// Temporary before updating create matrix
-    // Get the DOFs
-    auto leftDOF  = inVec->getDOFManager();
-    auto rightDOF = outVec->getDOFManager();
+    matrix = std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrix<Config>>(
+        AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" ) );
+    AMP_ASSERT( matrix );
 
-    const auto _leftDOF  = leftDOF.get();
-    const auto _rightDOF = rightDOF.get();
-    std::function<std::vector<size_t>( size_t )> getRow;
-    getRow = [_leftDOF, _rightDOF]( size_t row ) {
-        auto id = _leftDOF->getElementID( row );
-        return _rightDOF->getRowDOFs( id );
-    };
-
-    // clang-format off
 #ifdef AMP_USE_DEVICE
-    auto backend = AMP::Utilities::Backend::Hip_Cuda;
-#else
-    auto backend = AMP::Utilities::Backend::Serial;
-#endif
-    // clang-format on
-
-    // Create the matrix parameters
-    auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOF, rightDOF, comm, inVar, outVar, backend, getRow );
-
-
-    // Create the matrix
-    auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Config>>( params );
-    matrix    = std::make_shared<AMP::LinearAlgebra::CSRMatrix<Config>>( data );
-    // Initialize the matrix
-    matrix->zero();
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-    ///// END: Temporary before updating create matrix
+    matrix->setBackend( AMP::Utilities::Backend::Hip_Cuda );
 #endif
 
     if ( matrix ) {
-        ut->passes( type + ": Able to create a square matrix" );
+        ut->passes( "CSRMatrix: Able to create a square matrix" );
     } else {
-        ut->failure( type + ": Unable to create a square matrix" );
+        ut->failure( "CSRMatrix: Unable to create a square matrix" );
     }
 
     x = matrix->createInputVector();
@@ -107,13 +73,12 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
 
 template<typename Config>
 void testGetSetValues( AMP::UnitTest *ut,
-                       std::string type,
                        std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> matrix = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> x                 = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> y                 = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, matrix, x, y );
+    createMatrixAndVectors<Config>( ut, dofManager, matrix, x, y );
 
     fillWithPseudoLaplacian( matrix, dofManager );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -131,12 +96,11 @@ void testGetSetValues( AMP::UnitTest *ut,
             }
         }
     }
-    ut->passes( type + ": Able to get and set" );
+    ut->passes( "CSRMatrix: Able to get and set" );
 }
 
 template<class Config>
 void testMatvecWithDOFs( AMP::UnitTest *ut,
-                         std::string type,
                          std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
                          bool testTranspose )
 {
@@ -145,14 +109,14 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> matrix = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> x                 = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> y                 = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, matrix, x, y );
+    createMatrixAndVectors<Config>( ut, dofManager, matrix, x, y );
 
     fillWithPseudoLaplacian( matrix, dofManager );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t nGlobalRows = matrix->numGlobalRows();
     size_t nLocalRows  = matrix->numLocalRows();
-    AMP::pout << type << " Global rows: " << nGlobalRows << " Local rows: " << nLocalRows
+    AMP::pout << "CSRMatrix Global rows: " << nGlobalRows << " Local rows: " << nLocalRows
               << std::endl;
 
     x->setToScalar( 1.0 );
@@ -165,11 +129,11 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     auto yNorm = static_cast<scalar_t>( y->L1Norm() );
 
     if ( yNorm == static_cast<scalar_t>( matrix->numGlobalRows() ) ) {
-        ut->passes( type + ": Passes 1 norm test with pseudo Laplacian" );
+        ut->passes( "CSRMatrix: Passes 1 norm test with pseudo Laplacian" );
     } else {
         AMP::pout << "1 Norm " << yNorm << ", number of rows " << matrix->numGlobalRows()
                   << std::endl;
-        ut->failure( type + ": Fails 1 norm test with pseudo Laplacian" );
+        ut->failure( "CSRMatrix: Fails 1 norm test with pseudo Laplacian" );
     }
     if ( testTranspose ) {
         // Repeat test with transpose multiply (Laplacian is symmetric)
@@ -181,31 +145,29 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
         auto xNorm = static_cast<scalar_t>( x->L1Norm() );
 
         if ( xNorm == static_cast<scalar_t>( matrix->numGlobalRows() ) ) {
-            ut->passes( type + ": Passes 1 norm test with pseudo Laplacian transpose" );
+            ut->passes( "CSRMatrix: Passes 1 norm test with pseudo Laplacian transpose" );
         } else {
             AMP::pout << "Transpose 1 Norm " << xNorm << ", number of rows "
                       << matrix->numGlobalRows() << std::endl;
-            ut->failure( type + ": Fails 1 norm test with pseudo Laplacian transpose" );
+            ut->failure( "CSRMatrix: Fails 1 norm test with pseudo Laplacian transpose" );
         }
     }
 }
 
 
 template<class Config>
-void testAXPY( AMP::UnitTest *ut,
-               std::string type,
-               std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+void testAXPY( AMP::UnitTest *ut, std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
 
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> X = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> rX           = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> lX           = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, X, rX, lX );
+    createMatrixAndVectors<Config>( ut, dofManager, X, rX, lX );
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> Y = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> rY           = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> lY           = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, Y, rY, lY );
+    createMatrixAndVectors<Config>( ut, dofManager, Y, rY, lY );
 
     fillWithPseudoLaplacian( X, dofManager );
     X->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -235,24 +197,22 @@ void testAXPY( AMP::UnitTest *ut,
 
     auto norm = static_cast<double>( z->L1Norm() );
     if ( norm < std::numeric_limits<scalar_t>::epsilon() )
-        ut->passes( type + ": AXPY succeeded" );
+        ut->passes( "CSRMatrix: AXPY succeeded" );
     else {
         AMP::pout << "L1 norm of difference is  " << norm << std::endl;
-        ut->failure( type + ": AXPY failed" );
+        ut->failure( "CSRMatrix: AXPY failed" );
     }
 }
 
 template<typename Config>
-void testScale( AMP::UnitTest *ut,
-                std::string type,
-                std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+void testScale( AMP::UnitTest *ut, std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
 
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> A = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> x            = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> y            = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, A, x, y );
+    createMatrixAndVectors<Config>( ut, dofManager, A, x, y );
 
     fillWithPseudoLaplacian( A, dofManager );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -269,16 +229,15 @@ void testScale( AMP::UnitTest *ut,
 
     auto yNorm = static_cast<scalar_t>( y->L1Norm() );
     if ( ( yNorm - 2.5 * nGlobalRows ) < std::numeric_limits<scalar_t>::epsilon() ) {
-        ut->passes( type + ": Able to scale matrix" );
+        ut->passes( "CSRMatrix: Able to scale matrix" );
     } else {
-        ut->failure( type + ": Fails matrix scaling" );
+        ut->failure( "CSRMatrix: Fails matrix scaling" );
     }
 }
 
 
 template<typename Config>
 void testSetScalar( AMP::UnitTest *ut,
-                    std::string type,
                     std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
@@ -286,7 +245,7 @@ void testSetScalar( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> A = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> x            = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> y            = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, A, x, y );
+    createMatrixAndVectors<Config>( ut, dofManager, A, x, y );
 
     A->setScalar( 1. );
 
@@ -301,11 +260,11 @@ void testSetScalar( AMP::UnitTest *ut,
         auto cols        = A->getColumnIDs( i );
         const auto ncols = cols.size();
         if ( ncols != y->getValueByGlobalID( i ) ) {
-            ut->failure( type + ": Fails to set matrix to scalar" );
+            ut->failure( "CSRMatrix: Fails to set matrix to scalar" );
             return;
         }
     }
-    ut->passes( type + ": Able to set matrix to scalar" );
+    ut->passes( "CSRMatrix: Able to set matrix to scalar" );
 
     A->zero();
     y->zero();
@@ -313,15 +272,14 @@ void testSetScalar( AMP::UnitTest *ut,
 
     auto yNorm = static_cast<scalar_t>( y->L1Norm() );
     if ( yNorm < std::numeric_limits<scalar_t>::epsilon() ) {
-        ut->passes( type + ": Able to set matrix to 0" );
+        ut->passes( "CSRMatrix: Able to set matrix to 0" );
     } else {
-        ut->failure( type + ": Fails to set matrix to 0" );
+        ut->failure( "CSRMatrix: Fails to set matrix to 0" );
     }
 }
 
 template<typename Config>
 void testGetSetDiagonal( AMP::UnitTest *ut,
-                         std::string type,
                          std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
@@ -329,7 +287,7 @@ void testGetSetDiagonal( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> A = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> x            = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> y            = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, A, x, y );
+    createMatrixAndVectors<Config>( ut, dofManager, A, x, y );
 
     fillWithPseudoLaplacian( A, dofManager );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -338,9 +296,9 @@ void testGetSetDiagonal( AMP::UnitTest *ut,
     A->extractDiagonal( y );
     auto yNorm = static_cast<scalar_t>( y->L1Norm() );
     if ( yNorm == static_cast<scalar_t>( A->numGlobalRows() ) ) {
-        ut->passes( type + ": Able to set/get diagonal" );
+        ut->passes( "CSRMatrix: Able to set/get diagonal" );
     } else {
-        ut->failure( type + ": Fails to set/get diagonal" );
+        ut->failure( "CSRMatrix: Fails to set/get diagonal" );
     }
 
     A->setIdentity();
@@ -348,23 +306,21 @@ void testGetSetDiagonal( AMP::UnitTest *ut,
     A->mult( x, y );
     yNorm = static_cast<scalar_t>( y->L1Norm() );
     if ( yNorm == static_cast<scalar_t>( A->numGlobalRows() ) ) {
-        ut->passes( type + ": Able to set to Identity" );
+        ut->passes( "CSRMatrix: Able to set to Identity" );
     } else {
-        ut->failure( type + ": Fails to set to Identity" );
+        ut->failure( "CSRMatrix: Fails to set to Identity" );
     }
 }
 
 template<typename Config>
-void testLinfNorm( AMP::UnitTest *ut,
-                   std::string type,
-                   std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+void testLinfNorm( AMP::UnitTest *ut, std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     using scalar_t = typename Config::scalar_t;
 
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> A = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> x            = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> y            = nullptr;
-    createMatrixAndVectors<Config>( ut, type, dofManager, A, x, y );
+    createMatrixAndVectors<Config>( ut, dofManager, A, x, y );
 
     fillWithPseudoLaplacian( A, dofManager );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -378,13 +334,13 @@ void testLinfNorm( AMP::UnitTest *ut,
     auto ANorm = static_cast<scalar_t>( A->LinfNorm() );
     auto rNorm = static_cast<scalar_t>( comm.maxReduce<scalar_t>( lmax ) );
     if ( ANorm == rNorm ) {
-        ut->passes( type + ": Able to compute Linf" );
+        ut->passes( "CSRMatrix: Able to compute Linf" );
     } else {
-        ut->failure( type + ": Fails to compute Linf" );
+        ut->failure( "CSRMatrix: Fails to compute Linf" );
     }
 }
 
-void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
+void matDeviceOperationsTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     // clang-format off
 #ifdef AMP_USE_DEVICE
@@ -419,13 +375,13 @@ void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
         AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Vertex, 1, 1 );
 
     // Test on defined matrix types
-    testGetSetValues<Config>( ut, "CSRMatrix", scalarDOFs );
-    testMatvecWithDOFs<Config>( ut, "CSRMatrix", scalarDOFs, testTransposeOp );
-    testAXPY<Config>( ut, "CSRMatrix", scalarDOFs );
-    testScale<Config>( ut, "CSRMatrix", scalarDOFs );
-    testSetScalar<Config>( ut, "CSRMatrix", scalarDOFs );
-    testGetSetDiagonal<Config>( ut, "CSRMatrix", scalarDOFs );
-    testLinfNorm<Config>( ut, "CSRMatrix", scalarDOFs );
+    testGetSetValues<Config>( ut, scalarDOFs );
+    testMatvecWithDOFs<Config>( ut, scalarDOFs, testTransposeOp );
+    testAXPY<Config>( ut, scalarDOFs );
+    testScale<Config>( ut, scalarDOFs );
+    testSetScalar<Config>( ut, scalarDOFs );
+    testGetSetDiagonal<Config>( ut, scalarDOFs );
+    testLinfNorm<Config>( ut, scalarDOFs );
 }
 
 int main( int argc, char *argv[] )
@@ -450,9 +406,8 @@ int main( int argc, char *argv[] )
 
     // build unique profile name to avoid collisions
     std::ostringstream ss;
-    ss << "testMatVecPerf_r" << std::setw( 3 ) << std::setfill( '0' )
-       << AMP::AMPManager::getCommWorld().getSize() << "_n" << std::setw( 9 )
-       << std::setfill( '0' );
+    ss << "testMatOpDev_r" << std::setw( 3 ) << std::setfill( '0' )
+       << AMP::AMPManager::getCommWorld().getSize();
     PROFILE_SAVE( ss.str() );
 
     int num_failed = ut.NumFailGlobal();

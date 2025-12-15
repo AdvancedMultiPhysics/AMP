@@ -67,7 +67,7 @@ struct classical_strength {
 // M_ij = | 1 - z_i / z_j | = | 1 + (D - A_ii)/A_ij |
 // and the threshold sets strong connections as
 // m = min_k (M_ik : k != i)
-// S_ij = M_ij if M_ij < thresh * m, otherwise weak
+// S_ij = M_ij if M_ij < (1/thresh) * m, otherwise weak
 struct evolution_strength {
     template<class T>
     static T DSum( span<T> s )
@@ -107,7 +107,7 @@ struct evolution_strength {
         return [=]( T val ) {
             if ( strongest_connection == 0 )
                 return false;
-            return Sij( D, Aii, val ) < threshold * strongest_connection;
+            return Sij( D, Aii, val ) < strongest_connection / threshold;
         };
     }
 };

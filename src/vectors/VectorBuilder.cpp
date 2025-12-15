@@ -12,6 +12,14 @@ namespace AMP::LinearAlgebra {
 std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
                                       AMP::Utilities::MemoryType memType )
 {
+    auto backend = AMP::Utilities::getDefaultBackend( memType );
+    return createVector( vector, memType, backend );
+}
+
+std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
+                                      AMP::Utilities::MemoryType memType,
+                                      AMP::Utilities::Backend backend )
+{
     if ( !vector )
         return nullptr;
     // Check if we are dealing with a multiVector
@@ -19,7 +27,7 @@ std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
     if ( multiVector ) {
         std::vector<std::shared_ptr<Vector>> vecs;
         for ( auto vec : *multiVector )
-            vecs.push_back( createVector( vec, memType ) );
+            vecs.push_back( createVector( vec, memType, backend ) );
         auto multiVector = MultiVector::create( vector->getVariable(), vector->getComm() );
         multiVector->addVector( vecs );
         return multiVector;
@@ -28,10 +36,10 @@ std::shared_ptr<Vector> createVector( std::shared_ptr<const Vector> vector,
     auto type = vector->getVectorData()->getType( 0 );
     if ( type == getTypeID<double>() ) {
         return createVector<double>(
-            vector->getDOFManager(), vector->getVariable(), false, memType );
+            vector->getDOFManager(), vector->getVariable(), false, memType, backend );
     } else if ( type == AMP::getTypeID<float>() ) {
         return createVector<float>(
-            vector->getDOFManager(), vector->getVariable(), false, memType );
+            vector->getDOFManager(), vector->getVariable(), false, memType, backend );
     } else {
         AMP_ERROR( "Currently only float and double supported" );
     }
@@ -56,11 +64,34 @@ INSTANTIATE_SIMPLE_VECTOR( double,
                            AMP::LinearAlgebra::VectorDataDefault<double> );
 
 #ifdef AMP_USE_DEVICE
-using float_op           = AMP::LinearAlgebra::VectorOperationsDevice<float>;
-using double_op          = AMP::LinearAlgebra::VectorOperationsDevice<double>;
 using float_managed_data = AMP::LinearAlgebra::VectorDataDevice<float, AMP::ManagedAllocator<void>>;
 using double_managed_data =
     AMP::LinearAlgebra::VectorDataDevice<double, AMP::ManagedAllocator<void>>;
+using float_device_data  = AMP::LinearAlgebra::VectorDataDevice<float, AMP::DeviceAllocator<void>>;
+using double_device_data = AMP::LinearAlgebra::VectorDataDevice<double, AMP::DeviceAllocator<void>>;
+#endif
+
+#ifdef AMP_USE_KOKKOS
+using float_kokkos_op  = AMP::LinearAlgebra::VectorOperationsKokkos<float>;
+using double_kokkos_op = AMP::LinearAlgebra::VectorOperationsKokkos<double>;
+    #ifdef AMP_USE_DEVICE
+INSTANTIATE_SIMPLE_VECTOR( float, float_kokkos_op, float_managed_data );
+INSTANTIATE_SIMPLE_VECTOR( double, double_kokkos_op, double_managed_data );
+INSTANTIATE_SIMPLE_VECTOR( float, float_kokkos_op, float_device_data );
+INSTANTIATE_SIMPLE_VECTOR( double, double_kokkos_op, double_device_data );
+    #else
+INSTANTIATE_SIMPLE_VECTOR( float, float_kokkos_op, AMP::LinearAlgebra::VectorDataDefault<float> );
+INSTANTIATE_SIMPLE_VECTOR( double,
+                           double_kokkos_op,
+                           AMP::LinearAlgebra::VectorDataDefault<double> );
+    #endif
+#endif
+
+#ifdef AMP_USE_DEVICE
+using float_op  = AMP::LinearAlgebra::VectorOperationsDevice<float>;
+using double_op = AMP::LinearAlgebra::VectorOperationsDevice<double>;
 INSTANTIATE_SIMPLE_VECTOR( float, float_op, float_managed_data );
 INSTANTIATE_SIMPLE_VECTOR( double, double_op, double_managed_data );
+INSTANTIATE_SIMPLE_VECTOR( float, float_op, float_device_data );
+INSTANTIATE_SIMPLE_VECTOR( double, double_op, double_device_data );
 #endif

@@ -37,12 +37,15 @@ Writer::WriterProperties SiloIO::getProperties() const
     properties.type                   = "Silo";
     properties.extension              = "silo";
     properties.registerMesh           = true;
+    properties.registerVector         = false;
     properties.registerVectorWithMesh = true;
+    properties.registerMatrix         = false;
 #ifdef AMP_USE_SILO
     properties.enabled = true;
 #else
     properties.enabled = false;
 #endif
+    properties.isNull = false;
     return properties;
 }
 
@@ -89,7 +92,7 @@ void SiloIO::writeFile( const std::string &fname_in, size_t cycle, double time )
     // Synchronize the vectors
     syncVectors();
     // Write the data for each base mesh
-    if ( d_decomposition == 1 ) {
+    if ( d_decomposition == DecompositionType::SINGLE ) {
         // Write all mesh data to the main file
         for ( int i = 0; i < d_comm.getSize(); ++i ) {
             if ( d_comm.getRank() == i ) {
@@ -114,7 +117,7 @@ void SiloIO::writeFile( const std::string &fname_in, size_t cycle, double time )
             }
             d_comm.barrier();
         }
-    } else if ( d_decomposition == 2 ) {
+    } else if ( d_decomposition == DecompositionType::MULTIPLE ) {
         // Every rank will write a separate file
         if ( d_comm.getRank() == 0 )
             recursiveMkdir( fname_in + "_silo" );
@@ -136,7 +139,7 @@ void SiloIO::writeFile( const std::string &fname_in, size_t cycle, double time )
         AMP_ERROR( "Unknown file decomposition" );
     }
     // Write the summary results (multimeshes, multivariables, etc.)
-    if ( d_decomposition != 1 ) {
+    if ( d_decomposition != DecompositionType::SINGLE ) {
         if ( d_comm.getRank() == 0 ) {
             DBfile *fid = DBCreate( fname.c_str(), DB_CLOBBER, DB_LOCAL, nullptr, DB_HDF5 );
             AMP_INSIST( fid, "Unable to create " + fname );
@@ -359,7 +362,7 @@ static inline std::string getFile( const std::string &file, const std::string &r
         return file.substr( root.size() );
     return file;
 }
-void SiloIO::writeSummary( std::string filename, int cycle, double time )
+void SiloIO::writeSummary( const std::string &filename, int cycle, double time )
 {
     PROFILE( "writeSummary", 1 );
     AMP_ASSERT( !filename.empty() );

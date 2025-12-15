@@ -132,6 +132,17 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     // here to potentially handle singular systems
     d_dInitialResidual = r_norm > std::numeric_limits<T>::epsilon() ? r_norm : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "GMRESR: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "GMRESR: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+        AMP::pout << "GMRESR: Use restarts " << d_bRestart << std::endl;
+        AMP::pout << "GMRESR: Max dimension " << d_iMaxKrylovDimension << std::endl;
+        AMP::pout << "GMRESR: Variant " << d_variant << std::endl;
+    }
+
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "GMRESR: initial L2Norm of solution vector: " << u->L2Norm() << std::endl;
         AMP::pout << "GMRESR: initial L2Norm of rhs vector: " << f->L2Norm() << std::endl;
@@ -146,7 +157,8 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
         return;
     }
 
-    int k = -1;
+    int k      = -1;
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 0; d_iNumberIterations < d_iMaxIterations; ++d_iNumberIterations ) {
 
         ++k;
@@ -197,7 +209,13 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
 
         if ( d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "GMRESR: iteration " << ( d_iNumberIterations + 1 ) << ", residual "
-                      << r_norm << std::endl;
+                      << r_norm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << r_norm / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = r_norm;
         }
 
         if ( checkStoppingCriteria( r_norm ) ) {

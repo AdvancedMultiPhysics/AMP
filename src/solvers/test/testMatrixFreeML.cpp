@@ -10,7 +10,7 @@
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/trilinos/ml/TrilinosMLSolver.h"
 #include "AMP/utils/AMPManager.h"
@@ -386,9 +386,8 @@ void myTest2( AMP::UnitTest *ut, const std::string &exeName, bool useTwoMeshes )
 
     std::vector<std::shared_ptr<AMP::Mesh::Mesh>> vectorOfMeshes;
     vectorOfMeshes.push_back( firstMesh );
-    if ( useTwoMeshes ) {
+    if ( useTwoMeshes )
         vectorOfMeshes.push_back( secondMesh );
-    } // end if
 
     auto fusedMeshes =
         std::make_shared<AMP::Mesh::MultiMesh>( "MultiMesh", globalComm, vectorOfMeshes );

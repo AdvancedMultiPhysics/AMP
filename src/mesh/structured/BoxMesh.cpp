@@ -780,7 +780,7 @@ MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
         std::vector<MeshIterator> iterator_list;
         iterator_list.reserve( list.size() );
         for ( const auto &item : list ) {
-            if ( MeshElementIndex::numElements( item.first, item.second ) ) {
+            if ( MeshElementIndex::numElements( item.first, item.second ) > 0 ) {
                 structuredMeshIterator it( item.first, item.second, this, 0 );
                 iterator_list.push_back( it );
             }
@@ -806,6 +806,12 @@ MeshIterator BoxMesh::getSurfaceIterator( const GeomType type, const int gcw ) c
     if ( type > GeomDim || gcw < 0 )
         return {};
     int type2 = static_cast<int>( type );
+    // Check if all boundaries are periodic (no surfaces)
+    bool test = true;
+    for ( int i = 0; i < 2 * static_cast<int>( GeomDim ); i++ )
+        test = test && d_surfaceId[i] < 0;
+    if ( test )
+        return {};
     // Build and cache the surface data
     if ( (int) d_surface[type2].size() < gcw + 1 )
         d_surface[type2].resize( gcw + 1 );
@@ -850,16 +856,18 @@ BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw
     if ( index < 0 )
         return {};
     AMP_ASSERT( index < 6 );
-    // Build and cache the surface data
+    // Build and cache the boundary data
     if ( (int) d_bnd[type2][index].size() < gcw + 1 )
         d_bnd[type2][index].resize( gcw + 1 );
     if ( !d_bnd[type2][index][gcw] ) {
+        // Build surface iterator
+        getSurfaceIterator( type, gcw );
+        // Keep the elements on the boundary
         d_bnd[type2][index][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
         auto &boundary           = *d_bnd[type2][index][gcw];
-        for ( auto &elem : getIterator( type, gcw ) ) {
-            auto elem2 = dynamic_cast<structuredMeshElement *>( &elem );
-            if ( elem2->isOnBoundary( id ) )
-                boundary.push_back( elem2->getIndex() );
+        for ( auto &elem : *d_surface[type2][gcw] ) {
+            if ( isOnBoundary( elem, id ) )
+                boundary.push_back( elem );
         }
     }
     // Create the iterator
@@ -867,8 +875,6 @@ BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw
         return {};
     if ( d_bnd[type2][index][gcw]->empty() )
         return {};
-    if ( type == GeomType::Edge )
-        structuredMeshIterator( d_bnd[type2][index][gcw], this, 0 );
     return structuredMeshIterator( d_bnd[type2][index][gcw], this, 0 );
 }
 std::vector<int> BoxMesh::getBlockIDs() const { return { d_blockID }; }

@@ -184,10 +184,10 @@ public: // Write/read restart data
 
     /**
      * \brief    Read restart data from file
-     * \param fid    File identifier to write
+     * \param fid       File identifier to write
      * \param manager   Restart manager
      */
-    AMPCSRMatrixParameters( int64_t, AMP::IO::RestartManager * );
+    AMPCSRMatrixParameters( int64_t fid, AMP::IO::RestartManager *manager );
 
 public:
     const std::shared_ptr<GetRowHelper> d_getRowHelper;

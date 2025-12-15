@@ -11,7 +11,7 @@ namespace AMP::LinearAlgebra {
  ****************************************************************/
 GetRowHelper::GetRowHelper( std::shared_ptr<const AMP::Discretization::DOFManager> leftDOF,
                             std::shared_ptr<const AMP::Discretization::DOFManager> rightDOF )
-    : d_hasFields( true ), d_leftDOF( leftDOF ), d_rightDOF( rightDOF )
+    : d_leftDOF( leftDOF ), d_rightDOF( rightDOF )
 {
     const size_t beginRow = d_leftDOF->beginDOF();
     const size_t endRow   = d_leftDOF->endDOF();

@@ -33,15 +33,15 @@ private:
                              const PairwiseCoarsenSettings &,
                              std::shared_ptr<Operator::OperatorParameters> );
     static std::unique_ptr<SolverStrategy>
-    create_relaxation( std::shared_ptr<AMP::Operator::LinearOperator> A,
+    create_relaxation( size_t lvl,
+                       std::shared_ptr<AMP::Operator::LinearOperator> A,
                        std::shared_ptr<RelaxationParameters> params );
     void makeCoarseSolver();
     size_t d_max_levels;
     size_t d_num_relax_pre;
     size_t d_num_relax_post;
     bool d_boomer_cg;
-    size_t d_kappa;
-    float d_kcycle_tol;
+    KappaKCycle::settings d_cycle_settings;
     bool d_implicit_RAP;
     Utilities::MemoryType d_mem_loc;
     std::shared_ptr<Aggregator> d_aggregator;

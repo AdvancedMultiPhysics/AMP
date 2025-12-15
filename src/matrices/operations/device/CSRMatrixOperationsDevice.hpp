@@ -26,6 +26,7 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
                                               std::shared_ptr<Vector> out )
 {
     PROFILE( "CSRMatrixOperationsDevice::mult" );
+
     AMP_DEBUG_ASSERT( in && out );
     AMP_DEBUG_ASSERT( in->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
@@ -64,34 +65,21 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsDevice::mult(ghost)" );
-        using scalarAllocator_t = typename std::allocator_traits<
-            typename Config::allocator_type>::template rebind_alloc<scalar_t>;
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        scalarAllocator_t alloc;
-        scalar_t *ghosts = alloc.allocate( nGhosts );
+        auto ghosts        = offdMatrix->getGhostCache();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
-            auto *colMap = offdMatrix->getColumnMap();
+            auto colMap = offdMatrix->getColumnMap();
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
             in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            // this is inefficient and we should figure out a better approach
-            AMP_WARN_ONCE(
-                "CSRMatrixOperationsDevice::mult: Deep copy/cast of column map required" );
-            using idxAllocator_t = typename std::allocator_traits<
-                typename Config::allocator_type>::template rebind_alloc<size_t>;
-            idxAllocator_t idx_alloc;
-            size_t *idxMap = idx_alloc.allocate( nGhosts );
-            auto *colMap   = offdMatrix->getColumnMap();
-            AMP::Utilities::copy( nGhosts, colMap, idxMap );
-            in->getGhostValuesByGlobalID( nGhosts, idxMap, ghosts );
-            idx_alloc.deallocate( idxMap, nGhosts );
+            // Fall back to forcing a copy-cast inside matrix data
+            auto colMap = offdMatrix->getColumnMapSizeT();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         }
-        deviceSynchronize();
         CSRLocalMatrixOperationsDevice<Config>::mult( ghosts, offdMatrix, outDataBlock );
-        alloc.deallocate( ghosts, nGhosts );
     }
 }
 
@@ -106,6 +94,8 @@ void CSRMatrixOperationsDevice<Config>::multTranspose( std::shared_ptr<const Vec
 template<typename Config>
 void CSRMatrixOperationsDevice<Config>::scale( AMP::Scalar alpha_in, MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDevice::scale" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -128,6 +118,8 @@ void CSRMatrixOperationsDevice<Config>::matMatMult( std::shared_ptr<MatrixData> 
                                                     std::shared_ptr<MatrixData> B,
                                                     std::shared_ptr<MatrixData> C )
 {
+    PROFILE( "CSRMatrixOperationsDevice::matMatMult" );
+
     auto csrDataA = std::dynamic_pointer_cast<CSRMatrixData<Config>>( A );
     auto csrDataB = std::dynamic_pointer_cast<CSRMatrixData<Config>>( B );
     auto csrDataC = std::dynamic_pointer_cast<CSRMatrixData<Config>>( C );
@@ -177,6 +169,8 @@ void CSRMatrixOperationsDevice<Config>::axpy( AMP::Scalar alpha_in,
                                               const MatrixData &X,
                                               MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsDevice::axpy" );
+
     auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
     auto csrDataY = getCSRMatrixData<Config>( const_cast<MatrixData &>( Y ) );
 
@@ -205,6 +199,8 @@ void CSRMatrixOperationsDevice<Config>::axpy( AMP::Scalar alpha_in,
 template<typename Config>
 void CSRMatrixOperationsDevice<Config>::setScalar( AMP::Scalar alpha_in, MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDevice::setScalar" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -232,6 +228,8 @@ template<typename Config>
 void CSRMatrixOperationsDevice<Config>::setDiagonal( std::shared_ptr<const Vector> in,
                                                      MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDevice::setDiagonal" );
+
     // constrain to one data block for now
     AMP_DEBUG_ASSERT( in && in->numberOfDataBlocks() == 1 && in->isType<scalar_t>( 0 ) );
 
@@ -253,6 +251,8 @@ void CSRMatrixOperationsDevice<Config>::extractDiagonal( MatrixData const &A,
                                                          std::shared_ptr<Vector> buf )
 
 {
+    PROFILE( "CSRMatrixOperationsDevice::extractDiagonal" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -268,6 +268,8 @@ void CSRMatrixOperationsDevice<Config>::extractDiagonal( MatrixData const &A,
 template<typename Config>
 void CSRMatrixOperationsDevice<Config>::setIdentity( MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsDevice::setIdentity" );
+
     zero( A );
 
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
@@ -284,6 +286,8 @@ template<typename Config>
 AMP::Scalar CSRMatrixOperationsDevice<Config>::LinfNorm( MatrixData const &A ) const
 
 {
+    PROFILE( "CSRMatrixOperationsDevice::LinfNorm" );
+
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
@@ -310,6 +314,8 @@ AMP::Scalar CSRMatrixOperationsDevice<Config>::LinfNorm( MatrixData const &A ) c
 template<typename Config>
 void CSRMatrixOperationsDevice<Config>::copy( const MatrixData &X, MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsDevice::copy" );
+
     auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
     auto csrDataY = getCSRMatrixData<Config>( const_cast<MatrixData &>( Y ) );
 
@@ -337,6 +343,8 @@ void CSRMatrixOperationsDevice<Config>::copy( const MatrixData &X, MatrixData &Y
 template<typename Config>
 void CSRMatrixOperationsDevice<Config>::copyCast( const MatrixData &X, MatrixData &Y )
 {
+    PROFILE( "CSRMatrixOperationsDevice::copyCast" );
+
     auto csrDataY = getCSRMatrixData<Config>( Y );
     AMP_DEBUG_ASSERT( csrDataY );
     if ( X.getCoeffType() == getTypeID<double>() ) {
@@ -363,6 +371,7 @@ template<typename ConfigIn>
 void CSRMatrixOperationsDevice<Config>::copyCast(
     CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
 {
+    PROFILE( "CSRMatrixOperationsDevice::copyCast" );
 
     AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
                       "CSRMatrixOperationsDevice::copyCast X and Y must be in same memory space" );

@@ -1,4 +1,5 @@
 #include "AMP/IO/PIO.h"
+#include "AMP/operators/FunctionOperator.h"
 #include "AMP/operators/NullOperator.h"
 #include "AMP/operators/Operator.h"
 #include "AMP/solvers/SolverFactory.h"
@@ -12,25 +13,6 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
-
-
-class FunctionOperator : public AMP::Operator::Operator
-{
-public:
-    FunctionOperator( std::function<double( double )> f ) : d_f( f ) {}
-    std::string type() const override { return "FunctionOperator"; }
-    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                std::shared_ptr<AMP::LinearAlgebra::Vector> r ) override
-    {
-        auto it_f = f->begin();
-        auto it_r = r->begin();
-        for ( size_t i = 0; i < it_f.size(); ++i, ++it_f, ++it_r )
-            *it_r = d_f( *it_f );
-    }
-
-private:
-    std::function<double( double )> d_f;
-};
 
 
 void testIntegrator( const std::string &name,
@@ -114,7 +96,7 @@ void updateDatabaseIfImplicit( std::shared_ptr<AMP::Database> db )
         auto solver_db = AMP::Database::create( "name",
                                                 "CGSolver",
                                                 "print_info_level",
-                                                2,
+                                                0,
                                                 "max_iterations",
                                                 100,
                                                 "absolute_tolerance",
@@ -158,8 +140,8 @@ void runTestCases( const std::string &name,
         AMP::pout << "Testing " << name << " with " << test
                   << " constant operator, no source and fixed timestep" << std::endl;
         params->d_pSourceTerm = nullptr;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+        params->d_operator    = std::make_shared<AMP::Operator::FunctionOperator>(
+            []( double x ) { return -3.0 * x; } );
         testIntegrator( name, test, params, icval * std::exp( -3.0 * finalTime ), tol, ut );
     }
     if ( run_test[2] ) {
@@ -168,8 +150,8 @@ void runTestCases( const std::string &name,
         AMP::pout << "Testing " << name << " with " << test
                   << " constant operator, fixed source and fixed timestep" << std::endl;
         params->d_pSourceTerm = source;
-        params->d_operator =
-            std::make_shared<FunctionOperator>( []( double x ) { return -3.0 * x; } );
+        params->d_operator    = std::make_shared<AMP::Operator::FunctionOperator>(
+            []( double x ) { return -3.0 * x; } );
         testIntegrator( name,
                         test,
                         params,
@@ -199,7 +181,9 @@ void runBasicIntegratorTests( const std::string &name, AMP::UnitTest &ut )
                                                                "max_integrator_steps",
                                                                1000000,
                                                                "print_info_level",
-                                                               2 );
+                                                               0 );
+
+    db->setDefaultAddKeyBehavior( AMP::Database::Check::Overwrite, true );
 
     updateDatabaseIfImplicit( db );
 
@@ -303,7 +287,7 @@ int testSimpleTimeIntegration( int argc, char *argv[] )
                         "BDF1",          "BDF2", "BDF3", "BDF4", "BDF5", "BDF6" };
     }
     // Run the tests
-    for ( auto tmp : integrators )
+    for ( auto &tmp : integrators )
         runBasicIntegratorTests( tmp, ut );
 
     ut.report( 3 );

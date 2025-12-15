@@ -4,6 +4,7 @@
 
 #include "math.h"
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -21,6 +22,8 @@ template<typename T, typename FUN, typename Allocator>
 std::shared_ptr<ArrayVectorData<T, FUN, Allocator>> ArrayVectorData<T, FUN, Allocator>::create(
     const ArraySize &localSize, const ArraySize &blockIndex, AMP_MPI comm )
 {
+    PROFILE( "ArrayVectorData::create" );
+
     // Get the number of blocks
     size_t tmp[10] = { 0 };
     for ( int d = 0; d < 5; d++ ) {
@@ -58,6 +61,8 @@ template<typename T, typename FUN, typename Allocator>
 std::shared_ptr<ArrayVectorData<T, FUN, Allocator>> ArrayVectorData<T, FUN, Allocator>::create(
     const size_t localSize, std::shared_ptr<CommunicationList> commList, T *data )
 {
+    PROFILE( "ArrayVectorData::create" );
+
     AMP_ASSERT( localSize == commList->numLocalRows() );
     auto retVal = std::make_shared<ArrayVectorData<T, FUN, Allocator>>();
     retVal->setCommunicationList( commList );
@@ -83,6 +88,8 @@ template<typename T, typename FUN, typename Allocator>
 inline std::shared_ptr<VectorData>
 ArrayVectorData<T, FUN, Allocator>::cloneData( const std::string & ) const
 {
+    PROFILE( "ArrayVectorData::cloneData" );
+
     auto retVal               = std::make_shared<ArrayVectorData<T, FUN, Allocator>>();
     retVal->d_array           = this->d_array;
     retVal->d_comm            = this->d_comm;
@@ -100,6 +107,8 @@ ArrayVectorData<T, FUN, Allocator>::cloneData( const std::string & ) const
 template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::swapData( VectorData &rhs )
 {
+    PROFILE( "ArrayVectorData::swapData" );
+
     // get internal arrays
     auto &internalArray = this->getArray();
     auto &otherArray    = dynamic_cast<ArrayVectorData<T, FUN, Allocator> &>( rhs ).getArray();
@@ -114,6 +123,8 @@ void ArrayVectorData<T, FUN, Allocator>::swapData( VectorData &rhs )
 template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::resize( const ArraySize &localDims )
 {
+    PROFILE( "ArrayVectorData::resize" );
+
     AMP_ASSERT( this->getComm().getSize() == 1 );
     this->d_array.resize( localDims );
     this->d_globalArraySize = localDims;
@@ -131,6 +142,8 @@ void ArrayVectorData<T, FUN, Allocator>::resize( const ArraySize &localDims )
 template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::putRawData( const void *buf, const typeID &id )
 {
+    PROFILE( "ArrayVectorData::putRawData" );
+
     auto &array = this->getArray();
     if ( id == getTypeID<T>() ) {
         auto data = reinterpret_cast<const T *>( buf );
@@ -142,9 +155,12 @@ void ArrayVectorData<T, FUN, Allocator>::putRawData( const void *buf, const type
         AMP_ERROR( "Conversion not supported yet" );
     }
 }
+
 template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::getRawData( void *buf, const typeID &id ) const
 {
+    PROFILE( "ArrayVectorData::getRawData" );
+
     auto &array = this->getArray();
     if ( id == getTypeID<T>() ) {
         auto data = reinterpret_cast<T *>( buf );
@@ -167,6 +183,8 @@ void ArrayVectorData<T, FUN, Allocator>::setValuesByLocalID( size_t num,
                                                              const void *vals,
                                                              const typeID &id )
 {
+    PROFILE( "ArrayVectorData::setValuesByLocalID" );
+
     if ( id == getTypeID<T>() ) {
         auto data = reinterpret_cast<const T *>( vals );
         for ( size_t i = 0; i != num; i++ )
@@ -181,12 +199,15 @@ void ArrayVectorData<T, FUN, Allocator>::setValuesByLocalID( size_t num,
     if ( *( this->d_UpdateState ) == UpdateState::UNCHANGED )
         *( this->d_UpdateState ) = UpdateState::LOCAL_CHANGED;
 }
+
 template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::addValuesByLocalID( size_t num,
                                                              const size_t *indices,
                                                              const void *vals,
                                                              const typeID &id )
 {
+    PROFILE( "ArrayVectorData::addValuesByLocalID" );
+
     if ( id == getTypeID<T>() ) {
         auto data = reinterpret_cast<const T *>( vals );
         for ( size_t i = 0; i != num; i++ )
@@ -201,12 +222,15 @@ void ArrayVectorData<T, FUN, Allocator>::addValuesByLocalID( size_t num,
     if ( *( this->d_UpdateState ) == UpdateState::UNCHANGED )
         *( this->d_UpdateState ) = UpdateState::LOCAL_CHANGED;
 }
+
 template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::getValuesByLocalID( size_t num,
                                                              const size_t *indices,
                                                              void *vals,
                                                              const typeID &id ) const
 {
+    PROFILE( "ArrayVectorData::getValuesByLocalID" );
+
     if ( id == getTypeID<T>() ) {
         auto data = reinterpret_cast<T *>( vals );
         for ( size_t i = 0; i != num; i++ )

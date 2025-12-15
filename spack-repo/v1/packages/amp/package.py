@@ -20,19 +20,23 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     license("UNKNOWN")
 
     version("master", branch="master")
-    version("4.0.1", tag="4.0.1", commit="808071edd31ea15e3c92b90e63bf7165e83e0588")
+    version("4.0.2", tag="4.0.2", commit="7087e262ee5c7ebcb0286bc32ccb721ec739777b")
+    version("4.0.1", tag="4.0.1", commit="13d565f435019a7e163842297e657be1bc3e53fb")
     version("4.0.0", tag="4.0.0", commit="7ebbcfef5b5c9d36e828a2da2d27e2106499e454")
     version("3.1.0", tag="3.1.0", commit="c8a52e6f3124e43ebce944ee3fae8b9a994c4dbe")
     
     variant("mpi", default=True, description="Build with MPI support")
+    variant("lapack", default=False, description="Build with support for lapack")
     variant("hypre", default=False, description="Build with support for hypre")
     variant("kokkos", default=False, description="Build with support for Kokkos")
+    variant("kokkos-kernels", default=False, description="Build with support for KokkosKernels")
     variant("openmp", default=False, description="Build with OpenMP support")
     variant("shared", default=False, description="Build shared libraries")
     variant("libmesh", default=False, description="Build with support for libmesh")
     variant("petsc", default=False, description="Build with support for petsc")
     variant("timerutility", default=False, description="Build with support for TimerUtility")
     variant("trilinos", default=False, description="Build with support for Trilinos")
+    variant("no_implicit_links", default=False, description="turn off injection of implicit lib links")
     variant(
         "cxxstd",
         default="17",
@@ -44,15 +48,12 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
     conflicts("cxxstd=20", when="@:4.0.0") #c++ 20 is only compatible with amp 4.0.1 and up
     conflicts("cxxstd=23", when="@:4.0.0") #c++ 23 is only compatible with amp 4.0.1 and up
 
-    depends_on("c", type="build")
-    depends_on("cxx", type="build")
-    depends_on("fortran", type="build")
-
     depends_on("cmake@3.26.0:")
     depends_on("tpl-builder+stacktrace")
     depends_on("tpl-builder+stacktrace+timerutility", when="+timerutility")
+    depends_on("tpl-builder+hypre+lapack", when="+hypre")
 
-    tpl_depends = ["hypre", "kokkos", "mpi", "openmp", "cuda", "rocm", "shared","libmesh", "petsc", "trilinos"]
+    tpl_depends = ["shared", "no_implicit_links", "hypre", "lapack", "kokkos", "kokkos-kernels", "mpi", "openmp", "cuda", "rocm", "libmesh", "petsc", "trilinos"]
 
     for v in tpl_depends:
         depends_on(f"tpl-builder+{v}", when=f"+{v}")
@@ -86,6 +87,7 @@ class Amp(CMakePackage, CudaPackage, ROCmPackage):
 
         options = [
             self.define("TPL_DIRECTORY", spec["tpl-builder"].prefix),
+            self.define_from_variant("DISABLE_IMPLICIT_LINK", "no_implicit_links"),
             self.define("AMP_ENABLE_TESTS", self.run_tests),
             self.define("EXCLUDE_TESTS_FROM_ALL", not self.run_tests),
             self.define("AMP_ENABLE_EXAMPLES", False),

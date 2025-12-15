@@ -68,11 +68,11 @@ public:
 
     std::shared_ptr<AMP::LinearAlgebra::Variable> getSlaveVariable() { return d_slaveVariable; }
 
-    std::vector<AMP::Mesh::MeshElementID> getMasterNodes() { return d_masterNodes; }
+    const auto &getMasterNodes() { return d_masterNodes; }
 
-    std::vector<AMP::Mesh::MeshElementID> getSlaveNodes() { return d_slaveNodes; }
+    const auto &getSlaveNodes() { return d_slaveNodes; }
 
-    std::vector<std::vector<unsigned int>> getDofs() { return d_dofs; }
+    const auto &getDofs() { return d_dofs; }
 
 private:
     std::shared_ptr<AMP::LinearAlgebra::Variable> d_masterVariable;

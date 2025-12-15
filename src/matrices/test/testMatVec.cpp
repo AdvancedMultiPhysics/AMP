@@ -230,7 +230,7 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
     }
 }
 
-void matVecTest( AMP::UnitTest *ut, std::string input_file )
+void matVecTest( AMP::UnitTest *ut, const std::string &input_file )
 {
 
     std::string log_file = "output_testMatVec";
@@ -265,11 +265,8 @@ int main( int argc, char *argv[] )
     std::vector<std::string> files;
 
     if ( argc > 1 ) {
-
         files.emplace_back( argv[1] );
-
     } else {
-
         files.emplace_back( "input_testMatVec-1" );
         files.emplace_back( "input_testMatVec-2" );
     }

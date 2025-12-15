@@ -225,11 +225,15 @@ private:
     static double start_SAMRAI();
     static double start_PETSc();
     static double start_HYPRE();
-    static double start_CudaOrHip();
+    static double initDevices();
+    static double bindDevices();
     static double start_OpenMP();
     static double stop_SAMRAI();
     static double stop_HYPRE();
     static double stop_PETSc();
+
+    // wrapper for shutting and restarting SAMRAI
+    static void restart_SAMRAI();
 
     // Functions to set error handlers for specific packages
     static void set_PETSc_error_handler();
