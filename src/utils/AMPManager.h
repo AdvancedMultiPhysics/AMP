@@ -62,7 +62,7 @@ public:
      *    2 - Current process, all threads
      *    3 - Global call stack
      */
-    int stack_trace_type = 3;
+    int stack_trace_type = 2;
 
     //! The set of unhandled signals to set (will be initialized to a default set)
     std::set<int> catch_signals;
