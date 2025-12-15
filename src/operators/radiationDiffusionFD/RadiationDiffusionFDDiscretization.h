@@ -146,8 +146,12 @@ public:
 
     /** Compute diffusion coefficients at two cell faces using 3-point stencil data in ELoc3 and
      * TLoc3
-     * @param[in] computeE flag indicating whether to compute E diffusion coefficients
-     * @param[in] computeT flag indicating whether to compute T diffusion coefficients
+     * @param[in] ELoc3
+     * @param[in] TLoc3
+     * @param[in] k11
+     * @param[in] k21
+     * @param[in] zatom
+     * @param[in] h
      * @param[out] Dr_WO WEST coefficient in for energy
      * @param[out] Dr_OE EAST coefficient in for energy
      * @param[out] DT_WO WEST coefficient in for temperature
@@ -264,6 +268,13 @@ public:
      * The discretization of these conditions involves one ghost point for E and T (Eg and Tg), and
      * one interior point (Eint and Tint). Here we solve for the ghost points and return them. Note
      * that this system, although nonlinear, can be solved directly by forward substitution.
+     * @param[in] a
+     * @param[in] b
+     * @param[in] r
+     * @param[in] n
+     * @param[in] h
+     * @param[in] Eint
+     * @param[in] Tint
      * @param[in] cHandle is a function taking in T and returning k11*D_E(T)
      * @param[out] Eg ghost-point value for E that satisfies the discretized BCs
      * @param[out] Tg ghost-point value for T that satisfies the discretized BCs
@@ -285,7 +296,10 @@ public:
      * boundary. This BC is discretized as
      *      sign(hat{nk}) * [Tg_k - Tint_k]/h = nk.
      * Here we solve for the ghost point Tg_k and return it
-     * @param[out] Tg ghost-point value that satisfies the discretized BC
+     * @param[in] n
+     * @param[in] h
+     * @param[in] Tint
+     * @return Tg ghost-point value that satisfies the discretized BC
      */
     static double ghostValueSolveT( double n, double h, double Tint );
 
@@ -295,7 +309,13 @@ public:
      * outward-facing normal vector at the boundary. This BC is discretized as
      *      ak*0.5*[Eg_k + Eint_k] + bk*ck*sign(hat{nk}) *[Eg_k - Eint_k]/h = rk.
      * Here we solve for the ghost point Eg_k and return it.
-     * @param[out] Eg ghost-point value that satisfies the discretized BC
+     * @param[in] a
+     * @param[in] b
+     * @param[in] r
+     * @param[in] c
+     * @param[in] h
+     * @param[in] Eint
+     * @return    Eg ghost-point value that satisfies the discretized BC
      * @note ck=+k11*D_E(T) and not -k11*D_E(T)
      */
     static double ghostValueSolveE( double a, double b, double r, double c, double h, double Eint );
@@ -307,7 +327,7 @@ public:
  *      "Dynamic implicit 3D adaptive mesh refinement for non-equilibrium radiation diffusion"
  * by B.Philip, Z.Wangb, M.A.Berrill, M.Birkeb, M.Pernice in Journal of Computational Physics 262
  * (2014) 17–37. The primary difference is that this implementation does not use adaptive mesh
- * refiment, and instead assumes the mesh spacing in each dimension is constant.
+ * refinement, and instead assumes the mesh spacing in each dimension is constant.
  *
  * The database in the incoming OperatorParameters must contain the following parameters:
  *  1. ak, bk (for all boundaries k)
@@ -453,6 +473,11 @@ private:
 
     /** This is a wrapper around FDBoundaryUtils::ghostValuesSolve to pass our specific constants
      * and boundary-function evaluations.
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will
+     * be a point on the corresponding boundary)
+     * @param[in] Eint
+     * @param[in] Tint
      * @param[out] Eg value of E at the ghost point
      * @param[out] Tg value of T at the ghost point
      */
@@ -643,13 +668,12 @@ private:
     void setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Vector> T_vec );
 
     /** Fill the given input diffusion matrix with CSR data
-     * @param[in] component 0 (for energy) or 1 (for temperature)
+     * @param[in] matrix
      */
     template<size_t Component>
     void fillDiffusionMatrixWithData( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix );
 
     /** Get CSR data for a row of the Picard-linearized diffusion matrix dE or dT.
-     * @param[in] component 0 (energy) or 1 (temperature) to get CSR data for
      * @param[in] E_vec E component of the frozen vector d_frozenVec
      * @param[in] T_vec T component of the frozen vector d_frozenVec
      * @param[in] E_rawData local raw data array for E
@@ -705,6 +729,11 @@ private:
 
     /** This is a wrapper around FDBoundaryUtils::ghostValuesSolve to pass our specific constants
      * and boundary-function evaluations.
+     * @param[in] boundaryID ID of the boundary
+     * @param[in] boundaryPoint the point in space where the function is to be evaluated (this will
+     * be a point on the corresponding boundary)
+     * @param[in] Eint
+     * @param[in] Tint
      * @param[out] Eg value of E at the ghost point
      * @param[out] Tg value of T at the ghost point
      */
@@ -716,7 +745,13 @@ private:
                                   double &Tg );
 
     /** Closely related to RadDifOp::getNNDataBoundary, except there are two additional outputs:
-     * @param[out] d_dofsLoc3 indices of the dofs in the 3-point stencil
+     * @param[in] E_vec
+     * @param[in] T_vec
+     * @param[in] ijk
+     * @param[in] dim
+     * @param[in] ELoc3
+     * @param[in] TLoc3
+     * @param[out] dofsLoc3 indices of the dofs in the 3-point stencil
      * @param[out] boundaryIntersection flag indicating if the stencil touches a physical boundary
      * (and which one if it does)
      *

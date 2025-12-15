@@ -265,11 +265,8 @@ int main( int argc, char *argv[] )
     std::vector<std::string> files;
 
     if ( argc > 1 ) {
-
         files.emplace_back( argv[1] );
-
     } else {
-
         files.emplace_back( "input_testMatVec-1" );
         files.emplace_back( "input_testMatVec-2" );
     }
