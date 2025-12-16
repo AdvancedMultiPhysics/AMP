@@ -281,6 +281,9 @@ INITIALIZE_TESTBUILDER()
 ADD_AMP_TEST( testSolversWithRhsOptions )
 ADD_AMP_TEST_1_2_4( testLinearSolvers-DiffusionFD GPU )
 ADD_AMP_TEST_1_2_4( testLinearSolvers-PseudoLaplacian GPU )
+
+ADD_AMP_TEST( testLinearSolvers-ImplicitRAP PROCS 1 )
+
 IF ( USE_LIBMESH )
     # ADD_AMP_TEST_1_2_4( testSolversForVectorAdaptor )
     ADD_AMP_TEST_1_2_4( testLinearSolvers-LinearThermalRobin GPU )
