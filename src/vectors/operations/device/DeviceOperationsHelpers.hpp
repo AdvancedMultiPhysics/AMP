@@ -33,15 +33,13 @@ void DeviceOperationsHelpers<TYPE>::setRandomValues( size_t N, TYPE *x )
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, TYPE *x )
 {
-    auto lambda = [alpha] __host__ __device__( TYPE y ) { return y * alpha; };
-    thrust::transform( thrust::device, x, x + N, x, lambda );
+    thrust::transform( thrust::device, x, x + N, x, alpha * thrust::placeholders::_1 );
 }
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
-    auto lambda = [alpha] __host__ __device__( TYPE x ) { return x * alpha; };
-    thrust::transform( thrust::device, x, x + N, y, lambda );
+    thrust::transform( thrust::device, x, x + N, y, alpha * thrust::placeholders::_1 );
 }
 
 template<typename TYPE>
@@ -72,19 +70,39 @@ void DeviceOperationsHelpers<TYPE>::divide( size_t N, const TYPE *x, const TYPE 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::reciprocal( size_t N, const TYPE *x, TYPE *y )
 {
-    auto lambda = [] __host__ __device__( TYPE x ) { return (TYPE) 1 / x; };
-    thrust::transform( thrust::device, x, x + N, y, lambda );
+    thrust::transform(
+        thrust::device, x, x + N, y, static_cast<TYPE>( 1.0 ) / thrust::placeholders::_1 );
 }
 
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::linearSum(
-    TYPE alpha, size_t N, const TYPE *x, TYPE beta, const TYPE *y, TYPE *z )
+    const TYPE alpha, size_t N, const TYPE *x, const TYPE beta, const TYPE *y, TYPE *z )
 {
-    auto lambda = [alpha, beta] __host__ __device__( TYPE x, TYPE y ) {
-        return alpha * x + beta * y;
-    };
-    thrust::transform( thrust::device, x, x + N, y, z, lambda );
+    if ( alpha == 1.0 && beta == 1.0 ) {
+        thrust::transform( thrust::device, x, x + N, y, z, thrust::plus() );
+    } else if ( alpha == 1.0 ) {
+        thrust::transform( thrust::device,
+                           x,
+                           x + N,
+                           y,
+                           z,
+                           thrust::placeholders::_1 + beta * thrust::placeholders::_2 );
+    } else if ( beta == 1.0 ) {
+        thrust::transform( thrust::device,
+                           x,
+                           x + N,
+                           y,
+                           z,
+                           alpha * thrust::placeholders::_1 + thrust::placeholders::_2 );
+    } else {
+        thrust::transform( thrust::device,
+                           x,
+                           x + N,
+                           y,
+                           z,
+                           alpha * thrust::placeholders::_1 + beta * thrust::placeholders::_2 );
+    }
 }
 
 
@@ -98,8 +116,7 @@ void DeviceOperationsHelpers<TYPE>::abs( size_t N, const TYPE *x, TYPE *y )
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::addScalar( size_t N, const TYPE *x, TYPE alpha, TYPE *y )
 {
-    auto lambda = [alpha] __host__ __device__( TYPE x ) { return x + alpha; };
-    thrust::transform( thrust::device, x, x + N, y, lambda );
+    thrust::transform( thrust::device, x, x + N, y, thrust::placeholders::_1 + alpha );
 }
 
 template<typename TYPE>
