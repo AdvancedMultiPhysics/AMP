@@ -18,6 +18,7 @@ class Stacktrace(CMakePackage):
     license("UNKNOWN")
 
     version("master", branch="master")
+    version("0.0.95", tag="0.0.95", commit="d8b333608d936f93c1e9adeae6f68b98855ffe48")
     version("0.0.94", tag="0.0.94", commit="2c3a64e0d3169295ffb2811703b5b246bbe8badc")
     version("0.0.93", tag="0.0.93", commit="cb068ee7733825036bbd4f9fda89b4f6e12d73b5")
 
@@ -53,11 +54,8 @@ class Stacktrace(CMakePackage):
             self.define("StackTrace_INSTALL_DIR", self.prefix),
             self.define_from_variant("USE_MPI", "mpi"),
             self.define("MPI_SKIP_SEARCH", False),
-            self.define_from_variant("BUILD_SHARED_LIBS", "shared"),
-            self.define_from_variant("CMAKE_POSITION_INDEPENDENT_CODE", "pic"),
             self.define_from_variant("CMAKE_CXX_STANDARD", "cxxstd"),
             self.define_from_variant("ENABLE_SHARED", "shared"),
-            self.define("ENABLE_STATIC", not spec.variants["shared"].value),
             self.define("DISABLE_GOLD", True),
             self.define("CFLAGS", self.compiler.cc_pic_flag),
             self.define("CXXFLAGS", self.compiler.cxx_pic_flag),
@@ -66,4 +64,8 @@ class Stacktrace(CMakePackage):
             self.define('CMAKE_CXX_COMPILER', spack_cxx),
             self.define('CMAKE_Fortran_COMPILER', spack_fc)
         ]
+
+        if spec.satisfies("+timerutility"):
+            options.extend( [ self.define("TIMER_DIRECTORY", spec["timerutility"].prefix ) ] )
+
         return options

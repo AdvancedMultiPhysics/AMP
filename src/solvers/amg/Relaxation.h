@@ -38,6 +38,8 @@ public:
     void apply( std::shared_ptr<const LinearAlgebra::Vector> b,
                 std::shared_ptr<LinearAlgebra::Vector> x ) override;
 
+    void setLevel( size_t lvl ) { d_caller_lvl = lvl; }
+
 protected:
     virtual void relax_visit( std::shared_ptr<const LinearAlgebra::Vector> b,
                               std::shared_ptr<LinearAlgebra::Vector> x ) = 0;
@@ -47,6 +49,8 @@ protected:
     Sweep d_sweep;
     size_t d_num_sweeps;
     std::shared_ptr<AMP::LinearAlgebra::Matrix> d_matrix;
+
+    size_t d_caller_lvl;
 };
 
 struct HybridGS : Relaxation {
@@ -104,7 +108,9 @@ protected:
                       std::shared_ptr<LinearAlgebra::Vector> x ) override;
 
     float d_spec_lower;
-    std::shared_ptr<LinearAlgebra::Vector> d_diag;
+    std::shared_ptr<LinearAlgebra::Vector> d_dinv;
+    std::shared_ptr<LinearAlgebra::Vector> d_r;
+    std::shared_ptr<LinearAlgebra::Vector> d_z;
     template<typename Config>
     void relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                 std::shared_ptr<const LinearAlgebra::Vector> b,

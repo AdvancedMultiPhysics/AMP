@@ -86,16 +86,39 @@ inline constexpr index hypre_big   = index::i32;
 #define CSR_CONFIG_CC_FORALL_HYPRE( INST ) \
     EXPAND( CSR_CONFIG_CC_FORALL0_HYPRE( CSR_CONFIG_CC_FORALL2_HYPRE, INST ) )
 
-
-#define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_HOST( INST ) \
-    CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hilf, INST )   \
-    CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hild, INST )
+#if defined( HYPRE_BIGINT )
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_HOST( INST ) \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hllf, INST )   \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hlld, INST )
+#elif defined( HYPRE_MIXEDINT )
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_HOST( INST ) \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hilf, INST )   \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hild, INST )
+#else
+    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_HOST( INST ) \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hiif, INST )   \
+        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::hiid, INST )
+#endif
 #if defined( AMP_USE_DEVICE )
-    #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST ) \
-        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::milf, INST )     \
-        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::mild, INST )     \
-        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dilf, INST )     \
-        CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dild, INST )
+    #if defined( HYPRE_BIGINT )
+        #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST ) \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::mllf, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::mlld, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dllf, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dlld, INST )
+    #elif defined( HYPRE_MIXEDINT )
+        #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST ) \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::milf, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::mild, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dilf, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::dild, INST )
+    #else
+        #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST ) \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::miif, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::miid, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::diif, INST )     \
+            CSR_INOUT_CONFIG_MIGRATE_LOOP( csr_mode::diid, INST )
+    #endif
 #else
     #define CSR_INOUT_CONFIG_MIGRATE_OUTLIST_HYPRE_DEVICE( INST )
 #endif

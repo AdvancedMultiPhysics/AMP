@@ -9,7 +9,7 @@ namespace AMP::LinearAlgebra {
 template<typename TYPE>
 const AMP_MPI &VectorDataNull<TYPE>::getComm() const
 {
-    static AMP_MPI comm( AMP_COMM_NULL );
+    static AMP_MPI comm( AMP_COMM_SELF );
     return comm;
 }
 template<typename TYPE>

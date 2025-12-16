@@ -21,6 +21,8 @@ static std::shared_ptr<TYPE> createOperator( std::shared_ptr<OperatorParameters>
 static void addMatrix( std::shared_ptr<OperatorParameters> p,
                        std::shared_ptr<AMP::LinearAlgebra::Matrix> mat )
 {
+    PROFILE( "LinearBVPOperator::addMatrix" );
+
     auto linearOpParams = std::dynamic_pointer_cast<LinearBoundaryOperatorParameters>( p );
     auto columnOpParams = std::dynamic_pointer_cast<ColumnBoundaryOperatorParameters>( p );
     if ( linearOpParams )
@@ -35,6 +37,8 @@ static void addMatrix( std::shared_ptr<OperatorParameters> p,
 LinearBVPOperator::LinearBVPOperator( std::shared_ptr<const OperatorParameters> inParams )
     : LinearOperator( inParams )
 {
+    PROFILE( "LinearBVPOperator::constructor" );
+
     AMP_ASSERT( inParams );
     auto params        = std::dynamic_pointer_cast<const BVPOperatorParameters>( inParams );
     d_volumeOperator   = std::dynamic_pointer_cast<LinearOperator>( params->d_volumeOperator );
@@ -54,6 +58,8 @@ LinearBVPOperator::LinearBVPOperator( std::shared_ptr<const OperatorParameters> 
 
 void LinearBVPOperator::reset( std::shared_ptr<const OperatorParameters> inParams )
 {
+    PROFILE( "LinearBVPOperator::reset" );
+
     if ( inParams ) {
         auto params = std::dynamic_pointer_cast<const BVPOperatorParameters>( inParams );
 
@@ -97,6 +103,8 @@ void LinearBVPOperator::reset( std::shared_ptr<const OperatorParameters> inParam
 
 void LinearBVPOperator::modifyRHSvector( AMP::LinearAlgebra::Vector::shared_ptr rhs )
 {
+    PROFILE( "LinearBVPOperator::modifyRHSvector" );
+
     this->getBoundaryOperator()->addRHScorrection( rhs );
     this->getBoundaryOperator()->setRHScorrection( rhs );
 }

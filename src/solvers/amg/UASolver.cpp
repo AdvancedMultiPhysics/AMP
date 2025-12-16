@@ -3,6 +3,7 @@
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/amg/Aggregation.h"
 #include "AMP/solvers/amg/MIS2Aggregator.h"
+#include "AMP/solvers/amg/Relaxation.h"
 #include "AMP/solvers/amg/SimpleAggregator.h"
 #include "AMP/solvers/amg/Stats.h"
 
@@ -21,20 +22,23 @@ UASolver::UASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 
 void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
 {
-    d_max_levels     = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
-    d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_boomer_cg      = db->getWithDefault<bool>( "boomer_cg", false );
-    d_kappa          = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_max_levels           = db->getWithDefault<size_t>( "max_levels", 10 );
+    d_num_relax_pre        = db->getWithDefault<size_t>( "num_relax_pre", 1 );
+    d_num_relax_post       = db->getWithDefault<size_t>( "num_relax_post", 1 );
+    d_boomer_cg            = db->getWithDefault<bool>( "boomer_cg", false );
+    d_min_coarse_local     = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_min_coarse_global    = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    d_cycle_settings.kappa = db->getWithDefault<size_t>( "kappa", 1 );
+    d_cycle_settings.tol   = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_cycle_settings.type =
+        KappaKCycle::parseType( db->getWithDefault<std::string>( "kcycle_type", "fcg" ) );
 
     d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
-    d_coarsen_settings.min_coarse_local   = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_coarsen_settings.min_coarse         = db->getWithDefault<size_t>( "min_coarse_global", 100 );
     d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
     d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
 
-    d_implicit_RAP = db->getWithDefault<bool>( "implicit_RAP", false );
+    d_implicit_RAP = d_cycle_settings.comm_free_interp =
+        db->getWithDefault<bool>( "implicit_RAP", false );
     if ( d_iDebugPrintInfoLevel > 1 ) {
         AMP::pout << "UASolver: using " << ( ( d_implicit_RAP ) ? "implicit" : "explicit" )
                   << " RAP" << std::endl;
@@ -65,11 +69,14 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
 }
 
 std::unique_ptr<SolverStrategy>
-UASolver::create_relaxation( std::shared_ptr<AMP::Operator::LinearOperator> A,
+UASolver::create_relaxation( size_t lvl,
+                             std::shared_ptr<AMP::Operator::LinearOperator> A,
                              std::shared_ptr<RelaxationParameters> params )
 {
     auto rel_op = SolverFactory::create( params );
     rel_op->registerOperator( A );
+    auto &op = *rel_op;
+    dynamic_cast<Relaxation &>( op ).setLevel( lvl );
     return rel_op;
 }
 
@@ -100,8 +107,8 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 
     d_levels.clear();
     d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *linop );
-    d_levels.back().pre_relaxation  = create_relaxation( linop, d_pre_relax_params );
-    d_levels.back().post_relaxation = create_relaxation( linop, d_post_relax_params );
+    d_levels.back().pre_relaxation  = create_relaxation( 0, linop, d_pre_relax_params );
+    d_levels.back().post_relaxation = create_relaxation( 0, linop, d_post_relax_params );
     d_levels.back().r               = linop->getMatrix()->createInputVector();
     d_levels.back().correction      = linop->getMatrix()->createInputVector();
 
@@ -163,8 +170,8 @@ void UASolver::setup()
         AMP_DEBUG_ASSERT( matrix );
         int nrows_local   = static_cast<int>( matrix->numLocalRows() );
         auto nrows_global = matrix->numGlobalRows();
-        return nrows_global <= d_coarsen_settings.min_coarse ||
-               matrix->getComm().anyReduce( nrows_local < d_coarsen_settings.min_coarse_local );
+        return nrows_global <= d_min_coarse_global ||
+               matrix->getComm().anyReduce( nrows_local < d_min_coarse_local );
     };
 
     auto &fine_settings     = d_coarsen_settings;
@@ -180,8 +187,8 @@ void UASolver::setup()
         d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *Ac );
         d_levels.back().R               = R;
         d_levels.back().P               = P;
-        d_levels.back().pre_relaxation  = create_relaxation( Ac, d_pre_relax_params );
-        d_levels.back().post_relaxation = create_relaxation( Ac, d_post_relax_params );
+        d_levels.back().pre_relaxation  = create_relaxation( i + 1, Ac, d_pre_relax_params );
+        d_levels.back().post_relaxation = create_relaxation( i + 1, Ac, d_post_relax_params );
         d_levels.back().x               = Ac->getMatrix()->createInputVector();
         d_levels.back().b               = Ac->getMatrix()->createInputVector();
         d_levels.back().r               = Ac->getMatrix()->createInputVector();
@@ -247,10 +254,11 @@ void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
+    KappaKCycle cycle{ d_cycle_settings };
     auto current_res = d_dInitialResidual;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
-        kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol, d_implicit_RAP );
+        cycle( b, x, d_levels, *d_coarse_solver );
 
         d_pOperator->residual( b, x, r );
         current_res =

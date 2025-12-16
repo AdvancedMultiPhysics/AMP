@@ -23,19 +23,8 @@ class VectorDataIterator;
 template<typename TYPE = double>
 class VectorDataNull : public VectorData
 {
-public:
-    VectorDataNull() {}
-
-public: // Virtual functions
-    //! Virtual destructor
-    virtual ~VectorDataNull() {}
-
-
-    //! Get the type name
-    virtual std::string VectorDataName() const override { return "VectorDataNull"; }
-
-
 public: // Functions inherited from VectorData
+    std::string VectorDataName() const override { return "VectorDataNull"; }
     inline size_t numberOfDataBlocks() const override { return 0; }
     inline size_t sizeOfDataBlock( size_t = 0 ) const override { return 0; }
     inline void putRawData( const void *, const typeID & ) override {}
@@ -71,7 +60,7 @@ public: // Functions inherited from VectorData
     void swapData( VectorData & ) override { AMP_ERROR( "Not finished" ); }
     std::shared_ptr<VectorData> cloneData( const std::string & = "" ) const override
     {
-        return nullptr;
+        return std::make_shared<VectorDataNull<TYPE>>();
     }
     void makeConsistent( ScatterType ) override {}
     using VectorData::makeConsistent;

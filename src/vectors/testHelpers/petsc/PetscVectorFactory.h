@@ -5,7 +5,7 @@
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/petsc/NativePetscVectorData.h"
 #include "AMP/vectors/petsc/PetscHelpers.h"
-#include "AMP/vectors/testHelpers/VectorFactory.h"
+#include "AMP/vectors/testHelpers/VectorTests.h"
 #include "AMP/vectors/testHelpers/generateVectorFactories.h"
 
 #include "petscvec.h"

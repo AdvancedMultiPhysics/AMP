@@ -520,6 +520,7 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
                                             const bool is_symbolic ) const
 {
     using outdata_t = CSRLocalMatrixData<Config>;
+    PROFILE( "CSRLocalMatrixData::maskMatrixData" );
 
     AMP_INSIST( d_is_diag,
                 "CSRLocalMatrixData::maskMatrixData not implemented for off-diag blocks" );
@@ -636,6 +637,8 @@ template<typename Config>
 std::shared_ptr<CSRLocalMatrixData<Config>>
 CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> params ) const
 {
+    PROFILE( "CSRLocalMatrixData::transpose" );
+
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::transpose not implemented for symbolic matrices" );
 
@@ -705,6 +708,8 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
 template<typename Config>
 void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
 {
+    PROFILE( "CSRLocalMatrixData::setNNZ" );
+
     d_nnz = tot_nnz;
 
     if ( d_nnz == 0 ) {
@@ -731,6 +736,8 @@ void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
 template<typename Config>
 void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
 {
+    PROFILE( "CSRLocalMatrixData::setNNZ" );
+
     if ( do_accum ) {
         AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
             d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0 );
@@ -775,6 +782,8 @@ void CSRLocalMatrixData<Config>::setNNZ( const lidx_t *nnz )
 template<typename Config>
 void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scalar_t bnd_up )
 {
+    PROFILE( "CSRLocalMatrixData::removeRange" );
+
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::removeRange not defined for symbolic matrices" );
 
@@ -1113,6 +1122,8 @@ void CSRLocalMatrixData<Config>::getRowByGlobalID( const size_t local_row,
                                                    std::vector<size_t> &cols,
                                                    std::vector<double> &values ) const
 {
+    PROFILE( "CSRLocalMatrixData::getRowByGlobalID" );
+
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::getRowByGlobalId not implemented for symbolic matrices" );
 
@@ -1160,6 +1171,8 @@ void CSRLocalMatrixData<Config>::getValuesByGlobalID( const size_t local_row,
                                                       size_t *cols,
                                                       scalar_t *values ) const
 {
+    PROFILE( "CSRLocalMatrixData::getValuesByGlobalID" );
+
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::getValuesByGlobalId not defined for symbolic matrices" );
 
@@ -1192,6 +1205,8 @@ void CSRLocalMatrixData<Config>::addValuesByGlobalID( const size_t local_row,
                                                       const size_t *cols,
                                                       const scalar_t *vals )
 {
+    PROFILE( "CSRLocalMatrixData::addValuesByGlobalID" );
+
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::addValuesByGlobalId not defined for symbolic matrices" );
 
@@ -1232,6 +1247,8 @@ void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
                                                       const size_t *cols,
                                                       const scalar_t *vals )
 {
+    PROFILE( "CSRLocalMatrixData::setValuesByGlobalID" );
+
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::setValuesByGlobalId not defined for symbolic matrices" );
 
@@ -1269,6 +1286,8 @@ void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
 template<typename Config>
 std::vector<size_t> CSRLocalMatrixData<Config>::getColumnIDs( const size_t local_row ) const
 {
+    PROFILE( "CSRLocalMatrixData::getColumnIDs" );
+
     // Don't do anything on empty matrices
     if ( d_is_empty ) {
         return std::vector<size_t>();

@@ -8,12 +8,11 @@
 namespace AMP::Utilities {
 
 
-#define AMP_INSTANTIATE_SORT( T )                                         \
-    template void AMP::Utilities::quicksort<T>( size_t, T * );            \
-    template void AMP::Utilities::quicksort<T, T>( size_t, T *, T * );    \
-    template void AMP::Utilities::unique<T>( std::vector<T> & );          \
-    template void AMP::Utilities::unique<T>(                              \
-        std::vector<T> &, std::vector<size_t> &, std::vector<size_t> & ); \
+#define AMP_INSTANTIATE_SORT( T )                                                       \
+    template void AMP::Utilities::quicksort<T>( size_t, T * );                          \
+    template void AMP::Utilities::quicksort<T, T>( size_t, T *, T * );                  \
+    template void AMP::Utilities::unique<T>( std::vector<T> & );                        \
+    template void AMP::Utilities::unique<T>( std::vector<T> &, std::vector<size_t> & ); \
     template size_t AMP::Utilities::findfirst<T>( size_t, const T *, const T & )
 
 
@@ -469,16 +468,12 @@ void unique( std::vector<T> &x )
         x.resize( pos );
 }
 template<class T>
-void unique( std::vector<T> &X, std::vector<size_t> &I, std::vector<size_t> &J )
+void unique( std::vector<T> &X, std::vector<size_t> &I )
 {
     if ( X.empty() ) {
         I.clear();
-        J.clear();
         return;
     }
-    const size_t neg_one = static_cast<size_t>( -1 );
-    J.resize( 0 );
-    J.resize( X.size(), neg_one );
     // Initialize the index vector I
     I.resize( X.size() );
     for ( size_t i = 0; i < X.size(); i++ )
@@ -496,13 +491,6 @@ void unique( std::vector<T> &X, std::vector<size_t> &I, std::vector<size_t> &J )
     }
     X.resize( pos );
     I.resize( pos );
-    // Fill the index array J
-    for ( size_t i = 0; i < I.size(); i++ )
-        J[I[i]] = i;
-    for ( size_t i = 0; i < J.size(); i++ ) {
-        if ( J[i] == neg_one )
-            J[i] = J[i - 1];
-    }
 }
 
 

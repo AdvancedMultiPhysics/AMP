@@ -73,6 +73,7 @@ public:
      * \param[in] last_col         Global index of final column (exclusive)
      * \param[in] is_diag          True if this is the diag block, influences use of first/last col
      * \param[in] is_symbolic      True if this is a symbolic matrix storing only the NZ pattern
+     * \param[in] hash             Hash value
      */
     explicit CSRLocalMatrixData( std::shared_ptr<MatrixParametersBase> params,
                                  AMP::Utilities::MemoryType memory_location,

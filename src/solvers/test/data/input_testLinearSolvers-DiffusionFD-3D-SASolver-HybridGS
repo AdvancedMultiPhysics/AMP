@@ -10,21 +10,19 @@ LinearSolver{
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
-  agg_type = "simple"
-  prol_trunc = 0.015
-  num_smooth_prol = 3
-  strength_threshold = 0.4
-  strength_measure = "classical_min"
+  kcycle_type = "fcg"
+
+<<< SASolver-Level-0 >>>
   
   pre_relaxation{
     name = "HybridGS"
-    num_sweeps = 1
+    num_sweeps = 2
     sweep_type = "symmetric"
   }
 
   post_relaxation{
     name = "HybridGS"
-    num_sweeps = 1
+    num_sweeps = 2
     sweep_type = "symmetric"
   }
 
@@ -36,7 +34,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 34
+  iterations = 33
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

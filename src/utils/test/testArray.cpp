@@ -433,6 +433,7 @@ void testCoarsen( AMP::UnitTest &ut )
 {
     int N[2] = { 300, 90 };
     Array<int> M1( N[0], N[1] );
+    M1.rand();
     Array<int> filter = { { 0, 0, 0 }, { 0, 1, 0 }, { 0, 0, 0 } };
     auto filter2      = []( const Array<int> &x ) { return x( 1, 1 ); };
     auto M2           = M1.coarsen( filter );

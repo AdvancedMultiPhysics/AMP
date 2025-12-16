@@ -1,0 +1,29 @@
+Preconditioner{
+  name = "SASolver"
+  absolute_tolerance = 0.0
+  relative_tolerance = 0.0
+  print_info_level = 3
+  max_iterations = 1
+  max_levels = 10
+  min_coarse_local = 10
+  min_coarse_global = 40
+  kappa = 2
+  kcycle_type = "fcg"
+
+<<< SASolver-Level-0 >>>
+
+  pre_relaxation{
+    name = "JacobiL1"
+    num_sweeps = 2
+  }
+
+  post_relaxation{
+    name = "JacobiL1"
+    num_sweeps = 2
+  }
+  
+  coarse_solver{
+    name = "JacobiL1"
+    num_sweeps = 4
+  }
+}

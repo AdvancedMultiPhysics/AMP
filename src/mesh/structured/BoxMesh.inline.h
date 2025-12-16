@@ -116,12 +116,18 @@ inline std::vector<bool> BoxMesh::periodic() const
     periodic.resize( static_cast<int>( GeomDim ) );
     return periodic;
 }
-inline std::vector<size_t> BoxMesh::size() const
+inline ArraySize BoxMesh::size() const
 {
-    std::vector<size_t> size( static_cast<int>( GeomDim ) );
-    for ( int d = 0; d < static_cast<int>( GeomDim ); d++ )
-        size[d] = d_globalSize[d];
-    return size;
+    return ArraySize( { d_globalSize[0], d_globalSize[1], d_globalSize[2] },
+                      static_cast<int>( GeomDim ) );
+}
+inline ArraySize BoxMesh::localSize() const
+{
+    auto local  = getLocalBlock( d_comm.getRank() );
+    size_t N[3] = { (size_t) local[1] - local[0] + 1,
+                    (size_t) local[3] - local[2] + 1,
+                    (size_t) local[5] - local[4] + 1 };
+    return ArraySize( static_cast<int>( GeomDim ), N );
 }
 inline std::vector<size_t> BoxMesh::numBlocks() const
 {
@@ -283,7 +289,12 @@ inline void BoxMesh::fixPeriodic( MeshElementIndex &index ) const
                 index[d] -= d_globalSize[d];
         } else if ( d_surfaceId[2 * d] == -2 || d_surfaceId[2 * d + 1] == -2 ) {
             // Mapped boundary
-            AMP_WARN_ONCE( "Not finished" );
+            if ( index[d] >= 0 || index[d] < d_globalSize[d] )
+                continue;
+            auto &[x, y] = d_surfaceMaps[d];
+            auto i       = std::min( AMP::Utilities::findfirst( x, index ), x.size() - 1 );
+            AMP_DEBUG_ASSERT( x[i] == index );
+            index = y[i];
         }
     }
 }

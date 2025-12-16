@@ -1049,10 +1049,9 @@ void AMP_MPI::abort() const
 /************************************************************************
  *  newTag                                                               *
  ************************************************************************/
-int AMP_MPI::newTag()
+int AMP_MPI::newTag() const
 {
 #ifdef AMP_USE_MPI
-
     int tag = ( *d_currentTag )++;
     AMP_INSIST( tag <= d_maxTag, "Maximum number of tags exceeded\n" );
     AMP_DEBUG_ASSERT( tag == bcast( tag, 0 ) );
@@ -1612,10 +1611,10 @@ double AMP_MPI::tick()
 /************************************************************************
  *  Serialize a block of code across MPI processes                       *
  ************************************************************************/
-void AMP_MPI::serializeStart()
+void AMP_MPI::serializeStart() const
 {
-    PROFILE( "serializeStart", profile_level );
 #ifdef AMP_USE_MPI
+    PROFILE( "serializeStart", profile_level );
     // Wait for a message from the previous rank
     if ( d_rank > 0 ) {
         MPI_Request request;
@@ -1628,16 +1627,16 @@ void AMP_MPI::serializeStart()
     }
 #endif
 }
-void AMP_MPI::serializeStop()
+void AMP_MPI::serializeStop() const
 {
-    PROFILE( "serializeStop", profile_level );
 #ifdef AMP_USE_MPI
+    PROFILE( "serializeStop", profile_level );
     // Send flag to next rank
     if ( d_rank < d_size - 1 )
         MPI_Send( &d_rank, 1, MPI_INT, d_rank + 1, 5627, d_comm );
-#endif
     // Final barrier to sync all threads
     sleepBarrier( 0 );
+#endif
 }
 
 

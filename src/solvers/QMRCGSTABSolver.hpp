@@ -35,6 +35,7 @@ void QMRCGSTABSolver<T>::initialize( std::shared_ptr<const SolverStrategyParamet
 
     if ( parameters->d_pNestedSolver ) {
         d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
@@ -46,6 +47,7 @@ void QMRCGSTABSolver<T>::initialize( std::shared_ptr<const SolverStrategyParamet
                 innerParameters->d_global_db = parameters->d_global_db;
                 innerParameters->d_pOperator = d_pOperator;
                 d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
                 AMP_ASSERT( d_pNestedSolver );
             }
         }
@@ -109,6 +111,14 @@ void QMRCGSTABSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector
     // compute the current residual norm
     d_dResidualNorm    = static_cast<T>( r0->L2Norm() );
     d_dInitialResidual = d_dResidualNorm;
+
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "QMRCGSTAB: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "QMRCGSTAB: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+    }
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
         AMP::pout << "QMRCGSTAB: initial L2Norm of residual: " << d_dInitialResidual << std::endl;

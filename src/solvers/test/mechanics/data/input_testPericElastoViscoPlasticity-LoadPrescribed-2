@@ -172,7 +172,7 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-    print_info_level = 2 
+    print_info_level = 0
     max_iterations = 100
     absolute_tolerance = 1.0e-14
     relative_tolerance = 1.0e-08
@@ -182,11 +182,11 @@ NonlinearSolver{
     forcing_term_strategy = "CONSTANT"
     constant_forcing_term = 0.1
 
-//    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
+    // SNESOptions = "-snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
 
     LinearSolver{
         name = "PetscKrylovSolver"
-        print_info_level = 1
+        print_info_level = 0
         max_iterations = 300
         ksp_type = "fgmres"
 //        absolute_tolerance = 1.0e-15
@@ -197,11 +197,12 @@ NonlinearSolver{
         pc_type = "shell"
         pc_side = "RIGHT"
 
-        KSPOptions = "-ksp_monitor -ksp_converged_reason"
+        //KSPOptions = "-ksp_monitor -ksp_converged_reason"
+        KSPOptions = ""
 
         Preconditioner{
             name = "TrilinosMLSolver"
-            print_info_level = 1
+            print_info_level = 0
             PDE_equations = 3
             max_iterations = 1
         }

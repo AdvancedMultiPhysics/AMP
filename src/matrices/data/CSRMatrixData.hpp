@@ -172,6 +172,8 @@ CSRMatrixData<Config>::~CSRMatrixData()
 template<typename Config>
 std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
 {
+    PROFILE( "CSRMatrixData::cloneMatrixData" );
+
     std::shared_ptr<CSRMatrixData> cloneData;
 
     cloneData = std::make_shared<CSRMatrixData<Config>>();
@@ -204,6 +206,8 @@ template<typename ConfigOut>
 std::shared_ptr<CSRMatrixData<ConfigOut>>
 CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
 {
+    PROFILE( "CSRMatrixData::migrate" );
+
     using outdata_t = CSRMatrixData<ConfigOut>;
     auto outData    = std::make_shared<outdata_t>();
 
@@ -408,6 +412,8 @@ void CSRMatrixData<Config>::setNNZ( bool do_accum )
 template<typename Config>
 void CSRMatrixData<Config>::assemble( bool force_dm_reset )
 {
+    PROFILE( "CSRMatrixData::assemble" );
+
     globalToLocalColumns();
     resetDOFManagers( force_dm_reset );
 }
@@ -489,6 +495,7 @@ template<typename Config>
 void CSRMatrixData<Config>::removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up )
 {
     PROFILE( "CSRMatrixData::removeRange" );
+
     const auto blo = static_cast<scalar_t>( bnd_lo );
     const auto bup = static_cast<scalar_t>( bnd_up );
     d_diag_matrix->removeRange( blo, bup );
@@ -614,6 +621,8 @@ void CSRMatrixData<Config>::getRowByGlobalID( size_t row,
                                               std::vector<size_t> &cols,
                                               std::vector<double> &vals ) const
 {
+    PROFILE( "CSRMatrixData::getRowByGlobalID" );
+
     AMP_DEBUG_INSIST( row >= static_cast<size_t>( d_first_row ) &&
                           row < static_cast<size_t>( d_last_row ),
                       "row must be owned by rank" );
@@ -642,6 +651,8 @@ void CSRMatrixData<Config>::getValuesByGlobalID( size_t num_rows,
                                                  void *vals,
                                                  [[maybe_unused]] const typeID &id ) const
 {
+    PROFILE( "CSRMatrixData::getValuesByGlobalID" );
+
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::getValuesByGlobalID called with inconsistent typeID" );
 
@@ -678,6 +689,8 @@ void CSRMatrixData<Config>::addValuesByGlobalID( size_t num_rows,
                                                  void *vals,
                                                  [[maybe_unused]] const typeID &id )
 {
+    PROFILE( "CSRMatrixData::addValuesByGlobalID" );
+
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::addValuesByGlobalID called with inconsistent typeID" );
 
@@ -712,6 +725,8 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
                                                  void *vals,
                                                  [[maybe_unused]] const typeID &id )
 {
+    PROFILE( "CSRMatrixData::setValuesByGlobalID" );
+
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::setValuesByGlobalID called with inconsistent typeID" );
 
@@ -742,6 +757,8 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
 template<typename Config>
 std::vector<size_t> CSRMatrixData<Config>::getColumnIDs( size_t row ) const
 {
+    PROFILE( "CSRMatrixData::getColumnIDs" );
+
     AMP_DEBUG_INSIST( row >= static_cast<size_t>( d_first_row ) &&
                           row < static_cast<size_t>( d_last_row ),
                       "CSRMatrixData::getColumnIDs row must be owned by rank" );
@@ -762,6 +779,8 @@ template<typename Config>
 void CSRMatrixData<Config>::setOtherData( std::map<gidx_t, std::map<gidx_t, scalar_t>> &other_data,
                                           AMP::LinearAlgebra::ScatterType t )
 {
+    PROFILE( "CSRMatrixData::setOtherData" );
+
     AMP_MPI comm   = getComm();
     auto ndxLen    = other_data.size();
     auto totNdxLen = comm.sumReduce( ndxLen );

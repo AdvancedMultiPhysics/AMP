@@ -117,7 +117,7 @@ public: // Write/read restart data
      * \param fid    File identifier to write
      * \param manager   Restart manager
      */
-    MatrixParametersBase( int64_t, AMP::IO::RestartManager * );
+    MatrixParametersBase( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
     // The comm of the matrix

@@ -4,6 +4,7 @@
 #include "AMP/vectors/data/VectorDataIterator.h"
 #include <algorithm>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -23,6 +24,8 @@ inline std::shared_ptr<AMP::Discretization::DOFManager> Vector::getDOFManager() 
 template<typename VIEW_TYPE>
 std::shared_ptr<VIEW_TYPE> Vector::getView() const
 {
+    PROFILE( "Vector::getView" );
+
     typedef typename std::remove_cv_t<VIEW_TYPE> TYPE;
     for ( size_t i = 0; i != d_Views->size(); i++ ) {
         if ( ( *d_Views )[i].type() == typeid( std::weak_ptr<TYPE> ) ) {
@@ -34,14 +37,18 @@ std::shared_ptr<VIEW_TYPE> Vector::getView() const
     }
     return std::shared_ptr<VIEW_TYPE>();
 }
+
 template<typename VIEW_TYPE>
 bool Vector::hasView() const
 {
     return getView<VIEW_TYPE>() != nullptr;
 }
+
 template<typename VIEW_TYPE>
 void Vector::registerView( std::shared_ptr<VIEW_TYPE> v ) const
 {
+    PROFILE( "Vector::registerView" );
+
     typedef typename std::remove_cv_t<VIEW_TYPE> TYPE;
     for ( size_t i = 0; i != d_Views->size(); i++ ) {
         if ( ( *d_Views )[i].type() == typeid( std::weak_ptr<TYPE> ) ) {
@@ -84,17 +91,23 @@ inline std::ostream &operator<<( std::ostream &out, const Vector::shared_ptr p )
 template<typename TYPE>
 TYPE Vector::getValueByGlobalID( size_t i ) const
 {
+    PROFILE( "Vector::getValueByGlobalID" );
+
     TYPE ans;
     getValuesByGlobalID( 1, &i, &ans );
     return ans;
 }
+
 template<typename TYPE>
 TYPE Vector::getLocalValueByGlobalID( size_t i ) const
 {
+    PROFILE( "Vector::getLocalValueByGlobalID" );
+
     TYPE ans;
     getValuesByGlobalID( 1, &i, &ans );
     return ans;
 }
+
 template<typename TYPE>
 TYPE Vector::getGhostValueByGlobalID( size_t i ) const
 {
@@ -103,16 +116,22 @@ TYPE Vector::getGhostValueByGlobalID( size_t i ) const
     getGhostValuesByGlobalID( 1, &i, &ans );
     return ans;
 }
+
 template<typename TYPE>
 TYPE Vector::getValueByLocalID( size_t ndx ) const
 {
+    PROFILE( "Vector::getValueByLocalID" );
+
     TYPE ans;
     getValuesByLocalID( 1, &ndx, &ans );
     return ans;
 }
+
 template<typename TYPE>
 void Vector::setValueByGlobalID( size_t i, TYPE v )
 {
+    PROFILE( "Vector::setValueByGlobalID" );
+
     setValuesByGlobalID<TYPE>( 1, &i, &v );
 }
 

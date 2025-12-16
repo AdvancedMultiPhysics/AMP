@@ -23,50 +23,104 @@ SASolver::SASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 
 void SASolver::getFromInput( std::shared_ptr<Database> db )
 {
-    d_max_levels     = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_num_relax_pre  = db->getWithDefault<size_t>( "num_relax_pre", 1 );
-    d_num_relax_post = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_kappa          = db->getWithDefault<size_t>( "kappa", 1 );
-    d_kcycle_tol     = db->getWithDefault<float>( "kcycle_tol", 0 );
+    // settings applicable to entire solver
+    d_max_levels                      = db->getWithDefault<size_t>( "max_levels", 10 );
+    d_min_coarse_local                = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_min_coarse_global               = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    d_cycle_settings.kappa            = db->getWithDefault<size_t>( "kappa", 1 );
+    d_cycle_settings.tol              = db->getWithDefault<double>( "kcycle_tol", 0.0 );
+    d_cycle_settings.comm_free_interp = false;
+    d_cycle_settings.type =
+        KappaKCycle::parseType( db->getWithDefault<std::string>( "kcycle_type", "fcg" ) );
 
-    d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
+    // get and setup coarse solver options
+    AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
+    auto coarse_solver_db = db->getDatabase( "coarse_solver" );
+    AMP_INSIST( db->keyExists( "name" ), "Key name does not exist in coarse solver database" );
+    d_coarse_solver_params = std::make_shared<SolverStrategyParameters>( coarse_solver_db );
+
+    // Apply default per-level options
+    resetLevelOptions();
+}
+
+void SASolver::resetLevelOptions()
+{
+    d_coarsen_settings.strength_threshold =
+        d_db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.strength_measure =
-        db->getWithDefault<std::string>( "strength_measure", "classical_min" );
-    d_coarsen_settings.min_coarse_local = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_coarsen_settings.min_coarse       = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+        d_db->getWithDefault<std::string>( "strength_measure", "classical_min" );
+    d_pair_coarsen_settings                 = d_coarsen_settings;
+    d_pair_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
+    d_pair_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
+    d_num_smooth_prol                       = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
+    d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0 );
+    d_prol_spec_lower                       = d_db->getWithDefault<float>( "prol_spec_lower", 0.5 );
+    d_agg_type      = d_db->getWithDefault<std::string>( "agg_type", "simple" );
+    d_pre_relax_db  = d_db->getDatabase( "pre_relaxation" );
+    d_post_relax_db = d_db->getDatabase( "post_relaxation" );
+}
 
-    d_num_smooth_prol = db->getWithDefault<int>( "num_smooth_prol", 1 );
-    d_prol_trunc      = db->getWithDefault<float>( "prol_trunc", 0 );
+void SASolver::setLevelOptions( const size_t lvl )
+{
+    // If a new set of level options is available
+    // apply them over the defaults.
+    // If no new options are available then keep existing
+    // ones without falling back to defaults
+    auto lvl_db_name =
+        std::string( "level_options_" ) + AMP::Utilities::intToString( static_cast<int>( lvl ) );
+    auto lvl_db = d_db->getDatabase( lvl_db_name );
+    if ( lvl_db ) {
+        resetLevelOptions();
 
-    const auto agg_type = db->getWithDefault<std::string>( "agg_type", "simple" );
-    if ( agg_type == "simple" ) {
+        d_coarsen_settings.strength_threshold = lvl_db->getWithDefault<float>(
+            "strength_threshold", d_coarsen_settings.strength_threshold );
+        d_coarsen_settings.strength_measure = lvl_db->getWithDefault<std::string>(
+            "strength_measure", d_coarsen_settings.strength_measure );
+        d_pair_coarsen_settings                 = d_coarsen_settings;
+        d_pair_coarsen_settings.pairwise_passes = lvl_db->getWithDefault<size_t>(
+            "pairwise_passes", d_pair_coarsen_settings.pairwise_passes );
+        d_pair_coarsen_settings.checkdd =
+            lvl_db->getWithDefault<bool>( "checkdd", d_pair_coarsen_settings.checkdd );
+        d_num_smooth_prol = lvl_db->getWithDefault<int>( "num_smooth_prol", d_num_smooth_prol );
+        d_prol_trunc      = lvl_db->getWithDefault<float>( "prol_trunc", d_prol_trunc );
+        d_prol_spec_lower = lvl_db->getWithDefault<float>( "prol_spec_lower", d_prol_spec_lower );
+        d_agg_type        = lvl_db->getWithDefault<std::string>( "agg_type", d_agg_type );
+
+        // only replace these DBs if they exist
+        auto pre_relax_db = lvl_db->getDatabase( "pre_relaxation" );
+        if ( pre_relax_db ) {
+            d_pre_relax_db = pre_relax_db;
+        }
+        auto post_relax_db = lvl_db->getDatabase( "post_relaxation" );
+        if ( post_relax_db ) {
+            d_post_relax_db = post_relax_db;
+        }
+    }
+
+    // create/replace aggregator
+    if ( d_agg_type == "simple" ) {
         d_aggregator = std::make_shared<AMG::SimpleAggregator>( d_coarsen_settings );
-    } else if ( agg_type == "pairwise" ) {
-        d_pair_coarsen_settings = d_coarsen_settings;
-        d_pair_coarsen_settings.pairwise_passes =
-            db->getWithDefault<size_t>( "pairwise_passes", 2 );
-        d_pair_coarsen_settings.checkdd = db->getWithDefault<bool>( "checkdd", true );
+    } else if ( d_agg_type == "pairwise" ) {
         d_aggregator = std::make_shared<PairwiseAggregator>( d_pair_coarsen_settings );
     } else {
         d_aggregator = std::make_shared<AMG::MIS2Aggregator>( d_coarsen_settings );
     }
 
-    auto pre_db        = db->getDatabase( "pre_relaxation" );
-    d_pre_relax_params = std::make_shared<AMG::RelaxationParameters>( pre_db );
-
-    auto post_db        = db->getDatabase( "post_relaxation" );
-    d_post_relax_params = std::make_shared<AMG::RelaxationParameters>( post_db );
-
-    AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
-    auto coarse_solver_db = db->getDatabase( "coarse_solver" );
-    AMP_INSIST( db->keyExists( "name" ), "Key name does not exist in coarse solver database" );
-    d_coarse_solver_params = std::make_shared<SolverStrategyParameters>( coarse_solver_db );
+    // create relaxation parameters
+    // these are the only items with no defaults so these DBs must exist from somewhere
+    AMP_INSIST( d_pre_relax_db && d_post_relax_db,
+                "SASolver: pre_relaxation and post_relaxation parameters must be set" );
+    d_pre_relax_params  = std::make_shared<AMG::RelaxationParameters>( d_pre_relax_db );
+    d_post_relax_params = std::make_shared<AMG::RelaxationParameters>( d_post_relax_db );
 }
 
 void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 {
+    // store operator, destroy hierarchy, reset to fine level options
     d_pOperator = op;
     d_levels.clear();
+    resetLevelOptions();
+    setLevelOptions( 0 );
 
     // unwrap operator
     auto fine_op = std::dynamic_pointer_cast<Operator::LinearOperator>( op );
@@ -101,8 +155,8 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
     d_levels.back().A->setMatrix( mat );
-    d_levels.back().pre_relaxation  = createRelaxation( fine_op, d_pre_relax_params );
-    d_levels.back().post_relaxation = createRelaxation( fine_op, d_post_relax_params );
+    d_levels.back().pre_relaxation  = createRelaxation( 0, fine_op, d_pre_relax_params );
+    d_levels.back().post_relaxation = createRelaxation( 0, fine_op, d_post_relax_params );
     d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
@@ -114,11 +168,14 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 }
 
 std::unique_ptr<SolverStrategy>
-SASolver::createRelaxation( std::shared_ptr<Operator::Operator> A,
+SASolver::createRelaxation( size_t lvl,
+                            std::shared_ptr<Operator::Operator> A,
                             std::shared_ptr<AMG::RelaxationParameters> params )
 {
     auto rel_op = Solver::SolverFactory::create( params );
     rel_op->registerOperator( A );
+    auto &op = *rel_op;
+    dynamic_cast<Relaxation &>( op ).setLevel( lvl );
     return rel_op;
 }
 
@@ -138,9 +195,8 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // Chebyshev terms
-    const double pi = static_cast<double>( AMP::Constants::pi );
-    const double a = 0.98, ma = 1.0 - a, pa = 1.0 + a;
+    // optimal weight for prescribed lower e-val estimate
+    const double omega = 2.0 / ( 1.0 + d_prol_spec_lower );
 
     // Smooth P, swapping at end each time
     for ( int i = 0; i < d_num_smooth_prol; ++i ) {
@@ -148,9 +204,6 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
         auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P );
 
         // then apply -Dinv in-place
-        const double omega = 0.5 * ( ma * std::cos( pi * static_cast<double>( 2 * i - 1 ) /
-                                                    static_cast<double>( d_num_smooth_prol ) ) +
-                                     pa );
         P_smooth->scaleInv( -omega, D );
 
         // add back in P_tent
@@ -200,6 +253,9 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
 
         const auto Ac_nrows_gbl = Ac->numGlobalRows();
 
+        // from here the new level gets created, load any new options
+        setLevelOptions( i + 1 );
+
         // create next level with coarsened matrix
         d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
         d_levels.back().A->setMatrix( Ac );
@@ -217,9 +273,10 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
             ->setVariables( bVar, xVar );
 
         // Relaxation operators for new level
-        d_levels.back().pre_relaxation = createRelaxation( d_levels.back().A, d_pre_relax_params );
+        d_levels.back().pre_relaxation =
+            createRelaxation( i + 1, d_levels.back().A, d_pre_relax_params );
         d_levels.back().post_relaxation =
-            createRelaxation( d_levels.back().A, d_post_relax_params );
+            createRelaxation( i + 1, d_levels.back().A, d_post_relax_params );
 
         // in/out vectors for new level
         d_levels.back().x          = Ac->createInputVector();
@@ -232,8 +289,8 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         // and make residual vector for coarsest level
         const auto Ac_nrows_loc = static_cast<int>( Ac->numLocalRows() );
         auto comm               = Ac->getComm();
-        if ( Ac_nrows_gbl <= d_coarsen_settings.min_coarse ||
-             comm.anyReduce( Ac_nrows_loc < d_coarsen_settings.min_coarse_local ) ) {
+        if ( Ac_nrows_gbl <= d_min_coarse_global ||
+             comm.anyReduce( Ac_nrows_loc < d_min_coarse_local ) ) {
             break;
         }
     }
@@ -282,11 +339,22 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     }
     d_dInitialResidual = current_res;
 
-    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "SASolver::apply: initial L2Norm of solution vector: " << x->L2Norm()
+    if ( need_norms && d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "SASolver: AMP version " << version[0] << "." << version[1] << "."
+                  << version[2] << std::endl;
+        AMP::pout << "SASolver: Memory location " << AMP::Utilities::getString( d_mem_loc )
                   << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector: " << b_norm << std::endl;
-        AMP::pout << "SASolver::apply: initial L2Norm of residual: " << current_res << std::endl;
+        AMP::pout << "SASolver: kappa " << d_cycle_settings.kappa << std::endl;
+        AMP::pout << "SASolver: k-cycle type "
+                  << KappaKCycle::krylovTypeName( d_cycle_settings.type ) << std::endl;
+    }
+
+    if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
+        AMP::pout << "SASolver::apply: initial L2Norm of solution vector " << x->L2Norm()
+                  << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of rhs vector " << b_norm << std::endl;
+        AMP::pout << "SASolver::apply: initial L2Norm of residual " << current_res << std::endl;
     }
 
     // return if the residual is already low enough
@@ -298,9 +366,11 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
+    double prev_res = 0.0;
+    KappaKCycle cycle{ d_cycle_settings };
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
-        kappa_kcycle( b, x, d_levels, *d_coarse_solver, d_kappa, d_kcycle_tol );
+        cycle( b, x, d_levels, *d_coarse_solver );
 
         d_pOperator->residual( b, x, r );
         current_res =
@@ -308,7 +378,13 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 
         if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "SA: iteration " << d_iNumberIterations << ", residual " << current_res
-                      << std::endl;
+                      << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << current_res / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = current_res;
         }
 
         if ( need_norms && checkStoppingCriteria( current_res ) ) {

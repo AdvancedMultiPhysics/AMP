@@ -48,6 +48,8 @@ public: // Functions derived from BoxMesh
     void displaceMesh( std::shared_ptr<const AMP::LinearAlgebra::Vector> ) override;
     AMP::Geometry::Point physicalToLogical( const AMP::Geometry::Point &x ) const override;
     void coord( const MeshElementIndex &index, double *pos ) const override;
+    std::array<AMP::Array<double>, 3> localCoord() const override;
+    std::array<AMP::Array<double>, 3> globalCoord() const override;
     std::unique_ptr<Mesh> clone() const override;
 
 public: // Restart functions

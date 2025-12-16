@@ -1,6 +1,7 @@
 #include "test_Matrix.h"
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/IO/FileSystem.h"
 #include "AMP/matrices/MatrixBuilder.h"
 #include "AMP/matrices/testHelpers/MatrixTests.h"
 #include "AMP/utils/AMPManager.h"
@@ -68,9 +69,11 @@ int main( int argc, char **argv )
         using DOF3 = DOFMatrixTestFactory<3, 3, AMPCubeGenerator5>;
         test_matrix_loop( ut, std::make_shared<DOF1>( type ) );
         test_matrix_loop( ut, std::make_shared<DOF3>( type ) );
-#if defined( AMP_USE_LIBMESH ) && defined( USE_AMP_DATA ) && !defined( _GLIBCXX_DEBUG )
-        using libmeshFactory = DOFMatrixTestFactory<3, 3, ExodusReaderGenerator2>;
-        test_matrix_loop( ut, std::make_shared<libmeshFactory>( type ) );
+#if defined( AMP_USE_LIBMESH ) && !defined( _GLIBCXX_DEBUG )
+        if ( AMP::IO::exists( "pellet_1x.e" ) ) {
+            using libmeshFactory = DOFMatrixTestFactory<3, 3, ExodusReaderGenerator2>;
+            test_matrix_loop( ut, std::make_shared<libmeshFactory>( type ) );
+        }
 #endif
         auto t2 = std::chrono::high_resolution_clock::now();
         AMP::pout << " (" << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;

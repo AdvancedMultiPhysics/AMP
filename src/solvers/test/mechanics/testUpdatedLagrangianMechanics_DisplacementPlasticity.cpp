@@ -184,7 +184,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        ( nonlinearMechanicsBVPoperator->getVolumeOperator() )->reset( tmpParams );
+        nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
 
         current_time = delta_time * ( (double) step + 2.0 );
@@ -192,7 +192,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         dirichletVectorCorrectionDatabase->putScalar( "value_3_0", ( epsilon_dot * current_time ) );
         auto bndParams = std::make_shared<AMP::Operator::DirichletVectorCorrectionParameters>(
             dirichletVectorCorrectionDatabase );
-        ( nonlinearMechanicsBVPoperator->getBoundaryOperator() )->reset( bndParams );
+        nonlinearMechanicsBVPoperator->getBoundaryOperator()->reset( bndParams );
 
         std::string number1 = std::to_string( step );
         std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";

@@ -148,7 +148,8 @@ void testWriterVector( AMP::UnitTest &ut, const std::string &writerName )
 
     // Write the file
     auto rankStr         = std::to_string( comm.getRank() + 1 );
-    std::string filename = "output_test_Writer/vector-" + writerName + "-" + rankStr + "proc";
+    std::string filename = "output_test_Writer/vector-" + writerName;
+    writer->setDecomposition( 1 );
     writer->writeFile( filename, 0, 0.0 );
     if ( AMP::IO::exists( filename + "_0." + properties.extension ) || properties.isNull )
         ut.passes( writerName + " registered independent vector" );
@@ -211,6 +212,7 @@ void testWriterMatrix( AMP::UnitTest &ut, const std::string &writerName )
 void testWriterMesh( AMP::UnitTest &ut,
                      const std::string &writerName,
                      std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                     std::shared_ptr<AMP::Mesh::Mesh> surface,
                      const std::string &fname )
 {
     PROFILE2( "testWriterMesh-" + writerName );
@@ -234,10 +236,6 @@ void testWriterMesh( AMP::UnitTest &ut,
     globalComm.barrier();
     double t1 = AMP::AMP_MPI::time();
 
-    // Create a surface mesh
-    auto surface = mesh->Subset( mesh->getSurfaceIterator( surfaceType, 1 ) );
-    if ( surface )
-        surface->setName( mesh->getName() + "_surface" );
 
     // Create a simple DOFManager
     uint8_t ndim    = mesh->getDim();
@@ -457,10 +455,22 @@ void testWriterMesh( AMP::UnitTest &ut,
         if ( rank == 0 )
             std::cout << "Create meshes: " << t2 - t1 << std::endl;
     }
+    std::shared_ptr<AMP::Mesh::Mesh> surface;
+    {
+        PROFILE( "createSurfaceMesh" );
+        double t1        = AMP::AMP_MPI::time();
+        auto surfaceType = getSurfaceType( mesh->getGeomType() );
+        surface          = mesh->Subset( mesh->getSurfaceIterator( surfaceType, 1 ) );
+        if ( surface )
+            surface->setName( mesh->getName() + "_surface" );
+        double t2 = AMP::AMP_MPI::time();
+        if ( rank == 0 && surface )
+            std::cout << "Create surface mesh: " << t2 - t1 << std::endl;
+    }
     for ( auto &writer : writers ) {
         std::string fname = "output_test_Writer/" + input_file + "-" + writer + "-" +
                             std::to_string( globalComm.getSize() );
-        testWriterMesh( ut, writer, mesh, fname );
+        testWriterMesh( ut, writer, mesh, surface, fname );
     }
     if ( rank == 0 )
         std::cout << std::endl;
@@ -475,7 +485,7 @@ int main( int argc, char **argv )
     PROFILE( "test_Writer" );
     AMP::logOnlyNodeZero( "output_test_SiloIO" );
 
-    std::vector<std::string> writers = { "Silo" };
+    std::vector<std::string> writers = { "Silo", "HDF5" };
     int commSize                     = AMP::AMP_MPI( AMP_COMM_WORLD ).getSize();
     if ( commSize == 1 )
         writers = { "NULL", "Silo", "HDF5", "Ascii" }; // HDF5 does not support parallel yet
