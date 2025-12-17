@@ -1412,13 +1412,13 @@ void AMP_MPI::waitAll( int count, Request2 *request )
         return;
     PROFILE( "waitAll", profile_level );
     int flag = 0;
-    int err  = MPI_Testall( count, request, &flag, MPI_STATUS_IGNORE );
+    int err  = MPI_Testall( count, request, &flag, MPI_STATUSES_IGNORE );
     AMP_ASSERT( err == MPI_SUCCESS ); // Check that the first call is valid
     while ( !flag ) {
         // Put the current thread to sleep to allow other threads to run
         std::this_thread::yield();
         // Check if the request has finished
-        MPI_Testall( count, request, &flag, MPI_STATUS_IGNORE );
+        MPI_Testall( count, request, &flag, MPI_STATUSES_IGNORE );
     }
 }
 std::vector<int> AMP_MPI::waitSome( int count, Request2 *request )
@@ -1428,14 +1428,14 @@ std::vector<int> AMP_MPI::waitSome( int count, Request2 *request )
     PROFILE( "waitSome", profile_level );
     std::vector<int> indicies( count, -1 );
     int outcount = 0;
-    int err      = MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUS_IGNORE );
+    int err      = MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUSES_IGNORE );
     AMP_ASSERT( err == MPI_SUCCESS );        // Check that the first call is valid
     AMP_ASSERT( outcount != MPI_UNDEFINED ); // Check that the first call is valid
     while ( outcount == 0 ) {
         // Put the current thread to sleep to allow other threads to run
         std::this_thread::yield();
         // Check if the request has finished
-        MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUS_IGNORE );
+        MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUSES_IGNORE );
     }
     indicies.resize( outcount );
     return indicies;
