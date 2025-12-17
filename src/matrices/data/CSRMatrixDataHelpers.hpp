@@ -336,6 +336,53 @@ __global__ void vert_cat_fill( const lidx_t *in_row_starts,
         }
     }
 }
+
+// count entries in mask row-by-row
+template<typename lidx_t>
+__global__ void mask_count_nnz( const lidx_t *in_row_starts,
+                                const unsigned char *mask,
+                                const bool keep_first,
+                                const lidx_t num_rows,
+                                lidx_t *out_row_starts )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        const lidx_t rs = in_row_starts[i], re = in_row_starts[i + 1];
+        lidx_t cnt = keep_first ? 1 : 0;
+        for ( lidx_t c = rs + cnt; c < re; ++c ) {
+            cnt += static_cast<lidx_t>( mask[c] );
+        }
+        out_row_starts[i] = cnt;
+    }
+}
+
+// copy from input to output where mask is 1
+template<typename lidx_t, typename scalar_t>
+__global__ void mask_fill_diag( const lidx_t *in_row_starts,
+                                const lidx_t *in_cols_loc,
+                                const scalar_t *in_coeffs,
+                                const unsigned char *mask,
+                                const bool keep_first,
+                                const lidx_t num_rows,
+                                const lidx_t *out_row_starts,
+                                lidx_t *out_cols_loc,
+                                scalar_t *out_coeffs )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        const lidx_t rs = in_row_starts[i], re = in_row_starts[i + 1];
+        auto pos = out_row_starts[i];
+        for ( lidx_t c = rs; c < re; ++c ) {
+            if ( mask[c] == 1 || ( keep_first && c == rs ) ) {
+                out_cols_loc[pos] = in_cols_loc[c];
+                if ( out_coeffs != nullptr ) {
+                    out_coeffs[pos] = in_coeffs[c];
+                }
+                ++pos;
+            }
+        }
+    }
+}
 #endif
 
 template<typename Config>
@@ -1116,7 +1163,18 @@ void CSRMatrixDataHelpers<Config>::MaskCountNNZ( const typename Config::lidx_t *
         }
     } else {
 #ifdef AMP_USE_DEVICE
-        AMP_ERROR( "CSRMatrixDataHelpers::MaskCountNNZ not implemented on device yet" );
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( in_row_starts ) >
+                          AMP::Utilities::MemoryType::host );
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( mask ) >
+                          AMP::Utilities::MemoryType::host );
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( out_row_starts ) >
+                          AMP::Utilities::MemoryType::host );
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        mask_count_nnz<<<GridDim, BlockDim>>>(
+            in_row_starts, mask, keep_first, num_rows, out_row_starts );
+        getLastDeviceError( "CSRMatrixDataHelpers::MaskCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::MaskCountNNZ Undefined memory location" );
 #endif
@@ -1149,7 +1207,25 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *
         }
     } else {
 #ifdef AMP_USE_DEVICE
-        AMP_ERROR( "CSRMatrixDataHelpers::MaskFillDiag not implemented on device yet" );
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( in_row_starts ) >
+                          AMP::Utilities::MemoryType::host );
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( mask ) >
+                          AMP::Utilities::MemoryType::host );
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( out_row_starts ) >
+                          AMP::Utilities::MemoryType::host );
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        mask_fill_diag<<<GridDim, BlockDim>>>( in_row_starts,
+                                               in_cols_loc,
+                                               in_coeffs,
+                                               mask,
+                                               keep_first,
+                                               num_rows,
+                                               out_row_starts,
+                                               out_cols_loc,
+                                               out_coeffs );
+        getLastDeviceError( "CSRMatrixDataHelpers::MaskFillDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::MaskFillDiag Undefined memory location" );
 #endif

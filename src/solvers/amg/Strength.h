@@ -97,9 +97,13 @@ public:
 
     auto offd() const { return rep_type{ d_offd.rowptr, d_offd.colind, d_offd.values }; }
 
-    auto diag_mask_data() const { return d_diag.values.data(); }
+    const auto diag_mask_data() const { return d_diag.values.data(); }
 
-    auto offd_mask_data() const { return d_offd.values.data(); }
+    const auto offd_mask_data() const { return d_offd.values.data(); }
+
+    auto diag_mask_data() { return d_diag.values.data(); }
+
+    auto offd_mask_data() { return d_offd.values.data(); }
 };
 
 enum class norm { abs, min };

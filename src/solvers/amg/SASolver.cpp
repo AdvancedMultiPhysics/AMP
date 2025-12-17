@@ -150,7 +150,6 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     }
 
     // fill in finest level and setup remaining levels
-    //    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *fine_op );
     auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
@@ -229,8 +228,13 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     auto op_db = std::make_shared<Database>( "SASolver::Internal" );
     if ( d_mem_loc == Utilities::MemoryType::host ) {
         op_db->putScalar<std::string>( "memory_location", "host" );
+    } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
+        op_db->putScalar<std::string>( "memory_location", "managed" );
+    } else if ( d_mem_loc == Utilities::MemoryType::device ) {
+        AMP_ERROR( "SASolver: Only host/managed memory is supported currently" );
     } else {
-        AMP_ERROR( "SASolver: Only host memory is supported currently" );
+        // unreachable from test above
+        AMP_ERROR( "SASolver: Unrecognized memory space" );
     }
     auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 

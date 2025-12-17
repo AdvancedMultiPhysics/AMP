@@ -31,9 +31,14 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     PROFILE( "SimpleAggregator::assignLocalAggregates" );
 
     using lidx_t            = typename Config::lidx_t;
+    using alloc_t           = typename Config::allocator_type;
     using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
+
+    const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<alloc_t>();
+    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
+                "SimpleAggregator does not support device memory" );
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );

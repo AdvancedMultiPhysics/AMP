@@ -42,8 +42,8 @@ struct MIS2Aggregator : Aggregator {
                                      int *agg_ids );
     template<typename Config>
     int classifyVerticesDevice( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
-                                Config::lidx_t *wl1,
-                                Config::lidx_t *wl2,
+                                typename Config::lidx_t *wl1,
+                                typename Config::lidx_t *wl2,
                                 uint64_t *Tv,
                                 uint64_t *Mv,
                                 const uint64_t num_gbl,
