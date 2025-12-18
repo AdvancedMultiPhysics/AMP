@@ -1000,6 +1000,7 @@ void AMP_MPI::allGather( [[maybe_unused]] const TYPE &x, [[maybe_unused]] TYPE *
             allGather( send_data, send_cnt, recv_data, recv_cnt.data(), recv_disp.data(), true );
             size_t N = unpackArray( y, recv_cnt.size(), recv_data );
             AMP_ASSERT( N == bytes );
+            delete[] recv_data;
         }
 #endif
     }

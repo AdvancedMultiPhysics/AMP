@@ -15,13 +15,19 @@
 
 #define hostDeviceId cudaCpuDeviceId
 
+#define deviceMemAttachGlobal cudaMemAttachGlobal
+
 #define deviceMemcpyHostToDevice cudaMemcpyHostToDevice
 #define deviceMemcpyDeviceToHost cudaMemcpyDeviceToHost
 #define deviceMemcpyDeviceToDevice cudaMemcpyDeviceToDevice
 
+#define deviceInit( ... ) checkCudaErrors( cuInit( __VA_ARGS__ ) )
+#define deviceGetCount( ... ) checkCudaErrors( cudaGetDeviceCount( __VA_ARGS__ ) )
+#define deviceBind( ... ) checkCudaErrors( cudaSetDevice( __VA_ARGS__ ) )
 #define deviceId( ... ) checkCudaErrors( cudaGetDevice( __VA_ARGS__ ) )
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
 #define deviceMalloc( ... ) checkCudaErrors( cudaMalloc( __VA_ARGS__ ) )
+#define deviceMallocManaged( ... ) checkCudaErrors( cudaMallocManaged( __VA_ARGS__ ) )
 #define deviceMemcpy( ... ) checkCudaErrors( cudaMemcpy( __VA_ARGS__ ) )
 #define deviceMemset( ... ) checkCudaErrors( cudaMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkCudaErrors( cudaFree( __VA_ARGS__ ) )

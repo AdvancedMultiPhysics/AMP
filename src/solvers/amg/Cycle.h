@@ -2,6 +2,8 @@
 #define included_AMP_AMG_Cycle
 
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "AMP/operators/LinearOperator.h"
@@ -68,6 +70,8 @@ struct KappaKCycle {
     enum class krylov_type { fcg, gcr };
     //! Recover krylov_type from input string (either "fcg" or "gcr").
     static krylov_type parseType( const std::string &kcycle_type );
+    //! Get krylov_type as string for printing
+    static std::string_view krylovTypeName( const krylov_type t );
 
     //! Settings for the Kappa K-cycle.
     struct settings {
@@ -91,7 +95,9 @@ struct KappaKCycle {
     /**
      * Run cycle with system \f$Ax = b\f$.
      * @param[in] b : shared pointer to right hand side vector
-     * @param[out] u : shared pointer to approximate computed solution.
+     * @param[out] x : shared pointer to approximate computed solution.
+     * @param[in] levels : Levels
+     * @param[in,out] coarse_solver : Coarse solver
      */
     void operator()( std::shared_ptr<const LinearAlgebra::Vector> b,
                      std::shared_ptr<LinearAlgebra::Vector> x,

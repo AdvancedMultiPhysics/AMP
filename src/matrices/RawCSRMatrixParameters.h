@@ -167,10 +167,10 @@ public: // Write/read restart data
 
     /**
      * \brief    Read restart data from file
-     * \param fid    File identifier to write
+     * \param fid       File identifier to write
      * \param manager   Restart manager
      */
-    RawCSRMatrixParameters( int64_t, AMP::IO::RestartManager * );
+    RawCSRMatrixParameters( int64_t fid, AMP::IO::RestartManager *manager );
 
 public:
     // Bulk information
