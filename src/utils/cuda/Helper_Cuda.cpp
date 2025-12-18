@@ -433,13 +433,15 @@ int gpuDeviceInit( int devID )
     cudaDeviceProp deviceProp;
     checkCudaErrors( cudaGetDeviceProperties( &deviceProp, devID ) );
 
-    if ( deviceProp.computeMode == cudaComputeModeProhibited ) {
+    int deviceComputeMode;
+    checkCudaErrors( cudaDeviceGetAttribute( &deviceComputeMode, cudaDevAttrComputeMode, devID ) );
+
+    if ( deviceComputeMode == cudaComputeModeProhibited ) {
         fprintf( stderr,
                  "Error: device is running in <Compute Mode Prohibited>, no threads can "
                  "use ::cudaSetDevice().\n" );
         return -1;
     }
-
     if ( deviceProp.major < 1 ) {
         fprintf( stderr, "gpuDeviceInit(): GPU device does not support CUDA.\n" );
         exit( EXIT_FAILURE );
@@ -462,7 +464,6 @@ int gpuGetMaxGflopsDeviceId()
 
     unsigned long long max_compute_perf = 0;
     cudaDeviceProp deviceProp;
-    cudaGetDeviceCount( &device_count );
 
     checkCudaErrors( cudaGetDeviceCount( &device_count ) );
 
@@ -473,10 +474,14 @@ int gpuGetMaxGflopsDeviceId()
 
     // Find the best major SM Architecture GPU device
     while ( current_device < device_count ) {
-        cudaGetDeviceProperties( &deviceProp, current_device );
+        checkCudaErrors( cudaGetDeviceProperties( &deviceProp, current_device ) );
+
+        int deviceComputeMode;
+        checkCudaErrors(
+            cudaDeviceGetAttribute( &deviceComputeMode, cudaDevAttrComputeMode, current_device ) );
 
         // If this GPU is not running on Compute Mode prohibited, then we can add it to the list
-        if ( deviceProp.computeMode != cudaComputeModeProhibited ) {
+        if ( deviceComputeMode != cudaComputeModeProhibited ) {
             if ( deviceProp.major > 0 && deviceProp.major < 9999 ) {
                 best_SM_arch = MAX( best_SM_arch, deviceProp.major );
             }
@@ -498,18 +503,25 @@ int gpuGetMaxGflopsDeviceId()
     current_device = 0;
 
     while ( current_device < device_count ) {
-        cudaGetDeviceProperties( &deviceProp, current_device );
+        checkCudaErrors( cudaGetDeviceProperties( &deviceProp, current_device ) );
+        int deviceComputeMode;
+        checkCudaErrors(
+            cudaDeviceGetAttribute( &deviceComputeMode, cudaDevAttrComputeMode, current_device ) );
 
         // If this GPU is not running on Compute Mode prohibited, then we can add it to the list
-        if ( deviceProp.computeMode != cudaComputeModeProhibited ) {
+        if ( deviceComputeMode != cudaComputeModeProhibited ) {
             if ( deviceProp.major == 9999 && deviceProp.minor == 9999 ) {
                 sm_per_multiproc = 1;
             } else {
                 sm_per_multiproc = _ConvertSMVer2Cores( deviceProp.major, deviceProp.minor );
             }
 
+            int deviceClockRate;
+            checkCudaErrors(
+                cudaDeviceGetAttribute( &deviceClockRate, cudaDevAttrClockRate, current_device ) );
+
             unsigned long long compute_perf = (unsigned long long) deviceProp.multiProcessorCount *
-                                              sm_per_multiproc * deviceProp.clockRate;
+                                              sm_per_multiproc * deviceClockRate;
 
             if ( compute_perf > max_compute_perf ) {
                 // If we find GPU with SM major > 2, search only these
