@@ -98,6 +98,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             num_isolated++;
         }
     }
+    AMP::pout << "Calling classify first time" << std::endl;
     classifyVerticesHost<Config>(
         A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
@@ -132,6 +133,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         }
     }
     AMP::Utilities::Algorithms<uint64_t>::fill_n( labels.data(), A_nrows, OUT );
+    AMP::pout << "Calling classify second time" << std::endl;
     classifyVerticesHost<Config>(
         A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
@@ -142,12 +144,8 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             // not a prospective root or already aggregated
             continue;
         }
-        if ( Am_rs[row + 1] - Am_rs[row] <= 1 ) {
-            // row is isolated, ignore it
-            continue;
-        }
         int n_nbrs = 0;
-        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
+        for ( lidx_t c = Am_rs[row] + 1; c < Am_rs[row + 1]; ++c ) {
             if ( agg_ids[Am_cols_loc[c]] < 0 ) {
                 ++n_nbrs;
             }
@@ -279,21 +277,25 @@ int MIS2Aggregator::classifyVerticesHost(
     std::vector<lidx_t> wl2( wl1 );
 
     // now loop until worklists are empty
-    const lidx_t max_iters = 20;
+    const lidx_t max_iters = 200;
     int num_iters          = 0;
     while ( wl1.size() > 0 ) {
         const auto iter_hash = hash( num_iters );
 
         // first update Tv entries from items in first worklist
+        // this is "refresh row" from paper
         for ( const auto n : wl1 ) {
-            const auto n_hash = hash( iter_hash ^ hash( n ) );
-            Tv[n]             = ( n_hash << id_shift ) | static_cast<uint64_t>( begin_row + n + 1 );
-            AMP_DEBUG_ASSERT( Tv[n] != IN && Tv[n] != OUT );
+            const auto v      = static_cast<uint64_t>( begin_row + n );
+            const auto v_hash = hash( iter_hash ^ hash( v ) );
+            Tv[n]             = ( ( v_hash << id_shift ) | v ) + 1;
+            AMP_ASSERT( Tv[n] != IN && Tv[n] != OUT );
+            AMP_ASSERT( agg_ids[n] < 0 );
         }
 
         // update all Mv entries from items in second worklist
-        // this is refresh column from paper
+        // this is "refresh column" from paper
         for ( const auto n : wl2 ) {
+            AMP_ASSERT( agg_ids[n] < 0 );
             // set to smallest value in neighborhood
             Mv[n] = OUT;
             for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
@@ -366,18 +368,15 @@ int MIS2Aggregator::classifyVerticesHost(
 
         if ( num_iters == max_iters ) {
             AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
+            AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size()
+                      << std::endl;
             break;
         }
 
         if ( wl1_stag && wl2_stag ) {
-            AMP_WARNING( "MIS2Aggregator::classifyVertices worklists stagnated" );
             AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size()
                       << std::endl;
-
-            for ( const auto n : wl1 ) {
-                Tv[n] = IN;
-            }
-
+            AMP_ERROR( "MIS2Aggregator::classifyVertices worklists stagnated" );
             break;
         }
     }
