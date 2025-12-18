@@ -183,4 +183,16 @@ KappaKCycle::krylov_type KappaKCycle::parseType( const std::string &kcycle_type 
     AMP_INSIST( it != type_map.end(), "KappaKCycle: invalid kcycle_type (" + kcycle_type + ")." );
     return it->second;
 }
+
+std::string_view KappaKCycle::krylovTypeName( const KappaKCycle::krylov_type kt )
+{
+    if ( kt == krylov_type::fcg ) {
+        return "fcg";
+    } else if ( kt == krylov_type::gcr ) {
+        return "gcr";
+    } else {
+        // unreachable
+        return "";
+    }
+}
 } // namespace AMP::Solver::AMG

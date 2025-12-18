@@ -77,7 +77,22 @@ void VectorOperationsDevice<TYPE>::zero( VectorData &x )
 {
     PROFILE( "VectorOperationsDevice::zero" );
 
-    VectorOperationsDevice<TYPE>::setToScalar( 0.0, x );
+    bool useGPU = checkData( x );
+    if ( useGPU ) {
+        TYPE *data = x.getRawDataBlock<TYPE>( 0 );
+        size_t N   = x.sizeOfDataBlock( 0 );
+        AMP::Utilities::memset( data, 0, N * sizeof( TYPE ) );
+    } else {
+        // Default to cpu version
+        auto curMe = x.begin<TYPE>();
+        auto last  = x.end<TYPE>();
+        while ( curMe != last ) {
+            *curMe = 0.0;
+            ++curMe;
+        }
+    }
+    x.fillGhosts( 0.0 );
+    // Override the status state since we set the ghost values
     x.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
