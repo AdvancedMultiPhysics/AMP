@@ -360,14 +360,15 @@ bool libmeshMeshElement::isOnSurface() const
 }
 bool libmeshMeshElement::isOnBoundary( int id ) const
 {
-    GeomType type    = d_globalID.type();
-    bool on_boundary = false;
-    auto d_libMesh   = d_mesh->getlibMesh();
+    GeomType type       = d_globalID.type();
+    bool on_boundary    = false;
+    auto d_libMesh      = d_mesh->getlibMesh();
+    auto &boundary_info = d_libMesh->get_boundary_info();
     if ( type == GeomType::Vertex ) {
         // Entity is a libmesh node
         auto *node = (libMesh::Node *) ptr_element;
         std::vector<libMesh::boundary_id_type> bids;
-        d_libMesh->boundary_info->boundary_ids( node, bids );
+        boundary_info.boundary_ids( node, bids );
         for ( auto &bid : bids ) {
             if ( bid == id )
                 on_boundary = true;
@@ -375,7 +376,7 @@ bool libmeshMeshElement::isOnBoundary( int id ) const
     } else if ( (int) type == d_dim ) {
         // Entity is a libmesh node
         auto *elem        = (libMesh::Elem *) ptr_element;
-        unsigned int side = d_libMesh->boundary_info->side_with_boundary_id( elem, id );
+        unsigned int side = boundary_info.side_with_boundary_id( elem, id );
         if ( side != static_cast<unsigned int>( -1 ) )
             on_boundary = true;
     } else {

@@ -12,7 +12,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
