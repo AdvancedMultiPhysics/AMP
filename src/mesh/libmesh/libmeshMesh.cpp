@@ -571,14 +571,15 @@ void libmeshMesh::fillBoundaryElements()
         AMP_ASSERT( global_size >= element_surface_global_size );
     }
     // Construct the boundary lists
-    auto libmesh_bids = d_libMesh->boundary_info->get_boundary_ids();
+    auto &boundary_info = d_libMesh->get_boundary_info();
+    auto libmesh_bids   = boundary_info.get_boundary_ids();
     std::vector<short int> bids( libmesh_bids.begin(), libmesh_bids.end() );
     Utilities::quicksort( bids );
     std::vector<short int> side_ids;
     std::vector<short int> node_ids;
-    d_libMesh->boundary_info->build_side_boundary_ids( side_ids );
-    d_libMesh->boundary_info->build_node_list_from_side_list();
-    d_libMesh->boundary_info->build_node_boundary_ids( node_ids );
+    boundary_info.build_side_boundary_ids( side_ids );
+    boundary_info.build_node_list_from_side_list();
+    boundary_info.build_node_boundary_ids( node_ids );
     for ( int type2 = 0; type2 <= (int) GeomDim; type2++ ) {
         auto type     = (GeomType) type2;
         auto iterator = getIterator( type, 0 );
@@ -788,7 +789,8 @@ MeshIterator libmeshMesh::getSurfaceIterator( const GeomType type, const int gcw
  ********************************************************/
 std::vector<int> libmeshMesh::getBoundaryIDs() const
 {
-    auto libmesh_bids = d_libMesh->boundary_info->get_boundary_ids();
+    auto &boundary_info = d_libMesh->get_boundary_info();
+    auto libmesh_bids   = boundary_info.get_boundary_ids();
     std::vector<int> bids( libmesh_bids.size(), 0 );
     auto it = libmesh_bids.begin();
     for ( auto &bid : bids ) {

@@ -8,7 +8,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/cell_hex8.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"

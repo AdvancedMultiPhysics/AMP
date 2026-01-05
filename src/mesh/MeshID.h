@@ -1,9 +1,9 @@
 #ifndef included_AMP_MeshID
 #define included_AMP_MeshID
 
+#include <cstdint>
 #include <memory>
 #include <string>
-
 
 namespace AMP::Mesh {
 
