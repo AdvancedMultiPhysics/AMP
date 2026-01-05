@@ -52,6 +52,12 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     } else if ( d_strength_measure == "classical_abs" ) {
         auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "symagg_abs" ) {
+        auto S   = compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "symagg_min" ) {
+        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else {
         if ( d_strength_measure != "classical_min" ) {
             AMP_WARN_ONCE( "Unrecognized strength measure, reverting to classical_min" );

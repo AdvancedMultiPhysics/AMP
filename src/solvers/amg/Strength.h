@@ -110,6 +110,9 @@ enum class norm { abs, min };
 template<norm norm_type>
 struct classical_strength;
 
+template<norm norm_type>
+struct symagg_strength;
+
 struct evolution_strength;
 
 template<class StrengthPolicy, class Mat>

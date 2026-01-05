@@ -1,5 +1,5 @@
 level_options_0{
-  agg_type = "MIS2"
+  agg_type = "simple"
   prol_trunc = 0.05
   num_smooth_prol = 2
   strength_threshold = 0.5

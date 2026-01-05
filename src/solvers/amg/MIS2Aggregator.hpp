@@ -66,6 +66,12 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     } else if ( d_strength_measure == "classical_abs" ) {
         auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "symagg_abs" ) {
+        auto S   = compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "symagg_min" ) {
+        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else {
         if ( d_strength_measure != "classical_min" ) {
             AMP_WARN_ONCE( "Unrecognized strength measure, reverting to classical_min" );
@@ -98,6 +104,8 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             num_isolated++;
         }
     }
+    AMP::pout << "Counted " << num_isolated << " isolated points out of " << A_nrows
+              << " rows for wl1 size " << ( A_nrows - num_isolated ) << std::endl;
     AMP::pout << "Calling classify first time" << std::endl;
     classifyVerticesHost<Config>(
         A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
@@ -122,6 +130,8 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         // increment current id to start working on next aggregate
         ++num_agg;
     }
+    AMP::pout << "Formed " << num_agg << " aggregates with average size " << total_agg / num_agg
+              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
 
     // do a second pass of classification and aggregation
     // reset worklist to be all vertices that are not part of an aggregate
@@ -159,6 +169,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             if ( agg_ids[Am_cols_loc[c]] < 0 ) {
                 agg_ids[Am_cols_loc[c]] = num_agg;
                 agg_size[num_agg]++;
+                --num_unagg;
                 if ( c > Am_rs[row] ) {
                     AMP_DEBUG_ASSERT( labels[Am_cols_loc[c]] != IN );
                 }
@@ -168,10 +179,13 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         // increment current id to start working on next aggregate
         ++num_agg;
     }
+    AMP::pout << "Formed " << num_agg << " aggregates with average size " << total_agg / num_agg
+              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
 
     // Add unmarked entries to the smallest aggregate they are nbrs with
     bool grew_agg;
     do {
+        AMP::pout << "  growing" << std::endl;
         grew_agg = false;
         for ( lidx_t row = 0; row < A_nrows; ++row ) {
             const auto rs = Am_rs[row], re = Am_rs[row + 1];
@@ -194,11 +208,16 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             if ( small_agg_id >= 0 ) {
                 agg_ids[row] = small_agg_id;
                 agg_size[small_agg_id]++;
+                total_agg += 1.0;
+                --num_unagg;
                 grew_agg = true;
             }
         }
     } while ( grew_agg );
+    AMP::pout << "Grew " << num_agg << " aggregates to average size " << total_agg / num_agg
+              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
 
+#if 0
     // check if aggregated points neighbor any isolated points
     // and add them to their aggregate if so. These mostly come from BCs
     // where connections might not be symmetric.
@@ -212,12 +231,20 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
 
         for ( lidx_t c = rs; c < re; ++c ) {
             const auto nid = Am_cols_loc[c];
-            if ( Am_rs[nid + 1] - Am_rs[nid] <= 1 ) {
+            if ( agg_ids[nid] >= 0 ) {
+                continue;
+            }
+            if ( Am_rs[nid + 1] - Am_rs[nid] == 1 ) {
                 agg_ids[nid] = curr_agg;
                 agg_size[curr_agg]++;
+                total_agg += 1.0;
+                --num_unagg;
             }
         }
     }
+    AMP::pout << "Grew " << num_agg << " aggregates to average size " << total_agg / num_agg
+              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
+#endif
 
     // DEBUG
     {
@@ -277,10 +304,14 @@ int MIS2Aggregator::classifyVerticesHost(
     std::vector<lidx_t> wl2( wl1 );
 
     // now loop until worklists are empty
-    const lidx_t max_iters = 200;
+    const lidx_t max_iters = 20;
     int num_iters          = 0;
+    AMP::pout << "  Classify vertices" << std::endl;
     while ( wl1.size() > 0 ) {
         const auto iter_hash = hash( num_iters );
+
+        AMP::pout << "    Iteration " << num_iters << ", iter hash " << iter_hash << ", wl1 size "
+                  << wl1.size() << ", wl2 size " << wl2.size() << std::endl;
 
         // first update Tv entries from items in first worklist
         // this is "refresh row" from paper
@@ -321,24 +352,29 @@ int MIS2Aggregator::classifyVerticesHost(
             }
 
             // default to IN and check if conditions hold
-            bool mark_out = false, mark_in = true;
+            bool mark_out = false, mark_in = true, all_nbr_out = true;
             for ( lidx_t k = rs; k < re; ++k ) {
                 const auto c = Ad_cols_loc[k];
+                if ( Tv[c] == IN ) {
+                    mark_out = true;
+                }
                 if ( agg_ids[c] >= 0 ) {
                     // neighbor is aggregated from previous vertex classification pass
                     // ignore on this pass
                     continue;
                 }
-                if ( Mv[c] == OUT ) {
+                if ( k > rs && Tv[c] != OUT ) {
+                    all_nbr_out = false;
+                }
+                if ( Mv[c] == OUT || Tv[c] == IN ) {
                     mark_out = true;
-                    break;
                 }
                 if ( Mv[c] != Tv[n] ) {
                     mark_in = false;
                 }
             }
 
-            if ( mark_out ) {
+            if ( mark_out || all_nbr_out ) {
                 Tv[n] = OUT;
             } else if ( mark_in ) {
                 Tv[n] = IN;
@@ -366,17 +402,47 @@ int MIS2Aggregator::classifyVerticesHost(
 
         ++num_iters;
 
-        if ( num_iters == max_iters ) {
-            AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
-            AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size()
+        if ( num_iters == max_iters && wl1.size() != 0 ) {
+            AMP::pout << "Non-terminated, wl1 w/ nbrs\n  n | aid | Tv[n] | Mv[n] || nbrs :"
                       << std::endl;
+            for ( const auto n : wl1 ) {
+                AMP::pout << n << " | " << agg_ids[n] << " | " << Tv[n] << " | " << Mv[n] << " || ";
+                for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
+                    const auto c = Ad_cols_loc[k];
+                    AMP::pout << "(" << c << ",";
+                    if ( Tv[c] == IN ) {
+                        AMP::pout << "IN) | ";
+                    } else if ( Tv[c] == OUT ) {
+                        AMP::pout << "OUT) | ";
+                    } else {
+                        AMP::pout << "**) | ";
+                    }
+                }
+                AMP::pout << std::endl;
+            }
+            AMP::pout << "Non-terminated, wl2 w/ nbrs\n  n | aid | Tv[n] | Mv[n] || nbrs :"
+                      << std::endl;
+            for ( const auto n : wl2 ) {
+                AMP::pout << n << " | " << agg_ids[n] << " | " << Tv[n] << " | " << Mv[n] << " || ";
+                for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
+                    const auto c = Ad_cols_loc[k];
+                    AMP::pout << "(" << c << ",";
+                    if ( Mv[c] == IN ) {
+                        AMP::pout << "IN) | ";
+                    } else if ( Mv[c] == OUT ) {
+                        AMP::pout << "OUT) | ";
+                    } else {
+                        AMP::pout << "**) | ";
+                    }
+                }
+                AMP::pout << std::endl;
+            }
+            AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
             break;
         }
 
         if ( wl1_stag && wl2_stag ) {
-            AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size()
-                      << std::endl;
-            AMP_ERROR( "MIS2Aggregator::classifyVertices worklists stagnated" );
+            AMP_WARNING( "MIS2Aggregator::classifyVertices worklists stagnated" );
             break;
         }
     }
