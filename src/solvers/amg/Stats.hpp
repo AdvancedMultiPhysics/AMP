@@ -105,7 +105,7 @@ std::size_t get_nrows( const LinearAlgebra::CSRMatrix<Config> &A )
 
 
 template<class Config>
-std::size_t get_nprocs( const LinearAlgebra::CSRMatrix<Config> &A )
+int get_nprocs( const LinearAlgebra::CSRMatrix<Config> &A )
 {
     return A.getComm().getSize();
 }
@@ -120,22 +120,26 @@ std::pair<size_t, size_t> get_local_nrows( const LinearAlgebra::CSRMatrix<Config
 }
 
 
-template<class T, std::enable_if_t<is_level_v<T>, bool>>
-void print_summary( const std::string &amg_name,
-                    const std::vector<T> &ml,
-                    const SolverStrategy &cg_solver )
+template<class L>
+HierarchyStats collect_statistics( const std::string &amg_name,
+                                   const std::vector<L> &ml,
+                                   const SolverStrategy &cg_solver )
 {
-    std::vector<size_t> nrows, nnz, nprocs;
-    std::vector<std::pair<size_t, size_t>> nrows_local;
+    HierarchyStats stats;
 
     for ( auto &level : ml ) {
         LinearAlgebra::csrVisit( level.A->getMatrix(), [&]( auto A ) {
-            nnz.push_back( get_nnz( *A ) );
-            nrows.push_back( get_nrows( *A ) );
-            nprocs.push_back( get_nprocs( *A ) );
-            nrows_local.push_back( get_local_nrows( *A ) );
+            auto [max_local, min_local] = get_local_nrows( *A );
+            stats.levels.push_back( { amg_name,
+                                      get_nprocs( *A ),
+                                      get_nrows( *A ),
+                                      get_nnz( *A ),
+                                      max_local,
+                                      min_local } );
         } );
     }
+
+    stats.levels.back().solver_name = cg_solver.type();
 
 #if defined( AMP_USE_HYPRE )
     const auto *hsolver = dynamic_cast<const HypreSolver *>( &cg_solver );
@@ -147,38 +151,65 @@ void print_summary( const std::string &amg_name,
 
         for ( int lvl = 1; lvl < num_levels; ++lvl ) {
             AMP_MPI comm( hypre_ParCSRMatrixComm( A_array[lvl] ) );
-            nnz.push_back( hypre_ParCSRMatrixNumNonzeros( A_array[lvl] ) );
-            nrows.push_back( hypre_ParCSRMatrixGlobalNumRows( A_array[lvl] ) );
-            nprocs.push_back( comm.getSize() );
-            std::size_t my_nrows_local = hypre_ParCSRMatrixNumRows( A_array[lvl] );
-            nrows_local.push_back(
-                { comm.maxReduce( my_nrows_local ), comm.minReduce( my_nrows_local ) } );
+            std::size_t nrows_local = hypre_ParCSRMatrixNumRows( A_array[lvl] );
+            stats.levels.push_back(
+                { cg_solver.type(),
+                  comm.getSize(),
+                  static_cast<std::size_t>( hypre_ParCSRMatrixGlobalNumRows( A_array[lvl] ) ),
+                  static_cast<std::size_t>( hypre_ParCSRMatrixNumNonzeros( A_array[lvl] ) ),
+                  comm.maxReduce( nrows_local ),
+                  comm.minReduce( nrows_local ) } );
         }
     }
 #endif
 
-    auto total_nnz   = std::accumulate( nnz.begin(), nnz.end(), 0 );
-    auto total_nrows = std::accumulate( nrows.begin(), nrows.end(), 0 );
+    using stats_level = HierarchyStats::level_type;
+    auto total_nrows  = std::accumulate(
+        stats.levels.begin(), stats.levels.end(), 0.f, []( float cur, const stats_level &lvl ) {
+            return cur + lvl.nrows;
+        } );
 
-    AMP::pout << "Number of levels: " << nrows.size() << '\n';
-    AMP::pout << "Operator complexity: " << std::setprecision( 3 )
-              << static_cast<float>( total_nnz ) / static_cast<float>( nnz[0] ) << '\n';
-    AMP::pout << "Grid complexity: " << std::setprecision( 3 )
-              << static_cast<float>( total_nrows ) / static_cast<float>( nrows[0] ) << '\n';
+    stats.operator_complexity = std::accumulate(
+        stats.levels.begin(),
+        stats.levels.end(),
+        0.f,
+        [fine_nnz = static_cast<float>( stats.levels[0].nnz )](
+            float cur, const stats_level &lvl ) { return cur + lvl.nnz / fine_nnz; } );
 
-    column lvl_col{ "level", [nlvl = nrows.size()]() {
+    stats.grid_complexity = total_nrows / stats.levels[0].nrows;
+
+    return stats;
+}
+
+template<class L>
+void print_summary( const std::string &amg_name,
+                    const std::vector<L> &ml,
+                    const SolverStrategy &cg_solver )
+{
+    auto stats = collect_statistics( amg_name, ml, cg_solver );
+
+    AMP::pout << "Number of levels: " << stats.levels.size() << '\n';
+    if ( ml.size() == 0 )
+        return;
+    AMP::pout << "Operator complexity: " << std::setprecision( 3 ) << stats.operator_complexity
+              << '\n';
+    AMP::pout << "Grid complexity: " << std::setprecision( 3 ) << stats.grid_complexity << '\n';
+
+    auto make_vec = [&]( auto &&f ) {
+        std::vector<std::decay_t<decltype( f( stats.levels[0] ) )>> vec;
+        for ( const auto &lvl : stats.levels ) {
+            vec.push_back( f( lvl ) );
+        }
+        return vec;
+    };
+    column lvl_col{ "level", [nlvl = stats.levels.size()]() {
                        std::vector<int> levels( nlvl );
                        std::iota( levels.begin(), levels.end(), 0 );
                        return levels;
                    }() };
-
+    using stats_level = HierarchyStats::level_type;
     column type_col{ "type",
-                     [&, nlvl = nrows.size()]() {
-                         std::vector<std::string> types;
-                         for ( std::size_t i = 0; i < nlvl; ++i )
-                             types.push_back( ( i < ml.size() - 1 ) ? amg_name : cg_solver.type() );
-                         return types;
-                     }(),
+                     make_vec( []( const stats_level &lvl ) { return lvl.solver_name; } ),
                      []( const std::string &val ) { return val; } };
 
     auto maxmin_repr = []( const std::pair<size_t, size_t> &mm ) {
@@ -186,22 +217,32 @@ void print_summary( const std::string &amg_name,
         ss << '(' << mm.first << ' ' << mm.second << ')';
         return ss.str();
     };
-    write_columns( AMP::pout,
-                   std::move( lvl_col ),
-                   std::move( type_col ),
-                   column{ "nprocs", nprocs },
-                   column{ "nrows", nrows },
-                   column{ "nonzeros",
-                           nnz,
-                           [total_nnz]( std::size_t level_nnz ) {
-                               std::stringstream ss;
-                               ss << level_nnz << " [" << std::setprecision( 2 )
-                                  << static_cast<float>( level_nnz ) /
-                                         static_cast<float>( total_nnz ) * 100
-                                  << "%]";
-                               return ss.str();
-                           } },
-                   column{ "nrows local", nrows_local, maxmin_repr } );
+    write_columns(
+        AMP::pout,
+        std::move( lvl_col ),
+        std::move( type_col ),
+        column{ "nprocs", make_vec( []( const stats_level &lvl ) { return lvl.comm_size; } ) },
+        column{ "nrows", make_vec( []( const stats_level &lvl ) { return lvl.nrows; } ) },
+        column{ "nonzeros",
+                make_vec( []( const stats_level &lvl ) { return lvl.nnz; } ),
+                [&]( std::size_t level_nnz ) {
+                    std::stringstream ss;
+                    ss << level_nnz << " [" << std::setprecision( 2 ) << [&]() {
+                        // normalize to avoid overflow
+                        auto nrm        = static_cast<float>( stats.levels[0].nnz );
+                        float total_nrm = 0;
+                        for ( const auto &lvl : stats.levels )
+                            total_nrm += lvl.nnz / nrm;
+                        auto level_nrm = level_nnz / nrm;
+                        return level_nrm / total_nrm * 100;
+                    }() << "%]";
+                    return ss.str();
+                } },
+        column{ "nrows local",
+                make_vec( []( const stats_level &lvl ) -> std::pair<std::size_t, std::size_t> {
+                    return { lvl.max_local_rows, lvl.min_local_rows };
+                } ),
+                maxmin_repr } );
 }
 
 } // namespace AMP::Solver::AMG
