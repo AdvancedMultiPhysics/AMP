@@ -7,7 +7,6 @@
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/VectorBuilder.h"
-#include "libmesh/auto_ptr.h"
 #include "libmesh/boundary_info.h"
 #include "libmesh/cell_hex8.h"
 #include "libmesh/elem.h"

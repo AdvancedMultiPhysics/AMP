@@ -33,7 +33,6 @@ The websites associated with the AMP package includes:
 * Charles Ferenbaugh (LANL)
 * Jesus Bonilla (LANL)
 
-
 # Alumni #
 
 * Kevin Clarno (ORNL)

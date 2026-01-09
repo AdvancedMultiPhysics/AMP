@@ -2,6 +2,7 @@
 #define included_AMP_kdtree
 
 #include <array>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>

@@ -10,7 +10,6 @@
 #ifdef AMP_USE_LIBMESH
 
 DISABLE_WARNINGS
-    #include "libmesh/auto_ptr.h"
     #include "libmesh/cell_hex27.h"
     #include "libmesh/cell_hex8.h"
     #include "libmesh/elem.h"

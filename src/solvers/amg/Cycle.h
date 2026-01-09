@@ -2,6 +2,8 @@
 #define included_AMP_AMG_Cycle
 
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "AMP/operators/LinearOperator.h"
@@ -68,6 +70,8 @@ struct KappaKCycle {
     enum class krylov_type { fcg, gcr };
     //! Recover krylov_type from input string (either "fcg" or "gcr").
     static krylov_type parseType( const std::string &kcycle_type );
+    //! Get krylov_type as string for printing
+    static std::string_view krylovTypeName( const krylov_type t );
 
     //! Settings for the Kappa K-cycle.
     struct settings {
