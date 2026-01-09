@@ -26,25 +26,13 @@ namespace AMP::Solver::AMG {
 
 // classical measure compares against either the most negative entry
 // or largest entry in absolute value, connection is strong if either
-// -a_ij >= thresh * min( a_i: )
+// -a_ij >= -thresh * min( a_i: )
 // or
 // |a_ij| >= thresh * max( |a_i:| )
 template<norm norm_type>
 struct classical_strength {
     template<class T>
-    static constexpr std::remove_cv_t<T> DSum( span<T> )
-    {
-        return 0;
-    }
-
-    template<class T>
-    AMP_FUNCTION static constexpr std::remove_cv_t<T> DSum( T *, int )
-    {
-        return 0;
-    }
-
-    template<class T>
-    static constexpr std::remove_cv_t<T> strongest( span<T> s, T, T )
+    static constexpr std::remove_cv_t<T> strongest( span<T> s )
     {
         if ( s.size() == 0 || s.begin() == nullptr ) {
             return 0;
@@ -61,7 +49,7 @@ struct classical_strength {
     }
 
     template<class T>
-    AMP_FUNCTION static constexpr std::remove_cv_t<T> strongest( T *s, int len, T, T )
+    AMP_FUNCTION static constexpr std::remove_cv_t<T> strongest( T *s, int len )
     {
         if ( len == 0 ) {
             return 0;
@@ -82,7 +70,7 @@ struct classical_strength {
     }
 
     template<class T>
-    AMP_FUNCTION static auto is_strong( T strongest_connection, float threshold, T, T )
+    AMP_FUNCTION static auto is_strong( T strongest_connection, float threshold, T )
     {
         return AMP_LAMBDA( T val, T )
         {
@@ -108,31 +96,19 @@ struct classical_strength {
 template<norm norm_type>
 struct symagg_strength {
     template<class T>
-    static constexpr std::remove_cv_t<T> DSum( span<T> )
+    static constexpr std::remove_cv_t<T> strongest( span<T> )
     {
         return 0;
     }
 
     template<class T>
-    AMP_FUNCTION static constexpr std::remove_cv_t<T> DSum( T *, int )
+    AMP_FUNCTION static constexpr std::remove_cv_t<T> strongest( T *, int )
     {
         return 0;
     }
 
     template<class T>
-    static constexpr std::remove_cv_t<T> strongest( span<T> s, T, T )
-    {
-        return 0;
-    }
-
-    template<class T>
-    AMP_FUNCTION static constexpr std::remove_cv_t<T> strongest( T *, int, T, T )
-    {
-        return 0;
-    }
-
-    template<class T>
-    AMP_FUNCTION static auto is_strong( T, float threshold, T, T Aii )
+    AMP_FUNCTION static auto is_strong( T, float threshold, T Aii )
     {
         return AMP_LAMBDA( T val, T Ajj )
         {
@@ -146,88 +122,6 @@ struct symagg_strength {
             } else {
                 return abs_strong;
             }
-        };
-    }
-};
-
-// Evolution measure applies one step of relaxation to delta function
-// z_: = delta_i - Dinv * A_i:
-// where Dinv is one over absolute row sum (Jacobi L1 relaxation) and
-// symmetry of A is assumed.
-// Strength then sets
-// M_ii = 0
-// M_ij = | 1 - z_i / z_j | = | 1 + (D - A_ii)/A_ij |
-// and the threshold sets strong connections as
-// m = min_k (M_ik : k != i)
-// S_ij = M_ij if M_ij < (1/thresh) * m, otherwise weak
-struct evolution_strength {
-    template<class T>
-    static T DSum( span<T> s )
-    {
-        if ( s.size() == 0 || s.begin() == nullptr ) {
-            return 0;
-        }
-        return std::transform_reduce(
-            s.begin(), s.end(), 0.0, std::plus{}, []( auto v ) { return std::fabs( v ); } );
-    }
-
-    template<class T>
-    AMP_FUNCTION static std::remove_cv_t<T> DSum( T *s, int len )
-    {
-
-        std::remove_cv_t<T> sum{ 0 };
-        for ( int n = 0; n < len; ++n ) {
-            sum += AMP_FABS( s[n] );
-        }
-        return sum;
-    }
-
-    template<class T>
-    AMP_FUNCTION static constexpr T Sij( T D, T Aii, T Aij )
-    {
-        const auto v  = 1.0 + ( D - Aii ) / Aij;
-        const auto av = AMP_FABS( v );
-        return Aij != 0.0 ? av : std::numeric_limits<T>::max();
-    }
-
-    template<class T>
-    static T strongest( span<T> s, T D, T Aii )
-    {
-        if ( s.size() == 0 || s.begin() == nullptr ) {
-            return 0;
-        }
-        // get smallest measure ignoring stored A_ij == 0 entries
-        const auto m = std::transform_reduce(
-            s.begin(),
-            s.end(),
-            std::numeric_limits<T>::max(),
-            []( auto l, auto r ) { return std::fmin( l, r ); },
-            [D, Aii]( T val ) { return Sij( D, Aii, val ); } );
-        return m;
-    }
-
-    template<class T>
-    AMP_FUNCTION static constexpr std::remove_cv_t<T> strongest( T *s, int len, T D, T Aii )
-    {
-        if ( len == 0 ) {
-            return 0;
-        }
-        std::remove_cv_t<T> el = std::numeric_limits<T>::max();
-        for ( int n = 0; n < len; ++n ) {
-            const auto sij = Sij( D, Aii, s[n] );
-            el             = el < sij ? el : sij;
-        }
-        return el;
-    }
-
-    template<class T>
-    AMP_FUNCTION static auto is_strong( T strongest_connection, float threshold, T D, T Aii )
-    {
-        return AMP_LAMBDA( T val, T )
-        {
-            if ( strongest_connection == 0 )
-                return false;
-            return Sij( D, Aii, val ) < strongest_connection / threshold;
         };
     }
 };
@@ -270,24 +164,23 @@ __global__ void compute_soc_device( StrengthPolicy,
         const auto row_len_offd = re_offd - rs_offd;
 
         // diagonal block rowsum, diagonal value
-        const auto D   = StrengthPolicy::DSum( &vals_diag[rs_diag], row_len_diag );
         const auto Aii = vals_diag[rs_diag];
 
         // strongest connection per block row and overall
         const auto strongest_diag = row_len_diag > 1 ?
                                         StrengthPolicy::template strongest<const scalar_t>(
-                                            &vals_diag[rs_diag + 1], row_len_diag - 1, D, Aii ) :
+                                            &vals_diag[rs_diag + 1], row_len_diag - 1 ) :
                                         0.0;
         const auto strongest_offd = row_len_offd > 1 ?
                                         StrengthPolicy::template strongest<const scalar_t>(
-                                            &vals_offd[rs_offd + 1], row_len_offd - 1, D, Aii ) :
+                                            &vals_offd[rs_offd + 1], row_len_offd - 1 ) :
                                         0.0;
         const auto strongest_connection =
             strongest_diag > strongest_offd ? strongest_diag : strongest_offd;
 
         // strength test lambda
         auto is_strong = StrengthPolicy::template is_strong<const scalar_t>(
-            strongest_connection, threshold, D, Aii );
+            strongest_connection, threshold, Aii );
 
         for ( lidx_t n = rs_diag; n < re_diag; ++n ) {
             const auto Ajj   = vals_diag[cols_loc_diag[n]];
@@ -309,42 +202,51 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
     if constexpr ( std::is_same_v<typename csr_view<Mat>::allocator_type,
                                   AMP::HostAllocator<void>> ) {
 
-        auto get_row = [=]( auto csr_ptrs ) {
+        auto get_colsloc = [=]( auto csr_ptrs, lidx_t r ) {
             auto rowptr = std::get<0>( csr_ptrs );
-            auto values = std::get<2>( csr_ptrs );
-            return
-                [=]( lidx_t r ) { return values.subspan( rowptr[r], rowptr[r + 1] - rowptr[r] ); };
+            auto cols   = std::get<1>( csr_ptrs );
+            return cols.subspan( rowptr[r], rowptr[r + 1] - rowptr[r] );
         };
 
-        auto diag_rows = get_row( A.diag() );
-        auto offd_rows = get_row( A.offd() );
+        auto get_vals = [=]( auto csr_ptrs, lidx_t r ) {
+            auto rowptr = std::get<0>( csr_ptrs );
+            auto values = std::get<2>( csr_ptrs );
+            return values.subspan( rowptr[r], rowptr[r + 1] - rowptr[r] );
+        };
+
+        auto get_diag_val = [=]( lidx_t r ) {
+            auto rowptr = std::get<0>( A.diag() );
+            auto values = std::get<2>( A.diag() );
+            return values[rowptr[r]];
+        };
 
         for ( size_t r = 0; r < A.numLocalRows(); ++r ) {
-            auto diag_values = diag_rows( r );
-            if ( diag_values.size() == 0 )
+            auto Ad_cols = get_colsloc( A.diag(), r );
+            auto Ad_vals = get_vals( A.diag(), r );
+            if ( Ad_vals.size() == 0 )
                 continue;
 
-            const scalar_t D   = StrengthPolicy::DSum( diag_values );
-            const scalar_t Aii = diag_values[0];
+            const scalar_t Aii = get_diag_val( r );
+            AMP_ASSERT( Aii > 0 );
 
-            auto strongest_connection = StrengthPolicy::template strongest<const scalar_t>(
-                diag_values.subspan( 1 ), D, Aii );
+            auto strongest_connection =
+                StrengthPolicy::template strongest<const scalar_t>( Ad_vals.subspan( 1 ) );
             if ( A.has_offd() )
                 strongest_connection = std::max(
                     strongest_connection,
-                    StrengthPolicy::template strongest<const scalar_t>( offd_rows( r ), D, Aii ) );
+                    StrengthPolicy::template strongest<const scalar_t>( get_vals( A.diag(), r ) ) );
 
             auto is_strong = StrengthPolicy::template is_strong<const scalar_t>(
-                strongest_connection, threshold, D, Aii );
-            auto fill_strength = [&]( auto vals, auto strength ) {
+                strongest_connection, threshold, Aii );
+            auto fill_strength = [&]( auto vals, auto cols, auto strength ) {
                 for ( std::size_t i = 0; i < vals.size(); ++i ) {
-#warning How to get Ajj here...
-                    strength[i] = is_strong( vals[i], Aii ) ? 1 : 0;
+                    const scalar_t Ajj = get_diag_val( cols[i] );
+                    AMP_ASSERT( Ajj > 0 );
+                    strength[i] = is_strong( vals[i], Ajj ) ? 1 : 0;
                 }
             };
 
-            fill_strength( diag_cols, diag_values, S.diag_row( r ) );
-            // fill_strength(offd_values, S.offd_row(r));
+            fill_strength( Ad_vals, Ad_cols, S.diag_row( r ) );
         }
     } else {
 #ifdef AMP_USE_DEVICE

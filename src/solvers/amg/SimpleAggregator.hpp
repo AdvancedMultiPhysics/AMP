@@ -46,10 +46,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     auto A_diag        = A_data->getDiagMatrix();
 
     std::shared_ptr<localmatrixdata_t> A_masked;
-    if ( d_strength_measure == "evolution" ) {
-        auto S   = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
-        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
-    } else if ( d_strength_measure == "classical_abs" ) {
+    if ( d_strength_measure == "classical_abs" ) {
         auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "symagg_abs" ) {

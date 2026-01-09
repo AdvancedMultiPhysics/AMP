@@ -9,6 +9,7 @@
 
 #include "ProfilerApp.h"
 
+#include <bitset>
 #include <cstdint>
 #include <limits>
 #include <numeric>
@@ -44,6 +45,44 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 }
 
 template<typename Config>
+void testSymmetry( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A )
+{
+    using lidx_t                              = typename Config::lidx_t;
+    const auto A_nrows                        = static_cast<lidx_t>( A->numLocalRows() );
+    const auto A_nnz                          = static_cast<lidx_t>( A->numLocalRows() );
+    auto [A_rs, A_cols, A_cols_loc, A_coeffs] = A->getDataFields();
+
+    // assemble crude symbolic transpose
+    std::vector<std::set<lidx_t>> At_cols_loc( A_nrows );
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        const auto rs = A_rs[row], re = A_rs[row + 1];
+        for ( lidx_t k = rs; k < re; ++k ) {
+            const auto c = A_cols_loc[k];
+            At_cols_loc[c].insert( row );
+        }
+    }
+
+    // loop again and check that all NZs match up
+    int num_fail = 0;
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        const auto rs = A_rs[row], re = A_rs[row + 1];
+        for ( lidx_t k = rs; k < re; ++k ) {
+            const auto c    = A_cols_loc[k];
+            auto it         = At_cols_loc[row].find( c );
+            const auto rlen = re - rs;
+            const auto clen = A_rs[c + 1] - A_rs[c];
+            if ( it == At_cols_loc[row].end() && rlen > 1 && clen > 1 ) {
+                ++num_fail;
+                if ( num_fail < 25 ) {
+                    AMP::pout << "A vs At mismatch, (i,j) = (" << row << "," << c << ")"
+                              << std::endl;
+                }
+            }
+        }
+    }
+}
+
+template<typename Config>
 int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                                int *agg_ids )
 {
@@ -58,25 +97,25 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
+    // testSymmetry( A_diag );
 
     std::shared_ptr<localmatrixdata_t> A_masked;
-    if ( d_strength_measure == "evolution" ) {
-        auto S   = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
-        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
-    } else if ( d_strength_measure == "classical_abs" ) {
+    if ( d_strength_measure == "classical_abs" ) {
+        AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
         auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "classical_min" ) {
+        AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
+        auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "symagg_abs" ) {
         auto S   = compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
-    } else if ( d_strength_measure == "symagg_min" ) {
-        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
-        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else {
-        if ( d_strength_measure != "classical_min" ) {
-            AMP_WARN_ONCE( "Unrecognized strength measure, reverting to classical_min" );
+        if ( d_strength_measure != "symagg_min" ) {
+            AMP_WARN_ONCE( "Unrecognized strength measure, reverting to symagg_min" );
         }
-        auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
 
@@ -85,7 +124,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // initially un-aggregated
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_ids, A_nrows, -1 );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_ids, A_nrows, UNASSIGNED );
 
     // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size;
@@ -95,36 +134,44 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
 
     // Classify vertices, first pass considers all rows with length >= 2
     lidx_t num_isolated = 0;
-    std::vector<lidx_t> wl1;
+    std::vector<lidx_t> worklist;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         const auto rs = Am_rs[row], re = Am_rs[row + 1];
         if ( re - rs > 1 ) {
-            wl1.push_back( row );
+            worklist.push_back( row );
         } else {
             num_isolated++;
+            agg_ids[row] = INVALID;
         }
     }
-    AMP::pout << "Counted " << num_isolated << " isolated points out of " << A_nrows
-              << " rows for wl1 size " << ( A_nrows - num_isolated ) << std::endl;
-    AMP::pout << "Calling classify first time" << std::endl;
     classifyVerticesHost<Config>(
-        A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
+        A_masked, worklist, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
-    // initialize aggregates from nodes flagged as in and all of their neighbors
+    // initialize aggregates from nodes flagged as IN and all of their neighbors
     lidx_t num_agg = 0, num_unagg = A_nrows;
     double total_agg = 0.0;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         if ( labels[row] != IN ) {
+            // not root node, continue ahead
             continue;
         }
+
+        // node labelled IN better be valid and unaggregated
+        AMP_ASSERT( agg_ids[row] == UNASSIGNED );
+
+        // have root node, push new aggregate and set ids
         agg_size.push_back( 0 );
         for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
+            if ( agg_ids[Am_cols_loc[c]] != UNASSIGNED ) {
+                continue;
+            }
+            if ( c > Am_rs[row] ) {
+                AMP_ASSERT( labels[Am_cols_loc[c]] != IN );
+                labels[Am_cols_loc[c]] = OUT;
+            }
             agg_ids[Am_cols_loc[c]] = num_agg;
             agg_size[num_agg]++;
             --num_unagg;
-            if ( c > Am_rs[row] ) {
-                AMP_DEBUG_ASSERT( labels[Am_cols_loc[c]] != IN );
-            }
         }
         total_agg += agg_size[num_agg];
         // increment current id to start working on next aggregate
@@ -134,29 +181,30 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
               << ", leaving " << num_unagg << " unaggregated points" << std::endl;
 
     // do a second pass of classification and aggregation
-    // reset worklist to be all vertices that are not part of an aggregate
-    wl1.clear();
+    // reset worklist to be all vertices that are not part of
+    // an aggregate and not isolated
+    worklist.clear();
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = Am_rs[row], re = Am_rs[row + 1];
-        if ( agg_ids[row] < 0 && re - rs > 1 ) {
-            wl1.push_back( row );
+        if ( agg_ids[row] == UNASSIGNED ) {
+            AMP_ASSERT( labels[row] != IN );
+            worklist.push_back( row );
         }
     }
     AMP::Utilities::Algorithms<uint64_t>::fill_n( labels.data(), A_nrows, OUT );
-    AMP::pout << "Calling classify second time" << std::endl;
+    // AMP::pout << "Calling classify second time" << std::endl;
     classifyVerticesHost<Config>(
-        A_masked, wl1, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
+        A_masked, worklist, labels, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids );
 
-    // on second pass only allow IN vertex to be root of agg if it has
-    // at least 2 un-agg nbrs
+    // on second pass only allow IN vertex to be root of aggregate if it has
+    // at least 2 un-aggregated nbrs
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( labels[row] != IN || agg_ids[row] >= 0 ) {
+        if ( labels[row] != IN || agg_ids[row] != UNASSIGNED ) {
             // not a prospective root or already aggregated
             continue;
         }
         int n_nbrs = 0;
         for ( lidx_t c = Am_rs[row] + 1; c < Am_rs[row + 1]; ++c ) {
-            if ( agg_ids[Am_cols_loc[c]] < 0 ) {
+            if ( agg_ids[Am_cols_loc[c]] == UNASSIGNED ) {
                 ++n_nbrs;
             }
         }
@@ -166,7 +214,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         }
         agg_size.push_back( 0 );
         for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
-            if ( agg_ids[Am_cols_loc[c]] < 0 ) {
+            if ( agg_ids[Am_cols_loc[c]] == UNASSIGNED ) {
                 agg_ids[Am_cols_loc[c]] = num_agg;
                 agg_size[num_agg]++;
                 --num_unagg;
@@ -185,11 +233,12 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     // Add unmarked entries to the smallest aggregate they are nbrs with
     bool grew_agg;
     do {
-        AMP::pout << "  growing" << std::endl;
+        // AMP::pout << "  growing" << std::endl;
         grew_agg = false;
         for ( lidx_t row = 0; row < A_nrows; ++row ) {
             const auto rs = Am_rs[row], re = Am_rs[row + 1];
-            if ( agg_ids[row] >= 0 ) {
+            if ( agg_ids[row] != UNASSIGNED ) {
+                // already aggregated, nothing to do
                 continue;
             }
 
@@ -198,7 +247,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             for ( lidx_t c = rs; c < re; ++c ) {
                 const auto agg = agg_ids[Am_cols_loc[c]];
                 // only consider nbrs that are aggregated
-                if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
+                if ( agg != UNASSIGNED && ( agg_size[agg] < small_agg_size ) ) {
                     small_agg_size = agg_size[agg];
                     small_agg_id   = agg;
                 }
@@ -214,37 +263,6 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             }
         }
     } while ( grew_agg );
-    AMP::pout << "Grew " << num_agg << " aggregates to average size " << total_agg / num_agg
-              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
-
-#if 0
-    // check if aggregated points neighbor any isolated points
-    // and add them to their aggregate if so. These mostly come from BCs
-    // where connections might not be symmetric.
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = Am_rs[row], re = Am_rs[row + 1];
-        const auto curr_agg = agg_ids[row];
-
-        if ( curr_agg < 0 ) {
-            continue;
-        }
-
-        for ( lidx_t c = rs; c < re; ++c ) {
-            const auto nid = Am_cols_loc[c];
-            if ( agg_ids[nid] >= 0 ) {
-                continue;
-            }
-            if ( Am_rs[nid + 1] - Am_rs[nid] == 1 ) {
-                agg_ids[nid] = curr_agg;
-                agg_size[curr_agg]++;
-                total_agg += 1.0;
-                --num_unagg;
-            }
-        }
-    }
-    AMP::pout << "Grew " << num_agg << " aggregates to average size " << total_agg / num_agg
-              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
-#endif
 
     // DEBUG
     {
@@ -257,7 +275,8 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         }
         AMP::pout << "MIS2Aggregator found " << num_agg << " aggregates over " << A_nrows
                   << " rows, with average size " << total_agg / static_cast<double>( num_agg )
-                  << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl;
+                  << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl
+                  << std::endl;
     }
 
     return num_agg;
@@ -266,7 +285,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
 template<typename Config>
 int MIS2Aggregator::classifyVerticesHost(
     std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A_diag,
-    std::vector<typename Config::lidx_t> &wl1,
+    std::vector<typename Config::lidx_t> &worklist,
     std::vector<uint64_t> &Tv,
     const uint64_t num_gbl,
     int *agg_ids )
@@ -282,167 +301,165 @@ int MIS2Aggregator::classifyVerticesHost(
 
     // the packed representation uses minimal number of bits for ID part
     // of tuple, get log_2 of (num_gbl + 2)
+    AMP_ASSERT( num_gbl < ( std::numeric_limits<uint64_t>::max() - 33 ) );
     const auto id_shift = []( uint64_t ng ) -> uint8_t {
         // log2 from stackoverflow. If only bit_width was c++17...
-        uint8_t s = 0;
+        uint8_t s = 1;
         while ( ng >>= 1 )
             ++s;
         return s;
     }( num_gbl );
 
+    // make mask of just id_shift lowest bits for un-packing tuples
+    const auto id_mask = std::numeric_limits<uint64_t>::max() >> ( 64 - id_shift );
+
     // hash is xorshift* as given on wikipedia
-    auto hash = []( uint64_t x ) -> uint64_t {
+    auto hash = [=]( uint64_t x ) -> uint64_t {
         x ^= x >> 12;
         x ^= x << 25;
         x ^= x >> 27;
         return x * 0x2545F4914F6CDD1D;
     };
 
-    std::vector<uint64_t> Mv( A_nrows, OUT );
+    // pack tuple of number of connections, hash value, and global id
+    // give top bits to connection count to bias choices towards more
+    // connected nodes. The connections take the highest 5 bits, the
+    // id a number of bits determined above, and the hash the remaining middle bits.
+    // create a mask for that region as
+    const uint64_t conn_mask = ( (uint64_t) 31 ) << 59;
+    const uint64_t hash_mask = ~( conn_mask | id_mask );
+    auto pack_tuple          = [=]( lidx_t idx, uint8_t nconn, uint64_t ihash ) -> uint64_t {
+        uint64_t tpl = nconn < 31 ? nconn : 31;
+        tpl <<= 59;
+        const auto v = static_cast<uint64_t>( begin_row + idx );
+        const auto v_hash = hash_mask & hash( ihash ^ hash( v ) );
+        tpl |= v_hash;
+        tpl |= v;
 
-    // copy input worklist to wl2
-    std::vector<lidx_t> wl2( wl1 );
+        return tpl;
+    };
 
-    // now loop until worklists are empty
+    // can recover index from packed tuple by applying mask to
+    // keep only low bits and un-offsetting result
+    auto idx_from_tuple = [=]( uint64_t tpl ) -> lidx_t {
+        const auto v = tpl & id_mask;
+        return static_cast<lidx_t>( v - begin_row );
+    };
+
+    // temporary tuples for finding neighborhood max in two steps
+    std::vector<uint64_t> Tv_hat( A_nrows, OUT );
+
+    // now loop until worklist is empty
     const lidx_t max_iters = 20;
-    int num_iters          = 0;
-    AMP::pout << "  Classify vertices" << std::endl;
-    while ( wl1.size() > 0 ) {
-        const auto iter_hash = hash( num_iters );
+    int num_iters = 0, num_stag = 0;
+    while ( worklist.size() > 0 ) {
+        const auto iter_hash = hash( num_iters + 1 );
 
-        AMP::pout << "    Iteration " << num_iters << ", iter hash " << iter_hash << ", wl1 size "
-                  << wl1.size() << ", wl2 size " << wl2.size() << std::endl;
-
-        // first update Tv entries from items in first worklist
+        // first update Tv entries from items in worklist
         // this is "refresh row" from paper
-        for ( const auto n : wl1 ) {
-            const auto v      = static_cast<uint64_t>( begin_row + n );
-            const auto v_hash = hash( iter_hash ^ hash( v ) );
-            Tv[n]             = ( ( v_hash << id_shift ) | v ) + 1;
+        for ( const auto n : worklist ) {
+            AMP_ASSERT( Tv[n] != IN );
+            if ( num_iters > 0 ) {
+                AMP_ASSERT( Tv[n] != OUT );
+            }
+            const uint8_t conn = Ad_rs[n + 1] - Ad_rs[n] - 1; // ignore self connection
+            Tv[n]              = pack_tuple( n, conn, iter_hash );
+
+            AMP_ASSERT( n == idx_from_tuple( Tv[n] ) );
             AMP_ASSERT( Tv[n] != IN && Tv[n] != OUT );
-            AMP_ASSERT( agg_ids[n] < 0 );
+            AMP_ASSERT( agg_ids[n] == UNASSIGNED );
         }
 
-        // update all Mv entries from items in second worklist
-        // this is "refresh column" from paper
-        for ( const auto n : wl2 ) {
-            AMP_ASSERT( agg_ids[n] < 0 );
-            // set to smallest value in neighborhood
-            Mv[n] = OUT;
-            for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
-                const auto c = Ad_cols_loc[k];
-                if ( agg_ids[c] < 0 ) {
-                    Mv[n] = Tv[c] < Mv[n] ? Tv[c] : Mv[n];
+        // Store largest Tv entry from each neighborhood into Tv_hat,
+        // then swap Tv and Tv_hat, repeat, leaving max 2-nbr entry
+        // in Tv
+        for ( int nrep = 0; nrep < 2; ++nrep ) {
+            for ( const auto n : worklist ) {
+                const auto rs = Ad_rs[n], re = Ad_rs[n + 1];
+                Tv_hat[n] = Tv[n];
+                for ( lidx_t k = rs; k < re; ++k ) {
+                    const auto c = Ad_cols_loc[k];
+                    Tv_hat[n]    = std::max( Tv[c], Tv_hat[n] );
                 }
             }
-            // if smallest is marked IN mark this as OUT
-            if ( Mv[n] == IN ) {
-                Mv[n] = OUT;
-            }
+            Tv.swap( Tv_hat );
         }
 
-        // mark undecided as IN or OUT if possible and build new worklists
-        std::vector<lidx_t> wl1_new;
-        for ( const auto n : wl1 ) {
+        // mark undecided as IN or OUT if possible
+        for ( const auto n : worklist ) {
             const auto rs = Ad_rs[n], re = Ad_rs[n + 1], row_len = re - rs;
-            if ( row_len <= 1 || agg_ids[n] >= 0 ) {
-                AMP_ERROR( "This is impossible right?" );
-                // point is isolated or already aggregated, skip
-                continue;
-            }
+            AMP_ASSERT( Tv[n] != OUT );
 
-            // default to IN and check if conditions hold
-            bool mark_out = false, mark_in = true, all_nbr_out = true;
-            for ( lidx_t k = rs; k < re; ++k ) {
-                const auto c = Ad_cols_loc[k];
-                if ( Tv[c] == IN ) {
-                    mark_out = true;
-                }
-                if ( agg_ids[c] >= 0 ) {
-                    // neighbor is aggregated from previous vertex classification pass
-                    // ignore on this pass
-                    continue;
-                }
-                if ( k > rs && Tv[c] != OUT ) {
-                    all_nbr_out = false;
-                }
-                if ( Mv[c] == OUT || Tv[c] == IN ) {
-                    mark_out = true;
-                }
-                if ( Mv[c] != Tv[n] ) {
-                    mark_in = false;
-                }
-            }
-
-            if ( mark_out || all_nbr_out ) {
+            // Tv[n] is maximal tuple value in 2-nbrhood, so if IN
+            // then row n is within two hops of some IN node
+            // mark as OUT
+            if ( Tv[n] == IN ) {
+                const auto idx = idx_from_tuple( Tv[n] );
+                AMP_ASSERT( n != idx );
                 Tv[n] = OUT;
-            } else if ( mark_in ) {
-                Tv[n] = IN;
             }
 
-            // update first worklist
+            // If Tv[n] is neither IN nor OUT then check if n is part of the
+            // tuple. If so then this n is the IN member of its 2-nbrhood
             if ( Tv[n] != IN && Tv[n] != OUT ) {
-                wl1_new.push_back( n );
+                const auto idx = idx_from_tuple( Tv[n] );
+                if ( n == idx ) {
+                    Tv[n] = IN;
+                }
+            }
+
+            // only have directed graph, so there are edge cases where
+            // neighbors both end up IN, revert them to to undecided
+            if ( Tv[n] == IN ) {
+                for ( lidx_t k = rs + 1; k < re; ++k ) {
+                    const auto c = Ad_cols_loc[k];
+                    if ( Tv[c] == IN ) {
+                        AMP_WARN_ONCE( "Collision detected" );
+                        Tv[n] = 1;
+                        Tv[c] = 1;
+                    }
+                }
             }
         }
 
-        // update second work list
-        std::vector<lidx_t> wl2_new;
-        for ( lidx_t n = 0; n < A_nrows; ++n ) {
-            if ( Mv[n] != OUT ) {
-                wl2_new.push_back( n );
+        // immediately mark nbrs of IN nodes as OUT, now guaranteed not to collide
+        for ( const auto n : worklist ) {
+            const auto rs = Ad_rs[n], re = Ad_rs[n + 1];
+            if ( Tv[n] == IN ) {
+                for ( lidx_t k = rs + 1; k < re; ++k ) {
+                    const auto c = Ad_cols_loc[k];
+                    Tv[c]        = OUT;
+                }
             }
+        }
+
+        // update worklist as rows that remain undecided
+        std::vector<lidx_t> worklist_new;
+        for ( const auto n : worklist ) {
+            if ( Tv[n] != IN && Tv[n] != OUT ) {
+                worklist_new.push_back( n );
+            }
+        }
+
+        // if ( worklist.size() == worklist_new.size() ) {
+        //     ++num_stag;
+        //     if ( num_stag == 3 ) {
+        //         // AMP_WARNING( "MIS2Aggregator::classifyVertices worklist stagnated" );
+        //         break;
+        //     }
+        // }
+
+        if ( worklist_new.size() == 0 ) {
+            AMP::pout << "classifyVertices finished in " << num_iters << " passes" << std::endl;
         }
 
         // swap updated worklists in and loop around
-        const bool wl1_stag = wl1.size() == wl1_new.size();
-        const bool wl2_stag = wl2.size() == wl2_new.size();
-        wl1.swap( wl1_new );
-        wl2.swap( wl2_new );
-
+        worklist.swap( worklist_new );
         ++num_iters;
-
-        if ( num_iters == max_iters && wl1.size() != 0 ) {
-            AMP::pout << "Non-terminated, wl1 w/ nbrs\n  n | aid | Tv[n] | Mv[n] || nbrs :"
-                      << std::endl;
-            for ( const auto n : wl1 ) {
-                AMP::pout << n << " | " << agg_ids[n] << " | " << Tv[n] << " | " << Mv[n] << " || ";
-                for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
-                    const auto c = Ad_cols_loc[k];
-                    AMP::pout << "(" << c << ",";
-                    if ( Tv[c] == IN ) {
-                        AMP::pout << "IN) | ";
-                    } else if ( Tv[c] == OUT ) {
-                        AMP::pout << "OUT) | ";
-                    } else {
-                        AMP::pout << "**) | ";
-                    }
-                }
-                AMP::pout << std::endl;
-            }
-            AMP::pout << "Non-terminated, wl2 w/ nbrs\n  n | aid | Tv[n] | Mv[n] || nbrs :"
-                      << std::endl;
-            for ( const auto n : wl2 ) {
-                AMP::pout << n << " | " << agg_ids[n] << " | " << Tv[n] << " | " << Mv[n] << " || ";
-                for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
-                    const auto c = Ad_cols_loc[k];
-                    AMP::pout << "(" << c << ",";
-                    if ( Mv[c] == IN ) {
-                        AMP::pout << "IN) | ";
-                    } else if ( Mv[c] == OUT ) {
-                        AMP::pout << "OUT) | ";
-                    } else {
-                        AMP::pout << "**) | ";
-                    }
-                }
-                AMP::pout << std::endl;
-            }
-            AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
-            break;
-        }
-
-        if ( wl1_stag && wl2_stag ) {
-            AMP_WARNING( "MIS2Aggregator::classifyVertices worklists stagnated" );
+        if ( num_iters == max_iters && worklist.size() != 0 ) {
+            AMP::pout << "classifyVertices stopped with " << worklist.size()
+                      << " worklist items left" << std::endl;
+            // AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
             break;
         }
     }
@@ -467,37 +484,6 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
     // using u64Allocator_t =
     //     typename std::allocator_traits<allocator_type>::template rebind_alloc<uint64_t>;
 
-    // // Get diag block from A and mask it using SoC
-    // const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
-    // auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    // auto A_diag        = A_data->getDiagMatrix();
-
-    // std::shared_ptr<localmatrixdata_t> A_masked;
-    // if ( d_strength_measure == "evolution" ) {
-    //     auto S   = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
-    //     A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
-    // } else if ( d_strength_measure == "classical_abs" ) {
-    //     auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold
-    //     ); A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
-    // } else {
-    //     if ( d_strength_measure != "classical_min" ) {
-    //         AMP_WARN_ONCE( "Unrecognized strength measure, reverting to classical_min" );
-    //     }
-    //     auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold
-    //     ); A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
-    // }
-
-    // // pull out data fields from A_masked
-    // // only care about row starts and local cols
-    // auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
-
-    // // initially un-aggregated
-    // AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_ids, A_nrows, -1 );
-
-    // // Create temporary storage for aggregate sizes
-    // auto agg_size = localmatrixdata_t::makeLidxArray( A_nrows );
-    // AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_size.get(), A_nrows, 0 );
-
     // // label each vertex as in or out of MIS-2
     // u64Allocator_t u64_alloc;
     // auto labels = u64_alloc.allocate( A_nrows );
@@ -505,131 +491,6 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
     // AMP::Utilities::Algorithms<lidx_t>::fill_n( labels, A_nrows, OUT );
     // AMP::Utilities::Algorithms<lidx_t>::fill_n( minima, A_nrows, OUT );
 
-    // // Classify vertices, first pass considers all rows with length >= 2
-    // auto wl1 = localmatrixdata_t::makeLidxArray( A_nrows );
-    // AMP::Utilities::Algorithms<lidx_t>::fill_n( wl1, A_nrows, 0 );
-    // for ( lidx_t row = 0; row < A_nrows; ++row ) {
-    //     const auto rs = Am_rs[row], re = Am_rs[row + 1];
-    //     if ( re - rs > 1 ) {
-    //         wl1[row] = 1;
-    //     }
-    // }
-    // classifyVerticesDevice<Config>(
-    //     A_masked, wl1, wl2, labels, minima, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids
-    //     );
-
-    // // initialize aggregates from nodes flagged as in and all of their neighbors
-    // lidx_t num_agg   = 0;
-    // double total_agg = 0.0;
-    // for ( lidx_t row = 0; row < A_nrows; ++row ) {
-    //     if ( labels[row] != IN ) {
-    //         continue;
-    //     }
-    //     for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
-    //         agg_ids[Am_cols_loc[c]] = num_agg;
-    //         agg_size[num_agg]++;
-    //     }
-    //     total_agg += agg_size[num_agg];
-    //     // increment current id to start working on next aggregate
-    //     ++num_agg;
-    // }
-
-    // // do a second pass of classification and aggregation
-    // // reset worklist to be all vertices that are not part of an aggregate
-    // AMP::Utilities::Algorithms<lidx_t>::fill_n( wl1, A_nrows, 0 );
-    // for ( lidx_t row = 0; row < A_nrows; ++row ) {
-    //     const auto rs = Am_rs[row], re = Am_rs[row + 1];
-    //     if ( agg_ids[row] < 0 && re - rs > 1 ) {
-    //         wl1[row] = 1;
-    //     }
-    // }
-    // AMP::Utilities::Algorithms<uint64_t>::fill_n( labels, A_nrows, OUT );
-    // AMP::Utilities::Algorithms<uint64_t>::fill_n( minima, A_nrows, OUT );
-    // classifyVerticesDevice<Config>(
-    //     A_masked, wl1, wl2, labels, minima, static_cast<uint64_t>( A->numGlobalRows() ), agg_ids
-    //     );
-
-    // // on second pass only allow IN vertex to be root of agg if it has
-    // // at least 2 un-agg nbrs
-    // for ( lidx_t row = 0; row < A_nrows; ++row ) {
-    //     if ( labels[row] != IN || agg_ids[row] >= 0 ) {
-    //         // not a prospective root or already aggregated
-    //         continue;
-    //     }
-    //     if ( Am_rs[row + 1] - Am_rs[row] <= 1 ) {
-    //         // row is isolated, ignore it
-    //         continue;
-    //     }
-    //     int n_nbrs = 0;
-    //     for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
-    //         if ( agg_ids[Am_cols_loc[c]] < 0 ) {
-    //             ++n_nbrs;
-    //         }
-    //     }
-    //     if ( n_nbrs < 2 ) {
-    //         // too small, skip
-    //         continue;
-    //     }
-    //     for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
-    //         if ( agg_ids[Am_cols_loc[c]] < 0 ) {
-    //             agg_ids[Am_cols_loc[c]] = num_agg;
-    //             agg_size[num_agg]++;
-    //         }
-    //     }
-    //     total_agg += agg_size[num_agg];
-    //     // increment current id to start working on next aggregate
-    //     ++num_agg;
-    // }
-
-    // // Add unmarked entries to the smallest aggregate they are nbrs with
-    // bool grew_agg;
-    // do {
-    //     grew_agg = false;
-    //     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-    //         const auto rs = Am_rs[row], re = Am_rs[row + 1];
-    //         if ( agg_ids[row] >= 0 ) {
-    //             continue;
-    //         }
-
-    //         // find smallest neighboring aggregate
-    //         lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-    //         for ( lidx_t c = rs; c < re; ++c ) {
-    //             const auto agg = agg_ids[Am_cols_loc[c]];
-    //             // only consider nbrs that are aggregated
-    //             if ( agg >= 0 && ( agg_size[agg] < small_agg_size ) ) {
-    //                 small_agg_size = agg_size[agg];
-    //                 small_agg_id   = agg;
-    //             }
-    //         }
-
-    //         // add to aggregate
-    //         if ( small_agg_id >= 0 ) {
-    //             agg_ids[row] = small_agg_id;
-    //             agg_size[small_agg_id]++;
-    //             grew_agg = true;
-    //         }
-    //     }
-    // } while ( grew_agg );
-
-    // // check if aggregated points neighbor any isolated points
-    // // and add them to their aggregate if so. These mostly come from BCs
-    // // where connections might not be symmetric.
-    // for ( lidx_t row = 0; row < A_nrows; ++row ) {
-    //     const auto rs = Am_rs[row], re = Am_rs[row + 1];
-    //     const auto curr_agg = agg_ids[row];
-
-    //     if ( curr_agg < 0 ) {
-    //         continue;
-    //     }
-
-    //     for ( lidx_t c = rs; c < re; ++c ) {
-    //         const auto nid = Am_cols_loc[c];
-    //         if ( Am_rs[nid + 1] - Am_rs[nid] <= 1 ) {
-    //             agg_ids[nid] = curr_agg;
-    //             agg_size[curr_agg]++;
-    //         }
-    //     }
-    // }
 
     // u64_alloc.deallocate( labels, A_nrows );
     // u64_alloc.deallocate( minima, A_nrows );
@@ -650,137 +511,6 @@ int MIS2Aggregator::classifyVerticesDevice(
     PROFILE( "MIS2Aggregator::classifyVerticesDevice" );
 
     return -1;
-
-    // using lidx_t = typename Config::lidx_t;
-
-    // // unpack diag block
-    // const auto A_nrows                            = static_cast<lidx_t>( A_diag->numLocalRows()
-    // ); const auto begin_row                          = A_diag->beginRow(); auto [Ad_rs, Ad_cols,
-    // Ad_cols_loc, Ad_coeffs] = A_diag->getDataFields();
-
-    // // the packed representation uses minimal number of bits for ID part
-    // // of tuple, get log_2 of (num_gbl + 2)
-    // const auto id_shift = __device__[]( uint64_t ng )->uint8_t
-    // {
-    //     // log2 from stackoverflow. If only bit_width was c++17...
-    //     uint8_t s = 0;
-    //     while ( ng >>= 1 )
-    //         ++s;
-    //     return s;
-    // }
-    // ( num_gbl );
-
-    // // hash is xorshift* as given on wikipedia
-    // auto hash = __device__[]( uint64_t x )->uint64_t
-    // {
-    //     x ^= x >> 12;
-    //     x ^= x << 25;
-    //     x ^= x >> 27;
-    //     return x * 0x2545F4914F6CDD1D;
-    // };
-
-    // // copy input worklist to wl2
-    // AMP::Utilities::copy( A_nrows, wl1, wl2 );
-
-    // // now loop until worklists are empty
-    // const lidx_t max_iters = 20;
-    // int num_iters          = 0;
-    // while ( wl1.size() > 0 ) {
-    //     const auto iter_hash = hash( num_iters );
-
-    //     // first update Tv entries from items in first worklist
-    //     for ( const auto n : wl1 ) {
-    //         const auto n_hash = hash( iter_hash ^ hash( n ) );
-    //         Tv[n]             = ( n_hash << id_shift ) | static_cast<uint64_t>( begin_row + n + 1
-    //         ); AMP_DEBUG_ASSERT( Tv[n] != IN && Tv[n] != OUT );
-    //     }
-
-    //     // update all Mv entries from items in second worklist
-    //     // this is refresh column from paper
-    //     for ( const auto n : wl2 ) {
-    //         // set to smallest value in neighborhood
-    //         Mv[n] = OUT;
-    //         for ( lidx_t k = Ad_rs[n]; k < Ad_rs[n + 1]; ++k ) {
-    //             const auto c = Ad_cols_loc[k];
-    //             if ( agg_ids[c] < 0 ) {
-    //                 Mv[n] = Tv[c] < Mv[n] ? Tv[c] : Mv[n];
-    //             }
-    //         }
-    //         // if smallest is marked IN mark this as OUT
-    //         if ( Mv[n] == IN ) {
-    //             Mv[n] = OUT;
-    //         }
-    //     }
-
-    //     // mark undecided as IN or OUT if possible and build new worklists
-    //     std::vector<lidx_t> wl1_new;
-    //     for ( const auto n : wl1 ) {
-    //         const auto rs = Ad_rs[n], re = Ad_rs[n + 1], row_len = re - rs;
-    //         // default to IN and check if conditions hold
-    //         bool mark_out = false, mark_in = true;
-    //         for ( lidx_t k = rs; k < re; ++k ) {
-    //             const auto c = Ad_cols_loc[k];
-    //             if ( agg_ids[c] >= 0 ) {
-    //                 // neighbor is aggregated from previous vertex classification pass
-    //                 // ignore on this pass
-    //                 continue;
-    //             }
-    //             if ( Mv[c] == OUT ) {
-    //                 mark_out = true;
-    //                 break;
-    //             }
-    //             if ( Mv[c] != Tv[n] ) {
-    //                 mark_in = false;
-    //             }
-    //         }
-
-    //         if ( mark_out ) {
-    //             Tv[n] = OUT;
-    //         } else if ( mark_in ) {
-    //             Tv[n] = IN;
-    //         }
-
-    //         // update first worklist
-    //         if ( Tv[n] != IN && Tv[n] != OUT ) {
-    //             wl1_new.push_back( n );
-    //         }
-    //     }
-
-    //     // update second work list
-    //     std::vector<lidx_t> wl2_new;
-    //     for ( lidx_t n = 0; n < A_nrows; ++n ) {
-    //         if ( Mv[n] != OUT ) {
-    //             wl2_new.push_back( n );
-    //         }
-    //     }
-
-    //     // swap updated worklists in and loop around
-    //     const bool wl1_stag = wl1.size() == wl1_new.size();
-    //     const bool wl2_stag = wl2.size() == wl2_new.size();
-    //     wl1.swap( wl1_new );
-    //     wl2.swap( wl2_new );
-
-    //     ++num_iters;
-
-    //     if ( num_iters == max_iters ) {
-    //         AMP_WARNING( "MIS2Aggregator::classifyVertices failed to terminate" );
-    //         break;
-    //     }
-
-    //     if ( wl1_stag && wl2_stag ) {
-    //         AMP_WARNING( "MIS2Aggregator::classifyVertices worklists stagnated" );
-    //         AMP::pout << "wl1.size() = " << wl1.size() << ", wl2.size() = " << wl2.size()
-    //                   << std::endl;
-
-    //         for ( const auto n : wl1 ) {
-    //             Tv[n] = IN;
-    //         }
-
-    //         break;
-    //     }
-    // }
-
-    // return num_iters;
 }
 #endif
 

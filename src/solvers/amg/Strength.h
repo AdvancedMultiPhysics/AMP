@@ -113,8 +113,6 @@ struct classical_strength;
 template<norm norm_type>
 struct symagg_strength;
 
-struct evolution_strength;
-
 template<class StrengthPolicy, class Mat>
 Strength<Mat> compute_soc( csr_view<Mat> A, float threshold );
 
