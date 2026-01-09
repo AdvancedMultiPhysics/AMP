@@ -278,8 +278,8 @@ void AMP_MPI::reset()
             if ( err != MPI_SUCCESS )
                 AMP_ERROR( "Problem free'ing MPI_Comm object" );
             d_comm = commNull;
-            ++N_MPI_Comm_destroyed;
 #endif
+            ++N_MPI_Comm_destroyed;
         }
         if ( d_ranks )
             delete[] d_ranks;
@@ -768,15 +768,13 @@ AMP_MPI AMP_MPI::dup( bool manage ) const
     if ( d_isNull )
         return AMP_MPI( commNull );
     PROFILE( "dup", profile_level );
-    AMP_MPI::Comm new_MPI_comm = d_comm;
 #if defined( AMP_USE_MPI ) || defined( AMP_USE_PETSC )
     // USE MPI to duplicate the communicator
-    MPI_Comm tmp;
-    MPI_Comm_dup( d_comm, &tmp );
-    new_MPI_comm = tmp;
+    MPI_Comm new_MPI_comm;
+    MPI_Comm_dup( d_comm, &new_MPI_comm );
 #else
     static AMP_MPI::Comm uniqueGlobalComm = 11;
-    new_MPI_comm = uniqueGlobalComm;
+    auto new_MPI_comm                     = uniqueGlobalComm;
     uniqueGlobalComm++;
 #endif
     // Create the new comm object
@@ -1297,11 +1295,11 @@ AMP_MPI::Request AMP_MPI::IsendBytes( const void *buf, int bytes, int, int tag )
     if ( it == global_isendrecv_list.end() ) {
         // We are calling isend first
         Isendrecv_struct data;
-        data.bytes = bytes;
-        data.data = buf;
+        data.bytes  = bytes;
+        data.data   = buf;
         data.status = 1;
-        data.comm = d_comm;
-        data.tag = tag;
+        data.comm   = d_comm;
+        data.tag    = tag;
         global_isendrecv_list.insert( std::pair<AMP_MPI::Request2, Isendrecv_struct>( id, data ) );
     } else {
         // We called irecv first
@@ -1322,11 +1320,11 @@ AMP_MPI::Request AMP_MPI::IrecvBytes( void *buf, const int bytes, const int, con
     if ( it == global_isendrecv_list.end() ) {
         // We are calling Irecv first
         Isendrecv_struct data;
-        data.bytes = bytes;
-        data.data = buf;
+        data.bytes  = bytes;
+        data.data   = buf;
         data.status = 2;
-        data.comm = d_comm;
-        data.tag = tag;
+        data.comm   = d_comm;
+        data.tag    = tag;
         global_isendrecv_list.insert( std::pair<AMP_MPI::Request, Isendrecv_struct>( id, data ) );
     } else {
         // We called Isend first
@@ -1465,7 +1463,7 @@ int AMP_MPI::waitAny( int count, Request2 *request )
         for ( int i = 0; i < count; i++ ) {
             if ( global_isendrecv_list.find( request[i] ) == global_isendrecv_list.end() ) {
                 found_any = true;
-                index = i;
+                index     = i;
             }
         }
         if ( found_any )
@@ -1597,7 +1595,7 @@ double AMP_MPI::tick() { return MPI_Wtick(); }
 #else
 double AMP_MPI::time()
 {
-    auto t = std::chrono::system_clock::now();
+    auto t  = std::chrono::system_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t.time_since_epoch() );
     return 1e-9 * ns.count();
 }
