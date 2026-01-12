@@ -454,5 +454,4 @@ unsigned int generate_id( int N, const unsigned int *ids )
  * Explicit instantiations                               *
  ********************************************************/
 #include "AMP/utils/Utilities.hpp"
-template void
-AMP::Utilities::quicksort<unsigned int, int>( size_t, unsigned int *, int * );
+template void AMP::Utilities::quicksort<unsigned int, int>( size_t, unsigned int *, int * );
