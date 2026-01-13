@@ -278,8 +278,8 @@ void AMP_MPI::reset()
             if ( err != MPI_SUCCESS )
                 AMP_ERROR( "Problem free'ing MPI_Comm object" );
             d_comm = commNull;
-            ++N_MPI_Comm_destroyed;
 #endif
+            ++N_MPI_Comm_destroyed;
         }
         if ( d_ranks )
             delete[] d_ranks;
@@ -768,15 +768,13 @@ AMP_MPI AMP_MPI::dup( bool manage ) const
     if ( d_isNull )
         return AMP_MPI( commNull );
     PROFILE( "dup", profile_level );
-    AMP_MPI::Comm new_MPI_comm = d_comm;
 #if defined( AMP_USE_MPI ) || defined( AMP_USE_PETSC )
     // USE MPI to duplicate the communicator
-    MPI_Comm tmp;
-    MPI_Comm_dup( d_comm, &tmp );
-    new_MPI_comm = tmp;
+    MPI_Comm new_MPI_comm;
+    MPI_Comm_dup( d_comm, &new_MPI_comm );
 #else
     static AMP_MPI::Comm uniqueGlobalComm = 11;
-    new_MPI_comm = uniqueGlobalComm;
+    auto new_MPI_comm = uniqueGlobalComm;
     uniqueGlobalComm++;
 #endif
     // Create the new comm object
