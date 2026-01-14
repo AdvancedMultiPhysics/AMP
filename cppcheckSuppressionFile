@@ -177,7 +177,6 @@ syntaxError:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
 syntaxError:*/src/utils/cuda/helper_cuda.cpp
 uninitMemberVar:*/src/matrices/petsc/NativePetscMatrix.cpp
 uninitMemberVar:*/src/mesh/structured/structuredMeshIterator.cpp
-uninitMemberVar:*/src/operators/boundary/libmesh/RobinMatrixCorrection.cpp
 uninitMemberVar:*/src/operators/boundary/libmesh/TractionBoundaryOperator.cpp
 uninitMemberVar:*/src/operators/diffusion/DiffusionElement.cpp
 uninitMemberVar:*/src/operators/flow/FlowElement.cpp
