@@ -27,11 +27,14 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_max_levels                      = db->getWithDefault<size_t>( "max_levels", 10 );
     d_min_coarse_local                = db->getWithDefault<int>( "min_coarse_local", 10 );
     d_min_coarse_global               = db->getWithDefault<size_t>( "min_coarse_global", 100 );
-    d_cycle_settings.kappa            = db->getWithDefault<size_t>( "kappa", 1 );
+    d_cycle_settings.kappa            = db->getWithDefault<size_t>( "kcycle_kappa", 1 );
     d_cycle_settings.tol              = db->getWithDefault<double>( "kcycle_tol", 0.0 );
     d_cycle_settings.comm_free_interp = false;
     d_cycle_settings.type =
         KappaKCycle::parseType( db->getWithDefault<std::string>( "kcycle_type", "fcg" ) );
+    d_cycle_settings.trunc_depth =
+        db->getWithDefault<size_t>( "kcycle_trunc_depth", std::numeric_limits<size_t>::max() );
+
     d_save_to_file        = db->getWithDefault<bool>( "save_to_file", false );
     d_save_to_file_on_ftc = db->getWithDefault<bool>( "save_to_file_on_ftc", false );
     d_save_to_file_name   = db->getWithDefault<std::string>( "save_to_file_name", "SASolver" );

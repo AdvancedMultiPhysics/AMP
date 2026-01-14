@@ -22,16 +22,19 @@ UASolver::UASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverS
 
 void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
 {
-    d_max_levels           = db->getWithDefault<size_t>( "max_levels", 10 );
-    d_num_relax_pre        = db->getWithDefault<size_t>( "num_relax_pre", 1 );
-    d_num_relax_post       = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_boomer_cg            = db->getWithDefault<bool>( "boomer_cg", false );
-    d_min_coarse_local     = db->getWithDefault<int>( "min_coarse_local", 10 );
-    d_min_coarse_global    = db->getWithDefault<size_t>( "min_coarse_global", 100 );
-    d_cycle_settings.kappa = db->getWithDefault<size_t>( "kappa", 1 );
-    d_cycle_settings.tol   = db->getWithDefault<float>( "kcycle_tol", 0 );
+    d_max_levels        = db->getWithDefault<size_t>( "max_levels", 10 );
+    d_num_relax_pre     = db->getWithDefault<size_t>( "num_relax_pre", 1 );
+    d_num_relax_post    = db->getWithDefault<size_t>( "num_relax_post", 1 );
+    d_boomer_cg         = db->getWithDefault<bool>( "boomer_cg", false );
+    d_min_coarse_local  = db->getWithDefault<int>( "min_coarse_local", 10 );
+    d_min_coarse_global = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    d_cycle_settings.kappa =
+        db->getWithDefault<size_t>( "kcycle_kappa", std::numeric_limits<size_t>::max() );
+    d_cycle_settings.tol = db->getWithDefault<float>( "kcycle_tol", 0 );
     d_cycle_settings.type =
         KappaKCycle::parseType( db->getWithDefault<std::string>( "kcycle_type", "fcg" ) );
+    d_cycle_settings.trunc_depth =
+        db->getWithDefault<size_t>( "kcycle_trunc_depth", std::numeric_limits<size_t>::max() );
 
     d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
