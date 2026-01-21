@@ -407,14 +407,14 @@ __device__ void agg_from_row( const lidx_t row,
                               lidx_t *agg_ids,
                               lidx_t *agg_size )
 {
-    if ( labels[row] != IN || agg_ids[row] != UNASSIGNED ) {
+    if ( labels[row] != MIS2Aggregator::IN || agg_ids[row] != MIS2Aggregator::UNASSIGNED ) {
         // not root node, nothing to do
         return;
     }
     if ( test_nbrs ) {
         int n_nbrs = 0;
         for ( lidx_t c = row_start[row] + 1; c < row_start[row + 1]; ++c ) {
-            if ( agg_ids[cols_loc[c]] == UNASSIGNED ) {
+            if ( agg_ids[cols_loc[c]] == MIS2Aggregator::UNASSIGNED ) {
                 ++n_nbrs;
             }
         }
@@ -426,11 +426,11 @@ __device__ void agg_from_row( const lidx_t row,
     // have root node, push new aggregate and set ids
     agg_size[row] = 0;
     for ( lidx_t c = row_start[row]; c < row_start[row + 1]; ++c ) {
-        if ( agg_ids[cols_loc[c]] != UNASSIGNED ) {
+        if ( agg_ids[cols_loc[c]] != MIS2Aggregator::UNASSIGNED ) {
             continue;
         }
         if ( c > row_start[row] ) {
-            labels[cols_loc[c]] = OUT;
+            labels[cols_loc[c]] = MIS2Aggregator::OUT;
         }
         agg_ids[cols_loc[c]] = row;
         agg_size[row]++;
@@ -506,14 +506,15 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
     u64Allocator_t u64_alloc;
     lidxAllocator_t lidx_alloc;
     auto labels = u64_alloc.allocate( A_nrows );
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( labels, A_nrows, OUT );
+    AMP::Utilities::Algorithms<uint64_t>::fill_n( labels, A_nrows, OUT );
     auto agg_size = lidx_alloc.allocate( A_nrows );
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
-    thrust::transform( thrust::device, );
 
     u64_alloc.deallocate( labels, A_nrows );
     lidx_alloc.deallocate( agg_size, A_nrows );
+
+    int num_agg = 0;
 
     return num_agg;
 }
