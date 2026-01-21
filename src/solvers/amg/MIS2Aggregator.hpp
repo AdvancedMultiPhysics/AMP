@@ -45,50 +45,14 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 }
 
 template<typename Config>
-void testSymmetry( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A )
-{
-    using lidx_t                              = typename Config::lidx_t;
-    const auto A_nrows                        = static_cast<lidx_t>( A->numLocalRows() );
-    const auto A_nnz                          = static_cast<lidx_t>( A->numLocalRows() );
-    auto [A_rs, A_cols, A_cols_loc, A_coeffs] = A->getDataFields();
-
-    // assemble crude symbolic transpose
-    std::vector<std::set<lidx_t>> At_cols_loc( A_nrows );
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = A_rs[row], re = A_rs[row + 1];
-        for ( lidx_t k = rs; k < re; ++k ) {
-            const auto c = A_cols_loc[k];
-            At_cols_loc[c].insert( row );
-        }
-    }
-
-    // loop again and check that all NZs match up
-    int num_fail = 0;
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = A_rs[row], re = A_rs[row + 1];
-        for ( lidx_t k = rs; k < re; ++k ) {
-            const auto c    = A_cols_loc[k];
-            auto it         = At_cols_loc[row].find( c );
-            const auto rlen = re - rs;
-            const auto clen = A_rs[c + 1] - A_rs[c];
-            if ( it == At_cols_loc[row].end() && rlen > 1 && clen > 1 ) {
-                ++num_fail;
-                if ( num_fail < 25 ) {
-                    AMP::pout << "A vs At mismatch, (i,j) = (" << row << "," << c << ")"
-                              << std::endl;
-                }
-            }
-        }
-    }
-}
-
-template<typename Config>
 int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                                int *agg_ids )
 {
     PROFILE( "MIS2Aggregator::assignLocalAggregatesHost" );
 
     using lidx_t            = typename Config::lidx_t;
+    using gidx_t            = typename Config::gidx_t;
+    using scalar_t          = typename Config::scalar_t;
     using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
@@ -121,10 +85,10 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
-    auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
-
-    // initially un-aggregated
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_ids, A_nrows, UNASSIGNED );
+    lidx_t *Am_rs = nullptr, *Am_cols_loc = nullptr;
+    gidx_t *Am_cols                                    = nullptr;
+    scalar_t *Am_coeffs                                = nullptr;
+    std::tie( Am_rs, Am_cols, Am_cols_loc, Am_coeffs ) = A_masked->getDataFields();
 
     // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size;
@@ -132,13 +96,14 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     // label each vertex as in or out of MIS-2
     std::vector<uint64_t> labels( A_nrows, OUT );
 
-    // Classify vertices, first pass considers all rows with length >= 2
+    // Initialize ids to either unassigned (default) or invalid (isolated)
     lidx_t num_isolated = 0;
     std::vector<lidx_t> worklist;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         const auto rs = Am_rs[row], re = Am_rs[row + 1];
         if ( re - rs > 1 ) {
             worklist.push_back( row );
+            agg_ids[row] = UNASSIGNED;
         } else {
             num_isolated++;
             agg_ids[row] = INVALID;
@@ -150,15 +115,24 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     lidx_t num_agg = 0, num_unagg = A_nrows;
     double total_agg = 0.0;
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( labels[row] != IN ) {
-            // not root node, continue ahead
-            continue;
+
+    auto agg_from_row = [&]( lidx_t row, bool test_nbrs ) -> void {
+        if ( labels[row] != IN || agg_ids[row] != UNASSIGNED ) {
+            // not root node, nothing to do
+            return;
         }
-
-        // node labelled IN better be valid and unaggregated
-        AMP_ASSERT( agg_ids[row] == UNASSIGNED );
-
+        if ( test_nbrs ) {
+            int n_nbrs = 0;
+            for ( lidx_t c = Am_rs[row] + 1; c < Am_rs[row + 1]; ++c ) {
+                if ( agg_ids[Am_cols_loc[c]] == UNASSIGNED ) {
+                    ++n_nbrs;
+                }
+            }
+            if ( n_nbrs < 2 ) {
+                // too small, skip
+                return;
+            }
+        }
         // have root node, push new aggregate and set ids
         agg_size.push_back( 0 );
         for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
@@ -176,6 +150,10 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         total_agg += agg_size[num_agg];
         // increment current id to start working on next aggregate
         ++num_agg;
+    };
+
+    for ( lidx_t row = 0; row < A_nrows; ++row ) {
+        agg_from_row( row, false );
     }
     AMP::pout << "Formed " << num_agg << " aggregates with average size " << total_agg / num_agg
               << ", leaving " << num_unagg << " unaggregated points" << std::endl;
@@ -198,34 +176,7 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( labels[row] != IN || agg_ids[row] != UNASSIGNED ) {
-            // not a prospective root or already aggregated
-            continue;
-        }
-        int n_nbrs = 0;
-        for ( lidx_t c = Am_rs[row] + 1; c < Am_rs[row + 1]; ++c ) {
-            if ( agg_ids[Am_cols_loc[c]] == UNASSIGNED ) {
-                ++n_nbrs;
-            }
-        }
-        if ( n_nbrs < 2 ) {
-            // too small, skip
-            continue;
-        }
-        agg_size.push_back( 0 );
-        for ( lidx_t c = Am_rs[row]; c < Am_rs[row + 1]; ++c ) {
-            if ( agg_ids[Am_cols_loc[c]] == UNASSIGNED ) {
-                agg_ids[Am_cols_loc[c]] = num_agg;
-                agg_size[num_agg]++;
-                --num_unagg;
-                if ( c > Am_rs[row] ) {
-                    AMP_DEBUG_ASSERT( labels[Am_cols_loc[c]] != IN );
-                }
-            }
-        }
-        total_agg += agg_size[num_agg];
-        // increment current id to start working on next aggregate
-        ++num_agg;
+        agg_from_row( row, true );
     }
     AMP::pout << "Formed " << num_agg << " aggregates with average size " << total_agg / num_agg
               << ", leaving " << num_unagg << " unaggregated points" << std::endl;
@@ -263,21 +214,6 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             }
         }
     } while ( grew_agg );
-
-    // DEBUG
-    {
-        total_agg          = 0.0;
-        lidx_t largest_agg = 0, smallest_agg = A_nrows;
-        for ( int n = 0; n < num_agg; ++n ) {
-            total_agg += agg_size[n];
-            largest_agg  = largest_agg < agg_size[n] ? agg_size[n] : largest_agg;
-            smallest_agg = smallest_agg > agg_size[n] ? agg_size[n] : smallest_agg;
-        }
-        AMP::pout << "MIS2Aggregator found " << num_agg << " aggregates over " << A_nrows
-                  << " rows, with average size " << total_agg / static_cast<double>( num_agg )
-                  << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl
-                  << std::endl;
-    }
 
     return num_agg;
 }
@@ -331,7 +267,7 @@ int MIS2Aggregator::classifyVerticesHost(
     auto pack_tuple          = [=]( lidx_t idx, uint8_t nconn, uint64_t ihash ) -> uint64_t {
         uint64_t tpl = nconn < 31 ? nconn : 31;
         tpl <<= 59;
-        const auto v = static_cast<uint64_t>( begin_row + idx );
+        const auto v      = static_cast<uint64_t>( begin_row + idx );
         const auto v_hash = hash_mask & hash( ihash ^ hash( v ) );
         tpl |= v_hash;
         tpl |= v;
@@ -441,14 +377,6 @@ int MIS2Aggregator::classifyVerticesHost(
             }
         }
 
-        // if ( worklist.size() == worklist_new.size() ) {
-        //     ++num_stag;
-        //     if ( num_stag == 3 ) {
-        //         // AMP_WARNING( "MIS2Aggregator::classifyVertices worklist stagnated" );
-        //         break;
-        //     }
-        // }
-
         if ( worklist_new.size() == 0 ) {
             AMP::pout << "classifyVertices finished in " << num_iters << " passes" << std::endl;
         }
@@ -469,33 +397,125 @@ int MIS2Aggregator::classifyVerticesHost(
 
 // Device specific implementations for aggregating and classifying
 #ifdef AMP_USE_DEVICE
+
+template<typename lidx_t>
+__device__ void agg_from_row( const lidx_t row,
+                              const bool test_nbrs,
+                              const lidx_t *cols_loc,
+                              const lidx_t *row_start,
+                              uint64_t *labels,
+                              lidx_t *agg_ids,
+                              lidx_t *agg_size )
+{
+    if ( labels[row] != IN || agg_ids[row] != UNASSIGNED ) {
+        // not root node, nothing to do
+        return;
+    }
+    if ( test_nbrs ) {
+        int n_nbrs = 0;
+        for ( lidx_t c = row_start[row] + 1; c < row_start[row + 1]; ++c ) {
+            if ( agg_ids[cols_loc[c]] == UNASSIGNED ) {
+                ++n_nbrs;
+            }
+        }
+        if ( n_nbrs < 2 ) {
+            // too small, skip
+            return;
+        }
+    }
+    // have root node, push new aggregate and set ids
+    agg_size[row] = 0;
+    for ( lidx_t c = row_start[row]; c < row_start[row + 1]; ++c ) {
+        if ( agg_ids[cols_loc[c]] != UNASSIGNED ) {
+            continue;
+        }
+        if ( c > row_start[row] ) {
+            labels[cols_loc[c]] = OUT;
+        }
+        agg_ids[cols_loc[c]] = row;
+        agg_size[row]++;
+    }
+}
+
+template<typename lidx_t>
+__global__ void build_aggs( const lidx_t num_rows,
+                            const bool test_nbrs,
+                            const lidx_t *cols_loc,
+                            const lidx_t *row_start,
+                            uint64_t *labels,
+                            lidx_t *agg_ids,
+                            lidx_t *agg_size )
+{
+    for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
+          row += blockDim.x * gridDim.x ) {
+        agg_from_row( row, test_nbrs, cols_loc, row_start, labels, agg_ids, agg_size );
+    }
+}
+
 template<typename Config>
 int MIS2Aggregator::assignLocalAggregatesDevice(
     std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A, int *agg_ids )
 {
     PROFILE( "MIS2Aggregator::assignLocalAggregatesDevice" );
-    return -1;
 
-    // using lidx_t            = typename Config::lidx_t;
-    // using allocator_type    = typename Config::allocator_type;
-    // using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
-    // using matrixdata_t      = typename matrix_t::matrixdata_t;
-    // using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
-    // using u64Allocator_t =
-    //     typename std::allocator_traits<allocator_type>::template rebind_alloc<uint64_t>;
+    using lidx_t            = typename Config::lidx_t;
+    using gidx_t            = typename Config::gidx_t;
+    using scalar_t          = typename Config::scalar_t;
+    using allocator_type    = typename Config::allocator_type;
+    using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
+    using matrixdata_t      = typename matrix_t::matrixdata_t;
+    using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
+    using lidxAllocator_t =
+        typename std::allocator_traits<allocator_type>::template rebind_alloc<lidx_t>;
+    using u64Allocator_t =
+        typename std::allocator_traits<allocator_type>::template rebind_alloc<uint64_t>;
 
-    // // label each vertex as in or out of MIS-2
-    // u64Allocator_t u64_alloc;
-    // auto labels = u64_alloc.allocate( A_nrows );
-    // auto minima = u64_alloc.allocate( A_nrows );
-    // AMP::Utilities::Algorithms<lidx_t>::fill_n( labels, A_nrows, OUT );
-    // AMP::Utilities::Algorithms<lidx_t>::fill_n( minima, A_nrows, OUT );
+    // Get diag block from A and mask it using SoC
+    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
+    auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    auto A_diag        = A_data->getDiagMatrix();
 
+    std::shared_ptr<localmatrixdata_t> A_masked;
+    if ( d_strength_measure == "classical_abs" ) {
+        AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
+        auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "classical_min" ) {
+        AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
+        auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "symagg_abs" ) {
+        auto S   = compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else {
+        if ( d_strength_measure != "symagg_min" ) {
+            AMP_WARN_ONCE( "Unrecognized strength measure, reverting to symagg_min" );
+        }
+        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    }
 
-    // u64_alloc.deallocate( labels, A_nrows );
-    // u64_alloc.deallocate( minima, A_nrows );
+    // pull out data fields from A_masked
+    // only care about row starts and local cols
+    lidx_t *Am_rs = nullptr, *Am_cols_loc = nullptr;
+    gidx_t *Am_cols                                    = nullptr;
+    scalar_t *Am_coeffs                                = nullptr;
+    std::tie( Am_rs, Am_cols, Am_cols_loc, Am_coeffs ) = A_masked->getDataFields();
 
-    // return num_agg;
+    // get temporary storage for aggregate sizes and MIS2 labels
+    u64Allocator_t u64_alloc;
+    lidxAllocator_t lidx_alloc;
+    auto labels = u64_alloc.allocate( A_nrows );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( labels, A_nrows, OUT );
+    auto agg_size = lidx_alloc.allocate( A_nrows );
+
+    // Initialize ids to either unassigned (default) or invalid (isolated)
+    thrust::transform( thrust::device, );
+
+    u64_alloc.deallocate( labels, A_nrows );
+    lidx_alloc.deallocate( agg_size, A_nrows );
+
+    return num_agg;
 }
 
 template<typename Config>

@@ -14,6 +14,7 @@ LinearSolver{
   kcycle_type = "fcg"
   
 <<< SASolver-Level-0 >>>
+<<< SASolver-Level-1 >>>
   
   pre_relaxation{
     name = "JacobiL1"
