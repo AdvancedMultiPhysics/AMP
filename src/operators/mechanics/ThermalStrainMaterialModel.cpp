@@ -5,6 +5,9 @@
 #include "AMP/utils/Utilities.h"
 
 
+using namespace AMP::Operator::UpdatedLagrangianUtils;
+
+
 namespace AMP::Operator {
 
 ThermalStrainMaterialModel::ThermalStrainMaterialModel(
@@ -320,7 +323,7 @@ void ThermalStrainMaterialModel::constructConstitutiveMatrix( const double passe
         for ( int j = 0; j < 3; j++ ) {
             d_constitutiveMatrix[i][j] += ( K - ( ( 2.0 / 3.0 ) * G ) );
         } // end for j
-    }     // end for i
+    } // end for i
 }
 
 void ThermalStrainMaterialModel::constructConstitutiveMatrixUpdatedLagrangian(
@@ -347,7 +350,7 @@ void ThermalStrainMaterialModel::constructConstitutiveMatrixUpdatedLagrangian(
         for ( int j = 0; j < 3; j++ ) {
             d_constitutiveMatrix_UL[i][j] += ( K - ( ( 2.0 / 3.0 ) * G ) );
         } // end for j
-    }     // end for i
+    } // end for i
 }
 
 void ThermalStrainMaterialModel::computeEvalv( const std::vector<std::vector<double>> &strain )

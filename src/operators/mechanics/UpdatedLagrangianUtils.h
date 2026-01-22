@@ -2,9 +2,10 @@
 #ifndef included_AMP_UpdatedLagrangianUtils
 #define included_AMP_UpdatedLagrangianUtils
 
+#include <array>
 #include <vector>
 
-namespace AMP::Operator {
+namespace AMP::Operator::UpdatedLagrangianUtils {
 
 bool softEquals( double a, double b );
 
@@ -34,21 +35,9 @@ void eigenValues( double A[3][3], double val[3] );
 
 void eigenVectors( double A[3][3], double val[3], double vec[3][3] );
 
-void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols );
+void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols );
 
-void orthonormalize( std::vector<std::vector<double>> &vecs );
-
-void vecSqrt( double val[3], double valSqrt[3] );
-
-void vecInv( double val[3], double valInv[3] );
-
-void vecScale( double c, double vec[3] );
-
-void vecScale( double c, std::vector<double> &vec );
-
-double vecDot( double a[3], double b[3] );
-
-double vecDot( const std::vector<double> &a, const std::vector<double> &b );
+void orthonormalize( std::vector<std::array<double, 3>> &vecs );
 
 void quadraticRoots( double a, double b, double c, double &r1, double &r2 );
 
@@ -138,6 +127,8 @@ void computeGradient( double dN_dxnp1o2[8],
 
 // This function is called for converting the jaumann rate to cauchy rate.
 void jaumannToCauchy( double Om[3][3], double Sg[3][3] );
-} // namespace AMP::Operator
+
+
+} // namespace AMP::Operator::UpdatedLagrangianUtils
 
 #endif

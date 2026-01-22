@@ -301,7 +301,7 @@ public:
     virtual Scalar localMax( const VectorData &x ) const = 0;
 
     /**
-     * \brief Return the local sumof the vector.
+     * \brief Return the local sum of the vector.
      */
     virtual Scalar localSum( const VectorData &x ) const = 0;
 

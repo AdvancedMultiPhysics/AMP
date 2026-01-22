@@ -6,7 +6,43 @@
 #include <iostream>
 
 
-namespace AMP::Operator {
+namespace AMP::Operator::UpdatedLagrangianUtils {
+
+
+static void vecSqrt( double val[3], double valSqrt[3] )
+{
+    for ( int i = 0; i < 3; i++ )
+        valSqrt[i] = std::sqrt( val[i] );
+}
+
+static void vecInv( double val[3], double valInv[3] )
+{
+    for ( int i = 0; i < 3; i++ )
+        valInv[i] = 1.0 / val[i];
+}
+
+static void vecScale( double c, std::array<double, 3> &vec )
+{
+    for ( int i = 0; i < 3; i++ )
+        vec[i] *= c;
+}
+
+static double vecDot( const std::array<double, 3> &a, const std::array<double, 3> &b )
+{
+    double dot = 0;
+    for ( int i = 0; i < 3; i++ )
+        dot += ( a[i] * b[i] );
+    return dot;
+}
+
+bool softEquals( double a, double b )
+{
+    bool res = false;
+    if ( fabs( a - b ) < 1.0e-12 )
+        res = true;
+    return res;
+}
+
 
 void polarDecomposeRU( double A[3][3], double R[3][3], double U[3][3] )
 {
@@ -84,7 +120,7 @@ void eigenVectors( double A[3][3], double val[3], double vec[3][3] )
                 vec[i][j] = 0.0;
                 vec[j][i] = 0.0;
             } // end for j
-        }     // end for i
+        } // end for i
     } else {
         int vecColCnt = 0;
         for ( auto &uniqVal : uniqVals ) {
@@ -95,7 +131,7 @@ void eigenVectors( double A[3][3], double val[3], double vec[3][3] )
                 B[j][j] = B[j][j] - uniqVal;
             } // end for j
 
-            std::vector<std::vector<double>> sols;
+            std::vector<std::array<double, 3>> sols;
             solveEquation( B, sols );
 
             for ( auto &sol : sols ) {
@@ -105,79 +141,48 @@ void eigenVectors( double A[3][3], double val[3], double vec[3][3] )
                 } // end for j
                 vecColCnt++;
             } // end for k
-        }     // end for i
+        } // end for i
         AMP_ASSERT( vecColCnt == 3 );
     }
 }
 
-void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols )
+void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols )
 {
-
     if ( softEquals( A[0][1], 0 ) ) {
         if ( softEquals( A[0][2], 0 ) ) {
             if ( softEquals( A[1][1], 0 ) ) {
                 if ( softEquals( A[1][2], 0 ) ) {
                     if ( softEquals( A[2][1], 0 ) ) {
                         if ( softEquals( A[2][2], 0 ) ) {
-                            std::vector<double> tmp( 3 );
-                            tmp[0] = 0;
-                            tmp[1] = 1;
-                            tmp[2] = 0;
-                            sols.push_back( tmp );
-                            tmp[1] = 0;
-                            tmp[2] = 1;
-                            sols.push_back( tmp );
+                            sols.push_back( { 0, 1, 0 } );
+                            sols.push_back( { 0, 0, 1 } );
                         } else {
-                            std::vector<double> tmp( 3 );
-                            tmp[0] = 0;
-                            tmp[1] = 1;
-                            tmp[2] = 0;
-                            sols.push_back( tmp );
+                            sols.push_back( { 0, 1, 0 } );
                         } // A22
                     } else {
-                        std::vector<double> tmp( 3 );
-                        tmp[0] = 0;
-                        tmp[1] = -A[2][2] / A[2][1];
-                        tmp[2] = 1;
-                        sols.push_back( tmp );
+                        sols.push_back( { 0, -A[2][2] / A[2][1], 1 } );
                     } // A21
                 } else {
                     if ( softEquals( A[2][1], 0 ) ) {
-                        std::vector<double> tmp( 3 );
-                        tmp[0] = 0;
-                        tmp[1] = 1;
-                        tmp[2] = 0;
-                        sols.push_back( tmp );
+                        sols.push_back( { 0, 1, 0 } );
                     } // A21
-                }     // A12
+                } // A12
             } else {
                 if ( softEquals( ( A[1][1] * A[2][2] ), ( A[1][2] * A[2][1] ) ) ) {
-                    std::vector<double> tmp( 3 );
-                    tmp[0] = 0;
-                    tmp[1] = -A[1][2] / A[1][1];
-                    tmp[2] = 1;
-                    sols.push_back( tmp );
+                    sols.push_back( { 0, -A[1][2] / A[1][1], 1 } );
                 }
             } // A11
         } else {
             if ( softEquals( A[1][1], 0 ) ) {
                 if ( softEquals( A[2][1], 0 ) ) {
-                    std::vector<double> tmp( 3 );
-                    tmp[0] = 0;
-                    tmp[1] = 1;
-                    tmp[2] = 0;
-                    sols.push_back( tmp );
+                    sols.push_back( { 0, 1, 0 } );
                 } // A21
-            }     // A11
-        }         // A02
+            } // A11
+        } // A02
     } else {
         if ( softEquals( ( A[1][2] * A[0][1] ), ( A[1][1] * A[0][2] ) ) ) {
             if ( softEquals( ( A[2][2] * A[0][1] ), ( A[2][1] * A[0][2] ) ) ) {
-                std::vector<double> tmp( 3 );
-                tmp[0] = 0;
-                tmp[1] = -A[0][2] / A[0][1];
-                tmp[2] = 1;
-                sols.push_back( tmp );
+                sols.push_back( { 0, -A[0][2] / A[0][1], 1 } );
             }
         }
     } // A01
@@ -191,72 +196,42 @@ void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols )
                             if ( softEquals( A[2][1], 0 ) ) {
                                 if ( softEquals( A[2][2], 0 ) ) {
                                     if ( softEquals( A[2][0], 0 ) ) {
-                                        std::vector<double> tmp( 3 );
-                                        tmp[0] = 1;
-                                        tmp[1] = 0;
-                                        tmp[2] = 0;
-                                        sols.push_back( tmp );
-                                        tmp[1] = 0;
-                                        tmp[2] = 1;
-                                        sols.push_back( tmp );
-                                        tmp[1] = 1;
-                                        tmp[2] = 0;
-                                        sols.push_back( tmp );
+                                        sols.push_back( { 1, 0, 0 } );
+                                        sols.push_back( { 1, 0, 1 } );
+                                        sols.push_back( { 1, 1, 0 } );
                                     } // A20
                                 } else {
-                                    std::vector<double> tmp( 3 );
-                                    tmp[0] = 1;
-                                    tmp[1] = 0;
-                                    tmp[2] = -A[2][0] / A[2][2];
-                                    sols.push_back( tmp );
-                                    tmp[1] = 1;
-                                    sols.push_back( tmp );
+                                    sols.push_back( { 1, 0, -A[2][0] / A[2][2] } );
+                                    sols.push_back( { 1, 1, -A[2][0] / A[2][2] } );
                                 } // A22
                             } else {
-                                std::vector<double> tmp( 3 );
-                                tmp[0] = 1;
-                                tmp[2] = 0;
-                                tmp[1] = -( A[2][0] + ( A[2][2] * tmp[2] ) ) / A[2][1];
-                                sols.push_back( tmp );
-                                tmp[2] = 1;
-                                tmp[1] = -( A[2][0] + ( A[2][2] * tmp[2] ) ) / A[2][1];
-                                sols.push_back( tmp );
+                                sols.push_back( { 1, -( A[2][0] ) / A[2][1], 0 } );
+                                sols.push_back( { 1, -( A[2][0] + A[2][2] ) / A[2][1], 1 } );
                             } // A21
-                        }     // A10
+                        } // A10
                     } else {
                         if ( softEquals( A[2][1], 0 ) ) {
                             if ( softEquals( ( A[2][2] * A[1][0] ), ( A[2][0] * A[1][2] ) ) ) {
-                                std::vector<double> tmp( 3 );
-                                tmp[0] = 1;
-                                tmp[1] = 0;
-                                tmp[2] = -A[1][0] / A[1][2];
-                                sols.push_back( tmp );
-                                tmp[1] = 1;
-                                sols.push_back( tmp );
+                                sols.push_back( { 1, 0, -A[1][0] / A[1][2] } );
+                                sols.push_back( { 1, 1, -A[1][0] / A[1][2] } );
                             }
                         } else {
-                            std::vector<double> tmp( 3 );
+                            std::array<double, 3> tmp;
                             tmp[0] = 1;
                             tmp[1] = ( ( A[2][2] * A[1][0] ) - ( A[2][0] * A[1][2] ) ) /
                                      ( A[1][2] * A[2][1] );
                             tmp[2] = -A[1][0] / A[1][2];
                             sols.push_back( tmp );
                         } // A21
-                    }     // A12
+                    } // A12
                 } else {
                     if ( softEquals( ( A[1][1] * A[2][2] ), ( A[2][1] * A[1][2] ) ) ) {
                         if ( softEquals( ( A[1][1] * A[2][0] ), ( A[2][1] * A[1][0] ) ) ) {
-                            std::vector<double> tmp( 3 );
-                            tmp[0] = 1;
-                            tmp[2] = 0;
-                            tmp[1] = -( A[1][0] + ( A[1][2] * tmp[2] ) ) / A[1][1];
-                            sols.push_back( tmp );
-                            tmp[2] = 1;
-                            tmp[1] = -( A[1][0] + ( A[1][2] * tmp[2] ) ) / A[1][1];
-                            sols.push_back( tmp );
+                            sols.push_back( { 1, -( A[1][0] ) / A[1][1], 0 } );
+                            sols.push_back( { 1, -( A[1][0] + A[1][2] ) / A[1][1], 1 } );
                         }
                     } else {
-                        std::vector<double> tmp( 3 );
+                        std::array<double, 3> tmp;
                         tmp[0] = 1;
                         tmp[2] = ( ( A[2][1] * A[1][0] ) - ( A[2][0] * A[1][1] ) ) /
                                  ( ( A[2][2] * A[1][1] ) - ( A[2][1] * A[1][2] ) );
@@ -264,10 +239,10 @@ void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols )
                         sols.push_back( tmp );
                     }
                 } // A11
-            }     // A00
+            } // A00
         } else {
             if ( softEquals( A[1][1], 0 ) ) {
-                std::vector<double> tmp( 3 );
+                std::array<double, 3> tmp;
                 tmp[0] = 1;
                 tmp[2] = -A[0][0] / A[0][2];
                 if ( softEquals( ( A[1][2] * tmp[2] ), -A[1][0] ) ) {
@@ -284,7 +259,7 @@ void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols )
                     } // A21
                 }
             } else {
-                std::vector<double> tmp( 3 );
+                std::array<double, 3> tmp;
                 tmp[0] = 1;
                 tmp[2] = -A[0][0] / A[0][2];
                 tmp[1] = -( A[1][0] + ( A[1][2] * tmp[2] ) ) / A[1][1];
@@ -292,10 +267,8 @@ void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols )
                     sols.push_back( tmp );
                 }
             } // A11
-        }     // A02
+        } // A02
     } else {
-        std::vector<double> tmp( 3 );
-        tmp[0]   = 1;
         double b = A[1][2] - ( A[1][1] * A[0][2] / A[0][1] );
         double c = ( A[0][0] * A[1][1] / A[0][1] ) - A[1][0];
         double d = A[2][2] - ( A[2][1] * A[0][2] / A[0][1] );
@@ -304,22 +277,17 @@ void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols )
             if ( softEquals( c, 0 ) ) {
                 if ( softEquals( d, 0 ) ) {
                     if ( softEquals( e, 0 ) ) {
-                        tmp[2] = 0;
-                        tmp[1] = -( ( A[0][2] * tmp[2] ) + A[0][0] ) / A[0][1];
-                        sols.push_back( tmp );
-                        tmp[2] = 1;
-                        tmp[1] = -( ( A[0][2] * tmp[2] ) + A[0][0] ) / A[0][1];
-                        sols.push_back( tmp );
+                        sols.push_back( { 1, -( A[0][0] ) / A[0][1], 0 } );
+                        sols.push_back( { 1, -( A[0][2] + A[0][0] ) / A[0][1], 1 } );
                     }
                 } else {
-                    tmp[2] = e / d;
-                    tmp[1] = -( ( A[0][2] * tmp[2] ) + A[0][0] ) / A[0][1];
-                    sols.push_back( tmp );
+                    sols.push_back( { 1, -( ( A[0][2] * e / d ) + A[0][0] ) / A[0][1], e / d } );
                 }
             }
         } else {
-            tmp[2] = c / b;
-            tmp[1] = -( ( A[0][2] * tmp[2] ) + A[0][0] ) / A[0][1];
+            std::array<double, 3> tmp = { 1, 0, 0 };
+            tmp[2]                    = c / b;
+            tmp[1]                    = -( ( A[0][2] * tmp[2] ) + A[0][0] ) / A[0][1];
             if ( softEquals( ( d * tmp[2] ), e ) ) {
                 sols.push_back( tmp );
             }
@@ -329,19 +297,19 @@ void solveEquation( double A[3][3], std::vector<std::vector<double>> &sols )
     orthonormalize( sols );
 }
 
-void orthonormalize( std::vector<std::vector<double>> &vecs )
+void orthonormalize( std::vector<std::array<double, 3>> &vecs )
 {
-    std::vector<std::vector<double>> res;
+    std::vector<std::array<double, 3>> res;
     for ( auto &vec : vecs ) {
-        double tmp[] = { 0, 0, 0 };
+        double tmp[3] = { 0, 0, 0 };
         for ( auto &re : res ) {
             double dot1 = vecDot( vec, re );
             for ( int k = 0; k < 3; k++ ) {
                 tmp[k] += ( dot1 * re[k] );
             } // end for k
-        }     // end for j
+        } // end for j
 
-        std::vector<double> newVec( 3 );
+        std::array<double, 3> newVec;
         for ( int k = 0; k < 3; k++ ) {
             newVec[k] = vec[k] - tmp[k];
         } // end for k
@@ -444,7 +412,7 @@ void matTranspose( double A[3][3], double B[3][3] )
         for ( int j = 0; j < 3; j++ ) {
             B[i][j] = A[j][i];
         } // end for j
-    }     // end for i
+    } // end for i
 }
 
 void matInverse( double A[3][3], double B[3][3] )
@@ -485,7 +453,7 @@ void matScale( double A[3][3], double c )
         for ( int j = 0; j < 3; j++ ) {
             A[i][j] *= c;
         } // end for j
-    }     // end for i
+    } // end for i
 }
 
 double matDeterminant( double A[3][3] )
@@ -507,8 +475,8 @@ void matMatMultiply( double A[3][3], double B[3][3], double C[3][3] )
             for ( int k = 0; k < 3; k++ ) {
                 C[i][j] += ( A[i][k] * B[k][j] );
             } // end for k
-        }     // end for j
-    }         // end for i
+        } // end for j
+    } // end for i
 }
 
 void matVecMultiply( double A[3][3], double b[3], double c[3] )
@@ -535,64 +503,8 @@ void matCopy( double A[3][3], double B[3][3] )
         for ( int j = 0; j < 3; j++ ) {
             B[i][j] = A[i][j];
         } // end for j
-    }     // end for i
+    } // end for i
 }
-
-void vecSqrt( double val[3], double valSqrt[3] )
-{
-    for ( int i = 0; i < 3; i++ ) {
-        valSqrt[i] = std::sqrt( val[i] );
-    }
-}
-
-void vecInv( double val[3], double valInv[3] )
-{
-    for ( int i = 0; i < 3; i++ ) {
-        valInv[i] = 1.0 / val[i];
-    }
-}
-
-void vecScale( double c, double vec[3] )
-{
-    for ( int i = 0; i < 3; i++ ) {
-        vec[i] *= c;
-    }
-}
-
-void vecScale( double c, std::vector<double> &vec )
-{
-    for ( int i = 0; i < 3; i++ ) {
-        vec[i] *= c;
-    }
-}
-
-double vecDot( double a[3], double b[3] )
-{
-    double dot = 0;
-    for ( int i = 0; i < 3; i++ ) {
-        dot += ( a[i] * b[i] );
-    }
-    return dot;
-}
-
-double vecDot( const std::vector<double> &a, const std::vector<double> &b )
-{
-    double dot = 0;
-    for ( int i = 0; i < 3; i++ ) {
-        dot += ( a[i] * b[i] );
-    }
-    return dot;
-}
-
-bool softEquals( double a, double b )
-{
-    bool res = false;
-    if ( fabs( a - b ) < 1.0e-12 ) {
-        res = true;
-    }
-    return res;
-}
-
 
 /* Utils for pushback and pullforwards */
 
@@ -984,4 +896,6 @@ void jaumannToCauchy( double Om[3][3], double Sg[3][3] )
         }
     }
 }
-} // namespace AMP::Operator
+
+
+} // namespace AMP::Operator::UpdatedLagrangianUtils

@@ -124,11 +124,11 @@ template<class T>
 using FUN1 = std::function<T( const T & )>;
 template<class T>
 using FUN2 = std::function<T( const T &, const T & )>;
-#define INSTANTIATE( T )                                                                          \
-    template class AMP::FunctionTable<T>;                                                         \
-    template void AMP::FunctionTable<T>::transform<FUN1<T>>( FUN1<T> &, size_t, const T *, T * ); \
-    template void AMP::FunctionTable<T>::transform<FUN2<T>>(                                      \
-        FUN2<T> &, size_t, const T *, const T *, T * )
+#define INSTANTIATE( T )                                                                        \
+    template class AMP::FunctionTable<T>;                                                       \
+    template void AMP::FunctionTable<T>::transform<FUN1<T>>( FUN1<T>, size_t, const T *, T * ); \
+    template void AMP::FunctionTable<T>::transform<FUN2<T>>(                                    \
+        FUN2<T>, size_t, const T *, const T *, T * )
 INSTANTIATE( bool );
 INSTANTIATE( char );
 INSTANTIATE( uint8_t );

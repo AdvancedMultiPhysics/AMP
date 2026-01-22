@@ -2,7 +2,11 @@
 #include "AMP/utils/Utilities.h"
 
 
+using namespace AMP::Operator::UpdatedLagrangianUtils;
+
+
 namespace AMP::Operator {
+
 
 void MechanicsNonlinearUpdatedLagrangianElement::computeStressAndStrain(
     const std::vector<std::vector<double>> &elemInputVec,
@@ -612,7 +616,7 @@ void MechanicsNonlinearUpdatedLagrangianElement::apply_Normal()
                 elementOutputVector[( 3 * j ) + d] += detJ[0] * tmp;
 
             } // end for d
-        }     // end for j
+        } // end for j
 
         d_materialModel->postNonlinearAssemblyGaussPointOperation();
     } // end for qp
@@ -1031,7 +1035,7 @@ void MechanicsNonlinearUpdatedLagrangianElement::apply_Reduced()
 
                 elementOutputVector[( 3 * j ) + d] += detJ[0] * tmp;
             } // end for d
-        }     // end for j
+        } // end for j
 
         d_materialModel->postNonlinearAssemblyGaussPointOperation();
     } // end for qp

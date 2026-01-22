@@ -46,6 +46,95 @@ static double getTol( const Vector &x )
 }
 
 
+template<typename T>
+static void both_VectorIteratorTests( Vector::shared_ptr p, AMP::UnitTest *utils )
+{
+    int kk = p->getLocalSize();
+    if ( ( p->end<T>() - p->begin<T>() ) == (int) p->getLocalSize() )
+        utils->passes( "Subtracting begin from end " );
+    else
+        utils->failure( "Subtracting begin from end " );
+
+    if ( (int) ( p->begin<T>() - p->end<T>() ) == -(int) p->getLocalSize() )
+        utils->passes( "Subtracting end from beginning " );
+    else
+        utils->failure( "Subtracting end from beginning " );
+
+    auto cur1 = p->begin<T>();
+    auto cur2 = p->begin<T>();
+    auto end  = p->end<T>();
+    ++cur1;
+    ++cur2;
+    int i = 0;
+    while ( cur2 != end ) {
+        if ( i == 10 )
+            break;
+        ++cur2;
+        i++;
+    }
+    int tt = ( cur2 - cur1 );
+    if ( i == tt )
+        utils->passes( "Subtracting arbitrary iterators " );
+    else
+        utils->failure( "Subtracting arbitrary iterators " );
+
+    p->setToScalar( 5.0 );
+    i = 0;
+    for ( cur1 = p->begin<T>(); cur1 != end; ++cur1 ) {
+        if ( ( *cur1 ) != 5.0 )
+            break;
+        i++;
+    }
+    if ( i == (int) p->getLocalSize() )
+        utils->passes( "Iterating data access " );
+    else
+        utils->failure( "Iterating data access" );
+
+    cur1 = end;
+    i    = 0;
+    do {
+        --cur1;
+        if ( ( *cur1 ) != 5.0 )
+            break;
+        i++;
+    } while ( cur1 != p->begin<T>() );
+
+    if ( i == kk )
+        utils->passes( "Iterating backward data access" );
+    else
+        utils->failure( "Iterating backward data access" );
+
+    if ( p->getLocalSize() > 7 ) {
+        cur1 = p->begin<T>();
+        cur2 = cur1 + 5;
+        if ( ( cur2 - cur1 ) == 5 )
+            utils->passes( "Adding and subtracting" );
+        else
+            utils->failure( "Adding and subtracting" );
+        i = 0;
+        while ( cur2 != end ) {
+            i++;
+            ++cur2;
+        }
+        if ( i == ( (int) p->getLocalSize() - 5 ) )
+            utils->passes( "Adding and iterating" );
+        else
+            utils->failure( "Adding and iterating" );
+
+        cur1 += 5;
+        i = 0;
+        while ( cur1 != end ) {
+            i++;
+            ++cur1;
+        }
+        if ( i == ( (int) p->getLocalSize() - 5 ) )
+            utils->passes( "Add-equal and iterating" );
+        else
+            utils->failure( "Add-equal and iterating" );
+    }
+}
+
+
 void VectorTests::InstantiateVector( AMP::UnitTest *ut )
 {
     PROFILE( "InstantiateVector" );
@@ -77,7 +166,7 @@ void VectorTests::CopyVectorConsistency( AMP::UnitTest *ut )
         PASS_FAIL( std::equal( t1, t1 + numGhosts, t2 ), "Ghosts are the same (1)" );
     }
 
-    vec1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vec1->makeConsistent( ScatterType::CONSISTENT_SET );
     vec3->copyVector( vec1 );
     if ( numGhosts ) {
         vec1->getValuesByGlobalID( numGhosts, ndx, t1 );
@@ -103,7 +192,7 @@ void VectorTests::Bug_728( AMP::UnitTest *ut )
 }
 
 template<typename T>
-bool vectorValuesNotEqual( AMP::LinearAlgebra::Vector::shared_ptr vector, T val )
+bool vectorValuesNotEqual( Vector::shared_ptr vector, T val )
 {
     PROFILE( "vectorValuesNotEqual" );
     bool fail   = false;
@@ -124,7 +213,7 @@ void VectorTests::SetToScalarVector( AMP::UnitTest *ut )
     PROFILE( "SetToScalarVector" );
     auto vector = d_factory->getVector();
     vector->setToScalar( 0. );
-    vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector->makeConsistent( ScatterType::CONSISTENT_SET );
     ut->passes( "setToScalar ran to completion " + d_factory->name() );
     bool fail = false;
     if ( vector->getVectorData()->isType<double>() ) {
@@ -142,7 +231,7 @@ void VectorTests::SetToScalarVector( AMP::UnitTest *ut )
     PASS_FAIL( !fail, "Set data to 0" );
     fail = false;
     vector->setToScalar( 5. );
-    vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector->makeConsistent( ScatterType::CONSISTENT_SET );
     if ( vector->getVectorData()->isType<double>() ) {
         fail = vectorValuesNotEqual<double>( vector, 5.0 );
     } else if ( vector->getVectorData()->isType<float>() ) {
@@ -280,7 +369,7 @@ void VectorTests::AbsVector( AMP::UnitTest *ut )
     vec2->copyVector( vec1 );
     vec2->scale( -1.0 );
     vec2->abs( *vec2 );
-    vec2->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vec2->makeConsistent( ScatterType::CONSISTENT_SET );
     PASS_FAIL( vec1->equals( *vec2 ), "Abs" );
 }
 
@@ -377,9 +466,7 @@ void VectorTests::MaxNormVector( AMP::UnitTest *ut )
 }
 
 template<typename TYPE>
-bool scaleTest( AMP::LinearAlgebra::Vector::shared_ptr vector1,
-                AMP::LinearAlgebra::Vector::shared_ptr vector2,
-                TYPE beta )
+bool scaleTest( Vector::shared_ptr vector1, Vector::shared_ptr vector2, TYPE beta )
 {
     PROFILE( "scaleTest" );
     bool pass     = true;
@@ -403,7 +490,7 @@ void VectorTests::ScaleVector( AMP::UnitTest *ut )
     double beta = 1.2345;
     vector2->setRandomValues();
     vector1->scale( beta, *vector2 );
-    vector1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector1->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() &&
          vector2->getVectorData()->isType<double>() ) {
@@ -423,7 +510,7 @@ void VectorTests::ScaleVector( AMP::UnitTest *ut )
     PASS_FAIL( pass, "scale vector 1" );
     vector2->scale( beta );
     vector1->subtract( *vector2, *vector1 );
-    vector1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector1->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vector1 );
     PASS_FAIL( vector1->maxNorm() < tol, "scale vector 2" );
 }
@@ -436,10 +523,9 @@ void VectorTests::Bug_491( [[maybe_unused]] AMP::UnitTest *ut )
     auto vector1( d_factory->getVector() );
     if ( vector1->getVectorData()->isType<PetscReal>() ) {
         vector1->setRandomValues();
-        auto managed_petsc = AMP::LinearAlgebra::PetscVector::view( vector1 );
-        auto petsc_vec =
-            std::dynamic_pointer_cast<AMP::LinearAlgebra::PetscVector>( managed_petsc );
-        Vec managed_vec = petsc_vec->getVec();
+        auto managed_petsc = PetscVector::view( vector1 );
+        auto petsc_vec     = std::dynamic_pointer_cast<PetscVector>( managed_petsc );
+        Vec managed_vec    = petsc_vec->getVec();
 
 
         // This sets the petsc cache
@@ -489,9 +575,9 @@ void VectorTests::Bug_491( [[maybe_unused]] AMP::UnitTest *ut )
 
 
 template<typename T, typename BinaryOperator>
-bool binaryOpTest( AMP::LinearAlgebra::Vector::shared_ptr vector1,
-                   AMP::LinearAlgebra::Vector::shared_ptr vector2,
-                   AMP::LinearAlgebra::Vector::shared_ptr vector3,
+bool binaryOpTest( Vector::shared_ptr vector1,
+                   Vector::shared_ptr vector2,
+                   Vector::shared_ptr vector3,
                    BinaryOperator op )
 {
     PROFILE( "binaryOpTest" );
@@ -519,7 +605,7 @@ void VectorTests::AddVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->add( *vector1, *vector2 );
-    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector3->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -555,7 +641,7 @@ void VectorTests::SubtractVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->subtract( *vector1, *vector2 );
-    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector3->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -581,7 +667,7 @@ void VectorTests::SubtractVector( AMP::UnitTest *ut )
     vector2->scale( -1. );
     vector4->add( *vector1, *vector2 );
     vector4->subtract( *vector3, *vector4 );
-    vector4->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector4->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vector1 );
     PASS_FAIL( vector4->maxNorm() < tol, "vector subtract 2" );
 }
@@ -596,7 +682,7 @@ void VectorTests::MultiplyVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setToScalar( 3. );
     vector3->multiply( *vector1, *vector2 );
-    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector3->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -631,7 +717,7 @@ void VectorTests::DivideVector( AMP::UnitTest *ut )
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->divide( *vector1, *vector2 );
-    vector3->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vector3->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
     if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
          vector3->getVectorData()->isType<double>() ) {
@@ -689,19 +775,25 @@ void VectorTests::VectorIteratorTests( AMP::UnitTest *ut )
     PROFILE( "VectorIteratorTests" );
     auto vector1 = d_factory->getVector();
     if ( vector1->getVectorData()->isType<double>() ) {
-        both_VectorIteratorTests<double, AMP::LinearAlgebra::VectorDataIterator<double>>( vector1,
-                                                                                          ut );
-        both_VectorIteratorTests<const double,
-                                 AMP::LinearAlgebra::VectorDataIterator<const double>>( vector1,
-                                                                                        ut );
+        both_VectorIteratorTests<double>( vector1, ut );
+        both_VectorIteratorTests<const double>( vector1, ut );
     } else if ( vector1->getVectorData()->isType<float>() ) {
-        both_VectorIteratorTests<float, AMP::LinearAlgebra::VectorDataIterator<float>>( vector1,
-                                                                                        ut );
-        both_VectorIteratorTests<const float, AMP::LinearAlgebra::VectorDataIterator<const float>>(
-            vector1, ut );
+        both_VectorIteratorTests<float>( vector1, ut );
+        both_VectorIteratorTests<const float>( vector1, ut );
     } else {
         AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
     }
+}
+
+
+void VectorTests::VerifyVectorSum( AMP::UnitTest *ut )
+{
+    PROFILE( "VerifyVectorSum" );
+    auto vec = d_factory->getVector();
+    vec->setRandomValues();
+    double sum( vec->sum() );
+    double norm( vec->L1Norm() );
+    PASS_FAIL( fabs( sum - norm ) < 1.e-10 * norm, "sum matches L1 norm" );
 }
 
 
@@ -713,7 +805,10 @@ void VectorTests::VerifyVectorMin( AMP::UnitTest *ut )
     vec->scale( -1.0 ); // make negative
     double min( vec->min() );
     double norm( vec->maxNorm() );
-    PASS_FAIL( fabs( min + norm ) < 1.e-10, "minimum of negative vector == ||.||_infty" );
+    PASS_FAIL( fabs( min + norm ) < 1.e-10 * norm, "minimum of negative vector == ||.||_infty" );
+    vec->setMin( -0.5 );
+    min = static_cast<double>( vec->min() );
+    PASS_FAIL( min >= -0.5, "setMin" );
 }
 
 
@@ -724,7 +819,10 @@ void VectorTests::VerifyVectorMax( AMP::UnitTest *ut )
     vec->setRandomValues();
     double max( vec->max() );
     double norm( vec->maxNorm() );
-    PASS_FAIL( fabs( max - norm ) < 1.e-10, "maximum of positive vector == ||.||_infty" );
+    PASS_FAIL( fabs( max - norm ) < 1.e-10 * norm, "maximum of positive vector == ||.||_infty" );
+    vec->setMax( 0.5 );
+    max = static_cast<double>( vec->max() );
+    PASS_FAIL( max <= 0.5, "setMax" );
 }
 
 
@@ -779,7 +877,7 @@ void VectorTests::ReciprocalVector( AMP::UnitTest *ut )
     vector1->setToScalar( 1. );
     vectorc->divide( *vector1, *vectora );
     vectord->subtract( *vectorb, *vectorc );
-    vectord->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vectord->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vectora );
     PASS_FAIL( vectord->maxNorm() < tol, "vector::reciprocal" );
 }
@@ -803,7 +901,7 @@ static void LinearSumVectorRun( std::shared_ptr<const VectorFactory> d_factory,
     vectorb->scale( beta );
     vectord->add( *vectora, *vectorb );
     vectord->subtract( *vectorc, *vectord );
-    vectord->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vectord->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vectora );
     PASS_FAIL( vectord->maxNorm() < tol, msg );
 }
@@ -832,7 +930,7 @@ static void AxpyVectorRun( std::shared_ptr<const VectorFactory> d_factory,
     vectorc->linearSum( alpha, *vectora, 1., *vectorb );
     vectord->axpy( alpha, *vectora, *vectorb );
     vectorc->subtract( *vectorc, *vectord );
-    vectorc->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    vectorc->makeConsistent( ScatterType::CONSISTENT_SET );
     double err = static_cast<double>( vectorc->maxNorm() );
     double tol = 10 * getTol( *vectora );
     PASS_FAIL( err < tol, msg );
@@ -847,11 +945,11 @@ void VectorTests::AxpyVector( AMP::UnitTest *ut )
 template<typename T>
 static void AxpbyVectorRun( T alpha,
                             T beta,
-                            AMP::LinearAlgebra::Vector::shared_ptr vectora,
-                            AMP::LinearAlgebra::Vector::shared_ptr vectorb,
-                            AMP::LinearAlgebra::Vector::shared_ptr vectorb1,
-                            AMP::LinearAlgebra::Vector::shared_ptr vectorc,
-                            AMP::LinearAlgebra::Vector::shared_ptr vectord )
+                            Vector::shared_ptr vectora,
+                            Vector::shared_ptr vectorb,
+                            Vector::shared_ptr vectorb1,
+                            Vector::shared_ptr vectorc,
+                            Vector::shared_ptr vectord )
 {
     PROFILE( "AxpbyVectorRun" );
     vectorb1->linearSum( alpha, *vectora, beta, *vectorb );
@@ -937,9 +1035,9 @@ void VectorTests::CopyVector( AMP::UnitTest *ut )
         AMP_ERROR( "CopyVector tests not implemented for provided scalar TYPE" );
     }
 
-    auto simple1 = AMP::LinearAlgebra::createSimpleVector<double>(
+    auto simple1 = createSimpleVector<double>(
         vectora->getLocalSize(), vectora->getVariable(), vectora->getComm() );
-    auto simple2 = AMP::LinearAlgebra::createSimpleVector<float>(
+    auto simple2 = createSimpleVector<float>(
         vectora->getLocalSize(), vectora->getVariable(), vectora->getComm() );
     simple1->copyVector( vectora );
     simple2->copyVector( vectora );
@@ -1014,7 +1112,7 @@ void VectorTests::VerifyVectorSetZeroGhosts( AMP::UnitTest *ut )
 void VectorTests::VerifyVectorMakeConsistentAdd( AMP::UnitTest *ut )
 {
     PROFILE( "VerifyVectorMakeConsistentAdd" );
-    using UpdateState = AMP::LinearAlgebra::UpdateState;
+    using UpdateState = UpdateState;
     AMP_MPI globalComm( AMP_COMM_WORLD );
     auto vector = d_factory->getVector();
     auto dofmap = vector->getDOFManager();
@@ -1054,7 +1152,7 @@ void VectorTests::VerifyVectorMakeConsistentAdd( AMP::UnitTest *ut )
     }
 
     // Perform a makeConsistent ADD and check the result
-    vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    vector->makeConsistent( ScatterType::CONSISTENT_ADD );
     if ( vector->getUpdateStatus() != UpdateState::UNCHANGED )
         ut->failure( "makeConsistent leaves vector in UpdateState::UNCHANGED state " +
                      d_factory->name() );
@@ -1069,7 +1167,7 @@ void VectorTests::VerifyVectorMakeConsistentSet( AMP::UnitTest *ut )
 
     // Zero the vector
     vector->zero();
-    if ( vector->getUpdateStatus() != AMP::LinearAlgebra::UpdateState::UNCHANGED )
+    if ( vector->getUpdateStatus() != UpdateState::UNCHANGED )
         ut->failure( "zero leaves vector in UpdateState::UNCHANGED state " + d_factory->name() );
 
     // Set and add local values by global id (this should not interfere with the add)
@@ -1078,7 +1176,7 @@ void VectorTests::VerifyVectorMakeConsistentSet( AMP::UnitTest *ut )
         vector->setValuesByGlobalID( 1, &i, &val );
         vector->addValuesByGlobalID( 1, &i, &val );
     }
-    if ( vector->getUpdateStatus() != AMP::LinearAlgebra::UpdateState::LOCAL_CHANGED )
+    if ( vector->getUpdateStatus() != UpdateState::LOCAL_CHANGED )
         ut->failure( "local set/add leaves vector in UpdateState::LOCAL_CHANGED state " +
                      d_factory->name() + " - " + vector->type() );
 
@@ -1087,15 +1185,15 @@ void VectorTests::VerifyVectorMakeConsistentSet( AMP::UnitTest *ut )
         const auto val = double( i );
         vector->setValuesByGlobalID( 1, &i, &val );
     }
-    if ( vector->getUpdateStatus() != AMP::LinearAlgebra::UpdateState::LOCAL_CHANGED &&
-         vector->getUpdateStatus() != AMP::LinearAlgebra::UpdateState::SETTING )
+    if ( vector->getUpdateStatus() != UpdateState::LOCAL_CHANGED &&
+         vector->getUpdateStatus() != UpdateState::SETTING )
         ut->failure( "setValueByGlobalID leaves vector in UpdateState::SETTING or "
                      "UpdateState::LOCAL_CHANGED state " +
                      d_factory->name() );
 
     // Perform a makeConsistent SET and check the result
-    vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    if ( vector->getUpdateStatus() != AMP::LinearAlgebra::UpdateState::UNCHANGED )
+    vector->makeConsistent( ScatterType::CONSISTENT_SET );
+    if ( vector->getUpdateStatus() != UpdateState::UNCHANGED )
         ut->failure( "makeConsistent leaves vector in UpdateState::UNCHANGED state " +
                      d_factory->name() );
     if ( vector->getGhostSize() > 0 ) {
@@ -1146,14 +1244,14 @@ void VectorTests::TestMultivectorDuplicate( AMP::UnitTest *ut )
     PROFILE( "TestMultivectorDuplicate" );
     auto vec0 = d_factory->getVector();
     // Create a multivector
-    auto var      = std::make_shared<AMP::LinearAlgebra::Variable>( "multivec" );
-    auto multiVec = AMP::LinearAlgebra::MultiVector::create( var, vec0->getComm() );
+    auto var      = std::make_shared<Variable>( "multivec" );
+    auto multiVec = MultiVector::create( var, vec0->getComm() );
     // Add different views of vec0
     multiVec->addVector( vec0 );
     multiVec->addVector( vec0 );
     multiVec->addVector( multiVec->getVector( 0 ) );
-    auto var2 = std::make_shared<AMP::LinearAlgebra::Variable>( "vec2" );
-    multiVec->addVector( AMP::LinearAlgebra::MultiVector::create( var2, vec0->getComm() ) );
+    auto var2 = std::make_shared<Variable>( "vec2" );
+    multiVec->addVector( MultiVector::create( var2, vec0->getComm() ) );
     // Verify the size of the multivector
     auto dof1 = vec0->getDOFManager();
     auto dof2 = multiVec->getDOFManager();
