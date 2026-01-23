@@ -787,8 +787,13 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::removeRange not defined for symbolic matrices" );
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::removeRange not implemented on device yet" );
+#warning Come back and implement this on device
+
+    if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+        AMP_WARN_ONCE( "CSRLocalMatrixData::removeRange not on device yet, skipping" );
+        return;
+    }
+
     if ( d_is_empty ) {
         return;
     }

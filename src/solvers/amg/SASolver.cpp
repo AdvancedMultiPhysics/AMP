@@ -231,7 +231,7 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
         op_db->putScalar<std::string>( "memory_location", "managed" );
     } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        AMP_ERROR( "SASolver: Only host/managed memory is supported currently" );
+        op_db->putScalar<std::string>( "memory_location", "device" );
     } else {
         // unreachable from test above
         AMP_ERROR( "SASolver: Unrecognized memory space" );
