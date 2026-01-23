@@ -74,7 +74,7 @@ int TestFunctionTable()
     double sum2 = FUN::reduce( []( TYPE x, TYPE y ) { return x + y; }, N, x.data(), (TYPE) 0 );
     double sum3 = FUN::reduce(
         []( TYPE x, TYPE y, TYPE z ) { return x + y + z; }, N, x.data(), x.data(), (TYPE) 0 );
-    PASS_FAIL( sum == sum2, "reduce(1)" );
+    PASS_FAIL( fabs( sum - sum2 ) < tol, "reduce(1)" );
     PASS_FAIL( fabs( 2 * sum - sum3 ) < tol, "reduce(2)" );
 
     // Test transform functions

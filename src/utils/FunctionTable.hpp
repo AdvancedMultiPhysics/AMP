@@ -149,22 +149,11 @@ void FunctionTable<TYPE>::transform( LAMBDA fun, size_t N, const TYPE *x, const 
  *  axpy                                                 *
  ********************************************************/
 template<class TYPE>
-void call_axpy( size_t N, const TYPE alpha, const TYPE *x, TYPE *y );
-template<>
-void call_axpy<float>( size_t N, const float alpha, const float *x, float *y );
-template<>
-void call_axpy<double>( size_t N, const double alpha, const double *x, double *y );
-template<class TYPE>
-void call_axpy( size_t N, const TYPE alpha, const TYPE *x, TYPE *y )
-{
-    for ( size_t i = 0; i < N; i++ )
-        y[i] += alpha * x[i];
-}
-template<class TYPE>
 void FunctionTable<TYPE>::axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
     if constexpr ( is_numeric_v<TYPE> ) {
-        call_axpy( N, alpha, x, y );
+        for ( size_t i = 0; i < N; i++ )
+            y[i] += alpha * x[i];
     } else {
         AMP_ERROR( "axpy not implemented" );
     }
@@ -174,7 +163,8 @@ void FunctionTable<TYPE>::axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta,
 {
     if constexpr ( is_numeric_v<TYPE> ) {
         if ( beta == TYPE( 1 ) ) {
-            axpy( alpha, N, x, y );
+            for ( size_t i = 0; i < N; i++ )
+                y[i] += alpha * x[i];
         } else {
             for ( size_t i = 0; i < N; i++ )
                 y[i] = alpha * x[i] + beta * y[i];
