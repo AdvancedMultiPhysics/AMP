@@ -70,19 +70,16 @@ struct classical_strength {
     }
 
     template<class T>
-    AMP_FUNCTION static auto is_strong( T strongest_connection, float threshold, T )
+    AMP_FUNCTION static bool is_strong( T strongest_connection, float threshold, T, T, T val )
     {
-        return AMP_LAMBDA( T val, T )
-        {
-            if ( strongest_connection == 0 )
-                return false;
-            if constexpr ( norm_type == norm::min ) {
-                return -val >= threshold * strongest_connection;
-            } else {
-                const auto aval = AMP_FABS( val );
-                return aval >= threshold * strongest_connection;
-            }
-        };
+        if ( strongest_connection == 0 )
+            return false;
+        if constexpr ( norm_type == norm::min ) {
+            return -val >= threshold * strongest_connection;
+        } else {
+            const auto aval = AMP_FABS( val );
+            return aval >= threshold * strongest_connection;
+        }
     }
 };
 
@@ -108,21 +105,18 @@ struct symagg_strength {
     }
 
     template<class T>
-    AMP_FUNCTION static auto is_strong( T, float threshold, T Aii )
+    AMP_FUNCTION static bool is_strong( T, float threshold, T Aii, T Ajj, T val )
     {
-        return AMP_LAMBDA( T val, T Ajj )
-        {
-            // square whole test expression to avoid needing device sqrt
-            const auto Fii = AMP_FABS( Aii );
-            const auto Fjj = AMP_FABS( Ajj );
+        // square whole test expression to avoid needing device sqrt
+        const auto Fii = AMP_FABS( Aii );
+        const auto Fjj = AMP_FABS( Ajj );
 
-            const bool abs_strong = ( val * val >= threshold * threshold * Fii * Fjj );
-            if constexpr ( norm_type == norm::min ) {
-                return abs_strong && val < 0.0;
-            } else {
-                return abs_strong;
-            }
-        };
+        const bool abs_strong = ( val * val >= threshold * threshold * Fii * Fjj );
+        if constexpr ( norm_type == norm::min ) {
+            return abs_strong && val < 0.0;
+        } else {
+            return abs_strong;
+        }
     }
 };
 
@@ -178,13 +172,11 @@ __global__ void compute_soc_device( StrengthPolicy,
         const auto strongest_connection =
             strongest_diag > strongest_offd ? strongest_diag : strongest_offd;
 
-        // strength test lambda
-        auto is_strong = StrengthPolicy::template is_strong<const scalar_t>(
-            strongest_connection, threshold, Aii );
-
         for ( lidx_t n = rs_diag; n < re_diag; ++n ) {
-            const auto Ajj   = vals_diag[cols_loc_diag[n]];
-            strength_diag[n] = is_strong( vals_diag[n], Ajj ) ? 1 : 0;
+            const auto Ajj = vals_diag[cols_loc_diag[n]];
+            const bool str = StrengthPolicy::template is_strong<const scalar_t>(
+                strongest_connection, threshold, Aii, Ajj, vals_diag[n] );
+            strength_diag[n] = str ? 1 : 0;
         }
     }
 }
@@ -236,13 +228,12 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
                     strongest_connection,
                     StrengthPolicy::template strongest<const scalar_t>( get_vals( A.diag(), r ) ) );
 
-            auto is_strong = StrengthPolicy::template is_strong<const scalar_t>(
-                strongest_connection, threshold, Aii );
             auto fill_strength = [&]( auto vals, auto cols, auto strength ) {
                 for ( std::size_t i = 0; i < vals.size(); ++i ) {
                     const scalar_t Ajj = get_diag_val( cols[i] );
-                    AMP_ASSERT( Ajj > 0 );
-                    strength[i] = is_strong( vals[i], Ajj ) ? 1 : 0;
+                    const bool str     = StrengthPolicy::template is_strong<const scalar_t>(
+                        strongest_connection, threshold, Aii, Ajj, vals[i] );
+                    strength[i] = str ? 1 : 0;
                 }
             };
 

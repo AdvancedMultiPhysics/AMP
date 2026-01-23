@@ -276,7 +276,7 @@ int MIS2Aggregator::classifyVerticesHost(
 
     // now loop until worklist is empty
     const lidx_t max_iters = 20;
-    int num_iters = 0, num_stag = 0;
+    int num_iters          = 0;
     while ( worklist.size() > 0 ) {
         const auto iter_hash = hash( num_iters + 1 );
 
@@ -728,8 +728,8 @@ int MIS2Aggregator::classifyVerticesDevice(
 
 
     const lidx_t max_iters = 20;
-    int num_iters = 0, num_stag = 0;
-    bool finished = false;
+    int num_iters          = 0;
+    bool finished          = false;
     while ( !finished && num_iters < max_iters ) {
         const auto iter_hash = hash( num_iters + 1 );
 

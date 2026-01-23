@@ -4,7 +4,9 @@ ADD_PACKAGE_SUBDIRECTORY( newFrozenVectorDesign )
 
 # AMG solver package set apart from main solvers due to complexity
 ADD_PACKAGE_SUBDIRECTORY( amg )
-ADD_PACKAGE_SUBDIRECTORY( amg/default )
+SET_DEVICE_COMPILER( amg/SASolver.cpp )
+SET_DEVICE_COMPILER( amg/UASolver.cpp )
+SET_DEVICE_COMPILER( amg/Aggregation.cpp )
 
 ADD_PACKAGE_SUBDIRECTORY( radiationDiffusionFDOpSplitPrec )
 
