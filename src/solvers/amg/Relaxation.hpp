@@ -470,6 +470,8 @@ void JacobiL1::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
     auto lin_op = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( op );
     AMP_DEBUG_INSIST( lin_op, "JacobiL1: operator must be linear" );
     auto mat = lin_op->getMatrix();
+    AMP::pout << "JacobiL1::registerOperator, A [" << mat->numGlobalRows() << " x "
+              << mat->numGlobalColumns() << "]\n";
     AMP_DEBUG_INSIST( mat, "JacobiL1: matrix cannot be NULL" );
     d_matrix = mat;
     // verify this is actually a CSRMatrix

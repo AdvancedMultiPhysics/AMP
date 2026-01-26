@@ -787,28 +787,14 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::removeRange not defined for symbolic matrices" );
 
-#warning Come back and implement this on device
-
-    if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
-        AMP_WARN_ONCE( "CSRLocalMatrixData::removeRange not on device yet, skipping" );
-        return;
-    }
-
     if ( d_is_empty ) {
         return;
     }
 
     // count coeffs that lie within range and zero them along the way
-    lidx_t num_delete = 0;
-    std::vector<lidx_t> delete_per_row( d_num_rows, 0 );
-    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
-        for ( lidx_t c = d_row_starts[row]; c < d_row_starts[row + 1]; ++c ) {
-            if ( bnd_lo < d_coeffs[c] && d_coeffs[c] < bnd_up ) {
-                delete_per_row[row]++;
-                num_delete++;
-            }
-        }
-    }
+    auto delete_per_row = sharedArrayBuilder( d_num_rows, d_lidxAllocator );
+    lidx_t num_delete   = CSRMatrixDataHelpers<Config>::RemoveRangeCountDel(
+        d_row_starts.get(), d_coeffs.get(), d_num_rows, bnd_lo, bnd_up, delete_per_row.get() );
 
     // if none to delete then done
     if ( num_delete == 0 ) {
@@ -843,28 +829,33 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     }
 
     // new row starts is old minus running total of deleted entries
-    lidx_t run_ndel   = 0;
-    new_row_starts[0] = 0;
-    for ( lidx_t row = 1; row <= d_num_rows; ++row ) {
-        run_ndel += delete_per_row[row - 1];
-        new_row_starts[row] = d_row_starts[row] - run_ndel;
-    }
+    CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
+        d_row_starts.get(), delete_per_row.get(), d_num_rows, new_row_starts.get() );
 
     // coeffs is a masked copy
     // cols_loc is masked copy if this is diag block, otherwise
     // build cols from cols_unq and call globalToLocal
-    lidx_t nctr = 0;
-    for ( lidx_t n = 0; n < old_nnz; ++n ) {
-        if ( bnd_lo < d_coeffs[n] && d_coeffs[n] < bnd_up ) {
-            continue;
-        }
-        new_coeffs[nctr] = d_coeffs[n];
-        if ( d_is_diag ) {
-            new_cols_loc[nctr] = d_cols_loc[n];
-        } else {
-            new_cols[nctr] = d_cols_unq[d_cols_loc[n]];
-        }
-        ++nctr;
+    if ( d_is_diag ) {
+        CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag( d_row_starts.get(),
+                                                           d_cols_loc.get(),
+                                                           d_coeffs.get(),
+                                                           d_num_rows,
+                                                           bnd_lo,
+                                                           bnd_up,
+                                                           new_row_starts.get(),
+                                                           new_cols_loc.get(),
+                                                           new_coeffs.get() );
+    } else {
+        CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd( d_row_starts.get(),
+                                                           d_cols_loc.get(),
+                                                           d_cols_unq.get(),
+                                                           d_coeffs.get(),
+                                                           d_num_rows,
+                                                           bnd_lo,
+                                                           bnd_up,
+                                                           new_row_starts.get(),
+                                                           new_cols.get(),
+                                                           new_coeffs.get() );
     }
 
     d_cols_unq.reset();

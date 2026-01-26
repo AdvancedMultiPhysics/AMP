@@ -379,6 +379,60 @@ __global__ void mask_diag_fill( const lidx_t *in_row_starts,
         }
     }
 }
+
+template<typename lidx_t, typename scalar_t>
+__global__ void remrange_diag_fill( const lidx_t *old_row_starts,
+                                    const lidx_t *old_cols_loc,
+                                    const scalar_t *old_coeffs,
+                                    const lidx_t num_rows,
+                                    const scalar_t bnd_lo,
+                                    const scalar_t bnd_up,
+                                    const lidx_t *new_row_starts,
+                                    lidx_t *new_cols_loc,
+                                    scalar_t *new_coeffs )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        auto pos = new_row_starts[i];
+        for ( lidx_t c = old_row_starts[i]; c < old_row_starts[i + 1]; ++c ) {
+            const auto cof = old_coeffs[c];
+            if ( bnd_lo < cof && cof < bnd_up ) {
+                continue;
+            }
+            new_cols_loc[pos] = old_cols_loc[c];
+            new_coeffs[pos]   = cof;
+            ++pos;
+        }
+    }
+}
+
+template<typename lidx_t, typename gidx_t, typename scalar_t>
+__global__ void remrange_offd_fill( const lidx_t *old_row_starts,
+                                    const lidx_t *old_cols_loc,
+                                    const gidx_t *old_cols_unq,
+                                    const scalar_t *old_coeffs,
+                                    const lidx_t num_rows,
+                                    const scalar_t bnd_lo,
+                                    const scalar_t bnd_up,
+                                    const lidx_t *new_row_starts,
+                                    gidx_t *new_cols,
+                                    scalar_t *new_coeffs )
+{
+    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_rows;
+          i += blockDim.x * gridDim.x ) {
+        auto pos = new_row_starts[i];
+        for ( lidx_t c = old_row_starts[i]; c < old_row_starts[i + 1]; ++c ) {
+            const auto cof = old_coeffs[c];
+            if ( bnd_lo < cof && cof < bnd_up ) {
+                continue;
+            }
+            new_cols[pos]   = old_cols_unq[old_cols_loc[c]];
+            new_coeffs[pos] = cof;
+            ++pos;
+        }
+    }
+}
+
 #endif
 
 template<typename Config>
@@ -1212,6 +1266,182 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *
         getLastDeviceError( "CSRMatrixDataHelpers::MaskFillDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::MaskFillDiag Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+typename Config::lidx_t
+CSRMatrixDataHelpers<Config>::RemoveRangeCountDel( const typename Config::lidx_t *row_starts,
+                                                   const typename Config::scalar_t *coeffs,
+                                                   const typename Config::lidx_t num_rows,
+                                                   const typename Config::scalar_t bnd_lo,
+                                                   const typename Config::scalar_t bnd_up,
+                                                   typename Config::lidx_t *del_per_row )
+{
+    PROFILE( "CSRMatrixDataHelpers::RemoveRangeCountDel" );
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        lidx_t total_del = 0;
+        for ( lidx_t row = 0; row < num_rows; ++row ) {
+            del_per_row[row] = 0;
+            for ( lidx_t k = row_starts[row]; k < row_starts[row + 1]; ++k ) {
+                const auto cof = coeffs[k];
+                if ( bnd_lo < cof && cof < bnd_up ) {
+                    del_per_row[row]++;
+                    ++total_del;
+                }
+            }
+        }
+        return total_del;
+    } else {
+#ifdef AMP_USE_DEVICE
+        thrust::transform(
+            thrust::device,
+            thrust::make_counting_iterator<lidx_t>( 0 ),
+            thrust::make_counting_iterator<lidx_t>( num_rows ),
+            del_per_row,
+            [row_starts, coeffs, bnd_lo, bnd_up] __device__( const lidx_t row ) -> lidx_t {
+                lidx_t cnt = 0;
+                for ( lidx_t k = row_starts[row]; k < row_starts[row + 1]; ++k ) {
+                    const auto cof = coeffs[k];
+                    if ( bnd_lo < cof && cof < bnd_up ) {
+                        ++cnt;
+                    }
+                }
+                return cnt;
+            } );
+        getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeCountDel" );
+        return thrust::reduce( thrust::device, del_per_row, del_per_row + num_rows );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeCountDel Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
+    const typename Config::lidx_t *in_row_starts,
+    const typename Config::lidx_t *del_per_row,
+    const typename Config::lidx_t num_rows,
+    typename Config::lidx_t *out_row_starts )
+{
+    PROFILE( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart" );
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        lidx_t run_ndel   = 0;
+        out_row_starts[0] = 0;
+        for ( lidx_t row = 1; row <= num_rows; ++row ) {
+            run_ndel += del_per_row[row - 1];
+            out_row_starts[row] = in_row_starts[row] - run_ndel;
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        // device version finds nnz per row then accumulates into
+        // row starts in two separate steps
+        thrust::transform( thrust::device,
+                           thrust::make_counting_iterator<lidx_t>( 0 ),
+                           thrust::make_counting_iterator<lidx_t>( num_rows ),
+                           out_row_starts,
+                           [in_row_starts, del_per_row] __device__( const lidx_t row ) -> lidx_t {
+                               return in_row_starts[row + 1] - in_row_starts[row] -
+                                      del_per_row[row];
+                           } );
+        getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart" );
+        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
+            out_row_starts, num_rows + 1, out_row_starts, 0 );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
+    const typename Config::lidx_t *old_row_starts,
+    const typename Config::lidx_t *old_cols_loc,
+    const typename Config::scalar_t *old_coeffs,
+    const typename Config::lidx_t num_rows,
+    const typename Config::scalar_t bnd_lo,
+    const typename Config::scalar_t bnd_up,
+    const typename Config::lidx_t *new_row_starts,
+    typename Config::lidx_t *new_cols_loc,
+    typename Config::scalar_t *new_coeffs )
+{
+    PROFILE( "CSRMatrixDataHelpers::RemoveRangeFillDiag" );
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        const auto old_nnz = old_row_starts[num_rows];
+        lidx_t nctr        = 0;
+        for ( lidx_t n = 0; n < old_nnz; ++n ) {
+            if ( bnd_lo < old_coeffs[n] && old_coeffs[n] < bnd_up ) {
+                continue;
+            }
+            new_coeffs[nctr]   = old_coeffs[n];
+            new_cols_loc[nctr] = old_cols_loc[n];
+            ++nctr;
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        remrange_diag_fill<<<GridDim, BlockDim>>>( old_row_starts,
+                                                   old_cols_loc,
+                                                   old_coeffs,
+                                                   num_rows,
+                                                   bnd_lo,
+                                                   bnd_up,
+                                                   new_row_starts,
+                                                   new_cols_loc,
+                                                   new_coeffs );
+        getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeFillDiag" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeFillDiag Undefined memory location" );
+#endif
+    }
+}
+
+template<typename Config>
+void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
+    const typename Config::lidx_t *old_row_starts,
+    const typename Config::lidx_t *old_cols_loc,
+    const typename Config::gidx_t *old_cols_unq,
+    const typename Config::scalar_t *old_coeffs,
+    const typename Config::lidx_t num_rows,
+    const typename Config::scalar_t bnd_lo,
+    const typename Config::scalar_t bnd_up,
+    const typename Config::lidx_t *new_row_starts,
+    typename Config::gidx_t *new_cols,
+    typename Config::scalar_t *new_coeffs )
+{
+    PROFILE( "CSRMatrixDataHelpers::RemoveRangeFillOffd" );
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        const auto old_nnz = old_row_starts[num_rows];
+        lidx_t nctr        = 0;
+        for ( lidx_t n = 0; n < old_nnz; ++n ) {
+            if ( bnd_lo < old_coeffs[n] && old_coeffs[n] < bnd_up ) {
+                continue;
+            }
+            new_coeffs[nctr] = old_coeffs[n];
+            new_cols[nctr]   = old_cols_unq[old_cols_loc[n]];
+            ++nctr;
+        }
+    } else {
+#ifdef AMP_USE_DEVICE
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( num_rows, BlockDim, GridDim );
+        remrange_offd_fill<<<GridDim, BlockDim>>>( old_row_starts,
+                                                   old_cols_loc,
+                                                   old_cols_unq,
+                                                   old_coeffs,
+                                                   num_rows,
+                                                   bnd_lo,
+                                                   bnd_up,
+                                                   new_row_starts,
+                                                   new_cols,
+                                                   new_coeffs );
+        getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeFillOffd" );
+#else
+        AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeFillOffd Undefined memory location" );
 #endif
     }
 }

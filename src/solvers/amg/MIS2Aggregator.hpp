@@ -10,13 +10,15 @@
 #ifdef AMP_USE_DEVICE
     #include "AMP/utils/device/Device.h"
     #include <thrust/binary_search.h>
-    #include <thrust/logical.h>
+    #include <thrust/copy.h>
+    #include <thrust/count.h>
+    #include <thrust/remove.h>
     #include <thrust/transform.h>
 #endif
 
 #include "ProfilerApp.h"
 
-#include <bitset>
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <numeric>
@@ -274,6 +276,8 @@ int MIS2Aggregator::classifyVerticesHost(
     // temporary tuples for finding neighborhood max in two steps
     std::vector<uint64_t> Tv_hat( A_nrows, OUT );
 
+    const bool dbg = false;
+
     // now loop until worklist is empty
     const lidx_t max_iters = 20;
     int num_iters          = 0;
@@ -295,6 +299,14 @@ int MIS2Aggregator::classifyVerticesHost(
             AMP_ASSERT( agg_ids[n] == UNASSIGNED );
         }
 
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[0]";
+            const auto num_in  = std::count( Tv.cbegin(), Tv.cend(), IN );
+            const auto num_out = std::count( Tv.cbegin(), Tv.cend(), OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
+        }
+
         // Store largest Tv entry from each neighborhood into Tv_hat,
         // then swap Tv and Tv_hat, repeat, leaving max 2-nbr entry
         // in Tv
@@ -308,6 +320,14 @@ int MIS2Aggregator::classifyVerticesHost(
                 }
             }
             Tv.swap( Tv_hat );
+        }
+
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[1]";
+            const auto num_in  = std::count( Tv.cbegin(), Tv.cend(), IN );
+            const auto num_out = std::count( Tv.cbegin(), Tv.cend(), OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
         }
 
         // mark undecided as IN or OUT if possible
@@ -347,6 +367,14 @@ int MIS2Aggregator::classifyVerticesHost(
             }
         }
 
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[2]";
+            const auto num_in  = std::count( Tv.cbegin(), Tv.cend(), IN );
+            const auto num_out = std::count( Tv.cbegin(), Tv.cend(), OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
+        }
+
         // immediately mark nbrs of IN nodes as OUT, now guaranteed not to collide
         for ( const auto n : worklist ) {
             const auto rs = Ad_rs[n], re = Ad_rs[n + 1];
@@ -356,6 +384,14 @@ int MIS2Aggregator::classifyVerticesHost(
                     Tv[c]        = OUT;
                 }
             }
+        }
+
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[3]";
+            const auto num_in  = std::count( Tv.cbegin(), Tv.cend(), IN );
+            const auto num_out = std::count( Tv.cbegin(), Tv.cend(), OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
         }
 
         // update worklist as rows that remain undecided
@@ -514,6 +550,9 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
 
+    AMP::pout << "    MIS2 got diag block of size: " << A_diag->numLocalRows() << " x "
+              << A_diag->numLocalColumns() << ", nnz = " << A_diag->numberOfNonZeros() << std::endl;
+
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {
         AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
@@ -534,6 +573,10 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
 
+    AMP::pout << "    SoC masked to block of size: " << A_masked->numLocalRows() << " x "
+              << A_masked->numLocalColumns() << ", nnz = " << A_masked->numberOfNonZeros()
+              << std::endl;
+
     // pull out data fields from A_masked
     // only care about row starts and local cols
     lidx_t *Am_rs = nullptr, *Am_cols_loc = nullptr;
@@ -548,9 +591,13 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
     auto Tv_hat = u64_alloc.allocate( A_nrows );
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv, A_nrows, OUT );
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat, A_nrows, OUT );
-    auto agg_size     = lidx_alloc.allocate( A_nrows );
-    auto agg_root_ids = lidx_alloc.allocate( A_nrows );
+    auto agg_size       = lidx_alloc.allocate( A_nrows );
+    auto agg_root_ids   = lidx_alloc.allocate( A_nrows );
+    auto worklist       = lidx_alloc.allocate( A_nrows );
+    lidx_t worklist_len = A_nrows;
     AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_root_ids, A_nrows, UNASSIGNED );
+
+    const bool dbg = false;
 
     deviceSynchronize();
 
@@ -563,9 +610,47 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         deviceSynchronize();
     }
 
+    // initilalize worklist to all UNASSIGNED rows
+    {
+        lidx_t *new_end = thrust::copy_if( thrust::device,
+                                           thrust::make_counting_iterator( 0 ),
+                                           thrust::make_counting_iterator( A_nrows ),
+                                           worklist,
+                                           [agg_root_ids] __device__( const lidx_t n ) -> bool {
+                                               return ( agg_root_ids[n] == UNASSIGNED );
+                                           } );
+        worklist_len    = static_cast<lidx_t>( new_end - worklist );
+    }
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[0]:\n";
+        const auto num_undec =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist_len
+                  << std::endl;
+    }
+
     // First pass of MIS2 classification, ignores INVALID nodes
-    classifyVerticesDevice<Config>( A_masked, A->numGlobalRows(), Tv, Tv_hat, agg_root_ids );
+    classifyVerticesDevice<Config>(
+        A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_root_ids );
     deviceSynchronize();
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[1]:\n";
+        const auto num_undec =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
+        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
+        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
+    }
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
@@ -577,11 +662,53 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         deviceSynchronize();
     }
 
+    // re-initilalize worklist to all UNASSIGNED rows
+    {
+        lidx_t *new_end = thrust::copy_if( thrust::device,
+                                           thrust::make_counting_iterator( 0 ),
+                                           thrust::make_counting_iterator( A_nrows ),
+                                           worklist,
+                                           [agg_root_ids] __device__( const lidx_t n ) -> bool {
+                                               return ( agg_root_ids[n] == UNASSIGNED );
+                                           } );
+        worklist_len    = static_cast<lidx_t>( new_end - worklist );
+    }
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[2]:\n";
+        const auto num_undec =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
+        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
+        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist_len
+                  << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
+    }
+
     // do a second pass of classification and aggregation
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv, A_nrows, OUT );
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat, A_nrows, OUT );
-    classifyVerticesDevice<Config>( A_masked, A->numGlobalRows(), Tv, Tv_hat, agg_root_ids );
+    classifyVerticesDevice<Config>(
+        A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_root_ids );
     deviceSynchronize();
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[3]:\n";
+        const auto num_undec =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
+        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
+        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
+    }
 
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
@@ -592,6 +719,20 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         build_aggs<<<GridDim, BlockDim>>>(
             A_nrows, false, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
         deviceSynchronize();
+    }
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[4]:\n";
+        const auto num_undec =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
+        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
+        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
     }
 
     // deallocate Tv and Tv_hat, they are no longer needed
@@ -611,6 +752,18 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         deviceSynchronize();
         grow_aggs<<<GridDim, BlockDim>>>( A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids );
         deviceSynchronize();
+        grow_aggs<<<GridDim, BlockDim>>>( A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids );
+        deviceSynchronize();
+    }
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[5]:\n";
+        const auto num_undec =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
     }
 
     // agg_root_ids currently uses root node of each aggregate as the ID
@@ -637,6 +790,16 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         num_agg = static_cast<int>( nunq ) - num_dec;
     }
 
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[6]:\n";
+        const auto num_undec =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid =
+            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+    }
+
     // finally, use compacted list of uniques to convert root node labels
     // to consecutive ascending labels. Do need an additional work vector to
     {
@@ -661,6 +824,8 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         deviceSynchronize();
     }
 
+    AMP::pout << "    MIS2 found " << num_agg << " aggregates" << std::endl;
+
     // deallocate sizes and return
     lidx_alloc.deallocate( agg_root_ids, A_nrows );
     lidx_alloc.deallocate( agg_size, A_nrows );
@@ -672,6 +837,8 @@ template<typename Config>
 int MIS2Aggregator::classifyVerticesDevice(
     std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A_diag,
     const uint64_t num_gbl,
+    typename Config::lidx_t *worklist,
+    typename Config::lidx_t worklist_len,
     uint64_t *Tv,
     uint64_t *Tv_hat,
     int *agg_ids )
@@ -726,114 +893,143 @@ int MIS2Aggregator::classifyVerticesDevice(
         return static_cast<lidx_t>( v - begin_row );
     };
 
+    const bool dbg = false;
 
     const lidx_t max_iters = 20;
     int num_iters          = 0;
-    bool finished          = false;
-    while ( !finished && num_iters < max_iters ) {
+    while ( worklist_len > 0 && num_iters < max_iters ) {
         const auto iter_hash = hash( num_iters + 1 );
 
         // first update Tv entries from items in worklist
         // this is "refresh row" from paper
         {
-            thrust::transform(
-                thrust::device,
-                thrust::make_counting_iterator<lidx_t>( 0 ),
-                thrust::make_counting_iterator<lidx_t>( A_nrows ),
-                Tv,
-                [Ad_rs, iter_hash, pack_tuple, Tv] __device__( lidx_t n ) -> uint64_t {
-                    if ( Tv[n] == IN ) {
-                        return IN;
-                    }
-                    if ( Tv[n] == OUT ) {
-                        return OUT;
-                    }
-                    const uint8_t conn = Ad_rs[n + 1] - Ad_rs[n] - 1; // ignore self connection
-                    return pack_tuple( n, conn, iter_hash );
-                } );
+            thrust::for_each( thrust::device,
+                              worklist,
+                              worklist + worklist_len,
+                              [Ad_rs, iter_hash, pack_tuple, Tv] __device__( lidx_t n ) -> void {
+                                  const uint8_t conn =
+                                      Ad_rs[n + 1] - Ad_rs[n] - 1; // ignore self connection
+                                  Tv[n] = pack_tuple( n, conn, iter_hash );
+                              } );
             deviceSynchronize();
+        }
+
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[0]:";
+            const auto num_in  = thrust::count( Tv, Tv + A_nrows, IN );
+            const auto num_out = thrust::count( Tv, Tv + A_nrows, OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
         }
 
         // Store largest Tv entry from each neighborhood into Tv_hat,
         // then swap Tv and Tv_hat, repeat, leaving max 2-nbr entry
         // in Tv
         for ( int nrep = 0; nrep < 2; ++nrep ) {
-            thrust::transform( thrust::device,
-                               thrust::make_counting_iterator<lidx_t>( 0 ),
-                               thrust::make_counting_iterator<lidx_t>( A_nrows ),
-                               Tv_hat,
-                               [Ad_rs, Ad_cols_loc, Tv] __device__( lidx_t n ) -> uint64_t {
-                                   const auto rs = Ad_rs[n];
-                                   const auto re = Ad_rs[n + 1];
-                                   auto lmax     = Tv[n];
-                                   for ( lidx_t k = rs; k < re; ++k ) {
-                                       const auto c = Ad_cols_loc[k];
-                                       lmax         = lmax < Tv[c] ? Tv[c] : lmax;
-                                   }
-                                   return lmax;
-                               } );
+            thrust::for_each(
+                thrust::device,
+                worklist,
+                worklist + worklist_len,
+                [Ad_rs, Ad_cols_loc, agg_ids, Tv, Tv_hat] __device__( lidx_t n ) -> void {
+                    const auto rs = Ad_rs[n];
+                    const auto re = Ad_rs[n + 1];
+                    auto lmax     = Tv[n];
+                    for ( lidx_t k = rs; k < re; ++k ) {
+                        const auto c = Ad_cols_loc[k];
+                        lmax         = lmax < Tv[c] ? Tv[c] : lmax;
+                    }
+                    Tv_hat[n] = lmax;
+                } );
             deviceSynchronize();
             std::swap( Tv, Tv_hat );
         }
 
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[1]:";
+            const auto num_in  = thrust::count( Tv, Tv + A_nrows, IN );
+            const auto num_out = thrust::count( Tv, Tv + A_nrows, OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
+        }
+
         // mark undecided as IN or OUT if possible
         {
-            thrust::transform( thrust::device,
-                               thrust::make_counting_iterator<lidx_t>( 0 ),
-                               thrust::make_counting_iterator<lidx_t>( A_nrows ),
-                               Tv,
-                               [idx_from_tuple, Tv] __device__( const lidx_t n ) -> uint64_t {
-                                   const auto tpl = Tv[n];
-                                   if ( tpl == IN ) {
-                                       return OUT;
-                                   }
-                                   if ( tpl != IN && tpl != OUT ) {
-                                       const auto idx = idx_from_tuple( tpl );
-                                       if ( idx == n ) {
-                                           return IN;
-                                       }
-                                   }
-                                   return tpl;
-                               } );
+            thrust::for_each( thrust::device,
+                              worklist,
+                              worklist + worklist_len,
+                              [idx_from_tuple, agg_ids, Tv] __device__( const lidx_t n ) -> void {
+                                  const auto tpl = Tv[n];
+                                  if ( tpl == IN ) {
+                                      Tv[n] = OUT;
+                                  }
+                                  if ( tpl != IN && tpl != OUT ) {
+                                      const auto idx = idx_from_tuple( tpl );
+                                      if ( idx == n ) {
+                                          Tv[n] = IN;
+                                      }
+                                  }
+                              } );
             deviceSynchronize();
+        }
+
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[2]:";
+            const auto num_in  = thrust::count( Tv, Tv + A_nrows, IN );
+            const auto num_out = thrust::count( Tv, Tv + A_nrows, OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
         }
 
         // immediately mark nbrs of IN nodes as OUT
         {
-            thrust::transform( thrust::device,
-                               thrust::make_counting_iterator<lidx_t>( 0 ),
-                               thrust::make_counting_iterator<lidx_t>( A_nrows ),
-                               Tv,
-                               [Ad_rs, Ad_cols_loc, Tv] __device__( const lidx_t n ) -> uint64_t {
-                                   if ( Tv[n] == IN ) {
-                                       return IN;
-                                   }
-                                   const auto rs = Ad_rs[n];
-                                   const auto re = Ad_rs[n + 1];
-                                   bool nbr_in   = false;
-                                   for ( lidx_t k = rs; k < re; ++k ) {
-                                       const auto c = Ad_cols_loc[k];
-                                       nbr_in       = nbr_in || Tv[c] == IN;
-                                   }
-                                   return nbr_in ? OUT : Tv[n];
-                               } );
+            thrust::for_each(
+                thrust::device,
+                worklist,
+                worklist + worklist_len,
+                [Ad_rs, Ad_cols_loc, agg_ids, Tv] __device__( const lidx_t n ) -> void {
+                    if ( Tv[n] == IN ) {
+                        return;
+                    }
+                    const auto rs = Ad_rs[n];
+                    const auto re = Ad_rs[n + 1];
+                    bool nbr_in   = false;
+                    for ( lidx_t k = rs; k < re; ++k ) {
+                        const auto c = Ad_cols_loc[k];
+                        nbr_in       = nbr_in || Tv[c] == IN;
+                    }
+                    Tv[n] = nbr_in ? OUT : Tv[n];
+                } );
             deviceSynchronize();
+        }
+
+        if ( dbg ) {
+            AMP::pout << "  dbg-cv[3]:";
+            const auto num_in  = thrust::count( Tv, Tv + A_nrows, IN );
+            const auto num_out = thrust::count( Tv, Tv + A_nrows, OUT );
+            AMP::pout << "    iter " << num_iters << " marked " << num_in << " labels as IN and "
+                      << num_out << " as out" << std::endl;
         }
 
         // test if we are done
         {
-            finished = thrust::all_of(
-                thrust::device, Tv, Tv + A_nrows, [] __device__( const uint64_t t ) -> bool {
-                    return ( t == IN || t == OUT );
-                } );
+            lidx_t *new_end = thrust::remove_if( thrust::device,
+                                                 worklist,
+                                                 worklist + worklist_len,
+                                                 [Tv] __device__( const lidx_t n ) -> bool {
+                                                     return ( Tv[n] == IN || Tv[n] == OUT );
+                                                 } );
+            worklist_len    = static_cast<lidx_t>( new_end - worklist );
             deviceSynchronize();
         }
 
         ++num_iters;
     }
 
-    if ( !finished ) {
-        AMP::pout << "classifyVertices failed to terminate" << std::endl;
+    if ( worklist_len > 0 ) {
+        AMP::pout << "classifyVertices stopped with " << worklist_len << " worklist items left"
+                  << std::endl;
+    } else {
+        AMP::pout << "classifyVertices finished in " << num_iters << " iterations" << std::endl;
     }
 
     return num_iters;
