@@ -241,20 +241,12 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         // Get matrix for current level
         auto A = d_levels.back().A->getMatrix();
-        AMP::pout << "SASolver: setup level " << i << " with op A (g|l)=(" << A->numGlobalRows()
-                  << "|" << A->numLocalRows() << ")" << std::endl;
 
         // aggregate on matrix to get tentative prolongator
         // then smooth and transpose to get P/R
         auto P = d_aggregator->getAggregateMatrix( A );
-        AMP::pout << "  Tentative prolongator: " << P->numGlobalRows() << " x "
-                  << P->numGlobalColumns() << std::endl;
         smoothP_JacobiL1( A, P );
-        AMP::pout << "  Smooth prolongator: " << P->numGlobalRows() << " x "
-                  << P->numGlobalColumns() << std::endl;
         auto R = P->transpose();
-        AMP::pout << "  Restriction operator: " << R->numGlobalRows() << " x "
-                  << R->numGlobalColumns() << std::endl;
 
         // residual on current level needs comm list replaced by what R needs
         d_levels.back().r = R->createInputVector();
@@ -262,8 +254,6 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         // Find coarsened A
         auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
         auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
-        AMP::pout << "  A coarse: " << Ac->numGlobalRows() << " x " << Ac->numGlobalColumns()
-                  << std::endl;
 
         const auto Ac_nrows_gbl = Ac->numGlobalRows();
 
