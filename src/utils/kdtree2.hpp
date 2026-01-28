@@ -14,43 +14,37 @@
 namespace AMP {
 
 
-/****************************************************************
- * data_struct                                                   *
- ****************************************************************/
-template<uint8_t NDIM, class TYPE>
-kdtree2<NDIM, TYPE>::data_struct::data_struct( size_t N0 )
+/********************************************************
+ * Find the ideal point to split such that we divide     *
+ *   both the space and points as much as possible       *
+ ********************************************************/
+static size_t find_split( size_t N, const double *x )
 {
-    N    = N0;
-    x    = (Point *) malloc( N * sizeof( Point ) );
-    data = (TYPE *) malloc( N * sizeof( TYPE ) );
-}
-template<uint8_t NDIM, class TYPE>
-kdtree2<NDIM, TYPE>::data_struct::~data_struct()
-{
-    free( x );
-    free( data );
-    x    = nullptr;
-    data = nullptr;
-}
-template<uint8_t NDIM, class TYPE>
-void kdtree2<NDIM, TYPE>::data_struct::add( const Point &x2, const TYPE &d2 )
-{
-    x       = (Point *) realloc( x, ( N + 1 ) * sizeof( Point ) );
-    data    = (TYPE *) realloc( data, ( N + 1 ) * sizeof( TYPE ) );
-    x[N]    = x2;
-    data[N] = d2;
-    N++;
+    // Find the largest gap such that we also divide the points and space
+    double lb = x[0];
+    double ub = x[N - 1];
+    int k     = 0;
+    double q  = 0;
+    for ( size_t i = 1; i < N; i++ ) {
+        // Compute the quality of the split at the current location
+        double q2 = ( x[i] - x[i - 1] ) * ( x[i] - lb ) * ( ub - x[i - 1] ) * i * ( N - i - 0 );
+        if ( q2 > q ) {
+            q = q2;
+            k = i;
+        }
+    }
+    return k;
 }
 
 
 /****************************************************************
  * Compute the distance to a box                                 *
  ****************************************************************/
-template<uint8_t NDIM, class TYPE>
-double kdtree2<NDIM, TYPE>::distanceToBox( const std::array<double, NDIM> &pos,
-                                           const std::array<double, NDIM> &ang,
-                                           const std::array<double, NDIM> &lb,
-                                           const std::array<double, NDIM> &ub )
+template<uint8_t NDIM>
+static double distanceToBox( const std::array<double, NDIM> &pos,
+                             const std::array<double, NDIM> &ang,
+                             const std::array<double, NDIM> &lb,
+                             const std::array<double, NDIM> &ub )
 {
     double d = std::numeric_limits<double>::infinity();
     // Check if the intersection of each surface is within the bounds of the box
@@ -79,6 +73,36 @@ double kdtree2<NDIM, TYPE>::distanceToBox( const std::array<double, NDIM> &pos,
     if ( inside( pos ) && d < 1e100 )
         d = -d;
     return d;
+}
+
+
+
+/****************************************************************
+ * data_struct                                                   *
+ ****************************************************************/
+template<uint8_t NDIM, class TYPE>
+kdtree2<NDIM, TYPE>::data_struct::data_struct( size_t N0 )
+{
+    N    = N0;
+    x    = (Point *) malloc( N * sizeof( Point ) );
+    data = (TYPE *) malloc( N * sizeof( TYPE ) );
+}
+template<uint8_t NDIM, class TYPE>
+kdtree2<NDIM, TYPE>::data_struct::~data_struct()
+{
+    free( x );
+    free( data );
+    x    = nullptr;
+    data = nullptr;
+}
+template<uint8_t NDIM, class TYPE>
+void kdtree2<NDIM, TYPE>::data_struct::add( const Point &x2, const TYPE &d2 )
+{
+    x       = (Point *) realloc( x, ( N + 1 ) * sizeof( Point ) );
+    data    = (TYPE *) realloc( data, ( N + 1 ) * sizeof( TYPE ) );
+    x[N]    = x2;
+    data[N] = d2;
+    N++;
 }
 
 
@@ -258,30 +282,6 @@ void kdtree2<NDIM, TYPE>::getPoints( std::vector<std::pair<Point, TYPE>> &x ) co
         for ( size_t i = 0; i < d_data->N; i++ )
             x.emplace_back( d_data->x[i], d_data->data[i] );
     }
-}
-
-
-/********************************************************
- * Find the ideal point to split such that we divide     *
- *   both the space and points as much as possible       *
- ********************************************************/
-template<uint8_t NDIM, class TYPE>
-size_t kdtree2<NDIM, TYPE>::find_split( size_t N, const double *x )
-{
-    // Find the largest gap such that we also divide the points and space
-    double lb = x[0];
-    double ub = x[N - 1];
-    int k     = 0;
-    double q  = 0;
-    for ( size_t i = 1; i < N; i++ ) {
-        // Compute the quality of the split at the current location
-        double q2 = ( x[i] - x[i - 1] ) * ( x[i] - lb ) * ( ub - x[i - 1] ) * i * ( N - i - 0 );
-        if ( q2 > q ) {
-            q = q2;
-            k = i;
-        }
-    }
-    return k;
 }
 
 

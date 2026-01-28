@@ -7,6 +7,9 @@
 
 #include "AMP/utils/threadpool/ThreadPoolId.h"
 
+#include <vector>
+
+
 namespace AMP {
 
 
@@ -67,7 +70,7 @@ protected:
     }
 
 private:
-    ThreadPoolWorkItem( const ThreadPoolWorkItem & ) = delete;
+    ThreadPoolWorkItem( const ThreadPoolWorkItem & )            = delete;
     ThreadPoolWorkItem &operator=( const ThreadPoolWorkItem & ) = delete;
     volatile ThreadPoolID::Status d_state; // Current state
     uint16_t d_N_ids;                      // Number of dependencies

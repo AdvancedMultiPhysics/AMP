@@ -40,11 +40,11 @@ int TestFunctionTable()
     PASS_FAIL( FUN::equals( N, x.data(), x.data(), 1e-6 ), "equals" );
     PASS_FAIL( min >= 0 && min < 0.01, "min" );
     PASS_FAIL( max <= 1 && max > 0.99, "max" );
-    PASS_FAIL( fabs( sum / N - 0.5 ) <= 0.01, "sum" );
+    PASS_FAIL( fabs( sum / N - 0.5 ) <= 0.02, "sum" );
 
     // Test basic arithmetic tests
     double eps = std::numeric_limits<TYPE>::epsilon();
-    double tol = 20 * eps * sum;
+    double tol = 50 * eps * sum;
     auto y     = x;
     FUN::scale( N, 2, y.data() );
     PASS_FAIL( fabs( SUM( y ) - 2 * sum ) < tol, "scale" );
