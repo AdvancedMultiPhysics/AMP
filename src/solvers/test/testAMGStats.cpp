@@ -61,32 +61,51 @@ constructLinearSystem( const std::string &physicsFileName )
     return std::make_tuple( linearOp, TemperatureInKelvinVec, RightHandSideVec );
 }
 
-bool compare_expected( const AMP::Solver::AMG::HierarchyStats &a,
+bool compare_expected( AMP::UnitTest &ut,
+                       const AMP::Solver::AMG::HierarchyStats &a,
                        const AMP::Solver::AMG::HierarchyStats &b )
 {
     const float ftol = 1e-3;
+    bool failed      = false;
 
+    auto fail = [&]( const char *name, auto e, auto g ) {
+        std::stringstream ss;
+        ss << "FAILED: " << name << " " << e << " vs " << g;
+        ut.failure( ss.str() );
+        failed = true;
+    };
     if ( std::abs( a.operator_complexity - b.operator_complexity ) >= ftol )
-        return false;
+        fail( "operator complexity", a.operator_complexity, b.operator_complexity );
 
     if ( std::abs( a.grid_complexity - b.grid_complexity ) >= ftol )
-        return false;
+        fail( "grid complexity", a.grid_complexity, b.grid_complexity );
 
     if ( a.levels.size() != b.levels.size() )
-        return false;
+        fail( "number of levels", a.levels.size(), b.levels.size() );
 
     using level_t = AMP::Solver::AMG::HierarchyStats::level_type;
     for ( std::size_t i = 0; i < a.levels.size(); ++i ) {
         if ( ![&]( const level_t &al, const level_t &bl ) {
+			auto cmp = [](const char * name, auto a, auto b) {
+				if (a != b)
+					AMP::pout << name << ": " << a << " vs " << b << std::endl;
+			};
+			cmp("comm_size", al.comm_size, bl.comm_size);
+			cmp("nrows", al.nrows, bl.nrows);
+			cmp("nnz", al.nnz, bl.nnz);
+			cmp("max_local_rows", al.max_local_rows, bl.max_local_rows);
+			cmp("min_local_rows", al.min_local_rows, bl.min_local_rows);
                  return al.solver_name == bl.solver_name && al.comm_size == bl.comm_size &&
                         al.nrows == bl.nrows && al.nnz == bl.nnz &&
                         al.max_local_rows == bl.max_local_rows &&
                         al.min_local_rows == bl.min_local_rows;
-             }( a.levels[i], b.levels[i] ) )
-            return false;
+             }( a.levels[i], b.levels[i] ) ) {
+            ut.failure( "FAILED: level data on level " + std::to_string( i ) );
+            failed = true;
+        }
     }
 
-    return true;
+    return !failed;
 }
 
 void statsTest( AMP::UnitTest *ut,
@@ -125,14 +144,12 @@ void statsTest( AMP::UnitTest *ut,
                                                  { "BoomerAMGSolver", 2, 10, 80, 6, 4 } } };
 
     auto stats =
-        AMP::Solver::AMG::collect_statistics( amg->type(), amg->levels(), amg->getCoarseSolver() );
+         AMP::Solver::AMG::collect_statistics( amg->type(), amg->levels(), amg->getCoarseSolver() );
+	AMP::Solver::AMG::print_summary( amg->type(), amg->levels(), amg->getCoarseSolver() );
 
-    auto is_expected = compare_expected( stats, expected );
-    if ( is_expected ) {
+    auto is_expected = compare_expected( *ut, stats, expected );
+    if ( is_expected )
         ut->passes( "AMG Hierarchy Stats match expected values." );
-    } else {
-        ut->failure( "FAILED: AMG Hierarchy Stats do not mach expected values." );
-    }
 }
 
 void runTestOnInputs( AMP::UnitTest *ut,
@@ -152,7 +169,9 @@ int main( int argc, char *argv[] )
     std::string generalInput = "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG";
     AMP_INSIST( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix",
                 "CSRMatrix required for AMG Stats." );
+#ifdef AMP_USE_HYPRE
     runTestOnInputs( &ut, physicsInput, generalInput );
+#endif
     ut.report();
 
     int num_failed = ut.NumFailGlobal();
