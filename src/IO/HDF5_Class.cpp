@@ -459,6 +459,7 @@ void HDF5data::getData( AMP::Array<TYPE> &data ) const
         AMP_ERROR( "Unable to get data: " + type() );
     }
 }
+template void HDF5data::getData<bool>( AMP::Array<bool> & ) const;
 template void HDF5data::getData<unsigned char>( AMP::Array<unsigned char> & ) const;
 template void HDF5data::getData<char>( AMP::Array<char> & ) const;
 template void HDF5data::getData<int8_t>( AMP::Array<int8_t> & ) const;

@@ -388,7 +388,7 @@ void VectorTests::L1NormVector( AMP::UnitTest *ut )
     if ( fabs( norm - norm2 ) < tol )
         ut->passes( "L1 norm" );
     else
-        ut->failure( AMP::Utilities::stringf( "L1 norm (%e) (%e)", fabs( norm - norm2 ), tol ) );
+        ut->failure( "L1 norm (%e) (%e)", fabs( norm - norm2 ), tol );
     norm      = static_cast<double>( vec->L1Norm() );
     norm2     = static_cast<double>( VectorHelpers::L1Norm( vec, { vec->getName() } )[0] );
     bool pass = fabs( norm - norm2 ) < tol;

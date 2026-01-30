@@ -110,7 +110,7 @@ void test_map_logical_circle( int N, AMP::UnitTest &ut )
         auto t2    = std::chrono::high_resolution_clock::now();
         int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
         printf( "map_logical_circle - %i: %i ns\n", method, static_cast<int>( ns / ( 4 * N ) ) );
-        ut.pass_fail( pass, "circle logical-physical-logical - " + std::to_string( method ) );
+        ut.pass_fail( pass, "circle logical-physical-logical - %i", method );
     }
     for ( int method = 1; method <= 3; method++ ) {
         std::uniform_real_distribution<> dis( -3.0, 3.0 );
@@ -124,7 +124,7 @@ void test_map_logical_circle( int N, AMP::UnitTest &ut )
             if ( !( distance( x, y, p2 ) < tol ) )
                 printf( "%e %e %e %e %e %e\n", x, y, p2[0], p2[1], p2[0] - x, p2[1] - y );
         }
-        ut.pass_fail( pass, "circle physical-logical-physical - " + std::to_string( method ) );
+        ut.pass_fail( pass, "circle physical-logical-physical - %i", method );
     }
 }
 
@@ -154,7 +154,7 @@ void test_map_logical_poly( int N, AMP::UnitTest &ut )
         auto t2    = std::chrono::high_resolution_clock::now();
         int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
         printf( "map_logical_poly - %i: %i ns\n", Np, static_cast<int>( ns / N ) );
-        ut.pass_fail( pass, "map_logical_poly - " + std::to_string( Np ) );
+        ut.pass_fail( pass, "map_logical_poly - %i", Np );
     }
 }
 
@@ -186,7 +186,7 @@ void test_map_logical_sphere_surface( int N, AMP::UnitTest &ut )
         }
         if ( N_failed > 3 ) {
             pass = false;
-            ut.failure( "map_logical_sphere_surface: " + std::to_string( method ) );
+            ut.failure( "map_logical_sphere_surface: %i", method );
         }
         auto t2 = std::chrono::high_resolution_clock::now();
         int ns  = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / N;
@@ -352,7 +352,7 @@ void testPointCloud( int N, AMP::UnitTest &ut )
         for ( int i = 1; i < N_ranks; i++ )
             pass = pass && range[i][0] >= range[i - 1][1];
     }
-    ut.pass_fail( pass, "assignRanks<" + std::to_string( NDIM ) + ">" );
+    ut.pass_fail( pass, "assignRanks<%i>", NDIM );
 }
 
 
