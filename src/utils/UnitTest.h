@@ -140,6 +140,7 @@ public: // printf like interfaces
         va_start( ap, format );
         char tmp[4096];
         int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
         AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
         AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
         passes( std::string( tmp ) );
@@ -151,6 +152,7 @@ public: // printf like interfaces
         va_start( ap, format );
         char tmp[4096];
         int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
         AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
         AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
         failure( std::string( tmp ) );
@@ -162,6 +164,7 @@ public: // printf like interfaces
         va_start( ap, format );
         char tmp[4096];
         int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
         AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
         AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
         expected_failure( std::string( tmp ) );
@@ -173,6 +176,7 @@ public: // printf like interfaces
         va_start( ap, format );
         char tmp[4096];
         int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
         AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
         AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
         pass_fail( pass, std::string( tmp ) );
