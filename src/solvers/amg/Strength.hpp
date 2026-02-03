@@ -165,16 +165,17 @@ __global__ void compute_soc_device( StrengthPolicy,
                                         StrengthPolicy::template strongest<const scalar_t>(
                                             &vals_diag[rs_diag + 1], row_len_diag - 1 ) :
                                         0.0;
-        const auto strongest_offd = row_len_offd > 1 ?
+        const auto strongest_offd = row_len_offd > 0 ?
                                         StrengthPolicy::template strongest<const scalar_t>(
-                                            &vals_offd[rs_offd + 1], row_len_offd - 1 ) :
+                                            &vals_offd[rs_offd], row_len_offd ) :
                                         0.0;
         const auto strongest_connection =
             strongest_diag > strongest_offd ? strongest_diag : strongest_offd;
 
         for ( lidx_t n = rs_diag; n < re_diag; ++n ) {
-            const auto Ajj = vals_diag[cols_loc_diag[n]];
-            const bool str = StrengthPolicy::template is_strong<const scalar_t>(
+            const auto rs_j = row_ptr_diag[cols_loc_diag[n]];
+            const auto Ajj  = vals_diag[rs_j];
+            const bool str  = StrengthPolicy::template is_strong<const scalar_t>(
                 strongest_connection, threshold, Aii, Ajj, vals_diag[n] );
             strength_diag[n] = str ? 1 : 0;
         }
@@ -188,6 +189,7 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
 {
     using lidx_t   = typename csr_view<Mat>::lidx_t;
     using scalar_t = typename csr_view<Mat>::scalar_t;
+    using mask_t   = typename csr_view<Mat>::mask_t;
 
     Strength S( A );
 
@@ -226,7 +228,7 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
             if ( A.has_offd() )
                 strongest_connection = std::max(
                     strongest_connection,
-                    StrengthPolicy::template strongest<const scalar_t>( get_vals( A.diag(), r ) ) );
+                    StrengthPolicy::template strongest<const scalar_t>( get_vals( A.offd(), r ) ) );
 
             auto fill_strength = [&]( auto vals, auto cols, auto strength ) {
                 for ( std::size_t i = 0; i < vals.size(); ++i ) {
@@ -241,8 +243,6 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
         }
     } else {
 #ifdef AMP_USE_DEVICE
-        using mask_t = typename csr_view<Mat>::mask_t;
-
         const auto num_rows      = static_cast<lidx_t>( A.numLocalRows() );
         const auto row_ptr_diag  = std::get<0>( A.diag() ).data();
         const auto cols_loc_diag = std::get<1>( A.diag() ).data();

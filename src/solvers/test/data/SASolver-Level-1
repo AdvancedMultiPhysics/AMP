@@ -2,6 +2,6 @@ level_options_1{
   agg_type = "MIS2"
   prol_trunc = 0.05
   num_smooth_prol = 1
-  strength_threshold = 0.01
+  strength_threshold = 0.002
   strength_measure = "symagg_min"
 }

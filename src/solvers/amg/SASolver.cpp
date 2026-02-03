@@ -49,9 +49,9 @@ void SASolver::resetLevelOptions()
         d_db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.strength_measure =
         d_db->getWithDefault<std::string>( "strength_measure", "classical_min" );
+    d_coarsen_settings.checkdd              = d_db->getWithDefault<bool>( "checkdd", true );
     d_pair_coarsen_settings                 = d_coarsen_settings;
     d_pair_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
-    d_pair_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
     d_num_smooth_prol                       = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0 );
     d_prol_spec_lower                       = d_db->getWithDefault<float>( "prol_spec_lower", 0.5 );

@@ -65,11 +65,41 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    auto A_diag        = A_data->getDiagMatrix();
 
+    // get fields from A and use to make diagonal-dominance checker
+    auto A_diag   = A_data->getDiagMatrix();
+    lidx_t *Ad_rs = nullptr, *Ad_cols_loc = nullptr;
+    gidx_t *Ad_cols     = nullptr;
+    scalar_t *Ad_coeffs = nullptr;
+    lidx_t *Ao_rs = nullptr, *Ao_cols_loc = nullptr;
+    gidx_t *Ao_cols                                    = nullptr;
+    scalar_t *Ao_coeffs                                = nullptr;
+    std::tie( Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs ) = A_diag->getDataFields();
+    const bool have_offd                               = A_data->hasOffDiag();
+    if ( have_offd ) {
+        auto A_offd                                        = A_data->getOffdMatrix();
+        std::tie( Ao_rs, Ao_cols, Ao_cols_loc, Ao_coeffs ) = A_offd->getDataFields();
+    }
+
+    auto not_diag_dom = [=]( const lidx_t row ) -> bool {
+        if ( !d_checkdd ) {
+            return true;
+        }
+        scalar_t od_sum = 0.0;
+        for ( lidx_t k = Ad_rs[row] + 1; k < Ad_rs[row + 1]; ++k ) {
+            od_sum += std::fabs( Ad_coeffs[k] );
+        }
+        if ( have_offd ) {
+            for ( lidx_t k = Ao_rs[row]; k < Ao_rs[row + 1]; ++k ) {
+                od_sum += std::fabs( Ao_coeffs[k] );
+            }
+        }
+        return Ad_coeffs[Ad_rs[row]] <= 5.0 * od_sum;
+    };
+
+    // Mask the diagonal block using SoC
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {
         AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
@@ -89,6 +119,8 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
+    AMP::pout << "Diag totnnz = " << A_diag->numberOfNonZeros()
+              << ", Masked totnnz = " << A_masked->numberOfNonZeros() << std::endl;
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
@@ -96,6 +128,8 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     gidx_t *Am_cols                                    = nullptr;
     scalar_t *Am_coeffs                                = nullptr;
     std::tie( Am_rs, Am_cols, Am_cols_loc, Am_coeffs ) = A_masked->getDataFields();
+
+    const bool dbg = false;
 
     // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size;
@@ -107,8 +141,8 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     lidx_t num_isolated = 0;
     std::vector<lidx_t> worklist;
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = Am_rs[row], re = Am_rs[row + 1];
-        if ( re - rs > 1 ) {
+        auto rs = Am_rs[row], re = Am_rs[row + 1];
+        if ( re - rs > 1 && not_diag_dom( row ) ) {
             worklist.push_back( row );
             agg_ids[row] = UNASSIGNED;
         } else {
@@ -116,10 +150,32 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             agg_ids[row] = INVALID;
         }
     }
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[0]:\n";
+        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist.size()
+                  << std::endl;
+    }
+
     classifyVerticesHost<Config>( A_masked, A->numGlobalRows(), worklist, labels, agg_ids );
 
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[1]:\n";
+        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
+        const auto num_in      = std::count( labels.begin(), labels.end(), IN );
+        const auto num_out     = std::count( labels.begin(), labels.end(), OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
+    }
+
     // initialize aggregates from nodes flagged as IN and all of their neighbors
-    lidx_t num_agg = 0, num_unagg = A_nrows;
+    lidx_t num_agg   = 0;
     double total_agg = 0.0;
 
     auto agg_from_row = [&]( lidx_t row, bool test_nbrs ) -> void {
@@ -146,12 +202,10 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
                 continue;
             }
             if ( c > Am_rs[row] ) {
-                AMP_ASSERT( labels[Am_cols_loc[c]] != IN );
                 labels[Am_cols_loc[c]] = OUT;
             }
             agg_ids[Am_cols_loc[c]] = num_agg;
             agg_size[num_agg]++;
-            --num_unagg;
         }
         total_agg += agg_size[num_agg];
         // increment current id to start working on next aggregate
@@ -162,7 +216,20 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         agg_from_row( row, false );
     }
     AMP::pout << "Formed " << num_agg << " aggregates with average size " << total_agg / num_agg
-              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
+              << std::endl;
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[2]:\n";
+        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
+        const auto num_in      = std::count( labels.begin(), labels.end(), IN );
+        const auto num_out     = std::count( labels.begin(), labels.end(), OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist.size()
+                  << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
+    }
 
     // do a second pass of classification and aggregation
     // reset worklist to be all vertices that are not part of
@@ -177,21 +244,46 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     AMP::Utilities::Algorithms<uint64_t>::fill_n( labels.data(), A_nrows, OUT );
     classifyVerticesHost<Config>( A_masked, A->numGlobalRows(), worklist, labels, agg_ids );
 
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[3]:\n";
+        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
+        const auto num_in      = std::count( labels.begin(), labels.end(), IN );
+        const auto num_out     = std::count( labels.begin(), labels.end(), OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
+    }
+
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         agg_from_row( row, true );
     }
     AMP::pout << "Formed " << num_agg << " aggregates with average size " << total_agg / num_agg
-              << ", leaving " << num_unagg << " unaggregated points" << std::endl;
+              << std::endl;
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[4]:\n";
+        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
+        const auto num_in      = std::count( labels.begin(), labels.end(), IN );
+        const auto num_out     = std::count( labels.begin(), labels.end(), OUT );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
+                  << ", sum: " << num_in + num_out << std::endl;
+    }
 
     // Add unmarked entries to the smallest aggregate they are nbrs with
     bool grew_agg;
+    int npasses = 0;
     do {
         grew_agg = false;
         for ( lidx_t row = 0; row < A_nrows; ++row ) {
             if ( agg_ids[row] != UNASSIGNED ) {
-                // already aggregated, nothing to do
+                // already aggregated or invalid, nothing to do
                 continue;
             }
 
@@ -201,7 +293,10 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             for ( lidx_t c = rs; c < re; ++c ) {
                 const auto agg = agg_ids[Am_cols_loc[c]];
                 // only consider nbrs that are aggregated
-                if ( agg != UNASSIGNED && ( agg_size[agg] < small_agg_size ) ) {
+                if ( agg == UNASSIGNED || agg == INVALID ) {
+                    continue;
+                }
+                if ( agg_size[agg] < small_agg_size ) {
                     small_agg_size = agg_size[agg];
                     small_agg_id   = agg;
                 }
@@ -210,13 +305,18 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
             // add to aggregate
             if ( small_agg_id >= 0 ) {
                 agg_ids[row] = small_agg_id;
-                agg_size[small_agg_id]++;
-                total_agg += 1.0;
-                --num_unagg;
-                grew_agg = true;
             }
         }
-    } while ( grew_agg );
+        ++npasses;
+    } while ( grew_agg && npasses < 3 );
+
+    if ( dbg ) {
+        AMP::pout << "MIS3 dbg[5]:\n";
+        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
+        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
+        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
+                  << ", sum: " << num_undec + num_invalid << std::endl;
+    }
 
     return num_agg;
 }
@@ -281,7 +381,7 @@ int MIS2Aggregator::classifyVerticesHost(
     // now loop until worklist is empty
     const lidx_t max_iters = 20;
     int num_iters          = 0;
-    while ( worklist.size() > 0 ) {
+    while ( worklist.size() > 0 && num_iters < max_iters ) {
         const auto iter_hash = hash( num_iters + 1 );
 
         // first update Tv entries from items in worklist
@@ -352,19 +452,6 @@ int MIS2Aggregator::classifyVerticesHost(
                     Tv[n] = IN;
                 }
             }
-
-            // only have directed graph, so there are edge cases where
-            // neighbors both end up IN, revert them to to undecided
-            if ( Tv[n] == IN ) {
-                for ( lidx_t k = rs + 1; k < re; ++k ) {
-                    const auto c = Ad_cols_loc[k];
-                    if ( Tv[c] == IN ) {
-                        AMP_WARN_ONCE( "Collision detected" );
-                        Tv[n] = 1;
-                        Tv[c] = 1;
-                    }
-                }
-            }
         }
 
         if ( dbg ) {
@@ -375,15 +462,18 @@ int MIS2Aggregator::classifyVerticesHost(
                       << num_out << " as out" << std::endl;
         }
 
-        // immediately mark nbrs of IN nodes as OUT, now guaranteed not to collide
+        // immediately mark nbrs of IN nodes as OUT
         for ( const auto n : worklist ) {
-            const auto rs = Ad_rs[n], re = Ad_rs[n + 1];
             if ( Tv[n] == IN ) {
-                for ( lidx_t k = rs + 1; k < re; ++k ) {
-                    const auto c = Ad_cols_loc[k];
-                    Tv[c]        = OUT;
-                }
+                continue;
             }
+            const auto rs = Ad_rs[n], re = Ad_rs[n + 1];
+            bool nbr_in = false;
+            for ( lidx_t k = rs; k < re; ++k ) {
+                const auto c = Ad_cols_loc[k];
+                nbr_in       = nbr_in || Tv[c] == IN;
+            }
+            Tv[n] = nbr_in ? OUT : Tv[n];
         }
 
         if ( dbg ) {
@@ -423,13 +513,16 @@ int MIS2Aggregator::classifyVerticesHost(
 // Device specific implementations for aggregating and classifying
 #ifdef AMP_USE_DEVICE
 
-template<typename lidx_t>
-__global__ void mark_undec_inv( const lidx_t num_rows, const lidx_t *row_start, lidx_t *agg_ids )
+template<typename lidx_t, class dd_lam>
+__global__ void mark_undec_inv( const lidx_t num_rows,
+                                const lidx_t *row_start,
+                                dd_lam not_diag_dom,
+                                lidx_t *agg_ids )
 {
     for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
           row += blockDim.x * gridDim.x ) {
         const auto rs = row_start[row], re = row_start[row + 1];
-        if ( re - rs > 1 ) {
+        if ( re - rs > 1 && not_diag_dom( row ) ) {
             agg_ids[row] = MIS2Aggregator::UNASSIGNED;
         } else {
             agg_ids[row] = MIS2Aggregator::INVALID;
@@ -501,12 +594,12 @@ __global__ void grow_aggs( const lidx_t num_rows,
     for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
           row += blockDim.x * gridDim.x ) {
         if ( agg_ids[row] != MIS2Aggregator::UNASSIGNED ) {
-            // already aggregated, nothing to do
+            // already aggregated or invalid, nothing to do
             continue;
         }
-        const auto rs = row_start[row], re = row_start[row + 1];
 
         // find smallest neighboring aggregate
+        const auto rs = row_start[row], re = row_start[row + 1];
         lidx_t small_agg_id = -1, small_agg_size = num_rows + 1;
         for ( lidx_t c = rs; c < re; ++c ) {
             const auto agg = agg_ids[cols_loc[c]];
@@ -548,10 +641,41 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    auto A_diag        = A_data->getDiagMatrix();
 
-    AMP::pout << "    MIS2 got diag block of size: " << A_diag->numLocalRows() << " x "
-              << A_diag->numLocalColumns() << ", nnz = " << A_diag->numberOfNonZeros() << std::endl;
+    // get fields from A and use to make diagonal-dominance checker
+    auto A_diag   = A_data->getDiagMatrix();
+    lidx_t *Ad_rs = nullptr, *Ad_cols_loc = nullptr;
+    gidx_t *Ad_cols     = nullptr;
+    scalar_t *Ad_coeffs = nullptr;
+    lidx_t *Ao_rs = nullptr, *Ao_cols_loc = nullptr;
+    gidx_t *Ao_cols                                    = nullptr;
+    scalar_t *Ao_coeffs                                = nullptr;
+    std::tie( Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs ) = A_diag->getDataFields();
+    const bool have_offd                               = A_data->hasOffDiag();
+    if ( have_offd ) {
+        auto A_offd                                        = A_data->getOffdMatrix();
+        std::tie( Ao_rs, Ao_cols, Ao_cols_loc, Ao_coeffs ) = A_offd->getDataFields();
+    }
+
+    // don't device capture member variables
+    const bool checkdd = d_checkdd;
+    auto not_diag_dom  = [=] __device__( const lidx_t row ) -> bool {
+        if ( !checkdd ) {
+            return true;
+        }
+        scalar_t od_sum = 0.0;
+        for ( lidx_t k = Ad_rs[row] + 1; k < Ad_rs[row + 1]; ++k ) {
+            const auto c = Ad_coeffs[k];
+            od_sum += ( c > -c ? c : -c );
+        }
+        if ( have_offd ) {
+            for ( lidx_t k = Ao_rs[row]; k < Ao_rs[row + 1]; ++k ) {
+                const auto c = Ao_coeffs[k];
+                od_sum += ( c > -c ? c : -c );
+            }
+        }
+        return Ad_coeffs[Ad_rs[row]] <= 5.0 * od_sum;
+    };
 
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {
@@ -572,10 +696,8 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
-
-    AMP::pout << "    SoC masked to block of size: " << A_masked->numLocalRows() << " x "
-              << A_masked->numLocalColumns() << ", nnz = " << A_masked->numberOfNonZeros()
-              << std::endl;
+    AMP::pout << "Diag totnnz = " << A_diag->numberOfNonZeros()
+              << ", Masked totnnz = " << A_masked->numberOfNonZeros() << std::endl;
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
@@ -606,7 +728,7 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( A_nrows, BlockDim, GridDim );
-        mark_undec_inv<<<GridDim, BlockDim>>>( A_nrows, Am_rs, agg_root_ids );
+        mark_undec_inv<<<GridDim, BlockDim>>>( A_nrows, Am_rs, not_diag_dom, agg_root_ids );
         deviceSynchronize();
     }
 
@@ -931,9 +1053,8 @@ int MIS2Aggregator::classifyVerticesDevice(
                 worklist,
                 worklist + worklist_len,
                 [Ad_rs, Ad_cols_loc, agg_ids, Tv, Tv_hat] __device__( lidx_t n ) -> void {
-                    const auto rs = Ad_rs[n];
-                    const auto re = Ad_rs[n + 1];
-                    auto lmax     = Tv[n];
+                    const auto rs = Ad_rs[n], re = Ad_rs[n + 1];
+                    auto lmax = Tv[n];
                     for ( lidx_t k = rs; k < re; ++k ) {
                         const auto c = Ad_cols_loc[k];
                         lmax         = lmax < Tv[c] ? Tv[c] : lmax;
@@ -990,9 +1111,8 @@ int MIS2Aggregator::classifyVerticesDevice(
                     if ( Tv[n] == IN ) {
                         return;
                     }
-                    const auto rs = Ad_rs[n];
-                    const auto re = Ad_rs[n + 1];
-                    bool nbr_in   = false;
+                    const auto rs = Ad_rs[n], re = Ad_rs[n + 1];
+                    bool nbr_in = false;
                     for ( lidx_t k = rs; k < re; ++k ) {
                         const auto c = Ad_cols_loc[k];
                         nbr_in       = nbr_in || Tv[c] == IN;
