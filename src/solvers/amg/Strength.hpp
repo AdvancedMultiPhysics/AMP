@@ -121,17 +121,8 @@ struct symagg_strength {
 };
 
 template<class Mat>
-AMG::Strength<Mat>::Strength( csr_view<Mat> A )
+AMG::Strength<Mat>::Strength( csr_view<Mat> A ) : d_diag( A.diag() ), d_offd( A.offd() )
 {
-    auto init = [=]( auto src, auto &dst ) {
-        auto [rowptr, colind, values] = src;
-        dst.rowptr                    = rowptr;
-        dst.colind                    = colind;
-        dst.mat_values                = values;
-        dst.values.resize( colind.size() );
-    };
-    init( A.diag(), d_diag );
-    init( A.offd(), d_offd );
 }
 
 #ifdef AMP_USE_DEVICE
@@ -189,7 +180,6 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
 {
     using lidx_t   = typename csr_view<Mat>::lidx_t;
     using scalar_t = typename csr_view<Mat>::scalar_t;
-    using mask_t   = typename csr_view<Mat>::mask_t;
 
     Strength S( A );
 
@@ -243,6 +233,7 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
         }
     } else {
 #ifdef AMP_USE_DEVICE
+        using mask_t             = typename csr_view<Mat>::mask_t;
         const auto num_rows      = static_cast<lidx_t>( A.numLocalRows() );
         const auto row_ptr_diag  = std::get<0>( A.diag() ).data();
         const auto cols_loc_diag = std::get<1>( A.diag() ).data();

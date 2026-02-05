@@ -816,7 +816,6 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     }
 
     // allocate space for new data fields and copy over parts to keep
-    const lidx_t old_nnz = d_nnz;
     d_nnz -= num_delete;
     auto new_row_starts = sharedArrayBuilder( d_num_rows + 1, d_lidxAllocator );
     auto new_coeffs     = sharedArrayBuilder( d_nnz, d_scalarAllocator );

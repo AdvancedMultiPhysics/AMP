@@ -1362,7 +1362,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
     const typename Config::lidx_t num_rows,
     const typename Config::scalar_t bnd_lo,
     const typename Config::scalar_t bnd_up,
-    const typename Config::lidx_t *new_row_starts,
+    [[maybe_unused]] const typename Config::lidx_t *new_row_starts,
     typename Config::lidx_t *new_cols_loc,
     typename Config::scalar_t *new_coeffs )
 {
@@ -1408,7 +1408,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
     const typename Config::lidx_t num_rows,
     const typename Config::scalar_t bnd_lo,
     const typename Config::scalar_t bnd_up,
-    const typename Config::lidx_t *new_row_starts,
+    [[maybe_unused]] const typename Config::lidx_t *new_row_starts,
     typename Config::gidx_t *new_cols,
     typename Config::scalar_t *new_coeffs )
 {

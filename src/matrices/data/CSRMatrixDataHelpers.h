@@ -163,7 +163,7 @@ struct CSRMatrixDataHelpers {
                                      const lidx_t num_rows,
                                      const scalar_t bnd_lo,
                                      const scalar_t bnd_up,
-                                     const lidx_t *new_row_starts,
+                                     [[maybe_unused]] const lidx_t *new_row_starts,
                                      lidx_t *new_cols_loc,
                                      scalar_t *new_coeffs );
 
@@ -174,7 +174,7 @@ struct CSRMatrixDataHelpers {
                                      const lidx_t num_rows,
                                      const scalar_t bnd_lo,
                                      const scalar_t bnd_up,
-                                     const lidx_t *new_row_starts,
+                                     [[maybe_unused]] const lidx_t *new_row_starts,
                                      gidx_t *new_cols,
                                      scalar_t *new_coeffs );
 };

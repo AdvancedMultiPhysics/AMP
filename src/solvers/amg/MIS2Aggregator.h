@@ -4,6 +4,7 @@
 #include "AMP/solvers/amg/AggregationSettings.h"
 #include "AMP/solvers/amg/Aggregator.h"
 
+#include <cstdint>
 #include <vector>
 
 namespace AMP::Solver::AMG {
@@ -23,32 +24,26 @@ struct MIS2Aggregator : Aggregator {
     template<typename Config>
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A, int *agg_ids );
 
-    // form aggregated from MIS-2 classification, host only
+    // classify vertices as in or out of MIS-2
+    template<typename Config>
+    int classifyVertices( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
+                          const uint64_t num_gbl,
+                          typename Config::lidx_t *worklist,
+                          typename Config::lidx_t worklist_len,
+                          uint64_t *Tv,
+                          uint64_t *Tv_hat,
+                          int *agg_ids );
+
+    // form aggregates from MIS-2 classification, host only
     template<typename Config>
     int assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                    int *agg_ids );
 
-    // classify vertices as in or out of MIS-2
-    template<typename Config>
-    int classifyVerticesHost( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
-                              const uint64_t num_gbl,
-                              std::vector<typename Config::lidx_t> &wl1,
-                              std::vector<uint64_t> &labels,
-                              int *agg_ids );
-
-    // device versions of aggregation/classification
+    // device version of aggregation
 #ifdef AMP_USE_DEVICE
     template<typename Config>
     int assignLocalAggregatesDevice( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                      int *agg_ids );
-    template<typename Config>
-    int classifyVerticesDevice( std::shared_ptr<LinearAlgebra::CSRLocalMatrixData<Config>> A,
-                                const uint64_t num_gbl,
-                                typename Config::lidx_t *worklist,
-                                typename Config::lidx_t worklist_len,
-                                uint64_t *Tv,
-                                uint64_t *Tv_hat,
-                                int *agg_ids );
 #endif
 
     // helper function to choose bits for id part of packed tuples
