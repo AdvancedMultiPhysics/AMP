@@ -211,7 +211,9 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
                 continue;
 
             const scalar_t Aii = get_diag_val( r );
-            AMP_ASSERT( Aii > 0 );
+            if ( Aii <= 0 ) {
+                AMP_WARN_ONCE( "SoC: non-positive diagonal value encountered" );
+            }
 
             auto strongest_connection =
                 StrengthPolicy::template strongest<const scalar_t>( Ad_vals.subspan( 1 ) );

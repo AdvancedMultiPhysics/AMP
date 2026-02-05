@@ -231,14 +231,6 @@ int MIS2Aggregator::classifyVertices(
         ++num_iters;
     }
 
-    if ( worklist_len > 0 ) {
-        AMP::pout << "\nclassifyVertices stopped with " << worklist_len << " worklist items left"
-                  << std::endl
-                  << std::endl;
-    } else {
-        AMP::pout << "classifyVertices finished in " << num_iters << " iterations" << std::endl;
-    }
-
     return num_iters;
 }
 
@@ -426,8 +418,6 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
-    AMP::pout << "Diag totnnz = " << A_diag->numberOfNonZeros()
-              << ", Masked totnnz = " << A_masked->numberOfNonZeros() << std::endl;
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
@@ -447,8 +437,6 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
     auto worklist       = lidx_alloc.allocate( A_nrows );
     lidx_t worklist_len = 0;
 
-    const bool dbg = true;
-
     // Initialize ids to either unassigned (default) or invalid (isolated)
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         auto rs = Am_rs[row], re = Am_rs[row + 1];
@@ -460,30 +448,9 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         }
     }
 
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[0]:\n";
-        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist_len
-                  << std::endl;
-    }
-
     // First pass of MIS2 classification, ignores INVALID nodes
     classifyVertices<Config>(
         A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_ids );
-
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[1]:\n";
-        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
-        const auto num_in      = std::count( Tv, Tv + A_nrows, IN );
-        const auto num_out     = std::count( Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
-    }
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     lidx_t num_agg = 0;
@@ -536,53 +503,16 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         }
     }
 
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[2]:\n";
-        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
-        const auto num_in      = std::count( Tv, Tv + A_nrows, IN );
-        const auto num_out     = std::count( Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist_len
-                  << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
-    }
-
     // do a second pass of classification and aggregation
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv, A_nrows, OUT );
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat, A_nrows, OUT );
     classifyVertices<Config>(
         A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_ids );
 
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[3]:\n";
-        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
-        const auto num_in      = std::count( Tv, Tv + A_nrows, IN );
-        const auto num_out     = std::count( Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
-    }
-
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     for ( lidx_t row = 0; row < A_nrows; ++row ) {
         agg_row( row, false );
-    }
-
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[4]:\n";
-        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
-        const auto num_in      = std::count( Tv, Tv + A_nrows, IN );
-        const auto num_out     = std::count( Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
     }
 
     // deallocate Tv and Tv_hat, they are no longer needed
@@ -622,14 +552,6 @@ int MIS2Aggregator::assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CS
         }
         ++npasses;
     } while ( grew_agg && npasses < 3 );
-
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[5]:\n";
-        const auto num_undec   = std::count( agg_ids, agg_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid = std::count( agg_ids, agg_ids + A_nrows, INVALID );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-    }
 
     // deallocate sizes and return
     lidx_alloc.deallocate( agg_size, A_nrows );
@@ -718,8 +640,6 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
-    AMP::pout << "Diag totnnz = " << A_diag->numberOfNonZeros()
-              << ", Masked totnnz = " << A_masked->numberOfNonZeros() << std::endl;
 
     // pull out data fields from A_masked
     // only care about row starts and local cols
@@ -741,8 +661,6 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
     lidx_t worklist_len = A_nrows;
     AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_root_ids, A_nrows, UNASSIGNED );
 
-    const bool dbg = true;
-
     // Initialize ids to either unassigned (default) or invalid (isolated)
     {
         dim3 BlockDim;
@@ -763,34 +681,9 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         worklist_len    = static_cast<lidx_t>( new_end - worklist );
     }
 
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[0]:\n";
-        const auto num_undec =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist_len
-                  << std::endl;
-    }
-
     // First pass of MIS2 classification, ignores INVALID nodes
     classifyVertices<Config>(
         A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_root_ids );
-
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[1]:\n";
-        const auto num_undec =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
-        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
-        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
-    }
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
@@ -813,40 +706,11 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         worklist_len    = static_cast<lidx_t>( new_end - worklist );
     }
 
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[2]:\n";
-        const auto num_undec =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
-        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
-        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << ", wl len: " << worklist_len
-                  << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
-    }
-
     // do a second pass of classification and aggregation
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv, A_nrows, OUT );
     AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat, A_nrows, OUT );
     classifyVertices<Config>(
         A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_root_ids );
-
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[3]:\n";
-        const auto num_undec =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
-        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
-        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
-    }
 
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
@@ -856,20 +720,6 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         setKernelDims( A_nrows, BlockDim, GridDim );
         build_aggs<<<GridDim, BlockDim>>>(
             A_nrows, false, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
-    }
-
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[4]:\n";
-        const auto num_undec =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
-        const auto num_in  = thrust::count( thrust::device, Tv, Tv + A_nrows, IN );
-        const auto num_out = thrust::count( thrust::device, Tv, Tv + A_nrows, OUT );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-        AMP::pout << "  num_in: " << num_in << ", num_out: " << num_out
-                  << ", sum: " << num_in + num_out << std::endl;
     }
 
     // deallocate Tv and Tv_hat, they are no longer needed
@@ -890,16 +740,6 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
         grow_aggs<<<GridDim, BlockDim>>>( A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids );
     }
 
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[5]:\n";
-        const auto num_undec =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
-    }
-
     // agg_root_ids currently uses root node of each aggregate as the ID
     // need to count number of unique ones to get total number of aggregates
     // agg_size is no longer needed, so copy ids to there, sort, call unique
@@ -918,16 +758,6 @@ int MIS2Aggregator::assignLocalAggregatesDevice(
             ( first_entries[0] == UNASSIGNED || first_entries[1] == UNASSIGNED ) ? 1 : 0;
         num_dec = dec_inv + dec_und;
         num_agg = static_cast<int>( nunq ) - num_dec;
-    }
-
-    if ( dbg ) {
-        AMP::pout << "MIS3 dbg[6]:\n";
-        const auto num_undec =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, UNASSIGNED );
-        const auto num_invalid =
-            thrust::count( thrust::device, agg_root_ids, agg_root_ids + A_nrows, INVALID );
-        AMP::pout << "  num_undec: " << num_undec << ", num_invalid: " << num_invalid
-                  << ", sum: " << num_undec + num_invalid << std::endl;
     }
 
     // finally, use compacted list of uniques to convert root node labels
