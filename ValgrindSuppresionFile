@@ -288,6 +288,16 @@
    fun:PMPI_Init
    ...
 }
+{
+   hwloc_topology_load_addr
+   Memcheck:Addr1
+   ...
+   fun:hwloc_topology_load
+   fun:opal_hwloc_base_get_topology
+   ...
+   fun:orte_init
+   ...
+}
 
 
 # System errors
