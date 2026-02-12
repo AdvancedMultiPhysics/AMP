@@ -576,7 +576,7 @@ std::string getLastErrnoString()
 {
     int err = errno;
     Utilities_mutex.lock();
-    std::string msg( std::strerror( errno ) );
+    std::string msg( std::strerror( err ) );
     Utilities_mutex.unlock();
     return msg;
 }
