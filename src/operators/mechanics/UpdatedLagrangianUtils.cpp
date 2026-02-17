@@ -120,7 +120,7 @@ void eigenVectors( double A[3][3], double val[3], double vec[3][3] )
                 vec[i][j] = 0.0;
                 vec[j][i] = 0.0;
             } // end for j
-        } // end for i
+        }     // end for i
     } else {
         int vecColCnt = 0;
         for ( auto &uniqVal : uniqVals ) {
@@ -141,7 +141,7 @@ void eigenVectors( double A[3][3], double val[3], double vec[3][3] )
                 } // end for j
                 vecColCnt++;
             } // end for k
-        } // end for i
+        }     // end for i
         AMP_ASSERT( vecColCnt == 3 );
     }
 }
@@ -166,7 +166,7 @@ void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols )
                     if ( softEquals( A[2][1], 0 ) ) {
                         sols.push_back( { 0, 1, 0 } );
                     } // A21
-                } // A12
+                }     // A12
             } else {
                 if ( softEquals( ( A[1][1] * A[2][2] ), ( A[1][2] * A[2][1] ) ) ) {
                     sols.push_back( { 0, -A[1][2] / A[1][1], 1 } );
@@ -177,8 +177,8 @@ void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols )
                 if ( softEquals( A[2][1], 0 ) ) {
                     sols.push_back( { 0, 1, 0 } );
                 } // A21
-            } // A11
-        } // A02
+            }     // A11
+        }         // A02
     } else {
         if ( softEquals( ( A[1][2] * A[0][1] ), ( A[1][1] * A[0][2] ) ) ) {
             if ( softEquals( ( A[2][2] * A[0][1] ), ( A[2][1] * A[0][2] ) ) ) {
@@ -208,7 +208,7 @@ void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols )
                                 sols.push_back( { 1, -( A[2][0] ) / A[2][1], 0 } );
                                 sols.push_back( { 1, -( A[2][0] + A[2][2] ) / A[2][1], 1 } );
                             } // A21
-                        } // A10
+                        }     // A10
                     } else {
                         if ( softEquals( A[2][1], 0 ) ) {
                             if ( softEquals( ( A[2][2] * A[1][0] ), ( A[2][0] * A[1][2] ) ) ) {
@@ -223,7 +223,7 @@ void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols )
                             tmp[2] = -A[1][0] / A[1][2];
                             sols.push_back( tmp );
                         } // A21
-                    } // A12
+                    }     // A12
                 } else {
                     if ( softEquals( ( A[1][1] * A[2][2] ), ( A[2][1] * A[1][2] ) ) ) {
                         if ( softEquals( ( A[1][1] * A[2][0] ), ( A[2][1] * A[1][0] ) ) ) {
@@ -239,7 +239,7 @@ void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols )
                         sols.push_back( tmp );
                     }
                 } // A11
-            } // A00
+            }     // A00
         } else {
             if ( softEquals( A[1][1], 0 ) ) {
                 std::array<double, 3> tmp;
@@ -267,7 +267,7 @@ void solveEquation( double A[3][3], std::vector<std::array<double, 3>> &sols )
                     sols.push_back( tmp );
                 }
             } // A11
-        } // A02
+        }     // A02
     } else {
         double b = A[1][2] - ( A[1][1] * A[0][2] / A[0][1] );
         double c = ( A[0][0] * A[1][1] / A[0][1] ) - A[1][0];
@@ -307,7 +307,7 @@ void orthonormalize( std::vector<std::array<double, 3>> &vecs )
             for ( int k = 0; k < 3; k++ ) {
                 tmp[k] += ( dot1 * re[k] );
             } // end for k
-        } // end for j
+        }     // end for j
 
         std::array<double, 3> newVec;
         for ( int k = 0; k < 3; k++ ) {
@@ -412,7 +412,7 @@ void matTranspose( double A[3][3], double B[3][3] )
         for ( int j = 0; j < 3; j++ ) {
             B[i][j] = A[j][i];
         } // end for j
-    } // end for i
+    }     // end for i
 }
 
 void matInverse( double A[3][3], double B[3][3] )
@@ -453,7 +453,7 @@ void matScale( double A[3][3], double c )
         for ( int j = 0; j < 3; j++ ) {
             A[i][j] *= c;
         } // end for j
-    } // end for i
+    }     // end for i
 }
 
 double matDeterminant( double A[3][3] )
@@ -475,8 +475,8 @@ void matMatMultiply( double A[3][3], double B[3][3], double C[3][3] )
             for ( int k = 0; k < 3; k++ ) {
                 C[i][j] += ( A[i][k] * B[k][j] );
             } // end for k
-        } // end for j
-    } // end for i
+        }     // end for j
+    }         // end for i
 }
 
 void matVecMultiply( double A[3][3], double b[3], double c[3] )
@@ -503,7 +503,7 @@ void matCopy( double A[3][3], double B[3][3] )
         for ( int j = 0; j < 3; j++ ) {
             B[i][j] = A[i][j];
         } // end for j
-    } // end for i
+    }     // end for i
 }
 
 /* Utils for pushback and pullforwards */

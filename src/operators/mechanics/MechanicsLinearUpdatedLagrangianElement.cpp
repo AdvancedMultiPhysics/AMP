@@ -65,7 +65,7 @@ void MechanicsLinearUpdatedLagrangianElement::computeStressAndStrain(
             for ( int c = 0; c < 6; c++ ) {
                 uStress[r] += ( constitutiveMatrix[( 6 * r ) + c] * uStrain[c] );
             } // end for c
-        } // end for r
+        }     // end for r
 
         for ( int i = 0; i < 6; i++ ) {
             stressVec[( 6 * qp ) + i] = uStress[i];
@@ -398,9 +398,9 @@ void MechanicsLinearUpdatedLagrangianElement::apply_Reduced()
                             ( detJ[0] * materialStiffness[( 3 * k ) + d2][( 3 * j ) + d1] );
 
                     } // end for d2
-                } // end for k
-            } // end for d1
-        } // end for j
+                }     // end for k
+            }         // end for d1
+        }             // end for j
 
         // Adding the stress stiffness matrix to the element stiffness matrix.
         for ( unsigned int i = 0; i < ( 3 * num_nodes ); i++ ) {
@@ -723,9 +723,9 @@ void MechanicsLinearUpdatedLagrangianElement::apply_Normal()
                         // d1<<"]="<<elementStiffnessMatrix[(3 * k) + d2][(3 * j) + d1]<<std::endl;
 
                     } // end for d2
-                } // end for k
-            } // end for d1
-        } // end for j
+                }     // end for k
+            }         // end for d1
+        }             // end for j
 
         // Adding the stress stiffness matrix to the element stiffness matrix.
         for ( unsigned int i = 0; i < ( 3 * num_nodes ); i++ ) {

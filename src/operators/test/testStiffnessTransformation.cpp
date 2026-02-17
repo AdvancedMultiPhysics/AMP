@@ -67,7 +67,7 @@ static void myTest( AMP::UnitTest *ut )
                 ut->failure( "U is not symmetric." );
             }
         } // end for j
-    } // end for i
+    }     // end for i
 
     double eVal[3];
     eigenValues( U, eVal );
@@ -106,7 +106,7 @@ static void myTest( AMP::UnitTest *ut )
                 }
             }
         } // end for j
-    } // end for i
+    }     // end for i
 
     double RU[3][3];
     matMatMultiply( R, U, RU );
@@ -116,7 +116,7 @@ static void myTest( AMP::UnitTest *ut )
                 ut->failure( "RU != A." );
             }
         } // end for j
-    } // end for i
+    }     // end for i
 
     ut->passes( "testStiffnessTransformation" );
 }
