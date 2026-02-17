@@ -134,9 +134,9 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         d_is_empty = false;
 
         // Allocate internal arrays
-        d_cols = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+        d_cols = makeGidxArray( d_nnz );
         if ( !d_is_symbolic ) {
-            d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+            d_coeffs = makeScalarArray( d_nnz );
         }
 
         // Fill cols and nnz based on local row extents and on/off diag status
@@ -186,7 +186,7 @@ size_t *CSRLocalMatrixData<Config>::getColumnMapSizeT() const
         return nullptr;
     }
     if ( !d_cols_unq_size_t ) {
-        d_cols_unq_size_t = sharedArrayBuilder( d_ncols_unq, d_sizetAllocator );
+        d_cols_unq_size_t = sharedArrayBuilder<size_t>( d_ncols_unq );
         AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), d_cols_unq_size_t.get() );
     }
     return d_cols_unq_size_t.get();
@@ -199,7 +199,7 @@ typename Config::scalar_t *CSRLocalMatrixData<Config>::getGhostCache() const
         return nullptr;
     }
     if ( !d_ghost_cache ) {
-        d_ghost_cache = sharedArrayBuilder( d_ncols_unq, d_scalarAllocator );
+        d_ghost_cache = makeScalarArray( d_ncols_unq );
     }
     return d_ghost_cache.get();
 }
@@ -423,14 +423,14 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
         // first make a copy of the global columns and sort them
         // as a whole. This is different from the sortColumns call
         // that acts within a row. This jumbles all rows together.
-        auto cols_tmp = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+        auto cols_tmp = makeGidxArray( d_nnz );
         AMP::Utilities::Algorithms<gidx_t>::copy_n( d_cols.get(), d_nnz, cols_tmp.get() );
         AMP::Utilities::Algorithms<gidx_t>::sort( cols_tmp.get(), d_nnz );
 
         // make sorted entries unique and copy
         d_ncols_unq = static_cast<lidx_t>(
             AMP::Utilities::Algorithms<gidx_t>::unique( cols_tmp.get(), d_nnz ) );
-        d_cols_unq = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
+        d_cols_unq = makeGidxArray( d_ncols_unq );
         AMP::Utilities::Algorithms<gidx_t>::copy_n( cols_tmp.get(), d_ncols_unq, d_cols_unq.get() );
         cols_tmp.reset();
 
@@ -570,7 +570,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
         out_scalar_alloc_t scalar_alloc;
 
         outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
-        outData->d_coeffs   = outdata_t::sharedArrayBuilder( d_nnz, scalar_alloc );
+        outData->d_coeffs   = outdata_t::makeScalarArray( d_nnz );
 
         /****************************************************
          * Potential performance improvement:
@@ -585,12 +585,12 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
         AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
 
         if ( d_cols.get() != nullptr ) {
-            outData->d_cols = outdata_t::sharedArrayBuilder( d_nnz, gidx_alloc );
+            outData->d_cols = outdata_t::makeGidxArray( d_nnz );
             AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
         }
         if ( d_cols_unq.get() != nullptr ) {
             outData->d_ncols_unq = d_ncols_unq;
-            outData->d_cols_unq  = outdata_t::sharedArrayBuilder( d_ncols_unq, gidx_alloc );
+            outData->d_cols_unq  = outdata_t::makeGidxArray( d_ncols_unq );
             AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
         }
     }
@@ -683,10 +683,10 @@ void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
 
     // allocate and fill remaining arrays
     d_is_empty = false;
-    d_cols     = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+    d_cols     = makeGidxArray( d_nnz );
     d_cols_loc = makeLidxArray( d_nnz );
     if ( !d_is_symbolic ) {
-        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        d_coeffs = makeScalarArray( d_nnz );
     }
 
     AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
@@ -721,10 +721,10 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
 
     // allocate and fill remaining arrays
     d_is_empty = false;
-    d_cols     = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+    d_cols     = makeGidxArray( d_nnz );
     d_cols_loc = makeLidxArray( d_nnz );
     if ( !d_is_symbolic ) {
-        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        d_coeffs = makeScalarArray( d_nnz );
     }
 
     AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
@@ -781,13 +781,13 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     // allocate space for new data fields and copy over parts to keep
     d_nnz -= num_delete;
     auto new_row_starts = makeLidxArray( d_num_rows + 1 );
-    auto new_coeffs     = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+    auto new_coeffs     = makeScalarArray( d_nnz );
     std::shared_ptr<lidx_t[]> new_cols_loc;
     std::shared_ptr<gidx_t[]> new_cols;
     if ( d_is_diag ) {
         new_cols_loc = makeLidxArray( d_nnz );
     } else {
-        new_cols = sharedArrayBuilder( d_nnz, d_gidxAllocator );
+        new_cols = makeGidxArray( d_nnz );
     }
 
     // new row starts is old minus running total of deleted entries
@@ -1380,18 +1380,18 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
     }
 
     if ( d_ncols_unq > 0 ) {
-        d_cols_unq = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
+        d_cols_unq = makeGidxArray( d_ncols_unq );
         AMP::Utilities::copy( d_ncols_unq, cols_unq.data(), d_cols_unq.get() );
     }
 
     if ( d_nnz > 0 ) {
-        d_cols_loc = makeLidxArray( d_nnz, d_lidxAllocator );
+        d_cols_loc = makeLidxArray( d_nnz );
         AMP::Utilities::copy( d_nnz, cols_loc.data(), d_cols_loc.get() );
     }
 
     if ( d_nnz && ( !d_is_symbolic ) ) {
         IO::readHDF5( fid, "coeffs", coeffs );
-        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        d_coeffs = makeScalarArray( d_nnz );
         AMP::Utilities::copy( d_nnz, coeffs.data(), d_coeffs.get() );
     }
 }

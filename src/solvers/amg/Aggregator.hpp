@@ -25,9 +25,9 @@ namespace AMP::Solver::AMG {
 #ifdef AMP_USE_DEVICE
 template<typename lidx_t, typename gidx_t, typename scalar_t>
 __global__ void fill_p_diag( const lidx_t *agg_ids,
-                             const scalar_t *agg_norm_sq,
                              const lidx_t *P_rs,
                              const scalar_t *null_vals,
+                             const scalar_t *coarse_null_vals,
                              const lidx_t num_rows,
                              const gidx_t begin_col,
                              gidx_t *P_cols,
@@ -41,7 +41,7 @@ __global__ void fill_p_diag( const lidx_t *agg_ids,
             const auto rs  = P_rs[row];
             P_cols[rs]     = begin_col + static_cast<gidx_t>( agg );
             P_cols_loc[rs] = agg;
-            P_coeffs[rs]   = ( null_vals ? null_vals[row] : 1.0 ) / sqrt( agg_norm_sq[agg] );
+            P_coeffs[rs]   = ( null_vals ? null_vals[row] : 1.0 ) / coarse_null_vals[agg];
         }
     }
 }
@@ -70,7 +70,29 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    auto A_data = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
+
+    // If a near-nullspace vector is given then pull its values out for
+    // accumulation while aggregates are being formed
+    std::shared_ptr<scalar_t[]> null_ones; // only allocated if no nullvec passed
+    const scalar_t *null_vals = nullptr;
+    if ( nearNullVec ) {
+        // if no near-nullspace vector present, below just assumes all ones
+        // if we do have one pull out its local values scatter into P
+        // and gather normalizations into coarse near-nullspace
+        null_vals = nearNullVec->getVectorData()->template getRawDataBlock<const scalar_t>( 0 );
+    } else {
+        auto null_ones = localmatrixdata_t::makeScalarArray( A_nrows );
+        AMP::Utilities::Algorithms<scalar_t>::fill_n( null_ones.get(), A_nrows, scalar_t{ 1.0 } );
+        null_vals = null_ones.get();
+    }
+
+    // get aggregates
+    auto agg_ids     = localmatrixdata_t::sharedArrayBuilder<int>( A_nrows );
+    auto agg_norm_sq = localmatrixdata_t::makeScalarArray( A_nrows );
+    AMP::Utilities::Algorithms<scalar_t>::fill_n( agg_norm_sq.get(), A_nrows, scalar_t{ 0.0 } );
+    const auto num_agg = assignLocalAggregates( A, null_vals, agg_ids.get(), agg_norm_sq.get() );
 
     // if there is no parameters object passed in create one matching usual
     // purpose of a (tentative) prolongator
@@ -97,36 +119,6 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     } else {
         rightDOFs = matParams->getRightDOFManager();
     }
-
-    // If a near-nullspace vector is given then setup storage for
-    // the induced near-nullspace vector on the coarse space
-    std::shared_ptr<LinearAlgebra::Vector> coarseNearNullVec;
-    std::shared_ptr<scalar_t[]> null_ones; // only allocated if no nullvec passed
-    const scalar_t *null_vals  = nullptr;
-    scalar_t *coarse_null_vals = nullptr;
-    if ( nearNullVec ) {
-        // if no near-nullspace vector present, below just assumes all ones
-        // if we do have one pull out its local values scatter into P
-        // and gather normalizations into coarse space
-        null_vals         = nearNullVec->getVectorData()->getRawDataBlock<scalar_t>( 0 );
-        coarseNearNullVec = createVector( rightDOFs,
-                                          A_data->getLeftVariable(),
-                                          true,
-                                          A_data->getMemoryLocation(),
-                                          A_data->getBackend() );
-        coarseNearNullVec->setNoGhosts();
-        coarse_null_vals = coarseNearNullVec->getVectorData()->getRawDataBlock<scalar_t>( 0 );
-    } else {
-        auto null_ones = localmatrixdata_t::makeScalarArray( A_nrows );
-        null_vals      = null_ones.get();
-        AMP::Utilities::Algorithms<scalar_t>::fill_n( null_vals, A_nrows, scalar_t{ 1.0 } );
-    }
-
-    // get aggregates
-    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
-    auto agg_ids       = localmatrixdata_t::makeLidxArray( A_nrows );
-    auto agg_norm_sq   = localmatrixdata_t::makeScalarArray( A_nrows );
-    const auto num_agg = assignLocalAggregates( A, null_vals, agg_ids.get(), agg_norm_sq.get() );
 
     // create and fill matrix data
     auto P = std::make_shared<matrixdata_t>( matParams );
@@ -155,35 +147,59 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     }
     P->setNNZ( diag_nnz.get(), offd_nnz.get() );
 
+    // Make storage for the induced near-nullspace vector on the coarse space
+    // do this even if no fine near-nullspace vector was passed
+    auto coarseNearNullVec = createVector( rightDOFs,
+                                           A_data->getLeftVariable(),
+                                           true,
+                                           A_data->getMemoryLocation(),
+                                           A_data->getBackend() );
+    coarseNearNullVec->setNoGhosts();
+    scalar_t *coarse_null_vals =
+        coarseNearNullVec->getVectorData()->template getRawDataBlock<scalar_t>( 0 );
+
     // fill in data (diag block only) using aggregates from above
     auto P_diag                               = P->getDiagMatrix();
     auto [P_rs, P_cols, P_cols_loc, P_coeffs] = P_diag->getDataFields();
     const auto begin_col                      = static_cast<gidx_t>( P->beginCol() );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        for ( lidx_t agg = 0; agg < num_agg; ++agg ) {
+            coarse_null_vals[agg] = std::sqrt( agg_norm_sq[agg] );
+        }
         for ( lidx_t row = 0; row < A_nrows; ++row ) {
             const auto agg = agg_ids[row];
             if ( agg >= 0 ) {
                 const auto rs  = P_rs[row];
                 P_cols[rs]     = begin_col + static_cast<gidx_t>( agg );
                 P_cols_loc[rs] = agg;
-                P_coeffs[rs] = ( null_vals ? null_vals[row] : 1.0 ) / std::sqrt( agg_norm_sq[agg] );
+                P_coeffs[rs]   = ( null_vals ? null_vals[row] : 1.0 ) / coarse_null_vals[agg];
             }
         }
     } else {
 #ifdef AMP_USE_DEVICE
-        dim3 BlockDim;
-        dim3 GridDim;
-        setKernelDims( A_nrows, BlockDim, GridDim );
-        fill_p_diag<<<GridDim, BlockDim>>>( agg_ids.get(),
-                                            agg_norm_sq.get(),
-                                            P_rs,
-                                            null_vals,
-                                            A_nrows,
-                                            begin_col,
-                                            P_cols,
-                                            P_cols_loc,
-                                            P_coeffs );
-        getLastDeviceError( "Aggregator::getAggregateMatrix" );
+        {
+            thrust::transform(
+                thrust::device,
+                agg_norm_sq.get(),
+                agg_norm_sq.get() + num_agg,
+                coarse_null_vals,
+                [] __device__( const scalar_t nsq ) -> scalar_t { return sqrt( nsq ); } );
+        }
+        {
+            dim3 BlockDim;
+            dim3 GridDim;
+            setKernelDims( A_nrows, BlockDim, GridDim );
+            fill_p_diag<<<GridDim, BlockDim>>>( agg_ids.get(),
+                                                P_rs,
+                                                null_vals,
+                                                coarse_null_vals,
+                                                A_nrows,
+                                                begin_col,
+                                                P_cols,
+                                                P_cols_loc,
+                                                P_coeffs );
+            getLastDeviceError( "Aggregator::getAggregateMatrix" );
+        }
 #else
         AMP_ERROR( "Aggregator::getAggregateMatrix Undefined memory location" );
 #endif

@@ -241,8 +241,7 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     // For now assume that there is only one near-nullspace vector
     // and that it is a constant on the finest level.
     // This gets scattered into the tentative prolongator and
-    // orthonormalized there, so on deeper levels it will encode
-    // the aggregate sizes above
+    // orthonormalized there.
     auto nearNullVec = d_levels.back().A->getMatrix()->createInputVector();
     nearNullVec->setNoGhosts();      // tentative only cares about local values
     nearNullVec->setToScalar( 1.0 ); // initially constant, could pre-smooth later
@@ -255,7 +254,8 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         // and normalization factors for orthogonalizing current
         // nearNullVec down to next coarse space
         std::shared_ptr<LinearAlgebra::Matrix> P;
-        std::tie( P, nearNullVec ) = d_aggregator->getAggregateMatrix( A, nullptr );
+        std::tie( P, nearNullVec ) =
+            d_aggregator->getAggregateMatrix( A, std::shared_ptr<LinearAlgebra::Vector>() );
         // then smooth and transpose to get P/R
         smoothP_JacobiL1( A, P );
         auto R = P->transpose();

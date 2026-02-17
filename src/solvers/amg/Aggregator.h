@@ -11,11 +11,15 @@
 #include <memory>
 #include <numeric>
 #include <tuple>
+#include <variant>
 
 namespace AMP::Solver::AMG {
 
 // Base class for all aggregators
 struct Aggregator {
+    using ScalarVariant      = std::variant<double *, float *>;
+    using ConstScalarVariant = std::variant<const double *, const float *>;
+
     Aggregator( const CoarsenSettings &settings )
         : d_strength_threshold( settings.strength_threshold ),
           d_strength_measure( settings.strength_measure ),
@@ -26,7 +30,12 @@ struct Aggregator {
     virtual ~Aggregator() {}
 
     // This function must be supplied by each specific aggregator implementation
-    virtual int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) = 0;
+    // virtual functions can't be templated, so agg_ids always taken as int,
+    // and float/double scalar types wrapped in variant
+    virtual int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A,
+                                       ConstScalarVariant null_vals,
+                                       int *agg_ids,
+                                       ScalarVariant agg_norm_sq ) = 0;
 
     // Invoke aggregator and return in the form of a tentative prolongator
     std::tuple<std::shared_ptr<LinearAlgebra::Matrix>, std::shared_ptr<LinearAlgebra::Vector>>
