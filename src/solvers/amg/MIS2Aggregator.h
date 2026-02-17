@@ -34,18 +34,6 @@ struct MIS2Aggregator : Aggregator {
                           uint64_t *Tv_hat,
                           int *agg_ids );
 
-    // form aggregates from MIS-2 classification, host only
-    template<typename Config>
-    int assignLocalAggregatesHost( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
-                                   int *agg_ids );
-
-    // device version of aggregation
-#ifdef AMP_USE_DEVICE
-    template<typename Config>
-    int assignLocalAggregatesDevice( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
-                                     int *agg_ids );
-#endif
-
     // helper function to choose bits for id part of packed tuples
     uint64_t getIdMask( uint64_t num_global ) const
     {
