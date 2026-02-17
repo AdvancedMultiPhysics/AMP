@@ -29,13 +29,20 @@ int main( int argc, char *argv[] )
 
     // Loop through the input files loading and printing the variables
     for ( int i = 1; i < argc; i++ ) {
-        std::cout << argv[i] << ":\n";
-        if ( !AMP::IO::exists( argv[i] ) ) {
+        std::string file = argv[i];
+        std::string path = "/";
+        auto pos         = file.find( ':' );
+        if ( pos != std::string::npos ) {
+            path = file.substr( pos + 1 );
+            file = file.substr( 0, pos );
+        }
+        std::cout << file << ":\n";
+        if ( !AMP::IO::exists( file ) ) {
             std::cerr << "File does not exist\n";
             return -1;
         }
-        auto fid  = AMP::IO::openHDF5( argv[i], "r" );
-        auto data = AMP::IO::readHDF5( fid, "/" );
+        auto fid  = AMP::IO::openHDF5( file, "r" );
+        auto data = AMP::IO::readHDF5( fid, path );
         AMP::IO::closeHDF5( fid );
         data->print( 2, "  " );
         std::cout << std::endl;
