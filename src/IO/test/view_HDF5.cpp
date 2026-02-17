@@ -34,7 +34,7 @@ int main( int argc, char *argv[] )
         auto pos         = file.find( ':' );
         if ( pos != std::string::npos ) {
             path = file.substr( pos + 1 );
-            file = file.substr( 0, pos );
+            file.resize( 0 );
         }
         std::cout << file << ":\n";
         if ( !AMP::IO::exists( file ) ) {
