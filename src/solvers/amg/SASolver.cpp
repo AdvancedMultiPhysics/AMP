@@ -156,7 +156,7 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     d_levels.back().A->setMatrix( mat );
     d_levels.back().pre_relaxation  = createRelaxation( 0, fine_op, d_pre_relax_params );
     d_levels.back().post_relaxation = createRelaxation( 0, fine_op, d_post_relax_params );
-    d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
+    d_levels.back().r               = fine_op->getMatrix()->createInputVector(); // in or out vec?
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
     auto xVar = d_levels.back().correction->getVariable();
@@ -238,13 +238,25 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     }
     auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 
+    // For now assume that there is only one near-nullspace vector
+    // and that it is a constant on the finest level.
+    // This gets scattered into the tentative prolongator and
+    // orthonormalized there, so on deeper levels it will encode
+    // the aggregate sizes above
+    auto nearNullVec = d_levels.back().A->getMatrix()->createInputVector();
+    nearNullVec->setNoGhosts();      // tentative only cares about local values
+    nearNullVec->setToScalar( 1.0 ); // initially constant, could pre-smooth later
+
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         // Get matrix for current level
         auto A = d_levels.back().A->getMatrix();
 
         // aggregate on matrix to get tentative prolongator
+        // and normalization factors for orthogonalizing current
+        // nearNullVec down to next coarse space
+        std::shared_ptr<LinearAlgebra::Matrix> P;
+        std::tie( P, nearNullVec ) = d_aggregator->getAggregateMatrix( A, nullptr );
         // then smooth and transpose to get P/R
-        auto P = d_aggregator->getAggregateMatrix( A );
         smoothP_JacobiL1( A, P );
         auto R = P->transpose();
 

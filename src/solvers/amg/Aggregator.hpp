@@ -6,6 +6,7 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/CommunicationList.h"
+#include "AMP/vectors/VectorBuilder.h"
 
 #ifdef AMP_USE_DEVICE
     #include <thrust/device_ptr.h>
@@ -17,17 +18,16 @@
 #include <cstdint>
 #include <limits>
 #include <numeric>
-
-// DEBUG
-#include <fstream>
-#include <iostream>
+#include <tuple>
 
 namespace AMP::Solver::AMG {
 
 #ifdef AMP_USE_DEVICE
 template<typename lidx_t, typename gidx_t, typename scalar_t>
 __global__ void fill_p_diag( const lidx_t *agg_ids,
+                             const scalar_t *agg_norm_sq,
                              const lidx_t *P_rs,
+                             const scalar_t *null_vals,
                              const lidx_t num_rows,
                              const gidx_t begin_col,
                              gidx_t *P_cols,
@@ -41,45 +41,43 @@ __global__ void fill_p_diag( const lidx_t *agg_ids,
             const auto rs  = P_rs[row];
             P_cols[rs]     = begin_col + static_cast<gidx_t>( agg );
             P_cols_loc[rs] = agg;
-            P_coeffs[rs]   = 1.0;
+            P_coeffs[rs]   = ( null_vals ? null_vals[row] : 1.0 ) / sqrt( agg_norm_sq[agg] );
         }
     }
 }
 #endif
 
-std::shared_ptr<LinearAlgebra::Matrix>
+std::tuple<std::shared_ptr<LinearAlgebra::Matrix>, std::shared_ptr<LinearAlgebra::Vector>>
 Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::Matrix> A,
+                                std::shared_ptr<const LinearAlgebra::Vector> nearNullVec,
                                 std::shared_ptr<LinearAlgebra::MatrixParameters> matParams )
 {
-    return LinearAlgebra::csrVisit( A, [this, matParams]( auto csr_ptr ) {
-        return this->getAggregateMatrix( csr_ptr, matParams );
+    return LinearAlgebra::csrVisit( A, [this, nearNullVec, matParams]( auto csr_ptr ) {
+        return this->getAggregateMatrix( csr_ptr, nearNullVec, matParams );
     } );
 }
 
 template<typename Config>
-std::shared_ptr<LinearAlgebra::Matrix>
+std::tuple<std::shared_ptr<LinearAlgebra::Matrix>, std::shared_ptr<LinearAlgebra::Vector>>
 Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                                std::shared_ptr<const LinearAlgebra::Vector> nearNullVec,
                                 std::shared_ptr<LinearAlgebra::MatrixParameters> matParams )
 {
     using gidx_t            = typename Config::gidx_t;
     using lidx_t            = typename Config::lidx_t;
+    using scalar_t          = typename Config::scalar_t;
     using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
-
-    // get aggregates
-    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
-    auto agg_ids       = localmatrixdata_t::makeLidxArray( A_nrows );
-    const auto num_agg = assignLocalAggregates( A, agg_ids.get() );
 
     auto A_data = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
 
     // if there is no parameters object passed in create one matching usual
     // purpose of a (tentative) prolongator
+    std::shared_ptr<AMP::Discretization::DOFManager> rightDOFs;
     if ( matParams.get() == nullptr ) {
         auto leftDOFs = A_data->getRightDOFManager(); // inner dof manager for A*P
-        auto rightDOFs =
-            std::make_shared<AMP::Discretization::DOFManager>( num_agg, A_data->getComm() );
+        rightDOFs = std::make_shared<AMP::Discretization::DOFManager>( num_agg, A_data->getComm() );
         auto leftClParams     = std::make_shared<AMP::LinearAlgebra::CommunicationListParameters>();
         auto rightClParams    = std::make_shared<AMP::LinearAlgebra::CommunicationListParameters>();
         leftClParams->d_comm  = A_data->getComm();
@@ -96,12 +94,46 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             A_data->getLeftVariable(),
             A_data->getLeftVariable(),
             std::function<std::vector<size_t>( size_t )>() );
+    } else {
+        rightDOFs = matParams->getRightDOFManager();
     }
-    auto P = std::make_shared<matrixdata_t>( matParams );
 
+    // If a near-nullspace vector is given then setup storage for
+    // the induced near-nullspace vector on the coarse space
+    std::shared_ptr<LinearAlgebra::Vector> coarseNearNullVec;
+    std::shared_ptr<scalar_t[]> null_ones; // only allocated if no nullvec passed
+    const scalar_t *null_vals  = nullptr;
+    scalar_t *coarse_null_vals = nullptr;
+    if ( nearNullVec ) {
+        // if no near-nullspace vector present, below just assumes all ones
+        // if we do have one pull out its local values scatter into P
+        // and gather normalizations into coarse space
+        null_vals         = nearNullVec->getVectorData()->getRawDataBlock<scalar_t>( 0 );
+        coarseNearNullVec = createVector( rightDOFs,
+                                          A_data->getLeftVariable(),
+                                          true,
+                                          A_data->getMemoryLocation(),
+                                          A_data->getBackend() );
+        coarseNearNullVec->setNoGhosts();
+        coarse_null_vals = coarseNearNullVec->getVectorData()->getRawDataBlock<scalar_t>( 0 );
+    } else {
+        auto null_ones = localmatrixdata_t::makeScalarArray( A_nrows );
+        null_vals      = null_ones.get();
+        AMP::Utilities::Algorithms<scalar_t>::fill_n( null_vals, A_nrows, scalar_t{ 1.0 } );
+    }
+
+    // get aggregates
+    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
+    auto agg_ids       = localmatrixdata_t::makeLidxArray( A_nrows );
+    auto agg_norm_sq   = localmatrixdata_t::makeScalarArray( A_nrows );
+    const auto num_agg = assignLocalAggregates( A, null_vals, agg_ids.get(), agg_norm_sq.get() );
+
+    // create and fill matrix data
+    auto P = std::make_shared<matrixdata_t>( matParams );
     // non-zeros only in diag block and at most one per row
     auto diag_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
     auto offd_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( offd_nnz.get(), A_nrows, 0 );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
         std::transform( agg_ids.get(),
                         agg_ids.get() + A_nrows,
@@ -121,7 +153,6 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
         AMP_ERROR( "Aggregator::getAggregateMatrix Undefined memory location" );
 #endif
     }
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( offd_nnz.get(), A_nrows, 0 );
     P->setNNZ( diag_nnz.get(), offd_nnz.get() );
 
     // fill in data (diag block only) using aggregates from above
@@ -135,7 +166,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
                 const auto rs  = P_rs[row];
                 P_cols[rs]     = begin_col + static_cast<gidx_t>( agg );
                 P_cols_loc[rs] = agg;
-                P_coeffs[rs]   = 1.0;
+                P_coeffs[rs] = ( null_vals ? null_vals[row] : 1.0 ) / std::sqrt( agg_norm_sq[agg] );
             }
         }
     } else {
@@ -143,8 +174,15 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( A_nrows, BlockDim, GridDim );
-        fill_p_diag<<<GridDim, BlockDim>>>(
-            agg_ids.get(), P_rs, A_nrows, begin_col, P_cols, P_cols_loc, P_coeffs );
+        fill_p_diag<<<GridDim, BlockDim>>>( agg_ids.get(),
+                                            agg_norm_sq.get(),
+                                            P_rs,
+                                            null_vals,
+                                            A_nrows,
+                                            begin_col,
+                                            P_cols,
+                                            P_cols_loc,
+                                            P_coeffs );
         getLastDeviceError( "Aggregator::getAggregateMatrix" );
 #else
         AMP_ERROR( "Aggregator::getAggregateMatrix Undefined memory location" );
@@ -153,7 +191,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
 
     // reset dof managers and return matrix
     P->assemble();
-    return std::make_shared<matrix_t>( P );
+    return std::make_tuple( std::make_shared<matrix_t>( P ), coarseNearNullVec );
 }
 
 } // namespace AMP::Solver::AMG
