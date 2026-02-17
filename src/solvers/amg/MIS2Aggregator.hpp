@@ -417,7 +417,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         }
     }
 
-    // initilalize worklist to all UNASSIGNED rows
+    // initialize worklist to all UNASSIGNED rows
     {
         if constexpr ( host_exec ) {
             worklist_len = 0;
@@ -464,7 +464,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         }
     }
 
-    // re-initilalize worklist to all UNASSIGNED rows
+    // re-initialize worklist to all UNASSIGNED rows
     {
         if constexpr ( host_exec ) {
             worklist_len = 0;
@@ -525,9 +525,9 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // smallest from above steps only. Also, for simplicity it just gets
     // called twice
     for ( int ngrow = 0; ngrow < 3; ++ngrow ) {
-        auto grow_aggs = [A_nrows, Am_rs, Am_cols_loc, agg_size, agg_ids] AMP_FUNCTION_HD(
+        auto grow_aggs = [A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids] AMP_FUNCTION_HD(
                              const lidx_t row ) -> void {
-            grow_agg( row, A_nrows, Am_rs, Am_cols_loc, agg_size, agg_ids );
+            grow_agg( row, A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -566,23 +566,37 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // finally, use compacted list of uniques to convert root node labels
     // to consecutive ascending labels. Do need an additional work vector to
     {
-        // search for root node ids in list of uniques to create local ids
-        thrust::lower_bound( thrust::device,
-                             unq_root_ids,
-                             unq_root_ids + num_agg,
-                             agg_root_ids,
-                             agg_root_ids + A_nrows,
-                             agg_ids );
-        // subtract num_dec from all agg_ids so that INVALID and UNDECIDED
-        // entries remain ignored. Can not do the lower_bound on an offset
-        // (&unq_root_ids[num_dec]) because INV/UNDEC would get added to
-        // the agg with smallest root id, instead of being ignored
-        thrust::transform(
-            thrust::device,
-            agg_ids,
-            agg_ids + A_nrows,
-            agg_ids,
-            [num_dec] __device__( const lidx_t aid ) -> lidx_t { return aid - num_dec; } );
+        if constexpr ( host_exec ) {
+            // search for root node ids in list of uniques and offset back
+            // to remove invalid/undecided entries
+            for ( lidx_t row = 0; row < A_nrows; ++row ) {
+#warning This is very inefficient, fix after verifying correctness
+                const auto unq_agg =
+                    std::lower_bound( unq_root_ids, unq_root_ids + num_agg, agg_root_ids[row] );
+                agg_ids[row] =
+                    static_cast<lidx_t>( std::distance( unq_root_ids, unq_agg ) ) - num_dec;
+            }
+        } else {
+#ifdef AMP_USE_DEVICE
+            // search for root node ids in list of uniques to create local ids
+            thrust::lower_bound( thrust::device,
+                                 unq_root_ids,
+                                 unq_root_ids + num_agg,
+                                 agg_root_ids,
+                                 agg_root_ids + A_nrows,
+                                 agg_ids );
+            // subtract num_dec from all agg_ids so that INVALID and UNDECIDED
+            // entries remain ignored. Can not do the lower_bound on an offset
+            // (&unq_root_ids[num_dec]) because INV/UNDEC would get added to
+            // the agg with smallest root id, instead of being ignored
+            thrust::transform(
+                thrust::device,
+                agg_ids,
+                agg_ids + A_nrows,
+                agg_ids,
+                [num_dec] __device__( const lidx_t aid ) -> lidx_t { return aid - num_dec; } );
+#endif
+        }
     }
 
     AMP::pout << "    MIS2 found " << num_agg << " aggregates" << std::endl;
