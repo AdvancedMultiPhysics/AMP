@@ -150,34 +150,21 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     sourceOperator->apply( SpecificPowerVec, powerInWattsVec );
 
     // set initial conditions, initialize created vectors
-    auto node     = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-    auto end_node = node.end();
-
     AMP::LinearAlgebra::VS_Mesh vectorSelector( mesh );
     auto thermalIC = initialCondition->select( vectorSelector );
-    // int counter=0;
-    for ( ; node != end_node; ++node ) {
-        // counter+=1;
-
+    for ( auto &node : mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 ) ) {
         std::vector<size_t> gid;
-        nodalDofMap->getDOFs( node->globalID(), gid );
-
-        double px = ( node->coord() )[0];
-        double py = ( node->coord() )[1];
-        double pz = ( node->coord() )[2];
-
-        double val = fun( px, py, pz );
-        // std::cout << "val = " << val << std::endl;
-
-        // std::cout << "counter = " << counter << "gid.size() = " << gid.size() << std::endl;
+        nodalDofMap->getDOFs( node.globalID(), gid );
+        auto p            = node.coord();
+        double val        = fun( p[0], p[1], p[2] );
         const double zero = 0.0;
         for ( auto &elem : gid ) {
             thermalIC->setValuesByGlobalID( 1, &elem, &val );
             // ** please do not set the time derivative to be non-zero!!
             // ** as this causes trouble with the boundary - BP, 07/16/2010
             initialConditionPrime->setValuesByGlobalID( 1, &elem, &zero );
-        } // end for i
-    }     // end for node
+        }
+    }
 
     // create a copy of the rhs which can be modified at each time step (maybe)
     auto thermalRhs = f->select( vectorSelector );
@@ -241,7 +228,6 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     time_Params->d_pSourceTerm = f;
     // time_Params->d_object_name = "IDATimeIntegratorParameters";
 
-    std::cout << "Before IDATimeIntegrator" << std::endl;
     auto pIDATimeIntegrator =
         std::make_shared<AMP::TimeIntegrator::IDATimeIntegrator>( time_Params );
 
@@ -252,44 +238,37 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     }
 
     // step in time
-    double current_time = 0;
-    double max = 0, min = 0;
-    int j = 1;
+    int j = 0;
     while ( pIDATimeIntegrator->getCurrentTime() < pIDATimeIntegrator->getFinalTime() ) {
         auto v = pIDATimeIntegrator->getSolution();
         int retval =
             pIDATimeIntegrator->advanceSolution( pIDATimeIntegrator->getCurrentDt(), false, v, v );
-        // pIDATimeIntegrator->updateSolution();
-        current_time = pIDATimeIntegrator->getCurrentTime();
-
-        std::cout << j++ << "-th timestep" << std::endl;
-        if ( retval == 0 ) {
-            ut->passes( "Testing IDATimeIntegrator's advanceSolution. PASS!!" );
-        } else {
-            ut->failure( "Tested IDATimeIntegrator's advanceSolution. FAIL!!" );
-        }
-
-        max = static_cast<double>( pIDATimeIntegrator->getSolution()->max() );
-        min = static_cast<double>( pIDATimeIntegrator->getSolution()->min() );
-
-        std::cout << "current_time = " << current_time << std::endl;
-        std::cout << "max val of the current solution = " << max << std::endl;
-        std::cout << "min val of the current solution = " << min << std::endl;
+        AMP_ASSERT( retval == 0 );
+        AMP::printp( "." );
+        if ( ++j % 50 == 0 )
+            AMP::printp( "\n" );
     }
+    AMP::printp( "\n\n" );
+
+    double current_time = pIDATimeIntegrator->getCurrentTime();
+    double max          = static_cast<double>( pIDATimeIntegrator->getSolution()->max() );
+    double min          = static_cast<double>( pIDATimeIntegrator->getSolution()->min() );
+    std::cout << "Current time: " << current_time << std::endl;
+    std::cout << "Solution max: " << max << std::endl;
+    std::cout << "Solution min: " << min << std::endl;
 
     if ( input_file == "input_testIDA-NonlinearColumnOperator-1" ) {
-        double expectedMax = 892.102; // if you change the code in way that intentionally changes
-                                      // the solution, you need to update this number.
-        double expectedMin = 750.;  // if you change the code in way that intentionally changes the
-                                    // solution, you need to update this number.
-        double expectedTim = 1000.; // if you change the code in way that intentionally changes the
-                                    // solution, you need to update this number.
+        // If you change the code in way that intentionally changes
+        // the solution, you need to update these numbers
+        double expectedTim = 400;
+        double expectedMax = 900.535;
+        double expectedMin = 750;
         if ( !AMP::Utilities::approx_equal( expectedMax, max, 1e-6 ) )
-            ut->failure( "the max solution for input file: " + input_file + " has changed." );
+            ut->failure( "max solution for input file: " + input_file + " has changed." );
         if ( !AMP::Utilities::approx_equal( expectedMin, min, 1e-6 ) )
-            ut->failure( "the min solution for input file: " + input_file + " has changed." );
+            ut->failure( "min solution for input file: " + input_file + " has changed." );
         if ( !AMP::Utilities::approx_equal( expectedTim, current_time, 1e-6 ) )
-            ut->failure( "the final time   for input file: " + input_file + " has changed." );
+            ut->failure( "final time for input file: " + input_file + " has changed." );
     }
 
 

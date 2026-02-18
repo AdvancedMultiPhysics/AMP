@@ -64,8 +64,8 @@ using StackTrace::Utilities::tick;
 using StackTrace::Utilities::time;
 
 
-//! Return the string description for the last value in errno
-std::string_view getLastErrnoString();
+//! Return the string description for the last value in errno (thread-safe)
+std::string getLastErrnoString();
 
 
 //! Check if valgrind is running
