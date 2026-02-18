@@ -221,7 +221,6 @@ int MIS2Aggregator::classifyVertices(
 // Helper functions, decorated for device use if supported
 template<typename lidx_t>
 AMP_FUNCTION_HD void agg_from_row( const lidx_t row,
-                                   const bool test_nbrs,
                                    const lidx_t *row_start,
                                    const lidx_t *cols_loc,
                                    uint64_t *labels,
@@ -231,18 +230,6 @@ AMP_FUNCTION_HD void agg_from_row( const lidx_t row,
     if ( labels[row] != MIS2Aggregator::IN || agg_ids[row] != MIS2Aggregator::UNASSIGNED ) {
         // not (valid) root node, nothing to do
         return;
-    }
-    if ( test_nbrs ) {
-        int n_nbrs = 0;
-        for ( lidx_t c = row_start[row] + 1; c < row_start[row + 1]; ++c ) {
-            if ( agg_ids[cols_loc[c]] == MIS2Aggregator::UNASSIGNED ) {
-                ++n_nbrs;
-            }
-        }
-        if ( n_nbrs < 2 ) {
-            // too small, skip
-            return;
-        }
     }
     // have root node, push new aggregate and set ids
     agg_size[row] = 0;
@@ -393,7 +380,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                     od_sum += ( c > -c ? c : -c );
                 }
             }
-            return Ad_coeffs[Ad_rs[row]] <= 5.0 * od_sum;
+            return Ad_coeffs[Ad_rs[row]] <= scalar_t{ 5.0 } * od_sum;
         };
         auto mark_undec_inv =
             [Am_rs, not_diag_dom, agg_root_ids] AMP_FUNCTION_HD( const lidx_t row ) -> void {
@@ -449,7 +436,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     {
         auto build_agg = [Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids] AMP_FUNCTION_HD(
                              const lidx_t row ) -> void {
-            agg_from_row( row, false, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
+            agg_from_row( row, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -497,10 +484,9 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     {
-#warning This doesn't match comment, change false->true for that
         auto build_agg = [Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids] AMP_FUNCTION_HD(
                              const lidx_t row ) -> void {
-            agg_from_row( row, false, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
+            agg_from_row( row, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -571,7 +557,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             // search for root node ids in list of uniques and offset back
             // to remove invalid/undecided entries
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
-#warning This is very inefficient, fix after verifying correctness
                 const auto unq_agg =
                     std::lower_bound( unq_root_ids, unq_root_ids + num_agg, agg_root_ids[row] );
                 agg_ids[row] =
