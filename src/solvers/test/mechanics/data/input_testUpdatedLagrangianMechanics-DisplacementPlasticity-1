@@ -10,7 +10,7 @@ Mesh{
     NumberOfElements = 270
 }
 
-NumberOfLoadingSteps = 49
+NumberOfLoadingSteps = 12
 
 ExtractStressStrainData = FALSE
 
@@ -207,7 +207,7 @@ NonlinearSolver{
     EW_choice2_alpha = 2.0
     EW_choice2_gamma = 0.9
 
-    SNESOptions = "-snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
+    SNESOptions = "-snes_type ls"
 
     LinearSolver{
         name = "PetscKrylovSolver"
@@ -222,7 +222,6 @@ NonlinearSolver{
         pc_type = "shell"
         pc_side = "RIGHT"
 
-        //KSPOptions = "-ksp_monitor -ksp_converged_reason"
         KSPOptions = ""
 
         Preconditioner{

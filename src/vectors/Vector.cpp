@@ -27,7 +27,7 @@ namespace AMP::LinearAlgebra {
 Vector::Vector()
     : d_Variable( new Variable( "null" ) ),
       d_DOFManager( new AMP::Discretization::DOFManager( 0, AMP_MPI( AMP_COMM_SELF ) ) ),
-      d_VectorData( new VectorDataNull<double>() ),
+      d_VectorData( new VectorDataNull( getTypeID<double>() ) ),
       d_VectorOps( new VectorOperationsDefault<double>() ),
       d_Views( new std::vector<std::any>() )
 {
@@ -37,7 +37,7 @@ Vector::Vector()
 Vector::Vector( const std::string &name )
     : d_Variable( new Variable( name ) ),
       d_DOFManager( new AMP::Discretization::DOFManager( 0, AMP_MPI( AMP_COMM_SELF ) ) ),
-      d_VectorData( new VectorDataNull<double>() ),
+      d_VectorData( new VectorDataNull( getTypeID<double>() ) ),
       d_VectorOps( new VectorOperationsDefault<double>() ),
       d_Views( new std::vector<std::any>() )
 {

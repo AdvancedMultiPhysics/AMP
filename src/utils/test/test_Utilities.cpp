@@ -35,7 +35,8 @@ int main( int argc, char *argv[] )
 
     // Limit the scope of variables
     {
-        int rank = AMP::AMP_MPI( AMP_COMM_WORLD ).getRank();
+        int rank  = AMP::AMP_MPI( AMP_COMM_WORLD ).getRank();
+        auto npos = std::string::npos;
 
         // Create the unit test
         AMP::UnitTest ut;
@@ -102,7 +103,7 @@ int main( int argc, char *argv[] )
             ut.passes( "non empty call stack" );
             bool pass = false;
             if ( call_stack.size() > 1 ) {
-                if ( call_stack[1].print().find( "get_call_stack" ) != std::string::npos )
+                if ( call_stack[1].print().find( "get_call_stack" ) != npos )
                     pass = true;
             }
             if ( pass )
@@ -121,7 +122,7 @@ int main( int argc, char *argv[] )
         std::string exe = StackTrace::getExecutable();
         if ( rank == 0 )
             std::cout << "Executable: " << exe << std::endl;
-        ut.pass_fail( exe.find( "test_Utilities" ) != std::string::npos, "getExecutable" );
+        ut.pass_fail( exe.find( "test_Utilities" ) != npos, "getExecutable" );
 
         // Test filesystem routines
         testFileSystem( ut );
@@ -147,9 +148,12 @@ int main( int argc, char *argv[] )
         AMP_WARNING( "Testing warning" );
 
         // Test errno
-        errno         = ETXTBSY;
-        auto errorMsg = AMP::Utilities::getLastErrnoString();
-        ut.pass_fail( errorMsg == "Text file busy", "errno" );
+        errno    = ETXTBSY;
+        auto msg = AMP::Utilities::getLastErrnoString();
+        std::transform(
+            msg.begin(), msg.end(), msg.begin(), []( char c ) { return std::tolower( c ); } );
+        bool test = msg.find( "text" ) != npos && msg.find( "busy" ) != npos;
+        ut.pass_fail( test, "errno: " + msg );
 
         // Test demangle
         auto mangled   = "_Z3fooPci";

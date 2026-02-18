@@ -39,8 +39,7 @@ void runTest( AMP::UnitTest &ut, const std::string &pass_msg )
     for ( int i = 0; i < 3; i++ ) {
         const double err = std::abs( ( v1p[i] - v2p[i] ) / v1p[i] );
         if ( err > tol ) {
-            ut.failure( AMP::Utilities::stringf(
-                "Cast precision loss %e larger than %e, for entry %d", err, tol, i ) );
+            ut.failure( "Cast precision loss %e larger than %e, for entry %d", err, tol, i );
             pass = false;
         }
     }
