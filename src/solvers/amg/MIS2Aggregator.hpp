@@ -61,7 +61,6 @@ int MIS2Aggregator::classifyVertices(
         std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>;
 
     // unpack diag block
-    const auto A_nrows   = static_cast<lidx_t>( A_diag->numLocalRows() );
     const auto begin_row = A_diag->beginRow();
     lidx_t *Ad_rs = nullptr, *Ad_cols_loc = nullptr;
     gidx_t *Ad_cols                                    = nullptr;
@@ -150,7 +149,7 @@ int MIS2Aggregator::classifyVertices(
 
         // mark undecided as IN or OUT if possible
         {
-            auto in_out = [idx_from_tuple, agg_ids, Tv] AMP_FUNCTION_HD( const lidx_t n ) -> void {
+            auto in_out = [idx_from_tuple, Tv] AMP_FUNCTION_HD( const lidx_t n ) -> void {
                 const auto tpl = Tv[n];
                 if ( tpl == IN ) {
                     Tv[n] = OUT;
@@ -173,8 +172,7 @@ int MIS2Aggregator::classifyVertices(
 
         // immediately mark nbrs of IN nodes as OUT
         {
-            auto set_out =
-                [Ad_rs, Ad_cols_loc, agg_ids, Tv] AMP_FUNCTION_HD( const lidx_t n ) -> void {
+            auto set_out = [Ad_rs, Ad_cols_loc, Tv] AMP_FUNCTION_HD( const lidx_t n ) -> void {
                 if ( Tv[n] == IN ) {
                     return;
                 }
@@ -292,10 +290,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
-    using lidxAllocator_t =
-        typename std::allocator_traits<allocator_type>::template rebind_alloc<lidx_t>;
-    using u64Allocator_t =
-        typename std::allocator_traits<allocator_type>::template rebind_alloc<uint64_t>;
 
     constexpr bool host_exec =
         std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>;
@@ -347,18 +341,16 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     std::tie( Am_rs, Am_cols, Am_cols_loc, Am_coeffs ) = A_masked->getDataFields();
 
     // get temporary storage for aggregate sizes and MIS2 labels
-    u64Allocator_t u64_alloc;
-    lidxAllocator_t lidx_alloc;
-    auto Tv     = u64_alloc.allocate( A_nrows );
-    auto Tv_hat = u64_alloc.allocate( A_nrows );
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv, A_nrows, OUT );
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat, A_nrows, OUT );
-    auto agg_size       = lidx_alloc.allocate( A_nrows );
-    auto agg_root_ids   = lidx_alloc.allocate( A_nrows );
-    auto worklist       = lidx_alloc.allocate( A_nrows );
+    auto Tv     = localmatrixdata_t::template sharedArrayBuilder<uint64_t>( A_nrows );
+    auto Tv_hat = localmatrixdata_t::template sharedArrayBuilder<uint64_t>( A_nrows );
+    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv.get(), A_nrows, OUT );
+    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat.get(), A_nrows, OUT );
+    auto agg_size       = localmatrixdata_t::template sharedArrayBuilder<int>( A_nrows );
+    auto agg_root_ids   = localmatrixdata_t::template sharedArrayBuilder<int>( A_nrows );
+    auto worklist       = localmatrixdata_t::makeLidxArray( A_nrows );
     lidx_t worklist_len = A_nrows;
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_size, A_nrows, -1 );
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_root_ids, A_nrows, UNASSIGNED );
+    AMP::Utilities::Algorithms<int>::fill_n( agg_size.get(), A_nrows, -1 );
+    AMP::Utilities::Algorithms<int>::fill_n( agg_root_ids.get(), A_nrows, UNASSIGNED );
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
     {
@@ -419,24 +411,29 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             lidx_t *new_end = thrust::copy_if( thrust::device,
                                                thrust::make_counting_iterator( 0 ),
                                                thrust::make_counting_iterator( A_nrows ),
-                                               worklist,
+                                               worklist.get(),
                                                [agg_root_ids] __device__( const lidx_t n ) -> bool {
                                                    return ( agg_root_ids[n] == UNASSIGNED );
                                                } );
-            worklist_len    = static_cast<lidx_t>( new_end - worklist );
+            worklist_len    = static_cast<lidx_t>( new_end - worklist.get() );
 #endif
         }
     }
 
     // First pass of MIS2 classification, ignores INVALID nodes
-    classifyVertices<Config>(
-        A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_root_ids );
+    classifyVertices<Config>( A_masked,
+                              A->numGlobalRows(),
+                              worklist.get(),
+                              worklist_len,
+                              Tv.get(),
+                              Tv_hat.get(),
+                              agg_root_ids.get() );
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
         auto build_agg = [Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids] AMP_FUNCTION_HD(
                              const lidx_t row ) -> void {
-            agg_from_row( row, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
+            agg_from_row( row, Am_rs, Am_cols_loc, Tv.get(), agg_size.get(), agg_root_ids.get() );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -466,27 +463,32 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             lidx_t *new_end = thrust::copy_if( thrust::device,
                                                thrust::make_counting_iterator( 0 ),
                                                thrust::make_counting_iterator( A_nrows ),
-                                               worklist,
+                                               worklist.get(),
                                                [agg_root_ids] __device__( const lidx_t n ) -> bool {
                                                    return ( agg_root_ids[n] == UNASSIGNED );
                                                } );
-            worklist_len    = static_cast<lidx_t>( new_end - worklist );
+            worklist_len    = static_cast<lidx_t>( new_end - worklist.get() );
 #endif
         }
     }
 
     // do a second pass of classification and aggregation
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv, A_nrows, OUT );
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat, A_nrows, OUT );
-    classifyVertices<Config>(
-        A_masked, A->numGlobalRows(), worklist, worklist_len, Tv, Tv_hat, agg_root_ids );
+    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv.get(), A_nrows, OUT );
+    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat.get(), A_nrows, OUT );
+    classifyVertices<Config>( A_masked,
+                              A->numGlobalRows(),
+                              worklist.get(),
+                              worklist_len,
+                              Tv.get(),
+                              Tv_hat.get(),
+                              agg_root_ids.get() );
 
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     {
         auto build_agg = [Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids] AMP_FUNCTION_HD(
                              const lidx_t row ) -> void {
-            agg_from_row( row, Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids );
+            agg_from_row( row, Am_rs, Am_cols_loc, Tv.get(), agg_size.get(), agg_root_ids.get() );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -503,8 +505,8 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     }
 
     // deallocate Tv and Tv_hat, they are no longer needed
-    u64_alloc.deallocate( Tv, A_nrows );
-    u64_alloc.deallocate( Tv_hat, A_nrows );
+    Tv.reset();
+    Tv_hat.reset();
 
     // Add unmarked entries to the smallest aggregate they are nbrs with
     // this differs from host version, here sizes are not updated during
@@ -514,7 +516,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     for ( int ngrow = 0; ngrow < 3; ++ngrow ) {
         auto grow_aggs = [A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids] AMP_FUNCTION_HD(
                              const lidx_t row ) -> void {
-            grow_agg( row, A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids );
+            grow_agg( row, A_nrows, Am_rs, Am_cols_loc, agg_size.get(), agg_root_ids.get() );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -534,15 +536,16 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // need to count number of unique ones to get total number of aggregates
     // agg_size is no longer needed, so copy ids to there, sort, call unique
     int num_agg = 0, num_dec = 0;
-    lidx_t *unq_root_ids = agg_size; // rename for clarity
+    auto unq_root_ids = agg_size; // rename for clarity
     {
-        AMP::Utilities::Algorithms<lidx_t>::copy_n( agg_root_ids, A_nrows, unq_root_ids );
-        AMP::Utilities::Algorithms<lidx_t>::sort( unq_root_ids, A_nrows );
-        const auto nunq = AMP::Utilities::Algorithms<lidx_t>::unique( unq_root_ids, A_nrows );
+        AMP::Utilities::Algorithms<lidx_t>::copy_n(
+            agg_root_ids.get(), A_nrows, unq_root_ids.get() );
+        AMP::Utilities::Algorithms<lidx_t>::sort( unq_root_ids.get(), A_nrows );
+        const auto nunq = AMP::Utilities::Algorithms<lidx_t>::unique( unq_root_ids.get(), A_nrows );
         // need to check first two entries of unique'd array
         // if we have UNDECIDED or INVALID need to decrement agg count
         lidx_t first_entries[2];
-        AMP::Utilities::Algorithms<lidx_t>::copy_n( unq_root_ids, 2, first_entries );
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( unq_root_ids.get(), 2, first_entries );
         const int dec_inv = ( first_entries[0] == INVALID || first_entries[1] == INVALID ) ? 1 : 0;
         const int dec_und =
             ( first_entries[0] == UNASSIGNED || first_entries[1] == UNASSIGNED ) ? 1 : 0;
@@ -557,19 +560,19 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             // search for root node ids in list of uniques and offset back
             // to remove invalid/undecided entries
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
-                const auto unq_agg =
-                    std::lower_bound( unq_root_ids, unq_root_ids + num_agg, agg_root_ids[row] );
+                const auto unq_agg = std::lower_bound(
+                    unq_root_ids.get(), unq_root_ids.get() + num_agg, agg_root_ids[row] );
                 agg_ids[row] =
-                    static_cast<lidx_t>( std::distance( unq_root_ids, unq_agg ) ) - num_dec;
+                    static_cast<lidx_t>( std::distance( unq_root_ids.get(), unq_agg ) ) - num_dec;
             }
         } else {
 #ifdef AMP_USE_DEVICE
             // search for root node ids in list of uniques to create local ids
             thrust::lower_bound( thrust::device,
-                                 unq_root_ids,
-                                 unq_root_ids + num_agg,
-                                 agg_root_ids,
-                                 agg_root_ids + A_nrows,
+                                 unq_root_ids.get(),
+                                 unq_root_ids.get() + num_agg,
+                                 agg_root_ids.get(),
+                                 agg_root_ids.get() + A_nrows,
                                  agg_ids );
             // subtract num_dec from all agg_ids so that INVALID and UNDECIDED
             // entries remain ignored. Can not do the lower_bound on an offset
@@ -586,8 +589,8 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     }
 
     // deallocate sizes and return
-    lidx_alloc.deallocate( agg_root_ids, A_nrows );
-    lidx_alloc.deallocate( agg_size, A_nrows );
+    agg_root_ids.reset();
+    agg_size.reset();
 
     return num_agg;
 }
