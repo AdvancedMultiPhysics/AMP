@@ -11,10 +11,7 @@ namespace AMP::Solver::AMG {
 struct SimpleAggregator : Aggregator {
     SimpleAggregator( const CoarsenSettings &settings ) : Aggregator( settings ) {}
 
-    int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A,
-                               ConstScalarVariant null_vals,
-                               int *agg_ids,
-                               ScalarVariant agg_norm_sq ) override;
+    int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) override;
 
     template<typename Config>
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A, int *agg_ids );

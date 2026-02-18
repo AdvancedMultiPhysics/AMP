@@ -13,9 +13,7 @@
 namespace AMP::Solver::AMG {
 
 int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A,
-                                             ConstScalarVariant null_vals,
-                                             int *agg_ids,
-                                             ScalarVariant agg_norm_sq )
+                                             int *agg_ids )
 {
     AMP_DEBUG_INSIST( A->numLocalRows() == A->numLocalColumns(),
                       "SimpleAggregator::assignLocalAggregates input matrix must be square" );
@@ -28,9 +26,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matr
 
 template<typename Config>
 int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
-                                             ConstScalarVariant var_null_vals,
-                                             int *agg_ids,
-                                             ScalarVariant var_agg_norm_sq )
+                                             int *agg_ids )
 {
     PROFILE( "SimpleAggregator::assignLocalAggregates" );
 
@@ -44,19 +40,6 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<alloc_t>();
     AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
                 "SimpleAggregator does not support device memory" );
-
-    // ensure scalar variants match the scalar type we have
-    // and pull them out
-    auto null_vals_ptr = var_null_vals.get_if<const scalar_t *>();
-    AMP_INSIST( null_vals_ptr,
-                "SimpleAggregator::assignLocalAggregates Config template and near-nullspace values "
-                "must have compatible types" );
-    const scalar_t *null_vals = *null_val_ptr;
-    auto agg_norm_ptr         = var_agg_norm_sq.get_if<scalar_t *>();
-    AMP_INSIST( agg_norm_ptr,
-                "SimpleAggregator::assignLocalAggregates Config template and near-nullspace values "
-                "must have compatible types" );
-    scalar_t *agg_norm_sq = *agg_norm_ptr;
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );

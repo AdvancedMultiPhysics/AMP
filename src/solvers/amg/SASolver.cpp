@@ -216,8 +216,6 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
         }
     }
     D.reset();
-    auto Ds = P->getRowSums();
-    P->scaleInv( 1.0, Ds );
 }
 
 void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
