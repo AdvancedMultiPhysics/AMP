@@ -8,9 +8,10 @@ IF ( USE_OPENMP )
 ENDIF()
 
 IF ( USE_KOKKOS )
-ADD_PACKAGE_SUBDIRECTORY( operations/kokkos )
+    ADD_PACKAGE_SUBDIRECTORY( operations/kokkos )
     IF ( USE_DEVICE )
         SET_DEVICE_COMPILER( operations/kokkos/VectorOperationsKokkos.cpp )
+        SET_DEVICE_COMPILER( operations/OpenMP/VectorOperationsOpenMP.cpp )
     ENDIF()
 ENDIF()
 
