@@ -251,9 +251,9 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         // aggregate on matrix to get tentative prolongator
         // and normalization factors for orthogonalizing current
         // nearNullVec down to next coarse space
-        std::shared_ptr<LinearAlgebra::Matrix> P;
-        std::tie( P, nearNullVec ) =
-            d_aggregator->getAggregateMatrix( A, std::shared_ptr<LinearAlgebra::Vector>() );
+        auto [P, coarseNearNullVec] = d_aggregator->getAggregateMatrix( A, nearNullVec );
+        nearNullVec.swap( coarseNearNullVec );
+        coarseNearNullVec.reset();
         // then smooth and transpose to get P/R
         smoothP_JacobiL1( A, P );
         auto R = P->transpose();

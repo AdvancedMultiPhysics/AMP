@@ -41,7 +41,23 @@ __global__ void fill_p_diag( const lidx_t *agg_ids,
             const auto rs  = P_rs[row];
             P_cols[rs]     = begin_col + static_cast<gidx_t>( agg );
             P_cols_loc[rs] = agg;
-            P_coeffs[rs]   = ( null_vals ? null_vals[row] : 1.0 ) / coarse_null_vals[agg];
+            P_coeffs[rs]   = null_vals[row] / coarse_null_vals[agg];
+        }
+    }
+}
+
+template<typename lidx_t, typename scalar_t>
+__global__ void acc_coarse_null( const lidx_t *agg_ids,
+                                 const scalar_t *null_vals,
+                                 const lidx_t num_rows,
+                                 scalar_t *coarse_null_vals )
+{
+    for ( int row = blockIdx.x * blockDim.x + threadIdx.x; row < num_rows;
+          row += blockDim.x * gridDim.x ) {
+        const auto agg = agg_ids[row];
+        if ( agg >= 0 ) {
+            const auto nv_sq = null_vals[row] * null_vals[row];
+            atomicAdd( &coarse_null_vals[agg], nv_sq );
         }
     }
 }
@@ -137,7 +153,6 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             agg_ids.get() + A_nrows,
             diag_nnz.get(),
             [] __device__( const lidx_t lbl ) -> lidx_t { return lbl >= 0 ? 1 : 0; } );
-        deviceSynchronize();
         getLastDeviceError( "Aggregator::getAggregateMatrix" );
 #else
         AMP_ERROR( "Aggregator::getAggregateMatrix Undefined memory location" );
@@ -153,40 +168,65 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
                                            A_data->getMemoryLocation(),
                                            A_data->getBackend() );
     coarseNearNullVec->setNoGhosts();
+    coarseNearNullVec->setToScalar( 0.0 );
     scalar_t *coarse_null_vals =
         coarseNearNullVec->getVectorData()->template getRawDataBlock<scalar_t>( 0 );
+
+    // accumulate null_vals over each aggegrate into coarse_null vals
+    // first pass sums squared values, second pass takes sqrt to get
+    // local norms
+    if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        for ( lidx_t row = 0; row < A_nrows; ++row ) {
+            const auto agg = agg_ids[row];
+            if ( agg >= 0 ) {
+                const auto nv_sq = null_vals[row] * null_vals[row];
+                coarse_null_vals[agg] += nv_sq;
+            }
+        }
+        std::transform( coarse_null_vals,
+                        coarse_null_vals + num_agg,
+                        coarse_null_vals,
+                        []( const scalar_t cnv_sq ) -> scalar_t { return std::sqrt( cnv_sq ); } );
+    } else {
+#ifdef AMP_USE_DEVICE
+        dim3 BlockDim;
+        dim3 GridDim;
+        setKernelDims( A_nrows, BlockDim, GridDim );
+        acc_coarse_null<<<GridDim, BlockDim>>>(
+            agg_ids.get(), null_vals, A_nrows, coarse_null_vals );
+        getLastDeviceError( "Aggregator::getAggregateMatrix" );
+        thrust::transform(
+            thrust::device,
+            coarse_null_vals,
+            coarse_null_vals + num_agg,
+            coarse_null_vals,
+            [] __device__( const scalar_t cnv_sq ) -> scalar_t { return sqrt( cnv_sq ); } );
+        getLastDeviceError( "Aggregator::getAggregateMatrix" );
+#else
+        AMP_ERROR( "Aggregator::getAggregateMatrix Undefined memory location" );
+#endif
+    }
+    coarseNearNullVec->getVectorData()->setUpdateStatus(
+        AMP::LinearAlgebra::UpdateState::LOCAL_CHANGED );
+    coarseNearNullVec->makeConsistent();
 
     // fill in data (diag block only) using aggregates from above
     auto P_diag                               = P->getDiagMatrix();
     auto [P_rs, P_cols, P_cols_loc, P_coeffs] = P_diag->getDataFields();
     const auto begin_col                      = static_cast<gidx_t>( P->beginCol() );
     if constexpr ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
-        for ( lidx_t agg = 0; agg < num_agg; ++agg ) {
-            coarse_null_vals[agg] = 1.0; // std::sqrt( agg_norm_sq[agg] );
-        }
         for ( lidx_t row = 0; row < A_nrows; ++row ) {
             const auto agg = agg_ids[row];
             if ( agg >= 0 ) {
                 const auto rs  = P_rs[row];
                 P_cols[rs]     = begin_col + static_cast<gidx_t>( agg );
                 P_cols_loc[rs] = agg;
-                if ( agg < 3 ) {
-                    std::cout << "row: " << row << ", agg: " << agg << ", nv: " << null_vals[row]
-                              << ", cnv: " << coarse_null_vals[agg] << std::endl;
-                }
-                P_coeffs[rs] = null_vals[row] / coarse_null_vals[agg];
+                P_coeffs[rs]   = null_vals[row] / coarse_null_vals[agg];
             }
         }
     } else {
 #ifdef AMP_USE_DEVICE
         {
-            // thrust::transform(
-            //     thrust::device,
-            //     agg_norm_sq.get(),
-            //     agg_norm_sq.get() + num_agg,
-            //     coarse_null_vals,
-            //     [] __device__( const scalar_t nsq ) -> scalar_t { return sqrt( nsq ); } );
-        } {
             dim3 BlockDim;
             dim3 GridDim;
             setKernelDims( A_nrows, BlockDim, GridDim );

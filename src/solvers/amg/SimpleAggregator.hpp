@@ -72,7 +72,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     AMP::Utilities::Algorithms<int>::fill_n( agg_ids, A_nrows, -1 );
 
     // Create temporary storage for aggregate sizes
-    std::vector<lidx_t> agg_size;
+    std::vector<lidx_t> agg_size( A_nrows, -1 );
 
     // flags for isolated points, 0 undecided, 1 marked isolated, -1 marked un-isolated
     std::vector<lidx_t> isolated_pts( A_nrows, 0 );
@@ -107,7 +107,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
         }
 
         // create new aggregate from row
-        agg_size.push_back( 0 );
+        agg_size[num_agg] = 0;
         for ( lidx_t n = 0; n < row_len; ++n ) {
             const auto col_idx = Am_cols_loc[rs + n];
             agg_ids[col_idx]   = num_agg;
@@ -152,43 +152,6 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
             }
         }
     } while ( grew_agg );
-
-#if 0
-    // Third pass, check if aggregated points neighbor any isolated points
-    // and add them to their aggregate if so. These mostly come from BCs
-    // where connections might not be symmetric.
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        const auto rs = Am_rs[row], re = Am_rs[row + 1];
-        const auto curr_agg = agg_ids[row];
-
-        if ( curr_agg < 0 ) {
-            continue;
-        }
-
-        for ( lidx_t c = rs; c < re; ++c ) {
-            const auto nid = Am_cols_loc[c];
-            if ( isolated_pts[nid] == 1 ) {
-                agg_ids[nid] = curr_agg;
-                agg_size[curr_agg]++;
-                isolated_pts[nid] = 0;
-            }
-        }
-    }
-
-    // DEBUG
-    {
-        double total_agg   = 0.0;
-        lidx_t largest_agg = 0, smallest_agg = A_nrows;
-        for ( int n = 0; n < num_agg; ++n ) {
-            total_agg += agg_size[n];
-            largest_agg  = largest_agg < agg_size[n] ? agg_size[n] : largest_agg;
-            smallest_agg = smallest_agg > agg_size[n] ? agg_size[n] : smallest_agg;
-        }
-        AMP::pout << "SimpleAggregator found " << num_agg << " aggregates over " << A_nrows
-                  << " rows, with average size " << total_agg / static_cast<double>( num_agg )
-                  << ", and max/min " << largest_agg << "/" << smallest_agg << std::endl;
-    }
-#endif
 
     return num_agg;
 }
