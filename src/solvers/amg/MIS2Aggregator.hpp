@@ -229,7 +229,7 @@ AMP_FUNCTION_HD void agg_from_row( const lidx_t row,
                                    lidx_t *agg_ids )
 {
     if ( labels[row] != MIS2Aggregator::IN || agg_ids[row] != MIS2Aggregator::UNASSIGNED ) {
-        // not root node, nothing to do
+        // not (valid) root node, nothing to do
         return;
     }
     if ( test_nbrs ) {
@@ -370,6 +370,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     auto agg_root_ids   = lidx_alloc.allocate( A_nrows );
     auto worklist       = lidx_alloc.allocate( A_nrows );
     lidx_t worklist_len = A_nrows;
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_size, A_nrows, -1 );
     AMP::Utilities::Algorithms<lidx_t>::fill_n( agg_root_ids, A_nrows, UNASSIGNED );
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
@@ -395,12 +396,12 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             return Ad_coeffs[Ad_rs[row]] <= 5.0 * od_sum;
         };
         auto mark_undec_inv =
-            [Am_rs, not_diag_dom, agg_ids] AMP_FUNCTION_HD( const lidx_t row ) -> void {
+            [Am_rs, not_diag_dom, agg_root_ids] AMP_FUNCTION_HD( const lidx_t row ) -> void {
             const auto rs = Am_rs[row], re = Am_rs[row + 1];
             if ( re - rs > 1 && not_diag_dom( row ) ) {
-                agg_ids[row] = MIS2Aggregator::UNASSIGNED;
+                agg_root_ids[row] = MIS2Aggregator::UNASSIGNED;
             } else {
-                agg_ids[row] = MIS2Aggregator::INVALID;
+                agg_root_ids[row] = MIS2Aggregator::INVALID;
             }
         };
         if constexpr ( host_exec ) {
