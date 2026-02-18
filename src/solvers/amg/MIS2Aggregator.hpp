@@ -600,8 +600,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         }
     }
 
-    AMP::pout << "    MIS2 found " << num_agg << " aggregates" << std::endl;
-
     // deallocate sizes and return
     lidx_alloc.deallocate( agg_root_ids, A_nrows );
     lidx_alloc.deallocate( agg_size, A_nrows );
