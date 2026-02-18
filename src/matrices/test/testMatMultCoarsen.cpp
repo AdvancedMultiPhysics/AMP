@@ -65,7 +65,8 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     // Create aggregate matrix
     AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min", false };
     auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( crs_settings );
-    auto P   = agg->getAggregateMatrix( A );
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> P;
+    std::tie( P, std::ignore ) = agg->getAggregateMatrix( A, nullptr );
 
     // perform A*P SpGEMM
     auto AP = AMP::LinearAlgebra::Matrix::matMatMult( A, P );
