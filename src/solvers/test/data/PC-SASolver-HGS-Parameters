@@ -10,8 +10,7 @@ Preconditioner{
   kappa = 2
   kcycle_type = "fcg"
 
-<<< SASolver-Level-0 >>>
-<<< SASolver-Level-1 >>>
+<<< SASolver-Level-simple >>>
   
   pre_relaxation{
     name = "HybridGS"

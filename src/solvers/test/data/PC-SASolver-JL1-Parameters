@@ -10,8 +10,7 @@ Preconditioner{
   kappa = 2
   kcycle_type = "fcg"
 
-<<< SASolver-Level-0 >>>
-<<< SASolver-Level-1 >>>
+<<< SASolver-Level-MIS2 >>>
 
   pre_relaxation{
     name = "JacobiL1"
