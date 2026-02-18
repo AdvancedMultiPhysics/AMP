@@ -483,7 +483,7 @@ CONSTEXPR ArraySize operator+( size_t v, const ArraySize &x )
 
 
 // Get the resulting array size from multiplying two arrays
-CONSTEXPR ArraySize multiplySize( const ArraySize &sa, const ArraySize &sb )
+constexpr ArraySize multiplySize( const ArraySize &sa, const ArraySize &sb )
 {
     if ( sa[1] != sb[0] )
         throw std::logic_error( "Inner dimensions must match" );

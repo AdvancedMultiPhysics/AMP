@@ -150,7 +150,7 @@ DirichletMatrixCorrection2 {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 2
+    print_info_level = 1
     max_iterations = 500
     max_error = 1e-10
     absolute_tolerance = 1.0e-10
@@ -160,7 +160,7 @@ NonlinearSolver{
     usesJacobian=FALSE
     zero_initial_guess = FALSE
     
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.0001"
+    SNESOptions = "-snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.0001"
 
     LinearSolver{
         name = "PetscKrylovSolver"
@@ -174,7 +174,7 @@ NonlinearSolver{
         max_krylov_dimension = 40
         uses_preconditioner=FALSE
 	
-        KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100 -ksp_rtol 1e-3 -ksp_atol 1e-13 "
+        KSPOptions = "-ksp_monitor -ksp_converged_reason"
 
     }
 }

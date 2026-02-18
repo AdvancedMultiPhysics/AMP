@@ -25,12 +25,9 @@ void myTest( AMP::UnitTest *ut, const std::string &inputName )
 {
     PROFILE2( inputName );
 
-    std::string input_file = inputName;
-    AMP::pout << "Running with input " << input_file << std::endl;
-
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
     size_t N_error0 = ut->NumFailLocal();
-    auto input_db   = AMP::Database::parseInputFile( input_file );
+    auto input_db   = AMP::Database::parseInputFile( inputName );
     input_db->print( AMP::plog );
 
     // create the Mesh
@@ -81,6 +78,7 @@ void myTest( AMP::UnitTest *ut, const std::string &inputName )
 
     AMP::pout << "Final Residual Norm: " << finalResidualNorm << std::endl;
     AMP::pout << "Final Solution Norm: " << finalSolutionNorm << std::endl;
+    AMP::pout << std::endl;
 
     auto referenceSolutionNorm = input_db->getScalar<double>( "referenceSolutionNorm" );
 
@@ -103,7 +101,8 @@ int main( int argc, char *argv[] )
     std::vector<std::string> inputNames;
 
     if ( argc > 1 ) {
-        inputNames.push_back( argv[1] );
+        for ( int i = 1; i < argc; i++ )
+            inputNames.push_back( argv[i] );
     } else {
 
 #ifdef AMP_USE_PETSC
@@ -142,7 +141,7 @@ int main( int argc, char *argv[] )
 
     ut.report();
 
-    PROFILE_SAVE( "testNonlinearSolvers-NonlinearThermal-1" );
+    PROFILE_SAVE( "testSolveNonlinearThermal" );
 
     int num_failed = ut.NumFailGlobal();
     AMP::AMPManager::shutdown();
