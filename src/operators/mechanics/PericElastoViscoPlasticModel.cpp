@@ -1003,7 +1003,7 @@ void PericElastoViscoPlasticModel::postNonlinearAssembly()
     } else {
         double Plastic_Fraction = ( (double) Plastic_Gauss_Point ) / ( (double) Total_Gauss_Point );
         Plastic_Fraction        = Plastic_Fraction * 100.0;
-        if ( d_iDebugPrintInfoLevel > 1 ) {
+        if ( d_iDebugPrintInfoLevel > 5 ) {
             std::cout << "Fraction = " << Plastic_Fraction << "% Plastic = " << Plastic_Gauss_Point
                       << " Total = " << Total_Gauss_Point << " Gauss Points." << "  "
                       << d_iDebugPrintInfoLevel << std::endl;

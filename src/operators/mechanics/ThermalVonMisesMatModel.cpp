@@ -10,32 +10,22 @@ ThermalVonMisesMatModel::ThermalVonMisesMatModel(
     std::shared_ptr<MechanicsMaterialModelParameters> params )
     : MechanicsMaterialModel( params ), d_constitutiveMatrix{ { 0 } }
 {
-    AMP_INSIST( ( ( params.get() ) != nullptr ), "NULL parameter" );
-
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
-
+    AMP_INSIST( params, "NULL parameter" );
+    AMP_INSIST( params, "NULL database" );
     if ( d_useMaterialsLibrary == false ) {
-
         AMP_INSIST( params->d_db->keyExists( "Youngs_Modulus" ), "Missing key: Youngs_Modulus" );
-
         AMP_INSIST( params->d_db->keyExists( "Poissons_Ratio" ), "Missing key: Poissons_Ratio" );
-
         AMP_INSIST( params->d_db->keyExists( "THERMAL_EXPANSION_COEFFICIENT" ),
                     "Missing key: THERMAL_EXPANSION_COEFFICIENT" );
     }
-
     AMP_INSIST( params->d_db->keyExists( "Linear_Strain_Hardening" ),
                 "Missing key: Linear_Strain_Hardening" );
-
     AMP_INSIST( params->d_db->keyExists( "Elastic_Yield_Stress" ),
                 "Missing key: Elastic_Yield_Stress" );
 
     if ( d_useMaterialsLibrary == false ) {
-
         default_E = params->d_db->getScalar<double>( "Youngs_Modulus" );
-
         default_Nu = params->d_db->getScalar<double>( "Poissons_Ratio" );
-
         default_alpha = params->d_db->getScalar<double>( "THERMAL_EXPANSION_COEFFICIENT" );
     }
 
@@ -61,6 +51,21 @@ ThermalVonMisesMatModel::ThermalVonMisesMatModel(
     Plastic_Gauss_Point          = 0;
     d_resetReusesRadialReturn    = false;
     d_jacobianReusesRadialReturn = false;
+}
+
+void ThermalVonMisesMatModel::postNonlinearAssembly()
+{
+    if ( Total_Gauss_Point == 0 ) {
+        std::cout << "Total number of gauss points are zero." << std::endl;
+    } else {
+        double Plastic_Fraction =
+            ( (double) Plastic_Gauss_Point ) / ( (double) Total_Gauss_Point );
+        Plastic_Fraction = Plastic_Fraction * 100.0;
+        if ( d_iDebugPrintInfoLevel > 5 ) {
+            std::cout << "Fraction = " << Plastic_Fraction << "% Plastic = " << Plastic_Gauss_Point
+                      << " Total = " << Total_Gauss_Point << " Gauss Points." << std::endl;
+        }
+    }
 }
 
 void ThermalVonMisesMatModel::preNonlinearInit( bool resetReusesRadialReturn,
@@ -199,7 +204,6 @@ void ThermalVonMisesMatModel::nonlinearJacobianGaussPointOperation(
 {
     AMP_INSIST( ( d_Is_Init_Called == true ),
                 "Init must be called before nonlinearJacobianGaussPointOperation!" );
-
     AMP_INSIST( ( strain[Mechanics::TEMPERATURE].empty() == false ),
                 "Temperature must be an active variable." );
 
