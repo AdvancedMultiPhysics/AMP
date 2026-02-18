@@ -55,8 +55,9 @@ static void test_with_shape( AMP::UnitTest &ut, const std::string &input )
     shape->apply( SpecificPowerMagnitudeVec, SpecificPowerShapeVec );
     ut.passes( input + ": PowerShape gets past apply with a non-flat power shape." );
 
-    AMP::pout << "SpecificPowerShapeVec->max()" << " : " << SpecificPowerShapeVec->min() << " : "
-              << SpecificPowerShapeVec->max() << std::endl;
+    AMP::pout << "SpecificPowerShapeVec->max()"
+              << " : " << SpecificPowerShapeVec->min() << " : " << SpecificPowerShapeVec->max()
+              << std::endl;
     // Check that the data is non-negative
     bool itpasses = true;
     for ( auto &elem : mesh->getIterator( Cell, 1 ) ) {
@@ -235,8 +236,8 @@ static void test_with_shape_volint( AMP::UnitTest &ut, const std::string &input 
 
     shape->apply( shapeInpVec, shapeOutVec );
 
-    AMP::pout << "shapeOutVec->max/min" << " : " << shapeOutVec->min() << " : "
-              << shapeOutVec->max() << std::endl;
+    AMP::pout << "shapeOutVec->max/min"
+              << " : " << shapeOutVec->min() << " : " << shapeOutVec->max() << std::endl;
     ut.passes( input + ": PowerShape didn't crash the system" );
 
     volumeOp->apply( shapeOutVec, resVec );

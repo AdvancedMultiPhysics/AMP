@@ -24,8 +24,8 @@ ThermalVonMisesMatModel::ThermalVonMisesMatModel(
                 "Missing key: Elastic_Yield_Stress" );
 
     if ( d_useMaterialsLibrary == false ) {
-        default_E = params->d_db->getScalar<double>( "Youngs_Modulus" );
-        default_Nu = params->d_db->getScalar<double>( "Poissons_Ratio" );
+        default_E     = params->d_db->getScalar<double>( "Youngs_Modulus" );
+        default_Nu    = params->d_db->getScalar<double>( "Poissons_Ratio" );
         default_alpha = params->d_db->getScalar<double>( "THERMAL_EXPANSION_COEFFICIENT" );
     }
 
@@ -58,9 +58,8 @@ void ThermalVonMisesMatModel::postNonlinearAssembly()
     if ( Total_Gauss_Point == 0 ) {
         std::cout << "Total number of gauss points are zero." << std::endl;
     } else {
-        double Plastic_Fraction =
-            ( (double) Plastic_Gauss_Point ) / ( (double) Total_Gauss_Point );
-        Plastic_Fraction = Plastic_Fraction * 100.0;
+        double Plastic_Fraction = ( (double) Plastic_Gauss_Point ) / ( (double) Total_Gauss_Point );
+        Plastic_Fraction        = Plastic_Fraction * 100.0;
         if ( d_iDebugPrintInfoLevel > 5 ) {
             std::cout << "Fraction = " << Plastic_Fraction << "% Plastic = " << Plastic_Gauss_Point
                       << " Total = " << Total_Gauss_Point << " Gauss Points." << std::endl;
