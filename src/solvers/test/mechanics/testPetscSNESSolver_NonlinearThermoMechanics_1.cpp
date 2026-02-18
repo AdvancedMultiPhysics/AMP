@@ -180,9 +180,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     if ( finalResidualNorm > initialResidualNorm * 1.0e-10 + 1.0e-05 ) {
         ut->failure( "Error" );
     } else {
-        ut->passes( "PetscSNES Solver successfully solves a nonlinear thermo-mechanics equation "
-                    "with JFNK, FGMRES for "
-                    "Krylov, block diagonal preconditioning with ML solvers" );
+        ut->passes( "Solved nonlinear thermo-mechanics equation" );
     }
     ut->passes( exeName );
 }
@@ -194,10 +192,16 @@ int testPetscSNESSolver_NonlinearThermoMechanics_1( int argc, char *argv[] )
     AMP::UnitTest ut;
 
     std::vector<std::string> exeNames;
-    exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1" );
-    exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1a" );
-    exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1b" );
-    exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1c" );
+    if ( argc == 1 ) {
+        exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1" );
+        exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1a" );
+        exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1b" );
+        exeNames.emplace_back( "testPetscSNESSolver-NonlinearThermoMechanics-1c" );
+    } else {
+        std::string prefix = "testPetscSNESSolver-NonlinearThermoMechanics-";
+        for ( int i = 1; i < argc; i++ )
+            exeNames.emplace_back( prefix + argv[i] );
+    }
 
     for ( auto &exeName : exeNames )
         myTest( &ut, exeName );

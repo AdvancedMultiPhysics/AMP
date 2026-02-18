@@ -182,13 +182,15 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
         xmf.addMultiMesh( mesh.name, data );
     }
     // Open HDF5 to write serial data
-    auto gid = fid;
+    auto gid  = fid;
+    auto path = AMP::IO::filename( filename ) + ":";
     if ( d_decomposition == DecompositionType::SINGLE ) {
         if ( fid != -1 )
             closeHDF5( fid );
         d_comm.serializeStart();
         fid = openHDF5( filename, "rw", Compression::GZIP );
         gid = createGroup( fid, "rank_" + std::to_string( rank ) );
+        path += "/rank_" + std::to_string( rank );
     }
     // Add the vectors
     for ( const auto &[id, data] : d_vectors ) {
@@ -201,7 +203,6 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
         AMP_ERROR( "Not finished" );
     }
     // Add user data
-    auto path = AMP::IO::filename( filename ) + ":";
     for ( auto fun : d_fun )
         fun( gid, path, xmf );
     // Close the file

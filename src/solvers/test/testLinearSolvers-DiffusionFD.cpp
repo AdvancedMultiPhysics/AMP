@@ -227,25 +227,28 @@ int main( int argc, char **argv )
         // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-HybridGS" );
 
         // SASolver with/without FCG acceleration
-#warning some tests temporarily disabled, need to re-enable
-        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1" );
+        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1" );
-        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG"
-        // );
+        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1-FCG" );
 
-        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
+        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
-        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG"
-        // );
+        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
 
         // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG"
         // );
 #ifdef AMP_USE_DEVICE
-        // managedExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG"
-        // ); deviceExeNames.emplace_back(
-        // "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG" );
+        // Device side solves of the above with FCG acceleration, HybridGS not supported on device
+        // managedExeNames.emplace_back(
+        //     "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
+        // managedExeNames.emplace_back(
+        //     "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1-FCG" );
+        deviceExeNames.emplace_back(
+            "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
+        deviceExeNames.emplace_back(
+            "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1-FCG" );
 #endif
 #ifdef AMP_USE_HYPRE
         // Boomer with/without CG acceleration

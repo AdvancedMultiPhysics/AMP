@@ -84,12 +84,14 @@ public:
                           const std::array<double, 2> range,
                           const AMP::Units &argUnit,
                           double default_value,
-                          std::string_view source = "" );
+                          std::string_view source = "",
+                          std::string_view method = "linear" );
     void eval( AMP::Array<double> &result, const AMP::Array<double> & ) const override;
 
 private:
     std::vector<double> d_x;
     std::vector<double> d_y;
+    int d_method;
 };
 
 

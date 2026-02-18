@@ -101,7 +101,8 @@ InterpolatedProperty::InterpolatedProperty( std::string_view name,
                                             const std::array<double, 2> range,
                                             const AMP::Units &argUnit,
                                             double default_value,
-                                            std::string_view source )
+                                            std::string_view source,
+                                            std::string_view method )
     : Property( std::move( name ),
                 { 1 },
                 unit,
@@ -110,18 +111,78 @@ InterpolatedProperty::InterpolatedProperty( std::string_view name,
                 { range },
                 { argUnit } ),
       d_x( std::move( x ) ),
-      d_y( std::move( y ) )
+      d_y( std::move( y ) ),
+      d_method( 0 )
 {
     set_defaults( { default_value } );
     AMP_ASSERT( d_x.size() == d_y.size() );
     AMP::Utilities::quicksort( d_x, d_y );
     for ( size_t i = 1; i < d_x.size(); i++ )
         AMP_INSIST( d_x[i] != d_x[i - 1], "Values of interpolant must be unique" );
+    if ( method == "linear" )
+        d_method = 1;
+    else if ( method == "cubic" )
+        d_method = 3;
+    else
+        AMP_ERROR( "Unknown interpolation method" );
+}
+static double pchip( size_t N, const double *xi, const double *yi, double x )
+{
+    if ( x <= xi[0] || N <= 2 ) {
+        double dx = ( x - xi[0] ) / ( xi[1] - xi[0] );
+        return ( 1.0 - dx ) * yi[0] + dx * yi[1];
+    } else if ( x >= xi[N - 1] ) {
+        double dx = ( x - xi[N - 2] ) / ( xi[N - 1] - xi[N - 2] );
+        return ( 1.0 - dx ) * yi[N - 2] + dx * yi[N - 1];
+    }
+    size_t i  = AMP::Utilities::findfirst( N, xi, x );
+    double f1 = yi[i - 1];
+    double f2 = yi[i];
+    double dx = ( x - xi[i - 1] ) / ( xi[i] - xi[i - 1] );
+    // Compute the gradient in normalized coordinates [0,1]
+    double g1 = 0, g2 = 0;
+    if ( i <= 1 ) {
+        g1 = f2 - f1;
+    } else if ( ( f1 < f2 && f1 > yi[i - 2] ) || ( f1 > f2 && f1 < yi[i - 2] ) ) {
+        // Compute the gradient by using a 3-point finite difference to f'(x)
+        // Note: the real gradient is g1/(xi[i]-xi[i-1])
+        double f0    = yi[i - 2];
+        double dx1   = xi[i - 1] - xi[i - 2];
+        double dx2   = xi[i] - xi[i - 1];
+        double a1    = ( dx2 - dx1 ) / dx1;
+        double a2    = dx1 / ( dx1 + dx2 );
+        g1           = a1 * ( f1 - f0 ) + a2 * ( f2 - f0 );
+        double g_max = 2 * dx2 * std::min( fabs( f1 - f0 ) / dx1, fabs( f2 - f1 ) / dx2 );
+        g1           = ( ( g1 >= 0 ) ? 1 : -1 ) * std::min( fabs( g1 ), g_max );
+    }
+    if ( i >= N - 1 ) {
+        g2 = f2 - f1;
+    } else if ( ( f2 < f1 && f2 > yi[i + 1] ) || ( f2 > f1 && f2 < yi[i + 1] ) ) {
+        // Compute the gradient by using a 3-point finite difference to f'(x)
+        // Note: the real gradient is g2/(xi[i]-xi[i-1])
+        double f0    = yi[i + 1];
+        double dx1   = xi[i] - xi[i - 1];
+        double dx2   = xi[i + 1] - xi[i];
+        double a1    = -dx2 / ( dx1 + dx2 );
+        double a2    = ( dx2 - dx1 ) / dx2;
+        g2           = a1 * ( f1 - f0 ) + a2 * ( f2 - f0 );
+        double g_max = 2 * dx1 * std::min( fabs( f2 - f1 ) / dx1, fabs( f0 - f2 ) / dx2 );
+        g2           = ( ( g2 >= 0 ) ? 1 : -1 ) * std::min( fabs( g2 ), g_max );
+    }
+    // Perform the interpolation
+    double dx2 = dx * dx;
+    return f1 + dx2 * ( 2 * dx - 3 ) * ( f1 - f2 ) + dx * g1 -
+           dx2 * ( g1 + ( 1 - dx ) * ( g1 + g2 ) );
 }
 void InterpolatedProperty::eval( AMP::Array<double> &result, const AMP::Array<double> &args ) const
 {
-    for ( size_t i = 0; i < result.length(); i++ )
-        result( i ) = AMP::Utilities::linear( d_x, d_y, args( i ) );
+    if ( d_method == 1 ) {
+        for ( size_t i = 0; i < result.length(); i++ )
+            result( i ) = AMP::Utilities::linear( d_x, d_y, args( i ) );
+    } else if ( d_method == 3 ) {
+        for ( size_t i = 0; i < result.length(); i++ )
+            result( i ) = pchip( d_x.size(), d_x.data(), d_y.data(), args( i ) );
+    }
 }
 
 

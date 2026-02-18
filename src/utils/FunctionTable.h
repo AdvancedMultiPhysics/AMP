@@ -42,7 +42,7 @@ public:
      * @return                  The reduction
      */
     template<typename LAMBDA>
-    static TYPE reduce( LAMBDA &op, size_t N, const TYPE *A, TYPE initialValue );
+    static TYPE reduce( LAMBDA op, size_t N, const TYPE *A, TYPE initialValue );
 
     /*!
      * Perform a reduce operator z = f(x,y)
@@ -55,7 +55,7 @@ public:
      * @return                  The reduction
      */
     template<typename LAMBDA>
-    static TYPE reduce( LAMBDA &op, size_t N, const TYPE *A, const TYPE *B, TYPE initialValue );
+    static TYPE reduce( LAMBDA op, size_t N, const TYPE *A, const TYPE *B, TYPE initialValue );
 
     /*!
      * Perform a element-wise operation y = f(x)
@@ -66,7 +66,7 @@ public:
      * @param[out] y            The output array
      */
     template<typename LAMBDA>
-    static void transform( LAMBDA &fun, size_t N, const TYPE *x, TYPE *y );
+    static void transform( LAMBDA fun, size_t N, const TYPE *x, TYPE *y );
 
     /*!
      * Perform a element-wise operation z = f(x,y)
@@ -78,7 +78,7 @@ public:
      * @param[out] z            The output array
      */
     template<typename LAMBDA>
-    static void transform( LAMBDA &fun, size_t N, const TYPE *x, const TYPE *y, TYPE *z );
+    static void transform( LAMBDA fun, size_t N, const TYPE *x, const TYPE *y, TYPE *z );
 
     /*!
      * Return the minimum value
@@ -100,13 +100,6 @@ public:
      * @param[in] x             The first array
      */
     static TYPE sum( size_t N, const TYPE *x );
-
-    /*!
-     * Return the size of the array for multiplication
-     * @param[in] sa            The size of the a array
-     * @param[in] sb            The size of the b array
-     */
-    static ArraySize multiplySize( const ArraySize &sa, const ArraySize &sb );
 
     /*!
      * Multiply two arrays
@@ -149,7 +142,7 @@ public:
     static void px( size_t N, const TYPE *x, TYPE *y );
 
     /*!
-     * Perform subtraction operation ( y += x )
+     * Perform subtraction operation ( y -= x )
      * @param[in] N             The length of the array
      * @param[in] x             The scalar value alpha
      * @param[in,out] y         The output array y
@@ -157,7 +150,7 @@ public:
     static void mx( size_t N, TYPE x, TYPE *y );
 
     /*!
-     * Perform subtraction operation ( y += x )
+     * Perform subtraction operation ( y -= x )
      * @param[in] x             The scalar value alpha
      * @param[in] N             The length of the array
      * @param[in,out] y         The output array y

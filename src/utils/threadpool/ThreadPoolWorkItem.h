@@ -7,6 +7,9 @@
 
 #include "AMP/utils/threadpool/ThreadPoolId.h"
 
+#include <vector>
+
+
 namespace AMP {
 
 

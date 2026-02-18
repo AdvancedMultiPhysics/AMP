@@ -12,10 +12,6 @@ template<class TYPE>
 class Lapack
 {
 public:
-    static void axpy( size_t, TYPE, const TYPE *, size_t, TYPE *, size_t )
-    {
-        AMP_ERROR( "Lapack required" );
-    }
     static void gemv( char,
                       size_t,
                       size_t,
@@ -51,21 +47,6 @@ public:
 
 
 namespace AMP {
-
-
-/********************************************************
- *  axpy                                                 *
- ********************************************************/
-template<>
-void call_axpy<float>( size_t N, const float alpha, const float *x, float *y )
-{
-    Lapack<float>::axpy( N, alpha, x, 1, y, 1 );
-}
-template<>
-void call_axpy<double>( size_t N, const double alpha, const double *x, double *y )
-{
-    Lapack<double>::axpy( N, alpha, x, 1, y, 1 );
-}
 
 
 /********************************************************
@@ -124,11 +105,11 @@ template<class T>
 using FUN1 = std::function<T( const T & )>;
 template<class T>
 using FUN2 = std::function<T( const T &, const T & )>;
-#define INSTANTIATE( T )                                                                          \
-    template class AMP::FunctionTable<T>;                                                         \
-    template void AMP::FunctionTable<T>::transform<FUN1<T>>( FUN1<T> &, size_t, const T *, T * ); \
-    template void AMP::FunctionTable<T>::transform<FUN2<T>>(                                      \
-        FUN2<T> &, size_t, const T *, const T *, T * )
+#define INSTANTIATE( T )                                                                        \
+    template class AMP::FunctionTable<T>;                                                       \
+    template void AMP::FunctionTable<T>::transform<FUN1<T>>( FUN1<T>, size_t, const T *, T * ); \
+    template void AMP::FunctionTable<T>::transform<FUN2<T>>(                                    \
+        FUN2<T>, size_t, const T *, const T *, T * )
 INSTANTIATE( bool );
 INSTANTIATE( char );
 INSTANTIATE( uint8_t );

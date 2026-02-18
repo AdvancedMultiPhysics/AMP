@@ -51,6 +51,7 @@ void VectorTests::testBasicVector( AMP::UnitTest *ut )
         AxpbyVector( ut );
         CopyVector( ut );
         CopyRawDataBlockVector( ut );
+        VerifyVectorSum( ut );
         VerifyVectorMin( ut );
         VerifyVectorMax( ut );
         VerifyVectorMaxMin( ut );

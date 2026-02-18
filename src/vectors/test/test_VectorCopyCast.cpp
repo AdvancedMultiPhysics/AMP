@@ -34,10 +34,10 @@ void test_copyCast( size_t N,
 
     auto err = static_cast<double>( diff->maxNorm() );
     if ( err > tol ) {
-        ut.failure( AMP::Utilities::stringf(
-            "Cast precision loss %e larger than %e, for %s test", err, tol, test_msg.data() ) );
+        ut.failure(
+            "Cast precision loss %e larger than %e, for %s test", err, tol, test_msg.data() );
     } else {
-        ut.passes( AMP::Utilities::stringf( "%s tests passed", test_msg.data() ) );
+        ut.passes( "%s tests passed", test_msg.data() );
     }
 }
 

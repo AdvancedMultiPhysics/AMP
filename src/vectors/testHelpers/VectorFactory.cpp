@@ -31,7 +31,7 @@ std::string NullVectorFactory::name() const { return "NullVectorFactory"; }
 AMP::LinearAlgebra::Vector::shared_ptr NullVectorDataFactory::getVector() const
 {
     auto ops  = std::make_shared<VectorOperationsDefault<double>>();
-    auto data = std::make_shared<VectorDataNull<double>>();
+    auto data = std::make_shared<VectorDataNull>( getTypeID<double>() );
     auto var  = std::make_shared<Variable>();
     auto DOFs = std::make_shared<AMP::Discretization::DOFManager>( 0, AMP_COMM_SELF );
     return std::make_shared<Vector>( data, ops, var, DOFs );

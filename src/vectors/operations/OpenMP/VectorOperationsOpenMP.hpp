@@ -438,9 +438,8 @@ template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localSum( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsOpenMP::localSum" );
-
     size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans        = std::numeric_limits<TYPE>::lowest();
+    TYPE ans        = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         size_t size      = x.sizeOfDataBlock( i );
         const TYPE *data = x.getRawDataBlock<TYPE>( i );
@@ -455,7 +454,6 @@ template<typename TYPE>
 Scalar VectorOperationsOpenMP<TYPE>::localL1Norm( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsOpenMP::localL1Norm" );
-
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {

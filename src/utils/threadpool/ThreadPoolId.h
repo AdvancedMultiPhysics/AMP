@@ -32,22 +32,22 @@ public:
     static constexpr uint64_t maxThreadID  = 0x00FFFFFFFFFFFFFD;
 
     //! Empty constructor
-    inline ThreadPoolID();
+    ThreadPoolID() = default;
 
     //! Destructor
-    inline ~ThreadPoolID();
+    inline ~ThreadPoolID() { reset(); }
 
     //! Copy constructors
-    inline ThreadPoolID( const volatile ThreadPoolID &rhs );
-    inline ThreadPoolID( volatile ThreadPoolID &&rhs );
-    inline ThreadPoolID &operator=( const ThreadPoolID &rhs ) volatile;
-    inline ThreadPoolID &operator=( volatile ThreadPoolID &&rhs ) volatile;
+    ThreadPoolID( const volatile ThreadPoolID &rhs );
+    ThreadPoolID( volatile ThreadPoolID &&rhs );
+    ThreadPoolID &operator=( const ThreadPoolID &rhs ) volatile;
+    ThreadPoolID &operator=( volatile ThreadPoolID &&rhs ) volatile;
 #if !defined( WIN32 ) && !defined( _WIN32 ) && !defined( WIN64 ) && !defined( _WIN64 )
-    inline ThreadPoolID( const ThreadPoolID &rhs );
-    inline ThreadPoolID &operator=( ThreadPoolID &&rhs );
-    inline ThreadPoolID &operator=( const ThreadPoolID &rhs );
-    inline ThreadPoolID &operator=( const volatile ThreadPoolID &rhs );
-    inline ThreadPoolID &operator=( const volatile ThreadPoolID &rhs ) volatile;
+    ThreadPoolID( const ThreadPoolID &rhs );
+    ThreadPoolID &operator=( ThreadPoolID &&rhs );
+    ThreadPoolID &operator=( const ThreadPoolID &rhs );
+    ThreadPoolID &operator=( const volatile ThreadPoolID &rhs );
+    ThreadPoolID &operator=( const volatile ThreadPoolID &rhs ) volatile;
 #endif
 
     // Overload key operators
@@ -89,17 +89,17 @@ public:
     }
 
     //! Reset the id back to a NULL id
-    inline void reset() volatile;
-    inline void reset();
+    void reset() volatile;
+    void reset();
 
     //! Return the status of the work item
-    inline Status status() const;
+    Status status() const;
 
     //! Check if the work has started (will return true if it has started or finished)
-    inline bool started() const;
+    inline bool started() const { return static_cast<int>( status() ) >= 2; }
 
     //! Check if the work has finished
-    inline bool finished() const;
+    inline bool finished() const { return static_cast<int>( status() ) == 3; }
 
     //! swap with rhs
     inline void swap( ThreadPoolID &rhs )
@@ -120,32 +120,29 @@ public:
 
 public:
     // Is the id ready to process
-    inline bool ready() const;
+    bool ready() const;
     // Reset the internal data to the given values
-    inline void reset( int8_t priority, uint64_t local_id, void *work );
+    void reset( int8_t priority, uint64_t local_id, void *work );
     // Generate an id
-    static inline uint64_t createId( int8_t priority, uint64_t local_id );
+    static uint64_t createId( int8_t priority, uint64_t local_id );
     // Get the local id
-    inline uint64_t getLocalID() const;
+    uint64_t getLocalID() const;
     // Get the priority
-    inline int8_t getPriority() const;
+    int8_t getPriority() const;
     // Increase the priority
-    inline void setPriority( int8_t priority );
+    void setPriority( int8_t priority );
     // Check if the id is initialized
     inline bool initialized() const volatile { return d_id != 0x0FFFFFFFFFFFFFFF; }
 
 private:
     // Data
-    uint64_t d_id;                         // 64-bit data to store id
-    volatile std::atomic_int32_t *d_count; // Reference count
-    void *d_work;                          // Pointer to the work item
+    uint64_t d_id                         = nullThreadID; // 64-bit data to store id
+    volatile std::atomic_int32_t *d_count = nullptr;      // Reference count
+    void *d_work                          = nullptr;      // Pointer to the work item
 };
 
 
 } // namespace AMP
-
-
-#include "AMP/utils/threadpool/ThreadPoolId.hpp"
 
 
 #endif

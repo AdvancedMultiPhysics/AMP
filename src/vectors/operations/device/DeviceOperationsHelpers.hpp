@@ -152,7 +152,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localMax( size_t N, const TYPE *x )
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localSum( size_t N, const TYPE *x )
 {
-    return thrust::reduce( thrust::device, x, x + N, 0, thrust::plus<TYPE>() );
+    return thrust::reduce( thrust::device, x, x + N, (TYPE) 0, thrust::plus<TYPE>() );
 }
 
 template<typename TYPE>
@@ -209,7 +209,7 @@ template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localWrmsNorm( size_t N, const TYPE *x, const TYPE *y )
 {
     return thrust::inner_product(
-        thrust::device, x, x + N, y, 0, thrust::plus<TYPE>(), thrust_wrs<TYPE>() );
+        thrust::device, x, x + N, y, (TYPE) 0, thrust::plus<TYPE>(), thrust_wrs<TYPE>() );
 }
 
 
