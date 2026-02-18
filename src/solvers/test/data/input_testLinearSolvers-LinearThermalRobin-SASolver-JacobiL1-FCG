@@ -14,7 +14,7 @@ LinearSolver{
 <<< "PC-SASolver-JL1-Parameters" >>>
 
 Reference{
-  iterations = 13
+  iterations = 12
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE
