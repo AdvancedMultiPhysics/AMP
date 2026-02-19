@@ -39,11 +39,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
 
     AMP::pout << "Running test with input " << input_file << std::endl;
 
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -180,15 +178,15 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto mechUvec = solVec->select( AMP::LinearAlgebra::VS_Stride( 0, 3 ) );
         auto mechVvec = solVec->select( AMP::LinearAlgebra::VS_Stride( 1, 3 ) );
         auto mechWvec = solVec->select( AMP::LinearAlgebra::VS_Stride( 2, 3 ) );
-
-        AMP::pout << "Maximum U displacement: " << mechUvec->maxNorm() << std::endl;
-        AMP::pout << "Maximum V displacement: " << mechVvec->maxNorm() << std::endl;
-        AMP::pout << "Maximum W displacement: " << mechWvec->maxNorm() << std::endl;
+        double dispU  = static_cast<double>( mechUvec->maxNorm() );
+        double dispV  = static_cast<double>( mechVvec->maxNorm() );
+        double dispW  = static_cast<double>( mechWvec->maxNorm() );
+        AMP::printp( "Maximum displacement: (%e,%e,%e)\n", dispU, dispV, dispW );
 
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        ( nonlinearMechanicsBVPoperator->getVolumeOperator() )->reset( tmpParams );
+        nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
 
         current_time = delta_time * ( (double) step + 2.0 );
@@ -214,9 +212,13 @@ int testPericElastoViscoPlasticity_LoadPrescribed( int argc, char *argv[] )
     AMP::UnitTest ut;
 
     std::vector<std::string> exeNames;
-    // exeNames.push_back("testPericElastoViscoPlasticity-1");
-    exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-1" );
-    exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-2" );
+    if ( argc == 1 ) {
+        exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-1" );
+        exeNames.emplace_back( "testPericElastoViscoPlasticity-LoadPrescribed-2" );
+    } else {
+        for ( int i = 1; i < argc; i++ )
+            exeNames.emplace_back( argv[i] );
+    }
 
     for ( auto &exeName : exeNames )
         myTest( &ut, exeName );

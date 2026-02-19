@@ -3,6 +3,7 @@
 
 #include "AMP/mesh/MeshID.h"
 #include "AMP/mesh/MeshIterator.h"
+#include "AMP/mesh/MeshParameters.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/enable_shared_from_this.h"
@@ -12,9 +13,6 @@
 
 
 // Forward declarations
-namespace AMP::Mesh {
-class MeshParameters;
-}
 namespace AMP::Geometry {
 class Geometry;
 }
