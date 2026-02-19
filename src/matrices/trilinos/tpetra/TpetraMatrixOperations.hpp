@@ -1,6 +1,6 @@
-#include "AMP/matrices/trilinos/tpetra/TpetraMatrixOperations.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/trilinos/tpetra/TpetraMatrixData.h"
+#include "AMP/matrices/trilinos/tpetra/TpetraMatrixOperations.h"
 #include "AMP/vectors/trilinos/tpetra/TpetraVector.h"
 
 DISABLE_WARNINGS
