@@ -1,7 +1,6 @@
 #ifndef included_AMP_loadBalanceSimulator
 #define included_AMP_loadBalanceSimulator
 
-#include "AMP/mesh/MeshParameters.h"
 #include "AMP/utils/Database.h"
 
 
