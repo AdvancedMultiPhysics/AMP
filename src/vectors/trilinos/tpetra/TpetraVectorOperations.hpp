@@ -46,25 +46,32 @@ void TpetraVectorOperations<ST, LO, GO, NT>::addScalar( const VectorData &x,
     AMP_ASSERT( xt.getNumVectors() == 1 && yt.getNumVectors() == 1 );
     auto xData = xt.getData( 0 );
     auto yData = yt.getDataNonConst( 0 );
-
     AMP_DEBUG_ASSERT( xData.size() == yData.size() );
-    using size_type = typename decltype( xData )::size_type;
-    size_type i     = 0;
-    for ( ; i < xData.size(); ++i ) {
-        yData[i] = xData[i] + static_cast<ST>( val );
-    }
+    auto z = static_cast<ST>( val );
+    for ( size_t i = 0; i < (size_t) xData.size(); ++i )
+        yData[i] = xData[i] + z;
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorOperations<ST, LO, GO, NT>::setMin( const AMP::Scalar &, VectorData & )
+void TpetraVectorOperations<ST, LO, GO, NT>::setMin( const AMP::Scalar &val, VectorData &x )
 {
-    AMP_ERROR( "TpetraVectorOperations::setMin not implemented" );
+    auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    AMP_ASSERT( xt.getNumVectors() == 1 );
+    auto xData = xt.getDataNonConst( 0 );
+    auto y     = static_cast<ST>( val );
+    for ( size_t i = 0; i < (size_t) xData.size(); ++i )
+        xData[i] = std::max( xData[i], y );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorOperations<ST, LO, GO, NT>::setMax( const AMP::Scalar &, VectorData & )
+void TpetraVectorOperations<ST, LO, GO, NT>::setMax( const AMP::Scalar &val, VectorData &x )
 {
-    AMP_ERROR( "TpetraVectorOperations::setMax not implemented" );
+    auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
+    AMP_ASSERT( xt.getNumVectors() == 1 );
+    auto xData = xt.getDataNonConst( 0 );
+    auto y     = static_cast<ST>( val );
+    for ( size_t i = 0; i < (size_t) xData.size(); ++i )
+        xData[i] = std::min( xData[i], y );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

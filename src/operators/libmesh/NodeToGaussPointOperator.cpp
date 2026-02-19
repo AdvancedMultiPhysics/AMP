@@ -6,7 +6,6 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
-#include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"

@@ -25,11 +25,6 @@
 namespace AMP::Mesh {
 
 
-using Edge        = std::array<ElementID, 2>;
-using Triangle    = std::array<ElementID, 3>;
-using Tetrahedron = std::array<ElementID, 4>;
-
-
 /****************************************************************
  * Get the number of n-Simplex elements of each type             *
  ****************************************************************/
@@ -54,11 +49,11 @@ static constexpr uint8_t n_Simplex_elements[10][10] = {
  ****************************************************************/
 #ifdef AMP_DEBUG
 typedef std::array<double, 3> TriPoint;
-static inline Point operator-( const TriPoint &x, const TriPoint &y )
+[[maybe_unused]] static inline Point operator-( const TriPoint &x, const TriPoint &y )
 {
     return { x[0] - y[0], x[1] - y[1], x[2] - y[2] };
 }
-static inline double dot( const TriPoint &x, const TriPoint &y )
+[[maybe_unused]] static inline double dot( const TriPoint &x, const TriPoint &y )
 {
     return x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
 }

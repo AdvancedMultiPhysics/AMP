@@ -135,7 +135,6 @@ private: // Internal data
 private: // Internal functions
     kdtree2( size_t N, Point *x, TYPE *data );
     void initialize( size_t N, Point *x, TYPE *data );
-    static size_t find_split( size_t N, const double *x );
     void splitData( size_t N, Point *x, TYPE *data );
     bool intersect( const Point &x, double dist2 ) const;
     void getPoints( std::vector<Point> &x ) const;
@@ -152,10 +151,6 @@ private: // Internal functions
                          std::vector<std::tuple<Point, TYPE>> &nearest ) const;
     void
     checkNearest( const Point &x, size_t N, std::tuple<Point, TYPE> *nearest, double *dist ) const;
-    static double distanceToBox( const std::array<double, NDIM> &pos,
-                                 const std::array<double, NDIM> &ang,
-                                 const std::array<double, NDIM> &lb,
-                                 const std::array<double, NDIM> &ub );
 };
 
 

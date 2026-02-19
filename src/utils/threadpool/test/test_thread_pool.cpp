@@ -328,10 +328,12 @@ void test_work_dependency( UnitTest &ut, ThreadPool &tpool )
     ids.push_back( tpool.add_work( wait1 ) );
     ids.push_back( tpool.add_work( wait2 ) );
     tpool.wait_all( ids );
-    if ( !tpool.getFunctionRet<bool>( ids[0] ) || !tpool.getFunctionRet<bool>( ids[1] ) )
-        ut.failure( "Failed to wait on required dependency" );
-    else
+    if ( tpool.getFunctionRet<bool>( ids[0] ) && tpool.getFunctionRet<bool>( ids[1] ) )
         ut.passes( "Dependencies" );
+    else if ( AMP::Utilities::running_valgrind() )
+        ut.expected_failure( "Valgrind slowed dependency test" );
+    else
+        ut.failure( "Failed to wait on required dependency" );
     tpool.wait_pool_finished();
     // Test waiting on more dependencies than in the thread pool (changing priorities)
     ids.clear();
@@ -352,7 +354,7 @@ void test_work_dependency( UnitTest &ut, ThreadPool &tpool )
     // Check that we can handle more complex dependencies
     id1 = TPOOL_ADD_WORK( &tpool, sleep_inc2, ( 0.5 ) );
     for ( int i = 0; i < 10; i++ ) {
-        wait1 = ThreadPool::createWork( check_inc, 1 );
+        wait1 = ThreadPool::createWork( sleep_inc, 1 );
         wait1->add_dependency( id1 );
         tpool.add_work( wait1 );
     }

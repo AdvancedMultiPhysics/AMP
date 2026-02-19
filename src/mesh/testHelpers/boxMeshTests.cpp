@@ -74,8 +74,8 @@ static void testSurface( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::Box
             size_t N = map[id].size();
             AMP::Utilities::unique( map[id] );
             if ( N != map[id].size() )
-                ut.failure( stringf(
-                    "%s - getSurface (getBoundaryIDIterator,%s)", name.data(), typeName.data() ) );
+                ut.failure(
+                    "%s - getSurface (getBoundaryIDIterator,%s)", name.data(), typeName.data() );
         }
         // Check that each surface is in the list
         for ( int s = 0; s < 2 * logicalDim; s++ ) {
@@ -92,7 +92,7 @@ static void testSurface( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::Box
             }
             if ( !pass ) {
                 auto it2 = mesh->getBoundaryIDIterator( type, id, 0 );
-                ut.failure( stringf( "%s - getSurface (%s,%i)", name.data(), typeName.data(), s ) );
+                ut.failure( "%s - getSurface (%s,%i)", name.data(), typeName.data(), s );
                 allPass = false;
             }
         }

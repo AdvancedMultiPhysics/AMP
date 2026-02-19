@@ -11,7 +11,7 @@ namespace AMP::Mesh {
 
 
 // Functions to create new ids by mixing existing ids
-static unsigned int generate_id( const std::vector<unsigned int> &ids );
+static unsigned int generate_id( int N, const unsigned int *ids );
 
 
 /********************************************************
@@ -185,17 +185,18 @@ void libmeshMeshElement::getElements( const GeomType type, ElementList &children
                 AMP_ERROR( "Internal error" );
             std::shared_ptr<libMesh::Elem> element( tmp.release() );
             // We need to generate a vaild id and owning processor
-            unsigned int n_node_min = ( (unsigned int) type ) + 1;
-            AMP_ASSERT( element->n_nodes() >= n_node_min );
-            std::vector<libMesh::Node *> nodes( element->n_nodes() );
-            std::vector<unsigned int> node_ids( element->n_nodes() );
-            for ( size_t j = 0; j < nodes.size(); j++ ) {
-                nodes[j]    = element->node_ptr( j );
-                node_ids[j] = nodes[j]->id();
+            int N = element->n_nodes();
+            AMP_ASSERT( N > ( (int) type ) && N <= 32 );
+            uint32_t node_ids[32];
+            int proc[32];
+            for ( int j = 0; j < N; j++ ) {
+                auto node   = element->node_ptr( j );
+                node_ids[j] = node->id();
+                proc[j]     = node->processor_id();
             }
-            AMP::Utilities::quicksort( node_ids, nodes );
-            element->processor_id() = nodes[0]->processor_id();
-            unsigned int id         = generate_id( node_ids );
+            AMP::Utilities::quicksort( N, node_ids, proc );
+            element->processor_id() = proc[0];
+            unsigned int id         = generate_id( N, node_ids );
             element->set_id()       = id;
             // Create the libmeshMeshElement
             children[i] = std::make_unique<libmeshMeshElement>(
@@ -360,14 +361,15 @@ bool libmeshMeshElement::isOnSurface() const
 }
 bool libmeshMeshElement::isOnBoundary( int id ) const
 {
-    GeomType type    = d_globalID.type();
-    bool on_boundary = false;
-    auto d_libMesh   = d_mesh->getlibMesh();
+    GeomType type       = d_globalID.type();
+    bool on_boundary    = false;
+    auto d_libMesh      = d_mesh->getlibMesh();
+    auto &boundary_info = d_libMesh->get_boundary_info();
     if ( type == GeomType::Vertex ) {
         // Entity is a libmesh node
         auto *node = (libMesh::Node *) ptr_element;
         std::vector<libMesh::boundary_id_type> bids;
-        d_libMesh->boundary_info->boundary_ids( node, bids );
+        boundary_info.boundary_ids( node, bids );
         for ( auto &bid : bids ) {
             if ( bid == id )
                 on_boundary = true;
@@ -375,16 +377,22 @@ bool libmeshMeshElement::isOnBoundary( int id ) const
     } else if ( (int) type == d_dim ) {
         // Entity is a libmesh node
         auto *elem        = (libMesh::Elem *) ptr_element;
-        unsigned int side = d_libMesh->boundary_info->side_with_boundary_id( elem, id );
+        unsigned int side = boundary_info.side_with_boundary_id( elem, id );
         if ( side != static_cast<unsigned int>( -1 ) )
             on_boundary = true;
     } else {
         // All other entities are on the boundary iff all of their vertices are on the surface
-        ElementList nodes;
-        this->getElements( GeomType::Vertex, nodes );
         on_boundary = true;
-        for ( auto &node : nodes )
-            on_boundary = on_boundary && node->isOnBoundary( id );
+        auto *elem  = (libMesh::Elem *) ptr_element;
+        std::vector<libMesh::boundary_id_type> bids;
+        for ( unsigned int i = 0; i < elem->n_nodes(); i++ ) {
+            auto node = elem->node_ptr( i );
+            d_libMesh->boundary_info->boundary_ids( node, bids );
+            bool test = false;
+            for ( auto &bid : bids )
+                test = test || bid == id;
+            on_boundary = on_boundary && test;
+        }
     }
     return on_boundary;
 }
@@ -423,14 +431,14 @@ static unsigned int fliplr( unsigned int x )
     }
     return y;
 }
-unsigned int generate_id( const std::vector<unsigned int> &ids )
+unsigned int generate_id( int N, const unsigned int *ids )
 {
     unsigned int id0 = ids[0];
     unsigned int id_diff[100];
-    for ( size_t i = 1; i < ids.size(); i++ )
+    for ( int i = 1; i < N; i++ )
         id_diff[i - 1] = ids[i] - ids[i - 1];
     unsigned int tmp = 0;
-    for ( size_t i = 0; i < ids.size() - 1; i++ ) {
+    for ( int i = 0; i < N - 1; i++ ) {
         unsigned int shift = ( 7 * i ) % 13;
         tmp                = tmp ^ ( id_diff[i] << shift );
     }
@@ -446,6 +454,4 @@ unsigned int generate_id( const std::vector<unsigned int> &ids )
  * Explicit instantiations                               *
  ********************************************************/
 #include "AMP/utils/Utilities.hpp"
-template void
-AMP::Utilities::quicksort<unsigned int, libMesh::Node *>( std::vector<unsigned int> &,
-                                                          std::vector<libMesh::Node *> & );
+template void AMP::Utilities::quicksort<unsigned int, int>( size_t, unsigned int *, int * );

@@ -39,9 +39,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
 
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -145,7 +143,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     double delta_time  = 0.01;
     for ( int step = 0; step < NumberOfLoadingSteps; step++ ) {
         AMP::pout << "########################################" << std::endl;
-        AMP::pout << "The current loading step is " << ( step + 1 ) << std::endl;
+        AMP::pout << "The current loading step is " << step + 1 << std::endl;
 
         nonlinearMechanicsBVPoperator->modifyInitialSolutionVector( solVec );
 
@@ -154,19 +152,19 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
         double scaleValue = ( (double) step + 1.0 ) / NumberOfLoadingSteps;
         scaledRhsVec->scale( scaleValue, *rhsVec );
-        AMP::pout << "L2 Norm of RHS at loading step " << ( step + 1 ) << " is "
+        AMP::pout << "L2 Norm of RHS at loading step " << step + 1 << " is "
                   << scaledRhsVec->L2Norm() << std::endl;
 
         nonlinearMechanicsBVPoperator->residual( scaledRhsVec, solVec, resVec );
         double initialResidualNorm = static_cast<double>( resVec->L2Norm() );
-        AMP::pout << "Initial Residual Norm for loading step " << ( step + 1 ) << " is "
+        AMP::pout << "Initial Residual Norm for loading step " << step + 1 << " is "
                   << initialResidualNorm << std::endl;
 
         nonlinearSolver->apply( scaledRhsVec, solVec );
 
         nonlinearMechanicsBVPoperator->residual( scaledRhsVec, solVec, resVec );
         double finalResidualNorm = static_cast<double>( resVec->L2Norm() );
-        AMP::pout << "Final Residual Norm for loading step " << ( step + 1 ) << " is "
+        AMP::pout << "Final Residual Norm for loading step " << step + 1 << " is "
                   << finalResidualNorm << std::endl;
 
         const auto convReason = nonlinearSolver->getConvergenceStatus();
@@ -186,9 +184,10 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto mechVvec = solVec->select( AMP::LinearAlgebra::VS_Stride( 1, 3 ) );
         auto mechWvec = solVec->select( AMP::LinearAlgebra::VS_Stride( 2, 3 ) );
 
-        AMP::pout << "Maximum U displacement: " << mechUvec->maxNorm() << std::endl;
-        AMP::pout << "Maximum V displacement: " << mechVvec->maxNorm() << std::endl;
-        AMP::pout << "Maximum W displacement: " << mechWvec->maxNorm() << std::endl;
+        double dispU = static_cast<double>( mechUvec->maxNorm() );
+        double dispV = static_cast<double>( mechVvec->maxNorm() );
+        double dispW = static_cast<double>( mechWvec->maxNorm() );
+        AMP::printp( "Maximum displacement: (%f,%f,%f)\n", dispU, dispV, dispW );
 
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
@@ -198,7 +197,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
         current_time = delta_time * ( (double) step + 2.0 );
 
-        dirichletVectorCorrectionDatabase->putScalar( "value_3_0", ( epsilon_dot * current_time ) );
+        dirichletVectorCorrectionDatabase->putScalar(
+            "value_3_0", epsilon_dot * current_time, {}, AMP::Database::Check::Overwrite );
         auto bndParams = std::make_shared<AMP::Operator::DirichletVectorCorrectionParameters>(
             dirichletVectorCorrectionDatabase );
         nonlinearMechanicsBVPoperator->getBoundaryOperator()->reset( bndParams );

@@ -22,11 +22,8 @@ COPY_TEST_FILE( PC-DiagParameters )
 COPY_TEST_FILE( input_DiffusionFDOperator-1D )
 COPY_TEST_FILE( input_DiffusionFDOperator-2D )
 COPY_TEST_FILE( input_DiffusionFDOperator-3D )
-
 COPY_TEST_FILE( input_LinearElasticityOperator-1 )
-
 COPY_TEST_FILE( input_LinearFickOperator-bar )
-
 COPY_TEST_FILE( input_LinearThermalOperator-bar )
 COPY_TEST_FILE( input_LinearThermalRobinOperator )
 COPY_TEST_FILE( input_LinearThermalRobinOperator-CylMesh )
@@ -135,7 +132,6 @@ COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-TFQMR 
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-DiagonalSolver-QMRCGSTAB )
 COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-LeftPC-DiagonalSolver-GMRES )
 
-
 IF ( USE_TRILINOS )
     COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-ML )
     COPY_TEST_FILE( input_testLinearSolvers-LinearThermalRobin-ML-CG )
@@ -233,62 +229,51 @@ COPY_TEST_FILE( input_testLinearSolvers-PL-CylMesh-CG )
 
 COPY_TEST_FILE( input_testPetscSNESSolver-NonlinearThermalOxygenDiffusion-2 )
 
+
+# Set the inputs for testNonlinearSolvers-NonlinearThermal-1 soe we can run them in parallel
+SET( InputsNonlinearThermal )
+IF ( USE_PETSC )
+    LIST( APPEND InputsNonlinearThermal "input_PetscSNESSolver-NonlinearThermal-cylinder_MATPRO" )
+    LIST( APPEND InputsNonlinearThermal "input_PetscSNESSolver-NonlinearThermal-cylinder_MATPRO2" )
+    IF ( USE_HYPRE )
+        LIST( APPEND InputsNonlinearThermal "input_PetscSNESSolver-BoomerAMG-NonlinearThermal-cylinder_MATPRO" )
+        LIST( APPEND InputsNonlinearThermal "input_PetscSNESSolver-BoomerAMG-NonlinearThermal-cylinder_MATPRO2" )
+    ENDIF()
+    IF ( USE_TRILINOS_ML )
+        LIST( APPEND InputsNonlinearThermal "input_PetscSNESSolver-TrilinosML-NonlinearThermal-cylinder_MATPRO" )
+    ENDIF()
+ENDIF()
+IF ( USE_HYPRE )
+    LIST( APPEND InputsNonlinearThermal "input_NKA-BoomerAMG-NonlinearThermal-cylinder_MATPRO" )
+ENDIF()
+IF ( USE_TRILINOS_ML )
+    LIST( APPEND InputsNonlinearThermal "input_NKA-TrilinosML-NonlinearThermal-cylinder_MATPRO" )
+    IF ( USE_TRILINOS_NOX )
+        LIST( APPEND InputsNonlinearThermal "input_TrilinosNOX-TrilinosML-NonlinearThermal-cylinder_MATPRO" )
+    ENDIF()
+ENDIF()
+
+
+# Add the tests
+INITIALIZE_TESTBUILDER()
 ADD_AMP_TEST( testSolversWithRhsOptions )
-
-ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 1 GPU )
-ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 2 GPU )
-ADD_AMP_TEST( testLinearSolvers-DiffusionFD PROCS 4 GPU )
-
-ADD_AMP_TEST( testLinearSolvers-PseudoLaplacian PROCS 1 GPU )
-ADD_AMP_TEST( testLinearSolvers-PseudoLaplacian PROCS 2 GPU )
-ADD_AMP_TEST( testLinearSolvers-PseudoLaplacian PROCS 4 GPU )
-
+ADD_AMP_TEST_1_2_4( testLinearSolvers-DiffusionFD GPU )
+ADD_AMP_TEST_1_2_4( testLinearSolvers-PseudoLaplacian GPU )
 IF ( USE_LIBMESH )
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalRobin PROCS 1 GPU )
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalRobin PROCS 2 GPU )
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalRobin PROCS 4 GPU )
-
-    ADD_AMP_TEST( testSolversForUserMatrix PROCS 1 )
-    ADD_AMP_TEST( testSolversForUserMatrix PROCS 2 )
-    ADD_AMP_TEST( testSolversForUserMatrix PROCS 4 )
-
-    #    ADD_AMP_TEST( testSolversForVectorAdaptor PROCS 1 )
-    #    ADD_AMP_TEST( testSolversForVectorAdaptor PROCS 4 )
-
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-2 PROCS 1 GPU )
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-2 PROCS 2 GPU )
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-2 PROCS 4 GPU )
-
-    ADD_AMP_TEST( testLinearSolvers-LinearElasticityOperator-1 PROCS 1 )
-    ADD_AMP_TEST( testLinearSolvers-LinearElasticityOperator-1 PROCS 2 )
-    ADD_AMP_TEST( testLinearSolvers-LinearElasticityOperator-1 PROCS 4 )
-
-    ADD_AMP_TEST( testLinearSolvers-LinearFickOperator-bar PROCS 1 )
-    ADD_AMP_TEST( testLinearSolvers-LinearFickOperator-bar PROCS 2 )
-    ADD_AMP_TEST( testLinearSolvers-LinearFickOperator-bar PROCS 4 )
-
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-bar PROCS 1 )
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-bar PROCS 2 )
-    ADD_AMP_TEST( testLinearSolvers-LinearThermalOperator-bar PROCS 4 )
-
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearThermal-1 PROCS 1 )
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearThermal-1 PROCS 2 )
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearThermal-1 PROCS 4 )
-
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearMechanics-1 PROCS 1 )
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearMechanics-1 PROCS 2 )
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearMechanics-1 PROCS 4 )
-
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearFick PROCS 1 )
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearFick PROCS 2 )
-    ADD_AMP_TEST( testNonlinearSolvers-NonlinearFick PROCS 4 )
-
-    ADD_AMP_TEST( testLinearSolversWithIdentity GPU )
-    ADD_AMP_TEST( testLinearSolversWithIdentity PROCS 2 GPU )
-    ADD_AMP_TEST( testLinearSolversWithIdentity PROCS 4 GPU )
-
-    ADD_AMP_PROVISIONAL_TEST( testNonlinearSolvers-NonlinearThermalOxygenDiffusion )
-
+    # ADD_AMP_TEST_1_2_4( testSolversForVectorAdaptor )
+    ADD_AMP_TEST_1_2_4( testLinearSolvers-LinearThermalRobin GPU )
+    ADD_AMP_TEST_1_2_4( testSolversForUserMatrix )
+    ADD_AMP_TEST_1_2_4( testLinearSolvers-LinearThermalOperator-2 GPU )
+    ADD_AMP_TEST_1_2_4( testLinearSolvers-LinearElasticityOperator-1 )
+    ADD_AMP_TEST_1_2_4( testLinearSolvers-LinearFickOperator-bar  )
+    ADD_AMP_TEST_1_2_4( testLinearSolvers-LinearThermalOperator-bar )
+    ADD_AMP_TEST_1_2_4( testNonlinearSolvers-NonlinearMechanics-1  )
+    ADD_AMP_TEST_1_2_4( testNonlinearSolvers-NonlinearFick )
+    ADD_AMP_TEST_1_2_4( testLinearSolversWithIdentity GPU )
+    ADD_AMP_PROVISIONAL_TEST( testSolveNonlinearThermalOxygenDiffusion )
+    FOREACH( input ${InputsNonlinearThermal} )
+        ADD_AMP_TEST_1_2_4( testSolveNonlinearThermal ${input} NO_RESOURCES )
+    ENDFOREACH()
     IF ( USE_TRILINOS )
         ADD_AMP_TEST( testAMGuniform )
         IF ( USE_TRILINOS_ML )
@@ -296,32 +281,24 @@ IF ( USE_LIBMESH )
         ENDIF()
         ADD_AMP_TEST_1_2_4( testLinearRobinBoundaryOperator-1 )
     ENDIF()
-
     IF ( USE_PETSC AND USE_TRILINOS )
         ADD_AMP_PROVISIONAL_TEST( testMeshRefinementDiffusion-1 )
         ADD_AMP_TEST_1_2_4( testColumnSolver-LinearThermalAndFick-1 )
     ENDIF()
-
 ENDIF()
-
 IF ( USE_TRILINOS OR USE_PETSC )
     ADD_AMP_TEST( testNonlinearSolversWithIdentity )
 ENDIF()
-
-ADD_AMP_TEST( testNewFrozenVectorDesign )
-
-# Add the tests
-INITIALIZE_TESTBUILDER()
 IF ( USE_LIBMESH AND USE_PETSC AND USE_HYPRE )
-    ADD_TB_TEST( testNonlinearSolvers_NonlinearFickSoret_1 )
-    ADD_TB_TEST( testNonlinearSolvers_NonlinearFickSoret_1 PROCS 2 )
-    ADD_TB_TEST( testNonlinearSolvers_NonlinearFickSoret_1 PROCS 4 )
-    ADD_TB_TEST( testNonlinearSolvers_NonlinearFickSoret_2 )
-    ADD_TB_TEST( testNonlinearSolvers_NonlinearFickSoret_2 PROCS 2 )
-    ADD_TB_TEST( testNonlinearSolvers_NonlinearFickSoret_2 PROCS 4 )
+    ADD_TB_TEST_1_2_4( testNonlinearSolvers_NonlinearFickSoret_1 )
+    ADD_TB_TEST_1_2_4( testNonlinearSolvers_NonlinearFickSoret_2 )
 ENDIF()
+ADD_AMP_TEST( testNewFrozenVectorDesign )
 FINALIZE_TESTBUILDER()
 
+
+# Add subdirectories
 ADD_SUBDIRECTORY( flow )
 ADD_SUBDIRECTORY( mechanics )
 ADD_SUBDIRECTORY( subchannel )
+

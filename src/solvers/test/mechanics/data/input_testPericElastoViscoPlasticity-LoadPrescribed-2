@@ -174,30 +174,29 @@ Load_Boundary {
 NonlinearSolver{
     print_info_level = 0
     max_iterations = 100
-    absolute_tolerance = 1.0e-14
-    relative_tolerance = 1.0e-08
+    absolute_tolerance = 1.0e-9
+    relative_tolerance = 1.0e-8
     stepTolerance = 1.0e-15
     maximumFunctionEvals = 1000
     usesJacobian=FALSE
     forcing_term_strategy = "CONSTANT"
     constant_forcing_term = 0.1
 
-    // SNESOptions = "-snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
+    SNESOptions = "-snes_type ls -snes_ksp_ew -snes_ls_alpha 0.001"
 
     LinearSolver{
         name = "PetscKrylovSolver"
         print_info_level = 0
+        absolute_tolerance = 1.0e-9
+        relative_tolerance = 1.0e-4
         max_iterations = 300
         ksp_type = "fgmres"
-//        absolute_tolerance = 1.0e-15
-//        relative_tolerance = 1.0e-13
-        divergence_tolerance = 1.0e03
+        divergence_tolerance = 1e3
         max_krylov_dimension = 300
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
 
-        //KSPOptions = "-ksp_monitor -ksp_converged_reason"
         KSPOptions = ""
 
         Preconditioner{

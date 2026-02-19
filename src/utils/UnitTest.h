@@ -1,9 +1,13 @@
 #ifndef included_AMP_AMPUnitTest
 #define included_AMP_AMPUnitTest
 
+#include "AMP/utils/UtilityMacros.h"
+
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <stdarg.h>
+#include <stdio.h>
 #include <string>
 #include <vector>
 
@@ -87,7 +91,7 @@ public:
     //! Return the number of passed tests locally
     size_t NumPassGlobal() const;
 
-    //! Return the number of failed tests locally
+    //! Return the number of failed tests locally#include <stdio.h>
     size_t NumFailGlobal() const;
 
     //! Return the number of expected failed tests locally
@@ -127,6 +131,57 @@ public:
 
     //! Make the unit test operator verbose?
     void verbose( bool verbose = true ) { d_verbose = verbose; }
+
+
+public: // printf like interfaces
+    inline void passes( const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        passes( std::string( tmp ) );
+    }
+
+    inline void failure( const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        failure( std::string( tmp ) );
+    }
+
+    inline void expected_failure( const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        expected_failure( std::string( tmp ) );
+    }
+
+    inline void pass_fail( bool pass, const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        pass_fail( pass, std::string( tmp ) );
+    }
+
 
 private:
     std::vector<std::string> d_pass;
