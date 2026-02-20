@@ -387,7 +387,7 @@ bool libmeshMeshElement::isOnBoundary( int id ) const
         std::vector<libMesh::boundary_id_type> bids;
         for ( unsigned int i = 0; i < elem->n_nodes(); i++ ) {
             auto node = elem->node_ptr( i );
-            d_libMesh->boundary_info->boundary_ids( node, bids );
+            boundary_info.boundary_ids( node, bids );
             bool test = false;
             for ( auto &bid : bids )
                 test = test || bid == id;
