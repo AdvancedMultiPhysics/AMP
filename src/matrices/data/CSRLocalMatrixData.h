@@ -55,15 +55,6 @@ public:
     using allocator_type = typename Config::allocator_type;
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );
 
-    using gidxAllocator_t =
-        typename std::allocator_traits<allocator_type>::template rebind_alloc<gidx_t>;
-    using lidxAllocator_t =
-        typename std::allocator_traits<allocator_type>::template rebind_alloc<lidx_t>;
-    using scalarAllocator_t =
-        typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
-    using sizetAllocator_t =
-        typename std::allocator_traits<allocator_type>::template rebind_alloc<size_t>;
-
     /** \brief Constructor
      * \param[in] params           Description of the matrix
      * \param[in] memory_location  Memory space where data is located
@@ -222,11 +213,29 @@ public:
                     const gidx_t last_col,
                     const bool is_diag );
 
-    static std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N );
+    template<typename U>
+    static std::shared_ptr<U[]> sharedArrayBuilder( const size_t N )
+    {
+        using alloc_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<U>;
+        alloc_t alloc;
+        return std::shared_ptr<typename alloc_t::value_type[]>(
+            alloc.allocate( N ), [N, &alloc]( auto p ) -> void { alloc.deallocate( p, N ); } );
+    }
 
-    static std::shared_ptr<gidx_t[]> makeGidxArray( const size_t N );
+    static std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N )
+    {
+        return sharedArrayBuilder<lidx_t>( N );
+    }
 
-    static std::shared_ptr<scalar_t[]> makeScalarArray( const size_t N );
+    static std::shared_ptr<gidx_t[]> makeGidxArray( const size_t N )
+    {
+        return sharedArrayBuilder<gidx_t>( N );
+    }
+
+    static std::shared_ptr<scalar_t[]> makeScalarArray( const size_t N )
+    {
+        return sharedArrayBuilder<scalar_t>( N );
+    }
 
 public: // Non virtual functions
         //! Get a unique id hash for the vector
@@ -342,15 +351,6 @@ protected:
     bool d_is_empty = true;
     //! Flag to indicate if this is a symbolic matrix
     bool d_is_symbolic = false;
-
-    //! Allocator for gidx_t matched to template parameter
-    gidxAllocator_t d_gidxAllocator;
-    //! Allocator for lidx_t matched to template parameter
-    lidxAllocator_t d_lidxAllocator;
-    //! Allocator for scalar_t matched to template parameter
-    mutable scalarAllocator_t d_scalarAllocator;
-    //! Allocator for size_t
-    mutable sizetAllocator_t d_sizetAllocator;
 
     //! Starting index of each row within other data arrays
     std::shared_ptr<lidx_t[]> d_row_starts;

@@ -354,7 +354,8 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
     {
-        const bool checkdd = d_checkdd;
+        auto agg_root_ids_ptr = agg_root_ids.get();
+        const bool checkdd    = d_checkdd;
         auto not_diag_dom =
             [checkdd, Ad_rs, Ad_coeffs, have_offd, Ao_rs, Ao_coeffs] AMP_FUNCTION_HD(
                 const lidx_t row ) -> bool {
@@ -375,12 +376,12 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             return Ad_coeffs[Ad_rs[row]] <= scalar_t{ 5.0 } * od_sum;
         };
         auto mark_undec_inv =
-            [Am_rs, not_diag_dom, agg_root_ids] AMP_FUNCTION_HD( const lidx_t row ) -> void {
+            [Am_rs, not_diag_dom, agg_root_ids_ptr] AMP_FUNCTION_HD( const lidx_t row ) -> void {
             const auto rs = Am_rs[row], re = Am_rs[row + 1];
             if ( re - rs > 1 && not_diag_dom( row ) ) {
-                agg_root_ids[row] = MIS2Aggregator::UNASSIGNED;
+                agg_root_ids_ptr[row] = MIS2Aggregator::UNASSIGNED;
             } else {
-                agg_root_ids[row] = MIS2Aggregator::INVALID;
+                agg_root_ids_ptr[row] = MIS2Aggregator::INVALID;
             }
         };
         if constexpr ( host_exec ) {
@@ -408,14 +409,16 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            lidx_t *new_end = thrust::copy_if( thrust::device,
-                                               thrust::make_counting_iterator( 0 ),
-                                               thrust::make_counting_iterator( A_nrows ),
-                                               worklist.get(),
-                                               [agg_root_ids] __device__( const lidx_t n ) -> bool {
-                                                   return ( agg_root_ids[n] == UNASSIGNED );
-                                               } );
-            worklist_len    = static_cast<lidx_t>( new_end - worklist.get() );
+            auto agg_root_ids_ptr = agg_root_ids.get();
+            lidx_t *new_end =
+                thrust::copy_if( thrust::device,
+                                 thrust::make_counting_iterator( 0 ),
+                                 thrust::make_counting_iterator( A_nrows ),
+                                 worklist.get(),
+                                 [agg_root_ids_ptr] __device__( const lidx_t n ) -> bool {
+                                     return ( agg_root_ids_ptr[n] == UNASSIGNED );
+                                 } );
+            worklist_len = static_cast<lidx_t>( new_end - worklist.get() );
 #endif
         }
     }
@@ -431,9 +434,13 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
-        auto build_agg = [Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids] AMP_FUNCTION_HD(
-                             const lidx_t row ) -> void {
-            agg_from_row( row, Am_rs, Am_cols_loc, Tv.get(), agg_size.get(), agg_root_ids.get() );
+        auto Tv_ptr           = Tv.get();
+        auto agg_size_ptr     = agg_size.get();
+        auto agg_root_ids_ptr = agg_root_ids.get();
+        auto build_agg =
+            [Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr] AMP_FUNCTION_HD(
+                const lidx_t row ) -> void {
+            agg_from_row( row, Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -460,14 +467,16 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            lidx_t *new_end = thrust::copy_if( thrust::device,
-                                               thrust::make_counting_iterator( 0 ),
-                                               thrust::make_counting_iterator( A_nrows ),
-                                               worklist.get(),
-                                               [agg_root_ids] __device__( const lidx_t n ) -> bool {
-                                                   return ( agg_root_ids[n] == UNASSIGNED );
-                                               } );
-            worklist_len    = static_cast<lidx_t>( new_end - worklist.get() );
+            auto agg_root_ids_ptr = agg_root_ids.get();
+            lidx_t *new_end =
+                thrust::copy_if( thrust::device,
+                                 thrust::make_counting_iterator( 0 ),
+                                 thrust::make_counting_iterator( A_nrows ),
+                                 worklist.get(),
+                                 [agg_root_ids_ptr] __device__( const lidx_t n ) -> bool {
+                                     return ( agg_root_ids_ptr[n] == UNASSIGNED );
+                                 } );
+            worklist_len = static_cast<lidx_t>( new_end - worklist.get() );
 #endif
         }
     }
@@ -486,9 +495,13 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     {
-        auto build_agg = [Am_rs, Am_cols_loc, Tv, agg_size, agg_root_ids] AMP_FUNCTION_HD(
-                             const lidx_t row ) -> void {
-            agg_from_row( row, Am_rs, Am_cols_loc, Tv.get(), agg_size.get(), agg_root_ids.get() );
+        auto Tv_ptr           = Tv.get();
+        auto agg_size_ptr     = agg_size.get();
+        auto agg_root_ids_ptr = agg_root_ids.get();
+        auto build_agg =
+            [Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr] AMP_FUNCTION_HD(
+                const lidx_t row ) -> void {
+            agg_from_row( row, Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -514,9 +527,12 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // smallest from above steps only. Also, for simplicity it just gets
     // called twice
     for ( int ngrow = 0; ngrow < 3; ++ngrow ) {
-        auto grow_aggs = [A_nrows, Am_rs, Am_cols_loc, agg_size, agg_root_ids] AMP_FUNCTION_HD(
-                             const lidx_t row ) -> void {
-            grow_agg( row, A_nrows, Am_rs, Am_cols_loc, agg_size.get(), agg_root_ids.get() );
+        auto agg_size_ptr     = agg_size.get();
+        auto agg_root_ids_ptr = agg_root_ids.get();
+        auto grow_aggs =
+            [A_nrows, Am_rs, Am_cols_loc, agg_size_ptr, agg_root_ids_ptr] AMP_FUNCTION_HD(
+                const lidx_t row ) -> void {
+            grow_agg( row, A_nrows, Am_rs, Am_cols_loc, agg_size_ptr, agg_root_ids_ptr );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {

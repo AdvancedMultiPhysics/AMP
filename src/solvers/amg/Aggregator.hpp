@@ -18,10 +18,6 @@
 #include <limits>
 #include <numeric>
 
-// DEBUG
-#include <fstream>
-#include <iostream>
-
 namespace AMP::Solver::AMG {
 
 #ifdef AMP_USE_DEVICE
