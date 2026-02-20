@@ -276,6 +276,12 @@ public:
 
 
     /**
+     *  Check if the mesh contains the given mesh element
+     */
+    bool containsElement( const MeshElementID &id ) const override;
+
+
+    /**
      *  Get the meshes composing the multimesh
      */
     virtual std::vector<std::shared_ptr<AMP::Mesh::Mesh>> getMeshes();
@@ -338,7 +344,7 @@ public: // Default constructors
     MultiMesh()                           = delete;
     explicit MultiMesh( MultiMesh &&rhs ) = default;
     explicit MultiMesh( const MultiMesh &rhs );
-    MultiMesh &operator=( MultiMesh &&rhs ) = delete;
+    MultiMesh &operator=( MultiMesh &&rhs )      = delete;
     MultiMesh &operator=( const MultiMesh &rhs ) = delete;
 
 public: // Functions to help with load balancing

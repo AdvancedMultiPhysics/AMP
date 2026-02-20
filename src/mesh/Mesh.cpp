@@ -91,6 +91,8 @@ void Mesh::setMeshID()
 /********************************************************
  * Function to return the meshID composing the mesh      *
  ********************************************************/
+bool Mesh::isBaseMesh() const { return true; }
+bool Mesh::containsElement( const MeshElementID &id ) const { return id.meshID() == d_meshID; }
 std::vector<MeshID> Mesh::getAllMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getBaseMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getLocalMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }

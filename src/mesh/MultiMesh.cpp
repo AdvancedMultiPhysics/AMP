@@ -549,20 +549,26 @@ MeshIterator MultiMesh::isMember( const MeshIterator &iterator ) const
 
 
 /********************************************************
+ * Function to check if the mesh element is contained    *
+ ********************************************************/
+bool MultiMesh::containsElement( const MeshElementID &id ) const
+{
+    for ( auto &mesh : d_meshes ) {
+        if ( mesh->containsElement( id ) )
+            return true;
+    }
+    return false;
+}
+
+
+/********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &id ) const
 {
-    MeshID mesh_id = elem_id.meshID();
     for ( auto &mesh : d_meshes ) {
-        auto ids        = mesh->getLocalBaseMeshIDs();
-        bool mesh_found = false;
-        for ( auto &id : ids ) {
-            if ( id == mesh_id )
-                mesh_found = true;
-        }
-        if ( mesh_found )
-            return mesh->getElement( elem_id );
+        if ( mesh->containsElement( id ) )
+            return mesh->getElement( id );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
     return std::make_unique<MeshElement>();
@@ -575,15 +581,9 @@ std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &elem_id
 std::vector<std::unique_ptr<MeshElement>> MultiMesh::getElementParents( const MeshElement &elem,
                                                                         const GeomType type ) const
 {
-    MeshID mesh_id = elem.globalID().meshID();
+    auto id = elem.globalID();
     for ( auto &mesh : d_meshes ) {
-        auto ids        = mesh->getLocalBaseMeshIDs();
-        bool mesh_found = false;
-        for ( auto &id : ids ) {
-            if ( id == mesh_id )
-                mesh_found = true;
-        }
-        if ( mesh_found )
+        if ( mesh->containsElement( id ) )
             return mesh->getElementParents( elem, type );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );

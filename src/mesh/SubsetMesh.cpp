@@ -586,6 +586,22 @@ MeshIterator SubsetMesh::isMember( const MeshIterator &iterator ) const
 
 
 /********************************************************
+ * Function to check if the mesh element is contained    *
+ ********************************************************/
+bool SubsetMesh::containsElement( const MeshElementID &id ) const
+{
+    int type = static_cast<int>( id.type() );
+    for ( auto &tmp : d_elements[type] ) {
+        if ( tmp == nullptr )
+            continue;
+        if ( binarySearch( *tmp, id ) )
+            return true;
+    }
+    return false;
+}
+
+
+/********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
 std::unique_ptr<MeshElement> SubsetMesh::getElement( const MeshElementID &elem_id ) const

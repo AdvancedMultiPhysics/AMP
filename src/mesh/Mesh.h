@@ -339,7 +339,7 @@ public:
 
 
     //! Is the current mesh a base mesh
-    virtual inline bool isBaseMesh() const { return true; }
+    virtual bool isBaseMesh() const;
 
 
     //! Check if two meshes are equal
@@ -377,6 +377,12 @@ public:
      *  (excluding multimeshes and subset meshes) on the current processor.
      */
     virtual std::vector<MeshID> getLocalBaseMeshIDs() const;
+
+
+    /**
+     *  Check if the mesh contains the given mesh element
+     */
+    virtual bool containsElement( const MeshElementID &id ) const;
 
 
     //! Get the mesh name

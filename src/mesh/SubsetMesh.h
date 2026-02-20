@@ -226,6 +226,12 @@ public:
 
 
     /**
+     *  Check if the mesh contains the given mesh element
+     */
+    bool containsElement( const MeshElementID &id ) const override;
+
+
+    /**
      * \brief    Is the mesh movable
      * \details  This function will check if the mesh can be displaced.
      *    It will return 0 if the mesh cannont be moved, 1 if it can be displaced,

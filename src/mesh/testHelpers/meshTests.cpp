@@ -67,26 +67,27 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
     ut.pass_fail( begin_it != end_it, name + " begin and end returned" );
 
     // Check that the iterator iterates through the proper number of elements
-    size_t N_local = 0;
-    size_t N_ghost = 0;
-    std::set<AMP::Mesh::MeshElementID> id_set;
+    size_t N_local     = 0;
+    size_t N_ghost     = 0;
     bool pass_position = true;
     {
+        std::vector<AMP::Mesh::MeshElementID> id_set( iterator.size() );
         auto it = iterator.begin();
         for ( size_t i = 0; i < iterator.size(); i++, ++it ) {
             if ( it.position() != i )
                 pass_position = false;
             AMP::Mesh::MeshElementID id = it->globalID();
-            id_set.insert( id );
+            id_set[i]                   = id;
             if ( id.is_local() )
                 N_local++;
             else
                 N_ghost++;
         }
+        AMP::Utilities::unique( id_set );
+        ut.pass_fail( iterator.size() == N_local + N_ghost, name + " size()" );
+        ut.pass_fail( pass_position, name + " position()" );
+        ut.pass_fail( id_set.size() == N_local + N_ghost, name + " uniqueness" );
     }
-    ut.pass_fail( iterator.size() == N_local + N_ghost, name + " size()" );
-    ut.pass_fail( pass_position, name + " position()" );
-    ut.pass_fail( id_set.size() == N_local + N_ghost, name + " uniqueness" );
 
     // Check that we can increment and decrement properly
     if ( iterator.size() >= 4 ) {
