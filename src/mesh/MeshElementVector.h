@@ -82,9 +82,9 @@ public:
     }
     MeshElementVectorPtr( std::unique_ptr<MeshElementVectorBase> p ) : ptr( std::move( p ) ) {}
     MeshElementVectorPtr();
-    MeshElementVectorPtr( MeshElementVectorPtr && )                 = default;
-    MeshElementVectorPtr( const MeshElementVectorPtr & )            = delete;
-    MeshElementVectorPtr &operator=( MeshElementVectorPtr && )      = default;
+    MeshElementVectorPtr( MeshElementVectorPtr && )      = default;
+    MeshElementVectorPtr( const MeshElementVectorPtr & ) = delete;
+    MeshElementVectorPtr &operator=( MeshElementVectorPtr && ) = default;
     MeshElementVectorPtr &operator=( const MeshElementVectorPtr & ) = delete;
     inline bool empty() const { return ptr ? ptr->empty() : true; } //!< Is the vector empty
     inline size_t size() const { return ptr->size(); } //!< Return the number of elements

@@ -197,10 +197,10 @@ public: // Advanced functions
 
 
 protected: // Constructors
-    MeshElement( const MeshElement & )            = default;
-    MeshElement( MeshElement && )                 = default;
+    MeshElement( const MeshElement & ) = default;
+    MeshElement( MeshElement && )      = default;
     MeshElement &operator=( const MeshElement & ) = default;
-    MeshElement &operator=( MeshElement && )      = default;
+    MeshElement &operator=( MeshElement && ) = default;
 };
 
 

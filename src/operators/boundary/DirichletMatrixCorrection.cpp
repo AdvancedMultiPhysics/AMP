@@ -216,7 +216,7 @@ void DirichletMatrixCorrection::initRhsCorrectionSet()
                 snprintf( key, sizeof key, "value_%d_%d", j, i );
                 tmp_db->putScalar( key, d_dirichletValues[j][i] );
             } // end for i
-        } // end for j
+        }     // end for j
 
         auto setDispOpParams = std::make_shared<DirichletVectorCorrectionParameters>( tmp_db );
         setDispOpParams->d_variable = d_variable;

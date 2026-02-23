@@ -75,7 +75,7 @@ void MassMatrixCorrection::resetBoundaryIds(
                 AMP_INSIST( params->d_db->keyExists( key ), "Key is missing!" );
                 d_dofIds[j][i] = params->d_db->getScalar<int>( key );
             } // end for i
-        } // end for j
+        }     // end for j
     }
 }
 void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> params )
@@ -139,10 +139,10 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
                         inputMatrix->setValueByGlobalID(
                             nhDofId, bndGlobalIds[d_dofIds[k][j]], 0.0 );
                     } // end for i
-                } // end for n
-            } // end for j
-        } // end for bnd
-    } // end for k
+                }     // end for n
+            }         // end for j
+        }             // end for bnd
+    }                 // end for k
 
     // This does consistent for both "Sum-into" and "set".
     inputMatrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
