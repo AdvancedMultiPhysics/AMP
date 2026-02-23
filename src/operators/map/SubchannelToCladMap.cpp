@@ -1,7 +1,7 @@
 #include "AMP/operators/map/SubchannelToCladMap.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/discretization/DOF_Manager.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/vectors/VectorSelector.h"
 
@@ -162,7 +162,7 @@ SubchannelToCladMap::getSubchannelIterator( std::shared_ptr<AMP::Mesh::Mesh> mes
         auto center   = face.centroid();
         bool is_valid = true;
         for ( auto &node : nodes ) {
-            auto coord = node->coord();
+            auto coord = node.coord();
             if ( !AMP::Utilities::approx_equal( coord[2], center[2], 1e-6 ) )
                 is_valid = false;
         }
@@ -173,7 +173,7 @@ SubchannelToCladMap::getSubchannelIterator( std::shared_ptr<AMP::Mesh::Mesh> mes
     elements->reserve( xyFace.size() );
     for ( auto &elem : xyFace )
         elements->push_back( elem.second->clone() );
-    return AMP::Mesh::MeshElementVectorIterator( elements );
+    return AMP::Mesh::MeshListIterator( elements );
 }
 
 

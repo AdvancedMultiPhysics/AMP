@@ -61,7 +61,7 @@ NodeToGaussPointOperator::NodeToGaussPointOperator(
         auto nodes = iterator->getElements( AMP::Mesh::GeomType::Vertex );
         d_nodes[i].resize( nodes.size() );
         for ( size_t j = 0; j < nodes.size(); j++ )
-            d_nodes[i][j] = nodes[j]->globalID();
+            d_nodes[i][j] = nodes[j].globalID();
         size_t N_nodes = d_nodes[i].size();
         // Cache the shape functions for all elements
         libMesh::Elem *elem =
@@ -124,7 +124,7 @@ void NodeToGaussPointOperator::apply( AMP::LinearAlgebra::Vector::const_shared_p
             for ( unsigned int qp = 0; qp < N_quad; ++qp ) {
                 computedAtGauss[qp] += ( computedAtNode * d_phi[i][j + qp * N_nodes] );
             } // end for qp
-        }     // end for j
+        } // end for j
         gaussPtVec->setValuesByGlobalID( N_quad, &gaussPtIndices[0], computedAtGauss );
 
     } // end for

@@ -1,5 +1,5 @@
 #include "AMP/mesh/StructuredMeshHelper.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MultiIterator.h"
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/mesh/structured/BoxMesh.h"
@@ -161,7 +161,7 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
             auto center   = iterator->centroid();
             bool is_valid = true;
             for ( auto &node : nodes ) {
-                auto coord = node->coord();
+                auto coord = node.coord();
                 if ( !AMP::Utilities::approx_equal( coord[direction], center[direction], 1e-12 ) )
                     is_valid = false;
             }
@@ -195,7 +195,7 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
             std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>( index.size() );
         for ( size_t i = 0; i < index.size(); i++ )
             elements->operator[]( i ) = std::move( face_list[I[i]] );
-        return AMP::Mesh::MeshElementVectorIterator( elements );
+        return AMP::Mesh::MeshListIterator( elements );
     }
 }
 

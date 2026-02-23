@@ -67,10 +67,10 @@ void NonlinearFEOperator::createLibMeshElementList()
         auto currNodes    = el->getElements( AMP::Mesh::GeomType::Vertex );
         d_currElemPtrs[i] = new libMesh::Hex8;
         for ( size_t j = 0; j < currNodes.size(); ++j ) {
-            auto pt                          = currNodes[j]->coord();
+            auto pt                          = currNodes[j].coord();
             d_currElemPtrs[i]->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
         } // end for j
-    }     // end for i
+    } // end for i
 }
 
 

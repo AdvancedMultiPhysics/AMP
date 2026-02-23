@@ -204,7 +204,7 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
                     dofIndices.resize( currNodes.size() );
                     std::vector<AMP::Mesh::MeshElementID> globalIDs( currNodes.size() );
                     for ( size_t j = 0; j < currNodes.size(); j++ )
-                        globalIDs[j] = currNodes[j]->globalID();
+                        globalIDs[j] = currNodes[j].globalID();
 
                     // Get the libmesh element
                     const libMesh::Elem *currElemPtr =
@@ -212,7 +212,7 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
 
                     // Get the DOF indicies for the matrix
                     for ( unsigned int i = 0; i < currNodes.size(); i++ )
-                        d_dofManager->getDOFs( currNodes[i]->globalID(), dofIndices[i] );
+                        d_dofManager->getDOFs( currNodes[i].globalID(), dofIndices[i] );
 
                     dofs.resize( currNodes.size() );
                     for ( size_t n = 0; n < dofIndices.size(); n++ )
@@ -269,11 +269,11 @@ void RobinMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> par
                                 double temp = beta[qp] * ( JxW[qp] * phi[j][qp] * phi[i][qp] );
                                 inputMatrix->addValueByGlobalID( dofs[j], dofs[i], temp );
                             } // end for i
-                        }     // end for j
-                    }         // end for qp
+                        } // end for j
+                    } // end for qp
 
                 } // end for bnd
-            }     // end dof ids
+            } // end dof ids
 
         } // end for nid
 

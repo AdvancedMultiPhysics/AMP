@@ -116,11 +116,11 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
         std::vector<std::vector<size_t>> type0DofIndices( currNodes.size() );
         std::vector<std::vector<size_t>> type1DofIndices( currNodes.size() );
         for ( size_t j = 0; j < currNodes.size(); ++j ) {
-            dof_map_0->getDOFs( currNodes[j]->globalID(), type0DofIndices[j] );
-            dof_map_1->getDOFs( currNodes[j]->globalID(), type1DofIndices[j] );
+            dof_map_0->getDOFs( currNodes[j].globalID(), type0DofIndices[j] );
+            dof_map_1->getDOFs( currNodes[j].globalID(), type1DofIndices[j] );
         } // end j
 
-        std::vector<double> elementForceVector( ( 3 * numNodesInCurrElem ), 0.0 );
+        std::vector<double> elementForceVector( 3 * numNodesInCurrElem, 0.0 );
         std::vector<double> currElementTemperatureVector( numNodesInCurrElem );
         std::vector<double> prevElementTemperatureVector( numNodesInCurrElem );
 
@@ -133,7 +133,7 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
 
         libMesh::Elem *elem = new libMesh::Hex8;
         for ( size_t j = 0; j < currNodes.size(); ++j ) {
-            auto pt             = currNodes[j]->coord();
+            auto pt             = currNodes[j].coord();
             elem->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
         } // end j
 
@@ -146,7 +146,7 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                 for ( size_t j = 0; j < ( 3 * numNodesInCurrElem ); ++j ) {
                     x[j] = 0.0;
                 } // end j
-            }     // end i
+            } // end i
 
             for ( size_t i = 0; i < numNodesInCurrElem; ++i ) {
                 Bl_np1[0][( 3 * i ) + 0] = dphi[i][qp]( 0 );
@@ -245,15 +245,15 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
 
                     elementForceVector[( 3 * j ) + d] += ( JxW[qp] * tmp );
                 } // end d
-            }     // end j
-        }         // end qp
+            } // end j
+        } // end qp
 
         for ( unsigned int r = 0; r < numNodesInCurrElem; r++ ) {
             for ( unsigned int d = 0; d < 3; d++ ) {
                 rInternal->addValuesByGlobalID(
                     1, &type0DofIndices[r][d], &elementForceVector[( 3 * r ) + d] );
             } // end d
-        }     // end r
+        } // end r
 
         for ( size_t j = 0; j < elem->n_nodes(); ++j ) {
             delete ( elem->node_ptr( j ) );

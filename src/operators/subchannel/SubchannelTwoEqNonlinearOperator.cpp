@@ -1,5 +1,5 @@
 #include "AMP/operators/subchannel/SubchannelTwoEqNonlinearOperator.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/operators/subchannel/SubchannelConstants.h"
 #include "AMP/operators/subchannel/SubchannelHelpers.h"
@@ -171,7 +171,7 @@ void SubchannelTwoEqNonlinearOperator::reset( std::shared_ptr<const OperatorPara
             if ( !d_ownSubChannel[i] )
                 continue;
             std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
-            auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
+            auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
             auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
             auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
             for ( size_t j = 0; j < face.size(); j++ ) {
@@ -226,7 +226,7 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
 
         // Get the iterator over the faces in the local subchannel
         std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub], []( auto ) {} );
-        auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
+        auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
         AMP_ASSERT( localSubchannelIt.size() == d_z.size() );
 
         // get solution sizes

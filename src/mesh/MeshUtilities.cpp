@@ -122,7 +122,7 @@ std::vector<Point> sample( const MeshElement &elem, double dx )
     auto nodes = elem.getElements( AMP::Mesh::GeomType::Vertex );
     std::vector<Point> x( nodes.size() );
     for ( size_t i = 0; i < nodes.size(); i++ )
-        x[i] = nodes[i]->coord();
+        x[i] = nodes[i].coord();
     // Check if we are dealing with a volume (in the coordinate space)
     if ( static_cast<int>( type ) == x[0].ndim() ) {
         // Create a uniform grid
@@ -322,9 +322,9 @@ inline double cellVolume3D( const AMP::Geometry::Geometry &geom,
                     double z      = x0[2] + 0.5 * k * dx[2];
                     double xyz[3] = { x, y, z };
                     bool in3[8]   = { in2[i][j][k],         in2[i + 1][j][k],
-                                    in2[i][j + 1][k],     in2[i + 1][j + 1][k],
-                                    in2[i][j][k + 1],     in2[i + 1][j][k + 1],
-                                    in2[i][j + 1][k + 1], in2[i + 1][j + 1][k + 1] };
+                                      in2[i][j + 1][k],     in2[i + 1][j + 1][k],
+                                      in2[i][j][k + 1],     in2[i + 1][j][k + 1],
+                                      in2[i][j + 1][k + 1], in2[i + 1][j + 1][k + 1] };
                     volume += cellVolume3D( geom, xyz, dx2, in3, tol );
                 }
             }
@@ -387,8 +387,8 @@ Array<double> volumeOverlap( const AMP::Geometry::Geometry &geom, const std::vec
         // Get the bounding box
         auto [lb, ub] = geom.box();
         double dx[3]  = { ( ub[0] - lb[0] ) / N[0],
-                         ( ub[1] - lb[1] ) / N[1],
-                         ( ub[2] - lb[2] ) / N[2] };
+                          ( ub[1] - lb[1] ) / N[1],
+                          ( ub[2] - lb[2] ) / N[2] };
         // Get the volume for each cell
         volume.resize( N[0], N[1], N[2] );
         volume.fill( 0 );
@@ -413,9 +413,9 @@ Array<double> volumeOverlap( const AMP::Geometry::Geometry &geom, const std::vec
                     double x          = lb[0] + i * dx[0];
                     double xyz[3]     = { x, y, z };
                     bool in[8]        = { inside( i, j, k ),         inside( i + 1, j, k ),
-                                   inside( i, j + 1, k ),     inside( i + 1, j + 1, k ),
-                                   inside( i, j, k + 1 ),     inside( i + 1, j, k + 1 ),
-                                   inside( i, j + 1, k + 1 ), inside( i + 1, j + 1, k + 1 ) };
+                                          inside( i, j + 1, k ),     inside( i + 1, j + 1, k ),
+                                          inside( i, j, k + 1 ),     inside( i + 1, j, k + 1 ),
+                                          inside( i, j + 1, k + 1 ), inside( i + 1, j + 1, k + 1 ) };
                     volume( i, j, k ) = cellVolume3D( geom, xyz, dx, in, tol );
                 }
             }
@@ -462,15 +462,14 @@ void ElementFinder::initialize() const
     // Create a list of points in each element and the mesh ids
     std::vector<AMP::Mesh::MeshElementID> ids;
     std::vector<std::array<double, 3>> points;
-    std::vector<std::unique_ptr<MeshElement>> children;
     std::vector<std::array<double, 3>> nodes;
     for ( const auto &elem : d_elements ) {
         auto id = elem.globalID();
         // Get the nodes for the current element
-        elem.getElements( AMP::Mesh::GeomType::Vertex, children );
+        auto children = elem.getElements( AMP::Mesh::GeomType::Vertex );
         nodes.resize( children.size() );
         for ( size_t i = 0; i < children.size(); i++ ) {
-            auto p      = children[i]->coord();
+            auto p      = children[i].coord();
             nodes[i][0] = p.x();
             nodes[i][1] = p.y();
             nodes[i][2] = p.z();

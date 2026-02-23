@@ -1,6 +1,6 @@
 #include "AMP/operators/subchannel/SubchannelHelpers.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/operators/ElementPhysicsModelFactory.h"
 #include "AMP/operators/subchannel/SubchannelConstants.h"
@@ -63,7 +63,7 @@ subsetForSubchannel( std::shared_ptr<AMP::Mesh::Mesh> subchannel, size_t i, size
         if ( coord[0] >= x[i] && coord[0] <= x[i + 1] && coord[1] >= y[j] && coord[1] <= y[j + 1] )
             elements->push_back( el->clone() );
     }
-    return subchannel->Subset( AMP::Mesh::MeshElementVectorIterator( elements ) );
+    return subchannel->Subset( AMP::Mesh::MeshListIterator( elements ) );
 }
 
 

@@ -27,6 +27,9 @@ class RestartManager;
 namespace AMP::Mesh {
 
 
+class MeshElementVectorBase;
+
+
 //! Enumeration for basic mesh-based quantities
 enum class SetOP { Union, Intersection, Complement };
 
@@ -62,8 +65,9 @@ public:
     typedef std::function<std::shared_ptr<Mesh>( std::shared_ptr<const MeshParameters> )>
         generatorType;
 
-    //! Pointer to MeshElement
+    //! Pointer to MeshElement and MeshElementVector
     using MeshElementPtr = std::unique_ptr<MeshElement>;
+    using ElementListPtr = MeshElementVectorPtr;
 
     //! Enumeration for basic mesh-based quantities
     enum class Movable : uint8_t { Fixed = 0, Displace = 1, Deform = 2 };
@@ -314,8 +318,7 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
-                                                           const GeomType type ) const;
+    virtual ElementListPtr getElementParents( const MeshElement &elem, const GeomType type ) const;
 
 
     //! Get the largest geometric type in the mesh

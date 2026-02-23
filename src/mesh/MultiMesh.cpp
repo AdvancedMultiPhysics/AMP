@@ -578,8 +578,8 @@ std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &id ) co
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<std::unique_ptr<MeshElement>> MultiMesh::getElementParents( const MeshElement &elem,
-                                                                        const GeomType type ) const
+Mesh::ElementListPtr MultiMesh::getElementParents( const MeshElement &elem,
+                                                   const GeomType type ) const
 {
     auto id = elem.globalID();
     for ( auto &mesh : d_meshes ) {

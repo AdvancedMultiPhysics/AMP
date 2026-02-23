@@ -169,7 +169,7 @@ public:
     TriangleMesh( TriangleMesh && ) = default;
 
     TriangleMesh &operator=( const TriangleMesh & ) = delete;
-    TriangleMesh &operator=( TriangleMesh && ) = default;
+    TriangleMesh &operator=( TriangleMesh && )      = default;
 
 
     //! Deconstructor
@@ -273,8 +273,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElementPtr>
-    getElementParents( const MeshElement &elem, const GeomType type ) const override final;
+    ElementListPtr getElementParents( const MeshElement &elem,
+                                      const GeomType type ) const override final;
 
     /**
      * \brief    Is the mesh movable

@@ -190,8 +190,8 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     numFaceGauss[i] += 1;
                 }
             } // end for i
-        }     // end for bnd
-    }         // end if
+        } // end for bnd
+    } // end if
 
     // Gather the results from all processors
     std::vector<double> aggMapValues( numPoints );
@@ -252,7 +252,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
 
             std::vector<double> zcoords;
             for ( auto &node : nodes ) {
-                auto coord = node->coord();
+                auto coord = node.coord();
                 zcoords.push_back( coord[2] );
             }
 
@@ -268,7 +268,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             std::vector<int> originalNodeOrder( zcoords.size() );
 
             for ( size_t i = 0; i < nodes.size(); i++ ) {
-                auto coord = nodes[i]->coord();
+                auto coord = nodes[i].coord();
                 double myZ = coord[2];
                 for ( unsigned int j = 0; j < tmpZcoords.size(); j++ ) {
                     if ( fabs( tmpZcoords[j] - myZ ) <= 1.e-12 ) {
@@ -284,7 +284,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             std::vector<double> y( 4, 0 );
             std::vector<double> x( 4, 0 );
             for ( int i = 0; i < 4; i++ ) {
-                auto coord = nodes[originalNodeOrder[i]]->coord();
+                auto coord = nodes[originalNodeOrder[i]].coord();
                 x[i]       = coord[0];
                 y[i]       = coord[1];
                 z[i]       = coord[2];
@@ -307,19 +307,19 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                 if ( cur_node >= z[0] && cur_node <= z[pickId] ) {
                     std::vector<size_t> dof1;
                     std::vector<size_t> dof2;
-                    dof_map->getDOFs( nodes[originalNodeOrder[0]]->globalID(), dof1 );
-                    dof_map->getDOFs( nodes[originalNodeOrder[pickId]]->globalID(), dof2 );
+                    dof_map->getDOFs( nodes[originalNodeOrder[0]].globalID(), dof1 );
+                    dof_map->getDOFs( nodes[originalNodeOrder[pickId]].globalID(), dof2 );
                     AMP_ASSERT( dof1.size() == 1 && dof2.size() == 1 );
 
                     mapValues[i] +=
-                        ( ( inputVec )->getValueByGlobalID( dof1[0] ) * ( z[pickId] - cur_node ) +
-                          ( inputVec )->getValueByGlobalID( dof2[0] ) * ( cur_node - z[0] ) ) /
+                        ( inputVec->getValueByGlobalID( dof1[0] ) * ( z[pickId] - cur_node ) +
+                          inputVec->getValueByGlobalID( dof2[0] ) * ( cur_node - z[0] ) ) /
                         ( z[pickId] - z[0] );
 
                     numFaceNodes[i] += 1;
                 }
             } // end for i
-        }     // end for bnd
+        } // end for bnd
     }
 
     // Gather the results from all processors

@@ -1,7 +1,7 @@
 #include "AMP/mesh/libmesh/libmeshMesh.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/MultiIterator.h"
 #include "AMP/mesh/libmesh/initializeLibMesh.h"
@@ -449,9 +449,9 @@ libmeshMesh::ElemListPtr libmeshMesh::generateLocalElements( GeomType type ) con
     for ( auto &elem : it ) {
         auto tmp = elem.getElements( type );
         for ( auto &elem2 : tmp ) {
-            auto id = elem2->globalID();
+            auto id = elem2.globalID();
             if ( id.is_local() )
-                local.push_back( *dynamic_cast<libmeshMeshElement *>( elem2.get() ) );
+                local.push_back( *dynamic_cast<const libmeshMeshElement *>( &elem2 ) );
         }
     }
     AMP::Utilities::unique( local );
@@ -465,9 +465,9 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhostElements( GeomType type ) con
     for ( auto &elem : it ) {
         auto tmp = elem.getElements( type );
         for ( auto &elem2 : tmp ) {
-            auto id = elem2->globalID();
+            auto id = elem2.globalID();
             if ( !id.is_local() )
-                ghost.push_back( *dynamic_cast<libmeshMeshElement *>( elem2.get() ) );
+                ghost.push_back( *dynamic_cast<const libmeshMeshElement *>( &elem2 ) );
         }
     }
     AMP::Utilities::unique( ghost );
@@ -550,7 +550,7 @@ void libmeshMesh::fillBoundaryElements()
             AMP_ASSERT( !nodes.empty() );
             bool on_boundary = true;
             for ( auto &node : nodes ) {
-                if ( !node->isOnSurface() )
+                if ( !node.isOnSurface() )
                     on_boundary = false;
             }
             if ( on_boundary ) {
@@ -724,7 +724,7 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
         if ( gcw == 0 || n_ghost[i] == 0 ) {
             return it;
         } else if ( gcw == 1 ) {
-            auto it2 = MeshElementVectorIterator( d_ghostElements[i], 0 );
+            auto it2 = MeshListIterator( d_ghostElements[i], 0 );
             return MultiIterator( { it, it2 }, 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
@@ -737,7 +737,7 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
         if ( gcw == 0 || n_ghost[i] == 0 ) {
             return it;
         } else if ( gcw == 1 ) {
-            auto it2 = MeshElementVectorIterator( d_ghostElements[i], 0 );
+            auto it2 = MeshListIterator( d_ghostElements[i], 0 );
             return MultiIterator( { it, it2 }, 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
@@ -745,10 +745,10 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
     } else {
         // All other types require a pre-constructed list
         if ( gcw == 0 || n_ghost[i] == 0 ) {
-            return MeshElementVectorIterator( d_localElements[i], 0 );
+            return MeshListIterator( d_localElements[i], 0 );
         } else if ( gcw == 1 ) {
-            auto it1 = MeshElementVectorIterator( d_localElements[i], 0 );
-            auto it2 = MeshElementVectorIterator( d_ghostElements[i], 0 );
+            auto it1 = MeshListIterator( d_localElements[i], 0 );
+            auto it2 = MeshListIterator( d_ghostElements[i], 0 );
             return MultiIterator( { it1, it2 }, 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
@@ -770,11 +770,11 @@ MeshIterator libmeshMesh::getSurfaceIterator( const GeomType type, const int gcw
     if ( local.get() == nullptr || ghost.get() == nullptr )
         AMP_ERROR( "Surface iterator over the given geometry type is not supported" );
     if ( gcw == 0 ) {
-        return MeshElementVectorIterator( local, 0 );
+        return MeshListIterator( local, 0 );
     } else if ( gcw == 1 ) {
         std::vector<MeshIterator> iterators( 2 );
-        iterators[0] = MeshElementVectorIterator( local, 0 );
-        iterators[1] = MeshElementVectorIterator( ghost, 0 );
+        iterators[0] = MeshListIterator( local, 0 );
+        iterators[1] = MeshListIterator( ghost, 0 );
         return MultiIterator( iterators, 0 );
     } else {
         AMP_ERROR( "libmesh has maximum ghost width of 1" );
@@ -808,7 +808,7 @@ libmeshMesh::getBoundaryIDIterator( const GeomType type, const int id, const int
     auto it    = d_boundarySets.find( mapid );
     if ( it != d_boundarySets.end() )
         list = it->second;
-    return MeshElementVectorIterator( list, 0 );
+    return MeshListIterator( list, 0 );
 }
 
 
@@ -1036,8 +1036,8 @@ void libmeshMesh::writeRestart( int64_t ) const
 /****************************************************************
  * Explicit instantiations                                       *
  ****************************************************************/
-#include "AMP/mesh/MeshElementVectorIterator.hpp"
+#include "AMP/mesh/MeshListIterator.hpp"
 #include "AMP/utils/Utilities.hpp"
 template void AMP::Utilities::unique<AMP::Mesh::libmeshMeshElement>(
     std::vector<AMP::Mesh::libmeshMeshElement> & );
-template class AMP::Mesh::MeshElementVectorIterator<AMP::Mesh::libmeshMeshElement>;
+template class AMP::Mesh::MeshListIterator<AMP::Mesh::libmeshMeshElement>;

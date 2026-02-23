@@ -137,7 +137,7 @@ private:
     double Temperature( double, double );      // evaluates temperature
     double DynamicViscosity( double, double ); // evaluates dynamic viscosity
 
-    ElementPtr getAxiallyAdjacentLateralFace( AMP::Mesh::MeshElement *,
+    ElementPtr getAxiallyAdjacentLateralFace( const AMP::Mesh::MeshElement *,
                                               const AMP::Mesh::MeshElement &,
                                               const std::map<AMP::Mesh::Point, ElementPtr> & );
 };

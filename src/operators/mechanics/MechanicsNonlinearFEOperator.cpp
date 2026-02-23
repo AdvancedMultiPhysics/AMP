@@ -327,7 +327,7 @@ void MechanicsNonlinearFEOperator::postElementOperation()
             d_outVec->addValuesByGlobalID(
                 1, &d_dofIndices[r][d], &d_elementOutputVector[( 3 * r ) + d] );
         } // end for d
-    }     // end for r
+    } // end for r
 }
 
 void MechanicsNonlinearFEOperator::init()
@@ -386,7 +386,7 @@ void MechanicsNonlinearFEOperator::init()
                     d_refXYZ->setValuesByGlobalID(
                         1, &d_dofIndices[j][i], &elementRefXYZ[( 3 * j ) + i] );
                 } // end for i
-            }     // end for j
+            } // end for j
         }
 
     } // end for el
@@ -699,7 +699,7 @@ void MechanicsNonlinearFEOperator::printStressAndStrain(
                     }
                 }
             } // end for i
-        }     // end for r
+        } // end for r
 
         d_mechNonlinElem->initializeForCurrentElement( d_currElemPtrs[d_currElemIdx],
                                                        d_materialModel );
@@ -776,7 +776,7 @@ void MechanicsNonlinearFEOperator::updateMaterialForElementCommonFunction(
                 }
             }
         } // end for i
-    }     // end for r
+    } // end for r
 
     if ( d_useUpdatedLagrangian ) {
         d_mechNULElem->initializeForCurrentElement( d_currElemPtrs[d_currElemIdx],
@@ -793,7 +793,7 @@ void MechanicsNonlinearFEOperator::getDofIndicesForCurrentElement(
 {
     dofIds.resize( d_currNodes.size() );
     for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-        d_dofMap[varId]->getDOFs( d_currNodes[j]->globalID(), dofIds[j] );
+        d_dofMap[varId]->getDOFs( d_currNodes[j].globalID(), dofIds[j] );
     } // end of j
 }
 

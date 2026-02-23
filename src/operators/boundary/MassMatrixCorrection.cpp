@@ -75,7 +75,7 @@ void MassMatrixCorrection::resetBoundaryIds(
                 AMP_INSIST( params->d_db->keyExists( key ), "Key is missing!" );
                 d_dofIds[j][i] = params->d_db->getScalar<int>( key );
             } // end for i
-        }     // end for j
+        } // end for j
     }
 }
 void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> params )
@@ -111,8 +111,8 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
             auto neighbors = bnd->getNeighbors();
 
             for ( auto &neighbor : neighbors ) {
-                if ( neighbor )
-                    AMP_ASSERT( *neighbor != *bnd );
+                if ( !neighbor.isNull() )
+                    AMP_ASSERT( neighbor != *bnd );
             } // end for el
 
             for ( unsigned int j = 0; j < d_dofIds[k].size(); ++j ) {
@@ -129,20 +129,20 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
                     }
                 } // end for i
                 for ( auto &neighbor : neighbors ) {
-                    if ( !neighbor )
+                    if ( neighbor.isNull() )
                         continue;
                     std::vector<size_t> nhDofIds;
-                    dof_map->getDOFs( neighbor->globalID(), nhDofIds );
+                    dof_map->getDOFs( neighbor.globalID(), nhDofIds );
                     for ( auto &nhDofId : nhDofIds ) {
                         inputMatrix->setValueByGlobalID(
                             bndGlobalIds[d_dofIds[k][j]], nhDofId, 0.0 );
                         inputMatrix->setValueByGlobalID(
                             nhDofId, bndGlobalIds[d_dofIds[k][j]], 0.0 );
                     } // end for i
-                }     // end for n
-            }         // end for j
-        }             // end for bnd
-    }                 // end for k
+                } // end for n
+            } // end for j
+        } // end for bnd
+    } // end for k
 
     // This does consistent for both "Sum-into" and "set".
     inputMatrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );

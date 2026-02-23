@@ -184,8 +184,7 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
-                                                           const GeomType type ) const override;
+    ElementListPtr getElementParents( const MeshElement &elem, const GeomType type ) const override;
 
 
     //! Is the current mesh a base mesh

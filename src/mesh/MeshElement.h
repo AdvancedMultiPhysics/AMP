@@ -1,6 +1,7 @@
 #ifndef included_AMP_MeshElement
 #define included_AMP_MeshElement
 
+#include "AMP/mesh/MeshElementVector.h"
 #include "AMP/mesh/MeshID.h"
 #include "AMP/utils/MeshPoint.h"
 #include "AMP/utils/typeid.h"
@@ -25,14 +26,14 @@ class Mesh;
 class MeshElement
 {
 public:
-    using ElementList = std::vector<std::unique_ptr<MeshElement>>;
+    using ElementListPtr = MeshElementVectorPtr;
 
 public: // non-virtual functions
     //! Empty constructor for a MeshElement
     MeshElement() = default;
 
     //! Is the mesh element null
-    bool isNull() const;
+    inline bool isNull() const { return globalID().isNull(); }
 
     //! Return the element type
     inline GeomType elementType() const { return globalID().type(); }
@@ -50,18 +51,6 @@ public: // non-virtual functions
     inline bool operator>( const MeshElementID &rhs ) const { return globalID() > rhs; }
     inline bool operator<=( const MeshElementID &rhs ) const { return globalID() <= rhs; }
     inline bool operator>=( const MeshElementID &rhs ) const { return globalID() >= rhs; }
-
-    //! Return the elements composing the current element
-    ElementList getElements( const GeomType type ) const;
-
-    /**
-     *  Return the elements neighboring the current element.
-     *  One neighbor is returned for each side of the element.
-     *  If the side is on the surface, then it's neighbor is null.
-     *  For Verticies, a list of all vertices that share an element is returned.
-     *  This list is in unsorted order.
-     */
-    ElementList getNeighbors() const;
 
     /**
      * \brief     Return the coordinate of the vertex
@@ -93,7 +82,7 @@ public: // non-virtual functions
 
 public: // Virtual functions
     //! Return the typeID of the underlying element
-    virtual typeID getTypeID() const;
+    virtual const typeID &getTypeID() const;
 
     //! Return the unique global ID of the element
     virtual MeshElementID globalID() const;
@@ -166,12 +155,8 @@ public: // Virtual functions
     virtual bool isInBlock( int id ) const;
 
 
-public: // Advanced functions
     //! Return the elements composing the current element
-    virtual void getElements( const GeomType type, ElementList &elements ) const;
-
-    //! Return the IDs of the elements composing the current element
-    virtual int getElementsID( const GeomType type, MeshElementID *ID ) const;
+    virtual ElementListPtr getElements( const GeomType type ) const;
 
     /**
      *  Return the elements neighboring the current element.
@@ -180,7 +165,12 @@ public: // Advanced functions
      *  For Verticies, a list of all vertices that share an element is returned.
      *  This list is in unsorted order.
      */
-    virtual void getNeighbors( ElementList &neighbors ) const;
+    virtual ElementListPtr getNeighbors() const;
+
+
+public: // Advanced functions
+    //! Return the IDs of the elements composing the current element
+    virtual int getElementsID( const GeomType type, MeshElementID *ID ) const;
 
     /**
      *  Return the vertex coordinates composing the current element.
@@ -207,10 +197,10 @@ public: // Advanced functions
 
 
 protected: // Constructors
-    MeshElement( const MeshElement & ) = default;
-    MeshElement( MeshElement && )      = default;
+    MeshElement( const MeshElement & )            = default;
+    MeshElement( MeshElement && )                 = default;
     MeshElement &operator=( const MeshElement & ) = default;
-    MeshElement &operator=( MeshElement && ) = default;
+    MeshElement &operator=( MeshElement && )      = default;
 };
 
 
