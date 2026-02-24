@@ -34,18 +34,7 @@ struct classical_strength {
     template<class T>
     static constexpr std::remove_cv_t<T> strongest( span<T> s )
     {
-        if ( s.size() == 0 || s.begin() == nullptr ) {
-            return 0;
-        }
-        if constexpr ( norm_type == norm::min ) {
-            auto el = std::min_element( s.begin(), s.end() );
-            return el == s.end() ? std::numeric_limits<T>::lowest() : -*el;
-        } else {
-            auto el = std::max_element( s.begin(), s.end(), []( const T &a, const T &b ) {
-                return std::abs( a ) < std::abs( b );
-            } );
-            return el == s.end() ? std::numeric_limits<T>::lowest() : std::abs( *el );
-        }
+        return strongest( s.data(), s.size() );
     }
 
     template<class T>
@@ -129,11 +118,11 @@ AMG::Strength<Mat>::Strength( csr_view<Mat> A ) : d_diag( A.diag() ), d_offd( A.
 
 template<class StrengthPolicy, typename lidx_t, typename scalar_t, typename mask_t>
 __global__ void compute_soc_device( StrengthPolicy,
-                                    const lidx_t *row_ptr_diag,
-                                    const lidx_t *cols_loc_diag,
-                                    const scalar_t *vals_diag,
-                                    const lidx_t *row_ptr_offd,
-                                    const scalar_t *vals_offd,
+                                    const span<const lidx_t> row_ptr_diag,
+                                    const span<const lidx_t> cols_loc_diag,
+                                    const span<const scalar_t> vals_diag,
+                                    const span<const lidx_t> row_ptr_offd,
+                                    const span<const scalar_t> vals_offd,
                                     const lidx_t num_rows,
                                     const float threshold,
                                     mask_t *strength_diag )
@@ -154,7 +143,7 @@ __global__ void compute_soc_device( StrengthPolicy,
         // strongest connection per block row and overall
         const auto strongest_diag = row_len_diag > 1 ?
                                         StrengthPolicy::template strongest<const scalar_t>(
-                                            &vals_diag[rs_diag + 1], row_len_diag - 1 ) :
+                                            &vals_diag[rs_diag], row_len_diag ) :
                                         0.0;
         const auto strongest_offd = row_len_offd > 0 ?
                                         StrengthPolicy::template strongest<const scalar_t>(
@@ -237,11 +226,11 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
 #ifdef AMP_USE_DEVICE
         using mask_t             = typename csr_view<Mat>::mask_t;
         const auto num_rows      = static_cast<lidx_t>( A.numLocalRows() );
-        const auto row_ptr_diag  = std::get<0>( A.diag() ).data();
-        const auto cols_loc_diag = std::get<1>( A.diag() ).data();
-        const auto vals_diag     = std::get<2>( A.diag() ).data();
-        const auto row_ptr_offd  = std::get<0>( A.offd() ).data();
-        const auto vals_offd     = std::get<2>( A.offd() ).data();
+        const auto row_ptr_diag  = std::get<0>( A.diag() );
+        const auto cols_loc_diag = std::get<1>( A.diag() );
+        const auto vals_diag     = std::get<2>( A.diag() );
+        const auto row_ptr_offd  = std::get<0>( A.offd() );
+        const auto vals_offd     = std::get<2>( A.offd() );
         mask_t *mask_data        = S.diag_mask_data();
 
         AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( row_ptr_diag ) >

@@ -604,10 +604,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         }
     }
 
-    // deallocate sizes and return
-    agg_root_ids.reset();
-    agg_size.reset();
-
     return num_agg;
 }
 
