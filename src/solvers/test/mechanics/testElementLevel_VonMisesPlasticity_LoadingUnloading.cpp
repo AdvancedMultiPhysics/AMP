@@ -214,12 +214,12 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
             fin             = fopen( fname.c_str(), "r" );
             double coord[3] = { 0, 0, 0 }, stress1[6] = { 0, 0, 0 }, strain1[6] = { 0, 0, 0 };
             for ( int ijk = 0; ijk < 8; ijk++ ) {
-                for ( auto &elem : coord ) [[maybe_unused]]
-                    int v = fscanf( fin, "%lf", &elem );
-                for ( auto &elem : stress1 ) [[maybe_unused]]
-                    int v = fscanf( fin, "%lf", &elem );
-                for ( auto &elem : strain1 ) [[maybe_unused]]
-                    int v = fscanf( fin, "%lf", &elem );
+                for ( auto &elem : coord )
+                    [[maybe_unused]] int v = fscanf( fin, "%lf", &elem );
+                for ( auto &elem : stress1 )
+                    [[maybe_unused]] int v = fscanf( fin, "%lf", &elem );
+                for ( auto &elem : strain1 )
+                    [[maybe_unused]] int v = fscanf( fin, "%lf", &elem );
                 if ( ijk == 7 ) {
                     const double prev_stress = 1.0, prev_strain = 1.0;
                     double slope = 1.0;

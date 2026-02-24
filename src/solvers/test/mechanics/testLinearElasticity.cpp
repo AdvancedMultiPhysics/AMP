@@ -62,8 +62,8 @@ static void linearElasticTest( AMP::UnitTest *ut,
 
     if ( dirichletVecOp )
         dirichletVecOp->apply( nullptr, mechRhsVec );
-		else
-		    bvpOperator->modifyRHSvector( mechRhsVec );
+    else
+        bvpOperator->modifyRHSvector( mechRhsVec );
 
     AMP::pout << "RHS Norm: " << mechRhsVec->L2Norm() << std::endl;
     AMP::pout << "Initial Solution Norm: " << mechSolVec->L2Norm() << std::endl;
@@ -103,7 +103,7 @@ static void linearElasticTest( AMP::UnitTest *ut,
     } else {
         AMP_ASSERT( input_file.substr( 0, 6 ) == "input_" );
         auto fname = input_file.substr( 6 );
-        fname = fname.substr( 0, fname.find( "mesh2elem" ) );
+        fname      = fname.substr( 0, fname.find( "mesh2elem" ) );
         fname += input_mesh;
         printSolution( mesh, mechSolVec, fname );
     }

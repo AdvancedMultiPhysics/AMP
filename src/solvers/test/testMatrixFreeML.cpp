@@ -59,7 +59,7 @@ void myGetRow3( void *object, int row, std::vector<size_t> &cols, std::vector<do
         for ( auto &col : cols ) {
             col += firstMatNumGlobalColumns;
         } // end for j
-    } // end if
+    }     // end if
 }
 
 int myMatVec( ML_Operator *data, int in_length, double in[], int out_length, double out[] )
