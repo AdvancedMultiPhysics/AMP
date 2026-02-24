@@ -59,7 +59,7 @@ void myGetRow3( void *object, int row, std::vector<size_t> &cols, std::vector<do
         for ( auto &col : cols ) {
             col += firstMatNumGlobalColumns;
         } // end for j
-    }     // end if
+    } // end if
 }
 
 int myMatVec( ML_Operator *data, int in_length, double in[], int out_length, double out[] )
@@ -132,9 +132,6 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName, int type )
 
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
-
-    [[maybe_unused]] auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
 
     auto mesh_file = input_db->getString( "mesh_file" );
     auto fusedMeshAdapter =

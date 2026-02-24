@@ -219,7 +219,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 int testUpdatedLagrangianMechanics_LinearElasticity_1( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
-    auto libmeshInit = std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
 
     AMP::UnitTest ut;
 
@@ -235,7 +234,6 @@ int testUpdatedLagrangianMechanics_LinearElasticity_1( int argc, char *argv[] )
     ut.report();
     int num_failed = ut.NumFailGlobal();
 
-    libmeshInit.reset();
     AMP::AMPManager::shutdown();
     return num_failed;
 }

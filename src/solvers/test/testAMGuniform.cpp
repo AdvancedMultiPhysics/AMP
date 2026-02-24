@@ -86,15 +86,10 @@ int main( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-
     myTest( &ut );
 
     ut.report();
     int num_failed = ut.NumFailGlobal();
-
-    libmeshInit.reset();
 
     AMP::AMPManager::shutdown();
     return num_failed;

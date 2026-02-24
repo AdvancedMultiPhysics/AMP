@@ -130,9 +130,6 @@ int testMacNealstraightBeam_regular( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-
     std::vector<std::string> exeNames;
 
     if ( argc == 1 ) {
@@ -173,15 +170,12 @@ int testMacNealstraightBeam_regular( int argc, char *argv[] )
         } catch ( std::exception &err ) {
             AMP::pout << "ERROR: " << err.what() << std::endl;
         } catch ( ... ) {
-            AMP::pout << "ERROR: "
-                      << "An unknown exception was thrown." << std::endl;
+            AMP::pout << "ERROR: " << "An unknown exception was thrown." << std::endl;
         }
     } // end for i
 
     ut.report();
     int num_failed = ut.NumFailGlobal();
-
-    libmeshInit.reset();
 
     AMP::AMPManager::shutdown();
     return num_failed;

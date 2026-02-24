@@ -32,18 +32,21 @@ static void myTest( AMP::UnitTest *ut )
     std::string exeName( "testPetscSNESSolver-NonlinearMechanics-2" );
     std::string input_file = "input_" + exeName;
     std::string log_file   = "output_" + exeName;
-
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
+    // Create the meshes from the input database
     auto mesh_db    = input_db->getDatabase( "Mesh" );
     auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
     auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
+
+    // Create the DOFManagers
+    auto dispDofMap = AMP::Discretization::simpleDOFManager::create(
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     AMP_INSIST( input_db->keyExists( "NumberOfLoadingSteps" ),
                 "Key ''NumberOfLoadingSteps'' is missing!" );
@@ -101,13 +104,10 @@ static void myTest( AMP::UnitTest *ut )
         AMP::Operator::OperatorBuilder::createOperator( mesh, "Displacement_Boundary", input_db ) );
     dirichletDispInVecOp->setVariable( displacementVariable );
 
-    auto dispDofMap = AMP::Discretization::simpleDOFManager::create(
-        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
-
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
-    auto mechNlSolVec = AMP::LinearAlgebra::createVector( dispDofMap, displacementVariable, true );
-    auto mechNlRhsVec = mechNlSolVec->clone();
-    auto mechNlResVec = mechNlSolVec->clone();
+    auto mechNlSolVec       = AMP::LinearAlgebra::createVector( dispDofMap, displacementVariable );
+    auto mechNlRhsVec       = mechNlSolVec->clone();
+    auto mechNlResVec       = mechNlSolVec->clone();
     auto mechNlScaledRhsVec = mechNlSolVec->clone();
 
     // Initial guess for NL solver must satisfy the displacement boundary conditions
@@ -142,15 +142,11 @@ static void myTest( AMP::UnitTest *ut )
     auto linearSolver = std::make_shared<AMP::Solver::PetscKrylovSolver>( linearSolverParams );
     auto nonlinearSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( nonlinearSolver_db );
-
-    // change the next line to get the correct communicator out
     nonlinearSolverParams->d_comm          = globalComm;
     nonlinearSolverParams->d_pOperator     = nonlinBvpOperator;
     nonlinearSolverParams->d_pNestedSolver = linearSolver;
     nonlinearSolverParams->d_pInitialGuess = mechNlSolVec;
-
     auto nonlinearSolver = std::make_shared<AMP::Solver::PetscSNESSolver>( nonlinearSolverParams );
-
     nonlinearSolver->setZeroInitialGuess( false );
 
     for ( int step = 0; step < NumberOfLoadingSteps; step++ ) {

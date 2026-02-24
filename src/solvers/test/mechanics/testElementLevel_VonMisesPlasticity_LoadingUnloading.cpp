@@ -29,6 +29,7 @@
 
 #include "libmesh/mesh_communication.h"
 
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -46,13 +47,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    // Create the Mesh.
+    // Create the Mesh
     auto mesh_file = input_db->getString( "mesh_file" );
     auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
-
-    AMP_INSIST( input_db->keyExists( "NumberOfLoadingSteps" ),
-                "Key ''NumberOfLoadingSteps'' is missing!" );
-    int NumberOfLoadingSteps = input_db->getScalar<int>( "NumberOfLoadingSteps" );
 
     bool ExtractData = input_db->getWithDefault<bool>( "ExtractStressStrainData", false );
     FILE *fout123;
@@ -113,8 +110,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     // We need to reset the linear operator before the solve since TrilinosML does
     // the factorization of the matrix during construction and so the matrix must
-    // be correct before constructing the TrilinosML
-    // obje/projects/AMP/AMP/src/solvers/test/mechanics/testElementLevel_VonMisesPlasticity_LoadingUnloading.cppct.
+    // be correct before constructing the TrilinosML object.
     nonlinearMechanicsBVPoperator->apply( solVec, resVec );
     linearMechanicsBVPoperator->reset(
         nonlinearMechanicsBVPoperator->getParameters( "Jacobian", solVec ) );
@@ -155,9 +151,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     nonlinearSolver->setZeroInitialGuess( false );
 
-    // double NumberOfLoops = 5;
+    int NumberOfLoadingSteps = input_db->getScalar<int>( "NumberOfLoadingSteps" );
     double TotalLoadingSteps = NumberOfLoadingSteps / 4;
-    // double TotalUnloadingSteps = NumberOfLoadingSteps - TotalLoadingSteps;
 
     for ( int step = 0; step < NumberOfLoadingSteps; step++ ) {
         AMP::pout << "########################################" << std::endl;
@@ -204,7 +199,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        ( nonlinearMechanicsBVPoperator->getVolumeOperator() )->reset( tmpParams );
+        nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
 
         std::string number1 = std::to_string( step );
@@ -219,12 +214,12 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
             fin             = fopen( fname.c_str(), "r" );
             double coord[3] = { 0, 0, 0 }, stress1[6] = { 0, 0, 0 }, strain1[6] = { 0, 0, 0 };
             for ( int ijk = 0; ijk < 8; ijk++ ) {
-                for ( auto &elem : coord )
-                    [[maybe_unused]] int err = fscanf( fin, "%lf", &elem );
-                for ( auto &elem : stress1 )
-                    [[maybe_unused]] int err = fscanf( fin, "%lf", &elem );
-                for ( auto &elem : strain1 )
-                    [[maybe_unused]] int err = fscanf( fin, "%lf", &elem );
+                for ( auto &elem : coord ) [[maybe_unused]]
+                    int v = fscanf( fin, "%lf", &elem );
+                for ( auto &elem : stress1 ) [[maybe_unused]]
+                    int v = fscanf( fin, "%lf", &elem );
+                for ( auto &elem : strain1 ) [[maybe_unused]]
+                    int v = fscanf( fin, "%lf", &elem );
                 if ( ijk == 7 ) {
                     const double prev_stress = 1.0, prev_strain = 1.0;
                     double slope = 1.0;
