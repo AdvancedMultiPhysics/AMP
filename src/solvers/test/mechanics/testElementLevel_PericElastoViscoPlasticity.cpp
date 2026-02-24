@@ -39,9 +39,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
     {
 
@@ -76,17 +73,13 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
         // Create the variables
-        auto mechanicsNonlinearVolumeOperator =
-            std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-                nonlinearMechanicsBVPoperator->getVolumeOperator() );
-
         auto multivariable = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVariable>(
-            mechanicsNonlinearVolumeOperator->getInputVariable() );
+            nonlinearMechanicsVolumeOperator->getInputVariable() );
         auto dispVar = multivariable->getVariable( AMP::Operator::Mechanics::DISPLACEMENT );
 
         auto mechanicsNonlinearMaterialModel =
             std::dynamic_pointer_cast<AMP::Operator::MechanicsMaterialModel>(
-                mechanicsNonlinearVolumeOperator->getMaterialModel() );
+                nonlinearMechanicsVolumeOperator->getMaterialModel() );
 
         // For RHS (Point Forces)
         auto dirichletLoadVecOp =
@@ -220,20 +213,15 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
                 dirichletVectorCorrectionDatabase );
             nonlinearMechanicsBVPoperator->getBoundaryOperator()->reset( bndParams );
 
-            std::string number1 = std::to_string( step );
-            std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
-
-            AMP_ASSERT( solVec->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
-            std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-                nonlinearMechanicsBVPoperator->getVolumeOperator() )
-                ->printStressAndStrain( solVec, fname );
+            // std::string number1 = std::to_string( step );
+            // std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
+            // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, fname );
         }
 
         AMP::pout << "epsilon = " << epsilon << std::endl;
-
         AMP::pout << solVec << std::endl;
 
-        mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
+        // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, output_file );
     }
 
     ut->passes( exeName );

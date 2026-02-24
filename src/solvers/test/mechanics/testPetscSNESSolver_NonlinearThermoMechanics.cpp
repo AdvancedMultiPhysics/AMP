@@ -32,9 +32,6 @@
 static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     auto input_db = AMP::Database::parseInputFile( input_file );
@@ -75,11 +72,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     nonlinearThermoMechanicsOperator->append( nonlinearMechanicsOperator );
     nonlinearThermoMechanicsOperator->append( nonlinearThermalOperator );
 
-    // initialize the input multi-variable
-    auto mechanicsVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsOperator->getVolumeOperator() );
-
     // initialize the output multi-variable
     auto displacementVar = nonlinearMechanicsOperator->getOutputVariable();
     auto temperatureVar  = nonlinearThermalOperator->getOutputVariable();
@@ -104,7 +96,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto referenceTemperatureVec = temperatureVec->clone();
     referenceTemperatureVec->setToScalar( 300.0 );
-    mechanicsVolumeOperator->setReferenceTemperature( referenceTemperatureVec );
+    nonlinearMechanicsVolumeOperator->setReferenceTemperature( referenceTemperatureVec );
 
     // Initial-Guess for mechanics
     auto dirichletDispInVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(

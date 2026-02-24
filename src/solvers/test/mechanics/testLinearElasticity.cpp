@@ -1,5 +1,4 @@
 #include "AMP/IO/PIO.h"
-#include "AMP/IO/WriteSolutionToFile.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
@@ -62,8 +61,8 @@ static void linearElasticTest( AMP::UnitTest *ut,
 
     if ( dirichletVecOp )
         dirichletVecOp->apply( nullptr, mechRhsVec );
-		else
-		    bvpOperator->modifyRHSvector( mechRhsVec );
+    else
+        bvpOperator->modifyRHSvector( mechRhsVec );
 
     AMP::pout << "RHS Norm: " << mechRhsVec->L2Norm() << std::endl;
     AMP::pout << "Initial Solution Norm: " << mechSolVec->L2Norm() << std::endl;
@@ -94,19 +93,6 @@ static void linearElasticTest( AMP::UnitTest *ut,
     double finalResidualNorm = static_cast<double>( mechResVec->L2Norm() );
 
     AMP::pout << "Final Residual Norm: " << finalResidualNorm << std::endl << std::endl;
-
-    if ( input_mesh.empty() ) {
-        auto fname = input_file.substr( 6 ) + "-stressAndStrain.txt";
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsLinearFEOperator>(
-            bvpOperator->getVolumeOperator() )
-            ->printStressAndStrain( mechSolVec, fname );
-    } else {
-        AMP_ASSERT( input_file.substr( 0, 6 ) == "input_" );
-        auto fname = input_file.substr( 6 );
-        fname = fname.substr( 0, fname.find( "mesh2elem" ) );
-        fname += input_mesh;
-        printSolution( mesh, mechSolVec, fname );
-    }
 
     auto testname = input_file;
     if ( !input_mesh.empty() )

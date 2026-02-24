@@ -1,5 +1,4 @@
 #include "AMP/IO/PIO.h"
-#include "AMP/IO/WriteSolutionToFile.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/MultiMesh.h"
@@ -354,9 +353,6 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName, int type )
 
         std::cout << std::endl;
     }
-
-    auto outFile = exeName + "-" + std::to_string( type );
-    printSolution( fusedMeshAdapter, fusedSolVec, outFile );
 
     ut->passes( exeName );
 }

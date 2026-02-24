@@ -34,8 +34,6 @@ static void myTest( AMP::UnitTest *ut )
 {
     std::string exeName( "testPetscSNESSolver-NonlinearMechanics-2_COMPARISON-3" );
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName;
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     auto input_db = AMP::Database::parseInputFile( input_file );
@@ -96,12 +94,9 @@ static void myTest( AMP::UnitTest *ut )
     }
     finalTempVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
-    std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-        nonlinBvpOperator->getVolumeOperator() )
-        ->setReferenceTemperature( initTempVec );
-    std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-        nonlinBvpOperator->getVolumeOperator() )
-        ->setVector( AMP::Operator::Mechanics::TEMPERATURE, finalTempVec );
+    nonlinearMechanicsVolumeOperator->setReferenceTemperature( initTempVec );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE,
+                                                 finalTempVec );
 
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
@@ -166,9 +161,8 @@ static void myTest( AMP::UnitTest *ut )
                            ( ( Temp_1 - Temp_0 ) / ( (double) ( NumberOfLoadingSteps ) ) ) );
             AMP::pout << "Temp_n = " << Temp_n << std::endl;
             finalTempVec->setToScalar( Temp_n );
-            ( std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-                  nonlinBvpOperator->getVolumeOperator() ) )
-                ->setVector( AMP::Operator::Mechanics::TEMPERATURE, finalTempVec );
+            nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE,
+                                                         finalTempVec );
         }
 
         double scaleValue = ( (double) step + 1.0 ) / NumberOfLoadingSteps;
@@ -213,7 +207,7 @@ static void myTest( AMP::UnitTest *ut )
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        ( nonlinBvpOperator->getVolumeOperator() )->reset( tmpParams );
+        nonlinearMechanicsVolumeOperator->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
     }
 
