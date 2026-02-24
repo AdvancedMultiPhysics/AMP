@@ -43,8 +43,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
-    [[maybe_unused]] auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( globalComm );
     {
 
         // Read the input file

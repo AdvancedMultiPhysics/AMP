@@ -222,7 +222,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     ut->passes( exeName );
 }
 
-int testSmallStrainMechanics_ThermoMechanics_1( int argc, char *argv[] )
+int testSmallStrainMechanics_ThermoMechanics( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;

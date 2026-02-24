@@ -186,7 +186,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 }
 
 
-int testPetscSNESSolver_NonlinearThermoMechanics_1( int argc, char *argv[] )
+int testPetscSNESSolver_NonlinearThermoMechanics( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;

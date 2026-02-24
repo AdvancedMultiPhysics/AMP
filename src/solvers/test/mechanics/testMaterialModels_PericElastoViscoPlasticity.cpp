@@ -194,7 +194,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     ut->passes( exeName );
 }
 
-int testMaterialModels_PericElastoViscoPlasticity_1( int argc, char *argv[] )
+int testMaterialModels_PericElastoViscoPlasticity( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;

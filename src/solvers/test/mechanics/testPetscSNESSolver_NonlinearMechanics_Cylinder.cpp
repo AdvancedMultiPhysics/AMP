@@ -12,6 +12,7 @@
 #include "AMP/operators/boundary/libmesh/PressureBoundaryOperator.h"
 #include "AMP/operators/mechanics/MechanicsLinearFEOperator.h"
 #include "AMP/operators/mechanics/MechanicsNonlinearFEOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/petsc/PetscKrylovSolver.h"
 #include "AMP/solvers/petsc/PetscSNESSolver.h"
@@ -20,7 +21,7 @@
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
-#include "AMP/utils/Utilities.h"
+#include "AMP/vectors/Variable.h"
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/VectorSelector.h"
 
@@ -33,19 +34,23 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
     std::string log_file   = "output_" + exeName;
-
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    //   Create the Mesh.
-    AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
-    auto mesh_db    = input_db->getDatabase( "Mesh" );
-    auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
-    meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
+    // Get the Mesh database and create the mesh parameters
+    auto database = input_db->getDatabase( "Mesh" );
+    auto params   = std::make_shared<AMP::Mesh::MeshParameters>( database );
+    params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
+
+    // Create the meshes from the input database
+    auto mesh = AMP::Mesh::MeshFactory::create( params );
+
+    // Create the DOFManagers
+    auto NodalVectorDOF =
+        AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Vertex, 1, 3 );
 
     AMP_INSIST( input_db->keyExists( "NumberOfLoadingSteps" ),
                 "Key ''NumberOfLoadingSteps'' is missing!" );
@@ -57,47 +62,37 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto nonlinearMechanicsVolumeOperator =
         std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
             nonlinBvpOperator->getVolumeOperator() );
-    auto elementPhysicsModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
+    auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     auto linBvpOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
         nonlinBvpOperator->getParameters( "Jacobian", nullptr ) );
 
+    auto multivariable = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVariable>(
+        nonlinBvpOperator->getVolumeOperator()->getInputVariable() );
     auto displacementVariable =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinBvpOperator->getVolumeOperator() )
-            ->getOutputVariable();
+        multivariable->getVariable( AMP::Operator::Mechanics::DISPLACEMENT );
+    auto residualVariable = nonlinBvpOperator->getOutputVariable();
 
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
-    dirichletLoadVecOp->setVariable( displacementVariable );
+    dirichletLoadVecOp->setVariable( residualVariable );
 
     // Pressure RHS
     auto pressureLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::PressureBoundaryOperator>(
         AMP::Operator::OperatorBuilder::createOperator( mesh, "Pressure_Boundary", input_db ) );
-
-    // For Initial-Guess
-    auto dirichletDispInVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
-        AMP::Operator::OperatorBuilder::createOperator( mesh, "Displacement_Boundary", input_db ) );
-    dirichletDispInVecOp->setVariable( displacementVariable );
-
-    auto nodalDofMap = AMP::Discretization::simpleDOFManager::create(
-        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
-
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
 
-    auto mechNlSolVec = AMP::LinearAlgebra::createVector( nodalDofMap, displacementVariable, true );
-    auto mechNlRhsVec = mechNlSolVec->clone();
-    auto mechNlResVec = mechNlSolVec->clone();
-    auto mechNlScaledRhsVec = mechNlSolVec->clone();
-    auto mechPressureVec    = mechNlSolVec->clone();
+    auto mechNlSolVec    = AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
+    auto mechNlRhsVec    = AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
+    auto mechPressureVec = AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
+    auto mechNlResVec    = AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
+    auto mechNlScaledRhsVec =
+        AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
 
     // Initial guess for NL solver must satisfy the displacement boundary conditions
     mechNlSolVec->setToScalar( 0.0 );
     mechPressureVec->setToScalar( 0.0 );
-
-    dirichletDispInVecOp->apply( nullVec, mechNlSolVec );
-    mechNlSolVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     nonlinBvpOperator->apply( mechNlSolVec, mechNlResVec );
     linBvpOperator->reset( nonlinBvpOperator->getParameters( "Jacobian", mechNlSolVec ) );
@@ -111,24 +106,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     mechNlRhsVec->add( *mechNlRhsVec, *mechPressureVec );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
-    auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
-
-    // ---- first initialize the preconditioner
-    auto pcSolver_db    = linearSolver_db->getDatabase( "Preconditioner" );
-    auto pcSolverParams = std::make_shared<AMP::Solver::TrilinosMLSolverParameters>( pcSolver_db );
-    pcSolverParams->d_pOperator = linBvpOperator;
-    auto pcSolver               = std::make_shared<AMP::Solver::TrilinosMLSolver>( pcSolverParams );
-
-    // HACK to prevent a double delete on Petsc Vec
-    std::shared_ptr<AMP::Solver::PetscSNESSolver> nonlinearSolver;
-
-    // initialize the linear solver
-    auto linearSolverParams =
-        std::make_shared<AMP::Solver::SolverStrategyParameters>( linearSolver_db );
-    linearSolverParams->d_pOperator     = linBvpOperator;
-    linearSolverParams->d_comm          = globalComm;
-    linearSolverParams->d_pNestedSolver = pcSolver;
-    auto linearSolver = std::make_shared<AMP::Solver::PetscKrylovSolver>( linearSolverParams );
 
     // initialize the nonlinear solver
     auto nonlinearSolverParams =
@@ -136,10 +113,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     // change the next line to get the correct communicator out
     nonlinearSolverParams->d_comm          = globalComm;
     nonlinearSolverParams->d_pOperator     = nonlinBvpOperator;
-    nonlinearSolverParams->d_pNestedSolver = linearSolver;
     nonlinearSolverParams->d_pInitialGuess = mechNlSolVec;
-    nonlinearSolver.reset( new AMP::Solver::PetscSNESSolver( nonlinearSolverParams ) );
-
+    auto nonlinearSolver = std::make_shared<AMP::Solver::PetscSNESSolver>( nonlinearSolverParams );
     nonlinearSolver->setZeroInitialGuess( false );
 
     for ( int step = 0; step < NumberOfLoadingSteps; step++ ) {
@@ -171,39 +146,42 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
             ut->passes( "Nonlinear solve for current loading step" );
         }
 
-        AMP::pout << "Final Solution Norm: " << mechNlSolVec->L2Norm() << std::endl;
+        double finalSolNorm = static_cast<double>( mechNlSolVec->L2Norm() );
+        AMP::pout << "Final Solution Norm: " << finalSolNorm << std::endl;
 
         auto mechUvec = mechNlSolVec->select( AMP::LinearAlgebra::VS_Stride( 0, 3 ) );
         auto mechVvec = mechNlSolVec->select( AMP::LinearAlgebra::VS_Stride( 1, 3 ) );
         auto mechWvec = mechNlSolVec->select( AMP::LinearAlgebra::VS_Stride( 2, 3 ) );
 
-        AMP::pout << "Maximum U displacement: " << mechUvec->maxNorm() << std::endl;
-        AMP::pout << "Maximum V displacement: " << mechVvec->maxNorm() << std::endl;
-        AMP::pout << "Maximum W displacement: " << mechWvec->maxNorm() << std::endl;
+        double finalMaxU = static_cast<double>( mechUvec->maxNorm() );
+        double finalMaxV = static_cast<double>( mechVvec->maxNorm() );
+        double finalMaxW = static_cast<double>( mechWvec->maxNorm() );
+
+        AMP::pout << "Maximum U displacement: " << finalMaxU << std::endl;
+        AMP::pout << "Maximum V displacement: " << finalMaxV << std::endl;
+        AMP::pout << "Maximum W displacement: " << finalMaxW << std::endl;
 
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        nonlinBvpOperator->getVolumeOperator()->reset( tmpParams );
+        ( nonlinBvpOperator->getVolumeOperator() )->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
-
-        mesh->displaceMesh( mechNlSolVec );
-        auto outFileName2 =
-            AMP::Utilities::stringf( "PressurePrescribed-DeformedBrick-LinearElasticity_%d", step );
     }
 
-    AMP::pout << "Final Solution Norm: " << mechNlSolVec->L2Norm() << std::endl;
+    double finalSolNorm = static_cast<double>( mechNlSolVec->L2Norm() );
+    AMP::pout << "Final Solution Norm: " << finalSolNorm << std::endl;
 
     ut->passes( exeName );
 }
 
-int testBrickPressureBoundary_1( int argc, char *argv[] )
+int testPetscSNESSolver_NonlinearMechanics_Cylinder( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
     std::vector<std::string> exeNames;
-    exeNames.emplace_back( "testBrickPressureBoundary-1" );
+    exeNames.emplace_back( "testPetscSNESSolver-NonlinearMechanics-Cylinder-1" );
+    // exeNames.push_back("testPetscSNESSolver-NonlinearMechanics-PlateWithHole-1");
 
     for ( auto &exeName : exeNames )
         myTest( &ut, exeName );

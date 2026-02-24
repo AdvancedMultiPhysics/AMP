@@ -1,5 +1,4 @@
 #include "AMP/IO/PIO.h"
-#include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
@@ -11,11 +10,8 @@
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletMatrixCorrection.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
-#include "AMP/operators/mechanics/MechanicsLinearElement.h"
 #include "AMP/operators/mechanics/MechanicsLinearFEOperator.h"
-#include "AMP/operators/mechanics/MechanicsNonlinearElement.h"
 #include "AMP/operators/mechanics/MechanicsNonlinearFEOperator.h"
-#include "AMP/operators/mechanics/ThermalStrainMaterialModel.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/petsc/PetscKrylovSolver.h"
 #include "AMP/solvers/petsc/PetscSNESSolver.h"
@@ -26,20 +22,15 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/VectorSelector.h"
-
 #include "libmesh/mesh_communication.h"
 
-#include <cmath>
 #include <iostream>
-#include <memory>
 #include <string>
-
 
 static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
-    std::string input_file  = "input_" + exeName;
-    std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
+    std::string input_file = "input_" + exeName;
+    std::string log_file   = "log_" + exeName;
 
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
@@ -48,17 +39,22 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    //   Create the Mesh.
     auto mesh_file = input_db->getString( "mesh_file" );
     auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
 
-    bool ExtractData = input_db->getWithDefault<bool>( "ExtractStressStrainData", false );
-    FILE *fout123;
-    std::string ss_file = exeName + "_UniaxialStressStrain.txt";
-    fout123             = fopen( ss_file.c_str(), "w" );
+    AMP_INSIST( input_db->keyExists( "NumberOfLoadingSteps" ),
+                "Key ''NumberOfLoadingSteps'' is missing!" );
+    int NumberOfLoadingSteps = input_db->getScalar<int>( "NumberOfLoadingSteps" );
+
+    AMP_INSIST( input_db->keyExists( "OutputFileName" ), "Key ''OutputFileName'' is missing!" );
+    auto outFileName = input_db->getString( "OutputFileName" );
+
+    auto fp = fopen( outFileName.c_str(), "w" );
+    fprintf( fp, "clc; \n clear; \n A = zeros(24, 24); \n \n" );
 
     // Create a nonlinear BVP operator for mechanics
     AMP_INSIST( input_db->keyExists( "NonlinearMechanicsOperator" ), "key missing!" );
+    auto dirichletVectorCorrectionDatabase = input_db->getDatabase( "DirichletVectorCorrection1" );
     auto nonlinearMechanicsBVPoperator =
         std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
             AMP::Operator::OperatorBuilder::createOperator(
@@ -74,35 +70,23 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
             nonlinearMechanicsBVPoperator->getVolumeOperator() );
     auto dispVar = mechanicsNonlinearVolumeOperator->getOutputVariable();
 
-    // auto mechanicsLinearVolumeOperator =
-    //    std::dynamic_pointer_cast<AMP::Operator::MechanicsLinearFEOperator>(
-    //       linearMechanicsBVPoperator->getVolumeOperator());
-
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
     dirichletLoadVecOp->setVariable( dispVar );
 
-    //--------------------------------------------------
-    // Create a DOF manager for a nodal vector
-    //--------------------------------------------------
-    int DOFsPerNode     = 3;
-    int nodalGhostWidth = 1;
-    bool split          = true;
-    auto nodalDofMap    = AMP::Discretization::simpleDOFManager::create(
-        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
-    //--------------------------------------------------
+    auto dofMap = AMP::Discretization::simpleDOFManager::create(
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     // Create the vectors
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
-    auto solVec       = AMP::LinearAlgebra::createVector( nodalDofMap, dispVar );
+    auto solVec       = AMP::LinearAlgebra::createVector( dofMap, dispVar, true );
     auto rhsVec       = solVec->clone();
     auto resVec       = solVec->clone();
     auto scaledRhsVec = solVec->clone();
 
     // Initial guess
     solVec->zero();
-    nonlinearMechanicsBVPoperator->modifyInitialSolutionVector( solVec );
 
     // RHS
     rhsVec->zero();
@@ -121,8 +105,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         nonlinearMechanicsBVPoperator->getParameters( "Jacobian", solVec ) );
 
     double epsilon =
-        1.0e-13 * static_cast<double>(
-                      ( linearMechanicsBVPoperator->getMatrix() )->extractDiagonal()->L1Norm() );
+        1.0e-13 *
+        static_cast<double>( linearMechanicsBVPoperator->getMatrix()->extractDiagonal()->L1Norm() );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
     auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
@@ -156,17 +140,13 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     nonlinearSolver->setZeroInitialGuess( false );
 
-    int NumberOfLoops        = 2;
-    int TotalLoadingSteps    = 4;
-    int NumberOfLoadingSteps = NumberOfLoops * ( 4 * TotalLoadingSteps );
-    double AngleIncrement    = ( 11.0 / 7.0 ) * ( 1.0 / ( (double) TotalLoadingSteps ) );
-
     for ( int step = 0; step < NumberOfLoadingSteps; step++ ) {
         AMP::pout << "########################################" << std::endl;
         AMP::pout << "The current loading step is " << ( step + 1 ) << std::endl;
 
-        double scaleValue;
-        scaleValue = sin( ( (double) step ) * AngleIncrement );
+        nonlinearMechanicsBVPoperator->modifyInitialSolutionVector( solVec );
+
+        double scaleValue = ( (double) step + 1.0 ) / NumberOfLoadingSteps;
         scaledRhsVec->scale( scaleValue, *rhsVec );
         scaledRhsVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         AMP::pout << "L2 Norm of RHS at loading step " << ( step + 1 ) << " is "
@@ -190,7 +170,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
             ut->passes( "Nonlinear solve for current loading step" );
         }
 
-        AMP::pout << "Final Solution Norm: " << solVec->L2Norm() << std::endl;
+        double finalSolNorm = static_cast<double>( solVec->L2Norm() );
+
+        AMP::pout << "Final Solution Norm: " << finalSolNorm << std::endl;
 
         auto mechUvec = solVec->select( AMP::LinearAlgebra::VS_Stride( 0, 3 ) );
         auto mechVvec = solVec->select( AMP::LinearAlgebra::VS_Stride( 1, 3 ) );
@@ -204,65 +186,49 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
         nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
+
+        scaleValue = ( (double) ( step + 2 ) ) * 0.16;
+        dirichletVectorCorrectionDatabase->putScalar( "value_2_0", scaleValue );
+        auto bndParams = std::make_shared<AMP::Operator::DirichletVectorCorrectionParameters>(
+            dirichletVectorCorrectionDatabase );
+        nonlinearMechanicsBVPoperator->getBoundaryOperator()->reset( bndParams );
+
         nonlinearSolver->setZeroInitialGuess( false );
 
-        std::string number1 = std::to_string( step );
-        std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
+        auto mechMat = linearMechanicsBVPoperator->getMatrix();
 
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() )
-            ->printStressAndStrain( solVec, fname );
-
-        if ( ExtractData ) {
-            FILE *fin;
-            fin             = fopen( fname.c_str(), "r" );
-            double coord[3] = { 0, 0, 0 }, stress1[6] = { 0, 0, 0 }, strain1[6] = { 0, 0, 0 };
-            for ( int ijk = 0; ijk < 8; ijk++ ) {
-                for ( auto &elem : coord )
-                    [[maybe_unused]] int ret = fscanf( fin, "%lf", &elem );
-                for ( auto &elem : stress1 )
-                    [[maybe_unused]] int ret = fscanf( fin, "%lf", &elem );
-                for ( auto &elem : strain1 )
-                    [[maybe_unused]] int ret = fscanf( fin, "%lf", &elem );
-                if ( ijk == 7 ) {
-                    const double prev_stress = 1.0, prev_strain = 1.0;
-                    double slope = 1.0;
-                    if ( step == 0 ) {
-                        slope = 0.0;
-                    } else {
-                        slope = ( stress1[2] - prev_stress ) / ( strain1[2] - prev_strain );
-                    }
-                    fprintf( fout123, "%f %f %f\n", strain1[2], stress1[2], slope );
-                }
-            }
-            fclose( fin );
-        }
+        for ( int i = 0; i < 24; i++ ) {
+            std::vector<size_t> matCols;
+            std::vector<double> matVals;
+            mechMat->getRowByGlobalID( i, matCols, matVals );
+            for ( unsigned int j = 0; j < matCols.size(); j++ ) {
+                fprintf(
+                    fp, "A(%d, %d) = %.15f ; \n", ( i + 1 ), (int) ( matCols[j] + 1 ), matVals[j] );
+            } // end for j
+            fprintf( fp, "\n" );
+        } // end for i
     }
 
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
-    mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
-
     ut->passes( exeName );
-    fclose( fout123 );
 }
 
-int testElementLevel_VonMisesPlasticity_LoadingUnloadingLoop( int argc, char *argv[] )
+int testUpdatedLagrangianMechanics_FlanaganTaylorElement( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
+
     AMP::UnitTest ut;
 
     std::vector<std::string> exeNames;
-    // exeNames.push_back("testElementLevel-IsotropicElasticity");
-    // exeNames.push_back("testElementLevel-VonMisesIsotropicHardeningPlasticity");
-    exeNames.emplace_back( "testElementLevel-VonMisesKinematicHardeningPlasticity" );
+    exeNames.emplace_back( "testUpdatedLagrangianMechanics-FlanaganTaylorElement-1" );
 
     for ( auto &exeName : exeNames )
         myTest( &ut, exeName );
 
     ut.report();
-
     int num_failed = ut.NumFailGlobal();
+
     AMP::AMPManager::shutdown();
     return num_failed;
 }
