@@ -116,11 +116,11 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
         std::vector<std::vector<size_t>> type0DofIndices( currNodes.size() );
         std::vector<std::vector<size_t>> type1DofIndices( currNodes.size() );
         for ( size_t j = 0; j < currNodes.size(); ++j ) {
-            dof_map_0->getDOFs( currNodes[j]->globalID(), type0DofIndices[j] );
-            dof_map_1->getDOFs( currNodes[j]->globalID(), type1DofIndices[j] );
+            dof_map_0->getDOFs( currNodes[j].globalID(), type0DofIndices[j] );
+            dof_map_1->getDOFs( currNodes[j].globalID(), type1DofIndices[j] );
         } // end j
 
-        std::vector<double> elementForceVector( ( 3 * numNodesInCurrElem ), 0.0 );
+        std::vector<double> elementForceVector( 3 * numNodesInCurrElem, 0.0 );
         std::vector<double> currElementTemperatureVector( numNodesInCurrElem );
         std::vector<double> prevElementTemperatureVector( numNodesInCurrElem );
 
@@ -133,7 +133,7 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
 
         libMesh::Elem *elem = new libMesh::Hex8;
         for ( size_t j = 0; j < currNodes.size(); ++j ) {
-            auto pt             = currNodes[j]->coord();
+            auto pt             = currNodes[j].coord();
             elem->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
         } // end j
 

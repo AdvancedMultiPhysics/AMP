@@ -344,8 +344,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElementPtr>
-    getElementParents( const MeshElement &elem, const GeomType type ) const override final;
+    virtual ElementListPtr getElementParents( const MeshElement &elem,
+                                              const GeomType type ) const override final;
 
 
     //! Return the global logical box

@@ -1,8 +1,8 @@
-#ifndef included_AMP_MeshElementVectorIterator_hpp
-#define included_AMP_MeshElementVectorIterator_hpp
+#ifndef included_AMP_MeshListIterator_hpp
+#define included_AMP_MeshListIterator_hpp
 
 #include "AMP/mesh/MeshElement.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/utils/TypeTraits.h"
 #include "AMP/utils/typeid.h"
 
@@ -14,9 +14,9 @@ namespace AMP::Mesh {
  * Constructors                                          *
  ********************************************************/
 template<class TYPE>
-MeshElementVectorIterator<TYPE>::MeshElementVectorIterator()
+MeshListIterator<TYPE>::MeshListIterator()
 {
-    constexpr auto hash = AMP::getTypeID<MeshElementVectorIterator<TYPE>>().hash;
+    constexpr auto hash = AMP::getTypeID<MeshListIterator<TYPE>>().hash;
     static_assert( hash != 0 );
     d_typeHash = hash;
     d_iterator = nullptr;
@@ -25,11 +25,10 @@ MeshElementVectorIterator<TYPE>::MeshElementVectorIterator()
     d_element  = nullptr;
 }
 template<class TYPE>
-MeshElementVectorIterator<TYPE>::MeshElementVectorIterator(
-    std::shared_ptr<std::vector<TYPE>> elements, size_t pos )
+MeshListIterator<TYPE>::MeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos )
     : d_elements( elements )
 {
-    constexpr auto hash = AMP::getTypeID<MeshElementVectorIterator<TYPE>>().hash;
+    constexpr auto hash = AMP::getTypeID<MeshListIterator<TYPE>>().hash;
     d_typeHash          = hash;
     d_iterator          = nullptr;
     d_pos               = pos;
@@ -40,11 +39,11 @@ MeshElementVectorIterator<TYPE>::MeshElementVectorIterator(
         d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
 }
 template<class TYPE>
-MeshElementVectorIterator<TYPE>::MeshElementVectorIterator( const MeshElementVectorIterator &rhs )
+MeshListIterator<TYPE>::MeshListIterator( const MeshListIterator &rhs )
     : MeshIterator(), // Note: we never want to call the base copy constructor
       d_elements( rhs.d_elements )
 {
-    constexpr auto hash = AMP::getTypeID<MeshElementVectorIterator<TYPE>>().hash;
+    constexpr auto hash = AMP::getTypeID<MeshListIterator<TYPE>>().hash;
     d_typeHash          = hash;
     d_iterator          = nullptr;
     d_pos               = rhs.d_pos;
@@ -55,10 +54,9 @@ MeshElementVectorIterator<TYPE>::MeshElementVectorIterator( const MeshElementVec
         d_element = d_pos < d_size ? &d_elements->operator[]( d_pos ) : nullptr;
 }
 template<class TYPE>
-MeshElementVectorIterator<TYPE> &
-MeshElementVectorIterator<TYPE>::operator=( const MeshElementVectorIterator &rhs )
+MeshListIterator<TYPE> &MeshListIterator<TYPE>::operator=( const MeshListIterator &rhs )
 {
-    constexpr auto hash = AMP::getTypeID<MeshElementVectorIterator<TYPE>>().hash;
+    constexpr auto hash = AMP::getTypeID<MeshListIterator<TYPE>>().hash;
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
     d_typeHash = hash;
@@ -78,9 +76,9 @@ MeshElementVectorIterator<TYPE>::operator=( const MeshElementVectorIterator &rhs
  * Function to clone the iterator                        *
  ********************************************************/
 template<class TYPE>
-MeshIterator *MeshElementVectorIterator<TYPE>::clone() const
+MeshIterator *MeshListIterator<TYPE>::clone() const
 {
-    return new MeshElementVectorIterator( *this );
+    return new MeshListIterator( *this );
 }
 
 
@@ -88,14 +86,14 @@ MeshIterator *MeshElementVectorIterator<TYPE>::clone() const
  * Return an iterator to the beginning or end            *
  ********************************************************/
 template<class TYPE>
-MeshIterator MeshElementVectorIterator<TYPE>::begin() const
+MeshIterator MeshListIterator<TYPE>::begin() const
 {
-    return MeshElementVectorIterator( d_elements, 0 );
+    return MeshListIterator( d_elements, 0 );
 }
 template<class TYPE>
-MeshIterator MeshElementVectorIterator<TYPE>::end() const
+MeshIterator MeshListIterator<TYPE>::end() const
 {
-    return MeshElementVectorIterator( d_elements, d_elements->size() );
+    return MeshListIterator( d_elements, d_elements->size() );
 }
 
 
@@ -103,7 +101,7 @@ MeshIterator MeshElementVectorIterator<TYPE>::end() const
  * Increment/Decrement the iterator                      *
  ********************************************************/
 template<class TYPE>
-MeshIterator &MeshElementVectorIterator<TYPE>::operator++()
+MeshIterator &MeshListIterator<TYPE>::operator++()
 {
     // Prefix increment (increment and return this)
     d_pos++;
@@ -114,7 +112,7 @@ MeshIterator &MeshElementVectorIterator<TYPE>::operator++()
     return *this;
 }
 template<class TYPE>
-MeshIterator &MeshElementVectorIterator<TYPE>::operator--()
+MeshIterator &MeshListIterator<TYPE>::operator--()
 {
     // Prefix decrement (increment and return this)
     d_pos--;
@@ -130,7 +128,7 @@ MeshIterator &MeshElementVectorIterator<TYPE>::operator--()
  * Random access iterators                               *
  ********************************************************/
 template<class TYPE>
-MeshIterator &MeshElementVectorIterator<TYPE>::operator+=( int n )
+MeshIterator &MeshListIterator<TYPE>::operator+=( int n )
 {
     if ( n >= 0 ) { // increment *this
         auto n2 = static_cast<size_t>( n );
@@ -155,20 +153,20 @@ MeshIterator &MeshElementVectorIterator<TYPE>::operator+=( int n )
  * Compare two iterators                                 *
  ********************************************************/
 template<class TYPE>
-bool MeshElementVectorIterator<TYPE>::operator==( const MeshIterator &rhs ) const
+bool MeshListIterator<TYPE>::operator==( const MeshIterator &rhs ) const
 {
-    const MeshElementVectorIterator *rhs2 = nullptr;
-    // Convert rhs to a MeshElementVectorIterator* so we can access the base class members
-    constexpr auto hash = AMP::getTypeID<MeshElementVectorIterator<TYPE>>().hash;
-    const auto *tmp     = reinterpret_cast<const MeshElementVectorIterator *>( &rhs );
+    const MeshListIterator *rhs2 = nullptr;
+    // Convert rhs to a MeshListIterator* so we can access the base class members
+    constexpr auto hash = AMP::getTypeID<MeshListIterator<TYPE>>().hash;
+    const auto *tmp     = reinterpret_cast<const MeshListIterator *>( &rhs );
     if ( tmp->d_typeHash == hash ) {
-        rhs2 = tmp; // We can safely cast rhs.iterator to a MeshElementVectorIterator
+        rhs2 = tmp; // We can safely cast rhs.iterator to a MeshListIterator
     } else if ( tmp->d_iterator != nullptr ) {
-        tmp = reinterpret_cast<const MeshElementVectorIterator *>( tmp->d_iterator );
+        tmp = reinterpret_cast<const MeshListIterator *>( tmp->d_iterator );
         if ( tmp->d_typeHash == hash )
-            rhs2 = tmp; // We can safely cast rhs.iterator to a MeshElementVectorIterator
+            rhs2 = tmp; // We can safely cast rhs.iterator to a MeshListIterator
     }
-    // Perform direct comparisions if we are dealing with two MeshElementVectorIterators
+    // Perform direct comparisions if we are dealing with two MeshListIterators
     if ( rhs2 != nullptr ) {
         // Check that we are at the same position
         if ( d_pos != rhs2->d_pos )
@@ -192,7 +190,7 @@ bool MeshElementVectorIterator<TYPE>::operator==( const MeshIterator &rhs ) cons
         }
         return match;
     }
-    /* We are comparing a MeshElementVectorIterator to an arbitrary iterator
+    /* We are comparing a MeshListIterator to an arbitrary iterator
      * The iterators are the same if they point to the same position and iterate
      * over the same elements in the same order
      */
@@ -217,7 +215,7 @@ bool MeshElementVectorIterator<TYPE>::operator==( const MeshIterator &rhs ) cons
     return match;
 }
 template<class TYPE>
-bool MeshElementVectorIterator<TYPE>::operator!=( const MeshIterator &rhs ) const
+bool MeshListIterator<TYPE>::operator!=( const MeshIterator &rhs ) const
 {
     return !( *this == rhs );
 }

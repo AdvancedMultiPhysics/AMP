@@ -48,19 +48,19 @@ public:
      * \details   This function will get the parent elements of the current element
      * \param type  The desired type of the parents to get
      */
-    ElementList getParents( GeomType type ) const;
+    ElementListPtr getParents( GeomType type ) const;
 
     //! Return the index of the element
     const auto &getIndex() const { return d_index; }
 
 
 public: // Functions derived from MeshElement
-    typeID getTypeID() const override { return AMP::getTypeID<structuredMeshElement>(); }
+    const typeID &getTypeID() const override;
     MeshElementID globalID() const override { return d_mesh->convert( d_index ); }
     inline std::string elementClass() const override { return "structuredMeshElement"; }
-    virtual void getElements( const GeomType, ElementList & ) const override;
-    virtual int getElementsID( const GeomType, MeshElementID * ) const override;
-    void getNeighbors( ElementList & ) const override;
+    ElementListPtr getElements( const GeomType ) const override;
+    int getElementsID( const GeomType, MeshElementID * ) const override;
+    ElementListPtr getNeighbors() const override;
     Point centroid() const override;
     double volume() const override;
     Point norm() const override;

@@ -48,19 +48,19 @@ public:
     MeshElementID globalID() const override { return d_globalID; }
 
     //! Return the typeID of the underlying element
-    typeID getTypeID() const override { return AMP::getTypeID<libmeshMeshElement>(); }
+    const typeID &getTypeID() const override;
 
     //! Return the element class
     inline std::string elementClass() const override { return "libmeshMeshElement"; }
 
     //! Return the elements composing the current element
-    void getElements( const GeomType type, ElementList &elements ) const override;
+    ElementListPtr getElements( const GeomType type ) const override;
 
     //! Return the IDs of the elements composing the current element
     int getElementsID( const GeomType type, MeshElementID *ID ) const override;
 
     //! Return the elements neighboring the current element
-    void getNeighbors( ElementList &neighbors ) const override;
+    ElementListPtr getNeighbors() const override;
 
     //! Return the volume of the current element (does not apply to vertices)
     double volume() const override;

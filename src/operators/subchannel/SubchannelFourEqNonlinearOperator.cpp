@@ -1,5 +1,5 @@
 #include "AMP/operators/subchannel/SubchannelFourEqNonlinearOperator.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/operators/subchannel/SubchannelConstants.h"
 #include "AMP/operators/subchannel/SubchannelHelpers.h"
@@ -186,7 +186,7 @@ void SubchannelFourEqNonlinearOperator::reset( std::shared_ptr<const OperatorPar
         if ( !d_ownSubChannel[i] )
             continue;
         std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
-        auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
+        auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
         auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
         auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
         for ( size_t j = 0; j < face.size(); j++ ) {
@@ -220,7 +220,7 @@ void SubchannelFourEqNonlinearOperator::getLateralFaces(
         // loop over vertices of current face
         for ( auto &vertice : vertices ) {
             // get coordinates of current vertex
-            auto vertexCoord = vertice->coord();
+            auto vertexCoord = vertice.coord();
             // if any vertex does not have the same x-coordinate as the face centroid,
             if ( !AMP::Utilities::approx_equal( vertexCoord[0], faceCentroid[0], 1.0e-6 ) )
                 // then the face is not perpindicular to x-axis
@@ -269,7 +269,7 @@ SubchannelFourEqNonlinearOperator::getGapWidths( std::shared_ptr<AMP::Mesh::Mesh
                 // create vector of xy position of gap face
                 AMP::Mesh::Point xyPos( faceCentroid[0], faceCentroid[1] );
                 // get vertices of current face
-                std::vector<ElementPtr> vertices = face->getElements( AMP::Mesh::GeomType::Vertex );
+                auto vertices = face->getElements( AMP::Mesh::GeomType::Vertex );
                 // loop over vertices of current face
                 bool topVertex1Found = false;
                 double x1            = 0.0;
@@ -278,7 +278,7 @@ SubchannelFourEqNonlinearOperator::getGapWidths( std::shared_ptr<AMP::Mesh::Mesh
                 double gapWidth      = 0.0;
                 for ( auto &vertice : vertices ) {
                     // get coordinates of current vertex
-                    auto vertexCoord = vertice->coord();
+                    auto vertexCoord = vertice.coord();
                     if ( AMP::Utilities::approx_equal( vertexCoord[2], d_z[Nz], 1.0e-12 ) ) {
                         if ( topVertex1Found ) { // second top vertex has been found
                             // check for clad centered at this vertex
@@ -485,7 +485,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
         for ( const auto &ielem : d_elem[isub] ) {
             subchannelElements->push_back( ielem->clone() );
         }
-        auto localSubchannelCell = AMP::Mesh::MeshElementVectorIterator(
+        auto localSubchannelCell = AMP::Mesh::MeshListIterator(
             subchannelElements ); // iterator over elements of current subchannel
         // get subchannel index
         auto subchannelCentroid = localSubchannelCell->centroid();
@@ -497,7 +497,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
         if ( d_source == "averageCladdingTemperature" ) {
             std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub],
                                                               []( auto ) {} );
-            auto localSubchannelFace = AMP::Mesh::MeshElementVectorIterator( elemPtr );
+            auto localSubchannelFace = AMP::Mesh::MeshListIterator( elemPtr );
             AMP_ASSERT( localSubchannelFace.size() == d_z.size() );
             auto face = localSubchannelFace.begin();
             std::vector<AMP::Mesh::MeshElementID> face_ids( face.size() );
@@ -683,7 +683,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
             // loop over gap faces
             auto cellFaces = localSubchannelCell->getElements( AMP::Mesh::GeomType::Face );
             for ( auto &cellFace : cellFaces ) {
-                auto faceCentroid        = cellFace->centroid();
+                auto faceCentroid        = cellFace.centroid();
                 auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
                 if ( lateralFaceIterator != interiorLateralFaceMap.end() ) {
                     // get face
@@ -697,8 +697,8 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                         d_Mesh->getElementParents( *lateralFace, AMP::Mesh::GeomType::Cell );
                     AMP_INSIST( adjacentCells.size() == 2,
                                 "There were not 2 adjacent cells to a lateral gap face" );
-                    auto subchannelCentroid1 = adjacentCells[0]->centroid();
-                    auto subchannelCentroid2 = adjacentCells[1]->centroid();
+                    auto subchannelCentroid1 = adjacentCells[0].centroid();
+                    auto subchannelCentroid2 = adjacentCells[1].centroid();
                     size_t subchannelIndex1 =
                         getSubchannelIndex( subchannelCentroid1[0], subchannelCentroid1[1] );
                     size_t subchannelIndex2 =
@@ -709,10 +709,10 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                         AMP_INSIST( subchannelIndex2 != currentSubchannelIndex,
                                     "Adjacent cells have the same subchannel index." );
                         neighborSubchannelIndex = subchannelIndex2;
-                        neighborCell            = adjacentCells[1]->clone();
+                        neighborCell            = adjacentCells[1].clone();
                     } else if ( subchannelIndex2 == currentSubchannelIndex ) {
                         neighborSubchannelIndex = subchannelIndex1;
-                        neighborCell            = adjacentCells[0]->clone();
+                        neighborCell            = adjacentCells[0].clone();
                     } else {
                         AMP_ERROR( "Neither of adjacent cells had the same index as the current "
                                    "subchannel." );
@@ -926,15 +926,15 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                         "There were not 2 adjacent cells to a lateral gap face" );
             auto &cell1        = adjacentCells[0];
             auto &cell2        = adjacentCells[1];
-            auto cell1Centroid = cell1->centroid();
-            auto cell2Centroid = cell2->centroid();
+            auto cell1Centroid = cell1.centroid();
+            auto cell2Centroid = cell2.centroid();
             // get upper and lower axial faces
             ElementPtr cell1PlusFace;  // upper axial face for cell 1
             ElementPtr cell1MinusFace; // lower axial face for cell 1
             ElementPtr cell2PlusFace;  // upper axial face for cell 2
             ElementPtr cell2MinusFace; // lower axial face for cell 2
-            getAxialFaces( *cell1, cell1PlusFace, cell1MinusFace );
-            getAxialFaces( *cell2, cell2PlusFace, cell2MinusFace );
+            getAxialFaces( cell1, cell1PlusFace, cell1MinusFace );
+            getAxialFaces( cell2, cell2PlusFace, cell2MinusFace );
 
             // determine if cells are in the first axial interval
             auto cell1MinusFaceCentroid = cell1MinusFace->centroid();
@@ -960,44 +960,38 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                 auto &axialCell12        = cell1MinusFaceAdjacentCells[1];
                 auto &axialCell21        = cell2MinusFaceAdjacentCells[0];
                 auto &axialCell22        = cell2MinusFaceAdjacentCells[1];
-                auto axialCell11Centroid = axialCell11->centroid();
-                auto axialCell12Centroid = axialCell12->centroid();
-                auto axialCell21Centroid = axialCell21->centroid();
-                auto axialCell22Centroid = axialCell22->centroid();
+                auto axialCell11Centroid = axialCell11.centroid();
+                auto axialCell12Centroid = axialCell12.centroid();
+                auto axialCell21Centroid = axialCell21.centroid();
+                auto axialCell22Centroid = axialCell22.centroid();
                 // determine which cell is bottom cell
-                AMP::Mesh::MeshElement *bottomCell1;
-                // std::vector<double> *bottomCell1Centroid;
-                AMP::Mesh::MeshElement *bottomCell2;
-                // std::vector<double> *bottomCell2Centroid;
+                const AMP::Mesh::MeshElement *bottomCell1 = nullptr;
+                const AMP::Mesh::MeshElement *bottomCell2 = nullptr;
                 if ( axialCell11Centroid[2] < cell1MinusFaceCentroid[2] ) {
                     // axialCell11 is bottom cell
                     // ensure that axialCell12 is above
                     AMP_INSIST( axialCell12Centroid[2] > cell1MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell1 = axialCell11.get();
-                    // bottomCell1Centroid = &axialCell11Centroid;
+                    bottomCell1 = &axialCell11;
                 } else {
                     // axialCell12 is bottom cell
                     // ensure that axialCell11 is above
                     AMP_INSIST( axialCell11Centroid[2] > cell1MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell1 = axialCell12.get();
-                    // bottomCell1Centroid = &axialCell12Centroid;
+                    bottomCell1 = &axialCell12;
                 }
                 if ( axialCell21Centroid[2] < cell2MinusFaceCentroid[2] ) {
                     // axialCell21 is bottom cell
                     // ensure that axialCell22 is above
                     AMP_INSIST( axialCell22Centroid[2] > cell2MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell2 = axialCell21.get();
-                    // bottomCell2Centroid = &axialCell21Centroid;
+                    bottomCell2 = &axialCell21;
                 } else {
                     // axialCell22 is bottom cell
                     // ensure that axialCell21 is above
                     AMP_INSIST( axialCell21Centroid[2] > cell2MinusFaceCentroid[2],
                                 "Both adjacent cells are below axial face parent" );
-                    bottomCell2 = axialCell22.get();
-                    // bottomCell2Centroid = &axialCell22Centroid;
+                    bottomCell2 = &axialCell22;
                 }
                 auto belowLateralFace = getAxiallyAdjacentLateralFace(
                     bottomCell1, *lateralFace, interiorLateralFaceMap );
@@ -1104,22 +1098,22 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                                     "There were not 2 adjacent cells to an axial gap face" );
                         auto &axialCell1        = cell1PlusFaceAdjacentCells[0];
                         auto &axialCell2        = cell1PlusFaceAdjacentCells[1];
-                        auto axialCell1Centroid = axialCell1->centroid();
-                        auto axialCell2Centroid = axialCell2->centroid();
+                        auto axialCell1Centroid = axialCell1.centroid();
+                        auto axialCell2Centroid = axialCell2.centroid();
                         // determine which cell is top cell
-                        AMP::Mesh::MeshElement *topCell;
+                        const AMP::Mesh::MeshElement *topCell = nullptr;
                         if ( axialCell1Centroid[2] > cell1PlusFaceCentroid[2] ) {
                             // axialCell1 is top cell
                             // ensure that axialCell2 is above
                             AMP_INSIST( axialCell2Centroid[2] < cell1PlusFaceCentroid[2],
                                         "Both adjacent cells are above axial face parent" );
-                            topCell = axialCell1.get();
+                            topCell = &axialCell1;
                         } else {
                             // axialCell2 is top cell
                             // ensure that axialCell1 is above
                             AMP_INSIST( axialCell1Centroid[2] < cell1PlusFaceCentroid[2],
                                         "Both adjacent cells are above axial face parent" );
-                            topCell = axialCell2.get();
+                            topCell = &axialCell2;
                         }
                         auto aboveLateralFace = getAxiallyAdjacentLateralFace(
                             topCell, *lateralFace, interiorLateralFaceMap );
@@ -1312,7 +1306,7 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
     auto cellFaces = cell.getElements( AMP::Mesh::GeomType::Face );
     // loop over faces of cell
     for ( auto &cellFace : cellFaces ) {
-        auto faceCentroid = cellFace->centroid();
+        auto faceCentroid = cellFace.centroid();
         // if z-coordinates of centroids of the cell and face are not equal,
         if ( !AMP::Utilities::approx_equal( faceCentroid[2], cellCentroid[2], 1.0e-6 ) ) {
             // if face is above cell centroid,
@@ -1321,7 +1315,7 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
                 if ( upperFaceFound )
                     AMP_ERROR( "Two upper axial faces were found for the same cell." );
                 else {
-                    upperFace      = cellFace->clone();
+                    upperFace      = cellFace.clone();
                     upperFaceFound = true;
                 }
             else
@@ -1329,7 +1323,7 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
                 if ( lowerFaceFound )
                     AMP_ERROR( "Two lower axial faces were found for the same cell." );
                 else {
-                    lowerFace      = cellFace->clone();
+                    lowerFace      = cellFace.clone();
                     lowerFaceFound = true;
                 }
         }
@@ -1340,7 +1334,7 @@ void SubchannelFourEqNonlinearOperator::getAxialFaces( const AMP::Mesh::MeshElem
 
 std::unique_ptr<AMP::Mesh::MeshElement>
 SubchannelFourEqNonlinearOperator::getAxiallyAdjacentLateralFace(
-    AMP::Mesh::MeshElement *daughterCell,
+    const AMP::Mesh::MeshElement *daughterCell,
     const AMP::Mesh::MeshElement &parentLateralFace,
     const std::map<AMP::Mesh::Point, ElementPtr> &interiorLateralFaceMap )
 {
@@ -1361,7 +1355,7 @@ SubchannelFourEqNonlinearOperator::getAxiallyAdjacentLateralFace(
     ElementPtr axiallyAdjacentLateralFace;
     auto daughterCellFaces = daughterCell->getElements( AMP::Mesh::GeomType::Face );
     for ( auto &daughterCellFace : daughterCellFaces ) {
-        auto faceCentroid        = daughterCellFace->centroid();
+        auto faceCentroid        = daughterCellFace.centroid();
         auto lateralFaceIterator = interiorLateralFaceMap.find( faceCentroid );
         if ( lateralFaceIterator != interiorLateralFaceMap.end() ) {
             // get lateral face

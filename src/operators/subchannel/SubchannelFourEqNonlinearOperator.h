@@ -158,7 +158,7 @@ private:
     double DynamicViscosity( double, double );    // evaluates dynamic viscosity
     double Enthalpy( double, double );            // evaluates specific enthalpy
 
-    ElementPtr getAxiallyAdjacentLateralFace( AMP::Mesh::MeshElement *,
+    ElementPtr getAxiallyAdjacentLateralFace( const AMP::Mesh::MeshElement *,
                                               const AMP::Mesh::MeshElement &,
                                               const std::map<AMP::Mesh::Point, ElementPtr> & );
 };

@@ -244,27 +244,31 @@ size_t structuredFaceDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
         return 0;
     // Get a list of all element ids that are part of the row
     // Only faces that share an element are part of the row
-    auto obj     = d_mesh->getElement( id );
-    auto parents = d_mesh->getElementParents( *obj, AMP::Mesh::GeomType::Cell );
-    AMP_ASSERT( parents.size() == 1 || parents.size() == 2 );
-    // Temporarily add neighbor elements
+    auto obj      = d_mesh->getElement( id );
+    auto parents  = d_mesh->getElementParents( *obj, AMP::Mesh::GeomType::Cell );
     size_t p_size = parents.size();
+    AMP_ASSERT( p_size == 1 || p_size == 2 );
+    // Temporarily add neighbor elements
+    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> tmp;
+    tmp.reserve( 9 * p_size );
+    for ( auto &p : parents )
+        tmp.push_back( p.clone() );
     for ( size_t i = 0; i < p_size; i++ ) {
-        auto neighbors = parents[i]->getNeighbors();
+        auto neighbors = parents[i].getNeighbors();
         for ( auto &neighbor : neighbors ) {
-            if ( neighbor != nullptr )
-                parents.push_back( neighbor->clone() );
+            if ( !neighbor.isNull() )
+                tmp.push_back( neighbor.clone() );
         }
     }
-    AMP::Utilities::unique( parents );
+    AMP::Utilities::unique( tmp );
     // Get the face ids of interest
     std::vector<AMP::Mesh::MeshElementID> ids;
-    ids.reserve( 6 * parents.size() );
-    for ( auto &parent : parents ) {
+    ids.reserve( 6 * tmp.size() );
+    for ( auto &parent : tmp ) {
         auto children = parent->getElements( AMP::Mesh::GeomType::Face );
         AMP_ASSERT( children.size() == 6 );
         for ( auto &elem : children )
-            ids.push_back( elem->globalID() );
+            ids.push_back( elem.globalID() );
     }
     AMP::Utilities::unique( ids );
     // AMP_ASSERT(ids.size()==6||ids.size()==11);

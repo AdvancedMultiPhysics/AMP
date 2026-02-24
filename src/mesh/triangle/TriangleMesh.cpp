@@ -947,14 +947,15 @@ TriangleMesh<NG>::getElementParents( const ElementID &id, const GeomType type ) 
     return std::make_pair( list.begin( index ), list.end( index ) );
 }
 template<uint8_t NG>
-std::vector<std::unique_ptr<MeshElement>>
-TriangleMesh<NG>::getElementParents( const MeshElement &elem, const GeomType type ) const
+Mesh::ElementListPtr TriangleMesh<NG>::getElementParents( const MeshElement &elem,
+                                                          const GeomType type ) const
 {
-    auto ids = getElementParents( elem.globalID().elemID(), type );
-    std::vector<std::unique_ptr<MeshElement>> parents( ids.second - ids.first );
-    auto it = ids.first;
-    for ( size_t i = 0; i < parents.size(); i++, ++it )
-        parents[i] = getElement( MeshElementID( d_meshID, *it ) );
+    auto ids     = getElementParents( elem.globalID().elemID(), type );
+    size_t N     = ids.second - ids.first;
+    auto parents = std::make_unique<MeshElementVector<TriangleMeshElement<NG>>>( N );
+    auto it      = ids.first;
+    for ( size_t i = 0; i < N; i++, ++it )
+        parents->operator[]( i ) = TriangleMeshElement<NG>( MeshElementID( d_meshID, *it ), this );
     return parents;
 }
 
