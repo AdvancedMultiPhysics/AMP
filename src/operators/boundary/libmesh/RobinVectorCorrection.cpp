@@ -171,10 +171,10 @@ void RobinVectorCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_ptr 
                 // Get the dofs for the vectors
                 std::vector<AMP::Mesh::MeshElementID> ids( d_currNodes.size() );
                 for ( size_t i = 0; i < d_currNodes.size(); i++ )
-                    ids[i] = d_currNodes[i]->globalID();
+                    ids[i] = d_currNodes[i].globalID();
 
                 for ( unsigned int i = 0; i < numNodesInCurrElem; i++ )
-                    dofManager->getDOFs( d_currNodes[i]->globalID(), dofIndices[i] );
+                    dofManager->getDOFs( d_currNodes[i].globalID(), dofIndices[i] );
 
                 dofs.resize( numNodesInCurrElem );
                 for ( size_t n = 0; n < dofIndices.size(); n++ )

@@ -79,12 +79,12 @@ void calculateManufacturedSolution(
 
             std::vector<size_t> d_dofIndices;
             for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-                globalIDs[j] = d_currNodes[j]->globalID();
+                globalIDs[j] = d_currNodes[j].globalID();
             } // end of j
             dof_map->getDOFs( globalIDs, d_dofIndices );
 
             for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-                auto pt     = d_currNodes[j]->coord();
+                auto pt     = d_currNodes[j].coord();
                 double val1 = fun( pt[0], pt[1], pt[2] );
                 // double val2 = fun(pt[0],pt[1],pt[2]-20); // not used.
                 double val3 = __dTdn__( pt[0], pt[1], pt[2], 1 );
@@ -169,13 +169,13 @@ void computeL2Norm( std::shared_ptr<AMP::Mesh::Mesh> mesh,
         std::vector<size_t> bndGlobalIds;
         std::vector<AMP::Mesh::MeshElementID> globalIDs( d_currNodes.size() );
         for ( unsigned int j = 0; j < d_currNodes.size(); j++ ) {
-            globalIDs[j] = d_currNodes[j]->globalID();
+            globalIDs[j] = d_currNodes[j].globalID();
         } // end of j
         dof_map->getDOFs( globalIDs, bndGlobalIds );
 
         auto d_currElemPtr = new libMesh::Hex8;
         for ( size_t j = 0; j < d_currNodes.size(); j++ ) {
-            auto pt                      = d_currNodes[j]->coord();
+            auto pt                      = d_currNodes[j].coord();
             d_currElemPtr->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
         } // end for j
 

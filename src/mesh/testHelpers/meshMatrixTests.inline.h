@@ -101,9 +101,9 @@ void meshTests::GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Me
                     std::vector<size_t> neighborDOFs, dofs;
                     auto neighbors = node.getNeighbors();
                     for ( const auto &neighbor : neighbors ) {
-                        if ( neighbor == nullptr )
+                        if ( neighbor.isNull() )
                             continue;
-                        DOFs->getDOFs( neighbor->globalID(), dofs );
+                        DOFs->getDOFs( neighbor.globalID(), dofs );
                         for ( size_t j = 0; j < dofs.size(); j++ )
                             neighborDOFs.push_back( dofs[j] );
                     }

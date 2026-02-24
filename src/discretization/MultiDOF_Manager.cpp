@@ -1,5 +1,5 @@
 #include "AMP/discretization/MultiDOF_Manager.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
@@ -164,7 +164,7 @@ AMP::Mesh::MeshIterator multiDOFManager::getIterator() const
     }
     AMP::Utilities::unique( *elements );
     // Create an iterator over the elements
-    return AMP::Mesh::MeshElementVectorIterator( elements );
+    return AMP::Mesh::MeshListIterator( elements );
 }
 
 

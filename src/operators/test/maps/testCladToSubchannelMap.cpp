@@ -2,8 +2,8 @@
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
 #include "AMP/mesh/MeshFactory.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/operators/map/AsyncMapColumnOperator.h"
 #include "AMP/operators/map/CladToSubchannelMap.h"
@@ -29,7 +29,7 @@ AMP::Mesh::MeshIterator getZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> subCh
         auto center   = iterator->centroid();
         bool is_valid = true;
         for ( auto &node : nodes ) {
-            auto coord = node->coord();
+            auto coord = node.coord();
             if ( !AMP::Utilities::approx_equal( coord[2], center[2], 1e-6 ) )
                 is_valid = false;
         }
@@ -42,7 +42,7 @@ AMP::Mesh::MeshIterator getZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> subCh
     elements->reserve( xyFace.size() );
     for ( auto &elem : xyFace )
         elements->push_back( elem.second->clone() );
-    return AMP::Mesh::MeshElementVectorIterator( elements );
+    return AMP::Mesh::MeshListIterator( elements );
 }
 
 
