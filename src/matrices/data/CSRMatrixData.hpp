@@ -646,8 +646,8 @@ void CSRMatrixData<Config>::getRowByGlobalID( size_t row,
 template<typename Config>
 void CSRMatrixData<Config>::getValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
                                                  void *vals,
                                                  [[maybe_unused]] const typeID &id ) const
 {
@@ -684,9 +684,9 @@ void CSRMatrixData<Config>::getValuesByGlobalID( size_t num_rows,
 template<typename Config>
 void CSRMatrixData<Config>::addValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
-                                                 void *vals,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
                                                  [[maybe_unused]] const typeID &id )
 {
     PROFILE( "CSRMatrixData::addValuesByGlobalID" );
@@ -720,9 +720,9 @@ void CSRMatrixData<Config>::addValuesByGlobalID( size_t num_rows,
 template<typename Config>
 void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
-                                                 void *vals,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
                                                  [[maybe_unused]] const typeID &id )
 {
     PROFILE( "CSRMatrixData::setValuesByGlobalID" );

@@ -10,6 +10,7 @@ namespace AMP::Mesh {
 void meshTests::MeshTestLoop( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
     PROFILE( "MeshTestLoop" );
+    mesh->getComm().barrier();
     // Run some basic sanity checks
     MeshBasicTest( ut, mesh );
     // Test the number of elements
@@ -79,15 +80,15 @@ void meshTests::MeshMatrixTestLoop( AMP::UnitTest &ut,
     bool run_tests = true;
     if ( run_tests ) {
         PROFILE( "MeshMatrixTestLoop" );
-        VerifyGetMatrixTrivialTest<1, true>( ut, mesh );
-        GhostWriteTest<1, true>( ut, mesh );
+        VerifyGetMatrixTrivialTest( ut, mesh, 1, true );
+        GhostWriteTest( ut, mesh, 1, true );
         if ( !fast ) {
-            VerifyGetMatrixTrivialTest<3, true>( ut, mesh );
-            VerifyGetMatrixTrivialTest<1, false>( ut, mesh );
-            VerifyGetMatrixTrivialTest<3, false>( ut, mesh );
-            GhostWriteTest<3, true>( ut, mesh );
-            GhostWriteTest<1, false>( ut, mesh );
-            GhostWriteTest<3, false>( ut, mesh );
+            VerifyGetMatrixTrivialTest( ut, mesh, 3, true );
+            VerifyGetMatrixTrivialTest( ut, mesh, 1, false );
+            VerifyGetMatrixTrivialTest( ut, mesh, 3, false );
+            GhostWriteTest( ut, mesh, 3, true );
+            GhostWriteTest( ut, mesh, 1, false );
+            GhostWriteTest( ut, mesh, 3, false );
         }
     }
 }

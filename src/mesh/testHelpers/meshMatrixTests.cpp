@@ -4,6 +4,7 @@
 #include "AMP/matrices/Matrix.h"
 #include "AMP/matrices/MatrixBuilder.h"
 #include "AMP/mesh/Mesh.h"
+#include "AMP/mesh/testHelpers/meshTests.h"
 #include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/Vector.h"
 
@@ -13,22 +14,23 @@
 namespace AMP::Mesh {
 
 
-template<int DOF_PER_NODE, bool SPLIT>
 void meshTests::VerifyGetMatrixTrivialTest( AMP::UnitTest &ut,
-                                            std::shared_ptr<AMP::Mesh::Mesh> mesh )
+                                            std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                                            int dofsPerNode,
+                                            bool split )
 {
     PROFILE( "VerifyGetMatrixTrivialTest", 1 );
 
     // Create the DOF_Manager
     auto DOFs = AMP::Discretization::simpleDOFManager::create(
-        mesh, AMP::Mesh::GeomType::Vertex, 1, DOF_PER_NODE );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, dofsPerNode );
 
     // Create a nodal variable
     auto variable = std::make_shared<AMP::LinearAlgebra::Variable>( "test vector" );
 
     // Create the matrix and vectors
-    auto vector1 = AMP::LinearAlgebra::createVector( DOFs, variable, SPLIT );
-    auto vector2 = AMP::LinearAlgebra::createVector( DOFs, variable, SPLIT );
+    auto vector1 = AMP::LinearAlgebra::createVector( DOFs, variable, split );
+    auto vector2 = AMP::LinearAlgebra::createVector( DOFs, variable, split );
     auto matrixa = AMP::LinearAlgebra::createMatrix( vector1, vector2 );
 
     // Currently there is a bug with multivectors
@@ -65,91 +67,80 @@ void meshTests::VerifyGetMatrixTrivialTest( AMP::UnitTest &ut,
 }
 
 
-template<int DOF_PER_NODE, bool SPLIT>
-void meshTests::GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh )
+void meshTests::GhostWriteTest( AMP::UnitTest &ut,
+                                std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                                int dofsPerNode,
+                                bool split )
 {
     PROFILE( "GhostWriteTest", 1 );
 
     // Create the DOF_Manager
     auto DOFs = AMP::Discretization::simpleDOFManager::create(
-        mesh, AMP::Mesh::GeomType::Vertex, 1, DOF_PER_NODE );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, dofsPerNode );
 
     // Create a nodal variable
     auto variable = std::make_shared<AMP::LinearAlgebra::Variable>( "test vector" );
 
     // Create the matrix and vectors
-    auto vector1 = AMP::LinearAlgebra::createVector( DOFs, variable, SPLIT );
-    auto vector2 = AMP::LinearAlgebra::createVector( DOFs, variable, SPLIT );
+    auto vector1 = AMP::LinearAlgebra::createVector( DOFs, variable, split );
+    auto vector2 = AMP::LinearAlgebra::createVector( DOFs, variable, split );
     auto matrix  = AMP::LinearAlgebra::createMatrix( vector1, vector2 );
 
     // For each processor, make sure it can write to all entries
     auto comm = mesh->getComm();
     for ( int p = 0; p < comm.getSize(); p++ ) {
         matrix->setScalar( -1.0 );
-        matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+        matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         // Processor p should fill the values
         if ( p == comm.getRank() ) {
-            try {
-                double proc = mesh->getComm().getRank();
-                bool passes = true;
-                // Loop through the owned nodes
-                auto nodes = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-                for ( auto &node : nodes ) {
-                    // Get the DOFs for the node and it's neighbors
-                    std::vector<size_t> localDOFs;
-                    DOFs->getDOFs( node.globalID(), localDOFs );
-                    std::vector<size_t> neighborDOFs, dofs;
-                    auto neighbors = node.getNeighbors();
-                    for ( const auto &neighbor : neighbors ) {
-                        if ( neighbor.isNull() )
-                            continue;
-                        DOFs->getDOFs( neighbor.globalID(), dofs );
-                        for ( size_t j = 0; j < dofs.size(); j++ )
-                            neighborDOFs.push_back( dofs[j] );
-                    }
-                    // For each local DOF, set all matrix elements involving the current DOF
-                    for ( size_t j = 0; j < localDOFs.size(); j++ ) {
-                        for ( size_t k = 0; k < localDOFs.size(); k++ ) {
-                            matrix->setValueByGlobalID( localDOFs[k], localDOFs[j], proc );
-                            matrix->setValueByGlobalID( localDOFs[j], localDOFs[k], proc );
-                        }
-                        for ( size_t k = 0; k < neighborDOFs.size(); k++ ) {
-                            matrix->setValueByGlobalID( localDOFs[j], neighborDOFs[k], proc );
-                            matrix->setValueByGlobalID( neighborDOFs[k], localDOFs[j], proc );
-                        }
-                        std::vector<size_t> cols;
-                        std::vector<double> values;
-                        matrix->getRowByGlobalID( localDOFs[j], cols, values );
-                        for ( size_t i1 = 0; i1 < cols.size(); i1++ ) {
-                            for ( size_t i2 = 0; i2 < localDOFs.size(); i2++ ) {
-                                if ( cols[i1] == localDOFs[i2] ) {
-                                    if ( values[i1] != proc )
-                                        passes = false;
-                                }
-                            }
-                            for ( size_t i2 = 0; i2 < neighborDOFs.size(); i2++ ) {
-                                if ( cols[i1] == neighborDOFs[i2] ) {
-                                    if ( values[i1] != proc )
-                                        passes = false;
-                                }
+            double proc = p;
+            bool pass   = true;
+            std::vector<size_t> rows, columns, dofs, cols2;
+            std::vector<double> procs, values;
+            // Loop through the owned nodes
+            auto nodes = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+            for ( auto &node : nodes ) {
+                // Get the DOFs for the node and it's neighbors
+                DOFs->getDOFs( node.globalID(), rows );
+                columns.clear();
+                for ( auto r : rows )
+                    columns.push_back( r );
+                for ( const auto &neighbor : node.getNeighbors() ) {
+                    if ( neighbor.isNull() )
+                        continue;
+                    DOFs->getDOFs( neighbor.globalID(), dofs );
+                    for ( auto dof : dofs )
+                        columns.push_back( dof );
+                }
+                // For each local DOF, set all matrix elements involving the current DOF
+                for ( auto row : rows ) {
+                    procs.resize( columns.size(), proc );
+                    matrix->setRowByGlobalID( row, columns, procs );
+                    matrix->getRowByGlobalID( row, cols2, values );
+                    for ( size_t i1 = 0; i1 < cols2.size(); i1++ ) {
+                        bool found = true;
+                        for ( size_t i2 = 0; i2 < columns.size(); i2++ ) {
+                            if ( cols2[i1] == columns[i2] ) {
+                                found = true;
+                                pass  = pass && values[i1] == proc;
                             }
                         }
+                        if ( !found )
+                            pass = false;
                     }
                 }
-                if ( passes )
-                    ut.passes( "Able to write to ghost entries in matrix" );
-                else
-                    ut.failure( "Able to write to ghost entries in matrix" );
-            } catch ( ... ) {
-                ut.failure( "Able to write to ghost entries in matrix (exception)" );
             }
+            if ( pass )
+                ut.passes( "Able to write to ghost entries in matrix" );
+            else
+                ut.failure( "Able to write to ghost entries in matrix" );
         }
 
         // Apply make consistent
-        matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+        matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
         /*// Test that each matrix entry has the proper value
-        bool passes = true;
+        bool pass = true;
         // Get a list of all nodes owned by the given processor p
         std::set<AMP::Mesh::MeshElementID> nodes_p;
         auto it = mesh->getIterator(AMP::Mesh::GeomType::Vertex,1);
@@ -186,10 +177,10 @@ void meshTests::GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Me
                     bool col_found = cols[k]==dofs_p[index];
                     if ( row_found || col_found ) {
                         if ( values[k] != proc )
-                            passes = false;
+                            pass = false;
                     } else {
                         if ( values[k] != -1.0 )
-                            passes = false;
+                            pass = false;
                     }
                 }
             }
@@ -197,8 +188,8 @@ void meshTests::GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Me
         auto msg = AMP::Utilities::stringf(
             "Matrix entries set by processor %i read correctly on processor %i",
             p,comm.getRank());
-        if ( passes )
-            ut.passes( msg );
+        if ( pass )
+            ut.pass( msg );
         else
             ut.failure( msg );*/
     }
