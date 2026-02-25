@@ -29,9 +29,6 @@
 static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -98,12 +95,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     curTempVec->setToScalar( 700.0 );
 
     // Set the reference temperature
-    std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-        nonlinearMechanicsBVPoperator->getVolumeOperator() )
-        ->setReferenceTemperature( refTempVec );
-    std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-        nonlinearMechanicsBVPoperator->getVolumeOperator() )
-        ->setVector( AMP::Operator::Mechanics::TEMPERATURE, curTempVec );
+    mechanicsNonlinearVolumeOperator->setReferenceTemperature( refTempVec );
+    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE,
+                                                 curTempVec );
 
     // We need to reset the linear operator before the solve since TrilinosML does
     // the factorization of the matrix during construction and so the matrix must

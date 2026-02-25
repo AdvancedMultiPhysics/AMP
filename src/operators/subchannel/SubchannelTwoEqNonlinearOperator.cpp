@@ -67,8 +67,8 @@ void SubchannelTwoEqNonlinearOperator::reset( std::shared_ptr<const OperatorPara
     if ( params ) {
 
         auto myparams = std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params );
-        AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameters" );
-        AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
+        AMP_INSIST( myparams, "NULL parameters" );
+        AMP_INSIST( myparams->d_db, "NULL database" );
         d_params = myparams;
 
         // Get the subchannel mesh coordinates
@@ -196,8 +196,8 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
         reset( d_params );
 
     // ensure that solution and residual vectors aren't NULL
-    AMP_INSIST( ( ( r.get() ) != nullptr ), "NULL Residual Vector" );
-    AMP_INSIST( ( ( u.get() ) != nullptr ), "NULL Solution Vector" );
+    AMP_INSIST( r, "NULL Residual Vector" );
+    AMP_INSIST( u, "NULL Solution Vector" );
     AMP_INSIST( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED,
                 "Input vector is in an inconsistent state" );
 

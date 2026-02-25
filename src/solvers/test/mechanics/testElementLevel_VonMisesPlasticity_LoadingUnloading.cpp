@@ -38,9 +38,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -52,9 +49,11 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
 
     bool ExtractData = input_db->getWithDefault<bool>( "ExtractStressStrainData", false );
-    FILE *fout123;
-    std::string ss_file = exeName + "_UniaxialStressStrain.txt";
-    fout123             = fopen( ss_file.c_str(), "w" );
+    FILE *fout123    = nullptr;
+    if ( ExtractData ) {
+        std::string ss_file = exeName + "_UniaxialStressStrain.txt";
+        fout123             = fopen( ss_file.c_str(), "w" );
+    }
 
     // Create a nonlinear BVP operator for mechanics
     AMP_INSIST( input_db->keyExists( "NonlinearMechanicsOperator" ), "key missing!" );
@@ -68,10 +67,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     // Create the variables
-    auto mechanicsNonlinearVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() );
-    auto dispVar = mechanicsNonlinearVolumeOperator->getOutputVariable();
+    auto dispVar = nonlinearMechanicsVolumeOperator->getOutputVariable();
 
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
@@ -202,16 +198,11 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
 
-        std::string number1 = std::to_string( step );
-        std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
-
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() )
-            ->printStressAndStrain( solVec, fname );
-
-        if ( ExtractData ) {
-            FILE *fin;
-            fin             = fopen( fname.c_str(), "r" );
+        if ( fout123 ) {
+            std::string number1 = std::to_string( step );
+            std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
+            nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, fname );
+            FILE *fin       = fopen( fname.c_str(), "r" );
             double coord[3] = { 0, 0, 0 }, stress1[6] = { 0, 0, 0 }, strain1[6] = { 0, 0, 0 };
             for ( int ijk = 0; ijk < 8; ijk++ ) {
                 for ( auto &elem : coord )
@@ -237,10 +228,11 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
-    mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
+    // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, output_file );
 
     ut->passes( exeName );
-    fclose( fout123 );
+    if ( fout123 )
+        fclose( fout123 );
 }
 
 int testElementLevel_VonMisesPlasticity_LoadingUnloading( int argc, char *argv[] )

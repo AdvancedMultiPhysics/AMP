@@ -78,14 +78,11 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     // Create the variables
-    auto mechanicsNonlinearVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() );
-    auto dispVar = mechanicsNonlinearVolumeOperator->getOutputVariable();
+    auto dispVar = nonlinearMechanicsVolumeOperator->getOutputVariable();
 
     auto mechanicsNonlinearMaterialModel =
         std::dynamic_pointer_cast<AMP::Operator::MechanicsMaterialModel>(
-            mechanicsNonlinearVolumeOperator->getMaterialModel() );
+            nonlinearMechanicsVolumeOperator->getMaterialModel() );
 
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
@@ -191,17 +188,14 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
         current_time = delta_time * ( (double) step + 2.0 );
 
-        std::string number1 = std::to_string( step );
-        std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
-
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() )
-            ->printStressAndStrain( solVec, fname );
+        // std::string number1 = std::to_string( step );
+        // std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
+        // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, fname );
 
         mesh->displaceMesh( solVec );
     }
 
-    mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
+    // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, output_file );
 
     ut->passes( exeName );
 }

@@ -12,28 +12,23 @@ VonMises_IsotropicKinematicHardening::VonMises_IsotropicKinematicHardening(
     std::shared_ptr<MechanicsMaterialModelParameters> params )
     : MechanicsMaterialModel( params ), d_constitutiveMatrix{ { 0 } }
 {
-    AMP_INSIST( ( ( params.get() ) != nullptr ), "NULL parameter" );
+    AMP_INSIST( params, "NULL parameter" );
 
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( params->d_db, "NULL database" );
 
     if ( d_useMaterialsLibrary == false ) {
         AMP_INSIST( params->d_db->keyExists( "Youngs_Modulus" ), "Missing key: Youngs_Modulus" );
-
         AMP_INSIST( params->d_db->keyExists( "Poissons_Ratio" ), "Missing key: Poissons_Ratio" );
-
-        default_E = params->d_db->getScalar<double>( "Youngs_Modulus" );
-
+        default_E  = params->d_db->getScalar<double>( "Youngs_Modulus" );
         default_Nu = params->d_db->getScalar<double>( "Poissons_Ratio" );
     }
 
     AMP_INSIST( params->d_db->keyExists( "Cook_Membrane_Plasticity_Test" ),
                 "Missing key: Cook_Membrane_Plasticity_Test" );
-
     AMP_INSIST( params->d_db->keyExists( "Thick_Walled_Cylinder_Plasticity_Test" ),
                 "Missing key: Thick_Walled_Cylinder_Plasticity_Test" );
 
     d_CM_Test = params->d_db->getScalar<bool>( "Cook_Membrane_Plasticity_Test" );
-
     d_TW_Test = params->d_db->getScalar<bool>( "Thick_Walled_Cylinder_Plasticity_Test" );
 
     AMP_INSIST( ( ( ( d_CM_Test == true ) && ( d_TW_Test == false ) ) ||
@@ -44,24 +39,16 @@ VonMises_IsotropicKinematicHardening::VonMises_IsotropicKinematicHardening(
     if ( d_TW_Test == true ) {
         AMP_INSIST( params->d_db->keyExists( "Linear_Strain_Hardening" ),
                     "Missing key: Linear_Strain_Hardening" );
-
         AMP_INSIST( params->d_db->keyExists( "Exponent_Delta" ), "Missing key: Exponent_Delta" );
-
         AMP_INSIST( params->d_db->keyExists( "Value_K_0" ), "Missing key: Value_K_0" );
-
         AMP_INSIST( params->d_db->keyExists( "K_Infinity" ), "Missing key: K_Infinity" );
-
         AMP_INSIST( params->d_db->keyExists( "Fraction_Beta" ), "Missing key: Fraction_Beta" );
 
-        d_H = params->d_db->getScalar<double>( "Linear_Strain_Hardening" );
-
+        d_H     = params->d_db->getScalar<double>( "Linear_Strain_Hardening" );
         d_delta = params->d_db->getScalar<double>( "Exponent_Delta" );
-
-        d_K_0 = params->d_db->getScalar<double>( "Value_K_0" );
-
+        d_K_0   = params->d_db->getScalar<double>( "Value_K_0" );
         d_K_inf = params->d_db->getScalar<double>( "K_Infinity" );
-
-        d_beta = params->d_db->getScalar<double>( "Fraction_Beta" );
+        d_beta  = params->d_db->getScalar<double>( "Fraction_Beta" );
     }
 
     if ( d_CM_Test == true ) {

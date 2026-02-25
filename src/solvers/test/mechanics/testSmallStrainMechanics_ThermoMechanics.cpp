@@ -32,9 +32,6 @@
 static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -64,10 +61,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     // Create the variables
-    auto mechanicsNonlinearVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() );
-    auto dispVar = nonlinearMechanicsBVPoperator->getOutputVariable();
+    auto dispVar = nonlinearMechanicsVolumeOperator->getOutputVariable();
     auto tempVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
     auto burnVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Burnup" );
     auto lhgrVar = std::make_shared<AMP::LinearAlgebra::Variable>( "LHGR" );
@@ -123,10 +117,10 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     lhgrVec->addScalar( *lhgrVec, constLHGR );
     lhgrVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
-    mechanicsNonlinearVolumeOperator->setReferenceTemperature( tempVecRef );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE, tempVec );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::BURNUP, burnVec );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::LHGR, lhgrVec );
+    nonlinearMechanicsVolumeOperator->setReferenceTemperature( tempVecRef );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE, tempVec );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::BURNUP, burnVec );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::LHGR, lhgrVec );
 
     // Create a Linear BVP operator for mechanics
     auto linearMechanicsBVPoperator = std::make_shared<AMP::Operator::LinearBVPOperator>(

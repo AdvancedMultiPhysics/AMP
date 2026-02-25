@@ -22,9 +22,8 @@ DiffusionElement::DiffusionElement( std::shared_ptr<const ElementOperationParame
       d_elem( nullptr )
 {
 
-    AMP_INSIST( ( params ), "''params'' is NULL" );
-
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( params, "''params'' is NULL" );
+    AMP_INSIST( params->d_db, "NULL database" );
 
     auto feTypeOrderName = params->d_db->getWithDefault<std::string>( "FE_ORDER", "FIRST" );
     auto feTypeOrder     = libMesh::Utility::string_to_enum<libMeshEnums::Order>( feTypeOrderName );

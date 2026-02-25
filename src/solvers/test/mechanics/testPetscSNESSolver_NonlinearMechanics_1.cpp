@@ -30,9 +30,7 @@
 static void myTest( AMP::UnitTest *ut, const std::string &inputName )
 {
     std::string input_file = inputName;
-    std::string log_file   = "output_" + inputName;
     AMP::pout << "Running " << input_file << std::endl;
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     auto input_db = AMP::Database::parseInputFile( input_file );
