@@ -285,7 +285,7 @@ protected:
      */
     void getValuesByGlobalID( const size_t local_row,
                               const size_t num_cols,
-                              size_t *cols,
+                              const size_t *cols,
                               scalar_t *values ) const;
 
     /** \brief  Add to existing values at given column locations in a row

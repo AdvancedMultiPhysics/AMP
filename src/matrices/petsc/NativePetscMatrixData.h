@@ -48,10 +48,12 @@ public:
 
     void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
 
-    void addValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
-    void setValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
+    void addValuesByGlobalID(
+        size_t, size_t, const size_t *, const size_t *, const void *, const typeID & ) override;
+    void setValuesByGlobalID(
+        size_t, size_t, const size_t *, const size_t *, const void *, const typeID & ) override;
     void getValuesByGlobalID(
-        size_t, size_t, size_t *, size_t *, void *, const typeID & ) const override;
+        size_t, size_t, const size_t *, const size_t *, void *, const typeID & ) const override;
     void getRowByGlobalID( size_t, std::vector<size_t> &, std::vector<double> & ) const override;
 
     std::vector<size_t> getColumnIDs( size_t ) const override;
