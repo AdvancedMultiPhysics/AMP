@@ -144,6 +144,39 @@ struct CSRMatrixDataHelpers {
                               const lidx_t *out_row_starts,
                               lidx_t *out_cols_loc,
                               scalar_t *out_coeffs );
+
+    static lidx_t RemoveRangeCountDel( const lidx_t *row_starts,
+                                       const scalar_t *coeffs,
+                                       const lidx_t num_rows,
+                                       const scalar_t bnd_lo,
+                                       const scalar_t bnd_up,
+                                       lidx_t *del_per_row );
+
+    static void RemoveRangeUpdateRowStart( const lidx_t *in_row_starts,
+                                           const lidx_t *del_per_row,
+                                           const lidx_t num_rows,
+                                           lidx_t *out_row_starts );
+
+    static void RemoveRangeFillDiag( const lidx_t *old_row_starts,
+                                     const lidx_t *old_cols_loc,
+                                     const scalar_t *old_coeffs,
+                                     const lidx_t num_rows,
+                                     const scalar_t bnd_lo,
+                                     const scalar_t bnd_up,
+                                     [[maybe_unused]] const lidx_t *new_row_starts,
+                                     lidx_t *new_cols_loc,
+                                     scalar_t *new_coeffs );
+
+    static void RemoveRangeFillOffd( const lidx_t *old_row_starts,
+                                     const lidx_t *old_cols_loc,
+                                     const gidx_t *old_cols_unq,
+                                     const scalar_t *old_coeffs,
+                                     const lidx_t num_rows,
+                                     const scalar_t bnd_lo,
+                                     const scalar_t bnd_up,
+                                     [[maybe_unused]] const lidx_t *new_row_starts,
+                                     gidx_t *new_cols,
+                                     scalar_t *new_coeffs );
 };
 
 } // namespace LinearAlgebra

@@ -246,7 +246,7 @@ public:
      * \param[in] nnz_diag   Number of nonzeros in each row of diagonal block
      * \param[in] nnz_offd   Number of nonzeros in each row of off-diagonal block
      */
-    void setNNZ( const std::vector<lidx_t> &nnz_diag, const std::vector<lidx_t> &nnz_offd );
+    void setNNZ( const lidx_t *nnz_diag, const lidx_t *nnz_offd );
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] do_accum  Flag for whether entries in row pointers need to be accumulated

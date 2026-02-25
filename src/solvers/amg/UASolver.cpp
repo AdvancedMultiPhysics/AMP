@@ -2,10 +2,10 @@
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/amg/Aggregation.h"
+#include "AMP/solvers/amg/MIS2Aggregator.h"
 #include "AMP/solvers/amg/Relaxation.h"
+#include "AMP/solvers/amg/SimpleAggregator.h"
 #include "AMP/solvers/amg/Stats.h"
-#include "AMP/solvers/amg/default/MIS2Aggregator.h"
-#include "AMP/solvers/amg/default/SimpleAggregator.h"
 
 namespace AMP::Solver::AMG {
 

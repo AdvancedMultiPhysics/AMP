@@ -5,6 +5,7 @@
 
 AMP::Utilities::MemoryType getHipMemoryType( const void *ptr )
 {
+    AMP_INSIST( ptr, "getHipMemoryType: Must provide non-null pointer" );
     hipPointerAttribute_t attributes;
     auto err = hipPointerGetAttributes( &attributes, ptr );
     checkHipErrors( err );
