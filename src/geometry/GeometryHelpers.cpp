@@ -1,8 +1,8 @@
 #include "AMP/geometry/GeometryHelpers.h"
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/DelaunayHelpers.h"
 #include "AMP/utils/MeshPoint.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/arrayHelpers.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1191,6 +1191,86 @@ std::vector<Point3D> sampleTet( const std::array<Point3D, 4> &, double, bool )
 {
     AMP_ERROR( "sampleTet: Not finished" );
     return {};
+}
+
+
+/********************************************************
+ * Assign ranks to a point cloud                         *
+ ********************************************************/
+std::vector<int> assignRanks( const std::vector<double> &x, int N_ranks )
+{
+    std::vector<int> ranks( x.size(), 0 );
+    if ( N_ranks == 0 )
+        return ranks;
+    std::vector<size_t> index( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        index[i] = i;
+    auto x2 = x;
+    Utilities::quicksort( x.size(), x2.data(), index.data() );
+    double N = static_cast<double>( x.size() ) / static_cast<double>( N_ranks );
+    for ( size_t i = 0; i < x.size(); i++ )
+        ranks[index[i]] = std::min<int>( floor( i / N ), N_ranks - 1 );
+    return ranks;
+}
+std::vector<int> assignRanks( const std::vector<Point1D> &x, int N_ranks )
+{
+    std::vector<double> x2( x.size(), 0 );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x2[i] = x[i][0];
+    return assignRanks( x2, N_ranks );
+}
+std::vector<int> assignRanks( const std::vector<Point2D> &x, int N_ranks )
+{
+    std::vector<int> ranks( x.size(), 0 );
+    std::vector<Point3D> x2( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        x2[i] = { x[i][0], x[i][1], 0 };
+    }
+    return assignRanks( x2, N_ranks );
+}
+std::vector<int> assignRanks( const std::vector<Point3D> &x, int N_ranks )
+{
+    std::vector<int> ranks( x.size(), 0 );
+    if ( N_ranks == 1 )
+        return ranks;
+    double range[6] = { 1e200, -1e200, 1e200, -1e200, 1e200, -1e200 };
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        range[0] = std::min( x[i][0], range[0] );
+        range[1] = std::max( x[i][0], range[1] );
+        range[2] = std::min( x[i][1], range[2] );
+        range[3] = std::max( x[i][1], range[3] );
+        range[4] = std::min( x[i][2], range[4] );
+        range[5] = std::max( x[i][2], range[5] );
+    }
+    double dx[3] = { range[1] - range[0], range[3] - range[2], range[5] - range[4] };
+    int dir      = 0;
+    if ( dx[1] > std::max( dx[0], dx[2] ) )
+        dir = 1;
+    else if ( dx[2] > std::max( dx[0], dx[1] ) )
+        dir = 2;
+    std::vector<double> x2( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        x2[i] = x[i][dir];
+    auto factors = AMP::Utilities::factor( N_ranks );
+    if ( factors.size() == 1 )
+        return assignRanks( x2, N_ranks );
+    int N_split  = *factors.rbegin();
+    int N_ranks2 = N_ranks / N_split;
+    auto group   = assignRanks( x2, N_split );
+    std::vector<Point3D> xg( x.size() );
+    for ( int r = 0; r < N_split; r++ ) {
+        xg.clear();
+        for ( size_t i = 0; i < x.size(); i++ ) {
+            if ( group[i] == r )
+                xg.push_back( x[i] );
+        }
+        auto ranks2 = assignRanks( xg, N_ranks2 );
+        for ( size_t i = 0, j = 0; i < x.size(); i++ ) {
+            if ( group[i] == r )
+                ranks[i] = r * N_ranks2 + ranks2[j++];
+        }
+    }
+    return ranks;
 }
 
 

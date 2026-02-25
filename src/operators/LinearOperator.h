@@ -45,7 +45,7 @@ public:
     /**
      * @return The matrix representation of this linear operator.
      */
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> getMatrix();
+    virtual std::shared_ptr<AMP::LinearAlgebra::Matrix> getMatrix();
 
     /**
      * Copies the shared pointer for the matrix representation of this linear operator.
@@ -60,14 +60,25 @@ public:
         d_outputVariable = out;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_inputVariable;
     }
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_outputVariable;
     }
+
+    /** \brief Get a input vector ( For \f$\mathbf{A(x)}\f$, \f$\mathbf{x}\f$ is a
+     * input vector ) \return  A newly created input vector
+     */
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const override;
+
+    /** \brief Get an output vector ( For \f$\mathbf{y=A(x)}\f$, \f$\mathbf{y}\f$ is an output
+     * vector )
+     * \return  A newly created output vector
+     */
+    std::shared_ptr<AMP::LinearAlgebra::Vector> createOutputVector() const override;
 
 protected:
     //! Empty constructor

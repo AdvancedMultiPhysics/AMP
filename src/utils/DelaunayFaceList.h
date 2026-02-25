@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <vector>
 
+#include "AMP/utils/DelaunayHelpers.h"
+#include "AMP/utils/extended_int.h"
+
 
 namespace AMP::DelaunayTessellation {
 
@@ -18,11 +21,11 @@ namespace AMP::DelaunayTessellation {
  *  that were created.
  *  Note:  Seperate instantiations of this class are thread safe, but a single instance is not.
  */
-template<int NDIM, class TYPE, class ETYPE>
+template<int NDIM>
 class FaceList
 {
 public:
-    using Point    = std::array<TYPE, NDIM>;
+    using Point    = std::array<int, NDIM>;
     using Triangle = std::array<int, NDIM + 1>;
 
     /*! @brief  Standard constructor
@@ -33,10 +36,8 @@ public:
      *                  FaceList.
      * @param tri_id    The initial triangle id
      * @param tri       The triangle list (NDIM+1)
-     * @param TOL_VOL   The tolerance to use
      */
-    FaceList(
-        const int N, const Point *x, const int tri_id, const Triangle &tri, const TYPE TOL_VOL );
+    FaceList( const int N, const Point *x, const int tri_id, const Triangle &tri );
 
     //! Function to get the number of faces on the convex hull
     int get_N_face() { return data.size(); }
@@ -92,6 +93,9 @@ public:
                       const Triangle *tri );
 
 private:
+    static std::array<int64_t, NDIM> calc_surface_normal( const std::array<int, NDIM> x[] );
+
+private:
     // Private constructors
     FaceList();                              // Empty constructor.
     FaceList( const FaceList & );            // no implementation for copy
@@ -112,12 +116,10 @@ private:
     int hash_table[1024]; // Internal hash table to improve performance when search for a given face
     const Point *x0;      // The vertex coordinates
     double xc[NDIM];      // A point within the centroid
-    double TOL_vol;       // Tolerance to use for calculation
     std::vector<face_data_struct> data; // The stored data
 
-    // Function that calculates the distance between a plane and a point
-    double calc_surface_distance( const Point x[NDIM], const Point &xi ) const;
-    bool outside_triangle( const Point x[NDIM], const Point &xi ) const;
+    // Function that determines the location of the triangle
+    bool outside_triangle( const Point *x, const Point &xi ) const;
 
     // Function to get a unique index for each face
     inline size_t get_face_index( int face, int tri ) { return face + tri * ( NDIM + 1 ); }

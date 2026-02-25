@@ -19,8 +19,9 @@ namespace AMP::TimeIntegrator {
 OxideTimeIntegrator::OxideTimeIntegrator( std::shared_ptr<TimeIntegratorParameters> parameters )
 {
     AMP_INSIST( parameters, "Null parameter" );
-
+    d_initialized = false;
     initialize( parameters );
+    d_initialized = true;
 }
 
 OxideTimeIntegrator::~OxideTimeIntegrator() = default;
@@ -66,13 +67,10 @@ void OxideTimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> 
     d_solution_vector->setToScalar( 0.0 );
 
     // Create the internal vectors for storing the data
-    N_layer     = std::vector<int>( 3 );
-    N_layer[0]  = 20; // Number of zones in the oxide layer
-    N_layer[1]  = 20; // Number of zones in the alpha layer
-    N_layer[2]  = 5;  // Number of zones in the zirconium layer
+    N_layer     = { 20, 20, 5 }; // Number of zones in the [oxide,alpha,zirconium] layers
     int N_total = 0;
-    for ( auto &elem : N_layer )
-        N_total += elem;
+    for ( auto &N : N_layer )
+        N_total += N;
     auto DOF_d = AMP::Discretization::simpleDOFManager::create(
         d_mesh, AMP::Mesh::GeomType::Vertex, 0, N_layer.size(), true );
     auto DOF_C = AMP::Discretization::simpleDOFManager::create(
@@ -111,18 +109,18 @@ void OxideTimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> 
         AMP::Mesh::MeshElementID id = iterator->globalID();
         DOF_C->getDOFs( id, dofs );
         AMP_ASSERT( (int) dofs.size() == N_total );
-        conc->setLocalValuesByGlobalID( dofs.size(), &dofs[0], C1[0] );
+        conc->setValuesByGlobalID( dofs.size(), &dofs[0], C1[0] );
         DOF_d->getDOFs( id, dofs );
         AMP_ASSERT( dofs.size() == N_layer.size() );
-        depth->setLocalValuesByGlobalID( dofs.size(), &dofs[0], depth2 );
+        depth->setValuesByGlobalID( dofs.size(), &dofs[0], depth2 );
         DOF_oxide->getDOFs( id, dofs );
         AMP_ASSERT( dofs.size() == 1 );
         auto val = 1e-2 * depth2[0];
-        d_oxide->setLocalValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
+        d_oxide->setValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
         DOF_alpha->getDOFs( id, dofs );
         AMP_ASSERT( dofs.size() == 1 );
         val = 1e-2 * depth2[1];
-        d_alpha->setLocalValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
+        d_alpha->setValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
         ++iterator;
     }
     d_solution_vector->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -203,18 +201,18 @@ int OxideTimeIntegrator::advanceSolution( const double dt,
         // Save the results
         DOF_C->getDOFs( id, dofs );
         AMP_ASSERT( (int) dofs.size() == N_total );
-        conc->setLocalValuesByGlobalID( dofs.size(), &dofs[0], C1[0] );
+        conc->setValuesByGlobalID( dofs.size(), &dofs[0], C1[0] );
         DOF_d->getDOFs( id, dofs );
         AMP_ASSERT( dofs.size() == N_layer.size() );
-        depth->setLocalValuesByGlobalID( dofs.size(), &dofs[0], depth2 );
+        depth->setValuesByGlobalID( dofs.size(), &dofs[0], depth2 );
         DOF_oxide->getDOFs( id, dofs );
         AMP_ASSERT( dofs.size() == 1 );
         auto val = 1e-2 * depth2[0];
-        d_oxide->setLocalValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
+        d_oxide->setValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
         DOF_alpha->getDOFs( id, dofs );
         AMP_ASSERT( dofs.size() == 1 );
         val = 1e-2 * depth2[1];
-        d_alpha->setLocalValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
+        d_alpha->setValuesByGlobalID( 1, &dofs[0], &val ); // Convert from cm to m
         ++iterator;
     }
     // Update ghost values for the solution

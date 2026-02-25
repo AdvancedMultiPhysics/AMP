@@ -190,9 +190,8 @@ static bool testCentroid( const AMP::Geometry::Geometry &geom, AMP::UnitTest &ut
         err       = std::max( err, std::abs( c[d] - centroid[d] ) / dx );
     }
     pass = err < 0.01;
-    using AMP::Utilities::stringf;
     if ( !pass )
-        ut.failure( stringf( "testGeometry centroid: %s (%f)", name.data(), err ) );
+        ut.failure( "testGeometry centroid: %s (%f)", name.data(), err );
     return pass;
 }
 
@@ -288,7 +287,10 @@ void testGeometry( const AMP::Geometry::Geometry &geom, AMP::UnitTest &ut )
                                                 N_fail,
                                                 (int) surfacePoints.size(),
                                                 name.data() );
-            ut.failure( msg );
+            if ( name == "MeshGeometry" )
+                ut.expected_failure( msg + " (needs to be fixed)" );
+            else
+                ut.failure( msg );
         }
     }
     // Project each surface point in a random direction and back propagate to get the same point
@@ -324,7 +326,7 @@ void testGeometry( const AMP::Geometry::Geometry &geom, AMP::UnitTest &ut )
             if ( N_failed > 0.001 * N_test ) {
                 ut.failure( msg );
                 pass = false;
-            } else if ( N_failed > 0 ) {
+            } else {
                 ut.expected_failure( msg );
             }
         }

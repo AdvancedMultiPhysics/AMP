@@ -1,14 +1,23 @@
-
 Mesh{
-    FileName = "cube4096.e"
     MeshName = "bar"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 4096
+	MeshType = "AMP"
+	Generator = "cube"
+    dim = 3
+	Size = 16, 16, 16
+	Range = -5, 5, -5, 5, -5, 5
+    surfaceIds = 4, 6, 3, 5, 2, 1
+    static = TRUE
 }
+
+DiffusionTransportModel1 {
+     name="DiffusionTransportModel"
+     Material = "Independent"
+     Property = "FickCoefficient"
+        Default_Concentration = .1
+     Default_Temperature   = 300.
+     Default_Burnup   = 0.0
+     Parameters = 1.0
+   }
 
 DiffusionBVPOperator {
    name="LinearBVPOperator"
@@ -32,7 +41,7 @@ DiffusionLinearFEOperator1{
      QRULE_TYPE = "QGAUSS"
      QRULE_ORDER = "DEFAULT"
    }
-   LocalModel = "DiffusionTransportModel1"
+   LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection1 {
@@ -51,15 +60,6 @@ DirichletMatrixCorrection1 {
    value_1_0        = .1
 }
 
-DiffusionTransportModel1 {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "FickCoefficient"
-        Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-     Parameters = 1.0
-   }
 
 LinearSolver{
   max_iterations = 10

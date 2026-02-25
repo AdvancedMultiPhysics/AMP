@@ -17,6 +17,21 @@ CladProperties{
     d = 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095, 0.0095
 }
 
+SubchannelPhysicsModel{
+	name = "SubchannelPhysicsModel"
+	Material = "WaterLibrary"
+	Formulation = "FunctionsTesting"
+	Defaults{
+		enthalpy = 200.0e3
+		pressure = 0.5e6
+		temperature = 350.0
+		density = 973.919
+                reynolds = 4.4e5
+                prandtl = 1.0
+                diameter = 0.0095
+	}
+}
+
 SubchannelFourEqLinearOperator{
     name = "SubchannelFourEqLinearOperator"
     InputVariable = "flow"
@@ -34,7 +49,7 @@ SubchannelFourEqLinearOperator{
     Rod_Power_Fraction = 0.7375, 0.8275, 0.7600, 0.8275, 0.9900, 0.8375, 0.7525, 0.8300, 0.7475
     Heat_Source_Type = "totalHeatGenerationWithDiscretizationError"
     Heat_Shape = "Sinusoidal"
-    LocalModel = "SubchannelPhysicsModel"
+    LocalModel = SubchannelPhysicsModel
     Friction_Model = "Constant"
     Surface_Roughness = 0.5e-6
     Number_GridSpacers = 7
@@ -49,17 +64,3 @@ SubchannelFourEqLinearOperator{
     Force_No_Friction = FALSE
 }
 
-SubchannelPhysicsModel{
-	name = "SubchannelPhysicsModel"
-	Material = "WaterLibrary"
-	Formulation = "FunctionsTesting"
-	Defaults{
-		enthalpy = 200.0e3
-		pressure = 0.5e6
-		temperature = 350.0
-		density = 973.919
-                reynolds = 4.4e5
-                prandtl = 1.0
-                diameter = 0.0095
-	}
-}

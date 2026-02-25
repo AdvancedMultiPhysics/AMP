@@ -9,6 +9,17 @@ Mesh {
   static = TRUE
 }
 
+MechanicsMaterialModel { 
+       USE_MATERIALS_LIBRARY = FALSE
+       Material = "UO2_MSRZC_09"
+       name="ExplicitCreepMaterialModel"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+       Creep_Coefficient_A = 1.0e-10
+       Creep_Stress_Exponent_n = 1.12
+       Creep_Delta_Time = 0.001
+      }
+
 testNonlinearMechanicsOperator {
       name = "MechanicsNonlinearFEOperator"
       print_info_level = 1
@@ -28,7 +39,7 @@ testNonlinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel = "MechanicsMaterialModel"
+      LocalModel = MechanicsMaterialModel
 
 }
 
@@ -48,16 +59,4 @@ testLinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 }
-
-MechanicsMaterialModel { 
-       USE_MATERIALS_LIBRARY = FALSE
-       Material = "UO2_MSRZC_09"
-       name="ExplicitCreepMaterialModel"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-       Creep_Coefficient_A = 1.0e-10
-       Creep_Stress_Exponent_n = 1.12
-       Creep_Delta_Time = 0.001
-      }
-
 

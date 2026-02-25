@@ -1,6 +1,12 @@
 
 dofsPerNode = 3
 
+MechanicsMaterialModel { 
+       name="IsotropicElasticModel"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+      }
+
 testOperator {
       name = "MechanicsLinearFEOperator"
       print_info_level = 1
@@ -17,15 +23,8 @@ testOperator {
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel = "MechanicsMaterialModel"
+      LocalModel = MechanicsMaterialModel
 
 }
-
-MechanicsMaterialModel { 
-       name="IsotropicElasticModel"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-      }
-
 
 

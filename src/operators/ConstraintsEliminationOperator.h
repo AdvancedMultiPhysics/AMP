@@ -57,12 +57,12 @@ public:
     /**
       @return The variable for the input vector.
       */
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override;
 
     /**
       @return The variable for the output vector.
       */
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override;
 
     /**
       u^m = u^m + C^T u^s

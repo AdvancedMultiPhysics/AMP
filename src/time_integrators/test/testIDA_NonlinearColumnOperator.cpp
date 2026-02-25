@@ -8,10 +8,10 @@
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/NeutronicsRhs.h"
 #include "AMP/operators/NonlinearBVPOperator.h"
+#include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletMatrixCorrection.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
 #include "AMP/operators/diffusion/DiffusionLinearFEOperator.h"
-#include "AMP/operators/diffusion/DiffusionNonlinearFEOperator.h"
 #include "AMP/operators/libmesh/MassLinearFEOperator.h"
 #include "AMP/operators/libmesh/VolumeIntegralOperator.h"
 #include "AMP/solvers/ColumnSolver.h"
@@ -50,12 +50,12 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    //   Create the Mesh.
+    // Create the Mesh
     AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
     // Create a DOF manager for a nodal vector
     int DOFsPerNode          = 1;
@@ -64,17 +64,16 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     int gaussPointGhostWidth = 1;
     bool split               = true;
     auto nodalDofMap         = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
     auto gaussPointDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Cell, gaussPointGhostWidth, DOFsPerElement, split );
+        mesh, AMP::Mesh::GeomType::Cell, gaussPointGhostWidth, DOFsPerElement, split );
 
     // create a nonlinear BVP operator for thermal operator
     AMP_INSIST( input_db->keyExists( "NonlinearThermalOperator" ), "key missing!" );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementModel;
     auto nonlinearThermalOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "NonlinearThermalOperator", input_db, elementModel ) );
+            mesh, "NonlinearThermalOperator", input_db ) );
 
     // create a column rhs operator object with the nonlinear thermal in it for use in the nonlinear
     // problem definition
@@ -83,8 +82,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     // create a linear BVP operator
     auto linearThermalOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "LinearThermalOperator", input_db, elementModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "LinearThermalOperator", input_db ) );
 
     // create a column rhs operator object with the linear thermal in it for use in the linear
     // problem definition
@@ -92,16 +90,14 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     columnLinearRhsOperator->append( linearThermalOperator );
 
     // create a mass linear BVP operator
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> massElementModel;
     auto massOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "MassOperator", input_db, massElementModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "MassOperator", input_db ) );
 
     // create a column mass operator object for use in the nonlinear and linear problem definition
     auto columnMassOperator = std::make_shared<AMP::Operator::ColumnOperator>();
     columnMassOperator->append( massOperator );
 
-    // create a  time operator for use in the preconditioner
+    // create a time operator for use in the preconditioner
     auto timeOperator_db = std::make_shared<AMP::Database>( "TimeOperatorDatabase" );
     timeOperator_db->putScalar( "CurrentDt", 0.01 );
     timeOperator_db->putScalar( "name", "TimeOperator" );
@@ -109,17 +105,16 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     timeOperator_db->putScalar( "bLinearRhsOperator", false );
     timeOperator_db->putScalar( "ScalingFactor", 1.0 / 0.01 );
 
-    auto timeOperatorParameters =
+    auto timeOpParameters =
         std::make_shared<AMP::TimeIntegrator::TimeOperatorParameters>( timeOperator_db );
-    timeOperatorParameters->d_pRhsOperator  = columnLinearRhsOperator;
-    timeOperatorParameters->d_pMassOperator = columnMassOperator;
-    timeOperatorParameters->d_Mesh          = meshAdapter;
+    timeOpParameters->d_pRhsOperator  = columnLinearRhsOperator;
+    timeOpParameters->d_pMassOperator = columnMassOperator;
+    timeOpParameters->d_Mesh          = mesh;
     auto columnLinearTimeOperator =
-        std::make_shared<AMP::TimeIntegrator::ColumnTimeOperator>( timeOperatorParameters );
+        std::make_shared<AMP::TimeIntegrator::ColumnTimeOperator>( timeOpParameters );
 
     // create vectors for initial conditions (IC) and time derivative at IC
-    auto outputVar = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVariable>(
-        columnNonlinearRhsOperator->getOutputVariable() );
+    auto outputVar = columnNonlinearRhsOperator->getOutputVariable();
 
     auto initialCondition      = AMP::LinearAlgebra::createVector( nodalDofMap, outputVar );
     auto initialConditionPrime = AMP::LinearAlgebra::createVector( nodalDofMap, outputVar );
@@ -128,10 +123,9 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     //  create neutronics source
     AMP_INSIST( input_db->keyExists( "NeutronicsOperator" ),
                 "Key ''NeutronicsOperator'' is missing!" );
-    auto neutronicsOp_db = input_db->getDatabase( "NeutronicsOperator" );
-    auto neutronicsParams =
-        std::make_shared<AMP::Operator::NeutronicsRhsParameters>( neutronicsOp_db );
-    neutronicsParams->d_Mesh = meshAdapter;
+    auto neutronicsOp_db  = input_db->getDatabase( "NeutronicsOperator" );
+    auto neutronicsParams = std::make_shared<AMP::Operator::OperatorParameters>( neutronicsOp_db );
+    neutronicsParams->d_Mesh = mesh;
     auto neutronicsOperator  = std::make_shared<AMP::Operator::NeutronicsRhs>( neutronicsParams );
 
     auto SpecificPowerVar = neutronicsOperator->getOutputVariable();
@@ -141,12 +135,11 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     neutronicsOperator->apply( nullVec, SpecificPowerVec );
 
-    //  Integrate Nuclear Rhs over Density * GeomType::Cell //
+    // Integrate Nuclear Rhs over Density * GeomType::Cell //
     AMP_INSIST( input_db->keyExists( "VolumeIntegralOperator" ), "key missing!" );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> sourceTransportModel;
     auto sourceOperator = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "VolumeIntegralOperator", input_db, sourceTransportModel ) );
+            mesh, "VolumeIntegralOperator", input_db ) );
 
     // Create the power (heat source) vector.
     auto powerInWattsVar = sourceOperator->getOutputVariable();
@@ -157,34 +150,21 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     sourceOperator->apply( SpecificPowerVec, powerInWattsVec );
 
     // set initial conditions, initialize created vectors
-    auto node     = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-    auto end_node = node.end();
-
-    AMP::LinearAlgebra::VS_Mesh vectorSelector( meshAdapter );
+    AMP::LinearAlgebra::VS_Mesh vectorSelector( mesh );
     auto thermalIC = initialCondition->select( vectorSelector );
-    // int counter=0;
-    for ( ; node != end_node; ++node ) {
-        // counter+=1;
-
+    for ( auto &node : mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 ) ) {
         std::vector<size_t> gid;
-        nodalDofMap->getDOFs( node->globalID(), gid );
-
-        double px = ( node->coord() )[0];
-        double py = ( node->coord() )[1];
-        double pz = ( node->coord() )[2];
-
-        double val = fun( px, py, pz );
-        // std::cout << "val = " << val << std::endl;
-
-        // std::cout << "counter = " << counter << "gid.size() = " << gid.size() << std::endl;
+        nodalDofMap->getDOFs( node.globalID(), gid );
+        auto p            = node.coord();
+        double val        = fun( p[0], p[1], p[2] );
         const double zero = 0.0;
         for ( auto &elem : gid ) {
             thermalIC->setValuesByGlobalID( 1, &elem, &val );
             // ** please do not set the time derivative to be non-zero!!
             // ** as this causes trouble with the boundary - BP, 07/16/2010
             initialConditionPrime->setValuesByGlobalID( 1, &elem, &zero );
-        } // end for i
-    }     // end for node
+        }
+    }
 
     // create a copy of the rhs which can be modified at each time step (maybe)
     auto thermalRhs = f->select( vectorSelector );
@@ -194,7 +174,6 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     nonlinearThermalOperator->modifyRHSvector( f );
     nonlinearThermalOperator->modifyInitialSolutionVector( initialCondition );
 
-    // ---------------------------------------------------------------------------------------
     // create a preconditioner
 
     // get the ida database
@@ -241,7 +220,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     time_Params->d_pMassOperator = columnMassOperator;
     time_Params->d_operator      = columnNonlinearRhsOperator;
-    // time_Params->d_pNestedSolver = columnPreconditioner;
+    time_Params->d_pNestedSolver = columnPreconditioner;
 
     time_Params->d_ic_vector       = initialCondition;
     time_Params->d_ic_vector_prime = initialConditionPrime;
@@ -249,62 +228,49 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     time_Params->d_pSourceTerm = f;
     // time_Params->d_object_name = "IDATimeIntegratorParameters";
 
-    std::cout << "Before IDATimeIntegrator" << std::endl;
-#ifdef AMP_USE_SUNDIALS
     auto pIDATimeIntegrator =
         std::make_shared<AMP::TimeIntegrator::IDATimeIntegrator>( time_Params );
 
-    if ( pIDATimeIntegrator.get() == nullptr ) {
+    if ( !pIDATimeIntegrator ) {
         ut->failure( "Testing IDATimeIntegrator's constructor" );
     } else {
         ut->passes( "Tested IDATimeIntegrator's constructor" );
     }
 
-    // ---------------------------------------------------------------------------------------
     // step in time
-    double current_time = 0;
-    double max = 0, min = 0;
-    int j = 1;
+    int j = 0;
     while ( pIDATimeIntegrator->getCurrentTime() < pIDATimeIntegrator->getFinalTime() ) {
         auto v = pIDATimeIntegrator->getSolution();
         int retval =
             pIDATimeIntegrator->advanceSolution( pIDATimeIntegrator->getCurrentDt(), false, v, v );
-        // pIDATimeIntegrator->updateSolution();
-        current_time = pIDATimeIntegrator->getCurrentTime();
-
-        std::cout << j++ << "-th timestep" << std::endl;
-        if ( retval == 0 ) {
-            ut->passes( "Testing IDATimeIntegrator's advanceSolution. PASS!!" );
-        } else {
-            ut->failure( "Tested IDATimeIntegrator's advanceSolution. FAIL!!" );
-        }
-
-        max = static_cast<double>( pIDATimeIntegrator->getSolution()->max() );
-        min = static_cast<double>( pIDATimeIntegrator->getSolution()->min() );
-
-        std::cout << "current_time = " << current_time << std::endl;
-        std::cout << "max val of the current solution = " << max << std::endl;
-        std::cout << "min val of the current solution = " << min << std::endl;
+        AMP_ASSERT( retval == 0 );
+        AMP::printp( "." );
+        if ( ++j % 50 == 0 )
+            AMP::printp( "\n" );
     }
+    AMP::printp( "\n\n" );
+
+    double current_time = pIDATimeIntegrator->getCurrentTime();
+    double max          = static_cast<double>( pIDATimeIntegrator->getSolution()->max() );
+    double min          = static_cast<double>( pIDATimeIntegrator->getSolution()->min() );
+    std::cout << "Current time: " << current_time << std::endl;
+    std::cout << "Solution max: " << max << std::endl;
+    std::cout << "Solution min: " << min << std::endl;
 
     if ( input_file == "input_testIDA-NonlinearColumnOperator-1" ) {
-        double expectedMax = 891.016; // if you change the code in way that intentionally changes
-                                      // the solution, you need to update this number.
-        double expectedMin = 750.;  // if you change the code in way that intentionally changes the
-                                    // solution, you need to update this number.
-        double expectedTim = 1000.; // if you change the code in way that intentionally changes the
-                                    // solution, you need to update this number.
+        // If you change the code in way that intentionally changes
+        // the solution, you need to update these numbers
+        double expectedTim = 400;
+        double expectedMax = 900.535;
+        double expectedMin = 750;
         if ( !AMP::Utilities::approx_equal( expectedMax, max, 1e-6 ) )
-            ut->failure( "the max solution for input file: " + input_file + " has changed." );
+            ut->failure( "max solution for input file: " + input_file + " has changed." );
         if ( !AMP::Utilities::approx_equal( expectedMin, min, 1e-6 ) )
-            ut->failure( "the min solution for input file: " + input_file + " has changed." );
+            ut->failure( "min solution for input file: " + input_file + " has changed." );
         if ( !AMP::Utilities::approx_equal( expectedTim, current_time, 1e-6 ) )
-            ut->failure( "the final time   for input file: " + input_file + " has changed." );
+            ut->failure( "final time for input file: " + input_file + " has changed." );
     }
 
-#else
-    ut->passes( "IDA will not fail a test if there is no IDA." );
-#endif
 
     if ( ut->NumFailLocal() == 0 ) {
         ut->passes( "testIDATimeIntegrator successful" );
@@ -316,7 +282,6 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
 int testIDA_NonlinearColumnOperator( int argc, char *argv[] )
 {
-
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 

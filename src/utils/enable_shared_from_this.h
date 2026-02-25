@@ -63,7 +63,7 @@ public:
         }
         return ptr;
     }
-    virtual ~enable_shared_from_this<T>() {}
+    virtual ~enable_shared_from_this() = default;
 
 protected:
     mutable std::weak_ptr<T> weak_ptr_;

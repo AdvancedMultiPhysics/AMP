@@ -19,7 +19,7 @@
 #include <string>
 
 
-static void testSubchannelHelpers( AMP::UnitTest *ut, std::string input_file )
+static void testSubchannelHelpers( AMP::UnitTest *ut, const std::string &input_file )
 {
 
     const double pi = 3.1415926535897932;

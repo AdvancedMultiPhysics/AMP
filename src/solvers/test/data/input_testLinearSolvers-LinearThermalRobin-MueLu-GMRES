@@ -3,8 +3,8 @@
 <<< "PC-MueLuParameters" >>>
 
 Reference{
-  iterations = 10
-  res_l2_norm = 2.099544001351115e-09
+  iterations = 14
+  res_l2_norm = 1.724430841007774e-09
   tolerance = 2.0e-09
   strict = FALSE
 }

@@ -51,7 +51,7 @@ public:
     void
     axpby( const Scalar &alpha, const Scalar &beta, const VectorData &x, VectorData &y ) override;
     void abs( const VectorData &x, VectorData &z ) override;
-    void addScalar( const VectorData &x, const Scalar &alpha_in, VectorData &y ) override;
+    void addScalar( const VectorData &x, const Scalar &alpha, VectorData &y ) override;
 
     void setMax( const Scalar &val, VectorData &x ) override;
     void setMin( const Scalar &val, VectorData &x ) override;

@@ -28,6 +28,15 @@ subsetCommSelfDOFManager::subsetCommSelfDOFManager( std::shared_ptr<const DOFMan
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int subsetCommSelfDOFManager::getDOFsPerPoint() const
+{
+    return d_parentDOFManager->getDOFsPerPoint();
+}
+
+
+/****************************************************************
  * Convert DOF indicies                                          *
  ****************************************************************/
 size_t subsetCommSelfDOFManager::getSubsetDOF( size_t N, size_t *dofs ) const
@@ -75,7 +84,7 @@ AMP::Mesh::MeshElementID subsetCommSelfDOFManager::getElementID( size_t dof ) co
 {
     return d_parentDOFManager->getElementID( dof + d_parentBegin );
 }
-AMP::Mesh::MeshElement subsetCommSelfDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> subsetCommSelfDOFManager::getElement( size_t dof ) const
 {
     return d_parentDOFManager->getElement( dof + d_parentBegin );
 }

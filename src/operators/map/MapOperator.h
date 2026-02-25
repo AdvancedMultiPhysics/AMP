@@ -21,7 +21,7 @@ namespace AMP::Operator {
 /**
  * Class MapOperator is the base class for various mapping alogorithms. This
  * class stores a pointer to the mapAdapter to which the solution has to be
- * mapped from Operator's meshAdapter.
+ * mapped from Operator's mesh.
  */
 
 class MapOperator : public Operator

@@ -2,13 +2,17 @@
 #define included_AMP_CSRLocalMatrixData_hpp
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/IO/PIO.h"
+#include "AMP/IO/RestartManager.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/AMPCSRMatrixParameters.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
+#include "AMP/matrices/data/CSRMatrixDataHelpers.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
+#include "AMP/utils/Array.h"
 #include "AMP/utils/Utilities.h"
 
 #include <numeric>
@@ -17,24 +21,15 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Policy>
-bool isColValid( typename Policy::gidx_t col,
+template<typename Config>
+bool isColValid( typename Config::gidx_t col,
                  bool is_diag,
-                 typename Policy::gidx_t first_col,
-                 typename Policy::gidx_t last_col )
+                 typename Config::gidx_t first_col,
+                 typename Config::gidx_t last_col )
 {
     bool dValid  = is_diag && ( first_col <= col && col < last_col );
     bool odValid = !is_diag && ( col < first_col || last_col <= col );
     return ( dValid || odValid );
-}
-
-template<typename size_type, class data_allocator>
-std::shared_ptr<typename data_allocator::value_type[]> sharedArrayBuilder( size_type N,
-                                                                           data_allocator &alloc )
-{
-    AMP_DEBUG_ASSERT( std::is_integral_v<size_type> );
-    return std::shared_ptr<typename data_allocator::value_type[]>(
-        alloc.allocate( N ), [N, &alloc]( auto p ) -> void { alloc.deallocate( p, N ); } );
 }
 
 template<typename data_type>
@@ -43,32 +38,39 @@ std::shared_ptr<data_type[]> sharedArrayWrapper( data_type *raw_array )
     return std::shared_ptr<data_type[]>( raw_array, []( auto p ) -> void { (void) p; } );
 }
 
-template<typename Policy, class Allocator>
-CSRLocalMatrixData<Policy, Allocator>::CSRLocalMatrixData(
-    std::shared_ptr<MatrixParametersBase> params,
-    AMP::Utilities::MemoryType memory_location,
-    typename Policy::gidx_t first_row,
-    typename Policy::gidx_t last_row,
-    typename Policy::gidx_t first_col,
-    typename Policy::gidx_t last_col,
-    bool is_diag )
+template<typename Config>
+CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParametersBase> params,
+                                                AMP::Utilities::MemoryType memory_location,
+                                                typename Config::gidx_t first_row,
+                                                typename Config::gidx_t last_row,
+                                                typename Config::gidx_t first_col,
+                                                typename Config::gidx_t last_col,
+                                                bool is_diag,
+                                                bool is_symbolic,
+                                                uint64_t hash )
     : d_memory_location( memory_location ),
       d_first_row( first_row ),
       d_last_row( last_row ),
       d_first_col( first_col ),
       d_last_col( last_col ),
       d_is_diag( is_diag ),
-      d_num_rows( last_row - first_row )
+      d_is_symbolic( is_symbolic ),
+      d_num_rows( last_row - first_row ),
+      d_hash( hash )
 {
     AMPManager::incrementResource( "CSRLocalMatrixData" );
+    PROFILE( "CSRLocalMatrixData::constructor" );
 
     // Figure out what kind of parameters object we have
     // Note: matParams always true if ampCSRParams is by inheritance
-    auto rawCSRParams = std::dynamic_pointer_cast<RawCSRMatrixParameters<Policy>>( params );
-    auto ampCSRParams = std::dynamic_pointer_cast<AMPCSRMatrixParameters<Policy>>( params );
+    auto rawCSRParams = std::dynamic_pointer_cast<RawCSRMatrixParameters<Config>>( params );
+    auto ampCSRParams = std::dynamic_pointer_cast<AMPCSRMatrixParameters<Config>>( params );
     auto matParams    = std ::dynamic_pointer_cast<MatrixParameters>( params );
 
     if ( rawCSRParams ) {
+        AMP_INSIST( !d_is_symbolic,
+                    "CSRLocalMatrixData: Can not construct symbolic matrix from raw parameters" );
+
         // Pull out block specific parameters
         auto &blParams = d_is_diag ? rawCSRParams->d_diag : rawCSRParams->d_off_diag;
 
@@ -92,11 +94,8 @@ CSRLocalMatrixData<Policy, Allocator>::CSRLocalMatrixData(
         d_cols       = sharedArrayWrapper( blParams.d_cols );
         d_coeffs     = sharedArrayWrapper( blParams.d_coeffs );
     } else if ( matParams ) {
-        // Getting device memory support in this constructor mode will be very challenging
-        AMP_ASSERT( d_memory_location != AMP::Utilities::MemoryType::device );
-
         // can always allocate row starts without external information
-        d_row_starts = sharedArrayBuilder( d_num_rows + 1, d_lidxAllocator );
+        d_row_starts = makeLidxArray( d_num_rows + 1 );
         AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
 
         const auto &getRow = matParams->getRowFunction();
@@ -109,12 +108,16 @@ CSRLocalMatrixData<Policy, Allocator>::CSRLocalMatrixData(
             return;
         }
 
+        AMP_INSIST( d_memory_location != AMP::Utilities::MemoryType::device,
+                    "CSRLocalMatrixData: construction from MatrixParameters on device not yet "
+                    "supported. Try building from AMPCSRMatrixParameters." );
+
         // Count number of nonzeros per row and total
         d_nnz = 0;
         for ( gidx_t i = d_first_row; i < d_last_row; ++i ) {
             lidx_t valid_nnz = 0;
             for ( auto &&col : getRow( i ) ) {
-                if ( isColValid<Policy>( col, d_is_diag, d_first_col, d_last_col ) ) {
+                if ( isColValid<Config>( col, d_is_diag, d_first_col, d_last_col ) ) {
                     ++valid_nnz;
                 }
             }
@@ -131,8 +134,10 @@ CSRLocalMatrixData<Policy, Allocator>::CSRLocalMatrixData(
         d_is_empty = false;
 
         // Allocate internal arrays
-        d_cols   = sharedArrayBuilder( d_nnz, d_gidxAllocator );
-        d_coeffs = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        d_cols = makeGidxArray( d_nnz );
+        if ( !d_is_symbolic ) {
+            d_coeffs = makeScalarArray( d_nnz );
+        }
 
         // Fill cols and nnz based on local row extents and on/off diag status
         lidx_t nnzFilled = 0;
@@ -146,9 +151,11 @@ CSRLocalMatrixData<Policy, Allocator>::CSRLocalMatrixData(
             // fill in valid columns from getRow function
             auto cols = getRow( d_first_row + row );
             for ( auto &&col : cols ) {
-                if ( isColValid<Policy>( col, d_is_diag, d_first_col, d_last_col ) ) {
-                    d_cols[nnzFilled]   = col;
-                    d_coeffs[nnzFilled] = 0.0;
+                if ( isColValid<Config>( col, d_is_diag, d_first_col, d_last_col ) ) {
+                    d_cols[nnzFilled] = col;
+                    if ( !d_is_symbolic ) {
+                        d_coeffs[nnzFilled] = 0.0;
+                    }
                     ++nnzFilled;
                 }
             }
@@ -163,24 +170,59 @@ CSRLocalMatrixData<Policy, Allocator>::CSRLocalMatrixData(
         // in SpGEMM
         d_nnz        = 0;
         d_is_empty   = true;
-        d_row_starts = sharedArrayBuilder( d_num_rows + 1, d_lidxAllocator );
+        d_row_starts = makeLidxArray( d_num_rows + 1 );
         AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
         return;
     }
-
-    // local columns always owned internally
-    d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
 
     // fill in local column indices
     globalToLocalColumns();
 }
 
-template<typename Policy, class Allocator>
-std::shared_ptr<CSRLocalMatrixData<Policy, Allocator>>
-CSRLocalMatrixData<Policy, Allocator>::ConcatHorizontal(
-    std::shared_ptr<MatrixParametersBase> params,
-    std::map<int, std::shared_ptr<CSRLocalMatrixData<Policy, Allocator>>> blocks )
+template<typename Config>
+size_t *CSRLocalMatrixData<Config>::getColumnMapSizeT() const
 {
+    if ( d_is_diag ) {
+        return nullptr;
+    }
+    if ( !d_cols_unq_size_t ) {
+        d_cols_unq_size_t = sharedArrayBuilder<size_t>( d_ncols_unq );
+        AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), d_cols_unq_size_t.get() );
+    }
+    return d_cols_unq_size_t.get();
+}
+
+template<typename Config>
+typename Config::scalar_t *CSRLocalMatrixData<Config>::getGhostCache() const
+{
+    if ( d_is_diag ) {
+        return nullptr;
+    }
+    if ( !d_ghost_cache ) {
+        d_ghost_cache = makeScalarArray( d_ncols_unq );
+    }
+    return d_ghost_cache.get();
+}
+
+template<typename Config>
+std::string CSRLocalMatrixData<Config>::type() const
+{
+    std::string tname = "CSRLocalMatrixData<";
+    std::string c     = ", ";
+    std::string s0    = getTypeID<allocator_type>().name;
+    std::string s1    = getTypeID<gidx_t>().name;
+    std::string s2    = getTypeID<lidx_t>().name;
+    std::string s3    = getTypeID<scalar_t>().name;
+    return tname + c + s0 + c + s1 + c + s2 + c + s3 + ">";
+}
+
+template<typename Config>
+std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHorizontal(
+    std::shared_ptr<MatrixParametersBase> params,
+    std::map<int, std::shared_ptr<CSRLocalMatrixData<Config>>> blocks )
+{
+    PROFILE( "CSRLocalMatrixData::ConcatHorizontal" );
+
     AMP_INSIST( blocks.size() > 0, "Attempted to concatenate empty set of blocks" );
 
     // Verify that all have matching row/col starts/stops
@@ -193,327 +235,436 @@ CSRLocalMatrixData<Policy, Allocator>::ConcatHorizontal(
     const auto nrows     = static_cast<lidx_t>( last_row - first_row );
     const auto first_col = block->d_first_col;
     const auto last_col  = block->d_last_col;
-    std::vector<lidx_t> row_nnz( last_row - first_row, 0 );
+    bool all_empty       = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
+        if ( block->isEmpty() ) {
+            continue;
+        } else {
+            all_empty = false;
+        }
         AMP_INSIST( first_row == block->d_first_row && last_row == block->d_last_row &&
                         first_col == block->d_first_col && last_col == block->d_last_col,
                     "Blocks to concatenate must have compatible layouts" );
         AMP_INSIST( block->d_cols.get(), "Blocks to concatenate must have global columns" );
         AMP_INSIST( mem_loc == block->d_memory_location,
                     "Blocks to concatenate must be in same memory space" );
-        for ( lidx_t row = 0; row < nrows; ++row ) {
-            row_nnz[row] += ( block->d_row_starts[row + 1] - block->d_row_starts[row] );
-        }
+        AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
     }
 
-    // Create empty matrix and trigger allocations to match
-    auto concat_matrix = std::make_shared<CSRLocalMatrixData<Policy, Allocator>>(
-        params, mem_loc, first_row, last_row, first_col, last_col, false );
-    concat_matrix->setNNZ( row_nnz );
+    // extreme edge case where every block happened to be empty
+    if ( all_empty ) {
+        return nullptr;
+    }
 
-    // set row_nnz back to zeros to use as counters while appending entries
-    std::fill( row_nnz.begin(), row_nnz.end(), 0 );
+    // Create output matrix
+    auto concat_matrix = std::make_shared<CSRLocalMatrixData<Config>>(
+        params, mem_loc, first_row, last_row, first_col, last_col, false );
+
+    // count number of non-zeros in each row
+    for ( auto it : blocks ) {
+        block = it.second;
+        if ( block->isEmpty() ) {
+            continue;
+        }
+        CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
+            block->d_row_starts.get(), nrows, concat_matrix->d_row_starts.get() );
+    }
+
+    // trigger allocations
+    concat_matrix->setNNZ( true );
+
+    // Create counters for non-zeros entered into each row
+    auto row_nnz_ctrs = makeLidxArray( nrows );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( row_nnz_ctrs.get(), nrows, 0 );
 
     // loop back over blocks and write into new matrix
     for ( auto it : blocks ) {
         block = it.second;
-        for ( lidx_t row = 0; row < nrows; ++row ) {
-            for ( auto n = block->d_row_starts[row]; n < block->d_row_starts[row + 1]; ++n ) {
-                const auto rs                     = concat_matrix->d_row_starts[row];
-                const auto ctr                    = row_nnz[row];
-                concat_matrix->d_cols[rs + ctr]   = block->d_cols[n];
-                concat_matrix->d_coeffs[rs + ctr] = block->d_coeffs[n];
-                row_nnz[row]++;
-            }
+        if ( block->isEmpty() ) {
+            continue;
         }
+        CSRMatrixDataHelpers<Config>::ConcatHorizontalFill( block->d_row_starts.get(),
+                                                            block->d_cols.get(),
+                                                            block->d_coeffs.get(),
+                                                            nrows,
+                                                            concat_matrix->d_row_starts.get(),
+                                                            row_nnz_ctrs.get(),
+                                                            concat_matrix->d_cols.get(),
+                                                            concat_matrix->d_coeffs.get() );
     }
 
     return concat_matrix;
 }
 
-template<typename Policy, class Allocator>
-std::shared_ptr<CSRLocalMatrixData<Policy, Allocator>>
-CSRLocalMatrixData<Policy, Allocator>::ConcatVertical(
+template<typename Config>
+std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVertical(
     std::shared_ptr<MatrixParametersBase> params,
-    std::map<int, std::shared_ptr<CSRLocalMatrixData<Policy, Allocator>>> blocks )
+    std::map<int, std::shared_ptr<CSRLocalMatrixData<Config>>> blocks,
+    const gidx_t first_col,
+    const gidx_t last_col,
+    const bool is_diag )
 {
+    PROFILE( "CSRLocalMatrixData::ConcatVertical" );
+
     AMP_INSIST( blocks.size() > 0, "Attempted to concatenate empty set of blocks" );
 
-    // Verify that all have matching column starts/stops
-    // Blocks must have valid global columns present
-    // Count total number of non-zeros in each row from combination.
-    auto block           = ( *blocks.begin() ).second;
-    const auto mem_loc   = block->d_memory_location;
-    const auto first_col = block->d_first_col;
-    const auto last_col  = block->d_last_col;
-    std::vector<lidx_t> row_nnz;
+    // count number of rows and check compatibility of blocks
+    auto block         = ( *blocks.begin() ).second;
+    const auto mem_loc = block->d_memory_location;
+    lidx_t num_rows    = 0;
+    bool all_empty     = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
-        AMP_INSIST( mem_loc == block->d_memory_location,
-                    "Blocks to concatenate must be in same memory space" );
-        AMP_INSIST( first_col == block->d_first_col && last_col == block->d_last_col,
-                    "Blocks to concatenate must have compatible layouts" );
-        if ( !block->d_is_empty ) {
-            AMP_INSIST( block->d_cols.get(),
-                        "Non-empty blocks to concatenate must have accessible global columns" );
-        }
-        for ( lidx_t row = 0; row < block->d_num_rows; ++row ) {
-            row_nnz.push_back( block->d_row_starts[row + 1] - block->d_row_starts[row] );
-        }
+        AMP_DEBUG_INSIST( mem_loc == block->d_memory_location,
+                          "Blocks to concatenate must be in same memory space" );
+        AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
+        num_rows += block->d_num_rows;
+        all_empty = all_empty && block->isEmpty();
     }
 
-    // Create empty matrix and trigger allocations to match
-    auto concat_matrix = std::make_shared<CSRLocalMatrixData<Policy, Allocator>>(
-        params, mem_loc, 0, row_nnz.size(), first_col, last_col, true );
-    concat_matrix->setNNZ( row_nnz );
+    // extreme edge case where every block happened to be empty
+    if ( all_empty ) {
+        return nullptr;
+    }
+
+    // create output matrix
+    auto concat_matrix = std::make_shared<CSRLocalMatrixData<Config>>(
+        params, mem_loc, 0, num_rows, first_col, last_col, is_diag );
+    // Count total number of non-zeros in each row from combination.
+    lidx_t cat_row = 0; // counter for which row we are on in concat_matrix
+    for ( auto it : blocks ) {
+        block = it.second;
+        CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
+            block->d_row_starts.get(),
+            block->d_cols.get(),
+            block->d_num_rows,
+            first_col,
+            last_col,
+            is_diag,
+            &concat_matrix->d_row_starts[cat_row] );
+        cat_row += block->d_num_rows;
+    }
+
+    // Trigger allocations
+    concat_matrix->setNNZ( true );
 
     // loop over blocks again and write into new matrix
-    lidx_t cat_row = 0;
+    cat_row = 0;
     for ( auto it : blocks ) {
         block = it.second;
         if ( !block->d_is_empty ) {
-            for ( lidx_t brow = 0; brow < block->d_num_rows; ++brow ) {
-                lidx_t cat_pos = concat_matrix->d_row_starts[cat_row];
-                for ( auto n = block->d_row_starts[brow]; n < block->d_row_starts[brow + 1]; ++n ) {
-                    concat_matrix->d_cols[cat_pos]   = block->d_cols[n];
-                    concat_matrix->d_coeffs[cat_pos] = block->d_coeffs[n];
-                    cat_pos++;
-                }
-                cat_row++;
-            }
+            CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts.get(),
+                                                              block->d_cols.get(),
+                                                              block->d_coeffs.get(),
+                                                              block->d_num_rows,
+                                                              first_col,
+                                                              last_col,
+                                                              is_diag,
+                                                              cat_row,
+                                                              concat_matrix->d_row_starts.get(),
+                                                              concat_matrix->d_cols.get(),
+                                                              concat_matrix->d_coeffs.get() );
         }
+        cat_row += block->d_num_rows;
     }
 
     return concat_matrix;
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::globalToLocalColumns()
+template<typename Config>
+void CSRLocalMatrixData<Config>::swapDataFields( CSRLocalMatrixData<Config> &other )
 {
-    if ( d_is_empty ) {
+    AMP_ASSERT( d_is_symbolic == other.d_is_symbolic );
+    // swap metadata
+    const auto o_is_empty  = other.d_is_empty;
+    const auto o_nnz       = other.d_nnz;
+    const auto o_ncols_unq = other.d_ncols_unq;
+    other.d_is_empty       = d_is_empty;
+    other.d_nnz            = d_nnz;
+    other.d_ncols_unq      = d_ncols_unq;
+    d_is_empty             = o_is_empty;
+    d_nnz                  = o_nnz;
+    d_ncols_unq            = o_ncols_unq;
+    // swap fields
+    d_row_starts.swap( other.d_row_starts );
+    d_cols.swap( other.d_cols );
+    d_cols_loc.swap( other.d_cols_loc );
+    d_cols_unq.swap( other.d_cols_unq );
+    d_coeffs.swap( other.d_coeffs );
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::globalToLocalColumns()
+{
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::globalToLocalColumns not implemented for symbolic matrices" );
+
+    PROFILE( "CSRLocalMatrixData::globalToLocalColumns" );
+
+    if ( d_is_empty || d_cols.get() == nullptr ) {
+        // gToL either trivially not needed or has already been called
         return;
     }
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::globalToLocalColumns not implemented on device yet" );
+    // Columns easier to sort before converting to local
+    // and defining unq cols in offd easier if globals are sorted
+    sortColumns();
+
+    // local columns always owned internally
+    d_cols_loc = makeLidxArray( d_nnz );
 
     if ( d_is_diag ) {
-        for ( lidx_t n = 0; n < d_nnz; ++n ) {
-            d_cols_loc[n] = static_cast<lidx_t>( d_cols[n] - d_first_col );
-        }
+        CSRMatrixDataHelpers<Config>::GlobalToLocalDiag(
+            d_cols.get(), d_nnz, d_first_col, d_cols_loc.get() );
     } else {
         // for offd setup column map as part of the process
-        // insert all into std::set to make unique and sorted
-        std::set<gidx_t> colSet;
-        for ( lidx_t n = 0; n < d_nnz; ++n ) {
-            colSet.insert( d_cols[n] );
-        }
-        d_ncols_unq = static_cast<lidx_t>( colSet.size() );
 
-        // find all local column indices from set
-        for ( lidx_t n = 0; n < d_nnz; ++n ) {
-            auto it       = colSet.lower_bound( d_cols[n] );
-            d_cols_loc[n] = static_cast<lidx_t>( std::distance( colSet.begin(), it ) );
-            AMP_ASSERT( d_cols_loc[n] < d_ncols_unq );
-        }
+        // first make a copy of the global columns and sort them
+        // as a whole. This is different from the sortColumns call
+        // that acts within a row. This jumbles all rows together.
+        auto cols_tmp = makeGidxArray( d_nnz );
+        AMP::Utilities::Algorithms<gidx_t>::copy_n( d_cols.get(), d_nnz, cols_tmp.get() );
+        AMP::Utilities::Algorithms<gidx_t>::sort( cols_tmp.get(), d_nnz );
 
-        // offd column map also always owned internally
-        d_cols_unq = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
-        std::copy( colSet.begin(), colSet.end(), d_cols_unq.get() );
+        // make sorted entries unique and copy
+        d_ncols_unq = static_cast<lidx_t>(
+            AMP::Utilities::Algorithms<gidx_t>::unique( cols_tmp.get(), d_nnz ) );
+        d_cols_unq = makeGidxArray( d_ncols_unq );
+        AMP::Utilities::Algorithms<gidx_t>::copy_n( cols_tmp.get(), d_ncols_unq, d_cols_unq.get() );
+        cols_tmp.reset();
+
+        CSRMatrixDataHelpers<Config>::GlobalToLocalOffd(
+            d_cols.get(), d_nnz, d_cols_unq.get(), d_ncols_unq, d_cols_loc.get() );
     }
-
-    // Now that local columns are formed and colMap is present
-    // sort column ids within each row
-    sortColumns();
 
     // free global cols as they should not be used from here on out
     d_cols.reset();
 }
 
-template<typename Policy, class Allocator>
-typename Policy::gidx_t
-CSRLocalMatrixData<Policy, Allocator>::localToGlobal( const typename Policy::lidx_t loc_id ) const
+template<typename Config>
+void CSRLocalMatrixData<Config>::sortColumns()
 {
-    if ( d_is_diag ) {
-        return static_cast<typename Policy::gidx_t>( loc_id ) + d_first_col;
-    } else {
-        return d_cols_unq[loc_id];
-    }
-}
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::sortColumns not implemented for symbolic matrices" );
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::sortColumns()
-{
-    typedef std::tuple<lidx_t, gidx_t, scalar_t> tuple_t;
-
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRSerialMatrixData::sortColumns not implemented for device memory" );
+    PROFILE( "CSRLocalMatrixData::sortColumns" );
 
     if ( d_is_empty ) {
         return;
     }
 
-    std::vector<tuple_t> rTpl;
-    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
-        const auto rs      = d_row_starts[row];
-        const auto row_len = d_row_starts[row + 1] - rs;
-        if ( row_len == 0 )
-            continue;
+    AMP_DEBUG_INSIST( d_cols.get() != nullptr,
+                      "CSRLocalMatrixData::sortColumns Access to global columns required" );
 
-        // enlarge temp vector of tuples if needed
-        if ( row_len > static_cast<lidx_t>( rTpl.size() ) ) {
-            rTpl.resize( row_len );
-        }
-
-        // pack local column and coeff into array of tuples
-        for ( lidx_t k = 0; k < row_len; ++k ) {
-            rTpl[k] = std::make_tuple( d_cols_loc[rs + k], d_cols[rs + k], d_coeffs[rs + k] );
-        }
-
-        // slightly different sorting criteria for on and off diagonal blocks
-        if ( d_is_diag ) {
-            // diag block puts diag entry first, then ascending order on local col
-            std::sort( rTpl.data(),
-                       rTpl.data() + row_len,
-                       [row]( const tuple_t &a, const tuple_t &b ) -> bool {
-                           const lidx_t lca = std::get<0>( a ), lcb = std::get<0>( b );
-                           return row != lcb && ( lca < lcb || lca == row );
-                       } );
-        } else {
-            // offd block is plain ascending order on local col
-            std::sort( rTpl.data(),
-                       rTpl.data() + row_len,
-                       []( const tuple_t &a, const tuple_t &b ) -> bool {
-                           return std::get<0>( a ) < std::get<0>( b );
-                       } );
-        }
-
-        // unpack now sorted array of tuples
-        for ( lidx_t k = 0; k < row_len; ++k ) {
-            d_cols_loc[rs + k] = std::get<0>( rTpl[k] );
-            d_cols[rs + k]     = std::get<1>( rTpl[k] );
-            d_coeffs[rs + k]   = std::get<2>( rTpl[k] );
-        }
+    if ( d_is_diag ) {
+        CSRMatrixDataHelpers<Config>::SortColumnsDiag(
+            d_row_starts.get(), d_cols.get(), d_coeffs.get(), d_num_rows, d_first_col );
+    } else {
+        CSRMatrixDataHelpers<Config>::SortColumnsOffd(
+            d_row_starts.get(), d_cols.get(), d_coeffs.get(), d_num_rows );
     }
 }
 
-template<typename Policy, class Allocator>
-CSRLocalMatrixData<Policy, Allocator>::~CSRLocalMatrixData()
+
+template<typename Config>
+CSRLocalMatrixData<Config>::~CSRLocalMatrixData()
 {
     AMPManager::decrementResource( "CSRLocalMatrixData" );
 }
 
-template<typename Policy, class Allocator>
-std::shared_ptr<CSRLocalMatrixData<Policy, Allocator>>
-CSRLocalMatrixData<Policy, Allocator>::cloneMatrixData()
+template<typename Config>
+std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::cloneMatrixData()
 {
-    std::shared_ptr<CSRLocalMatrixData> cloneData;
+    // cloning is just migration with the input/output configurations being the same
+    return migrate<Config>();
+}
 
-    cloneData = std::make_shared<CSRLocalMatrixData>(
-        nullptr, d_memory_location, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
+template<typename Config>
+std::shared_ptr<CSRLocalMatrixData<Config>>
+CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Config>::mask_t *mask,
+                                            const bool is_symbolic ) const
+{
+    using outdata_t = CSRLocalMatrixData<Config>;
+    PROFILE( "CSRLocalMatrixData::maskMatrixData" );
 
-    cloneData->d_is_empty = d_is_empty;
-    cloneData->d_nnz      = d_nnz;
+    AMP_INSIST( d_is_diag,
+                "CSRLocalMatrixData::maskMatrixData not implemented for off-diag blocks" );
 
-    cloneData->d_cols     = nullptr;
-    cloneData->d_cols_loc = nullptr;
-    cloneData->d_coeffs   = nullptr;
+    AMP_INSIST( d_cols.get() == nullptr,
+                "CSRLocalMatrixData::maskMatrixData can only be applied to assembled matrices" );
+
+    if ( !is_symbolic ) {
+        AMP_INSIST( !d_is_symbolic,
+                    "CSRLocalMatrixData::maskMatrixData can not produce a numeric matrix from a "
+                    "symbolic matrix" );
+    }
+
+    // create matrix with same layout and location, possibly now symbolic
+    auto outData = std::make_shared<outdata_t>( nullptr,
+                                                d_memory_location,
+                                                d_first_row,
+                                                d_last_row,
+                                                d_first_col,
+                                                d_last_col,
+                                                d_is_diag,
+                                                is_symbolic );
+
+    // count entries in mask and allocate output
+    const auto num_rows = numLocalRows();
+    auto rs_out         = outData->d_row_starts.get();
+    CSRMatrixDataHelpers<Config>::MaskCountNNZ(
+        d_row_starts.get(), mask, d_is_diag, num_rows, rs_out );
+    outData->setNNZ( true );
+
+    // get output data fields and copy over masked out information
+    if ( d_is_diag ) {
+        CSRMatrixDataHelpers<Config>::MaskFillDiag( d_row_starts.get(),
+                                                    d_cols_loc.get(),
+                                                    d_coeffs.get(),
+                                                    mask,
+                                                    d_is_diag,
+                                                    num_rows,
+                                                    rs_out,
+                                                    outData->d_cols_loc.get(),
+                                                    outData->d_coeffs.get() );
+        outData->d_cols.reset();
+    } else {
+        // unreachable for now
+    }
+
+    return outData;
+}
+
+template<typename Config>
+template<typename ConfigOut>
+std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migrate() const
+{
+    PROFILE( "CSRLocalMatrixData::migrate" );
+
+    using outdata_t   = CSRLocalMatrixData<ConfigOut>;
+    using out_alloc_t = typename outdata_t::allocator_type;
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::migrate not implemented for symbolic matrices" );
+
+    auto memloc  = AMP::Utilities::getAllocatorMemoryType<out_alloc_t>();
+    auto outData = std::make_shared<outdata_t>(
+        nullptr, memloc, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
+
+    outData->d_is_empty = d_is_empty;
+    outData->d_nnz      = static_cast<typename outdata_t::lidx_t>( d_nnz );
+
+    outData->d_cols     = nullptr;
+    outData->d_cols_loc = nullptr;
+    outData->d_coeffs   = nullptr;
 
     if ( !d_is_empty ) {
-        cloneData->d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
-        cloneData->d_coeffs   = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+        outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
+        outData->d_coeffs   = outdata_t::makeScalarArray( d_nnz );
 
-        AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            d_row_starts.get(), d_num_rows + 1, cloneData->d_row_starts.get() );
-        AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            d_cols_loc.get(), d_nnz, cloneData->d_cols_loc.get() );
-        AMP::Utilities::Algorithms<scalar_t>::fill_n( cloneData->d_coeffs.get(), d_nnz, 0.0 );
+        /****************************************************
+         * Potential performance improvement:
+         * If config::alloc == configout::alloc  &&
+         *   config::lidx_t == configout::lidx_t &&
+         *   config::gidx_t == configout::gidx_t
+         * then it's not required to create copies of the index arrays pointers would suffice
+         ****************************************************/
+
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
+        AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
+        AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
 
         if ( d_cols.get() != nullptr ) {
-            cloneData->d_cols = sharedArrayBuilder( d_nnz, d_gidxAllocator );
-            AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                d_cols.get(), d_nnz, cloneData->d_cols.get() );
+            outData->d_cols = outdata_t::makeGidxArray( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
         }
         if ( d_cols_unq.get() != nullptr ) {
-            cloneData->d_ncols_unq = d_ncols_unq;
-            cloneData->d_cols_unq  = sharedArrayBuilder( d_ncols_unq, d_gidxAllocator );
-            AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                d_cols_unq.get(), d_ncols_unq, cloneData->d_cols_unq.get() );
+            outData->d_ncols_unq = d_ncols_unq;
+            outData->d_cols_unq  = outdata_t::makeGidxArray( d_ncols_unq );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
         }
     }
 
-    return cloneData;
+    return outData;
 }
 
-template<typename Policy, class Allocator>
-std::shared_ptr<CSRLocalMatrixData<Policy, Allocator>>
-CSRLocalMatrixData<Policy, Allocator>::transpose(
-    std::shared_ptr<MatrixParametersBase> params ) const
+template<typename Config>
+std::shared_ptr<CSRLocalMatrixData<Config>>
+CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> params ) const
 {
+    PROFILE( "CSRLocalMatrixData::transpose" );
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::transpose not implemented for symbolic matrices" );
+
     // create new data, note swapped rows and cols
     auto transposeData = std::make_shared<CSRLocalMatrixData>(
         params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, d_is_diag );
 
-    // handle rare edge case of empty diagonal block
+    // handle edge case of empty diagonal block
     if ( d_is_empty ) {
         return transposeData;
     }
 
-    auto trans_row = [is_diag   = d_is_diag,
-                      first_col = d_first_col,
-                      cols      = d_cols,
-                      cols_loc  = d_cols_loc,
-                      cols_unq  = d_cols_unq]( const lidx_t c ) -> lidx_t {
-        gidx_t col_g = 0;
-        if ( cols.get() ) {
-            col_g = cols[c];
-        } else if ( is_diag ) {
-            return cols_loc[c];
-        } else {
-            col_g = cols_unq[cols_loc[c]];
-        }
-        return col_g - first_col;
-    };
+    // allocate fully since total number of NZs doesn't change
+    // transpose helpers resposible for setting up row_starts
+    transposeData->setNNZ( d_nnz );
 
-    // count nnz per column and store in transpose's rowstarts array
-    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
-        for ( lidx_t c = d_row_starts[row]; c < d_row_starts[row + 1]; ++c ) {
-            const auto t_row = trans_row( c );
-            transposeData->d_row_starts[t_row]++;
-        }
-    }
+    // both host and device implementations require some workspace
+    // host needs out_num_rows worth of lidx_t's
+    // device needs two buffers of lidx_t's with nnz entries each
+    const auto worksize =
+        d_memory_location == AMP::Utilities::MemoryType::host ? transposeData->d_num_rows : d_nnz;
+    auto counters = makeLidxArray( worksize );
+    auto reduce_space =
+        d_memory_location == AMP::Utilities::MemoryType::host ? nullptr : makeLidxArray( worksize );
 
-    transposeData->setNNZ( true );
-
-    // count nnz per column again and append into each row of transpose
-    // create temporary vector of counters to hold position in each row
-    std::vector<lidx_t> row_ctr( transposeData->d_num_rows, 0 );
-    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
-        for ( lidx_t c = d_row_starts[row]; c < d_row_starts[row + 1]; ++c ) {
-            const auto t_row = trans_row( c );
-            const auto pos   = transposeData->d_row_starts[t_row] + row_ctr[t_row];
-            // local transpose only fills global cols and coeffs
-            // caller responsible for creation of local columns if desired
-            transposeData->d_cols[pos]   = static_cast<gidx_t>( row ) + d_first_row;
-            transposeData->d_coeffs[pos] = d_coeffs[c];
-            row_ctr[t_row]++;
-        }
+    if ( d_is_diag ) {
+        AMP_INSIST( d_cols_loc.get(),
+                    "CSRLocalMatrixData::transpose Diag block must have accessible local columns" );
+        CSRMatrixDataHelpers<Config>::TransposeDiag( d_row_starts.get(),
+                                                     d_cols_loc.get(),
+                                                     d_coeffs.get(),
+                                                     d_num_rows,
+                                                     transposeData->d_num_rows,
+                                                     transposeData->d_first_col,
+                                                     d_nnz,
+                                                     transposeData->d_row_starts.get(),
+                                                     transposeData->d_cols_loc.get(),
+                                                     transposeData->d_cols.get(),
+                                                     transposeData->d_coeffs.get(),
+                                                     counters.get(),
+                                                     reduce_space.get() );
+    } else {
+        AMP_INSIST(
+            d_cols.get(),
+            "CSRLocalMatrixData::transpose Offd block must have global columns accessible" );
+        CSRMatrixDataHelpers<Config>::TransposeOffd( d_row_starts.get(),
+                                                     d_cols.get(),
+                                                     d_coeffs.get(),
+                                                     d_num_rows,
+                                                     d_first_col,
+                                                     transposeData->d_num_rows,
+                                                     transposeData->d_first_col,
+                                                     d_nnz,
+                                                     transposeData->d_row_starts.get(),
+                                                     transposeData->d_cols_loc.get(),
+                                                     transposeData->d_cols.get(),
+                                                     transposeData->d_coeffs.get(),
+                                                     counters.get(),
+                                                     reduce_space.get() );
     }
 
     return transposeData;
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::setNNZ( bool do_accum )
+template<typename Config>
+void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
 {
-    if ( do_accum ) {
-        std::exclusive_scan(
-            d_row_starts.get(), d_row_starts.get() + d_num_rows + 1, d_row_starts.get(), 0 );
-    }
+    PROFILE( "CSRLocalMatrixData::setNNZ" );
 
-    // total nnz in all rows of block is last entry
-    d_nnz = d_row_starts[d_num_rows];
+    d_nnz = tot_nnz;
 
     if ( d_nnz == 0 ) {
         d_is_empty = true;
@@ -523,31 +674,163 @@ void CSRLocalMatrixData<Policy, Allocator>::setNNZ( bool do_accum )
 
     // allocate and fill remaining arrays
     d_is_empty = false;
-    d_cols     = sharedArrayBuilder( d_nnz, d_gidxAllocator );
-    d_cols_loc = sharedArrayBuilder( d_nnz, d_lidxAllocator );
-    d_coeffs   = sharedArrayBuilder( d_nnz, d_scalarAllocator );
+    d_cols     = makeGidxArray( d_nnz );
+    d_cols_loc = makeLidxArray( d_nnz );
+    if ( !d_is_symbolic ) {
+        d_coeffs = makeScalarArray( d_nnz );
+    }
 
-    std::fill( d_cols.get(), d_cols.get() + d_nnz, 0 );
-    std::fill( d_cols_loc.get(), d_cols_loc.get() + d_nnz, 0 );
-    std::fill( d_coeffs.get(), d_coeffs.get() + d_nnz, static_cast<scalar_t>( 0.0 ) );
+    AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( d_cols_loc.get(), d_nnz, 0 );
+    if ( !d_is_symbolic ) {
+        AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
+    }
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::setNNZ( const std::vector<lidx_t> &nnz )
+template<typename Config>
+void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
 {
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::setNNZ not implemented on device yet" );
+    PROFILE( "CSRLocalMatrixData::setNNZ" );
 
+    if ( do_accum ) {
+        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
+            d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0 );
+    }
+
+    if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+        const lidx_t *ptr_loc = d_row_starts.get() + d_num_rows;
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( ptr_loc, 1, &d_nnz );
+    } else {
+        // total nnz in all rows of block is last entry
+        d_nnz = d_row_starts[d_num_rows];
+    }
+    if ( d_nnz == 0 ) {
+        d_is_empty = true;
+        // nothing to do, block stays empty
+        return;
+    }
+
+    // allocate and fill remaining arrays
+    d_is_empty = false;
+    d_cols     = makeGidxArray( d_nnz );
+    d_cols_loc = makeLidxArray( d_nnz );
+    if ( !d_is_symbolic ) {
+        d_coeffs = makeScalarArray( d_nnz );
+    }
+
+    AMP::Utilities::Algorithms<gidx_t>::fill_n( d_cols.get(), d_nnz, 0 );
+    AMP::Utilities::Algorithms<lidx_t>::fill_n( d_cols_loc.get(), d_nnz, 0 );
+    if ( !d_is_symbolic ) {
+        AMP::Utilities::Algorithms<scalar_t>::fill_n( d_coeffs.get(), d_nnz, 0.0 );
+    }
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::setNNZ( const lidx_t *nnz )
+{
     // copy passed nnz vector into row_starts and call internal setNNZ
-    std::copy( nnz.begin(), nnz.end(), d_row_starts.get() );
+    AMP::Utilities::Algorithms<lidx_t>::copy_n( nnz, d_num_rows, d_row_starts.get() );
     setNNZ( true );
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
+template<typename Config>
+void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scalar_t bnd_up )
+{
+    PROFILE( "CSRLocalMatrixData::removeRange" );
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::removeRange not defined for symbolic matrices" );
+
+    if ( d_is_empty ) {
+        return;
+    }
+
+    // count coeffs that lie within range and zero them along the way
+    auto delete_per_row = makeLidxArray( d_num_rows );
+    lidx_t num_delete   = CSRMatrixDataHelpers<Config>::RemoveRangeCountDel(
+        d_row_starts.get(), d_coeffs.get(), d_num_rows, bnd_lo, bnd_up, delete_per_row.get() );
+
+    // if none to delete then done
+    if ( num_delete == 0 ) {
+        return;
+    }
+
+    // if all entries will be deleted throw a warning and set the matrix
+    // as empty
+    if ( d_nnz == num_delete ) {
+        AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
+        d_cols.reset();
+        d_cols_unq.reset();
+        d_cols_loc.reset();
+        d_coeffs.reset();
+        d_nnz       = 0;
+        d_ncols_unq = 0;
+        d_is_empty  = true;
+        return;
+    }
+
+    // allocate space for new data fields and copy over parts to keep
+    d_nnz -= num_delete;
+    auto new_row_starts = makeLidxArray( d_num_rows + 1 );
+    auto new_coeffs     = makeScalarArray( d_nnz );
+    std::shared_ptr<lidx_t[]> new_cols_loc;
+    std::shared_ptr<gidx_t[]> new_cols;
+    if ( d_is_diag ) {
+        new_cols_loc = makeLidxArray( d_nnz );
+    } else {
+        new_cols = makeGidxArray( d_nnz );
+    }
+
+    // new row starts is old minus running total of deleted entries
+    CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
+        d_row_starts.get(), delete_per_row.get(), d_num_rows, new_row_starts.get() );
+
+    // coeffs is a masked copy
+    // cols_loc is masked copy if this is diag block, otherwise
+    // build cols from cols_unq and call globalToLocal
+    if ( d_is_diag ) {
+        CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag( d_row_starts.get(),
+                                                           d_cols_loc.get(),
+                                                           d_coeffs.get(),
+                                                           d_num_rows,
+                                                           bnd_lo,
+                                                           bnd_up,
+                                                           new_row_starts.get(),
+                                                           new_cols_loc.get(),
+                                                           new_coeffs.get() );
+    } else {
+        CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd( d_row_starts.get(),
+                                                           d_cols_loc.get(),
+                                                           d_cols_unq.get(),
+                                                           d_coeffs.get(),
+                                                           d_num_rows,
+                                                           bnd_lo,
+                                                           bnd_up,
+                                                           new_row_starts.get(),
+                                                           new_cols.get(),
+                                                           new_coeffs.get() );
+    }
+
+    d_cols_unq.reset();
+
+    d_row_starts.swap( new_row_starts );
+    d_cols.swap( new_cols );
+    d_cols_loc.swap( new_cols_loc );
+    d_coeffs.swap( new_coeffs );
+
+    new_row_starts.reset();
+    new_cols.reset();
+    new_cols_loc.reset();
+    new_coeffs.reset();
+
+    globalToLocalColumns();
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
 {
     AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                "CSRLocalMatrixData::setNNZ not implemented on device yet" );
+                "CSRLocalMatrixData::getColPtrs not implemented on device yet" );
 
     if ( !d_is_empty ) {
         for ( lidx_t row = 0; row < d_num_rows; ++row ) {
@@ -560,11 +843,239 @@ void CSRLocalMatrixData<Policy, Allocator>::getColPtrs( std::vector<gidx_t *> &c
     }
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::getRowByGlobalID( const size_t local_row,
-                                                              std::vector<size_t> &cols,
-                                                              std::vector<double> &values ) const
+template<typename Config>
+void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) const
 {
+    std::cout << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
+    if ( d_is_empty ) {
+        std::cout << "    EMPTY" << std::endl;
+        return;
+    }
+    std::cout << "    first | last row: " << d_first_row << " | " << d_last_row << std::endl;
+    std::cout << "    first | last col: " << d_first_col << " | " << d_last_col << std::endl;
+
+    if ( d_cols.get() ) {
+        std::cout << "    min | max col: "
+                  << AMP::Utilities::Algorithms<gidx_t>::min_element( d_cols.get(), d_nnz ) << " | "
+                  << AMP::Utilities::Algorithms<gidx_t>::max_element( d_cols.get(), d_nnz )
+                  << std::endl;
+    }
+
+    std::cout << "    num unique: " << d_ncols_unq << std::endl;
+    scalar_t avg_nnz = static_cast<scalar_t>( d_nnz ) / static_cast<scalar_t>( d_num_rows );
+    std::cout << "    avg nnz per row: " << avg_nnz << std::endl;
+    std::cout << "    tot nnz: " << d_nnz << std::endl;
+    if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
+        std::cout << "    row 0: ";
+        for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
+            if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << "," << d_coeffs[n] << "), ";
+            } else if ( show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << ",--), ";
+            }
+        }
+        std::cout << "\n    row last: ";
+        for ( auto n = d_row_starts[d_num_rows - 1]; n < d_row_starts[d_num_rows]; ++n ) {
+            if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << "," << d_coeffs[n] << "), ";
+            } else if ( show_zeros ) {
+                std::cout << "("
+                          << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
+                                              static_cast<long long>( d_cols_loc[n] ) )
+                          << ",--), ";
+            }
+        }
+        if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
+            std::cout << "\n    column map: ";
+            for ( auto n = 0; n < d_ncols_unq; ++n ) {
+                std::cout << "[" << n << "|" << d_cols_unq[n] << "], ";
+            }
+        }
+    } else if ( verbose ) {
+        AMP_INSIST( !d_is_symbolic,
+                    "CSRLocalMatrixData::printStats not implemented for symbolic device matrices" );
+
+        // copy row pointers back to host
+        std::vector<lidx_t> rs_h( d_num_rows + 1, 0 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), rs_h.data() );
+
+        // if first row is non-empty copy it back to host
+        // need to check if cols or cols_loc should be used
+        if ( rs_h[1] > rs_h[0] ) {
+            const auto fr_len = rs_h[1] - rs_h[0];
+            std::vector<scalar_t> fr_coeffs( fr_len, 0.0 );
+            AMP::Utilities::copy( fr_len, d_coeffs.get(), fr_coeffs.data() );
+            if ( d_cols.get() ) {
+                std::vector<gidx_t> fr_cols( fr_len, 0 );
+                AMP::Utilities::copy( fr_len, d_cols.get(), fr_cols.data() );
+                std::cout << "    row 0: ";
+                for ( lidx_t n = 0; n < fr_len; ++n ) {
+                    if ( fr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                    }
+                }
+                std::cout << std::endl;
+            } else {
+                std::vector<lidx_t> fr_cols( fr_len, 0 );
+                AMP::Utilities::copy( fr_len, d_cols_loc.get(), fr_cols.data() );
+                std::cout << "    row 0: ";
+                for ( lidx_t n = 0; n < fr_len; ++n ) {
+                    if ( fr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                    }
+                }
+                std::cout << std::endl;
+            }
+        }
+
+        // same as before but for the last row
+        if ( rs_h[d_num_rows] > rs_h[d_num_rows - 1] ) {
+            const auto lr_len = rs_h[d_num_rows] - rs_h[d_num_rows - 1];
+            std::vector<scalar_t> lr_coeffs( lr_len, 0.0 );
+            AMP::Utilities::copy( lr_len, d_coeffs.get() + rs_h[d_num_rows - 1], lr_coeffs.data() );
+            if ( d_cols.get() ) {
+                std::vector<gidx_t> lr_cols( lr_len, 0 );
+                AMP::Utilities::copy( lr_len, d_cols.get() + rs_h[d_num_rows - 1], lr_cols.data() );
+                std::cout << "    row last: ";
+                for ( lidx_t n = 0; n < lr_len; ++n ) {
+                    if ( lr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                    }
+                }
+            } else {
+                std::vector<lidx_t> lr_cols( lr_len, 0 );
+                AMP::Utilities::copy(
+                    lr_len, d_cols_loc.get() + rs_h[d_num_rows - 1], lr_cols.data() );
+                std::cout << "    row last: ";
+                for ( lidx_t n = 0; n < lr_len; ++n ) {
+                    if ( lr_coeffs[n] != 0 || show_zeros ) {
+                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                    }
+                }
+            }
+        }
+
+        // copy down column map and print it
+        if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
+            std::vector<gidx_t> colmap_h( d_ncols_unq, 0 );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), colmap_h.data() );
+            std::cout << "\n    column map: ";
+            for ( auto n = 0; n < d_ncols_unq; ++n ) {
+                std::cout << "[" << n << "|" << colmap_h[n] << "], ";
+            }
+        }
+    }
+    std::cout << std::endl << std::endl;
+}
+
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::printAll( bool force ) const
+{
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::printAll not implemented for symbolic matrices" );
+
+    printStats( false, false );
+
+    // bail if total entries too large and force output not enabled
+    if ( d_nnz > 5000 && !force ) {
+        AMP_WARN_ONCE( "CSRLocalMatrixData::printAll: Skipping print due to too many non-zeros. "
+                       "Re-run with force=true to print anyway." );
+        return;
+    }
+
+    // bail if empty, no warning needed
+    if ( d_is_empty ) {
+        return;
+    }
+
+    const bool have_loc = ( d_cols_loc.get() != nullptr );
+    const bool have_gbl = ( d_cols.get() != nullptr );
+
+    // migrate fields to host if needed
+    std::vector<lidx_t> row_starts_h, cols_loc_h;
+    std::vector<gidx_t> cols_h, cols_unq_h;
+    std::vector<scalar_t> coeffs_h;
+    lidx_t *row_starts = nullptr, *cols_loc = nullptr;
+    gidx_t *cols = nullptr, *cols_unq = nullptr;
+    scalar_t *coeffs = nullptr;
+    if ( d_memory_location < AMP::Utilities::MemoryType::device ) {
+        row_starts = d_row_starts.get();
+        cols_loc   = d_cols_loc.get();
+        cols       = d_cols.get();
+        cols_unq   = d_cols_unq.get();
+        coeffs     = d_coeffs.get();
+    } else {
+        row_starts_h.resize( d_num_rows + 1, 0 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts_h.data() );
+        row_starts = row_starts_h.data();
+        if ( have_gbl ) {
+            cols_h.resize( d_nnz, 0 );
+            AMP::Utilities::copy( d_nnz, d_cols.get(), cols_h.data() );
+            cols = cols_h.data();
+        } else if ( !d_is_diag ) {
+            cols_unq_h.resize( d_ncols_unq, 0 );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq_h.data() );
+            cols_unq = cols_unq_h.data();
+        }
+        if ( have_loc ) {
+            cols_loc_h.resize( d_nnz, 0 );
+            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc_h.data() );
+            cols_loc = cols_loc_h.data();
+        }
+        coeffs_h.resize( d_nnz, 0 );
+        AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs_h.data() );
+        coeffs = coeffs_h.data();
+    }
+
+    // print all unique columns
+    if ( cols_unq ) {
+        std::cout << "Unique cols: ";
+        for ( lidx_t n = 0; n < d_ncols_unq; ++n ) {
+            std::cout << "[" << n << "|" << cols_unq[n] << "] ";
+        }
+        std::cout << std::endl << std::endl;
+    }
+
+    // print all global columns and values row-by-row
+    for ( lidx_t row = 0; row < d_num_rows; ++row ) {
+        // skip empty rows to avoid a bunch of blank newlines
+        if ( row_starts[row] < row_starts[row + 1] ) {
+            std::cout << "Row " << row << ": ";
+            for ( lidx_t c = row_starts[row]; c < row_starts[row + 1]; ++c ) {
+                lidx_t cl = have_loc ? cols_loc[c] : -1;
+                gidx_t cg;
+                if ( d_is_diag ) {
+                    cg = have_gbl ? cols[c] : d_first_col + static_cast<gidx_t>( cols_loc[c] );
+                } else {
+                    cg = have_gbl ? cols[c] : cols_unq[cols_loc[c]];
+                }
+                std::cout << "[" << cl << "|" << cg << "|" << coeffs[c] << "] ";
+            }
+            std::cout << std::endl;
+        }
+    }
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::getRowByGlobalID( const size_t local_row,
+                                                   std::vector<size_t> &cols,
+                                                   std::vector<double> &values ) const
+{
+    PROFILE( "CSRLocalMatrixData::getRowByGlobalID" );
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::getRowByGlobalId not implemented for symbolic matrices" );
+
     // Don't do anything on empty matrices
     if ( d_is_empty ) {
         return;
@@ -603,12 +1114,17 @@ void CSRLocalMatrixData<Policy, Allocator>::getRowByGlobalID( const size_t local
     }
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::getValuesByGlobalID( const size_t local_row,
-                                                                 const size_t num_cols,
-                                                                 size_t *cols,
-                                                                 scalar_t *values ) const
+template<typename Config>
+void CSRLocalMatrixData<Config>::getValuesByGlobalID( const size_t local_row,
+                                                      const size_t num_cols,
+                                                      const size_t *cols,
+                                                      scalar_t *values ) const
 {
+    PROFILE( "CSRLocalMatrixData::getValuesByGlobalID" );
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::getValuesByGlobalId not defined for symbolic matrices" );
+
     // Don't do anything on empty matrices
     if ( d_is_empty ) {
         return;
@@ -632,12 +1148,17 @@ void CSRLocalMatrixData<Policy, Allocator>::getValuesByGlobalID( const size_t lo
     }
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::addValuesByGlobalID( const size_t num_cols,
-                                                                 const size_t local_row,
-                                                                 const size_t *cols,
-                                                                 const scalar_t *vals )
+template<typename Config>
+void CSRLocalMatrixData<Config>::addValuesByGlobalID( const size_t local_row,
+                                                      const size_t num_cols,
+                                                      const size_t *cols,
+                                                      const scalar_t *vals )
 {
+    PROFILE( "CSRLocalMatrixData::addValuesByGlobalID" );
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::addValuesByGlobalId not defined for symbolic matrices" );
+
     if ( d_is_empty ) {
         return;
     }
@@ -669,12 +1190,17 @@ void CSRLocalMatrixData<Policy, Allocator>::addValuesByGlobalID( const size_t nu
     }
 }
 
-template<typename Policy, class Allocator>
-void CSRLocalMatrixData<Policy, Allocator>::setValuesByGlobalID( const size_t num_cols,
-                                                                 const size_t local_row,
-                                                                 const size_t *cols,
-                                                                 const scalar_t *vals )
+template<typename Config>
+void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
+                                                      const size_t num_cols,
+                                                      const size_t *cols,
+                                                      const scalar_t *vals )
 {
+    PROFILE( "CSRLocalMatrixData::setValuesByGlobalID" );
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::setValuesByGlobalId not defined for symbolic matrices" );
+
     if ( d_is_empty ) {
         return;
     }
@@ -706,10 +1232,11 @@ void CSRLocalMatrixData<Policy, Allocator>::setValuesByGlobalID( const size_t nu
     }
 }
 
-template<typename Policy, class Allocator>
-std::vector<size_t>
-CSRLocalMatrixData<Policy, Allocator>::getColumnIDs( const size_t local_row ) const
+template<typename Config>
+std::vector<size_t> CSRLocalMatrixData<Config>::getColumnIDs( const size_t local_row ) const
 {
+    PROFILE( "CSRLocalMatrixData::getColumnIDs" );
+
     // Don't do anything on empty matrices
     if ( d_is_empty ) {
         return std::vector<size_t>();
@@ -741,6 +1268,123 @@ CSRLocalMatrixData<Policy, Allocator>::getColumnIDs( const size_t local_row ) co
     }
 
     return cols;
+}
+
+/****************************************************************
+ * Write/Read restart data                                       *
+ ****************************************************************/
+template<typename Config>
+void CSRLocalMatrixData<Config>::registerChildObjects( AMP::IO::RestartManager * ) const
+{
+}
+
+template<typename Config>
+void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
+{
+    IO::writeHDF5( fid, "memory_location", static_cast<signed char>( d_memory_location ) );
+    IO::writeHDF5( fid, "first_row", d_first_row );
+    IO::writeHDF5( fid, "last_row", d_last_row );
+    IO::writeHDF5( fid, "first_col", d_first_col );
+    IO::writeHDF5( fid, "last_col", d_last_col );
+
+    IO::writeHDF5( fid, "is_diag", d_is_diag );
+    IO::writeHDF5( fid, "is_empty", d_is_empty );
+    IO::writeHDF5( fid, "is_symbolic", d_is_symbolic );
+
+    IO::writeHDF5( fid, "num_rows", d_num_rows );
+    IO::writeHDF5( fid, "nnz", d_nnz );
+    IO::writeHDF5( fid, "ncols_unq", d_ncols_unq );
+
+    AMP::Array<lidx_t> row_starts;
+    AMP::Array<gidx_t> cols;
+    AMP::Array<gidx_t> cols_unq;
+    AMP::Array<lidx_t> cols_loc;
+    AMP::Array<scalar_t> coeffs;
+
+    if ( d_memory_location <= AMP::Utilities::MemoryType::host ) {
+
+        row_starts.viewRaw( d_num_rows + 1, d_row_starts.get() );
+        cols_unq.viewRaw( d_ncols_unq, d_cols_unq.get() );
+        cols_loc.viewRaw( d_nnz, d_cols_loc.get() );
+        if ( !d_is_symbolic )
+            coeffs.viewRaw( d_nnz, d_coeffs.get() );
+
+    } else {
+
+        row_starts.resize( d_num_rows + 1 );
+        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts.data() );
+
+        cols_unq.resize( d_ncols_unq );
+        AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq.data() );
+
+        cols_loc.resize( d_nnz );
+        AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc.data() );
+
+        if ( !d_is_symbolic ) {
+            coeffs.resize( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs.data() );
+        }
+    }
+
+    if ( d_num_rows > 0 )
+        IO::writeHDF5( fid, "row_starts", row_starts );
+    if ( d_ncols_unq > 0 )
+        IO::writeHDF5( fid, "cols_unq", cols_unq );
+    if ( d_nnz > 0 )
+        IO::writeHDF5( fid, "cols_loc", cols_loc );
+    if ( d_nnz && ( !d_is_symbolic ) )
+        IO::writeHDF5( fid, "coeffs", coeffs );
+}
+
+template<typename Config>
+CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager * )
+{
+    signed char memory_location;
+    IO::readHDF5( fid, "memory_location", memory_location );
+    d_memory_location = static_cast<AMP::Utilities::MemoryType>( memory_location );
+
+    IO::readHDF5( fid, "first_row", d_first_row );
+    IO::readHDF5( fid, "last_row", d_last_row );
+    IO::readHDF5( fid, "first_col", d_first_col );
+    IO::readHDF5( fid, "last_col", d_last_col );
+
+    IO::readHDF5( fid, "is_diag", d_is_diag );
+    IO::readHDF5( fid, "is_empty", d_is_empty );
+    IO::readHDF5( fid, "is_symbolic", d_is_symbolic );
+
+    IO::readHDF5( fid, "num_rows", d_num_rows );
+    IO::readHDF5( fid, "nnz", d_nnz );
+    IO::readHDF5( fid, "ncols_unq", d_ncols_unq );
+
+    AMP::Array<lidx_t> row_starts;
+    AMP::Array<gidx_t> cols_unq;
+    AMP::Array<lidx_t> cols_loc;
+    AMP::Array<scalar_t> coeffs;
+
+    IO::readHDF5( fid, "row_starts", row_starts );
+    IO::readHDF5( fid, "cols_unq", cols_unq );
+    IO::readHDF5( fid, "cols_loc", cols_loc );
+
+    if ( d_num_rows > 0 ) {
+        d_row_starts = makeLidxArray( d_num_rows + 1 );
+        AMP::Utilities::copy( d_num_rows + 1, row_starts.data(), d_row_starts.get() );
+    }
+
+    if ( d_ncols_unq > 0 ) {
+        d_cols_unq = makeGidxArray( d_ncols_unq );
+        AMP::Utilities::copy( d_ncols_unq, cols_unq.data(), d_cols_unq.get() );
+    }
+
+    if ( d_nnz > 0 ) {
+        d_cols_loc = makeLidxArray( d_nnz );
+        AMP::Utilities::copy( d_nnz, cols_loc.data(), d_cols_loc.get() );
+    }
+
+    if ( d_nnz && ( !d_is_symbolic ) ) {
+        IO::readHDF5( fid, "coeffs", coeffs );
+        d_coeffs = makeScalarArray( d_nnz );
+        AMP::Utilities::copy( d_nnz, coeffs.data(), d_coeffs.get() );
+    }
 }
 
 } // namespace AMP::LinearAlgebra

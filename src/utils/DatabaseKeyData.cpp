@@ -408,9 +408,9 @@ template void Database::putScalar<std::vector<bool>::reference>(
  ********************************************************/
 #define REGISTER_KEYDATA( TYPE ) \
     d_factories[AMP::getTypeID<TYPE>().name] = []() { return std::make_unique<TYPE>(); }
-#define REGISTER_KEYDATA2( TYPE )            \
-    REGISTER_KEYDATA( KeyDataScalar<TYPE> ); \
-    REGISTER_KEYDATA( KeyDataArray<TYPE> )
+#define REGISTER_KEYDATA2( TYPE )                 \
+    REGISTER_KEYDATA( AMP::KeyDataScalar<TYPE> ); \
+    REGISTER_KEYDATA( AMP::KeyDataArray<TYPE> )
 template<>
 void AMP::FactoryStrategy<AMP::KeyData>::registerDefault()
 {
@@ -435,6 +435,12 @@ void AMP::FactoryStrategy<AMP::KeyData>::registerDefault()
     REGISTER_KEYDATA( AMP::EmptyKeyData );
     REGISTER_KEYDATA( AMP::DatabaseVector );
     REGISTER_KEYDATA( AMP::EquationKeyData );
+    d_factories["AMP::KeyDataScalar<std::basic_string<char>>"] = []() {
+        return std::make_unique<AMP::KeyDataScalar<std::string>>();
+    };
+    d_factories["AMP::KeyDataArray<std::basic_string<char>>"] = []() {
+        return std::make_unique<AMP::KeyDataArray<std::string>>();
+    };
 }
 
 

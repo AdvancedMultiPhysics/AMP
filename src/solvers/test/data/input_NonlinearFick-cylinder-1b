@@ -1,14 +1,22 @@
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
     MeshName = "Pellet"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 5226
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
+    static = TRUE
 }
+
+DiffusionTransportModel1{
+        name = "DiffusionTransportModel"
+          Material = "Ox_MSRZC_09"
+          Property = "FickCoefficient"
+          Default_Concentration = .05
+          Default_Temperature   = 1350.
+          Default_Burnup   = 0.0
+      } 
 
 testNonlinearFickOperator {
     name="NonlinearBVPOperator"
@@ -35,7 +43,7 @@ DiffusionNonlinearFEOperator1 {
             QRULE_ORDER = "DEFAULT"
         }    
 
-	LocalModel = "DiffusionTransportModel1"
+	LocalModel = DiffusionTransportModel1
     }
 
 DirichletVectorCorrection1 {
@@ -54,14 +62,6 @@ DirichletVectorCorrection1 {
       value_1_0        = .05
   }
 
-DiffusionTransportModel1{
-        name = "DiffusionTransportModel"
-          Material = "Ox_MSRZC_09"
-          Property = "FickCoefficient"
-          Default_Concentration = .05
-          Default_Temperature   = 1350.
-          Default_Burnup   = 0.0
-      } 
 
 testLinearFickOperator {
     name = "LinearBVPOperator"
@@ -88,7 +88,7 @@ DiffusionLinearFEOperator2 {
             QRULE_ORDER = "DEFAULT"
         }    
 
-	LocalModel = "DiffusionTransportModel1"
+	LocalModel = DiffusionTransportModel1
     }
 
 DirichletMatrixCorrection2 {

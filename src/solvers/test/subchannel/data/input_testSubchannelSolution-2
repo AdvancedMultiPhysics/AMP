@@ -20,6 +20,20 @@ CladProperties{
     d = 0.0097028, 0.0097028, 0.0097028, 0.0097028
 }
 
+SubchannelPhysicsModel{
+    name = "SubchannelPhysicsModel"
+    Material = "WaterLibrary"
+    Formulation = "FunctionsTesting"
+    Defaults{
+        diameter    = 0.01178  // Todreas, p.455
+        temperature = 350.0
+        enthalpy    = 200.0e3
+        pressure    = 0.5e6
+        density     = 973.919
+        reynolds    = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
+        prandtl     = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
+    }
+}
 
 SubchannelTwoEqNonlinearOperator{
     name = "SubchannelTwoEqNonlinearOperator"
@@ -36,7 +50,7 @@ SubchannelTwoEqNonlinearOperator{
     Reynolds         = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
     Prandtl          = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
     Heat_Shape = "Sinusoidal"
-    LocalModel = "SubchannelPhysicsModel"
+    LocalModel = SubchannelPhysicsModel
     Friction_Model = "Constant"
     Number_GridSpacers = 15
     zMin_GridSpacers = 0.0, 0.254, 0.508, 0.762, 1.016, 1.270, 1.524, 1.778, 2.032, 2.286, 2.540, 2.794, 3.048, 3.302, 3.556
@@ -59,27 +73,12 @@ SubchannelTwoEqLinearOperator{
     Reynolds         = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
     Prandtl          = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
     Heat_Shape = "Sinusoidal"
-    LocalModel = "SubchannelPhysicsModel"
+    LocalModel = SubchannelPhysicsModel
     Friction_Model = "Constant"
     Number_GridSpacers = 15
     zMin_GridSpacers = 0.0, 0.254, 0.508, 0.762, 1.016, 1.270, 1.524, 1.778, 2.032, 2.286, 2.540, 2.794, 3.048, 3.302, 3.556
     zMax_GridSpacers = 0.254, 0.508, 0.762, 1.016, 1.270, 1.524, 1.778, 2.032, 2.286, 2.540, 2.794, 3.048, 3.302, 3.556, 3.810
     LossCoefficient_GridSpacers = 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2
-}
-
-SubchannelPhysicsModel{
-    name = "SubchannelPhysicsModel"
-    Material = "WaterLibrary"
-    Formulation = "FunctionsTesting"
-    Defaults{
-        diameter    = 0.01178  // Todreas, p.455
-        temperature = 350.0
-        enthalpy    = 200.0e3
-        pressure    = 0.5e6
-        density     = 973.919
-        reynolds    = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
-        prandtl     = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
-    }
 }
 
 NonlinearSolver{

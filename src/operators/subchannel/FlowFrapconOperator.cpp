@@ -1,4 +1,5 @@
 #include "AMP/operators/subchannel/FlowFrapconOperator.h"
+#include "AMP/operators/subchannel/FlowFrapconJacobianParameters.h"
 #include "AMP/utils/Database.h"
 #include "AMP/vectors/VectorSelector.h"
 
@@ -8,10 +9,9 @@
 namespace AMP::Operator {
 
 
-FlowFrapconOperator::FlowFrapconOperator( std::shared_ptr<const OperatorParameters> in_params )
-    : Operator( in_params ), d_boundaryId( 0 )
+FlowFrapconOperator::FlowFrapconOperator( std::shared_ptr<const OperatorParameters> params )
+    : Operator( params ), d_boundaryId( 0 )
 {
-    auto params = std::dynamic_pointer_cast<const FlowFrapconOperatorParameters>( in_params );
     AMP_ASSERT( params );
     AMP_ASSERT( params->d_db );
 
@@ -26,20 +26,17 @@ FlowFrapconOperator::FlowFrapconOperator( std::shared_ptr<const OperatorParamete
 void FlowFrapconOperator::reset( std::shared_ptr<const OperatorParameters> params )
 {
     AMP_ASSERT( params );
-    d_memory_location = params->d_memory_location;
 
-    auto myparams = std::dynamic_pointer_cast<const FlowFrapconOperatorParameters>( params );
-    AMP_ASSERT( myparams );
-    AMP_ASSERT( myparams->d_db );
+    AMP_ASSERT( params->d_db );
 
-    d_numpoints = myparams->d_db->getScalar<int>( "numpoints" );
-    d_De        = myparams->d_db->getScalar<double>( "Channel_Diameter" );
-    Cp          = myparams->d_db->getScalar<double>( "Heat_Capacity" );
-    d_G         = myparams->d_db->getScalar<double>( "Mass_Flux" );
-    d_Tin       = myparams->d_db->getWithDefault<double>( "Temp_Inlet", 300. );
-    d_K         = myparams->d_db->getScalar<double>( "Conductivity" );
-    d_Re        = myparams->d_db->getScalar<double>( "Reynolds" );
-    d_Pr        = myparams->d_db->getScalar<double>( "Prandtl" );
+    d_numpoints = params->d_db->getScalar<int>( "numpoints" );
+    d_De        = params->d_db->getScalar<double>( "Channel_Diameter" );
+    Cp          = params->d_db->getScalar<double>( "Heat_Capacity" );
+    d_G         = params->d_db->getScalar<double>( "Mass_Flux" );
+    d_Tin       = params->d_db->getWithDefault<double>( "Temp_Inlet", 300. );
+    d_K         = params->d_db->getScalar<double>( "Conductivity" );
+    d_Re        = params->d_db->getScalar<double>( "Reynolds" );
+    d_Pr        = params->d_db->getScalar<double>( "Prandtl" );
 }
 
 
@@ -108,6 +105,7 @@ FlowFrapconOperator::getJacobianParameters( AMP::LinearAlgebra::Vector::const_sh
 {
     auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
 
+    Operator::setMemoryAndBackendParameters( tmp_db );
     tmp_db->putScalar( "name", "FlowFrapconJacobian" );
     tmp_db->putScalar( "InputVariable", d_inpVariable->getName() );
     tmp_db->putScalar( "OutputVariable", d_outVariable->getName() );
@@ -127,58 +125,28 @@ FlowFrapconOperator::getJacobianParameters( AMP::LinearAlgebra::Vector::const_sh
 }
 
 
-AMP::LinearAlgebra::Vector::shared_ptr
-FlowFrapconOperator::subsetOutputVector( AMP::LinearAlgebra::Vector::shared_ptr vec )
+// Create the VectorSelector, the vectors are simple vectors and
+//    we need to subset for the current comm instead of the mesh
+std::shared_ptr<AMP::LinearAlgebra::VectorSelector> FlowFrapconOperator::selectOutputVector() const
 {
-    // Subset the vectors, they are simple vectors and we need to subset for the current comm
-    // instead of the mesh
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Comm commSelector( d_Mesh->getComm() );
-        vec = vec->select( commSelector );
-    }
+    std::vector<std::shared_ptr<AMP::LinearAlgebra::VectorSelector>> selectors;
+    if ( d_Mesh )
+        selectors.push_back( std::make_shared<AMP::LinearAlgebra::VS_Comm>( d_Mesh->getComm() ) );
     auto var = getInputVariable();
-    return vec->subsetVectorForVariable( var );
+    if ( var )
+        selectors.push_back( var->createVectorSelector() );
+    return AMP::LinearAlgebra::VectorSelector::create( selectors );
+}
+std::shared_ptr<AMP::LinearAlgebra::VectorSelector> FlowFrapconOperator::selectInputVector() const
+{
+    std::vector<std::shared_ptr<AMP::LinearAlgebra::VectorSelector>> selectors;
+    if ( d_Mesh )
+        selectors.push_back( std::make_shared<AMP::LinearAlgebra::VS_Comm>( d_Mesh->getComm() ) );
+    auto var = getInputVariable();
+    if ( var )
+        selectors.push_back( var->createVectorSelector() );
+    return AMP::LinearAlgebra::VectorSelector::create( selectors );
 }
 
 
-AMP::LinearAlgebra::Vector::shared_ptr
-FlowFrapconOperator::subsetInputVector( AMP::LinearAlgebra::Vector::shared_ptr vec )
-{
-    // Subset the vectors, they are simple vectors and we need to subset for the current comm
-    // instead of the mesh
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Comm commSelector( d_Mesh->getComm() );
-        vec = vec->select( commSelector );
-    }
-    auto var = getInputVariable();
-    return vec->subsetVectorForVariable( var );
-}
-
-
-AMP::LinearAlgebra::Vector::const_shared_ptr
-FlowFrapconOperator::subsetOutputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec )
-{
-    // Subset the vectors, they are simple vectors and we need to subset for the current comm
-    // instead of the mesh
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Comm commSelector( d_Mesh->getComm() );
-        vec = vec->select( commSelector );
-    }
-    auto var = getInputVariable();
-    return vec->subsetVectorForVariable( var );
-}
-
-
-AMP::LinearAlgebra::Vector::const_shared_ptr
-FlowFrapconOperator::subsetInputVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec )
-{
-    // Subset the vectors, they are simple vectors and we need to subset for the current comm
-    // instead of the mesh
-    if ( d_Mesh ) {
-        AMP::LinearAlgebra::VS_Comm commSelector( d_Mesh->getComm() );
-        vec = vec->select( commSelector );
-    }
-    auto var = getInputVariable();
-    return vec->subsetVectorForVariable( var );
-}
 } // namespace AMP::Operator

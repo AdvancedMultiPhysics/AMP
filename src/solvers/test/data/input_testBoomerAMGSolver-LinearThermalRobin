@@ -8,6 +8,23 @@ Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
 static = TRUE
 }
 
+DiffusionTransportModel1 {
+     name="DiffusionTransportModel"
+     Material = "Independent"
+     Property = "ThermalConductivity"
+        Default_Concentration = .1
+     Default_Temperature   = 300.
+     Default_Burnup   = 0.0
+   }
+
+SourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "Independent"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+  }
+
 NeutronicsOperator{
   name="NeutronicsSourceOperator"
   type               = "Power"
@@ -40,7 +57,7 @@ DiffusionLinearFEOperator1{
      QRULE_TYPE = "QGAUSS"
      QRULE_ORDER = "DEFAULT"
    }
-   LocalModel = "DiffusionTransportModel1"
+   LocalModel = DiffusionTransportModel1
 }
 
 ColumnBoundaryOperator1 {
@@ -79,15 +96,6 @@ DirichletMatrixCorrection{
    value_0_0        = 300.
 }
 
-DiffusionTransportModel1 {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "ThermalConductivity"
-        Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-   }
-
 VolumeIntegralOperator{
   name="VolumeIntegralOperator"
   InputVariableType = "IntegrationPointScalar"
@@ -98,7 +106,7 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
   }
   OutputVariable = "heatsource"
-  LocalModel = "SourcePhysicsModel"
+  LocalModel = SourcePhysicsModel
   SourceElement {
     name="SourceNonlinearElement"
       FE_ORDER = "FIRST"  
@@ -113,12 +121,4 @@ LinearSolver{
   max_error = 1e-10
   min_coarse_size = 10
 }
-
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-  }
 

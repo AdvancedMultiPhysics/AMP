@@ -1,120 +1,40 @@
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/geometry/GeometryHelpers.h"
+#include "AMP/mesh/Mesh.h"
+#include "AMP/mesh/MultiMesh.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
 
+#include "ProfilerApp.h"
+
+#include <algorithm>
 #include <cstring>
+#include <numeric>
 
 
 namespace AMP::Mesh {
 
 
+static_assert( sizeof( std::unique_ptr<MeshElement> ) == 8 );
+
+
 /********************************************************
- * Constructors                                          *
+ * Get basic info                                        *
  ********************************************************/
-constexpr auto MeshElementHash = AMP::getTypeID<MeshElement>().hash;
-static_assert( MeshElementHash != 0 );
-MeshElement::MeshElement() : d_typeHash( MeshElementHash ), d_element( nullptr ) {}
-MeshElement::MeshElement( const MeshElement &rhs )
-    : d_typeHash( MeshElementHash ), d_element( nullptr )
-{
-    if ( rhs.d_element == nullptr && rhs.d_typeHash == MeshElementHash ) {
-        d_element = nullptr;
-    } else if ( rhs.d_typeHash != MeshElementHash ) {
-        d_element = rhs.clone();
-    } else {
-        d_element = rhs.d_element->clone();
-    }
-}
-MeshElement::MeshElement( MeshElement &&rhs )
-    : d_typeHash( MeshElementHash ), d_element( rhs.d_element )
-{
-    if ( rhs.d_typeHash != MeshElementHash )
-        d_element = rhs.clone();
-    rhs.d_element = nullptr;
-}
-MeshElement &MeshElement::operator=( const MeshElement &rhs )
-{
-    if ( this == &rhs ) // protect against invalid self-assignment
-        return *this;
-    if ( d_element != nullptr ) {
-        // Delete the existing d_element
-        delete d_element;
-        d_element = nullptr;
-    }
-    d_typeHash = MeshElementHash;
-    if ( rhs.d_element == nullptr && rhs.d_typeHash == MeshElementHash ) {
-        d_element = nullptr;
-    } else if ( rhs.d_typeHash != MeshElementHash ) {
-        d_element = rhs.clone();
-    } else {
-        d_element = rhs.d_element->clone();
-    }
-    return *this;
-}
-MeshElement &MeshElement::operator=( MeshElement &&rhs )
-{
-    if ( this == &rhs ) // protect against invalid self-assignment
-        return *this;
-    if ( d_element != nullptr ) {
-        // Delete the existing d_element
-        delete d_element;
-        d_element = nullptr;
-    }
-    d_typeHash = MeshElementHash;
-    std::swap( d_element, rhs.d_element );
-    if ( rhs.d_typeHash != MeshElementHash )
-        d_element = rhs.clone();
-    return *this;
-}
-MeshElement::MeshElement( MeshElement *rhs ) : d_typeHash( MeshElementHash ), d_element( nullptr )
-{
-    if ( rhs->d_element ) {
-        std::swap( d_element, rhs->d_element );
-        delete rhs;
-    } else {
-        d_element = rhs;
-    }
-}
+static auto TypeID = AMP::getTypeID<AMP::Mesh::MeshElement>();
+const typeID &MeshElement::getTypeID() const { return TypeID; }
+std::string MeshElement::elementClass() const { return "MeshElement"; }
+std::unique_ptr<MeshElement> MeshElement::clone() const { return std::make_unique<MeshElement>(); }
 
 
 /********************************************************
- * Destructor                                            *
- ********************************************************/
-MeshElement::~MeshElement()
-{
-    if ( d_element != nullptr )
-        delete d_element;
-    d_element = nullptr;
-}
-
-
-/********************************************************
- * Is the d_element null                                   *
- ********************************************************/
-bool MeshElement::isNull() const { return d_typeHash == MeshElementHash && d_element == nullptr; }
-
-
-/********************************************************
- * Function to return basic info                         *
- ********************************************************/
-std::string MeshElement::elementClass() const
-{
-    return d_element == nullptr ? std::string( "MeshElement" ) : d_element->elementClass();
-}
-
-
-/********************************************************
- * Function to return the centroid of an d_element         *
+ * Function to return the centroid of an d_element       *
  ********************************************************/
 Point MeshElement::centroid() const
 {
-    if ( d_element != nullptr )
-        return d_element->centroid();
     if ( globalID().type() == GeomType::Vertex )
         return coord();
-    std::vector<MeshElement> nodes;
-    ( d_element != nullptr ? d_element : this )->getElements( GeomType::Vertex, nodes );
+    auto nodes = getElements( GeomType::Vertex );
     AMP_ASSERT( !nodes.empty() );
     auto center = nodes[0].coord();
     for ( size_t i = 1; i < nodes.size(); i++ ) {
@@ -131,44 +51,36 @@ Point MeshElement::centroid() const
 /********************************************************
  * Return the neighbors/elements                         *
  ********************************************************/
-void MeshElement::getElements( const GeomType type, std::vector<MeshElement> &elements ) const
+MeshElement::ElementListPtr MeshElement::getElements( const GeomType ) const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "getElements is not implemented for the base class (" + elementClass() + ")" );
-    d_element->getElements( type, elements );
+    AMP_ERROR( "getElements is not implemented for " + elementClass() );
 }
-void MeshElement::getElementsID( const GeomType type, std::vector<MeshElementID> &ID ) const
+int MeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
-    if ( d_element != nullptr )
-        return d_element->getElementsID( type, ID );
-    std::vector<MeshElement> d_elements;
-    this->getElements( type, d_elements );
-    ID.resize( d_elements.size() );
-    for ( size_t i = 0; i < d_elements.size(); i++ )
-        ID[i] = d_elements[i].globalID();
+    auto elements = this->getElements( type );
+    for ( size_t i = 0; i < elements.size(); i++ )
+        ID[i] = elements[i].globalID();
+    return elements.size();
 }
-void MeshElement::getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const
+MeshElement::ElementListPtr MeshElement::getNeighbors() const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "getNeighbors is not implemented for the base class (" + elementClass() + ")" );
-    d_element->getNeighbors( neighbors );
+    AMP_ERROR( "getNeighbors is not implemented for " + elementClass() );
 }
 void MeshElement::getNeighborVertices( std::vector<Point> &vertices ) const
 {
     std::vector<Point> V0;
     getVertices( V0 );
-    std::vector<std::unique_ptr<MeshElement>> neighbors;
-    getNeighbors( neighbors );
+    auto neighbors = getNeighbors();
     vertices.resize( 0 );
     vertices.reserve( 24 );
     std::vector<Point> V1;
     for ( auto &elem : neighbors ) {
-        if ( !elem )
+        if ( elem.isNull() )
             continue;
-        elem->getVertices( V1 );
+        elem.getVertices( V1 );
         for ( auto &p : V1 ) {
             bool found = false;
-            for ( auto p0 : V0 )
+            for ( auto &p0 : V0 )
                 found = found || p == p0;
             if ( !found )
                 vertices.push_back( p );
@@ -182,8 +94,6 @@ void MeshElement::getNeighborVertices( std::vector<Point> &vertices ) const
  ********************************************************/
 void MeshElement::getVertices( std::vector<Point> &vertices ) const
 {
-    if ( d_element )
-        AMP_ERROR( "getNeighbors is not implemented for the base class (" + elementClass() + ")" );
     if ( globalID().type() == GeomType::Vertex ) {
         vertices.resize( 1 );
         vertices[0] = coord();
@@ -201,8 +111,6 @@ void MeshElement::getVertices( std::vector<Point> &vertices ) const
  ********************************************************/
 bool MeshElement::containsPoint( const Point &pos, double TOL ) const
 {
-    if ( d_element != nullptr )
-        return d_element->containsPoint( pos, TOL );
     if ( globalID().type() == GeomType::Vertex ) {
         // double dist = 0.0;
         auto point   = this->coord();
@@ -224,8 +132,6 @@ std::string MeshElement::print( uint8_t indent_N ) const
     using AMP::Utilities::stringf;
     char prefix[256] = { 0 };
     memset( prefix, 0x20, indent_N );
-    if ( d_element == nullptr && d_typeHash == MeshElementHash )
-        return stringf( "%sMeshElement: null d_element", prefix );
     int type        = static_cast<int>( elementType() );
     std::string out = prefix + elementClass() + "\n";
     out += stringf( "%s   ID = (%i,%i,%u,%u,%lu)\n",
@@ -252,67 +158,43 @@ std::string MeshElement::print( uint8_t indent_N ) const
 /********************************************************
  * Functions that aren't implemented for the base class  *
  ********************************************************/
-Point MeshElement::coord() const
-{
-    if ( d_element == nullptr )
-        AMP_ERROR( "coord is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->coord();
-}
+Point MeshElement::coord() const { AMP_ERROR( "coord is not implemented for " + elementClass() ); }
 double MeshElement::volume() const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "volume is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->volume();
+    AMP_ERROR( "volume is not implemented for " + elementClass() );
 }
-Point MeshElement::norm() const
+Point MeshElement::norm() const { AMP_ERROR( "norm is not implemented for " + elementClass() ); }
+Point MeshElement::nearest( const Point & ) const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "norm is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->norm();
+    AMP_ERROR( "nearest is not implemented for " + elementClass() );
 }
-Point MeshElement::nearest( const Point &pos ) const
+double MeshElement::distance( const Point &, const Point & ) const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "nearest is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->nearest( pos );
-}
-double MeshElement::distance( const Point &pos, const Point &dir ) const
-{
-    if ( d_element == nullptr )
-        AMP_ERROR( "distance is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->distance( pos, dir );
+    AMP_ERROR( "distance is not implemented for " + elementClass() );
 }
 bool MeshElement::isOnSurface() const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "isOnSurface is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->isOnSurface();
+    AMP_ERROR( "isOnSurface is not implemented for " + elementClass() );
 }
-bool MeshElement::isOnBoundary( int id ) const
+bool MeshElement::isOnBoundary( int ) const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "isOnBoundary is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->isOnBoundary( id );
+    AMP_ERROR( "isOnBoundary is not implemented for " + elementClass() );
 }
-bool MeshElement::isInBlock( int id ) const
+bool MeshElement::isInBlock( int ) const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "isInBlock is not implemented for the base class (" + elementClass() + ")" );
-    return d_element->isInBlock( id );
+    AMP_ERROR( "isInBlock is not implemented for " + elementClass() );
 }
-unsigned int MeshElement::globalOwnerRank() const
+unsigned int MeshElement::globalOwnerRank( const Mesh &mesh ) const
 {
-    if ( d_element == nullptr )
-        AMP_ERROR( "globalOwnerRank is not implemented for the base class (" + elementClass() +
-                   ")" );
-    return d_element->globalOwnerRank();
+    auto id = globalID();
+    if ( id.meshID() == mesh.meshID() )
+        return mesh.getComm().globalRanks()[id.owner_rank()];
+    auto mesh2 = mesh.Subset( id.meshID() );
+    if ( mesh2 )
+        return mesh2->getComm().globalRanks()[id.owner_rank()];
+    AMP_ERROR( "globalOwnerRank is not able to find mesh element" );
 }
-MeshElementID MeshElement::globalID() const
-{
-    if ( d_element == nullptr )
-        return MeshElementID();
-    return d_element->globalID();
-}
+MeshElementID MeshElement::globalID() const { return MeshElementID(); }
 
 
 // Stream operator
@@ -329,15 +211,56 @@ std::ostream &operator<<( std::ostream &out, const AMP::Mesh::MeshElement &x )
 /********************************************************
  * Explicit instantiations                               *
  ********************************************************/
-#include "AMP/mesh/MeshElementVectorIterator.hpp"
-#include "AMP/utils/Utilities.hpp"
-using intTuple3 = std::tuple<int, int, int>;
-AMP_INSTANTIATE_SORT( intTuple3 );
-AMP_INSTANTIATE_SORT( AMP::Mesh::MeshElement );
-template void AMP::Utilities::quicksort<intTuple3, AMP::Mesh::MeshElement>(
-    size_t, intTuple3 *, AMP::Mesh::MeshElement * );
-template void AMP::Utilities::quicksort<intTuple3, AMP::Mesh::MeshElement>(
-    std::vector<intTuple3> &, std::vector<AMP::Mesh::MeshElement> & );
-template void AMP::Utilities::quicksort<AMP::Mesh::MeshElementID, size_t>(
-    size_t, AMP::Mesh::MeshElementID *, size_t * );
-template class AMP::Mesh::MeshElementVectorIterator<AMP::Mesh::MeshElement>;
+using ElementPtr = std::unique_ptr<AMP::Mesh::MeshElement>;
+static size_t find( size_t n, const ElementPtr *x, const AMP::Mesh::MeshElementID &id )
+{
+    if ( n == 0 )
+        return 0;
+    // Check if value is within the range of x
+    if ( id <= x[0]->globalID() )
+        return 0;
+    else if ( id > x[n - 1]->globalID() )
+        return n;
+    // Perform the search
+    size_t lower = 0;
+    size_t upper = n - 1;
+    size_t index;
+    while ( ( upper - lower ) != 1 ) {
+        index = ( upper + lower ) / 2;
+        if ( x[index]->globalID() >= id )
+            upper = index;
+        else
+            lower = index;
+    }
+    index = upper;
+    return index;
+}
+template<>
+size_t
+AMP::Utilities::findfirst<ElementPtr>( size_t N, const ElementPtr *x, const ElementPtr &value )
+{
+    return find( N, x, value->globalID() );
+}
+template<>
+void AMP::Utilities::quicksort<ElementPtr>( size_t N, ElementPtr *x )
+{
+    auto compare = []( const ElementPtr &a, const ElementPtr &b ) { return *a < *b; };
+    std::sort( x, x + N, compare );
+}
+template<>
+void AMP::Utilities::unique<ElementPtr>( std::vector<ElementPtr> &x )
+{
+    if ( x.size() <= 1 )
+        return;
+    PROFILE( "unique<ElementPtr>" );
+    std::vector<AMP::Mesh::MeshElementID> ids( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ )
+        ids[i] = x[i]->globalID();
+    std::vector<size_t> I;
+    AMP::Utilities::unique( ids, I );
+    AMP_ASSERT( I.size() == ids.size() );
+    std::vector<ElementPtr> y( ids.size() );
+    for ( size_t i = 0; i < ids.size(); i++ )
+        y[i] = std::move( x[I[i]] );
+    x = std::move( y );
+}

@@ -91,9 +91,8 @@ void NativePetscVectorOperations::zero( VectorData &x ) { VecZeroEntries( getPet
 
 void NativePetscVectorOperations::setToScalar( const Scalar &alpha, VectorData &x )
 {
-    auto val = alpha.get<double>();
     auto vec = getPetscVec( x );
-    VecSet( vec, val );
+    VecSet( vec, static_cast<PetscReal>( alpha ) );
 }
 
 void NativePetscVectorOperations::setRandomValues( VectorData &x )
@@ -110,13 +109,13 @@ void NativePetscVectorOperations::setRandomValues( VectorData &x )
 void NativePetscVectorOperations::scale( const Scalar &alpha, const VectorData &x, VectorData &y )
 {
     VecCopy( getConstPetscVec( x ), getPetscVec( y ) );
-    VecScale( getPetscVec( y ), alpha.get<double>() );
+    VecScale( getPetscVec( y ), static_cast<PetscScalar>( alpha ) );
 }
 
 
 void NativePetscVectorOperations::scale( const Scalar &alpha, VectorData &x )
 {
-    VecScale( getPetscVec( x ), alpha.get<double>() );
+    VecScale( getPetscVec( x ), static_cast<PetscScalar>( alpha ) );
 }
 
 void NativePetscVectorOperations::add( const VectorData &x, const VectorData &y, VectorData &z )
@@ -195,26 +194,26 @@ void NativePetscVectorOperations::addScalar( const VectorData &x,
 {
     auto py = getPetscVec( y );
     VecCopy( getConstPetscVec( x ), py );
-    VecShift( py, alpha.get<double>() );
+    VecShift( py, static_cast<PetscReal>( alpha ) );
 }
 
 Scalar NativePetscVectorOperations::min( const VectorData &x ) const
 {
-    double val;
+    PetscReal val;
     VecMin( getConstPetscVec( x ), nullptr, &val );
     return val;
 }
 
 Scalar NativePetscVectorOperations::max( const VectorData &x ) const
 {
-    double val;
+    PetscReal val;
     VecMax( getConstPetscVec( x ), nullptr, &val );
     return val;
 }
 
 Scalar NativePetscVectorOperations::L1Norm( const VectorData &x ) const
 {
-    double ans;
+    PetscReal ans;
     PetscErrorCode ierr = VecNorm( getConstPetscVec( x ), NORM_1, &ans );
     AMP_INSIST( ierr == 0, "Error in NativePetscVectorOperations::L1Norm" );
     return ans;
@@ -222,21 +221,21 @@ Scalar NativePetscVectorOperations::L1Norm( const VectorData &x ) const
 
 Scalar NativePetscVectorOperations::L2Norm( const VectorData &x ) const
 {
-    double ans;
+    PetscReal ans;
     VecNorm( getConstPetscVec( x ), NORM_2, &ans );
     return ans;
 }
 
 Scalar NativePetscVectorOperations::maxNorm( const VectorData &x ) const
 {
-    double ans;
+    PetscReal ans;
     VecNorm( getConstPetscVec( x ), NORM_INFINITY, &ans );
     return ans;
 }
 
 Scalar NativePetscVectorOperations::dot( const VectorData &x, const VectorData &y ) const
 {
-    double ans;
+    PetscReal ans;
     VecDot( getConstPetscVec( x ), getConstPetscVec( y ), &ans );
     return ans;
 }
@@ -245,7 +244,7 @@ Scalar NativePetscVectorOperations::localL1Norm( const VectorData &vx ) const
 {
     Vec x = getConstPetscVec( vx );
 
-    double ans = 0;
+    PetscReal ans = 0;
     PetscErrorCode ierr;
     ierr = ( *x->ops->norm_local )( x, NORM_1, &ans );
     CHKERRQ( ierr );
@@ -256,7 +255,7 @@ Scalar NativePetscVectorOperations::localL2Norm( const VectorData &vx ) const
 {
     Vec x = getConstPetscVec( vx );
 
-    double ans = 0;
+    PetscReal ans = 0;
     PetscErrorCode ierr;
 
     ierr = ( *x->ops->norm_local )( x, NORM_2, &ans );
@@ -268,7 +267,7 @@ Scalar NativePetscVectorOperations::localMaxNorm( const VectorData &vx ) const
 {
     Vec x = getConstPetscVec( vx );
 
-    double ans = 0;
+    PetscReal ans = 0;
     PetscErrorCode ierr;
 
     ierr = ( *x->ops->norm_local )( x, NORM_INFINITY, &ans );
@@ -285,7 +284,7 @@ Scalar NativePetscVectorOperations::localDot( const VectorData &vx, const Vector
 
     ierr = ( *x->ops->dot_local )( getConstPetscVec( vx ), getConstPetscVec( vy ), &ans );
     CHKERRQ( ierr );
-    return static_cast<double>( ans );
+    return static_cast<PetscReal>( ans );
 }
 
 } // namespace AMP::LinearAlgebra

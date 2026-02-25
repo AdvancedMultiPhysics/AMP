@@ -28,6 +28,19 @@ LinearMechanicsElement {
     QRULE_ORDER = "DEFAULT"
 }
 
+VonMisesElastoPlasticModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    name="VonMisesElastoPlasticModel"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+    Linear_Strain_Hardening = 2.10e9
+    Elastic_Yield_Stress = 1.45e8
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = .1
+}
+
 MechanicsNonlinearFEOperator1 {
   name = "MechanicsNonlinearFEOperator"
     print_info_level = 1
@@ -48,7 +61,7 @@ MechanicsNonlinearFEOperator1 {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "VonMisesElastoPlasticModel"
+  LocalModel = VonMisesElastoPlasticModel
 }
 
 DirichletVectorCorrection1 {
@@ -65,19 +78,6 @@ DirichletVectorCorrection1 {
     value_0_0 = 0.0
     value_0_1 = 0.0
     value_0_2 = 0.0
-}
-
-VonMisesElastoPlasticModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = "UO2_MSRZC_09"
-    name="VonMisesElastoPlasticModel"
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23
-    Linear_Strain_Hardening = 2.10e9
-    Elastic_Yield_Stress = 1.45e8
-    Default_Temperature = 310.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = .1
 }
 
 linearMechanicsBVPOperator {

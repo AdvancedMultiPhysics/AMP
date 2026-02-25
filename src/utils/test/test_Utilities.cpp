@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <errno.h>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -34,7 +35,8 @@ int main( int argc, char *argv[] )
 
     // Limit the scope of variables
     {
-        int rank = AMP::AMP_MPI( AMP_COMM_WORLD ).getRank();
+        int rank  = AMP::AMP_MPI( AMP_COMM_WORLD ).getRank();
+        auto npos = std::string::npos;
 
         // Create the unit test
         AMP::UnitTest ut;
@@ -82,7 +84,7 @@ int main( int argc, char *argv[] )
 
         // Test the hash key
         unsigned int key = AMP::Utilities::hash_char( "test" );
-        PASS_FAIL( key == 2087956275, "hash 'test'" );
+        ut.pass_fail( key == 2087956275, "hash 'test'" );
 
         // Test the factor / primes function
         testPrimes( ut );
@@ -101,7 +103,7 @@ int main( int argc, char *argv[] )
             ut.passes( "non empty call stack" );
             bool pass = false;
             if ( call_stack.size() > 1 ) {
-                if ( call_stack[1].print().find( "get_call_stack" ) != std::string::npos )
+                if ( call_stack[1].print().find( "get_call_stack" ) != npos )
                     pass = true;
             }
             if ( pass )
@@ -120,7 +122,7 @@ int main( int argc, char *argv[] )
         std::string exe = StackTrace::getExecutable();
         if ( rank == 0 )
             std::cout << "Executable: " << exe << std::endl;
-        PASS_FAIL( exe.find( "test_Utilities" ) != std::string::npos, "getExecutable" );
+        ut.pass_fail( exe.find( "test_Utilities" ) != npos, "getExecutable" );
 
         // Test filesystem routines
         testFileSystem( ut );
@@ -130,7 +132,7 @@ int main( int argc, char *argv[] )
             AMP_ERROR( "test_error" );
             ut.failure( "Failed to catch error" );
         } catch ( const StackTrace::abort_error &err ) {
-            PASS_FAIL( err.message == "test_error", "Catch error" );
+            ut.pass_fail( err.message == "test_error", "Catch error" );
         } catch ( std::exception &err ) {
             ut.failure( "Caught unknown exception type" );
         }
@@ -144,6 +146,19 @@ int main( int argc, char *argv[] )
 
         // Test printing a warning
         AMP_WARNING( "Testing warning" );
+
+        // Test errno
+        errno    = ETXTBSY;
+        auto msg = AMP::Utilities::getLastErrnoString();
+        std::transform(
+            msg.begin(), msg.end(), msg.begin(), []( char c ) { return std::tolower( c ); } );
+        bool test = msg.find( "text" ) != npos && msg.find( "busy" ) != npos;
+        ut.pass_fail( test, "errno: " + msg );
+
+        // Test demangle
+        auto mangled   = "_Z3fooPci";
+        auto demangled = AMP::Utilities::demangle( mangled );
+        std::cout << "demangled: " << demangled << std::endl;
 
         // Finished testing, report the results
         ut.report();

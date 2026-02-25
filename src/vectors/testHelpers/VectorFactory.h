@@ -6,12 +6,29 @@
 #include "AMP/vectors/MultiVariable.h"
 #include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/Variable.h"
-#include "AMP/vectors/VectorBuilder.h"
 #include "AMP/vectors/VectorBuilder.hpp"
 #include "AMP/vectors/testHelpers/VectorTests.h"
 
 
 namespace AMP::LinearAlgebra {
+
+
+// Null vector factory
+class NullVectorFactory : public VectorFactory
+{
+public:
+    AMP::LinearAlgebra::Vector::shared_ptr getVector() const override;
+    std::string name() const override;
+};
+
+
+// Null vector data factory
+class NullVectorDataFactory : public VectorFactory
+{
+public:
+    AMP::LinearAlgebra::Vector::shared_ptr getVector() const override;
+    std::string name() const override;
+};
 
 
 // CloneFactory factory
@@ -25,15 +42,6 @@ public:
 private:
     CloneFactory();
     std::shared_ptr<const VectorFactory> d_factory;
-};
-
-
-// NullVector factory
-class NullVectorFactory : public VectorFactory
-{
-public:
-    AMP::LinearAlgebra::Vector::shared_ptr getVector() const override;
-    std::string name() const override;
 };
 
 
@@ -148,6 +156,5 @@ private:
 
 } // namespace AMP::LinearAlgebra
 
-/// \endcond
 
 #endif

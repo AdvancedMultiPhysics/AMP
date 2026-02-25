@@ -19,6 +19,14 @@ LinearMechanicsElement {
     QRULE_ORDER = "DEFAULT"
 }
 
+MechanicsMaterialModel { 
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    name="IsotropicElasticModel"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+}
+
 
 testNonlinearMechanicsOperator {
   name = "MechanicsNonlinearFEOperator"
@@ -40,7 +48,7 @@ testNonlinearMechanicsOperator {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "MechanicsMaterialModel"
+  LocalModel = MechanicsMaterialModel
 
 }
 
@@ -51,14 +59,6 @@ testLinearMechanicsOperator {
     InputVariable = "disp"
     OutputVariable = "disp"
     MechanicsElement = LinearMechanicsElement
-}
-
-MechanicsMaterialModel { 
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = "UO2_MSRZC_09"
-    name="IsotropicElasticModel"
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23
 }
 
 

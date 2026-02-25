@@ -1,13 +1,37 @@
 // Sample input file to test thermal solve
 
-referenceSolutionNorm = 45431.3
+referenceSolutionNorm = 3.719772968711e+04
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
-    MeshName = "Pellet"
-    dim      = 3
+MeshType = "AMP"
+MeshName = "Pellet"
+Generator = "cylinder"
+Size = 13, 8
+Range = 0.00533908, 0, 0.0127
+surfaceIds = 4, 4, 4, 4, 1, 2
+static = TRUE
 }
+
+SourcePhysicsModel {
+  name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+}
+
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+} 
+
 
 NeutronicsOperator{
   name="NeutronicsRhsOperator"
@@ -31,26 +55,15 @@ VolumeIntegralOperator{
     }
   OutputVariable = "heatsource"
     print_info_level = 0
-    LocalModel = "SourcePhysicsModel"
+    LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 2
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-}
-
-SourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
 }
 
 
@@ -81,7 +94,7 @@ DiffusionNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletVectorCorrection1 {
@@ -96,15 +109,6 @@ DirichletVectorCorrection1 {
     dof_0_0          =   0
     value_0_0        = 557.2
 }
-
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-} 
 
 testLinearThermalOperator {
   name = "LinearBVPOperator"
@@ -131,7 +135,7 @@ DiffusionLinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection2 {
@@ -166,12 +170,11 @@ Preconditioner{
   print_info_level = 0
   max_iterations = 1
   max_levels = 10
-  max_error = 1e-15
   min_coarse_size = 10
   strong_threshold = 0.5
   cycle_type = 1
   relax_type = 16
-  coarsen_type = 10
-  interp_type = 17
+  coarsen_type = 8
+  interp_type = 18
   relax_order = 0
 }

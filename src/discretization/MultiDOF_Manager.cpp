@@ -1,5 +1,5 @@
 #include "AMP/discretization/MultiDOF_Manager.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
@@ -18,7 +18,7 @@ multiDOFManager::multiDOFManager( const AMP_MPI &globalComm,
 {
     d_comm = globalComm;
     AMP_ASSERT( !d_comm.isNull() );
-    reset( managers, mesh );
+    reset( std::move( managers ), mesh );
 }
 multiDOFManager::multiDOFManager( std::shared_ptr<DOFManager> dof ) : DOFManager()
 {
@@ -100,6 +100,22 @@ size_t multiDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int multiDOFManager::getDOFsPerPoint() const
+{
+    if ( d_managers.empty() )
+        return -1;
+    int N = d_managers[0]->getDOFsPerPoint();
+    for ( size_t i = 1; i < d_managers.size(); i++ ) {
+        if ( d_managers[i]->getDOFsPerPoint() != N )
+            return -1;
+    }
+    return N;
+}
+
+
+/****************************************************************
  * Get the element ID give a dof                                 *
  ****************************************************************/
 AMP::Mesh::MeshElementID multiDOFManager::getElementID( size_t dof ) const
@@ -108,7 +124,7 @@ AMP::Mesh::MeshElementID multiDOFManager::getElementID( size_t dof ) const
     AMP_ASSERT( map.second >= 0 );
     return d_managers[map.second]->getElementID( map.first );
 }
-AMP::Mesh::MeshElement multiDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> multiDOFManager::getElement( size_t dof ) const
 {
     auto map = globalToSub( dof );
     AMP_ASSERT( map.second >= 0 );
@@ -140,15 +156,15 @@ AMP::Mesh::MeshIterator multiDOFManager::getIterator() const
     size_t N_tot = 0;
     for ( auto &iterator : iterators )
         N_tot += iterator->size();
-    auto elements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>( 0 );
+    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>( 0 );
     elements->reserve( N_tot );
     for ( auto &iterator : iterators ) {
         for ( const auto &elem : *iterator )
-            elements->push_back( elem );
+            elements->push_back( elem.clone() );
     }
     AMP::Utilities::unique( *elements );
     // Create an iterator over the elements
-    return AMP::Mesh::MeshElementVectorIterator( elements );
+    return AMP::Mesh::MeshListIterator( elements );
 }
 
 
@@ -189,15 +205,6 @@ size_t multiDOFManager::getRowDOFs( const AMP::Mesh::MeshElementID &id,
     if ( sort )
         AMP::Utilities::quicksort( std::min( N, N_alloc ), dofs );
     return N;
-}
-
-
-/****************************************************************
- * Function to return the DOFManagers                            *
- ****************************************************************/
-std::vector<std::shared_ptr<DOFManager>> multiDOFManager::getDOFManagers() const
-{
-    return d_managers;
 }
 
 

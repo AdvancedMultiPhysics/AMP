@@ -16,7 +16,6 @@
 
 // Libmesh files
 DISABLE_WARNINGS
-#include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -46,7 +45,7 @@ static void setBoundary( int id,
     while ( curBnd != endBnd ) {
         d1->getDOFs( curBnd->globalID(), ids );
         auto x = curBnd->coord();
-        v1->setLocalValuesByGlobalID( ids.size(), &ids[0], &x[2] );
+        v1->setValuesByGlobalID( ids.size(), &ids[0], &x[2] );
         ++curBnd;
     }
 }

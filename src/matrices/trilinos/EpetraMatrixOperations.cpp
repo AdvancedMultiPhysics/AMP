@@ -122,13 +122,15 @@ AMP::Scalar EpetraMatrixOperations::LinfNorm( MatrixData const &A ) const
     return getEpetra_CrsMatrix( A ).NormInf();
 }
 
-void EpetraMatrixOperations::matMultiply( MatrixData const &A, MatrixData const &B, MatrixData &C )
+void EpetraMatrixOperations::matMatMult( std::shared_ptr<MatrixData> A,
+                                         std::shared_ptr<MatrixData> B,
+                                         std::shared_ptr<MatrixData> C )
 {
-    int ierr = EpetraExt::MatrixMatrix::Multiply( getEpetra_CrsMatrix( A ),
+    int ierr = EpetraExt::MatrixMatrix::Multiply( getEpetra_CrsMatrix( *A ),
                                                   false,
-                                                  getEpetra_CrsMatrix( B ),
+                                                  getEpetra_CrsMatrix( *B ),
                                                   false,
-                                                  getEpetra_CrsMatrix( C ),
+                                                  getEpetra_CrsMatrix( *C ),
                                                   true );
     AMP_ASSERT( ierr == 0 );
 }
@@ -137,6 +139,25 @@ void EpetraMatrixOperations::copy( const MatrixData &X, MatrixData &Y )
 {
     EpetraExt::MatrixMatrix::Add(
         getEpetra_CrsMatrix( X ), false, 1.0, getEpetra_CrsMatrix( Y ), 0.0 );
+}
+
+void EpetraMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::scaleInv( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void EpetraMatrixOperations::getRowSumsAbsolute( MatrixData const &,
+                                                 std::shared_ptr<Vector>,
+                                                 const bool )
+{
+    AMP_ERROR( "Not implemented" );
 }
 
 } // namespace AMP::LinearAlgebra

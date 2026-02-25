@@ -181,8 +181,8 @@ static void flowTest( AMP::UnitTest *ut )
     params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
     // Create the meshes from the input database
-    auto manager     = AMP::Mesh::MeshFactory::create( params );
-    auto meshAdapter = manager->Subset( "cube_3d" );
+    auto manager = AMP::Mesh::MeshFactory::create( params );
+    auto mesh    = manager->Subset( "cube_3d" );
 
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
 
@@ -190,8 +190,7 @@ static void flowTest( AMP::UnitTest *ut )
     AMP_INSIST( input_db->keyExists( "FlowFrapconOperator" ),
                 "Key ''FlowFrapconOperator'' is missing!" );
     auto flowOperator = std::dynamic_pointer_cast<AMP::Operator::FlowFrapconOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "FlowFrapconOperator", input_db ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "FlowFrapconOperator", input_db ) );
 
     auto inputVariable  = flowOperator->getInputVariable();
     auto outputVariable = flowOperator->getOutputVariable();

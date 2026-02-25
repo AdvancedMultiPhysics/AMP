@@ -52,13 +52,21 @@ public:
 
     std::shared_ptr<Matrix> clone() const override;
 
-    Vector::shared_ptr getRightVector() const override;
-    Vector::shared_ptr getLeftVector() const override;
+    Vector::shared_ptr createInputVector() const override;
+    Vector::shared_ptr createOutputVector() const override;
     std::shared_ptr<Discretization::DOFManager> getRightDOFManager() const override;
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
 
     Vector::shared_ptr
     extractDiagonal( Vector::shared_ptr p = Vector::shared_ptr() ) const override;
+    Vector::shared_ptr getRowSums( Vector::shared_ptr ) const override
+    {
+        AMP_ERROR( "Not implemented" );
+    }
+    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr, const bool ) const override
+    {
+        AMP_ERROR( "Not implemented" );
+    }
 
 private:
 };

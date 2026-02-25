@@ -1,0 +1,6 @@
+Mesh {
+	MeshName = "logical"
+	MeshType = "AMP"
+	Generator = "logical"
+	Size = 780
+}

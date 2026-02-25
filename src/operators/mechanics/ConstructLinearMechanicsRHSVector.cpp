@@ -8,7 +8,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/cell_hex8.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
@@ -32,8 +31,7 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     currTemperatureVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     prevTemperatureVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
-    AMP::LinearAlgebra::Vector::shared_ptr rInternal =
-        rhsVec->subsetVectorForVariable( displacementVar );
+    auto rInternal = rhsVec->subsetVectorForVariable( displacementVar );
     rInternal->zero();
 
     auto elementRhsDatabase    = input_db->getDatabase( "RhsElements" );
@@ -105,12 +103,11 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     default_OXYGEN_CONCENTRATION =
         materialModelDatabase->getWithDefault<double>( "Default_Oxygen_Concentration", 0.0 );
 
-    std::shared_ptr<AMP::Discretization::DOFManager> dof_map_0 = rInternal->getDOFManager();
-    std::shared_ptr<AMP::Discretization::DOFManager> dof_map_1 =
-        currTemperatureVec->getDOFManager();
+    auto dof_map_0 = rInternal->getDOFManager();
+    auto dof_map_1 = currTemperatureVec->getDOFManager();
 
-    AMP::Mesh::MeshIterator el     = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    AMP::Mesh::MeshIterator end_el = el.end();
+    auto el     = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto end_el = el.end();
 
     for ( ; el != end_el; ++el ) {
         auto currNodes            = el->getElements( AMP::Mesh::GeomType::Vertex );
@@ -123,7 +120,7 @@ void computeTemperatureRhsVector( std::shared_ptr<AMP::Mesh::Mesh> mesh,
             dof_map_1->getDOFs( currNodes[j].globalID(), type1DofIndices[j] );
         } // end j
 
-        std::vector<double> elementForceVector( ( 3 * numNodesInCurrElem ), 0.0 );
+        std::vector<double> elementForceVector( 3 * numNodesInCurrElem, 0.0 );
         std::vector<double> currElementTemperatureVector( numNodesInCurrElem );
         std::vector<double> prevElementTemperatureVector( numNodesInCurrElem );
 

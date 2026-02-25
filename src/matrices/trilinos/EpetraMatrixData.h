@@ -75,6 +75,8 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
+
     /** \brief Change the EpetraMaps for the matrix
      * \param[in] range  A vector that represents the range: y in y = A*x (row map)
      * \param[in] domain  A vector that represents the domain: x in y = A*x (column map)
@@ -115,20 +117,20 @@ public:
     void createValuesByGlobalID( size_t, const std::vector<size_t> & );
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
     void setValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
     void getValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
+                              const size_t *rows,
+                              const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
     void getRowByGlobalID( size_t row,
@@ -146,8 +148,8 @@ public:
     AMP::AMP_MPI getComm() const override;
     std::shared_ptr<Discretization::DOFManager> getRightDOFManager() const override;
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
-    std::shared_ptr<Vector> getRightVector() const;
-    std::shared_ptr<Vector> getLeftVector() const;
+    std::shared_ptr<Vector> createInputVector() const;
+    std::shared_ptr<Vector> createOutputVector() const;
 
     /** \brief Return the typeid of the matrix coeffs
      */

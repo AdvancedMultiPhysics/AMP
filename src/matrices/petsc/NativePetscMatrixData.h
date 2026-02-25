@@ -46,18 +46,22 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
-    void addValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
-    void setValuesByGlobalID( size_t, size_t, size_t *, size_t *, void *, const typeID & ) override;
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
+
+    void addValuesByGlobalID(
+        size_t, size_t, const size_t *, const size_t *, const void *, const typeID & ) override;
+    void setValuesByGlobalID(
+        size_t, size_t, const size_t *, const size_t *, const void *, const typeID & ) override;
     void getValuesByGlobalID(
-        size_t, size_t, size_t *, size_t *, void *, const typeID & ) const override;
+        size_t, size_t, const size_t *, const size_t *, void *, const typeID & ) const override;
     void getRowByGlobalID( size_t, std::vector<size_t> &, std::vector<double> & ) const override;
 
     std::vector<size_t> getColumnIDs( size_t ) const override;
 
     void makeConsistent( AMP::LinearAlgebra::ScatterType t ) override;
 
-    std::shared_ptr<Vector> getRightVector() const;
-    std::shared_ptr<Vector> getLeftVector() const;
+    std::shared_ptr<Vector> createInputVector() const;
+    std::shared_ptr<Vector> createOutputVector() const;
     std::shared_ptr<Discretization::DOFManager> getRightDOFManager() const override;
     std::shared_ptr<Discretization::DOFManager> getLeftDOFManager() const override;
 
@@ -66,11 +70,7 @@ public:
 
     Mat getMat() { return d_Mat; }
 
-    void setMat( Mat mat, bool manage = true )
-    {
-        d_Mat                  = mat;
-        d_MatCreatedInternally = manage;
-    }
+    void setMat( Mat mat, bool manage = true );
 
     AMP_MPI getComm() const override;
 
@@ -78,8 +78,7 @@ public:
      */
     typeID getCoeffType() const override
     {
-        // Petsc matrices are double only for the moment
-        constexpr auto type = getTypeID<double>();
+        constexpr auto type = getTypeID<PetscScalar>();
         return type;
     }
 

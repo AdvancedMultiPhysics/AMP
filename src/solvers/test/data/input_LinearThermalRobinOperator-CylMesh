@@ -1,11 +1,28 @@
 Mesh{
-    FileName = "cylinder4K.e"
-    MeshName = "bar"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
+MeshType = "AMP"
+MeshName = "cylinder"
+Generator = "cylinder"
+Size = 16, 8
+Range = 1, -2, 2
+surfaceIds = 1, 1, 1, 1, 2, 3
+static = TRUE
+}
+
+DiffusionTransportModel1 {
+  name="DiffusionTransportModel"
+  Material = "Independent"
+  Property = "ThermalConductivity"
+  Default_Concentration = .1
+  Default_Temperature   = 300.
+  Default_Burnup   = 0.0
+}
+
+SourcePhysicsModel {
+  name = "SourcePhysicsModel"
+  Material = "Independent"
+  USE_ELEMENT_PHYSICS = "MassDensityModel"
+  Equation = "ThermalSource"
+  USE_MATERIALS_LIBRARY = TRUE 
 }
 
 NeutronicsOperator{
@@ -16,12 +33,12 @@ NeutronicsOperator{
   timeSteps          = 1, 10000.
   useFixedValue      = TRUE
   fixedValues        = 1.0, 2.0
-  MemoryLocation="managed"
+//  MemoryLocation="managed"
 }
 
 DiffusionBVPOperator {
   name="LinearBVPOperator"
-  MemoryLocation="managed"
+//  MemoryLocation="managed"
   VolumeOperator = "DiffusionLinearFEOperator1"
   BoundaryOperator = "ColumnBoundaryOperator1"
 }
@@ -41,7 +58,7 @@ DiffusionLinearFEOperator1{
     QRULE_TYPE = "QGAUSS"
     QRULE_ORDER = "DEFAULT"
   }
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 ColumnBoundaryOperator1 {
@@ -79,18 +96,10 @@ DirichletMatrixCorrection{
   value_0_0        = 300.
 }
 
-DiffusionTransportModel1 {
-  name="DiffusionTransportModel"
-  Material = "Independent"
-  Property = "ThermalConductivity"
-  Default_Concentration = .1
-  Default_Temperature   = 300.
-  Default_Burnup   = 0.0
-}
 
 VolumeIntegralOperator{
   name="VolumeIntegralOperator"
-  MemoryLocation="managed"
+//  MemoryLocation="managed"
   InputVariableType = "IntegrationPointScalar"
   Number_Active_Variables = 1
   Number_Auxillary_Variables = 0
@@ -99,7 +108,7 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
   }
   OutputVariable = "heatsource"
-  LocalModel = "SourcePhysicsModel"
+  LocalModel = SourcePhysicsModel
   SourceElement {
     name="SourceNonlinearElement"
     FE_ORDER = "FIRST"  
@@ -109,10 +118,4 @@ VolumeIntegralOperator{
   }
 }
 
-SourcePhysicsModel {
-  name = "SourcePhysicsModel"
-  Material = "Independent"
-  USE_ELEMENT_PHYSICS = "MassDensityModel"
-  Equation = "ThermalSource"
-  USE_MATERIALS_LIBRARY = TRUE 
-}
+

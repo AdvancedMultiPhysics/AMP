@@ -45,26 +45,10 @@ PelletStackOperator::PelletStackOperator(
 void PelletStackOperator::reset( std::shared_ptr<const OperatorParameters> params )
 {
     AMP_ASSERT( params );
-    d_memory_location = params->d_memory_location;
-    auto myParams     = std::dynamic_pointer_cast<const PelletStackOperatorParameters>( params );
+    auto myParams = std::dynamic_pointer_cast<const PelletStackOperatorParameters>( params );
     if ( myParams )
         d_currentPellet = myParams->d_currentPellet;
 }
-
-std::vector<std::shared_ptr<AMP::Mesh::Mesh>> PelletStackOperator::getLocalMeshes()
-{
-    return d_meshes;
-}
-
-std::vector<unsigned int> PelletStackOperator::getLocalPelletIds() { return d_pelletIds; }
-
-bool PelletStackOperator::useSerial() { return d_useSerial; }
-
-bool PelletStackOperator::onlyZcorrection() { return d_onlyZcorrection; }
-
-bool PelletStackOperator::useScaling() { return d_useScaling; }
-
-unsigned int PelletStackOperator::getTotalNumberOfPellets() { return d_totalNumberOfPellets; }
 
 int PelletStackOperator::getLocalIndexForPellet( unsigned int pellId )
 {
@@ -88,7 +72,7 @@ void PelletStackOperator::applyUnscaling( AMP::LinearAlgebra::Vector::shared_ptr
         for ( auto &bndGlobalId : bndGlobalIds ) {
             double val = subF->getLocalValueByGlobalID( bndGlobalId );
             val /= d_scalingFactor;
-            subF->setLocalValuesByGlobalID( 1, &bndGlobalId, &val );
+            subF->setValuesByGlobalID( 1, &bndGlobalId, &val );
         } // end for j
     }     // end for bnd
 }
@@ -124,8 +108,7 @@ void PelletStackOperator::applyOnlyZcorrection( AMP::LinearAlgebra::Vector::shar
             for ( ; nd != end_nd; ++nd ) {
                 std::vector<size_t> dofIds;
                 dof_map->getDOFs( nd->globalID(), dofIds );
-                subU->addLocalValuesByGlobalID(
-                    1, &dofIds[2], &finalMaxZdispsList[d_pelletIds[i] - 1] );
+                subU->addValuesByGlobalID( 1, &dofIds[2], &finalMaxZdispsList[d_pelletIds[i] - 1] );
             } // end for nd
         }
     } // end for i
@@ -154,7 +137,7 @@ void PelletStackOperator::applyXYZcorrection( AMP::LinearAlgebra::Vector::const_
         dof_map->getDOFs( bnd->globalID(), bndGlobalIds );
         for ( auto &bndGlobalId : bndGlobalIds ) {
             double val = subU->getLocalValueByGlobalID( bndGlobalId );
-            subR->addLocalValuesByGlobalID( 1, &bndGlobalId, &val );
+            subR->addValuesByGlobalID( 1, &bndGlobalId, &val );
         } // end for j
     }     // end for bnd
     std::vector<double> finalMaxZdispsList;
@@ -166,7 +149,7 @@ void PelletStackOperator::applyXYZcorrection( AMP::LinearAlgebra::Vector::const_
             for ( ; bnd != end_bnd; ++bnd ) {
                 std::vector<size_t> bndGlobalIds;
                 dof_map->getDOFs( bnd->globalID(), bndGlobalIds );
-                subR->addLocalValuesByGlobalID(
+                subR->addValuesByGlobalID(
                     1, &bndGlobalIds[2], &finalMaxZdispsList[d_pelletIds[i] - 2] );
             } // end for bnd
         }
@@ -242,7 +225,7 @@ void PelletStackOperator::applySerial( AMP::LinearAlgebra::Vector::const_shared_
             dof_map->getDOFs( bnd->globalID(), bndGlobalIds );
             for ( auto &bndGlobalId : bndGlobalIds ) {
                 double val = subU->getLocalValueByGlobalID( bndGlobalId );
-                subR->addLocalValuesByGlobalID( 1, &bndGlobalId, &val );
+                subR->addValuesByGlobalID( 1, &bndGlobalId, &val );
             } // end for j
         }     // end for bnd
     }

@@ -1,12 +1,15 @@
 // Sample input file to test thermal solve
 
-referenceSolutionNorm = 45431.3
+referenceSolutionNorm = 3.719772968711e+04
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
-    MeshName = "Pellet"
-    dim      = 3
+MeshType = "AMP"
+MeshName = "Pellet"
+Generator = "cylinder"
+Size = 13, 8
+Range = 0.00533908, 0, 0.0127
+surfaceIds = 4, 4, 4, 4, 1, 2
+static = TRUE
 }
 
 NeutronicsOperator{
@@ -20,28 +23,6 @@ NeutronicsOperator{
     print_info_level   = 3
 }
 
-VolumeIntegralOperator{
-  name="VolumeIntegralOperator"
-    InputVariableType = "IntegrationPointScalar"
-    Number_Active_Variables = 1
-    Number_Auxillary_Variables = 0
-    ConstantSource   = FALSE
-    ActiveInputVariables{
-      ActiveVariable_0 = "SpecificPowerInWattsPerKiloGram" 
-    }
-  OutputVariable = "heatsource"
-    print_info_level = 0
-    LocalModel = "SourcePhysicsModel"
-    SourceElement {
-      name="SourceNonlinearElement"
-        print_info_level = 3
-        FE_ORDER = "FIRST"  
-        FE_FAMILY = "LAGRANGE"
-        QRULE_TYPE = "QGAUSS"
-        QRULE_ORDER = "DEFAULT"
-    }
-}
-
 SourcePhysicsModel {
   name = "SourcePhysicsModel"
     Material = "UO2_MSRZC_09"
@@ -53,6 +34,36 @@ SourcePhysicsModel {
     Default_Burnup   = 0.0
 }
 
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+} 
+
+VolumeIntegralOperator{
+  name="VolumeIntegralOperator"
+    InputVariableType = "IntegrationPointScalar"
+    Number_Active_Variables = 1
+    Number_Auxillary_Variables = 0
+    ConstantSource   = FALSE
+    ActiveInputVariables{
+      ActiveVariable_0 = "SpecificPowerInWattsPerKiloGram" 
+    }
+  OutputVariable = "heatsource"
+    print_info_level = 0
+    LocalModel = SourcePhysicsModel
+    SourceElement {
+      name="SourceNonlinearElement"
+        print_info_level = 2
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }
+}
 
 NumberOfLoadingSteps = 1
 
@@ -81,7 +92,7 @@ DiffusionNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletVectorCorrection1 {
@@ -97,14 +108,6 @@ DirichletVectorCorrection1 {
     value_0_0        = 557.2
 }
 
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-} 
 
 testLinearThermalOperator {
   name = "LinearBVPOperator"
@@ -131,7 +134,7 @@ DiffusionLinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection2 {
@@ -147,7 +150,7 @@ DirichletMatrixCorrection2 {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
     absolute_tolerance = 1.0e-10
@@ -180,11 +183,18 @@ NonlinearSolver{
 }
 
 Preconditioner{
-    name = "BoomerAMGSolver"
-    print_info_level = 0
-    max_iterations = 3
-    max_levels = 5
-    max_error = 1e-15
+  name = "TrilinosMLSolver"
+  print_info_level = 0
+  max_iterations = 1
+  max_levels = 10
+  max_error = 1e-15
+  min_coarse_size = 10
+  strong_threshold = 0.5
+  cycle_type = 1
+  relax_type = 16
+  coarsen_type = 10
+  interp_type = 17
+  relax_order = 0
 }
 
 

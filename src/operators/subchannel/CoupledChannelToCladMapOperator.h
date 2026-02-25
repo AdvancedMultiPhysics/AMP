@@ -17,12 +17,12 @@ public:
     explicit CoupledChannelToCladMapOperator(
         std::shared_ptr<const CoupledChannelToCladMapOperatorParameters> params );
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_flowVariable;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_thermalMapOperator->getOutputVariable();
     }

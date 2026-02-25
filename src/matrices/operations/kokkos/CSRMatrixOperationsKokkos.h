@@ -1,47 +1,64 @@
 #ifndef included_CSRMatrixOperationsKokkos_H_
 #define included_CSRMatrixOperationsKokkos_H_
 
+#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
 #include "AMP/matrices/operations/MatrixOperations.h"
+#include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
 #include "AMP/vectors/Vector.h"
 
+#ifdef AMP_USE_DEVICE
+    #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
+#endif
+
 #include <type_traits>
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
 
     #include "Kokkos_Core.hpp"
 
 namespace AMP::LinearAlgebra {
 
-template<
-    typename Policy,
-    typename Allocator,
-    class ExecSpace = typename std::conditional<std::is_same_v<Allocator, AMP::HostAllocator<void>>,
-                                                Kokkos::DefaultHostExecutionSpace,
-                                                Kokkos::DefaultExecutionSpace>::type,
-    class ViewSpace = typename std::conditional<std::is_same_v<Allocator, AMP::HostAllocator<void>>,
-                                                Kokkos::HostSpace,
-                                                Kokkos::SharedSpace>::type,
-    class DiagMatrixData = CSRLocalMatrixData<Policy, Allocator>>
+template<typename Config,
+    #ifdef AMP_USE_DEVICE
+         class ExecSpace = typename std::conditional<
+             std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
+             Kokkos::DefaultHostExecutionSpace,
+             Kokkos::DefaultExecutionSpace>::type,
+         class ViewSpace = typename std::conditional<
+             std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
+             Kokkos::HostSpace,
+             typename std::conditional<
+                 std::is_same_v<typename Config::allocator_type, AMP::ManagedAllocator<void>>,
+                 Kokkos::SharedSpace,
+                 typename Kokkos::DefaultExecutionSpace::memory_space>::type>::type
+    #else
+         class ExecSpace = Kokkos::DefaultHostExecutionSpace,
+         class ViewSpace = Kokkos::HostSpace
+    #endif
+         >
 class CSRMatrixOperationsKokkos : public MatrixOperations
 {
 public:
+    static_assert( std::is_same_v<typename Config::allocator_type::value_type, void> );
+
+    using config_type       = Config;
+    using allocator_type    = typename Config::allocator_type;
+    using matrixdata_t      = CSRMatrixData<Config>;
+    using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
+
+    using localops_t = CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>;
+
+    using gidx_t   = typename Config::gidx_t;
+    using lidx_t   = typename Config::lidx_t;
+    using scalar_t = typename Config::scalar_t;
+
     CSRMatrixOperationsKokkos()
         : d_exec_space(),
-          d_localops_diag(
-              std::make_shared<CSRLocalMatrixOperationsKokkos<Policy,
-                                                              Allocator,
-                                                              ExecSpace,
-                                                              ViewSpace,
-                                                              DiagMatrixData>>( d_exec_space ) ),
-          d_localops_offd(
-              std::make_shared<CSRLocalMatrixOperationsKokkos<Policy,
-                                                              Allocator,
-                                                              ExecSpace,
-                                                              ViewSpace,
-                                                              DiagMatrixData>>( d_exec_space ) )
+          d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
+          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
     {
     }
 
@@ -69,12 +86,30 @@ public:
      */
     void scale( AMP::Scalar alpha, MatrixData &A ) override;
 
+    /** \brief  Scale the matrix by a scalar and diagonal matrix
+     * \param[in] alpha  The value to scale by
+     * \param[in] D  A vector representing the diagonal matrix
+     * \param[in] A The input matrix A
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}\mathbf{A}\f$
+     */
+    void scale( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
+
+    /** \brief  Scale the matrix by a scalar and inverse of diagonal matrix
+     * \param[in] alpha  The value to scale by
+     * \param[in] D  A vector representing the diagonal matrix
+     * \param[in] A The input matrix A
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}^{-1}\mathbf{A}\f$
+     */
+    void scaleInv( AMP::Scalar alpha, std::shared_ptr<const Vector> D, MatrixData &A ) override;
+
     /** \brief  Compute the product of two matrices
      * \param[in] A  A multiplicand
      * \param[in] B  A multiplicand
      * \return The product \f$\mathbf{AB}\f$.
      */
-    void matMultiply( MatrixData const &A, MatrixData const &B, MatrixData &C ) override;
+    void matMatMult( std::shared_ptr<MatrixData> A,
+                     std::shared_ptr<MatrixData> B,
+                     std::shared_ptr<MatrixData> C ) override;
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -103,10 +138,24 @@ public:
     void setIdentity( MatrixData &A ) override;
 
     /** \brief Extract the diagonal values into a vector
-     * \param[in] in The values to set the diagonal to
-     * \param[in] A The matrix to set
+     * \param[in] A The matrix to read from
+     * \param[out] buf Buffer to write diagonal into
      */
     void extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
+
+    /** \brief Extract the row sums into a vector
+     * \param[in] A The matrix to read from
+     * \param[out] buf Buffer to write row sums into
+     */
+    void getRowSums( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
+
+    /** \brief Extract the absolute row sums into a vector
+     * \param[in] A The matrix to read from
+     * \param[out] buf Buffer to write row sums into
+     */
+    void getRowSumsAbsolute( MatrixData const &A,
+                             std::shared_ptr<Vector> buf,
+                             const bool remove_zeros = false ) override;
 
     /** \brief Compute the maximum column sum
      * \return  The L1 norm of the matrix
@@ -127,18 +176,38 @@ public:
      */
     void copyCast( const MatrixData &X, MatrixData &Y ) override;
 
-    template<typename PolicyIn>
+    template<typename ConfigIn>
     static void
-    copyCast( CSRMatrixData<PolicyIn, Allocator, CSRLocalMatrixData<PolicyIn, Allocator>> *X,
-              CSRMatrixData<Policy, Allocator, DiagMatrixData> *Y );
+    copyCast( CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X,
+              CSRMatrixData<Config> *Y );
+
+    std::string type() const override { return "CSRMatrixOperationsKokkos"; }
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const override;
+
+    CSRMatrixOperationsKokkos( int64_t, AMP::IO::RestartManager * )
+        : d_exec_space(),
+          d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
+          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
+    {
+    }
 
 protected:
     ExecSpace d_exec_space;
-    std::shared_ptr<
-        CSRLocalMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>>
-        d_localops_diag;
-    std::shared_ptr<CSRLocalMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace>>
-        d_localops_offd;
+    std::shared_ptr<localops_t> d_localops_diag;
+    std::shared_ptr<localops_t> d_localops_offd;
+
+    // This currently forwards SpGEMM operations to either default ops or device ops
+    // so internal versions of each are held
+    CSRMatrixOperationsDefault<Config> d_matrixOpsDefault;
+    #ifdef AMP_USE_DEVICE
+    CSRMatrixOperationsDevice<Config> d_matrixOpsDevice;
+    #endif
 };
 
 } // namespace AMP::LinearAlgebra

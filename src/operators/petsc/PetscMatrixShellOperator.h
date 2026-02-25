@@ -55,9 +55,9 @@ public:
 
     void reset( std::shared_ptr<const OperatorParameters> params ) override;
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override;
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override;
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override;
 
 private:
     std::shared_ptr<Operator> d_operator;

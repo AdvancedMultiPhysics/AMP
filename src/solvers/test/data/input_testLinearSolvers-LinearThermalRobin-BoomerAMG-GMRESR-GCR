@@ -6,12 +6,12 @@ LinearSolver{
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
   print_info_level = 2
-  max_iterations = 30
+  max_iterations = 100
   max_dimension = 100
 }
 
 Reference{
-  iterations = 24
+  iterations = 64
   res_l2_norm = -1.0
   tolerance = 0.0
   strict = FALSE

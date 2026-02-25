@@ -1,13 +1,12 @@
 
 Mesh{
-    FileName = "halden_1_clad.e"
-    dim = 3
-    MeshType = "libMesh"
     MeshName = "cylinder"
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 270
+    MeshType = "AMP"
+    Generator = "tube"
+    Size = 2, 132, 17
+    Range = 5.46e-3, 6.35e-3, 0, 0.0127
+    surfaceIds = 8, 4, -1, -1, 1, 2
+    static = TRUE
 }
 
 NumberOfLoadingSteps = 1
@@ -15,6 +14,22 @@ NumberOfLoadingSteps = 1
 testNonlinearThermalOperator {
    name="NonlinearBVPOperator"
   
+     DiffusionTransportModel1{
+        name = "DiffusionTransportModel"
+        Material = "Steel316_MSRZC_09"
+        Property = "ThermalConductivity"
+        Default_Concentration = .1
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+     } 
+     DiffusionTransportModel2{
+        name = "DiffusionTransportModel"
+        Material = "Steel316_MSRZC_09"
+        Property = "ThermalConductivity"
+        Default_Concentration = .1
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+     } 
 
 VolumeOperator = "DiffusionNonlinearFEOperator1"
 BoundaryOperator = "DirichletVectorCorrection1"
@@ -36,7 +51,7 @@ BoundaryOperator = "DirichletVectorCorrection1"
         QRULE_ORDER = "DEFAULT"
      }    
 
-LocalModel = "DiffusionTransportModel1"
+LocalModel = DiffusionTransportModel1
    }
    DirichletVectorCorrection1 {
       name = "DirichletVectorCorrection"
@@ -51,14 +66,6 @@ LocalModel = "DiffusionTransportModel1"
       dof_1_0 = 0
       value_1_0 = 0.
    }
-     DiffusionTransportModel1{
-        name = "DiffusionTransportModel"
-        Material = "Steel316_MSRZC_09"
-        Property = "ThermalConductivity"
-        Default_Concentration = .1
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-     } 
 
 testLinearThermalOperator {
    name = "LinearBVPOperator"
@@ -84,7 +91,7 @@ BoundaryOperator = "DirichletMatrixCorrection2"
         QRULE_ORDER = "DEFAULT"
      }    
 
-LocalModel = "DiffusionTransportModel2"
+LocalModel = DiffusionTransportModel2
    }
    DirichletMatrixCorrection2 {
      name = "DirichletMatrixCorrection"
@@ -98,14 +105,6 @@ LocalModel = "DiffusionTransportModel2"
      number_of_dofs_1 = 1
      dof_1_0 = 0
    }
-     DiffusionTransportModel2{
-        name = "DiffusionTransportModel"
-        Material = "Steel316_MSRZC_09"
-        Property = "ThermalConductivity"
-        Default_Concentration = .1
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-     } 
 
 ThermalInitialGuess {
   name = "DirichletVectorCorrection"

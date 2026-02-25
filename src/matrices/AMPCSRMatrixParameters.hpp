@@ -6,78 +6,88 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Policy>
-AMPCSRMatrixParameters<Policy>::AMPCSRMatrixParameters(
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
     std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
     const AMP_MPI &comm,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::lidx_t &,
-                              typename Policy::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::gidx_t *,
-                              typename Policy::gidx_t * )> getRowCols )
-    : MatrixParameters( dofLeft, dofRight, comm ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm ), d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
-template<typename Policy>
-AMPCSRMatrixParameters<Policy>::AMPCSRMatrixParameters(
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
+    std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
+    std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
+    const AMP_MPI &comm,
+    AMP::Utilities::Backend backend,
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm, backend ), d_getRowHelper( getRowHelper )
+{
+    AMP_ASSERT( d_getRowHelper.get() );
+}
+
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
     std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
     const AMP_MPI &comm,
     std::shared_ptr<Variable> varLeft,
     std::shared_ptr<Variable> varRight,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::lidx_t &,
-                              typename Policy::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::gidx_t *,
-                              typename Policy::gidx_t * )> getRowCols )
-    : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight ), d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
-template<typename Policy>
-AMPCSRMatrixParameters<Policy>::AMPCSRMatrixParameters(
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
+    std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
+    std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
+    const AMP_MPI &comm,
+    std::shared_ptr<Variable> varLeft,
+    std::shared_ptr<Variable> varRight,
+    AMP::Utilities::Backend backend,
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight, backend ),
+      d_getRowHelper( getRowHelper )
+{
+    AMP_ASSERT( d_getRowHelper.get() );
+}
+
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
     std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
     const AMP_MPI &comm,
     std::shared_ptr<CommunicationList> commListLeft,
     std::shared_ptr<CommunicationList> commListRight,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::lidx_t &,
-                              typename Policy::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::gidx_t *,
-                              typename Policy::gidx_t * )> getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
     : MatrixParameters( dofLeft, dofRight, comm, commListLeft, commListRight ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+      d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
 }
 
-template<typename Policy>
-AMPCSRMatrixParameters<Policy>::AMPCSRMatrixParameters(
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
+    std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
+    std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
+    const AMP_MPI &comm,
+    std::shared_ptr<CommunicationList> commListLeft,
+    std::shared_ptr<CommunicationList> commListRight,
+    AMP::Utilities::Backend backend,
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters( dofLeft, dofRight, comm, commListLeft, commListRight, backend ),
+      d_getRowHelper( getRowHelper )
+{
+    AMP_ASSERT( d_getRowHelper.get() );
+}
+
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
     std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
     std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
     const AMP_MPI &comm,
@@ -85,21 +95,48 @@ AMPCSRMatrixParameters<Policy>::AMPCSRMatrixParameters(
     std::shared_ptr<Variable> varRight,
     std::shared_ptr<CommunicationList> commListLeft,
     std::shared_ptr<CommunicationList> commListRight,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::lidx_t &,
-                              typename Policy::lidx_t & )> getRowNNZ,
-    const std::function<void( const typename Policy::gidx_t,
-                              typename Policy::gidx_t *,
-                              typename Policy::gidx_t * )> getRowCols )
+    std::shared_ptr<GetRowHelper> getRowHelper )
     : MatrixParameters( dofLeft, dofRight, comm, varLeft, varRight, commListLeft, commListRight ),
-      d_getRowNNZ( getRowNNZ ),
-      d_getRowCols( getRowCols )
+      d_getRowHelper( getRowHelper )
 {
-    if ( d_getRowNNZ || d_getRowCols ) {
-        AMP_INSIST(
-            d_getRowNNZ && d_getRowCols,
-            "AMPCSRMatrixParameters: Must either provide both getRow functions or neither" );
-    }
+    AMP_ASSERT( d_getRowHelper.get() );
+}
+
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters(
+    std::shared_ptr<AMP::Discretization::DOFManager> dofLeft,
+    std::shared_ptr<AMP::Discretization::DOFManager> dofRight,
+    const AMP_MPI &comm,
+    std::shared_ptr<Variable> varLeft,
+    std::shared_ptr<Variable> varRight,
+    std::shared_ptr<CommunicationList> commListLeft,
+    std::shared_ptr<CommunicationList> commListRight,
+    AMP::Utilities::Backend backend,
+    std::shared_ptr<GetRowHelper> getRowHelper )
+    : MatrixParameters(
+          dofLeft, dofRight, comm, varLeft, varRight, commListLeft, commListRight, backend ),
+      d_getRowHelper( getRowHelper )
+{
+    AMP_ASSERT( d_getRowHelper.get() );
+}
+
+template<typename Config>
+void AMPCSRMatrixParameters<Config>::registerChildObjects( AMP::IO::RestartManager *manager ) const
+{
+    MatrixParameters::registerChildObjects( manager );
+}
+
+template<typename Config>
+void AMPCSRMatrixParameters<Config>::writeRestart( int64_t fid ) const
+{
+    MatrixParameters::writeRestart( fid );
+}
+
+template<typename Config>
+AMPCSRMatrixParameters<Config>::AMPCSRMatrixParameters( int64_t fid,
+                                                        AMP::IO::RestartManager *manager )
+    : MatrixParameters( fid, manager )
+{
 }
 
 } // namespace AMP::LinearAlgebra

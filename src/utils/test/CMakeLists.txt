@@ -1,7 +1,3 @@
-############################################################################
-#  Configure tests
-############################################################################
-
 # Add the data files needed for the tests
 COPY_TEST_FILE( point_set_2d )
 COPY_TEST_FILE( point_set_2d_2 )
@@ -20,7 +16,7 @@ COPY_TEST_FILE( Johnson.yml )
 ADD_AMP_TEST( test_compile )
 ADD_AMP_TEST( test_Units )
 ADD_AMP_TEST( test_Database input_Database laser_plasma_input.txt library.yml Johnson.yml )
-# ADD_AMP_TEST( test_Database input_Database laser_plasma_input.txt library.yml Johnson.yml PROCS 2 )
+ADD_AMP_TEST( test_Database input_Database laser_plasma_input.txt library.yml Johnson.yml PROCS 2 )
 ADD_AMP_TEST( test_Database2 )
 ADD_AMP_TEST( test_intN )
 ADD_AMP_TEST( test_kdtree )
@@ -31,18 +27,16 @@ ADD_AMP_TEST_1_2_4( test_AMP_MPI RUN_SERIAL )
 ADD_AMP_TEST_1_2_4( test_Utilities )
 ADD_AMP_TEST_1_2_4( testManufacturedSolution )
 ADD_AMP_TEST( test_DelaunayHelpers )
-ADD_AMP_TEST( test_DelaunayInterpolation point_set_2d point_set_2d_2 point_set_2d_3 point_set_2d_4 )
+ADD_AMP_TEST( test_DelaunayInterpolation )
 ADD_AMP_TEST( test_copyCast )
 IF ( USE_DEVICE )
     SET_DEVICE_COMPILER( test_copyCast )
 ENDIF()
-IF( NOT ( ${CMAKE_CXX_COMPILER_ID} MATCHES "Intel" ) )
-    ADD_AMP_TEST( testArray )
-ENDIF()
+ADD_AMP_TEST( testArray )
+ADD_AMP_TEST( testFunctionTable )
 IF ( CMAKE_Fortran_COMPILER AND NOT DISABLE_FORTRAN )
     ADD_AMP_TEST( test_Fortran )
     SET_TARGET_PROPERTIES( test_Fortran PROPERTIES LINKER_LANGUAGE Fortran )
 ENDIF()
 ADD_AMP_PROVISIONAL_TEST( test_crash )
-#ADD_AMP_PROVISIONAL_TEST( test_crash_log )
 

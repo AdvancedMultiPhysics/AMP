@@ -1,9 +1,10 @@
-#include "RobinVectorCorrection.h"
+#include "AMP/operators/boundary/libmesh/RobinVectorCorrection.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
+#include "AMP/operators/boundary/libmesh/RobinMatrixCorrectionParameters.h"
 #include "AMP/utils/Database.h"
 #include "AMP/vectors/VectorSelector.h"
-#include "RobinMatrixCorrectionParameters.h"
 
 #include "ProfilerApp.h"
 
@@ -11,7 +12,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
@@ -23,10 +23,36 @@ ENABLE_WARNINGS
 namespace AMP::Operator {
 
 
+/****************************************************************
+ * Create the appropriate parameters                             *
+ ****************************************************************/
+static std::shared_ptr<const NeumannVectorCorrectionParameters>
+convert( std::shared_ptr<const OperatorParameters> inParams )
+{
+    AMP_ASSERT( inParams );
+    if ( std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams ) )
+        return std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams );
+    auto bndParams = std::dynamic_pointer_cast<const BoundaryOperatorParameters>( inParams );
+    AMP_ASSERT( bndParams );
+    auto params        = std::make_shared<NeumannVectorCorrectionParameters>( inParams->d_db );
+    params->d_Mesh     = inParams->d_Mesh;
+    params->d_variable = bndParams->d_volumeOperator->getOutputVariable();
+    if ( params->d_db->keyExists( "LocalModel" ) ) {
+        auto model_db = params->d_db->getDatabase( "LocalModel" );
+        auto model    = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+        params->d_robinPhysicsModel = std::dynamic_pointer_cast<RobinPhysicsModel>( model );
+    }
+    return params;
+}
+
+
+/****************************************************************
+ * Constructors                                                  *
+ ****************************************************************/
 RobinVectorCorrection::RobinVectorCorrection( std::shared_ptr<const OperatorParameters> inParams )
     : NeumannVectorCorrection( inParams )
 {
-    auto params = std::dynamic_pointer_cast<const NeumannVectorCorrectionParameters>( inParams );
+    auto params = convert( inParams );
     AMP_ASSERT( params );
     d_hef        = 0;
     d_alpha      = 0;

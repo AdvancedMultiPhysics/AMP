@@ -30,10 +30,6 @@ Vector::shared_ptr VS_MultiVariable::subset( Vector::shared_ptr vec ) const
     }
     return Vector::shared_ptr();
 }
-Vector::const_shared_ptr VS_MultiVariable::subset( Vector::const_shared_ptr vec ) const
-{
-    return subset( std::const_pointer_cast<Vector>( vec ) );
-}
 
 
 /****************************************************************

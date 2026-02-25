@@ -1,12 +1,24 @@
 // Database for the mesh
-Mesh{
+Mesh {
     MeshName = "mesh"
-    MeshType = "libMesh"
-    FileName = "brick.e"
+    MeshType = "AMP"
+    Generator = "cube"
     dim = 3
-    NumberOfElements = 100
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
 }
   
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "Independent"
+        Property = "ThermalDiffusionCoefficient"
+        Default_Concentration = .15
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+} 
+
 LinearDiffusionOp{
     name = "DiffusionLinearFEOperator"
     InputVariable = "temperature"
@@ -24,7 +36,7 @@ LinearDiffusionOp{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
-    LocalModel="DiffusionTransportModel"
+    LocalModel=DiffusionTransportModel
 }
 
 NonlinearDiffusionOp{
@@ -47,14 +59,6 @@ NonlinearDiffusionOp{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
-    LocalModel="DiffusionTransportModel"
+    LocalModel=DiffusionTransportModel
 }
 
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Independent"
-        Property = "ThermalDiffusionCoefficient"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-} 

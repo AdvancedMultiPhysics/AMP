@@ -35,7 +35,7 @@ ManagedSundialsVector::ManagedSundialsVector( std::shared_ptr<Vector> vec )
     setVariable( vec->getVariable() );
     // Create N_Vector
     d_n_vector = (N_Vector) malloc( sizeof *d_n_vector );
-    AMP_ASSERT( d_n_vector != nullptr );
+    AMP_ASSERT( d_n_vector );
     // Attach the content and the ops fields
     d_n_vector->content = this;
     d_n_vector->ops     = ManagedSundialsVector::createNVectorOps();
@@ -62,12 +62,12 @@ ManagedSundialsVector::~ManagedSundialsVector()
 /************************************************************************
  * Clone the vector                                                      *
  ************************************************************************/
-std::unique_ptr<Vector> ManagedSundialsVector::rawClone( const std::shared_ptr<Variable> var ) const
+std::unique_ptr<Vector> ManagedSundialsVector::rawClone() const
 {
     auto vec    = getVectorEngine( getVectorData() );
     auto vec2   = vec->clone( "ManagedSundialsVectorClone" );
     auto retVal = std::make_unique<ManagedSundialsVector>( vec2 );
-    retVal->setVariable( var );
+    retVal->setVariable( d_Variable );
     return retVal;
 }
 
@@ -114,9 +114,9 @@ N_Vector ManagedSundialsVector::clone_AMP( N_Vector n_vector )
 {
     // Extracts the content filed of n_vector
     auto srcAMPVector      = getAMP( n_vector );
-    auto ptr               = srcAMPVector->rawClone( srcAMPVector->getVariable() ).release();
+    auto ptr               = srcAMPVector->rawClone().release();
     auto newSundialsVector = dynamic_cast<ManagedSundialsVector *>( ptr );
-    AMP_ASSERT( newSundialsVector != nullptr );
+    AMP_ASSERT( newSundialsVector );
     return newSundialsVector->getNVector();
 }
 

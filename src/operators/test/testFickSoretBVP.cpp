@@ -45,12 +45,11 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
     // Create nonlinear FickSoret BVP operator and access volume nonlinear FickSoret operator
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel;
     auto nlinBVPOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "testFickSoretBVPOperator", input_db, elementPhysicsModel );
+        mesh, "testFickSoretBVPOperator", input_db );
     auto nlinBVPOp =
         std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>( nlinBVPOperator );
     auto nlinOp = std::dynamic_pointer_cast<AMP::Operator::FickSoretNonlinearFEOperator>(
@@ -62,7 +61,7 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
 
     // use the linear BVP operator to create a Fick linear operator with bc's
     auto linBVPOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "testLinearFickBVPOperator", input_db, elementPhysicsModel );
+        mesh, "testLinearFickBVPOperator", input_db );
     auto linBVPOp = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>( linBVPOperator );
 
     ut->passes( exeName + ": creation" );
@@ -108,11 +107,10 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
     int nodalGhostWidth = 1;
     bool split          = true;
     auto nodalDofMap    = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
 
     // create solution, rhs, and residual vectors
-    auto multivector =
-        AMP::LinearAlgebra::MultiVector::create( "mulitvector", meshAdapter->getComm() );
+    auto multivector = AMP::LinearAlgebra::MultiVector::create( "mulitvector", mesh->getComm() );
     multivector->addVector( AMP::LinearAlgebra::createVector( nodalDofMap, cVar ) );
     multivector->addVector( AMP::LinearAlgebra::createVector( nodalDofMap, tVar ) );
     auto solVec = std::dynamic_pointer_cast<AMP::LinearAlgebra::Vector>( multivector );

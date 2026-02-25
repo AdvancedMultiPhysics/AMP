@@ -58,8 +58,7 @@ public:
       will be ignored if the corresponding variable is not active.
       5) OutputVariable (No default value) - Name of the output variable
       */
-    explicit MechanicsNonlinearFEOperator(
-        std::shared_ptr<const MechanicsNonlinearFEOperatorParameters> params );
+    explicit MechanicsNonlinearFEOperator( std::shared_ptr<const OperatorParameters> params );
 
     /**
       Destructor.
@@ -93,7 +92,7 @@ public:
       it
       returns the multivariable for the entire vector.
       */
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_inpVariables;
     }
@@ -101,7 +100,7 @@ public:
     /**
       @return The variable for the output vector
       */
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_outVariable;
     }
@@ -172,11 +171,11 @@ protected:
     mySubsetVector( AMP::LinearAlgebra::Vector::const_shared_ptr vec,
                     std::shared_ptr<AMP::LinearAlgebra::Variable> var );
 
-    template<MechanicsNonlinearElement::MaterialUpdateType updateType>
-    void updateMaterialForElement( const AMP::Mesh::MeshElement & );
+    void updateMaterialForElement( MechanicsNonlinearElement::MaterialUpdateType,
+                                   const AMP::Mesh::MeshElement & );
 
-    template<MechanicsNonlinearUpdatedLagrangianElement::MaterialUpdateType updateType>
-    void updateMaterialForUpdatedLagrangianElement( const AMP::Mesh::MeshElement & );
+    void updateMaterialForUpdatedLagrangianElement( MechanicsNonlinearElement::MaterialUpdateType,
+                                                    const AMP::Mesh::MeshElement & );
 
     void updateMaterialForElementCommonFunction( const AMP::Mesh::MeshElement &,
                                                  std::vector<std::vector<double>> &,
@@ -184,6 +183,11 @@ protected:
 
     void getDofIndicesForCurrentElement( int varId, std::vector<std::vector<size_t>> &dofIds );
 
+    MechanicsNonlinearFEOperator( std::shared_ptr<const MechanicsNonlinearFEOperatorParameters>,
+                                  bool );
+
+
+protected:
     std::vector<double> d_elementOutputVector; /**< Element output vector. */
 
     std::shared_ptr<MechanicsNonlinearElement> d_mechNonlinElem; /**< Element operation. */
@@ -236,36 +240,11 @@ protected:
 
     std::shared_ptr<AMP::Discretization::DOFManager> d_dofMap[Mechanics::TOTAL_NUMBER_OF_VARIABLES];
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    AMP::Mesh::MeshElementVectorPtr d_currNodes;
 
     std::vector<std::vector<size_t>> d_dofIndices; /**< Primary DOF indices */
 };
 
-template<MechanicsNonlinearElement::MaterialUpdateType updateType>
-void MechanicsNonlinearFEOperator::updateMaterialForElement( const AMP::Mesh::MeshElement &elem )
-{
-    std::vector<std::vector<double>> elementInputVectors1( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-    std::vector<std::vector<double>> elementInputVectors_pre1(
-        Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-
-    updateMaterialForElementCommonFunction( elem, elementInputVectors1, elementInputVectors_pre1 );
-
-    d_mechNonlinElem->updateMaterialModel<updateType>( elementInputVectors1 );
-}
-
-template<MechanicsNonlinearUpdatedLagrangianElement::MaterialUpdateType updateType>
-void MechanicsNonlinearFEOperator::updateMaterialForUpdatedLagrangianElement(
-    const AMP::Mesh::MeshElement &elem )
-{
-    std::vector<std::vector<double>> elementInputVectors2( Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-    std::vector<std::vector<double>> elementInputVectors_pre2(
-        Mechanics::TOTAL_NUMBER_OF_VARIABLES );
-
-    updateMaterialForElementCommonFunction( elem, elementInputVectors2, elementInputVectors_pre2 );
-
-    d_mechNULElem->updateMaterialModel<updateType>( elementInputVectors2,
-                                                    elementInputVectors_pre2 );
-}
 } // namespace AMP::Operator
 
 #endif

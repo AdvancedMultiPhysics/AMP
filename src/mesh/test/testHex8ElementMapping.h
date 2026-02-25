@@ -1,8 +1,10 @@
 #include "AMP/mesh/euclidean_geometry_tools.h"
 #include "AMP/mesh/hex8_element_t.h"
-#include "AMP/mesh/latex_visualization_tools.h"
+#include "AMP/mesh/testHelpers/latex_visualization_tools.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/UtilityMacros.h"
+
+#include <fstream>
 
 
 class soft_equal_to
@@ -111,7 +113,10 @@ void test_mapping_basis_functions_values_to_local_coordinates_on_face(
     } // end for i
 }
 
-void draw_axis( unsigned int a, hex8_element_t *volume_element, const std::string &axis_name )
+void draw_axis( unsigned int a,
+                hex8_element_t *volume_element,
+                const std::string &axis_name,
+                std::ostream &os )
 {
     double local_coordinates[3] = { 0.0, 0.0, 0.0 };
     unsigned int n              = 10;
@@ -120,11 +125,11 @@ void draw_axis( unsigned int a, hex8_element_t *volume_element, const std::strin
         local_coordinates[a] = static_cast<double>( i ) / static_cast<double>( n );
         volume_element->map_local_to_global( local_coordinates, &( global_coordinates[3 * i] ) );
     } // end for
-    draw_line( n + 1, &( global_coordinates[0] ), "black,->" );
-    draw_point( &( global_coordinates[3 * n] ), "black", std::cout, axis_name );
+    draw_line( n + 1, &global_coordinates[0], os, "black,->" );
+    draw_point( &global_coordinates[3 * n], os, "black", axis_name );
 }
 
-void draw_lines_on_triangle( triangle_t *t )
+void draw_lines_on_triangle( triangle_t *t, std::ostream &os )
 {
     unsigned int n = 6;
     double const *p[3];
@@ -140,12 +145,12 @@ void draw_lines_on_triangle( triangle_t *t )
                 e[j] = p[2][j] +
                        ( p[0][j] - p[2][j] ) * static_cast<double>( i ) / static_cast<double>( n );
             } // end for j
-            draw_line( b, e );
+            draw_line( b, e, os );
         } // end for i
     }     // end for k
 }
 
-void draw_lines_on_face( unsigned int f, hex8_element_t *volume_element )
+void draw_lines_on_face( unsigned int f, hex8_element_t *volume_element, std::ostream &os )
 {
     double local_coordinates_on_face[2], local_coordinates[3];
     unsigned int n = 6, m = 6;
@@ -159,7 +164,7 @@ void draw_lines_on_face( unsigned int f, hex8_element_t *volume_element )
             volume_element->map_face_to_local( f, local_coordinates_on_face, local_coordinates );
             volume_element->map_local_to_global( local_coordinates, &global_coordinates[3 * j] );
         } // end for j
-        draw_line( m + 1, global_coordinates, "black, dashed" );
+        draw_line( m + 1, global_coordinates, os, "black, dashed" );
     } // end for i
     for ( unsigned int j = 0; j <= m; ++j ) {
         local_coordinates_on_face[1] =
@@ -170,11 +175,11 @@ void draw_lines_on_face( unsigned int f, hex8_element_t *volume_element )
             volume_element->map_face_to_local( f, local_coordinates_on_face, local_coordinates );
             volume_element->map_local_to_global( local_coordinates, &global_coordinates[3 * i] );
         } // end for j
-        draw_line( n + 1, global_coordinates, "black, dashed" );
+        draw_line( n + 1, global_coordinates, os, "black, dashed" );
     } // end for j
 }
 
-void draw_tetrahedron( unsigned int f, hex8_element_t *volume_element )
+void draw_tetrahedron( unsigned int f, hex8_element_t *volume_element, std::ostream &os )
 {
     unsigned int const *faces = volume_element->get_faces();
     std::vector<double const *> p;
@@ -208,36 +213,29 @@ void draw_tetrahedron( unsigned int f, hex8_element_t *volume_element )
         if ( b[i] ) {
             option.append( ",dotted" );
         } // end if
-        draw_triangle( &( t[i] ), option );
+        draw_triangle( &t[i], os, option );
     } // end for i
     double local_coordinates_on_face[2] = { 0.0, 0.0 };
     double local_coordinates[3], global_coordinates[3];
     volume_element->map_face_to_local( f, local_coordinates_on_face, local_coordinates );
     volume_element->map_local_to_global( local_coordinates, global_coordinates );
-    draw_point( global_coordinates, "red", std::cout, "+" );
-    std::cout << "% \n";
-    draw_lines_on_triangle( &( t[0] ) );
-    std::cout << "% \n";
-    draw_lines_on_triangle( &( t[1] ) );
-    std::cout << "% \n";
-    draw_lines_on_triangle( &( t[2] ) );
-    std::cout << "% \n";
-    draw_lines_on_triangle( &( t[3] ) );
-    std::cout << "% \n";
-}
-
-void for_my_thesis( hex8_element_t *volume_element )
-{
-    draw_axis( 0, volume_element, "$\\xi$" );
-    draw_axis( 1, volume_element, "$\\eta$" );
-    draw_axis( 2, volume_element, "$\\zeta$" );
-    double point_of_view[3] = { 1.0, 1.0, 1.0 };
-    draw_hex8_element( volume_element, point_of_view );
-    draw_lines_on_face( 2, volume_element );
+    draw_point( global_coordinates, os, "red", "+" );
+    os << "% \n";
+    draw_lines_on_triangle( &t[0], os );
+    os << "% \n";
+    draw_lines_on_triangle( &t[1], os );
+    os << "% \n";
+    draw_lines_on_triangle( &t[2], os );
+    os << "% \n";
+    draw_lines_on_triangle( &t[3], os );
+    os << "% \n";
 }
 
 void testHex8ElementMapping( AMP::UnitTest &ut )
 {
+    std::ofstream os;
+    os.open( "testHex8ElementMapping.txt" );
+
     const double pi   = 3.141592653589793;
     double points[24] = {
         -1.0, -1.0, -1.0, // 0
@@ -250,28 +248,10 @@ void testHex8ElementMapping( AMP::UnitTest &ut )
         -1.0, +1.0, +1.0  // 7
     };
 
-    /*  std::string labels_coord[8] = {
-        "(-1,-1,-1)",
-        "(+1,-1,-1)",
-        "(+1,+1,-1)",
-        "(-1,+1,-1)",
-        "(-1,-1,+1)",
-        "(+1,-1,+1)",
-        "(+1,+1,+1)",
-        "(-1,+1,+1)"
-      };*/
-
     std::string labels_num[8] = { "0", "1", "2", "3", "4", "5", "6", "7" };
 
     hex8_element_t volume_element( points );
-    draw_lines_on_face( 2, &volume_element );
-    //  for_my_thesis(&volume_element);
-    //  for (unsigned int i = 0; i < 8; ++i) { draw_point(volume_element.get_support_point(i),
-    //  "black", std::cout,
-    //  labels_coord[i]); }
-    //  for (unsigned int i = 0; i < 8; ++i) { draw_point(volume_element.get_support_point(i),
-    //  "black", std::cout,
-    //  labels_num[i]); }
+    draw_lines_on_face( 2, &volume_element, os );
 
     // shifting the points from [-1, 1]^3 to [0, 1]^3
     for ( auto &point : points ) {
@@ -314,33 +294,32 @@ void testHex8ElementMapping( AMP::UnitTest &ut )
 
     //  test_mapping(&volume_element, 1000000);
     AMP_ASSERT( test_mapping_global_to_local( &volume_element ) == 0 );
-    //  std::cout<<"[test mapping] newton count = "<<volume_element.newton_count<<"\n";
 
     translate_points( 0, 2.0, 8, points );
     translate_points( 1, 12.0, 8, points );
     translate_points( 2, 4.0, 8, points );
     volume_element.set_support_points( points );
 
-    for_my_thesis( &volume_element );
     for ( unsigned int i = 0; i < 8; ++i ) {
-        draw_point( volume_element.get_support_point( i ), "black", std::cout, labels_num[i] );
+        draw_point( volume_element.get_support_point( i ), os, "black", labels_num[i] );
     }
 
-    draw_tetrahedron( 2, &volume_element );
+    draw_tetrahedron( 2, &volume_element, os );
 
     for ( unsigned int i = 0; i < 8; ++i ) {
-        draw_point( volume_element.get_support_point( i ), "red" );
+        draw_point( volume_element.get_support_point( i ), os, "red" );
     }
     double point_of_view[3] = { 1.0, 1.0, 1.0 };
 
-    std::cout << "% volume element\n";
-    draw_hex8_element( &volume_element, point_of_view );
+    os << "% volume element\n";
+    draw_hex8_element( &volume_element, point_of_view, os );
 
-    std::cout << "% bounding polyhedron\n";
-    draw_bounding_polyhedron( &volume_element, point_of_view );
+    os << "% bounding polyhedron\n";
+    draw_bounding_polyhedron( &volume_element, point_of_view, os );
 
-    std::cout << "% bounding box\n";
-    draw_bounding_box( &volume_element, point_of_view );
+    os << "% bounding box\n";
+    draw_bounding_box( &volume_element, point_of_view, os );
 
+    os.close();
     ut.passes( "testHex8ElementMapping" );
 }

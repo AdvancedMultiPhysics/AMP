@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -28,10 +29,12 @@ CommunicationListParameters::CommunicationListParameters( const CommunicationLis
 /************************************************************************
  * Constructors                                                          *
  ************************************************************************/
-CommunicationList::CommunicationList() { d_partition = { 0 }; }
+CommunicationList::CommunicationList() : d_partition( { 0 } ) {}
 CommunicationList::CommunicationList( std::shared_ptr<const CommunicationListParameters> params )
     : d_comm( params->d_comm )
 {
+    PROFILE( "CommunicationList::constructor" );
+
     AMP_ASSERT( !d_comm.isNull() );
     d_partition = d_comm.allGather( params->d_localsize );
     for ( size_t i = 1; i < d_partition.size(); i++ )
@@ -41,34 +44,61 @@ CommunicationList::CommunicationList( std::shared_ptr<const CommunicationListPar
 }
 CommunicationList::CommunicationList( size_t local, const AMP_MPI &comm ) : d_comm( comm )
 {
+    PROFILE( "CommunicationList::constructor" );
+
     d_partition = d_comm.allGather( local );
     for ( size_t i = 1; i < d_partition.size(); i++ )
         d_partition[i] += d_partition[i - 1];
-    const int size = std::max( d_comm.getSize(), 1 );
-    d_ReceiveSizes = std::vector<int>( size, 0 );
-    d_ReceiveDisp  = std::vector<int>( size, 0 );
-    d_SendSizes    = std::vector<int>( size, 0 );
-    d_SendDisp     = std::vector<int>( size, 0 );
-    d_SendDOFList  = {};
-    d_initialized  = true;
+    const int size  = std::max( d_comm.getSize(), 1 );
+    d_ReceiveSizes  = std::vector<int>( size, 0 );
+    d_ReceiveDisp   = std::vector<int>( size, 0 );
+    d_SendSizes     = std::vector<int>( size, 0 );
+    d_SendDisp      = std::vector<int>( size, 0 );
+    d_SendDOFList   = {};
+    d_initialized   = true;
+    d_anyRankRemote = false;
 }
+CommunicationList::CommunicationList( const std::vector<size_t> &partition, const AMP_MPI &comm )
+    : d_comm( comm ), d_partition{ partition }
+{
+    PROFILE( "CommunicationList::constructor" );
+
+    const int size  = std::max( d_comm.getSize(), 1 );
+    d_ReceiveSizes  = std::vector<int>( size, 0 );
+    d_ReceiveDisp   = std::vector<int>( size, 0 );
+    d_SendSizes     = std::vector<int>( size, 0 );
+    d_SendDisp      = std::vector<int>( size, 0 );
+    d_SendDOFList   = {};
+    d_initialized   = true;
+    d_anyRankRemote = false;
+}
+
 CommunicationList::CommunicationList( const AMP_MPI &comm,
                                       std::vector<size_t> local,
                                       std::vector<size_t> remote )
     : d_comm( comm ), d_ReceiveDOFList( std::move( remote ) ), d_partition( std::move( local ) )
 {
+    PROFILE( "CommunicationList::constructor" );
+
     AMP_ASSERT( (int) d_partition.size() == d_comm.getSize() );
     for ( size_t i = 1; i < d_partition.size(); i++ )
         d_partition[i] += d_partition[i - 1];
     AMP::Utilities::quicksort( d_ReceiveDOFList );
+    d_anyRankRemote = true;
 }
 
+std::shared_ptr<CommunicationList> CommunicationList::getNoCommunicationList()
+{
+    return std::make_shared<CommunicationList>( d_partition, d_comm );
+}
 
 /************************************************************************
  * Subset                                                                *
  ************************************************************************/
 std::shared_ptr<CommunicationList> CommunicationList::subset( std::shared_ptr<VectorIndexer> ndx )
 {
+    PROFILE( "CommunicationList::subset" );
+
     if ( !d_initialized )
         initialize();
     // Create the parameters for the subset
@@ -98,6 +128,8 @@ std::shared_ptr<CommunicationList> CommunicationList::subset( std::shared_ptr<Ve
  ************************************************************************/
 size_t CommunicationList::getLocalGhostID( size_t GID ) const
 {
+    PROFILE( "CommunicationList::getLocalGhostID" );
+
     // Search d_ReceiveDOFList for GID
     // Note: d_ReceiveDOFList must be sorted for this to work
     AMP_INSIST( !d_ReceiveDOFList.empty(),
@@ -121,9 +153,12 @@ size_t CommunicationList::getLocalGhostID( size_t GID ) const
  ************************************************************************/
 void CommunicationList::initialize() const
 {
+    PROFILE( "CommunicationList::initialize" );
+
     if ( d_initialized )
         return;
-    d_initialized = true;
+    d_initialized   = true;
+    d_anyRankRemote = false;
 
     // Allocate initial data
     const int size = std::max( d_comm.getSize(), 1 );
@@ -138,7 +173,6 @@ void CommunicationList::initialize() const
     if ( size <= 1 ) {
         AMP_INSIST( d_ReceiveDOFList.empty(),
                     "Error in communication list, remote DOFs are present for a serial vector" );
-
         return;
     }
 
@@ -171,6 +205,16 @@ void CommunicationList::initialize() const
     d_SendDOFList.resize( send_buf_size );
     d_SendDOFList =
         d_comm.allToAll( d_ReceiveDOFList, d_ReceiveSizes, d_ReceiveDisp, d_SendSizes, d_SendDisp );
+
+    // Check if there is any communication
+    for ( int i = 0; i < size; i++ )
+        d_anyRankRemote = d_anyRankRemote || d_ReceiveSizes[i] > 0 || d_SendSizes[i] > 0;
+}
+bool CommunicationList::anyCommunication()
+{
+    if ( !d_initialized )
+        initialize();
+    return d_anyRankRemote;
 }
 
 
@@ -206,6 +250,16 @@ size_t CommunicationList::getTotalSize() const { return d_partition.back(); }
 /************************************************************************
  * Misc. functions                                                       *
  ************************************************************************/
+void CommunicationList::clearBuffers()
+{
+    d_ReceiveSizes.clear();
+    d_ReceiveDisp.clear();
+    d_SendSizes.clear();
+    d_SendDisp.clear();
+    d_SendDOFList.clear();
+    d_ReceiveDOFList.clear();
+}
+
 size_t CommunicationList::getVectorSendBufferSize() const
 {
     if ( !d_initialized )

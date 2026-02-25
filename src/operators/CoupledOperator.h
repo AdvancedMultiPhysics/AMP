@@ -45,7 +45,7 @@ public:
 
     void setBVPOperator( std::shared_ptr<AMP::Operator::Operator> op ) { d_operators[3] = op; }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_operators[3]->getOutputVariable();
     }

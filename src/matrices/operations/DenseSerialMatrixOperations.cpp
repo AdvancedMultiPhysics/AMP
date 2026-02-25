@@ -93,13 +93,13 @@ void DenseSerialMatrixOperations::scale( AMP::Scalar alpha_in, MatrixData &A )
         m1RawData[i] *= alpha;
 }
 
-void DenseSerialMatrixOperations::matMultiply( MatrixData const &Am,
-                                               MatrixData const &Bm,
-                                               MatrixData &Cm )
+void DenseSerialMatrixOperations::matMatMult( std::shared_ptr<MatrixData> Am,
+                                              std::shared_ptr<MatrixData> Bm,
+                                              std::shared_ptr<MatrixData> Cm )
 {
-    auto Amat = getDenseSerialMatrixData( Am );
-    auto Bmat = getDenseSerialMatrixData( Bm );
-    auto Cmat = getDenseSerialMatrixData( Cm );
+    auto Amat = getDenseSerialMatrixData( *Am );
+    auto Bmat = getDenseSerialMatrixData( *Bm );
+    auto Cmat = getDenseSerialMatrixData( *Cm );
 
     size_t N = Amat->numGlobalRows();
     size_t K = Amat->numGlobalColumns();
@@ -195,6 +195,7 @@ void DenseSerialMatrixOperations::setDiagonal( std::shared_ptr<const Vector> in,
     for ( size_t i = 0; i < nrows; i++ )
         m1RawData[i + i * nrows] = x[i];
     delete[] x;
+    delete[] k;
 }
 
 void DenseSerialMatrixOperations::setIdentity( MatrixData &A )
@@ -266,5 +267,27 @@ void DenseSerialMatrixOperations::copy( const MatrixData &X, MatrixData &Y )
         memcpy( m1RawData, m2RawData, ncols * nrows * sizeof( double ) );
     }
 }
+
+void DenseSerialMatrixOperations::scale( AMP::Scalar, std::shared_ptr<const Vector>, MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::scaleInv( AMP::Scalar,
+                                            std::shared_ptr<const Vector>,
+                                            MatrixData & )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+{
+    AMP_ERROR( "Not implemented" );
+}
+void DenseSerialMatrixOperations::getRowSumsAbsolute( MatrixData const &,
+                                                      std::shared_ptr<Vector>,
+                                                      const bool )
+{
+    AMP_ERROR( "Not implemented" );
+}
+
 
 } // namespace AMP::LinearAlgebra

@@ -74,13 +74,25 @@ public:
     CommunicationList( size_t local, const AMP_MPI &comm );
 
     /**
-     * \brief  Construct a CommunicationList with no comunication
+     * \brief  Construct a CommunicationList with comunication
      * \param[in]  comm     The AMP_MPI for the vector.
      * \param[in]  local    The number of local elements for each rank
      * \param[in]  remote   The remote DOFs that we need to receive on this rank
      * \details  Create a communication list (advanced interface)
      */
     CommunicationList( const AMP_MPI &comm, std::vector<size_t> local, std::vector<size_t> remote );
+
+    /**
+     * Constructor for creating CommunicationLists with no communication
+     * from an existing CommunicationList object without incurring global communication
+     * (meant for internal use only)
+     */
+    CommunicationList( const std::vector<size_t> &d_partition, const AMP_MPI &comm );
+
+    /**
+     * \brief Returns a shared_ptr to a CommunicationList with no data communication.
+     */
+    std::shared_ptr<CommunicationList> getNoCommunicationList();
 
     /**
      * \brief Subset a communication list based on a VectorIndexer
@@ -175,7 +187,15 @@ public:
      * \brief  Return the number of local rows for this communication list
      * \return The number of local d.o.f. for this communication list
      */
-    virtual size_t numLocalRows() const;
+    size_t numLocalRows() const;
+
+    /**
+     * Clears the internal buffers so that they are empty
+     */
+    void clearBuffers();
+
+    //! Returns true if any rank has remote data
+    bool anyCommunication();
 
     /**
      * \brief  Return the local index of a shared datum.
@@ -206,7 +226,8 @@ protected:
 
 private:
     AMP_MPI d_comm;                            // Communicator
-    mutable bool d_initialized = false;        // Have we initialized all of the data
+    mutable bool d_initialized   = false;      // Have we initialized all of the data
+    mutable bool d_anyRankRemote = false;      // Does any rank have remote data
     std::vector<size_t> d_ReceiveDOFList;      // Sorted DOF receive lists
     std::vector<size_t> d_partition;           // Partition info
     mutable std::vector<size_t> d_SendDOFList; // Sorted DOF send lists

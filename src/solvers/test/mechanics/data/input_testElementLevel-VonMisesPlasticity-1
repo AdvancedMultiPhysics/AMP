@@ -59,20 +59,19 @@ Load_Boundary {
 NonlinearSolver{
   print_info_level = 2 
     max_iterations = 100
-    max_error = 1e-10
-
     absolute_tolerance = 1.0e-15
     relative_tolerance = 1.0e-12
     stepTolerance = 1.0e-10
     maximumFunctionEvals = 1000
     usesJacobian=TRUE
-
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.001"
+    linear_solver_type               =  "fgmres"
+    forcing_term_strategy            =  "EWCHOICE3"
+    EW_choice2_alpha = 2.0
+    EW_choice2_gamma = 0.9
 
     LinearSolver{
       print_info_level = 1
         max_iterations = 10
-        max_error = 1e-10
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-15
         relative_tolerance = 1.0e-13
@@ -103,6 +102,35 @@ LinearMechanicsElement {
     QRULE_ORDER = "DEFAULT"
 }
 
+MechanicsMaterialModel {
+    USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    print_info_level = 2
+    USE_CONTINUUM_TANGENT = FALSE
+    //name="VonMisesElastoPlasticModel"
+    //name="IsotropicElasticModel"
+    name="VonMises_IsotropicKinematicHardening"
+    Youngs_Modulus = 70.0
+    Poissons_Ratio = 0.2
+    Elastic_Yield_Stress = 243.0
+    Cook_Membrane_Plasticity_Test = FALSE
+    Thick_Walled_Cylinder_Plasticity_Test = TRUE
+    // The following parameters are used for the Thick Walled cylinder test
+    Linear_Strain_Hardening = 150.0
+    Exponent_Delta = 0.1
+    Value_K_0 = 243.7
+    K_Infinity = 343.0
+    Fraction_Beta = 0.1
+    // The following parameters are used for the Cook's Membrane Plasticity test
+    //Isotropic_Linear_Hardening = 150.0
+    //Kinematic_Linear_Hardening = 135.0
+    //Initial_Yield_Strength = 243.0
+    // Parameters for the benchmark test ends here
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = .1
+}
+
 MechanicsNonlinearFEOperator{
       name = "MechanicsNonlinearFEOperator"
         print_info_level = 1
@@ -122,7 +150,7 @@ MechanicsNonlinearFEOperator{
             QRULE_ORDER = "DEFAULT"
         }
         MechanicsLinearElement = LinearMechanicsElement
-	LocalModel = "MechanicsMaterialModel"
+	LocalModel = MechanicsMaterialModel
 }
 	
 DirichletVectorCorrection{
@@ -195,31 +223,3 @@ DirichletMatrixCorrection{
       //dof_2_0 = 2
   }
 
-MechanicsMaterialModel {
-        USE_MATERIALS_LIBRARY = FALSE
-          Material = "UO2_MSRZC_09"
-          print_info_level = 6
-          USE_CONTINUUM_TANGENT = FALSE
-          //name="VonMisesElastoPlasticModel"
-          //name="IsotropicElasticModel"
-          name="VonMises_IsotropicKinematicHardening"
-          Youngs_Modulus = 70.0
-          Poissons_Ratio = 0.2
-          Elastic_Yield_Stress = 243.0
-          Cook_Membrane_Plasticity_Test = FALSE
-          Thick_Walled_Cylinder_Plasticity_Test = TRUE
-// The following parameters are used for the Thick Walled cylinder test
-          Linear_Strain_Hardening = 150.0
-          Exponent_Delta = 0.1
-          Value_K_0 = 243.7
-          K_Infinity = 343.0
-          Fraction_Beta = 0.1
-// The following parameters are used for the Cook's Membrane Plasticity test
-          //Isotropic_Linear_Hardening = 150.0
-          //Kinematic_Linear_Hardening = 135.0
-          //Initial_Yield_Strength = 243.0
-// Parameters for the benchmark test ends here
-          Default_Temperature = 310.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = .1
-      }

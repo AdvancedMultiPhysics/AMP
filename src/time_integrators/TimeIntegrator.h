@@ -291,7 +291,7 @@ protected:
      *
      * When assertion checking is active, the database pointer must be non-null.
      */
-    void getFromInput( std::shared_ptr<const AMP::Database> db, bool from_reset = false );
+    void getFromInput( std::shared_ptr<const AMP::Database> db );
 
     /*
      * Read object state from restart database and initialize class members.
@@ -364,6 +364,10 @@ protected:
     std::shared_ptr<AMP::IO::Writer> d_writer;
 
     TimeIntegrator() = default;
+
+    //! Set to true after initialization in constructors. Needed in getFromInput
+    //! to avoid reseting some parameters in subsequent reset operations.
+    bool d_initialized = false;
 
 public: // Write/read restart data
     /**

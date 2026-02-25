@@ -1,16 +1,6 @@
 // This file tests the HDF5 interfaces
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstdio>
-#include <cstring>
-#include <iostream>
-#include <string>
-#include <vector>
-
-#include "AMP/IO/HDF5.h"
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.h"
+#include "AMP/IO/HDF.hpp"
 #include "AMP/IO/HDF5_Class.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Array.h"
@@ -19,7 +9,16 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <complex>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
 #include <random>
+#include <string>
+#include <vector>
 
 
 // Record a pass/fail
@@ -154,52 +153,49 @@ void checkArray( const AMP::IO::HDF5data &ptr,
 
 
 // Class to generate random values
-class uniform_complex
+template<class TYPE>
+TYPE genRand()
 {
-public:
-    template<class Generator>
-    std::complex<double> operator()( Generator &g )
-    {
-        std::uniform_real_distribution<double> dist( 0, 1 );
-        return { dist( g ), dist( g ) };
-    }
-};
-class random_char
-{
-public:
-    template<class Generator>
-    char operator()( Generator &g )
-    {
-        std::uniform_int_distribution<int> dist( 32, 126 );
+    static std::random_device rd;
+    static std::mt19937 g( rd() );
+    if constexpr ( std::is_same_v<TYPE, bool> ) {
+        static std::uniform_int_distribution<int> dist( 0, 255 );
+        return ( dist( g ) & 0x1 ) != 0;
+    } else if constexpr ( std::is_same_v<TYPE, char> ) {
+        static std::uniform_int_distribution<int> dist( 32, 126 );
         return dist( g );
-    }
-};
-class random_string
-{
-public:
-    template<class Generator>
-    std::string operator()( Generator &g )
-    {
-        std::uniform_int_distribution<int> length( 3, 10 );
-        std::uniform_int_distribution<int> dist( 32, 126 );
+    } else if constexpr ( std::is_integral_v<TYPE> ) {
+        if constexpr ( std::is_signed_v<TYPE> ) {
+            static std::uniform_int_distribution<long long> dist(
+                std::numeric_limits<TYPE>::min(), std::numeric_limits<TYPE>::max() );
+            return dist( g );
+        } else {
+            static std::uniform_int_distribution<unsigned long long> dist(
+                std::numeric_limits<TYPE>::min(), std::numeric_limits<TYPE>::max() );
+            return dist( g );
+        }
+    } else if constexpr ( std::is_floating_point_v<TYPE> ) {
+        static std::uniform_real_distribution<TYPE> dist( 0, 1 );
+        return dist( g );
+    } else if constexpr ( std::is_same_v<TYPE, std::complex<double>> ) {
+        static std::uniform_real_distribution<double> dist( 0, 1 );
+        return { dist( g ), dist( g ) };
+    } else if constexpr ( std::is_same_v<TYPE, std::string> ) {
+        static std::uniform_int_distribution<int> length( 3, 10 );
+        static std::uniform_int_distribution<int> dist( 32, 126 );
         std::string str;
         str.resize( length( g ) );
         for ( size_t i = 0; i < str.size(); i++ )
             str[i] = dist( g );
         return str;
-    }
-};
-class random_compound
-{
-public:
-    template<class Generator>
-    compoundStruct operator()( Generator &g )
-    {
-        std::uniform_int_distribution<int> dist_i( 3, 10 );
-        std::uniform_real_distribution<double> dist_d( 0, 1 );
+    } else if constexpr ( std::is_same_v<TYPE, compoundStruct> ) {
+        static std::uniform_int_distribution<int> dist_i( 3, 10 );
+        static std::uniform_real_distribution<double> dist_d( 0, 1 );
         return compoundStruct( dist_i( g ), dist_d( g ), dist_d( g ) );
+    } else {
+        static_assert( !std::is_same_v<TYPE, TYPE>, "Not finished" );
     }
-};
+}
 
 
 // Class to hold/test a specific type
@@ -209,45 +205,16 @@ class testTYPE
 public:
     testTYPE()
     {
-        name = AMP::getTypeID<TYPE>().name;
+        name   = AMP::getTypeID<TYPE>().name;
+        scalar = genRand<TYPE>();
         vec.resize( 10 );
-        Array.resize( 4, 3 );
-        std::random_device rd;
-        std::mt19937 gen( rd() );
-        if constexpr ( std::is_same_v<TYPE, char> ) {
-            random_char dist;
-            fill( dist, gen );
-        } else if constexpr ( std::is_integral_v<TYPE> ) {
-            std::uniform_int_distribution<TYPE> dist( std::numeric_limits<TYPE>::min(),
-                                                      std::numeric_limits<TYPE>::max() );
-            fill( dist, gen );
-        } else if constexpr ( std::is_floating_point_v<TYPE> ) {
-            std::uniform_real_distribution<TYPE> dist( 0, 1 );
-            fill( dist, gen );
-        } else if constexpr ( std::is_same_v<TYPE, std::complex<double>> ) {
-            uniform_complex dist;
-            fill( dist, gen );
-        } else if constexpr ( std::is_same_v<TYPE, std::string> ) {
-            random_string dist;
-            fill( dist, gen );
-        } else if constexpr ( std::is_same_v<TYPE, compoundStruct> ) {
-            random_compound dist;
-            fill( dist, gen );
-        } else {
-            static_assert( !std::is_same_v<TYPE, TYPE>, "Not finished" );
-        }
-    }
-    testTYPE( const testTYPE & ) = delete;
-    template<class DIST, class GEN>
-    void fill( DIST &dist, GEN &gen )
-    {
-        scalar = dist( gen );
-        for ( size_t i = 0; i < 10; i++ )
-            vec[i] = dist( gen );
+        for ( size_t i = 0; i < vec.size(); i++ )
+            vec[i] = genRand<TYPE>();
         for ( size_t i = 0; i < array.size(); i++ )
-            array[i] = dist( gen );
+            array[i] = genRand<TYPE>();
+        Array.resize( 4, 3 );
         for ( size_t i = 0; i < Array.length(); i++ )
-            Array( i ) = dist( gen );
+            Array( i ) = genRand<TYPE>();
     }
     void write( hid_t fid )
     {
@@ -292,6 +259,7 @@ public: // Functions
     data_struct( const data_struct & ) = delete;
     void write( hid_t fid )
     {
+        b.write( fid );
         c.write( fid );
         u8.write( fid );
         u16.write( fid );
@@ -312,6 +280,7 @@ public: // Functions
     {
         auto data = AMP::IO::readHDF5( fid, "/" );
         auto ptr  = data.get();
+        b.check( fid, ptr, ut );
         c.check( fid, ptr, ut );
         u8.check( fid, ptr, ut );
         u16.check( fid, ptr, ut );
@@ -329,6 +298,7 @@ public: // Functions
     }
 
 public: // Data members
+    testTYPE<bool> b;
     testTYPE<char> c;
     testTYPE<uint8_t> u8;
     testTYPE<uint16_t> u16;

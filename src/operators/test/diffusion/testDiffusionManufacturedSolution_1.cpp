@@ -51,32 +51,19 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
     // Create nonlinear diffusion BVP operator and access volume nonlinear Diffusion operator
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> nonlinearPhysicsModel;
     auto nlinBVPOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "ThermalNonlinearBVPOperator", input_db, nonlinearPhysicsModel );
+        mesh, "ThermalNonlinearBVPOperator", input_db );
     auto nlinBVPOp =
         std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>( nlinBVPOperator );
     auto nlinOp = std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(
         nlinBVPOp->getVolumeOperator() );
 
-    // use the linear BVP operator to create a linear diffusion operator with bc's
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> linearPhysicsModel;
-    // auto bvp_db = input_db->getDatabase("ThermalLinearBVPOperator");
-    // auto linBVPOperator =
-    //        AMP::Operator::OperatorBuilder::createOperator(meshAdapter, bvp_db,
-    //        linearPhysicsModel);
-    // auto linBVPOp =
-    //        std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(linBVPOperator);
-    // auto linOp =
-    //        std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>(linBVPOp->getVolumeOperator());
-
     // Get source mass operator
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> sourcePhysicsModel;
     auto sourceOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "ManufacturedSourceOperator", input_db, sourcePhysicsModel );
+        mesh, "ManufacturedSourceOperator", input_db );
     auto sourceOp =
         std::dynamic_pointer_cast<AMP::Operator::MassLinearFEOperator>( sourceOperator );
 
@@ -96,7 +83,7 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
     int nodalGhostWidth = 1;
     bool split          = true;
     auto nodalDofMap    = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
 
     // create solution, rhs, and residual vectors
     auto solVec    = AMP::LinearAlgebra::createVector( nodalDofMap, solVar );
@@ -108,7 +95,7 @@ static void bvpTest1( AMP::UnitTest *ut, const std::string &exeName )
     rhsVec->setToScalar( 0.0 );
 
     // Fill in manufactured solution
-    auto iterator = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+    auto iterator = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     for ( ; iterator != iterator.end(); ++iterator ) {
         double x  = ( iterator->coord() )[0];
         double y  = ( iterator->coord() )[1];

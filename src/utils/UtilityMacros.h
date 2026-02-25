@@ -160,6 +160,7 @@ static inline std::string operator+( std::string_view x, std::string_view y )
 #if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
     #define AMP_DEBUG_ASSERT( EXP ) AMP_ASSERT( EXP )
     #define AMP_DEBUG_INSIST( EXP, MSG ) AMP_INSIST( EXP, MSG )
+    #define AMP_DEBUG
 #else
     #define AMP_DEBUG_ASSERT( EXP ) \
         do {                        \
@@ -183,9 +184,8 @@ static inline std::string operator+( std::string_view x, std::string_view y )
  */
 #ifndef DISABLE_WARNINGS
     #if defined( _MSC_VER )
-        #define DISABLE_WARNINGS __pragma( warning( push, 0 ) ) \
-           __pragma( warning( disable : 2124 ) )
-        #define ENABLE_WARNINGS __pragma( warning( pop ) )
+        #define DISABLE_WARNINGS
+        #define ENABLE_WARNINGS
     #elif defined( __clang__ )
         #define DISABLE_WARNINGS                                                      \
             _Pragma( "clang diagnostic push" )                                        \
@@ -201,7 +201,8 @@ static inline std::string operator+( std::string_view x, std::string_view y )
         #if defined ( __INTEL_LLVM_COMPILER )
             // have to figure these warnings out
             #define DISABLE_WARNINGS                \
-                _Pragma( "warning (push)" )
+                _Pragma( "warning (push)" )         \
+                _Pragma( "clang diagnostic ignored \"-Wunused-lambda-capture\"" )
             #define ENABLE_WARNINGS _Pragma( "warning(pop)" )
         #else
            #define DISABLE_WARNINGS                \

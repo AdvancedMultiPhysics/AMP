@@ -246,7 +246,12 @@ public:
         d_fTimeScalingFnPtr = fnPtr;
     }
 
-    double getGamma( void ) override;
+    void setComponentScalingFunction(
+        std::function<void( std::shared_ptr<AMP::LinearAlgebra::Vector>,
+                            std::shared_ptr<AMP::LinearAlgebra::Vector> )> fnPtr )
+    {
+        d_fComponentScalingFnPtr = fnPtr;
+    }
 
     virtual std::shared_ptr<AMP::LinearAlgebra::Vector> getTimeHistorySourceTerm()
     {
@@ -293,6 +298,9 @@ protected:
 
     bool d_time_history_initialized = false;
 
+    //! user manages time operator
+    bool d_user_managed_time_operator = false;
+
     //! allows for specialization of advanceSolution for classes of time
     //! integrators
     virtual int
@@ -303,7 +311,13 @@ protected:
 
     void createSolver( void );
 
+    //! registered callback function to set gamma, typically when the user needs to know gamma
     std::function<void( AMP::Scalar )> d_fTimeScalingFnPtr;
+
+    //! registered callback function to set multiphysics component scalings
+    std::function<void( std::shared_ptr<AMP::LinearAlgebra::Vector>,
+                        std::shared_ptr<AMP::LinearAlgebra::Vector> )>
+        d_fComponentScalingFnPtr;
 
 public: // Write/read restart data
     /**

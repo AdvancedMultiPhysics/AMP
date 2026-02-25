@@ -1,16 +1,16 @@
-
 #ifndef included_AMP_DirichletVectorCorrectionParameters
 #define included_AMP_DirichletVectorCorrectionParameters
 
 #include "AMP/operators/OperatorParameters.h"
+#include "AMP/operators/boundary/BoundaryOperatorParameters.h"
 
 namespace AMP::Operator {
 
-class DirichletVectorCorrectionParameters : public OperatorParameters
+class DirichletVectorCorrectionParameters : public BoundaryOperatorParameters
 {
 public:
     explicit DirichletVectorCorrectionParameters( std::shared_ptr<AMP::Database> db )
-        : OperatorParameters( db )
+        : BoundaryOperatorParameters( db )
     {
     }
 

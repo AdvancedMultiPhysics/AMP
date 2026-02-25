@@ -93,6 +93,28 @@ subsetDOFManager::~subsetDOFManager() = default;
 
 
 /****************************************************************
+ * Return the number of DOFs per element                         *
+ ****************************************************************/
+int subsetDOFManager::getDOFsPerPoint() const
+{
+    if ( d_iterator.empty() )
+        return d_parentDOFManager->getDOFsPerPoint();
+    int N = 0;
+    size_t dofs[16];
+    for ( auto &elem : d_iterator ) {
+        int N2 = appendDOFs( elem.globalID(), dofs, 0, 16 );
+        if ( N == 0 )
+            N = N2;
+        if ( N2 != N )
+            return -1;
+    }
+    if ( N == 0 )
+        return -1;
+    return N;
+}
+
+
+/****************************************************************
  * Get the dofs for the given element                            *
  ****************************************************************/
 size_t subsetDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,
@@ -125,12 +147,12 @@ size_t subsetDOFManager::appendDOFs( const AMP::Mesh::MeshElementID &id,
  ****************************************************************/
 AMP::Mesh::MeshElementID subsetDOFManager::getElementID( size_t dof ) const
 {
-    std::vector<size_t> dof2 = getParentDOF( { dof } );
+    auto dof2 = getParentDOF( { dof } );
     return d_parentDOFManager->getElementID( dof2[0] );
 }
-AMP::Mesh::MeshElement subsetDOFManager::getElement( size_t dof ) const
+std::unique_ptr<AMP::Mesh::MeshElement> subsetDOFManager::getElement( size_t dof ) const
 {
-    std::vector<size_t> dof2 = getParentDOF( { dof } );
+    auto dof2 = getParentDOF( { dof } );
     return d_parentDOFManager->getElement( dof2[0] );
 }
 

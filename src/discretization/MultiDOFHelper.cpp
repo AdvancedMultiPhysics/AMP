@@ -1,5 +1,5 @@
 #include "AMP/discretization/MultiDOFHelper.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/data/VectorData.h"
 
@@ -177,7 +177,7 @@ multiDOFHelper &multiDOFHelper::operator=( const multiDOFHelper &rhs )
  ****************************************************************/
 size_t multiDOFHelper::subToGlobal( int manager, size_t dof ) const
 {
-    AMP_ASSERT( manager <= (int) d_index.size() );
+    AMP_ASSERT( manager < (int) d_index.size() );
     size_t index = d_index[manager];
     int rank     = -1;
     for ( size_t i = 0; i < d_localSize.size( 1 ); i++ ) {
@@ -271,7 +271,7 @@ multiDOFHelper::multiDOFHelper( size_t gid )
 /********************************************************
  *  Write/Read from HDF5                                 *
  ********************************************************/
-#include "AMP/IO/HDF5.hpp"
+#include "AMP/IO/HDF.hpp"
 template<>
 void AMP::IO::writeHDF5<AMP::Discretization::multiDOFHelper>(
     hid_t fid, const std::string &name, const AMP::Discretization::multiDOFHelper &data )

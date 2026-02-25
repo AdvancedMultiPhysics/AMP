@@ -12,7 +12,8 @@ namespace AMP::Operator {
 NonlinearBVPOperator::NonlinearBVPOperator( std::shared_ptr<const OperatorParameters> params )
     : Operator( params )
 {
-    auto parmeters     = std::dynamic_pointer_cast<const BVPOperatorParameters>( params );
+    auto parmeters = std::dynamic_pointer_cast<const BVPOperatorParameters>( params );
+    AMP_ASSERT( parmeters );
     d_volumeOperator   = parmeters->d_volumeOperator;
     d_boundaryOperator = parmeters->d_boundaryOperator;
     d_Mesh             = d_volumeOperator->getMesh();
@@ -65,7 +66,6 @@ void NonlinearBVPOperator::reset( std::shared_ptr<const OperatorParameters> para
 {
     PROFILE( "reset" );
     AMP_ASSERT( params );
-    d_memory_location = params->d_memory_location;
 
     auto inParams = std::dynamic_pointer_cast<const BVPOperatorParameters>( params );
 
@@ -83,6 +83,7 @@ NonlinearBVPOperator::getParameters( const std::string &type,
     PROFILE( "getParameters" );
     auto db = std::make_shared<Database>();
     db->putScalar( "name", "LinearBVPOperator" );
+    Operator::setMemoryAndBackendParameters( db );
     auto outParams                      = std::make_shared<BVPOperatorParameters>( db );
     outParams->d_Mesh                   = d_Mesh;
     outParams->d_volumeOperatorParams   = d_volumeOperator->getParameters( type, u, params );

@@ -4,6 +4,9 @@
 #include "AMP/utils/UnitTest.h"
 
 
+using namespace AMP::Operator::UpdatedLagrangianUtils;
+
+
 static void myTest( AMP::UnitTest *ut )
 {
 
@@ -32,12 +35,12 @@ static void myTest( AMP::UnitTest *ut )
         }
     }
 
-    AMP::Operator::polarDecomposeRU( A, R, U );
-    AMP::Operator::matMatMultiply( R, U, F );
-    AMP::Operator::polarDecompositionFeqRU_Simo( A, R2, U2 );
-    AMP::Operator::matMatMultiply( R2, U2, F2 );
+    polarDecomposeRU( A, R, U );
+    matMatMultiply( R, U, F );
+    polarDecompositionFeqRU_Simo( A, R2, U2 );
+    matMatMultiply( R2, U2, F2 );
 
-    AMP::Operator::pushforwardCorotationalStiffness( R2, initStif, finalStif );
+    pushforwardCorotationalStiffness( R2, initStif, finalStif );
     for ( int i = 0; i < 6; i++ ) {
         for ( int j = 0; j < 6; j++ ) {
             std::cout << "finalStif[" << i << "][" << j << "] = " << finalStif[i][j] << std::endl;
@@ -60,14 +63,14 @@ static void myTest( AMP::UnitTest *ut )
 
     for ( int i = 0; i < 3; i++ ) {
         for ( int j = 0; j < 3; j++ ) {
-            if ( !AMP::Operator::softEquals( U[i][j], U[j][i] ) ) {
+            if ( !softEquals( U[i][j], U[j][i] ) ) {
                 ut->failure( "U is not symmetric." );
             }
         } // end for j
     }     // end for i
 
     double eVal[3];
-    AMP::Operator::eigenValues( U, eVal );
+    eigenValues( U, eVal );
     for ( auto &elem : eVal ) {
         if ( elem <= 0 ) {
             ut->failure( "U is not positive definite." );
@@ -76,29 +79,29 @@ static void myTest( AMP::UnitTest *ut )
 
     double eValSum = eVal[0] + eVal[1] + eVal[2];
     double Utrace  = U[0][0] + U[1][1] + U[2][2];
-    if ( !AMP::Operator::softEquals( eValSum, Utrace ) ) {
+    if ( !softEquals( eValSum, Utrace ) ) {
         ut->failure( "Trace(U) != sum of EigenValues." );
     }
 
     double eValProd = eVal[0] * eVal[1] * eVal[2];
-    double detU     = AMP::Operator::matDeterminant( U );
-    if ( !AMP::Operator::softEquals( eValProd, detU ) ) {
+    double detU     = matDeterminant( U );
+    if ( !softEquals( eValProd, detU ) ) {
         ut->failure( "det(U) != product of EigenValues." );
     }
 
     double Rtran[3][3];
-    AMP::Operator::matTranspose( R, Rtran );
+    matTranspose( R, Rtran );
 
     double RtranR[3][3];
-    AMP::Operator::matMatMultiply( Rtran, R, RtranR );
+    matMatMultiply( Rtran, R, RtranR );
     for ( int i = 0; i < 3; i++ ) {
         for ( int j = 0; j < 3; j++ ) {
             if ( i == j ) {
-                if ( !AMP::Operator::softEquals( RtranR[i][j], 1.0 ) ) {
+                if ( !softEquals( RtranR[i][j], 1.0 ) ) {
                     ut->failure( "R is not orthogonal." );
                 }
             } else {
-                if ( !AMP::Operator::softEquals( RtranR[i][j], 0.0 ) ) {
+                if ( !softEquals( RtranR[i][j], 0.0 ) ) {
                     ut->failure( "R is not orthogonal." );
                 }
             }
@@ -106,10 +109,10 @@ static void myTest( AMP::UnitTest *ut )
     }     // end for i
 
     double RU[3][3];
-    AMP::Operator::matMatMultiply( R, U, RU );
+    matMatMultiply( R, U, RU );
     for ( int i = 0; i < 3; i++ ) {
         for ( int j = 0; j < 3; j++ ) {
-            if ( !AMP::Operator::softEquals( RU[i][j], A[i][j] ) ) {
+            if ( !softEquals( RU[i][j], A[i][j] ) ) {
                 ut->failure( "RU != A." );
             }
         } // end for j

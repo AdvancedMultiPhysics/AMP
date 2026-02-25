@@ -36,19 +36,7 @@ public:
         d_gaussPtCnt = 0;
     }
 
-    void postNonlinearAssembly() override
-    {
-
-        if ( Total_Gauss_Point == 0 ) {
-            std::cout << "Total number of gauss points are zero." << std::endl;
-        } else {
-            double Plastic_Fraction =
-                ( (double) Plastic_Gauss_Point ) / ( (double) Total_Gauss_Point );
-            Plastic_Fraction = Plastic_Fraction * 100.0;
-            std::cout << "Fraction = " << Plastic_Fraction << "% Plastic = " << Plastic_Gauss_Point
-                      << " Total = " << Total_Gauss_Point << " Gauss Points." << std::endl;
-        }
-    }
+    void postNonlinearAssembly() override;
 
     void postNonlinearAssemblyGaussPointOperation() override { d_gaussPtCnt++; }
 
@@ -76,71 +64,44 @@ protected:
                        double *ystre_np1,
                        double *eph_bar_plas_np1 );
 
-    double default_TEMPERATURE;
-
-    double default_OXYGEN_CONCENTRATION;
-
-    double default_BURNUP;
-
-    std::vector<double> d_E;
-
-    double default_E;
-
-    std::vector<double> d_Nu;
-
-    double default_Nu;
-
-    double d_H;
-
-    double d_Sig0;
-
-    std::vector<double> d_alpha;
-
-    double default_alpha;
+    bool d_resetReusesRadialReturn;
+    bool d_jacobianReusesRadialReturn;
+    bool d_Is_Init_Called;
 
     unsigned int d_gaussPtCnt;
-
     unsigned int Total_Gauss_Point;
-
     unsigned int Plastic_Gauss_Point;
 
+    double default_TEMPERATURE;
+    double default_OXYGEN_CONCENTRATION;
+    double default_BURNUP;
+
+    double default_E;
+    double default_Nu;
+    double default_alpha;
+
+    double d_H;
+    double d_Sig0;
     double d_constitutiveMatrix[6][6];
 
-    std::vector<double> d_EquilibriumStress;
-
-    std::vector<double> d_EquilibriumStrain;
-
-    std::vector<double> d_EquilibriumYieldStress;
-
-    std::vector<double> d_EquilibriumEffectivePlasticStrain;
-
-    std::vector<double> d_EquilibriumTemperature;
-
-    std::vector<double> d_Lambda;
-
     std::vector<int> d_ElPl;
-
+    std::vector<double> d_E;
+    std::vector<double> d_Nu;
+    std::vector<double> d_alpha;
+    std::vector<double> d_EquilibriumStress;
+    std::vector<double> d_EquilibriumStrain;
+    std::vector<double> d_EquilibriumYieldStress;
+    std::vector<double> d_EquilibriumEffectivePlasticStrain;
+    std::vector<double> d_EquilibriumTemperature;
+    std::vector<double> d_Lambda;
     std::vector<double> d_tmp1Stress;
-
     std::vector<double> d_tmp1Strain;
-
     std::vector<double> d_tmp1YieldStress;
-
     std::vector<double> d_tmp1EffectivePlasticStrain;
-
     std::vector<double> d_tmp1Temperature;
-
     std::vector<double> d_tmp2Stress;
-
     std::vector<double> d_tmp2YieldStress;
-
     std::vector<double> d_tmp2EffectivePlasticStrain;
-
-    bool d_resetReusesRadialReturn;
-
-    bool d_jacobianReusesRadialReturn;
-
-    bool d_Is_Init_Called;
 
 private:
 };

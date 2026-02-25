@@ -989,7 +989,7 @@ void testSerialize( UnitTest &ut )
     if ( avg > 0.9 * ms && avg < 1.4 * ms )
         ut.passes( "serialize" );
     else
-        ut.failure( "serialize: " + std::to_string( avg ) );
+        ut.failure( "serialize: %f", avg );
 }
 
 
@@ -1010,11 +1010,10 @@ void testCommDup( UnitTest &ut )
         ut.failure( "dup comm" );
         return;
     }
-    #if defined( USE_PETSC ) && !defined( AMP_USE_MPI )
+    #if defined( AMP_USE_PETSC ) && !defined( AMP_USE_MPI )
     ut.expected_failure( "Skipping dup tests, PETSc (no-mpi) has a limit of 128 unique comms" );
-    return;
-    #endif
-    int N_comm_try = 2000; // Maximum number of comms to try and create
+    #else
+    const int N_comm_try = 2000; // Maximum number of comms to try and create
     std::vector<MPI_CLASS> comms;
     comms.reserve( N_comm_try );
     try {
@@ -1063,6 +1062,7 @@ void testCommDup( UnitTest &ut )
         AMP::pout << "Maximum number of communicators created with destruction: " << N_dup
                   << std::endl;
     }
+    #endif
 #endif
 }
 
@@ -1114,6 +1114,13 @@ void testRand( UnitTest &ut )
     }
     if ( pass )
         ut.passes( "rand()" );
+    // Test randomString
+    auto str  = AMP::Utilities::randomString( comm );
+    auto str0 = comm.bcast( str, 0 );
+    if ( str == str0 )
+        ut.passes( "randomString" );
+    else
+        ut.failure( "randomString" );
 }
 void testBasicCommCreatePerformance()
 {

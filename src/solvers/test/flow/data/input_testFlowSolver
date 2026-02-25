@@ -2,13 +2,11 @@
 Mesh{
     // This is the main multimesh that will contain all meshes
     MeshName = "bar"
-    MeshType = "libMesh"
-    FileName = "cube.with.12.boundaries.e"
-    dim = 3
-    x_offset = 0.0
-    y_offset = 0.0
-    z_offset = 0.0
-    NumberOfElements = 1000
+    MeshType = "AMP"
+    Generator = "cube"
+    Size = 10, 10, 10
+    Range = -1, 1, -1, 1, -1, 1
+    static = TRUE
 }
 
 
@@ -49,7 +47,7 @@ FlowFrapconJacobian{
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
@@ -88,7 +86,7 @@ NonlinearSolver{
 
 Flow1DSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

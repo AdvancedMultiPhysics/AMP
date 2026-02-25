@@ -1,14 +1,31 @@
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
     MeshName = "9mil_pellet"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 270
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
+    static = TRUE
 }
+
+DiffusionTransportModel1 {
+     name="DiffusionTransportModel"
+     Material = "Independent"
+     Property = "ThermalConductivity"
+     Default_Concentration = .1
+     Default_Temperature   = 300.
+     Default_Burnup   = 0.0
+}
+
+SourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "Independent"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+  }
+
 
 NeutronicsOperator{
   name="NeutronicsRhsOperator"
@@ -42,7 +59,7 @@ DiffusionLinearFEOperator1{
      QRULE_TYPE = "QGAUSS"
      QRULE_ORDER = "DEFAULT"
    }
-   LocalModel = "DiffusionTransportModel1"
+   LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection1 {
@@ -57,14 +74,6 @@ DirichletMatrixCorrection1 {
    value_0_0        = 300.
 }
 
-DiffusionTransportModel1 {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "ThermalConductivity"
-     Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-}
 
 VolumeIntegralOperator{
   name="VolumeIntegralOperator"
@@ -76,7 +85,7 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerKg" 
   }
   OutputVariable = "heatsource"
-  LocalModel = "SourcePhysicsModel"
+  LocalModel = SourcePhysicsModel
   SourceElement {
     name="SourceNonlinearElement"
       FE_ORDER = "FIRST"  
@@ -85,14 +94,5 @@ VolumeIntegralOperator{
     QRULE_ORDER = "DEFAULT"
   }
 }
-
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-  }
-
 
 

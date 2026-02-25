@@ -44,6 +44,8 @@ public:
 
     std::shared_ptr<MatrixData> transpose() const override;
 
+    void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
+
     /** \brief  Add values to those in the matrix
      * \param[in] num_rows The number of rows represented in values
      * \param[in] num_cols The number of cols represented in values
@@ -57,9 +59,9 @@ public:
      */
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Set values in the matrix
@@ -75,9 +77,9 @@ public:
      */
     void setValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Get values in the matrix
@@ -92,8 +94,8 @@ public:
      */
     void getValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
+                              const size_t *rows,
+                              const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
 

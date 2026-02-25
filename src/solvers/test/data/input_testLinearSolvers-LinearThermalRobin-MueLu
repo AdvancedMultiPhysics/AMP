@@ -3,7 +3,7 @@
 LinearSolver{
   name = "TrilinosMueLuSolver"
   print_info_level = 1
-  max_iterations = 12
+  max_iterations = 25
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
   problem_symmetric =TRUE
@@ -17,7 +17,7 @@ LinearSolver{
 
 Reference{
   iterations = 0
-  res_l2_norm = 3.947153362581674e-09
+  res_l2_norm = 3.95e-09
   tolerance = 2.0e-10
   strict = FALSE
 }

@@ -271,6 +271,8 @@ Vector::shared_ptr MultiVector::selectInto( const VectorSelector &s )
     // Check if we are dealing with a component selector
     if ( dynamic_cast<const VS_Components *>( &s ) )
         return s.subset( shared_from_this() );
+    if ( dynamic_cast<const MultiSelector *>( &s ) )
+        return s.subset( shared_from_this() );
     // Check if this vector matches (only need to deal with select by name for now)
     auto s_name = dynamic_cast<const VS_ByVariableName *>( &s );
     if ( s_name || dynamic_cast<const VS_MultiVariable *>( &s ) ) {
@@ -326,6 +328,21 @@ bool MultiVector::containsPointer( const Vector::shared_ptr p ) const
 
 
 /****************************************************************
+ * Get vectors                                                   *
+ ****************************************************************/
+Vector::shared_ptr MultiVector::getVector( size_t i ) { return d_vVectors[i]; }
+Vector::const_shared_ptr MultiVector::getVector( size_t i ) const { return d_vVectors[i]; }
+std::vector<std::shared_ptr<const Vector>> MultiVector::getVecs() const
+{
+    std::vector<std::shared_ptr<const Vector>> vecs( d_vVectors.size() );
+    for ( size_t i = 0; i < d_vVectors.size(); i++ )
+        vecs[i] = d_vVectors[i];
+    return vecs;
+}
+size_t MultiVector::getNumberOfSubvectors() const { return d_vVectors.size(); }
+
+
+/****************************************************************
  * Misc functions                                                *
  ****************************************************************/
 void MultiVector::reset()
@@ -342,25 +359,20 @@ void MultiVector::swapVectors( Vector &other )
     for ( size_t i = 0; i != d_vVectors.size(); i++ )
         d_vVectors[i]->swapVectors( getVector( other, i ) );
 }
-std::unique_ptr<Vector> MultiVector::rawClone( const std::shared_ptr<Variable> name ) const
+std::unique_ptr<Vector> MultiVector::rawClone() const
 {
-    std::unique_ptr<MultiVector> retVec( new MultiVector( name->getName(), getComm() ) );
-    std::vector<std::shared_ptr<Vector>> vecs;
-    vecs.resize( d_vVectors.size() );
+    std::unique_ptr<MultiVector> retVec( new MultiVector() );
+    retVec->d_vVectors.resize( d_vVectors.size() );
     for ( size_t i = 0; i != d_vVectors.size(); i++ )
-        vecs[i] = d_vVectors[i]->clone();
-    retVec->addVector( vecs );
+        retVec->d_vVectors[i] = d_vVectors[i]->clone();
+    retVec->d_units      = d_units;
+    retVec->d_Variable   = d_Variable->clone();
     retVec->d_DOFManager = d_DOFManager;
+    retVec->d_VectorData = std::make_shared<MultiVectorData>( getComm() );
     retVec->resetVectorData();
-    retVec->resetVectorOperations();
+    retVec->d_VectorOps = d_VectorOps->cloneOperations();
     return retVec;
 }
-
-Vector::shared_ptr MultiVector::getVector( size_t i ) { return d_vVectors[i]; }
-
-Vector::const_shared_ptr MultiVector::getVector( size_t i ) const { return d_vVectors[i]; }
-
-size_t MultiVector::getNumberOfSubvectors() const { return d_vVectors.size(); }
 
 std::string MultiVector::type() const { return "MultiVector"; }
 
@@ -369,7 +381,7 @@ MultiVector::~MultiVector() = default;
 const Vector::shared_ptr &MultiVector::getVector( const Vector &rhs, size_t which ) const
 {
     auto x = dynamic_cast<const MultiVector *>( &rhs );
-    AMP_ASSERT( x != nullptr );
+    AMP_ASSERT( x );
     AMP_ASSERT( which < x->d_vVectors.size() );
     return x->d_vVectors[which];
 }
@@ -377,7 +389,7 @@ const Vector::shared_ptr &MultiVector::getVector( const Vector &rhs, size_t whic
 Vector::shared_ptr &MultiVector::getVector( Vector &rhs, size_t which ) const
 {
     auto x = dynamic_cast<MultiVector *>( &rhs );
-    AMP_ASSERT( x != nullptr );
+    AMP_ASSERT( x );
     AMP_ASSERT( which < x->d_vVectors.size() );
     return x->d_vVectors[which];
 }

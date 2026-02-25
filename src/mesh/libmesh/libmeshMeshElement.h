@@ -47,15 +47,20 @@ public:
     //! Return the unique global ID of the element
     MeshElementID globalID() const override { return d_globalID; }
 
+    //! Return the typeID of the underlying element
+    const typeID &getTypeID() const override;
+
     //! Return the element class
     inline std::string elementClass() const override { return "libmeshMeshElement"; }
 
     //! Return the elements composing the current element
-    virtual void getElements( const GeomType type,
-                              std::vector<MeshElement> &elements ) const override;
+    ElementListPtr getElements( const GeomType type ) const override;
+
+    //! Return the IDs of the elements composing the current element
+    int getElementsID( const GeomType type, MeshElementID *ID ) const override;
 
     //! Return the elements neighboring the current element
-    void getNeighbors( std::vector<std::unique_ptr<MeshElement>> &neighbors ) const override;
+    ElementListPtr getNeighbors() const override;
 
     //! Return the volume of the current element (does not apply to vertices)
     double volume() const override;
@@ -101,13 +106,11 @@ public:
      */
     bool isInBlock( int id ) const override;
 
-    //! Return the owner rank according to AMP_COMM_WORLD
-    unsigned int globalOwnerRank() const override;
-
     //! Return the raw pointer to the element/node (if it exists)
     const void *get() const { return ptr_element; }
 
-protected:
+
+public:
     /** Default constructors
      * \param dim       Spatial dimension
      * \param type      Element type
@@ -130,9 +133,10 @@ protected:
                         const libmeshMesh *mesh );
 
     //! Clone the iterator
-    MeshElement *clone() const override;
+    std::unique_ptr<MeshElement> clone() const override;
 
-    // Internal data
+
+protected:                               // Internal data
     int d_dim;                           // The dimension of the mesh
     unsigned int d_rank;                 // The rank of the current processor
     void *ptr_element;                   // The underlying libmesh element properties (raw pointer)
@@ -140,12 +144,6 @@ protected:
     const libmeshMesh *d_mesh;           // The pointer to the current mesh
     MeshID d_meshID;                     // The ID of the current mesh
     bool d_delete_elem;                  // Do we need to delete the libMesh element
-
-    friend class AMP::Mesh::libmeshMesh;
-    friend class AMP::Mesh::libmeshNodeIterator;
-    friend class AMP::Mesh::libmeshElemIterator;
-
-private:
     MeshElementID d_globalID;
 };
 

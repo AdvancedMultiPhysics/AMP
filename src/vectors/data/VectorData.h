@@ -139,17 +139,6 @@ public: // Get/Set data
     void setValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
-     * \brief Set owned values using global identifier
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[in] vals the values to place in the vector
-     *
-     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
-     */
-    template<class TYPE>
-    void setLocalValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
-
-    /**
      * \brief Set ghost values using global identifier
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -184,18 +173,6 @@ public: // Get/Set data
      */
     template<class TYPE>
     void addValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
-
-    /**
-     * \brief Add owned values using global identifier
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[in] vals the values to place in the vector
-     *
-     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
-     * \mathit{vals}_i \f$
-     */
-    template<class TYPE>
-    void addLocalValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
      * \brief Add owned or shared values using global identifier
@@ -253,16 +230,6 @@ public: // Get/Set data
     void getValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
 
     /**
-     * \brief Get local values in the vector by their global offset
-     * \param[in] num  number of values to set
-     * \param[in] indices the indices of the values to set
-     * \param[out] vals the values to place in the vector
-     * \details This will get any value owned by this core.
-     */
-    template<class TYPE>
-    void getLocalValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
-
-    /**
      * \brief Get ghost values in the vector by their global offset
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -271,6 +238,14 @@ public: // Get/Set data
      */
     template<class TYPE>
     void getGhostValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
+
+    /**
+     * \brief Get all ghost values
+     * \param[out] vals the values to place in the vector
+     * \details This will get any value owned by this core.
+     */
+    template<class TYPE>
+    size_t getAllGhostValues( TYPE *vals ) const;
 
 
 public: // Advanced (virtual) get/set values
@@ -378,6 +353,14 @@ public: // Advanced (virtual) get/set values
                                            const size_t *indices,
                                            void *vals,
                                            const typeID &id ) const = 0;
+    /**
+     * \brief Get all ghost values in the vector
+     * \param[out] vals the values to place in the vector
+     * \param[in] id   typeID of raw data
+     * \details This will get any value owned by this core.
+     * \return Returns the number of ghost values
+     */
+    virtual size_t getAllGhostValues( void *vals, const typeID &id ) const = 0;
 
 
 public: // Advanced functions
@@ -425,11 +408,6 @@ public: // Advanced functions
     /** \brief Clone the data
      */
     virtual std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const = 0;
-
-    /** \brief Associate the ghost buffer of a Vector with this Vector
-     * \param in  The Vector to share a ghost buffer with
-     */
-    virtual void aliasGhostBuffer( std::shared_ptr<VectorData> in ) = 0;
 
     /** \brief Check if the two VectorData objects are alias of each other
      * \details  This function checks if two VectorData objects are alias of each other.
@@ -539,6 +517,18 @@ public: // Virtual functions dealing with the update status
      * reallocating ghost storage.
      */
     virtual void setCommunicationList( std::shared_ptr<CommunicationList> comm ) = 0;
+
+    /**\brief Ensure this vector has no ghosts
+     *\details Calls clearBuffer for the communication list and removes any storage for ghosts
+     */
+    virtual void setNoGhosts();
+
+    /** \brief returns the memory location for data
+     */
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return AMP::Utilities::MemoryType::host;
+    }
 
     virtual void
     print( std::ostream &os, const std::string &name = "A", const std::string &prefix = "" ) const;

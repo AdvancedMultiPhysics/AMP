@@ -6,7 +6,7 @@ IF ( USE_CUDA )
     SET_DEVICE_COMPILER( Algorithms.cpp )
     ADD_PACKAGE_SUBDIRECTORY( cuda )
     SET_DEVICE_COMPILER( cuda )
-    ADD_SUBDIRECTORY(cuda/test)
+    ADD_SUBDIRECTORY( cuda/test )
 ENDIF()
 IF ( USE_HIP )
     SET_DEVICE_COMPILER( Algorithms.cpp )
@@ -26,10 +26,13 @@ IF ( CMAKE_Fortran_COMPILER AND NOT DISABLE_FORTRAN )
 ENDIF()
 INSTALL_AMP_TARGET( utils )
 
+IF ( SAMRAI_HAVE_CUDA )
+  SET_DEVICE_COMPILER( SAMRAIManager.cpp )
+ENDIF()
+
 SET_DEVICE_COMPILER( KokkosManager.cpp )
 
 ADD_SUBDIRECTORY( test )
 ADD_SUBDIRECTORY( threadpool/test )
 
-
-ADD_SUBDIRECTORY(examples)
+ADD_SUBDIRECTORY( examples )

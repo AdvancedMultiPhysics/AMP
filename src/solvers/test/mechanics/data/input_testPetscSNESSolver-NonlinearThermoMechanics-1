@@ -1,13 +1,12 @@
 
 Mesh{
-    FileName = "cylinder4K.e"
     MeshName = "cylinder"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 4088
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 16, 8
+    Range = 1, -2, 2
+    surfaceIds = 1, 1, 1, 1, 2, 3
+    static = TRUE
 }
 
 NumberOfLoadingSteps = 1
@@ -17,6 +16,28 @@ testNonlinearThermalOperator {
     print_info_level = 1
     VolumeOperator = "DiffusionNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
+}
+
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .15
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
+ThermalStrainMaterialModel3 { 
+  name="ThermalStrainMaterialModel"
+    USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+    THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    Default_Oxygen_Concentration = 0.15
+    Default_Temperature = 300.0
+    Default_Burnup = 0.0
 }
 
 DiffusionNonlinearFEOperator1 {
@@ -37,7 +58,7 @@ DiffusionNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletVectorCorrection1 {
@@ -54,15 +75,6 @@ DirichletVectorCorrection1 {
     dof_1_0 = 0
     value_1_0 = 0.0
 }
-
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .15
-    Default_Temperature   = 300.
-    Default_Burnup   = 0.0
-} 
 
 testLinearThermalOperator {
   name = "LinearBVPOperator"
@@ -89,7 +101,7 @@ DiffusionLinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection2 {
@@ -117,7 +129,7 @@ LinearMechanicsElement {
 
 testNonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator3"
     BoundaryOperator = "DirichletVectorCorrection3"
 }
@@ -144,7 +156,7 @@ MechanicsNonlinearFEOperator3 {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "ThermalStrainMaterialModel3"
+  LocalModel = ThermalStrainMaterialModel3
 }
 
 
@@ -169,19 +181,6 @@ DirichletVectorCorrection3 {
     value_1_0 = 0.0
     value_1_1 = 0.0
     value_1_2 = 0.0
-}
-
-ThermalStrainMaterialModel3 { 
-  name="ThermalStrainMaterialModel"
-    USE_MATERIALS_LIBRARY = FALSE
-    Material = "UO2_MSRZC_09"
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23
-    THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
-    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
-    Default_Oxygen_Concentration = 0.15
-    Default_Temperature = 300.0
-    Default_Burnup = 0.0
 }
 
 testLinearMechanicsOperator {
@@ -257,12 +256,12 @@ ThermalInitialGuess {
 }
 
 NonlinearSolver{
-  print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
     absolute_tolerance = 1.0e-16
-    relative_tolerance = 1.0e-11
+    relative_tolerance = 1.0e-9
     stepTolerance = 1.0e-16
     maximumFunctionEvals = 1000
     usesJacobian=FALSE
@@ -270,7 +269,8 @@ NonlinearSolver{
     SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
 
     LinearSolver{
-      print_info_level = 10
+        name = "PetscKrylovSolver"
+        print_info_level = 0
         max_iterations = 100
         max_error = 1e-10
         ksp_type = "fgmres"
@@ -285,24 +285,24 @@ NonlinearSolver{
         KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100"
 
         Preconditioner{
-          print_info_level = 1
+            name = "ColumnSolver"
+            print_info_level = 0
             max_iterations = 1
-            max_error = 1e-10
             absolute_tolerance = 1.0e-16
             relative_tolerance = 1.0e-01
             divergence_tolerance = 1.0e03
-
+            solvers = "thermalPreconditioner", "mechanicsPreconditioner"
             thermalPreconditioner{
+              name = "TrilinosMLSolver"
               print_info_level = 1
-                max_iterations = 1
-                max_error = 1.0e-15
+              max_iterations = 1
             }
 
-          mechanicsPreconditioner{
-            print_info_level = 1
+            mechanicsPreconditioner{
+              name = "TrilinosMLSolver"
+              print_info_level = 0
               PDE_equations = 3
               max_iterations = 1
-              max_error = 1.0e-15
               aggregationtype = "Uncoupled"
               smoothertype = "Chebyshev"
               smoother_sweeps = 3

@@ -1,0 +1,89 @@
+TimeIntegrator {
+    name = "BDF2"
+    implicit_integrator = "BDF2"
+    
+    variable_names = ["ENERGY", "TEMPERATURE"]
+
+    initial_time = 0.0
+    final_time = 3.0
+    print_info_level = 1
+    
+    user_managed_time_operator  = TRUE # User builds I + gamma*f
+
+    # Start from a small time step and ramp up to some final size
+    timestep_selection_strategy = "final constant" 
+    use_predictor = TRUE
+    use_initial_predictor = FALSE
+    predictor_type = "leapfrog"
+    problem_fixed_scaling = 1.0, 1.0
+    initial_dt = 1.0e-04
+    max_dt = 1e-2 
+
+    #number of time intervals before the final constant timestep is attained
+    number_of_time_intervals   = 50 # Default is 100
+    # number of initial steps to take with d_initial_dt
+    number_initial_fixed_steps = 10 # Default is 0
+
+    #timestep_selection_strategy = "constant"
+    #use_predictor = FALSE
+    
+    auto_component_scaling = FALSE # Turn off component scaling for multi-physics
+    solver_name   = "Solver"
+
+    # SNES (inexact Newton)
+    Solver{
+      name = "PetscSNESSolver"
+      max_iterations = 6
+      print_info_level = 0
+
+      # forcing_term_strategy = "EWCHOICE3"
+      # EW_choice2_alpha      = 2.0
+      # EW_choice2_gamma      = 0.9
+
+      # Check if vector satisfies constraints before applying to it
+      # This line search check does help, but I still end up getting an crash sometimes---it could be from the Jacobian-FD, but as per below when I turn on that check it crashes.
+      enableLineSearchPreCheck           = TRUE
+      numberOfLineSearchPreCheckAttempts = 5
+
+      # Abs tol should track truncation error
+      absolute_tolerance = 1.0e-6
+      relative_tolerance = 1.0e-12 
+      
+      stepTolerance        = 1.0e-10
+      maximumFunctionEvals = 1000
+      usesJacobian         = FALSE # Use Petsc FD-based approx of Jacobian
+
+      SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_linesearch_monitor"
+
+      # This is the Krylov solver for the Jacobian systems
+      LinearSolver{
+        name = "PetscKrylovSolver"
+        print_info_level = 0
+        max_iterations   = 40
+        ksp_type = "fgmres"
+        divergence_tolerance = 1.0e01
+        max_krylov_dimension = 300
+        uses_preconditioner=TRUE
+        pc_type    = "shell"
+        pc_side    = "RIGHT"
+        KSPOptions = "-ksp_converged_reason"
+
+        # These tols should be ignored when EW is turned on
+        absolute_tolerance   = 1.0e-8 
+        relative_tolerance   = 1.0e-10
+
+        #KSPOptions = "-ksp_monitor -ksp_converged_reason"
+
+        # Let L be the approx Jacobian, then:
+        # Use operator-split prec to approximately apply inv(L)
+        Preconditioner{
+          name = "BDFRadDifOpPJacOpSplitPrec" # Name of the prec
+          absolute_tolerance = 0.0
+          relative_tolerance = 0.0
+          print_info_level   = 0
+          max_iterations     = 1 # Number of iterations of the preconditioner
+          compute_residual   = FALSE # Compute final residual or not
+        }
+      }
+    }
+}

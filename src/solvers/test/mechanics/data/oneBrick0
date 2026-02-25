@@ -39,16 +39,16 @@ NumberOfBoundaryNodes8 = 4
 BoundaryNodeId8 = 4, 5, 6, 7
 
 NumberOfBoundaryNodes9 = 1
-BoundaryNodeId8 = 0
+BoundaryNodeId9 = 0
 
 NumberOfBoundaryNodes10 = 1
-BoundaryNodeId8 = 1
+BoundaryNodeId10 = 1
 
 NumberOfBoundaryNodes11 = 1
-BoundaryNodeId8 = 2
+BoundaryNodeId11 = 2
 
 NumberOfBoundaryNodes12 = 1
-BoundaryNodeId8 = 3
+BoundaryNodeId12 = 3
 
 NumberOfBoundarySideIds = 0
 

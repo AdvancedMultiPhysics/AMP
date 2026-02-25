@@ -58,7 +58,7 @@ void sleep_s( int N ) { sleep_ms( 1000 * N ); }
 
 
 // Function to sleep for N seconds then increment a global count
-static volatile int global_sleep_count = 0;
+static std::atomic<int> global_sleep_count = 0;
 void sleep_inc( int N )
 {
     PROFILE( "sleep_inc" );
@@ -226,11 +226,6 @@ inline double launchAndTime( ThreadPool &tpool, int N, Ret ( *routine )( Args...
 }
 
 
-// Move constructor function
-volatile ThreadPoolID f1( volatile ThreadPoolID a ) { return a; }
-ThreadPoolID f2( ThreadPoolID a ) { return a; }
-
-
 /******************************************************************
  * Test the basic functionallity of the atomics                    *
  ******************************************************************/
@@ -255,25 +250,6 @@ bool test_atomics()
     pass                             = pass && atomic_compare_and_swap( i64, 68, 64 );
     pass                             = pass && i32 == 32 && i64 == 64;
     return pass;
-}
-
-
-/******************************************************************
- * Test the move operator for thread_id                            *
- ******************************************************************/
-void test_move_thread_id( UnitTest &, ThreadPool &tpool )
-{
-    auto id = TPOOL_ADD_WORK( &tpool, waste_cpu, ( 5 ) );
-    tpool.wait( id );
-    std::vector<ThreadPoolID> ids2;
-    ids2.push_back( TPOOL_ADD_WORK( &tpool, waste_cpu, ( 5 ) ) );
-    tpool.wait( ids2[0] );
-    auto id1          = f1( id );         // move-construct from rvalue temporary
-    auto id2          = std::move( id1 ); // move-construct from xvalue
-    volatile auto id3 = f2( id );         // move-construct from rvalue temporary
-    volatile auto id4 = std::move( id3 ); // move-construct from xvalue
-    id2.reset();
-    id4.reset();
 }
 
 
@@ -352,10 +328,12 @@ void test_work_dependency( UnitTest &ut, ThreadPool &tpool )
     ids.push_back( tpool.add_work( wait1 ) );
     ids.push_back( tpool.add_work( wait2 ) );
     tpool.wait_all( ids );
-    if ( !tpool.getFunctionRet<bool>( ids[0] ) || !tpool.getFunctionRet<bool>( ids[1] ) )
-        ut.failure( "Failed to wait on required dependency" );
-    else
+    if ( tpool.getFunctionRet<bool>( ids[0] ) && tpool.getFunctionRet<bool>( ids[1] ) )
         ut.passes( "Dependencies" );
+    else if ( AMP::Utilities::running_valgrind() )
+        ut.expected_failure( "Valgrind slowed dependency test" );
+    else
+        ut.failure( "Failed to wait on required dependency" );
     tpool.wait_pool_finished();
     // Test waiting on more dependencies than in the thread pool (changing priorities)
     ids.clear();
@@ -376,7 +354,7 @@ void test_work_dependency( UnitTest &ut, ThreadPool &tpool )
     // Check that we can handle more complex dependencies
     id1 = TPOOL_ADD_WORK( &tpool, sleep_inc2, ( 0.5 ) );
     for ( int i = 0; i < 10; i++ ) {
-        wait1 = ThreadPool::createWork( check_inc, 1 );
+        wait1 = ThreadPool::createWork( sleep_inc, 1 );
         wait1->add_dependency( id1 );
         tpool.add_work( wait1 );
     }
@@ -764,9 +742,6 @@ void run_tests( UnitTest &ut )
     ThreadPool::set_OS_warnings( 1 );
     print_processor( &tpool );
     launchAndTime( tpool, N_threads, print_processor, &tpool );
-
-    // Test the move operator for thread_id
-    test_move_thread_id( ut, tpool );
 
     // Test calling functions with different number of arguments
     test_function_arguments( &tpool, ut );

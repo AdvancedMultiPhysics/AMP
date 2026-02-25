@@ -23,18 +23,15 @@ class VolumeIntegralOperator : public NonlinearFEOperator
 public:
     /**
       Constructor. This reads the values for the following keys from the database object contained
-      in
-      the parameter object, params:
+      in the parameter object, params:
       1) Primary(Active)InputVariables - List of active input variables names. The supported
       variable types are:
       NodalScalar, Nodalvector, IntegrationPointScalar, IntegrationPointVector.
       2) AuxillaryInputVariables - List of auxillary input variables names. These are frozen
-      variables and are
-      temporarily not used in any formulation.
+      variables and are temporarily not used in any formulation.
       3) OutputVariable - Name of the output variable
       */
-    explicit VolumeIntegralOperator(
-        std::shared_ptr<const VolumeIntegralOperatorParameters> params );
+    explicit VolumeIntegralOperator( std::shared_ptr<const OperatorParameters> params );
 
     /**
       Destructor.
@@ -54,12 +51,12 @@ public:
         d_auxVariables = var;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_inpVariables;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_outVariable;
     }
@@ -74,6 +71,9 @@ public:
      */
 
 protected:
+    explicit VolumeIntegralOperator( std::shared_ptr<const VolumeIntegralOperatorParameters> params,
+                                     bool );
+
     /**
       This is used to compute the information required to reset the corresponding Linear (Jacobian)
       operator
@@ -130,7 +130,7 @@ protected:
     std::shared_ptr<AMP::Discretization::DOFManager> d_elementDofMap;
     std::shared_ptr<AMP::Discretization::DOFManager> d_nodeDofMap;
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    AMP::Mesh::MeshElementVectorPtr d_currNodes;
 
 private:
     std::shared_ptr<AMP::LinearAlgebra::MultiVariable> d_inpVariables; // Input Active variable

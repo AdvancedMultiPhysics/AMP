@@ -78,7 +78,7 @@ PetscSNESSolver::~PetscSNESSolver() { destroyPetscObjects(); }
 void PetscSNESSolver::destroyPetscObjects( void )
 {
     // when we are using Matrix free delete the MF PETSc Jacobian
-    if ( ( !d_bUsesJacobian ) && ( d_Jacobian != nullptr ) ) {
+    if ( ( !d_bUsesJacobian ) && ( d_Jacobian ) ) {
         PETSC::matDestroy( &d_Jacobian );
         d_Jacobian = nullptr;
     }
@@ -473,7 +473,13 @@ void PetscSNESSolver::getFromInput( std::shared_ptr<const AMP::Database> db )
 
     d_bPrintNonlinearResiduals = db->getWithDefault<bool>( "print_nonlinear_residuals", false );
     d_bPrintLinearResiduals    = db->getWithDefault<bool>( "print_linear_residuals", false );
-    d_bDestroyCachedVecs       = db->getWithDefault<bool>( "destroy_cached_vecs", false );
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        d_bPrintNonlinearResiduals = true;
+    }
+    if ( d_iDebugPrintInfoLevel > 1 ) {
+        d_bPrintLinearResiduals = true;
+    }
+    d_bDestroyCachedVecs = db->getWithDefault<bool>( "destroy_cached_vecs", false );
 }
 
 std::shared_ptr<SolverStrategy>
@@ -516,8 +522,7 @@ PetscErrorCode PetscSNESSolver::apply( SNES, Vec x, Vec r, void *ctx )
     auto *pSNESSolver = reinterpret_cast<PetscSNESSolver *>( ctx );
     std::shared_ptr<AMP::Operator::Operator> op( pSNESSolver->getOperator() );
 
-    op->residual( sp_f, sp_x, sp_r );
-    sp_r->scale( -1.0 );
+    op->apply( sp_x, sp_r );
 
     return ( ierr );
 }
@@ -531,11 +536,16 @@ void PetscSNESSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
 {
     PROFILE( "solve" );
 
+    if ( d_bUseZeroInitialGuess ) {
+        u->zero();
+    }
+
     if ( d_iDebugPrintInfoLevel > 2 )
         AMP::pout << "L2 Norm of u in PetscSNESSolver::solve before view " << u->L2Norm()
                   << std::endl;
+    auto v = f ? f : std::const_pointer_cast<const AMP::LinearAlgebra::Vector>( u );
+    preApply( v );
 
-    preApply( f );
 
     // Get petsc views of the vectors
     auto spRhs = AMP::LinearAlgebra::PetscVector::constView( f );
@@ -547,9 +557,12 @@ void PetscSNESSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
         u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     }
 
-    if ( d_iDebugPrintInfoLevel > 2 )
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        auto fNorm = f ? f->L2Norm() : 0.0;
+        AMP::pout << "L2 Norm of f in PetscSNESSolver::solve after view " << fNorm << std::endl;
         AMP::pout << "L2 Norm of u in PetscSNESSolver::solve after view " << u->L2Norm()
                   << std::endl;
+    }
 
     Vec x = spSol->getVec();
     Vec b = spRhs ? spRhs->getVec() : nullptr;
@@ -567,10 +580,12 @@ void PetscSNESSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     // but some care is required to re-initialize SNES so that cached
     // vectors are not kept. A refactor at some future point should
     // address this and other issues that the present implementation has
-    checkErr( SNESGetIterationNumber( d_SNESSolver, &d_iNumberIterations ) );
+    PetscInt iters = 0;
+    checkErr( SNESGetIterationNumber( d_SNESSolver, &iters ) );
+    d_iNumberIterations = static_cast<int>( iters );
     d_iterationHistory.push_back( d_iNumberIterations );
 
-    int iLinearIterations = 0;
+    PetscInt iLinearIterations = 0;
     checkErr( SNESGetLinearSolveIterations( d_SNESSolver, &iLinearIterations ) );
     d_iLinearIterationHistory.push_back( iLinearIterations );
 
@@ -588,6 +603,16 @@ void PetscSNESSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     spRhs.reset();
     spSol.reset();
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+
+        PetscReal petscNorm;
+        VecNorm( x, NORM_2, &petscNorm );
+        AMP::pout << "Petsc L2 Norm of u after solve " << petscNorm << std::endl;
+        AMP::pout << "AMP L2 Norm of u after solve " << u->L2Norm() << std::endl;
+    }
+    if ( d_iDebugPrintInfoLevel > 4 ) {
+        AMP::pout << "Vector values" << u << std::endl;
+    }
     u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
@@ -776,8 +801,9 @@ PetscErrorCode PetscSNESSolver::setJacobian( SNES, Vec x, Mat A, Mat B, void *ct
         }
     }
 
-    auto pSolution     = PETSC::getAMP( x );
-    auto op            = pSNESSolver->getOperator();
+    auto pSolution = PETSC::getAMP( x );
+    auto op        = pSNESSolver->getOperator();
+    pSolution->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     auto op_parameters = op->getParameters( "Jacobian", pSolution );
     auto pKrylovSolver = pSNESSolver->getKrylovSolver();
     pKrylovSolver->resetOperator( op_parameters );
@@ -848,18 +874,18 @@ PetscErrorCode PetscSNESSolver::KSPPreSolve_SNESEW( KSP ksp, Vec, Vec, SNES snes
         } else
             SETERRQ( PETSC_COMM_SELF,
                      PETSC_ERR_ARG_OUTOFRANGE,
-                     "Only versions 1, 2 or 3 are supported: %i",
-                     kctx->version );
+                     "Only versions 1, 2 or 3 are supported: %li",
+                     static_cast<long>( kctx->version ) );
     }
     /* safeguard: avoid rtol greater than one */
     rtol = PetscMin( rtol, kctx->rtol_max );
     ierr = KSPSetTolerances( ksp, rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT );
     CHKERRQ( ierr );
     ierr = PetscInfo( snes,
-                      "iter %i, Eisenstat-Walker (version %i) KSP rtol=%g\n",
-                      snes->iter,
-                      kctx->version,
-                      (double) rtol );
+                      "iter %li, Eisenstat-Walker (version %li) KSP rtol=%g\n",
+                      static_cast<long>( snes->iter ),
+                      static_cast<long>( kctx->version ),
+                      static_cast<PetscReal>( rtol ) );
     CHKERRQ( ierr );
     PetscFunctionReturn( 0 );
 }
@@ -922,7 +948,7 @@ int PetscSNESSolver::wrapperLineSearchPreCheck(
     int ierr         = 0;
 
     PROFILE( "wrapperLineSearchPreCheck" );
-    AMP_ASSERT( ctx != nullptr );
+    AMP_ASSERT( ctx );
     auto snesSolver = reinterpret_cast<PetscSNESSolver *>( ctx );
 
     auto xv = PETSC::getAMP( x );
@@ -991,21 +1017,11 @@ PetscErrorCode PetscSNESSolver::setupPreconditioner( PC pc )
     PROFILE( "PetscSNESSolver::setupPreconditioner" );
 
     int ierr = 0;
-    Vec current_solution;
     void *ctx;
     PCShellGetContext( pc, &ctx );
 
     auto snesSolver = static_cast<PetscSNESSolver *>( ctx );
     AMP_ASSERT( snesSolver );
-    checkErr( SNESGetSolution( snesSolver->getSNESSolver(), &current_solution ) );
-
-    auto soln = PETSC::getAMP( current_solution );
-
-    auto op = snesSolver->getOperator();
-    AMP_ASSERT( op );
-
-    auto operatorParameters = op->getParameters( "Jacobian", soln );
-    AMP_ASSERT( operatorParameters );
 
     auto krylovSolver = snesSolver->getKrylovSolver();
     AMP_ASSERT( krylovSolver );
@@ -1013,12 +1029,9 @@ PetscErrorCode PetscSNESSolver::setupPreconditioner( PC pc )
     auto preconditioner = krylovSolver->getNestedSolver();
     AMP_ASSERT( preconditioner );
 
-    auto pcOperator = preconditioner->getOperator();
-    AMP_ASSERT( pcOperator );
-    pcOperator->reset( operatorParameters );
-
     // preconditioners like MG might need to rebuild their hierarchies
-    // once the preconditioning operator has been reset
+    // note that at present we are passing in a null parameter object
+    // in future things like the solution vector might be appropriate
     preconditioner->reset( {} );
 
     return ierr;
@@ -1055,9 +1068,9 @@ PetscErrorCode PetscSNESSolver::applyPreconditioner( PC pc,
 
     // these tests were helpful in finding a bug
     if ( preconditioner->getDebugPrintInfoLevel() > 5 ) {
-        double norm = 0.0;
+        PetscReal norm = 0.0;
         VecNorm( xin, NORM_2, &norm );
-        double rhs_norm = static_cast<double>( rhs->L2Norm() );
+        auto rhs_norm = static_cast<PetscReal>( rhs->L2Norm() );
         AMP_ASSERT( AMP::Utilities::approx_equal( norm, rhs_norm ) );
     }
 
@@ -1079,9 +1092,9 @@ PetscErrorCode PetscSNESSolver::applyPreconditioner( PC pc,
 
     // these tests were helpful in finding a bug
     if ( preconditioner->getDebugPrintInfoLevel() > 5 ) {
-        auto ampSolnNorm = static_cast<double>( soln->L2Norm() );
+        auto ampSolnNorm = static_cast<PetscReal>( soln->L2Norm() );
         AMP::pout << "L2 Norm of soln " << ampSolnNorm << std::endl;
-        double petscSolnNorm = 0.0;
+        PetscReal petscSolnNorm = 0.0;
         VecNorm( xout, NORM_2, &petscSolnNorm );
         AMP::pout << "L2 Norm of xout " << petscSolnNorm << std::endl;
         AMP_ASSERT( petscSolnNorm == ampSolnNorm );

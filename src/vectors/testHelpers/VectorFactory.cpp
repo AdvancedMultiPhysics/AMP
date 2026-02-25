@@ -1,6 +1,8 @@
 #include "AMP/vectors/testHelpers/VectorFactory.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/structured/BoxMesh.h"
+#include "AMP/vectors/data/VectorDataNull.h"
+#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
 
 namespace AMP::LinearAlgebra {
@@ -26,6 +28,15 @@ AMP::LinearAlgebra::Vector::shared_ptr NullVectorFactory::getVector() const
     return std::make_shared<AMP::LinearAlgebra::Vector>( "null" );
 }
 std::string NullVectorFactory::name() const { return "NullVectorFactory"; }
+AMP::LinearAlgebra::Vector::shared_ptr NullVectorDataFactory::getVector() const
+{
+    auto ops  = std::make_shared<VectorOperationsDefault<double>>();
+    auto data = std::make_shared<VectorDataNull>( getTypeID<double>() );
+    auto var  = std::make_shared<Variable>();
+    auto DOFs = std::make_shared<AMP::Discretization::DOFManager>( 0, AMP_COMM_SELF );
+    return std::make_shared<Vector>( data, ops, var, DOFs );
+}
+std::string NullVectorDataFactory::name() const { return "NullVectorDataFactory"; }
 
 
 /****************************************************************

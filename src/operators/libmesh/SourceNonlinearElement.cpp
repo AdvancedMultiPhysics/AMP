@@ -5,7 +5,6 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
-#include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
@@ -21,9 +20,8 @@ SourceNonlinearElement::SourceNonlinearElement(
     : ElementOperation( params ), d_elementOutputVector( nullptr ), d_elem( nullptr )
 {
 
-    AMP_INSIST( ( params ), "''params'' is NULL" );
-
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( params, "''params'' is NULL" );
+    AMP_INSIST( params->d_db, "NULL database" );
 
     auto feTypeOrderName = params->d_db->getWithDefault<std::string>( "FE_ORDER", "FIRST" );
     auto feTypeOrder     = libMesh::Utility::string_to_enum<libMeshEnums::Order>( feTypeOrderName );
@@ -137,9 +135,9 @@ void SourceNonlinearElement::apply()
         }
     }
 
-    if ( d_sourcePhysicsModel.get() == nullptr ) {
+    if ( !d_sourcePhysicsModel ) {
         AMP_INSIST(
-            ( source_vectors.size() == 1 ),
+            source_vectors.size() == 1,
             "In absence of SourcePhysicsModel Element Operation Expects only one source vector" );
     }
     for ( unsigned int j = 0; j < n_nodes; j++ ) {

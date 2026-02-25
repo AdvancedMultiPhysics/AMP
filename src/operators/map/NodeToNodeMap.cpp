@@ -31,7 +31,7 @@ NodeToNodeMap::NodeToNodeMap( std::shared_ptr<const AMP::Operator::OperatorParam
     : AMP::Operator::AsyncMapOperator( params )
 {
     // Cast the params appropriately
-    d_OutputVector = AMP::LinearAlgebra::Vector::shared_ptr();
+    d_OutputVector = nullptr;
     AMP_ASSERT( params );
     auto &Params = *std::dynamic_pointer_cast<const NodeToNodeMapParameters>( params );
 
@@ -172,7 +172,7 @@ void NodeToNodeMap::applyFinish( AMP::LinearAlgebra::Vector::const_shared_ptr,
     waitForAllRequests();
 
     // Store the DOFs
-    d_OutputVector->setLocalValuesByGlobalID( dofs.size(), dofs.data(), d_recvBuffer.data() );
+    d_OutputVector->setValuesByGlobalID( dofs.size(), dofs.data(), d_recvBuffer.data() );
 
     // Update ghost cells (this should be done on the full output vector)
     if ( d_callMakeConsistentSet )
@@ -422,3 +422,13 @@ bool NodeToNodeMap::Point::operator>( const Point &rhs ) const { return !operato
 
 
 } // namespace AMP::Operator
+
+
+/****************************************************************
+ * Explicit instantiations                                       *
+ ****************************************************************/
+#include "AMP/utils/Utilities.hpp"
+template size_t AMP::Utilities::findfirst<AMP::Operator::NodeToNodeMap::Point>(
+    size_t,
+    AMP::Operator::NodeToNodeMap::Point const *,
+    AMP::Operator::NodeToNodeMap::Point const & );

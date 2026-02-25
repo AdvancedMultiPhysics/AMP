@@ -6,6 +6,7 @@
 #include "AMP/operators/OperatorParameters.h"
 #include "AMP/operators/boundary/libmesh/RobinPhysicsModel.h"
 #include "AMP/operators/subchannel/SubchannelPhysicsModel.h"
+#include "AMP/vectors/Vector.h"
 
 namespace AMP::Operator {
 

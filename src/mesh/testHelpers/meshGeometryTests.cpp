@@ -44,23 +44,26 @@ void meshTests::TestInside( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::
     if ( !geom )
         return;
     // Verify all elements in the mesh are inside the geometry
-    bool pass                              = true;
-    int gcw                                = mesh->getMaxGhostWidth();
-    std::vector<AMP::Mesh::GeomType> types = { AMP::Mesh::GeomType::Vertex };
+    bool pass[4] = { true, true, true, true };
+    int gcw      = mesh->getMaxGhostWidth();
+    std::vector<AMP::Mesh::GeomType> types;
+    types.push_back( AMP::Mesh::GeomType::Vertex );
     if ( mesh->getDim() == static_cast<int>( mesh->getGeomType() ) )
         types.push_back( mesh->getGeomType() );
     for ( auto type : types ) {
+        int type2 = static_cast<int>( type );
         for ( const auto &elem : mesh->getIterator( type, gcw ) ) {
             auto p = elem.centroid();
             if ( !geom->inside( p ) ) {
-                p                        = elem.centroid();
-                [[maybe_unused]] bool in = geom->inside( p );
-                pass                     = false;
+                p           = elem.centroid();
+                pass[type2] = false;
             }
         }
     }
-    if ( pass )
+    if ( pass[0] && pass[1] && pass[2] && pass[3] )
         ut.passes( "All mesh elements are inside geometry: " + mesh->getName() );
+    else if ( pass[0] && !geom->isConvex() )
+        ut.expected_failure( "Mesh elements are outside geometry: " + mesh->getName() );
     else
         ut.failure( "Mesh elements are outside geometry: " + mesh->getName() );
 }

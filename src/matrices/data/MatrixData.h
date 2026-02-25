@@ -9,7 +9,12 @@
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/CommunicationList.h"
+#include "AMP/vectors/Scalar.h"
 #include "AMP/vectors/Variable.h"
+
+namespace AMP::IO {
+class RestartManager;
+}
 
 namespace AMP::Discretization {
 class DOFManager;
@@ -42,6 +47,9 @@ public:
     //! Transpose
     virtual std::shared_ptr<MatrixData> transpose() const = 0;
 
+    //! \brief Remove matrix entries within given range
+    virtual void removeRange( AMP::Scalar bnd_lo, AMP::Scalar bnd_up ) = 0;
+
     //! Return the type of the matrix
     virtual std::string type() const = 0;
 
@@ -56,8 +64,11 @@ public:
      * on the actual subclass of matrix used.
      */
     template<class TYPE>
-    void addValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, TYPE *values );
+    void addValuesByGlobalID( size_t num_rows,
+                              size_t num_cols,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const TYPE *values );
 
     /** \brief  Set values in the matrix
      * \param[in] num_rows The number of rows represented in values
@@ -70,8 +81,11 @@ public:
      * on the actual subclass of matrix used.
      */
     template<class TYPE>
-    void setValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, TYPE *values );
+    void setValuesByGlobalID( size_t num_rows,
+                              size_t num_cols,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const TYPE *values );
 
     /** \brief  Get values in the matrix
      * \param[in] num_rows The number of rows represented in values
@@ -83,8 +97,11 @@ public:
      *   have not been allocated or are not ghosts on the current processor.
      */
     template<class TYPE>
-    void getValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, TYPE *values ) const;
+    void getValuesByGlobalID( size_t num_rows,
+                              size_t num_cols,
+                              const size_t *rows,
+                              const size_t *cols,
+                              TYPE *values ) const;
 
     /** \brief  Retrieve a row of the matrix in compressed format
      * \param[in]  row Which row
@@ -108,9 +125,9 @@ public:
      */
     virtual void addValuesByGlobalID( size_t num_rows,
                                       size_t num_cols,
-                                      size_t *rows,
-                                      size_t *cols,
-                                      void *values,
+                                      const size_t *rows,
+                                      const size_t *cols,
+                                      const void *values,
                                       const typeID &id ) = 0;
 
     /** \brief  Set values in the matrix
@@ -126,9 +143,9 @@ public:
      */
     virtual void setValuesByGlobalID( size_t num_rows,
                                       size_t num_cols,
-                                      size_t *rows,
-                                      size_t *cols,
-                                      void *values,
+                                      const size_t *rows,
+                                      const size_t *cols,
+                                      const void *values,
                                       const typeID &id ) = 0;
 
     /** \brief  Get values in the matrix
@@ -143,8 +160,8 @@ public:
      */
     virtual void getValuesByGlobalID( size_t num_rows,
                                       size_t num_cols,
-                                      size_t *rows,
-                                      size_t *cols,
+                                      const size_t *rows,
+                                      const size_t *cols,
                                       void *values,
                                       const typeID &id ) const = 0;
 
@@ -246,12 +263,44 @@ public:
         return d_pParameters->d_backend;
     }
 
+    inline virtual void setBackend( AMP::Utilities::Backend backend )
+    {
+        AMP_ASSERT( d_pParameters );
+        d_pParameters->d_backend = backend;
+    }
+
     /** \brief Return the typeid of the matrix coeffs
      */
     virtual typeID getCoeffType() const = 0;
 
+
+public: // Non virtual functions
+    //! Get a unique id hash for the vector
+    uint64_t getID() const;
+
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    virtual void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    virtual void writeRestart( int64_t fid ) const;
+
+    MatrixData( int64_t fid, AMP::IO::RestartManager *manager );
+
 protected:
     std::shared_ptr<MatrixParametersBase> d_pParameters;
+
+    // unique hash to identify this object
+    uint64_t d_hash = 0;
 };
 
 } // namespace AMP::LinearAlgebra

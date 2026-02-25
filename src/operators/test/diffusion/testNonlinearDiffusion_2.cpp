@@ -20,8 +20,6 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/VectorBuilder.h"
 
-#include "patchfunctions.h"
-
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -34,7 +32,7 @@
  */
 static void nonlinearTest( AMP::UnitTest *ut,
                            const std::string &exeName,
-                           double function( const double, const double, const double ) )
+                           std::function<double( double, double, double )> fun )
 {
     // Initialization
     std::string input_file = "input_" + exeName;
@@ -56,12 +54,11 @@ static void nonlinearTest( AMP::UnitTest *ut,
     params->setComm( globalComm );
 
     // Create the meshes from the input database
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    auto mesh = AMP::Mesh::MeshFactory::create( params );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementModel;
-    auto diffFEOp_db       = input_db->getDatabase( "NonlinearDiffusionOp" );
-    auto nonlinearOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "NonlinearDiffusionOp", input_db, elementModel );
+    auto diffFEOp_db = input_db->getDatabase( "NonlinearDiffusionOp" );
+    auto nonlinearOperator =
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "NonlinearDiffusionOp", input_db );
     auto diffOp =
         std::dynamic_pointer_cast<AMP::Operator::DiffusionNonlinearFEOperator>( nonlinearOperator );
 
@@ -100,7 +97,7 @@ static void nonlinearTest( AMP::UnitTest *ut,
     int nodalGhostWidth = 1;
     bool split          = true;
     auto nodalDofMap    = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
 
     // create solution, rhs, and residual vectors
     auto tVec = AMP::LinearAlgebra::createVector( nodalDofMap, tVar );
@@ -162,7 +159,7 @@ static void nonlinearTest( AMP::UnitTest *ut,
     }
     diffRhsVec->setToScalar( 0.0 );
 
-    auto curNode = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+    auto curNode = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     auto endNode = curNode.end();
 
     for ( curNode = curNode.begin(); curNode != endNode; ++curNode ) {
@@ -172,7 +169,7 @@ static void nonlinearTest( AMP::UnitTest *ut,
         double z = curNode->coord()[2];
         std::vector<size_t> dofs;
         nodalDofMap->getDOFs( curNode->globalID(), dofs );
-        double fval = function( x, y, z );
+        double fval = fun( x, y, z );
         diffSolVec->setValuesByGlobalID( 1, &dofs[0], &fval );
     }
     diffSolVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -205,41 +202,6 @@ static void nonlinearTest( AMP::UnitTest *ut,
                   << ", Err = " << totalAll - totalBnd << "********" << std::endl;
     }
 
-    // write values in mathematica form
-    int nranks = globalComm.getSize();
-    if ( nranks == 1 ) {
-        size_t nnodes        = meshAdapter->numLocalElements( AMP::Mesh::GeomType::Vertex );
-        int proc             = globalComm.getRank();
-        int nproc            = globalComm.getSize();
-        std::string filename = "values-" + exeName;
-        std::ofstream file( filename.c_str() );
-        if ( proc == 0 ) {
-            file << "values={"
-                 << "\n";
-        }
-        auto node = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-
-        int i = 0;
-        for ( ; node != node.end(); ++node ) {
-            double x = ( node->coord() )[0];
-            double y = ( node->coord() )[1];
-            double z = ( node->coord() )[2];
-
-            int ii = i;
-            i += 1;
-            double rval = diffResVec->getValueByLocalID( ii );
-            double fval = function( x, y, z );
-            file << "{" << x << "," << y << "," << z << "," << rval << "," << fval << "}";
-            if ( i < (int) nnodes - 1 )
-                file << ",\n";
-        }
-        if ( proc < nproc - 1 ) {
-            file << ",\n";
-        } else {
-            file << "}\n";
-        }
-    }
-
     ut->passes( "values-" + exeName );
 }
 
@@ -250,6 +212,7 @@ int testNonlinearDiffusion_2( int argc, char *argv[] )
     const int NUMFILES          = 1;
     std::string files[NUMFILES] = { "Diffusion-TUI-Thermal-1" };
 
+    auto x_linear = []( double x, double, double ) { return x; };
     for ( auto &file : files )
         nonlinearTest( &ut, file, x_linear );
 

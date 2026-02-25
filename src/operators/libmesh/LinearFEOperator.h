@@ -83,7 +83,7 @@ protected:
 
     void destroyCurrentLibMeshElement();
 
-    std::vector<AMP::Mesh::MeshElement> d_currNodes;
+    AMP::Mesh::MeshElementVectorPtr d_currNodes;
 
     libMesh::Elem *d_currElemPtr;
 

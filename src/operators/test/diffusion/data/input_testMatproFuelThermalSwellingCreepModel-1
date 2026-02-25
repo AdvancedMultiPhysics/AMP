@@ -1,13 +1,11 @@
 
 Mesh{
-  MeshType = "libMesh"
-  FileName = "cylinder270.e"
-  MeshName = "cylinder"
-  dim      = 3
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 270
+    MeshName = "cylinder"
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 1, 8
+    Range = 1, -2, 2
+    surfaceIds = 1, 1, 1, 1, 2, 3
 }
 
 NumberOfLoadingSteps = 1
@@ -29,6 +27,18 @@ testLinearMechanicsOperator {
    BoundaryOperator = "DirichletMatrixCorrection"
 
 }
+
+MechanicsMaterialModel { 
+       USE_MATERIALS_LIBRARY = TRUE
+       Material = "UO2_MSRZC_09"
+       name="ThermalSwellingDensificationElasticity"
+       Use_Thermal_Strain = TRUE
+       Use_Swelling_Strain = TRUE
+       Use_Creep_Strain = TRUE
+       Default_Temperature = 310.0
+       Default_Burnup = 0.5
+       Default_Oxygen_Concentration = 0.01
+     }
 
 MechanicsNonlinearFEOperator{
      name = "MechanicsNonlinearFEOperator"
@@ -53,7 +63,7 @@ MechanicsNonlinearFEOperator{
        QRULE_ORDER = "DEFAULT"
      }
 
-     LocalModel = "MechanicsMaterialModel"
+     LocalModel = MechanicsMaterialModel
 
    }
    
@@ -116,14 +126,3 @@ DirichletMatrixCorrection{
    }
 
 
-MechanicsMaterialModel { 
-       USE_MATERIALS_LIBRARY = TRUE
-       Material = "UO2_MSRZC_09"
-       name="ThermalSwellingDensificationElasticity"
-       Use_Thermal_Strain = TRUE
-       Use_Swelling_Strain = TRUE
-       Use_Creep_Strain = TRUE
-       Default_Temperature = 310.0
-       Default_Burnup = 0.5
-       Default_Oxygen_Concentration = 0.01
-     }

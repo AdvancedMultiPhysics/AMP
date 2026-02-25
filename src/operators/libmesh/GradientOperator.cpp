@@ -4,7 +4,6 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
-#include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
@@ -63,18 +62,18 @@ void GradientOperator::reset( std::shared_ptr<const OperatorParameters> params )
 
     // Get the number of elements attached to each node
     d_nodes.clear();
-    std::vector<AMP::Mesh::MeshElementID> ids;
+    AMP::Mesh::MeshElementID ids[32];
     for ( auto &elem : d_Mesh->getIterator( d_Mesh->getGeomType() ) ) {
-        elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
-        for ( auto id : ids )
-            d_nodes.push_back( id );
+        int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+        for ( int j = 0; j < N; j++ )
+            d_nodes.push_back( ids[j] );
     }
     AMP::Utilities::unique( d_nodes );
     d_elementsPerNode = std::vector<int>( d_nodes.size(), 0 );
     for ( auto &elem : d_Mesh->getIterator( d_Mesh->getGeomType() ) ) {
-        elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
-        for ( auto id : ids ) {
-            size_t i = AMP::Utilities::findfirst( d_nodes, id );
+        int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+        for ( int j = 0; j < N; j++ ) {
+            size_t i = AMP::Utilities::findfirst( d_nodes, ids[j] );
             d_elementsPerNode[i]++;
         }
     }
@@ -102,31 +101,31 @@ void GradientOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     std::vector<size_t> dofs;
     std::vector<double> f_x;
     std::vector<std::array<double, 3>> g_x;
-    std::vector<AMP::Mesh::MeshElementID> ids;
+    AMP::Mesh::MeshElementID ids[32];
     for ( auto &elem : d_Mesh->getIterator( d_Mesh->getGeomType() ) ) {
         // Get the libmesh element propeties
         auto fe   = d_elem.getFEBase( elem.globalID() );
         auto phi  = fe->get_phi();
         auto dphi = fe->get_dphi();
         // Get the ids of the nodes comprising the element
-        elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
-        AMP_ASSERT( !ids.empty() );
+        int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
+        AMP_ASSERT( N > 0 && N <= 32 );
         // Get the values of the function at the nodes
-        rhsDOFMap->getDOFs( ids, dofs );
-        AMP_ASSERT( dofs.size() == ids.size() );
+        rhsDOFMap->getDOFs( N, ids, dofs );
+        AMP_ASSERT( (int) dofs.size() == N );
         f_x.resize( dofs.size() );
         rhs->getValuesByGlobalID( dofs.size(), dofs.data(), f_x.data() );
         // Compute the gradient at the quadrature points
         g_x.resize( dphi.size() );
         for ( size_t qp = 0; qp < dphi.size(); qp++ ) {
             libMesh::RealGradient grad_f = 0.0;
-            for ( size_t n = 0; n < ids.size(); n++ ) {
+            for ( int n = 0; n < N; n++ ) {
                 grad_f += dphi[n][qp] * f_x[n];
             }
             g_x[qp] = { grad_f( 0 ), grad_f( 1 ), grad_f( 2 ) };
         }
         // Integrate the gradient over the quadrature points
-        for ( size_t n = 0; n < ids.size(); n++ ) {
+        for ( int n = 0; n < N; n++ ) {
             double g[3] = { 0, 0, 0 };
             for ( size_t qp = 0; qp < phi.size(); qp++ ) {
                 g[0] += g_x[qp][0] * phi[n][qp];

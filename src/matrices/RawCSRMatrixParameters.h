@@ -9,23 +9,22 @@ namespace AMP::LinearAlgebra {
 /** \class RawCSRMatrixParameters
  * \brief  A class used to hold basic parameters for a matrix
  */
-template<typename CSRPolicy>
+template<typename Config>
 class RawCSRMatrixParameters : public MatrixParametersBase
 {
 public:
-    using gidx_t   = typename CSRPolicy::gidx_t;
-    using lidx_t   = typename CSRPolicy::lidx_t;
-    using scalar_t = typename CSRPolicy::scalar_t;
+    using gidx_t   = typename Config::gidx_t;
+    using lidx_t   = typename Config::lidx_t;
+    using scalar_t = typename Config::scalar_t;
 
+    // modify ctors
+    //
     // The diagonal and off-diagonal blocks need all the same parameters
     // Like in CSRMatrixData use a nested class to pack all this away
     struct RawCSRLocalMatrixParameters {
-        // No bare constructor, only initializer lists and default copy/moves
-        RawCSRLocalMatrixParameters() = delete;
-
-        lidx_t *d_row_starts;
-        gidx_t *d_cols;
-        scalar_t *d_coeffs;
+        lidx_t *d_row_starts = nullptr;
+        gidx_t *d_cols       = nullptr;
+        scalar_t *d_coeffs   = nullptr;
     };
 
     RawCSRMatrixParameters() = delete;
@@ -47,6 +46,34 @@ public:
                                      const RawCSRLocalMatrixParameters &off_diag,
                                      const AMP_MPI &comm )
         : MatrixParametersBase( comm ),
+          d_first_row( first_row ),
+          d_last_row( last_row ),
+          d_first_col( first_col ),
+          d_last_col( last_col ),
+          d_diag( diag ),
+          d_off_diag( off_diag )
+    {
+    }
+
+    /** \brief Constructor
+     * \param[in] first_row     Index for first row
+     * \param[in] last_row      Index for last row
+     * \param[in] first_col     Index for first col
+     * \param[in] last_col      Index for last col
+     * \param[in] diag          Parameters for diag block
+     * \param[in] off_diag      Parameters for offd block
+     * \param[in] comm          Communicator for the matrix
+     * \param[in] backend       Acceleration backend for matrix operations
+     */
+    explicit RawCSRMatrixParameters( gidx_t first_row,
+                                     gidx_t last_row,
+                                     gidx_t first_col,
+                                     gidx_t last_col,
+                                     const RawCSRLocalMatrixParameters &diag,
+                                     const RawCSRLocalMatrixParameters &off_diag,
+                                     const AMP_MPI &comm,
+                                     AMP::Utilities::Backend backend )
+        : MatrixParametersBase( comm, backend ),
           d_first_row( first_row ),
           d_last_row( last_row ),
           d_first_col( first_col ),
@@ -86,9 +113,66 @@ public:
     {
     }
 
+    /** \brief Constructor
+     * \param[in] first_row     Index for first row
+     * \param[in] last_row      Index for last row
+     * \param[in] first_col     Index for first col
+     * \param[in] last_col      Index for last col
+     * \param[in] diag          Parameters for diag block
+     * \param[in] off_diag      Parameters for offd block
+     * \param[in] comm          Communicator for the matrix
+     * \param[in] var_left      Variable for left vector
+     * \param[in] var_right     Variable for right vector
+     * \param[in] backend       Acceleration backend for matrix operations
+     */
+    explicit RawCSRMatrixParameters( gidx_t first_row,
+                                     gidx_t last_row,
+                                     gidx_t first_col,
+                                     gidx_t last_col,
+                                     const RawCSRLocalMatrixParameters &diag,
+                                     const RawCSRLocalMatrixParameters &off_diag,
+                                     const AMP_MPI &comm,
+                                     std::shared_ptr<Variable> var_left,
+                                     std::shared_ptr<Variable> var_right,
+                                     AMP::Utilities::Backend backend )
+        : MatrixParametersBase( comm, var_left, var_right, backend ),
+          d_first_row( first_row ),
+          d_last_row( last_row ),
+          d_first_col( first_col ),
+          d_last_col( last_col ),
+          d_diag( diag ),
+          d_off_diag( off_diag )
+    {
+    }
+
     //! Destructor
     virtual ~RawCSRMatrixParameters() = default;
 
+    std::string type() const override { return "RawCSRMatrixParameters"; }
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    void writeRestart( int64_t fid ) const override;
+
+    /**
+     * \brief    Read restart data from file
+     * \param fid       File identifier to write
+     * \param manager   Restart manager
+     */
+    RawCSRMatrixParameters( int64_t fid, AMP::IO::RestartManager *manager );
+
+public:
     // Bulk information
     gidx_t d_first_row;
     gidx_t d_last_row;

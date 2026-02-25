@@ -14,7 +14,7 @@
 
 #include <iomanip>
 
-#include "testSolverHelpers.h"
+#include "AMP/solvers/testHelpers/testSolverHelpers.h"
 
 void linearElasticTest( AMP::UnitTest *ut, const std::string &inputFileName )
 {
@@ -31,25 +31,21 @@ void linearElasticTest( AMP::UnitTest *ut, const std::string &inputFileName )
     input_db->print( AMP::plog );
 
     // create the Mesh
-    const auto meshAdapter = createMesh( input_db );
+    const auto mesh = createMesh( input_db );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel;
     auto bvpOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "MechanicsBVPOperator", input_db, elementPhysicsModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "MechanicsBVPOperator", input_db ) );
 
     auto var = bvpOperator->getOutputVariable();
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> dummyModel;
     auto dirichletVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "Load_Boundary", input_db, dummyModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
     // This has an in-place apply. So, it has an empty input variable and
     // the output variable is the same as what it is operating on.
     dirichletVecOp->setVariable( var );
 
     auto dofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     auto mechSolVec = AMP::LinearAlgebra::createVector( dofMap, var, true );
@@ -109,6 +105,9 @@ int main( int argc, char *argv[] )
     } else {
 #ifdef AMP_USE_HYPRE
         files.emplace_back( "input_testBoomerAMGSolver-LinearElasticityOperator-1" );
+#endif
+#ifdef AMP_USE_TRILINOS_ML
+        files.emplace_back( "input_testTrilinosMLSolver-LinearElasticityOperator-1" );
 #endif
 #ifdef AMP_USE_TRILINOS_MUELU
         files.emplace_back( "input_testTrilinosMueLuSolver-LinearElasticityOperator-1" );

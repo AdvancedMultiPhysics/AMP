@@ -48,7 +48,16 @@ public:
      * \param[in]  vec  The Vector to subset
      * \details Base class defaults to returning all data in the vector
      */
-    virtual std::shared_ptr<const Vector> subset( std::shared_ptr<const Vector> vec ) const = 0;
+    std::shared_ptr<const Vector> subset( std::shared_ptr<const Vector> vec ) const;
+
+
+    /** \brief  Create a VectorSelector
+     * \details  Create a VectorSelector that applies a set of selectors
+     *    which all must be met for the subset operation
+     * \param[in] selectors     A list of subsequent selectors to apply
+     */
+    static std::shared_ptr<VectorSelector>
+    create( const std::vector<std::shared_ptr<VectorSelector>> &selectors );
 };
 
 
@@ -76,14 +85,12 @@ public:
      */
     VS_ByVariableName( std::string name );
 
-
-    std::string getName() const { return d_VecName; };
+    const std::string &getName() const { return d_VecName; };
 
 public: // Functions inherited from VectorSelector
     virtual bool isSelected( const Vector &v ) const override;
     virtual std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override;
-    virtual std::shared_ptr<const Vector>
-    subset( std::shared_ptr<const Vector> vec ) const override;
+    using VectorSelector::subset;
 };
 
 
@@ -102,8 +109,7 @@ public:
 public: // Functions inherited from VectorSelector
     virtual bool isSelected( const Vector &v ) const override;
     virtual std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override;
-    virtual std::shared_ptr<const Vector>
-    subset( std::shared_ptr<const Vector> vec ) const override;
+    using VectorSelector::subset;
 
 protected:
     size_t d_Offset; // Offset to start striding on
@@ -133,8 +139,7 @@ public:
 public: // Functions inherited from VectorSelector
     virtual bool isSelected( const Vector &v ) const override;
     virtual std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override;
-    virtual std::shared_ptr<const Vector>
-    subset( std::shared_ptr<const Vector> vec ) const override;
+    using VectorSelector::subset;
 
 protected:
     std::vector<size_t> d_index; // Index to select
@@ -157,8 +162,7 @@ public:
 public: // Functions inherited from VectorSelector
     virtual bool isSelected( const Vector &v ) const override;
     virtual std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override;
-    virtual std::shared_ptr<const Vector>
-    subset( std::shared_ptr<const Vector> vec ) const override;
+    using VectorSelector::subset;
     virtual AMP_MPI communicator( const Vector &vec ) const override;
 
 protected:
@@ -183,8 +187,7 @@ public:
 public: // Functions inherited from VectorSelector
     virtual bool isSelected( const Vector &v ) const override;
     virtual std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override;
-    virtual std::shared_ptr<const Vector>
-    subset( std::shared_ptr<const Vector> vec ) const override;
+    using VectorSelector::subset;
     virtual AMP_MPI communicator( const Vector &vec ) const override;
 
 protected:
@@ -208,12 +211,38 @@ public:
 public: // Functions inherited from VectorSelector
     virtual bool isSelected( const Vector &v ) const override;
     virtual std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override;
-    virtual std::shared_ptr<const Vector>
-    subset( std::shared_ptr<const Vector> vec ) const override;
+    using VectorSelector::subset;
 
 protected:
     const AMP_MPI d_comm;                // comm for the subset
     const Mesh::MeshIterator d_iterator; //  MeshIterator
+};
+
+
+/** \brief  Create a null selector
+ * \details  This is a null op selector (will return input vector)
+ */
+class NullSelector : public VectorSelector
+{
+public:
+    bool isSelected( const Vector & ) const override { return true; }
+    std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override { return vec; }
+};
+
+
+/** \brief  Create a multi-selector
+ * \details  This is a vecotr selector for multiple selection operations
+ */
+class MultiSelector : public VectorSelector
+{
+public:
+    MultiSelector( const std::vector<std::shared_ptr<VectorSelector>> &selectors );
+    bool isSelected( const Vector & ) const override;
+    std::shared_ptr<Vector> subset( std::shared_ptr<Vector> vec ) const override;
+    using VectorSelector::subset;
+
+private:
+    std::vector<std::shared_ptr<VectorSelector>> d_selectors;
 };
 
 

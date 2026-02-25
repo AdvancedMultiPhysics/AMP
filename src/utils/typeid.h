@@ -6,22 +6,17 @@
 #include <string_view>
 #include <type_traits>
 
+#include "AMP/AMP_TPLs.h"
 
-namespace AMP {
+#ifndef AMP_CXX_STANDARD
+    #define AMP_CXX_STANDARD 17
+#endif
+#if AMP_CXX_STANDARD >= 20
+    #include <source_location>
+#endif
 
 
-//! Class to store type info
-struct alignas( 8 ) typeID {
-    uint32_t bytes = 0;     // Size of object (bytes)
-    uint32_t hash  = 0;     // Hash of function
-    char name[120] = { 0 }; // Name of function (may be truncated, null-terminated)
-    constexpr bool operator==( uint32_t rhs ) const { return hash == rhs; }
-    constexpr bool operator!=( uint32_t rhs ) const { return hash != rhs; }
-    constexpr bool operator==( const typeID &rhs ) const { return hash == rhs.hash; }
-    constexpr bool operator!=( const typeID &rhs ) const { return hash != rhs.hash; }
-};
-static_assert( sizeof( typeID ) == 128 );
-
+namespace TypeID_Helpers {
 
 // Helper function to copy a string
 constexpr void copy( char *dst, const char *src, size_t N )
@@ -31,7 +26,6 @@ constexpr void copy( char *dst, const char *src, size_t N )
     for ( size_t i = 0; i < ( N - 1 ) && src[i] != 0; i++ )
         dst[i] = src[i];
 }
-
 
 // Helper function to replace substrings
 constexpr void replace( char *str, size_t N, std::string_view match, std::string_view replace )
@@ -73,11 +67,51 @@ constexpr void deblank( char *str, size_t N )
         str[k] = 0;
 }
 
+// Perform murmur hash (constexpr version that assumes key.size() is a multiple of 8)
+template<std::size_t N>
+constexpr uint64_t MurmurHash64A( const char *key )
+{
+    static_assert( N % 8 == 0 );
+    const uint64_t seed = 0x65ce2a5d390efa53LLU;
+    const uint64_t m    = 0xc6a4a7935bd1e995LLU;
+    const int r         = 47;
+    uint64_t h          = seed ^ ( N * m );
+    for ( size_t i = 0; i < N; i += 8 ) {
+        uint64_t k = ( uint64_t( key[i] ) << 56 ) ^ ( uint64_t( key[i + 1] ) << 48 ) ^
+                     ( uint64_t( key[i + 2] ) << 40 ) ^ ( uint64_t( key[i + 3] ) << 32 ) ^
+                     ( uint64_t( key[i + 4] ) << 24 ) ^ ( uint64_t( key[i + 5] ) << 16 ) ^
+                     ( uint64_t( key[i + 6] ) << 8 ) ^ ( uint64_t( key[i + 7] ) );
+        k *= m;
+        k ^= k >> r;
+        k *= m;
+        h ^= k;
+        h *= m;
+    }
+    h ^= h >> r;
+    h *= m;
+    h ^= h >> r;
+    return h;
+}
 
-//! Get the type name
+} // namespace TypeID_Helpers
+
+
+/*!
+ * @brief  Get the type name
+ * @details  This will return a string for the type name.
+ *    Note that the string may be different on different platforms or
+ *    different compilers.  This function cannot be in a namespace to
+ *    ensure the proper namespace is used for the type.
+ *    If the name does not fit within the buffer it may be truncated.
+ *    The truncation may occur before cleaning up the name which may
+ *    result in a shorter name than expected.
+ * @param[in] N             The size of the name buffer
+ * @param[out] name         The name of the type (null terminated, may be truncated)
+ */
 template<typename T>
 constexpr void getTypeName( uint64_t N, char *name )
 {
+    using namespace TypeID_Helpers;
     if constexpr ( std::is_same_v<T, bool> ) {
         copy( name, "bool", N );
     } else if constexpr ( std::is_same_v<T, char> ) {
@@ -115,6 +149,17 @@ constexpr void getTypeName( uint64_t N, char *name )
 #if defined( __clang__ ) || defined( __GNUC__ )
         constexpr std::string_view name0 = __PRETTY_FUNCTION__;
         std::string_view name2           = name0;
+#elif defined( _MSC_VER )
+        constexpr std::string_view name0 = __FUNCSIG__;
+        std::string_view name2           = name0;
+#elif AMP_CXX_STANDARD >= 20
+        // Note this fails for nvhpc (does not contain template type)
+        auto source = std::source_location::current();
+        std::string_view name2( source.function_name() );
+#else
+    #error "Not finished";
+#endif
+        // Try to get just the type of interest
         if ( name2.find( "T = " ) != std::string::npos ) {
             name2 = name2.substr( name2.find( "T = " ) + 4 );
             if ( name2.find( ';' ) != std::string::npos )
@@ -122,9 +167,6 @@ constexpr void getTypeName( uint64_t N, char *name )
             else
                 name2 = name2.substr( 0, name2.rfind( ']' ) );
         }
-#elif defined( _MSC_VER )
-        constexpr std::string_view name0 = __FUNCSIG__;
-        std::string_view name2           = name0;
         if ( name2.find( "getTypeName<" ) != std::string::npos ) {
             auto i1 = name2.find( "getTypeName<" );
             auto i2 = name2.rfind( ">" );
@@ -132,10 +174,6 @@ constexpr void getTypeName( uint64_t N, char *name )
         }
         if ( name2[0] == ' ' )
             name2.remove_prefix( 1 );
-#else
-    // Not finished, one possible workaround, pass default class name as string_view
-    #error "Not finished";
-#endif
         // Copy the function name
         name2 = name2.substr( 0, N - 1 );
         for ( size_t i = 0; i < N; i++ )
@@ -165,44 +203,34 @@ constexpr void getTypeName( uint64_t N, char *name )
 }
 
 
-//! Perform murmur hash (constexpr version that assumes key.size() is a multiple of 8)
-template<std::size_t N>
-constexpr uint64_t MurmurHash64A( const char *key )
-{
-    static_assert( N % 8 == 0 );
-    const uint64_t seed = 0x65ce2a5d390efa53LLU;
-    const uint64_t m    = 0xc6a4a7935bd1e995LLU;
-    const int r         = 47;
-    uint64_t h          = seed ^ ( N * m );
-    for ( size_t i = 0; i < N; i += 8 ) {
-        uint64_t k = ( uint64_t( key[i] ) << 56 ) ^ ( uint64_t( key[i + 1] ) << 48 ) ^
-                     ( uint64_t( key[i + 2] ) << 40 ) ^ ( uint64_t( key[i + 3] ) << 32 ) ^
-                     ( uint64_t( key[i + 4] ) << 24 ) ^ ( uint64_t( key[i + 5] ) << 16 ) ^
-                     ( uint64_t( key[i + 6] ) << 8 ) ^ ( uint64_t( key[i + 7] ) );
-        k *= m;
-        k ^= k >> r;
-        k *= m;
-        h ^= k;
-        h *= m;
-    }
-    h ^= h >> r;
-    h *= m;
-    h ^= h >> r;
-    return h;
-}
+namespace AMP {
+
+
+//! Class to store type info
+struct alignas( 8 ) typeID {
+    uint32_t bytes = 0;     //!< Size of object (bytes)
+    uint32_t hash  = 0;     //!< Hash of function
+    char name[120] = { 0 }; //!< Name of function (may be truncated, null-terminated)
+    constexpr bool operator==( uint32_t rhs ) const { return hash == rhs; }
+    constexpr bool operator!=( uint32_t rhs ) const { return hash != rhs; }
+    constexpr bool operator==( const typeID &rhs ) const { return hash == rhs.hash; }
+    constexpr bool operator!=( const typeID &rhs ) const { return hash != rhs.hash; }
+};
+static_assert( sizeof( typeID ) == 128 );
 
 
 //! Get the type info (does not resolve dynamic types)
 template<typename T0>
 constexpr typeID getTypeIDEval()
 {
+    using namespace TypeID_Helpers;
     typeID id = {};
     // Remove const/references
     using T1 = typename std::remove_reference_t<T0>;
     using T2 = typename std::remove_cv_t<T1>;
     using T  = typename std::remove_cv_t<T2>;
     // Get the name of the class
-    char name[1024] = { 0 };
+    char name[4096] = { 0 };
     getTypeName<T>( sizeof( name ), name );
     copy( id.name, name, sizeof( id.name ) );
     // Create the hash
@@ -212,6 +240,7 @@ constexpr typeID getTypeIDEval()
     id.bytes = sizeof( T );
     return id;
 }
+//! Get the type info (does not resolve dynamic types)
 template<typename TYPE>
 constexpr typeID getTypeID()
 {

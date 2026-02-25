@@ -1,7 +1,7 @@
 #ifndef included_AMP_RestartManager
 #define included_AMP_RestartManager
 
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/TypeTraits.h"
 
 #include <map>

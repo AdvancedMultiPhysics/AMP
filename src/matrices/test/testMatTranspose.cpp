@@ -2,6 +2,7 @@
 #include "AMP/IO/PIO.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/MatrixBuilder.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
@@ -18,10 +19,6 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
-#if defined( AMP_USE_HYPRE )
-    #include "AMP/matrices/data/hypre/HypreCSRPolicy.h"
-#endif
-
 #include "ProfilerApp.h"
 
 #include <iomanip>
@@ -30,37 +27,52 @@
 #include <string>
 
 size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
-                                 std::string type,
-                                 std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+                                 const std::string &type,
+                                 std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                                 const std::string &accelerationBackend,
+                                 const std::string &memoryLocation )
 {
+    PROFILE( "matTransposeTestWithDOFs" );
+
+    AMP::pout << "matTransposeTestWithDOFs with " << type << ", backend " << accelerationBackend
+              << ", memory " << memoryLocation << std::endl;
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
+
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
-    // Create the vectors
+
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef USE_DEVICE
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-#else
-    auto inVec     = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec    = AMP::LinearAlgebra::createVector( dofManager, outVar );
-#endif
 
-    // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-    if ( matrix ) {
-        ut->passes( type + ": Able to create a square matrix" );
-    } else {
-        ut->failure( type + ": Unable to create a square matrix" );
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix_h, matrix, matrix_t;
+
+    // create on host and migrate if needed
+    // the Pseudo-Laplacian fill routines are still host based
+    {
+        PROFILE( "matTransposeTestWithDOFs (create)" );
+        auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
+        auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
+        matrix_h    = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+        fillWithPseudoLaplacian( matrix_h, dofManager );
+
+        if ( memoryLocation == "host" && type == "CSRMatrix" ) {
+            matrix_h->setBackend( backend );
+        }
     }
 
-    fillWithPseudoLaplacian( matrix, dofManager );
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    {
+        PROFILE( "matTransposeTestWithDOFs (migrate)" );
+        matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
+                     matrix_h :
+                     AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
+    }
 
     // Get matrix transpose
-    auto matrix_t = matrix->transpose();
-    if ( matrix ) {
+    {
+        PROFILE( "matTransposeTestWithDOFs (transpose)" );
+        matrix_t = matrix->transpose();
+    }
+    if ( matrix_t ) {
         ut->passes( type + ": Able to create transpose" );
     } else {
         ut->failure( type + ": Unable to create transpose" );
@@ -86,15 +98,15 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
     }
 
 #if defined( AMP_USE_HYPRE )
-    using scalar_t = typename AMP::LinearAlgebra::HypreCSRPolicy::scalar_t;
+    using scalar_t = typename AMP::LinearAlgebra::scalar_info<AMP::LinearAlgebra::hypre_real>::type;
 #else
     using scalar_t = double;
 #endif
 
-    auto x  = matrix->getRightVector();
-    auto y  = matrix->getLeftVector();
-    auto xt = matrix_t->getRightVector();
-    auto yt = matrix_t->getLeftVector();
+    auto x  = matrix->createInputVector();
+    auto y  = matrix->createOutputVector();
+    auto xt = matrix_t->createInputVector();
+    auto yt = matrix_t->createOutputVector();
 
     x->setToScalar( 1.0 );
     xt->setToScalar( 1.0 );
@@ -121,8 +133,9 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
     return nGlobalRows;
 }
 
-size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
+size_t matTransposeTest( AMP::UnitTest *ut, const std::string &input_file )
 {
+    PROFILE( "matTransposeTest" );
     std::string log_file = "output_testMatTranspose";
     AMP::logOnlyNodeZero( log_file );
 
@@ -142,7 +155,25 @@ size_t matTransposeTest( AMP::UnitTest *ut, std::string input_file )
     auto scalarDOFs =
         AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Vertex, 1, 1 );
 
-    return matTransposeTestWithDOFs( ut, "CSRMatrix", scalarDOFs );
+    std::vector<std::pair<std::string, std::string>> backendsAndMemory;
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef USE_OPENMP
+    backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+#endif
+#if defined( AMP_USE_KOKKOS )
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    #ifdef AMP_USE_DEVICE
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
+    #endif
+#endif
+#ifdef AMP_USE_DEVICE
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+#endif
+    size_t nGlobal = 0;
+    for ( auto &[backend, memory] : backendsAndMemory )
+        nGlobal += matTransposeTestWithDOFs( ut, "CSRMatrix", scalarDOFs, backend, memory );
+    return nGlobal;
 }
 
 int main( int argc, char *argv[] )
@@ -162,9 +193,9 @@ int main( int argc, char *argv[] )
     }
 
     size_t nGlobal = 0;
-    for ( auto &file : files )
+    for ( auto &file : files ) {
         nGlobal = matTransposeTest( &ut, file );
-
+    }
     ut.report();
 
     // build unique profile name to avoid collisions

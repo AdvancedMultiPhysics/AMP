@@ -5,9 +5,9 @@
 
 namespace AMP::LinearAlgebra {
 
-void MatrixOperationsDefault::matMultiply( MatrixData const &, MatrixData const &, MatrixData & )
+void MatrixOperationsDefault::matMatMult( MatrixData const &, MatrixData const &, MatrixData & )
 {
-    AMP_ERROR( "spGEMM not implemented for matrices of different types" );
+    AMP_ERROR( "matMatMult not implemented for matrices of different types" );
 }
 
 void MatrixOperationsDefault::axpy( AMP::Scalar alpha_in, const MatrixData &X, MatrixData &Y )

@@ -123,7 +123,7 @@ void testVectorSelectorPerformance()
     if ( worldComm.getRank() == 0 )
         printf( "       subset performance (ns):              "
                 " Variable  Stride  VecComm    World    Self    Split     Mesh 1\n" );
-    for ( auto name : getAllFactories() ) {
+    for ( auto &name : getAllFactories() ) {
         auto factory = generateVectorFactory( name );
         auto vec     = factory->getVector();
         auto vecComm = vec->getComm();
@@ -159,7 +159,7 @@ int main( int argc, char **argv )
 
     // Print the total nummber of vector factories to test
     AMP::pout << "Testing " << getAllFactories().size() << " vector factories\n";
-    for ( auto name : getManagedVectorFactories() ) {
+    for ( auto &name : getManagedVectorFactories() ) {
         auto factory = generateVectorFactory( name );
         auto name2   = factory->name();
         if ( name != name2 ) {
@@ -177,7 +177,7 @@ int main( int argc, char **argv )
 
     // Run the basic vector tests
     AMP::pout << std::endl << "Running basic vector tests:" << std::endl;
-    for ( auto name : getAllFactories() ) {
+    for ( auto &name : getAllFactories() ) {
         auto factory = generateVectorFactory( name );
         VectorTests tests( factory );
         tests.testBasicVector( &ut );
@@ -185,7 +185,7 @@ int main( int argc, char **argv )
 
     // Run the managed vector tests
     AMP::pout << std::endl << "Running managed vector tests:" << std::endl;
-    for ( auto name : getManagedVectorFactories() ) {
+    for ( auto &name : getManagedVectorFactories() ) {
         auto factory = generateVectorFactory( name );
         VectorTests tests( factory );
         tests.testManagedVector( &ut );
@@ -193,7 +193,7 @@ int main( int argc, char **argv )
 
     // Run the petsc vector tests
     AMP::pout << std::endl << "Running petsc vector tests:" << std::endl;
-    for ( auto name : getAllFactories() ) {
+    for ( auto &name : getAllFactories() ) {
         auto factory = generateVectorFactory( name );
         VectorTests tests( factory );
         tests.testPetsc( &ut );
@@ -201,15 +201,23 @@ int main( int argc, char **argv )
 
     // Run the epetra vector tests
     AMP::pout << std::endl << "Running epetra vector tests:" << std::endl;
-    for ( auto name : getAllFactories() ) {
+    for ( auto &name : getAllFactories() ) {
         auto factory = generateVectorFactory( name );
         VectorTests tests( factory );
         tests.testEpetra( &ut );
     }
 
+    // Run the Tpetra vector tests
+    AMP::pout << std::endl << "Running tpetra vector tests:" << std::endl;
+    for ( auto &name : getAllFactories() ) {
+        auto factory = generateVectorFactory( name );
+        VectorTests tests( factory );
+        tests.testTpetra( &ut );
+    }
+
     // Run the sundials vector tests
     AMP::pout << std::endl << "Running sundials vector tests:" << std::endl;
-    for ( auto name : getAllFactories() ) {
+    for ( auto &name : getAllFactories() ) {
         auto factory = generateVectorFactory( name );
         VectorTests tests( factory );
         tests.testSundials( &ut );
@@ -227,7 +235,7 @@ int main( int argc, char **argv )
 
     // Run the vector selector tests
     AMP::pout << std::endl << "Running vector selector tests:" << std::endl;
-    for ( auto name : getAllFactories() ) {
+    for ( auto &name : getAllFactories() ) {
         auto factory = generateVectorFactory( name );
         VectorTests tests( factory );
         tests.testVectorSelector( &ut );

@@ -51,6 +51,7 @@ public: // Basic virtual functions
     void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
     void
     getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    size_t getAllGhostValues( void *, const typeID & ) const override;
     size_t getGhostSize() const override;
     void fillGhosts( const Scalar & ) override;
     void makeConsistent() override;
@@ -64,7 +65,6 @@ public: // Basic virtual functions
     std::vector<size_t> getLocalSizes() const override;
 
 public:
-    void aliasGhostBuffer( std::shared_ptr<VectorData> in ) override;
     std::shared_ptr<CommunicationList> getCommunicationList() const override;
     void setCommunicationList( std::shared_ptr<CommunicationList> comm ) override;
     void dataChanged() override;
@@ -72,6 +72,7 @@ public:
     std::shared_ptr<UpdateState> getUpdateStatusPtr() const override;
     bool containsGlobalElement( size_t ) const override;
     void copyGhostValues( const VectorData &rhs ) override;
+    void setNoGhosts() override;
     bool hasGhosts() const override;
 
 public: // Advanced virtual functions
@@ -113,6 +114,8 @@ public: // Advanced virtual functions
     /** \brief Clone the data
      */
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
+
+    AMP::Utilities::MemoryType getMemoryLocation() const override;
 
     void
     dumpOwnedData( std::ostream &out, size_t GIDoffset = 0, size_t LIDoffset = 0 ) const override;
@@ -203,6 +206,10 @@ protected:
                                std::vector<std::vector<size_t>> &out_indices,
                                std::vector<std::vector<std::byte>> &out_vals,
                                std::vector<std::vector<int>> *remap = nullptr ) const;
+
+    // Get all ghost values
+    template<class TYPE>
+    size_t getAllGhostValues( TYPE * ) const;
 
 
 protected:

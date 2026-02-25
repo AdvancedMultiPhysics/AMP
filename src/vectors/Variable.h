@@ -96,14 +96,12 @@ public:
 
     /** \brief  Create a variable of the same type with a new name
      * \details This function will create a "deep" copy of this variable.
-     * \param  name  The name of the new variable
      */
     std::shared_ptr<Variable> clone() const;
 
 
     /** \brief  Create a variable of the same type with a new name
      * \details This function will create a "deep" copy of this variable.
-     * \param  name  The name of the new variable
      */
     virtual std::shared_ptr<Variable> clone( const std::string &name ) const;
 

@@ -5,7 +5,10 @@
 
 #include <cstring>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <sstream>
+#include <stdio.h>
 #include <string>
 #include <vector>
 
@@ -13,16 +16,24 @@
 namespace AMP {
 
 
+static std::mutex d_mutex;
+
+
+/********************************************************************
+ *  Get the communicator                                             *
+ ********************************************************************/
+static AMP_MPI getComm()
+{
+    if ( AMP_MPI::MPI_Active() )
+        return AMP_COMM_WORLD;
+    else
+        return AMP_COMM_SELF;
+}
+
+
 /********************************************************************
  *  Constructor/Destructor                                           *
  ********************************************************************/
-UnitTest::UnitTest() : d_verbose( false )
-{
-    if ( AMP_MPI::MPI_Active() )
-        d_comm = std::make_unique<AMP_MPI>( AMP_COMM_WORLD );
-    else
-        d_comm = std::make_unique<AMP_MPI>( AMP_COMM_SELF );
-}
 UnitTest::~UnitTest() { reset(); }
 void UnitTest::reset()
 {
@@ -41,26 +52,27 @@ void UnitTest::reset()
 void UnitTest::passes( std::string in )
 {
     d_mutex.lock();
-    if ( d_verbose )
-        printf( "UnitTest: %i passes: %s\n", d_comm->getRank(), in.data() );
     d_pass.emplace_back( std::move( in ) );
     d_mutex.unlock();
 }
 void UnitTest::failure( std::string in )
 {
     d_mutex.lock();
-    if ( d_verbose )
-        printf( "UnitTest: %i failed: %s\n", d_comm->getRank(), in.data() );
     d_fail.emplace_back( std::move( in ) );
     d_mutex.unlock();
 }
 void UnitTest::expected_failure( std::string in )
 {
     d_mutex.lock();
-    if ( d_verbose )
-        printf( "UnitTest: %i expected_failure: %s\n", d_comm->getRank(), in.data() );
     d_expected.emplace_back( std::move( in ) );
     d_mutex.unlock();
+}
+void UnitTest::pass_fail( bool pass, std::string in )
+{
+    if ( pass )
+        passes( std::move( in ) );
+    else
+        failure( std::move( in ) );
 }
 
 
@@ -143,34 +155,35 @@ void UnitTest::report( const int level0, bool removeDuplicates ) const
 {
     d_mutex.lock();
     // Give all processors a chance to print any remaining messages
-    d_comm->barrier();
+    auto comm = getComm();
+    comm.barrier();
     Utilities::sleep_ms( 10 );
     // Broadcast the print level from rank 0
-    int level = d_comm->bcast( level0, 0 );
-    if ( level < 0 || level > 2 )
+    int level = comm.bcast( level0, 0 );
+    if ( level < 0 || level > 3 )
         AMP_ERROR( "Invalid print level" );
     // Report
-    if ( d_comm->getRank() == 0 )
+    if ( comm.getRank() == 0 )
         pout << std::endl;
     if ( level == 0 ) {
-        report2( "passed", d_pass, *d_comm, 0, removeDuplicates );
-        report2( "failed", d_fail, *d_comm, 0, removeDuplicates );
-        report2( "expected failed", d_expected, *d_comm, 0, removeDuplicates );
+        report2( "passed", d_pass, comm, 0, removeDuplicates );
+        report2( "failed", d_fail, comm, 0, removeDuplicates );
+        report2( "expected failed", d_expected, comm, 0, removeDuplicates );
     } else if ( level == 1 ) {
-        report2( "passed", d_pass, *d_comm, 20, removeDuplicates );
-        report2( "failed", d_fail, *d_comm, 1000000, removeDuplicates );
-        report2( "expected failed", d_expected, *d_comm, 50, removeDuplicates );
+        report2( "passed", d_pass, comm, 20, removeDuplicates );
+        report2( "failed", d_fail, comm, 1000000, removeDuplicates );
+        report2( "expected failed", d_expected, comm, 50, removeDuplicates );
     } else if ( level == 2 ) {
-        report2( "passed", d_pass, *d_comm, 50, removeDuplicates );
-        report2( "failed", d_fail, *d_comm, 1000000, removeDuplicates );
-        report2( "expected failed", d_expected, *d_comm, 1000000, removeDuplicates );
+        report2( "passed", d_pass, comm, 50, removeDuplicates );
+        report2( "failed", d_fail, comm, 1000000, removeDuplicates );
+        report2( "expected failed", d_expected, comm, 1000000, removeDuplicates );
     } else {
-        report2( "passed", d_pass, *d_comm, 1000000, removeDuplicates );
-        report2( "failed", d_fail, *d_comm, 1000000, removeDuplicates );
-        report2( "expected failed", d_expected, *d_comm, 1000000, removeDuplicates );
+        report2( "passed", d_pass, comm, 1000000, removeDuplicates );
+        report2( "failed", d_fail, comm, 1000000, removeDuplicates );
+        report2( "expected failed", d_expected, comm, 1000000, removeDuplicates );
     }
     // Add a barrier to synchronize all processors (rank 0 is much slower)
-    d_comm->barrier();
+    comm.barrier();
     AMP::Utilities::sleep_ms( 10 ); // Need a brief pause to allow any printing to finish
     d_mutex.unlock();
 }
@@ -179,9 +192,9 @@ void UnitTest::report( const int level0, bool removeDuplicates ) const
 /********************************************************************
  *  Other functions                                                  *
  ********************************************************************/
-size_t UnitTest::NumPassGlobal() const { return d_comm->sumReduce( d_pass.size() ); }
-size_t UnitTest::NumFailGlobal() const { return d_comm->sumReduce( d_fail.size() ); }
-size_t UnitTest::NumExpectedFailGlobal() const { return d_comm->sumReduce( d_expected.size() ); }
+size_t UnitTest::NumPassGlobal() const { return getComm().sumReduce( d_pass.size() ); }
+size_t UnitTest::NumFailGlobal() const { return getComm().sumReduce( d_fail.size() ); }
+size_t UnitTest::NumExpectedFailGlobal() const { return getComm().sumReduce( d_expected.size() ); }
 
 
 } // namespace AMP

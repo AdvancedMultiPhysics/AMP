@@ -13,13 +13,29 @@ using AMP::Utilities::stringf;
 namespace AMP::Operator {
 
 
-DirichletVectorCorrection::DirichletVectorCorrection(
-    std::shared_ptr<const OperatorParameters> inParams )
-    : BoundaryOperator( inParams )
+static std::shared_ptr<const DirichletVectorCorrectionParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
 {
-    auto params = std::dynamic_pointer_cast<const DirichletVectorCorrectionParameters>( inParams );
+    if ( std::dynamic_pointer_cast<const DirichletVectorCorrectionParameters>( params ) )
+        return std::dynamic_pointer_cast<const DirichletVectorCorrectionParameters>( params );
+    auto myparams    = std::make_shared<DirichletVectorCorrectionParameters>( params->d_db );
+    myparams->d_Mesh = params->d_Mesh;
+    auto boundary    = std::dynamic_pointer_cast<const BoundaryOperatorParameters>( params );
+    if ( boundary ) {
+        myparams->d_variable = boundary->d_volumeOperator->getOutputVariable();
+    }
+    return myparams;
+}
+
+
+DirichletVectorCorrection::DirichletVectorCorrection(
+    std::shared_ptr<const OperatorParameters> params )
+    : BoundaryOperator( params )
+{
+
     AMP_ASSERT( params );
-    d_variable                   = params->d_variable;
+    auto myparams                = convert( params );
+    d_variable                   = myparams->d_variable;
     d_isAttachedToVolumeOperator = false;
     d_setResidual                = false;
     d_valuesType                 = 0;
@@ -27,12 +43,8 @@ DirichletVectorCorrection::DirichletVectorCorrection(
     reset( params );
 }
 
-void DirichletVectorCorrection::reset( std::shared_ptr<const OperatorParameters> tmpParams )
+void DirichletVectorCorrection::reset( std::shared_ptr<const OperatorParameters> params )
 {
-    AMP_ASSERT( tmpParams );
-    d_memory_location = tmpParams->d_memory_location;
-    auto params = std::dynamic_pointer_cast<const DirichletVectorCorrectionParameters>( tmpParams );
-
     AMP_INSIST( params, "NULL parameters" );
     AMP_INSIST( params->d_db, "NULL database" );
 
@@ -118,7 +130,7 @@ void DirichletVectorCorrection::applyZeroValues( AMP::LinearAlgebra::Vector::sha
             dof_map->getDOFs( bnd->globalID(), bndGlobalIds );
             const double val = 0.0;
             for ( auto &elem : d_dofIds[j] ) {
-                rInternal->setLocalValuesByGlobalID( 1, &bndGlobalIds[elem], &val );
+                rInternal->setValuesByGlobalID( 1, &bndGlobalIds[elem], &val );
             }
         }
     }
@@ -145,7 +157,7 @@ void DirichletVectorCorrection::applyNonZeroValues( AMP::LinearAlgebra::Vector::
                         d_dirichletValues1[j][i] :
                         d_dirichletValues2->getLocalValueByGlobalID( bndGlobalIds[d_dofIds[j][i]] );
                 dVal *= d_scalingFactor;
-                rInternal->setLocalValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
+                rInternal->setValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
             }
         }
     }
@@ -173,7 +185,7 @@ void DirichletVectorCorrection::applyResidual( AMP::LinearAlgebra::Vector::const
                         d_dirichletValues1[j][i] :
                         d_dirichletValues2->getLocalValueByGlobalID( bndGlobalIds[d_dofIds[j][i]] );
                 dVal = d_scalingFactor * ( uVal - dVal );
-                r->setLocalValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
+                r->setValuesByGlobalID( 1, &bndGlobalIds[d_dofIds[j][i]], &dVal );
             }
         }
     }

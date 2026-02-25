@@ -42,20 +42,15 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     params->setComm( globalComm );
 
     // Create the meshes from the input database
-    auto manager     = AMP::Mesh::MeshFactory::create( params );
-    auto meshAdapter = manager->Subset( "bar" );
+    auto manager = AMP::Mesh::MeshFactory::create( params );
+    auto mesh    = manager->Subset( "bar" );
 
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
 
     // CREATE THE FLOW OPERATOR
-    AMP_INSIST( input_db->keyExists( "FlowFrapconOperator" ),
-                "Key ''FlowFrapconOperator'' is missing!" );
-
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> flowtransportModel;
     auto flowDatabase = input_db->getDatabase( "FlowFrapconOperator" );
     auto flowOperator = std::dynamic_pointer_cast<AMP::Operator::FlowFrapconOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "FlowFrapconOperator", input_db, flowtransportModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "FlowFrapconOperator", input_db ) );
 
     auto inputVariable  = flowOperator->getInputVariable();
     auto outputVariable = flowOperator->getOutputVariable();
@@ -69,8 +64,7 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     rhsVec->zero();
 
     auto flowJacobian = std::dynamic_pointer_cast<AMP::Operator::FlowFrapconJacobian>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "FlowFrapconJacobian", input_db, flowtransportModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "FlowFrapconJacobian", input_db ) );
 
     //  MANUFACTURE THE INPUT SOLUTION FROM PRESCRIBED FLOW SOLUTION
     double Tin  = 300;
@@ -127,7 +121,6 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     flowJacobian->residual( rhsVec, solVec, resVec );
 
     // initialize the jacobian solver
-
     auto JacobianSolver_db = input_db->getDatabase( "Flow1DSolver" );
     auto flowSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( JacobianSolver_db );
@@ -136,21 +129,15 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
 
     // initialize the nonlinear solver
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
-    // auto linearSolver_db = nonlinearSolver_db->getDatabase("LinearSolver");
-
     auto nonlinearSolverParams =
         std::make_shared<AMP::Solver::SolverStrategyParameters>( nonlinearSolver_db );
-
-    // change the next line to get the correct communicator out
     nonlinearSolverParams->d_comm          = globalComm;
     nonlinearSolverParams->d_pOperator     = flowOperator;
     nonlinearSolverParams->d_pInitialGuess = mv_view_tmpVec;
-
     auto nonlinearSolver = std::make_shared<AMP::Solver::PetscSNESSolver>( nonlinearSolverParams );
 
     // register the preconditioner with the Jacobian free Krylov solver
     auto linearSolver = nonlinearSolver->getKrylovSolver();
-
     linearSolver->setNestedSolver( flowJacobianSolver );
 
     flowOperator->residual( rhsVec, solVec, resVec );
@@ -162,7 +149,6 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
     nonlinearSolver->apply( mv_view_rhsVec, mv_view_solVec );
 
     flowOperator->residual( rhsVec, solVec, resVec );
-
 
     std::cout << "Final Residual Norm: " << resVec->L2Norm() << std::endl;
 

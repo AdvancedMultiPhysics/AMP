@@ -2,10 +2,13 @@
 #define included_extended_int
 
 #include <array>
+#include <cstdint>
 #include <limits>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
+
+#include "AMP/utils/UtilityMacros.h"
 
 
 namespace AMP::extended {
@@ -42,6 +45,14 @@ public:
 
     //! Create from int64
     explicit constexpr int64N( uint64_t );
+
+    //! Create from int128
+#ifdef __SIZEOF_INT128__
+    DISABLE_WARNINGS
+    explicit constexpr int64N( __int128 );
+    explicit constexpr int64N( unsigned __int128 );
+    ENABLE_WARNINGS
+#endif
 
     //! Create from int64N<N>
     template<uint8_t N2>
@@ -191,21 +202,21 @@ public: // Member constants
     static constexpr bool tinyness_before          = false;
 
 public: // Member functions
-    static constexpr AMP::extended::int64N<N> min()
+    static constexpr AMP::extended::int64N<N> min() noexcept
     {
         return AMP::extended::int64N<N>( 1 ) << 64 * N - 1;
     }
-    static constexpr AMP::extended::int64N<N> lowest() { return min(); }
-    static constexpr AMP::extended::int64N<N> max() { return !min(); }
-    static constexpr AMP::extended::int64N<N> epsilon() throw()
+    static constexpr AMP::extended::int64N<N> lowest() noexcept { return min(); }
+    static constexpr AMP::extended::int64N<N> max() noexcept { return !min(); }
+    static constexpr AMP::extended::int64N<N> epsilon() noexcept
     {
         return AMP::extended::int64N<N>();
     }
-    static constexpr AMP::extended::int64N<N> round_error() throw();
-    static constexpr AMP::extended::int64N<N> infinity() throw();
-    static constexpr AMP::extended::int64N<N> quiet_NaN() throw();
-    static constexpr AMP::extended::int64N<N> signaling_NaN() throw();
-    static constexpr AMP::extended::int64N<N> denorm_min() throw();
+    static constexpr AMP::extended::int64N<N> round_error() noexcept { return 0; }
+    static constexpr AMP::extended::int64N<N> infinity() noexcept { return 0; }
+    static constexpr AMP::extended::int64N<N> quiet_NaN() noexcept { return 0; }
+    static constexpr AMP::extended::int64N<N> signaling_NaN() noexcept { return 0; }
+    static constexpr AMP::extended::int64N<N> denorm_min() noexcept { return 0; }
 };
 
 

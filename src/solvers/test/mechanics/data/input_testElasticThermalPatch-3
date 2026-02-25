@@ -3,10 +3,13 @@ INIT_TEMP_CONST = 117.56
 FINAL_TEMP_CONST = 217.56
 
 Mesh {
-  MeshType = "libMesh"
-    dim = 3
     MeshName = "TestMesh"
-    FileName = "elastic_thermal_patch_test.e"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 1, 1, 1
+    Range = 0, 1, 0, 1, 0, 1
+    surfaceIds = 10, 12, 9, 11, 14, 13
 }
 
 
@@ -29,7 +32,7 @@ LinearMechanicsOperator {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
@@ -76,6 +79,19 @@ LinearMechanicsElement {
     QRULE_ORDER = "DEFAULT"
 }
 
+MechanicsMaterialModel {
+        name="ThermalStrainMaterialModel"
+          USE_MATERIALS_LIBRARY = FALSE
+          Material = ""
+          Youngs_Modulus = 1.0e6
+          Poissons_Ratio = 0.0
+          THERMAL_EXPANSION_COEFFICIENT = 1.0e-8
+          THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
+          Default_Oxygen_Concentration = 0.0
+          Default_Temperature = 0.0
+          Default_Burnup = 0.0
+      }
+
 MechanicsNonlinearFEOperator{
       name = "MechanicsNonlinearFEOperator"
         print_info_level = 1
@@ -97,7 +113,7 @@ MechanicsNonlinearFEOperator{
             QRULE_ORDER = "DEFAULT"
         }
         MechanicsLinearElement = LinearMechanicsElement
-	LocalModel = "MechanicsMaterialModel"
+	LocalModel = MechanicsMaterialModel
     }
 
 DirichletVectorCorrection{
@@ -261,16 +277,3 @@ DirichletMatrixCorrection{
       dof_7_2 = 2
   }
 
-
-MechanicsMaterialModel {
-        name="ThermalStrainMaterialModel"
-          USE_MATERIALS_LIBRARY = FALSE
-          Material = ""
-          Youngs_Modulus = 1.0e6
-          Poissons_Ratio = 0.0
-          THERMAL_EXPANSION_COEFFICIENT = 1.0e-8
-          THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
-          Default_Oxygen_Concentration = 0.0
-          Default_Temperature = 0.0
-          Default_Burnup = 0.0
-      }

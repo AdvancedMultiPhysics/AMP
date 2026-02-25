@@ -17,7 +17,8 @@ namespace AMP::LinearAlgebra {
  ****************************************************************/
 UpdateState VectorData::getGlobalUpdateStatus() const
 {
-    PROFILE( "getGlobalUpdateStatus" );
+    PROFILE( "VectorData::getGlobalUpdateStatus" );
+
     auto local = getComm().allGather<uint8_t>( static_cast<int8_t>( getLocalUpdateStatus() ) );
     auto state = UpdateState::UNCHANGED;
     for ( auto s : local ) {
@@ -42,8 +43,11 @@ UpdateState VectorData::getGlobalUpdateStatus() const
     }
     return state;
 }
+
 void VectorData::makeConsistent()
 {
+    PROFILE( "VectorData::makeConsistent" );
+
     auto state = getGlobalUpdateStatus();
     if ( state == UpdateState::UNCHANGED ) {
         return;
@@ -78,6 +82,8 @@ bool VectorData::isAnAliasOf( const VectorData &rhs ) const
  ****************************************************************/
 std::vector<size_t> VectorData::getLocalSizes() const
 {
+    PROFILE( "VectorData::getLocalSizes" );
+
     auto commList = getCommunicationList();
     if ( commList ) {
         auto x = commList->getPartition();
@@ -131,7 +137,7 @@ std::shared_ptr<const VectorData> VectorData::getComponent( size_t i ) const
  * reset vector data                                             *
  ****************************************************************/
 void VectorData::reset() {}
-
+void VectorData::setNoGhosts() {}
 void VectorData::print( std::ostream &, const std::string &, const std::string & ) const
 {
     AMP_ERROR( "Not implemented" );

@@ -34,13 +34,11 @@ Mesh{
             iterator = "%i"
             indicies = 1, 2
             MeshName = "pellet_%i"
-            MeshType = "libMesh"
-            FileName = "simple_pellet_1x.e"
-            dim = 3
-            x_offset = 0.0
-            y_offset = 0.0
+            MeshType = "AMP"
+            Generator = "cylinder"
+            Size = 15, 6
+            Range = 0.004022, 0, 0.0105
             z_offset = 0.0, 0.0105
-            NumberOfElements = 1300
         }
     }
 }
@@ -99,9 +97,18 @@ PelletMechanicsLinearBVPOperator {
     BoundaryOperator = "PelletMechanicsLinearBC"
 }
 
+PelletMechanicsMaterialModel {
+  name="ThermalVonMisesMatModel" 
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23  
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    Linear_Strain_Hardening = 5.10e10   
+    Elastic_Yield_Stress = 3.45e9  
+}
+
 PelletMechanicsNonlinearFEOperator {
   name = "MechanicsNonlinearFEOperator"
-    LocalModel = "PelletMechanicsMaterialModel"
+    LocalModel = PelletMechanicsMaterialModel
     MechanicsElement {
       name="MechanicsNonlinearElement"
     }
@@ -165,14 +172,6 @@ PelletMechanicsLinearBC {
     dof_0_2 = 2
 }
 
-PelletMechanicsMaterialModel {
-  name="ThermalVonMisesMatModel" 
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23  
-    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
-    Linear_Strain_Hardening = 5.10e10   
-    Elastic_Yield_Stress = 3.45e9  
-}
 
 NonlinearSolver {
     name = "PetscSNESSolver"

@@ -46,7 +46,7 @@ RobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1
@@ -59,75 +59,13 @@ FickDirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        = 300.
   }
-
-MechanicsLinearFEOperator{
-      name = "MechanicsLinearFEOperator"
-      print_info_level = 1
-      reset_reuses_matrix = TRUE
-      InputVariable = "disp"
-      OutputVariable = "disp"
-
-      MechanicsElement {
-       name="MechanicsLinearElement"
-       USE_REDUCED_INTEGRATION = FALSE 
-       FE_ORDER = "FIRST"  
-       FE_FAMILY = "LAGRANGE"
-       QRULE_TYPE = "QGAUSS"
-       QRULE_ORDER = "DEFAULT"
-      }
-
-      LocalModel="MechanicsMaterialModel"
-}
-
-ThermalDiffusionLinearFEOperator{
-    name = "DiffusionLinearFEOperator"
-    InputVariable = "temperature"
-    OutputVariable = "temperature"
-    print_info_level = 1
-    reset_reuses_matrix = TRUE
-    FixedConcentration = TRUE
-    FixedBurnup = TRUE
-
-    DiffusionElement {
-        name = "DiffusionLinearElement"
-        TransportAtGaussPoints = TRUE
-        FE_ORDER = "FIRST"  
-        FE_FAMILY = "LAGRANGE"
-        QRULE_TYPE = "QGAUSS"
-        QRULE_ORDER = "DEFAULT"
-    }    
-
-    LocalModel="ThermalDiffusionTransportModel"
-}
-
-FickDiffusionLinearFEOperator{
-    name = "DiffusionLinearFEOperator"
-    InputVariable = "concentration"
-    OutputVariable = "concentration"
-    print_info_level = 1
-    reset_reuses_matrix = TRUE
-    FixedTemperature = TRUE
-    FixedBurnup = TRUE
-
-    DiffusionElement {
-        name = "DiffusionLinearElement"
-        TransportAtGaussPoints = TRUE
-        FE_ORDER = "FIRST"  
-        FE_FAMILY = "LAGRANGE"
-        QRULE_TYPE = "QGAUSS"
-        QRULE_ORDER = "DEFAULT"
-    }    
-
-    LocalModel = "FickDiffusionTransportModel"
-
-}
 
 ThermalDiffusionTransportModel{
         name = "DiffusionTransportModel"
@@ -153,4 +91,66 @@ MechanicsMaterialModel {
        Poissons_Ratio = 0.23
 }
 
+
+MechanicsLinearFEOperator{
+      name = "MechanicsLinearFEOperator"
+      print_info_level = 1
+      reset_reuses_matrix = TRUE
+      InputVariable = "disp"
+      OutputVariable = "disp"
+
+      MechanicsElement {
+       name="MechanicsLinearElement"
+       USE_REDUCED_INTEGRATION = FALSE 
+       FE_ORDER = "FIRST"  
+       FE_FAMILY = "LAGRANGE"
+       QRULE_TYPE = "QGAUSS"
+       QRULE_ORDER = "DEFAULT"
+      }
+
+      LocalModel=MechanicsMaterialModel
+}
+
+ThermalDiffusionLinearFEOperator{
+    name = "DiffusionLinearFEOperator"
+    InputVariable = "temperature"
+    OutputVariable = "temperature"
+    print_info_level = 1
+    reset_reuses_matrix = TRUE
+    FixedConcentration = TRUE
+    FixedBurnup = TRUE
+
+    DiffusionElement {
+        name = "DiffusionLinearElement"
+        TransportAtGaussPoints = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }    
+
+    LocalModel=ThermalDiffusionTransportModel
+}
+
+FickDiffusionLinearFEOperator{
+    name = "DiffusionLinearFEOperator"
+    InputVariable = "concentration"
+    OutputVariable = "concentration"
+    print_info_level = 1
+    reset_reuses_matrix = TRUE
+    FixedTemperature = TRUE
+    FixedBurnup = TRUE
+
+    DiffusionElement {
+        name = "DiffusionLinearElement"
+        TransportAtGaussPoints = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }    
+
+    LocalModel = FickDiffusionTransportModel
+
+}
 

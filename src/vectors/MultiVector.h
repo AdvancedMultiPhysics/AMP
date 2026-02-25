@@ -101,6 +101,12 @@ public:
     //! Return one past the last vector in the MultiVector
     inline auto end() const { return d_vVectors.end(); }
 
+    //! Return one past the last vector in the MultiVector
+    inline const std::vector<std::shared_ptr<Vector>> &getVecs() { return d_vVectors; }
+
+    //! Return one past the last vector in the MultiVector
+    std::vector<std::shared_ptr<const Vector>> getVecs() const;
+
 
     /** \brief Determine if a Vector is a constituent
      * \param[in]  p  The vector to look for
@@ -155,7 +161,7 @@ public:
 
     std::string type() const override;
 
-    std::unique_ptr<Vector> rawClone( const std::shared_ptr<Variable> name ) const override;
+    std::unique_ptr<Vector> rawClone() const override;
 
     void swapVectors( Vector &other ) override;
 
@@ -195,13 +201,12 @@ public: // public constructor/destructors
     /** Constructor:  create a MultiVector
      * \param[in]  name  The name of the multivector
      * \param[in]  comm  The communicator over which the vector exists
+     * \param[in]  vecs  The list of vectors in the multvector
      */
     explicit MultiVector( const std::string &name,
                           const AMP_MPI &comm,
                           const std::vector<Vector::shared_ptr> &vecs );
 
-
-public: // private constructor/destructors
     /** Constructor:  create a multivector containing a single vector only
      * \param[in]  vec   The input vector
      */
@@ -209,6 +214,7 @@ public: // private constructor/destructors
 
 
 public: // default constructor/destructors
+    MultiVector()                      = default;
     MultiVector( MultiVector && )      = delete;
     MultiVector( const MultiVector & ) = delete;
     MultiVector &operator=( MultiVector && ) = delete;

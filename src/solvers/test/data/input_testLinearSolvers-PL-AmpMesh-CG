@@ -21,7 +21,7 @@ LinearSolver{
   uses_preconditioner = FALSE
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
-  print_info_level = 3
+  print_info_level = 2
   max_iterations = 100
 }
 

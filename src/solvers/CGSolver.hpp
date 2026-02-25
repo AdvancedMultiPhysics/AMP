@@ -1,7 +1,10 @@
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/CGSolver.h"
 #include "AMP/solvers/SolverFactory.h"
+
 #include "ProfilerApp.h"
+
+#include <iomanip>
 
 namespace AMP::Solver {
 
@@ -26,13 +29,18 @@ template<typename T>
 void CGSolver<T>::initialize(
     std::shared_ptr<const AMP::Solver::SolverStrategyParameters> parameters )
 {
+    PROFILE( "CGSolver::initialize" );
+
     AMP_ASSERT( parameters );
 
     auto db = parameters->d_db;
     getFromInput( db );
 
+    registerOperator( d_pOperator );
+
     if ( parameters->d_pNestedSolver ) {
-        d_pPreconditioner = parameters->d_pNestedSolver;
+        d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
@@ -43,8 +51,9 @@ void CGSolver<T>::initialize(
                     std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
                 innerParameters->d_global_db = parameters->d_global_db;
                 innerParameters->d_pOperator = d_pOperator;
-                d_pPreconditioner = AMP::Solver::SolverFactory::create( innerParameters );
-                AMP_ASSERT( d_pPreconditioner );
+                d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
+                AMP_ASSERT( d_pNestedSolver );
             }
         }
     }
@@ -70,6 +79,43 @@ void CGSolver<T>::getFromInput( std::shared_ptr<AMP::Database> db )
     }
 }
 
+template<typename T>
+void CGSolver<T>::allocateScratchVectors( std::shared_ptr<const AMP::LinearAlgebra::Vector> u )
+{
+    PROFILE( "CGSolver::allocateScratchVectors" );
+
+    // allocates d_p, d_w, d_z (if necessary)
+    AMP_INSIST( u, "Input to CGSolver::allocateScratchVectors must be non-null" );
+    d_p = u->clone();
+    d_w = u->clone();
+
+    // ensure w does no communication
+    d_w->setNoGhosts();
+
+    if ( d_bUsesPreconditioner ) {
+        d_z = u->clone();
+    }
+}
+
+template<typename T>
+void CGSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
+{
+    PROFILE( "CGSolver::registerOperator" );
+
+    // not sure about excluding op == d_pOperator
+    d_pOperator = op;
+
+    if ( d_pOperator ) {
+        auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
+        if ( linearOp ) {
+            d_r = linearOp->createInputVector();
+            if ( !d_bUsesPreconditioner )
+                d_z = d_r;
+            allocateScratchVectors( d_r );
+        }
+    }
+}
+
 /****************************************************************
  *  Solve                                                        *
  ****************************************************************/
@@ -77,7 +123,16 @@ template<typename T>
 void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
                          std::shared_ptr<AMP::LinearAlgebra::Vector> u_in )
 {
-    PROFILE( "CGSolver<T>::apply" );
+    PROFILE( "CGSolver::apply" );
+
+    if ( !d_r ) {
+        d_r = u->clone();
+        allocateScratchVectors( d_r );
+    }
+
+    // ensure d_r does no communication
+    if ( d_sVariant == "pcg" )
+        d_r->setNoGhosts();
 
     AMP_ASSERT( d_pOperator );
     auto u = d_pOperator->subsetInputVector( u_in );
@@ -90,38 +145,44 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
     AMP_ASSERT( ( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED ) ||
                 ( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::LOCAL_CHANGED ) );
 
-    // z will store r when a preconditioner is not present
-    // and will store the result of a preconditioner solve
-    // when a preconditioner is present
-    auto z = u->clone();
-    auto p = z->clone();
-    auto w = f->clone();
-
-    // residual vector
-    AMP::LinearAlgebra::Vector::shared_ptr r = f->clone();
-
     // compute the initial residual
     if ( d_bUseZeroInitialGuess ) {
+        PROFILE( "CGSolver:: u=0, r = f (initial)" );
         u->zero();
-        r->copyVector( f );
+        d_r->copyVector( f );
     } else {
-        d_pOperator->residual( f, u, r );
+        PROFILE( "CGSolver:: r = f-Au (initial)" );
+        d_pOperator->residual( f, u, d_r );
     }
 
     // Store initial residual
-    auto d_dResidualNorm = static_cast<T>( r->L2Norm() );
+    {
+        PROFILE( "CGSolver:: r->L2Norm (initial)" );
+        d_dResidualNorm = static_cast<T>( d_r->L2Norm() );
+    }
+
     // Override zero initial residual to force relative tolerance convergence
     // here to potentially handle singular systems
     d_dInitialResidual =
         d_dResidualNorm > std::numeric_limits<T>::epsilon() ? d_dResidualNorm : 1.0;
 
-    if ( d_iDebugPrintInfoLevel > 0 ) {
-        AMP::pout << "CG: initial residual: " << d_dResidualNorm << std::endl;
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "CG: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "CG: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+        AMP::pout << "CG: Variant " << d_sVariant << std::endl;
+        AMP::pout << "CG: Max dimension " << d_max_dimension << std::endl;
     }
 
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "CG: initial L2Norm of solution vector: " << u->L2Norm() << std::endl;
-        AMP::pout << "CG: initial L2Norm of rhs vector: " << f->L2Norm() << std::endl;
+        AMP::pout << "CG: initial L2Norm of solution vector " << u->L2Norm() << std::endl;
+        AMP::pout << "CG: initial L2Norm of rhs vector " << f->L2Norm() << std::endl;
+    }
+
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "CG: initial residual " << std::setw( 19 ) << d_dResidualNorm << std::endl;
     }
 
     // return if the residual is already low enough
@@ -136,9 +197,10 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
 
     // apply the preconditioner if it exists
     if ( d_bUsesPreconditioner ) {
-        d_pPreconditioner->apply( r, z );
+        PROFILE( "CGSolver:: z = M^{-1}r (initial)" );
+        d_pNestedSolver->apply( d_r, d_z );
     } else {
-        z->copyVector( r );
+        d_z = d_r;
     }
 
     if ( d_sVariant != "pcg" ) {
@@ -146,31 +208,48 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
     }
 
     if ( d_sVariant == "fcg" ) {
-        d_vDirs[0]->copyVector( z );
+        d_vDirs[0]->copyVector( d_z );
     }
 
     if ( d_sVariant == "ipcg" ) {
-        d_vDirs[0]->copyVector( r );
+        d_vDirs[0]->copyVector( d_r );
     }
 
-    auto rho_1 = static_cast<T>( z->dot( *r ) );
-    auto rho_0 = rho_1;
+    T rho_0, rho_1, alpha, gamma;
 
-    p->copyVector( z );
+    if ( d_bUsesPreconditioner ) {
+        PROFILE( "CGSolver:: rho_1 = <z,r> (initial)" );
+        rho_1 = static_cast<T>( d_z->dot( *d_r ) );
+    } else {
+        rho_1 = static_cast<T>( d_dResidualNorm );
+        rho_1 *= rho_1;
+    }
 
-    auto k = -1;
+    {
+        PROFILE( "CGSolver:: p = z (initial) " );
+        d_p->copyVector( d_z );
+    }
 
+    auto k     = -1;
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
 
         ++k;
-        p->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-        // w = Ap
-        d_pOperator->apply( p, w );
-
-        // gamma = p'Ap
-        auto gamma = static_cast<T>( w->dot( *p ) );
-
+        {
+            PROFILE( "CGSolver:: p->makeConsistent" );
+            d_p->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+        }
+        {
+            PROFILE( "CGSolver:: w = Ap " );
+            // w = Ap
+            d_pOperator->apply( d_p, d_w );
+        }
+        {
+            PROFILE( "CGSolver:: gamma = <w,p>" );
+            // gamma = p'Ap
+            gamma = static_cast<T>( d_w->dot( *d_p ) );
+        }
         if ( d_sVariant == "fcg" )
             d_gamma[k % d_max_dimension] = gamma;
 
@@ -187,16 +266,28 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
             break;
         }
 
-        auto alpha = rho_1 / gamma;
+        alpha = rho_1 / gamma;
 
-        u->axpy( alpha, *p, *u );
-        r->axpy( -alpha, *w, *r );
+        {
+            PROFILE( "CGSolver<T>:: alpha*p + u" );
+            u->axpy( alpha, *d_p, *u );
+            d_r->axpy( -alpha, *d_w, *d_r );
+        }
+        {
+            PROFILE( "CGSolver:: r->L2Norm" );
+            // compute the current residual norm
+            d_dResidualNorm = static_cast<T>( d_r->L2Norm() );
+        }
 
-        // compute the current residual norm
-        d_dResidualNorm = static_cast<T>( r->L2Norm() );
         if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << "CG: iteration " << d_iNumberIterations << ", residual " << d_dResidualNorm
-                      << std::endl;
+            AMP::pout << "CG: iteration " << std::setw( 8 ) << d_iNumberIterations << ", residual "
+                      << d_dResidualNorm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << static_cast<T>( d_dResidualNorm ) / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = static_cast<T>( d_dResidualNorm );
         }
 
         // check if converged
@@ -206,29 +297,28 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
 
         // apply the preconditioner if it exists
         if ( d_bUsesPreconditioner ) {
-            d_pPreconditioner->apply( r, z );
-        } else {
-            z->copyVector( r );
+            PROFILE( "CGSolver:: z = M^{-1}r" );
+            d_pNestedSolver->apply( d_r, d_z );
         }
 
         rho_0 = rho_1;
 
         if ( d_sVariant == "ipcg" ) {
 
-            d_vDirs[0]->axpy( static_cast<T>( -1.0 ), *d_vDirs[0], *r );
-            rho_1 = static_cast<T>( d_vDirs[0]->dot( *z ) );
-            d_vDirs[0]->copyVector( r );
+            d_vDirs[0]->axpy( static_cast<T>( -1.0 ), *d_vDirs[0], *d_r );
+            rho_1 = static_cast<T>( d_vDirs[0]->dot( *d_z ) );
+            d_vDirs[0]->copyVector( d_r );
 
         } else if ( d_sVariant == "fcg" ) {
 
-            z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-            d_pOperator->apply( z, w );
+            d_z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+            d_pOperator->apply( d_z, d_w );
             std::vector<T> vbeta( d_max_dimension );
 
             // This should be combined into a single operation across multiple vectors
             for ( auto j = std::max( 0, k - d_max_dimension + 1 ); j <= k; ++j ) {
                 auto idx   = j % d_max_dimension;
-                auto dp    = static_cast<T>( d_vDirs[idx]->dot( *w ) );
+                auto dp    = static_cast<T>( d_vDirs[idx]->dot( *d_w ) );
                 vbeta[idx] = dp / d_gamma[idx];
             }
 
@@ -237,34 +327,52 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
             if ( !d_vDirs[d] )
                 d_vDirs[d] = u->clone();
 
-            d_vDirs[d]->copyVector( z );
+            d_vDirs[d]->copyVector( d_z );
 
             for ( auto j = std::max( 0, k - d_max_dimension + 1 ); j <= k; ++j ) {
                 auto idx = j % d_max_dimension;
                 d_vDirs[d]->axpy( -vbeta[idx], *d_vDirs[idx], *d_vDirs[d] );
             }
 
-            p->copyVector( d_vDirs[d] );
-            rho_1 = static_cast<T>( r->dot( *p ) );
+            d_p->copyVector( d_vDirs[d] );
+            rho_1 = static_cast<T>( d_r->dot( *d_p ) );
 
         } else {
-            rho_1 = static_cast<T>( r->dot( *z ) );
+            if ( d_bUsesPreconditioner ) {
+                PROFILE( "CGSolver:: rho_1 = <r,z>" );
+                rho_1 = static_cast<T>( d_r->dot( *d_z ) );
+            } else {
+                rho_1 = static_cast<T>( d_dResidualNorm );
+                rho_1 *= rho_1;
+            }
         }
 
         if ( d_sVariant != "fcg" ) {
             const T beta = rho_1 / rho_0;
-            p->axpy( beta, *p, *z );
+            d_p->axpy( beta, *d_p, *d_z );
         }
 
         if ( d_sVariant == "ipcg" ) {
-            rho_1 = static_cast<T>( r->dot( *z ) );
+            rho_1 = static_cast<T>( d_r->dot( *d_z ) );
         }
     }
 
-    u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    {
+        PROFILE( "CGSolver:: u->makeConsistent" );
+        u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    }
 
-    d_pOperator->residual( f, u, r );
-    d_dResidualNorm = static_cast<T>( r->L2Norm() );
+    if ( d_bComputeResidual ) {
+        {
+            PROFILE( "CGSolver:: r = f-Au (final)" );
+            d_pOperator->residual( f, u, d_r );
+        }
+        {
+            PROFILE( "CGSolver:: r->L2Norm (final)" );
+            d_dResidualNorm = static_cast<T>( d_r->L2Norm() );
+        }
+    }
+
     // final check updates flags if needed
     checkStoppingCriteria( d_dResidualNorm );
 
@@ -278,18 +386,4 @@ void CGSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
     }
 }
 
-template<typename T>
-void CGSolver<T>::resetOperator( std::shared_ptr<const AMP::Operator::OperatorParameters> params )
-{
-    if ( d_pOperator ) {
-        d_pOperator->reset( params );
-    }
-
-    // should add a mechanism for the linear operator to provide updated parameters for the
-    // preconditioner operator
-    // though it's unclear where this might be necessary
-    if ( d_pPreconditioner ) {
-        d_pPreconditioner->resetOperator( params );
-    }
-}
 } // namespace AMP::Solver

@@ -1,18 +1,18 @@
 // Database for the mesh
 Mesh{
     MeshName = "cube"
-    MeshType = "libMesh"
-    FileName = "cube4096.e"
+	MeshType = "AMP"
+	Generator = "cube"
     dim = 3
-    x_offset = 0.0
-    y_offset = 0.0
-    z_offset = 0.0
-    NumberOfElements = 10
+	Size = 16, 16, 16
+	Range = -5, 5, -5, 5, -5, 5
+    surfaceIds = 4, 6, 3, 5, 2, 1
+    static = TRUE
 }
 
 NeumannVectorCorrection1 {
    name="NeumannVectorCorrection"
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    id_0         =   2 
@@ -23,7 +23,7 @@ NeumannVectorCorrection1 {
 
 NeumannVectorCorrection2 {
    name="NeumannVectorCorrection"
-   print_info_level = 3
+   print_info_level = 2
    skip_params = FALSE
    number_of_ids = 1
    id_0         =   2 

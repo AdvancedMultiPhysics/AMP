@@ -66,12 +66,13 @@ void DenseSerialMatrix::multiply( std::shared_ptr<Matrix> other_op,
                                                                 otherData->getRightVariable() );
 
     // Create the matrix
-    auto newData   = std::make_shared<AMP::LinearAlgebra::DenseSerialMatrixData>( params );
-    auto newMatrix = std::make_shared<AMP::LinearAlgebra::DenseSerialMatrix>( newData );
+    auto newData = std::make_shared<AMP::LinearAlgebra::DenseSerialMatrixData>( params );
+    std::shared_ptr<Matrix> newMatrix =
+        std::make_shared<AMP::LinearAlgebra::DenseSerialMatrix>( newData );
     AMP_ASSERT( newMatrix );
-    result = newMatrix;
+    result.swap( newMatrix );
 
-    d_matrixOps->matMultiply( *getMatrixData(), *other_op->getMatrixData(), *newData );
+    d_matrixOps->matMatMult( getMatrixData(), other_op->getMatrixData(), newData );
 }
 
 
@@ -82,7 +83,7 @@ Vector::shared_ptr DenseSerialMatrix::extractDiagonal( Vector::shared_ptr buf ) 
 {
     Vector::shared_ptr out = buf;
     if ( !buf )
-        out = this->getRightVector();
+        out = this->createInputVector();
 
     d_matrixOps->extractDiagonal( *getMatrixData(), out );
 
@@ -92,12 +93,12 @@ Vector::shared_ptr DenseSerialMatrix::extractDiagonal( Vector::shared_ptr buf ) 
 /********************************************************
  * Get the left/right vectors and DOFManagers            *
  ********************************************************/
-Vector::shared_ptr DenseSerialMatrix::getRightVector() const
+Vector::shared_ptr DenseSerialMatrix::createInputVector() const
 {
     auto var = std::dynamic_pointer_cast<DenseSerialMatrixData>( d_matrixData )->getRightVariable();
     return createVector( getRightDOFManager(), var );
 }
-Vector::shared_ptr DenseSerialMatrix::getLeftVector() const
+Vector::shared_ptr DenseSerialMatrix::createOutputVector() const
 {
     auto var = std::dynamic_pointer_cast<DenseSerialMatrixData>( d_matrixData )->getLeftVariable();
     return createVector( getLeftDOFManager(), var );

@@ -1,9 +1,9 @@
 #include "AMP/IO/PIO.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
-#include "AMP/mesh/libmesh/ReadTestMesh.h"
 #include "AMP/mesh/libmesh/initializeLibMesh.h"
 #include "AMP/mesh/libmesh/libmeshMesh.h"
+#include "AMP/mesh/testHelpers/meshWriters.h"
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/boundary/DirichletVectorCorrection.h"
@@ -31,37 +31,21 @@
 static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, int )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName + ".txt";
 
     AMP::pout << "Running test with input " << input_file << std::endl;
-
-    AMP::logOnlyNodeZero( log_file );
 
     AMP::AMP_MPI globalComm = AMP::AMP_MPI( AMP_COMM_WORLD );
     auto input_db           = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    const unsigned int mesh_dim = 3;
-    libMesh::Parallel::Communicator comm( globalComm.getCommunicator() );
-    auto mesh = std::make_shared<libMesh::Mesh>( comm, mesh_dim );
+    auto mesh_file = input_db->getString( "mesh_file" );
+    auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
 
-    std::string mesh_file = input_db->getString( "mesh_file" );
-    if ( globalComm.getRank() == 0 )
-        AMP::readTestMesh( mesh_file, mesh );
-
-    libMesh::MeshCommunication().broadcast( *( mesh.get() ) );
-    mesh->prepare_for_use( false );
-    auto meshAdapter = std::make_shared<AMP::Mesh::libmeshMesh>( mesh, "beam" );
-
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel;
     auto bvpOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "MechanicsBVPOperator", input_db, elementPhysicsModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "MechanicsBVPOperator", input_db ) );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> dummyModel;
     auto dirichletVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "Load_Boundary", input_db, dummyModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
     // This has an in-place apply. So, it has an empty input variable and
     // the output variable is the same as what it is operating on.
     dirichletVecOp->setVariable( bvpOperator->getOutputVariable() );
@@ -69,7 +53,7 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
 
     auto DOF_vector = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
     auto mechSolVec =
         AMP::LinearAlgebra::createVector( DOF_vector, bvpOperator->getOutputVariable(), true );
     auto mechRhsVec = mechSolVec->clone();
@@ -135,16 +119,13 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
         ut->passes( exeName );
     }
 
-    meshAdapter->displaceMesh( mechSolVec );
+    mesh->displaceMesh( mechSolVec );
 }
 
 int testMacNealstraightBeam_regular( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
-
-    auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
     std::vector<std::string> exeNames;
 
@@ -193,8 +174,6 @@ int testMacNealstraightBeam_regular( int argc, char *argv[] )
 
     ut.report();
     int num_failed = ut.NumFailGlobal();
-
-    libmeshInit.reset();
 
     AMP::AMPManager::shutdown();
     return num_failed;

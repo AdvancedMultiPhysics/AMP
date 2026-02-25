@@ -1,17 +1,14 @@
 #ifndef included_AMP_AMPUnitTest
 #define included_AMP_AMPUnitTest
 
-#include <memory>
-#include <mutex>
-#include <sstream>
+#include "AMP/utils/UtilityMacros.h"
+
+#include <stdarg.h>
 #include <string>
 #include <vector>
 
 
 namespace AMP {
-
-
-class AMP_MPI;
 
 
 /*!
@@ -51,8 +48,8 @@ void tstOne(AMP::UnitTest *ut)
 class UnitTest final
 {
 public:
-    //! Constructor
-    UnitTest();
+    //! Default constructor
+    UnitTest() = default;
 
     //! Destructor
     ~UnitTest();
@@ -72,6 +69,9 @@ public:
     //! Indicate an expected failed test (thread-safe)
     void expected_failure( std::string in );
 
+    //! Indicate a pass/fail test
+    void pass_fail( bool pass, std::string in );
+
     //! Return the number of passed tests locally
     inline size_t NumPassLocal() const { return d_pass.size(); }
 
@@ -90,6 +90,15 @@ public:
     //! Return the number of expected failed tests locally
     size_t NumExpectedFailGlobal() const;
 
+    //! Return the tests passed locally
+    inline const auto &getPass() const { return d_pass; }
+
+    //! Return the number of failed tests locally
+    inline const auto &getFail() const { return d_fail; }
+
+    //! Return the number of expected failed tests locally
+    inline const auto &getExpected() const { return d_expected; }
+
     /*!
      * Print a report of the passed and failed tests.
      * Note: This is a blocking call that all processors must execute together.
@@ -104,7 +113,7 @@ public:
      *                     Report all failures,
      *                     Report all expected
      *                  3: Report all passed, failed, and expected failed tests.
-     * @param level     Remove duplicate messages.
+     * @param removeDuplicates  Remove duplicate messages.
      *                  If set, the total number of message will be unchanged but if printed
      *                  duplicate messages will be removed
      */
@@ -113,16 +122,61 @@ public:
     //! Clear the messages
     void reset();
 
-    //! Make the unit test operator verbose?
-    void verbose( bool verbose = true ) { d_verbose = verbose; }
+
+public: // printf like interfaces
+    inline void passes( const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        passes( std::string( tmp ) );
+    }
+
+    inline void failure( const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        failure( std::string( tmp ) );
+    }
+
+    inline void expected_failure( const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        expected_failure( std::string( tmp ) );
+    }
+
+    inline void pass_fail( bool pass, const char *format, ... )
+    {
+        va_list ap;
+        va_start( ap, format );
+        char tmp[4096];
+        int n = vsnprintf( tmp, sizeof tmp, format, ap );
+        va_end( ap );
+        AMP_INSIST( n >= 0, "Error using stringf: encoding error" );
+        AMP_INSIST( n < (int) sizeof tmp, "Error using stringf: internal buffer size" );
+        pass_fail( pass, std::string( tmp ) );
+    }
+
 
 private:
     std::vector<std::string> d_pass;
     std::vector<std::string> d_fail;
     std::vector<std::string> d_expected;
-    bool d_verbose;
-    mutable std::mutex d_mutex;
-    std::unique_ptr<AMP::AMP_MPI> d_comm;
 };
 
 

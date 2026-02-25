@@ -94,11 +94,11 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &inputFi
     params->setComm( globalComm );
 
     // create the mesh
-    const auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    const auto mesh = AMP::Mesh::MeshFactory::create( params );
 
     // create a linear diffusion operator
-    auto linearOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "DiffusionBVPOperator", input_db );
+    auto linearOperator =
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "DiffusionBVPOperator", input_db );
     auto diffOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( linearOperator );
 
     // extract the internal matrix
@@ -107,7 +107,7 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &inputFi
     AMP_INSIST( userMat->numGlobalColumns() == userMat->numGlobalRows(), "matrix is not square" );
 
     // extract the right vector
-    const auto userVector = userMat->getRightVector();
+    const auto userVector = userMat->createInputVector();
 
     // concludes creation of a native linear operator
     // ************************************************************************************************

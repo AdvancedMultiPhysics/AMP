@@ -1,6 +1,8 @@
 #include "AMP/operators/boundary/DirichletMatrixCorrection.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
+#include "AMP/operators/LinearOperator.h"
+#include "AMP/operators/boundary/BoundaryOperatorParameters.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
 
@@ -12,13 +14,34 @@ namespace AMP::Operator {
 
 
 /****************************************************************
+ * Create the appropriate parameters                             *
+ ****************************************************************/
+static std::shared_ptr<const DirichletMatrixCorrectionParameters>
+convert( std::shared_ptr<const OperatorParameters> inParams )
+{
+    AMP_ASSERT( inParams );
+    if ( std::dynamic_pointer_cast<const DirichletMatrixCorrectionParameters>( inParams ) )
+        return std::dynamic_pointer_cast<const DirichletMatrixCorrectionParameters>( inParams );
+    auto bndParams = std::dynamic_pointer_cast<const BoundaryOperatorParameters>( inParams );
+    AMP_ASSERT( bndParams );
+    auto linearOperator = std::dynamic_pointer_cast<LinearOperator>( bndParams->d_volumeOperator );
+    auto matrixCorrectionParameters =
+        std::make_shared<DirichletMatrixCorrectionParameters>( inParams->d_db );
+    matrixCorrectionParameters->d_Mesh        = inParams->d_Mesh;
+    matrixCorrectionParameters->d_variable    = linearOperator->getOutputVariable();
+    matrixCorrectionParameters->d_inputMatrix = linearOperator->getMatrix();
+    return matrixCorrectionParameters;
+}
+
+
+/****************************************************************
  * Constructors                                                  *
  ****************************************************************/
 DirichletMatrixCorrection::DirichletMatrixCorrection(
     std::shared_ptr<const OperatorParameters> inParams )
     : BoundaryOperator( inParams )
 {
-    auto params = std::dynamic_pointer_cast<const DirichletMatrixCorrectionParameters>( inParams );
+    auto params = convert( inParams );
     AMP_ASSERT( params );
     d_variable                 = params->d_variable;
     d_computedAddRHScorrection = false;
@@ -38,7 +61,6 @@ DirichletMatrixCorrection::DirichletMatrixCorrection(
 void DirichletMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> params )
 {
     AMP_ASSERT( params );
-    d_memory_location = params->d_memory_location;
     auto myParams = std::dynamic_pointer_cast<const DirichletMatrixCorrectionParameters>( params );
     parseParams( myParams );
 
@@ -129,8 +151,8 @@ void DirichletMatrixCorrection::applyMatrixCorrection()
             // The calling node must be owned locally.
             auto neighbors = node.getNeighbors();
             for ( auto &neighbor : neighbors ) {
-                if ( neighbor )
-                    AMP_INSIST( *neighbor != node, "boundary node neighbor includes self" );
+                if ( !neighbor.isNull() )
+                    AMP_INSIST( neighbor != node, "boundary node neighbor includes self" );
             }
 
             for ( auto &elem : d_dofIds[k] ) {
@@ -149,9 +171,9 @@ void DirichletMatrixCorrection::applyMatrixCorrection()
                     }
                 }
                 for ( auto &neighbor : neighbors ) {
-                    if ( !neighbor )
+                    if ( neighbor.isNull() )
                         continue;
-                    dof_map->getDOFs( neighbor->globalID(), nhDofIds );
+                    dof_map->getDOFs( neighbor.globalID(), nhDofIds );
                     for ( auto &nhDofId : nhDofIds ) {
                         d_inputMatrix->setValueByGlobalID( bndDofIds[elem], nhDofId, 0.0 );
                         if ( d_symmetricCorrection ) {
@@ -244,7 +266,7 @@ void DirichletMatrixCorrection::addRHScorrection( AMP::LinearAlgebra::Vector::sh
             initRhsCorrectionAdd( rhs );
             applyMatrixCorrection();
         } // end if
-        AMP::LinearAlgebra::Vector::shared_ptr myRhs = subsetOutputVector( rhs );
+        auto myRhs = subsetOutputVector( rhs );
         myRhs->add( *myRhs, *d_rhsCorrectionAdd );
     }
 }
@@ -253,8 +275,7 @@ void DirichletMatrixCorrection::addRHScorrection( AMP::LinearAlgebra::Vector::sh
 void DirichletMatrixCorrection::setRHScorrection( AMP::LinearAlgebra::Vector::shared_ptr rhs )
 {
     if ( !d_skipRHSsetCorrection ) {
-        AMP::LinearAlgebra::Vector::shared_ptr emptyVec;
-        d_rhsCorrectionSet->apply( emptyVec, rhs );
+        d_rhsCorrectionSet->apply( nullptr, rhs );
     }
 }
 } // namespace AMP::Operator

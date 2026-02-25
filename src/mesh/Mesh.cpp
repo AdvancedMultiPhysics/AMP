@@ -3,7 +3,7 @@
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/geometry/Geometry.h"
 #include "AMP/geometry/MeshGeometry.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/MeshUtilities.h"
 #include "AMP/mesh/MultiMesh.h"
@@ -34,14 +34,7 @@ static unsigned int nextLocalMeshID = 1;
 /********************************************************
  * Constructors                                          *
  ********************************************************/
-Mesh::Mesh()
-    : d_geometry( nullptr ),
-      GeomDim( GeomType::Vertex ),
-      PhysicalDim( 0 ),
-      d_max_gcw( 0 ),
-      d_meshID( 0 )
-{
-}
+Mesh::Mesh() : GeomDim( GeomType::Vertex ), PhysicalDim( 0 ), d_max_gcw( 0 ), d_meshID( 0 ) {}
 Mesh::Mesh( std::shared_ptr<const MeshParameters> params )
 {
     // Set the base properties
@@ -59,12 +52,11 @@ Mesh::Mesh( std::shared_ptr<const MeshParameters> params )
         d_name = db->getWithDefault<std::string>( "MeshName", d_name );
 }
 Mesh::Mesh( const Mesh &rhs )
-    : d_geometry( nullptr ),
-      GeomDim( rhs.GeomDim ),
+    : GeomDim( rhs.GeomDim ),
       PhysicalDim( rhs.PhysicalDim ),
       d_max_gcw( rhs.d_max_gcw ),
-      d_comm( rhs.d_comm ),
       d_meshID( 0 ),
+      d_comm( rhs.d_comm ),
       d_name( rhs.d_name ),
       d_box( rhs.d_box ),
       d_box_local( rhs.d_box_local )
@@ -99,6 +91,8 @@ void Mesh::setMeshID()
 /********************************************************
  * Function to return the meshID composing the mesh      *
  ********************************************************/
+bool Mesh::isBaseMesh() const { return true; }
+bool Mesh::containsElement( const MeshElementID &id ) const { return id.meshID() == d_meshID; }
 std::vector<MeshID> Mesh::getAllMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getBaseMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getLocalMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
@@ -172,26 +166,26 @@ std::shared_ptr<Mesh> Mesh::Subset( const MeshIterator &iterator, bool isGlobal 
 /********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-MeshElement Mesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> Mesh::getElement( const MeshElementID &elem_id ) const
 {
     MeshID mesh_id = elem_id.meshID();
     AMP_INSIST( mesh_id == d_meshID, "mesh id must match the mesh id of the element" );
     auto it = getIterator( elem_id.type() );
     for ( size_t i = 0; i < it.size(); i++, ++it ) {
         if ( it->globalID() == elem_id )
-            return *it;
+            return it->clone();
     }
-    return MeshElement();
+    return std::make_unique<MeshElement>();
 }
 
 
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> Mesh::getElementParents( const MeshElement &, const GeomType ) const
+Mesh::ElementListPtr Mesh::getElementParents( const MeshElement &, const GeomType ) const
 {
     AMP_ERROR( "getElementParents is not implemented: " + meshClass() );
-    return std::vector<MeshElement>();
+    return {};
 }
 
 
@@ -227,13 +221,13 @@ bool Mesh::isMember( const MeshElementID &id ) const { return id.meshID() == d_m
 MeshIterator Mesh::isMember( const MeshIterator &iterator ) const
 {
     PROFILE( "isMember" );
-    auto elements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>();
+    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>();
     elements->reserve( iterator.size() );
     for ( const auto &elem : iterator ) {
         if ( isMember( elem.globalID() ) )
-            elements->push_back( elem );
+            elements->push_back( elem.clone() );
     }
-    return AMP::Mesh::MeshElementVectorIterator( elements, 0 );
+    return AMP::Mesh::MeshListIterator( elements, 0 );
 }
 
 
@@ -314,7 +308,7 @@ Mesh::CompareResult::CompareResult( int state )
       geometry( state == 1 )
 {
 }
-bool Mesh::CompareResult::operator==( const Mesh::CompareResult &rhs )
+bool Mesh::CompareResult::operator==( const Mesh::CompareResult &rhs ) const
 {
     return equal == rhs.equal && nodes == rhs.nodes && surface == rhs.surface &&
            block == rhs.block && domain == rhs.domain && geometry == rhs.geometry;
@@ -478,12 +472,12 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
     if ( ids.empty() )
         return MeshIterator();
     size_t N      = 0;
-    auto elements = std::make_shared<std::vector<MeshElement>>( ids.size() );
+    auto elements = std::make_shared<std::vector<std::unique_ptr<MeshElement>>>( ids.size() );
     for ( auto &elem : A ) {
         auto idA = elem.globalID();
         size_t i = std::min( Utilities::findfirst( ids, idA ), ids.size() - 1 );
         if ( ids[i] == idA ) {
-            ( *elements )[i] = elem;
+            ( *elements )[i] = elem.clone();
             N++;
         }
     }
@@ -492,13 +486,13 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
             auto idB = elem.globalID();
             size_t i = std::min( Utilities::findfirst( ids, idB ), ids.size() - 1 );
             if ( ids[i] == idB ) {
-                ( *elements )[i] = elem;
+                ( *elements )[i] = elem.clone();
                 N++;
             }
         }
         AMP_ASSERT( N == elements->size() );
     }
-    return MeshElementVectorIterator( elements, 0 );
+    return MeshListIterator( elements, 0 );
 }
 
 

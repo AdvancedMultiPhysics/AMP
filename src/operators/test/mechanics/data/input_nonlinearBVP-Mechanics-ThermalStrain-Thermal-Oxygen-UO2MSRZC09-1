@@ -1,13 +1,11 @@
 
 Mesh{
-  MeshType = "libMesh"
-  FileName = "cylinder270.e"
-  MeshName = "cylinder"
-  dim      = 3
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 270
+    MeshName = "cylinder"
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 1, 8
+    Range = 1, -2, 2
+    surfaceIds = 1, 1, 1, 1, 2, 3
 }
 
 NumberOfLoadingSteps = 1
@@ -71,6 +69,38 @@ LinearMechanicsElement {
     QRULE_TYPE = "QGAUSS"
     QRULE_ORDER = "DEFAULT"
 }
+   
+MechanicsMaterialModel { 
+      name="ThermalStrainMaterialModel"
+      USE_MATERIALS_LIBRARY = FALSE
+       Material = "UO2_MSRZC_09"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+       THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
+       THERMAL_EXPANSION_COEFFICIENT = 2.0e-6 
+     }
+
+
+OxygenDiffusionTransportModel {
+	     name = "DiffusionTransportModel"
+	     Material = "Ox_MSRZC_09"
+	     Property = "FickCoefficient"
+	     print_info_level = 2 
+	     Default_Concentration = .1
+	     Default_Temperature   = 300.
+	     Default_Burnup   = 0.0
+	   }
+	
+DiffusionTransportModel {
+	     name = "DiffusionTransportModel"
+	     Material = "UO2_MSRZC_09"
+	     Property = "ThermalConductivity"
+	     print_info_level = 2 
+	     Default_Concentration = .1
+	     Default_Temperature   = 300.
+	     Default_Burnup   = 0.0
+	   }
+
 
 MechanicsNonlinearFEOperator{
      name = "MechanicsNonlinearFEOperator"
@@ -96,7 +126,7 @@ MechanicsNonlinearFEOperator{
      }
 
      MechanicsLinearElement = LinearMechanicsElement
-     LocalModel = "MechanicsMaterialModel"
+     LocalModel = MechanicsMaterialModel
 
    }
 
@@ -122,16 +152,7 @@ MechanicsDirichletVectorCorrection{
      value_1_1 = 0.0
      value_1_2 = 0.0
    }
-   
-MechanicsMaterialModel { 
-      name="ThermalStrainMaterialModel"
-      USE_MATERIALS_LIBRARY = FALSE
-       Material = "UO2_MSRZC_09"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-       THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
-       THERMAL_EXPANSION_COEFFICIENT = 2.0e-6 
-     }
+
 
 MechanicsLinearFEOperator{
      name = "MechanicsLinearFEOperator"
@@ -182,13 +203,13 @@ DiffusionNonlinearFEOperator{
 	      QRULE_ORDER = "DEFAULT"
          }
         
-         LocalModel = "DiffusionTransportModel"   
+         LocalModel = DiffusionTransportModel
 
    }
    
 DiffusionDirichletVectorCorrection{
    	 name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 1
      id_0         =   1 
@@ -201,18 +222,18 @@ DiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="temperature"
       OutputVariable="temperature"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
        QRULE_ORDER = "DEFAULT"
      }
         
-     LocalModel = "DiffusionTransportModel"   
+     LocalModel = DiffusionTransportModel
   }
 
 
@@ -221,23 +242,13 @@ DiffusionDirichletMatrixCorrection{
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
     skip_params = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        = 300.
 }
-
-DiffusionTransportModel {
-	     name = "DiffusionTransportModel"
-	     Material = "UO2_MSRZC_09"
-	     Property = "ThermalConductivity"
-	     print_info_level = 3 
-	     Default_Concentration = .1
-	     Default_Temperature   = 300.
-	     Default_Burnup   = 0.0
-	   }
 
 OxygenDiffusionNonlinearFEOperator{
 	 name="DiffusionNonlinearFEOperator"
@@ -252,7 +263,7 @@ OxygenDiffusionNonlinearFEOperator{
 	 PrincipalVariable = "concentration"
 	 Freezetemperature = FALSE
 
-         LocalModel = "OxygenDiffusionTransportModel"
+         LocalModel = OxygenDiffusionTransportModel
          DiffusionElement {
 	      name = "DiffusionNonlinearElement"
 	      FE_ORDER = "FIRST"  
@@ -267,23 +278,23 @@ OxygenDiffusionLinearFEOperator{
       name="DiffusionLinearFEOperator"
       InputVariable="concentration"
       OutputVariable="concentration"
-      print_info_level = 3
+      print_info_level = 2
 
      DiffusionElement {
        name = "DiffusionLinearElement"
-       print_info_level = 3
+       print_info_level = 2
        FE_ORDER = "FIRST"  
        FE_FAMILY = "LAGRANGE"
        QRULE_TYPE = "QGAUSS"
        QRULE_ORDER = "DEFAULT"
      }
 
-     LocalModel = "OxygenDiffusionTransportModel"
+     LocalModel = OxygenDiffusionTransportModel
   }
 
 OxygenDirichletVectorCorrection{
    	 name = "DirichletVectorCorrection"
-     print_info_level = 3
+     print_info_level = 2
      skip_params = FALSE
      number_of_ids = 1
      id_0         =   1 
@@ -297,7 +308,7 @@ OxygenDirichletMatrixCorrection{
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
     skip_params = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
@@ -305,14 +316,4 @@ OxygenDirichletMatrixCorrection{
     value_0_0        = .1
   }
 
-OxygenDiffusionTransportModel {
-	     name = "DiffusionTransportModel"
-	     Material = "Ox_MSRZC_09"
-	     Property = "FickCoefficient"
-	     print_info_level = 3 
-	     Default_Concentration = .1
-	     Default_Temperature   = 300.
-	     Default_Burnup   = 0.0
-	   }
-	
 

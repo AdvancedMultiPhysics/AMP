@@ -30,7 +30,6 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
-#include "libmesh/auto_ptr.h"
 #include "libmesh/cell_hex8.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
@@ -62,13 +61,13 @@ static inline double __FsnK__() { return 80000000; }
 
 
 void calculateManufacturedSolution(
-    std::shared_ptr<AMP::Mesh::Mesh> meshAdapter,
+    std::shared_ptr<AMP::Mesh::Mesh> mesh,
     AMP::LinearAlgebra::Vector::shared_ptr manufacturedSolution,
     AMP::LinearAlgebra::Vector::shared_ptr manufacturedNormalGradient )
 {
     //  CALCULATE THE MANFACTURED SOLUTION
     auto dof_map       = manufacturedSolution->getDOFManager();
-    auto bottomAdapter = meshAdapter->Subset( "Bottom" );
+    auto bottomAdapter = mesh->Subset( "Bottom" );
     if ( bottomAdapter ) {
         auto el     = bottomAdapter->getIterator( AMP::Mesh::GeomType::Cell, 0 );
         auto end_el = el.end();
@@ -90,8 +89,8 @@ void calculateManufacturedSolution(
                 // double val2 = fun(pt[0],pt[1],pt[2]-20); // not used.
                 double val3 = __dTdn__( pt[0], pt[1], pt[2], 1 );
 
-                manufacturedSolution->setLocalValuesByGlobalID( 1, &d_dofIndices[j], &val1 );
-                manufacturedNormalGradient->setLocalValuesByGlobalID( 1, &d_dofIndices[j], &val3 );
+                manufacturedSolution->setValuesByGlobalID( 1, &d_dofIndices[j], &val1 );
+                manufacturedNormalGradient->setValuesByGlobalID( 1, &d_dofIndices[j], &val3 );
             } // end for node
         }
     }
@@ -100,13 +99,13 @@ void calculateManufacturedSolution(
 }
 
 
-void calculateSources( std::shared_ptr<AMP::Mesh::Mesh> meshAdapter,
+void calculateSources( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                        std::shared_ptr<AMP::Discretization::DOFManager> gaussPointDOF,
                        std::shared_ptr<AMP::LinearAlgebra::Vector> manufacturedRHS )
 {
     // Compute the source on the gauss point
 
-    auto el     = meshAdapter->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto el     = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
     auto end_el = el.end();
 
     auto feTypeOrder = libMesh::Utility::string_to_enum<libMeshEnums::Order>( "FIRST" );
@@ -139,13 +138,13 @@ void calculateSources( std::shared_ptr<AMP::Mesh::Mesh> meshAdapter,
 }
 
 
-void computeL2Norm( std::shared_ptr<AMP::Mesh::Mesh> meshAdapter,
+void computeL2Norm( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                     const AMP::AMP_MPI &globalComm,
                     AMP::LinearAlgebra::Vector::shared_ptr TemperatureVec,
                     double *discretizationErrorNorm2 )
 {
     // CALCULATE THE L2Norm OF (U-Uh)
-    auto el                        = meshAdapter->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto el                        = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
     AMP::Mesh::MeshIterator end_el = el.end();
 
     auto dof_map = TemperatureVec->getDOFManager();
@@ -222,12 +221,9 @@ void createThermalOperators(
 
     //   CREATE THE NONLINEAR THERMAL OPERATOR 1
     AMP_INSIST( global_input_db->keyExists( "BottomNonlinearThermalOperator" ), "key missing!" );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> thermalTransportModel;
     auto thermalNonlinearOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator( bottomAdapter,
-                                                        "BottomNonlinearThermalOperator",
-                                                        global_input_db,
-                                                        thermalTransportModel ) );
+        AMP::Operator::OperatorBuilder::createOperator(
+            bottomAdapter, "BottomNonlinearThermalOperator", global_input_db ) );
     nonlinearColumnOperator->append( thermalNonlinearOperator );
 
     //-------------------------------------
@@ -235,10 +231,8 @@ void createThermalOperators(
     //-------------------------------------
     AMP_INSIST( global_input_db->keyExists( "BottomLinearThermalOperator" ), "key missing!" );
     auto thermalLinearOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator( bottomAdapter,
-                                                        "BottomLinearThermalOperator",
-                                                        global_input_db,
-                                                        thermalTransportModel ) );
+        AMP::Operator::OperatorBuilder::createOperator(
+            bottomAdapter, "BottomLinearThermalOperator", global_input_db ) );
     linearColumnOperator->append( thermalLinearOperator );
 
     AMP::pout << "Leaving createThermalOperators" << std::endl;
@@ -335,8 +329,8 @@ void myTest( AMP::UnitTest *ut,
     createThermalOperators(
         input_db, manager, nonlinearThermalColumnOperator, linearThermalColumnOperator );
 
-    AMP_ASSERT( nonlinearThermalColumnOperator != nullptr );
-    AMP_ASSERT( linearThermalColumnOperator != nullptr );
+    AMP_ASSERT( nonlinearThermalColumnOperator );
+    AMP_ASSERT( linearThermalColumnOperator );
 
     auto outputVar = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
 
@@ -401,10 +395,9 @@ void myTest( AMP::UnitTest *ut,
     auto volumeIntegralColumnOperator =
         std::make_shared<AMP::Operator::ColumnOperator>( columnParams );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> sourceModel1;
     auto sourceOperator1 = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            bottomAdapter, "BottomVolumeIntegralOperator", input_db, sourceModel1 ) );
+            bottomAdapter, "BottomVolumeIntegralOperator", input_db ) );
     volumeIntegralColumnOperator->append( sourceOperator1 );
 
     auto rhsVar           = std::make_shared<AMP::LinearAlgebra::Variable>( "Temperature" );
@@ -416,9 +409,6 @@ void myTest( AMP::UnitTest *ut,
     integratedRHSVec->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // modify the RHS to take into account boundary conditions
-    //  for(int id = 0; id !=
-    //  std::dynamic_pointer_cast<AMP::Operator::ColumnOperator>(nonlinearThermalColumnOperator)->getNumberOfOperators();
-    //  id++)
     for ( int i = 0; i < 1; i++ ) {
         auto nonlinearThermalOperator = ( std::dynamic_pointer_cast<AMP::Operator::ColumnOperator>(
                                               nonlinearThermalColumnOperator ) )
@@ -495,15 +485,11 @@ void multiMeshLoop( AMP::UnitTest *ut, const std::string &exeName )
 
 
     std::string str1 = "butterfly_pellet_1x.e";
-    // std::string str2="cube64.with.boundary.labels.e";
-    // std::string str3="cube256.with.boundary.labels.e";
 
     auto mesh_db       = input_db->getDatabase( "Mesh" );
     auto bottomMesh_db = mesh_db->getDatabase( "Mesh_1" );
-    // auto topMesh_db = mesh_db->getDatabase( "Mesh_2" );
 
     bottomMesh_db->putScalar( "FileName", str1 );
-    // topMesh_db->putScalar("FileName",str1);
 
     myTest( ut, input_db, globalComm );
 }
@@ -515,7 +501,7 @@ int main( int argc, char *argv[] )
     std::vector<std::string> exeNames;
     exeNames.emplace_back( "testMeshRefinementDiffusion-1" );
 
-    for ( auto name : exeNames )
+    for ( auto &name : exeNames )
         multiMeshLoop( &ut, name );
 
     ut.report();

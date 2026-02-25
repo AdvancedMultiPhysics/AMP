@@ -1,10 +1,10 @@
 #include "AMP/geometry/MeshGeometry.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"
 #include "AMP/mesh/MeshUtilities.h"
-#include "AMP/utils/arrayHelpers.h"
+#include "AMP/utils/ArrayHelpers.h"
 #include "AMP/utils/kdtree2.h"
 
 #include "ProfilerApp.h"
@@ -77,7 +77,7 @@ void MeshGeometry::updateCache() const
         points.emplace_back( centroid );
         for ( auto &[id, elemPoints] : map ) {
             auto elem               = d_mesh->getElement( id );
-            std::array<double, 3> n = elem.norm();
+            std::array<double, 3> n = elem->norm();
             for ( auto &p : elemPoints ) {
                 points.push_back( p + 1e-6 * n );
                 points.push_back( p - 1e-6 * n );
@@ -196,9 +196,9 @@ int MeshGeometry::surface( const Point &x ) const
     if ( d_surfaceIds.size() == 1 )
         return d_surfaceIds[0];
     auto elem = d_find.nearest( x ).first;
-    AMP_ASSERT( !elem.isNull() );
+    AMP_ASSERT( !elem->isNull() );
     for ( auto id : d_surfaceIds ) {
-        if ( elem.isInBlock( id ) )
+        if ( elem->isInBlock( id ) )
             return id;
     }
     return 0;
@@ -206,8 +206,8 @@ int MeshGeometry::surface( const Point &x ) const
 Point MeshGeometry::surfaceNorm( const Point &x ) const
 {
     auto elem = d_find.nearest( x ).first;
-    AMP_ASSERT( !elem.isNull() );
-    return elem.norm();
+    AMP_ASSERT( !elem->isNull() );
+    return elem->norm();
 }
 
 

@@ -89,15 +89,63 @@ AMP::Geometry::Point PureLogicalMesh::physicalToLogical( const AMP::Geometry::Po
 {
     return x;
 }
+std::unique_ptr<Mesh> PureLogicalMesh::clone() const
+{
+    return std::make_unique<PureLogicalMesh>( *this );
+}
+
+
+/****************************************************************
+ * Return the coordinates                                        *
+ ****************************************************************/
 void PureLogicalMesh::coord( const MeshElementIndex &index, double *pos ) const
 {
     AMP_ASSERT( index.type() == AMP::Mesh::GeomType::Vertex );
     for ( int d = 0; d < PhysicalDim; d++ )
         pos[d] = index.index( d );
 }
-std::unique_ptr<Mesh> PureLogicalMesh::clone() const
+std::array<AMP::Array<double>, 3> PureLogicalMesh::localCoord() const
 {
-    return std::make_unique<PureLogicalMesh>( *this );
+    auto local = getLocalBlock( d_comm.getRank() );
+    ArraySize size( { local[1] - local[0] + 2, local[3] - local[2] + 2, local[5] - local[4] + 2 },
+                    static_cast<int>( GeomDim ) );
+    AMP::Array<double> x( size ), y( size ), z( size );
+    for ( size_t k = 0; k < size[2]; k++ ) {
+        for ( size_t j = 0; j < size[1]; j++ ) {
+            for ( size_t i = 0; i < size[0]; i++ ) {
+                x( i, j, k ) = i + size[0];
+                y( i, j, k ) = j + size[2];
+                z( i, j, k ) = k + size[4];
+            }
+        }
+    }
+    if ( PhysicalDim == 1 )
+        return { x, {}, {} };
+    else if ( PhysicalDim == 2 )
+        return { x, y, {} };
+    else
+        return { x, y, z };
+}
+std::array<AMP::Array<double>, 3> PureLogicalMesh::globalCoord() const
+{
+    ArraySize size( { d_globalSize[0] + 1, d_globalSize[1] + 1, d_globalSize[2] + 1 },
+                    static_cast<int>( GeomDim ) );
+    AMP::Array<double> x( size ), y( size ), z( size );
+    for ( size_t k = 0; k < size[2]; k++ ) {
+        for ( size_t j = 0; j < size[1]; j++ ) {
+            for ( size_t i = 0; i < size[0]; i++ ) {
+                x( i, j, k ) = i;
+                y( i, j, k ) = j;
+                z( i, j, k ) = k;
+            }
+        }
+    }
+    if ( PhysicalDim == 1 )
+        return { x, {}, {} };
+    else if ( PhysicalDim == 2 )
+        return { x, y, {} };
+    else
+        return { x, y, z };
 }
 
 

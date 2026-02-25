@@ -1,5 +1,5 @@
 #include "AMP/geometry/LogicalGeometry.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/utils/UtilityMacros.h"
 
 #include <vector>
@@ -26,7 +26,7 @@ static inline std::array<int, 6> checkIDs( int logical, std::array<int, 6> ids )
     }
     return ids;
 }
-LogicalGeometry::LogicalGeometry( int physical, int logical, std::array<int, 6> ids )
+LogicalGeometry::LogicalGeometry( int physical, int logical, const std::array<int, 6> &ids )
     : Geometry( physical ), d_logicalDim( logical ), d_ids( checkIDs( logical, ids ) )
 {
 }

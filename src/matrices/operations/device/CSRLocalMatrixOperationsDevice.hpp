@@ -4,27 +4,23 @@
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
 #include "AMP/matrices/operations/device/DeviceMatrixOperations.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 
-#include <algorithm>
+#include <type_traits>
 
 #include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
-
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::mult(
-    const typename Policy::scalar_t *in,
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::mult(
+    const typename Config::scalar_t *in,
     std::shared_ptr<LocalMatrixData> A,
-    typename Policy::scalar_t *out )
+    typename Config::scalar_t *out )
 {
     PROFILE( "CSRLocalMatrixOperationsDevice::mult" );
     AMP_DEBUG_ASSERT( in && out && A );
-
-    using gidx_t   = typename Policy::gidx_t;
-    using lidx_t   = typename Policy::lidx_t;
-    using scalar_t = typename Policy::scalar_t;
 
     const auto nRows = static_cast<lidx_t>( A->numLocalRows() );
 
@@ -37,50 +33,33 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::mult(
     }
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::multTranspose(
-    const typename Policy::scalar_t *,
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::multTranspose(
+    const typename Config::scalar_t *,
     std::shared_ptr<LocalMatrixData>,
-    std::vector<typename Policy::scalar_t> &,
+    std::vector<typename Config::scalar_t> &,
     std::vector<size_t> & )
 {
     AMP_WARNING( "multTranspose not enabled for device." );
 }
 
-
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::scale(
-    typename Policy::scalar_t alpha, std::shared_ptr<LocalMatrixData> A )
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::scale(
+    typename Config::scalar_t alpha, std::shared_ptr<LocalMatrixData> A )
 {
-    using gidx_t   = typename Policy::gidx_t;
-    using lidx_t   = typename Policy::lidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     auto [row_starts_d, cols_d, cols_loc_d, coeffs_d] = A->getDataFields();
 
     const auto tnnz_d = A->numberOfNonZeros();
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::scale( tnnz_d, coeffs_d, alpha );
 }
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::matMultiply(
-    std::shared_ptr<LocalMatrixData>,
-    std::shared_ptr<LocalMatrixData>,
-    std::shared_ptr<LocalMatrixData> )
-{
-    AMP_WARNING( "SpGEMM for CSRLocalMatrixOperationsDevice not implemented" );
-}
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::axpy(
-    typename Policy::scalar_t alpha,
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::axpy(
+    typename Config::scalar_t alpha,
     std::shared_ptr<LocalMatrixData> X,
     std::shared_ptr<LocalMatrixData> Y )
 {
-    using gidx_t   = typename Policy::gidx_t;
-    using lidx_t   = typename Policy::lidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     const auto [row_starts_d_x, cols_d_x, cols_loc_d_x, coeffs_d_x] = X->getDataFields();
     auto [row_starts_d_y, cols_d_y, cols_loc_d_y, coeffs_d_y]       = Y->getDataFields();
     const auto tnnz                                                 = X->numberOfNonZeros();
@@ -91,37 +70,28 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::axpy(
     }
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::setScalar(
-    typename Policy::scalar_t alpha, std::shared_ptr<LocalMatrixData> A )
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setScalar(
+    typename Config::scalar_t alpha, std::shared_ptr<LocalMatrixData> A )
 {
-    using gidx_t   = typename Policy::gidx_t;
-    using lidx_t   = typename Policy::lidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     auto [row_starts_d, cols_d, cols_loc_d, coeffs_d] = A->getDataFields();
 
     const auto tnnz_d = A->numberOfNonZeros();
 
-    DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setScalar( tnnz_d, coeffs_d, alpha );
+    AMP::Utilities::Algorithms<typename Config::scalar_t>::fill_n( coeffs_d, tnnz_d, alpha );
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::zero(
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::zero(
     std::shared_ptr<LocalMatrixData> A )
 {
-    using scalar_t = typename Policy::scalar_t;
     setScalar( static_cast<scalar_t>( 0.0 ), A );
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::setDiagonal(
-    const typename Policy::scalar_t *in, std::shared_ptr<LocalMatrixData> A )
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setDiagonal(
+    const typename Config::scalar_t *in, std::shared_ptr<LocalMatrixData> A )
 {
-    using lidx_t   = typename Policy::lidx_t;
-    using gidx_t   = typename Policy::gidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     auto [row_starts_d, cols_d, cols_loc_d, coeffs_d] = A->getDataFields();
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
@@ -130,14 +100,10 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::setDiag
 }
 
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::extractDiagonal(
-    std::shared_ptr<LocalMatrixData> A, typename Policy::scalar_t *buf )
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::extractDiagonal(
+    std::shared_ptr<LocalMatrixData> A, typename Config::scalar_t *buf )
 {
-    using lidx_t   = typename Policy::lidx_t;
-    using gidx_t   = typename Policy::gidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     auto [row_starts_d, cols_d, cols_loc_d, coeffs_d] = A->getDataFields();
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
@@ -145,14 +111,10 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::extract
         row_starts_d, coeffs_d, nRows, buf );
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::setIdentity(
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setIdentity(
     std::shared_ptr<LocalMatrixData> A )
 {
-    using lidx_t   = typename Policy::lidx_t;
-    using gidx_t   = typename Policy::gidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     zero( A );
 
     auto [row_starts_d, cols_d, cols_loc_d, coeffs_d] = A->getDataFields();
@@ -161,14 +123,10 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::setIden
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setIdentity( row_starts_d, coeffs_d, nRows );
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::LinfNorm(
-    std::shared_ptr<LocalMatrixData> A, typename Policy::scalar_t *rowSums )
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::LinfNorm(
+    std::shared_ptr<LocalMatrixData> A, typename Config::scalar_t *rowSums )
 {
-    using gidx_t   = typename Policy::gidx_t;
-    using lidx_t   = typename Policy::lidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     auto [row_starts_d, cols_d, cols_loc_d, coeffs_d] = A->getDataFields();
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
@@ -176,14 +134,10 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::LinfNor
         nRows, coeffs_d, row_starts_d, rowSums );
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::copy(
+template<typename Config, class LocalMatrixData>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copy(
     std::shared_ptr<const LocalMatrixData> X, std::shared_ptr<LocalMatrixData> Y )
 {
-    using gidx_t   = typename Policy::gidx_t;
-    using lidx_t   = typename Policy::lidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
     const auto [row_starts_d_x, cols_d_x, cols_loc_d_x, coeffs_d_x] =
         std::const_pointer_cast<LocalMatrixData>( X )->getDataFields();
     auto [row_starts_d_y, cols_d_y, cols_loc_d_y, coeffs_d_y] = Y->getDataFields();
@@ -194,10 +148,12 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::copy(
     }
 }
 
-template<typename Policy, class Allocator, class LocalMatrixData>
-template<typename PolicyIn>
-void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::copyCast(
-    std::shared_ptr<CSRLocalMatrixData<PolicyIn, Allocator>> X, std::shared_ptr<LocalMatrixData> Y )
+template<typename Config, class LocalMatrixData>
+template<typename ConfigIn>
+void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copyCast(
+    std::shared_ptr<CSRLocalMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>>>
+        X,
+    std::shared_ptr<LocalMatrixData> Y )
 {
     // Check compatibility
     AMP_ASSERT( Y->getMemoryLocation() == X->getMemoryLocation() );
@@ -229,18 +185,17 @@ void CSRLocalMatrixOperationsDevice<Policy, Allocator, LocalMatrixData>::copyCas
     Y_cols       = X_cols;
     Y_cols_loc   = X_cols_loc;
 
-    using scalar_t_in  = typename PolicyIn::scalar_t;
-    using scalar_t_out = typename Policy::scalar_t;
+    using scalar_t_in  = typename ConfigIn::scalar_t;
+    using scalar_t_out = typename Config::scalar_t;
     if constexpr ( std::is_same_v<scalar_t_in, scalar_t_out> ) {
-        using gidx_t = typename Policy::gidx_t;
-        using lidx_t = typename Policy::lidx_t;
+        using gidx_t = typename Config::gidx_t;
+        using lidx_t = typename Config::lidx_t;
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::copy(
             X->numberOfNonZeros(), X_coeffs, Y_coeffs );
     } else {
-        AMP::Utilities::copyCast<scalar_t_in,
-                                 scalar_t_out,
-                                 AMP::Utilities::PortabilityBackend::Hip_Cuda,
-                                 Allocator>( X->numberOfNonZeros(), X_coeffs, Y_coeffs );
+        AMP::Utilities::
+            copyCast<scalar_t_in, scalar_t_out, AMP::Utilities::Backend::Hip_Cuda, allocator_type>(
+                X->numberOfNonZeros(), X_coeffs, Y_coeffs );
     }
 }
 

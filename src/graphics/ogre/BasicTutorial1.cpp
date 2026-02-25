@@ -145,7 +145,7 @@ bool BasicTutorial1::keyPressed( const KeyboardEvent &evt )
 }
 
 
-int main( int argc, char **argv )
+int main( int, char ** )
 {
     try {
         BasicTutorial1 app;

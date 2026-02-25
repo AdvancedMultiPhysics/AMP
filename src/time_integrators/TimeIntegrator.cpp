@@ -32,6 +32,8 @@ TimeIntegrator::TimeIntegrator(
     AMP_INSIST( d_pParameters, "Null parameter" );
 
     initialize( d_pParameters );
+
+    d_initialized = true;
 }
 
 TimeIntegrator::~TimeIntegrator() { AMPManager::decrementResource( "TimeIntegrator" ); }
@@ -121,7 +123,7 @@ double TimeIntegrator::getNextDt( const bool )
 *************************************************************************
 */
 
-void TimeIntegrator::getFromInput( std::shared_ptr<const AMP::Database> db, bool from_reset )
+void TimeIntegrator::getFromInput( std::shared_ptr<const AMP::Database> db )
 {
     AMP_ASSERT( db );
 
@@ -131,7 +133,7 @@ void TimeIntegrator::getFromInput( std::shared_ptr<const AMP::Database> db, bool
         AMP_ERROR( " -- Key data `name' missing in input." );
     }
 
-    if ( !from_reset ) {
+    if ( !d_initialized ) {
         if ( db->keyExists( "initial_time" ) ) {
             d_initial_time = db->getScalar<double>( "initial_time" );
         } else {
@@ -174,8 +176,10 @@ void TimeIntegrator::getFromInput( std::shared_ptr<const AMP::Database> db, bool
 
     d_iDebugPrintInfoLevel = db->getWithDefault<int>( "print_info_level", 0 );
 
-    d_current_dt = d_initial_dt;
-    d_old_dt     = d_initial_dt;
+    if ( !d_initialized ) {
+        d_current_dt = d_initial_dt;
+        d_old_dt     = d_initial_dt;
+    }
 }
 
 /*
@@ -257,6 +261,8 @@ TimeIntegrator::TimeIntegrator( int64_t fid, AMP::IO::RestartManager *manager )
     d_pParameters->d_global_db = std::make_shared<AMP::Database>( db_global );
     d_pParameters->d_ic_vector = ic_vector;
     TimeIntegrator::initialize( d_pParameters );
+
+    d_initialized = true;
 }
 
 

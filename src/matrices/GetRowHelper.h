@@ -25,6 +25,16 @@ public:
     //! Destructor
     ~GetRowHelper();
 
+    // Copy/assignment operators
+    GetRowHelper()                       = default;
+    GetRowHelper( GetRowHelper && )      = default;
+    GetRowHelper( const GetRowHelper & ) = delete;
+    GetRowHelper &operator=( GetRowHelper && ) = default;
+    GetRowHelper &operator=( const GetRowHelper & ) = delete;
+
+    //! Release all internal storage
+    void deallocate();
+
     /** \brief  Get the number of non-zeros
      * \details  This will return the number of non-zeros for the row as [local,remote]
      * \param[in]  row          The row
@@ -47,8 +57,11 @@ public:
      * \param[out] remote       The remote non-zero entries (may be null)
      */
     template<class INT>
-    void getRow( INT row, INT *local, INT *remote ) const;
+    void getRow( size_t row, INT *local, INT *remote ) const;
 
+    const size_t *getLocals() const { return d_local; }
+
+    const size_t *getRemotes() const { return d_remote; }
 
 private: // Private routines
     std::array<size_t *, 2> getRow2( size_t row ) const;
@@ -56,8 +69,7 @@ private: // Private routines
 
 
 private: // Member data
-    std::shared_ptr<const AMP::Discretization::DOFManager> d_leftDOF;
-    std::shared_ptr<const AMP::Discretization::DOFManager> d_rightDOF;
+    bool d_hasFields             = true;
     std::array<size_t, 2> *d_NNZ = nullptr;
     size_t *d_local              = nullptr;
     size_t *d_remote             = nullptr;
@@ -65,6 +77,8 @@ private: // Member data
     size_t *d_remoteOffset       = nullptr;
     size_t d_size[2]             = { 0, 0 };
     size_t d_capacity[2]         = { 0, 0 };
+    std::shared_ptr<const AMP::Discretization::DOFManager> d_leftDOF;
+    std::shared_ptr<const AMP::Discretization::DOFManager> d_rightDOF;
 };
 
 

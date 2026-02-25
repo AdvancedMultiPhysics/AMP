@@ -1,46 +1,73 @@
 
 Mesh{
-    FileName = "cylinder1K.e"
     MeshName = "cylinder"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 1088
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 4, 8
+    Range = 1, -2, 2
+    surfaceIds = 2, 2, 4, 4, 3, 3
+    static = TRUE
 }
 
 NumberOfLoadingSteps = 10
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+VonMisesElastoPlasticModel1 {
+    USE_MATERIALS_LIBRARY = FALSE
+    USE_UPDATED_LAGRANGIAN = TRUE
+    USE_JAUMANN_RATE = TRUE
+    print_info_level = 2
+    Material = ""
+    //name = "VonMisesElastoPlasticModel"
+    name = "IsotropicElasticModel"
+    Youngs_Modulus = 1.0e2
+    Poissons_Ratio = 0.3
+    Linear_Strain_Hardening = 5.0
+    Elastic_Yield_Stress = 1.0
+    Default_Temperature = 0.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = 0.0
+}
+
+MechanicsLinearUpdatedLagrangianElement{
+    name="MechanicsLinearUpdatedLagrangianElement"
+    USE_REDUCED_INTEGRATION = FALSE 
+    USE_JAUMANN_RATE = TRUE
+    FE_ORDER = "FIRST"  
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
+}
+
 MechanicsNonlinearFEOperator1 {
-      name = "MechanicsNonlinearFEOperator"
-        print_info_level = 3
-        ActiveInputVariables {
-          DISPLACEMENT = "displacement"
-        }
-      OutputVariable = "displacement"
-        RESET_REUSES_RADIAL_RETURN = TRUE
-        JACOBIAN_REUSES_RADIAL_RETURN = TRUE
-        USE_UPDATED_LAGRANGIAN = TRUE
+    name = "MechanicsNonlinearFEOperator"
+    print_info_level = 2
+    ActiveInputVariables {
+      DISPLACEMENT = "displacement"
+    }
+    OutputVariable = "displacement"
+    RESET_REUSES_RADIAL_RETURN = TRUE
+    JACOBIAN_REUSES_RADIAL_RETURN = TRUE
+    USE_UPDATED_LAGRANGIAN = TRUE
 
-        MechanicsElement {
-          name="MechanicsNonlinearUpdatedLagrangianElement"
-            USE_REDUCED_INTEGRATION = FALSE 
-            USE_JAUMANN_RATE = TRUE
-            FE_ORDER = "FIRST"  
-            FE_FAMILY = "LAGRANGE"
-            QRULE_TYPE = "QGAUSS"
-            QRULE_ORDER = "DEFAULT"
-        }
+    MechanicsElement {
+      name="MechanicsNonlinearUpdatedLagrangianElement"
+        USE_REDUCED_INTEGRATION = FALSE 
+        USE_JAUMANN_RATE = TRUE
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }
 
-	LocalModel = "VonMisesElastoPlasticModel1"
+    MechanicsLinearElement = MechanicsLinearUpdatedLagrangianElement
+    LocalModel = VonMisesElastoPlasticModel1
 }
 
 DirichletVectorCorrection1 {
@@ -64,23 +91,6 @@ DirichletVectorCorrection1 {
       value_1_1 = 0.0
 }
 
-VonMisesElastoPlasticModel1 {
-        USE_MATERIALS_LIBRARY = FALSE
-          USE_UPDATED_LAGRANGIAN = TRUE
-          USE_JAUMANN_RATE = TRUE
-          print_info_level = 6
-          Material = ""
-          //name = "VonMisesElastoPlasticModel"
-          name = "IsotropicElasticModel"
-          Youngs_Modulus = 1.0e2
-          Poissons_Ratio = 0.3
-          Linear_Strain_Hardening = 5.0
-          Elastic_Yield_Stress = 1.0
-          Default_Temperature = 0.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = 0.0
-      }
-
 LinearMechanicsOperator {
   name="LinearBVPOperator"
     print_info_level = 1
@@ -96,15 +106,7 @@ MechanicsLinearFEOperator2 {
         InputVariable = "displacement"
         OutputVariable = "displacement"
 
-        MechanicsElement {
-          name="MechanicsLinearUpdatedLagrangianElement"
-            USE_REDUCED_INTEGRATION = FALSE 
-            USE_JAUMANN_RATE = TRUE
-            FE_ORDER = "FIRST"  
-            FE_FAMILY = "LAGRANGE"
-            QRULE_TYPE = "QGAUSS"
-            QRULE_ORDER = "DEFAULT"
-        }
+        MechanicsElement = MechanicsLinearUpdatedLagrangianElement
 }
 
 DirichletMatrixCorrection2 {
@@ -142,7 +144,7 @@ Load_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 

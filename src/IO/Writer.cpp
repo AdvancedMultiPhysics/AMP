@@ -77,7 +77,9 @@ Writer::WriterProperties::WriterProperties()
     : registerMesh( false ),
       registerVector( false ),
       registerVectorWithMesh( false ),
-      registerMatrix( false )
+      registerMatrix( false ),
+      enabled( false ),
+      isNull( true )
 {
 }
 
@@ -87,7 +89,12 @@ Writer::WriterProperties::WriterProperties()
  ************************************************************/
 Writer::VectorData::VectorData( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_,
                                 const std::string &name_ )
-    : name( name_ ), numDOFs( 0 ), vec( vec_ ), type( static_cast<AMP::Mesh::GeomType>( 0xFF ) )
+    : isStatic( false ),
+      dataType( VectorType::DOUBLE ),
+      numDOFs( 0 ),
+      type( static_cast<AMP::Mesh::GeomType>( 0xFF ) ),
+      name( name_ ),
+      vec( vec_ )
 {
     if ( !vec )
         return;
@@ -108,7 +115,7 @@ Writer::MatrixData::MatrixData( std::shared_ptr<AMP::LinearAlgebra::Matrix> mat_
     if ( !mat )
         return;
     if ( name.empty() )
-        name = mat->getLeftVector()->getName() + " - " + mat->getRightVector()->getName();
+        name = mat->createOutputVector()->getName() + " - " + mat->createInputVector()->getName();
 }
 
 
@@ -154,20 +161,15 @@ std::shared_ptr<AMP::IO::Writer> Writer::buildWriter( std::shared_ptr<AMP::Datab
 
 
 /************************************************************
- * Constructor/Destructor                                    *
- ************************************************************/
-Writer::Writer() : d_comm( AMP_COMM_WORLD ) { d_decomposition = 2; }
-Writer::~Writer() = default;
-
-
-/************************************************************
  * Some basic functions                                      *
  ************************************************************/
 std::string Writer::getExtension() const { return getProperties().extension; }
 void Writer::setDecomposition( int d )
 {
-    AMP_INSIST( d == 1 || d == 2, "decomposition must be 1 or 2" );
-    d_decomposition = d;
+    if ( d == 1 )
+        d_decomposition = DecompositionType::SINGLE;
+    else
+        d_decomposition = DecompositionType::MULTIPLE;
 }
 void Writer::createDirectories( const std::string &filename )
 {
@@ -202,6 +204,7 @@ void Writer::registerMesh2( std::shared_ptr<AMP::Mesh::Mesh> mesh,
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( !multimesh ) {
         // Create a unique id for each rank
+        mesh->getComm().barrier();
         int rank = d_comm.getRank();
         GlobalID id( mesh->meshID().getData(), rank );
         base_ids.insert( id );
@@ -294,27 +297,12 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
 /************************************************************
  * Register a vector with a mesh                             *
  ************************************************************/
-static int getDOFsPerPoint( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
-                            std::shared_ptr<AMP::Mesh::Mesh> mesh,
-                            AMP::Mesh::GeomType type )
-{
-    std::vector<size_t> dofs;
-    auto DOFs = vec->getDOFManager();
-    auto it1  = mesh->getIterator( type, 0 );
-    DOFs->getDOFs( it1->globalID(), dofs );
-    int DOFsPerPoint = dofs.size();
-    if ( type == AMP::Mesh::GeomType::Vertex )
-        it1 = mesh->getIterator( type, 1 );
-    for ( const auto &elem : it1 ) {
-        DOFs->getDOFs( elem.globalID(), dofs );
-        AMP_ASSERT( (int) dofs.size() == DOFsPerPoint );
-    }
-    return DOFsPerPoint;
-}
 void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                              std::shared_ptr<AMP::Mesh::Mesh> mesh,
                              AMP::Mesh::GeomType type,
-                             const std::string &name_in )
+                             const std::string &name_in,
+                             VectorType precision,
+                             bool isStatic )
 {
     // Return if the vector or mesh is empty
     if ( !vec || !mesh )
@@ -329,11 +317,13 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
         return;
     auto it1 = mesh->getIterator( type, 0 );
     auto it2 = DOFs->getIterator();
-    auto it3 = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, it1, it2 );
     if ( it1.size() == 0 || it2.size() == 0 )
         return;
-    if ( it1.size() != it3.size() )
-        AMP_WARNING( "vector does not cover the entire mesh for the given entity type" );
+    if ( it2.size() != it1.size() ) {
+        auto it3 = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, it1, it2 );
+        if ( it1.size() != it3.size() )
+            AMP_WARNING( "vector does not cover the entire mesh for the given entity type" );
+    }
     // Register the vector with the appropriate base meshes
     auto ids = getMeshIDs( mesh );
     for ( auto id : ids ) {
@@ -342,9 +332,13 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
                 AMP::LinearAlgebra::VS_Mesh meshSelector( mesh2.mesh );
                 auto vec2 = vec->selectInto( meshSelector );
                 if ( vec2 ) {
+                    int N_dofs = vec2->getDOFManager()->getDOFsPerPoint();
+                    AMP_ASSERT( N_dofs > 0 && N_dofs < 255 );
                     VectorData data( vec2, name_in );
-                    data.type    = type;
-                    data.numDOFs = getDOFsPerPoint( vec2, mesh2.mesh, type );
+                    data.type     = type;
+                    data.numDOFs  = N_dofs;
+                    data.isStatic = isStatic;
+                    data.dataType = precision;
                     mesh2.vectors.push_back( data );
                 }
             }
@@ -367,7 +361,7 @@ void Writer::registerVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
 void Writer::registerMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> mat,
                              const std::string &name )
 {
-    auto id = getID( mat->getLeftVector()->getComm() );
+    auto id = getID( mat->createOutputVector()->getComm() );
     MatrixData data( mat, name );
     d_matrices.insert( std::make_pair( id, std::move( data ) ) );
 }
@@ -643,15 +637,14 @@ void Writer::getNodeElemList( std::shared_ptr<const AMP::Mesh::Mesh> mesh,
     }
     elem_iterator = elements.begin();
     nodelist.resize( shapesize, elem_iterator.size() );
-    std::vector<AMP::Mesh::MeshElementID> nodeids;
+    AMP::Mesh::MeshElementID nodeids[32];
     size_t i = 0;
     for ( const auto &elem : elem_iterator ) {
-        elem.getElementsID( AMP::Mesh::GeomType::Vertex, nodeids );
-        AMP_INSIST( (int) nodeids.size() == shapesize,
-                    "Mixed element types is currently not supported" );
-        for ( auto &nodeid : nodeids ) {
-            int index = AMP::Utilities::findfirst( nodelist_ids, nodeid );
-            AMP_ASSERT( nodelist_ids[index] == nodeid );
+        auto N_nodes = elem.getElementsID( AMP::Mesh::GeomType::Vertex, nodeids );
+        AMP_INSIST( N_nodes == shapesize, "Mixed element types is currently not supported" );
+        for ( int j = 0; j < N_nodes; j++ ) {
+            int index = AMP::Utilities::findfirst( nodelist_ids, nodeids[j] );
+            AMP_ASSERT( nodelist_ids[index] == nodeids[j] );
             nodelist( i++ ) = index;
         }
         ++elem_iterator;

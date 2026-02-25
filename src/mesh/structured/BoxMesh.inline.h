@@ -29,10 +29,6 @@ constexpr ArraySize BoxMesh::Box::size() const
 /****************************************************************
  * MeshElementIndex                                              *
  ****************************************************************/
-constexpr BoxMesh::MeshElementIndex::MeshElementIndex()
-    : d_type( 0 ), d_side( 255 ), d_index{ 0, 0, 0 }
-{
-}
 constexpr BoxMesh::MeshElementIndex::MeshElementIndex(
     GeomType type_in, uint8_t side_in, int x, int y, int z )
     : d_type( static_cast<uint8_t>( type_in ) ), d_side( side_in ), d_index{ x, y, z }
@@ -120,12 +116,18 @@ inline std::vector<bool> BoxMesh::periodic() const
     periodic.resize( static_cast<int>( GeomDim ) );
     return periodic;
 }
-inline std::vector<size_t> BoxMesh::size() const
+inline ArraySize BoxMesh::size() const
 {
-    std::vector<size_t> size( static_cast<int>( GeomDim ) );
-    for ( int d = 0; d < static_cast<int>( GeomDim ); d++ )
-        size[d] = d_globalSize[d];
-    return size;
+    return ArraySize( { d_globalSize[0], d_globalSize[1], d_globalSize[2] },
+                      static_cast<int>( GeomDim ) );
+}
+inline ArraySize BoxMesh::localSize() const
+{
+    auto local  = getLocalBlock( d_comm.getRank() );
+    size_t N[3] = { (size_t) local[1] - local[0] + 1,
+                    (size_t) local[3] - local[2] + 1,
+                    (size_t) local[5] - local[4] + 1 };
+    return ArraySize( static_cast<int>( GeomDim ), N );
 }
 inline std::vector<size_t> BoxMesh::numBlocks() const
 {
@@ -207,6 +209,8 @@ inline int BoxMesh::getRank( const MeshElementIndex &index ) const
 }
 inline MeshElementID BoxMesh::convert( const BoxMesh::MeshElementIndex &index ) const
 {
+    if ( index.isNull() )
+        return MeshElementID();
     int i        = index.index( 0 );
     int j        = index.index( 1 );
     int k        = index.index( 2 );
@@ -240,6 +244,8 @@ inline MeshElementID BoxMesh::convert( const BoxMesh::MeshElementIndex &index ) 
 }
 inline BoxMesh::MeshElementIndex BoxMesh::convert( const MeshElementID &id ) const
 {
+    if ( id.isNull() )
+        return MeshElementIndex();
     int rank = id.owner_rank();
     int size[3], index0[3];
     if ( rank == d_rank ) {
@@ -270,6 +276,31 @@ inline BoxMesh::MeshElementIndex BoxMesh::convert( const MeshElementID &id ) con
     j += index0[1];
     k += index0[2];
     return MeshElementIndex( id.type(), side, i, j, k );
+}
+
+
+/****************************************************************
+ * Fix the element id for any periodic boundaries                *
+ ****************************************************************/
+inline void BoxMesh::fixPeriodic( MeshElementIndex &index ) const
+{
+    for ( int d = 0; d < PhysicalDim; d++ ) {
+        if ( d_surfaceId[2 * d] == -1 ) {
+            // Periodic boundary
+            if ( index[d] < 0 )
+                index[d] += d_globalSize[d];
+            else if ( index[d] >= d_globalSize[d] )
+                index[d] -= d_globalSize[d];
+        } else if ( d_surfaceId[2 * d] == -2 || d_surfaceId[2 * d + 1] == -2 ) {
+            // Mapped boundary
+            if ( index[d] >= 0 || index[d] < d_globalSize[d] )
+                continue;
+            auto &[x, y] = d_surfaceMaps[d];
+            auto i       = std::min( AMP::Utilities::findfirst( x, index ), x.size() - 1 );
+            AMP_DEBUG_ASSERT( x[i] == index );
+            index = y[i];
+        }
+    }
 }
 
 

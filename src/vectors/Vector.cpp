@@ -16,6 +16,7 @@
 #include <cstring>
 #include <typeinfo>
 
+#include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -26,21 +27,23 @@ namespace AMP::LinearAlgebra {
 Vector::Vector()
     : d_Variable( new Variable( "null" ) ),
       d_DOFManager( new AMP::Discretization::DOFManager( 0, AMP_MPI( AMP_COMM_SELF ) ) ),
-      d_VectorData( new VectorDataNull<double>() ),
+      d_VectorData( new VectorDataNull( getTypeID<double>() ) ),
       d_VectorOps( new VectorOperationsDefault<double>() ),
       d_Views( new std::vector<std::any>() )
 {
     AMPManager::incrementResource( "Vector" );
 }
+
 Vector::Vector( const std::string &name )
     : d_Variable( new Variable( name ) ),
       d_DOFManager( new AMP::Discretization::DOFManager( 0, AMP_MPI( AMP_COMM_SELF ) ) ),
-      d_VectorData( new VectorDataNull<double>() ),
+      d_VectorData( new VectorDataNull( getTypeID<double>() ) ),
       d_VectorOps( new VectorOperationsDefault<double>() ),
       d_Views( new std::vector<std::any>() )
 {
     AMPManager::incrementResource( "Vector" );
 }
+
 Vector::Vector( std::shared_ptr<VectorData> data,
                 std::shared_ptr<VectorOperations> ops,
                 std::shared_ptr<Variable> var,
@@ -51,12 +54,16 @@ Vector::Vector( std::shared_ptr<VectorData> data,
       d_VectorOps( ops ),
       d_Views( new std::vector<std::any>() )
 {
+    PROFILE( "Vector::constructor" );
+
     AMPManager::incrementResource( "Vector" );
     AMP_ASSERT( data && ops && var );
-    if ( !d_DOFManager )
+    if ( !d_DOFManager ) {
         d_DOFManager = std::make_shared<AMP::Discretization::DOFManager>(
             d_VectorData->getLocalSize(), d_VectorData->getComm() );
+    }
 }
+
 Vector::~Vector() { AMPManager::decrementResource( "Vector" ); }
 
 
@@ -69,7 +76,12 @@ std::string Vector::type() const { return "Vector<" + d_VectorData->VectorDataNa
 /****************************************************************
  * setRandomValues                                               *
  ****************************************************************/
-void Vector::setRandomValues() { d_VectorOps->setRandomValues( *getVectorData() ); }
+void Vector::setRandomValues()
+{
+    PROFILE( "Vector::setRandomValues" );
+
+    d_VectorOps->setRandomValues( *getVectorData() );
+}
 
 
 /****************************************************************
@@ -77,7 +89,17 @@ void Vector::setRandomValues() { d_VectorOps->setRandomValues( *getVectorData() 
  ****************************************************************/
 Vector::shared_ptr Vector::selectInto( const VectorSelector &s )
 {
+    PROFILE( "Vector::selectInto" );
+
     Vector::shared_ptr subvector;
+    auto managed = std::dynamic_pointer_cast<ManagedVectorData>( d_VectorData );
+    if ( managed ) {
+        auto engine = managed->getVectorEngine();
+        if ( engine )
+            subvector = engine->selectInto( s );
+        if ( subvector )
+            return subvector;
+    }
     if ( s.isSelected( *this ) ) {
         // Subset the vector
         subvector = s.subset( shared_from_this() );
@@ -92,18 +114,7 @@ Vector::shared_ptr Vector::selectInto( const VectorSelector &s )
 }
 Vector::const_shared_ptr Vector::selectInto( const VectorSelector &s ) const
 {
-    Vector::const_shared_ptr subvector;
-    if ( s.isSelected( *this ) ) {
-        // Subset the vector
-        subvector = s.subset( shared_from_this() );
-        if ( subvector ) {
-            // Check the global size of the new vector to make sure it is <= the current size
-            size_t N1 = this->getGlobalSize();
-            size_t N2 = subvector->getGlobalSize();
-            AMP_ASSERT( N2 <= N1 );
-        }
-    }
-    return subvector;
+    return const_cast<Vector *>( this )->selectInto( s );
 }
 Vector::shared_ptr Vector::select( const VectorSelector &s )
 {
@@ -116,33 +127,7 @@ Vector::shared_ptr Vector::select( const VectorSelector &s )
 }
 Vector::const_shared_ptr Vector::select( const VectorSelector &s ) const
 {
-    if ( dynamic_cast<const VS_ByVariableName *>( &s ) ) {
-        const std::string &name = dynamic_cast<const VS_ByVariableName *>( &s )->getName();
-        if ( name == this->getVariable()->getName() )
-            return shared_from_this();
-    }
-    return this->selectInto( s );
-}
-Vector::shared_ptr Vector::select( const VectorSelector &s, const std::string &variable_name )
-{
-    auto vec = select( s );
-    if ( vec ) {
-        vec      = MultiVector::view( vec );
-        auto var = std::make_shared<Variable>( variable_name );
-        vec->setVariable( var );
-    }
-    return vec;
-}
-Vector::const_shared_ptr Vector::select( const VectorSelector &s,
-                                         const std::string &variable_name ) const
-{
-    auto vec = select( s );
-    if ( vec ) {
-        vec      = MultiVector::constView( vec );
-        auto var = std::make_shared<Variable>( variable_name );
-        std::const_pointer_cast<Vector>( vec )->setVariable( var );
-    }
-    return vec;
+    return const_cast<Vector *>( this )->select( s );
 }
 Vector::shared_ptr Vector::subsetVectorForVariable( const std::string &name )
 {
@@ -186,23 +171,27 @@ Vector::const_shared_ptr Vector::subsetVectorForComponent( size_t index ) const
 std::shared_ptr<Vector> Vector::clone() const { return clone( getVariable()->clone() ); }
 std::shared_ptr<Vector> Vector::clone( const std::string &name ) const
 {
-    std::unique_ptr<Vector> retVal;
-    if ( getVariable() ) {
-        retVal = rawClone( getVariable()->clone( name ) );
-    } else {
-        retVal = rawClone( std::make_shared<Variable>( name ) );
-    }
-    return retVal;
+    PROFILE( "Vector::clone" );
+
+    auto vec = rawClone();
+    vec->setName( name );
+    return vec;
 }
 Vector::shared_ptr Vector::clone( const std::shared_ptr<Variable> name ) const
 {
-    return rawClone( name );
+    PROFILE( "Vector::clone" );
+
+    auto vec = rawClone();
+    vec->setVariable( name );
+    return vec;
 }
-std::unique_ptr<Vector> Vector::rawClone( const std::shared_ptr<Variable> name ) const
+std::unique_ptr<Vector> Vector::rawClone() const
 {
+    PROFILE( "Vector::rawClone" );
+
     auto vec          = std::make_unique<Vector>();
     vec->d_units      = d_units;
-    vec->d_Variable   = name;
+    vec->d_Variable   = vec->d_Variable->clone();
     vec->d_DOFManager = d_DOFManager;
     vec->d_VectorData = d_VectorData->cloneData();
     vec->d_VectorOps  = d_VectorOps->cloneOperations();
@@ -214,6 +203,8 @@ std::unique_ptr<Vector> Vector::rawClone( const std::shared_ptr<Variable> name )
 }
 void Vector::swapVectors( Vector &other )
 {
+    PROFILE( "Vector::swapVectors" );
+
     d_VectorData->swapData( *other.getVectorData() );
     std::swap( d_units, other.d_units );
 }
@@ -224,94 +215,224 @@ void Vector::swapVectors( Vector &other )
  ****************************************************************/
 void Vector::copyCast( std::shared_ptr<const Vector> x )
 {
+    PROFILE( "Vector::copyCast" );
+
     d_VectorOps->copyCast( *x->getVectorData(), *getVectorData() );
 }
 
 /****************************************************************
  * Math API for Vector                                          *
  ****************************************************************/
-void Vector::copy( const Vector &x ) { d_VectorOps->copy( *x.getVectorData(), *getVectorData() ); }
-void Vector::zero() { d_VectorOps->zero( *getVectorData() ); }
+void Vector::copy( const Vector &x )
+{
+    PROFILE( "Vector::copy" );
+
+    d_VectorOps->copy( *x.getVectorData(), *getVectorData() );
+}
+
+void Vector::zero()
+{
+    PROFILE( "Vector::zero" );
+
+    d_VectorOps->zero( *getVectorData() );
+}
+
 void Vector::setToScalar( const Scalar &alpha )
 {
+    PROFILE( "Vector::setToScalar" );
+
     d_VectorOps->setToScalar( alpha, *getVectorData() );
 }
+
 void Vector::scale( const Scalar &alpha, const Vector &x )
 {
+    PROFILE( "Vector::scale" );
+
     d_VectorOps->scale( alpha, *x.getVectorData(), *getVectorData() );
 }
-void Vector::scale( const Scalar &alpha ) { d_VectorOps->scale( alpha, *getVectorData() ); }
+
+void Vector::scale( const Scalar &alpha )
+{
+    PROFILE( "Vector::scale" );
+
+    d_VectorOps->scale( alpha, *getVectorData() );
+}
+
 void Vector::add( const Vector &x, const Vector &y )
 {
+    PROFILE( "Vector::add" );
+
     d_VectorOps->add( *x.getVectorData(), *y.getVectorData(), *getVectorData() );
 }
+
 void Vector::subtract( const Vector &x, const Vector &y )
 {
+    PROFILE( "Vector::subtract" );
+
     d_VectorOps->subtract( *x.getVectorData(), *y.getVectorData(), *getVectorData() );
 }
+
 void Vector::multiply( const Vector &x, const Vector &y )
 {
+    PROFILE( "Vector::multiply" );
+
     d_VectorOps->multiply( *x.getVectorData(), *y.getVectorData(), *getVectorData() );
 }
+
 void Vector::divide( const Vector &x, const Vector &y )
 {
+    PROFILE( "Vector::divide" );
+
     d_VectorOps->divide( *x.getVectorData(), *y.getVectorData(), *getVectorData() );
 }
+
 void Vector::reciprocal( const Vector &x )
 {
+    PROFILE( "Vector::reciprocal" );
+
     d_VectorOps->reciprocal( *x.getVectorData(), *getVectorData() );
 }
+
 void Vector::linearSum( const Scalar &alpha, const Vector &x, const Scalar &beta, const Vector &y )
 {
+    PROFILE( "Vector::linearSum" );
+
     d_VectorOps->linearSum( alpha, *x.getVectorData(), beta, *y.getVectorData(), *getVectorData() );
 }
+
 void Vector::axpy( const Scalar &alpha, const Vector &x, const Vector &y )
 {
+    PROFILE( "Vector::axpy" );
+
     d_VectorOps->axpy( alpha, *x.getVectorData(), *y.getVectorData(), *getVectorData() );
 }
+
 void Vector::axpby( const Scalar &alpha, const Scalar &beta, const Vector &x )
 {
+    PROFILE( "Vector::axpby" );
+
     d_VectorOps->axpby( alpha, beta, *x.getVectorData(), *getVectorData() );
 }
-void Vector::abs( const Vector &x ) { d_VectorOps->abs( *x.getVectorData(), *getVectorData() ); }
+
+void Vector::abs( const Vector &x )
+{
+    PROFILE( "Vector::abs" );
+
+    d_VectorOps->abs( *x.getVectorData(), *getVectorData() );
+}
+
 void Vector::addScalar( const Vector &x, const Scalar &alpha_in )
 {
+    PROFILE( "Vector::addScalar" );
+
     d_VectorOps->addScalar( *x.getVectorData(), alpha_in, *getVectorData() );
 }
-void Vector::setMax( const Scalar &val ) { d_VectorOps->setMax( val, *getVectorData() ); }
-void Vector::setMin( const Scalar &val ) { d_VectorOps->setMin( val, *getVectorData() ); }
-Scalar Vector::min() const { return d_VectorOps->min( *getVectorData() ); }
-Scalar Vector::max() const { return d_VectorOps->max( *getVectorData() ); }
-Scalar Vector::sum() const { return d_VectorOps->sum( *getVectorData() ); }
-Scalar Vector::mean() const { return d_VectorOps->mean( *getVectorData() ); }
-Scalar Vector::L1Norm() const { return d_VectorOps->L1Norm( *getVectorData() ); }
-Scalar Vector::L2Norm() const { return d_VectorOps->L2Norm( *getVectorData() ); }
-Scalar Vector::maxNorm() const { return d_VectorOps->maxNorm( *getVectorData() ); }
+
+void Vector::setMax( const Scalar &val )
+{
+    PROFILE( "Vector::setMax" );
+
+    d_VectorOps->setMax( val, *getVectorData() );
+}
+
+void Vector::setMin( const Scalar &val )
+{
+    PROFILE( "Vector::setMin" );
+
+    d_VectorOps->setMin( val, *getVectorData() );
+}
+
+Scalar Vector::min() const
+{
+    PROFILE( "Vector::min" );
+
+    return d_VectorOps->min( *getVectorData() );
+}
+
+Scalar Vector::max() const
+{
+    PROFILE( "Vector::max" );
+
+    return d_VectorOps->max( *getVectorData() );
+}
+
+Scalar Vector::sum() const
+{
+    PROFILE( "Vector::sum" );
+
+    return d_VectorOps->sum( *getVectorData() );
+}
+
+Scalar Vector::mean() const
+{
+    PROFILE( "Vector::mean" );
+
+    return d_VectorOps->mean( *getVectorData() );
+}
+
+Scalar Vector::L1Norm() const
+{
+    PROFILE( "Vector::L1Norm" );
+
+    return d_VectorOps->L1Norm( *getVectorData() );
+}
+
+Scalar Vector::L2Norm() const
+{
+    PROFILE( "Vector::L2Norm" );
+
+    return d_VectorOps->L2Norm( *getVectorData() );
+}
+
+Scalar Vector::maxNorm() const
+{
+    PROFILE( "Vector::maxNorm" );
+
+    return d_VectorOps->maxNorm( *getVectorData() );
+}
+
 Scalar Vector::minQuotient( const Vector &x ) const
 {
+    PROFILE( "Vector::minQuotient" );
+
     return d_VectorOps->minQuotient( *x.getVectorData(), *getVectorData() );
 }
+
 Scalar Vector::wrmsNorm( const Vector &x, const Vector &y ) const
 {
+    PROFILE( "Vector::wrmsNorm" );
+
     return d_VectorOps->wrmsNorm( *x.getVectorData(), *y.getVectorData() );
 }
+
 Scalar Vector::wrmsNormMask( const Vector &x, const Vector &mask, const Vector &y ) const
 {
+    PROFILE( "Vector::wrmsNormMask" );
+
     return d_VectorOps->wrmsNormMask(
         *x.getVectorData(), *mask.getVectorData(), *y.getVectorData() );
 }
+
 Scalar Vector::dot( const Vector &x ) const
 {
+    PROFILE( "Vector::dot" );
+
     return d_VectorOps->dot( *getVectorData(), *x.getVectorData() );
 }
+
 std::pair<Scalar, Scalar> Vector::L2NormAndDot( const Vector &x ) const
 {
+    PROFILE( "Vector::L2NormAndDot" );
+
     auto L2  = this->L2Norm();
     auto dot = this->dot( x );
-    return std::make_pair( L2, dot );
+    return std::make_pair( L2 * L2, dot );
 }
+
 bool Vector::equals( const Vector &a, const Scalar &tol ) const
 {
+    PROFILE( "Vector::equals" );
+
     return d_VectorOps->equals( *a.getVectorData(), *getVectorData(), tol );
 }
 

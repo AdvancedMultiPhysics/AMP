@@ -13,17 +13,9 @@ struct DeviceMatrixOperations {
                       const L *cols_loc,
                       const S *coeffs,
                       const size_t N,
-                      const S *in_h,
-                      const size_t Ng,
-                      S *out );
-    static void mult( const L *row_starts,
-                      const L *cols_loc,
-                      const S *coeffs,
-                      const size_t N,
-                      const S *in_h,
+                      const S *in,
                       S *out );
 
-    static void setScalar( const size_t N, S *coeffs, const S alpha );
     static void scale( const size_t N, S *coeffs, const S alpha );
     static void axpy( const size_t N, const S alpha, S *x, S *y );
     static void copy( const size_t N, const S *x, S *y );

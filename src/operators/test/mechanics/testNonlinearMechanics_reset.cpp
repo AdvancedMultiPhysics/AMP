@@ -40,10 +40,10 @@ static void myTest( AMP::UnitTest *ut )
     auto mesh_db    = input_db->getDatabase( "Mesh" );
     auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( meshParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
 
     auto dofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     // Material model shared by both the linear and nonlinear operators
     AMP_INSIST( input_db->keyExists( "VonMises_Model" ), "Key ''VonMises_Model'' is missing!" );
@@ -89,7 +89,7 @@ static void myTest( AMP::UnitTest *ut )
                 mechNonlinAssembly_db );
         mechNonlinOpParams->d_materialModel                                  = matModel;
         mechNonlinOpParams->d_elemOp                                         = mechNonlinElem;
-        mechNonlinOpParams->d_Mesh                                           = meshAdapter;
+        mechNonlinOpParams->d_Mesh                                           = mesh;
         mechNonlinOpParams->d_dofMap[AMP::Operator::Mechanics::DISPLACEMENT] = dofMap;
         auto mechNonlinOp =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperator>( mechNonlinOpParams );
@@ -108,7 +108,7 @@ static void myTest( AMP::UnitTest *ut )
             mechLinAssembly_db );
         mechLinOpParams->d_materialModel = matModel;
         mechLinOpParams->d_elemOp        = mechLinElem;
-        mechLinOpParams->d_Mesh          = meshAdapter;
+        mechLinOpParams->d_Mesh          = mesh;
         mechLinOpParams->d_inDofMap      = dofMap;
         mechLinOpParams->d_outDofMap     = dofMap;
         auto mechLinOp =
@@ -123,7 +123,7 @@ static void myTest( AMP::UnitTest *ut )
         // This is just the variable used to extract the dof_map.
         // This boundary operator itself has an empty input and output variable
         dirichletOpParams->d_variable = var;
-        dirichletOpParams->d_Mesh     = meshAdapter;
+        dirichletOpParams->d_Mesh     = mesh;
         auto dirichletMatOp =
             std::make_shared<AMP::Operator::DirichletMatrixCorrection>( dirichletOpParams );
 
@@ -132,7 +132,7 @@ static void myTest( AMP::UnitTest *ut )
         // This has an in-place apply. So, it has an empty input variable and
         // the output variable is the same as what it is operating on.
         dirichletDispInVecParams->d_variable = var;
-        dirichletDispInVecParams->d_Mesh     = meshAdapter;
+        dirichletDispInVecParams->d_Mesh     = mesh;
         auto dirichletDispInVecOp =
             std::make_shared<AMP::Operator::DirichletVectorCorrection>( dirichletDispInVecParams );
 
@@ -141,7 +141,7 @@ static void myTest( AMP::UnitTest *ut )
         // This has an in-place apply. So, it has an empty input variable and
         // the output variable is the same as what it is operating on.
         dirichletDispOutVecParams->d_variable = var;
-        dirichletDispOutVecParams->d_Mesh     = meshAdapter;
+        dirichletDispOutVecParams->d_Mesh     = mesh;
         auto dirichletDispOutVecOp =
             std::make_shared<AMP::Operator::DirichletVectorCorrection>( dirichletDispOutVecParams );
 
@@ -172,7 +172,7 @@ static void myTest( AMP::UnitTest *ut )
         // This has an in-place apply. So, it has an empty input variable and
         // the output variable is the same as what it is operating on.
         dirichletLoadVecParams->d_variable = var;
-        dirichletLoadVecParams->d_Mesh     = meshAdapter;
+        dirichletLoadVecParams->d_Mesh     = mesh;
         auto dirichletLoadVecOp =
             std::make_shared<AMP::Operator::DirichletVectorCorrection>( dirichletLoadVecParams );
 

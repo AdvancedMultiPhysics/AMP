@@ -1,0 +1,39 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "SASolver"
+  uses_preconditioner = FALSE
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 3
+  max_iterations = 40
+  max_levels = 10
+  min_coarse_local = 10
+  min_coarse_global = 40
+  kappa = 2
+  kcycle_type = "fcg"
+  
+<<< SASolver-Level-MIS2 >>>
+  
+  pre_relaxation{
+    name = "JacobiL1"
+    num_sweeps = 2
+  }
+
+  post_relaxation{
+    name = "JacobiL1"
+    num_sweeps = 2
+  }
+
+  coarse_solver{
+    name = "JacobiL1"
+    num_sweeps = 4
+  }
+}
+
+Reference{
+  iterations = 21
+  res_l2_norm = -1
+  tolerance = 0
+  strict = FALSE
+}

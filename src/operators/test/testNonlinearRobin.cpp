@@ -44,18 +44,17 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
     // Create the meshes from the input database
-    auto manager     = AMP::Mesh::MeshFactory::create( meshParams );
-    auto meshAdapter = manager->Subset( "cylinder" );
+    auto manager = AMP::Mesh::MeshFactory::create( meshParams );
+    auto mesh    = manager->Subset( "cylinder" );
 
     AMP::pout << "Constructing Nonlinear Thermal Operator..." << std::endl;
 
     // create a nonlinear BVP operator for nonlinear thermal diffusion
     AMP_INSIST( input_db->keyExists( "testNonlinearThermalOperator" ), "key missing!" );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> thermalTransportModel;
     auto nonlinearThermalOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testNonlinearThermalOperator", input_db, thermalTransportModel ) );
+            mesh, "testNonlinearThermalOperator", input_db ) );
 
     // initialize the input variable
     auto thermalVolumeOperator =
@@ -66,7 +65,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     // create solution, rhs, and residual vectors
     auto NodalScalarDOF = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
     auto solVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, thermalVariable, true );
     auto rhsVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, thermalVariable, true );
     auto resVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, thermalVariable, true );
@@ -80,15 +79,14 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     AMP_INSIST( input_db->keyExists( "testLinearThermalOperator" ), "key missing!" );
     auto linearThermalOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testLinearThermalOperator", input_db, thermalTransportModel ) );
+            mesh, "testLinearThermalOperator", input_db ) );
 
     // CREATE THE NEUTRONICS SOURCE
     AMP_INSIST( input_db->keyExists( "NeutronicsOperator" ),
                 "Key ''NeutronicsOperator'' is missing!" );
-    auto neutronicsOp_db = input_db->getDatabase( "NeutronicsOperator" );
-    auto neutronicsParams =
-        std::make_shared<AMP::Operator::NeutronicsRhsParameters>( neutronicsOp_db );
-    neutronicsParams->d_Mesh = meshAdapter;
+    auto neutronicsOp_db  = input_db->getDatabase( "NeutronicsOperator" );
+    auto neutronicsParams = std::make_shared<AMP::Operator::OperatorParameters>( neutronicsOp_db );
+    neutronicsParams->d_Mesh = mesh;
     auto neutronicsOperator  = std::make_shared<AMP::Operator::NeutronicsRhs>( neutronicsParams );
 
     // Create a DOF manager for a gauss point vector
@@ -96,7 +94,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     int ghostWidth     = 1;
     bool split         = true;
     auto gauss_dof_map = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Cell, ghostWidth, DOFsPerNode, split );
 
     auto SpecificPowerVar = neutronicsOperator->getOutputVariable();
     auto SpecificPowerVec =
@@ -106,10 +104,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     // Integrate Nuclear Rhs over Desnity * GeomType::Cell
     AMP_INSIST( input_db->keyExists( "VolumeIntegralOperator" ), "key missing!" );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> stransportModel;
     auto sourceOperator = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "VolumeIntegralOperator", input_db, stransportModel ) );
+            mesh, "VolumeIntegralOperator", input_db ) );
 
     // Create the power (heat source) vector.
     auto PowerInWattsVar = sourceOperator->getOutputVariable();

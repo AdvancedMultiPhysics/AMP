@@ -3,6 +3,7 @@
 
 #include "AMP/IO/FileSystem.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Array.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/Utilities.hpp"
@@ -20,16 +21,6 @@
 #include <thread>
 #include <type_traits>
 #include <vector>
-
-
-// Helper function to record pass/failure
-#define PASS_FAIL( test, MSG ) \
-    do {                       \
-        if ( test )            \
-            ut.passes( MSG );  \
-        else                   \
-            ut.failure( MSG ); \
-    } while ( 0 )
 
 
 // Subtract two size_t numbers, returning the absolute value
@@ -159,9 +150,9 @@ void test_interp( AMP::UnitTest &ut )
             }
         }
     }
-    PASS_FAIL( pass_linear, "Linear interpolation" );
-    PASS_FAIL( pass_bilinear, "Bi-linear interpolation" );
-    PASS_FAIL( pass_trilinear, "Tri-linear interpolation" );
+    ut.pass_fail( pass_linear, "Linear interpolation" );
+    ut.pass_fail( pass_bilinear, "Bi-linear interpolation" );
+    ut.pass_fail( pass_trilinear, "Tri-linear interpolation" );
 }
 
 
@@ -212,7 +203,7 @@ void test_shared_from_this( AMP::UnitTest &ut )
     } catch ( ... ) {
         pass = false;
     }
-    PASS_FAIL( pass, "shared_from_this 1" );
+    ut.pass_fail( pass, "shared_from_this 1" );
     try {
         auto *p1 = new dummy;
         auto p2  = p1->getPtr();
@@ -220,7 +211,7 @@ void test_shared_from_this( AMP::UnitTest &ut )
     } catch ( ... ) {
         pass = false;
     }
-    PASS_FAIL( pass, "shared_from_this 2" );
+    ut.pass_fail( pass, "shared_from_this 2" );
 }
 
 
@@ -244,7 +235,7 @@ void testQuickSort( AMP::UnitTest &ut, std::vector<int> &data1, const std::strin
         if ( data1[i] != data2[i] )
             pass = false;
     }
-    PASS_FAIL( pass, "quicksort sorts correctly: " + str );
+    ut.pass_fail( pass, "quicksort sorts correctly: " + str );
     std::cout << "quicksort:" << str << " = " << t2 - t1 << ", std::sort = " << t3 - t2
               << ", std::sort(2) = " << t4 - t3 << std::endl;
 }
@@ -324,15 +315,15 @@ void test_precision( [[maybe_unused]] AMP::UnitTest &ut )
         bool match  = std::abs( digits - digits2 ) <= 1;
         printf( "<%s>: Floating Point %i/%i\n", type.name, digits, digits2 );
         if constexpr ( std::is_same_v<T, float> ) {
-            PASS_FAIL( digits == 6 && match, "<float> matches IEEE" );
+            ut.pass_fail( digits == 6 && match, "<float> matches IEEE" );
         } else if constexpr ( std::is_same_v<T, double> ) {
-            PASS_FAIL( digits == 15 && match, "<double> matches IEEE" );
+            ut.pass_fail( digits == 15 && match, "<double> matches IEEE" );
         } else if constexpr ( std::is_same_v<T, long double> ) {
             if ( match && sizeof( long double ) == sizeof( double ) &&
                  digits == std::numeric_limits<double>::digits10 ) {
                 ut.expected_failure( "long double is 64-bits" );
             } else {
-                PASS_FAIL( digits >= 18 && match, "<long double> matches expected" );
+                ut.pass_fail( digits >= 18 && match, "<long double> matches expected" );
             }
         } else {
             ut.failure( "Unknown type" );
@@ -346,6 +337,11 @@ void test_precision( [[maybe_unused]] AMP::UnitTest &ut )
 /********************************************************
  *  Test typeid                                          *
  ********************************************************/
+struct MyType {
+};
+template<class T>
+struct MyType2 {
+};
 template<class T>
 void check( const std::string &name, AMP::UnitTest &ut, bool expected = false )
 {
@@ -366,6 +362,8 @@ void testTypeID( AMP::UnitTest &ut )
     check<const double *>( "const double*", ut );
     check<double const *>( "const double*", ut );
     check<decltype( argv )>( "char*[3]", ut );
+    check<MyType>( "MyType", ut );
+    check<MyType2<int>>( "MyType2<int>", ut );
     check<std::shared_ptr<double>>( "std::shared_ptr<double>", ut );
     check<std::string>( "std::string", ut );
     check<std::string_view>( "std::string_view", ut );
@@ -373,6 +371,9 @@ void testTypeID( AMP::UnitTest &ut )
     check<std::vector<double>>( "std::vector<double>", ut, true );
     check<std::vector<std::string>>( "std::vector<std::string>", ut, true );
     check<std::vector<std::string_view>>( "std::vector<std::string_view>", ut, true );
+    check<AMP::Array<std::string>>( "AMP::Array<std::string>", ut, true );
+    using namespace AMP;
+    check<Array<std::string>>( "AMP::Array<std::string>", ut, true );
 }
 
 
@@ -387,7 +388,14 @@ void testPrimes( AMP::UnitTest &ut )
 
     // Test the factor function
     auto factors = AMP::Utilities::factor( 13958 );
-    PASS_FAIL( factors == std::vector<int>( { 2, 7, 997 } ), "Correctly factored 13958" );
+    bool pass    = factors == std::vector<int>( { 2, 7, 997 } );
+    for ( uint64_t i = 0; i < 1000; i++ ) {
+        auto f = AMP::Utilities::factor( i );
+        pass   = pass && !f.empty();
+        for ( size_t j = 1; j < f.size(); j++ )
+            pass = pass && f[j] >= f[j - 1];
+    }
+    ut.pass_fail( factors == std::vector<int>( { 2, 7, 997 } ), "Correctly factored 13958" );
     auto t1  = AMP::Utilities::time();
     int N_it = 10000;
     for ( int i = 0; i < N_it; i++ )
@@ -396,8 +404,8 @@ void testPrimes( AMP::UnitTest &ut )
     std::cout << "factor = " << round( 1e9 * ( t2 - t1 ) / N_it ) << " ns" << std::endl;
 
     // Test the isPrime function
-    bool pass = !AMP::Utilities::isPrime( 13958 ) && AMP::Utilities::isPrime( 9999991 );
-    PASS_FAIL( pass, "isPrime" );
+    pass = !AMP::Utilities::isPrime( 13958 ) && AMP::Utilities::isPrime( 9999991 );
+    ut.pass_fail( pass, "isPrime" );
     t1 = AMP::Utilities::time();
     for ( int i = 0; i < N_it; i++ )
         [[maybe_unused]] auto tmp = AMP::Utilities::isPrime( dist( gen ) );
@@ -415,7 +423,7 @@ void testPrimes( AMP::UnitTest &ut )
     p1   = AMP::Utilities::primes( 1000000 );
     t2   = AMP::Utilities::time();
     pass = pass && p1.size() == 78498;
-    PASS_FAIL( pass, "primes" );
+    ut.pass_fail( pass, "primes" );
     std::cout << "primes (1000000):" << std::endl;
     std::cout << "   size: " << p1.size() << std::endl;
     std::cout << "   time: " << round( 1e6 * ( t2 - t1 ) ) << " us" << std::endl;
@@ -433,9 +441,9 @@ void testFileSystem( AMP::UnitTest &ut )
         FILE *fid = fopen( "testDeleteFile.txt", "w" );
         fputs( "Temporary test", fid );
         fclose( fid );
-        PASS_FAIL( AMP::IO::exists( "testDeleteFile.txt" ), "File exists" );
+        ut.pass_fail( AMP::IO::exists( "testDeleteFile.txt" ), "File exists" );
         AMP::IO::deleteFile( "testDeleteFile.txt" );
-        PASS_FAIL( !AMP::IO::exists( "testDeleteFile.txt" ), "File deleted" );
+        ut.pass_fail( !AMP::IO::exists( "testDeleteFile.txt" ), "File deleted" );
     }
 
     // Test creating/deleting directories
@@ -444,7 +452,7 @@ void testFileSystem( AMP::UnitTest &ut )
     AMP::IO::recursiveMkdir( "testUtilitiesDir/a/b" );
     globalComm.barrier();
     std::this_thread::sleep_for( 10ms );
-    PASS_FAIL( AMP::IO::exists( "testUtilitiesDir/a/b" ), "Create directory" );
+    ut.pass_fail( AMP::IO::exists( "testUtilitiesDir/a/b" ), "Create directory" );
     globalComm.barrier();
     if ( globalComm.getRank() == 0 ) {
         AMP::IO::deleteFile( "testUtilitiesDir/a/b" );
@@ -453,7 +461,7 @@ void testFileSystem( AMP::UnitTest &ut )
         std::this_thread::sleep_for( 10ms );
     }
     globalComm.barrier();
-    PASS_FAIL( !AMP::IO::exists( "testUtilitiesDir/a/b" ), "Destroy directory" );
+    ut.pass_fail( !AMP::IO::exists( "testUtilitiesDir/a/b" ), "Destroy directory" );
 }
 
 

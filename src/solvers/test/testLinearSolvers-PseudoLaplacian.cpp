@@ -12,6 +12,7 @@
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/testHelpers/SolverTestParameters.h"
+#include "AMP/solvers/testHelpers/testSolverHelpers.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
@@ -19,18 +20,24 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
+#include <chrono>
+#include <iomanip>
 #include <memory>
 #include <string>
 
-#include "reference_solver_solutions.h"
+#define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
-void linearThermalTest( AMP::UnitTest *ut, const std::string &inputFileName )
+void linearThermalTest( AMP::UnitTest *ut,
+                        const std::string &inputFileName,
+                        std::string &accelerationBackend,
+                        std::string &memoryLocation )
 {
     // Input and output file names
     std::string input_file = inputFileName;
     std::string log_file   = "output_" + inputFileName;
 
-    AMP::pout << "Running linearThermalTest with input " << input_file << std::endl;
+    AMP::pout << "Running linearThermalTest with input " << input_file << " with "
+              << accelerationBackend << " backend on " << memoryLocation << " memory" << std::endl;
 
     // Fill the database from the input file.
     auto input_db = AMP::Database::parseInputFile( input_file );
@@ -38,6 +45,8 @@ void linearThermalTest( AMP::UnitTest *ut, const std::string &inputFileName )
 
     // Print from all cores into the output files
     AMP::logAllNodes( log_file );
+
+    auto nReps = input_db->getWithDefault<int>( "repetitions", 1 );
 
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
 
@@ -51,52 +60,71 @@ void linearThermalTest( AMP::UnitTest *ut, const std::string &inputFileName )
 
     // Create variables and vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
-    auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef USE_DEVICE
-    auto inVec = AMP::LinearAlgebra::createVector(
-        scalarDOFs, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        scalarDOFs, outVar, true, AMP::Utilities::MemoryType::managed );
-#else
-    auto inVec  = AMP::LinearAlgebra::createVector( scalarDOFs, inVar );
-    auto outVec = AMP::LinearAlgebra::createVector( scalarDOFs, outVar );
-#endif
+    auto outVar = inVar;
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
+
+    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
+    inVec  = AMP::LinearAlgebra::createVector( scalarDOFs, inVar );
+    outVec = AMP::LinearAlgebra::createVector( scalarDOFs, outVar );
 
     // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
+    fillWithPseudoLaplacian( matrix_h, scalarDOFs );
 
-    fillWithPseudoLaplacian( matrix, scalarDOFs );
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
+
+    auto matrix = ( memoryLocation == "host" ) ?
+                      matrix_h :
+                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
 
     // Create operator to wrap matrix
-    auto op_db          = input_db->getDatabase( "LinearOperator" );
+    auto op_db = input_db->getDatabase( "LinearOperator" );
+    op_db->putScalar<std::string>( "AccelerationBackend", accelerationBackend );
+    op_db->putScalar<std::string>( "MemoryLocation", memoryLocation );
+
     auto opParams       = std::make_shared<AMP::Operator::OperatorParameters>( op_db );
     auto linearOperator = std::make_shared<AMP::Operator::LinearOperator>( opParams );
     linearOperator->setMatrix( matrix );
     linearOperator->setVariables( inVar, outVar );
 
+    auto solver_db = input_db->getDatabase( "LinearSolver" );
+    solver_db->putScalar( "MemoryLocation", memoryLocation );
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, linearOperator );
 
     // Set initial guess and rhs
-    auto sol = matrix->getRightVector();
-    auto rhs = matrix->getLeftVector();
-    sol->setToScalar( 0.0 );
-    rhs->setRandomValues();
+    auto sol = matrix->createInputVector();
+    auto rhs = matrix->createOutputVector();
 
-    // Check the initial L2 norm of the solution
-    double initSolNorm = static_cast<double>( sol->L2Norm() );
-    AMP::pout << "Initial Solution Norm: " << initSolNorm << std::endl;
-    AMP::pout << "RHS Norm: " << rhs->L2Norm() << std::endl;
-    AMP::pout << "System size: " << rhs->getGlobalSize() << std::endl;
+    auto t1 = std::chrono::high_resolution_clock::now();
 
-    // Use a random initial guess?
-    linearSolver->setZeroInitialGuess( true );
+    for ( int i = 0; i < nReps; ++i ) {
 
-    // Solve the problem.
-    linearSolver->apply( rhs, sol );
+        AMP::pout << "Iteration " << i << ", system size: " << rhs->getGlobalSize() << std::endl;
+        sol->setToScalar( 0.0 );
+        rhs->setRandomValues();
+        // Check the initial L2 norm of the solution
+        double initSolNorm = static_cast<double>( sol->L2Norm() );
+        AMP::pout << "Initial Solution Norm: " << initSolNorm << std::endl;
+        AMP::pout << "RHS Norm: " << rhs->L2Norm() << std::endl;
+        AMP::pout << "System size: " << rhs->getGlobalSize() << std::endl;
 
-    checkConvergence( linearSolver.get(), input_db, inputFileName, *ut );
+
+        // Use a random initial guess?
+        linearSolver->setZeroInitialGuess( true );
+
+        // Solve the problem.
+        linearSolver->apply( rhs, sol );
+
+        checkConvergence( linearSolver.get(), input_db, inputFileName, *ut );
+    }
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    AMP::pout << std::endl
+              << "linearThermalTest with " << inputFileName << "  average time: ("
+              << 1e-3 * to_ms( t2 - t1 ) / nReps << " s)" << std::endl;
 }
 
 int main( int argc, char *argv[] )
@@ -127,8 +155,29 @@ int main( int argc, char *argv[] )
 #endif
     }
 
+    std::vector<std::pair<std::string, std::string>> backendsAndMemory;
+    if ( argc == 4 ) {
+        backendsAndMemory.emplace_back( std::make_pair( argv[2], argv[3] ) );
+    } else {
+        backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef AMP_USE_OPENMP
+        backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
+#endif
+#ifdef AMP_USE_KOKKOS
+        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    #ifdef AMP_USE_DEVICE
+        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
+    #endif
+#endif
+#ifdef AMP_USE_DEVICE
+        backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+        backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+#endif
+    }
     for ( auto &file : files ) {
-        linearThermalTest( &ut, file );
+        for ( auto &[backend, memory] : backendsAndMemory )
+            linearThermalTest( &ut, file, backend, memory );
     }
 
     ut.report();

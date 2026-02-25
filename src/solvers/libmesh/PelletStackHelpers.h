@@ -10,92 +10,83 @@
 #include "AMP/vectors/Vector.h"
 
 
-void helperCreateStackOperatorForPelletMechanics(
-    std::shared_ptr<AMP::Mesh::Mesh> manager,
-    std::shared_ptr<AMP::Operator::AsyncMapColumnOperator> n2nmaps,
-    std::shared_ptr<AMP::Database> global_input_db,
-    std::shared_ptr<AMP::Operator::PelletStackOperator> &pelletStackOp );
+namespace AMP::Operator::PelletMechanics {
 
 
-void helperCreateColumnOperatorsForPelletMechanics(
-    std::vector<unsigned int> localPelletIds,
-    std::vector<std::shared_ptr<AMP::Mesh::Mesh>> localMeshes,
-    std::shared_ptr<AMP::Database> global_input_db,
-    std::shared_ptr<AMP::Operator::ColumnOperator> &nonlinearColumnOperator,
-    std::shared_ptr<AMP::Operator::ColumnOperator> &linearColumnOperator );
+std::shared_ptr<AsyncMapColumnOperator>
+createMaps( std::shared_ptr<AMP::Mesh::Mesh> manager,
+            std::shared_ptr<AMP::Database> global_input_db );
 
 
-void helperCreateCoupledOperatorForPelletMechanics(
-    std::shared_ptr<AMP::Operator::AsyncMapColumnOperator> n2nmaps,
-    std::shared_ptr<AMP::Operator::ColumnOperator> nonlinearColumnOperator,
-    std::shared_ptr<AMP::Operator::CoupledOperator> &coupledOp );
+std::shared_ptr<AMP::Operator::PelletStackOperator>
+createStackOperator( std::shared_ptr<AMP::Mesh::Mesh> manager,
+                     std::shared_ptr<AsyncMapColumnOperator> n2nmaps,
+                     std::shared_ptr<AMP::Database> global_input_db );
 
 
-void helperSetFrozenVectorForMapsForPelletMechanics(
-    std::shared_ptr<AMP::Mesh::Mesh> manager,
-    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp );
+std::shared_ptr<AMP::Operator::ColumnOperator>
+createNonlinearColumnOperator( std::shared_ptr<AMP::Operator::PelletStackOperator> pelletStackOp,
+                               std::shared_ptr<AMP::Database> global_input_db );
 
 
-void helperCreateAllOperatorsForPelletMechanics(
-    std::shared_ptr<AMP::Mesh::Mesh> manager,
-    AMP::AMP_MPI globalComm,
-    std::shared_ptr<AMP::Database> global_input_db,
-    std::shared_ptr<AMP::Operator::CoupledOperator> &coupledOp,
-    std::shared_ptr<AMP::Operator::ColumnOperator> &linearColumnOperator,
-    std::shared_ptr<AMP::Operator::PelletStackOperator> &pelletStackOp );
+std::shared_ptr<ColumnOperator>
+createLinearColumnOperator( std::shared_ptr<ColumnOperator> nonlinearColumnOperator );
 
 
-void helperCreateVectorsForPelletMechanics(
-    std::shared_ptr<AMP::Mesh::Mesh> manager,
-    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
-    AMP::LinearAlgebra::Vector::shared_ptr &solVec,
-    AMP::LinearAlgebra::Vector::shared_ptr &rhsVec,
-    AMP::LinearAlgebra::Vector::shared_ptr &scaledRhsVec );
+std::shared_ptr<AMP::Operator::CoupledOperator>
+createCoupledOperator( std::shared_ptr<AMP::Operator::AsyncMapColumnOperator> n2nmaps,
+                       std::shared_ptr<AMP::Operator::ColumnOperator> nonlinearColumnOperator );
 
 
-void helperBuildPointLoadRHSForPelletMechanics(
-    std::shared_ptr<AMP::Database> global_input_db,
-    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
-    AMP::LinearAlgebra::Vector::shared_ptr rhsVec );
+void setFrozenVectorForMaps( std::shared_ptr<AMP::Mesh::Mesh> manager,
+                             std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp );
 
 
-void helperApplyBoundaryCorrectionsForPelletMechanics(
-    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
-    AMP::LinearAlgebra::Vector::shared_ptr solVec,
-    AMP::LinearAlgebra::Vector::shared_ptr rhsVec );
+void createVectors( std::shared_ptr<AMP::Mesh::Mesh> manager,
+                    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
+                    AMP::LinearAlgebra::Vector::shared_ptr &solVec,
+                    AMP::LinearAlgebra::Vector::shared_ptr &rhsVec,
+                    AMP::LinearAlgebra::Vector::shared_ptr &scaledRhsVec );
 
 
-void helperCreateTemperatureVectorsForPelletMechanics(
-    std::shared_ptr<AMP::Mesh::Mesh> manager,
-    AMP::LinearAlgebra::Vector::shared_ptr &initialTemperatureVec,
-    AMP::LinearAlgebra::Vector::shared_ptr &finalTemperatureVec );
+void buildPointLoadRHS( std::shared_ptr<AMP::Database> global_input_db,
+                        std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
+                        AMP::LinearAlgebra::Vector::shared_ptr rhsVec );
 
 
-void helperSetReferenceTemperatureForPelletMechanics(
-    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
-    AMP::LinearAlgebra::Vector::shared_ptr initialTemperatureVec );
+void applyBoundaryCorrections( std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
+                               AMP::LinearAlgebra::Vector::shared_ptr solVec,
+                               AMP::LinearAlgebra::Vector::shared_ptr rhsVec );
 
 
-void helperSetFinalTemperatureForPelletMechanics(
-    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
-    AMP::LinearAlgebra::Vector::shared_ptr finalTemperatureVec );
+void createTemperatureVectors( std::shared_ptr<AMP::Mesh::Mesh> manager,
+                               AMP::LinearAlgebra::Vector::shared_ptr &initialTemperatureVec,
+                               AMP::LinearAlgebra::Vector::shared_ptr &finalTemperatureVec );
 
 
-void helperBuildColumnSolverForPelletMechanics(
-    std::shared_ptr<AMP::Database> columnSolver_db,
-    std::shared_ptr<AMP::Operator::ColumnOperator> linearColumnOperator,
-    std::shared_ptr<AMP::Solver::ColumnSolver> &columnSolver );
+void setReferenceTemperature( std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
+                              AMP::LinearAlgebra::Vector::shared_ptr initialTemperatureVec );
 
 
-void helperBuildStackSolverForPelletMechanics(
-    std::shared_ptr<AMP::Database> pelletStackSolver_db,
-    std::shared_ptr<AMP::Operator::PelletStackOperator> pelletStackOp,
-    std::shared_ptr<AMP::Operator::ColumnOperator> linearColumnOperator,
-    std::shared_ptr<AMP::Solver::SolverStrategy> &pelletStackSolver );
+void setFinalTemperature( std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp,
+                          AMP::LinearAlgebra::Vector::shared_ptr finalTemperatureVec );
 
 
-void helperResetNonlinearOperatorForPelletMechanics(
-    std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp );
+void buildColumnSolver( std::shared_ptr<AMP::Database> columnSolver_db,
+                        std::shared_ptr<AMP::Operator::ColumnOperator> linearColumnOperator,
+                        std::shared_ptr<AMP::Solver::ColumnSolver> &columnSolver );
+
+
+std::shared_ptr<AMP::Solver::SolverStrategy>
+buildStackSolver( std::shared_ptr<AMP::Database> pelletStackSolver_db,
+                  std::shared_ptr<AMP::Operator::PelletStackOperator> pelletStackOp,
+                  std::shared_ptr<AMP::Operator::ColumnOperator> linearColumnOperator );
+
+
+void resetNonlinearOperator( std::shared_ptr<AMP::Operator::CoupledOperator> coupledOp );
+
+
+} // namespace AMP::Operator::PelletMechanics
 
 
 #endif

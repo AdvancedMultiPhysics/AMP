@@ -1,5 +1,7 @@
 #include "AMP/operators/libmesh/VolumeIntegralOperator.h"
 #include "AMP/matrices/MatrixBuilder.h"
+#include "AMP/operators/ElementOperationFactory.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/VectorBuilder.h"
@@ -12,8 +14,41 @@
 namespace AMP::Operator {
 
 
+static std::shared_ptr<const VolumeIntegralOperatorParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
+{
+    if ( std::dynamic_pointer_cast<const VolumeIntegralOperatorParameters>( params ) )
+        return std::dynamic_pointer_cast<const VolumeIntegralOperatorParameters>( params );
+    auto db = params->d_db;
+    // first create a source physics model
+    std::shared_ptr<AMP::Database> model_db;
+    if ( db->keyExists( "LocalModel" ) )
+        model_db = db->getDatabase( "LocalModel" );
+    else if ( db->keyExists( "SourcePhysicsModel" ) )
+        model_db = db->getDatabase( "SourcePhysicsModel" );
+    std::shared_ptr<ElementPhysicsModel> elementPhysicsModel;
+    if ( model_db )
+        elementPhysicsModel = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+    auto sourcePhysicsModel = std::dynamic_pointer_cast<SourcePhysicsModel>( elementPhysicsModel );
+    // next create a ElementOperation object
+    AMP_INSIST( db->keyExists( "SourceElement" ), "Key ''SourceElement'' is missing!" );
+    auto sourceElem =
+        ElementOperationFactory::createElementOperation( db->getDatabase( "SourceElement" ) );
+    // now create the source operator parameters
+    auto volumeIntegralParameters    = std::make_shared<VolumeIntegralOperatorParameters>( db );
+    volumeIntegralParameters->d_Mesh = params->d_Mesh;
+    volumeIntegralParameters->d_sourcePhysicsModel = sourcePhysicsModel;
+    volumeIntegralParameters->d_elemOp             = sourceElem;
+    return volumeIntegralParameters;
+}
+
+
+VolumeIntegralOperator::VolumeIntegralOperator( std::shared_ptr<const OperatorParameters> params )
+    : VolumeIntegralOperator( convert( params ), true )
+{
+}
 VolumeIntegralOperator::VolumeIntegralOperator(
-    std::shared_ptr<const VolumeIntegralOperatorParameters> params )
+    std::shared_ptr<const VolumeIntegralOperatorParameters> params, bool )
     : NonlinearFEOperator( params )
 {
     AMP_INSIST( params, "NULL parameter!" );
@@ -77,7 +112,7 @@ void VolumeIntegralOperator::preAssembly( AMP::LinearAlgebra::Vector::const_shar
                                           AMP::LinearAlgebra::Vector::shared_ptr r )
 {
     PROFILE( "preAssembly", 1 );
-    AMP_INSIST( ( u != nullptr ), "NULL Input Vector" );
+    AMP_INSIST( ( u ), "NULL Input Vector" );
 
     AMP::LinearAlgebra::VS_Mesh meshSelector( d_Mesh );
     AMP::LinearAlgebra::Vector::const_shared_ptr meshSubsetPrimary, meshSubsetAuxillary;
@@ -87,7 +122,7 @@ void VolumeIntegralOperator::preAssembly( AMP::LinearAlgebra::Vector::const_shar
     for ( size_t var = 0; var < d_inpVariables->numVariables(); var++ ) {
         auto primaryVariable = d_inpVariables->getVariable( var );
         d_inVec[var]         = meshSubsetPrimary->subsetVectorForVariable( primaryVariable );
-        AMP_ASSERT( d_inVec[var] != nullptr );
+        AMP_ASSERT( d_inVec[var] );
         AMP_ASSERT( d_inVec[var]->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
     }
 
@@ -96,7 +131,7 @@ void VolumeIntegralOperator::preAssembly( AMP::LinearAlgebra::Vector::const_shar
     for ( size_t var = 0; var < d_auxVariables->numVariables(); var++ ) {
         auto auxillaryVariable = d_auxVariables->getVariable( var );
         d_auxVec[var]          = meshSubsetAuxillary->subsetVectorForVariable( auxillaryVariable );
-        AMP_ASSERT( d_auxVec[var] != nullptr );
+        AMP_ASSERT( d_auxVec[var] );
         AMP_ASSERT( d_auxVec[var]->getUpdateStatus() ==
                     AMP::LinearAlgebra::UpdateState::UNCHANGED );
     }
@@ -214,7 +249,6 @@ void VolumeIntegralOperator::init( std::shared_ptr<const VolumeIntegralOperatorP
 void VolumeIntegralOperator::reset( std::shared_ptr<const OperatorParameters> params )
 {
     AMP_ASSERT( params );
-    d_memory_location = params->d_memory_location;
     d_outVec.reset();
 }
 

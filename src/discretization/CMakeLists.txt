@@ -3,4 +3,3 @@ ADD_PACKAGE_SUBDIRECTORY( testHelpers )
 INSTALL_AMP_TARGET( discretization )
 
 ADD_SUBDIRECTORY( test )
-

@@ -8,6 +8,7 @@
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/testHelpers/SolverTestParameters.h"
+#include "AMP/solvers/testHelpers/testSolverHelpers.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
@@ -15,23 +16,19 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
-//#include "reference_solver_solutions.h"
-#include "testSolverHelpers.h"
-
 
 void linearThermalTest( AMP::UnitTest *ut,
                         const std::string &input_file,
                         std::shared_ptr<AMP::Database> input_db,
-                        std::shared_ptr<AMP::Mesh::Mesh> meshAdapter,
+                        std::shared_ptr<AMP::Mesh::Mesh> mesh,
                         std::shared_ptr<AMP::LinearAlgebra::Vector> powerVec )
 {
 
-    AMP_ASSERT( input_db && meshAdapter && powerVec );
+    AMP_ASSERT( input_db && mesh && powerVec );
 
     // create the Thermal Operator
     auto diffusionOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "DiffusionBVPOperator", input_db ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "DiffusionBVPOperator", input_db ) );
 
     auto nodalDofMap    = powerVec->getDOFManager();
     auto inputVariable  = diffusionOperator->getInputVariable();
@@ -58,7 +55,7 @@ void linearThermalTest( AMP::UnitTest *ut,
     AMP::pout << "Initial Solution L2-norm: " << TemperatureInKelvinVec->L2Norm() << std::endl;
 
     // Construct the solver
-    auto &comm        = meshAdapter->getComm();
+    auto &comm        = mesh->getComm();
     auto linearSolver = AMP::Solver::Test::buildSolver(
         "LinearSolver", input_db, comm, nullptr, diffusionOperator );
 
@@ -110,8 +107,8 @@ void linearThermalTest( AMP::UnitTest *ut, const std::string &inputFile, bool al
     AMP::logAllNodes( log_file );
 
     //   Create the Mesh.
-    const auto meshAdapter = createMesh( input_db );
-    auto PowerInWattsVec   = constructNeutronicsPowerSource( input_db, meshAdapter );
+    const auto mesh      = createMesh( input_db );
+    auto PowerInWattsVec = constructNeutronicsPowerSource( input_db, mesh );
 
     if ( all_solvers ) {
         std::vector<std::pair<std::string, std::string>> solvers{
@@ -124,6 +121,10 @@ void linearThermalTest( AMP::UnitTest *ut, const std::string &inputFile, bool al
             { "BoomerAMG", "NoPC" },
             { "HyprePCG", "NoPC" },
             { "HyprePCG", "BoomerAMG" },
+            { "HypreGMRES", "NoPC" },
+            { "HypreGMRES", "BoomerAMG" },
+            { "HypreBiCGSTAB", "NoPC" },
+            { "HypreBiCGSTAB", "BoomerAMG" },
     #ifdef AMP_USE_PETSC
             { "PetscFGMRES", "BoomerAMG" },
     #endif
@@ -177,14 +178,11 @@ void linearThermalTest( AMP::UnitTest *ut, const std::string &inputFile, bool al
             else
                 banner = "Running " + primary + " on " + input_file;
             AMP::pout << banner << std::endl;
-            linearThermalTest( ut,
-                               input_file + " with " + primary + "+" + nested,
-                               db,
-                               meshAdapter,
-                               PowerInWattsVec );
+            linearThermalTest(
+                ut, input_file + " with " + primary + "+" + nested, db, mesh, PowerInWattsVec );
         }
     } else {
-        linearThermalTest( ut, input_file, input_db, meshAdapter, PowerInWattsVec );
+        linearThermalTest( ut, input_file, input_db, mesh, PowerInWattsVec );
     }
 }
 

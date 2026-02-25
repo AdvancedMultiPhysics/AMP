@@ -1,41 +1,24 @@
 #ifndef included_AMP_VectorDataNull
 #define included_AMP_VectorDataNull
 
+#include "AMP/utils/typeid.h"
 #include "AMP/vectors/data/VectorData.h"
 
 
 namespace AMP::LinearAlgebra {
 
 
-template<typename TYPE>
-class VectorDataIterator;
-
-
 /**
   \brief  A class used to hold vector data
-
-  \details
-
-  VectorDataNull is a default implementation of VectorData that stores
-  the local values as a single block of data on the CPU.
-
+  \details  VectorDataNull is a default implementation of VectorData that stores
+      the local values as a single block of data on the CPU.
   */
-template<typename TYPE = double>
 class VectorDataNull : public VectorData
 {
-public:
-    VectorDataNull() {}
-
-public: // Virtual functions
-    //! Virtual destructor
-    virtual ~VectorDataNull() {}
-
-
-    //! Get the type name
-    virtual std::string VectorDataName() const override { return "VectorDataNull"; }
-
-
 public: // Functions inherited from VectorData
+    VectorDataNull() = delete;
+    VectorDataNull( const typeID &type ) : d_type( type ) {}
+    std::string VectorDataName() const override { return "VectorDataNull"; }
     inline size_t numberOfDataBlocks() const override { return 0; }
     inline size_t sizeOfDataBlock( size_t = 0 ) const override { return 0; }
     inline void putRawData( const void *, const typeID & ) override {}
@@ -50,7 +33,8 @@ public: // Functions inherited from VectorData
     void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
     void
     getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    typeID getType( size_t ) const override { return getTypeID<TYPE>(); }
+    size_t getAllGhostValues( void *, const typeID & ) const override;
+    typeID getType( size_t ) const override { return d_type; }
     UpdateState getLocalUpdateStatus() const override { return UpdateState::UNCHANGED; }
     void setUpdateStatus( UpdateState ) override {}
     void setUpdateStatusPtr( std::shared_ptr<UpdateState> ) override {}
@@ -62,19 +46,18 @@ public: // Functions inherited from VectorData
     std::shared_ptr<CommunicationList> getCommunicationList() const override { return nullptr; }
     void setCommunicationList( std::shared_ptr<CommunicationList> ) override {}
     const AMP_MPI &getComm() const override;
-    void aliasGhostBuffer( std::shared_ptr<VectorData> ) override {}
     size_t getGhostSize() const override { return 0; }
     uint64_t getDataID() const override { return 0; }
     void *getRawDataBlockAsVoid( size_t ) override { return nullptr; }
     const void *getRawDataBlockAsVoid( size_t ) const override { return nullptr; }
-    size_t sizeofDataBlockType( size_t ) const override { return sizeof( TYPE ); }
+    size_t sizeofDataBlockType( size_t ) const override { return sizeof( d_type.bytes ); }
     void swapData( VectorData & ) override { AMP_ERROR( "Not finished" ); }
-    std::shared_ptr<VectorData> cloneData( const std::string & = "" ) const override
-    {
-        return nullptr;
-    }
+    std::shared_ptr<VectorData> cloneData( const std::string & = "" ) const override;
     void makeConsistent( ScatterType ) override {}
     using VectorData::makeConsistent;
+
+private:
+    typeID d_type;
 };
 
 

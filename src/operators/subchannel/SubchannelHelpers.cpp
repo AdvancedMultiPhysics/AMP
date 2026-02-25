@@ -1,7 +1,8 @@
 #include "AMP/operators/subchannel/SubchannelHelpers.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/StructuredMeshHelper.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 #include "AMP/operators/subchannel/SubchannelConstants.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
@@ -11,6 +12,24 @@
 #include <cmath>
 
 namespace AMP::Operator::Subchannel {
+
+
+// Convert the operator parameters
+std::shared_ptr<const SubchannelOperatorParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
+{
+    if ( std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params ) )
+        return std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params );
+    auto subchannelParams    = std::make_shared<SubchannelOperatorParameters>( params->d_db );
+    subchannelParams->d_Mesh = params->d_Mesh;
+    if ( params->d_db->keyExists( "LocalModel" ) ) {
+        auto model_db = params->d_db->getDatabase( "LocalModel" );
+        auto model    = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+        subchannelParams->d_subchannelPhysicsModel =
+            std::dynamic_pointer_cast<SubchannelPhysicsModel>( model );
+    }
+    return subchannelParams;
+}
 
 
 // Get the number of subchannels from the mesh
@@ -37,14 +56,14 @@ subsetForSubchannel( std::shared_ptr<AMP::Mesh::Mesh> subchannel, size_t i, size
     size_t Ny = y.size() - 1;
     // Get the elements in the subchannel of interest
     auto el       = subchannel->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    auto elements = std::make_shared<std::vector<AMP::Mesh::MeshElement>>();
+    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>();
     elements->reserve( el.size() / ( Nx * Ny ) );
     for ( size_t k = 0; k < el.size(); ++k, ++el ) {
         auto coord = el->centroid();
         if ( coord[0] >= x[i] && coord[0] <= x[i + 1] && coord[1] >= y[j] && coord[1] <= y[j + 1] )
-            elements->push_back( *el );
+            elements->push_back( el->clone() );
     }
-    return subchannel->Subset( AMP::Mesh::MeshElementVectorIterator( elements ) );
+    return subchannel->Subset( AMP::Mesh::MeshListIterator( elements ) );
 }
 
 
@@ -165,7 +184,7 @@ void getCladProperties( AMP::AMP_MPI comm,
 {
     // Get the center of each local clad
     std::set<std::array<double, 3>> center;
-    if ( clad != nullptr ) {
+    if ( clad ) {
         AMP_ASSERT( clad->getComm() <= comm );
         auto ids = clad->getLocalBaseMeshIDs();
         for ( auto &id : ids ) {
@@ -277,8 +296,8 @@ std::vector<double> getHeatFluxClad( std::vector<double> z,
         dz[i] = z[i + 1] - z[i];
     // const double pi = 3.1415926535897932;
     AMP_ASSERT( face_ids.size() == z.size() );
-    AMP_ASSERT( flow != nullptr );
-    AMP_ASSERT( clad_temp != nullptr );
+    AMP_ASSERT( flow );
+    AMP_ASSERT( clad_temp );
     auto flow_manager    = flow->getDOFManager();
     auto clad_manager    = clad_temp->getDOFManager();
     const double h_scale = 1.0 / Subchannel::scaleEnthalpy; // Scale to change to correct units

@@ -74,7 +74,15 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    virtual AMP::Mesh::MeshElement getElement( size_t dof ) const;
+    virtual std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const;
+
+
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    virtual int getDOFsPerPoint() const;
 
 
     /** \brief Get the entry indices of DOFs given a mesh element ID
@@ -94,6 +102,16 @@ public:
      */
     void getDOFs( const std::vector<AMP::Mesh::MeshElementID> &ids,
                   std::vector<size_t> &dofs ) const;
+
+
+    /** \brief Get the entry indices of DOFs given a mesh element ID
+     * \details  This will return a vector of pointers into a Vector that are associated with which.
+     * \param[in]  N_ids    The number of element ids
+     * \param[in]  ids      The element IDs to collect nodal objects for.
+     *                      Note: the mesh element may be any type (include a vertex).
+     * \param[out] dofs     The entries in the vector associated with D.O.F.s on the nodes
+     */
+    void getDOFs( int N_ids, const AMP::Mesh::MeshElementID *ids, std::vector<size_t> &dofs ) const;
 
 
     /** \brief   Get the underlying mesh

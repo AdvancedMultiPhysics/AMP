@@ -9,14 +9,31 @@ OutputFileName = "checkMatrix.txt"
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"
-    print_info_level = 3
+    print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+VonMisesElastoPlasticModel1 {
+  USE_MATERIALS_LIBRARY = FALSE
+    USE_UPDATED_LAGRANGIAN = TRUE
+    USE_JAUMANN_RATE = TRUE
+    print_info_level = 2
+    Material = ""
+    //name = "VonMisesElastoPlasticModel"
+    name = "IsotropicElasticModel"
+    Youngs_Modulus = 1.0e2
+    Poissons_Ratio = 0.3
+    Linear_Strain_Hardening = 5.0
+    Elastic_Yield_Stress = 0.25
+    Default_Temperature = 0.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = 0.0
+}
+
 MechanicsNonlinearFEOperator1 {
   name = "MechanicsNonlinearFEOperator"
-    print_info_level = 3
+    print_info_level = 2
     ActiveInputVariables {
       DISPLACEMENT = "displacement"
     }
@@ -35,7 +52,7 @@ MechanicsNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }
 
-  LocalModel = "VonMisesElastoPlasticModel1"
+  LocalModel = VonMisesElastoPlasticModel1
 }
 
 DirichletVectorCorrection1 {
@@ -69,23 +86,6 @@ DirichletVectorCorrection1 {
     number_of_dofs_3 = 1
     dof_3_0 = 1
     value_3_0 = 0.0
-}
-
-VonMisesElastoPlasticModel1 {
-  USE_MATERIALS_LIBRARY = FALSE
-    USE_UPDATED_LAGRANGIAN = TRUE
-    USE_JAUMANN_RATE = TRUE
-    print_info_level = 6
-    Material = ""
-    //name = "VonMisesElastoPlasticModel"
-    name = "IsotropicElasticModel"
-    Youngs_Modulus = 1.0e2
-    Poissons_Ratio = 0.3
-    Linear_Strain_Hardening = 5.0
-    Elastic_Yield_Stress = 0.25
-    Default_Temperature = 0.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = 0.0
 }
 
 LinearMechanicsOperator {

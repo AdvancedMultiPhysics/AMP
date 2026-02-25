@@ -9,7 +9,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -38,7 +37,6 @@ Map1Dto3D::Map1Dto3D( std::shared_ptr<const OperatorParameters> params ) : MapOp
 void Map1Dto3D::reset( std::shared_ptr<const OperatorParameters> params )
 {
     AMP_ASSERT( params );
-    d_memory_location = params->d_memory_location;
 
     auto myparams = std::dynamic_pointer_cast<const MapOperatorParameters>( params );
 
@@ -227,10 +225,10 @@ void Map1Dto3D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                              AMP::LinearAlgebra::Vector::shared_ptr )
 {
 
-    if ( d_MapMesh.get() == nullptr )
+    if ( !d_MapMesh )
         return;
 
-    AMP_ASSERT( u != nullptr );
+    AMP_ASSERT( u );
 
     // Subset the input vector, it is a simple vector and we need to subset for the current comm
     // before the variable
@@ -238,10 +236,8 @@ void Map1Dto3D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     auto commSubsetVec = u->select( commSelector );
     auto inputVec      = commSubsetVec->subsetVectorForVariable( d_inpVariable );
 
-    // AMP::LinearAlgebra::Vector::shared_ptr outputVec =  subsetOutputVector( r );
-    AMP_ASSERT( inputVec != nullptr );
-    AMP_ASSERT( outputVec != nullptr );
-    // outputVec->zero();
+    AMP_ASSERT( inputVec );
+    AMP_ASSERT( outputVec );
 
     // Loop through the points on the surface
     AMP_ASSERT( d_zLocations.size() >= 2 );
@@ -318,10 +314,10 @@ void Map1Dto3D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                              AMP::LinearAlgebra::Vector::shared_ptr )
 {
 
-    if ( d_MapMesh.get() == nullptr )
+    if ( !d_MapMesh )
         return;
 
-    AMP_ASSERT( u != nullptr );
+    AMP_ASSERT( u );
 
     // Subset the input vector, it is a simple vector and we need to subset for the current comm
     // before the variable
@@ -329,12 +325,8 @@ void Map1Dto3D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     auto commSubsetVec = u->select( commSelector );
     auto inputVec      = commSubsetVec->subsetVectorForVariable( d_inpVariable );
 
-    // AMP::LinearAlgebra::Vector::shared_ptr outputVec =  subsetOutputVector( r );
-    AMP_ASSERT( inputVec != nullptr );
-    AMP_ASSERT( outputVec != nullptr );
-    // outputVec->zero();
-
-    // const unsigned int numPoints = inputVec->getLocalSize();
+    AMP_ASSERT( inputVec );
+    AMP_ASSERT( outputVec );
 
     // Loop through the points on the surface
     AMP_ASSERT( d_zLocations.size() >= 2 );

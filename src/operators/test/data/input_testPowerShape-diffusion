@@ -1,15 +1,14 @@
 Mesh{
-  MeshType = "libMesh"
-  FileName = "halden_1_pellet_9mil.e"
-  MeshName = "fuel"
-  dim      = 3
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 1000
+    MeshName = "fuel"
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
+    static = TRUE
 }
 MyPowerShape{
-  print_info_level = 3
+  print_info_level = 2
     type = "diffusion"
     coordinateSystem = "cylindrical"
 }

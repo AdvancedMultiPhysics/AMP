@@ -10,9 +10,8 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 88
-  res_l2_norm = 2.4806061595639e-09
+  iterations = 92
+  res_l2_norm = 1.49922375005253e-09
   tolerance = 3.0e-10
   strict = TRUE
 }
-

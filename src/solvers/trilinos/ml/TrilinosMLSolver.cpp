@@ -4,7 +4,7 @@
 #include "AMP/matrices/trilinos/ManagedEpetraMatrix.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/operators/LinearOperator.h"
-#include "AMP/operators/trilinos/TrilinosMatrixShellOperator.h"
+#include "AMP/operators/trilinos/ml/TrilinosMatrixShellOperator.h"
 #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
 
 #include "ProfilerApp.h"
@@ -256,7 +256,7 @@ void TrilinosMLSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
 
     if ( d_bUseEpetra ) {
         // These functions throw exceptions if this cannot be performed.
-        AMP_ASSERT( f != nullptr );
+        AMP_ASSERT( f );
 
         auto f_epetra             = AMP::LinearAlgebra::EpetraVector::constView( f );
         auto u_epetra             = AMP::LinearAlgebra::EpetraVector::view( u );

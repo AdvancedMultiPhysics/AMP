@@ -45,11 +45,16 @@ instantiateFull( long double );
 #define instantiateComplex( T )                                                                    \
     instantiateArrayConstructors( T );                                                             \
     template AMP::Array<T>::Array( const Range<T> &range );                                        \
-    template AMP::Array<T> AMP::Array<T>::repmat( std::vector<size_t> const & ) const;             \
+    template AMP::Array<T> AMP::Array<T>::repmat( AMP::ArraySize const & ) const;                  \
     template void AMP::Array<T>::copySubset( std::vector<size_t> const &, AMP::Array<T> const & ); \
-    template AMP::Array<T> AMP::Array<T>::subset( std::vector<size_t> const & ) const;             \
+    template AMP::Array<T> AMP::Array<T>::subset( const std::vector<size_t> & ) const;             \
     template bool AMP::Array<T>::NaNs() const;                                                     \
-    template void AMP::Array<T, AMP::FunctionTable>::rand();                                       \
+    template void AMP::Array<T>::rand();                                                           \
+    template void AMP::Array<T>::scale( const T & );                                               \
+    template AMP::Array<T> &AMP::Array<T>::operator+=( const AMP::Array<T> & );                    \
+    template AMP::Array<T> &AMP::Array<T>::operator-=( const AMP::Array<T> & );                    \
+    template AMP::Array<T> &AMP::Array<T>::operator+=( const T & );                                \
+    template AMP::Array<T> &AMP::Array<T>::operator-=( const T & );                                \
     PACK_UNPACK_ARRAY( T );                                                                        \
     PACK_UNPACK_ARRAY2( T )
 instantiateComplex( std::complex<float> );

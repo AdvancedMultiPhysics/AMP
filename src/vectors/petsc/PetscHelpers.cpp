@@ -189,10 +189,10 @@ _AMP_setvalues( Vec px, PetscInt ni, const PetscInt ix[], const PetscScalar y[],
     // Inserts or adds values into certain locations of a vector.
     auto x       = getAMP( px );
     auto indices = new size_t[ni];
-    auto vals    = new double[ni];
+    auto vals    = new PetscScalar[ni];
     for ( PetscInt i = 0; i < ni; i++ ) {
         indices[i] = static_cast<size_t>( ix[i] );
-        vals[i]    = static_cast<double>( y[i] );
+        vals[i]    = static_cast<PetscScalar>( y[i] );
     }
     if ( iora == INSERT_VALUES ) {
         x->setValuesByGlobalID( ni, indices, vals );
@@ -240,7 +240,7 @@ PetscErrorCode _AMP_max( Vec a, PetscInt *p, PetscReal *ans )
         AMP_ERROR( "Cannot find position for max" );
     }
     auto x = getAMP( a );
-    *ans   = static_cast<double>( x->max() );
+    *ans   = static_cast<PetscReal>( x->max() );
     return 0;
 }
 PetscErrorCode _AMP_min( Vec a, PetscInt *p, PetscReal *ans )
@@ -249,7 +249,7 @@ PetscErrorCode _AMP_min( Vec a, PetscInt *p, PetscReal *ans )
         AMP_ERROR( "Cannot find position for max" );
     }
     auto x = getAMP( a );
-    *ans   = static_cast<double>( x->min() );
+    *ans   = static_cast<PetscReal>( x->min() );
     return 0;
 }
 PetscErrorCode _AMP_aypx( Vec b, PetscScalar alpha, Vec a )
@@ -266,7 +266,7 @@ PetscErrorCode _AMP_dot_local( Vec a, Vec b, PetscScalar *ans )
     auto y = getAMP( b );
     *ans   = x->getVectorOperations()
                ->localDot( *y->getVectorData(), *x->getVectorData() )
-               .get<double>();
+               .get<PetscScalar>();
     return 0;
 }
 PetscErrorCode _AMP_tdot_local( Vec a, Vec b, PetscScalar *ans )
@@ -436,17 +436,18 @@ PetscErrorCode _AMP_getsize( Vec a, PetscInt *ans )
 }
 PetscErrorCode _AMP_maxpointwisedivide( Vec a, Vec b, PetscReal *res )
 {
-    auto x           = getAMP( a );
-    auto y           = getAMP( b );
-    auto cur_x       = x->constBegin();
-    auto cur_y       = y->constBegin();
-    auto end_x       = x->constEnd();
-    double local_res = 0.0;
+    auto x              = getAMP( a );
+    auto y              = getAMP( b );
+    auto cur_x          = x->constBegin();
+    auto cur_y          = y->constBegin();
+    auto end_x          = x->constEnd();
+    PetscReal local_res = 0.0;
     while ( cur_x != end_x ) {
         if ( *cur_y == 0.0 ) {
-            local_res = std::max( local_res, fabs( *cur_x ) );
+            local_res = std::max( local_res, fabs( static_cast<PetscReal>( *cur_x ) ) );
         } else {
-            local_res = std::max( local_res, fabs( ( *cur_x ) / ( *cur_y ) ) );
+            local_res =
+                std::max( local_res, fabs( static_cast<PetscReal>( ( *cur_x ) / ( *cur_y ) ) ) );
         }
         cur_x++;
         cur_y++;
@@ -479,7 +480,7 @@ PetscErrorCode _AMP_dot( Vec a, Vec b, PetscScalar *ans )
 {
     auto x = getAMP( a );
     auto y = getAMP( b );
-    *ans   = static_cast<double>( x->dot( *y ) );
+    *ans   = static_cast<PetscScalar>( x->dot( *y ) );
     return 0;
 }
 PetscErrorCode _AMP_mdot( Vec v, PetscInt num, const Vec vec[], PetscScalar *ans )
@@ -492,7 +493,7 @@ PetscErrorCode _AMP_tdot( Vec a, Vec b, PetscScalar *ans )
 {
     auto x = getAMP( a );
     auto y = getAMP( b );
-    *ans   = static_cast<double>( x->dot( *y ) );
+    *ans   = static_cast<PetscScalar>( x->dot( *y ) );
     return 0;
 }
 PetscErrorCode _AMP_mtdot( Vec v, PetscInt num, const Vec vec[], PetscScalar *ans )
@@ -505,7 +506,7 @@ PetscErrorCode _AMP_l2normanddot( Vec a, Vec b, PetscScalar *dp, PetscReal *nm )
 {
     auto x     = getAMP( a );
     auto y     = getAMP( b );
-    auto rvals = x->L2NormAndDot( *y );
+    auto rvals = y->L2NormAndDot( *x );
     *dp        = static_cast<PetscScalar>( rvals.second );
     *nm        = static_cast<PetscReal>( rvals.first );
     return 0;
@@ -541,14 +542,14 @@ PetscErrorCode _AMP_norm_local( Vec in, NormType type, PetscReal *ans )
     auto x   = getAMP( in );
     auto ops = x->getVectorOperations();
     if ( type == NORM_1 )
-        *ans = ops->localL1Norm( *x->getVectorData() ).get<double>();
+        *ans = ops->localL1Norm( *x->getVectorData() ).get<PetscReal>();
     else if ( type == NORM_2 )
-        *ans = ops->localL2Norm( *x->getVectorData() ).get<double>();
+        *ans = ops->localL2Norm( *x->getVectorData() ).get<PetscReal>();
     else if ( type == NORM_INFINITY )
-        *ans = ops->localMaxNorm( *x->getVectorData() ).get<double>();
+        *ans = ops->localMaxNorm( *x->getVectorData() ).get<PetscReal>();
     else if ( type == NORM_1_AND_2 ) {
-        *ans         = ops->localL1Norm( *x->getVectorData() ).get<double>();
-        *( ans + 1 ) = ops->localL2Norm( *x->getVectorData() ).get<double>();
+        *ans         = ops->localL1Norm( *x->getVectorData() ).get<PetscReal>();
+        *( ans + 1 ) = ops->localL2Norm( *x->getVectorData() ).get<PetscReal>();
     } else
         AMP_ERROR( "Unknown norm type" );
     increaseState( in );
@@ -558,14 +559,14 @@ PetscErrorCode _AMP_norm( Vec in, NormType type, PetscReal *ans )
 {
     auto x = getAMP( in );
     if ( type == NORM_1 )
-        *ans = static_cast<double>( x->L1Norm() );
+        *ans = static_cast<PetscReal>( x->L1Norm() );
     else if ( type == NORM_2 )
-        *ans = static_cast<double>( x->L2Norm() );
+        *ans = static_cast<PetscReal>( x->L2Norm() );
     else if ( type == NORM_INFINITY )
-        *ans = static_cast<double>( x->maxNorm() );
+        *ans = static_cast<PetscReal>( x->maxNorm() );
     else if ( type == NORM_1_AND_2 ) {
-        *ans         = static_cast<double>( x->L1Norm() );
-        *( ans + 1 ) = static_cast<double>( x->L2Norm() );
+        *ans         = static_cast<PetscReal>( x->L1Norm() );
+        *( ans + 1 ) = static_cast<PetscReal>( x->L2Norm() );
     } else
         AMP_ERROR( "Unknown norm type" );
     increaseState( in );
@@ -576,7 +577,7 @@ static inline bool verifyMemory( Vec in, Vec out )
     auto p1 = getAMP( in );
     auto p2 = getAMP( out );
     for ( size_t i = 0; i != p1->numberOfDataBlocks(); i++ ) {
-        if ( p1->getRawDataBlock<double>() == p2->getRawDataBlock<double>() )
+        if ( p1->getRawDataBlock<PetscScalar>() == p2->getRawDataBlock<PetscScalar>() )
             return false;
     }
     return true;

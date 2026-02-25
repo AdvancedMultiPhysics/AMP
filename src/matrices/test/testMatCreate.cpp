@@ -5,7 +5,7 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
-#include "AMP/mesh/libmesh/ReadTestMesh.h"
+#include "AMP/mesh/testHelpers/meshWriters.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
@@ -19,7 +19,7 @@
 #include <string>
 
 
-void myTest( AMP::UnitTest *ut, std::string input_file )
+void myTest( AMP::UnitTest *ut, const std::string &input_file )
 {
 
     std::string log_file = "output_testMatCreate";

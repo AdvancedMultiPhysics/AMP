@@ -50,6 +50,12 @@ public:
     //! Return the type of the matrix
     virtual std::string type() const = 0;
 
+    //! Return CSR mode of the matrix.
+    virtual std::uint16_t mode() const;
+
+    //! Replace current backend with different one, no-op if same, no-op if not a CSRMatrix
+    virtual void setBackend( AMP::Utilities::Backend );
+
     /** \brief  Matrix-vector multiplication
      * \param[in]  in  The vector to multiply
      * \param[out] out The resulting vectory
@@ -69,6 +75,20 @@ public:
      * \details  Compute \f$\mathbf{A} = \alpha\mathbf{A}\f$
      */
     void scale( AMP::Scalar alpha );
+
+    /** \brief  Diagonally scale matrix
+     * \param[in] alpha  Scaling applied to all rows
+     * \param[in] D  Vector of scales, one for each row
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}\mathbf{A}\f$
+     */
+    void scale( AMP::Scalar alpha, Vector::const_shared_ptr D );
+
+    /** \brief  Scale matrix by inverse of diagonal matrix
+     * \param[in] alpha  Scaling applied to all rows
+     * \param[in] D  Array of inverse scales, one for each row
+     * \details  Compute \f$\mathbf{A} = \alpha\mathbf{D}^{-1}\mathbf{A}\f$
+     */
+    void scaleInv( AMP::Scalar alpha, Vector::const_shared_ptr D );
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -102,11 +122,18 @@ public:
     AMP::Scalar LinfNorm() const;
 
     /** \brief  Compute the product of two matrices
-     * \param[in] A  A multiplicand
-     * \param[in] B  A multiplicand
+     * \param[in] A  Left multiplicand
+     * \param[in] B  Right multiplicand
      * \return The product \f$\mathbf{AB}\f$.
      */
-    static shared_ptr matMultiply( shared_ptr A, shared_ptr B );
+    static shared_ptr matMatMult( shared_ptr A, shared_ptr B );
+
+    /** \brief  Compute the product of two matrices
+     * \param[in] A     Left multiplicand
+     * \param[in] B     Right multiplicand
+     * \param[inout] C  Result matrix
+     */
+    static void matMatMult( shared_ptr A, shared_ptr B, shared_ptr C );
 
     /** \brief  Compute the linear combination of two matrices
      * \param[in] alpha  scalar
@@ -142,16 +169,31 @@ public:
     virtual Vector::shared_ptr
     extractDiagonal( Vector::shared_ptr buf = Vector::shared_ptr() ) const = 0;
 
+    /** \brief  Get sum of each row in matrix
+     * \param[in]  buf  An optional vector to use as a buffer
+     * \return  A vector of the sums
+     */
+    virtual Vector::shared_ptr
+    getRowSums( Vector::shared_ptr buf = Vector::shared_ptr() ) const = 0;
+
+    /** \brief  Get absolute sum of each row in matrix
+     * \param[in]  buf  An optional vector to use as a buffer
+     * \param[in]  remove_zeros  Do we want to remove zeros
+     * \return  A vector of the sums
+     */
+    virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),
+                                                   const bool remove_zeros = false ) const = 0;
+
     /** \brief Get a right vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a
      * right vector ) \return  A newly created right vector
      */
-    virtual Vector::shared_ptr getRightVector() const = 0;
+    virtual Vector::shared_ptr createInputVector() const = 0;
 
     /** \brief Get a left vector ( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{y}\f$ is a left
      * vector )
      * \return  A newly created left vector
      */
-    virtual Vector::shared_ptr getLeftVector() const = 0;
+    virtual Vector::shared_ptr createOutputVector() const = 0;
 
 public:
     /** \brief  Add values to those in the matrix
@@ -182,10 +224,23 @@ public:
      * on the actual subclass of matrix used.
      */
     template<typename T>
-    void
-    setValuesByGlobalID( size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, T *values )
+    void setValuesByGlobalID(
+        size_t num_rows, size_t num_cols, const size_t *rows, const size_t *cols, const T *values )
     {
         d_matrixData->setValuesByGlobalID( num_rows, num_cols, rows, cols, values );
+    }
+
+    /** \brief  Set values for a row in the matrix
+     * \param[in]  row      Which row
+     * \param[in] cols      The column ids to set
+     * \param[in] values    The values to set
+     */
+    template<typename T = double>
+    void
+    setRowByGlobalID( size_t row, const std::vector<size_t> &cols, const std::vector<T> &values )
+    {
+        AMP_ASSERT( cols.size() == values.size() );
+        d_matrixData->setValuesByGlobalID<T>( 1, cols.size(), &row, cols.data(), values.data() );
     }
 
     /** \brief  Get values in the matrix
@@ -199,7 +254,7 @@ public:
      */
     template<typename T>
     void getValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, T *values ) const
+        size_t num_rows, size_t num_cols, const size_t *rows, const size_t *cols, T *values ) const
     {
         d_matrixData->getValuesByGlobalID( num_rows, num_cols, rows, cols, values );
     }
@@ -330,6 +385,32 @@ public:
 
     //! Return the pointer to the MatrixData
     std::shared_ptr<const MatrixData> getMatrixData() const { return d_matrixData; }
+
+    //! Get a unique id hash for the matrix
+    uint64_t getID() const;
+
+public: // Write/read restart data
+    /**
+     * \brief    Register any child objects
+     * \details  This function will register child objects with the manager
+     * \param manager   Restart manager
+     */
+    virtual void registerChildObjects( AMP::IO::RestartManager *manager ) const;
+
+    /**
+     * \brief    Write restart data to file
+     * \details  This function will write the mesh to an HDF5 file
+     * \param fid    File identifier to write
+     */
+    virtual void writeRestart( int64_t fid ) const;
+
+    /**
+     * \brief    Read restart data to file
+     * \details  This function will create a variable from the restart file
+     * \param fid    File identifier to write
+     * \param manager   Restart manager
+     */
+    Matrix( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
     //! Protected constructor

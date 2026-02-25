@@ -52,6 +52,7 @@ MultiMesh::MultiMesh( std::shared_ptr<const MeshParameters> params_in ) : Mesh( 
     // Create the load balancer and comms
     loadBalanceSimulator loadBalance( db );
     loadBalance.setProcs( d_comm.getSize() );
+    AMP_ASSERT( loadBalance.maxProcs() >= d_comm.getSize() );
     const auto &submeshes = loadBalance.getSubmeshes();
     std::vector<std::vector<int>> groups( submeshes.size() );
     for ( size_t i = 0; i < submeshes.size(); i++ )
@@ -148,17 +149,15 @@ void MultiMesh::initialize()
     AMP_ASSERT( !d_meshes.empty() );
     PhysicalDim = d_meshes[0]->getDim();
     GeomDim     = d_meshes[0]->getGeomType();
-    d_max_gcw   = 0;
+    d_max_gcw   = d_meshes[0]->getMaxGhostWidth();
     for ( size_t i = 1; i < d_meshes.size(); i++ ) {
         AMP_INSIST( PhysicalDim == d_meshes[i]->getDim(),
                     "Physical dimension must match for all meshes in multimesh" );
-        if ( d_meshes[i]->getGeomType() > GeomDim )
-            GeomDim = d_meshes[i]->getGeomType();
-        if ( d_meshes[i]->getMaxGhostWidth() > d_max_gcw )
-            d_max_gcw = d_meshes[i]->getMaxGhostWidth();
+        GeomDim   = std::max( GeomDim, d_meshes[i]->getGeomType() );
+        d_max_gcw = std::min( d_max_gcw, d_meshes[i]->getMaxGhostWidth() );
     }
     GeomDim   = (GeomType) d_comm.maxReduce( (int) GeomDim );
-    d_max_gcw = d_comm.maxReduce( d_max_gcw );
+    d_max_gcw = d_comm.minReduce( d_max_gcw );
     // Compute the bounding box of the multimesh
     d_box       = d_meshes[0]->getBoundingBox();
     d_box_local = d_meshes[0]->getLocalBoundingBox();
@@ -186,6 +185,12 @@ void MultiMesh::initialize()
     }
     if ( !geom.empty() )
         d_geometry.reset( new AMP::Geometry::MultiGeometry( geom ) );
+    // Cache key data
+    int value = 2;
+    for ( auto &mesh : d_meshes )
+        value = std::min( value, static_cast<int>( mesh->isMeshMovable() ) );
+    value       = d_comm.minReduce( value );
+    d_isMovable = static_cast<Mesh::Movable>( value );
 }
 
 
@@ -288,7 +293,7 @@ MultiMesh::createDatabases( std::shared_ptr<const AMP::Database> database )
         return meshDatabases;
     }
     // Find all of the meshes in the database
-    AMP_ASSERT( database != nullptr );
+    AMP_ASSERT( database );
     if ( !database->keyExists( "MeshDatabasePrefix" ) ||
          !database->keyExists( "MeshArrayDatabasePrefix" ) ) {
         std::string msg = "Missing field MeshDatabasePrefix/MeshArrayDatabasePrefix in database:\n";
@@ -544,45 +549,45 @@ MeshIterator MultiMesh::isMember( const MeshIterator &iterator ) const
 
 
 /********************************************************
+ * Function to check if the mesh element is contained    *
+ ********************************************************/
+bool MultiMesh::containsElement( const MeshElementID &id ) const
+{
+    for ( auto &mesh : d_meshes ) {
+        if ( mesh->containsElement( id ) )
+            return true;
+    }
+    return false;
+}
+
+
+/********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-MeshElement MultiMesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &id ) const
 {
-    MeshID mesh_id = elem_id.meshID();
     for ( auto &mesh : d_meshes ) {
-        auto ids        = mesh->getLocalBaseMeshIDs();
-        bool mesh_found = false;
-        for ( auto &id : ids ) {
-            if ( id == mesh_id )
-                mesh_found = true;
-        }
-        if ( mesh_found )
-            return mesh->getElement( elem_id );
+        if ( mesh->containsElement( id ) )
+            return mesh->getElement( id );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
-    return MeshElement();
+    return std::make_unique<MeshElement>();
 }
 
 
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> MultiMesh::getElementParents( const MeshElement &elem,
-                                                       const GeomType type ) const
+Mesh::ElementListPtr MultiMesh::getElementParents( const MeshElement &elem,
+                                                   const GeomType type ) const
 {
-    MeshID mesh_id = elem.globalID().meshID();
+    auto id = elem.globalID();
     for ( auto &mesh : d_meshes ) {
-        auto ids        = mesh->getLocalBaseMeshIDs();
-        bool mesh_found = false;
-        for ( auto &id : ids ) {
-            if ( id == mesh_id )
-                mesh_found = true;
-        }
-        if ( mesh_found )
+        if ( mesh->containsElement( id ) )
             return mesh->getElementParents( elem, type );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
-    return std::vector<MeshElement>();
+    return {};
 }
 
 
@@ -699,13 +704,7 @@ std::shared_ptr<Mesh> MultiMesh::Subset( std::string name ) const
 /********************************************************
  * Displace a mesh                                       *
  ********************************************************/
-Mesh::Movable MultiMesh::isMeshMovable() const
-{
-    int value = 2;
-    for ( auto &mesh : d_meshes )
-        value = std::min( value, static_cast<int>( mesh->isMeshMovable() ) );
-    return static_cast<Mesh::Movable>( value );
-}
+Mesh::Movable MultiMesh::isMeshMovable() const { return d_isMovable; }
 uint64_t MultiMesh::positionHash() const
 {
     uint64_t hash = 0;

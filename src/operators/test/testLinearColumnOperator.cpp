@@ -44,7 +44,7 @@ static void myTest( AMP::UnitTest *ut )
     params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
     // Create the meshes from the input database
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    auto mesh = AMP::Mesh::MeshFactory::create( params );
 
     AMP_INSIST( outerInput_db->keyExists( "number_of_tests" ), "key missing!" );
     int numTests = outerInput_db->getScalar<int>( "number_of_tests" );
@@ -82,16 +82,15 @@ static void myTest( AMP::UnitTest *ut )
         int nVars      = 0;
         for ( int opN = 1; opN <= numberOfOperators; opN++ ) {
             dofMapVec.push_back( AMP::Discretization::simpleDOFManager::create(
-                meshAdapter, AMP::Mesh::GeomType::Vertex, 1, dofsPerNodeArr[opN - 1], true ) );
+                mesh, AMP::Mesh::GeomType::Vertex, 1, dofsPerNodeArr[opN - 1], true ) );
 
             auto testOpName = AMP::Utilities::stringf( "testOperator%d", opN );
             AMP_INSIST( innerInput_db->keyExists( testOpName ),
                         "key missing!  " + innerInput_file );
 
-            std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel;
-            auto testOp_db    = innerInput_db->getDatabase( testOpName );
-            auto testOperator = AMP::Operator::OperatorBuilder::createOperator(
-                meshAdapter, testOpName, innerInput_db, elementPhysicsModel );
+            auto testOp_db = innerInput_db->getDatabase( testOpName );
+            auto testOperator =
+                AMP::Operator::OperatorBuilder::createOperator( mesh, testOpName, innerInput_db );
 
             auto myLinOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( testOperator );
             AMP_INSIST( myLinOp != nullptr, "Is not a linear operator!" );
@@ -110,7 +109,7 @@ static void myTest( AMP::UnitTest *ut )
                     innerInput_db->getDatabase( testOp_db->getString( "VolumeOperator" ) );
                 if ( ( volOp_db->getName() == "DiffusionNonlinearFEOperator" ) ||
                      ( volOp_db->getName() == "DiffusionLinearFEOperator" ) ) {
-                    model_db = innerInput_db->getDatabase( volOp_db->getString( "LocalModel" ) );
+                    model_db = innerInput_db->getDatabase( "LocalModel" );
                 }
             }
 
@@ -127,8 +126,7 @@ static void myTest( AMP::UnitTest *ut )
             // Create the vectors
             auto tmp_var =
                 std::make_shared<AMP::LinearAlgebra::MultiVariable>( "columnInputVariable" );
-            auto solVec =
-                AMP::LinearAlgebra::MultiVector::create( tmp_var, meshAdapter->getComm() );
+            auto solVec = AMP::LinearAlgebra::MultiVector::create( tmp_var, mesh->getComm() );
             for ( size_t iv = 0; iv < inputVariables.size(); iv++ ) {
                 if ( inputVariables[iv] )
                     solVec->addVector(

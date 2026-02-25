@@ -1,15 +1,15 @@
-Mesh{
-  MeshType = "libMesh"
-  FileName = "brick.e"
-  MeshName = "fuel"
-  dim      = 3
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 1000
+Mesh {
+    MeshName = "fuel"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
 }
 MyPowerShape{
-    print_info_level = 3
+    print_info_level = 2
     coordinateSystem = "cylindrical"
     type = "polynomial"
     numRmoments = 1

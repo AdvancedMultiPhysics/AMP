@@ -201,7 +201,7 @@ bool TutorialApplication::keyPressed( const KeyboardEvent &evt )
 }
 
 
-int main( int argc, char **argv )
+int main( int, char ** )
 {
     try {
         TutorialApplication app;

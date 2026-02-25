@@ -1,5 +1,9 @@
 #include "AMP/operators/mechanics/MechanicsManufacturedSolutions.h"
 #include "AMP/IO/PIO.h"
+#include "AMP/utils/Constants.h"
+
+
+constexpr double pi = AMP::Constants::pi;
 
 
 namespace AMP::MechanicsManufacturedSolution {
@@ -35,74 +39,6 @@ MMS::MMS( double YM, double PR )
       bzz( 1.0 ),
       name( "unnamed" )
 {
-}
-
-
-// Copy constructor
-MMS::MMS( const MMS &mms ) : name( mms.name )
-{
-    E   = mms.E;
-    nu  = mms.nu;
-    Lx  = mms.Lx;
-    Ly  = mms.Ly;
-    Lz  = mms.Lz;
-    Mx  = mms.Mx;
-    My  = mms.My;
-    Mz  = mms.Mz;
-    axx = mms.axx;
-    bxx = mms.bxx;
-    axy = mms.axy;
-    bxy = mms.bxy;
-    axz = mms.axz;
-    bxz = mms.bxz;
-    ayx = mms.ayx;
-    byx = mms.byx;
-    ayy = mms.ayy;
-    byy = mms.byy;
-    ayz = mms.ayz;
-    byz = mms.byz;
-    azx = mms.azx;
-    bzx = mms.bzx;
-    azy = mms.azy;
-    bzy = mms.bzy;
-    azz = mms.azz;
-    bzz = mms.bzz;
-}
-
-
-// Assignment operator
-MMS &MMS::operator=( const MMS &mms )
-{
-    if ( this == &mms )
-        return *this;
-    E    = mms.E;
-    nu   = mms.nu;
-    Lx   = mms.Lx;
-    Ly   = mms.Ly;
-    Lz   = mms.Lz;
-    Mx   = mms.Mx;
-    My   = mms.My;
-    Mz   = mms.Mz;
-    axx  = mms.axx;
-    bxx  = mms.bxx;
-    axy  = mms.axy;
-    bxy  = mms.bxy;
-    axz  = mms.axz;
-    bxz  = mms.bxz;
-    ayx  = mms.ayx;
-    byx  = mms.byx;
-    ayy  = mms.ayy;
-    byy  = mms.byy;
-    ayz  = mms.ayz;
-    byz  = mms.byz;
-    azx  = mms.azx;
-    bzx  = mms.bzx;
-    azy  = mms.azy;
-    bzy  = mms.bzy;
-    azz  = mms.azz;
-    bzz  = mms.bzz;
-    name = mms.name;
-    return *this;
 }
 
 
@@ -172,26 +108,20 @@ std::vector<double> MMSLinear::getStressTensor( double x, double y, double z ) c
             ( Lz * ( nu * 2.0 + 2.0 ) ) );
     stress.push_back(
         ( E *
-          ( ( My * ayz * ( byx + ( ayx * x ) / Lx ) * ( byy + ( ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) /
-                Lz +
-            ( Mz * azy * ( bzx + ( azx * x ) / Lx ) * ( bzz + ( azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) /
-                Ly ) *
+          ( ( My * ayz * ( byx + ( ayx * x ) / Lx ) * ( byy + ( ayy * y ) / Ly ) * 0.5 ) / Lz +
+            ( Mz * azy * ( bzx + ( azx * x ) / Lx ) * ( bzz + ( azz * z ) / Lz ) * 0.5 ) / Ly ) *
           2.0 ) /
         ( nu * 2.0 + 2.0 ) );
     stress.push_back(
         ( E *
-          ( ( Mx * axz * ( bxx + ( axx * x ) / Lx ) * ( bxy + ( axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) /
-                Lz +
-            ( Mz * azx * ( bzy + ( azy * y ) / Ly ) * ( bzz + ( azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) /
-                Lx ) *
+          ( ( Mx * axz * ( bxx + ( axx * x ) / Lx ) * ( bxy + ( axy * y ) / Ly ) * 0.5 ) / Lz +
+            ( Mz * azx * ( bzy + ( azy * y ) / Ly ) * ( bzz + ( azz * z ) / Lz ) * 0.5 ) / Lx ) *
           2.0 ) /
         ( nu * 2.0 + 2.0 ) );
     stress.push_back(
         ( E *
-          ( ( Mx * axy * ( bxx + ( axx * x ) / Lx ) * ( bxz + ( axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) /
-                Ly +
-            ( My * ayx * ( byy + ( ayy * y ) / Ly ) * ( byz + ( ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) /
-                Lx ) *
+          ( ( Mx * axy * ( bxx + ( axx * x ) / Lx ) * ( bxz + ( axz * z ) / Lz ) * 0.5 ) / Ly +
+            ( My * ayx * ( byy + ( ayy * y ) / Ly ) * ( byz + ( ayz * z ) / Lz ) * 0.5 ) / Lx ) *
           2.0 ) /
         ( nu * 2.0 + 2.0 ) );
     return stress;
@@ -201,180 +131,179 @@ std::vector<double> MMSLinear::getStressTensor( double x, double y, double z ) c
 // MMSTrigonometric
 double MMSTrigonometric::getExactSolutionX( double x, double y, double z ) const
 {
-    return Mx * sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-           sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-           sin( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) );
+    return Mx * sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+           sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+           sin( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 );
 }
 double MMSTrigonometric::getExactSolutionY( double /* x */, double y, double z ) const
 {
-    return My * sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-           sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-           sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) );
+    return My * sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+           sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+           sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 );
 }
 double MMSTrigonometric::getExactSolutionZ( double /* x */, double y, double z ) const
 {
-    return Mz * sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-           sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-           sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) );
+    return Mz * sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+           sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+           sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 );
 }
 double MMSTrigonometric::getForcingTermX( double x, double y, double z ) const
 {
-    return 1 / ( Lx * Lx ) * ( M_PI * M_PI ) * Mx * ( axx * axx ) *
-               sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-               sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-               sin( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) *
-               ( ( E * ( 2.0 / 3.0 ) ) / ( nu * 2.0 + 2.0 ) + E / ( nu * 6.0 - 3.0 ) ) *
-               ( -1.0 / 4.0 ) +
-           ( E * 1 / ( Lx * Lx ) * ( M_PI * M_PI ) * Mx * ( axx * axx ) *
-             sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+    return 1 / ( Lx * Lx ) * ( pi * pi ) * Mx * ( axx * axx ) *
+               sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+               sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+               sin( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) *
+               ( ( E * ( 2.0 / 3.0 ) ) / ( nu * 2.0 + 2.0 ) + E / ( nu * 6.0 - 3.0 ) ) * ( -0.25 ) +
+           ( E * 1 / ( Lx * Lx ) * ( pi * pi ) * Mx * ( axx * axx ) *
+             sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+             sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+             sin( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.5 ) /
                ( nu * 2.0 + 2.0 ) +
-           ( E * 1 / ( Ly * Ly ) * ( M_PI * M_PI * M_PI * M_PI ) * Mx * ( axy * axy ) *
-             sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+           ( E * 1 / ( Ly * Ly ) * ( pi * pi * pi * pi ) * Mx * ( axy * axy ) *
+             sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+             sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+             sin( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.25 ) /
                ( nu * 2.0 + 2.0 ) +
-           ( E * 1 / ( Lz * Lz ) * ( M_PI * M_PI * M_PI * M_PI ) * Mx * ( axz * axz ) *
-             sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+           ( E * 1 / ( Lz * Lz ) * ( pi * pi * pi * pi ) * Mx * ( axz * axz ) *
+             sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+             sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+             sin( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.25 ) /
                ( nu * 2.0 + 2.0 );
 }
 double MMSTrigonometric::getForcingTermY( double x, double y, double z ) const
 {
     return ( ( E * ( 2.0 / 3.0 ) ) / ( nu * 2.0 + 2.0 ) + E / ( nu * 6.0 - 3.0 ) ) *
-               ( 1 / ( Ly * Ly ) * ( M_PI * M_PI ) * My * ( ayx * ayx ) *
-                     sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( -1.0 / 4.0 ) -
-                 1 / ( Ly * Ly ) * ( M_PI * M_PI * M_PI * M_PI ) * My * ( ayy * ayy ) *
-                     sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) +
-                 1 / ( Ly * Ly ) * ( M_PI * M_PI * M_PI ) * My * ayx * ayy *
-                     cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                     cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) +
-                 ( ( M_PI * M_PI * M_PI ) * Mx * axx * axy *
-                   cos( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+               ( 1 / ( Ly * Ly ) * ( pi * pi ) * My * ( ayx * ayx ) *
+                     sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                     sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                     sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * ( -0.25 ) -
+                 1 / ( Ly * Ly ) * ( pi * pi * pi * pi ) * My * ( ayy * ayy ) *
+                     sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                     sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                     sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.25 +
+                 1 / ( Ly * Ly ) * ( pi * pi * pi ) * My * ayx * ayy *
+                     cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                     sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                     cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 +
+                 ( ( pi * pi * pi ) * Mx * axx * axy *
+                   cos( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+                   cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.25 ) /
                      ( Lx * Ly ) +
-                 ( ( M_PI * M_PI * M_PI ) * Mz * azx * azy *
-                   cos( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+                 ( ( pi * pi * pi ) * Mz * azx * azy *
+                   cos( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                   cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.25 ) /
                      ( Ly * Lz ) +
-                 ( ( M_PI * M_PI * M_PI * M_PI ) * Mz * azy * azz *
-                   cos( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+                 ( ( pi * pi * pi * pi ) * Mz * azy * azz *
+                   cos( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                   cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.25 ) /
                      ( Ly * Lz ) ) +
            ( E *
-             ( 1 / ( Ly * Ly ) * ( M_PI * M_PI ) * My * ( ayx * ayx ) *
-                   sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) +
-               1 / ( Ly * Ly ) * ( M_PI * M_PI * M_PI * M_PI ) * My * ( ayy * ayy ) *
-                   sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) -
-               1 / ( Ly * Ly ) * ( M_PI * M_PI * M_PI ) * My * ayx * ayy *
-                   cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) *
+             ( 1 / ( Ly * Ly ) * ( pi * pi ) * My * ( ayx * ayx ) *
+                   sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.25 +
+               1 / ( Ly * Ly ) * ( pi * pi * pi * pi ) * My * ( ayy * ayy ) *
+                   sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.25 -
+               1 / ( Ly * Ly ) * ( pi * pi * pi ) * My * ayx * ayy *
+                   cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                   cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) *
              2.0 ) /
                ( nu * 2.0 + 2.0 ) -
            ( E *
-             ( 1 / ( Lz * Lz ) * ( M_PI * M_PI * M_PI * M_PI ) * My * ( ayz * ayz ) *
-                   sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( -1.0 / 8.0 ) +
-               ( ( M_PI * M_PI * M_PI ) * Mz * azx * azy *
-                 cos( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                 sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                 cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 8.0 ) ) /
+             ( 1 / ( Lz * Lz ) * ( pi * pi * pi * pi ) * My * ( ayz * ayz ) *
+                   sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * ( -1.0 / 8.0 ) +
+               ( ( pi * pi * pi ) * Mz * azx * azy *
+                 cos( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                 sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                 cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * ( 1.0 / 8.0 ) ) /
                    ( Ly * Lz ) +
-               ( ( M_PI * M_PI * M_PI * M_PI ) * Mz * azy * azz *
-                 cos( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                 cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                 sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 8.0 ) ) /
+               ( ( pi * pi * pi * pi ) * Mz * azy * azz *
+                 cos( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                 cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                 sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * ( 1.0 / 8.0 ) ) /
                    ( Ly * Lz ) ) *
              2.0 ) /
                ( nu * 2.0 + 2.0 ) -
-           ( E * ( M_PI * M_PI * M_PI ) * Mx * axx * axy *
-             cos( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-             cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+           ( E * ( pi * pi * pi ) * Mx * axx * axy *
+             cos( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+             sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+             cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.25 ) /
                ( Lx * Ly * ( nu * 2.0 + 2.0 ) );
 }
 double MMSTrigonometric::getForcingTermZ( double x, double y, double z ) const
 {
     return ( ( E * ( 2.0 / 3.0 ) ) / ( nu * 2.0 + 2.0 ) + E / ( nu * 6.0 - 3.0 ) ) *
-               ( 1 / ( Lz * Lz ) * ( M_PI * M_PI ) * Mz * ( azx * azx ) *
-                     sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( -1.0 / 4.0 ) -
-                 1 / ( Lz * Lz ) * ( M_PI * M_PI * M_PI * M_PI ) * Mz * ( azz * azz ) *
-                     sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) +
-                 1 / ( Lz * Lz ) * ( M_PI * M_PI * M_PI ) * Mz * azx * azz *
-                     cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                     sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                     cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) +
-                 ( ( M_PI * M_PI * M_PI ) * Mx * axx * axz *
-                   cos( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+               ( 1 / ( Lz * Lz ) * ( pi * pi ) * Mz * ( azx * azx ) *
+                     sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                     sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                     sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * ( -0.25 ) -
+                 1 / ( Lz * Lz ) * ( pi * pi * pi * pi ) * Mz * ( azz * azz ) *
+                     sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                     sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                     sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.25 +
+                 1 / ( Lz * Lz ) * ( pi * pi * pi ) * Mz * azx * azz *
+                     cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                     sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                     cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 +
+                 ( ( pi * pi * pi ) * Mx * axx * axz *
+                   cos( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+                   cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.25 ) /
                      ( Lx * Lz ) +
-                 ( ( M_PI * M_PI * M_PI ) * My * ayx * ayz *
-                   cos( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+                 ( ( pi * pi * pi ) * My * ayx * ayz *
+                   cos( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                   cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.25 ) /
                      ( Ly * Lz ) +
-                 ( ( M_PI * M_PI * M_PI * M_PI ) * My * ayy * ayz *
-                   cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+                 ( ( pi * pi * pi * pi ) * My * ayy * ayz *
+                   cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                   cos( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.25 ) /
                      ( Ly * Lz ) ) +
            ( E *
-             ( 1 / ( Lz * Lz ) * ( M_PI * M_PI ) * Mz * ( azx * azx ) *
-                   sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) +
-               1 / ( Lz * Lz ) * ( M_PI * M_PI * M_PI * M_PI ) * Mz * ( azz * azz ) *
-                   sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) -
-               1 / ( Lz * Lz ) * ( M_PI * M_PI * M_PI ) * Mz * azx * azz *
-                   cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) *
+             ( 1 / ( Lz * Lz ) * ( pi * pi ) * Mz * ( azx * azx ) *
+                   sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.25 +
+               1 / ( Lz * Lz ) * ( pi * pi * pi * pi ) * Mz * ( azz * azz ) *
+                   sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.25 -
+               1 / ( Lz * Lz ) * ( pi * pi * pi ) * Mz * azx * azz *
+                   cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                   cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) *
              2.0 ) /
                ( nu * 2.0 + 2.0 ) -
            ( E *
-             ( 1 / ( Ly * Ly ) * ( M_PI * M_PI * M_PI * M_PI ) * Mz * ( azy * azy ) *
-                   sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                   sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( -1.0 / 8.0 ) +
-               ( ( M_PI * M_PI * M_PI ) * My * ayx * ayz *
-                 cos( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                 sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                 cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 8.0 ) ) /
+             ( 1 / ( Ly * Ly ) * ( pi * pi * pi * pi ) * Mz * ( azy * azy ) *
+                   sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                   sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                   sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * ( -1.0 / 8.0 ) +
+               ( ( pi * pi * pi ) * My * ayx * ayz *
+                 cos( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                 sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                 cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * ( 1.0 / 8.0 ) ) /
                    ( Ly * Lz ) +
-               ( ( M_PI * M_PI * M_PI * M_PI ) * My * ayy * ayz *
-                 cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                 cos( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                 sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 8.0 ) ) /
+               ( ( pi * pi * pi * pi ) * My * ayy * ayz *
+                 cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                 cos( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                 sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * ( 1.0 / 8.0 ) ) /
                    ( Ly * Lz ) ) *
              2.0 ) /
                ( nu * 2.0 + 2.0 ) -
-           ( E * ( M_PI * M_PI * M_PI ) * Mx * axx * axz *
-             cos( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-             sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-             cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+           ( E * ( pi * pi * pi ) * Mx * axx * axz *
+             cos( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+             sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+             cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.25 ) /
                ( Lx * Lz * ( nu * 2.0 + 2.0 ) );
 }
 std::vector<double> MMSTrigonometric::getStressTensor( double x, double y, double z ) const
@@ -382,128 +311,118 @@ std::vector<double> MMSTrigonometric::getStressTensor( double x, double y, doubl
     std::vector<double> stress;
     stress.push_back(
         -( ( E * ( 2.0 / 3.0 ) ) / ( nu * 2.0 + 2.0 ) + E / ( nu * 6.0 - 3.0 ) ) *
-            ( ( ( M_PI * M_PI ) * My * ayy *
-                cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+            ( ( ( pi * pi ) * My * ayy * cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                   Ly +
-              ( ( M_PI * M_PI ) * Mz * azz *
-                cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( ( pi * pi ) * Mz * azz * cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                   Lz +
-              ( M_PI * Mx * axx * sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * Mx * axx * sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.5 ) /
                   Lx +
-              ( M_PI * My * ayx * sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * My * ayx * sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                   Ly +
-              ( M_PI * Mz * azx * sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * Mz * azx * sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                   Lz ) +
-        ( E * M_PI * Mx * axx * sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-          sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-          cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) ) /
+        ( E * pi * Mx * axx * sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+          sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+          cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) ) /
             ( Lx * ( nu * 2.0 + 2.0 ) ) );
     stress.push_back(
         -( ( E * ( 2.0 / 3.0 ) ) / ( nu * 2.0 + 2.0 ) + E / ( nu * 6.0 - 3.0 ) ) *
-            ( ( ( M_PI * M_PI ) * My * ayy *
-                cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+            ( ( ( pi * pi ) * My * ayy * cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                   Ly +
-              ( ( M_PI * M_PI ) * Mz * azz *
-                cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( ( pi * pi ) * Mz * azz * cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                   Lz +
-              ( M_PI * Mx * axx * sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * Mx * axx * sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.5 ) /
                   Lx +
-              ( M_PI * My * ayx * sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * My * ayx * sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                   Ly +
-              ( M_PI * Mz * azx * sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * Mz * azx * sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                   Lz ) +
         ( E *
-          ( ( ( M_PI * M_PI ) * My * ayy *
-              cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+          ( ( ( pi * pi ) * My * ayy * cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+              sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+              sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                 Ly +
-            ( M_PI * My * ayx * sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-              cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+            ( pi * My * ayx * sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+              sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+              cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                 Ly ) *
           2.0 ) /
             ( nu * 2.0 + 2.0 ) );
     stress.push_back(
         -( ( E * ( 2.0 / 3.0 ) ) / ( nu * 2.0 + 2.0 ) + E / ( nu * 6.0 - 3.0 ) ) *
-            ( ( ( M_PI * M_PI ) * My * ayy *
-                cos( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+            ( ( ( pi * pi ) * My * ayy * cos( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                   Ly +
-              ( ( M_PI * M_PI ) * Mz * azz *
-                cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( ( pi * pi ) * Mz * azz * cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                   Lz +
-              ( M_PI * Mx * axx * sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * Mx * axx * sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.5 ) /
                   Lx +
-              ( M_PI * My * ayx * sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * My * ayx * sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.5 ) /
                   Ly +
-              ( M_PI * Mz * azx * sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+              ( pi * Mz * azx * sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+                sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+                cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                   Lz ) +
         ( E *
-          ( ( ( M_PI * M_PI ) * Mz * azz *
-              cos( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+          ( ( ( pi * pi ) * Mz * azz * cos( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+              sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+              sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                 Lz +
-            ( M_PI * Mz * azx * sin( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-              cos( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
+            ( pi * Mz * azx * sin( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+              sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+              cos( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.5 ) /
                 Lz ) *
           2.0 ) /
             ( nu * 2.0 + 2.0 ) );
     stress.push_back(
         ( E *
-          ( ( ( M_PI * M_PI ) * My * ayz *
-              cos( M_PI * ( byz + ( M_PI * ayz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( byy + ( M_PI * ayy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( byx + ( ayx * y ) / Ly ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+          ( ( ( pi * pi ) * My * ayz * cos( pi * ( byz + ( pi * ayz * z ) / Lz ) * 0.5 ) *
+              sin( pi * ( byy + ( pi * ayy * y ) / Ly ) * 0.5 ) *
+              sin( pi * ( byx + ( ayx * y ) / Ly ) * 0.5 ) * 0.25 ) /
                 Lz +
-            ( ( M_PI * M_PI ) * Mz * azy *
-              cos( M_PI * ( bzy + ( M_PI * azy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( bzz + ( M_PI * azz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-              sin( M_PI * ( bzx + ( azx * z ) / Lz ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 4.0 ) ) /
+            ( ( pi * pi ) * Mz * azy * cos( pi * ( bzy + ( pi * azy * y ) / Ly ) * 0.5 ) *
+              sin( pi * ( bzz + ( pi * azz * z ) / Lz ) * 0.5 ) *
+              sin( pi * ( bzx + ( azx * z ) / Lz ) * 0.5 ) * 0.25 ) /
                 Ly ) *
           2.0 ) /
         ( nu * 2.0 + 2.0 ) );
-    stress.push_back( ( E * ( M_PI * M_PI ) * Mx * axz *
-                        cos( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                        sin( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                        sin( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
-                      ( Lz * ( nu * 2.0 + 2.0 ) ) );
-    stress.push_back( ( E * ( M_PI * M_PI ) * Mx * axy *
-                        cos( M_PI * ( bxy + ( M_PI * axy * y ) / Ly ) * ( 1.0 / 2.0 ) ) *
-                        sin( M_PI * ( bxz + ( M_PI * axz * z ) / Lz ) * ( 1.0 / 2.0 ) ) *
-                        sin( M_PI * ( bxx + ( axx * x ) / Lx ) * ( 1.0 / 2.0 ) ) * ( 1.0 / 2.0 ) ) /
-                      ( Ly * ( nu * 2.0 + 2.0 ) ) );
+    stress.push_back(
+        ( E * ( pi * pi ) * Mx * axz * cos( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+          sin( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+          sin( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.5 ) /
+        ( Lz * ( nu * 2.0 + 2.0 ) ) );
+    stress.push_back(
+        ( E * ( pi * pi ) * Mx * axy * cos( pi * ( bxy + ( pi * axy * y ) / Ly ) * 0.5 ) *
+          sin( pi * ( bxz + ( pi * axz * z ) / Lz ) * 0.5 ) *
+          sin( pi * ( bxx + ( axx * x ) / Lx ) * 0.5 ) * 0.5 ) /
+        ( Ly * ( nu * 2.0 + 2.0 ) ) );
     return stress;
 }
 

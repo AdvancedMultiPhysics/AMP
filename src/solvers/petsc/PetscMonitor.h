@@ -9,6 +9,7 @@ typedef int PetscErrorCode;
 typedef struct _p_SNES *SNES;
 typedef struct _p_KSP *KSP;
 
+#include "petscsystypes.h"
 
 namespace AMP {
 
@@ -35,10 +36,10 @@ public:
     ~PetscMonitor();
 
     //! Routine to pass to petsc for monitoring KSP
-    static PetscErrorCode monitorKSP( KSP, int, double, void * );
+    static PetscErrorCode monitorKSP( KSP, PetscInt, PetscReal, void * );
 
     //! Routine to pass to petsc for monitoring SNES
-    static PetscErrorCode monitorSNES( SNES, int, double, void * );
+    static PetscErrorCode monitorSNES( SNES, PetscInt, PetscReal, void * );
 
     //! Routine to pass to petsc for monitoring KSP delete
     // static PetscErrorCode (*)(void**)  getKSPMonitorDelete();
@@ -54,8 +55,8 @@ private:
 
     AMP::AMP_MPI d_comm;
 
-    void printKSPStatus( KSP ksp, int iteration, double L2norm );
-    void printSNESStatus( SNES snes, int iteration, double L2norm );
+    void printKSPStatus( KSP ksp, PetscInt iteration, PetscReal L2norm );
+    void printSNESStatus( SNES snes, PetscInt iteration, PetscReal L2norm );
 };
 } // namespace AMP
 

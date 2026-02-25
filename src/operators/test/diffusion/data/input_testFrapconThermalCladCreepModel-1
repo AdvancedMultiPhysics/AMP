@@ -1,5 +1,26 @@
+Mesh {
+    MeshName = "brick"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
+}
 
-Mesh = "brick.e"
+MechanicsMaterialModel { 
+       USE_MATERIALS_LIBRARY = TRUE
+       Material = "Steel316_MSRZC_09"
+       name="FrapconCladThermalCreepPlasticModel"
+       Use_Thermal_Strain = TRUE
+       Use_Creep_Strain = TRUE
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+       Creep_Neutron_Flux = 100.0
+       Creep_Delta_Time = 0.001
+      }
+
 
 testNonlinearMechanicsOperator {
       name = "MechanicsNonlinearFEOperator"
@@ -20,7 +41,7 @@ testNonlinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel = "MechanicsMaterialModel"
+      LocalModel = MechanicsMaterialModel
 
 }
 
@@ -40,18 +61,5 @@ testLinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 }
-
-MechanicsMaterialModel { 
-       USE_MATERIALS_LIBRARY = TRUE
-       Material = "Steel316_MSRZC_09"
-       name="FrapconCladThermalCreepPlasticModel"
-       Use_Thermal_Strain = TRUE
-       Use_Creep_Strain = TRUE
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-       Creep_Neutron_Flux = 100.0
-       Creep_Delta_Time = 0.001
-      }
-
 
 

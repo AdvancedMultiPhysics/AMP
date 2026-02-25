@@ -1,14 +1,10 @@
 #include "AMP/mesh/MeshIterator.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/mesh/structured/structuredMeshIterator.h"
 
 
 namespace AMP::Mesh {
-
-
-// unused global variable to prevent compiler warning
-static MeshElement nullElement;
 
 
 /********************************************************
@@ -62,7 +58,7 @@ MeshIterator &MeshIterator::operator=( MeshIterator &&rhs )
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    if ( d_iterator != nullptr ) {
+    if ( d_iterator ) {
         // Delete the existing element
         delete d_iterator;
         d_iterator = nullptr;
@@ -86,7 +82,7 @@ MeshIterator &MeshIterator::operator=( const MeshIterator &rhs )
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    if ( d_iterator != nullptr ) {
+    if ( d_iterator ) {
         // Delete the existing element
         delete d_iterator;
         d_iterator = nullptr;
@@ -128,7 +124,7 @@ MeshIterator::MeshIterator( MeshIterator *rhs )
  ********************************************************/
 MeshIterator::~MeshIterator()
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         delete d_iterator;
     d_iterator = nullptr;
 }
@@ -139,7 +135,7 @@ MeshIterator::~MeshIterator()
  ********************************************************/
 std::string MeshIterator::className() const
 {
-    if ( d_iterator == nullptr )
+    if ( !d_iterator )
         return "MeshIterator";
     auto name = d_iterator->className();
     AMP_DEBUG_ASSERT( name != "MeshIterator" );
@@ -226,12 +222,12 @@ uint64_t MeshIterator::getID() const
  ****************************************************************/
 void MeshIterator::registerChildObjects( AMP::IO::RestartManager *manager ) const
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         d_iterator->registerChildObjects( manager );
 }
 void MeshIterator::writeRestart( int64_t fid ) const
 {
-    if ( d_iterator != nullptr ) {
+    if ( d_iterator ) {
         d_iterator->writeRestart( fid );
     } else {
         IO::writeHDF5( fid, "typeHash", d_typeHash );
@@ -282,7 +278,7 @@ MeshIterator MeshIterator::operator--( int )
  ********************************************************/
 MeshIterator &MeshIterator::operator+=( int n )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator+=( n );
     if ( n >= 0 ) {
         for ( int i = 0; i < n; i++ ) {
@@ -317,19 +313,19 @@ MeshIterator MeshIterator::operator-( const MeshIterator &it ) const
 }
 MeshIterator &MeshIterator::operator+=( const MeshIterator &it )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator+=( (int) it.position() );
     return this->operator+=( (int) it.position() );
 }
 MeshIterator &MeshIterator::operator-=( int n )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator-=( n );
     return this->operator+=( -n );
 }
 MeshIterator &MeshIterator::operator-=( const MeshIterator &it )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator-=( (int) it.position() );
     return this->operator+=( -static_cast<int>( it.position() ) );
 }
@@ -340,7 +336,7 @@ MeshIterator &MeshIterator::operator-=( const MeshIterator &it )
  ********************************************************/
 MeshElement &MeshIterator::operator[]( int i )
 {
-    if ( d_iterator != nullptr )
+    if ( d_iterator )
         return d_iterator->operator[]( i );
     AMP_ERROR( "Dereferencing d_iterator with offset is not supported by default" );
     return this->operator*(); // This line never executes and would return the wrong object

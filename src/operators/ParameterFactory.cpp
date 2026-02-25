@@ -2,7 +2,6 @@
 #include "AMP/AMP_TPLs.h"
 
 #ifdef AMP_USE_LIBMESH
-    #include "AMP/operators/NeutronicsRhsParameters.h"
     #include "AMP/operators/boundary/DirichletMatrixCorrectionParameters.h"
     #include "AMP/operators/mechanics/MechanicsLinearFEOperatorParameters.h"
     #include "AMP/operators/mechanics/MechanicsNonlinearFEOperatorParameters.h"
@@ -30,7 +29,6 @@ ParameterFactory::createParameter( std::shared_ptr<AMP::Database> input_db,
     resetParameters( DirichletMatrixCorrection );
     resetParameters( MechanicsLinearFEOperator );
     resetParameters( MechanicsNonlinearFEOperator );
-    resetParameters( NeutronicsRhs );
 #endif
     if ( retParameters )
         retParameters->d_Mesh = mesh;

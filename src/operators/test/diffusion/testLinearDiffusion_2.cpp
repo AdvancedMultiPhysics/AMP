@@ -20,13 +20,13 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
-#include "patchfunctions.h"
-
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+
 
 /**
  * This test is designed to allow the programmer to set up a function on a mesh and compute the
@@ -35,7 +35,7 @@
  */
 static void linearTest( AMP::UnitTest *ut,
                         const std::string &exeName,
-                        double function( const double, const double, const double ) )
+                        std::function<double( double, double, double )> fun )
 {
     // Initialization
     std::string input_file = "input_" + exeName;
@@ -57,12 +57,11 @@ static void linearTest( AMP::UnitTest *ut,
     params->setComm( globalComm );
 
     // Create the meshes from the input database
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    auto mesh = AMP::Mesh::MeshFactory::create( params );
 
     auto diffFEOp_db = input_db->getDatabase( "LinearDiffusionOp" );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementModel;
-    auto linearOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "LinearDiffusionOp", input_db, elementModel );
+    auto linearOperator =
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "LinearDiffusionOp", input_db );
     auto diffOp =
         std::dynamic_pointer_cast<AMP::Operator::DiffusionLinearFEOperator>( linearOperator );
 
@@ -82,7 +81,7 @@ static void linearTest( AMP::UnitTest *ut,
 
     // create vectors for parameters
     auto NodalScalarDOF = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
     auto tempVar = std::make_shared<AMP::LinearAlgebra::Variable>( "testTempVar" );
     auto concVar = std::make_shared<AMP::LinearAlgebra::Variable>( "testConcVar" );
     auto burnVar = std::make_shared<AMP::LinearAlgebra::Variable>( "testBurnVar" );
@@ -118,7 +117,7 @@ static void linearTest( AMP::UnitTest *ut,
     auto diffResVec = AMP::LinearAlgebra::createVector( NodalScalarDOF, diffResVar, true );
     diffRhsVec->setToScalar( 0.0 );
 
-    auto curNode = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+    auto curNode = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     auto endNode = curNode.end();
     std::vector<size_t> dofs;
     while ( curNode != endNode ) {
@@ -128,7 +127,7 @@ static void linearTest( AMP::UnitTest *ut,
         double z = pos[2];
         NodalScalarDOF->getDOFs( curNode->globalID(), dofs );
         size_t i    = dofs[0];
-        double fval = function( x, y, z );
+        double fval = fun( x, y, z );
         diffSolVec->setValuesByGlobalID( 1, &i, &fval );
         ++curNode;
     }
@@ -140,7 +139,7 @@ static void linearTest( AMP::UnitTest *ut,
     // write values in mathematica form
     int nranks = globalComm.getSize();
     if ( nranks == 1 ) {
-        size_t nnodes        = meshAdapter->numLocalElements( AMP::Mesh::GeomType::Vertex );
+        size_t nnodes        = mesh->numLocalElements( AMP::Mesh::GeomType::Vertex );
         int proc             = globalComm.getRank();
         int nproc            = globalComm.getSize();
         std::string filename = "values-" + exeName;
@@ -149,7 +148,7 @@ static void linearTest( AMP::UnitTest *ut,
             file << "values={"
                  << "\n";
         }
-        curNode = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+        curNode = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
         for ( size_t i = 0; i < nnodes; i++ ) {
             auto pos = curNode->coord();
             double x = pos[0];
@@ -158,7 +157,7 @@ static void linearTest( AMP::UnitTest *ut,
 
             int ii      = i;
             double rval = diffResVec->getValueByLocalID( ii );
-            double fval = function( x, y, z );
+            double fval = fun( x, y, z );
             file << "{" << x << "," << y << "," << z << "," << rval << "," << fval << "}";
             if ( i < nnodes - 1 )
                 file << ",\n";
@@ -185,6 +184,7 @@ int testLinearDiffusion_2( int argc, char *argv[] )
       "Diffusion-UO2MSRZC09-Soret-1" */
     };
 
+    auto x_linear = []( double x, double, double ) { return x; };
     for ( auto &file : files )
         linearTest( &ut, file, x_linear );
 

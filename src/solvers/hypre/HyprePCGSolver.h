@@ -55,14 +55,6 @@ public:
     }
 
     /**
-     * Solve the system \f$Au = f\f$.
-     @param [in] f : shared pointer to right hand side vector
-     @param [out] u : shared pointer to approximate computed solution
-     */
-    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
-                std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
-
-    /**
      * Initialize the solution vector and potentially create internal vectors needed for solution
      @param [in] parameters The parameters object
      contains a database object. Refer to the documentation for the constructor to see what fields
@@ -73,32 +65,13 @@ public:
      */
     void initialize( std::shared_ptr<const SolverStrategyParameters> parameters ) override;
 
-    /**
-     * sets a shared pointer to a preconditioner object. The preconditioner is derived from
-     * a SolverStrategy class
-     * @param pc shared pointer to preconditioner
-     */
-    inline void setNestedSolver( std::shared_ptr<AMP::Solver::SolverStrategy> pc ) override
-    {
-        d_pPreconditioner = pc;
-    }
-
-    inline std::shared_ptr<AMP::Solver::SolverStrategy> getNestedSolver() override
-    {
-        return d_pPreconditioner;
-    }
-
     void getFromInput( std::shared_ptr<const AMP::Database> db );
 
     void reset( std::shared_ptr<SolverStrategyParameters> params ) override;
 
 private:
     void setupHypreSolver( std::shared_ptr<const SolverStrategyParameters> parameters );
-
-    bool d_bUsesPreconditioner = false;
-    bool d_bDiagScalePC        = false; //! use diagonal scaled preconditioner
-
-    std::shared_ptr<AMP::Solver::SolverStrategy> d_pPreconditioner;
+    void setHypreFunctionPointers();
 };
 } // namespace AMP::Solver
 

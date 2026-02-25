@@ -1,0 +1,29 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "GMRESRSolver"
+  variant = "gmresr"
+  nested_solver = "BiCGSTAB"
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 2
+  max_iterations = 30
+  max_dimension = 100
+}
+
+BiCGSTAB{
+  name = "BiCGSTABSolver"
+  uses_preconditioner = TRUE
+  print_info_level = 0
+  max_iterations = 3
+  relative_tolerance = 1.0e-2
+}
+
+<<< "PC-DiagParameters" >>>
+
+Reference{
+  iterations = 10
+  res_l2_norm = -1.0
+  tolerance = 0.0
+  strict = FALSE
+}

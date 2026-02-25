@@ -1,13 +1,12 @@
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
     MeshName = "Pellet"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 5226
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
+    static = TRUE
 }
 
 NeutronicsOperator{
@@ -26,6 +25,26 @@ DiffusionBVPOperator {
     BoundaryOperator = "RobinMatrixCorrection1"
 }
 
+DiffusionTransportModel1 {
+    name="DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+      Default_Concentration = .1
+    Default_Temperature   = 300
+    Default_Burnup   = 0.0
+}
+
+SourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.
+    Default_Burnup   = 0.0
+}
+
 DiffusionLinearFEOperator1{
     name="DiffusionLinearFEOperator"
     FixedTemperature = TRUE
@@ -42,7 +61,7 @@ DiffusionLinearFEOperator1{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 RobinMatrixCorrection1{
@@ -62,14 +81,6 @@ RobinMatrixCorrection1{
     value_0_0        =  1.52e+6
 }
 
-DiffusionTransportModel1 {
-    name="DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-      Default_Concentration = .1
-    Default_Temperature   = 300
-    Default_Burnup   = 0.0
-}
 
 VolumeIntegralOperator{
     name="VolumeIntegralOperator"
@@ -81,7 +92,7 @@ VolumeIntegralOperator{
       ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
     }
     OutputVariable = "heatsource"
-      LocalModel = "SourcePhysicsModel"
+      LocalModel = SourcePhysicsModel
 
     SourceElement {
       name="SourceNonlinearElement"
@@ -92,14 +103,4 @@ VolumeIntegralOperator{
     }
 }
 
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.
-    Default_Burnup   = 0.0
-}
 

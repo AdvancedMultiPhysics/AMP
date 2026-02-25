@@ -93,6 +93,17 @@ BVPOperator {
     BoundaryOperator = "DirichletMatrixCorrection"
 }
 
+MechanicsMaterialModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = ""
+    name="IsotropicElasticModel"
+    Youngs_Modulus = 2.0e11
+    Poissons_Ratio = 0.25
+    Default_Temperature = 0.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = 0.0
+}
+
 MechanicsLinearFEOperator {
   name = "MechanicsLinearFEOperator"
     print_info_level = 1
@@ -109,18 +120,7 @@ MechanicsLinearFEOperator {
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "MechanicsMaterialModel"
-}
-
-MechanicsMaterialModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = ""
-    name="IsotropicElasticModel"
-    Youngs_Modulus = 2.0e11
-    Poissons_Ratio = 0.25
-    Default_Temperature = 0.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = 0.0
+  LocalModel = MechanicsMaterialModel
 }
 
 DirichletMatrixCorrection {

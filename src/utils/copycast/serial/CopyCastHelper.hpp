@@ -1,9 +1,9 @@
 #ifndef included_AMP_CopyCast_serial_HPP_
 #define included_AMP_CopyCast_serial_HPP_
 
-#include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
+#include <cmath>
 #include <limits>
 #include <memory>
 
@@ -18,11 +18,18 @@ namespace AMP::Utilities {
  *                        It is assumed that vec_out is properly allocated
  */
 template<typename T1, typename T2>
-struct copyCast_<T1, T2, AMP::Utilities::PortabilityBackend::Serial, AMP::HostAllocator<void>> {
-    static void apply( size_t len, const T1 *vec_in, T2 *vec_out )
+struct copyCast_<T1, T2, AMP::Utilities::Backend::Serial, AMP::HostAllocator<void>> {
+    static void apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
         for ( size_t i = 0; i < len; i++ ) {
-            AMP_DEBUG_ASSERT( std::abs( vec_in[i] ) <= std::numeric_limits<T2>::max() );
+#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
+            if constexpr ( std::numeric_limits<T1>::max() > std::numeric_limits<T2>::max() ) {
+                if constexpr ( std::is_signed_v<T1> )
+                    AMP_ASSERT( std::abs( vec_in[i] ) <= std::numeric_limits<T2>::max() );
+                else
+                    AMP_ASSERT( vec_in[i] <= std::numeric_limits<T2>::max() );
+            }
+#endif
             vec_out[i] = static_cast<T2>( vec_in[i] );
         }
     }

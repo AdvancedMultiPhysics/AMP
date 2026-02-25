@@ -36,14 +36,12 @@ public:
                         const double a = -1.0,
                         const double b = 1.0 )
     {
-        AMP::LinearAlgebra::Vector::shared_ptr inVec = u->subsetVectorForVariable( d_inpVar );
+        auto inVec = u->subsetVectorForVariable( d_inpVar );
 
-        AMP::Mesh::DOFMap::shared_ptr dof_map = d_MeshAdapter->getDOFMap( d_inpVar );
+        auto dof_map = d_MeshAdapter->getDOFMap( d_inpVar );
 
-        AMP::Mesh::MeshManager::Adapter::OwnedBoundaryNodeIterator bnd =
-            d_MeshAdapter->beginOwnedBoundary( d_inputBoundaryId );
-        AMP::Mesh::MeshManager::Adapter::OwnedBoundaryNodeIterator end_bnd =
-            d_MeshAdapter->endOwnedBoundary( d_inputBoundaryId );
+        auto bnd     = d_MeshAdapter->beginOwnedBoundary( d_inputBoundaryId );
+        auto end_bnd = d_MeshAdapter->endOwnedBoundary( d_inputBoundaryId );
 
         double val = 0.;
         int cnt    = 0;

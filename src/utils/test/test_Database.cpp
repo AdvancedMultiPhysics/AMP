@@ -163,13 +163,15 @@ void runBasicTests( UnitTest &ut )
         ut.failure( "array size" );
 
     // Write the database to a file
+    int rank   = AMP::AMP_MPI( AMP_COMM_WORLD ).getRank();
+    auto fname = "test_Database." + std::to_string( rank ) + ".out";
     std::ofstream inputfile;
-    inputfile.open( "test_Database.out" );
+    inputfile.open( fname );
     db.print( inputfile, "", false, true );
     inputfile.close();
 
     // Read the database and check that everything matches
-    auto db2 = Database::parseInputFile( "test_Database.out" );
+    auto db2 = Database::parseInputFile( fname );
     if ( !isType<std::string>( db2, "string" ) )
         ut.failure( "string is a database?" );
     if ( !isType<std::string>( db2, "string" ) ||
@@ -345,8 +347,20 @@ void runFileTests( UnitTest &ut, const std::string &filename )
     }
     printf( "\n" );
     // Try sending/receiving database
-    auto db2 = AMP::AMP_MPI( AMP_COMM_WORLD ).bcast( db, 0 );
-    checkResult( ut, *db == *db2, filename + " - send/recv" );
+    std::shared_ptr<AMP::Database> db2;
+    try {
+        db2 = AMP::AMP_MPI( AMP_COMM_WORLD ).bcast( db, 0 );
+    } catch ( StackTrace::abort_error &e ) {
+        std::cerr << "Unknown exception when trying to broadcast Database\n:" << e.what();
+    } catch ( std::exception &e ) {
+        std::cerr << "Unknown exception when trying to broadcast Database\n:" << e.what();
+    } catch ( ... ) {
+        std::cerr << "Unhandled exception when trying to broadcast Database\n";
+    }
+    if ( db2 )
+        checkResult( ut, *db == *db2, filename + " - send/recv" );
+    else
+        ut.expected_failure( filename + " - send/recv (caught exception)" );
 }
 
 

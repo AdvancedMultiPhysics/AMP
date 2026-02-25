@@ -1,24 +1,35 @@
 #ifndef included_AMP_CSRMatrix
 #define included_AMP_CSRMatrix
 
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/Matrix.h"
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/Vector.h"
 #include <memory>
 
+namespace AMP::IO {
+class RestartManager;
+}
+
 namespace AMP::LinearAlgebra {
+
+template<typename Policy>
+class CSRMatrixData;
 
 /** \class CSRMatrix
  * \brief  An concrete class for dealing with dense serial matrices
  * \details  This is a concrete class that stores a dense local matrix.
  *    This is not a distributed matrix and requires that the comm is AMP_COMM_SELF.
  */
-template<typename Policy, typename Allocator = AMP::HostAllocator<void>>
+template<class Config>
 class CSRMatrix : public Matrix
 {
-    static_assert( std::is_same_v<typename Allocator::value_type, void> );
-
 public:
+    using config_type    = Config;
+    using allocator_type = typename Config::allocator_type;
+    using matrixdata_t   = CSRMatrixData<Config>;
+    static_assert( std::is_same_v<typename allocator_type::value_type, void> );
+
     CSRMatrix() = delete;
 
     /** \brief Constructor
@@ -43,6 +54,12 @@ public:
     //! Return the type of the matrix
     virtual std::string type() const override { return "CSRMatrix"; }
 
+    //! Return CSR mode of the matrix.
+    virtual std::uint16_t mode() const override
+    {
+        return static_cast<std::uint16_t>( Config::mode );
+    }
+
     /** \brief  Return a new matrix that is the transpose of this one
      * \return  A copy of this matrix transposed.
      */
@@ -53,6 +70,37 @@ public:
      */
     shared_ptr clone() const override;
 
+    /** \brief  Return a copy of the matrix in the specified memory space
+     * \param[in] memType Memory space for the new matrix
+     * \return  The new matrix
+     * \details This selects the operations backend from the default based on memType
+     */
+    shared_ptr migrate( AMP::Utilities::MemoryType memType ) const;
+
+    /** \brief  Return a copy of the matrix in the specified memory space
+     * \param[in] memType Memory space for the new matrix
+     * \param[in] backend Acceleration backend for operations
+     * \return  The new matrix
+     */
+    shared_ptr migrate( AMP::Utilities::MemoryType memType, AMP::Utilities::Backend backend ) const;
+
+    /** \brief  Return a copy of the matrix with the specified ConfigOut
+     * \return  The new matrix
+     * \details This selects the operations backend from the default based on memType
+     */
+    template<typename ConfigOut>
+    shared_ptr migrate() const;
+
+    /** \brief  Return a copy of the matrix with the specified ConfigOut
+     * \param[in] backend Acceleration backend for operations
+     * \return  The new matrix
+     */
+    template<typename ConfigOut>
+    shared_ptr migrate( AMP::Utilities::Backend backend ) const;
+
+    //! Replace current backend with different one, no-op if same
+    void setBackend( AMP::Utilities::Backend backend ) override;
+
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the diagonal values
@@ -60,17 +108,34 @@ public:
     Vector::shared_ptr
     extractDiagonal( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
 
+    /** \brief  Get sum of each row in matrix
+     * \param[in]  buf  An optional vector to use as a buffer
+     * \return  A vector of the sums
+     */
+    virtual Vector::shared_ptr
+    getRowSums( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
+
+    /** \brief  Get absolute sum of each row in matrix
+     * \param[in]  buf           An optional vector to use as a buffer
+     * \param[in]  remove_zeros  If true zero values in sum are replaced with ones
+     * \return  A vector of the sums
+     */
+    virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),
+                                                   const bool remove_zeros = false ) const override;
+
     /** \brief Get a right vector( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a right
      * vector )
      * \return  A newly created right vector
      */
-    Vector::shared_ptr getRightVector() const override;
+    Vector::shared_ptr createInputVector() const override;
 
     /** \brief Get a left vector( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{y}\f$ is a left
      * vector )
      * \return  A newly created left vector
      */
-    Vector::shared_ptr getLeftVector() const override;
+    Vector::shared_ptr createOutputVector() const override;
+
+    CSRMatrix( int64_t fid, AMP::IO::RestartManager *manager );
 
 protected:
     /** \brief  Multiply two matrices and store in a third

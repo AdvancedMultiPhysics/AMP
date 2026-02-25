@@ -2,15 +2,15 @@
 #define included_AMP_TractionBoundaryOperatorParameters
 
 #include "AMP/mesh/Mesh.h"
-#include "AMP/operators/OperatorParameters.h"
+#include "AMP/operators/boundary/BoundaryOperatorParameters.h"
 
 namespace AMP::Operator {
 
-class TractionBoundaryOperatorParameters : public OperatorParameters
+class TractionBoundaryOperatorParameters : public BoundaryOperatorParameters
 {
 public:
     explicit TractionBoundaryOperatorParameters( std::shared_ptr<AMP::Database> db )
-        : OperatorParameters( db )
+        : BoundaryOperatorParameters( db )
     {
     }
 

@@ -18,22 +18,15 @@ class LinearBVPOperator : public LinearOperator
 public:
     /**
      * Main constructor
-       @param [in] parameters The parameters object contains a database object which must contain
-   the
-       following fields in addition to the fields expected by the base Operator class:
-
-   1. name: VolumeOperator, type: string, (required), name of the database associated with the
-   volume operator
-
-   2. name: BoundaryOperator, type: string, (required), name of the database associated with the
-   boundary operator
-
-   3. name: name, type: string, (required), must be set to LinearBVPOperator
-
-   4. name: useSameLocalModelForVolumeAndBoundaryOperators, type: bool, (optional), default value:
-   FALSE, when set to
-      to TRUE the same local model is used for both the volume and boundary operators
-      */
+     * @param[in] parameters The parameters object contains a database object which
+     *     must contain the following fields in addition to the fields expected by
+     *     the base Operator class:
+     *     1. name: VolumeOperator, type: string, (required), name of the database
+     *        associated with the volume operator
+     *     2. name: BoundaryOperator, type: string, (required), name of the database
+     *        associated with theboundary operator
+     *     3. name: name, type: string, (required), must be set to LinearBVPOperator
+     */
     explicit LinearBVPOperator( std::shared_ptr<const OperatorParameters> parameters );
 
     /**
@@ -49,12 +42,12 @@ public:
      */
     void reset( std::shared_ptr<const OperatorParameters> ) override;
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         return d_volumeOperator->getInputVariable();
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_volumeOperator->getOutputVariable();
     }

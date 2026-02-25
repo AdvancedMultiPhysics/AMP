@@ -62,7 +62,7 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    AMP::Mesh::MeshElement getElement( size_t dof ) const override;
+    std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const override;
 
 
     /** \brief   Get an entry over the mesh elements associated with the DOFs
@@ -77,6 +77,13 @@ public:
 
     //! Get the remote DOFs for a vector
     std::vector<size_t> getRemoteDOFs() const override;
+
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    int getDOFsPerPoint() const override;
 
 
 public: // Advanced interfaces

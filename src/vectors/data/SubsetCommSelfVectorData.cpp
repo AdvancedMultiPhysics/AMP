@@ -14,8 +14,8 @@ namespace AMP::LinearAlgebra {
  * Constructors                                                  *
  ****************************************************************/
 SubsetCommSelfVectorData::SubsetCommSelfVectorData( std::shared_ptr<VectorData> data )
+    : d_parentData( data )
 {
-    d_parentData = data;
     AMP_ASSERT( d_parentData );
     size_t N     = d_parentData->getLocalSize();
     d_localSize  = N;
@@ -118,10 +118,11 @@ void SubsetCommSelfVectorData::getGhostAddValuesByGlobalID( size_t,
                                                             const typeID & ) const
 {
 }
+size_t SubsetCommSelfVectorData::getAllGhostValues( void *, const typeID & ) const { return 0; }
 void SubsetCommSelfVectorData::swapData( VectorData &rhs )
 {
     auto s = dynamic_cast<SubsetCommSelfVectorData *>( &rhs );
-    AMP_ASSERT( s != nullptr );
+    AMP_ASSERT( s );
     std::swap( d_parentData, s->d_parentData );
     std::swap( d_localSize, s->d_localSize );
     std::swap( d_globalSize, s->d_globalSize );

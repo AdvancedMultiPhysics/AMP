@@ -22,6 +22,5 @@ class NativeSundialsVectorFactory : public VectorFactory
 
 } // namespace AMP::LinearAlgebra
 
-/// \endcond
 
 #endif

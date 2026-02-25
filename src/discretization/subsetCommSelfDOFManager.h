@@ -26,9 +26,6 @@ public:
     /** \brief Default constructor
      * \details  This is the default constructor for creating a subset DOF manager.
      * \param[in] parentDOFManager  The parent DOF manager
-     * \param[in] dofs      The DOFs that will be part of the subset (may be a local list)
-     * \param[in] iterator  The iterator over the subset of elements in the subsetCommSelfDOFManager
-     * \param[in] comm      The new comm for the subset DOF Manager
      */
     subsetCommSelfDOFManager( std::shared_ptr<const DOFManager> parentDOFManager );
 
@@ -46,7 +43,7 @@ public:
      * \param[in] dof       The entry in the vector associated with DOF
      * @return              The element for the given DOF.
      */
-    AMP::Mesh::MeshElement getElement( size_t dof ) const override;
+    std::unique_ptr<AMP::Mesh::MeshElement> getElement( size_t dof ) const override;
 
 
     //! Deconstructor
@@ -92,6 +89,13 @@ public:
 
     //! Get the local sizes on each rank
     std::vector<size_t> getLocalSizes() const override { return { d_end - d_begin }; }
+
+    /** \brief Get the number of DOFs per element
+     * \details  This will return the number of DOFs per mesh element.
+     *    If some DOFs are not associated with a mesh element or if all elements
+     *    do not contain the same number of DOFs than this routine will return -1.
+     */
+    int getDOFsPerPoint() const override;
 
 
 public: // Advanced interfaces

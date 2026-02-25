@@ -19,7 +19,7 @@ namespace AMP::LinearAlgebra {
 static inline N_Vector getVec( AMP::LinearAlgebra::Vector::shared_ptr vector )
 {
     auto sundials = std::dynamic_pointer_cast<AMP::LinearAlgebra::SundialsVector>( vector );
-    AMP_ASSERT( sundials != nullptr );
+    AMP_ASSERT( sundials );
     return sundials->getNVector();
 }
 

@@ -2,6 +2,7 @@
 #define included_AMP_Vector
 
 #include "AMP/utils/Units.h"
+#include "AMP/utils/Utilities.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/data/VectorData.h"
@@ -103,13 +104,12 @@ public: // Virtual functions
 
     //@{
     /** \brief Allocate space in the same fashion as <i>this</i>
-     * \param[in] name  The variable to associate with the new vector
      * \details  This will allocate new space with identical layout as <i>this</i>.
      * \return  A Vector shared pointer
      * It will have the same number of blocks, each with the same engines and same number of
      * entries.
      */
-    virtual std::unique_ptr<Vector> rawClone( const std::shared_ptr<Variable> name ) const;
+    virtual std::unique_ptr<Vector> rawClone() const;
 
     /** \brief  Swap the data in this Vector for another
       * \param[in]  other  Vector to swap data with
@@ -347,7 +347,6 @@ public: // the next set of functions defines the public math. interface for vect
      * \details Returns \f[\sum_i this_i^2 \f] and  \f[\sum_i x_i\mathit{this}_i\f].
      *    Note that this is an unoptimized version purely meant to provide functionality
      * \param[in] x        a vector
-     * \param[in] y a vector
      * \return std::pair of L2Norm of vector and dot in that order
      */
     std::pair<Scalar, Scalar> L2NormAndDot( const Vector &x ) const;
@@ -395,13 +394,13 @@ public: // Up/down-cast vectors
     /** \brief Copy up/down-casting  <i>this</i>
      * \details  The vector will be associated with the same Variable, and will contain
      *    a copy of the data in x after up/down-casting it.
-     * \return  A Vector shared pointer
+     * \param[in] x        a vector
      */
     void copyCast( std::shared_ptr<const Vector> x );
 
 public: // Get/Set data/variables/operations
     //! Get the units for this Vector
-    inline auto getUnits() const { return d_units; }
+    inline auto &getUnits() const { return d_units; }
 
     //! Get the units for this Vector
     virtual void setUnits( AMP::Units );
@@ -462,7 +461,6 @@ public: // Subset/Select
      *    To use:
      *        auto disp = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
      * \param[in]  criterion  The method for deciding inclusion in the view
-     * \param[in]  name       The name of the vector to be created
      */
     shared_ptr select( const VectorSelector &criterion );
 
@@ -472,7 +470,6 @@ public: // Subset/Select
      *    To use:
      *        auto disp = data->select( VS_ByVariableName( "displacement" ), "displacement view" );
      * \param[in]  criterion  The method for deciding inclusion in the view
-     * \param[in]  name       The name of the vector to be created
      */
     const_shared_ptr select( const VectorSelector &criterion ) const;
 
@@ -672,24 +669,9 @@ public: // VectorData operations
         d_VectorData->setValuesByLocalID( num, indices, vals );
     }
     template<class TYPE>
-    inline void setLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->setLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
     inline void addValuesByLocalID( int num, size_t *indices, const TYPE *vals )
     {
         d_VectorData->addValuesByLocalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void addLocalValuesByGlobalID( int num, size_t *indices, const TYPE *vals )
-    {
-        d_VectorData->addLocalValuesByGlobalID( num, indices, vals );
-    }
-    template<class TYPE>
-    inline void getLocalValuesByGlobalID( int num, size_t *indices, TYPE *vals ) const
-    {
-        d_VectorData->getLocalValuesByGlobalID( num, indices, vals );
     }
     inline uint64_t getDataID() const { return d_VectorData->getDataID(); }
     inline void *getRawDataBlockAsVoid( size_t i )
@@ -787,6 +769,18 @@ public: // VectorData operations
         d_VectorData->dumpGhostedData( out, offset );
     }
 
+    /**\brief Ensure this vector has no ghosts
+     *\details Calls clearBuffer for the communication list and removes any storage for ghosts
+     */
+    inline void setNoGhosts() { d_VectorData->setNoGhosts(); }
+
+    /** \brief returns the memory location for data
+     */
+    AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return d_VectorData->getMemoryLocation();
+    }
+
 public: // Get values
     /**
      * \brief Return a value from the vector.
@@ -801,7 +795,7 @@ public: // Get values
      * \brief Return a local value from the vector.
      * \param[in] i The global index into the vector
      * \return The value stored at the index
-     * \details This uses getLocalValuesByGlobalID to get the value
+     * \details This uses getValuesByGlobalID to get the value
      */
     template<typename TYPE = double>
     TYPE getLocalValueByGlobalID( size_t i ) const;
@@ -872,13 +866,6 @@ protected:                                                         // Internal d
     std::shared_ptr<VectorData> d_VectorData;                      // Pointer to data
     std::shared_ptr<VectorOperations> d_VectorOps;                 // Pointer to a VectorOperations
     std::shared_ptr<std::vector<std::any>> d_Views;                // Views of the vector
-
-
-public: // Deprecated functions (to be removed soon
-    [[deprecated]] typedef VectorDataIterator<double> iterator;
-    [[deprecated]] typedef VectorDataIterator<const double> const_iterator;
-    [[deprecated]] shared_ptr select( const VectorSelector &, const std::string & );
-    [[deprecated]] const_shared_ptr select( const VectorSelector &, const std::string & ) const;
 };
 
 

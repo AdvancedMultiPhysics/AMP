@@ -4,7 +4,7 @@
 #include "AMP/vectors/data/MultiVectorData.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/discretization/MultiDOF_Manager.h"
-#include "AMP/utils/Utilities.h"
+#include "AMP/utils/Utilities.hpp"
 #include "AMP/vectors/CommunicationList.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
@@ -21,10 +21,11 @@ namespace AMP::LinearAlgebra {
  * Constructors / reset                                          *
  ****************************************************************/
 MultiVectorData::MultiVectorData( VectorData *data, const AMP::Discretization::DOFManager *manager )
+    : d_comm( data->getComm() ), d_data( { data } )
 {
+    PROFILE( "constructor", 1 );
+
     auto multiDOFManager = dynamic_cast<const AMP::Discretization::multiDOFManager *>( manager );
-    d_comm               = data->getComm();
-    d_data               = { data };
     if ( multiDOFManager )
         d_dofMap = multiDOFManager->getMap();
     else
@@ -33,9 +34,12 @@ MultiVectorData::MultiVectorData( VectorData *data, const AMP::Discretization::D
     d_globalSize = d_dofMap.numGlobal();
     d_localStart = d_dofMap.begin();
 }
+
 void MultiVectorData::resetMultiVectorData( const AMP::Discretization::DOFManager *manager,
                                             const std::vector<VectorData *> &data )
 {
+    PROFILE( "resetMultiVectorData", 1 );
+
     d_data = data;
     AMP_ASSERT( manager );
     auto multiDOFManager = dynamic_cast<const AMP::Discretization::multiDOFManager *>( manager );
@@ -72,6 +76,11 @@ size_t MultiVectorData::sizeOfDataBlock( size_t i ) const
     }
     return retVal;
 }
+void MultiVectorData::setNoGhosts()
+{
+    for ( auto &data : d_data )
+        data->setNoGhosts();
+}
 bool MultiVectorData::hasGhosts() const
 {
     bool ans = false;
@@ -88,6 +97,7 @@ size_t MultiVectorData::getGhostSize() const
 }
 void MultiVectorData::fillGhosts( const Scalar &x )
 {
+    PROFILE( "fillGhosts" );
     for ( const auto &data : d_data )
         data->fillGhosts( x );
 }
@@ -185,129 +195,138 @@ const void *MultiVectorData::getRawDataBlockAsVoid( size_t i ) const
  ****************************************************************/
 void MultiVectorData::setValuesByLocalID( size_t N,
                                           const size_t *indices,
-                                          const void *in_vals,
+                                          const void *vals,
                                           const typeID &id )
 {
-    if ( N == 0 )
-        return;
-    std::vector<std::vector<size_t>> ndxs;
-    std::vector<std::vector<std::byte>> vals;
-    partitionLocalValues( N, indices, in_vals, id.bytes, ndxs, vals );
-    for ( size_t i = 0; i != ndxs.size(); i++ ) {
-        if ( !ndxs[i].empty() )
-            d_data[i]->setValuesByLocalID( ndxs[i].size(), ndxs[i].data(), vals[i].data(), id );
+    PROFILE( "setValuesByLocalID", 1 );
+    auto data = reinterpret_cast<const std::byte *>( vals );
+    for ( size_t i = 0; i < N; i++, data += id.bytes ) {
+        auto [dof, manager] = d_dofMap.globalToSub( indices[i] + d_localStart );
+        AMP_DEBUG_ASSERT( manager >= 0 );
+        dof -= d_data[manager]->getLocalStartID();
+        d_data[manager]->setValuesByLocalID( 1, &dof, data, id );
     }
 }
+
 void MultiVectorData::addValuesByLocalID( size_t N,
                                           const size_t *indices,
-                                          const void *in_vals,
+                                          const void *vals,
                                           const typeID &id )
 {
-    if ( N == 0 )
-        return;
-    std::vector<std::vector<size_t>> ndxs;
-    std::vector<std::vector<std::byte>> vals;
-    partitionLocalValues( N, indices, in_vals, id.bytes, ndxs, vals );
-    for ( size_t i = 0; i != ndxs.size(); i++ ) {
-        if ( !ndxs[i].empty() )
-            d_data[i]->addValuesByLocalID( ndxs[i].size(), ndxs[i].data(), vals[i].data(), id );
+    PROFILE( "addValuesByLocalID", 1 );
+    auto data = reinterpret_cast<const std::byte *>( vals );
+    for ( size_t i = 0; i < N; i++, data += id.bytes ) {
+        auto [dof, manager] = d_dofMap.globalToSub( indices[i] + d_localStart );
+        AMP_DEBUG_ASSERT( manager >= 0 );
+        dof -= d_data[manager]->getLocalStartID();
+        d_data[manager]->addValuesByLocalID( 1, &dof, data, id );
     }
 }
+
 void MultiVectorData::getValuesByLocalID( size_t N,
                                           const size_t *indices,
-                                          void *out_vals,
+                                          void *vals,
                                           const typeID &id ) const
 {
-    if ( N == 0 )
-        return;
-    std::vector<std::vector<size_t>> ndxs;
-    std::vector<std::vector<std::byte>> vals;
-    std::vector<std::vector<int>> remap;
-    partitionLocalValues( N, indices, out_vals, id.bytes, ndxs, vals, &remap );
-    for ( size_t i = 0; i != ndxs.size(); i++ ) {
-        if ( !ndxs[i].empty() )
-            d_data[i]->getValuesByLocalID( ndxs[i].size(), ndxs[i].data(), vals[i].data(), id );
-    }
-    auto out = reinterpret_cast<std::byte *>( out_vals );
-    for ( size_t i = 0; i != remap.size(); i++ ) {
-        for ( size_t j = 0; j != remap[i].size(); j++ )
-            memcpy( &out[remap[i][j] * id.bytes], &vals[i][j * id.bytes], id.bytes );
+    PROFILE( "getValuesByLocalID", 1 );
+    auto data = reinterpret_cast<std::byte *>( vals );
+    for ( size_t i = 0; i < N; i++, data += id.bytes ) {
+        auto [dof, manager] = d_dofMap.globalToSub( indices[i] + d_localStart );
+        AMP_DEBUG_ASSERT( manager >= 0 );
+        dof -= d_data[manager]->getLocalStartID();
+        d_data[manager]->getValuesByLocalID( 1, &dof, data, id );
     }
 }
+
 void MultiVectorData::setGhostValuesByGlobalID( size_t N,
                                                 const size_t *indices,
-                                                const void *in_vals,
+                                                const void *vals,
                                                 const typeID &id )
 {
-    if ( N == 0 )
-        return;
-    std::vector<std::vector<size_t>> ndxs;
-    std::vector<std::vector<std::byte>> vals;
-    partitionGlobalValues( N, indices, in_vals, id.bytes, ndxs, vals );
-    for ( size_t i = 0; i != ndxs.size(); i++ ) {
-        if ( !ndxs[i].empty() )
-            d_data[i]->setGhostValuesByGlobalID(
-                ndxs[i].size(), ndxs[i].data(), vals[i].data(), id );
+    PROFILE( "setGhostValuesByGlobalID", 1 );
+    auto data = reinterpret_cast<const std::byte *>( vals );
+    for ( size_t i = 0; i < N; i++, data += id.bytes ) {
+        auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
+        AMP_DEBUG_ASSERT( manager >= 0 );
+        d_data[manager]->setGhostValuesByGlobalID( 1, &dof, data, id );
     }
 }
+
 void MultiVectorData::addGhostValuesByGlobalID( size_t N,
                                                 const size_t *indices,
-                                                const void *in_vals,
+                                                const void *vals,
                                                 const typeID &id )
 {
-    if ( N == 0 )
-        return;
-    std::vector<std::vector<size_t>> ndxs;
-    std::vector<std::vector<std::byte>> vals;
-    partitionGlobalValues( N, indices, in_vals, id.bytes, ndxs, vals );
-    for ( size_t i = 0; i != ndxs.size(); i++ ) {
-        if ( ndxs[i].size() )
-            d_data[i]->addGhostValuesByGlobalID(
-                ndxs[i].size(), ndxs[i].data(), vals[i].data(), id );
+    PROFILE( "addGhostValuesByGlobalID", 1 );
+    auto data = reinterpret_cast<const std::byte *>( vals );
+    for ( size_t i = 0; i < N; i++, data += id.bytes ) {
+        auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
+        AMP_DEBUG_ASSERT( manager >= 0 );
+        d_data[manager]->addGhostValuesByGlobalID( 1, &dof, data, id );
     }
 }
+
 void MultiVectorData::getGhostValuesByGlobalID( size_t N,
                                                 const size_t *indices,
-                                                void *out_vals,
+                                                void *vals,
                                                 const typeID &id ) const
 {
-    if ( N == 0 )
-        return;
-    std::vector<std::vector<size_t>> ndxs;
-    std::vector<std::vector<std::byte>> vals;
-    std::vector<std::vector<int>> remap;
-    partitionGlobalValues( N, indices, out_vals, id.bytes, ndxs, vals, &remap );
-    for ( size_t i = 0; i != ndxs.size(); i++ ) {
-        if ( !ndxs[i].empty() )
-            d_data[i]->getGhostValuesByGlobalID(
-                ndxs[i].size(), ndxs[i].data(), vals[i].data(), id );
-    }
-    auto out = reinterpret_cast<std::byte *>( out_vals );
-    for ( size_t i = 0; i != remap.size(); i++ ) {
-        for ( size_t j = 0; j != remap[i].size(); j++ )
-            memcpy( &out[remap[i][j] * id.bytes], &vals[i][j * id.bytes], id.bytes );
+    PROFILE( "getGhostValuesByGlobalID", 1 );
+    auto data = reinterpret_cast<std::byte *>( vals );
+    for ( size_t i = 0; i < N; i++, data += id.bytes ) {
+        auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
+        AMP_DEBUG_ASSERT( manager >= 0 );
+        d_data[manager]->getGhostValuesByGlobalID( 1, &dof, data, id );
     }
 }
+
 void MultiVectorData::getGhostAddValuesByGlobalID( size_t N,
                                                    const size_t *indices,
-                                                   void *out_vals,
+                                                   void *vals,
                                                    const AMP::typeID &id ) const
 {
-    if ( N == 0 )
-        return;
-    std::vector<std::vector<size_t>> ndxs;
-    std::vector<std::vector<std::byte>> vals;
-    std::vector<std::vector<int>> remap;
-    partitionGlobalValues( N, indices, out_vals, id.bytes, ndxs, vals, &remap );
-    for ( size_t i = 0; i != ndxs.size(); i++ ) {
-        if ( !ndxs[i].empty() )
-            d_data[i]->getGhostAddValuesByGlobalID(
-                ndxs[i].size(), ndxs[i].data(), vals[i].data(), id );
+    PROFILE( "getGhostAddValuesByGlobalID", 1 );
+    auto data = reinterpret_cast<std::byte *>( vals );
+    for ( size_t i = 0; i < N; i++, data += id.bytes ) {
+        auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
+        AMP_DEBUG_ASSERT( manager >= 0 );
+        d_data[manager]->getGhostAddValuesByGlobalID( 1, &dof, data, id );
     }
-    auto out = reinterpret_cast<std::byte *>( out_vals );
-    for ( size_t i = 0; i != remap.size(); i++ ) {
-        for ( size_t j = 0; j != remap[i].size(); j++ )
-            memcpy( &out[remap[i][j] * id.bytes], &vals[i][j * id.bytes], id.bytes );
+}
+
+template<class TYPE>
+size_t MultiVectorData::getAllGhostValues( TYPE *vals ) const
+{
+    PROFILE( "getAllGhostValues" );
+
+    constexpr auto id = getTypeID<TYPE>();
+    std::vector<size_t> remoteDofs;
+    for ( size_t i = 0; i < d_data.size(); i++ ) {
+        auto list = d_data[i]->getCommunicationList();
+        if ( list ) {
+            auto ptr  = &vals[remoteDofs.size()];
+            size_t N  = d_data[i]->getAllGhostValues( ptr, id );
+            auto dofs = list->getGhostIDList();
+            AMP_ASSERT( N == dofs.size() );
+            remoteDofs.reserve( remoteDofs.size() + dofs.size() );
+            for ( size_t j = 0; j < dofs.size(); j++ )
+                remoteDofs.push_back( d_dofMap.subToGlobal( i, dofs[j] ) );
+        }
+    }
+    AMP::Utilities::quicksort( remoteDofs.size(), remoteDofs.data(), vals );
+    return remoteDofs.size();
+}
+
+size_t MultiVectorData::getAllGhostValues( void *vals, const typeID &id ) const
+{
+    PROFILE( "MultiVectorData::getAllGhostValues" );
+
+    if ( id == getTypeID<double>() ) {
+        return getAllGhostValues( reinterpret_cast<double *>( vals ) );
+    } else if ( id == getTypeID<float>() ) {
+        return getAllGhostValues( reinterpret_cast<float *>( vals ) );
+    } else {
+        AMP_ERROR( "Not finished" );
     }
 }
 
@@ -317,6 +336,8 @@ void MultiVectorData::getGhostAddValuesByGlobalID( size_t N,
  ****************************************************************/
 void MultiVectorData::putRawData( const void *in, const typeID &id )
 {
+    PROFILE( "MultiVectorData::putRawData" );
+
     const char *ptr = reinterpret_cast<const char *>( in );
     for ( const auto &data : d_data ) {
         data->putRawData( ptr, id );
@@ -326,6 +347,8 @@ void MultiVectorData::putRawData( const void *in, const typeID &id )
 
 void MultiVectorData::getRawData( void *out, const typeID &id ) const
 {
+    PROFILE( "MultiVectorData::getRawData" );
+
     char *ptr = reinterpret_cast<char *>( out );
     for ( const auto &data : d_data ) {
         data->getRawData( ptr, id );
@@ -339,6 +362,8 @@ void MultiVectorData::getRawData( void *out, const typeID &id ) const
  ****************************************************************/
 void MultiVectorData::makeConsistent( ScatterType t )
 {
+    PROFILE( "MultiVectorData::makeConsistent" );
+
     for ( const auto &data : d_data ) {
         auto vec = dynamic_cast<Vector *>( data );
         if ( vec ) {
@@ -348,13 +373,17 @@ void MultiVectorData::makeConsistent( ScatterType t )
         }
     }
 }
+
 void MultiVectorData::makeConsistent()
 {
+    PROFILE( "MultiVectorData::makeConsistent" );
+
     if ( getGlobalUpdateStatus() == UpdateState::UNCHANGED )
         return;
     for ( const auto &data : d_data )
         data->makeConsistent();
 }
+
 UpdateState MultiVectorData::getLocalUpdateStatus() const
 {
     UpdateState state = UpdateState::UNCHANGED;
@@ -380,6 +409,7 @@ UpdateState MultiVectorData::getLocalUpdateStatus() const
     }
     return state;
 }
+
 void MultiVectorData::setUpdateStatus( UpdateState state )
 {
     for ( const auto &data : d_data )
@@ -387,15 +417,18 @@ void MultiVectorData::setUpdateStatus( UpdateState state )
     if ( d_UpdateState )
         *d_UpdateState = state;
 }
+
 void MultiVectorData::setUpdateStatusPtr( std::shared_ptr<UpdateState> ptr )
 {
     d_UpdateState = ptr;
 }
+
 std::shared_ptr<UpdateState> MultiVectorData::getUpdateStatusPtr() const
 {
     // This is incomplete, what if child vectors change
     return d_UpdateState;
 }
+
 void MultiVectorData::dataChanged()
 {
     for ( const auto &data : d_data )
@@ -406,12 +439,11 @@ void MultiVectorData::dataChanged()
     }
     fireDataChange();
 }
+
 void MultiVectorData::copyGhostValues( AMP::LinearAlgebra::VectorData const & )
 {
-    AMP_ERROR( "Not finished" );
-}
-void MultiVectorData::aliasGhostBuffer( std::shared_ptr<AMP::LinearAlgebra::VectorData> )
-{
+    PROFILE( "MultiVectorData::copyGhostValues" );
+
     AMP_ERROR( "Not finished" );
 }
 
@@ -421,10 +453,15 @@ void MultiVectorData::aliasGhostBuffer( std::shared_ptr<AMP::LinearAlgebra::Vect
  ****************************************************************/
 void MultiVectorData::setCommunicationList( std::shared_ptr<AMP::LinearAlgebra::CommunicationList> )
 {
+    PROFILE( "MultiVectorData::setCommunicationList" );
+
     AMP_ERROR( "Not finished" );
 }
+
 std::shared_ptr<AMP::LinearAlgebra::CommunicationList> MultiVectorData::getCommunicationList() const
 {
+    PROFILE( "MultiVectorData::getCommunicationList" );
+
     // Get the remote dofs
     std::vector<size_t> remoteDofs;
     for ( size_t i = 0; i < d_data.size(); i++ ) {
@@ -445,7 +482,12 @@ std::shared_ptr<AMP::LinearAlgebra::CommunicationList> MultiVectorData::getCommu
 /****************************************************************
  * Swap raw data                                                 *
  ****************************************************************/
-void MultiVectorData::swapData( VectorData & ) { AMP_ERROR( "Not finished" ); }
+void MultiVectorData::swapData( VectorData & )
+{
+    PROFILE( "MultiVectorData::swapData" );
+
+    AMP_ERROR( "Not finished" );
+}
 
 
 /****************************************************************
@@ -453,8 +495,22 @@ void MultiVectorData::swapData( VectorData & ) { AMP_ERROR( "Not finished" ); }
  ****************************************************************/
 std::shared_ptr<VectorData> MultiVectorData::cloneData( const std::string & ) const
 {
+    PROFILE( "MultiVectorData::cloneData" );
+
     AMP_ERROR( "Not finished" );
     return std::shared_ptr<VectorData>();
+}
+
+AMP::Utilities::MemoryType MultiVectorData::getMemoryLocation() const
+{
+    auto rval = d_data[0]->getMemoryLocation();
+    for ( size_t i = 1; i < d_data.size(); i++ ) {
+        if ( d_data[i]->getMemoryLocation() != rval ) {
+            rval = AMP::Utilities::MemoryType::none;
+            break;
+        }
+    }
+    return rval;
 }
 
 
@@ -463,11 +519,12 @@ std::shared_ptr<VectorData> MultiVectorData::cloneData( const std::string & ) co
  ****************************************************************/
 bool MultiVectorData::containsGlobalElement( size_t index ) const
 {
+    PROFILE( "MultiVectorData::containsGlobalElement" );
+
     if ( index >= d_localStart && index < d_localStart + d_localSize )
         return true;
     if ( index >= d_globalSize )
         return false;
-    PROFILE( "containsGlobalElement", 2 );
     std::vector<size_t> globalDOF = { index };
     for ( size_t i = 0; i < d_data.size(); i++ ) {
         auto subDOFs = d_dofMap.getSubDOF( i, globalDOF );
@@ -479,68 +536,8 @@ bool MultiVectorData::containsGlobalElement( size_t index ) const
 
 
 /****************************************************************
- * Function to partition the global ids by the sub vectors       *
+ * Get the vector data for a sub-vector                          *
  ****************************************************************/
-void MultiVectorData::partitionGlobalValues( const int N,
-                                             const size_t *indices,
-                                             const void *vals,
-                                             size_t bytes,
-                                             std::vector<std::vector<size_t>> &out_indices,
-                                             std::vector<std::vector<std::byte>> &out_vals,
-                                             std::vector<std::vector<int>> *remap ) const
-{
-    if ( N == 0 )
-        return;
-    PROFILE( "partitionGlobalValues", 2 );
-    out_indices.resize( d_data.size() );
-    out_vals.resize( d_data.size() );
-    if ( remap )
-        remap->resize( d_data.size() );
-    auto data = reinterpret_cast<const std::byte *>( vals );
-    for ( int i = 0; i < N; i++ ) {
-        auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
-        AMP_ASSERT( manager >= 0 );
-        out_indices[manager].push_back( dof );
-        size_t M = out_vals[manager].size();
-        out_vals[manager].resize( M + bytes );
-        memcpy( &out_vals[manager][M], &data[i * bytes], bytes );
-        if ( remap )
-            ( *remap )[manager].push_back( i );
-    }
-}
-
-
-/****************************************************************
- * Function to partition the local ids by the sub vectors       *
- ****************************************************************/
-void MultiVectorData::partitionLocalValues( const int N,
-                                            const size_t *indices,
-                                            const void *vals,
-                                            size_t bytes,
-                                            std::vector<std::vector<size_t>> &out_indices,
-                                            std::vector<std::vector<std::byte>> &out_vals,
-                                            std::vector<std::vector<int>> *remap ) const
-{
-    if ( N == 0 )
-        return;
-    PROFILE( "partitionGlobalValues", 2 );
-    out_indices.resize( d_data.size() );
-    out_vals.resize( d_data.size() );
-    if ( remap )
-        remap->resize( d_data.size() );
-    auto data = reinterpret_cast<const std::byte *>( vals );
-    for ( int i = 0; i < N; i++ ) {
-        auto [dof, manager] = d_dofMap.globalToSub( indices[i] + d_localStart );
-        AMP_ASSERT( manager >= 0 );
-        out_indices[manager].push_back( dof - d_data[manager]->getLocalStartID() );
-        size_t M = out_vals[manager].size();
-        out_vals[manager].resize( M + bytes );
-        memcpy( &out_vals[manager][M], &data[i * bytes], bytes );
-        if ( remap )
-            ( *remap )[manager].push_back( i );
-    }
-}
-
 VectorData *MultiVectorData::getVectorData( size_t i )
 {
     auto vec = dynamic_cast<Vector *>( d_data[i] );
@@ -548,7 +545,6 @@ VectorData *MultiVectorData::getVectorData( size_t i )
         return vec->getVectorData().get();
     return d_data[i];
 }
-
 const VectorData *MultiVectorData::getVectorData( size_t i ) const
 {
     auto vec = dynamic_cast<Vector const *>( d_data[i] );
@@ -557,11 +553,14 @@ const VectorData *MultiVectorData::getVectorData( size_t i ) const
     return d_data[i];
 }
 
+
 /****************************************************************
  * Functions to print the data                                   *
  ****************************************************************/
 void MultiVectorData::assemble()
 {
+    PROFILE( "MultiVectorData::assemble" );
+
     for ( auto vec : d_data )
         vec->assemble();
 }

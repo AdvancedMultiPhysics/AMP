@@ -266,6 +266,15 @@ int main( int argc, char *argv[] )
     check( ut, "(N/m^3)m(m^3/s)^2(1/m^5)", "kg/s^4" );
     check( ut, "(lbf/ft^3)ft(ft^3/s)^2(1/in^5)", "kg/s^4", 3.631430055671e6 );
 
+    // Test reading with scalar
+    std::string str = "3.14159";
+    auto t1         = AMP::Units( str );
+    auto t2         = AMP::Units( AMP::UnitType::unitless, 3.14159 );
+    if ( t1 == t2 )
+        ut.passes( "Read scalar" );
+    else
+        ut.failure( "Read scalar" );
+
     // Test combinations of units and prefixes
     testPrefixUnits( ut );
 

@@ -106,78 +106,48 @@ const TYPE *VectorData::getRawDataBlock( size_t i ) const
 template<typename TYPE>
 void VectorData::getValuesByLocalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
+    PROFILE( "VectorData::getValuesByLocalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     getValuesByLocalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::setValuesByLocalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::setValuesByLocalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     setValuesByLocalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::addValuesByLocalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::addValuesByLocalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     addValuesByLocalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
-void VectorData::getLocalValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
+void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ ) const
 {
-    constexpr size_t N_max = 128;
-    while ( N > N_max ) {
-        getLocalValuesByGlobalID( N_max, ndx, vals );
-        N -= N_max;
-        ndx  = &ndx[N_max];
-        vals = &vals[N_max];
+    PROFILE( "VectorData::getValuesByGlobalID" );
+
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    bool allocate_ndx  = false;
+    bool allocate_vals = false;
+    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+        ndx = new size_t[N];
+        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        allocate_ndx = true;
     }
-    size_t index[N_max];
-    for ( size_t i = 0; i < N; i++ ) {
-        AMP_ASSERT( ndx[i] >= d_localStart && ndx[i] < ( d_localStart + d_localSize ) );
-        index[i] = ndx[i] - d_localStart;
+    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+        vals          = new TYPE[N];
+        allocate_vals = true;
     }
-    constexpr auto type = getTypeID<TYPE>();
-    getValuesByLocalID( N, index, vals, type );
-}
-template<typename TYPE>
-void VectorData::addLocalValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
-{
-    constexpr size_t N_max = 128;
-    while ( N > N_max ) {
-        addLocalValuesByGlobalID( N_max, ndx, vals );
-        N -= N_max;
-        ndx  = &ndx[N_max];
-        vals = &vals[N_max];
-    }
-    size_t index[N_max];
-    for ( size_t i = 0; i < N; i++ ) {
-        AMP_ASSERT( ndx[i] >= d_localStart && ndx[i] < ( d_localStart + d_localSize ) );
-        index[i] = ndx[i] - d_localStart;
-    }
-    constexpr auto type = getTypeID<TYPE>();
-    addValuesByLocalID( N, index, vals, type );
-}
-template<typename TYPE>
-void VectorData::setLocalValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
-{
-    constexpr size_t N_max = 128;
-    while ( N > N_max ) {
-        setLocalValuesByGlobalID( N_max, ndx, vals );
-        N -= N_max;
-        ndx  = &ndx[N_max];
-        vals = &vals[N_max];
-    }
-    size_t index[N_max];
-    for ( size_t i = 0; i < N; i++ ) {
-        AMP_ASSERT( ndx[i] >= d_localStart && ndx[i] < ( d_localStart + d_localSize ) );
-        index[i] = ndx[i] - d_localStart;
-    }
-    constexpr auto type = getTypeID<TYPE>();
-    setValuesByLocalID( N, index, vals, type );
-}
-template<typename TYPE>
-void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
-{
     constexpr size_t N_max = 128;
     while ( N > N_max ) {
         getValuesByGlobalID( N_max, ndx, vals );
@@ -213,10 +183,33 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) 
             N_ghost++;
         }
     }
+    if ( allocate_ndx )
+        delete[] ndx;
+    if ( allocate_vals ) {
+        AMP::Utilities::memcpy( vals_, vals, N * sizeof( TYPE ) );
+        delete[] vals;
+    }
 }
+
 template<typename TYPE>
-void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
+void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
 {
+    PROFILE( "VectorData::setValuesByGlobalID" );
+
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    bool allocate_ndx  = false;
+    bool allocate_vals = false;
+    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+        ndx = new size_t[N];
+        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        allocate_ndx = true;
+    }
+    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+        vals = new TYPE[N];
+        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
+        allocate_vals = true;
+    }
     constexpr size_t N_max = 128;
     while ( N > N_max ) {
         setValuesByGlobalID( N_max, ndx, vals );
@@ -243,10 +236,31 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *v
         setValuesByLocalID( N_local, local_index, local_vals, type );
     if ( N_ghost > 0 )
         setGhostValuesByGlobalID( N_ghost, ghost_index, ghost_vals, type );
+    if ( allocate_ndx )
+        delete[] ndx;
+    if ( allocate_vals )
+        delete[] vals;
 }
+
 template<typename TYPE>
-void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
+void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
 {
+    PROFILE( "VectorData::addValuesByGlobalID" );
+
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    bool allocate_ndx  = false;
+    bool allocate_vals = false;
+    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+        ndx = new size_t[N];
+        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        allocate_ndx = true;
+    }
+    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+        vals = new TYPE[N];
+        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
+        allocate_vals = true;
+    }
     constexpr size_t N_max = 128;
     while ( N > N_max ) {
         addValuesByGlobalID( N_max, ndx, vals );
@@ -273,6 +287,10 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *v
         addValuesByLocalID( N_local, local_index, local_vals, type );
     if ( N_ghost > 0 )
         addGhostValuesByGlobalID( N_ghost, ghost_index, ghost_vals, type );
+    if ( allocate_ndx )
+        delete[] ndx;
+    if ( allocate_vals )
+        delete[] vals;
 }
 
 
@@ -282,26 +300,47 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *v
 template<typename TYPE>
 void VectorData::setGhostValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::setGhostValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     setGhostValuesByGlobalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::addGhostValuesByGlobalID( size_t N, const size_t *ndx, const TYPE *vals )
 {
+    PROFILE( "VectorData::addGhostValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     addGhostValuesByGlobalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::getGhostValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
+    PROFILE( "VectorData::getGhostValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     getGhostValuesByGlobalID( N, ndx, vals, type );
 }
+
 template<typename TYPE>
 void VectorData::getGhostAddValuesByGlobalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
+    PROFILE( "VectorData::getGhostAddValuesByGlobalID" );
+
     constexpr auto type = getTypeID<TYPE>();
     getGhostAddValuesByGlobalID( N, ndx, vals, type );
+}
+
+template<class TYPE>
+size_t VectorData::getAllGhostValues( TYPE *vals ) const
+{
+    PROFILE( "VectorData::getAllGhostValues" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    size_t N            = getAllGhostValues( vals, type );
+    return N;
 }
 
 

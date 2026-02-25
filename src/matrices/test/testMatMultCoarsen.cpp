@@ -2,8 +2,8 @@
 #include "AMP/IO/PIO.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
-#include "AMP/matrices/CSRPolicy.h"
 #include "AMP/matrices/MatrixBuilder.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
@@ -12,6 +12,8 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
+#include "AMP/solvers/amg/MIS2Aggregator.h"
+#include "AMP/solvers/amg/SimpleAggregator.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
@@ -19,10 +21,6 @@
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
-
-#if defined( AMP_USE_HYPRE )
-    #include "AMP/matrices/data/hypre/HypreCSRPolicy.h"
-#endif
 
 #include "ProfilerApp.h"
 
@@ -33,125 +31,8 @@
 
 // This test is adapted from testMatVecPerf.cpp (and hence testMatVec.cpp)
 // This version forms simple aggregates of nodes of a matrix (A) into another
-// matrix (P) then tests that A*(P*x)=(A*P)*x for some random vector x
-
-// TODO: extend this to triple product once transposing is supported
-
-template<typename Policy, typename Allocator>
-void findAggregates( std::shared_ptr<AMP::LinearAlgebra::CSRLocalMatrixData<Policy, Allocator>> A,
-                     std::vector<typename Policy::lidx_t> &agg_id,
-                     typename Policy::lidx_t &num_agg )
-{
-    using lidx_t = typename Policy::lidx_t;
-
-    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
-
-    // vectors for aggregate associations and aggregate sizes
-    agg_id.resize( A_nrows, -1 ); // -1 for not assn
-    std::vector<lidx_t> agg_size( A_nrows, 0 );
-
-    // unpack members of A_diag
-    auto [A_rs, A_cols, A_cols_loc, A_coeffs] = A->getDataFields();
-
-    // first pass initilizes aggregates from nodes that have no
-    // neighbors that are already associated
-    num_agg = 0;
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        // check if any members of this row are already associated
-        bool have_assn = false;
-        for ( lidx_t c = A_rs[row]; c < A_rs[row + 1]; ++c ) {
-            have_assn = have_assn || ( agg_id[A_cols_loc[c]] >= 0 );
-        }
-        // if no associations create new aggregate from row
-        if ( !have_assn ) {
-            for ( lidx_t c = A_rs[row]; c < A_rs[row + 1]; ++c ) {
-                agg_id[A_cols_loc[c]] = num_agg;
-                agg_size[num_agg]++;
-            }
-            // increment current id to start working on next aggregate
-            ++num_agg;
-        }
-    }
-
-    // second pass adds unmarked entries to the smallest aggregate they are nbrs with
-    // entries are unmarked because they neigbored some aggregate in the above,
-    // thus every unmarked entry will neighbor some aggregate
-    for ( lidx_t row = 0; row < A_nrows; ++row ) {
-        if ( agg_id[row] >= 0 ) {
-            // this row already assigned, skip ahead
-            continue;
-        }
-        // find smallest neighboring aggregate
-        lidx_t small_agg_id = -1, small_agg_size = A_nrows + 1;
-        for ( lidx_t c = A_rs[row]; c < A_rs[row + 1]; ++c ) {
-            const auto id = agg_id[A_cols_loc[c]];
-            if ( id >= 0 && ( agg_size[id] < small_agg_size ) ) {
-                small_agg_size = agg_size[id];
-                small_agg_id   = id;
-            }
-        }
-        AMP_ASSERT( small_agg_id >= 0 );
-        agg_id[row] = small_agg_id;
-        agg_size[small_agg_id]++;
-    }
-}
-
-template<typename Policy, typename Allocator>
-std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Policy, Allocator>>
-createAggregateMatrix( std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Policy, Allocator>> A )
-{
-    using lidx_t = typename Policy::lidx_t;
-
-    // get aggregates just using diagonal block
-    std::vector<lidx_t> agg_id;
-    lidx_t num_agg;
-    auto A_data = std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrixData<Policy, Allocator>>(
-        A->getMatrixData() );
-    findAggregates( A_data->getDiagMatrix(), agg_id, num_agg );
-
-    // Build matrix parameters object
-    auto leftDOFs      = A->getRightDOFManager(); // inner dof manager for A*P
-    auto rightDOFs     = std::make_shared<AMP::Discretization::DOFManager>( num_agg, A->getComm() );
-    auto leftClParams  = std::make_shared<AMP::LinearAlgebra::CommunicationListParameters>();
-    auto rightClParams = std::make_shared<AMP::LinearAlgebra::CommunicationListParameters>();
-    leftClParams->d_comm         = A->getComm();
-    rightClParams->d_comm        = A->getComm();
-    leftClParams->d_localsize    = leftDOFs->numLocalDOF();
-    rightClParams->d_localsize   = rightDOFs->numLocalDOF();
-    leftClParams->d_remote_DOFs  = leftDOFs->getRemoteDOFs();
-    rightClParams->d_remote_DOFs = rightDOFs->getRemoteDOFs();
-
-    // Create parameters, variables, and data
-    auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOFs,
-        rightDOFs,
-        A->getComm(),
-        A_data->getRightVariable(),
-        A_data->getRightVariable(),
-        std::function<std::vector<size_t>( size_t )>() );
-    auto P_data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Policy, Allocator>>( params );
-
-    // non-zeros only in diag block and only one per row
-    P_data->setNNZ( std::vector<lidx_t>( agg_id.size(), 1 ),
-                    std::vector<lidx_t>( agg_id.size(), 0 ) );
-
-    // fill in data (diag block only) using aggregates from above
-    auto P_diag                               = P_data->getDiagMatrix();
-    auto [P_rs, P_cols, P_cols_loc, P_coeffs] = P_diag->getDataFields();
-    const auto begin_col                      = rightDOFs->beginDOF();
-    const auto num_row                        = static_cast<lidx_t>( leftDOFs->numLocalDOF() );
-    for ( lidx_t row = 0; row < num_row; ++row ) {
-        const auto agg = agg_id[row];
-        const auto rs  = P_rs[row];
-        P_cols[rs]     = begin_col + agg;
-        P_cols_loc[rs] = agg;
-        P_coeffs[rs]   = 1.0;
-    }
-
-    // reset dof managers and return matrix
-    P_data->resetDOFManagers();
-    return std::make_shared<AMP::LinearAlgebra::CSRMatrix<Policy, Allocator>>( P_data );
-}
+// matrix (P) then tests that A*(P*x)=(A*P)*x. P is transposed and (Pt*A*P)*x
+// is also tested
 
 size_t matMultTestWithDOFs( AMP::UnitTest *ut,
                             std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
@@ -160,16 +41,15 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-#ifdef USE_DEVICE
+#ifdef AMP_USE_DEVICE
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(
         dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-    ut->expected_failure( "SpGEMM for device CSRMatrix not implemented" );
     return 0;
 #else
-    auto inVec             = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec            = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
 #endif
 
     // Create the matrix
@@ -182,24 +62,18 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     AMP::pout << "CSRMatrix Global rows: " << nGlobalRows << " Local rows: " << nLocalRows
               << std::endl;
 
-#if defined( AMP_USE_HYPRE )
-    using DefaultCSRPolicy = AMP::LinearAlgebra::CSRPolicy<HYPRE_BigInt, HYPRE_Int, HYPRE_Real>;
-#else
-    using DefaultCSRPolicy = AMP::LinearAlgebra::CSRPolicy<size_t, int, double>;
-#endif
-
     // Create aggregate matrix
-    auto Acsr = std::dynamic_pointer_cast<
-        AMP::LinearAlgebra::CSRMatrix<DefaultCSRPolicy, AMP::HostAllocator<void>>>( A );
-    auto P = createAggregateMatrix( Acsr );
+    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min", false };
+    auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( crs_settings );
+    auto P   = agg->getAggregateMatrix( A );
 
     // perform A*P SpGEMM
-    auto AP = AMP::LinearAlgebra::Matrix::matMultiply( A, P );
+    auto AP = AMP::LinearAlgebra::Matrix::matMatMult( A, P );
 
     // vectors of ones to apply operators to
-    auto xa  = A->getRightVector();
-    auto xp  = P->getRightVector();
-    auto xap = AP->getRightVector();
+    auto xa  = A->createInputVector();
+    auto xp  = P->createInputVector();
+    auto xap = AP->createInputVector();
     xa->setToScalar( 1.0 );
     xp->setToScalar( 1.0 );
     xap->setToScalar( 1.0 );
@@ -208,9 +82,9 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     xap->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 
     // output vectors
-    auto ya  = A->getLeftVector();
-    auto yp  = AP->getLeftVector();
-    auto yap = AP->getLeftVector();
+    auto ya  = A->createOutputVector();
+    auto yp  = AP->createOutputVector();
+    auto yap = AP->createOutputVector();
     ya->zero();
     yp->zero();
     yap->zero();
@@ -226,17 +100,37 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
 
     if ( AMP::Utilities::approx_equal( l1ya, l1yap ) &&
          AMP::Utilities::approx_equal( l1yp, nrows_d ) ) {
-        ut->passes( "matMultiply A*P CSRMatrix" );
+        ut->passes( "matMatMult A*P CSRMatrix" );
     } else {
-        AMP::pout << "matMultiply A*P CSRMatrix fails with l1ya = " << l1ya << ", l1yp = " << l1yp
+        AMP::pout << "matMatMult A*P CSRMatrix fails with l1ya = " << l1ya << ", l1yp = " << l1yp
                   << ", l1yap = " << l1yap << std::endl;
-        ut->failure( "matMultiply A*P CSRMatrix" );
+        ut->failure( "matMatMult A*P CSRMatrix" );
+    }
+
+    // Get transpose of aggregate matrix and produce coarsened matrix
+    auto Pt    = P->transpose();
+    auto PtAP  = AMP::LinearAlgebra::Matrix::matMatMult( Pt, AP );
+    auto xptap = PtAP->createInputVector();
+    auto yptap = PtAP->createOutputVector();
+    xptap->setToScalar( 1.0 );
+    xptap->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    yptap->zero();
+
+    // Test coarsened matrix
+    PtAP->mult( xptap, yptap );
+    const auto l1yptap = static_cast<double>( yptap->L1Norm() );
+    if ( AMP::Utilities::approx_equal( l1yptap, nrows_d ) ) {
+        ut->passes( "matMatMult Pt*A*P CSRMatrix" );
+    } else {
+        AMP::pout << "matMatMult Pt*A*P CSRMatrix fails with l1yptap = " << l1yptap
+                  << ", expected = " << nrows_d << std::endl;
+        ut->failure( "matMatMult Pt*A*P CSRMatrix" );
     }
 
     return nGlobalRows;
 }
 
-size_t matMultTest( AMP::UnitTest *ut, std::string input_file )
+size_t matMultTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatMultCoarsen";
     AMP::logOnlyNodeZero( log_file );

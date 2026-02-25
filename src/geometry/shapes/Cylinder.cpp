@@ -1,5 +1,5 @@
 #include "AMP/geometry/shapes/Cylinder.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
@@ -20,6 +20,7 @@ Cylinder::Cylinder() : LogicalGeometry( 3, 3, { 4, 4, 4, 4, 2, 1 } )
 }
 Cylinder::Cylinder( std::shared_ptr<const AMP::Database> db ) : Cylinder()
 {
+    d_method   = db->getWithDefault<int>( "Method", 2 );
     auto range = db->getVector<double>( "Range" );
     if ( range.size() == 3u ) {
         d_r     = range[0];
@@ -37,9 +38,10 @@ Cylinder::Cylinder( std::shared_ptr<const AMP::Database> db ) : Cylinder()
 }
 Cylinder::Cylinder( double r, double z_min, double z_max ) : Cylinder()
 {
-    d_r     = r;
-    d_z_min = z_min;
-    d_z_max = z_max;
+    d_r      = r;
+    d_z_min  = z_min;
+    d_z_max  = z_max;
+    d_method = 2;
 }
 
 
@@ -172,7 +174,7 @@ Point Cylinder::physical( const Point &pos ) const
 {
     double z0 = d_z_min + pos[2] * ( d_z_max - d_z_min );
     double R  = getR( z0 );
-    auto tmp  = GeometryHelpers::map_logical_circle( R, 2, pos[0], pos[1] );
+    auto tmp  = GeometryHelpers::map_logical_circle( R, d_method, pos[0], pos[1] );
     double x  = tmp[0] + d_offset[0];
     double y  = tmp[1] + d_offset[1];
     double z  = z0 + d_offset[2];
@@ -186,8 +188,8 @@ Point Cylinder::physical( const Point &pos ) const
 Point Cylinder::logical( const Point &pos ) const
 {
     double R = getR( pos[2] - d_offset[2] );
-    auto tmp =
-        GeometryHelpers::map_circle_logical( R, 2, pos[0] - d_offset[0], pos[1] - d_offset[1] );
+    auto tmp = GeometryHelpers::map_circle_logical(
+        R, d_method, pos[0] - d_offset[0], pos[1] - d_offset[1] );
     double z = ( pos[2] - d_z_min - d_offset[2] ) / ( d_z_max - d_z_min );
     return Point( tmp[0], tmp[1], z );
 }

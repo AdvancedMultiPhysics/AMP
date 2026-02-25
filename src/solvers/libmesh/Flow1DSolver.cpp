@@ -20,10 +20,10 @@ void Flow1DSolver::setInitialGuess( std::shared_ptr<AMP::LinearAlgebra::Vector> 
 
 void Flow1DSolver::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
-    getFromInput( parameters->d_db );
+    getBaseFromInput( parameters->d_db );
 
     if ( d_pOperator ) {
-        std::shared_ptr<AMP::Operator::FlowFrapconJacobian> Operator =
+        auto Operator =
             std::dynamic_pointer_cast<AMP::Operator::FlowFrapconJacobian>( d_pOperator );
 
         AMP_ASSERT( Operator );
@@ -59,10 +59,8 @@ void Flow1DSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                           std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
 
-    AMP::LinearAlgebra::Vector::shared_ptr flowInputVec =
-        u->subsetVectorForVariable( d_inpVariable );
-    AMP::LinearAlgebra::Vector::const_shared_ptr flowRhsVec =
-        f->subsetVectorForVariable( d_inpVariable );
+    auto flowInputVec = u->subsetVectorForVariable( d_inpVariable );
+    auto flowRhsVec   = f->subsetVectorForVariable( d_inpVariable );
 
     d_numpoints = zPoints.size();
 

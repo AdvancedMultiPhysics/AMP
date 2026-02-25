@@ -3,7 +3,6 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
-#include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
@@ -17,9 +16,9 @@ namespace AMP::Operator {
 MechanicsElement::MechanicsElement( std::shared_ptr<const ElementOperationParameters> params )
     : ElementOperation( params ), d_elem( nullptr )
 {
-    AMP_INSIST( ( params ), "''params'' is NULL" );
+    AMP_INSIST( params, "''params'' is NULL" );
 
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( params->d_db, "NULL database" );
 
     d_useReducedIntegration =
         params->d_db->getWithDefault<bool>( "USE_REDUCED_INTEGRATION", false );
@@ -31,7 +30,7 @@ MechanicsElement::MechanicsElement( std::shared_ptr<const ElementOperationParame
 
     if ( d_useFlanaganTaylorElem == true ) {
         AMP_INSIST(
-            ( d_useJaumannRate == false ),
+            !d_useJaumannRate,
             "Flanagan Taylor element formulation can only be used with Green-Naghdi stress rate." );
     }
 
@@ -52,7 +51,7 @@ MechanicsElement::MechanicsElement( std::shared_ptr<const ElementOperationParame
 
     d_feType.reset( new libMesh::FEType( feTypeOrder, feFamily ) );
 
-    d_fe.reset( ( libMesh::FEBase::build( dimension, ( *d_feType ) ) ).release() );
+    d_fe.reset( ( libMesh::FEBase::build( dimension, *d_feType ) ).release() );
 
     auto qruleOrderName = params->d_db->getWithDefault<std::string>( "QRULE_ORDER", "DEFAULT" );
 

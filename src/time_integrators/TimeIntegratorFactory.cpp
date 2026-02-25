@@ -37,7 +37,7 @@ namespace AMP::TimeIntegrator {
 std::unique_ptr<TimeIntegrator>
 TimeIntegratorFactory::create( std::shared_ptr<TimeIntegratorParameters> parameters )
 {
-    AMP_ASSERT( parameters != nullptr );
+    AMP_ASSERT( parameters );
     auto inputDatabase = parameters->d_db;
     AMP_ASSERT( inputDatabase );
     auto objectName = inputDatabase->getString( "name" );
@@ -51,7 +51,9 @@ std::shared_ptr<TimeIntegrator> TimeIntegratorFactory::create( int64_t fid,
     std::string type;
     AMP::IO::readHDF5( fid, "type", type );
     std::shared_ptr<TimeIntegrator> ti;
-    if ( type == "RK12" )
+    if ( type == "ExplicitEuler" )
+        ti = std::make_shared<RK12TimeIntegrator>( fid, manager );
+    else if ( type == "RK12" )
         ti = std::make_shared<RK12TimeIntegrator>( fid, manager );
     else if ( type == "RK23" )
         ti = std::make_shared<RK23TimeIntegrator>( fid, manager );
@@ -92,6 +94,7 @@ void AMP::FactoryStrategy<
     d_factories["BDF4"]               = BDFIntegrator::createTimeIntegrator;
     d_factories["BDF5"]               = BDFIntegrator::createTimeIntegrator;
     d_factories["BDF6"]               = BDFIntegrator::createTimeIntegrator;
+    d_factories["CN"]                 = BDFIntegrator::createTimeIntegrator;
     d_factories["RK2"]  = AMP::TimeIntegrator::RK2TimeIntegrator::createTimeIntegrator;
     d_factories["RK4"]  = AMP::TimeIntegrator::RK4TimeIntegrator::createTimeIntegrator;
     d_factories["RK12"] = AMP::TimeIntegrator::RK12TimeIntegrator::createTimeIntegrator;

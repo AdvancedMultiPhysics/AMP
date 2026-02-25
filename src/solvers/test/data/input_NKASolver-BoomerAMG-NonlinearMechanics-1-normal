@@ -11,6 +11,19 @@ Mesh {
 
 NumberOfLoadingSteps = 1
 
+VonMisesElastoPlasticModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    Material = "UO2_MSRZC_09"
+    name="VonMisesElastoPlasticModel"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+    Linear_Strain_Hardening = 2.10e9
+    Elastic_Yield_Stress = 1.45e8
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = .1
+}
+
 nonlinearMechanicsBVPOperator {
   name="NonlinearBVPOperator"
     print_info_level = 1
@@ -47,7 +60,7 @@ MechanicsNonlinearFEOperator1 {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "VonMisesElastoPlasticModel"
+  LocalModel = VonMisesElastoPlasticModel
 }
 
 DirichletVectorCorrection1 {
@@ -64,19 +77,6 @@ DirichletVectorCorrection1 {
     value_0_0 = 0.0
     value_0_1 = 0.0
     value_0_2 = 0.0
-}
-
-VonMisesElastoPlasticModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    Material = "UO2_MSRZC_09"
-    name="VonMisesElastoPlasticModel"
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23
-    Linear_Strain_Hardening = 2.10e9
-    Elastic_Yield_Stress = 1.45e8
-    Default_Temperature = 310.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = .1
 }
 
 linearMechanicsBVPOperator {
@@ -140,11 +140,11 @@ Preconditioner{
   name = "BoomerAMGSolver"
   num_functions = 3
   cycle_type = 2  // W cycle
-  relax_type = 3
+  relax_type = 16
   number_sweeps = 2
-  coarsen_type = 10
-  interp_type = 6
-  agg_interp_type = 1
+  coarsen_type = 8
+  interp_type = 18
+  agg_interp_type = 5
   nodal = 0
   strong_threshold = 0.9
   P_max_elements = 0

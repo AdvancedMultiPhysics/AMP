@@ -1,6 +1,6 @@
 #include "AMP/solvers/testHelpers/SolverTestParameters.h"
 #include "AMP/solvers/SolverFactory.h"
-#ifdef AMP_USE_TRILINOS_NOX
+#if defined( AMP_USE_TRILINOS_NOX ) && defined( AMP_USE_TRILINOS_THYRA )
     #include "AMP/solvers/trilinos/nox/TrilinosNOXSolverParameters.h"
 #endif
 #include <memory>
@@ -29,6 +29,10 @@ std::unique_ptr<AMP::Database> SolverParameters::getParameters( const std::strin
         return getBoomerAMGParameters( use_nested );
     } else if ( solver == "HyprePCG" ) {
         return getHyprePCGParameters( use_nested );
+    } else if ( solver == "HypreGMRES" ) {
+        return getHypreGMRESParameters( use_nested );
+    } else if ( solver == "HypreBiCGSTAB" ) {
+        return getHypreBiCGSTABParameters( use_nested );
     } else if ( solver == "ML" ) {
         return getMLParameters( use_nested );
     } else if ( solver == "MueLu" ) {
@@ -144,6 +148,37 @@ std::unique_ptr<AMP::Database> SolverParameters::getHyprePCGParameters( bool use
     return db;
 }
 
+
+std::unique_ptr<AMP::Database> SolverParameters::getHypreGMRESParameters( bool use_nested )
+{
+    auto db = std::make_unique<AMP::Database>( "LinearSolver" );
+    db->putScalar<std::string>( "name", "HyprePCGSolver" );
+    db->putScalar<bool>( "uses_preconditioner", use_nested );
+    db->putScalar<double>( "absolute_tolerance", 1.0e-12 );
+    db->putScalar<double>( "relative_tolerance", 1.0e-12 );
+    db->putScalar<int>( "print_info_level", 1 );
+    db->putScalar<int>( "max_iterations", 100 );
+    db->putScalar<int>( "max_krylov_dimension", 150 );
+    if ( use_nested )
+        db->putScalar<std::string>( "pc_solver_name", "Preconditioner" );
+    return db;
+}
+
+
+std::unique_ptr<AMP::Database> SolverParameters::getHypreBiCGSTABParameters( bool use_nested )
+{
+    auto db = std::make_unique<AMP::Database>( "LinearSolver" );
+    db->putScalar<std::string>( "name", "HyprePCGSolver" );
+    db->putScalar<bool>( "uses_preconditioner", use_nested );
+    db->putScalar<double>( "absolute_tolerance", 1.0e-12 );
+    db->putScalar<double>( "relative_tolerance", 1.0e-12 );
+    db->putScalar<int>( "print_info_level", 1 );
+    db->putScalar<int>( "max_iterations", 100 );
+    if ( use_nested )
+        db->putScalar<std::string>( "pc_solver_name", "Preconditioner" );
+    return db;
+}
+
 std::unique_ptr<AMP::Database> SolverParameters::getBoomerAMGParameters( bool use_nested )
 {
     auto db = std::make_unique<AMP::Database>( "LinearSolver" );
@@ -151,8 +186,8 @@ std::unique_ptr<AMP::Database> SolverParameters::getBoomerAMGParameters( bool us
     db->putScalar<int>( "max_iterations", use_nested ? 1 : 25 );
     db->putScalar<int>( "min_coarse_size", 10 );
     db->putScalar<int>( "relax_type", 16 );
-    db->putScalar<int>( "coarsen_type", 10 );
-    db->putScalar<int>( "inter_type", 17 );
+    db->putScalar<int>( "coarsen_type", 8 );
+    db->putScalar<int>( "interp_type", 18 );
     db->putScalar<int>( "cycle_type", 1 );
     db->putScalar<int>( "relax_order", 0 );
     db->putScalar<double>( "strong_threshold", 0.5 );
@@ -203,7 +238,7 @@ buildSolver( const std::string &solver_name,
     // temporary hack for NOX since this is testing infrastructure
     std::shared_ptr<AMP::Solver::SolverStrategyParameters> parameters;
     if ( type_name == "TrilinosNOXSolver" ) {
-#ifdef AMP_USE_TRILINOS_NOX
+#if defined( AMP_USE_TRILINOS_NOX ) && defined( AMP_USE_TRILINOS_THYRA )
         parameters = std::make_shared<AMP::Solver::TrilinosNOXSolverParameters>( db );
 #else
         AMP_ERROR( "AMP built without support for Trilinos NOX" );

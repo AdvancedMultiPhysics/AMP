@@ -1,17 +1,36 @@
-referenceSolutionNorm = 4.561204386863e04
+referenceSolutionNorm = 3.735194010832e+04
 
 InitialGuess = 900.0
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
-    MeshName = "Pellet"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 5226
+MeshType = "AMP"
+MeshName = "Pellet"
+Generator = "cylinder"
+Size = 13, 8
+Range = 0.00533908, 0, 0.0127
+surfaceIds = 4, 4, 4, 4, 1, 2
+static = TRUE
 }
+
+SourcePhysicsModel {
+  name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.
+    Default_Burnup   = 0.0
+}
+
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 900.
+    Default_Burnup   = 0.0
+} 
 
 NeutronicsOperator{
   name="NeutronicsRhsOperator"
@@ -35,28 +54,16 @@ VolumeIntegralOperator{
     }
   OutputVariable = "heatsource"
     print_info_level = 0
-    LocalModel = "SourcePhysicsModel"
+    LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 2
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
 }
-
-SourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.
-    Default_Burnup   = 0.0
-}
-
 
 NumberOfLoadingSteps = 1
 
@@ -85,7 +92,7 @@ DiffusionNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 RobinVectorCorrection1 {
@@ -97,7 +104,7 @@ RobinVectorCorrection1 {
     alpha          = 1.0
     beta           = 2920
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   4
@@ -105,15 +112,6 @@ RobinVectorCorrection1 {
     dof_0_0          =   0
     value_0_0        =  1516485.76
 }
-
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 900.
-    Default_Burnup   = 0.0
-} 
 
 testLinearThermalOperator {
   name = "LinearBVPOperator"
@@ -140,7 +138,7 @@ DiffusionLinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 RobinMatrixCorrection2 {
@@ -152,7 +150,7 @@ RobinMatrixCorrection2 {
     alpha          = 1.0
     beta           = 2920
     gamma          = 1.0
-    print_info_level = 3
+    print_info_level = 2
     skip_params = FALSE
     number_of_ids = 1
     id_0         =   4
@@ -163,7 +161,7 @@ RobinMatrixCorrection2 {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
 
@@ -173,7 +171,7 @@ NonlinearSolver{
     maximumFunctionEvals = 10000
     usesJacobian=FALSE
 
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.01"
+    SNESOptions = "-snes_type ls -snes_converged_reason -snes_ksp_ew -snes_ls_alpha 0.01"
 
     LinearSolver{
         name = "PetscKrylovSolver"
@@ -186,6 +184,7 @@ NonlinearSolver{
         divergence_tolerance = 1.0e03
         max_krylov_dimension = 100
         uses_preconditioner=FALSE
+        KSPOptions = "-ksp_max_it 100 -ksp_rtol 1e-3 -ksp_atol 1e-13 "
     }
 }
 

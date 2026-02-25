@@ -1,36 +1,45 @@
 #ifndef included_AMP_DeviceOperationsHelpers_hpp
 #define included_AMP_DeviceOperationsHelpers_hpp
 
-#include "AMP/utils/device/device.h"
+#include "AMP/utils/device/Device.h"
+
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/random.h>
 
 namespace AMP {
 namespace LinearAlgebra {
 
+// the random value part suggested from google AI
+struct GenRand {
+    __host__ __device__ float operator()( const size_t idx ) const
+    {
+        thrust::random::default_random_engine randEng;
+        thrust::uniform_real_distribution<float> uniDist( 0.0f, 1.0f ); // Example: range [0.0, 1.0)
+
+        // Use the index to seed the engine for unique sequences
+        randEng.discard( idx );
+        return uniDist( randEng );
+    }
+};
+
 
 template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::setToScalar( TYPE alpha, size_t N, TYPE *x )
+void DeviceOperationsHelpers<TYPE>::setRandomValues( size_t N, TYPE *x )
 {
-    thrust::fill_n( thrust::device, x, N, alpha );
-}
-
-template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::copy( size_t N, const TYPE *x, TYPE *y )
-{
-    thrust::copy_n( thrust::device, x, N, y );
+    thrust::counting_iterator<unsigned int> index_begin( 0 );
+    thrust::transform( thrust::device, index_begin, index_begin + N, x, GenRand() );
 }
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, TYPE *x )
 {
-    auto lambda = [alpha] __host__ __device__( TYPE y ) { return y * alpha; };
-    thrust::transform( thrust::device, x, x + N, x, lambda );
+    thrust::transform( thrust::device, x, x + N, x, alpha * thrust::placeholders::_1 );
 }
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
-    auto lambda = [alpha] __host__ __device__( TYPE x ) { return x * alpha; };
-    thrust::transform( thrust::device, x, x + N, y, lambda );
+    thrust::transform( thrust::device, x, x + N, y, alpha * thrust::placeholders::_1 );
 }
 
 template<typename TYPE>
@@ -61,19 +70,39 @@ void DeviceOperationsHelpers<TYPE>::divide( size_t N, const TYPE *x, const TYPE 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::reciprocal( size_t N, const TYPE *x, TYPE *y )
 {
-    auto lambda = [] __host__ __device__( TYPE x ) { return (TYPE) 1 / x; };
-    thrust::transform( thrust::device, x, x + N, y, lambda );
+    thrust::transform(
+        thrust::device, x, x + N, y, static_cast<TYPE>( 1.0 ) / thrust::placeholders::_1 );
 }
 
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::linearSum(
-    TYPE alpha, size_t N, const TYPE *x, TYPE beta, const TYPE *y, TYPE *z )
+    const TYPE alpha, size_t N, const TYPE *x, const TYPE beta, const TYPE *y, TYPE *z )
 {
-    auto lambda = [alpha, beta] __host__ __device__( TYPE x, TYPE y ) {
-        return alpha * x + beta * y;
-    };
-    thrust::transform( thrust::device, x, x + N, y, z, lambda );
+    if ( alpha == 1.0 && beta == 1.0 ) {
+        thrust::transform( thrust::device, x, x + N, y, z, thrust::plus() );
+    } else if ( alpha == 1.0 ) {
+        thrust::transform( thrust::device,
+                           x,
+                           x + N,
+                           y,
+                           z,
+                           thrust::placeholders::_1 + beta * thrust::placeholders::_2 );
+    } else if ( beta == 1.0 ) {
+        thrust::transform( thrust::device,
+                           x,
+                           x + N,
+                           y,
+                           z,
+                           alpha * thrust::placeholders::_1 + thrust::placeholders::_2 );
+    } else {
+        thrust::transform( thrust::device,
+                           x,
+                           x + N,
+                           y,
+                           z,
+                           alpha * thrust::placeholders::_1 + beta * thrust::placeholders::_2 );
+    }
 }
 
 
@@ -87,8 +116,7 @@ void DeviceOperationsHelpers<TYPE>::abs( size_t N, const TYPE *x, TYPE *y )
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::addScalar( size_t N, const TYPE *x, TYPE alpha, TYPE *y )
 {
-    auto lambda = [alpha] __host__ __device__( TYPE x ) { return x + alpha; };
-    thrust::transform( thrust::device, x, x + N, y, lambda );
+    thrust::transform( thrust::device, x, x + N, y, thrust::placeholders::_1 + alpha );
 }
 
 template<typename TYPE>
@@ -124,7 +152,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localMax( size_t N, const TYPE *x )
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localSum( size_t N, const TYPE *x )
 {
-    return thrust::reduce( thrust::device, x, x + N, 0, thrust::plus<TYPE>() );
+    return thrust::reduce( thrust::device, x, x + N, (TYPE) 0, thrust::plus<TYPE>() );
 }
 
 template<typename TYPE>
@@ -181,7 +209,7 @@ template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localWrmsNorm( size_t N, const TYPE *x, const TYPE *y )
 {
     return thrust::inner_product(
-        thrust::device, x, x + N, y, 0, thrust::plus<TYPE>(), thrust_wrs<TYPE>() );
+        thrust::device, x, x + N, y, (TYPE) 0, thrust::plus<TYPE>(), thrust_wrs<TYPE>() );
 }
 
 

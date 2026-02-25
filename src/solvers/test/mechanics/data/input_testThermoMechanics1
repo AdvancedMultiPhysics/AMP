@@ -1,13 +1,11 @@
 
 Mesh{
-    FileName = "cylinder270.e"
     MeshName = "cylinder"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 270
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 1, 8
+    Range = 1, -2, 2
+    surfaceIds = 1, 1, 1, 1, 2, 3
 }
 
 NumberOfLoadingSteps = 1
@@ -17,6 +15,28 @@ nonlinearThermalBVPOperator {
     print_info_level = 1
     VolumeOperator = "DiffusionNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
+}
+
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
+ThermalStrainMaterialModel3 { 
+  name="ThermalStrainMaterialModel"
+    USE_MATERIALS_LIBRARY = false
+    Material = "UO2_MSRZC_09"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+    THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
+    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
+    Default_Oxygen_Concentration = 0.1
+    Default_Temperature = 300.0
+    Default_Burnup = 0.0
 }
 
 DiffusionNonlinearFEOperator1 {
@@ -39,7 +59,7 @@ DiffusionNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletVectorCorrection1 {
@@ -57,14 +77,6 @@ DirichletVectorCorrection1 {
     value_1_0 = 1000.0
 }
 
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 300.
-    Default_Burnup   = 0.0
-} 
 
 linearThermalBVPOperator {
   name = "LinearBVPOperator"
@@ -91,7 +103,7 @@ DiffusionLinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection2 {
@@ -136,7 +148,7 @@ MechanicsNonlinearFEOperator3 {
         QRULE_ORDER = "DEFAULT"
     }
 
-  LocalModel = "ThermalStrainMaterialModel3"
+  LocalModel = ThermalStrainMaterialModel3
 }
 
 DirichletVectorCorrection3 {
@@ -160,19 +172,6 @@ DirichletVectorCorrection3 {
     value_1_0 = 0.0
     value_1_1 = 0.0
     value_1_2 = 0.0
-}
-
-ThermalStrainMaterialModel3 { 
-  name="ThermalStrainMaterialModel"
-    USE_MATERIALS_LIBRARY = false
-    Material = "UO2_MSRZC_09"
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.23
-    THERMAL_STRAIN_AS_SOURCE_TERM = FALSE
-    THERMAL_EXPANSION_COEFFICIENT = 2.0e-6
-    Default_Oxygen_Concentration = 0.1
-    Default_Temperature = 300.0
-    Default_Burnup = 0.0
 }
 
 linearMechanicsBVPOperator {
@@ -256,7 +255,7 @@ ThermalInitialGuess {
 }
 
 NonlinearSolver{
-  print_info_level = 7
+  print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 

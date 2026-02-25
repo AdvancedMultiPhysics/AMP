@@ -136,23 +136,33 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     // here to potentially handle singular systems
     d_dInitialResidual = r_norm > std::numeric_limits<T>::epsilon() ? r_norm : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "GMRESR: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "GMRESR: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+        AMP::pout << "GMRESR: Use restarts " << d_bRestart << std::endl;
+        AMP::pout << "GMRESR: Max dimension " << d_iMaxKrylovDimension << std::endl;
+        AMP::pout << "GMRESR: Variant " << d_variant << std::endl;
+    }
+
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "GMRESRSolver<T>::apply: initial L2Norm of solution vector: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "GMRESRSolver<T>::apply: initial L2Norm of rhs vector: " << f->L2Norm()
-                  << std::endl;
-        AMP::pout << "GMRESRSolver<T>::apply: initial L2Norm of residual: " << r_norm << std::endl;
+        AMP::pout << "GMRESR: initial L2Norm of solution vector: " << u->L2Norm() << std::endl;
+        AMP::pout << "GMRESR: initial L2Norm of rhs vector: " << f->L2Norm() << std::endl;
+        AMP::pout << "GMRESR: initial L2Norm of residual: " << r_norm << std::endl;
     }
 
     // return if the residual is already low enough
     if ( checkStoppingCriteria( r_norm ) ) {
         if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "GMRESRSolver<T>::apply: initial residual below tolerance" << std::endl;
+            AMP::pout << "GMRESR: initial residual below tolerance" << std::endl;
         }
         return;
     }
 
-    int k = -1;
+    int k      = -1;
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 0; d_iNumberIterations < d_iMaxIterations; ++d_iNumberIterations ) {
 
         ++k;
@@ -163,8 +173,7 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
         } else if ( d_variant == "gcr" ) {
             z->copyVector( res );
         } else {
-            AMP_ERROR( "GMRESRSolver<T>::apply - unknown algorithmic variant " + d_variant +
-                       " specified" );
+            AMP_ERROR( "GMRESR - unknown algorithmic variant " + d_variant + " specified" );
         }
 
         z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -204,7 +213,13 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
 
         if ( d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "GMRESR: iteration " << ( d_iNumberIterations + 1 ) << ", residual "
-                      << r_norm << std::endl;
+                      << r_norm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << r_norm / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = r_norm;
         }
 
         if ( checkStoppingCriteria( r_norm ) ) {
@@ -225,28 +240,11 @@ void GMRESRSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     d_dResidualNorm = r_norm;
 
     if ( d_iDebugPrintInfoLevel > 0 ) {
-        AMP::pout << "GMRESRSolver<T>::apply: final L2Norm of solution: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "GMRESRSolver<T>::apply: final L2Norm of residual: " << r_norm << std::endl;
-        AMP::pout << "GMRESRSolver<T>::apply: iterations: " << d_iNumberIterations << std::endl;
-        AMP::pout << "GMRESRSolver<T>::apply: convergence reason: "
+        AMP::pout << "GMRESR: final L2Norm of solution: " << u->L2Norm() << std::endl;
+        AMP::pout << "GMRESR: final L2Norm of residual: " << r_norm << std::endl;
+        AMP::pout << "GMRESR: iterations: " << d_iNumberIterations << std::endl;
+        AMP::pout << "GMRESR: convergence reason: "
                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
-    }
-}
-
-template<typename T>
-void GMRESRSolver<T>::resetOperator(
-    std::shared_ptr<const AMP::Operator::OperatorParameters> params )
-{
-    if ( d_pOperator ) {
-        d_pOperator->reset( params );
-    }
-
-    // should add a mechanism for the linear operator to provide updated parameters for the
-    // preconditioner operator
-    // though it's unclear where this might be necessary
-    if ( d_pNestedSolver ) {
-        d_pNestedSolver->resetOperator( params );
     }
 }
 } // namespace AMP::Solver

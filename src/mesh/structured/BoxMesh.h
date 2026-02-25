@@ -109,7 +109,7 @@ public:
     {
     public:
         //! Empty constructor
-        constexpr MeshElementIndex();
+        constexpr MeshElementIndex() = default;
         /**
          * \brief   Default constructor
          * \details  The default constructor
@@ -130,9 +130,11 @@ public:
         constexpr bool operator>=( const MeshElementIndex &rhs ) const; //!< Operator >=
         constexpr bool operator<( const MeshElementIndex &rhs ) const;  //!< Operator <
         constexpr bool operator<=( const MeshElementIndex &rhs ) const; //!< Operator <=
-        constexpr auto index() const { return d_index; }
+        constexpr const auto &index() const { return d_index; }
         constexpr int index( int d ) const { return d_index[d]; }
         constexpr int &index( int d ) { return d_index[d]; }
+        constexpr int operator[]( int d ) const { return d_index[d]; }
+        constexpr int &operator[]( int d ) { return d_index[d]; }
         constexpr GeomType type() const { return static_cast<GeomType>( d_type ); }
         constexpr uint8_t side() const { return d_side; }
         static constexpr size_t numElements( const MeshElementIndex &first,
@@ -140,13 +142,61 @@ public:
         std::string print() const;
 
     private:
-        uint8_t d_type; //!<  Mesh element type
-        uint8_t d_side; //!<  Are we dealing with x, y, or z faces/edges
-        std::array<int, 3>
-            d_index; //!<  Global x, y, z index (may be negative with periodic boundaries)
+        uint8_t d_type             = 0;           //!<  Mesh element type
+        uint8_t d_side             = 255;         //!<  Are we dealing with x, y, or z faces/edges
+        std::array<int, 3> d_index = { 0, 0, 0 }; //!<  Global x, y, z index (may be negative)
         friend class BoxMesh;
         friend class structuredMeshElement;
     };
+
+    /**
+     * \class MeshElementIndexIterator
+     * \brief Iterator over a box
+     * \details  This class will iterator over a MeshElementIndex box
+     */
+    class MeshElementIndexIterator final
+    {
+    public: // iterator_traits
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type        = MeshElementIndex;
+        using difference_type   = ptrdiff_t;
+        using pointer           = const MeshElementIndex *;
+        using reference         = const MeshElementIndex &;
+
+    public:
+        MeshElementIndexIterator() = default;
+        MeshElementIndexIterator( const MeshElementIndex &first,
+                                  const MeshElementIndex &last,
+                                  const AMP::Mesh::BoxMesh *mesh,
+                                  size_t pos = 0 );
+        MeshElementIndexIterator &operator++();
+        MeshElementIndexIterator &operator--();
+        MeshElementIndexIterator &operator+=( int N );
+        MeshElementIndexIterator &operator+=( const MeshElementIndexIterator &it );
+        MeshElementIndexIterator &operator[]( int );
+        MeshElementIndexIterator begin() const;
+        MeshElementIndexIterator end() const;
+        MeshElementIndex operator*() const;
+        bool operator==( const MeshElementIndexIterator &rhs ) const;
+        bool operator!=( const MeshElementIndexIterator &rhs ) const;
+        bool empty() const { return d_size == 0; }
+        void set( uint32_t i ) { d_pos = i; }
+        size_t size() const { return d_size; }
+        size_t position() const { return d_pos; }
+        inline const auto &first() const { return d_first; }
+        inline const auto &last() const { return d_last; }
+
+    private:
+        // Data members
+        bool d_checkBoundary             = false;
+        std::array<bool, 3> d_isPeriodic = { false, false, false };
+        std::array<int, 3> d_globalSize  = { 0, 0, 0 };
+        uint32_t d_pos                   = { 0 };
+        uint32_t d_size                  = { 0 };
+        MeshElementIndex d_first;
+        MeshElementIndex d_last;
+    };
+
 
 public:
     /**
@@ -276,21 +326,6 @@ public:
 
 
     /**
-     * \brief    Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \details  Return an MeshIterator constructed through a set operation of two other
-     * MeshIterators.
-     * \param OP Set operation to perform.
-     *           SetOP::Union - Perform a union of the iterators ( A U B )
-     *           SetOP::Intersection - Perform an intersection of the iterators ( A n B )
-     *           SetOP::Complement - Perform a compliment of the iterators ( A - B )
-     * \param A  Pointer to MeshIterator A
-     * \param B  Pointer to MeshIterator B
-     */
-    static MeshIterator getIterator( SetOP OP, const MeshIterator &A, const MeshIterator &B );
-
-
-    /**
      * \brief    Return a mesh element given it's id.
      * \details  This function queries the mesh to get an element given the mesh id.
      *    This function is only required to return an element if the id is local.
@@ -299,7 +334,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override final;
+    MeshElementPtr getElement( const MeshElementID &id ) const override final;
 
 
     /**
@@ -309,8 +344,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override final;
+    virtual ElementListPtr getElementParents( const MeshElement &elem,
+                                              const GeomType type ) const override final;
 
 
     //! Return the global logical box
@@ -325,7 +360,10 @@ public:
     inline std::vector<bool> periodic() const;
 
     //! Return the size of the mesh
-    inline std::vector<size_t> size() const;
+    inline ArraySize size() const;
+
+    //! Return the size of the mesh
+    inline ArraySize localSize() const;
 
     //! Return the number of blocks
     inline std::vector<size_t> numBlocks() const;
@@ -344,7 +382,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param index    Mesh element index we are requesting.
      */
-    MeshElement getElement( const MeshElementIndex &index ) const;
+    structuredMeshElement getElement( const MeshElementIndex &index ) const;
 
     /**
      * \brief    Return a mesh element's coordinates given it's id.
@@ -355,6 +393,18 @@ public:
      * \param[out] pos      Mesh element coordinates
      */
     virtual void coord( const MeshElementIndex &index, double *pos ) const = 0;
+
+    /**
+     * \brief    Return the vertex coordinates for the local box
+     * \details  This function returns the vertices for all local cells
+     */
+    virtual std::array<AMP::Array<double>, 3> localCoord() const = 0;
+
+    /**
+     * \brief    Return the vertex coordinates for the global box
+     * \details  This function returns the vertices for all local cells
+     */
+    virtual std::array<AMP::Array<double>, 3> globalCoord() const = 0;
 
     //! Check if the element is on the surface
     virtual bool isOnSurface( const MeshElementIndex &index ) const;
@@ -410,6 +460,8 @@ public: // BoxMesh specific functionality
     std::shared_ptr<AMP::LinearAlgebra::Vector> createVector( const std::string &name,
                                                               int gcw = 0 );
 
+    //! Fix periodic boundaries in the element index
+    inline void fixPeriodic( MeshElementIndex &id ) const;
 
 public: // Convenience typedef
     typedef AMP::Utilities::stackVector<std::pair<MeshElementIndex, MeshElementIndex>, 32>
@@ -417,6 +469,9 @@ public: // Convenience typedef
 
 
 public: // Advanced functions
+    // Get the surface id for a given surface
+    int getSurfaceID( int surface ) const;
+
     // Get the surface set for a given surface/type
     ElementBlocks getSurface( int surface, GeomType type ) const;
 
@@ -429,7 +484,7 @@ public: // Advanced functions
     ElementBlocks intersect( const ElementBlocks &v1, const ElementBlocks &v2 ) const;
 
     // Helper function to create an iterator from an ElementBlocks list
-    inline MeshIterator createIterator( const ElementBlocks &list ) const;
+    MeshIterator createIterator( const ElementBlocks &list ) const;
 
 
 protected:
@@ -468,6 +523,14 @@ protected:
     // Helper function to check if an element is on a given side
     bool onSide( const MeshElementIndex &index, int d, int s ) const;
 
+    // Get the surface (including mapped surfaces)
+    ElementBlocks getSurface2( int surface, GeomType type ) const;
+
+    // Helper function to map points on the boundary
+    template<uint8_t NDIM>
+    std::vector<MeshElementIndex> createMap( const std::vector<MeshElementIndex> ) const;
+    void createMaps();
+
 protected: // Write/read restart data
     void writeRestart( int64_t ) const override;
     BoxMesh( int64_t, AMP::IO::RestartManager * );
@@ -476,21 +539,24 @@ protected: // Write/read restart data
 protected: // Friend functions to access protected functions
     friend class structuredMeshElement;
     friend class structuredMeshIterator;
-    typedef std::shared_ptr<std::vector<MeshElementIndex>> indexList;
+    typedef std::vector<MeshElementIndex> IndexList;
+    typedef std::shared_ptr<IndexList> ListPtr;
+    typedef std::tuple<IndexList, IndexList> SurfaceMapStruct;
 
 
-protected:                                       // Internal data
-    const int d_rank, d_size;                    // Cached values for the rank and size
-    int d_blockID;                               // Block id for the mesh
-    const std::array<int, 3> d_globalSize;       // The size of the logical domain in each direction
-    const std::array<int, 3> d_numBlocks;        // The number of local box in each direction
-    const std::vector<int> d_startIndex[3];      // The first index for each block
-    const std::vector<int> d_endIndex[3];        // The end index (last=1) for each block
-    const std::array<int, 6> d_localIndex;       // Local index range (cached for performance)
-    const std::array<int, 3> d_indexSize;        // Local index size (local box + 2) (cached)
-    const std::array<int, 6> d_surfaceId;        // ID of each surface (if any, -1 if not)
-    mutable std::vector<indexList> d_surface[4]; // List of surface elements
-    mutable std::vector<indexList> d_boundary[4][6]; // List of boundary elements
+protected:                                     // Internal data
+    const int d_rank, d_size;                  // Cached values for the rank and size
+    int d_blockID;                             // Block id for the mesh
+    const std::array<int, 3> d_globalSize;     // The size of the logical domain in each direction
+    const std::array<int, 3> d_numBlocks;      // The number of local box in each direction
+    const std::vector<int> d_startIndex[3];    // The first index for each block
+    const std::vector<int> d_endIndex[3];      // The end index (last=1) for each block
+    const std::array<int, 6> d_localIndex;     // Local index range (cached for performance)
+    const std::array<int, 3> d_indexSize;      // Local index size (local box + 2) (cached)
+    const std::array<int, 6> d_surfaceId;      // ID of each surface (if any, -1 if not)
+    mutable std::vector<ListPtr> d_surface[4]; // List of surface elements
+    mutable std::vector<ListPtr> d_bnd[4][6];  // List of boundary elements
+    SurfaceMapStruct d_surfaceMaps[3];         // Surface maps
 
 protected:
     BoxMesh();

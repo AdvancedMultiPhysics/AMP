@@ -4,13 +4,20 @@
 
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"
+#include "AMP/operators/subchannel/SubchannelOperatorParameters.h"
 #include "AMP/operators/subchannel/SubchannelPhysicsModel.h"
 #include "AMP/vectors/Vector.h"
 
 #include <string>
 #include <vector>
 
+
 namespace AMP::Operator::Subchannel {
+
+
+// Convert the input parameters
+std::shared_ptr<const SubchannelOperatorParameters>
+    convert( std::shared_ptr<const OperatorParameters> );
 
 
 /**
@@ -146,6 +153,8 @@ AMP::LinearAlgebra::Vector::shared_ptr
 getCladHydraulicDiameter( std::shared_ptr<AMP::Mesh::Mesh> clad,
                           std::shared_ptr<AMP::Mesh::Mesh> subchannel,
                           AMP::AMP_MPI comm );
+
+
 } // namespace AMP::Operator::Subchannel
 
 #endif

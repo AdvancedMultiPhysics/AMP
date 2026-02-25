@@ -3,10 +3,15 @@
 
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Backend.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 
 #include "StackTrace/Utilities.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdarg>
 #include <limits>
@@ -59,8 +64,8 @@ using StackTrace::Utilities::tick;
 using StackTrace::Utilities::time;
 
 
-//! Return the string description for the last value in errno
-std::string_view getLastErrnoString();
+//! Return the string description for the last value in errno (thread-safe)
+std::string getLastErrnoString();
 
 
 //! Check if valgrind is running
@@ -167,11 +172,11 @@ inline bool approx_equal_abs( const T &v1, const T &v2, const T tol = type_defau
  * @param[inout] vec_out  The outgoing vector to with the up/down-casted values from vec_in
  *                        It is assumed that vec_out is properly allocated
  */
-template<typename T1, typename T2, typename Backend, class Allocator>
-void copyCast( size_t len, const T1 *vec_in, T2 *vec_out );
+template<typename T1, typename T2, Backend, class Allocator>
+void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out );
 
-template<typename T1, typename T2, typename Backend>
-void copyCast( size_t len, const T1 *vec_in, T2 *vec_out );
+template<typename T1, typename T2, Backend>
+void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out );
 
 
 /*!
@@ -187,7 +192,10 @@ void quicksort( size_t N, T *x );
  * \param x      vector to sort
  */
 template<class T>
-void quicksort( std::vector<T> &x );
+inline void quicksort( std::vector<T> &x )
+{
+    quicksort( x.size(), x.data() );
+}
 
 /*!
  * Quicksort a vector
@@ -204,7 +212,11 @@ void quicksort( size_t N, T1 *x, T2 *y );
  * \param y      Extra values to be sorted with x
  */
 template<class T1, class T2>
-void quicksort( std::vector<T1> &x, std::vector<T2> &y );
+inline void quicksort( std::vector<T1> &x, std::vector<T2> &y )
+{
+    AMP_INSIST( x.size() == y.size(), "x and y must be the same size" );
+    quicksort( x.size(), x.data(), y.data() );
+}
 
 /*!
  * Quicksort a vector
@@ -227,13 +239,12 @@ void unique( std::vector<T> &x );
 /*!
  * Subroutine to perform the unique operation on the elements in X
  * This function performs the unique operation on the values in X storing them in Y.
- * It also returns the index vectors I and J such that Y[k] = X[I[k]] and X[k] = Y[J[k]].
+ * It also returns the index vector I such that Y[k] = X[I[k]].
  * @param X         Points to sort (nx)
  * @param I         The index vector I (ny)
- * @param J         The index vector J (nx)
  */
 template<class T>
-void unique( std::vector<T> &X, std::vector<size_t> &I, std::vector<size_t> &J );
+void unique( std::vector<T> &X, std::vector<size_t> &I );
 
 
 /*!
@@ -255,7 +266,10 @@ size_t findfirst( size_t N, const T *x, const T &value );
  * \param value  Value to search for
  */
 template<class T>
-size_t findfirst( const std::vector<T> &x, const T &value );
+inline size_t findfirst( const std::vector<T> &x, const T &value )
+{
+    return findfirst( x.size(), x.data(), value );
+}
 
 
 /*!
@@ -355,8 +369,29 @@ inline void busy_s( int N ) { busy_ms( 1000 * N ); }
 //! Print AMP Banner
 void printBanner();
 
+
 //! Null use function
 void nullUse( const void * );
+
+
+/*!
+ * \brief Function to return a unique alpha-numeric string across a given communicator.
+ * \details This will return a unique alpha-numeric string on the given communicator.
+ *   The string will be the same on all processors, but unique for all subsequent calls
+ *   to this routine regardless of the communicator used.
+ *   Note: this is a blocking call on the given communicator.
+ */
+std::string randomString( const AMP::AMP_MPI &comm = AMP_COMM_NULL );
+
+
+//! Fill with random values in [0,1]
+void fillRandom( std::vector<double> & );
+
+
+//! Fill with random values in [0,1]
+template<size_t N>
+void fillRandom( std::vector<std::array<double, N>> & );
+
 
 //! std::string version of sprintf
 inline std::string stringf( const char *format, ... )
@@ -432,46 +467,10 @@ private:
     TYPE d_data[CAPACITY];
 };
 
-//! Enum to store the backend used for gpu acceleration
-enum class Backend : uint8_t {
-    serial   = 0,
-    hip_cuda = 1,
-    kokkos   = 2,
-    openMP   = 3,
-    openACC  = 4,
-    openCL   = 5,
-    RAJA     = 6
-};
 
-//! Structs for each backend
-namespace PortabilityBackend {
-struct Serial {
-};
-#ifdef USE_DEVICE
-struct Hip_Cuda {
-};
-#endif
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
-struct Kokkos {
-};
-#endif
-#ifdef USE_OPENMP
-struct OpenMP {
-};
-#endif
-#ifdef USE_OPENACC
-struct OpenACC {
-};
-#endif
-#ifdef USE_OPENCL
-struct OpenCL {
-};
-#endif
-#ifdef USE_RAJA
-struct RAJA {
-};
-#endif
-} // namespace PortabilityBackend
+void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
+                                       std::string outerOperatorName,
+                                       std::vector<std::string> nestedOperatorNames );
 
 } // namespace Utilities
 } // namespace AMP

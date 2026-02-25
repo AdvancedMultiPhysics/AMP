@@ -1,0 +1,21 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+// left preconditioning
+LinearSolver{
+  name = "GMRESSolver"
+  uses_preconditioner = TRUE
+  preconditioner_side = "left"
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  print_info_level = 2
+  max_iterations = 25
+}
+
+<<< "PC-DiagParameters" >>>
+
+Reference{
+  iterations = 17
+  res_l2_norm = 2.208254791206066e-10
+  tolerance = 0.0
+  strict = FALSE
+}

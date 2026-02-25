@@ -27,6 +27,21 @@ nonlinearMechanicsBVPOperator {
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+VonMisesElastoPlasticModel {
+  USE_MATERIALS_LIBRARY = FALSE
+    print_info_level = 2
+    Material = "UO2_MSRZC_09"
+    name="VonMisesElastoPlasticModel"
+    //name="IsotropicElasticModel"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.29
+    Linear_Strain_Hardening = 5.0e8
+    Elastic_Yield_Stress = 1.0e7
+    Default_Temperature = 310.0
+    Default_Burnup = 0.0
+    Default_Oxygen_Concentration = .1
+}
+
 MechanicsNonlinearFEOperator1 {
   name = "MechanicsNonlinearFEOperator"
     print_info_level = 1
@@ -47,7 +62,7 @@ MechanicsNonlinearFEOperator1 {
     }
 
   MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = "VonMisesElastoPlasticModel"
+  LocalModel = VonMisesElastoPlasticModel
 }
 
 DirichletVectorCorrection1 {
@@ -71,21 +86,6 @@ Pressure_Boundary {
     Value = 2.0e5
     ResidualMode = FALSE
     Variable = "displacement"
-}
-
-VonMisesElastoPlasticModel {
-  USE_MATERIALS_LIBRARY = FALSE
-    print_info_level = 6
-    Material = "UO2_MSRZC_09"
-    name="VonMisesElastoPlasticModel"
-    //name="IsotropicElasticModel"
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.29
-    Linear_Strain_Hardening = 5.0e8
-    Elastic_Yield_Stress = 1.0e7
-    Default_Temperature = 310.0
-    Default_Burnup = 0.0
-    Default_Oxygen_Concentration = .1
 }
 
 linearMechanicsBVPOperator {
@@ -146,7 +146,7 @@ Displacement_Boundary {
 }
 
 NonlinearSolver{
-  print_info_level = 7 
+  print_info_level = 2 
     max_iterations = 100
     max_error = 1e-10
 

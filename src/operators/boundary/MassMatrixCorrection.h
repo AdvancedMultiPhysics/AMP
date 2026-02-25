@@ -23,13 +23,7 @@ class MassMatrixCorrection : public BoundaryOperator
 {
 public:
     //! Constructor
-    explicit MassMatrixCorrection( std::shared_ptr<const MassMatrixCorrectionParameters> params )
-        : BoundaryOperator( params ),
-          d_variable( params->d_variable ),
-          d_bSetIdentityOnDiagonal( false )
-    {
-        reset( params );
-    }
+    explicit MassMatrixCorrection( std::shared_ptr<const OperatorParameters> params );
 
     //! Destructor
     virtual ~MassMatrixCorrection() {}

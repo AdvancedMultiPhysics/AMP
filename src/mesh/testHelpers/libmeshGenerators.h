@@ -6,6 +6,8 @@
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/testHelpers/meshGenerators.h"
 
+#include <string>
+
 
 namespace libMesh::Parallel {
 class Communicator;
@@ -19,23 +21,28 @@ namespace AMP::unit_test {
 
 
 // Class to create a cube in Libmesh
-template<int SIZE>
 class LibMeshCubeGenerator : public MeshGenerator
 {
 public:
+    LibMeshCubeGenerator() = delete;
+    LibMeshCubeGenerator( int size ) : SIZE( size ) {}
     void build_mesh() override;
-
     std::string name() const override { return "LibMeshCubeGenerator"; }
+
+private:
+    [[maybe_unused]] int SIZE = 0;
 };
 
 
 // Class to read in a default exodus file
-template<int FILE = 1>
 class ExodusReaderGenerator : public MeshGenerator
 {
 public:
+    ExodusReaderGenerator() = delete;
+    ExodusReaderGenerator( std::string_view file ) : d_file( file ) {}
     void build_mesh() override;
     std::string name() const override { return "ExodusReaderGenerator"; }
+    [[maybe_unused]] const std::string d_file;
 };
 
 
@@ -53,13 +60,9 @@ class libMeshThreeElementGenerator : public MeshGenerator
 {
 public:
     std::string name() const override { return "libMeshThreeElementGenerator"; }
-
     static std::vector<unsigned int> getBndDofIndices();
-
     static std::vector<std::vector<unsigned int>> getElemNodeMap();
-
     void build_mesh() override;
-
     virtual ~libMeshThreeElementGenerator();
 
 protected:
@@ -69,9 +72,6 @@ protected:
 
 
 } // namespace AMP::unit_test
-
-
-#include "AMP/mesh/testHelpers/libmeshGenerators.hpp"
 
 
 #endif

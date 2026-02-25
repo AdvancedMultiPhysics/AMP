@@ -6,7 +6,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/cell_hex8.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
@@ -40,7 +39,7 @@ TractionBoundaryOperator::TractionBoundaryOperator(
 void TractionBoundaryOperator::addRHScorrection( AMP::LinearAlgebra::Vector::shared_ptr rhs )
 {
     if ( !d_residualMode ) {
-        AMP::LinearAlgebra::Vector::shared_ptr myRhs = mySubsetVector( rhs, d_var );
+        auto myRhs = mySubsetVector( rhs, d_var );
         if ( d_correction == nullptr ) {
             d_correction = myRhs->clone();
         }
@@ -54,7 +53,7 @@ void TractionBoundaryOperator::apply( AMP::LinearAlgebra::Vector::const_shared_p
                                       AMP::LinearAlgebra::Vector::shared_ptr r )
 {
     if ( d_residualMode ) {
-        AMP::LinearAlgebra::Vector::shared_ptr rInternal = mySubsetVector( r, d_var );
+        auto rInternal = mySubsetVector( r, d_var );
         if ( d_correction == nullptr ) {
             d_correction = rInternal->clone();
         }

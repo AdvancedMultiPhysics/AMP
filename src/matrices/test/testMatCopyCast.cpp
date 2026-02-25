@@ -1,8 +1,8 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
-#include "AMP/matrices/CSRPolicy.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/testHelpers/MatrixTests.h"
@@ -17,11 +17,8 @@
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
     #include "Kokkos_Core.hpp"
-#endif
-#if defined( AMP_USE_HYPRE )
-    #include "AMP/matrices/data/hypre/HypreCSRPolicy.h"
 #endif
 
 #include "ProfilerApp.h"
@@ -36,23 +33,22 @@
 // classes
 
 
-template<typename Policy, class Allocator>
-void createMatrixAndVectors(
-    AMP::UnitTest *ut,
-    const std::string &test_name,
-    AMP::Utilities::Backend backend,
-    std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Policy, Allocator>> &matrix,
-    std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
-    std::shared_ptr<AMP::LinearAlgebra::Vector> &y )
+template<typename Config>
+void createMatrixAndVectors( AMP::UnitTest *ut,
+                             const std::string &test_name,
+                             AMP::Utilities::Backend backend,
+                             std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                             std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
+                             std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
+                             std::shared_ptr<AMP::LinearAlgebra::Vector> &y )
 {
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
     // clang-format off
-#ifdef USE_DEVICE
-    // using  AMP::ManagedAllocator<void>;
+#ifdef AMP_USE_DEVICE
+    // using AMP::ManagedAllocator<void>;
     auto inVec = AMP::LinearAlgebra::createVector(
         dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
     auto outVec = AMP::LinearAlgebra::createVector(
@@ -79,13 +75,11 @@ void createMatrixAndVectors(
 
     // Create the matrix parameters
     auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOF, rightDOF, comm, inVar, outVar, getRow );
-
-    params->d_backend = backend;
+        leftDOF, rightDOF, comm, inVar, outVar, backend, getRow );
 
     // Create the matrix
-    auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Policy, Allocator>>( params );
-    matrix    = std::make_shared<AMP::LinearAlgebra::CSRMatrix<Policy, Allocator>>( data );
+    auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Config>>( params );
+    matrix    = std::make_shared<AMP::LinearAlgebra::CSRMatrix<Config>>( data );
     // Initialize the matrix
     matrix->zero();
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -97,17 +91,17 @@ void createMatrixAndVectors(
         ut->failure( test_name + ": Unable to create a square matrix" );
     }
 
-    x = matrix->getRightVector();
-    y = matrix->getLeftVector();
+    x = matrix->createInputVector();
+    y = matrix->createOutputVector();
 }
 
-template<class Policy, class Allocator>
+template<class Config>
 void checkEqualEntries( AMP::UnitTest *ut,
                         const std::string &test_name,
                         const std::string &task,
                         std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
-                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Policy, Allocator>> &X,
-                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Policy, Allocator>> &Y,
+                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &X,
+                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &Y,
                         double tol )
 {
     for ( size_t i = dofManager->beginDOF(); i != dofManager->endDOF(); i++ ) {
@@ -127,49 +121,51 @@ void checkEqualEntries( AMP::UnitTest *ut,
     ut->passes( test_name + ": Able to " + task );
 }
 
-template<class Allocator>
+template<AMP::LinearAlgebra::alloc Allocator>
 void testCopyCast( AMP::UnitTest *ut,
                    const std::string &test_name,
                    AMP::Utilities::Backend backend,
                    std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
-    using PolicyD = AMP::LinearAlgebra::CSRPolicy<size_t, int, double>;
-    using PolicyF = AMP::LinearAlgebra::CSRPolicy<size_t, int, float>;
+    using AMP::LinearAlgebra::index;
+    using AMP::LinearAlgebra::scalar;
+    using ConfigD = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f64>;
+    using ConfigF = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f32>;
 
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<PolicyD, Allocator>> A = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<PolicyF, Allocator>> B = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<PolicyD, Allocator>> C = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<PolicyF, Allocator>> D = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> x                        = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> y                        = nullptr;
-    createMatrixAndVectors<PolicyD, Allocator>( ut, test_name, backend, dofManager, A, x, y );
-    createMatrixAndVectors<PolicyF, Allocator>( ut, test_name, backend, dofManager, B, x, y );
-    createMatrixAndVectors<PolicyD, Allocator>( ut, test_name, backend, dofManager, C, x, y );
-    createMatrixAndVectors<PolicyF, Allocator>( ut, test_name, backend, dofManager, D, x, y );
+    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigD>> A = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigF>> B = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigD>> C = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigF>> D = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> x             = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> y             = nullptr;
+    createMatrixAndVectors<ConfigD>( ut, test_name, backend, dofManager, A, x, y );
+    createMatrixAndVectors<ConfigF>( ut, test_name, backend, dofManager, B, x, y );
+    createMatrixAndVectors<ConfigD>( ut, test_name, backend, dofManager, C, x, y );
+    createMatrixAndVectors<ConfigF>( ut, test_name, backend, dofManager, D, x, y );
 
     fillWithPseudoLaplacian( A, dofManager );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     B->copyCast( A );
     C->copyCast( B );
-    checkEqualEntries<PolicyD, Allocator>( ut,
-                                           test_name,
-                                           "copyCast double->float->double",
-                                           dofManager,
-                                           A,
-                                           C,
-                                           std::numeric_limits<float>::epsilon() );
+    checkEqualEntries<ConfigD>( ut,
+                                test_name,
+                                "copyCast double->float->double",
+                                dofManager,
+                                A,
+                                C,
+                                std::numeric_limits<float>::epsilon() );
 
     C->copyCast( A );
-    checkEqualEntries<PolicyD, Allocator>(
+    checkEqualEntries<ConfigD>(
         ut, test_name, "copy doubles", dofManager, A, C, std::numeric_limits<double>::epsilon() );
 
     D->copyCast( B );
-    checkEqualEntries<PolicyF, Allocator>(
+    checkEqualEntries<ConfigF>(
         ut, test_name, "copy floats", dofManager, B, D, std::numeric_limits<float>::epsilon() );
 }
 
-void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
+void matDeviceOperationsTest( AMP::UnitTest *ut, const std::string &input_file )
 {
     std::string log_file = "output_testMatCopyCast";
     AMP::logOnlyNodeZero( log_file );
@@ -193,14 +189,15 @@ void matDeviceOperationsTest( AMP::UnitTest *ut, std::string input_file )
     // Test on defined matrix types
 
     // clang-format off
-    testCopyCast<AMP::HostAllocator<void>>( ut, "Serial Host", AMP::Utilities::Backend::serial, scalarDOFs );
-#ifdef USE_DEVICE
-    testCopyCast<AMP::ManagedAllocator<void>>( ut, "Hip_Cuda Managed", AMP::Utilities::Backend::hip_cuda, scalarDOFs );
+    using AMP::LinearAlgebra::alloc;
+    testCopyCast<alloc::host>( ut, "Serial Host", AMP::Utilities::Backend::Serial, scalarDOFs );
+#ifdef AMP_USE_DEVICE
+    testCopyCast<alloc::managed>( ut, "Hip_Cuda Managed", AMP::Utilities::Backend::Hip_Cuda, scalarDOFs );
 #endif
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
-    testCopyCast<AMP::HostAllocator<void>>( ut, "Kokkos Host", AMP::Utilities::Backend::kokkos, scalarDOFs );
-    #ifdef USE_DEVICE
-    testCopyCast<AMP::ManagedAllocator<void>>( ut, "Kokkos Managed", AMP::Utilities::Backend::kokkos, scalarDOFs );
+#ifdef AMP_USE_KOKKOS
+    testCopyCast<alloc::host>( ut, "Kokkos Host", AMP::Utilities::Backend::Kokkos, scalarDOFs );
+    #ifdef AMP_USE_DEVICE
+    testCopyCast<alloc::managed>( ut, "Kokkos Managed", AMP::Utilities::Backend::Kokkos, scalarDOFs );
     #endif
 #endif
 }

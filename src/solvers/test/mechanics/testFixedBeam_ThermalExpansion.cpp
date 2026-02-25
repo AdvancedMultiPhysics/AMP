@@ -4,7 +4,7 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
-#include "AMP/mesh/libmesh/ReadTestMesh.h"
+#include "AMP/mesh/testHelpers/meshWriters.h"
 #include "AMP/operators/BVPOperatorParameters.h"
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/NonlinearBVPOperator.h"
@@ -37,9 +37,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -75,31 +72,18 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto nonlinearMechanicsVolumeOperator =
         std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
             nonlinearMechanicsBVPoperator->getVolumeOperator() );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> mechanicsMaterialModel =
-        nonlinearMechanicsVolumeOperator->getMaterialModel();
-
-    // Create a Linear BVP operator for mechanics
-    AMP_INSIST( input_db->keyExists( "LinearMechanicsOperator" ), "key missing!" );
-    auto linearMechanicsBVPoperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            mesh, "LinearMechanicsOperator", input_db, mechanicsMaterialModel ) );
+    auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     // Create the variables
-    auto mechanicsNonlinearVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() );
-
     auto multivariable = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVariable>(
-        mechanicsNonlinearVolumeOperator->getInputVariable() );
+        nonlinearMechanicsVolumeOperator->getInputVariable() );
     auto dispVar = multivariable->getVariable( AMP::Operator::Mechanics::DISPLACEMENT );
     auto tempVar = multivariable->getVariable( AMP::Operator::Mechanics::TEMPERATURE );
     auto burnVar = multivariable->getVariable( AMP::Operator::Mechanics::BURNUP );
 
     // For RHS (Point Forces)
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> dummyModel;
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            mesh, "Load_Boundary", input_db, dummyModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
     dirichletLoadVecOp->setVariable( dispVar );
 
     // Create the vectors
@@ -125,9 +109,13 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     tempVec->setToScalar( 301.0 );
     burnVec->setToScalar( 10.0 );
 
-    mechanicsNonlinearVolumeOperator->setReferenceTemperature( tempVecRef );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE, tempVec );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::BURNUP, burnVec );
+    nonlinearMechanicsVolumeOperator->setReferenceTemperature( tempVecRef );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE, tempVec );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::BURNUP, burnVec );
+
+    // Create a Linear BVP operator for mechanics
+    auto linearMechanicsBVPoperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
+        nonlinearMechanicsBVPoperator->getParameters( "Jacobian", nullptr ) );
 
     // We need to reset the linear operator before the solve since TrilinosML does
     // the factorization of the matrix during construction and so the matrix must
@@ -138,8 +126,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     double epsilon =
         1.0e-13 *
-        static_cast<double>(
-            ( ( linearMechanicsBVPoperator->getMatrix() )->extractDiagonal() )->L1Norm() );
+        static_cast<double>( linearMechanicsBVPoperator->getMatrix()->extractDiagonal()->L1Norm() );
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
     auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
@@ -222,15 +209,12 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
+        nonlinearMechanicsVolumeOperator->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
 
-        std::string number1 = std::to_string( step );
-        std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
-
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() )
-            ->printStressAndStrain( solVec, fname );
+        // std::string number1 = std::to_string( step );
+        // std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
+        // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, fname );
 
         // double prev_stress, prev_strain, slope;
         if ( ExtractData ) {
@@ -240,7 +224,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
-    mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
+    // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, output_file );
 
     ut->passes( exeName );
     fclose( fout123 );

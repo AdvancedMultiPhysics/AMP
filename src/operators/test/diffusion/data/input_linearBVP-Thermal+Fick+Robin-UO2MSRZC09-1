@@ -17,6 +17,25 @@ testOperator2 {
 
 }
 
+ThermalDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .15
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
+FickDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Ox_MSRZC_09"
+    Property = "FickCoefficient"
+    Default_Concentration = .15
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
+
 ThermalDiffusionLinearFEOperator{
     name = "DiffusionLinearFEOperator"
     InputVariable = "temperature"
@@ -35,7 +54,7 @@ ThermalDiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "ThermalDiffusionTransportModel"
+    LocalModel = ThermalDiffusionTransportModel
 }
 
 ThermalRobinMatrixCorrection{
@@ -48,22 +67,13 @@ ThermalRobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1
    dof_0_0          =   0
    value_0_0        = 101.
 }
-
-ThermalDiffusionTransportModel{
-    name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .15
-    Default_Temperature   = 300.
-    Default_Burnup   = 0.0
-} 
 
 FickDiffusionLinearFEOperator{
     name = "DiffusionLinearFEOperator"
@@ -83,7 +93,7 @@ FickDiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "FickDiffusionTransportModel"
+    LocalModel = FickDiffusionTransportModel
 }
 
 FickRobinMatrixCorrection{
@@ -96,22 +106,11 @@ FickRobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1
    dof_0_0          =   0
    value_0_0        = 101.
 }
-
-
-FickDiffusionTransportModel{
-    name = "DiffusionTransportModel"
-    Material = "Ox_MSRZC_09"
-    Property = "FickCoefficient"
-    Default_Concentration = .15
-    Default_Temperature   = 300.
-    Default_Burnup   = 0.0
-} 
-
 

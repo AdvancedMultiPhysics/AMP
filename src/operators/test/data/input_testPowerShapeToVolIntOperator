@@ -1,36 +1,16 @@
-Mesh{
-  MeshType = "libMesh"
-  FileName = "brick.e"
-  MeshName = "fuel"
-  dim      = 3
-  x_offset = 0.0
-  y_offset = 0.0
-  z_offset = 0.0
-  NumberOfElements = 1000
+Mesh {
+    MeshName = "fuel"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
 }
-PowerShape{
-  print_info_level = 3
-}
-VolumeIntegralOperator{
-  name="VolumeIntegralOperator"
-  InputVariableType = "IntegrationPointScalar"
-  Number_Active_Variables = 1
-  Number_Auxillary_Variables = 0
-  ConstantSource   = FALSE
-  ActiveInputVariables{
-  }
-  OutputVariable = "heatsource"
-  print_info_level = 3
-  LocalModel = "SourcePhysicsModel"
 
-  SourceElement {
-    name="SourceNonlinearElement"
-    print_info_level = 3
-    FE_ORDER = "FIRST"  
-    FE_FAMILY = "LAGRANGE"
-    QRULE_TYPE = "QGAUSS"
-    QRULE_ORDER = "DEFAULT"
-  }
+PowerShape{
+  print_info_level = 2
 }
 
 SourcePhysicsModel {
@@ -43,3 +23,26 @@ SourcePhysicsModel {
     Default_Temperature   = 300.
     Default_Burnup   = 0.0
 }
+
+VolumeIntegralOperator{
+  name="VolumeIntegralOperator"
+  InputVariableType = "IntegrationPointScalar"
+  Number_Active_Variables = 1
+  Number_Auxillary_Variables = 0
+  ConstantSource   = FALSE
+  ActiveInputVariables{
+  }
+  OutputVariable = "heatsource"
+  print_info_level = 2
+  LocalModel = SourcePhysicsModel
+
+  SourceElement {
+    name="SourceNonlinearElement"
+    print_info_level = 2
+    FE_ORDER = "FIRST"  
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
+  }
+}
+

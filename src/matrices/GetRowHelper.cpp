@@ -43,13 +43,19 @@ GetRowHelper::GetRowHelper( std::shared_ptr<const AMP::Discretization::DOFManage
         d_remoteOffset[i] = d_remoteOffset[i - 1] + d_NNZ[i - 1][1];
     }
 }
-GetRowHelper::~GetRowHelper()
+
+GetRowHelper::~GetRowHelper() { deallocate(); }
+
+void GetRowHelper::deallocate()
 {
-    delete[] d_NNZ;
-    delete[] d_localOffset;
-    delete[] d_remoteOffset;
-    free( d_local );
-    free( d_remote );
+    if ( d_hasFields ) {
+        delete[] d_NNZ;
+        delete[] d_localOffset;
+        delete[] d_remoteOffset;
+        free( d_local );
+        free( d_remote );
+    }
+    d_hasFields = false;
 }
 
 
@@ -78,7 +84,7 @@ std::array<size_t, 2> GetRowHelper::NNZ( size_t row ) const
 {
     const size_t begin = d_leftDOF->beginDOF();
     const size_t end   = d_leftDOF->endDOF();
-    AMP_ASSERT( row >= begin && row < end );
+    AMP_ASSERT( row >= begin && row < end && d_hasFields );
     return d_NNZ[row - begin];
 }
 
@@ -90,7 +96,7 @@ std::array<size_t *, 2> GetRowHelper::getRow2( size_t row ) const
 {
     const size_t begin = d_leftDOF->beginDOF();
     const size_t end   = d_leftDOF->endDOF();
-    AMP_ASSERT( row >= begin && row < end );
+    AMP_ASSERT( row >= begin && row < end && d_hasFields );
     auto p_local  = &d_local[d_localOffset[row - begin]];
     auto p_remote = &d_remote[d_remoteOffset[row - begin]];
     return { p_local, p_remote };

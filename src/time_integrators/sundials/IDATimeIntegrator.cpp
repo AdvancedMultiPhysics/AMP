@@ -56,13 +56,14 @@ void IDATimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> pa
     d_solution_prime = ( params->d_ic_vector_prime )->clone();
     d_solution_prime->copyVector( params->d_ic_vector_prime );
 
-    d_pPreconditioner = params->d_pPreconditioner;
+    d_pNestedSolver = params->d_pNestedSolver;
 
     // reuse the time integrator database, and put additional fields in
     auto timeOperator_db = params->d_db;
-    timeOperator_db->putScalar( "CurrentDt", d_current_dt );
-    timeOperator_db->putScalar( "CurrentTime", d_current_time );
-    timeOperator_db->putScalar( "name", "TimeOperator" );
+    auto Overwrite       = AMP::Database::Check::Overwrite;
+    timeOperator_db->putScalar( "CurrentDt", d_current_dt, {}, Overwrite );
+    timeOperator_db->putScalar( "CurrentTime", d_current_time, {}, Overwrite );
+    timeOperator_db->putScalar( "name", "TimeOperator", {}, Overwrite );
 
     // setup the parameter object for the IDATimeOperator
     auto idaTimeOp_Params =
@@ -97,12 +98,12 @@ void IDATimeIntegrator::initialize( std::shared_ptr<TimeIntegratorParameters> pa
                       << std::endl;
         }
 
-        AMP_INSIST( d_pPreconditioner,
+        AMP_INSIST( d_pNestedSolver,
                     "ERROR: IDATimeIntegrator::initialize(): creation of linear time "
                     "operators internally is only currently supported with a valid "
                     "non NULL preconditioner " );
 
-        d_pPreconditioner->registerOperator( d_pLinearTimeOperator );
+        d_pNestedSolver->registerOperator( d_pLinearTimeOperator );
         AMP::pout << " linear op being created internally" << std::endl;
     }
 
@@ -124,7 +125,7 @@ void IDATimeIntegrator::initializeIDA()
     id = N_VClone( pSundials_sol->getNVector() );
 
     d_ida_mem = IDACreate();
-    AMP_ASSERT( d_ida_mem != nullptr );
+    AMP_ASSERT( d_ida_mem );
 
     int ierr = IDASetUserData( d_ida_mem, this );
     AMP_ASSERT( ierr == IDA_SUCCESS );
@@ -297,41 +298,32 @@ int IDATimeIntegrator::advanceSolution( const double dt,
         AMP::LinearAlgebra::SundialsVector::view( d_solution_prime ) );
 
     // specify some initial step
-    hcur = d_current_time + dt;
-
-    AMP::pout << "before IDASolve" << std::endl;
-    retval = IDASolve( d_ida_mem,
+    hcur         = d_current_time + dt;
+    retval       = IDASolve( d_ida_mem,
                        hcur,
                        &d_current_time,
                        ptr_y->getNVector(),
                        ptr_ydot->getNVector(),
                        IDA_ONE_STEP );
-    // should be fixed.
-    AMP::pout << "after IDASolve" << std::endl;
-    retval = IDAGetActualInitStep( d_ida_mem, &hin_actual );
-    // cout << "hin_actual = " << hin_actual << endl;
-
-    retval = IDAGetLastStep( d_ida_mem, &hlast );
-    AMP::pout << "hlast = " << hlast << std::endl;
-
+    retval       = IDAGetActualInitStep( d_ida_mem, &hin_actual );
+    retval       = IDAGetLastStep( d_ida_mem, &hlast );
     retval       = IDAGetCurrentStep( d_ida_mem, &hcur );
     d_current_dt = hcur;
-    AMP::pout << "hcur = " << hcur << std::endl;
+    retval       = IDAGetNumNonlinSolvIters( d_ida_mem, &nniters );
+    retval       = IDAGetNumNonlinSolvConvFails( d_ida_mem, &nncfails );
+    retval       = IDAGetNumErrTestFails( d_ida_mem, &netfails );
+    retval       = IDASpilsGetNumPrecSolves( d_ida_mem, &npsolves );
+    retval       = IDASpilsGetNumLinIters( d_ida_mem, &nliters );
 
-    retval = IDAGetNumNonlinSolvIters( d_ida_mem, &nniters );
-    AMP::pout << "nniters = " << nniters << std::endl;
-
-    retval = IDAGetNumNonlinSolvConvFails( d_ida_mem, &nncfails );
-    AMP::pout << "nncfails = " << nncfails << std::endl;
-
-    retval = IDAGetNumErrTestFails( d_ida_mem, &netfails );
-    AMP::pout << "netfails = " << netfails << std::endl;
-
-    retval = IDASpilsGetNumPrecSolves( d_ida_mem, &npsolves );
-    AMP::pout << "npsolves = " << npsolves << std::endl;
-
-    retval = IDASpilsGetNumLinIters( d_ida_mem, &nliters );
-    AMP::pout << "nliters = " << nliters << std::endl;
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "hlast = " << hlast << std::endl;
+        AMP::pout << "hcur = " << hcur << std::endl;
+        AMP::pout << "nniters = " << nniters << std::endl;
+        AMP::pout << "nncfails = " << nncfails << std::endl;
+        AMP::pout << "netfails = " << netfails << std::endl;
+        AMP::pout << "npsolves = " << npsolves << std::endl;
+        AMP::pout << "nliters = " << nliters << std::endl;
+    }
 
     out->copyVector( d_solution_vector );
     return ( retval );
@@ -411,8 +403,8 @@ int IDATimeIntegrator::IDAPrecSetup( realtype tt,
     ierr = IDAGetCurrentStep( user_data->getIDAMem(), &current_stepsize );
     AMP_ASSERT( ierr == IDA_SUCCESS );
 
-    AMP::pout << "cj = " << cj << std::endl;
-
+    if ( user_data->d_iDebugPrintInfoLevel > 0 )
+        AMP::pout << "cj = " << cj << std::endl;
 
     bool OrderHasChanged = FALSE, StepSizeHasChanged = FALSE;
     if ( last_order != current_order ) {
@@ -428,8 +420,9 @@ int IDATimeIntegrator::IDAPrecSetup( realtype tt,
         auto amp_yy    = getAMP( yy );
         auto jacParams = user_data->getIDATimeOperator()->getParameters( "Jacobian", amp_yy );
         auto &db       = jacParams->d_db;
-        db->putScalar( "ScalingFactor", cj );
-        db->putScalar( "CurrentTime", tt );
+        auto Overwrite = AMP::Database::Check::Overwrite;
+        db->putScalar( "ScalingFactor", cj, {}, Overwrite );
+        db->putScalar( "CurrentTime", tt, {}, Overwrite );
         std::shared_ptr<AMP::Solver::SolverStrategy> pSolver = user_data->getPreconditioner();
         // double currentTime = user_data->getCurrentTime();
 

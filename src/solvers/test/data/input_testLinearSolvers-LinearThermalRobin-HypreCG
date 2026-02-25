@@ -5,12 +5,12 @@ LinearSolver{
   uses_preconditioner = FALSE
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
-  max_iterations = 50  
+  max_iterations = 100
   print_info_level = 2
 }
 
 Reference{
-  iterations = 25
+  iterations = 65
   res_l2_norm = -1.0
   tolerance = 0.0
   strict = FALSE

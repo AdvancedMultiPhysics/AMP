@@ -57,8 +57,8 @@ public:
     }
     void *getRawDataBlockAsVoid( size_t i ) override;
     const void *getRawDataBlockAsVoid( size_t i ) const override;
-    size_t sizeofDataBlockType( size_t ) const override { return sizeof( double ); }
-    typeID getType( size_t ) const override { return getTypeID<double>(); }
+    size_t sizeofDataBlockType( size_t ) const override { return sizeof( PetscScalar ); }
+    typeID getType( size_t ) const override { return getTypeID<PetscScalar>(); }
     void swapData( VectorData &rhs ) override;
 
     /** \brief Clone the data

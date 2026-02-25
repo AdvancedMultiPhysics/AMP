@@ -1,10 +1,9 @@
 #ifndef included_AMP_MeshID
 #define included_AMP_MeshID
 
+#include <cstdint>
 #include <memory>
 #include <string>
-#include <vector>
-
 
 namespace AMP::Mesh {
 
@@ -40,6 +39,8 @@ public:
     }
     constexpr MeshID( uint64_t id ) : data( id ) {}
     constexpr uint64_t getData() const { return data; }
+    constexpr int getRoot() const { return data >> 32; }
+    constexpr int getLocalID() const { return data & 0xFFFFFFFF; }
     // Hash the id
     constexpr uint64_t getHash() const
     {

@@ -2,7 +2,7 @@ LinearSolver{
   name = "PetscKrylovSolver"
   ksp_type = "cg"
   print_info_level = 2
-  max_iterations = 30
+  max_iterations = 100
   absolute_tolerance = 1.0e-12
   relative_tolerance = 1.0e-12
   divergence_tolerance = 1.0e03

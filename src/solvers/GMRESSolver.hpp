@@ -1,10 +1,11 @@
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/GMRESSolver.h"
 #include "AMP/solvers/SolverFactory.h"
+
 #include "ProfilerApp.h"
 
-
 #include <cmath>
+#include <iomanip>
 #include <limits>
 
 namespace AMP::Solver {
@@ -33,10 +34,14 @@ GMRESSolver<T>::GMRESSolver( std::shared_ptr<SolverStrategyParameters> parameter
 template<typename T>
 void GMRESSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters> parameters )
 {
+    PROFILE( "GMRESSolver::initialize" );
+
     AMP_ASSERT( parameters );
     auto db = parameters->d_db;
 
     getFromInput( db );
+
+    registerOperator( d_pOperator );
 
     // maximum dimension to allocate storage for
     const int max_dim = std::min( d_iMaxKrylovDimension, d_iMaxIterations );
@@ -49,7 +54,8 @@ void GMRESSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters>
     d_dy.resize( max_dim, 0.0 );
 
     if ( parameters->d_pNestedSolver ) {
-        d_pPreconditioner = parameters->d_pNestedSolver;
+        d_pNestedSolver = parameters->d_pNestedSolver;
+        d_pNestedSolver->setIsNestedSolver( true );
     } else {
         if ( d_bUsesPreconditioner ) {
             auto pcName  = db->getWithDefault<std::string>( "pc_solver_name", "Preconditioner" );
@@ -60,8 +66,9 @@ void GMRESSolver<T>::initialize( std::shared_ptr<const SolverStrategyParameters>
                     std::make_shared<AMP::Solver::SolverStrategyParameters>( pcDB );
                 innerParameters->d_global_db = parameters->d_global_db;
                 innerParameters->d_pOperator = d_pOperator;
-                d_pPreconditioner = AMP::Solver::SolverFactory::create( innerParameters );
-                AMP_ASSERT( d_pPreconditioner );
+                d_pNestedSolver = AMP::Solver::SolverFactory::create( innerParameters );
+                d_pNestedSolver->setIsNestedSolver( true );
+                AMP_ASSERT( d_pNestedSolver );
             }
         }
     }
@@ -75,6 +82,8 @@ void GMRESSolver<T>::getFromInput( std::shared_ptr<AMP::Database> db )
     // in the case of restarted GMRES so we allow specification separately
     d_iMaxKrylovDimension      = db->getWithDefault<int>( "max_dimension", 100 );
     d_sOrthogonalizationMethod = db->getWithDefault<std::string>( "ortho_method", "MGS" );
+    // uncomment once we optimize vec ops
+    //    d_sOrthogonalizationMethod = db->getWithDefault<std::string>( "ortho_method", "CGS2" );
 
     // default is right preconditioning, options are right, left, both
     d_bUsesPreconditioner = db->getWithDefault<bool>( "uses_preconditioner", false );
@@ -95,6 +104,29 @@ void GMRESSolver<T>::getFromInput( std::shared_ptr<AMP::Database> db )
     d_iBasisAllocSize = db->getWithDefault<int>( "basis_allocation_size", 4 );
 }
 
+template<typename T>
+void GMRESSolver<T>::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
+{
+    PROFILE( "GMRESSolver::registerOperator" );
+
+    // not sure about excluding op == d_pOperator
+    d_pOperator = op;
+
+    if ( d_pOperator ) {
+        auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
+        if ( linearOp ) {
+            if ( d_bUsesPreconditioner ) {
+                d_z = linearOp->createInputVector();
+                if ( d_preconditioner_side == "right" ) {
+                    d_z1 = d_z->clone();
+                }
+            }
+
+            allocateBasis();
+        }
+    }
+}
+
 /****************************************************************
  *  Solve                                                        *
  ****************************************************************/
@@ -102,7 +134,7 @@ template<typename T>
 void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_in,
                             std::shared_ptr<AMP::LinearAlgebra::Vector> u_in )
 {
-    PROFILE( "GMRESSolver<T>::apply" );
+    PROFILE( "GMRESSolver::apply" );
 
     AMP_ASSERT( d_pOperator );
     auto u = d_pOperator->subsetInputVector( u_in );
@@ -115,43 +147,55 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_
     AMP_ASSERT( ( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED ) ||
                 ( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::LOCAL_CHANGED ) );
 
-    // allocate basis
-    if ( d_vBasis.empty() )
-        allocate_basis( u );
+    if ( !d_z ) {
+        d_z = u->clone();
 
-    // residual vector
-    AMP::LinearAlgebra::Vector::shared_ptr res = d_vBasis[0];
-
-    if ( d_bUsesPreconditioner ) {
-        if ( !d_z )
-            d_z = u->clone();
-        if ( d_preconditioner_side == "right" ) {
-            if ( !d_z1 )
-                d_z1 = u->clone();
+        if ( ( !d_z1 ) && ( d_preconditioner_side == "right" ) ) {
+            d_z1 = d_z->clone();
         }
     }
+
+    // allocate basis
+    if ( d_vBasis.empty() )
+        allocateBasis( u );
+
+    // residual vector
+    auto res = d_vBasis[0];
 
     // compute the initial residual
     computeInitialResidual( d_bUseZeroInitialGuess, f, u, d_z, res );
 
     // compute residual norm
-    auto beta = static_cast<T>( res->L2Norm() );
+    auto beta       = static_cast<T>( res->L2Norm() );
+    d_dResidualNorm = beta;
     // Override zero initial residual to force relative tolerance convergence
     // here to potentially handle singular systems
     d_dInitialResidual = beta > std::numeric_limits<T>::epsilon() ? beta : 1.0;
 
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        const auto version = AMPManager::revision();
+        AMP::pout << "GMRES: AMP version " << version[0] << "." << version[1] << "." << version[2]
+                  << std::endl;
+        AMP::pout << "GMRES: Memory location "
+                  << AMP::Utilities::getString( d_pOperator->getMemoryLocation() ) << std::endl;
+        AMP::pout << "GMRES: Use restarts " << d_bRestart << std::endl;
+        AMP::pout << "GMRES: Max dimension " << d_iMaxKrylovDimension << std::endl;
+        AMP::pout << "GMRES: Orthogonalization method " << d_sOrthogonalizationMethod << std::endl;
+    }
+
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "GMRESSolver<T>::apply: initial L2Norm of solution vector: " << u->L2Norm()
+        AMP::pout << "GMRES: initial solution L2Norm: " << u->L2Norm() << std::endl;
+        AMP::pout << "GMRES: initial rhs L2Norm: " << f->L2Norm() << std::endl;
+    }
+    if ( d_iDebugPrintInfoLevel > 0 ) {
+        AMP::pout << "GMRES: initial residual " << std::setw( 19 ) << d_dInitialResidual
                   << std::endl;
-        AMP::pout << "GMRESSolver<T>::apply: initial L2Norm of rhs vector: " << f->L2Norm()
-                  << std::endl;
-        AMP::pout << "GMRESSolver<T>::apply: initial L2Norm of residual: " << beta << std::endl;
     }
 
     // return if the residual is already low enough
-    if ( checkStoppingCriteria( beta ) ) {
+    if ( checkStoppingCriteria( d_dInitialResidual ) ) {
         if ( d_iDebugPrintInfoLevel > 0 ) {
-            AMP::pout << "GMRESSolver<T>::apply: initial residual below tolerance" << std::endl;
+            AMP::pout << "GMRES: initial residual below tolerance" << std::endl;
         }
         return;
     }
@@ -164,48 +208,46 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_
 
     auto v_norm = beta;
 
-    int k = 0;
+    int k      = 0;
+    T prev_res = 0.0;
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
-
-        AMP::LinearAlgebra::Vector::shared_ptr v;
-        AMP::LinearAlgebra::Vector::shared_ptr zb;
+        PROFILE( "GMRESSolver::apply: main loop" );
 
         // reuse basis vectors for restarts in order to avoid a clone
         if ( static_cast<int>( d_vBasis.size() ) <= k + 1 )
-            allocate_basis( u );
+            allocateBasis( u );
 
-        v = d_vBasis[k + 1];
+        auto v = d_vBasis[k + 1];
+        AMP::LinearAlgebra::Vector::shared_ptr zb;
         if ( d_bFlexibleGMRES )
             zb = d_zBasis[k];
 
-        if ( d_bUsesPreconditioner && ( d_preconditioner_side == "left" ) ) {
-            d_pOperator->apply( d_vBasis[k], d_z );
-            d_z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-            // construct the Krylov vector
-            d_pPreconditioner->apply( d_z, v );
-        } else {
-            if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
-                // the makeConsistent calls below are there because the commented condition
-                // on status appears not to be working. They are required or we have to change
-                // policy on what the status of a vector is coming out of a solver.
+        // construct the Krylov vector
+        if ( d_bUsesPreconditioner ) {
+            if ( d_preconditioner_side == "left" ) {
+                d_vBasis[k]->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+                d_pOperator->apply( d_vBasis[k], d_z );
+                d_pNestedSolver->apply( d_z, v );
+                v->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+            } else if ( d_preconditioner_side == "right" ) {
                 if ( !d_bFlexibleGMRES ) {
-                    d_pPreconditioner->apply( d_vBasis[k], d_z );
-                    //                    if ( z->getUpdateStatus() !=
-                    //                         AMP::LinearAlgebra::UpdateState::UNCHANGED
-                    //                         )
+                    d_pNestedSolver->apply( d_vBasis[k], d_z );
                     d_z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
                     d_pOperator->apply( d_z, v );
                 } else {
-                    d_pPreconditioner->apply( d_vBasis[k], zb );
+                    d_pNestedSolver->apply( d_vBasis[k], zb );
                     zb->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
                     d_pOperator->apply( zb, v );
                 }
             } else {
-                d_z = d_vBasis[k];
-                d_z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-                d_pOperator->apply( d_z, v );
+                AMP_ERROR( "Left and right preconditioning not enabled" );
             }
+        } else {
+            PROFILE( "GMRESSolver::apply: v = Az" );
+            d_z = d_vBasis[k];
+            d_z->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+            d_pOperator->apply( d_z, v );
         }
 
         // orthogonalize to previous vectors and
@@ -217,16 +259,17 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_
         // check for happy breakdown
         if ( v_norm != static_cast<T>( 0.0 ) ) {
             v->scale( static_cast<T>( 1.0 ) / v_norm );
-            v->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         }
 
         // apply all previous Givens rotations to
         // the k-th column of the Hessenberg matrix
         for ( int i = 0; i < k; ++i ) {
+            PROFILE( "GMRESSolver::apply: Givens rotations on previous cols" );
             applyGivensRotation( i, k );
         }
 
         if ( v_norm != static_cast<T>( 0.0 ) ) {
+            PROFILE( "GMRESSolver::apply: Givens on current col" );
             // compute and store the Givens rotation that zeroes out
             // the subdiagonal for the current column
             computeGivensRotation( k );
@@ -246,16 +289,22 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_
         }
 
         // this is the norm of the residual thanks to the Givens rotations
-        v_norm = std::fabs( d_dw[k + 1] );
+        d_dResidualNorm = v_norm = std::fabs( d_dw[k + 1] );
 
-        if ( d_iDebugPrintInfoLevel > 1 ) {
-            AMP::pout << "GMRES: iteration " << d_iNumberIterations << ", residual " << v_norm
-                      << std::endl;
+        if ( d_iDebugPrintInfoLevel > 0 ) {
+            AMP::pout << "GMRES: iteration " << std::setw( 8 ) << d_iNumberIterations
+                      << ", residual " << v_norm << ", conv ratio ";
+            if ( prev_res > 0.0 ) {
+                AMP::pout << v_norm / prev_res << std::endl;
+            } else {
+                AMP::pout << "--" << std::endl;
+            }
+            prev_res = v_norm;
         }
 
         ++k;
 
-        if ( checkStoppingCriteria( v_norm ) ) {
+        if ( checkStoppingCriteria( d_dResidualNorm ) ) {
             break;
         }
 
@@ -273,7 +322,7 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_
                 // update the current approximation with the correction
                 addCorrection( k - 1, d_z, d_z1, u );
                 computeInitialResidual( false, f, u, d_z, d_vBasis[0] );
-                v_norm = static_cast<T>( d_vBasis[0]->L2Norm() );
+                d_dResidualNorm = v_norm = static_cast<T>( d_vBasis[0]->L2Norm() );
                 d_vBasis[0]->scale( static_cast<T>( 1.0 ) / v_norm );
                 d_dw[0] = v_norm;
                 ++d_restarts;
@@ -281,7 +330,7 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_
             } else {
                 // set diverged reason
                 d_ConvergenceStatus = SolverStatus::DivergedOther;
-                AMP_WARNING( "GMRESSolver<T>::apply: Maximum Krylov dimension hit with restarts "
+                AMP_WARNING( "GMRES: Maximum Krylov dimension hit with restarts "
                              "disabled" );
                 break;
             }
@@ -304,34 +353,91 @@ void GMRESSolver<T>::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f_
 
     if ( d_bComputeResidual ) {
         d_pOperator->residual( f, u, res );
-        v_norm = static_cast<T>( res->L2Norm() );
+        d_dResidualNorm = v_norm = static_cast<T>( res->L2Norm() );
         // final check updates flags if needed
-        checkStoppingCriteria( v_norm );
+        checkStoppingCriteria( d_dResidualNorm );
     }
 
-    // Store final residual should it be queried elsewhere
-    d_dResidualNorm = v_norm;
-
     if ( d_iDebugPrintInfoLevel > 0 ) {
-        AMP::pout << "GMRESSolver<T>::apply: final L2Norm of solution: " << u->L2Norm()
-                  << std::endl;
-        AMP::pout << "GMRESSolver<T>::apply: final L2Norm of residual: " << v_norm << std::endl;
-        AMP::pout << "GMRESSolver<T>::apply: iterations: " << d_iNumberIterations << std::endl;
-        AMP::pout << "GMRESSolver<T>::apply: convergence reason: "
+        AMP::pout << "GMRES: final residual: " << d_dResidualNorm
+                  << ", iterations: " << d_iNumberIterations << ", convergence reason: "
                   << SolverStrategy::statusToString( d_ConvergenceStatus ) << std::endl;
+    }
+    if ( d_iDebugPrintInfoLevel > 2 ) {
+        AMP::pout << "GMRES: final solution L2Norm: " << u->L2Norm() << std::endl;
+    }
+}
+
+template<typename T>
+std::vector<T> GMRESSolver<T>::basisInnerProducts( const int k,
+                                                   std::shared_ptr<AMP::LinearAlgebra::Vector> v )
+{
+    std::vector<T> hcol( k );
+
+    auto vecOps = v->getVectorOperations();
+    AMP_ASSERT( vecOps );
+    {
+        PROFILE( "GMRESSolver::basisInnerProducts::localDots" );
+
+        for ( int j = 0; j < k; ++j ) {
+            hcol[j] = static_cast<T>(
+                vecOps->localDot( *( v->getVectorData() ), *( d_vBasis[j]->getVectorData() ) ) );
+        }
+    }
+    {
+        PROFILE( "GMRESSolver::basisInnerProducts::sumReduce" );
+        const auto &comm = v->getComm();
+        comm.sumReduce( hcol.data(), k );
+    }
+    return hcol;
+}
+
+template<typename T>
+void GMRESSolver<T>::cgs( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v )
+{
+    PROFILE( "GMRESSolver::cgs" );
+
+    auto hcol = basisInnerProducts( k, v );
+
+    for ( int j = 0; j < k; ++j ) {
+        v->axpy( -hcol[j], *d_vBasis[j], *v );
+        d_dHessenberg( j, k - 1 ) = hcol[j];
+    }
+}
+
+template<typename T>
+void GMRESSolver<T>::cgs2( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v )
+{
+    auto hcol = basisInnerProducts( k, v );
+
+    for ( int j = 0; j < k; ++j ) {
+        PROFILE( "GMRESSolver::cgs2: axpy1" );
+        v->axpy( -hcol[j], *d_vBasis[j], *v );
+    }
+
+    auto scol = basisInnerProducts( k, v );
+
+    for ( int j = 0; j < k; ++j ) {
+        PROFILE( "GMRESSolver::cgs2: axpy2" );
+        v->axpy( -scol[j], *d_vBasis[j], *v );
+    }
+
+    for ( int j = 0; j < k; ++j ) {
+        d_dHessenberg( j, k - 1 ) = hcol[j] + scol[j];
     }
 }
 
 template<typename T>
 void GMRESSolver<T>::orthogonalize( const int k, std::shared_ptr<AMP::LinearAlgebra::Vector> v )
 {
+    PROFILE( "GMRESSolver::orthogonalize" );
     if ( d_sOrthogonalizationMethod == "CGS" ) {
-
-        AMP_ERROR( "Classical Gram-Schmidt not implemented as yet" );
+        this->cgs( k, v );
+    } else if ( d_sOrthogonalizationMethod == "CGS2" ) {
+        this->cgs2( k, v );
     } else if ( d_sOrthogonalizationMethod == "MGS" ) {
 
         for ( int j = 0; j < k; ++j ) {
-
             const auto h_jk = static_cast<T>( v->dot( *d_vBasis[j] ) );
             v->axpy( -h_jk, *d_vBasis[j], *v );
             d_dHessenberg( j, k - 1 ) = h_jk;
@@ -341,8 +447,6 @@ void GMRESSolver<T>::orthogonalize( const int k, std::shared_ptr<AMP::LinearAlge
         AMP_ERROR( "Unknown orthogonalization method in GMRES" );
     }
 
-    //    v->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-
     // h_{k+1, k}
     const auto v_norm         = static_cast<T>( v->L2Norm() );
     d_dHessenberg( k, k - 1 ) = v_norm; // adjusting for zero starting index
@@ -351,6 +455,8 @@ void GMRESSolver<T>::orthogonalize( const int k, std::shared_ptr<AMP::LinearAlge
 template<typename T>
 void GMRESSolver<T>::applyGivensRotation( const int i, const int k )
 {
+    PROFILE( "GMRESSolver::applyGivensRotation" );
+
     // updates column k of the Hessenberg matrix by applying the i-th Givens rotations
 
     auto x = d_dHessenberg( i, k );
@@ -365,6 +471,8 @@ void GMRESSolver<T>::applyGivensRotation( const int i, const int k )
 template<typename T>
 void GMRESSolver<T>::computeGivensRotation( const int k )
 {
+    PROFILE( "GMRESSolver::computeGivensRotation" );
+
     // computes the Givens rotation required to zero out
     // the subdiagonal on column k of the Hessenberg matrix
 
@@ -397,6 +505,8 @@ void GMRESSolver<T>::computeGivensRotation( const int k )
 template<typename T>
 void GMRESSolver<T>::backwardSolve( const int nr )
 {
+    PROFILE( "GMRESSolver::backwardSolve" );
+
     // lower corner
     d_dy[nr] = d_dw[nr] / d_dHessenberg( nr, nr );
 
@@ -414,40 +524,28 @@ void GMRESSolver<T>::backwardSolve( const int nr )
 }
 
 template<typename T>
-void GMRESSolver<T>::resetOperator(
-    std::shared_ptr<const AMP::Operator::OperatorParameters> params )
-{
-    if ( d_pOperator ) {
-        d_pOperator->reset( params );
-    }
-
-    // should add a mechanism for the linear operator to provide updated parameters for the
-    // preconditioner operator
-    // though it's unclear where this might be necessary
-    if ( d_pPreconditioner ) {
-        d_pPreconditioner->resetOperator( params );
-    }
-}
-
-template<typename T>
 void GMRESSolver<T>::computeInitialResidual( bool use_zero_guess,
                                              std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                                              std::shared_ptr<AMP::LinearAlgebra::Vector> u,
                                              std::shared_ptr<AMP::LinearAlgebra::Vector> tmp,
                                              std::shared_ptr<AMP::LinearAlgebra::Vector> res )
 {
+    PROFILE( "GMRESSolver::computeInitialResidual" );
+
     if ( use_zero_guess ) {
         if ( d_bUsesPreconditioner && ( d_preconditioner_side == "left" ) ) {
-            tmp->copyVector( f );
-            d_pPreconditioner->apply( tmp, res );
+            d_pNestedSolver->apply( f, res );
+            res->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         } else {
             res->copyVector( f );
         }
         u->zero();
     } else {
+        u->makeConsistent();
         if ( d_bUsesPreconditioner && ( d_preconditioner_side == "left" ) ) {
             d_pOperator->residual( f, u, tmp );
-            d_pPreconditioner->apply( tmp, res );
+            d_pNestedSolver->apply( tmp, res );
+            res->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         } else {
             // this computes res = f - L(u)
             d_pOperator->residual( f, u, res );
@@ -461,6 +559,7 @@ void GMRESSolver<T>::addCorrection( const int nr,
                                     std::shared_ptr<AMP::LinearAlgebra::Vector> z1,
                                     std::shared_ptr<AMP::LinearAlgebra::Vector> u )
 {
+    PROFILE( "GMRESSolver::addCorrection" );
 
     if ( d_bUsesPreconditioner && ( d_preconditioner_side == "right" ) ) {
 
@@ -473,7 +572,8 @@ void GMRESSolver<T>::addCorrection( const int nr,
             }
 
             // this solves M z1 = V_m * y_m (so z1= inv(M) * V_m * y_m)
-            d_pPreconditioner->apply( z, z1 );
+            d_pNestedSolver->apply( z, z1 );
+            z1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
         } else {
             z1->setToScalar( static_cast<T>( 0.0 ) );
             for ( int i = 0; i <= nr; ++i ) {
@@ -492,12 +592,31 @@ void GMRESSolver<T>::addCorrection( const int nr,
 
 
 template<typename T>
-void GMRESSolver<T>::allocate_basis( const std::shared_ptr<AMP::LinearAlgebra::Vector> u )
+void GMRESSolver<T>::allocateBasis( std::shared_ptr<const AMP::LinearAlgebra::Vector> u )
 {
-    for ( auto i = 0; i < d_iBasisAllocSize; i++ ) {
-        d_vBasis.push_back( u->clone() );
+    PROFILE( "GMRESSolver::allocateBasis" );
+    AMP_ASSERT( d_pOperator );
+
+    std::shared_ptr<AMP::LinearAlgebra::Vector> v;
+
+    if ( u ) {
+        v = u->clone();
+    } else {
+        auto linearOp = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( d_pOperator );
+        if ( linearOp )
+            v = linearOp->createInputVector();
+    }
+
+    if ( v ) {
+        d_vBasis.push_back( v );
         if ( d_bFlexibleGMRES )
-            d_zBasis.push_back( u->clone() );
+            d_zBasis.push_back( v->clone() );
+
+        for ( auto i = 1; i < d_iBasisAllocSize; i++ ) {
+            d_vBasis.push_back( v->clone() );
+            if ( d_bFlexibleGMRES )
+                d_zBasis.push_back( v->clone() );
+        }
     }
 }
 

@@ -9,9 +9,12 @@
 namespace AMP::Operator {
 
 
-NonlinearFEOperator::NonlinearFEOperator( std::shared_ptr<const FEOperatorParameters> params )
-    : Operator( params ), d_elemOp( params->d_elemOp )
+NonlinearFEOperator::NonlinearFEOperator( std::shared_ptr<const OperatorParameters> in )
+    : Operator( in )
 {
+    auto params = std::dynamic_pointer_cast<const FEOperatorParameters>( in );
+    AMP_INSIST( params, "NULL parameter!" );
+    d_elemOp = params->d_elemOp;
     createLibMeshElementList();
     d_currElemIdx = static_cast<unsigned int>( -1 );
 }
@@ -36,7 +39,7 @@ void NonlinearFEOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     this->preAssembly( u, rInternal );
 
     d_currElemIdx = 0;
-    for ( auto el : d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 ) ) {
+    for ( auto &el : d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 ) ) {
         this->preElementOperation( el );
         d_elemOp->apply();
         this->postElementOperation();

@@ -1,13 +1,49 @@
 #include "AMP/operators/diffusion/DiffusionLinearFEOperator.h"
+#include "AMP/discretization/simpleDOF_Manager.h"
+#include "AMP/operators/ElementOperationFactory.h"
+#include "AMP/operators/ElementPhysicsModelFactory.h"
 
 
 namespace AMP::Operator {
 
-DiffusionLinearFEOperator::DiffusionLinearFEOperator(
-    std::shared_ptr<const OperatorParameters> inParams )
-    : LinearFEOperator( inParams )
+
+static std::shared_ptr<const DiffusionLinearFEOperatorParameters>
+convert( std::shared_ptr<const OperatorParameters> params )
 {
-    auto params = std::dynamic_pointer_cast<const DiffusionLinearFEOperatorParameters>( inParams );
+    if ( std::dynamic_pointer_cast<const DiffusionLinearFEOperatorParameters>( params ) )
+        return std::dynamic_pointer_cast<const DiffusionLinearFEOperatorParameters>( params );
+    auto db = params->d_db;
+    // first create a DiffusionTransportModel
+    auto model_db            = db->getDatabase( "LocalModel" );
+    auto elementPhysicsModel = ElementPhysicsModelFactory::createElementPhysicsModel( model_db );
+    auto transportModel = std::dynamic_pointer_cast<DiffusionTransportModel>( elementPhysicsModel );
+    AMP_INSIST( transportModel, "NULL transport model" );
+    // next create a ElementOperation object
+    auto diffusionElem =
+        ElementOperationFactory::createElementOperation( db->getDatabase( "DiffusionElement" ) );
+    // now create the linear diffusion operator
+    AMP_ASSERT( db->getString( "name" ) == "DiffusionLinearFEOperator" );
+    auto scalarDOF = AMP::Discretization::simpleDOFManager::create(
+        params->d_Mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+    auto diffusionOpParams    = std::make_shared<DiffusionLinearFEOperatorParameters>( db );
+    diffusionOpParams->d_Mesh = params->d_Mesh;
+    diffusionOpParams->d_transportModel = transportModel;
+    diffusionOpParams->d_elemOp         = diffusionElem;
+    diffusionOpParams->d_inDofMap       = scalarDOF;
+    diffusionOpParams->d_outDofMap      = scalarDOF;
+    return diffusionOpParams;
+}
+
+
+DiffusionLinearFEOperator::DiffusionLinearFEOperator(
+    std::shared_ptr<const OperatorParameters> params )
+    : DiffusionLinearFEOperator( convert( params ), true )
+{
+}
+DiffusionLinearFEOperator::DiffusionLinearFEOperator(
+    std::shared_ptr<const DiffusionLinearFEOperatorParameters> params, bool )
+    : LinearFEOperator( params )
+{
     AMP_INSIST( params, "NULL parameter" );
 
     d_diffLinElem = std::dynamic_pointer_cast<DiffusionLinearElement>( d_elemOp );

@@ -16,6 +16,10 @@
     #include "AMP/vectors/testHelpers/trilinos/epetra/EpetraVectorFactory.h"
     #include "AMP/vectors/testHelpers/trilinos/epetra/EpetraVectorTests.h"
 #endif
+#ifdef AMP_USE_TRILINOS_TPETRA
+    #include "AMP/vectors/testHelpers/trilinos/tpetra/TpetraVectorFactory.h"
+    #include "AMP/vectors/testHelpers/trilinos/tpetra/TpetraVectorTests.h"
+#endif
 
 #include "ProfilerApp.h"
 
@@ -47,6 +51,7 @@ void VectorTests::testBasicVector( AMP::UnitTest *ut )
         AxpbyVector( ut );
         CopyVector( ut );
         CopyRawDataBlockVector( ut );
+        VerifyVectorSum( ut );
         VerifyVectorMin( ut );
         VerifyVectorMax( ut );
         VerifyVectorMaxMin( ut );
@@ -62,6 +67,7 @@ void VectorTests::testBasicVector( AMP::UnitTest *ut )
         VectorIteratorTests( ut );
         TestMultivectorDuplicate( ut );
         TestContainsGlobalElement( ut );
+        VerifyVectorSetZeroGhosts( ut );
     } catch ( const std::exception &err ) {
         ut->failure( "Caught std::exception testing " + d_factory->name() + ":\n" + err.what() );
     } catch ( ... ) {
@@ -103,6 +109,19 @@ void VectorTests::testEpetra( [[maybe_unused]] AMP::UnitTest *ut )
 }
 
 
+void VectorTests::testTpetra( [[maybe_unused]] AMP::UnitTest *ut )
+{
+#ifdef AMP_USE_TRILINOS_TPETRA
+    PROFILE( "testTpetra" );
+    if ( d_factory->getVector()->numberOfDataBlocks() <= 1 ) {
+        // Epetra currently only supports one data block
+        TpetraVectorTests test( d_factory );
+        test.testTpetraVector( ut );
+    }
+#endif
+}
+
+
 void VectorTests::testSundials( [[maybe_unused]] AMP::UnitTest *ut )
 {
 #ifdef AMP_USE_SUNDIALS
@@ -132,9 +151,11 @@ void VectorTests::testSundials( [[maybe_unused]] AMP::UnitTest *ut )
 void VectorTests::testNullVector( AMP::UnitTest *ut )
 {
     PROFILE( "testNullVector" );
-    auto viewFactory = std::make_shared<NullVectorFactory>();
-    VectorTests test( viewFactory );
-    test.InstantiateVector( ut );
+    VectorTests test1( std::make_shared<NullVectorFactory>() );
+    VectorTests test2( std::make_shared<NullVectorDataFactory>() );
+    test1.InstantiateVector( ut );
+    test2.InstantiateVector( ut );
+    // test2.testBasicVector( ut );
 }
 
 

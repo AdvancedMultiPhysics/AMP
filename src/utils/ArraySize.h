@@ -9,9 +9,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <stdexcept>
 #include <vector>
 
-#include "AMP/utils/memory.h"
+#include "AMP/utils/Memory.h"
 
 #if defined( __CUDA_ARCH__ )
     #include <cuda.h>
@@ -39,7 +40,8 @@
 #else
     #define ARRAY_INLINE HOST_DEVICE inline
 #endif
-#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ )
+#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG ) && !defined( __NVCC__ ) && \
+    !defined( __HIP_DEVICE_COMPILE__ )
     #define CHECK_ARRAY_LENGTH( i, length )                              \
         do {                                                             \
             if ( i >= length )                                           \
@@ -63,8 +65,11 @@ namespace AMP {
 
 
 // Forward declerations
+template<class TYPE>
 class FunctionTable;
-template<class TYPE, class FUN = FunctionTable, class Allocator = AMP::HostAllocator<void>>
+template<class TYPE>
+class GPUFunctionTable;
+template<class TYPE, class FUN = FunctionTable<TYPE>, class Allocator = AMP::HostAllocator<void>>
 class Array;
 
 
@@ -179,7 +184,7 @@ public:
      * @param N1            Number of elements in the first dimension
      * @param N2            Number of elements in the second dimension
      * @param N3            Number of elements in the third dimension
-     * @param N4            Number of elements in the fourth dimension
+     * @param N4            Number of elements in the fourth dimeARRAY_INSISTnsion
      * @param N5            Number of elements in the fifth dimension
      */
     CONSTEXPR ArraySize( size_t N1, size_t N2, size_t N3, size_t N4, size_t N5 )
@@ -454,6 +459,12 @@ CONSTEXPR ArraySize operator*( const ArraySize &x, size_t v )
     size_t N[5] = { v * x[0], v * x[1], v * x[2], v * x[3], v * x[4] };
     return ArraySize( x.ndim(), N );
 }
+CONSTEXPR ArraySize operator*( const ArraySize &x, const ArraySize &y )
+{
+    int ndim    = std::max( x.ndim(), y.ndim() );
+    size_t N[5] = { x[0] * y[0], x[1] * y[1], x[2] * y[2], x[3] * y[3], x[4] * y[4] };
+    return ArraySize( ndim, N );
+}
 CONSTEXPR ArraySize operator-( const ArraySize &x, size_t v )
 {
     size_t N[5] = { x[0] - v, x[1] - v, x[2] - v, x[3] - v, x[4] - v };
@@ -468,6 +479,21 @@ CONSTEXPR ArraySize operator+( size_t v, const ArraySize &x )
 {
     size_t N[5] = { x[0] + v, x[1] + v, x[2] + v, x[3] + v, x[4] + v };
     return ArraySize( x.ndim(), N );
+}
+
+
+// Get the resulting array size from multiplying two arrays
+constexpr ArraySize multiplySize( const ArraySize &sa, const ArraySize &sb )
+{
+    if ( sa[1] != sb[0] )
+        throw std::logic_error( "Inner dimensions must match" );
+    if ( sa.ndim() == 2 && sb.ndim() == 1 ) {
+        return { sa[0] };
+    } else if ( sa.ndim() <= 2 && sb.ndim() <= 2 ) {
+        return { sa[0], sb[1] };
+    } else {
+        throw std::logic_error( "Not finished yet" );
+    }
 }
 
 

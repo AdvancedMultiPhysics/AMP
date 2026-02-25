@@ -28,7 +28,9 @@ RK12TimeIntegrator::RK12TimeIntegrator(
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
     : AMP::TimeIntegrator::TimeIntegrator( parameters )
 {
+    d_initialized = false;
     initialize( parameters );
+    d_initialized = true;
 }
 
 /*
@@ -50,6 +52,7 @@ RK12TimeIntegrator::~RK12TimeIntegrator() = default;
 void RK12TimeIntegrator::initialize(
     std::shared_ptr<AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
 {
+    d_initialized = false;
 
     AMP::TimeIntegrator::TimeIntegrator::initialize( parameters );
 
@@ -59,13 +62,14 @@ void RK12TimeIntegrator::initialize(
      * Initialize data members from input.
      */
     getFromInput( parameters->d_db );
+    d_initialized = true;
 }
 
 void RK12TimeIntegrator::reset(
     std::shared_ptr<const AMP::TimeIntegrator::TimeIntegratorParameters> parameters )
 {
     if ( parameters ) {
-        TimeIntegrator::getFromInput( parameters->d_db, true );
+        TimeIntegrator::getFromInput( parameters->d_db );
         d_pParameters =
             std::const_pointer_cast<AMP::TimeIntegrator::TimeIntegratorParameters>( parameters );
         AMP_ASSERT( parameters->d_db );
@@ -173,8 +177,7 @@ bool RK12TimeIntegrator::checkNewSolution()
 {
     bool retcode = false;
 
-    auto l2Norm                 = d_z_vec->L2Norm();
-    auto l2NormOfEstimatedError = l2Norm.get<double>();
+    auto l2NormOfEstimatedError = static_cast<double>( d_z_vec->L2Norm() );
 
     // we flag the solution as being acceptable if the l2 norm of the error
     // is less than the required tolerance or we are at the minimum time step
@@ -226,7 +229,7 @@ void RK12TimeIntegrator::getFromInput( std::shared_ptr<AMP::Database> input_db )
 
     d_safety_factor = input_db->getWithDefault<double>( "safety_factor", 0.9 );
 
-    d_atol = input_db->getWithDefault<double>( "absolute_tolerance", 1.0e-09 );
+    d_atol = input_db->getWithDefault<double>( "absolute_tolerance", 6.0e-08 );
 
     d_use_fixed_dt = input_db->getWithDefault<bool>( "use_fixed_dt", false );
 }
@@ -280,7 +283,9 @@ void RK12TimeIntegrator::writeRestart( int64_t fid ) const { TimeIntegrator::wri
 RK12TimeIntegrator::RK12TimeIntegrator( int64_t fid, AMP::IO::RestartManager *manager )
     : TimeIntegrator( fid, manager )
 {
+    d_initialized = false;
     RK12TimeIntegrator::initialize( d_pParameters );
+    d_initialized = true;
 }
 
 } // namespace AMP::TimeIntegrator

@@ -20,7 +20,7 @@
 #include <iostream>
 #include <string>
 
-#include "testSolverHelpers.h"
+#include "AMP/solvers/testHelpers/testSolverHelpers.h"
 
 void myTest( AMP::UnitTest *ut, const std::string &fileName )
 {
@@ -38,7 +38,7 @@ void myTest( AMP::UnitTest *ut, const std::string &fileName )
     input_db->print( AMP::plog );
 
     // create the Mesh
-    const auto meshAdapter = createMesh( input_db );
+    const auto mesh = createMesh( input_db );
 
     AMP_INSIST( input_db->keyExists( "NumberOfLoadingSteps" ),
                 "Key ''NumberOfLoadingSteps'' is missing!" );
@@ -46,20 +46,18 @@ void myTest( AMP::UnitTest *ut, const std::string &fileName )
 
     auto nonlinBvpOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "nonlinearMechanicsBVPOperator", input_db ) );
+            mesh, "nonlinearMechanicsBVPOperator", input_db ) );
 
     // For RHS (Point Forces)
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> dummyModel;
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "Load_Boundary", input_db, dummyModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
 
     auto var = nonlinBvpOperator->getOutputVariable();
 
     dirichletLoadVecOp->setVariable( var );
 
     auto dofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     auto mechNlSolVec       = AMP::LinearAlgebra::createVector( dofMap, var, true );

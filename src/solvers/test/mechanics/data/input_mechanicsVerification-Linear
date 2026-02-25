@@ -4,19 +4,17 @@ mesh_file = "boxMesh-4"
 BinaryMeshes = FALSE
 
 Mesh {
-    dim = 3
     MeshName = "pellet"
-    MeshType = "libMesh"
-    FileName = "halden_1_pellet_9mil.e"
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 1080
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
 }
 
 scale_mesh = 1.0e-1 // box meshes are 10x10x10
 ManufacturedSolution {
-  name = "Linear"
+    name = "Linear"
     type_coeff_ab = "random"
     // u_i = prod_j Mi*(aij*i/Li+bij) for Linear
     // u_i = prod_j Mi*sin((aij*i/Li+bij)*pi/2) for Trigonometric
@@ -83,8 +81,6 @@ LinearSolver {
     pc_type = "shell"
     pc_side = "RIGHT"
 
-    KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 1000"
-
     Preconditioner {
       problem_type = "NSSA"
         print_info_level = 1
@@ -147,6 +143,13 @@ DirichletMatrixCorrection{
     dof_5_2 = 2
 }
 
+MechanicsMaterialModel {
+  name="IsotropicElasticModel"
+    USE_MATERIALS_LIBRARY = FALSE
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.0 //0.23
+}
+
 MechanicsLinearFEOperator{
   name="MechanicsLinearFEOperator"
     print_info_level = 1
@@ -162,12 +165,6 @@ MechanicsLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "MechanicsMaterialModel"
+  LocalModel = MechanicsMaterialModel
 }
 
-MechanicsMaterialModel {
-  name="IsotropicElasticModel"
-    USE_MATERIALS_LIBRARY = FALSE
-    Youngs_Modulus = 2.08e11
-    Poissons_Ratio = 0.0 //0.23
-}

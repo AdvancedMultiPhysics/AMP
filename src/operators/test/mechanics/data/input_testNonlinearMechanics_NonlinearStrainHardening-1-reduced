@@ -1,5 +1,28 @@
+Mesh {
+    MeshName = "TestMesh"
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
+}
 
-Mesh = "brick.e"
+MechanicsMaterialModel { 
+       USE_MATERIALS_LIBRARY = FALSE
+       Material = "UO2_MSRZC_09"
+       name="VonMisesElastoPlasticModel_NonlinearStrainHardening"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+       Linear_Strain_Hardening = 2.10e9
+       Elastic_Yield_Stress = 1.45e8
+       Limiting_Flow_Stress = 2.0e8
+       Exponent_Delta = 0.1
+       Default_Temperature = 310.0
+       Default_Burnup = 0.0
+       Default_Oxygen_Concentration = 0.0
+}
 
 testNonlinearMechanicsOperator {
       name = "MechanicsNonlinearFEOperator"
@@ -20,7 +43,7 @@ testNonlinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel = "MechanicsMaterialModel"
+      LocalModel = MechanicsMaterialModel
 
 }
 
@@ -40,20 +63,5 @@ testLinearMechanicsOperator {
        QRULE_ORDER = "DEFAULT"
       }
 }
-
-MechanicsMaterialModel { 
-       USE_MATERIALS_LIBRARY = FALSE
-       Material = "UO2_MSRZC_09"
-       name="VonMisesElastoPlasticModel_NonlinearStrainHardening"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-       Linear_Strain_Hardening = 2.10e9
-       Elastic_Yield_Stress = 1.45e8
-       Limiting_Flow_Stress = 2.0e8
-       Exponent_Delta = 0.1
-       Default_Temperature = 310.0
-       Default_Burnup = 0.0
-       Default_Oxygen_Concentration = 0.0
-      }
 
 

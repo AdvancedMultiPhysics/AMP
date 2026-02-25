@@ -1,13 +1,11 @@
 
 Mesh{
-    FileName = "cylinder270.e"
     MeshName = "cylinder"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 270
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 1, 8
+    Range = 1, -2, 2
+    surfaceIds = 1, 1, 1, 1, 2, 3
 }
 
 testLinearThermalOperator {
@@ -72,6 +70,24 @@ ColumnSolver{
 }
 
 
+FickDiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "Ox_MSRZC_09"
+        Property = "FickCoefficient"
+        Default_Concentration = .1
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+     } 
+
+ThermalDiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "UO2_MSRZC_09"
+        Property = "ThermalConductivity"
+        Default_Concentration = .1
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+     } 
+
 FickDiffusionLinearFEOperator{
      name = "DiffusionLinearFEOperator"
      print_info_level = 1
@@ -89,7 +105,7 @@ FickDiffusionLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
      }    
-     LocalModel="FickDiffusionTransportModel"
+     LocalModel=FickDiffusionTransportModel
 }
 
 FickDirichletMatrixCorrection{
@@ -104,15 +120,6 @@ FickDirichletMatrixCorrection{
      number_of_dofs_1 = 1
      dof_1_0 = 0
    }
-
-FickDiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Ox_MSRZC_09"
-        Property = "FickCoefficient"
-        Default_Concentration = .1
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-     } 
 
 ThermalDiffusionLinearFEOperator{
      name = "DiffusionLinearFEOperator"
@@ -130,7 +137,7 @@ ThermalDiffusionLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
      }    
-     LocalModel = "ThermalDiffusionTransportModel"
+     LocalModel = ThermalDiffusionTransportModel
    }
 
 
@@ -146,15 +153,4 @@ ThermalDirichletMatrixCorrection{
      number_of_dofs_1 = 1
      dof_1_0 = 0
    }
-
-ThermalDiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "UO2_MSRZC_09"
-        Property = "ThermalConductivity"
-        Default_Concentration = .1
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-     } 
-
-
 

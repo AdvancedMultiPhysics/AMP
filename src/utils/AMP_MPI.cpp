@@ -272,14 +272,14 @@ void AMP_MPI::reset()
     if ( count == 0 ) {
         // We are holding that last reference to the MPI_Comm object, we need to free it
         if ( d_manage ) {
-#if defined( AMP_USE_MPI ) || defined( USE_PETSC )
+#if defined( AMP_USE_MPI ) || defined( AMP_USE_PETSC )
             MPI_Comm_set_errhandler( d_comm, MPI_ERRORS_ARE_FATAL );
             int err = MPI_Comm_free( (MPI_Comm *) &d_comm );
             if ( err != MPI_SUCCESS )
                 AMP_ERROR( "Problem free'ing MPI_Comm object" );
             d_comm = commNull;
-            ++N_MPI_Comm_destroyed;
 #endif
+            ++N_MPI_Comm_destroyed;
         }
         if ( d_ranks )
             delete[] d_ranks;
@@ -768,13 +768,13 @@ AMP_MPI AMP_MPI::dup( bool manage ) const
     if ( d_isNull )
         return AMP_MPI( commNull );
     PROFILE( "dup", profile_level );
-    AMP_MPI::Comm new_MPI_comm = d_comm;
-#if defined( AMP_USE_MPI ) || defined( USE_PETSC )
+#if defined( AMP_USE_MPI ) || defined( AMP_USE_PETSC )
     // USE MPI to duplicate the communicator
+    MPI_Comm new_MPI_comm;
     MPI_Comm_dup( d_comm, &new_MPI_comm );
 #else
     static AMP_MPI::Comm uniqueGlobalComm = 11;
-    new_MPI_comm = uniqueGlobalComm;
+    auto new_MPI_comm = uniqueGlobalComm;
     uniqueGlobalComm++;
 #endif
     // Create the new comm object
@@ -1047,10 +1047,9 @@ void AMP_MPI::abort() const
 /************************************************************************
  *  newTag                                                               *
  ************************************************************************/
-int AMP_MPI::newTag()
+int AMP_MPI::newTag() const
 {
 #ifdef AMP_USE_MPI
-
     int tag = ( *d_currentTag )++;
     AMP_INSIST( tag <= d_maxTag, "Maximum number of tags exceeded\n" );
     AMP_DEBUG_ASSERT( tag == bcast( tag, 0 ) );
@@ -1411,13 +1410,13 @@ void AMP_MPI::waitAll( int count, Request2 *request )
         return;
     PROFILE( "waitAll", profile_level );
     int flag = 0;
-    int err  = MPI_Testall( count, request, &flag, MPI_STATUS_IGNORE );
+    int err  = MPI_Testall( count, request, &flag, MPI_STATUSES_IGNORE );
     AMP_ASSERT( err == MPI_SUCCESS ); // Check that the first call is valid
     while ( !flag ) {
         // Put the current thread to sleep to allow other threads to run
         std::this_thread::yield();
         // Check if the request has finished
-        MPI_Testall( count, request, &flag, MPI_STATUS_IGNORE );
+        MPI_Testall( count, request, &flag, MPI_STATUSES_IGNORE );
     }
 }
 std::vector<int> AMP_MPI::waitSome( int count, Request2 *request )
@@ -1427,14 +1426,14 @@ std::vector<int> AMP_MPI::waitSome( int count, Request2 *request )
     PROFILE( "waitSome", profile_level );
     std::vector<int> indicies( count, -1 );
     int outcount = 0;
-    int err      = MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUS_IGNORE );
+    int err      = MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUSES_IGNORE );
     AMP_ASSERT( err == MPI_SUCCESS );        // Check that the first call is valid
     AMP_ASSERT( outcount != MPI_UNDEFINED ); // Check that the first call is valid
     while ( outcount == 0 ) {
         // Put the current thread to sleep to allow other threads to run
         std::this_thread::yield();
         // Check if the request has finished
-        MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUS_IGNORE );
+        MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUSES_IGNORE );
     }
     indicies.resize( outcount );
     return indicies;
@@ -1610,10 +1609,10 @@ double AMP_MPI::tick()
 /************************************************************************
  *  Serialize a block of code across MPI processes                       *
  ************************************************************************/
-void AMP_MPI::serializeStart()
+void AMP_MPI::serializeStart() const
 {
-    PROFILE( "serializeStart", profile_level );
 #ifdef AMP_USE_MPI
+    PROFILE( "serializeStart", profile_level );
     // Wait for a message from the previous rank
     if ( d_rank > 0 ) {
         MPI_Request request;
@@ -1626,16 +1625,16 @@ void AMP_MPI::serializeStart()
     }
 #endif
 }
-void AMP_MPI::serializeStop()
+void AMP_MPI::serializeStop() const
 {
-    PROFILE( "serializeStop", profile_level );
 #ifdef AMP_USE_MPI
+    PROFILE( "serializeStop", profile_level );
     // Send flag to next rank
     if ( d_rank < d_size - 1 )
         MPI_Send( &d_rank, 1, MPI_INT, d_rank + 1, 5627, d_comm );
-#endif
     // Final barrier to sync all threads
     sleepBarrier( 0 );
+#endif
 }
 
 
@@ -1749,6 +1748,14 @@ INSTANTIATE_GET_COMM( std::string_view );
 /****************************************************************************
  * Explicit instantiation                                                    *
  ****************************************************************************/
+typedef std::pair<int, int> PairInt;
+typedef std::array<double, 1> ArrayDouble1;
+typedef std::array<double, 2> ArrayDouble2;
+typedef std::array<double, 3> ArrayDouble3;
+typedef std::vector<size_t> VecSize;
+typedef std::vector<std::array<int, 1>> VecArrayInt1;
+typedef std::vector<std::array<int, 2>> VecArrayInt2;
+typedef std::vector<std::array<int, 3>> VecArrayInt3;
 INSTANTIATE_MPI_TYPE( char );
 INSTANTIATE_MPI_TYPE( int8_t );
 INSTANTIATE_MPI_TYPE( uint8_t );
@@ -1768,23 +1775,13 @@ INSTANTIATE_MPI_SENDRECV( bool );
 INSTANTIATE_MPI_BCAST( std::string );
 INSTANTIATE_MPI_SENDRECV( std::string );
 INSTANTIATE_MPI_GATHER( std::string );
-template std::vector<size_t> AMP::AMP_MPI::bcast<std::vector<size_t>>( std::vector<size_t> const &,
-                                                                       int ) const;
-template std::vector<std::array<int64_t, 1>>
-AMP::AMP_MPI::bcast<std::vector<std::array<int64_t, 1>>>(
-    std::vector<std::array<int64_t, 1>> const &, int ) const;
-template std::vector<std::array<int64_t, 2>>
-AMP::AMP_MPI::bcast<std::vector<std::array<int64_t, 2>>>(
-    std::vector<std::array<int64_t, 2>> const &, int ) const;
-template std::vector<std::array<int64_t, 3>>
-AMP::AMP_MPI::bcast<std::vector<std::array<int64_t, 3>>>(
-    std::vector<std::array<int64_t, 3>> const &, int ) const;
+template VecSize AMP::AMP_MPI::bcast<VecSize>( VecSize const &, int ) const;
+template VecArrayInt1 AMP::AMP_MPI::bcast<VecArrayInt1>( VecArrayInt1 const &, int ) const;
+template VecArrayInt2 AMP::AMP_MPI::bcast<VecArrayInt2>( VecArrayInt2 const &, int ) const;
+template VecArrayInt3 AMP::AMP_MPI::bcast<VecArrayInt3>( VecArrayInt3 const &, int ) const;
 template void AMP::AMP_MPI::mapGather<uint64_t, uint64_t>( std::map<uint64_t, uint64_t> & ) const;
-template int AMP::AMP_MPI::allGather<std::pair<int, int>>(
-    std::pair<int, int> const *, int, std::pair<int, int> *, int *, int *, bool ) const;
-template void
-AMP::AMP_MPI::setGather<std::array<double, 1>>( std::set<std::array<double, 1>> & ) const;
-template void
-AMP::AMP_MPI::setGather<std::array<double, 2>>( std::set<std::array<double, 2>> & ) const;
-template void
-AMP::AMP_MPI::setGather<std::array<double, 3>>( std::set<std::array<double, 3>> & ) const;
+template int
+AMP::AMP_MPI::allGather<PairInt>( PairInt const *, int, PairInt *, int *, int *, bool ) const;
+template void AMP::AMP_MPI::setGather<ArrayDouble1>( std::set<ArrayDouble1> & ) const;
+template void AMP::AMP_MPI::setGather<ArrayDouble2>( std::set<ArrayDouble2> & ) const;
+template void AMP::AMP_MPI::setGather<ArrayDouble3>( std::set<ArrayDouble3> & ) const;

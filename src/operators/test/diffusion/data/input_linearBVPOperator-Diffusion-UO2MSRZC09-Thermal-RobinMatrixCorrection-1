@@ -10,6 +10,15 @@ testOperator {
 
 }
 
+DiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = .1
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
 DiffusionLinearFEOperator{
     name = "DiffusionLinearFEOperator"
     InputVariable = "concentration"
@@ -28,7 +37,7 @@ DiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 }
 
 RobinMatrixCorrection{
@@ -41,20 +50,11 @@ RobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1
    dof_0_0          =   0
    value_0_0        = 101.
 }
-
-DiffusionTransportModel{
-    name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = .1
-    Default_Temperature   = 300.
-    Default_Burnup   = 0.0
-} 
 

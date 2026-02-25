@@ -1,5 +1,5 @@
 #include "AMP/mesh/structured/BoxMesh.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/MultiIterator.h"
@@ -9,6 +9,7 @@
 #include "AMP/mesh/structured/structuredMeshElement.h"
 #include "AMP/mesh/structured/structuredMeshIterator.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/kdtree2.hpp"
 #include "AMP/vectors/Variable.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
@@ -269,6 +270,8 @@ void BoxMesh::initialize( const std::array<int, 3> &boxSize,
             localIndex[2 * d + 1] = globalSize[d];
         localIndex[2 * d + 1]++;
     }
+    // Map any boundaries of -2
+    createMaps();
 }
 void BoxMesh::createBoundingBox()
 {
@@ -282,8 +285,8 @@ void BoxMesh::createBoundingBox()
     }
     double x[3] = { 0, 0, 0 };
     for ( auto &node : getIterator( GeomType::Vertex, 0 ) ) {
-        auto element = dynamic_cast<structuredMeshElement *>( node.getRawElement() );
-        AMP_ASSERT( element != nullptr );
+        auto element = dynamic_cast<structuredMeshElement *>( &node );
+        AMP_ASSERT( element );
         coord( element->getIndex(), x );
         for ( int d = 0; d < PhysicalDim; d++ ) {
             if ( x[d] != x[d] )
@@ -335,26 +338,24 @@ BoxMesh::~BoxMesh() = default;
 /****************************************************************
  * Get the surface element ranges                                *
  ****************************************************************/
-BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
+int BoxMesh::getSurfaceID( int s ) const
 {
-    // Check if we are keeping the given surface
-    int d     = s / 2;
     int s_max = 2 * static_cast<int>( GeomDim );
-    if ( d_surfaceId[s] < 0 || s > s_max )
-        return {};
-    // Initialize some basic info
+    AMP_ASSERT( s >= 0 && s < s_max );
+    return d_surfaceId[s];
+}
+BoxMesh::ElementBlocks BoxMesh::getSurface2( int s, GeomType type ) const
+{
+    int d                       = s / 2;
     bool left                   = s % 2 == 0;
     std::array<int, 3> lastCell = { std::max( d_globalSize[0] - 1, 0 ),
                                     std::max( d_globalSize[1] - 1, 0 ),
                                     std::max( d_globalSize[2] - 1, 0 ) };
     auto lastNode               = lastCell;
     for ( int d = 0; d < static_cast<int>( GeomDim ); d++ ) {
-        // if ( d_surfaceId[2 * d + 1] != -1 && d_surfaceId[2 * d + 1] != -2 )
         if ( d_surfaceId[2 * d + 1] != -1 )
             lastNode[d]++;
     }
-    if ( d_surfaceId[0] == -2 || d_surfaceId[2] == -2 || d_surfaceId[4] == -2 )
-        AMP_WARN_ONCE( "Fix last node" );
     // Create the surface list
     if ( type == GeomDim ) {
         // We are dealing with the desired geometric type (e.g. Volume)
@@ -376,22 +377,21 @@ BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
         return { std::make_pair( first, last ) };
     } else if ( type == GeomType::Edge && GeomDim == GeomType::Face ) {
         // We are dealing with the Edges of Face data
-        MeshElementIndex first( GeomType::Edge, 0, 0, 0, 0 );
-        MeshElementIndex last( GeomType::Edge, 0, lastCell[0], lastCell[1], lastCell[2] );
-        last.d_index[d] = lastNode[d];
-        if ( left )
-            last.d_index[d] = first.d_index[d];
-        else
-            first.d_index[d] = last.d_index[d];
-        if ( d == 0 ) {
-            first.d_side = 1;
-            last.d_side  = 1;
-            return { std::make_pair( first, last ) };
-        } else if ( d == 1 ) {
-            first.d_side = 0;
-            last.d_side  = 0;
-            return { std::make_pair( first, last ) };
+        MeshElementIndex first, last;
+        if ( d == 0 && left ) {
+            first = MeshElementIndex( GeomType::Edge, 0, 0, 0, 0 );
+            last  = MeshElementIndex( GeomType::Edge, 0, lastCell[0], 0, 0 );
+        } else if ( d == 0 ) {
+            first = MeshElementIndex( GeomType::Edge, 0, 0, lastNode[1], 0 );
+            last  = MeshElementIndex( GeomType::Edge, 0, lastCell[0], lastNode[1], 0 );
+        } else if ( left ) {
+            first = MeshElementIndex( GeomType::Edge, 1, 0, 0, 0 );
+            last  = MeshElementIndex( GeomType::Edge, 1, 0, lastCell[1], 0 );
+        } else {
+            first = MeshElementIndex( GeomType::Edge, 1, lastNode[0], 0, 0 );
+            last  = MeshElementIndex( GeomType::Edge, 1, lastNode[0], lastCell[1], 0 );
         }
+        return { std::make_pair( first, last ) };
     } else if ( type == GeomType::Edge && GeomDim == GeomType::Cell ) {
         // We are dealing with the Edges of Volume data
         MeshElementIndex first( GeomType::Edge, 0, 0, 0, 0 );
@@ -440,6 +440,19 @@ BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
     }
     return {};
 }
+BoxMesh::ElementBlocks BoxMesh::getSurface( int s, GeomType type ) const
+{
+    // Check if we are keeping the given surface
+    int s_max = 2 * static_cast<int>( GeomDim );
+    if ( d_surfaceId[s] < 0 || s > s_max )
+        return {};
+    // Get the surface
+    auto blocks = getSurface2( s, type );
+    // Fix issues with the mapped nodes
+    if ( d_surfaceId[0] == -2 || d_surfaceId[2] == -2 || d_surfaceId[4] == -2 )
+        AMP_WARN_ONCE( "Fix last node" );
+    return blocks;
+}
 
 
 /****************************************************************
@@ -471,16 +484,16 @@ size_t BoxMesh::maxProcs( std::shared_ptr<const MeshParameters> params )
 /****************************************************************
  * Function to return the element given an ID                    *
  ****************************************************************/
-MeshElement BoxMesh::getElement( const MeshElementID &id ) const
+std::unique_ptr<MeshElement> BoxMesh::getElement( const MeshElementID &id ) const
 {
     // Get the index of the element
     MeshElementIndex index = convert( id );
     // Create the element
-    auto tmp = new structuredMeshElement( index, this );
+    auto tmp = std::make_unique<structuredMeshElement>( index, this );
     AMP_DEBUG_ASSERT( tmp->globalID() == id );
     return tmp;
 }
-MeshElement BoxMesh::getElement( const MeshElementIndex &index ) const
+structuredMeshElement BoxMesh::getElement( const MeshElementIndex &index ) const
 {
     return structuredMeshElement( index, this );
 }
@@ -573,18 +586,16 @@ BoxMesh::MeshElementIndex BoxMesh::getElementFromPhysical( const AMP::Geometry::
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<MeshElement> BoxMesh::getElementParents( const MeshElement &meshelem,
-                                                     const GeomType type ) const
+Mesh::ElementListPtr BoxMesh::getElementParents( const MeshElement &meshelem,
+                                                 const GeomType type ) const
 {
-    auto id = meshelem.globalID();
+    const auto *elem = dynamic_cast<const structuredMeshElement *>( &meshelem );
+    const auto id    = meshelem.globalID();
+    AMP_DEBUG_ASSERT( elem );
+    AMP_DEBUG_INSIST( id.meshID() == d_meshID, "MeshElement is not from the given mesh" );
     if ( type == id.type() )
-        return std::vector<MeshElement>( 1, meshelem );
-    AMP_INSIST( id.meshID() == d_meshID, "MeshElement is not from the given mesh" );
-    // AMP_INSIST( type >= id.type() && type <= GeomDim,
-    //            "Cannot get the parents of the given type for the current element" );
+        return std::make_unique<MeshElementVector<structuredMeshElement>>( *elem );
     // Get the element of interest
-    const auto *elem = dynamic_cast<const structuredMeshElement *>( meshelem.getRawElement() );
-    AMP_ASSERT( elem != nullptr );
     return elem->getParents( type );
 }
 
@@ -643,8 +654,6 @@ BoxMesh::getIteratorRange( std::array<int, 6> range, const GeomType type, const 
         return {};
     // Get the range of cells we care about
     bool isPeriodic[3] = { d_surfaceId[1] == -1, d_surfaceId[3] == -1, d_surfaceId[5] == -1 };
-    if ( std::find( d_surfaceId.begin(), d_surfaceId.end(), -2 ) != d_surfaceId.end() )
-        AMP_WARN_ONCE( "boundary ids == -2 are not yet supported, mesh may be incomplete" );
     if ( gcw != 0 ) {
         for ( int d = 0; d < static_cast<int>( GeomDim ); d++ ) {
             range[2 * d + 0] -= gcw;
@@ -758,17 +767,17 @@ BoxMesh::ElementBlocks BoxMesh::intersect( const ElementBlocks &set1,
     }
     return set;
 }
-inline MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
+MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
 {
     if ( list.empty() ) {
-        return MeshIterator();
+        return {};
     } else if ( list.size() == 1 ) {
         return structuredMeshIterator( list[0].first, list[0].second, this, 0 );
     } else {
         std::vector<MeshIterator> iterator_list;
         iterator_list.reserve( list.size() );
         for ( const auto &item : list ) {
-            if ( MeshElementIndex::numElements( item.first, item.second ) ) {
+            if ( MeshElementIndex::numElements( item.first, item.second ) > 0 ) {
                 structuredMeshIterator it( item.first, item.second, this, 0 );
                 iterator_list.push_back( it );
             }
@@ -779,7 +788,7 @@ inline MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
 MeshIterator BoxMesh::getIterator( const GeomType type, const int gcw ) const
 {
     if ( type > GeomDim )
-        return MeshIterator();
+        return {};
     auto box   = getLocalBlock( d_rank );
     auto range = getIteratorRange( box, type, gcw );
     return createIterator( range );
@@ -792,15 +801,21 @@ MeshIterator BoxMesh::getIterator( const GeomType type, const int gcw ) const
 MeshIterator BoxMesh::getSurfaceIterator( const GeomType type, const int gcw ) const
 {
     if ( type > GeomDim || gcw < 0 )
-        return MeshIterator();
+        return {};
     int type2 = static_cast<int>( type );
+    // Check if all boundaries are periodic (no surfaces)
+    bool test = true;
+    for ( int i = 0; i < 2 * static_cast<int>( GeomDim ); i++ )
+        test = test && d_surfaceId[i] < 0;
+    if ( test )
+        return {};
     // Build and cache the surface data
     if ( (int) d_surface[type2].size() < gcw + 1 )
         d_surface[type2].resize( gcw + 1 );
     if ( !d_surface[type2][gcw] ) {
         d_surface[type2][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
         for ( auto &elem : getIterator( type, gcw ) ) {
-            auto elem2 = dynamic_cast<structuredMeshElement *>( elem.getRawElement() );
+            auto elem2 = dynamic_cast<structuredMeshElement *>( &elem );
             if ( elem2->isOnSurface() )
                 d_surface[type2][gcw]->push_back( elem2->getIndex() );
         }
@@ -826,7 +841,7 @@ MeshIterator
 BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw ) const
 {
     if ( type > GeomDim || id < 0 || gcw < 0 )
-        return MeshIterator();
+        return {};
     int type2 = static_cast<int>( type );
     // Get the boundary id index
     auto ids  = getBoundaryIDs();
@@ -836,29 +851,35 @@ BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw
             index = i;
     }
     if ( index < 0 )
-        return MeshIterator();
+        return {};
     AMP_ASSERT( index < 6 );
-    // Build and cache the surface data
-    if ( (int) d_boundary[type2][index].size() < gcw + 1 )
-        d_boundary[type2][index].resize( gcw + 1 );
-    if ( !d_boundary[type2][index][gcw] ) {
-        d_boundary[type2][index][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
-        auto &boundary                = *d_boundary[type2][index][gcw];
-        for ( auto &elem : getIterator( type, gcw ) ) {
-            auto elem2 = dynamic_cast<structuredMeshElement *>( elem.getRawElement() );
-            if ( elem2->isOnBoundary( id ) )
-                boundary.push_back( elem2->getIndex() );
+    // Build and cache the boundary data
+    if ( (int) d_bnd[type2][index].size() < gcw + 1 )
+        d_bnd[type2][index].resize( gcw + 1 );
+    if ( !d_bnd[type2][index][gcw] ) {
+        // Build surface iterator
+        getSurfaceIterator( type, gcw );
+        // Keep the elements on the boundary
+        d_bnd[type2][index][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
+        auto &boundary           = *d_bnd[type2][index][gcw];
+        for ( auto &elem : *d_surface[type2][gcw] ) {
+            if ( isOnBoundary( elem, id ) )
+                boundary.push_back( elem );
         }
     }
     // Create the iterator
-    return structuredMeshIterator( d_boundary[type2][index][gcw], this, 0 );
+    if ( !d_bnd[type2][index][gcw] )
+        return {};
+    if ( d_bnd[type2][index][gcw]->empty() )
+        return {};
+    return structuredMeshIterator( d_bnd[type2][index][gcw], this, 0 );
 }
 std::vector<int> BoxMesh::getBlockIDs() const { return { d_blockID }; }
 MeshIterator BoxMesh::getBlockIDIterator( const GeomType type, const int id, const int gcw ) const
 {
     if ( id == d_blockID )
         return getIterator( type, gcw );
-    return MeshIterator();
+    return {};
 }
 bool BoxMesh::onSide( const MeshElementIndex &index, int d, int s ) const
 {
@@ -917,6 +938,66 @@ bool BoxMesh::isOnBoundary( const MeshElementIndex &index, int id ) const
         }
     }
     return test;
+}
+
+
+/****************************************************************
+ * Map points on the boundary                                    *
+ ****************************************************************/
+template<uint8_t NDIM>
+std::vector<BoxMesh::MeshElementIndex>
+BoxMesh::createMap( const std::vector<MeshElementIndex> x ) const
+{
+    // Build the point map
+    std::vector<std::array<double, NDIM>> p( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        structuredMeshElement elem( x[i], this );
+        p[i] = elem.centroid();
+    }
+    // Map the points
+    kdtree2<NDIM, MeshElementIndex> map( p, x );
+    double dist = 1e-8;
+    std::vector<BoxMesh::MeshElementIndex> y( x.size() );
+    for ( size_t i = 0; i < x.size(); i++ ) {
+        auto tmp = map.findNearest( p[i], dist );
+        if ( tmp.size() == 1 )
+            continue;
+        AMP_ASSERT( tmp.size() == 2 );
+        if ( std::get<1>( tmp[0] ) == x[i] )
+            y[i] = std::get<1>( tmp[1] );
+        else
+            y[i] = std::get<1>( tmp[0] );
+    }
+    return y;
+}
+void BoxMesh::createMaps()
+{
+    for ( int t = 0; t < PhysicalDim; t++ ) {
+        std::vector<MeshElementIndex> x;
+        for ( int s = 0; s < 2 * PhysicalDim; s++ ) {
+            if ( d_surfaceId[s] != -2 )
+                continue;
+            auto blocks = getSurface2( s, static_cast<GeomType>( t ) );
+            for ( auto block : blocks ) {
+                auto it = MeshElementIndexIterator( block.first, block.second, this );
+                x.reserve( x.size() + it.size() );
+                for ( auto index : it )
+                    x.push_back( index );
+            }
+        }
+        if ( x.empty() )
+            continue;
+        AMP::Utilities::unique( x );
+        std::vector<MeshElementIndex> y;
+        if ( PhysicalDim == 1 ) {
+            y = createMap<1>( x );
+        } else if ( PhysicalDim == 2 ) {
+            y = createMap<2>( x );
+        } else if ( PhysicalDim == 3 ) {
+            y = createMap<3>( x );
+        }
+        d_surfaceMaps[t] = SurfaceMapStruct( std::move( x ), std::move( y ) );
+    }
 }
 
 

@@ -22,7 +22,8 @@ template<typename ST = double,
 class TpetraVectorData : public GhostDataHelper<ST>
 {
 public:
-    TpetraVectorData( std::shared_ptr<AMP::Discretization::DOFManager> dofManager );
+    TpetraVectorData( std::shared_ptr<CommunicationList> commList,
+                      std::shared_ptr<AMP::Discretization::DOFManager> dofManager );
     std::string VectorDataName() const override { return "TpetraVectorData"; }
     size_t numberOfDataBlocks() const override { return 1; }
     size_t sizeOfDataBlock( size_t i ) const override { return i == 0 ? this->d_localSize : 0; }

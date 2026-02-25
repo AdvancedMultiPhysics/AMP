@@ -41,19 +41,17 @@ static void myTest( AMP::UnitTest *ut, const std::string &inputName )
     params->setComm( globalComm );
 
     // Create the meshes from the input database
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( params );
+    auto mesh = AMP::Mesh::MeshFactory::create( params );
 
     auto DOF_scalar = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 1, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
 
     // create a nonlinear BVP operator for nonlinear fick diffusion
     AMP_INSIST( input_db->keyExists( "testNonlinearFickOperator" ), "key missing!" );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> fickTransportModel;
-
     auto nonlinearFickOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "testNonlinearFickOperator", input_db, fickTransportModel ) );
+            mesh, "testNonlinearFickOperator", input_db ) );
 
     // initialize the input variable
     auto fickVariable = nonlinearFickOperator->getOutputVariable();

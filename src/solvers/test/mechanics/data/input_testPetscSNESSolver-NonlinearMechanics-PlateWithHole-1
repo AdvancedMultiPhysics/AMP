@@ -26,61 +26,10 @@ nonlinearMechanicsBVPOperator {
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
-MechanicsNonlinearFEOperator1 {
-  name = "MechanicsNonlinearFEOperator"
-    print_info_level = 1
-    ActiveInputVariables {
-      DISPLACEMENT = "displacement"
-    }
-  OutputVariable = "displacement"
-    RESET_REUSES_RADIAL_RETURN = TRUE
-    JACOBIAN_REUSES_RADIAL_RETURN = TRUE
-
-    MechanicsElement {
-      name="MechanicsNonlinearElement"
-        USE_REDUCED_INTEGRATION = FALSE 
-        FE_ORDER = "FIRST"  
-        FE_FAMILY = "LAGRANGE"
-        QRULE_TYPE = "QGAUSS"
-        QRULE_ORDER = "DEFAULT"
-    }
-
-    MechanicsLinearElement = LinearMechanicsElement
-    LocalModel = "PericElastoViscoPlasticModel1"
-}
-
-DirichletVectorCorrection1 {
-  name = "DirichletVectorCorrection"
-    print_info_level = 1
-    skip_params = FALSE
-    setResidual = FALSE
-    valuesType = 1
-    isAttachedToVolumeOperator = TRUE
-
-    number_of_ids = 3
-
-    id_0 = 1
-    number_of_dofs_0 = 1
-    dof_0_0 = 1
-    value_0_0 = 0.0
-
-    id_1 = 3
-    number_of_dofs_1 = 2
-    dof_1_0 = 0
-    dof_1_1 = 2
-    value_1_0 = 0.0
-    value_1_1 = 0.0
-
-    id_2 = 4
-    number_of_dofs_2 = 1
-    dof_2_0 = 2
-    value_2_0 = 0.0
-}
-
 PericElastoViscoPlasticModel1 {
   USE_MATERIALS_LIBRARY = FALSE
     Material = "UO2_MSRZC_09"
-    print_info_level = 6
+    print_info_level = 2
     USE_CONTINUUM_TANGENT = FALSE
     //name="PericElastoViscoPlasticModel"
     //name="IsotropicElasticModel"
@@ -113,6 +62,57 @@ PericElastoViscoPlasticModel1 {
     Default_Temperature = 310.0
     Default_Burnup = 0.0
     Default_Oxygen_Concentration = .1
+}
+
+MechanicsNonlinearFEOperator1 {
+  name = "MechanicsNonlinearFEOperator"
+    print_info_level = 1
+    ActiveInputVariables {
+      DISPLACEMENT = "displacement"
+    }
+  OutputVariable = "displacement"
+    RESET_REUSES_RADIAL_RETURN = TRUE
+    JACOBIAN_REUSES_RADIAL_RETURN = TRUE
+
+    MechanicsElement {
+      name="MechanicsNonlinearElement"
+        USE_REDUCED_INTEGRATION = FALSE 
+        FE_ORDER = "FIRST"  
+        FE_FAMILY = "LAGRANGE"
+        QRULE_TYPE = "QGAUSS"
+        QRULE_ORDER = "DEFAULT"
+    }
+
+    MechanicsLinearElement = LinearMechanicsElement
+    LocalModel = PericElastoViscoPlasticModel1
+}
+
+DirichletVectorCorrection1 {
+  name = "DirichletVectorCorrection"
+    print_info_level = 1
+    skip_params = FALSE
+    setResidual = FALSE
+    valuesType = 1
+    isAttachedToVolumeOperator = TRUE
+
+    number_of_ids = 3
+
+    id_0 = 1
+    number_of_dofs_0 = 1
+    dof_0_0 = 1
+    value_0_0 = 0.0
+
+    id_1 = 3
+    number_of_dofs_1 = 2
+    dof_1_0 = 0
+    dof_1_1 = 2
+    value_1_0 = 0.0
+    value_1_1 = 0.0
+
+    id_2 = 4
+    number_of_dofs_2 = 1
+    dof_2_0 = 2
+    value_2_0 = 0.0
 }
 
 linearMechanicsBVPOperator {

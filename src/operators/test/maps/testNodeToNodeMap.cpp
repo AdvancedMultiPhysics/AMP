@@ -29,7 +29,7 @@ static void setBoundary( int id,
     while ( curBnd != endBnd ) {
         d1->getDOFs( curBnd->globalID(), ids );
         auto x = curBnd->coord();
-        v1->setLocalValuesByGlobalID( ids.size(), &ids[0], &x[0] );
+        v1->setValuesByGlobalID( ids.size(), &ids[0], &x[0] );
         ++curBnd;
     }
 }
@@ -62,7 +62,8 @@ static void runTest( const std::string &fname, AMP::UnitTest *ut )
     std::vector<size_t> dofs;
     for ( auto &id : surfaceMesh->getBoundaryIDs() ) {
         auto val = double( id );
-        for ( auto elem : surfaceMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, id, 0 ) ) {
+        for ( auto &elem :
+              surfaceMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, id, 0 ) ) {
             idDOFs->getDOFs( elem.globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             id_vec->setValuesByGlobalID( 1, &dofs[0], &val );
@@ -166,7 +167,7 @@ int testNodeToNodeMap( int argc, char *argv[] )
         ut.failure( "No input files specified" );
     } else {
         for ( int i = 1; i < argc; i++ ) {
-            std::cout << "Running test with input file: " << argv[i] << std::endl;
+            AMP::pout << "Running test with input file: " << argv[i] << std::endl;
             runTest( argv[i], &ut );
         }
     }

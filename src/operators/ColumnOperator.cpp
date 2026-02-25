@@ -60,13 +60,10 @@ void ColumnOperator::residual( AMP::LinearAlgebra::Vector::const_shared_ptr f,
                                AMP::LinearAlgebra::Vector::const_shared_ptr u,
                                AMP::LinearAlgebra::Vector::shared_ptr r )
 {
-    AMP_ASSERT( getState( f ) == AMP::LinearAlgebra::UpdateState::UNCHANGED );
     AMP_ASSERT( getState( u ) == AMP::LinearAlgebra::UpdateState::UNCHANGED );
-    auto state = getState( f );
     for ( auto &op : d_operators ) {
         AMP_INSIST( op, "ColumnOperator::operator component is NULL" );
         op->residual( f, u, r );
-        checkState( state, r, op );
     }
 }
 
@@ -79,7 +76,8 @@ ColumnOperator::getParameters( const std::string &type,
                                AMP::LinearAlgebra::Vector::const_shared_ptr u,
                                std::shared_ptr<OperatorParameters> params )
 {
-    std::shared_ptr<AMP::Database> db;
+    auto db = std::make_shared<Database>();
+    Operator::setMemoryAndBackendParameters( db );
     auto opParameters    = std::make_shared<ColumnOperatorParameters>( db );
     opParameters->d_Mesh = d_Mesh;
     opParameters->d_db   = std::make_shared<AMP::Database>( "ColumnOperator" );
@@ -97,7 +95,6 @@ ColumnOperator::getParameters( const std::string &type,
  ********************************************************/
 void ColumnOperator::reset( std::shared_ptr<const OperatorParameters> params )
 {
-    d_memory_location     = params->d_memory_location;
     auto columnParameters = std::dynamic_pointer_cast<const ColumnOperatorParameters>( params );
     AMP_INSIST( ( columnParameters ), "ColumnOperator::reset parameter object is NULL" );
     AMP_INSIST( ( ( ( columnParameters->d_OperatorParameters ).size() ) == ( d_operators.size() ) ),
@@ -121,26 +118,24 @@ void ColumnOperator::append( std::shared_ptr<Operator> op )
 /********************************************************
  * Get the variables                                     *
  ********************************************************/
-std::shared_ptr<AMP::LinearAlgebra::Variable> ColumnOperator::getInputVariable()
+std::shared_ptr<AMP::LinearAlgebra::Variable> ColumnOperator::getInputVariable() const
 {
     auto retVariable = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "ColumnVariable" );
     for ( auto &elem : d_operators ) {
         auto opVar = elem->getInputVariable();
-        if ( opVar ) {
+        if ( opVar )
             retVariable->add( opVar );
-        }
     }
     retVariable->removeDuplicateVariables();
     return retVariable;
 }
-std::shared_ptr<AMP::LinearAlgebra::Variable> ColumnOperator::getOutputVariable()
+std::shared_ptr<AMP::LinearAlgebra::Variable> ColumnOperator::getOutputVariable() const
 {
     auto retVariable = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "ColumnVariable" );
     for ( auto &elem : d_operators ) {
-        std::shared_ptr<AMP::LinearAlgebra::Variable> opVar = elem->getOutputVariable();
-        if ( opVar ) {
+        auto opVar = elem->getOutputVariable();
+        if ( opVar )
             retVariable->add( opVar );
-        }
     }
     retVariable->removeDuplicateVariables();
     return retVariable;

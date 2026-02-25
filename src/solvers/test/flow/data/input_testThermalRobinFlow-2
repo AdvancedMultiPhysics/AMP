@@ -1,13 +1,15 @@
+// Answers to check for changes
+InitialResidual = 7.68006
+RhsNorm = 0.203092
+FinalSolution = 39660
 
 Mesh{
-    FileName = "halden_1_pellet_9mil.e"
-    MeshType = "libMesh"
     MeshName = "Pellet"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 5226
+    MeshType = "AMP"
+    Generator = "cylinder"
+    Size = 13, 8
+    Range = 0.00533908, 0, 0.0127
+    surfaceIds = 4, 4, 4, 4, 1, 2
 }
 
 NeutronicsOperator{
@@ -29,6 +31,26 @@ NonlinearThermalOperator {
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
+DiffusionTransportModel1{
+  name = "DiffusionTransportModel"
+    Material = "UO2_MSRZC_09"
+    Property = "ThermalConductivity"
+    Default_Concentration = 0.0
+    Default_Temperature   = 557.2
+    Default_Burnup   = 0.0
+} 
+
+SourcePhysicsModel {
+  name = "SourcePhysicsModel"
+    Material = "UO2_MSRZC_09"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+    Default_Concentration = .1
+    Default_Temperature   = 557.2 
+    Default_Burnup   = 0.0
+}
+
 DiffusionNonlinearFEOperator1 {
   name = "DiffusionNonlinearFEOperator" 
     print_info_level = 1
@@ -47,7 +69,7 @@ DiffusionNonlinearFEOperator1 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletVectorCorrection1 {
@@ -65,14 +87,6 @@ DirichletVectorCorrection1 {
 
 }
 
-DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
-    Material = "UO2_MSRZC_09"
-    Property = "ThermalConductivity"
-    Default_Concentration = 0.0
-    Default_Temperature   = 557.2
-    Default_Burnup   = 0.0
-} 
 
 LinearThermalOperator {
   name = "LinearBVPOperator"
@@ -98,7 +112,7 @@ DiffusionLinearFEOperator2 {
         QRULE_ORDER = "DEFAULT"
     }    
 
-  LocalModel = "DiffusionTransportModel1"
+  LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection2 {
@@ -125,11 +139,11 @@ VolumeIntegralOperator{
       ActiveVariable_0 = "SpecificPowerInWattsPerGram" 
     }
   OutputVariable = "heatsource"
-    print_info_level = 3
-    LocalModel = "SourcePhysicsModel"
+    print_info_level = 2
+    LocalModel = SourcePhysicsModel
     SourceElement {
       name="SourceNonlinearElement"
-        print_info_level = 3
+        print_info_level = 2
         FE_ORDER = "FIRST"  
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
@@ -137,20 +151,9 @@ VolumeIntegralOperator{
     }
 }
 
-SourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "UO2_MSRZC_09"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-    Default_Concentration = .1
-    Default_Temperature   = 557.2 
-    Default_Burnup   = 0.0
-}
-
 
 LinearSolver{
-  print_info_level = 3
+  print_info_level = 2
     max_iterations = 10
     max_error = 1e-10
 }
@@ -204,7 +207,7 @@ FlowFrapconJacobian{
 
 Flow1DSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 100
     max_error = 1e-10
 
@@ -217,7 +220,7 @@ Flow1DSolver{
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7
+    print_info_level = 2
     max_iterations = 500
     max_error = 1e-10
 

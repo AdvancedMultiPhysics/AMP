@@ -1,8 +1,8 @@
 #ifndef included_AMP_VectorDataDefault
 #define included_AMP_VectorDataDefault
 
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
-#include "AMP/utils/memory.h"
 #include "AMP/vectors/data/GhostDataHelper.hpp"
 #include "AMP/vectors/data/VectorData.h"
 
@@ -20,7 +20,7 @@ class VectorDataIterator;
  * the local values as a single block of data on the CPU.
  */
 template<typename TYPE = double, class Allocator = AMP::HostAllocator<void>>
-class VectorDataDefault final : public GhostDataHelper<TYPE>
+class VectorDataDefault : public GhostDataHelper<TYPE, Allocator>
 {
 public: // Member types
     using value_type = TYPE;
@@ -154,6 +154,10 @@ public: // Advanced virtual functions
      */
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 
+    /** \brief returns the memory location for data
+     */
+    AMP::Utilities::MemoryType getMemoryLocation() const override;
+
 public: // Non-virtual functions
     /** \brief Access the raw element
      * \param i        The element to return (local index)
@@ -171,9 +175,8 @@ public: // Write/read restart data
     void writeRestart( int64_t ) const override;
     VectorDataDefault( int64_t, AMP::IO::RestartManager * );
 
-private:
+protected:
     TYPE *d_data = nullptr;
-    scalarAllocator_t d_alloc;
 };
 
 

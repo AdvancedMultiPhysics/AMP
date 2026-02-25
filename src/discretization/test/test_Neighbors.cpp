@@ -16,7 +16,7 @@ int main( int argc, char **argv )
     AMP::AMPManager::startup( argc, argv, startup_properties );
     AMP::UnitTest ut;
 
-    auto mesh_generator = AMP::unit_test::AMPCubeGenerator<10>();
+    auto mesh_generator = AMP::unit_test::AMPCubeGenerator( 10 );
     mesh_generator.build_mesh();
     auto mesh        = mesh_generator.getMesh();
     const auto &comm = mesh->getComm();

@@ -6,7 +6,6 @@
 
 // Libmesh headers
 DISABLE_WARNINGS
-#include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -59,8 +58,7 @@ NodeToGaussPointOperator::NodeToGaussPointOperator(
     AMP::Mesh::MeshIterator iterator = d_iterator.begin();
     for ( size_t i = 0; i < iterator.size(); ++i, ++iterator ) {
         // Cache the nodes for all elements
-        std::vector<AMP::Mesh::MeshElement> nodes =
-            iterator->getElements( AMP::Mesh::GeomType::Vertex );
+        auto nodes = iterator->getElements( AMP::Mesh::GeomType::Vertex );
         d_nodes[i].resize( nodes.size() );
         for ( size_t j = 0; j < nodes.size(); j++ )
             d_nodes[i][j] = nodes[j].globalID();
@@ -69,7 +67,7 @@ NodeToGaussPointOperator::NodeToGaussPointOperator(
         libMesh::Elem *elem =
             AMP::Discretization::createLibmeshElements::createElement( *iterator );
         febase->reinit( elem );
-        const std::vector<std::vector<libMesh::Real>> &phi = febase->get_phi();
+        const auto &phi = febase->get_phi();
         AMP_ASSERT( d_nodes[i].size() == N_nodes );
         d_N_quad[i] = phi[0].size();
         d_phi[i].resize( d_N_quad[i] * N_nodes, 0 );
@@ -127,7 +125,7 @@ void NodeToGaussPointOperator::apply( AMP::LinearAlgebra::Vector::const_shared_p
                 computedAtGauss[qp] += ( computedAtNode * d_phi[i][j + qp * N_nodes] );
             } // end for qp
         }     // end for j
-        gaussPtVec->setLocalValuesByGlobalID( N_quad, &gaussPtIndices[0], computedAtGauss );
+        gaussPtVec->setValuesByGlobalID( N_quad, &gaussPtIndices[0], computedAtGauss );
 
     } // end for
 } // end apply

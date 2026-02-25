@@ -11,10 +11,8 @@ ElasticDamageThermalStrainModel::ElasticDamageThermalStrainModel(
     std::shared_ptr<MechanicsMaterialModelParameters> params )
     : MechanicsMaterialModel( params ), d_constitutiveMatrix{ { 0 } }
 {
-    AMP_INSIST( ( ( params.get() ) != nullptr ), "NULL parameter" );
-
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
-
+    AMP_INSIST( params, "NULL parameter" );
+    AMP_INSIST( params->d_db, "NULL database" );
     d_Is_Source = params->d_db->getWithDefault<bool>( "THERMAL_STRAIN_AS_SOURCE_TERM", false );
 
     if ( d_useMaterialsLibrary == false ) {

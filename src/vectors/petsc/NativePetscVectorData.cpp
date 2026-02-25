@@ -69,10 +69,10 @@ void NativePetscVectorData::putRawData( const void *in, const typeID &id )
     constexpr auto type = getTypeID<PetscScalar>();
     AMP_ASSERT( id == type );
     auto data = reinterpret_cast<const PetscScalar *>( in );
-    int a, b;
+    PetscInt a, b;
     VecGetOwnershipRange( d_petscVec, &a, &b );
-    AMP_ASSERT( b - a == (int) getLocalSize() );
-    std::vector<int> offs( b - a );
+    AMP_ASSERT( b - a == static_cast<PetscInt>( getLocalSize() ) );
+    std::vector<PetscInt> offs( b - a );
     for ( size_t j = 0; j != offs.size(); j++ )
         offs[j] = a + j;
     VecSetValues( d_petscVec, offs.size(), offs.data(), data, INSERT_VALUES );

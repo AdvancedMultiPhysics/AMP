@@ -1,23 +1,26 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UnitTest.h"
-#include "AMP/utils/memory.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/VectorBuilder.h"
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/GPUFunctionTable.h"
+    #include "AMP/vectors/data/device/VectorDataDevice.h"
+    #include "AMP/vectors/operations/device/VectorOperationsDevice.h"
+#endif
+
 
 #include <iostream>
 
-template<typename ALLOC, typename OPS_d, typename OPS_f>
+template<typename ALLOC, typename DATA_d, typename DATA_f, typename OPS_d, typename OPS_f>
 void test_copyCast( size_t N,
                     std::shared_ptr<AMP::LinearAlgebra::Variable> &var,
                     AMP::AMP_MPI &globalComm,
                     AMP::UnitTest &ut,
                     const std::string &test_msg )
 {
-    using DATA_d = AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>;
-    using DATA_f = AMP::LinearAlgebra::VectorDataDefault<float, ALLOC>;
-
     auto tol  = std::numeric_limits<float>::epsilon();
     auto dvec = AMP::LinearAlgebra::createSimpleVector<double, OPS_d, DATA_d>( N, var, globalComm );
     dvec->setRandomValues();
@@ -31,10 +34,10 @@ void test_copyCast( size_t N,
 
     auto err = static_cast<double>( diff->maxNorm() );
     if ( err > tol ) {
-        ut.failure( AMP::Utilities::stringf(
-            "Cast precision loss %e larger than %e, for %s test", err, tol, test_msg.data() ) );
+        ut.failure(
+            "Cast precision loss %e larger than %e, for %s test", err, tol, test_msg.data() );
     } else {
-        ut.passes( AMP::Utilities::stringf( "%s tests passed", test_msg.data() ) );
+        ut.passes( "%s tests passed", test_msg.data() );
     }
 }
 
@@ -48,15 +51,26 @@ int main( int argc, char **argv )
 
     size_t N = 10;
     auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "vec" );
-    test_copyCast<AMP::HostAllocator<void>,
-                  AMP::LinearAlgebra::VectorOperationsDefault<double>,
-                  AMP::LinearAlgebra::VectorOperationsDefault<float>>(
-        N, var, globalComm, ut, "CPU" );
-#ifdef USE_DEVICE
-    test_copyCast<AMP::ManagedAllocator<void>,
-                  AMP::LinearAlgebra::VectorOperationsDevice<double>,
-                  AMP::LinearAlgebra::VectorOperationsDevice<float>>(
-        N, var, globalComm, ut, "Managed memory" );
+    {
+        using ALLOC = AMP::HostAllocator<void>;
+        test_copyCast<ALLOC,
+                      AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>,
+                      AMP::LinearAlgebra::VectorDataDefault<float, ALLOC>,
+                      AMP::LinearAlgebra::VectorOperationsDefault<double>,
+                      AMP::LinearAlgebra::VectorOperationsDefault<float>>(
+            N, var, globalComm, ut, "CPU" );
+    }
+
+#ifdef AMP_USE_DEVICE
+    {
+        using ALLOC = AMP::ManagedAllocator<void>;
+        test_copyCast<ALLOC,
+                      AMP::LinearAlgebra::VectorDataDevice<double, ALLOC>,
+                      AMP::LinearAlgebra::VectorDataDevice<float, ALLOC>,
+                      AMP::LinearAlgebra::VectorOperationsDevice<double>,
+                      AMP::LinearAlgebra::VectorOperationsDevice<float>>(
+            N, var, globalComm, ut, "Managed memory" );
+    }
 #endif
 
     ut.report();

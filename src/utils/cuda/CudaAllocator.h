@@ -5,7 +5,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include "AMP/utils/cuda/helper_cuda.h"
+#include "AMP/utils/cuda/Helper_Cuda.h"
 
 
 namespace AMP {
@@ -50,7 +50,9 @@ public:
     {
         T *ptr;
         auto err = cudaMallocManaged( &ptr, n * sizeof( T ), cudaMemAttachGlobal );
+        //        auto err = cudaMalloc( &ptr, n * sizeof( T ) );
         checkCudaErrors( err );
+        checkCudaErrors( cudaMemset( ptr, 0, n ) );
         return ptr;
     }
 

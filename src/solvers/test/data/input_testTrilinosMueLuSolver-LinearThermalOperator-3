@@ -1,13 +1,13 @@
 
 Mesh{
-    FileName = "cube27.e"
     MeshName = "bar"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 27
+    MeshType = "AMP"
+    Generator = "cube"
+    dim = 3
+    Size = 3, 3, 3
+    Range = -5.12, 5.12, -5.12, 5.12, -5.12, 5.12
+    surfaceIds = 4, 6, 3, 5, 2, 1
+    static = TRUE
 }
 
 Neutronics_Fuel{
@@ -17,6 +17,16 @@ Neutronics_Fuel{
   timeSteps          = 1, 10000.
   useFixedValue      = TRUE
   fixedValues        = 1.0, 2.0
+}
+
+
+DiffusionTransportModel {
+    name="DiffusionTransportModel"
+    Material = "Independent"
+    Property = "ThermalConductivity"
+      Default_Concentration = .1
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
 }
 
 ThermalDiffusionOperator{
@@ -35,18 +45,8 @@ ThermalDiffusionOperator{
     QRULE_ORDER = "DEFAULT"
   }
 
-  LocalModel = "DiffusionTransportModel"
+  LocalModel = DiffusionTransportModel
 
-}
-
-
-DiffusionTransportModel {
-    name="DiffusionTransportModel"
-    Material = "Independent"
-    Property = "ThermalConductivity"
-      Default_Concentration = .1
-    Default_Temperature   = 300.
-    Default_Burnup   = 0.0
 }
 
 VolumeIntegralOperator1{

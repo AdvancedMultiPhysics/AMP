@@ -42,15 +42,14 @@ int main( int argc, char **argv )
     AMP::AMPManagerProperties startup_properties;
     AMP::AMPManager::startup( argc, argv, startup_properties );
     AMP::UnitTest ut;
-    ut.verbose( true );
 
     // Run the tests
     {
         std::shared_ptr<AMP::unit_test::MeshGenerator> generator;
-        generator = std::make_shared<AMP::unit_test::ExodusReaderGenerator<>>();
+        generator = std::make_shared<AMP::unit_test::ExodusReaderGenerator>( "pellet_1x.e" );
         generator->build_mesh();
         testLibmeshElement( &ut, generator->getMesh() );
-        generator = std::make_shared<AMP::unit_test::AMPCubeGenerator<5>>();
+        generator = std::make_shared<AMP::unit_test::AMPCubeGenerator>( 5 );
         generator->build_mesh();
         testLibmeshElement( &ut, generator->getMesh() );
         generator = std::make_shared<AMP::unit_test::AMPMultiMeshGenerator>();

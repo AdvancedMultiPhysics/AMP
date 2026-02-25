@@ -1,16 +1,15 @@
-
 #ifndef included_AMP_RobinVectorCorrectionParameters
 #define included_AMP_RobinVectorCorrectionParameters
 
-#include "AMP/operators/OperatorParameters.h"
+#include "AMP/operators/boundary/BoundaryOperatorParameters.h"
 
 namespace AMP::Operator {
 
-class RobinVectorCorrectionParameters : public OperatorParameters
+class RobinVectorCorrectionParameters : public BoundaryOperatorParameters
 {
 public:
     explicit RobinVectorCorrectionParameters( std::shared_ptr<AMP::Database> db )
-        : OperatorParameters( db )
+        : BoundaryOperatorParameters( db )
     {
     }
 

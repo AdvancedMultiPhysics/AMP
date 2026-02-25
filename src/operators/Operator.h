@@ -97,26 +97,49 @@ public:
     virtual void setDebugPrintInfoLevel( int level ) { d_iDebugPrintInfoLevel = level; }
 
     //! Return the output variable
-    virtual std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() { return nullptr; }
+    virtual std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const
+    {
+        return nullptr;
+    }
 
     //! Return the input variable
-    virtual std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() { return nullptr; }
+    virtual std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const
+    {
+        return nullptr;
+    }
+
+    /** \brief Get a input vector ( For \f$\mathbf{A(x)}\f$, \f$\mathbf{x}\f$ is a
+     * input vector ) \return  A newly created input vector
+     */
+    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> createInputVector() const;
+
+    /** \brief Get a left vector ( For \f$\mathbf{y=A(x)}\f$, \f$\mathbf{y}\f$ is an output
+     * vector )
+     * \return  A newly created output vector
+     */
+    virtual std::shared_ptr<AMP::LinearAlgebra::Vector> createOutputVector() const;
+
+    //! Return the selector for output vectors
+    virtual std::shared_ptr<AMP::LinearAlgebra::VectorSelector> selectOutputVector() const;
+
+    //! Return the selector for input vectors
+    virtual std::shared_ptr<AMP::LinearAlgebra::VectorSelector> selectInputVector() const;
 
     //! Subset output vector
-    virtual std::shared_ptr<AMP::LinearAlgebra::Vector>
-    subsetOutputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec );
+    std::shared_ptr<AMP::LinearAlgebra::Vector>
+    subsetOutputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec ) const;
 
     //! Subset output vector
-    virtual std::shared_ptr<const AMP::LinearAlgebra::Vector>
-    subsetOutputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec );
+    std::shared_ptr<const AMP::LinearAlgebra::Vector>
+    subsetOutputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec ) const;
 
     //! Subset input vector
-    virtual std::shared_ptr<AMP::LinearAlgebra::Vector>
-    subsetInputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec );
+    std::shared_ptr<AMP::LinearAlgebra::Vector>
+    subsetInputVector( std::shared_ptr<AMP::LinearAlgebra::Vector> vec ) const;
 
     //! Subset input vector
-    virtual std::shared_ptr<const AMP::LinearAlgebra::Vector>
-    subsetInputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec );
+    std::shared_ptr<const AMP::LinearAlgebra::Vector>
+    subsetInputVector( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec ) const;
 
     //! given a vector return whether it is valid or not
     // default behavior is to return true;
@@ -144,7 +167,7 @@ public:
     virtual void reInitializeVector( std::shared_ptr<AMP::LinearAlgebra::Vector> ) {}
 
 protected:
-    void getFromInput( std::shared_ptr<AMP::Database> db );
+    void getBackendFromInput( std::shared_ptr<AMP::Database> db );
 
     /**
      * This function returns a OperatorParameters object
@@ -159,6 +182,8 @@ protected:
         return nullptr;
     }
 
+    void setMemoryAndBackendParameters( std::shared_ptr<AMP::Database> db );
+
     int d_iDebugPrintInfoLevel = 0;
 
     int d_iObject_id;
@@ -167,7 +192,9 @@ protected:
 
     std::shared_ptr<AMP::Mesh::Mesh> d_Mesh;
 
-    AMP::Utilities::MemoryType d_memory_location;
+    AMP::Utilities::MemoryType d_memory_location = AMP::Utilities::MemoryType::none;
+
+    AMP::Utilities::Backend d_backend = AMP::Utilities::Backend::Serial;
 
 private:
 };

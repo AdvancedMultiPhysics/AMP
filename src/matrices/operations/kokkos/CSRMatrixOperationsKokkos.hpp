@@ -1,9 +1,11 @@
 #include "AMP/AMP_TPLs.h"
-#include "AMP/matrices/CSRPolicy.h"
+#include "AMP/IO/HDF.h"
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/kokkos/CSRMatrixOperationsKokkos.h"
+#include "AMP/utils/Algorithms.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/memory.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/Vector.h"
 
@@ -11,29 +13,21 @@
 
 #include "ProfilerApp.h"
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
 
     #include "Kokkos_Core.hpp"
 
 namespace AMP::LinearAlgebra {
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::mult(
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
     std::shared_ptr<const Vector> in, MatrixData const &A, std::shared_ptr<Vector> out )
 {
     PROFILE( "CSRMatrixOperationsKokkos::mult" );
     AMP_DEBUG_ASSERT( in && out );
     AMP_DEBUG_ASSERT( in->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
-    using gidx_t   = typename Policy::gidx_t;
-    using scalar_t = typename Policy::scalar_t;
-
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
@@ -46,9 +40,6 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
     auto outData                = out->getVectorData();
     scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
 
     AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( inDataBlock ),
                       "Input vector from wrong memory space" );
@@ -68,52 +59,30 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     }
 
     if ( csrData->hasOffDiag() ) {
-        PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- all)" );
+        PROFILE( "CSRMatrixOperationsKokkos::mult(ghost)" );
         const auto nGhosts = offdMatrix->numUniqueColumns();
-        std::vector<scalar_t> ghosts( nGhosts );
+        auto ghosts        = offdMatrix->getGhostCache();
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- match type)" );
             // column map can be passed to get ghosts function directly
-            size_t *colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts.data() );
+            auto colMap = offdMatrix->getColumnMap();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+        } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
+            auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         } else {
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- mismatch type)" );
-            // type mismatch, need to copy/cast into temporary vector
-            std::vector<size_t> colMap;
-            {
-                PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- mismatch copy)" );
-                offdMatrix->getColumnMap( colMap );
-            }
-            {
-                PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- mismatch get ghost)" );
-                in->getGhostValuesByGlobalID( nGhosts, colMap.data(), ghosts.data() );
-            }
+            // Fall back to forcing a copy-cast inside matrix data
+            auto colMap = offdMatrix->getColumnMapSizeT();
+            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
         }
 
-        {
-            PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- kokkos copy)" );
-            Kokkos::View<scalar_t *, Kokkos::LayoutRight, Kokkos::HostSpace> ghostView_h(
-                ghosts.data(), ghosts.size() );
-            auto ghostView_d = Kokkos::create_mirror_view_and_copy( d_exec_space, ghostView_h );
-            {
-                PROFILE( "CSRMatrixOperationsKokkos::mult(ghost -- locops mult)" );
-                d_localops_offd->mult( ghostView_d.data(), 1.0, offdMatrix, 1.0, outDataBlock );
-            }
-        }
+        d_localops_offd->mult( ghosts, 1.0, offdMatrix, 1.0, outDataBlock );
+        d_exec_space.fence();
     }
-
-    d_exec_space.fence(); // get rid of this eventually
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::
-    multTranspose( std::shared_ptr<const Vector> in,
-                   MatrixData const &A,
-                   std::shared_ptr<Vector> out )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::multTranspose(
+    std::shared_ptr<const Vector> in, MatrixData const &A, std::shared_ptr<Vector> out )
 {
     PROFILE( "CSRMatrixOperationsKokkos::multTranspose" );
 
@@ -122,10 +91,7 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
 
     out->zero();
 
-    using scalar_t = typename Policy::scalar_t;
-
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
@@ -133,9 +99,6 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     auto offdMatrix = csrData->getOffdMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
 
     auto inData                 = in->getVectorData();
     const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
@@ -148,10 +111,13 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
         d_localops_diag->multTranspose( inDataBlock, diagMatrix, outDataBlock );
     }
 
+    // present in default ops, why not here?
+    //    out->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsKokkos::multTranspose (ghost)" );
 
-        // Possible mismatch between Policy::gidx_t and size_t forces a deep copy
+        // Possible mismatch between Config::gidx_t and size_t forces a deep copy
         // of the colMap from inside offdMatrix
         std::vector<size_t> rcols;
         offdMatrix->getColumnMap( rcols );
@@ -173,18 +139,13 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     }
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::scale(
-    AMP::Scalar alpha_in, MatrixData &A )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scale( AMP::Scalar alpha_in,
+                                                                     MatrixData &A )
 {
-    using scalar_t = typename Policy::scalar_t;
+    PROFILE( "CSRMatrixOperationsKokkos::scale" );
 
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
@@ -192,9 +153,6 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     auto offdMatrix = csrData->getOffdMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
 
     auto alpha = static_cast<scalar_t>( alpha_in );
 
@@ -206,39 +164,87 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     d_exec_space.fence();
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::
-    matMultiply( MatrixData const &, MatrixData const &, MatrixData & )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scale(
+    AMP::Scalar alpha_in, std::shared_ptr<const Vector> D, MatrixData &A )
 {
-    AMP_WARNING( "SpGEMM for CSRMatrixOperationsKokkos not implemented" );
+    PROFILE( "CSRMatrixOperationsKokkos::scale" );
+
+    // constrain to one data block
+    AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
+    auto D_data                  = D->getVectorData();
+    const scalar_t *D_data_block = D_data->getRawDataBlock<scalar_t>( 0 );
+
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+    AMP_DEBUG_ASSERT( csrData );
+    auto diagMatrix = csrData->getDiagMatrix();
+    auto offdMatrix = csrData->getOffdMatrix();
+    AMP_DEBUG_ASSERT( diagMatrix );
+
+    auto alpha = static_cast<scalar_t>( alpha_in );
+    d_localops_diag->scale( alpha, D_data_block, diagMatrix );
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->scale( alpha, D_data_block, offdMatrix );
+    }
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::axpy(
-    AMP::Scalar alpha_in, const MatrixData &X, MatrixData &Y )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::scaleInv(
+    AMP::Scalar alpha_in, std::shared_ptr<const Vector> D, MatrixData &A )
 {
-    using scalar_t = typename Policy::scalar_t;
+    PROFILE( "CSRMatrixOperationsKokkos::scaleInv" );
 
-    auto csrDataX =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( X ) );
-    auto csrDataY =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( Y ) );
+    // constrain to one data block
+    AMP_DEBUG_ASSERT( D && D->numberOfDataBlocks() == 1 && D->isType<scalar_t>( 0 ) );
+    auto D_data                  = D->getVectorData();
+    const scalar_t *D_data_block = D_data->getRawDataBlock<scalar_t>( 0 );
+
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+    AMP_DEBUG_ASSERT( csrData );
+    auto diagMatrix = csrData->getDiagMatrix();
+    auto offdMatrix = csrData->getOffdMatrix();
+    AMP_DEBUG_ASSERT( diagMatrix );
+
+    auto alpha = static_cast<scalar_t>( alpha_in );
+    d_localops_diag->scaleInv( alpha, D_data_block, diagMatrix );
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->scaleInv( alpha, D_data_block, offdMatrix );
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
+    std::shared_ptr<MatrixData> A, std::shared_ptr<MatrixData> B, std::shared_ptr<MatrixData> C )
+{
+    PROFILE( "CSRMatrixOperationsKokkos::matMatMult" );
+
+    if ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+        d_matrixOpsDefault.matMatMult( A, B, C );
+    } else {
+    #ifdef AMP_USE_DEVICE
+        if ( std::is_same_v<typename Config::allocator_type, AMP::ManagedAllocator<void>> ||
+             std::is_same_v<typename Config::allocator_type, AMP::DeviceAllocator<void>> ) {
+            d_matrixOpsDevice.matMatMult( A, B, C );
+            return;
+        }
+    #endif
+        AMP_ERROR( "CSRMatrixOperationsKokkos: Unrecognized memory space" );
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::axpy( AMP::Scalar alpha_in,
+                                                                    const MatrixData &X,
+                                                                    MatrixData &Y )
+{
+    PROFILE( "CSRMatrixOperationsKokkos::axpy" );
+
+    auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
+    auto csrDataY = getCSRMatrixData<Config>( const_cast<MatrixData &>( Y ) );
 
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
 
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-    AMP_DEBUG_INSIST( csrDataY->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
     AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
                       "CSRMatrixOperationsKokkos::axpy X and Y must be in same memory space" );
 
@@ -260,18 +266,13 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     d_exec_space.fence();
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::setScalar(
-    AMP::Scalar alpha_in, MatrixData &A )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setScalar( AMP::Scalar alpha_in,
+                                                                         MatrixData &A )
 {
-    using scalar_t = typename Policy::scalar_t;
+    PROFILE( "CSRMatrixOperationsKokkos::setScalar" );
 
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
@@ -279,9 +280,6 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     auto offdMatrix = csrData->getOffdMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
 
     auto alpha = static_cast<scalar_t>( alpha_in );
 
@@ -293,98 +291,68 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     d_exec_space.fence();
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::zero(
-    MatrixData &A )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::zero( MatrixData &A )
 {
     setScalar( 0.0, A );
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::
-    setDiagonal( std::shared_ptr<const Vector> in, MatrixData &A )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setDiagonal(
+    std::shared_ptr<const Vector> in, MatrixData &A )
 {
-    using scalar_t = typename Policy::scalar_t;
+    PROFILE( "CSRMatrixOperationsKokkos::setDiagonal" );
 
     // constrain to one data block for now
     AMP_DEBUG_ASSERT( in && in->numberOfDataBlocks() == 1 && in->isType<scalar_t>( 0 ) );
 
     const scalar_t *vvals_p = in->getRawDataBlock<scalar_t>();
 
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
     auto diagMatrix = csrData->getDiagMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
 
     d_localops_diag->setDiagonal( vvals_p, diagMatrix );
 
     d_exec_space.fence();
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::
-    setIdentity( MatrixData &A )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::setIdentity( MatrixData &A )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::setIdentity" );
+
     zero( A );
 
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
     auto diagMatrix = csrData->getDiagMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
-
     d_localops_diag->setIdentity( diagMatrix );
 
     d_exec_space.fence();
 }
 
-
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::
-    extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::extractDiagonal(
+    MatrixData const &A, std::shared_ptr<Vector> buf )
 {
-    using scalar_t = typename Policy::scalar_t;
+    PROFILE( "CSRMatrixOperationsKokkos::extractDiagonal" );
 
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
     auto diagMatrix = csrData->getDiagMatrix();
 
     AMP_DEBUG_ASSERT( diagMatrix );
-
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
 
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     d_localops_diag->extractDiagonal( diagMatrix, buf_p );
@@ -392,19 +360,74 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     d_exec_space.fence();
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-AMP::Scalar
-CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::LinfNorm(
-    MatrixData const &A ) const
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSums(
+    MatrixData const &A, std::shared_ptr<Vector> buf )
 {
-    using scalar_t = typename Policy::scalar_t;
+    PROFILE( "CSRMatrixOperationsKokkos::getRowSums" );
 
-    auto csrData =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( A ) );
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+
+    AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
+    AMP_ASSERT( buf->isType<scalar_t>( 0 ) );
+
+    auto *rawVecData = buf->getRawDataBlock<scalar_t>();
+    AMP_ASSERT( rawVecData );
+
+    // zero out buffer so that the next two calls can accumulate into it
+    const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
+
+    d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData, true );
+    d_exec_space.fence();
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->getRowSums( csrData->getOffdMatrix(), rawVecData, false );
+        d_exec_space.fence();
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::getRowSumsAbsolute(
+    MatrixData const &A, std::shared_ptr<Vector> buf, bool remove_zeros )
+{
+    PROFILE( "CSRMatrixOperationsKokkos::getRowSumsAbsolute" );
+
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
+
+    AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
+    AMP_ASSERT( buf->isType<scalar_t>( 0 ) );
+
+    auto *rawVecData = buf->getRawDataBlock<scalar_t>();
+    AMP_ASSERT( rawVecData );
+
+    // zero out buffer so that the next two calls can accumulate into it
+    const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
+
+    d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData, true );
+    d_exec_space.fence();
+    if ( csrData->hasOffDiag() ) {
+        d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(), rawVecData, false );
+        d_exec_space.fence();
+    }
+
+    if ( remove_zeros ) {
+        Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> sums( rawVecData, nRows );
+        Kokkos::parallel_for(
+            "CSRMatrixOperationsKokkos::getRowSumsAbsolute(remove zeros)",
+            Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
+            KOKKOS_LAMBDA( lidx_t row ) { sums( row ) = sums( row ) != 0.0 ? sums( row ) : 1.0; } );
+        d_exec_space.fence();
+    }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+AMP::Scalar
+CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::LinfNorm( MatrixData const &A ) const
+{
+    PROFILE( "CSRMatrixOperationsKokkos::LinfNorm" );
+
+    auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
 
     AMP_DEBUG_ASSERT( csrData );
 
@@ -413,45 +436,34 @@ CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixDat
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
+    const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
+    Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> sums(
+        "CSRMatrixOperationsKokkos::LinfNorm sum buffer", nRows );
 
-    const auto nRows = csrData->numLocalRows();
-    std::vector<scalar_t> rowSums( nRows, 0.0 );
-
-    d_localops_diag->LinfNorm( diagMatrix, rowSums.data() );
+    d_localops_diag->getRowSumsAbsolute( diagMatrix, sums.data(), true );
     d_exec_space.fence();
     if ( csrData->hasOffDiag() ) {
-        d_localops_offd->LinfNorm( offdMatrix, rowSums.data() );
+        d_localops_offd->getRowSumsAbsolute( offdMatrix, sums.data(), false );
         d_exec_space.fence();
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = *std::max_element( rowSums.begin(), rowSums.end() );
+    auto max_norm = AMP::Utilities::Algorithms<scalar_t>::max_element( sums.data(), nRows );
     AMP_MPI comm  = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::copy(
-    const MatrixData &X, MatrixData &Y )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copy( const MatrixData &X,
+                                                                    MatrixData &Y )
 {
-    auto csrDataX =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( X ) );
-    auto csrDataY =
-        getCSRMatrixData<Policy, Allocator, DiagMatrixData>( const_cast<MatrixData &>( Y ) );
+    PROFILE( "CSRMatrixOperationsKokkos::copy" );
+
+    auto csrDataX = getCSRMatrixData<Config>( const_cast<MatrixData &>( X ) );
+    auto csrDataY = getCSRMatrixData<Config>( const_cast<MatrixData &>( Y ) );
 
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
-
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-    AMP_DEBUG_INSIST( csrDataY->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
     AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
                       "CSRMatrixOperationsKokkos::axpy X and Y must be in same memory space" );
 
@@ -472,54 +484,40 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     d_exec_space.fence();
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::copyCast(
-    const MatrixData &X, MatrixData &Y )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast( const MatrixData &X,
+                                                                        MatrixData &Y )
 {
-    auto csrDataY = getCSRMatrixData<Policy, Allocator, DiagMatrixData>( Y );
+    PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
+
+    auto csrDataY = getCSRMatrixData<Config>( Y );
     AMP_DEBUG_ASSERT( csrDataY );
     if ( X.getCoeffType() == getTypeID<double>() ) {
-        using PolicyIn =
-            AMP::LinearAlgebra::CSRPolicy<typename Policy::gidx_t, typename Policy::lidx_t, double>;
-        auto csrDataX =
-            getCSRMatrixData<PolicyIn, Allocator, CSRLocalMatrixData<PolicyIn, Allocator>>(
-                const_cast<MatrixData &>( X ) );
+        using ConfigIn = typename Config::template set_scalar_t<scalar::f64>::template set_alloc_t<
+            Config::allocator>;
+        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
         AMP_DEBUG_ASSERT( csrDataX );
 
-        copyCast<PolicyIn>( csrDataX, csrDataY );
+        copyCast<ConfigIn>( csrDataX, csrDataY );
     } else if ( X.getCoeffType() == getTypeID<float>() ) {
-        using PolicyIn =
-            AMP::LinearAlgebra::CSRPolicy<typename Policy::gidx_t, typename Policy::lidx_t, float>;
-        auto csrDataX =
-            getCSRMatrixData<PolicyIn, Allocator, CSRLocalMatrixData<PolicyIn, Allocator>>(
-                const_cast<MatrixData &>( X ) );
+        using ConfigIn = typename Config::template set_scalar_t<scalar::f32>::template set_alloc_t<
+            Config::allocator>;
+        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
         AMP_DEBUG_ASSERT( csrDataX );
 
-        copyCast<PolicyIn>( csrDataX, csrDataY );
+        copyCast<ConfigIn>( csrDataX, csrDataY );
     } else {
         AMP_ERROR( "Can't copyCast from the given matrix, policy not supported" );
     }
 }
 
-template<typename Policy,
-         typename Allocator,
-         class ExecSpace,
-         class ViewSpace,
-         class DiagMatrixData>
-template<typename PolicyIn>
-void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::copyCast(
-    CSRMatrixData<PolicyIn, Allocator, CSRLocalMatrixData<PolicyIn, Allocator>> *X,
-    CSRMatrixData<Policy, Allocator, DiagMatrixData> *Y )
+template<typename Config, class ExecSpace, class ViewSpace>
+template<typename ConfigIn>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast(
+    CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
 {
+    PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
 
-    AMP_DEBUG_INSIST( X->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
-    AMP_DEBUG_INSIST( Y->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsKokkos is not implemented for device memory" );
     AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
                       "CSRMatrixOperationsKokkos::copyCast X and Y must be in same memory space" );
 
@@ -532,12 +530,17 @@ void CSRMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatr
     AMP_DEBUG_ASSERT( diagMatrixX && offdMatrixX );
     AMP_DEBUG_ASSERT( diagMatrixY && offdMatrixY );
 
-    CSRLocalMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace, DiagMatrixData>::
-        template copyCast<PolicyIn>( diagMatrixX, diagMatrixY );
+    localops_t::template copyCast<ConfigIn>( diagMatrixX, diagMatrixY );
     if ( X->hasOffDiag() ) {
-        CSRLocalMatrixOperationsKokkos<Policy, Allocator, ExecSpace, ViewSpace>::template copyCast<
-            PolicyIn>( offdMatrixX, offdMatrixY );
+        localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
+}
+
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::writeRestart( int64_t fid ) const
+{
+    MatrixOperations::writeRestart( fid );
+    AMP::IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
 }
 
 } // namespace AMP::LinearAlgebra

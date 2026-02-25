@@ -2,8 +2,8 @@
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
-#include "AMP/mesh/libmesh/ReadTestMesh.h"
 #include "AMP/mesh/libmesh/libmeshMesh.h"
+#include "AMP/mesh/testHelpers/meshWriters.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/operators/mechanics/MechanicsLinearFEOperator.h"
 #include "AMP/operators/mechanics/MechanicsNonlinearFEOperator.h"
@@ -41,34 +41,19 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName, int callLinRe
     auto input_db           = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    const unsigned int mesh_dim = 3;
-    libMesh::Parallel::Communicator comm( globalComm.getCommunicator() );
-    auto mesh = std::make_shared<libMesh::Mesh>( comm, mesh_dim );
-
-    std::string mesh_file = input_db->getString( "mesh_file" );
-
-    if ( globalComm.getRank() == 0 ) {
-        AMP::readTestMesh( mesh_file, mesh );
-    } // end if root processor
-
-    libMesh::MeshCommunication().broadcast( *( mesh.get() ) );
-
-    mesh->prepare_for_use( false );
-
-    auto meshAdapter = std::make_shared<AMP::Mesh::libmeshMesh>( mesh, "TestMesh" );
+    auto mesh_file = input_db->getString( "mesh_file" );
+    auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
 
     auto nonlinOperator = std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
         AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "NonlinearMechanicsOperator", input_db ) );
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementPhysicsModel =
-        nonlinOperator->getMaterialModel();
+            mesh, "NonlinearMechanicsOperator", input_db ) );
+    auto elementPhysicsModel = nonlinOperator->getMaterialModel();
 
-    auto linOperator = std::dynamic_pointer_cast<AMP::Operator::MechanicsLinearFEOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "LinearMechanicsOperator", input_db, elementPhysicsModel ) );
+    auto linOperator = std::make_shared<AMP::Operator::MechanicsLinearFEOperator>(
+        nonlinOperator->getParameters( "Jacobian", nullptr ) );
 
     auto dofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+        mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
     auto var = nonlinOperator->getOutputVariable();
 
@@ -89,8 +74,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName, int callLinRe
     linOperator->apply( solVec, resVecLin );
     resDiffVec->subtract( *resVecNonlin, *resVecLin );
 
-    double epsilon = 1.0e-13 * static_cast<double>(
-                                   ( ( linOperator->getMatrix() )->extractDiagonal() )->L1Norm() );
+    double epsilon =
+        1.0e-13 * static_cast<double>( ( linOperator->getMatrix() )->extractDiagonal()->L1Norm() );
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
     double nonLinNorm = static_cast<double>( resVecNonlin->L1Norm() );
@@ -181,7 +166,6 @@ int testConsistentTangent( int argc, char *argv[] )
 {
 
     AMP::AMPManager::startup( argc, argv );
-    auto libmeshInit = std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
 
     AMP::UnitTest ut;
 
@@ -215,7 +199,6 @@ int testConsistentTangent( int argc, char *argv[] )
     ut.report();
     int num_failed = ut.NumFailGlobal();
 
-    libmeshInit.reset();
     AMP::AMPManager::shutdown();
     return num_failed;
 }

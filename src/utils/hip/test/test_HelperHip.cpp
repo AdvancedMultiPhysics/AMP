@@ -1,20 +1,20 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/hip/Helper_Hip.h"
 #include "AMP/utils/hip/HipAllocator.h"
-#include "AMP/utils/hip/helper_hip.h"
-#include "AMP/utils/memory.h"
 
 #include <iostream>
 #include <memory>
 
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
     #include <Kokkos_Core.hpp>
     #include <Kokkos_Macros.hpp>
 #endif
 
 
-static inline std::string getMemorySpace( void *ptr )
+static inline std::string_view getMemorySpace( void *ptr )
 {
     return AMP::Utilities::getString( AMP::Utilities::getMemoryType( ptr ) );
 }
@@ -61,7 +61,7 @@ int main( int argc, char *argv[] )
     hostAllocator.deallocate( host, N );
 
     // Check Kokkos memory pointers
-#if defined( AMP_USE_KOKKOS ) || defined( AMP_USE_TRILINOS_KOKKOS )
+#ifdef AMP_USE_KOKKOS
     std::cout << std::endl;
     testKokkosMemorySpace<Kokkos::HostSpace>( "HostSpace" );
     #ifdef KOKKOS_ENABLE_HIP

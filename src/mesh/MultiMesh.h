@@ -224,7 +224,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    MeshElement getElement( const MeshElementID &id ) const override;
+    MeshElementPtr getElement( const MeshElementID &id ) const override;
 
 
     /**
@@ -234,8 +234,8 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const override;
+    virtual ElementListPtr getElementParents( const MeshElement &elem,
+                                              const GeomType type ) const override;
 
 
     //! Is the current mesh a base mesh
@@ -273,6 +273,12 @@ public:
      *  (excluding multimeshes and subset meshes) on the current processor.
      */
     std::vector<MeshID> getLocalBaseMeshIDs() const override;
+
+
+    /**
+     *  Check if the mesh contains the given mesh element
+     */
+    bool containsElement( const MeshElementID &id ) const override;
 
 
     /**
@@ -368,8 +374,8 @@ private:
     void initialize();
 
 private:
-    //! A list of all meshes in the multimesh
-    std::vector<std::shared_ptr<AMP::Mesh::Mesh>> d_meshes;
+    std::vector<std::shared_ptr<Mesh>> d_meshes;       //!< A list of all meshes in the multimesh
+    Mesh::Movable d_isMovable = Mesh::Movable::Deform; //!< Are all meshes movable
 };
 
 } // namespace AMP::Mesh

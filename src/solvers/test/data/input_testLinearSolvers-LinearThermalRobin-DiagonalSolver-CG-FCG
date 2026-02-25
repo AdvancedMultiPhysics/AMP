@@ -1,0 +1,31 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "CGSolver"
+  variant = "fcg"
+  max_dimension = 3
+  uses_preconditioner = TRUE
+  pc_solver_name = "CG"
+  absolute_tolerance = 1.0e-12
+  relative_tolerance = 1.0e-12
+  max_iterations = 35
+  print_info_level = 2
+}
+
+CG{
+  name = "CGSolver"
+  variant = "pcg"
+  uses_preconditioner = TRUE
+  relative_tolerance = 1.0e-02
+  max_iterations = 3
+  print_info_level = 0
+}
+
+<<< "PC-DiagParameters" >>>
+
+Reference{
+  iterations = 32
+  res_l2_norm = -1.0
+  tolerance = 0.0
+  strict = FALSE
+}

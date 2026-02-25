@@ -49,12 +49,11 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mesh_db   = input_db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementModel;
-    auto fsOp_db           = input_db->getDatabase( "NonlinearFickSoretOp" );
-    auto nonlinearOperator = AMP::Operator::OperatorBuilder::createOperator(
-        meshAdapter, "NonlinearFickSoretOp", input_db, elementModel );
+    auto fsOp_db = input_db->getDatabase( "NonlinearFickSoretOp" );
+    auto nonlinearOperator =
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "NonlinearFickSoretOp", input_db );
     auto fsOp =
         std::dynamic_pointer_cast<AMP::Operator::FickSoretNonlinearFEOperator>( nonlinearOperator );
     auto fickOp  = fsOp->getFickOperator();
@@ -90,7 +89,7 @@ static void nonlinearTest( AMP::UnitTest *ut, const std::string &exeName )
     int nodalGhostWidth = 1;
     bool split          = true;
     auto nodalDofMap    = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
 
     // create solution, rhs, and residual vectors
     auto tVec = AMP::LinearAlgebra::createVector( nodalDofMap, tVar );

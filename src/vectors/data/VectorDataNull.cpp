@@ -6,76 +6,56 @@
 namespace AMP::LinearAlgebra {
 
 
-template<typename TYPE>
-const AMP_MPI &VectorDataNull<TYPE>::getComm() const
+std::shared_ptr<VectorData> VectorDataNull::cloneData( const std::string & ) const
 {
-    static AMP_MPI comm( AMP_COMM_NULL );
+    return std::make_shared<VectorDataNull>( d_type );
+}
+const AMP_MPI &VectorDataNull::getComm() const
+{
+    static AMP_MPI comm( AMP_COMM_SELF );
     return comm;
 }
-template<typename TYPE>
-void VectorDataNull<TYPE>::getValuesByLocalID( size_t N,
+void VectorDataNull::getValuesByLocalID( size_t N, const size_t *, void *, const typeID & ) const
+{
+    AMP_INSIST( N == 0, "Cannot get values in NullVectorData" );
+}
+void VectorDataNull::setValuesByLocalID( size_t N, const size_t *, const void *, const typeID & )
+{
+    AMP_INSIST( N == 0, "Cannot set values in NullVectorData" );
+}
+void VectorDataNull::addValuesByLocalID( size_t N, const size_t *, const void *, const typeID & )
+{
+    AMP_INSIST( N == 0, "Cannot add values in NullVectorData" );
+}
+void VectorDataNull::setGhostValuesByGlobalID( size_t N,
+                                               const size_t *,
+                                               const void *,
+                                               const typeID & )
+{
+    AMP_INSIST( N == 0, "Cannot set values in NullVectorData" );
+}
+void VectorDataNull::addGhostValuesByGlobalID( size_t N,
+                                               const size_t *,
+                                               const void *,
+                                               const typeID & )
+{
+    AMP_INSIST( N == 0, "Cannot add values in NullVectorData" );
+}
+void VectorDataNull::getGhostValuesByGlobalID( size_t N,
                                                const size_t *,
                                                void *,
                                                const typeID & ) const
 {
     AMP_INSIST( N == 0, "Cannot get values in NullVectorData" );
 }
-template<typename TYPE>
-void VectorDataNull<TYPE>::setValuesByLocalID( size_t N,
-                                               const size_t *,
-                                               const void *,
-                                               const typeID & )
-{
-    AMP_INSIST( N == 0, "Cannot set values in NullVectorData" );
-}
-template<typename TYPE>
-void VectorDataNull<TYPE>::addValuesByLocalID( size_t N,
-                                               const size_t *,
-                                               const void *,
-                                               const typeID & )
-{
-    AMP_INSIST( N == 0, "Cannot add values in NullVectorData" );
-}
-template<typename TYPE>
-void VectorDataNull<TYPE>::setGhostValuesByGlobalID( size_t N,
-                                                     const size_t *,
-                                                     const void *,
-                                                     const typeID & )
-{
-    AMP_INSIST( N == 0, "Cannot set values in NullVectorData" );
-}
-template<typename TYPE>
-void VectorDataNull<TYPE>::addGhostValuesByGlobalID( size_t N,
-                                                     const size_t *,
-                                                     const void *,
-                                                     const typeID & )
-{
-    AMP_INSIST( N == 0, "Cannot add values in NullVectorData" );
-}
-template<typename TYPE>
-void VectorDataNull<TYPE>::getGhostValuesByGlobalID( size_t N,
-                                                     const size_t *,
-                                                     void *,
-                                                     const typeID & ) const
+void VectorDataNull::getGhostAddValuesByGlobalID( size_t N,
+                                                  const size_t *,
+                                                  void *,
+                                                  const typeID & ) const
 {
     AMP_INSIST( N == 0, "Cannot get values in NullVectorData" );
 }
-template<typename TYPE>
-void VectorDataNull<TYPE>::getGhostAddValuesByGlobalID( size_t N,
-                                                        const size_t *,
-                                                        void *,
-                                                        const typeID & ) const
-{
-    AMP_INSIST( N == 0, "Cannot get values in NullVectorData" );
-}
-
-
-/****************************************************************
- * Explicit instantiations                                       *
- ****************************************************************/
-template class VectorDataNull<int>;
-template class VectorDataNull<float>;
-template class VectorDataNull<double>;
+size_t VectorDataNull::getAllGhostValues( void *, const typeID & ) const { return 0; }
 
 
 } // namespace AMP::LinearAlgebra

@@ -1,5 +1,5 @@
 #include "AMP/geometry/Geometry.h"
-#include "AMP/IO/HDF5.h"
+#include "AMP/IO/HDF.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/geometry/MeshGeometry.h"
 #include "AMP/geometry/MultiGeometry.h"
@@ -37,28 +37,7 @@ Geometry::buildGeometry( std::shared_ptr<const AMP::Database> db )
     std::for_each( generator.begin(), generator.end(), []( char &c ) { c = ::tolower( c ); } );
     std::shared_ptr<AMP::Geometry::Geometry> geom;
     if ( generator == "cube" ) {
-        int dim = db->getScalar<int>( "dim" );
-        if ( db->keyExists( "Range" ) ) {
-            if ( dim == 1 ) {
-                geom = std::make_shared<Box<1>>( db );
-            } else if ( dim == 2 ) {
-                geom = std::make_shared<Box<2>>( db );
-            } else if ( dim == 3 ) {
-                geom = std::make_shared<Box<3>>( db );
-            } else {
-                AMP_ERROR( "Physical Dimensions > 3 are not supported yet" );
-            }
-        } else if ( db->keyExists( "x_grid" ) ) {
-            if ( dim == 1 ) {
-                geom = std::make_shared<Grid<1>>( db );
-            } else if ( dim == 2 ) {
-                geom = std::make_shared<Grid<2>>( db );
-            } else if ( dim == 3 ) {
-                geom = std::make_shared<Grid<3>>( db );
-            } else {
-                AMP_ERROR( "Physical Dimensions > 3 are not supported yet" );
-            }
-        }
+        geom = buildBox( db );
     } else if ( generator == "tube" ) {
         geom = std::make_shared<Tube>( db );
     } else if ( generator == "circle" ) {

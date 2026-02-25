@@ -84,10 +84,10 @@ void runTests( AMP::UnitTest &ut, const std::string &type )
     OddEvenMatrixFactory factory2( type, 20, false );
     auto A = factory1.getMatrix();
     auto B = factory2.getMatrix();
-    // auto AA = AMP::LinearAlgebra::Matrix::matMultiply( A, A );
-    auto AB = AMP::LinearAlgebra::Matrix::matMultiply( A, B );
-    auto BA = AMP::LinearAlgebra::Matrix::matMultiply( B, A );
-    // auto BB = AMP::LinearAlgebra::Matrix::matMultiply( B, B );
+    // auto AA = AMP::LinearAlgebra::Matrix::matMatMult( A, A );
+    auto AB = AMP::LinearAlgebra::Matrix::matMatMult( A, B );
+    auto BA = AMP::LinearAlgebra::Matrix::matMatMult( B, A );
+    // auto BB = AMP::LinearAlgebra::Matrix::matMatMult( B, B );
     std::vector<size_t> cols;
     std::vector<double> values;
     bool pass = true;

@@ -1,14 +1,10 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
-#include "AMP/matrices/CSRPolicy.h"
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
-
-#if defined( AMP_USE_HYPRE )
-    #include "AMP/matrices/data/hypre/HypreCSRPolicy.h"
-#endif
 
 #include "ProfilerApp.h"
 
@@ -22,17 +18,18 @@
 // This test creates a few small local CSR matrices and concatenates them
 // the result is compared entrywise with what should have been created
 
-template<typename Policy, typename Allocator>
-std::map<int, std::shared_ptr<AMP::LinearAlgebra::CSRLocalMatrixData<Policy, Allocator>>>
-vertBlocks( std::vector<typename Policy::lidx_t> &row_starts,
-            std::vector<typename Policy::gidx_t> &cols,
-            std::vector<typename Policy::scalar_t> &coeffs )
+template<typename Config>
+std::map<int, std::shared_ptr<AMP::LinearAlgebra::CSRLocalMatrixData<Config>>>
+vertBlocks( std::vector<typename Config::lidx_t> &row_starts,
+            std::vector<typename Config::gidx_t> &cols,
+            std::vector<typename Config::scalar_t> &coeffs )
 {
-    using lidx_t   = typename Policy::lidx_t;
-    using gidx_t   = typename Policy::gidx_t;
-    using scalar_t = typename Policy::scalar_t;
+    using Allocator = typename Config::allocator_type;
+    using lidx_t    = typename Config::lidx_t;
+    using gidx_t    = typename Config::gidx_t;
+    using scalar_t  = typename Config::scalar_t;
 
-    using LocalData    = AMP::LinearAlgebra::CSRLocalMatrixData<Policy, Allocator>;
+    using LocalData    = AMP::LinearAlgebra::CSRLocalMatrixData<Config>;
     const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<Allocator>();
 
     std::map<int, std::shared_ptr<LocalData>> blocks;
@@ -162,26 +159,19 @@ vertBlocks( std::vector<typename Policy::lidx_t> &row_starts,
 
 void testVertical( AMP::UnitTest *ut )
 {
-#if defined( AMP_USE_HYPRE )
-    using DefaultCSRPolicy = AMP::LinearAlgebra::CSRPolicy<HYPRE_BigInt, HYPRE_Int, HYPRE_Real>;
-#else
-    using DefaultCSRPolicy = AMP::LinearAlgebra::CSRPolicy<size_t, int, double>;
-#endif
-    using lidx_t   = typename DefaultCSRPolicy::lidx_t;
-    using gidx_t   = typename DefaultCSRPolicy::gidx_t;
-    using scalar_t = typename DefaultCSRPolicy::scalar_t;
+    using DefaultCSRConfig = AMP::LinearAlgebra::DefaultHostCSRConfig;
+    using lidx_t           = typename DefaultCSRConfig::lidx_t;
+    using gidx_t           = typename DefaultCSRConfig::gidx_t;
+    using scalar_t         = typename DefaultCSRConfig::scalar_t;
 
     // get the blocks to concatenate
     std::vector<lidx_t> row_starts;
     std::vector<gidx_t> cols;
     std::vector<scalar_t> coeffs;
-    auto blocks =
-        vertBlocks<DefaultCSRPolicy, AMP::HostAllocator<void>>( row_starts, cols, coeffs );
+    auto blocks = vertBlocks<DefaultCSRConfig>( row_starts, cols, coeffs );
 
     // form concatenated matrix
-    auto cat =
-        AMP::LinearAlgebra::CSRLocalMatrixData<DefaultCSRPolicy,
-                                               AMP::HostAllocator<void>>::ConcatVertical( blocks );
+    auto cat = AMP::LinearAlgebra::CSRLocalMatrixData<DefaultCSRConfig>::ConcatVertical( blocks );
 
     // test overall dimensions of matrix, and total NNZ
     bool shape_pass = true;

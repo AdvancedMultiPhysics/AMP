@@ -1,12 +1,23 @@
 // Database for the mesh
-Mesh{
+Mesh {
     MeshName = "mesh"
-    MeshType = "libMesh"
-    FileName = "brick.e"
+    MeshType = "AMP"
+    Generator = "cube"
     dim = 3
-    NumberOfElements = 4096
+    Size = 8, 8, 17
+    Range = -5, 5, -5, 5, -10, 10
+    surfaceIds = 8, 8, 8, 8, 8, 8
+    static = TRUE
 }
   
+DiffusionTransportModel{
+        name = "DiffusionCylindricalTransportModel"
+        Material = "CylindricallySymmetric"
+        Property = "ScalarRadialFick"
+ 		RadiusArgument = "radius"
+        Parameters = 1., 1., 1. 
+} 
+
 LinearDiffusionOp{
     name = "DiffusionLinearFEOperator"
     InputVariable = "concentration"
@@ -25,7 +36,7 @@ LinearDiffusionOp{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 }
 
 NonlinearDiffusionOp{
@@ -47,13 +58,6 @@ NonlinearDiffusionOp{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "DiffusionTransportModel"
+    LocalModel = DiffusionTransportModel
 }
 
-DiffusionTransportModel{
-        name = "DiffusionCylindricalTransportModel"
-        Material = "CylindricallySymmetric"
-        Property = "ScalarRadialFick"
- 		RadiusArgument = "radius"
-        Parameters = 1., 1., 1. 
-} 

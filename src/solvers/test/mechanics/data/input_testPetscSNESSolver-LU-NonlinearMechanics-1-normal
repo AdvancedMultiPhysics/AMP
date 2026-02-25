@@ -6,7 +6,7 @@ Mesh {
   Range = -5, 5, -5, 5, -10, 10
   surfaceIds = 8, 8, 8, 8, 8, 8
   dim = 3
-  static = TRUE
+  static = FALSE
 }
 
 NumberOfLoadingSteps = 1
@@ -26,6 +26,19 @@ LinearMechanicsElement {
     QRULE_TYPE = "QGAUSS"
     QRULE_ORDER = "DEFAULT"
 }
+
+VonMisesElastoPlasticModel {
+        USE_MATERIALS_LIBRARY = FALSE
+          Material = "UO2_MSRZC_09"
+          name="VonMisesElastoPlasticModel"
+          Youngs_Modulus = 2.08e11
+          Poissons_Ratio = 0.23
+          Linear_Strain_Hardening = 2.10e9
+          Elastic_Yield_Stress = 1.45e8
+          Default_Temperature = 310.0
+          Default_Burnup = 0.0
+          Default_Oxygen_Concentration = .1
+      }
 
 MechanicsNonlinearFEOperator1 {
       name = "MechanicsNonlinearFEOperator"
@@ -47,7 +60,7 @@ MechanicsNonlinearFEOperator1 {
         }
 	
         MechanicsLinearElement = LinearMechanicsElement
-	LocalModel = "VonMisesElastoPlasticModel"
+	LocalModel = VonMisesElastoPlasticModel
     }
 
 DirichletVectorCorrection1 {
@@ -64,19 +77,6 @@ DirichletVectorCorrection1 {
       value_0_1 = 0.0
       value_0_2 = 0.0
   }
-
-VonMisesElastoPlasticModel {
-        USE_MATERIALS_LIBRARY = FALSE
-          Material = "UO2_MSRZC_09"
-          name="VonMisesElastoPlasticModel"
-          Youngs_Modulus = 2.08e11
-          Poissons_Ratio = 0.23
-          Linear_Strain_Hardening = 2.10e9
-          Elastic_Yield_Stress = 1.45e8
-          Default_Temperature = 310.0
-          Default_Burnup = 0.0
-          Default_Oxygen_Concentration = .1
-      }
 
 linearMechanicsBVPOperator {
     name="LinearBVPOperator"
@@ -136,7 +136,7 @@ Displacement_Boundary {
 
 NonlinearSolver{
     name = "PetscSNESSolver"
-    print_info_level = 7 
+    print_info_level = 1 
     max_iterations = 100
     max_error = 1e-10
 
@@ -150,7 +150,7 @@ NonlinearSolver{
 
     LinearSolver{
         name = "PetscKrylovSolver"
-        print_info_level = 10
+        print_info_level = 0
         max_iterations = 100
         max_error = 1e-10
         ksp_type = "fgmres"
@@ -168,7 +168,7 @@ NonlinearSolver{
 
 Preconditioner{
     name = "TrilinosMLSolver"
-    print_info_level = 10
+    print_info_level = 0
     PDE_equations = 3
     max_levels = 1
     max_iterations = 1

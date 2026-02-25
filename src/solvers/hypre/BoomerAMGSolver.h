@@ -82,27 +82,30 @@ public:
      * and recreates it based on the parameters object. See constructor for
      * fields required for parameter object.
      */
-    void reset( std::shared_ptr<SolverStrategyParameters> ) override;
+    void reset( std::shared_ptr<SolverStrategyParameters> params ) override;
 
     void getFromInput( std::shared_ptr<const AMP::Database> db );
 
 private:
+    void setupBoomerAMG( void );
+    void setHypreFunctionPointers();
+
     int d_num_functions        = 1;
     int d_min_iterations       = 0;
     int d_max_coarse_size      = 800;
     int d_min_coarse_size      = 100;
     int d_max_levels           = 10;
-    int d_coarsen_type         = 10;
+    int d_coarsen_type         = 8;
     int d_measure_type         = 0;
     int d_agg_num_levels       = 0;
     int d_num_paths            = 1;
     int d_cgc_iterations       = 1;
     int d_nodal                = 0;
     int d_nodal_diag           = 0;
-    int d_interp_type          = 6;
+    int d_interp_type          = 18;
     int d_P_max_elements       = 4;
     int d_separate_weights     = 0;
-    int d_agg_interp_type      = 4;
+    int d_agg_interp_type      = 5;
     int d_agg_P_max_elements   = 0;
     int d_agg_P12_max_elements = 0;
     int d_number_samples       = 0;
@@ -112,7 +115,7 @@ private:
     int d_simple_level         = -1;
     int d_add_P_max_elmts      = 0;
     int d_number_sweeps        = 1;
-    int d_relax_type           = 13;
+    int d_relax_type           = 16;
     int d_relax_order          = 0;
     int d_chebyshev_order      = 2;
     int d_smooth_type          = 6;
@@ -122,7 +125,6 @@ private:
     int d_schwarz_overlap      = 1;
     int d_schwarz_domain_type  = 2;
     int d_schwarz_nonsymmetric = 0;
-    int d_logging              = 0;
     int d_debug_flag           = 0;
     int d_rap2                 = 0;
     int d_keep_transpose       = 1;

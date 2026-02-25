@@ -16,6 +16,12 @@ MechanicsBVPOperator {
   BoundaryOperator = "DirichletMatrixCorrection1"
 }
 
+IsotropicElasticModel1 {
+    name="IsotropicElasticModel"
+    Youngs_Modulus = 2.08e11
+    Poissons_Ratio = 0.23
+}
+
 MechanicsLinearFEOperator1 {
   name="MechanicsLinearFEOperator"
   print_info_level = 1
@@ -32,7 +38,7 @@ MechanicsLinearFEOperator1 {
     QRULE_ORDER = "DEFAULT"
     }
 
-    LocalModel = "IsotropicElasticModel1"
+    LocalModel = IsotropicElasticModel1
 }
 
 DirichletMatrixCorrection1 {
@@ -48,12 +54,6 @@ DirichletMatrixCorrection1 {
     dof_0_2 = 2
 }
 
-IsotropicElasticModel1 {
-     name="IsotropicElasticModel"
-     Youngs_Modulus = 2.08e11
-     Poissons_Ratio = 0.23
-    }
-
 Load_Boundary {
   name="DirichletVectorCorrection"
   print_info_level = 1
@@ -66,8 +66,9 @@ Load_Boundary {
 }
 
 LinearSolver{
+  name = "TrilinosMLSolver"
   PDE_equations = 3
-  print_info_level = 3
+  print_info_level = 2
   max_iterations = 10
   max_error = 1e-10
 }

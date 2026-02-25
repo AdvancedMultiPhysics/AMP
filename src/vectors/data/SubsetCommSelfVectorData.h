@@ -51,7 +51,6 @@ public: // Ghost data functions
     void fillGhosts( const Scalar & ) override {}
     std::shared_ptr<CommunicationList> getCommunicationList() const override { return nullptr; }
     void setCommunicationList( std::shared_ptr<CommunicationList> ) override {}
-    void aliasGhostBuffer( std::shared_ptr<VectorData> ) override {}
     size_t getGhostSize() const override { return 0; }
     bool containsGlobalElement( size_t ) const override;
     void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
@@ -59,6 +58,7 @@ public: // Ghost data functions
     void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
     void
     getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    size_t getAllGhostValues( void *, const typeID & ) const override;
     void makeConsistent( ScatterType ) override;
     void makeConsistent() override;
     void dataChanged() override;

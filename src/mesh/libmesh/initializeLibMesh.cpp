@@ -3,6 +3,9 @@
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UtilityMacros.h"
 
+#include "StackTrace/ErrorHandlers.h"
+
+#include <atomic>
 #include <cstring>
 
 // LibMesh include
@@ -20,9 +23,9 @@ namespace AMP::Mesh {
 
 
 // Initialize static member variables
-volatile int initializeLibMesh::N_copies = 0;
-void *initializeLibMesh::lminit          = nullptr;
-AMP_MPI initializeLibMesh::d_comm        = AMP_COMM_NULL;
+std::atomic<int> initializeLibMesh::N_copies = 0;
+void *initializeLibMesh::lminit              = nullptr;
+AMP_MPI initializeLibMesh::d_comm            = AMP_COMM_NULL;
 
 
 /************************************************************
@@ -59,6 +62,7 @@ initializeLibMesh::initializeLibMesh( const AMP_MPI &comm )
         argv[argc++]           = disableRefCount;
         argv[argc++]           = syncWithStdio;
         argv[argc++]           = sepOutput;
+        auto terminate         = std::get_terminate();
 #ifdef AMP_USE_MPI
     #ifdef AMP_USE_PETSC
         MPI_Comm petsc_comm = PETSC_COMM_WORLD;
@@ -70,10 +74,9 @@ initializeLibMesh::initializeLibMesh( const AMP_MPI &comm )
 #else
         lminit = new libMesh::LibMeshInit( argc, argv );
 #endif
-        // Initialize libmesh MPI types so we can safely free them
-        // type_hilbert.reset( new libMeshWrapperType<Hilbert::HilbertIndices>() );
         // Reset the error handlers
-        AMP::AMPManager::setHandlers();
+        StackTrace::setMPIErrorHandler( d_comm.getCommunicator() );
+        std::set_terminate( terminate );
     }
 }
 

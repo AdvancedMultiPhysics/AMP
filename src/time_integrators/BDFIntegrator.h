@@ -32,13 +32,7 @@ public:
     //! returns the total number of timestep rejections
     int getNumberOfStepRejections( void ) { return d_total_steprejects; }
 
-    /**
-     * Return time increment for advancing the solution at the first timestep.
-     */
-    using AMP::TimeIntegrator::TimeIntegrator::getInitialDt;
-    double getInitialDt() override;
-
-    //! return the factor d_current_dt*getGamma() used to scale the rhs operator
+    //! return the factor getGamma() used to scale the rhs operator
     double getTimeOperatorScaling( void );
 
     /**
@@ -92,14 +86,13 @@ public:
 
     void registerVectorsForMemoryManagement( void );
 
+    double getGamma( void ) override;
+
     std::vector<double> getTimeHistoryScalings( void ) override;
 
     size_t sizeOfTimeHistory() const override { return d_max_integrator_index + 1; }
 
-    std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> getTimeHistoryVectors()
-    {
-        return d_prev_solutions;
-    }
+    const auto &getTimeHistoryVectors() { return d_prev_solutions; }
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> getTimeHistorySourceTerm() override
     {
@@ -139,7 +132,7 @@ protected:
     /**
      * read in parameters from input database
      */
-    void getFromInput( std::shared_ptr<AMP::Database> input_db, bool is_from_restart );
+    void getFromInput( std::shared_ptr<AMP::Database> input_db );
 
     /**
      * Return the next time increment through which to advance the solution.
@@ -181,9 +174,6 @@ protected:
     //! calculates the linear weighted sum of previous time solutions that forms a source
     //! term for the nonlinear equations at each timestep
     void computeIntegratorSourceTerm( void );
-
-    //! estimate timestep based on relative change in temperature and energy
-    double estimateDynamicalTimeScale( double current_dt );
 
     //! estimate timestep based on truncation error estimates
     double estimateDtWithTruncationErrorEstimates( double current_dt, bool good_solution );
@@ -247,13 +237,9 @@ protected:
                                     const std::string &postfix,
                                     const std::string &norm );
 
-    /**
-     * Returns on the max timestep that the predictor can use without energy or temperature going
-     * negative
-     */
-    double getPredictorTimestepBound( void );
-
     void setTimeHistoryScalings() override;
+
+    void setPredictorType( const std::string &predictor = "" );
 
     /**
      * Set solution and function scalings for multi-physics scalings automatically
@@ -354,6 +340,9 @@ protected:
     //! predictor to use with predictor corrector approach
     std::string d_predictor_type = "leapfrog";
 
+    //! initial predictor type
+    std::string d_initial_predictor_type = "forward_euler";
+
     std::list<double> d_l2errorNorms_E;
     std::list<double> d_l2errorNorms_T;
 
@@ -362,6 +351,9 @@ protected:
 
     //! double containing t_{n+1}
     double d_new_time = std::numeric_limits<double>::signaling_NaN();
+
+    //! double storing the first dt before any restart
+    double d_first_initial_dt = 0.0;
 
     //! ratio of current to previous timestep
     double d_alpha = 1.0;

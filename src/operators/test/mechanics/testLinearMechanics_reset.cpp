@@ -34,7 +34,7 @@ static void myTest( AMP::UnitTest *ut )
     auto mesh_db    = input_db->getDatabase( "Mesh" );
     auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( meshParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
 
     AMP_INSIST( input_db->keyExists( "Isotropic_Model" ), "Key ''Isotropic_Model'' is missing!" );
     auto matModel_db = input_db->getDatabase( "Isotropic_Model" );
@@ -60,7 +60,7 @@ static void myTest( AMP::UnitTest *ut )
         auto mechLinElem = std::make_shared<AMP::Operator::MechanicsLinearElement>( elemOpParams );
 
         auto dofMap = AMP::Discretization::simpleDOFManager::create(
-            meshAdapter, AMP::Mesh::GeomType::Vertex, 1, 3, true );
+            mesh, AMP::Mesh::GeomType::Vertex, 1, 3, true );
 
         AMP_INSIST( input_db->keyExists( "Mechanics_Assembly" ),
                     "Key ''Mechanics_Assembly'' is missing!" );
@@ -69,7 +69,7 @@ static void myTest( AMP::UnitTest *ut )
             std::make_shared<AMP::Operator::MechanicsLinearFEOperatorParameters>( mechAssembly_db );
         mechOpParams->d_materialModel = isotropicModel;
         mechOpParams->d_elemOp        = mechLinElem;
-        mechOpParams->d_Mesh          = meshAdapter;
+        mechOpParams->d_Mesh          = mesh;
         mechOpParams->d_inDofMap      = dofMap;
         mechOpParams->d_outDofMap     = dofMap;
         auto mechOp = std::make_shared<AMP::Operator::MechanicsLinearFEOperator>( mechOpParams );
@@ -85,7 +85,7 @@ static void myTest( AMP::UnitTest *ut )
         // This is just the variable used to extract the dof_map.
         // This boundary operator itself has an empty input and output variable
         dirichletOpParams->d_variable = mechVariable;
-        dirichletOpParams->d_Mesh     = meshAdapter;
+        dirichletOpParams->d_Mesh     = mesh;
         auto dirichletMatOp =
             std::make_shared<AMP::Operator::DirichletMatrixCorrection>( dirichletOpParams );
 

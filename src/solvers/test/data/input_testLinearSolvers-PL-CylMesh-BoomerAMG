@@ -1,12 +1,11 @@
-
 Mesh{
-    FileName = "cylinder4K.e"
-    MeshName = "bar"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
+MeshType = "AMP"
+MeshName = "cylinder"
+Generator = "cylinder"
+Size = 16, 8
+Range = 1, -2, 2
+surfaceIds = 1, 1, 1, 1, 2, 3
+static = TRUE
 }
 
 LinearOperator {

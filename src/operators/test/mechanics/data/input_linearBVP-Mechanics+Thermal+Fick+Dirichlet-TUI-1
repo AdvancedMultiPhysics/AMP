@@ -23,6 +23,30 @@ testOperator3 {
    BoundaryOperator="FickDirichletMatrixCorrection"
 }
 
+MechanicsMaterialModel { 
+   name="IsotropicElasticModel"
+   Youngs_Modulus = 2.08e11
+   Poissons_Ratio = 0.23
+}
+
+ThermalDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "ThermalConductivity"
+    Default_Concentration = .15
+    Default_Temperature   = 300.
+    Default_Burnup   = 0.0
+} 
+
+FickDiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "Independent"
+        Property = "FickCoefficient"
+        Default_Concentration = .15
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+} 
+
 MechanicsLinearFEOperator{
       name = "MechanicsLinearFEOperator"
       print_info_level = 1
@@ -39,7 +63,7 @@ MechanicsLinearFEOperator{
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel="MechanicsMaterialModel"
+      LocalModel=MechanicsMaterialModel
    }
 
 MechanicsDirichletMatrixCorrection{
@@ -54,12 +78,6 @@ MechanicsDirichletMatrixCorrection{
       dof_0_1          =  1
       dof_0_2          =  2
    }
-
-MechanicsMaterialModel { 
-       name="IsotropicElasticModel"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-}
 
 ThermalDiffusionLinearFEOperator{
     name = "DiffusionLinearFEOperator"
@@ -79,7 +97,7 @@ ThermalDiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel="ThermalDiffusionTransportModel"
+    LocalModel=ThermalDiffusionTransportModel
 }
 
 ThermalDirichletMatrixCorrection{
@@ -87,22 +105,13 @@ ThermalDirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        = 300.
   }
-
-ThermalDiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Independent"
-        Property = "ThermalConductivity"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-    } 
 
 FickDiffusionLinearFEOperator{
     name = "DiffusionLinearFEOperator"
@@ -122,7 +131,7 @@ FickDiffusionLinearFEOperator{
         QRULE_ORDER = "DEFAULT"
     }    
 
-    LocalModel = "FickDiffusionTransportModel"
+    LocalModel = FickDiffusionTransportModel
 }
 
 FickDirichletMatrixCorrection{
@@ -130,22 +139,12 @@ FickDirichletMatrixCorrection{
     skip_params = FALSE
     skip_rhs_correction = FALSE
     skip_rhs_add_correction = FALSE
-    print_info_level = 3
+    print_info_level = 2
     number_of_ids = 1
     id_0             = 1
     number_of_dofs_0 =   1
     dof_0_0          =   0
     value_0_0        = 300.
   }
-
-FickDiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "Independent"
-        Property = "FickCoefficient"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-} 
-
 
 

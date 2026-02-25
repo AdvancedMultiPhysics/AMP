@@ -3,7 +3,7 @@
 <<< "PC-BoomerAMGParameters" >>>
 
 Reference{
-  iterations = 8
+  iterations = 9
   res_l2_norm = 0.0
   tolerance = 2.0e-09
   strict = FALSE

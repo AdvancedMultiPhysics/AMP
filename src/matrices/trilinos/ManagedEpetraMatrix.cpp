@@ -81,24 +81,24 @@ std::shared_ptr<Matrix> ManagedEpetraMatrix::transpose() const
 /********************************************************
  * Get the left/right Vector/DOFManager                  *
  ********************************************************/
-std::shared_ptr<Vector> ManagedEpetraMatrix::getRightVector() const
+std::shared_ptr<Vector> ManagedEpetraMatrix::createInputVector() const
 {
     const auto data = std::dynamic_pointer_cast<const EpetraMatrixData>( d_matrixData );
     AMP_ASSERT( data );
-    return data->getRightVector();
+    return data->createInputVector();
 }
-std::shared_ptr<Vector> ManagedEpetraMatrix::getLeftVector() const
+std::shared_ptr<Vector> ManagedEpetraMatrix::createOutputVector() const
 {
     const auto data = std::dynamic_pointer_cast<const EpetraMatrixData>( d_matrixData );
     AMP_ASSERT( data );
-    return data->getLeftVector();
+    return data->createOutputVector();
 }
 
 
 std::shared_ptr<Vector> ManagedEpetraMatrix::extractDiagonal( std::shared_ptr<Vector> vec ) const
 {
     if ( !vec )
-        vec = getRightVector();
+        vec = createInputVector();
     d_matrixOps->extractDiagonal( *d_matrixData, vec );
     return vec;
 }
@@ -116,8 +116,8 @@ void ManagedEpetraMatrix::multiply( shared_ptr other_op, std::shared_ptr<Matrix>
 #else
     AMP_MPI::Comm epetraComm = AMP_COMM_SELF;
 #endif
-    auto leftVec  = this->getLeftVector();
-    auto rightVec = other_op->getRightVector();
+    auto leftVec  = this->createOutputVector();
+    auto rightVec = other_op->createInputVector();
 
     auto memp = std::make_shared<MatrixParameters>( leftVec->getDOFManager(),
                                                     rightVec->getDOFManager(),
@@ -127,10 +127,10 @@ void ManagedEpetraMatrix::multiply( shared_ptr other_op, std::shared_ptr<Matrix>
                                                     leftVec->getCommunicationList(),
                                                     rightVec->getCommunicationList() );
 
-    result = std::make_shared<ManagedEpetraMatrix>( memp );
+    std::shared_ptr<Matrix> newMatrix = std::make_shared<ManagedEpetraMatrix>( memp );
+    result.swap( newMatrix );
     PROFILE( "Epetra::MatrixMultiply" );
-    d_matrixOps->matMultiply(
-        *d_matrixData, *( other_op->getMatrixData() ), *( result->getMatrixData() ) );
+    d_matrixOps->matMatMult( d_matrixData, other_op->getMatrixData(), result->getMatrixData() );
 }
 
 } // namespace AMP::LinearAlgebra

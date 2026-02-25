@@ -18,12 +18,14 @@ virtualCallInConstructor:*  // False errors
 nullPointerRedundantCheck:*
 internalAstError:*
 class_X_Y:*
+invalidPrintfArgType_uint:*
 
 
 //***********************************************************
 // Suppress external code                                   *
 //***********************************************************
 *:*/mpicxx.h
+*:*/mpi/*
 
 
 //***********************************************************
@@ -33,11 +35,22 @@ class_X_Y:*
 arrayIndexOutOfBounds:*/AMP/utils/DelaunayFaceList.hpp
 duplicateExpression:*/AMP/utils/Array.hpp
 duplicateExpression:*/AMP/utils/Database.hpp
+duplInheritedMember:*/AMP/mesh/MultiMesh.h
+duplInheritedMember:*/AMP/mesh/structured/BoxMesh.h
+duplInheritedMember:*/AMP/mesh/libmesh/libmeshMesh.h
+duplInheritedMember:*/AMP/mesh/triangle/TriangleHelpers.h
+duplInheritedMember:*/AMP/mesh/STKmesh/STKMesh.h
+duplInheritedMember:*/AMP/operators/map/StridedZAxisMap.h
+duplInheritedMember:*/AMP/operators/map/libmesh/SubchannelToCladGPMap.h
+duplInheritedMember:*/AMP/vectors/MultiVector.h
+duplInheritedMember:*/AMP/vectors/data/MultiVectorData.h
 constParameter:*/AMP/matrices/Matrix.inline.h
 constParameter:*/AMP/vectors/Vector.inline.h
 containerOutOfBounds:*/AMP/utils/DelaunayHelpers.h
+containerOutOfBounds:*/AMP/utils/DelaunayFaceList.hpp
 containerOutOfBounds:*/AMP/utils/Units.hpp
 invalidLifetime:*/AMP/utils/kdtree2.hpp
+memleakOnRealloc:*/AMP/utils/kdtree2.hpp
 memsetClass:*/AMP/utils/Array.hpp
 multiCondition:*/AMP/vectors/Scalar.hpp
 noConstructor:*/AMP/utils/RNG.h
@@ -78,6 +91,9 @@ templateRecursion:*/AMP/utils/AMP_MPI.I
 unusedPrivateFunction:*/AMP/materials/Property.h
 invalidPointerCast:*/AMP/vectors/data/VectorDataIterator.hpp
 uninitMemberVar:*/AMP/utils/Units.hpp
+passedByValue:*/AMP/utils/FunctionTable.hpp
+nullPointer:*/AMP/utils/FunctionTable.hpp
+invalidFunctionArgBool:*/AMP/utils/FunctionTable.hpp
 
 
 //***********************************************************
@@ -86,6 +102,7 @@ uninitMemberVar:*/AMP/utils/Units.hpp
 *:*/src/utils/tinyexpr/tinyexpr.c
 *:*/src/mesh/dendro/*
 *:*/src/mesh/hex8_element_t.cpp
+autovarInvalidDeallocation:*/src/discretization/subsetCommSelfDOFManager.cpp
 arrayIndexOutOfBounds:*/src/utils/DelaunayTessellation.cpp
 arrayIndexOutOfBoundsCond:*/src/geometry/shapes/SquareFrustum.cpp
 arrayIndexOutOfBoundsCond:*/src/mesh/edge_t.cpp
@@ -101,15 +118,27 @@ constParameter:*/src/operators/trilinos/TrilinosMatrixShellOperator.cpp
 constParameter:*/src/vectors/petsc/PetscHelpers.cpp
 containerOutOfBounds:*/src/mesh/MeshElement.cpp
 containerOutOfBounds:*/src/mesh/structured/structuredMeshElement.cpp
+containerOutOfBounds:*/src/mesh/triangle/TriangleMesh.cpp
 containerOutOfBounds:*/src/utils/DelaunayTessellation.cpp
 containerOutOfBounds:*/src/utils/test/test_AMP_MPI.cpp
+containerOutOfBounds:*/src/geometry/LogicalGeometry.cpp
 copyCtorPointerCopying:*/src/utils/AMP_MPI.cpp
 duplicateAssignExpression:*/src/mesh/testHelpers/meshTests.cpp
 duplicateAssignExpression:*/src/matrices/test/testMatVec.cpp
 duplicateExpression:*/src/mesh/structured/BoxMesh.cpp
 duplicateExpression:*/src/mesh/testHelpers/meshTests.cpp
 duplicateExpression:*/src/utils/DatabaseKeyData.cpp
+duplInheritedMember:*/src/mesh/MultiMesh.cpp
+duplInheritedMember:*/src/mesh/structured/BoxMesh.cpp
+duplInheritedMember:*/src/mesh/libmesh/libmeshMesh.cpp
+duplInheritedMember:*/src/mesh/triangle/TriangleHelpers.cpp
+duplInheritedMember:*/src/mesh/STKmesh/STKMesh.cpp
+duplInheritedMember:*/src/operators/map/StridedZAxisMap.cpp
+duplInheritedMember:*/src/operators/map/libmesh/SubchannelToCladGPMap.cpp
+duplInheritedMember:*/src/vectors/data/MultiVectorData.cpp
 exceptNew:*/src/matrices/trilinos/ManagedEpetraMatrix.cpp
+floatConversionOverflow:*/src/utils/test/UtilityHelpers.h
+identicalConditionAfterEarlyExit:*/src/IO/HDF5.types.cpp
 ignoredReturnValue:*/src/geometry/GeometryHelpers.cpp
 incorrectLogicOperator:*/src/mesh/triangle/TriangleMeshElement.cpp
 invalidLifetime:*/src/mesh/libmesh/libmeshMesh.cpp
@@ -121,6 +150,7 @@ knownConditionTrueFalse:*/src/utils/threadpool/thread_pool.cpp
 knownConditionTrueFalse:*/src/utils/DelaunayInterpolation.cpp
 knownConditionTrueFalse:*/src/utils/DelaunayTessellation.cpp
 legacyUninitvar:*/src/vectors/testHelpers/trilinos/epetra/EpetraVectorTests.cpp
+memleakOnRealloc:*/src/matrices/GetRowHelper.cpp
 missingReturn:*/src/utils/AMPManager.cpp
 operatorEqVarError:*/src/utils/threadpool/ThreadPoolId.hpp
 negativeContainerIndex:*/src/utils/DelaunayTessellation.cpp
@@ -128,6 +158,7 @@ noOperatorEq:*/src/utils/Utilities.cpp
 noExplicitConstructor:*/src/graphics/getLines/mainwindow.cpp
 unknownMacro:*/src/graphics/getLines/ThreadedSlotsClass.h
 objectIndex:*/src/mesh/libmesh/initializeLibMesh.cpp
+objectIndex:*/AMP/vectors/data/VectorData.inline.h
 oppositeInnerCondition:*/src/mesh/MultiMesh.cpp
 oppositeInnerCondition:*/src/mesh/loadBalance/loadBalanceSimulator.cpp
 passedByValue:*/src/operators/subchannel/SubchannelHelpers.cpp
@@ -137,6 +168,7 @@ passedByValue:*/src/utils/DatabaseKeyData.cpp
 postfixOperator:*/src/mesh/testHelpers/meshTests.cpp
 redundantCondition:*/src/mesh/triangle/TriangleMeshElement.cpp
 redundantPointerOp:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
+returnReference:*/AMP/vectors/data/VectorDataIterator.hpp
 shadowVariable:*/src/mesh/STKmesh/STKMesh.cpp
 shadowVariable:*/src/mesh/libmesh/libmeshMesh.cpp
 shadowVariable:*/src/utils/DelaunayTessellation.cpp
@@ -144,7 +176,7 @@ shiftTooManyBits:*/src/utils/extended_int.cpp
 syntaxError:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
 syntaxError:*/src/utils/cuda/helper_cuda.cpp
 uninitMemberVar:*/src/matrices/petsc/NativePetscMatrix.cpp
-uninitMemberVar:*/src/operators/boundary/libmesh/RobinMatrixCorrection.cpp
+uninitMemberVar:*/src/mesh/structured/structuredMeshIterator.cpp
 uninitMemberVar:*/src/operators/boundary/libmesh/TractionBoundaryOperator.cpp
 uninitMemberVar:*/src/operators/diffusion/DiffusionElement.cpp
 uninitMemberVar:*/src/operators/flow/FlowElement.cpp
@@ -169,7 +201,8 @@ useInitializationList:*/src/utils/AMP_MPI.cpp
 uninitMemberVar:*/src/solvers/petsc/PetscKrylovSolver.cpp
 uninitvar:*/src/utils/DelaunayInterpolation.cpp
 uninitvar:*/src/utils/DelaunayTessellation.cpp
-unknownMacro:*/src/utils/Array.cpp
+unknownMacro:*/src/matrices/operations/default/CSRMatrixOperationsDefault.cpp
+unknownMacro:*/src/matrices/operations/kokkos/CSRMatrixOperationsKokkos.cpp
 unreadVariable:*/src/utils/DelaunayInterpolation.cpp
 unreadVariable:*/src/utils/DelaunayTessellation.cpp
 unreadVariable:*/src/IO/HDF5writer.cpp

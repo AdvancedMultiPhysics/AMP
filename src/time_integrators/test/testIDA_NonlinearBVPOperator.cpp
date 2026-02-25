@@ -42,14 +42,14 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
 
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
-    auto input_db = AMP::Database::parseInputFile( input_file );
-    input_db->print( AMP::plog );
+    auto db = AMP::Database::parseInputFile( input_file );
+    db->print( AMP::plog );
 
-    AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
-    auto mesh_db   = input_db->getDatabase( "Mesh" );
+    AMP_INSIST( db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
+    auto mesh_db   = db->getDatabase( "Mesh" );
     auto mgrParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     mgrParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-    auto meshAdapter = AMP::Mesh::MeshFactory::create( mgrParams );
+    auto mesh = AMP::Mesh::MeshFactory::create( mgrParams );
 
     // Create a DOF manager for a nodal vector
     int DOFsPerNode          = 1;
@@ -59,36 +59,29 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     bool split               = true;
 
     auto nodalDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
+        mesh, AMP::Mesh::GeomType::Vertex, nodalGhostWidth, DOFsPerNode, split );
     auto gaussPointDofMap = AMP::Discretization::simpleDOFManager::create(
-        meshAdapter, AMP::Mesh::GeomType::Cell, gaussPointGhostWidth, DOFsPerElement, split );
+        mesh, AMP::Mesh::GeomType::Cell, gaussPointGhostWidth, DOFsPerElement, split );
 
     // create a nonlinear BVP operator for nonlinear BVP operator
-    AMP_INSIST( input_db->keyExists( "NonlinearOperator" ), "key missing!" );
+    AMP_INSIST( db->keyExists( "NonlinearOperator" ), "key missing!" );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> elementModel;
     auto nonlinearOperator = std::dynamic_pointer_cast<AMP::Operator::NonlinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "NonlinearOperator", input_db, elementModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "NonlinearOperator", db ) );
 
     auto outputVar = nonlinearOperator->getOutputVariable();
     // create a linear BVP operator
     auto linearOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "LinearOperator", input_db, elementModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "LinearOperator", db ) );
 
     // create a mass linear BVP operator
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> massElementModel;
     auto massOperator = std::dynamic_pointer_cast<AMP::Operator::LinearBVPOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "MassLinearOperator", input_db, massElementModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "MassLinearOperator", db ) );
 
     //  create neutronics source
-    AMP_INSIST( input_db->keyExists( "NeutronicsOperator" ),
-                "Key ''NeutronicsOperator'' is missing!" );
-    auto neutronicsOp_db = input_db->getDatabase( "NeutronicsOperator" );
-    auto neutronicsParams =
-        std::make_shared<AMP::Operator::NeutronicsRhsParameters>( neutronicsOp_db );
+    AMP_INSIST( db->keyExists( "NeutronicsOperator" ), "Key ''NeutronicsOperator'' is missing!" );
+    auto neutronicsOp_db  = db->getDatabase( "NeutronicsOperator" );
+    auto neutronicsParams = std::make_shared<AMP::Operator::OperatorParameters>( neutronicsOp_db );
     auto neutronicsOperator = std::make_shared<AMP::Operator::NeutronicsRhs>( neutronicsParams );
 
     auto SpecificPowerVar = neutronicsOperator->getOutputVariable();
@@ -101,12 +94,10 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     //  Integrate Nuclear Rhs over Density * GeomType::Cell //
 
-    AMP_INSIST( input_db->keyExists( "VolumeIntegralOperator" ), "key missing!" );
+    AMP_INSIST( db->keyExists( "VolumeIntegralOperator" ), "key missing!" );
 
-    std::shared_ptr<AMP::Operator::ElementPhysicsModel> sourceTransportModel;
     auto sourceOperator = std::dynamic_pointer_cast<AMP::Operator::VolumeIntegralOperator>(
-        AMP::Operator::OperatorBuilder::createOperator(
-            meshAdapter, "VolumeIntegralOperator", input_db, sourceTransportModel ) );
+        AMP::Operator::OperatorBuilder::createOperator( mesh, "VolumeIntegralOperator", db ) );
 
     // Create the power (heat source) vector.
     auto powerInWattsVar = sourceOperator->getOutputVariable();
@@ -122,7 +113,7 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     auto f                     = AMP::LinearAlgebra::createVector( nodalDofMap, outputVar );
 
     // set initial conditions, initialize created vectors
-    auto node     = meshAdapter->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+    auto node     = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     auto end_node = node.end();
     int counter   = 0;
     for ( ; node != end_node; ++node ) {
@@ -189,9 +180,8 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
     // create a preconditioner
 
     // get the ida database
-    AMP_INSIST( input_db->keyExists( "IDATimeIntegrator" ),
-                "Key ''IDATimeIntegrator'' is missing!" );
-    auto ida_db         = input_db->getDatabase( "IDATimeIntegrator" );
+    AMP_INSIST( db->keyExists( "IDATimeIntegrator" ), "Key ''IDATimeIntegrator'' is missing!" );
+    auto ida_db         = db->getDatabase( "IDATimeIntegrator" );
     auto pcSolver_db    = ida_db->getDatabase( "Preconditioner" );
     auto pcSolverParams = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcSolver_db );
     pcSolverParams->d_pOperator = linearTimeOperator;
@@ -221,8 +211,8 @@ static void IDATimeIntegratorTest( AMP::UnitTest *ut )
 
     time_Params->d_pMassOperator = massOperator;
     // time_Params->d_pMassOperator = massLinearOperator;
-    time_Params->d_operator        = nonlinearOperator;
-    time_Params->d_pPreconditioner = pcSolver;
+    time_Params->d_operator      = nonlinearOperator;
+    time_Params->d_pNestedSolver = pcSolver;
 
     time_Params->d_ic_vector       = initialCondition;
     time_Params->d_ic_vector_prime = initialConditionPrime;

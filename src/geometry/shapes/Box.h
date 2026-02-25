@@ -10,6 +10,9 @@
 namespace AMP::Geometry {
 
 
+std::unique_ptr<AMP::Geometry::Geometry> buildBox( std::shared_ptr<const AMP::Database> db );
+
+
 /**
  * \class Geometry
  * \brief A class used to abstract away geometry information from an application or mesh.

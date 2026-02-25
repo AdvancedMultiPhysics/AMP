@@ -207,6 +207,15 @@ public: // Mesh based tests
 
 
     /**
+     * \brief Check BoxMesh
+     * \details  Test specific BoxMesh tests
+     * \param[in,out] ut        Unit test class to report the results
+     * \param[in] mesh          Mesh to test
+     */
+    static void testBoxMesh( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::Mesh> mesh );
+
+
+    /**
      * \brief Check mesh performance
      * \details Test the performance of some common mesh operations
      * \param[in,out] ut        Unit test class to report the results
@@ -314,24 +323,18 @@ public: // Vector based tests
 
 
 public: // Matrix based tests
-    template<int DOF_PER_NODE, bool SPLIT>
     static void VerifyGetMatrixTrivialTest( AMP::UnitTest &ut,
-                                            std::shared_ptr<AMP::Mesh::Mesh> mesh );
+                                            std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                                            int dofsPerNode,
+                                            bool split );
 
-    template<int DOF_PER_NODE, bool SPLIT>
-    static void GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh );
+    static void GhostWriteTest( AMP::UnitTest &ut,
+                                std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                                int dofsPerNode,
+                                bool split );
 
 
-private: // Private data
-         /**
-          * \brief Check a mesh iterator
-          * \details  This test performs a series of simple tests on a single mesh element iterator
-          * \param[out] ut           Unit test class to report the results
-          * \param[in] mesh          mesh for the iterator
-          * \param[in] iterator      local iterator over elements
-          * \param[in] type          Geometric type
-          * \param[in] name          Name of test
-          */
+private:
     static std::pair<size_t, size_t> ElementIteratorTest( AMP::UnitTest &ut,
                                                           std::shared_ptr<AMP::Mesh::Mesh> mesh,
                                                           const AMP::Mesh::MeshIterator &iterator,
@@ -346,7 +349,6 @@ private: // Private data
 } // namespace AMP::Mesh
 
 // Extra includes
-#include "AMP/mesh/testHelpers/meshMatrixTests.inline.h"
 #include "AMP/mesh/testHelpers/meshVectorTests.inline.h"
 
 

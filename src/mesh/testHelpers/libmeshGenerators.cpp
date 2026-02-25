@@ -41,7 +41,7 @@ void MultiMeshGenerator::build_mesh()
     meshArrayDatabase->putVector<int>( "indicies", indexArray );
     meshArrayDatabase->putScalar<std::string>( "MeshName", "pellet_%i" );
 #ifdef AMP_USE_LIBMESH
-    meshArrayDatabase->putScalar<std::string>( "FileName", "pellet_lo_res.e" );
+    meshArrayDatabase->putScalar<std::string>( "FileName", "pellet_1x.e" );
     meshArrayDatabase->putScalar<std::string>( "MeshType", "libMesh" );
 #else
     std::vector<int> size( 3, 10 );
@@ -161,8 +161,9 @@ void libMeshThreeElementGenerator::build_mesh()
     }
 
     const short int boundaryId = 1;
+    auto &boundary_info        = local_mesh->get_boundary_info();
     for ( auto &bndDofIndice : getBndDofIndices() ) {
-        local_mesh->boundary_info->add_node( local_mesh->node_ptr( bndDofIndice ), boundaryId );
+        boundary_info.add_node( local_mesh->node_ptr( bndDofIndice ), boundaryId );
     }
 
     local_mesh->prepare_for_use( false );
@@ -175,6 +176,47 @@ libMeshThreeElementGenerator::~libMeshThreeElementGenerator()
 {
     mesh.reset();
     libmeshInit.reset();
+}
+
+
+/********************************************************
+ * LibMeshCubeGenerator                                 *
+ ********************************************************/
+void AMP::unit_test::LibMeshCubeGenerator::build_mesh()
+{
+#ifdef AMP_USE_LIBMESH
+    auto database = std::make_shared<AMP::Database>( "Mesh" );
+    database->putScalar<int>( "dim", 3 );
+    database->putScalar<std::string>( "MeshName", "cube_mesh" );
+    database->putScalar<std::string>( "Generator", "cube" );
+    database->putVector<int>( "size", std::vector<int>( 3, SIZE ) );
+    database->putVector<double>( "xmin", std::vector<double>( 3, -1.0 ) );
+    database->putVector<double>( "xmax", std::vector<double>( 3, 1.0 ) );
+    auto params = std::make_shared<AMP::Mesh::MeshParameters>( database );
+    params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
+    mesh = std::make_shared<AMP::Mesh::libmeshMesh>( params );
+#else
+    AMP_ERROR( "LibMeshCubeGenerator requires libMesh" );
+#endif
+}
+
+
+/********************************************************
+ * ExodusReaderGenerator                                 *
+ ********************************************************/
+void AMP::unit_test::ExodusReaderGenerator::build_mesh()
+{
+#ifdef AMP_USE_LIBMESH
+    auto database = std::make_shared<AMP::Database>( "Mesh" );
+    database->putScalar( "dim", 3 );
+    database->putScalar<std::string>( "MeshName", "exodus reader mesh" );
+    database->putScalar<std::string>( "FileName", d_file );
+    auto params = std::make_shared<AMP::Mesh::MeshParameters>( database );
+    params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
+    mesh = std::make_shared<AMP::Mesh::libmeshMesh>( params );
+#else
+    AMP_ERROR( "ExodusReaderGenerator requires libMesh" );
+#endif
 }
 
 

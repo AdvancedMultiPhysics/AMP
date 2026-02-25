@@ -30,7 +30,7 @@ public:
         out->linearSum( d_constant, *inP, 1.0, *inS );
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getInputVariable() const override
     {
         auto retVariable = std::make_shared<AMP::LinearAlgebra::MultiVariable>( "MultiVariable" );
         retVariable->add( d_primaryVar );
@@ -38,7 +38,7 @@ public:
         return retVariable;
     }
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() override
+    std::shared_ptr<AMP::LinearAlgebra::Variable> getOutputVariable() const override
     {
         return d_primaryVar;
     }

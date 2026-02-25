@@ -16,8 +16,7 @@ class DeviceOperationsHelpers
 {
 public:
     //  functions that operate on VectorData
-    static void setToScalar( TYPE alpha, size_t N, TYPE *z );
-    static void copy( size_t N, const TYPE *x, TYPE *z );
+    static void setRandomValues( size_t N, TYPE *x );
     static void scale( TYPE alpha, size_t N, const TYPE *x, TYPE *y );
     static void scale( TYPE alpha, size_t N, TYPE *x );
     static void add( size_t N, const TYPE *x, const TYPE *y, TYPE *z );
@@ -25,7 +24,8 @@ public:
     static void multiply( size_t N, const TYPE *x, const TYPE *y, TYPE *z );
     static void divide( size_t N, const TYPE *x, const TYPE *y, TYPE *z );
     static void reciprocal( size_t N, const TYPE *x, TYPE *y );
-    static void linearSum( TYPE alpha, size_t N, const TYPE *x, TYPE beta, const TYPE *y, TYPE *z );
+    static void
+    linearSum( const TYPE alpha, size_t N, const TYPE *x, const TYPE beta, const TYPE *y, TYPE *z );
     static void abs( size_t N, const TYPE *x, TYPE *z );
     static void addScalar( size_t N, const TYPE *x, TYPE alpha_in, TYPE *y );
     static void setMax( size_t N, TYPE val, TYPE *x );

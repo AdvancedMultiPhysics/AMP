@@ -136,6 +136,84 @@ DensitySubchannelToCladMaps{
     VariableName = "Density"
 }
 
+PelletDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "ThermalConductivity"
+    Default_Concentration = 0.1
+    Default_Temperature   = 557.0
+    Default_Burnup   = 0.0
+}
+
+PelletSourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "Independent"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE
+    Default_Concentration = 0.1
+    Default_Temperature   = 557.0
+    Default_Burnup        = 0.0
+}
+
+CladDiffusionTransportModel{
+    name = "DiffusionTransportModel"
+    Material = "Independent"
+    Property = "ThermalConductivity"
+    Default_Concentration = 0.1
+    Default_Temperature   = 557.0
+    Default_Burnup   = 0.0
+}
+
+CladSourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "Independent"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE
+    Default_Concentration = 0.1
+    Default_Temperature   = 557.0
+    Default_Burnup        = 0.0
+}
+
+SubchannelPhysicsModel{
+    name = "SubchannelPhysicsModel"
+    Material = "WaterLibrary"
+    Formulation = "FunctionsTesting"
+    Defaults{
+        diameter    = 0.01178  // Todreas, p.455
+        temperature = 350.0
+        enthalpy    = 200.0e3
+        pressure    = 0.5e6
+        density     = 973.919
+        reynolds    = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
+        prandtl     = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
+    }
+}
+
+ConvectiveHeatCoefficient{
+    name = "ConvectiveHeatCoefficient"
+    Material = "WaterLibrary"
+    Property = "ConvectiveHeat"
+    ActiveInputVariables{
+      ActiveVariable_0 = "Temperature"
+      ActiveVariable_1 = "Density"
+      ActiveVariable_2 = "ChannelDiameter"
+      //ActiveVariable_3 = "Reynolds"
+      //ActiveVariable_4 = "Prandtl"
+    }
+    ActiveParameters{
+      FUEL_TEMPERATURE = "Temperature"
+    }
+    Defaults{
+      diameter         = 0.01178  // Todreas, p.455
+      temperature      = 400.0    // K
+      density          = 704      // Density of water ????
+      reynolds         = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
+      prandtl          = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
+    }
+}
+
 CopyOperator{
   name = "VectorCopyOperator"
     print_info_level = 0
@@ -234,7 +312,7 @@ MiddlePelletLinearThermalBoundaryConditions {
 }
 
 MiddleP2PNonlinearRobinBoundaryCondition {
-  name = "RobinVectorCorrection"
+    name = "RobinVectorCorrection"
     FE_ORDER = "FIRST"
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -259,7 +337,7 @@ MiddleP2PNonlinearRobinBoundaryCondition {
 }
 
 MiddleP2PLinearRobinBoundaryCondition {
-  name = "RobinMatrixCorrection"
+    name = "RobinMatrixCorrection"
     FE_ORDER = "FIRST"
     FE_FAMILY = "LAGRANGE"
     QRULE_TYPE = "QGAUSS"
@@ -350,26 +428,26 @@ TopP2PLinearRobinBoundaryCondition {
 }
 
 PelletDiffusionNonlinearFEOperator {
-  name = "DiffusionNonlinearFEOperator"
+    name = "DiffusionNonlinearFEOperator"
     print_info_level = 1
     ActiveInputVariables {
-      temperature = "Temperature"
+        temperature = "Temperature"
     }
     OutputVariable = "Temperature"
     PrincipalVariable = "Temperature"
     DiffusionElement{
-      name = "DiffusionNonlinearElement"
+        name = "DiffusionNonlinearElement"
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "PelletDiffusionTransportModel"
+    LocalModel = PelletDiffusionTransportModel
 }
 
 PelletDiffusionLinearFEOperator {
-  name = "DiffusionLinearFEOperator"
+    name = "DiffusionLinearFEOperator"
     print_info_level = 1
     reset_reuses_matrix = TRUE
     InputVariable = "Temperature"
@@ -378,14 +456,14 @@ PelletDiffusionLinearFEOperator {
     FixedConcentration = TRUE
     FixedBurnup = TRUE
     DiffusionElement {
-      name = "DiffusionLinearElement"
+        name = "DiffusionLinearElement"
         TransportAtGaussPoints = TRUE
         FE_ORDER = "FIRST"
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "PelletDiffusionTransportModel"
+    LocalModel = PelletDiffusionTransportModel
 }
 
 P2CRobinVectorCorrection {
@@ -429,45 +507,25 @@ P2CRobinMatrixCorrection {
 }
 
 PelletVolumeIntegralOperator{
-  name="VolumeIntegralOperator"
+    name="VolumeIntegralOperator"
     InputVariableType = "IntegrationPointScalar"
     Number_Active_Variables = 1
     Number_Auxillary_Variables = 0
     ConstantSource   = FALSE
     ActiveInputVariables{
-      ActiveVariable_0 = "SpecificPowerInWattsPerGram"
+        ActiveVariable_0 = "SpecificPowerInWattsPerGram"
     }
-  OutputVariable = "Temperature"
+    OutputVariable = "Temperature"
     print_info_level = 1
-    LocalModel = "PelletSourcePhysicsModel"
+    LocalModel = PelletSourcePhysicsModel
     SourceElement {
-      name="SourceNonlinearElement"
+        name="SourceNonlinearElement"
         print_info_level = 0
         FE_ORDER = "FIRST"
         FE_FAMILY = "LAGRANGE"
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-}
-
-PelletDiffusionTransportModel{
-  name = "DiffusionTransportModel"
-    Material = "Independent"
-    Property = "ThermalConductivity"
-    Default_Concentration = 0.1
-    Default_Temperature   = 557.0
-    Default_Burnup   = 0.0
-}
-
-PelletSourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE
-    Default_Concentration = 0.1
-    Default_Temperature   = 557.0
-    Default_Burnup        = 0.0
 }
 
 CladNonlinearThermalOperator {
@@ -485,12 +543,12 @@ CladLinearThermalOperator {
 }
 
 CladDiffusionNonlinearFEOperator {
-  name = "DiffusionNonlinearFEOperator"
+    name = "DiffusionNonlinearFEOperator"
     print_info_level = 1
     ActiveInputVariables {
-      temperature = "Temperature"
+        temperature = "Temperature"
     }
-  OutputVariable = "Temperature"
+    OutputVariable = "Temperature"
     PrincipalVariable = "Temperature"
     DiffusionElement{
       name = "DiffusionNonlinearElement"
@@ -500,11 +558,11 @@ CladDiffusionNonlinearFEOperator {
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "CladDiffusionTransportModel"
+    LocalModel = CladDiffusionTransportModel
 }
 
 CladDiffusionLinearFEOperator {
-  name = "DiffusionLinearFEOperator"
+    name = "DiffusionLinearFEOperator"
     print_info_level = 1
     reset_reuses_matrix = TRUE
     InputVariable = "Temperature"
@@ -520,7 +578,7 @@ CladDiffusionLinearFEOperator {
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }
-  LocalModel = "CladDiffusionTransportModel"
+    LocalModel = CladDiffusionTransportModel
 }
 
 
@@ -594,7 +652,7 @@ C2WBoundaryVectorCorrection {
     number_of_dofs_0 = 1
     dof_0_0 = 0
     value_0_0 = 573.15
-    LocalModel = "ConvectiveHeatCoefficient"
+    LocalModel = ConvectiveHeatCoefficient
 }
 
 C2WBoundaryMatrixCorrection {
@@ -618,20 +676,20 @@ C2WBoundaryMatrixCorrection {
 }
 
 CladVolumeIntegralOperator{
-  name="VolumeIntegralOperator"
+    name="VolumeIntegralOperator"
     InputVariableType = "IntegrationPointScalar"
     Number_Active_Variables = 1
     Number_Auxillary_Variables = 0
     ConstantSource   = FALSE
     ActiveInputVariables{
-      ActiveVariable_0 = "SpecificPowerInWattsPerGram"
+        ActiveVariable_0 = "SpecificPowerInWattsPerGram"
     }
-  OutputVariable = "Temperature"
+    OutputVariable = "Temperature"
     print_info_level = 1
-    LocalModel = "CladSourcePhysicsModel"
+    LocalModel = CladSourcePhysicsModel
 
     SourceElement {
-      name="SourceNonlinearElement"
+        name="SourceNonlinearElement"
         print_info_level = 0
         FE_ORDER = "FIRST"
         FE_FAMILY = "LAGRANGE"
@@ -640,25 +698,6 @@ CladVolumeIntegralOperator{
     }
 }
 
-CladDiffusionTransportModel{
-  name = "DiffusionTransportModel"
-    Material = "Independent"
-    Property = "ThermalConductivity"
-    Default_Concentration = 0.1
-    Default_Temperature   = 557.0
-    Default_Burnup   = 0.0
-}
-
-CladSourcePhysicsModel {
-  name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE
-    Default_Concentration = 0.1
-    Default_Temperature   = 557.0
-    Default_Burnup        = 0.0
-}
 
 SubchannelTwoEqNonlinearOperator{
     name = "SubchannelTwoEqNonlinearOperator"
@@ -676,7 +715,7 @@ SubchannelTwoEqNonlinearOperator{
     Reynolds         = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
     Prandtl          = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
     Heat_Shape = "Sinusoidal"
-    LocalModel = "SubchannelPhysicsModel"
+    LocalModel = SubchannelPhysicsModel
     Friction_Model = "Constant"
     Number_GridSpacers = 0
 }
@@ -697,47 +736,9 @@ SubchannelTwoEqLinearOperator{
     Reynolds         = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
     Prandtl          = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
     Heat_Shape = "Sinusoidal"
-    LocalModel = "SubchannelPhysicsModel"
+    LocalModel = SubchannelPhysicsModel
     Friction_Model = "Constant"
     Number_GridSpacers = 0
-}
-
-ConvectiveHeatCoefficient{
-    name = "ConvectiveHeatCoefficient"
-    Material = "WaterLibrary"
-    Property = "ConvectiveHeat"
-    ActiveInputVariables{
-      ActiveVariable_0 = "Temperature"
-      ActiveVariable_1 = "Density"
-      ActiveVariable_2 = "ChannelDiameter"
-      //ActiveVariable_3 = "Reynolds"
-      //ActiveVariable_4 = "Prandtl"
-    }
-    ActiveParameters{
-      FUEL_TEMPERATURE = "Temperature"
-    }
-    Defaults{
-      diameter         = 0.01178  // Todreas, p.455
-      temperature      = 400.0    // K
-      density          = 704      // Density of water ????
-      reynolds         = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
-      prandtl          = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
-    }
-}
-
-SubchannelPhysicsModel{
-    name = "SubchannelPhysicsModel"
-    Material = "WaterLibrary"
-    Formulation = "FunctionsTesting"
-    Defaults{
-        diameter    = 0.01178  // Todreas, p.455
-        temperature = 350.0
-        enthalpy    = 200.0e3
-        pressure    = 0.5e6
-        density     = 973.919
-        reynolds    = 95432.91 // Todreas, p.456, based on viscosity=8.69e-5; velocity=1 m/s; density=704; & Channel_Diameter
-        prandtl     = 1.0      // Todreas, p.455, based on viscosity=8.69e-5; Conductivity; & Heat_Capacity 
-    }
 }
 
 NonlinearSolver {

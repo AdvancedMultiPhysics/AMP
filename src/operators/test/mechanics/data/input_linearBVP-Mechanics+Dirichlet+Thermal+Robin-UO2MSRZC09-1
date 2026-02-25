@@ -16,6 +16,21 @@ testOperator2 {
    BoundaryOperator="RobinMatrixCorrection"
 }
 
+MechanicsMaterialModel { 
+       name="IsotropicElasticModel"
+       Youngs_Modulus = 2.08e11
+       Poissons_Ratio = 0.23
+}
+
+DiffusionTransportModel{
+        name = "DiffusionTransportModel"
+        Material = "UO2_MSRZC_09"
+        Property = "ThermalConductivity"
+        Default_Concentration = .15
+        Default_Temperature   = 300.
+        Default_Burnup   = 0.0
+} 
+
 MechanicsLinearFEOperator{
       name = "MechanicsLinearFEOperator"
       print_info_level = 1
@@ -32,7 +47,7 @@ MechanicsLinearFEOperator{
        QRULE_ORDER = "DEFAULT"
       }
 
-      LocalModel="MechanicsMaterialModel"
+      LocalModel=MechanicsMaterialModel
 }
 
 DirichletMatrixCorrection{
@@ -48,11 +63,6 @@ DirichletMatrixCorrection{
       dof_0_2          =  2
    }
 
-MechanicsMaterialModel { 
-       name="IsotropicElasticModel"
-       Youngs_Modulus = 2.08e11
-       Poissons_Ratio = 0.23
-}
 
 DiffusionLinearFEOperator{
     name = "DiffusionLinearFEOperator"
@@ -71,7 +81,7 @@ DiffusionLinearFEOperator{
         QRULE_TYPE = "QGAUSS"
         QRULE_ORDER = "DEFAULT"
     }    
-    LocalModel="DiffusionTransportModel"
+    LocalModel=DiffusionTransportModel
 
 }
 
@@ -85,22 +95,13 @@ RobinMatrixCorrection{
    alpha          = 1.0
    beta           = 1.0
    gamma          = 1.0
-   print_info_level = 3
+   print_info_level = 2
    number_of_ids    = 1
    id_0             = 2
    number_of_dofs_0 =   1
    dof_0_0          =   0
    value_0_0        = 101.
   }
-
-DiffusionTransportModel{
-        name = "DiffusionTransportModel"
-        Material = "UO2_MSRZC_09"
-        Property = "ThermalConductivity"
-        Default_Concentration = .15
-        Default_Temperature   = 300.
-        Default_Burnup   = 0.0
-} 
 
 
 

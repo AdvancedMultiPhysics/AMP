@@ -7,7 +7,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -34,7 +33,6 @@ Map3Dto1D::Map3Dto1D( std::shared_ptr<const OperatorParameters> params ) : MapOp
 void Map3Dto1D::reset( std::shared_ptr<const OperatorParameters> params )
 {
     AMP_ASSERT( params );
-    d_memory_location = params->d_memory_location;
 
     auto myparams = std::dynamic_pointer_cast<const MapOperatorParameters>( params );
 
@@ -88,10 +86,10 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     std::vector<int> numFaceGauss( numPoints, 0 );
 
     // Get the local contributions to the map
-    if ( d_MapMesh != nullptr ) {
-        AMP_ASSERT( u != nullptr );
+    if ( d_MapMesh ) {
+        AMP_ASSERT( u );
         AMP::LinearAlgebra::Vector::const_shared_ptr inputVec = subsetInputVector( u );
-        AMP_ASSERT( inputVec != nullptr );
+        AMP_ASSERT( inputVec );
         AMP_ASSERT( inputVec->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
         std::shared_ptr<AMP::Discretization::DOFManager> dof_map = inputVec->getDOFManager();
@@ -101,7 +99,7 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             AMP::pout << inputVec << std::endl;
         }
 
-        AMP_ASSERT( outputVec != nullptr );
+        AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
         AMP::Mesh::MeshIterator bnd =
@@ -223,12 +221,12 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     std::vector<int> numFaceNodes( numPoints, 0 );
 
     // Get the local contributions to the map
-    if ( d_MapMesh != nullptr ) {
-        AMP_ASSERT( u != nullptr );
+    if ( d_MapMesh ) {
+        AMP_ASSERT( u );
 
         // Subset u for the local vector of interest
         AMP::LinearAlgebra::Vector::const_shared_ptr inputVec = subsetInputVector( u );
-        AMP_ASSERT( inputVec != nullptr );
+        AMP_ASSERT( inputVec );
         AMP_ASSERT( inputVec->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
         std::shared_ptr<AMP::Discretization::DOFManager> dof_map = inputVec->getDOFManager();
@@ -238,7 +236,7 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             AMP::pout << inputVec << std::endl;
         }
 
-        AMP_ASSERT( outputVec != nullptr );
+        AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
         AMP::Mesh::MeshIterator bnd =
@@ -248,9 +246,8 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
         // Iterator for the solid-clad boundary
         for ( ; bnd != end_bnd; ++bnd ) {
 
-            AMP::Mesh::MeshElement cur_side = *bnd;
-            std::vector<AMP::Mesh::MeshElement> nodes =
-                cur_side.getElements( AMP::Mesh::GeomType::Vertex );
+            auto &cur_side = *bnd;
+            auto nodes     = cur_side.getElements( AMP::Mesh::GeomType::Vertex );
             AMP_ASSERT( nodes.size() == 4 );
 
             std::vector<double> zcoords;
@@ -315,8 +312,8 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                     AMP_ASSERT( dof1.size() == 1 && dof2.size() == 1 );
 
                     mapValues[i] +=
-                        ( ( inputVec )->getValueByGlobalID( dof1[0] ) * ( z[pickId] - cur_node ) +
-                          ( inputVec )->getValueByGlobalID( dof2[0] ) * ( cur_node - z[0] ) ) /
+                        ( inputVec->getValueByGlobalID( dof1[0] ) * ( z[pickId] - cur_node ) +
+                          inputVec->getValueByGlobalID( dof2[0] ) * ( cur_node - z[0] ) ) /
                         ( z[pickId] - z[0] );
 
                     numFaceNodes[i] += 1;

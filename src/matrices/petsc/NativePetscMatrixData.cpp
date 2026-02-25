@@ -113,16 +113,25 @@ AMP_MPI NativePetscMatrixData::getComm() const
     return AMP_MPI( comm );
 }
 
+void NativePetscMatrixData::setMat( Mat mat, bool manage )
+{
+    if ( d_MatCreatedInternally && d_Mat != nullptr ) {
+        PETSC::matDestroy( &d_Mat );
+    }
+    d_Mat                  = mat;
+    d_MatCreatedInternally = manage;
+}
+
 /********************************************************
  * Get the left/right Vector/DOFManager                  *
  ********************************************************/
-Vector::shared_ptr NativePetscMatrixData::getRightVector() const
+Vector::shared_ptr NativePetscMatrixData::createInputVector() const
 {
     Vec a;
     MatCreateVecs( d_Mat, &a, nullptr );
     return createVector( a, true );
 }
-Vector::shared_ptr NativePetscMatrixData::getLeftVector() const
+Vector::shared_ptr NativePetscMatrixData::createOutputVector() const
 {
     Vec a;
     MatCreateVecs( d_Mat, nullptr, &a );
@@ -135,7 +144,7 @@ std::shared_ptr<Discretization::DOFManager> NativePetscMatrixData::getRightDOFMa
     if ( parameters )
         return parameters->getRightDOFManager();
 
-    return getRightVector()->getDOFManager();
+    return createInputVector()->getDOFManager();
 }
 
 std::shared_ptr<Discretization::DOFManager> NativePetscMatrixData::getLeftDOFManager() const
@@ -144,7 +153,7 @@ std::shared_ptr<Discretization::DOFManager> NativePetscMatrixData::getLeftDOFMan
     if ( parameters )
         return parameters->getLeftDOFManager();
 
-    return getLeftVector()->getDOFManager();
+    return createOutputVector()->getDOFManager();
 }
 
 
@@ -153,32 +162,49 @@ std::shared_ptr<Discretization::DOFManager> NativePetscMatrixData::getLeftDOFMan
  ********************************************************/
 size_t NativePetscMatrixData::numGlobalRows() const
 {
-    int rows, cols;
+    PetscInt rows, cols;
     MatGetSize( d_Mat, &rows, &cols );
-    return (size_t) rows;
+    return static_cast<size_t>( rows );
 }
 size_t NativePetscMatrixData::numGlobalColumns() const
 {
-    int rows, cols;
+    PetscInt rows, cols;
     MatGetSize( d_Mat, &rows, &cols );
-    return (size_t) cols;
+    return static_cast<size_t>( cols );
 }
 void NativePetscMatrixData::getRowByGlobalID( size_t row,
                                               std::vector<size_t> &cols,
                                               std::vector<double> &values ) const
 {
     PetscInt numCols;
-    MatGetRow( d_Mat, row, &numCols, nullptr, nullptr );
+    auto petscRow = static_cast<PetscInt>( row );
+    MatGetRow( d_Mat, petscRow, &numCols, nullptr, nullptr );
     cols.resize( numCols );
     values.resize( numCols );
+    // the call below interestingly resets petscCols
     MatRestoreRow( d_Mat, row, &numCols, nullptr, nullptr );
     if ( cols.size() ) { // the restore zeros out nCols
         const PetscInt *out_cols;
         const PetscScalar *out_vals;
         MatGetRow( d_Mat, row, &numCols, &out_cols, &out_vals );
-        std::copy(
-            (unsigned int *) out_cols, (unsigned int *) ( out_cols + numCols ), cols.begin() );
-        std::copy( (double *) out_vals, (double *) ( out_vals + numCols ), values.begin() );
+        if constexpr ( std::is_same_v<PetscInt, size_t> ) {
+            std::copy( out_cols, ( out_cols + numCols ), cols.begin() );
+        } else {
+            std::transform( (PetscInt *) out_cols,
+                            (PetscInt *) ( out_cols + numCols ),
+                            cols.begin(),
+                            []( PetscInt x ) { return static_cast<size_t>( x ); } );
+        }
+        if constexpr ( std::is_same_v<PetscScalar, double> ) {
+            std::copy(
+                (PetscScalar *) out_vals, (PetscScalar *) ( out_vals + numCols ), values.begin() );
+        } else {
+            std::transform( (PetscScalar *) out_vals,
+                            (PetscScalar *) ( out_vals + numCols ),
+                            values.begin(),
+                            []( PetscScalar x ) { return static_cast<double>( x ); } );
+        }
+
         MatRestoreRow( d_Mat, row, &numCols, &out_cols, &out_vals );
     }
 }
@@ -190,41 +216,77 @@ std::vector<size_t> NativePetscMatrixData::getColumnIDs( size_t row ) const
     MatRestoreRow( d_Mat, row, &numCols, nullptr, nullptr );
 
     if ( cols.size() ) { // the restore zeros out nCols
+
         const PetscInt *out_cols;
         MatGetRow( d_Mat, row, &numCols, &out_cols, nullptr );
-        std::copy(
-            (unsigned int *) out_cols, (unsigned int *) ( out_cols + numCols ), cols.begin() );
+
+        if constexpr ( std::is_same_v<PetscInt, size_t> ) {
+            std::copy( out_cols, ( out_cols + numCols ), cols.begin() );
+        } else {
+            std::transform( (PetscInt *) out_cols,
+                            (PetscInt *) ( out_cols + numCols ),
+                            cols.begin(),
+                            []( PetscInt x ) { return static_cast<size_t>( x ); } );
+        }
         MatRestoreRow( d_Mat, row, &numCols, &out_cols, nullptr );
     }
 
     return cols;
 }
-void NativePetscMatrixData::addValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void NativePetscMatrixData::addValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     std::vector<PetscInt> petsc_rows( num_rows );
     std::vector<PetscInt> petsc_cols( num_cols );
-    std::copy( rows, rows + num_rows, petsc_rows.begin() );
-    std::copy( cols, cols + num_cols, petsc_cols.begin() );
 
-    if ( id == getTypeID<double>() ) {
-        auto values = reinterpret_cast<const double *>( vals );
+    if constexpr ( std::is_same_v<PetscInt, size_t> ) {
+        std::copy( rows, rows + num_rows, petsc_rows.begin() );
+        std::copy( cols, cols + num_cols, petsc_cols.begin() );
+    } else {
+        std::transform( cols, cols + num_cols, petsc_cols.begin(), []( size_t x ) {
+            return static_cast<PetscInt>( x );
+        } );
+        std::transform( rows, rows + num_rows, petsc_rows.begin(), []( size_t x ) {
+            return static_cast<PetscInt>( x );
+        } );
+    }
+
+    if ( id == getTypeID<PetscScalar>() ) {
+        auto values = reinterpret_cast<const PetscScalar *>( vals );
         MatSetValues(
             d_Mat, num_rows, &petsc_rows[0], num_cols, &petsc_cols[0], values, ADD_VALUES );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
 }
-void NativePetscMatrixData::setValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void NativePetscMatrixData::setValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     std::vector<PetscInt> petsc_rows( num_rows );
     std::vector<PetscInt> petsc_cols( num_cols );
-    std::copy( rows, rows + num_rows, petsc_rows.begin() );
-    std::copy( cols, cols + num_cols, petsc_cols.begin() );
 
-    if ( id == getTypeID<double>() ) {
-        auto values = reinterpret_cast<const double *>( vals );
+    if constexpr ( std::is_same_v<PetscInt, size_t> ) {
+        std::copy( rows, rows + num_rows, petsc_rows.begin() );
+        std::copy( cols, cols + num_cols, petsc_cols.begin() );
+    } else {
+        std::transform( cols, cols + num_cols, petsc_cols.begin(), []( size_t x ) {
+            return static_cast<PetscInt>( x );
+        } );
+        std::transform( rows, rows + num_rows, petsc_rows.begin(), []( size_t x ) {
+            return static_cast<PetscInt>( x );
+        } );
+    }
+
+    if ( id == getTypeID<PetscScalar>() ) {
+        auto values = reinterpret_cast<const PetscScalar *>( vals );
         MatSetValues(
             d_Mat, num_rows, &petsc_rows[0], num_cols, &petsc_cols[0], values, INSERT_VALUES );
     } else {
@@ -233,13 +295,13 @@ void NativePetscMatrixData::setValuesByGlobalID(
 }
 void NativePetscMatrixData::getValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
                                                  void *vals,
                                                  const typeID &id ) const
 {
-    if ( id == getTypeID<double>() ) {
-        auto values = reinterpret_cast<double *>( vals );
+    if ( id == getTypeID<PetscScalar>() ) {
+        auto values = reinterpret_cast<PetscScalar *>( vals );
         // Zero out the data in values
         for ( size_t i = 0; i < num_rows * num_cols; i++ )
             values[i] = 0.0;

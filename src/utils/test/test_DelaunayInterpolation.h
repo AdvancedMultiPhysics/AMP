@@ -7,10 +7,6 @@
 #include "ProfilerApp.h"
 
 
-// #define R_INT 0x20000000
-#define R_INT 1000000
-
-
 // Compute the L2 norm of a vector ||x||
 inline double L2norm( const AMP::Array<double> &x, const bool *mask = nullptr )
 {
@@ -42,6 +38,45 @@ L2errNorm( const AMP::Array<double> &x1, const AMP::Array<double> &x2, const boo
             norm += mask[i] ? ( x1( i ) - x2( i ) ) * ( x1( i ) - x2( i ) ) : 0;
     }
     return std::sqrt( norm );
+}
+
+
+// Get the circumsphere
+template<class TYPE>
+void get_circumsphere( int ndim, const TYPE x[], double &R, double *center )
+{
+    if ( ndim == 1 ) {
+        std::array<TYPE, 1> x0[2] = { { x[0] }, { x[1] } };
+        AMP::DelaunayTessellation::get_circumsphere<1, TYPE>( x0, R, center );
+    } else if ( ndim == 2 ) {
+        std::array<TYPE, 2> x0[3] = { { x[0], x[1] }, { x[2], x[3] }, { x[4], x[5] } };
+        AMP::DelaunayTessellation::get_circumsphere<2, TYPE>( x0, R, center );
+    } else if ( ndim == 3 ) {
+        std::array<TYPE, 3> x0[4] = {
+            { x[0], x[1], x[2] }, { x[3], x[4], x[5] }, { x[6], x[7], x[8] }, { x[9], x[10], x[11] }
+        };
+        AMP::DelaunayTessellation::get_circumsphere<3, TYPE>( x0, R, center );
+    }
+}
+template<class TYPE>
+int test_in_circumsphere( int ndim, const TYPE x[], const TYPE xi[], double TOL_VOL )
+{
+    if ( ndim == 1 ) {
+        std::array<TYPE, 1> x0[2] = { { x[0] }, { x[1] } };
+        std::array<TYPE, 1> xi2   = { xi[0] };
+        return AMP::DelaunayTessellation::test_in_circumsphere<1, TYPE>( x0, xi2, TOL_VOL );
+    } else if ( ndim == 2 ) {
+        std::array<TYPE, 2> x0[3] = { { x[0], x[1] }, { x[2], x[3] }, { x[4], x[5] } };
+        std::array<TYPE, 2> xi2   = { xi[0], xi[1] };
+        return AMP::DelaunayTessellation::test_in_circumsphere<2, TYPE>( x0, xi2, TOL_VOL );
+    } else if ( ndim == 3 ) {
+        std::array<TYPE, 3> x0[4] = {
+            { x[0], x[1], x[2] }, { x[3], x[4], x[5] }, { x[6], x[7], x[8] }, { x[9], x[10], x[11] }
+        };
+        std::array<TYPE, 3> xi2 = { xi[0], xi[1], xi[2] };
+        return AMP::DelaunayTessellation::test_in_circumsphere<3, TYPE>( x0, xi2, TOL_VOL );
+    }
+    return 0;
 }
 
 
@@ -105,6 +140,9 @@ AMP::Array<TYPE> createRandomPoints( int ndim, int N );
 template<int NDIM>
 std::vector<PointInt<NDIM>> createRandomPointsInt( int N )
 {
+    int R_INT = 1000000;
+    if ( N > 1000 && NDIM == 1 )
+        R_INT = 0x20000000;
     std::vector<PointInt<NDIM>> points;
     if ( N == NDIM + 1 ) {
         points.resize( N );

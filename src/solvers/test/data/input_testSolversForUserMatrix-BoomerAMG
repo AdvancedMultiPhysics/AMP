@@ -1,14 +1,30 @@
-
 Mesh{
-    FileName = "cube4096.e"
     MeshName = "bar"
-    MeshType = "libMesh"
-    dim      = 3
-    x_offset = 0
-    y_offset = 0
-    z_offset = 0
-    NumberOfElements = 4096
+	MeshType = "AMP"
+	Generator = "cube"
+    dim = 3
+	Size = 16, 16, 16
+	Range = -5, 5, -5, 5, -5, 5
+    surfaceIds = 4, 6, 3, 5, 2, 1
+    static = TRUE
 }
+
+DiffusionTransportModel1 {
+     name="DiffusionTransportModel"
+     Material = "Independent"
+     Property = "ThermalConductivity"
+        Default_Concentration = .1
+     Default_Temperature   = 300.
+     Default_Burnup   = 0.0
+   }
+
+SourcePhysicsModel {
+    name = "SourcePhysicsModel"
+    Material = "Independent"
+    USE_ELEMENT_PHYSICS = "MassDensityModel"
+    Equation = "ThermalSource"
+    USE_MATERIALS_LIBRARY = TRUE 
+  }
 
 NeutronicsOperator{
   name="NeutronicsRhsOperator"
@@ -41,7 +57,7 @@ DiffusionLinearFEOperator1{
      QRULE_TYPE = "QGAUSS"
      QRULE_ORDER = "DEFAULT"
    }
-   LocalModel = "DiffusionTransportModel1"
+   LocalModel = DiffusionTransportModel1
 }
 
 DirichletMatrixCorrection1 {
@@ -60,15 +76,6 @@ DirichletMatrixCorrection1 {
    value_1_0        = 385.6928
 }
 
-DiffusionTransportModel1 {
-     name="DiffusionTransportModel"
-     Material = "Independent"
-     Property = "ThermalConductivity"
-        Default_Concentration = .1
-     Default_Temperature   = 300.
-     Default_Burnup   = 0.0
-   }
-
 LinearSolver{
   name = "BoomerAMGSolver"
   max_iterations = 25
@@ -79,8 +86,8 @@ LinearSolver{
   strong_threshold = 0.5
   cycle_type = 1
   relax_type = 16
-  coarsen_type = 10
-  interp_type = 17
+  coarsen_type = 8
+  interp_type = 18
   relax_order = 0
 }
 
@@ -94,7 +101,7 @@ VolumeIntegralOperator{
     ActiveVariable_0 = "SpecificPowerInWattsPerKg" 
   }
   OutputVariable = "heatsource"
-  LocalModel = "SourcePhysicsModel"
+  LocalModel = SourcePhysicsModel
 
   SourceElement {
     name="SourceNonlinearElement"
@@ -105,10 +112,3 @@ VolumeIntegralOperator{
   }
 }
 
-SourcePhysicsModel {
-    name = "SourcePhysicsModel"
-    Material = "Independent"
-    USE_ELEMENT_PHYSICS = "MassDensityModel"
-    Equation = "ThermalSource"
-    USE_MATERIALS_LIBRARY = TRUE 
-  }

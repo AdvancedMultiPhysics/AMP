@@ -12,7 +12,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -152,7 +151,7 @@ ScalarN2GZAxisMap::getGaussPoints( const AMP::Mesh::MeshIterator &iterator )
         GpDofMap->getDOFs( cur->globalID(), ids );
         for ( unsigned int qp = 0; qp < ids.size(); qp++ ) {
             const double pos = coordinates[qp]( 2 );
-            z_pos->setLocalValuesByGlobalID( 1, &ids[qp], &pos );
+            z_pos->setValuesByGlobalID( 1, &ids[qp], &pos );
         }
         ++cur;
     }
@@ -211,7 +210,7 @@ void ScalarN2GZAxisMap::buildReturn( AMP::LinearAlgebra::Vector::shared_ptr vec,
         size_t N2 = id1.size();
         // Get the coordinates of the gauss points
         zi2.resize( N2 );
-        z_pos->getLocalValuesByGlobalID( N2, &id2[0], &zi2[0] );
+        z_pos->getValuesByGlobalID( N2, &id2[0], &zi2[0] );
         for ( size_t j = 0; j < N2; j++ ) {
             if ( zi2[j] < z0 - TOL || zi2[j] > z1 + TOL ) {
                 // We are outside the bounds of the map
@@ -231,7 +230,7 @@ void ScalarN2GZAxisMap::buildReturn( AMP::LinearAlgebra::Vector::shared_ptr vec,
         double wt = ( zi[i] - z[k - 1] ) / ( z[k] - z[k - 1] );
         fi[i]     = ( 1.0 - wt ) * f[k - 1] + wt * f[k];
     }
-    vec->setLocalValuesByGlobalID( dofs.size(), &dofs[0], &fi[0] );
+    vec->setValuesByGlobalID( dofs.size(), &dofs[0], &fi[0] );
 }
 
 

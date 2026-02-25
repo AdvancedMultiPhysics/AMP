@@ -3,6 +3,7 @@
 
 #include "AMP/mesh/MeshID.h"
 #include "AMP/mesh/MeshIterator.h"
+#include "AMP/mesh/MeshParameters.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/enable_shared_from_this.h"
@@ -12,9 +13,6 @@
 
 
 // Forward declarations
-namespace AMP::Mesh {
-class MeshParameters;
-}
 namespace AMP::Geometry {
 class Geometry;
 }
@@ -27,6 +25,9 @@ class RestartManager;
 
 
 namespace AMP::Mesh {
+
+
+class MeshElementVectorBase;
 
 
 //! Enumeration for basic mesh-based quantities
@@ -63,6 +64,10 @@ public:
      */
     typedef std::function<std::shared_ptr<Mesh>( std::shared_ptr<const MeshParameters> )>
         generatorType;
+
+    //! Pointer to MeshElement and MeshElementVector
+    using MeshElementPtr = std::unique_ptr<MeshElement>;
+    using ElementListPtr = MeshElementVectorPtr;
 
     //! Enumeration for basic mesh-based quantities
     enum class Movable : uint8_t { Fixed = 0, Displace = 1, Deform = 2 };
@@ -303,7 +308,7 @@ public:
      *    uses mesh iterators and requires O(N) time on the number of elements in the mesh.
      * \param id    Mesh element id we are requesting.
      */
-    virtual MeshElement getElement( const MeshElementID &id ) const;
+    virtual MeshElementPtr getElement( const MeshElementID &id ) const;
 
 
     /**
@@ -313,8 +318,7 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElement> getElementParents( const MeshElement &elem,
-                                                        const GeomType type ) const;
+    virtual ElementListPtr getElementParents( const MeshElement &elem, const GeomType type ) const;
 
 
     //! Get the largest geometric type in the mesh
@@ -338,7 +342,7 @@ public:
 
 
     //! Is the current mesh a base mesh
-    virtual inline bool isBaseMesh() const { return true; }
+    virtual bool isBaseMesh() const;
 
 
     //! Check if two meshes are equal
@@ -378,6 +382,12 @@ public:
     virtual std::vector<MeshID> getLocalBaseMeshIDs() const;
 
 
+    /**
+     *  Check if the mesh contains the given mesh element
+     */
+    virtual bool containsElement( const MeshElementID &id ) const;
+
+
     //! Get the mesh name
     virtual inline std::string getName() const { return d_name; }
 
@@ -392,7 +402,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    inline std::vector<double> getBoundingBox() const { return d_box; }
+    inline const auto &getBoundingBox() const { return d_box; }
 
 
     /**
@@ -401,7 +411,7 @@ public:
      *   The vector returned contains the box that contains the mesh in the form
      *   [ x_min  x_max  y_min  y_max  z_min  z_max ].
      */
-    inline std::vector<double> getLocalBoundingBox() const { return d_box_local; }
+    inline const auto &getLocalBoundingBox() const { return d_box_local; }
 
 
     /**
@@ -488,7 +498,7 @@ public:
                             //!< 3 - The meshes are similar: Nodes do not match but map the
                             //!<     same domain within tolerance, block/surface ids match
         CompareResult( int state = 0 );
-        bool operator==( const CompareResult & );
+        bool operator==( const CompareResult & ) const;
     };
 
     /**
@@ -523,6 +533,14 @@ protected:
     //! Fill the domain box from the local box (requires communication)
     static std::vector<double> reduceBox( const std::vector<double> &, const AMP_MPI & );
 
+    /**
+     *  A function to create a unique id for the mesh (requires the comm to be set)
+     *  Note: this requires a global communication across the mesh communicator.
+     *  Note: this function is NOT thread safe, and will need to be modified before threads are
+     * used.
+     */
+    void setMeshID();
+
 protected:
     //!  Empty constructor for a mesh
     Mesh();
@@ -533,37 +551,16 @@ protected:
     // Private assigment operator
     Mesh &operator=( const Mesh &old ) = delete;
 
-    //! The geometry parameters
-    std::shared_ptr<Geometry::Geometry> d_geometry;
-
-    //! The geometric dimension (highest geometric object that can be represented)
-    GeomType GeomDim;
-
-    //! The physical dimension
-    uint8_t PhysicalDim;
-
-    //! The maximum ghost cell width
-    uint8_t d_max_gcw;
-
-    //! The communicator over which the mesh is stored
-    AMP_MPI d_comm;
-
-    //! A unique id for each mesh
-    MeshID d_meshID;
-
-    //! A name for the mesh
-    std::string d_name;
-
-    //! The bounding box for the mesh
-    std::vector<double> d_box, d_box_local;
-
-    /**
-     *  A function to create a unique id for the mesh (requires the comm to be set)
-     *  Note: this requires a global communication across the mesh communicator.
-     *  Note: this function is NOT thread safe, and will need to be modified before threads are
-     * used.
-     */
-    void setMeshID();
+protected:
+    GeomType GeomDim;                //!< The geometric dimension
+    uint8_t PhysicalDim;             //!< The physical dimension
+    uint8_t d_max_gcw;               //!< The maximum ghost cell width
+    MeshID d_meshID;                 //!< A unique id for each mesh
+    AMP_MPI d_comm;                  //!< The communicator over which the mesh is stored
+    std::string d_name;              //!< A name for the mesh
+    std::vector<double> d_box;       //!< The bounding box for the mesh
+    std::vector<double> d_box_local; //!< The bounding box for the mesh
+    std::shared_ptr<Geometry::Geometry> d_geometry; //!< The geometry parameters
 };
 
 } // namespace AMP::Mesh
