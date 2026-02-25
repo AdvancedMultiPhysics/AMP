@@ -20,9 +20,8 @@ SourceNonlinearElement::SourceNonlinearElement(
     : ElementOperation( params ), d_elementOutputVector( nullptr ), d_elem( nullptr )
 {
 
-    AMP_INSIST( ( params ), "''params'' is NULL" );
-
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( params, "''params'' is NULL" );
+    AMP_INSIST( params->d_db, "NULL database" );
 
     auto feTypeOrderName = params->d_db->getWithDefault<std::string>( "FE_ORDER", "FIRST" );
     auto feTypeOrder     = libMesh::Utility::string_to_enum<libMeshEnums::Order>( feTypeOrderName );
@@ -118,7 +117,7 @@ void SourceNonlinearElement::apply()
                 for ( unsigned int j = 0; j < n_nodes; j++ ) {
                     source_vectors[var][qp] += d_elementInputVector[var][j] * phi[j][qp];
                 } // end for j
-            }     // end for qp
+            } // end for qp
             if ( d_elementAuxVector.size() > 0 ) {
                 auxillary_vectors[var].resize( n_points );
                 for ( unsigned int qp = 0; qp < n_points; qp++ ) {
@@ -136,9 +135,9 @@ void SourceNonlinearElement::apply()
         }
     }
 
-    if ( d_sourcePhysicsModel.get() == nullptr ) {
+    if ( !d_sourcePhysicsModel ) {
         AMP_INSIST(
-            ( source_vectors.size() == 1 ),
+            source_vectors.size() == 1,
             "In absence of SourcePhysicsModel Element Operation Expects only one source vector" );
     }
     for ( unsigned int j = 0; j < n_nodes; j++ ) {
@@ -153,6 +152,6 @@ void SourceNonlinearElement::apply()
                 }
             }
         } // end for j
-    }     // end for qp
+    } // end for qp
 }
 } // namespace AMP::Operator

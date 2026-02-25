@@ -48,8 +48,7 @@ MassLinearFEOperator::MassLinearFEOperator(
 
     d_massLinElem = std::dynamic_pointer_cast<MassLinearElement>( d_elemOp );
 
-    AMP_INSIST( ( ( d_massLinElem.get() ) != nullptr ),
-                "d_elemOp is not of type MassLinearElement" );
+    AMP_INSIST( d_massLinElem, "d_elemOp is not of type MassLinearElement" );
 
     d_densityModel = params->d_densityModel;
 

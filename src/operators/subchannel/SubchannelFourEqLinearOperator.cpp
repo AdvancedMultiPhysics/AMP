@@ -80,8 +80,8 @@ void SubchannelFourEqLinearOperator::reset( std::shared_ptr<const OperatorParame
         return;
 
     auto myparams = std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params );
-    AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameters" );
-    AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( myparams, "NULL parameters" );
+    AMP_INSIST( myparams->d_db, "NULL database" );
     d_params = myparams;
 
     // Get the subchannel mesh coordinates

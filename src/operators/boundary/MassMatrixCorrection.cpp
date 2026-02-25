@@ -47,7 +47,7 @@ MassMatrixCorrection::MassMatrixCorrection( std::shared_ptr<const OperatorParame
 void MassMatrixCorrection::resetBoundaryIds(
     std::shared_ptr<const MassMatrixCorrectionParameters> params )
 {
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( params->d_db, "NULL database" );
     bool skipParams          = params->d_db->getWithDefault<bool>( "skip_params", true );
     d_bSetIdentityOnDiagonal = params->d_db->getWithDefault<bool>( "setIdentityOnDiagonal", false );
 
