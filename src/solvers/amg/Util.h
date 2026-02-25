@@ -101,7 +101,7 @@ struct span {
             return { nullptr, 0 };
         if ( count == dynamic_extent )
             count = size() - offset;
-        // AMP_INSIST( offset + count <= size(), "span: invalid subset" );
+        AMP_INSIST( offset + count <= size(), "span: invalid subset" );
         return { data() + offset, count };
     }
 

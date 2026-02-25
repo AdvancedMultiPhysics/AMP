@@ -542,15 +542,9 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
 {
     PROFILE( "CSRLocalMatrixData::migrate" );
 
-    using outdata_t = CSRLocalMatrixData<ConfigOut>;
+    using outdata_t   = CSRLocalMatrixData<ConfigOut>;
+    using out_alloc_t = typename outdata_t::allocator_type;
 
-    using out_alloc_t      = typename outdata_t::allocator_type;
-    using out_lidx_alloc_t = typename std::allocator_traits<out_alloc_t>::template rebind_alloc<
-        typename ConfigOut::lidx_t>;
-    using out_gidx_alloc_t = typename std::allocator_traits<out_alloc_t>::template rebind_alloc<
-        typename ConfigOut::gidx_t>;
-    using out_scalar_alloc_t = typename std::allocator_traits<out_alloc_t>::template rebind_alloc<
-        typename ConfigOut::scalar_t>;
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::migrate not implemented for symbolic matrices" );
 
@@ -566,9 +560,6 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
     outData->d_coeffs   = nullptr;
 
     if ( !d_is_empty ) {
-        out_gidx_alloc_t gidx_alloc;
-        out_scalar_alloc_t scalar_alloc;
-
         outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
         outData->d_coeffs   = outdata_t::makeScalarArray( d_nnz );
 

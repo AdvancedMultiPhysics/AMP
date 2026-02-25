@@ -9,11 +9,12 @@
 
 namespace AMP::Solver::AMG {
 
-// This aggregator is based on an MIS-2 classification of the vertices
-// The implementation follows Sandia report SAND2022-2930C titled
-// "Parallel, portable algorithms for distance-2 maximal independent
-//  set and graph coarsening" by Brian Kelley and Sivasankaran
-// Rajamanickam
+// This aggregator is based on an MIS-2 classification of the vertices.
+// The implementation mostly follows Sandia report SAND2022-2930C titled "Parallel, portable
+// algorithms for distance-2 maximal independent set and graph coarsening" by Brian Kelley and
+// Sivasankaran Rajamanickam.
+// It also takes inspiration from "A GPU accelerated aggregation algebraic multigrid method" by
+// Rajesh Gandham, Kenneth Esler, and Yongpeng Zhang. http://dx.doi.org/10.1016/j.camwa.2014.08.022
 struct MIS2Aggregator : Aggregator {
     MIS2Aggregator( const CoarsenSettings &settings ) : Aggregator( settings ) {}
 
