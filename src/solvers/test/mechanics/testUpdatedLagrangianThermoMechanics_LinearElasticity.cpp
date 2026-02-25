@@ -195,7 +195,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     ut->passes( exeName );
 }
 
-int testUpdatedLagrangianThermoMechanics_LinearElasticity_1( int argc, char *argv[] )
+int testUpdatedLagrangianThermoMechanics_LinearElasticity( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;

@@ -133,9 +133,6 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName, int type )
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    [[maybe_unused]] auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
-
     auto mesh_file = input_db->getString( "mesh_file" );
     auto fusedMeshAdapter =
         AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );

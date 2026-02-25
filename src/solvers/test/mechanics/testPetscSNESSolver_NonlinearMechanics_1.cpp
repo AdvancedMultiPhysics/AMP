@@ -32,14 +32,13 @@ static void myTest( AMP::UnitTest *ut, const std::string &inputName )
     std::string input_file = inputName;
     std::string log_file   = "output_" + inputName;
     AMP::pout << "Running " << input_file << std::endl;
-
     AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );
+    // Create the meshes from the input database
     auto mesh_db    = input_db->getDatabase( "Mesh" );
     auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
     meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );

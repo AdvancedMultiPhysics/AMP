@@ -1,7 +1,5 @@
 #include "AMP/IO/PIO.h"
-#include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
-#include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/operators/BVPOperatorParameters.h"
@@ -43,13 +41,11 @@ static void myTest( AMP::UnitTest *ut )
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    // Get the Mesh database and create the mesh parameters
-    auto database = input_db->getDatabase( "Mesh" );
-    auto params   = std::make_shared<AMP::Mesh::MeshParameters>( database );
-    params->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-
     // Create the meshes from the input database
-    auto mesh = AMP::Mesh::MeshFactory::create( params );
+    auto mesh_db    = input_db->getDatabase( "Mesh" );
+    auto meshParams = std::make_shared<AMP::Mesh::MeshParameters>( mesh_db );
+    meshParams->setComm( AMP::AMP_MPI( AMP_COMM_WORLD ) );
+    auto mesh = AMP::Mesh::MeshFactory::create( meshParams );
 
     // Create the DOFManagers
     auto NodalScalarDOF =
@@ -107,7 +103,6 @@ static void myTest( AMP::UnitTest *ut )
         nonlinBvpOperator->getVolumeOperator() )
         ->setVector( AMP::Operator::Mechanics::TEMPERATURE, finalTempVec );
 
-
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
         AMP::Operator::OperatorBuilder::createOperator( mesh, "Load_Boundary", input_db ) );
@@ -120,10 +115,9 @@ static void myTest( AMP::UnitTest *ut )
 
     AMP::LinearAlgebra::Vector::shared_ptr nullVec;
     auto mechNlSolVec = AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
-    auto mechNlRhsVec = AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
-    auto mechNlResVec = AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
-    auto mechNlScaledRhsVec =
-        AMP::LinearAlgebra::createVector( NodalVectorDOF, displacementVariable );
+    auto mechNlRhsVec = mechNlSolVec->clone();
+    auto mechNlResVec = mechNlSolVec->clone();
+    auto mechNlScaledRhsVec = mechNlSolVec->clone();
 
     // Initial guess for NL solver must satisfy the displacement boundary conditions
     mechNlSolVec->setToScalar( 0.0 );
@@ -136,10 +130,8 @@ static void myTest( AMP::UnitTest *ut )
     std::cout << "Initial Solution Norm: " << mechNlSolVec->L2Norm() << std::endl;
 
     auto nonlinearSolver_db = input_db->getDatabase( "NonlinearSolver" );
-
-    auto linearSolver_db = nonlinearSolver_db->getDatabase( "LinearSolver" );
-
-    auto linBvpOperator = std::make_shared<AMP::Operator::LinearBVPOperator>(
+    auto linearSolver_db    = nonlinearSolver_db->getDatabase( "LinearSolver" );
+    auto linBvpOperator     = std::make_shared<AMP::Operator::LinearBVPOperator>(
         nonlinBvpOperator->getParameters( "Jacobian", nullptr ) );
 
     // ---- first initialize the preconditioner
@@ -147,9 +139,6 @@ static void myTest( AMP::UnitTest *ut )
     auto pcSolverParams = std::make_shared<AMP::Solver::SolverStrategyParameters>( pcSolver_db );
     pcSolverParams->d_pOperator = linBvpOperator;
     auto pcSolver               = std::make_shared<AMP::Solver::TrilinosMLSolver>( pcSolverParams );
-
-    // HACK to prevent a double delete on Petsc Vec
-    std::shared_ptr<AMP::Solver::PetscSNESSolver> nonlinearSolver;
 
     // initialize the linear solver
     auto linearSolverParams =
@@ -164,7 +153,7 @@ static void myTest( AMP::UnitTest *ut )
     nonlinearSolverParams->d_pOperator     = nonlinBvpOperator;
     nonlinearSolverParams->d_pNestedSolver = linearSolver;
     nonlinearSolverParams->d_pInitialGuess = mechNlSolVec;
-    nonlinearSolver.reset( new AMP::Solver::PetscSNESSolver( nonlinearSolverParams ) );
+    auto nonlinearSolver = std::make_shared<AMP::Solver::PetscSNESSolver>( nonlinearSolverParams );
     nonlinearSolver->setZeroInitialGuess( false );
 
     for ( int step = 0; step < NumberOfLoadingSteps; step++ ) {
