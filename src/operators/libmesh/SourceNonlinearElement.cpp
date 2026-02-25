@@ -117,7 +117,7 @@ void SourceNonlinearElement::apply()
                 for ( unsigned int j = 0; j < n_nodes; j++ ) {
                     source_vectors[var][qp] += d_elementInputVector[var][j] * phi[j][qp];
                 } // end for j
-            } // end for qp
+            }     // end for qp
             if ( d_elementAuxVector.size() > 0 ) {
                 auxillary_vectors[var].resize( n_points );
                 for ( unsigned int qp = 0; qp < n_points; qp++ ) {
@@ -152,6 +152,6 @@ void SourceNonlinearElement::apply()
                 }
             }
         } // end for j
-    } // end for qp
+    }     // end for qp
 }
 } // namespace AMP::Operator
