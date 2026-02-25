@@ -276,7 +276,7 @@ void IsotropicElasticModel::constructConstitutiveMatrix( const double E, const d
         for ( double &j : elem ) {
             j = 0.0;
         } // end for j
-    } // end for i
+    }     // end for i
 
     d_constitutiveMatrix[0][0] = a;
     d_constitutiveMatrix[1][1] = a;
@@ -326,7 +326,7 @@ void IsotropicElasticModel::constructConstitutiveMatrixUpdatedLagrangian( const 
         for ( double &j : elem ) {
             j = 0.0;
         } // end for j
-    } // end for i
+    }     // end for i
 
     for ( int i = 0; i < 3; i++ ) {
         for ( int j = 0; j < 3; j++ ) {
@@ -401,7 +401,7 @@ void IsotropicElasticModel::calculateStress( const std::vector<std::vector<doubl
         for ( int j = 0; j < 6; j++ ) {
             stress[i] += ( d_constitutiveMatrix[i][j] * strain[Mechanics::DISPLACEMENT][j] );
         } // end for j
-    } // end for i
+    }     // end for i
 
     // for(int i=0; i<6; i++) std::cout<<"stress["<<i<<"]="<<stress[i]<<std::endl;
 }
@@ -486,7 +486,7 @@ void IsotropicElasticModel::calculateStress( const std::vector<std::vector<doubl
         for ( int j = 0; j < 6; j++ ) {
             stress_np1[i] += ( d_constitutiveMatrix_UL[i][j] * strain[Mechanics::DISPLACEMENT][j] );
         } // end for j
-    } // end for i
+    }     // end for i
 
     if ( d_useJaumannRate == false ) {
         S[0][0] = stress_np1[0];

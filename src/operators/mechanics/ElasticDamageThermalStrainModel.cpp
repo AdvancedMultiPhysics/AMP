@@ -340,7 +340,7 @@ void ElasticDamageThermalStrainModel::constructConstitutiveMatrix( const double 
         for ( int j = 0; j < 3; j++ ) {
             d_constitutiveMatrix[i][j] += ( K - ( ( 2.0 / 3.0 ) * G ) );
         } // end for j
-    } // end for i
+    }     // end for i
 }
 
 void ElasticDamageThermalStrainModel::computeEvalv( const std::vector<std::vector<double>> &strain )

@@ -167,7 +167,8 @@ int testMacNealstraightBeam_regular( int argc, char *argv[] )
         } catch ( std::exception &err ) {
             AMP::pout << "ERROR: " << err.what() << std::endl;
         } catch ( ... ) {
-            AMP::pout << "ERROR: " << "An unknown exception was thrown." << std::endl;
+            AMP::pout << "ERROR: "
+                      << "An unknown exception was thrown." << std::endl;
         }
     } // end for i
 

@@ -204,7 +204,7 @@ PressureBoundaryOperator::PressureBoundaryOperator(
                 double tractionVal                    = val * ( normals[qp]( d ) );
                 pressure[( 12 * i ) + ( 3 * qp ) + d] = tractionVal;
             } // end d
-        } // end qp
+        }     // end qp
 
         for ( size_t j = 0; j < elem->n_nodes(); ++j ) {
             delete ( elem->node_ptr( j ) );
