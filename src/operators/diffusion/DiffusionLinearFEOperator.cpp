@@ -144,7 +144,7 @@ void DiffusionLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElemen
         auto DOF = vec->getDOFManager();
         std::vector<size_t> dofs;
         for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
+            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             tmp[r] = vec->getValueByGlobalID( dofs[0] );
         }
@@ -173,7 +173,7 @@ void DiffusionLinearFEOperator::postElementOperation()
 
     std::vector<size_t> d_dofIndices( d_currNodes.size() ), dofs( 1 );
     for ( size_t i = 0; i < d_currNodes.size(); i++ ) {
-        d_inDofMap->getDOFs( d_currNodes[i]->globalID(), dofs );
+        d_inDofMap->getDOFs( d_currNodes[i].globalID(), dofs );
         AMP_ASSERT( dofs.size() == 1 );
         d_dofIndices[i] = dofs[0];
     }

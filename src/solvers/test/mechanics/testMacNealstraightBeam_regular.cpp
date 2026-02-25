@@ -31,11 +31,8 @@
 static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, int )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName + ".txt";
 
     AMP::pout << "Running test with input " << input_file << std::endl;
-
-    AMP::logOnlyNodeZero( log_file );
 
     AMP::AMP_MPI globalComm = AMP::AMP_MPI( AMP_COMM_WORLD );
     auto input_db           = AMP::Database::parseInputFile( input_file );
@@ -130,9 +127,6 @@ int testMacNealstraightBeam_regular( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP::AMP_MPI( AMP_COMM_WORLD ) );
-
     std::vector<std::string> exeNames;
 
     if ( argc == 1 ) {
@@ -180,8 +174,6 @@ int testMacNealstraightBeam_regular( int argc, char *argv[] )
 
     ut.report();
     int num_failed = ut.NumFailGlobal();
-
-    libmeshInit.reset();
 
     AMP::AMPManager::shutdown();
     return num_failed;

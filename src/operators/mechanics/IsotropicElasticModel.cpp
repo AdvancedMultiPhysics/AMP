@@ -29,8 +29,8 @@ IsotropicElasticModel::IsotropicElasticModel(
     d_jacobianReusesRadialReturn = false;
 
     if ( d_useMaterialsLibrary == false ) {
-        AMP_INSIST( ( ( params.get() ) != nullptr ), "NULL parameter" );
-        AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+        AMP_INSIST( params, "NULL parameter" );
+        AMP_INSIST( params->d_db, "NULL database" );
         AMP_INSIST( params->d_db->keyExists( "Youngs_Modulus" ), "Missing key: Youngs_Modulus" );
         AMP_INSIST( params->d_db->keyExists( "Poissons_Ratio" ), "Missing key: Poissons_Ratio" );
 

@@ -21,8 +21,8 @@ static_assert( sizeof( std::unique_ptr<MeshElement> ) == 8 );
 /********************************************************
  * Get basic info                                        *
  ********************************************************/
-typeID MeshElement::getTypeID() const { return AMP::getTypeID<MeshElement>(); }
-bool MeshElement::isNull() const { return getTypeID() == AMP::getTypeID<MeshElement>(); }
+static auto TypeID = AMP::getTypeID<AMP::Mesh::MeshElement>();
+const typeID &MeshElement::getTypeID() const { return TypeID; }
 std::string MeshElement::elementClass() const { return "MeshElement"; }
 std::unique_ptr<MeshElement> MeshElement::clone() const { return std::make_unique<MeshElement>(); }
 
@@ -34,12 +34,11 @@ Point MeshElement::centroid() const
 {
     if ( globalID().type() == GeomType::Vertex )
         return coord();
-    ElementList nodes;
-    getElements( GeomType::Vertex, nodes );
+    auto nodes = getElements( GeomType::Vertex );
     AMP_ASSERT( !nodes.empty() );
-    auto center = nodes[0]->coord();
+    auto center = nodes[0].coord();
     for ( size_t i = 1; i < nodes.size(); i++ ) {
-        auto pos = nodes[i]->coord();
+        auto pos = nodes[i].coord();
         for ( size_t j = 0; j < center.size(); j++ )
             center[j] += pos[j];
     }
@@ -52,31 +51,18 @@ Point MeshElement::centroid() const
 /********************************************************
  * Return the neighbors/elements                         *
  ********************************************************/
-MeshElement::ElementList MeshElement::getElements( const GeomType type ) const
-{
-    ElementList list;
-    getElements( type, list );
-    return list;
-}
-void MeshElement::getElements( const GeomType, ElementList & ) const
+MeshElement::ElementListPtr MeshElement::getElements( const GeomType ) const
 {
     AMP_ERROR( "getElements is not implemented for " + elementClass() );
 }
 int MeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
-    ElementList elements;
-    this->getElements( type, elements );
+    auto elements = this->getElements( type );
     for ( size_t i = 0; i < elements.size(); i++ )
-        ID[i] = elements[i]->globalID();
+        ID[i] = elements[i].globalID();
     return elements.size();
 }
-MeshElement::ElementList MeshElement::getNeighbors() const
-{
-    ElementList list;
-    getNeighbors( list );
-    return list;
-}
-void MeshElement::getNeighbors( ElementList & ) const
+MeshElement::ElementListPtr MeshElement::getNeighbors() const
 {
     AMP_ERROR( "getNeighbors is not implemented for " + elementClass() );
 }
@@ -84,15 +70,14 @@ void MeshElement::getNeighborVertices( std::vector<Point> &vertices ) const
 {
     std::vector<Point> V0;
     getVertices( V0 );
-    ElementList neighbors;
-    getNeighbors( neighbors );
+    auto neighbors = getNeighbors();
     vertices.resize( 0 );
     vertices.reserve( 24 );
     std::vector<Point> V1;
     for ( auto &elem : neighbors ) {
-        if ( !elem )
+        if ( elem.isNull() )
             continue;
-        elem->getVertices( V1 );
+        elem.getVertices( V1 );
         for ( auto &p : V1 ) {
             bool found = false;
             for ( auto &p0 : V0 )
@@ -116,7 +101,7 @@ void MeshElement::getVertices( std::vector<Point> &vertices ) const
         auto elems = getElements( GeomType::Vertex );
         vertices.resize( elems.size() );
         for ( size_t i = 0; i < elems.size(); i++ )
-            vertices[i] = elems[i]->coord();
+            vertices[i] = elems[i].coord();
     }
 }
 
@@ -162,7 +147,7 @@ std::string MeshElement::print( uint8_t indent_N ) const
         auto nodes = getElements( AMP::Mesh::GeomType::Vertex );
         out += std::string( prefix ) + "   Nodes:";
         for ( const auto &node : nodes )
-            out += " " + node->coord().print();
+            out += " " + node.coord().print();
         out += stringf( "\n%s   Volume: %f\n", prefix, volume() );
     }
     if ( out.back() == '\n' )

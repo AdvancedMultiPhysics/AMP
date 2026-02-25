@@ -10,29 +10,22 @@ GeneralCladThermalCreepPlasticModel::GeneralCladThermalCreepPlasticModel(
     std::shared_ptr<MechanicsMaterialModelParameters> params )
     : MechanicsMaterialModel( params ), d_constitutiveMatrix{ { 0 } }
 {
-    AMP_INSIST( ( ( params.get() ) != nullptr ), "NULL parameter" );
-
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
-
+    AMP_INSIST( params, "NULL parameter" );
+    AMP_INSIST( params->d_db, "NULL database" );
     AMP_INSIST( ( d_useMaterialsLibrary == true ),
                 "For GeneralCladThermalCreepPlasticModel, the materials library must be used." );
 
     d_H = params->d_db->getWithDefault<double>( "Linear_Strain_Hardening", 5.0e8 );
-
     d_n = params->d_db->getWithDefault<double>( "Plastic_Strain_Exponent", 1.0 );
 
-    default_E = params->d_db->getWithDefault<double>( "Youngs_Modulus", 2.08e11 );
-
-    default_Nu = params->d_db->getWithDefault<double>( "Poissons_Ratio", 0.23 );
-
+    default_E     = params->d_db->getWithDefault<double>( "Youngs_Modulus", 2.08e11 );
+    default_Nu    = params->d_db->getWithDefault<double>( "Poissons_Ratio", 0.23 );
     default_alpha = params->d_db->getWithDefault<double>( "THERMAL_EXPANSION_COEFFICIENT", 2.0e-6 );
 
     d_Sig0 = params->d_db->getWithDefault<double>( "Elastic_Yield_Stress", 3.45e8 );
 
     default_TEMPERATURE = params->d_db->getWithDefault<double>( "Default_Temperature", 310.0 );
-
-    default_BURNUP = params->d_db->getWithDefault<double>( "Default_Burnup", 0.0 );
-
+    default_BURNUP      = params->d_db->getWithDefault<double>( "Default_Burnup", 0.0 );
     default_OXYGEN_CONCENTRATION =
         params->d_db->getWithDefault<double>( "Default_Oxygen_Concentration", 0.0 );
 

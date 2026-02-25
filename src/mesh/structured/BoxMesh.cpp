@@ -586,19 +586,16 @@ BoxMesh::MeshElementIndex BoxMesh::getElementFromPhysical( const AMP::Geometry::
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<std::unique_ptr<MeshElement>> BoxMesh::getElementParents( const MeshElement &meshelem,
-                                                                      const GeomType type ) const
+Mesh::ElementListPtr BoxMesh::getElementParents( const MeshElement &meshelem,
+                                                 const GeomType type ) const
 {
-    auto id = meshelem.globalID();
-    if ( type == id.type() ) {
-        std::vector<std::unique_ptr<MeshElement>> parents;
-        parents.push_back( meshelem.clone() );
-        return parents;
-    }
-    AMP_INSIST( id.meshID() == d_meshID, "MeshElement is not from the given mesh" );
-    // Get the element of interest
     const auto *elem = dynamic_cast<const structuredMeshElement *>( &meshelem );
-    AMP_ASSERT( elem );
+    const auto id    = meshelem.globalID();
+    AMP_DEBUG_ASSERT( elem );
+    AMP_DEBUG_INSIST( id.meshID() == d_meshID, "MeshElement is not from the given mesh" );
+    if ( type == id.type() )
+        return std::make_unique<MeshElementVector<structuredMeshElement>>( *elem );
+    // Get the element of interest
     return elem->getParents( type );
 }
 

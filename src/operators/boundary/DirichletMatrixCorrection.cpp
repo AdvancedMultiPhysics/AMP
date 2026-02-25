@@ -151,8 +151,8 @@ void DirichletMatrixCorrection::applyMatrixCorrection()
             // The calling node must be owned locally.
             auto neighbors = node.getNeighbors();
             for ( auto &neighbor : neighbors ) {
-                if ( neighbor )
-                    AMP_INSIST( *neighbor != node, "boundary node neighbor includes self" );
+                if ( !neighbor.isNull() )
+                    AMP_INSIST( neighbor != node, "boundary node neighbor includes self" );
             }
 
             for ( auto &elem : d_dofIds[k] ) {
@@ -171,9 +171,9 @@ void DirichletMatrixCorrection::applyMatrixCorrection()
                     }
                 }
                 for ( auto &neighbor : neighbors ) {
-                    if ( !neighbor )
+                    if ( neighbor.isNull() )
                         continue;
-                    dof_map->getDOFs( neighbor->globalID(), nhDofIds );
+                    dof_map->getDOFs( neighbor.globalID(), nhDofIds );
                     for ( auto &nhDofId : nhDofIds ) {
                         d_inputMatrix->setValueByGlobalID( bndDofIds[elem], nhDofId, 0.0 );
                         if ( d_symmetricCorrection ) {

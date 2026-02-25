@@ -3,7 +3,7 @@
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/geometry/Geometry.h"
 #include "AMP/geometry/MeshGeometry.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/MeshUtilities.h"
 #include "AMP/mesh/MultiMesh.h"
@@ -91,6 +91,8 @@ void Mesh::setMeshID()
 /********************************************************
  * Function to return the meshID composing the mesh      *
  ********************************************************/
+bool Mesh::isBaseMesh() const { return true; }
+bool Mesh::containsElement( const MeshElementID &id ) const { return id.meshID() == d_meshID; }
 std::vector<MeshID> Mesh::getAllMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getBaseMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
 std::vector<MeshID> Mesh::getLocalMeshIDs() const { return std::vector<MeshID>( 1, d_meshID ); }
@@ -180,8 +182,7 @@ std::unique_ptr<MeshElement> Mesh::getElement( const MeshElementID &elem_id ) co
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<std::unique_ptr<MeshElement>> Mesh::getElementParents( const MeshElement &,
-                                                                   const GeomType ) const
+Mesh::ElementListPtr Mesh::getElementParents( const MeshElement &, const GeomType ) const
 {
     AMP_ERROR( "getElementParents is not implemented: " + meshClass() );
     return {};
@@ -226,7 +227,7 @@ MeshIterator Mesh::isMember( const MeshIterator &iterator ) const
         if ( isMember( elem.globalID() ) )
             elements->push_back( elem.clone() );
     }
-    return AMP::Mesh::MeshElementVectorIterator( elements, 0 );
+    return AMP::Mesh::MeshListIterator( elements, 0 );
 }
 
 
@@ -491,7 +492,7 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
         }
         AMP_ASSERT( N == elements->size() );
     }
-    return MeshElementVectorIterator( elements, 0 );
+    return MeshListIterator( elements, 0 );
 }
 
 

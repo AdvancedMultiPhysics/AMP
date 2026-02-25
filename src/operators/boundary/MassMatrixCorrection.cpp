@@ -47,7 +47,7 @@ MassMatrixCorrection::MassMatrixCorrection( std::shared_ptr<const OperatorParame
 void MassMatrixCorrection::resetBoundaryIds(
     std::shared_ptr<const MassMatrixCorrectionParameters> params )
 {
-    AMP_INSIST( ( ( ( params->d_db ).get() ) != nullptr ), "NULL database" );
+    AMP_INSIST( params->d_db, "NULL database" );
     bool skipParams          = params->d_db->getWithDefault<bool>( "skip_params", true );
     d_bSetIdentityOnDiagonal = params->d_db->getWithDefault<bool>( "setIdentityOnDiagonal", false );
 
@@ -111,8 +111,8 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
             auto neighbors = bnd->getNeighbors();
 
             for ( auto &neighbor : neighbors ) {
-                if ( neighbor )
-                    AMP_ASSERT( *neighbor != *bnd );
+                if ( !neighbor.isNull() )
+                    AMP_ASSERT( neighbor != *bnd );
             } // end for el
 
             for ( unsigned int j = 0; j < d_dofIds[k].size(); ++j ) {
@@ -129,10 +129,10 @@ void MassMatrixCorrection::reset( std::shared_ptr<const OperatorParameters> para
                     }
                 } // end for i
                 for ( auto &neighbor : neighbors ) {
-                    if ( !neighbor )
+                    if ( neighbor.isNull() )
                         continue;
                     std::vector<size_t> nhDofIds;
-                    dof_map->getDOFs( neighbor->globalID(), nhDofIds );
+                    dof_map->getDOFs( neighbor.globalID(), nhDofIds );
                     for ( auto &nhDofId : nhDofIds ) {
                         inputMatrix->setValueByGlobalID(
                             bndGlobalIds[d_dofIds[k][j]], nhDofId, 0.0 );

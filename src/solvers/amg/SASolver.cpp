@@ -4,11 +4,11 @@
 #include "ProfilerApp.h"
 
 #include "AMP/solvers/amg/Aggregator.hpp"
+#include "AMP/solvers/amg/MIS2Aggregator.hpp"
 #include "AMP/solvers/amg/Relaxation.hpp"
 #include "AMP/solvers/amg/SASolver.h"
+#include "AMP/solvers/amg/SimpleAggregator.hpp"
 #include "AMP/solvers/amg/Stats.h"
-#include "AMP/solvers/amg/default/MIS2Aggregator.hpp"
-#include "AMP/solvers/amg/default/SimpleAggregator.hpp"
 
 namespace AMP::Solver::AMG {
 
@@ -49,9 +49,9 @@ void SASolver::resetLevelOptions()
         d_db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.strength_measure =
         d_db->getWithDefault<std::string>( "strength_measure", "classical_min" );
+    d_coarsen_settings.checkdd              = d_db->getWithDefault<bool>( "checkdd", true );
     d_pair_coarsen_settings                 = d_coarsen_settings;
     d_pair_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
-    d_pair_coarsen_settings.checkdd         = d_db->getWithDefault<bool>( "checkdd", true );
     d_num_smooth_prol                       = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
     d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0 );
     d_prol_spec_lower                       = d_db->getWithDefault<float>( "prol_spec_lower", 0.5 );
@@ -150,7 +150,6 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     }
 
     // fill in finest level and setup remaining levels
-    //    d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *fine_op );
     auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
@@ -229,8 +228,13 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     auto op_db = std::make_shared<Database>( "SASolver::Internal" );
     if ( d_mem_loc == Utilities::MemoryType::host ) {
         op_db->putScalar<std::string>( "memory_location", "host" );
+    } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
+        op_db->putScalar<std::string>( "memory_location", "managed" );
+    } else if ( d_mem_loc == Utilities::MemoryType::device ) {
+        op_db->putScalar<std::string>( "memory_location", "device" );
     } else {
-        AMP_ERROR( "SASolver: Only host memory is supported currently" );
+        // unreachable from test above
+        AMP_ERROR( "SASolver: Unrecognized memory space" );
     }
     auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 

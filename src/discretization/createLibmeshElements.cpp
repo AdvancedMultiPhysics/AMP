@@ -140,25 +140,26 @@ libMesh::Elem *createLibmeshElements::createElement( const AMP::Mesh::MeshElemen
 {
     auto dim               = (int) elem.elementType();
     auto nodes             = elem.getElements( AMP::Mesh::GeomType::Vertex );
+    int N_nodes            = nodes.size();
     libMesh::Elem *element = nullptr;
     // Create the libmesh element
-    if ( dim == 3 && nodes.size() == 8 ) {
+    if ( dim == 3 && N_nodes == 8 ) {
         // We are dealing with a hex8 element
         element = new libMesh::Hex8;
-    } else if ( dim == 3 && nodes.size() == 27 ) {
+    } else if ( dim == 3 && N_nodes == 27 ) {
         // We are dealing with a hex27 element
         element = new libMesh::Hex27;
-    } else if ( dim == 2 && nodes.size() == 4 ) {
+    } else if ( dim == 2 && N_nodes == 4 ) {
         // We are dealing with a quad4 element
         element = new libMesh::Quad4;
-    } else if ( dim == 2 && nodes.size() == 9 ) {
+    } else if ( dim == 2 && N_nodes == 9 ) {
         // We are dealing with a quad9 element
         element = new libMesh::Quad9;
     } else {
         AMP_ERROR( "Unknown element type" );
     }
-    for ( size_t j = 0; j < nodes.size(); j++ ) {
-        auto pt = nodes[j]->coord();
+    for ( int j = 0; j < N_nodes; j++ ) {
+        auto pt = nodes[j].coord();
         if ( pt.size() == 3 )
             element->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
         else if ( pt.size() == 2 )

@@ -44,15 +44,15 @@ PressureBoundaryOperator::PressureBoundaryOperator(
     for ( auto &elem : d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 ) ) {
         auto sides = elem.getElements( AMP::Mesh::GeomType::Face );
         for ( size_t s = 0; s < sides.size(); ++s ) {
-            if ( sides[s]->isOnBoundary( bndId ) ) {
-                auto sideId        = sides[s]->globalID();
+            if ( sides[s].isOnBoundary( bndId ) ) {
+                auto sideId        = sides[s].globalID();
                 unsigned int owner = sideId.owner_rank();
                 auto vertices      = elem.getElements( AMP::Mesh::GeomType::Vertex );
                 for ( auto &vertice : vertices ) {
-                    auto pt = vertice->coord();
+                    auto pt = vertice.coord();
                     for ( auto &elem : pt )
                         volElemMap[owner].push_back( elem );
-                    auto nodeId = vertice->globalID();
+                    auto nodeId = vertice.globalID();
                     idMap[owner].push_back( nodeId );
                 }
                 sideMap[owner].push_back( s );

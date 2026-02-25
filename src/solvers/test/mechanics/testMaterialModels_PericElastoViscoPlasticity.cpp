@@ -34,11 +34,7 @@
 static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
-
-    auto input_db = AMP::Database::parseInputFile( input_file );
+    auto input_db          = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
     auto matModelDatabase = input_db->getDatabase( "MechanicsMaterialModel" );
@@ -194,7 +190,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     ut->passes( exeName );
 }
 
-int testMaterialModels_PericElastoViscoPlasticity_1( int argc, char *argv[] )
+int testMaterialModels_PericElastoViscoPlasticity( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;

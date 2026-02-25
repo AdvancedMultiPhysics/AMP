@@ -25,11 +25,7 @@
 static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
-
-    auto input_db = AMP::Database::parseInputFile( input_file );
+    auto input_db          = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
     AMP_INSIST( input_db->keyExists( "Mesh" ), "Key ''Mesh'' is missing!" );

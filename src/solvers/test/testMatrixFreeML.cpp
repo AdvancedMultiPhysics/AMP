@@ -1,5 +1,4 @@
 #include "AMP/IO/PIO.h"
-#include "AMP/IO/WriteSolutionToFile.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/MultiMesh.h"
@@ -132,9 +131,6 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName, int type )
 
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
-
-    [[maybe_unused]] auto libmeshInit =
-        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
 
     auto mesh_file = input_db->getString( "mesh_file" );
     auto fusedMeshAdapter =
@@ -357,9 +353,6 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName, int type )
 
         std::cout << std::endl;
     }
-
-    auto outFile = exeName + "-" + std::to_string( type );
-    printSolution( fusedMeshAdapter, fusedSolVec, outFile );
 
     ut->passes( exeName );
 }

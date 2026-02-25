@@ -1,5 +1,5 @@
-#ifndef included_AMP_MeshElementVectorIterator
-#define included_AMP_MeshElementVectorIterator
+#ifndef included_AMP_MeshListIterator
+#define included_AMP_MeshListIterator
 
 #include "AMP/mesh/MeshIterator.h"
 #include "AMP/utils/Utilities.h"
@@ -12,30 +12,29 @@ namespace AMP::Mesh {
 
 
 /**
- * \class MeshElementVectorIterator
+ * \class MeshListIterator
  * \brief A class used to iterate over a set of mesh elements.
  * \details  This class provides routines for iterating over a set
  * of mesh elments that are in a std::vector.
  */
 template<class TYPE = MeshElement>
-class MeshElementVectorIterator final : public MeshIterator
+class MeshListIterator final : public MeshIterator
 {
 public:
-    //! Empty MeshElementVectorIterator constructor
-    MeshElementVectorIterator();
+    //! Empty MeshListIterator constructor
+    MeshListIterator();
 
-    //! Default MeshElementVectorIterator constructor
-    explicit MeshElementVectorIterator( std::shared_ptr<std::vector<TYPE>> elements,
-                                        size_t pos = 0 );
+    //! Default MeshListIterator constructor
+    explicit MeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
 
     //! Deconstructor
-    virtual ~MeshElementVectorIterator() = default;
+    virtual ~MeshListIterator() = default;
 
     //! Copy constructor
-    MeshElementVectorIterator( const MeshElementVectorIterator & );
+    MeshListIterator( const MeshListIterator & );
 
     //! Assignment operator
-    MeshElementVectorIterator &operator=( const MeshElementVectorIterator & );
+    MeshListIterator &operator=( const MeshListIterator & );
 
     //! Increment
     MeshIterator &operator++() override;
