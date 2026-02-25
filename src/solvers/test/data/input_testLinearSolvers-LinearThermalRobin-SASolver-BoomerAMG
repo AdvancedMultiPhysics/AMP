@@ -13,7 +13,7 @@ LinearSolver{
   kappa = 2
   kcycle_type = "fcg"
   
-<<< SASolver-Level-0 >>>
+<<< SASolver-Level-simple >>>
 
   pre_relaxation{
     name = "HybridGS"
@@ -45,7 +45,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 24
+  iterations = 20
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

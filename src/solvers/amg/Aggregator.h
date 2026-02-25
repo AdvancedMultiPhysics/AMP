@@ -17,7 +17,8 @@ namespace AMP::Solver::AMG {
 struct Aggregator {
     Aggregator( const CoarsenSettings &settings )
         : d_strength_threshold( settings.strength_threshold ),
-          d_strength_measure( settings.strength_measure )
+          d_strength_measure( settings.strength_measure ),
+          d_checkdd( settings.checkdd )
     {
     }
 
@@ -39,6 +40,7 @@ struct Aggregator {
 
     const float d_strength_threshold;
     const std::string d_strength_measure;
+    const bool d_checkdd;
 };
 
 } // namespace AMP::Solver::AMG

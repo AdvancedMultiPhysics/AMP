@@ -12,8 +12,8 @@
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshFactory.h"
 #include "AMP/mesh/MeshParameters.h"
-#include "AMP/solvers/amg/default/MIS2Aggregator.h"
-#include "AMP/solvers/amg/default/SimpleAggregator.h"
+#include "AMP/solvers/amg/MIS2Aggregator.h"
+#include "AMP/solvers/amg/SimpleAggregator.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
@@ -63,7 +63,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
               << std::endl;
 
     // Create aggregate matrix
-    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min" };
+    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min", false };
     auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( crs_settings );
     auto P   = agg->getAggregateMatrix( A );
 

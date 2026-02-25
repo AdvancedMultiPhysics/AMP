@@ -134,8 +134,8 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
             for ( lidx_t n = 0; n < nrows; ++n ) {
                 rowHelper->NNZ( d_first_row + n, nnz_diag[n], nnz_offd[n] );
             }
-            d_diag_matrix->setNNZ( nnz_diag );
-            d_offd_matrix->setNNZ( nnz_offd );
+            d_diag_matrix->setNNZ( nnz_diag.data() );
+            d_offd_matrix->setNNZ( nnz_offd.data() );
 
             auto diag_cols = rowHelper->getLocals();
             auto offd_cols = rowHelper->getRemotes();
@@ -390,8 +390,7 @@ void CSRMatrixData<Config>::setNNZ( lidx_t tot_nnz_diag, lidx_t tot_nnz_offd )
 }
 
 template<typename Config>
-void CSRMatrixData<Config>::setNNZ( const std::vector<lidx_t> &nnz_diag,
-                                    const std::vector<lidx_t> &nnz_offd )
+void CSRMatrixData<Config>::setNNZ( const lidx_t *nnz_diag, const lidx_t *nnz_offd )
 {
     PROFILE( "CSRMatrixData::setNNZ" );
 

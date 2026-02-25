@@ -1,8 +1,8 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/CSRVisit.h"
+#include "AMP/solvers/amg/SimpleAggregator.h"
 #include "AMP/solvers/amg/Strength.hpp"
-#include "AMP/solvers/amg/default/SimpleAggregator.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/vectors/CommunicationList.h"
 
@@ -31,9 +31,14 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     PROFILE( "SimpleAggregator::assignLocalAggregates" );
 
     using lidx_t            = typename Config::lidx_t;
+    using alloc_t           = typename Config::allocator_type;
     using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
+
+    const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<alloc_t>();
+    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
+                "SimpleAggregator does not support device memory" );
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
@@ -41,11 +46,14 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     auto A_diag        = A_data->getDiagMatrix();
 
     std::shared_ptr<localmatrixdata_t> A_masked;
-    if ( d_strength_measure == "evolution" ) {
-        auto S   = compute_soc<evolution_strength>( csr_view( *A ), d_strength_threshold );
-        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
-    } else if ( d_strength_measure == "classical_abs" ) {
+    if ( d_strength_measure == "classical_abs" ) {
         auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "symagg_abs" ) {
+        auto S   = compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
+    } else if ( d_strength_measure == "symagg_min" ) {
+        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else {
         if ( d_strength_measure != "classical_min" ) {
