@@ -47,12 +47,8 @@ ENABLE_WARNINGS
 static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName + ".txt";
-
-    AMP::logOnlyNodeZero( log_file );
-
-    auto globalComm = AMP::AMP_MPI( AMP_COMM_WORLD );
-    auto input_db   = AMP::Database::parseInputFile( input_file );
+    auto globalComm        = AMP::AMP_MPI( AMP_COMM_WORLD );
+    auto input_db          = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
     auto mesh_file = input_db->getString( "mesh_file" );

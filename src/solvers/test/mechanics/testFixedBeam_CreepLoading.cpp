@@ -36,9 +36,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -74,12 +71,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     // Create the variables
-    auto mechanicsNonlinearVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() );
-
     auto multivariable = std::dynamic_pointer_cast<AMP::LinearAlgebra::MultiVariable>(
-        mechanicsNonlinearVolumeOperator->getInputVariable() );
+        nonlinearMechanicsVolumeOperator->getInputVariable() );
     auto dispVar = multivariable->getVariable( AMP::Operator::Mechanics::DISPLACEMENT );
     auto tempVar = multivariable->getVariable( AMP::Operator::Mechanics::TEMPERATURE );
     auto burnVar = multivariable->getVariable( AMP::Operator::Mechanics::BURNUP );
@@ -119,13 +112,13 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     tempVec->setToScalar( 301.0 );
     burnVec->setToScalar( 10.0 );
 
-    mechanicsNonlinearVolumeOperator->setReferenceTemperature( tempVecRef );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE, tempVec );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::BURNUP, burnVec );
+    nonlinearMechanicsVolumeOperator->setReferenceTemperature( tempVecRef );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE, tempVec );
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::BURNUP, burnVec );
 
     auto mechanicsNonlinearMaterialModel =
         std::dynamic_pointer_cast<AMP::Operator::MechanicsMaterialModel>(
-            mechanicsNonlinearVolumeOperator->getMaterialModel() );
+            nonlinearMechanicsVolumeOperator->getMaterialModel() );
 
     // Create the solver
     auto nonlinearSolver = AMP::Solver::Test::buildSolver(
@@ -188,18 +181,15 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
+        nonlinearMechanicsVolumeOperator->reset( tmpParams );
 
         mechanicsNonlinearMaterialModel->updateTime( currTime );
 
         nonlinearSolver->setZeroInitialGuess( false );
 
-        std::string number1 = std::to_string( step );
-        std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
-
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() )
-            ->printStressAndStrain( solVec, fname );
+        // std::string number1 = std::to_string( step );
+        // std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
+        // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, fname );
 
         // double prev_stress, prev_strain, slope;
         if ( ExtractData ) {
@@ -207,7 +197,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         }
     }
 
-    mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
+    // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, output_file );
 
     ut->passes( exeName );
     fclose( fout123 );

@@ -4,7 +4,7 @@ NumberOfMeshes = 0
 
 NumberOfLoadingSteps = 100
 
-ExtractStressStrainData = TRUE
+ExtractStressStrainData = FALSE
 
 NonlinearMechanicsOperator {
   name="NonlinearBVPOperator"

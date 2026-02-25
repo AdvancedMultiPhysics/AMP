@@ -41,6 +41,8 @@ static void myTest( AMP::UnitTest *ut )
     fp = fopen( outFileName.c_str(), "w" );
     fprintf( fp, "clc; \n clear; \n A = zeros(24, 24); \n \n" );
 
+    [[maybe_unused]] auto libmeshInit =
+        std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
     libMesh::Parallel::Communicator comm( globalComm.getCommunicator() );
     auto libmesh = std::make_shared<libMesh::Mesh>( comm, 3 );
     libMesh::MeshTools::Generation::build_cube(
@@ -131,14 +133,12 @@ static void myTest( AMP::UnitTest *ut )
 int testLinearMechanics_eigenValues( int argc, char *argv[] )
 {
     AMP::AMPManager::startup( argc, argv );
-    auto libmeshInit = std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
 
     AMP::UnitTest ut;
     myTest( &ut );
     ut.report();
     int num_failed = ut.NumFailGlobal();
 
-    libmeshInit.reset();
     AMP::AMPManager::shutdown();
     return num_failed;
 }

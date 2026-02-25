@@ -30,9 +30,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
@@ -58,10 +55,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     // Create the variables
-    auto mechanicsNonlinearVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() );
-    auto dispVar    = mechanicsNonlinearVolumeOperator->getOutputVariable();
+    auto dispVar    = nonlinearMechanicsVolumeOperator->getOutputVariable();
     auto tempVar    = std::make_shared<AMP::LinearAlgebra::Variable>( "temperature" );
     auto tempDofMap = AMP::Discretization::simpleDOFManager::create(
         mesh, AMP::Mesh::GeomType::Vertex, 1, 1, true );
@@ -80,13 +74,13 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     AMP_INSIST( input_db->keyExists( "INIT_TEMP_CONST" ), "key missing!" );
     auto initTempVal = input_db->getScalar<double>( "INIT_TEMP_CONST" );
     initTempVec->setToScalar( initTempVal );
-    mechanicsNonlinearVolumeOperator->setReferenceTemperature( initTempVec );
+    nonlinearMechanicsVolumeOperator->setReferenceTemperature( initTempVec );
 
     // Set Final Temperature
     AMP_INSIST( input_db->keyExists( "FINAL_TEMP_CONST" ), "key missing!" );
     auto finalTempVal = input_db->getScalar<double>( "FINAL_TEMP_CONST" );
     finalTempVec->setToScalar( finalTempVal );
-    mechanicsNonlinearVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE,
+    nonlinearMechanicsVolumeOperator->setVector( AMP::Operator::Mechanics::TEMPERATURE,
                                                  finalTempVec );
 
     // Initial guess
@@ -151,7 +145,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     nonlinearSolver->apply( rhsVec, solVec );
 
-    mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
+    nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, output_file );
 
     ut->passes( "testElasticThermalPatch" );
 }
