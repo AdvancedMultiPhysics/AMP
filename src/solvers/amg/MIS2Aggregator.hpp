@@ -427,8 +427,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                               worklist.get(),
                               worklist_len,
                               Tv.get(),
-                              Tv_hat.get(),
-                              agg_root_ids.get() );
+                              Tv_hat.get() );
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
@@ -487,8 +486,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                               worklist.get(),
                               worklist_len,
                               Tv.get(),
-                              Tv_hat.get(),
-                              agg_root_ids.get() );
+                              Tv_hat.get() );
 
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
