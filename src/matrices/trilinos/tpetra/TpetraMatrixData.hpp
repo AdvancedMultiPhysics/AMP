@@ -371,8 +371,12 @@ AMP::AMP_MPI TpetraMatrixData<ST, LO, GO, NT>::getComm() const
  * Set/Add values by global id                           *
  ********************************************************/
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID( size_t num_rows,
+                                                            size_t num_cols,
+                                                            const size_t *rows,
+                                                            const size_t *cols,
+                                                            const void *vals,
+                                                            const typeID &id )
 {
     // NOTE: this routine assumes the same number of cols per row!!!
     // This has to be fixed in ALL AMP matrix interfaces
@@ -409,8 +413,12 @@ void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID(
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixData<ST, LO, GO, NT>::setValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void TpetraMatrixData<ST, LO, GO, NT>::setValuesByGlobalID( size_t num_rows,
+                                                            size_t num_cols,
+                                                            const size_t *rows,
+                                                            const size_t *cols,
+                                                            const void *vals,
+                                                            const typeID &id )
 {
     // NOTE: this routine assumes the same number of cols per row!!!
     // This has to be fixed in ALL AMP matrix interfaces
@@ -461,8 +469,8 @@ void TpetraMatrixData<ST, LO, GO, NT>::setValuesByGlobalID(
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::getValuesByGlobalID( size_t num_rows,
                                                             size_t num_cols,
-                                                            size_t *rows,
-                                                            size_t *cols,
+                                                            const size_t *rows,
+                                                            const size_t *cols,
                                                             void *vals,
                                                             const typeID &id ) const
 {
