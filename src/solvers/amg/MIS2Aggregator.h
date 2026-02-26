@@ -32,8 +32,7 @@ struct MIS2Aggregator : Aggregator {
                           typename Config::lidx_t *worklist,
                           typename Config::lidx_t worklist_len,
                           uint64_t *Tv,
-                          uint64_t *Tv_hat,
-                          int *agg_ids );
+                          uint64_t *Tv_hat );
 
     // helper function to choose bits for id part of packed tuples
     uint64_t getIdMask( uint64_t num_global ) const
