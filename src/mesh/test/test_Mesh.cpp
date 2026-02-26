@@ -261,11 +261,10 @@ void testDefaults( AMP::UnitTest &ut )
     // Run tests on a libmesh mesh
     testIntializeLibmesh( ut );
     testlibMesh( ut );
+#endif
 
     // Run tests on the input file
-    if ( AMP::IO::exists( "pellet_1x.e" ) )
-        testInputMesh( ut, "input_libMesh" );
-#endif
+    testInputMesh( ut, "input_pin" );
 
     // Run the basic tests on all mesh generators
     testMeshGenerators( ut );

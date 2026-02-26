@@ -5,7 +5,7 @@ IF ( USE_MPI )
 ENDIF()
 
 # Copy input files
-COPY_TEST_FILE( input_libMesh )
+COPY_TEST_FILE( input_pin )
 COPY_TEST_FILE( input_crystal )
 COPY_TEST_FILE( input_crystal_mesh )
 COPY_TEST_FILE( input_crystal_triangle )
