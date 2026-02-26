@@ -48,8 +48,7 @@ int MIS2Aggregator::classifyVertices(
     typename Config::lidx_t *worklist,
     typename Config::lidx_t worklist_len,
     uint64_t *Tv,
-    uint64_t *Tv_hat,
-    int *agg_ids )
+    uint64_t *Tv_hat )
 {
     PROFILE( "MIS2Aggregator::classifyVertices" );
 
@@ -286,7 +285,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     using lidx_t            = typename Config::lidx_t;
     using gidx_t            = typename Config::gidx_t;
     using scalar_t          = typename Config::scalar_t;
-    using allocator_type    = typename Config::allocator_type;
     using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
