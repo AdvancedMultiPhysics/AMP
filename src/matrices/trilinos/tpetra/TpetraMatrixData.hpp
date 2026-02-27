@@ -70,6 +70,7 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
             createValuesByGlobalID( i + srow, cols );
         }
         d_tpetraMatrix->setAllToScalar( 0.0 );
+        //        d_tpetraMatrix->fillComplete();
         d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
         // d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) )
         // ),
