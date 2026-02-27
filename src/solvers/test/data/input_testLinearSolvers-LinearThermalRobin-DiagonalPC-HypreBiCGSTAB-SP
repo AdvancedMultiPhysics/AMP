@@ -1,0 +1,20 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "HypreBiCGSTABSolver"
+  uses_preconditioner = TRUE
+  diag_scale_pc = TRUE
+  absolute_tolerance = 1.0e-6
+  relative_tolerance = 1.0e-6
+  max_iterations = 100  
+  max_krylov_dimenson = 150
+  print_info_level = 2
+
+}
+
+Reference{
+  iterations = 22
+  res_l2_norm = -1.0
+  tolerance = 0.0
+  strict = FALSE
+}

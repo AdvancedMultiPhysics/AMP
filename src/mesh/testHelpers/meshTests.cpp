@@ -1106,13 +1106,13 @@ void meshTests::getParents( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> 
         }
     }
     ut.pass_fail( pass, "getParents passed" );
+    mesh->getComm().barrier();
 }
 
 
 // VerifyElementForNode
 void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
-    PROFILE( "VerifyElementForNode" );
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( multimesh ) {
         // Mesh is a multimesh and test is not valid if multimesh contains meshes with
@@ -1124,6 +1124,7 @@ void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Me
         ut.expected_failure( "VerifyElementForNode not supported for libMesh" );
         return;
     } else {
+        PROFILE( "VerifyElementForNode" );
         auto element_has_node = []( const AMP::Mesh::MeshElement &elem,
                                     const AMP::Mesh::MeshElement &n ) {
             MeshElementID ids[32];
@@ -1147,6 +1148,7 @@ void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Me
         else
             ut.failure( "Found an incorrect element" );
     }
+    mesh->getComm().barrier();
 }
 
 
@@ -1154,7 +1156,6 @@ void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Me
 void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
                                                std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
-    PROFILE( "VerifyNodeElemMapIteratorTest" );
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( multimesh ) {
         // Mesh is a multimesh and test is not valid if multimesh contains meshes with
@@ -1166,6 +1167,7 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
         ut.expected_failure( "Verify Node<->Element not supported for libMesh" );
         return;
     } else {
+        PROFILE( "VerifyNodeElemMapIteratorTest" );
         auto verify_node = []( const AMP::Mesh::MeshElement &node,
                                std::shared_ptr<AMP::Mesh::Mesh> mesh ) {
             std::set<AMP::Mesh::MeshElementID> elems_from_node, elems_from_mesh;
@@ -1201,6 +1203,7 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
         }
         ut.passes( "Verify Node<->Element map iterator" );
     }
+    mesh->getComm().barrier();
 }
 
 
@@ -1208,7 +1211,6 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
 void meshTests::VerifyBoundaryIteratorTest( AMP::UnitTest &ut,
                                             std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
-    PROFILE( "VerifyBoundaryIteratorTest" );
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( multimesh ) {
         // Mesh is a multimesh and test is not valid if multimesh contains meshes with
@@ -1220,6 +1222,7 @@ void meshTests::VerifyBoundaryIteratorTest( AMP::UnitTest &ut,
         ut.expected_failure( "Verify Boundary iterator not supported for libMesh" );
         return;
     } else {
+        PROFILE( "VerifyBoundaryIteratorTest" );
         auto isBoundaryElement = []( const AMP::Mesh::MeshElement &elem ) {
             auto neighbors = elem.getNeighbors();
             for ( const auto &neighbor : neighbors )
@@ -1247,6 +1250,7 @@ void meshTests::VerifyBoundaryIteratorTest( AMP::UnitTest &ut,
         }
         ut.passes( "Verify Boundary iterator: " + mesh->getName() );
     }
+    mesh->getComm().barrier();
 }
 
 
@@ -1289,6 +1293,7 @@ void meshTests::cloneMesh( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::M
         pass     = pass && err < 1e-6;
     }
     ut.pass_fail( pass, "cloneMesh " + mesh->getName() );
+    mesh->getComm().barrier();
 }
 
 

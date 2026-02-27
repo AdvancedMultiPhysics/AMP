@@ -439,6 +439,7 @@ void Xdmf::write( const std::string &filename ) const
         return;
     // Create XDMF file
     auto fid = fopen( filename.data(), "w" );
+    AMP_INSIST( fid, "Failed to open " + filename );
     fprintf( fid, "<?xml version=\"1.0\" ?>\n" );
     fprintf( fid, "<!DOCTYPE Xdmf SYSTEM \"Xdmf.dtd\" []>\n" );
     fprintf( fid, "<Xdmf Version=\"2.0\">\n" );

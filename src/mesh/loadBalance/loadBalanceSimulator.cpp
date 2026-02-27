@@ -568,15 +568,17 @@ void loadBalanceSimulator::setRanks( int begin, int end )
  ************************************************************/
 void loadBalanceSimulator::copyRanks( const loadBalanceSimulator &x, int offset )
 {
-    AMP_ASSERT( d_method == x.d_method && d_allEqual == x.d_allEqual &&
-                d_submeshes.size() == x.d_submeshes.size() );
     d_cost        = x.d_cost;
     d_maxCostRank = x.d_maxCostRank;
     d_max_procs   = x.d_max_procs;
     d_begin       = x.d_begin + offset;
     d_end         = x.d_end + offset;
-    for ( size_t i = 0; i < d_submeshes.size(); i++ )
-        d_submeshes[i].copyRanks( x.d_submeshes[i], offset );
+    if ( !d_submeshes.empty() ) {
+        AMP_ASSERT( d_method == x.d_method && d_allEqual == x.d_allEqual &&
+                    d_submeshes.size() == x.d_submeshes.size() );
+        for ( size_t i = 0; i < d_submeshes.size(); i++ )
+            d_submeshes[i].copyRanks( x.d_submeshes[i], offset );
+    }
 }
 
 
