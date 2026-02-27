@@ -170,9 +170,9 @@ void MatrixTests::VerifyAXPYMatrix( AMP::UnitTest *utils )
 
     auto vector1lhs   = matrix1->createInputVector();
     auto vector2lhs   = matrix2->createInputVector();
-    auto vector1rhs   = matrix1->createInputVector();
-    auto vector2rhs   = matrix2->createInputVector();
-    auto vectorresult = matrix2->createInputVector();
+    auto vector1rhs   = matrix1->createOutputVector();
+    auto vector2rhs   = matrix2->createOutputVector();
+    auto vectorresult = matrix2->createOutputVector();
 
     vector1lhs->setRandomValues();
     vector1lhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -222,11 +222,11 @@ void MatrixTests::VerifyCopyMatrix( AMP::UnitTest *utils )
     auto matrix2 = getCopyMatrix( matrix1 );
 
     auto u1 = matrix1->createInputVector();
-    auto v1 = matrix1->createInputVector();
+    auto v1 = matrix1->createOutputVector();
 
     auto u2           = matrix2->createInputVector();
-    auto v2           = matrix2->createInputVector();
-    auto vectorresult = matrix2->createInputVector();
+    auto v2           = matrix2->createOutputVector();
+    auto vectorresult = matrix2->createOutputVector();
 
     u1->setRandomValues();
     u1->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -284,9 +284,9 @@ void MatrixTests::VerifyScaleMatrix( AMP::UnitTest *utils )
 
     auto vector1lhs   = matrix1->createInputVector();
     auto vector2lhs   = matrix2->createInputVector();
-    auto vector1rhs   = matrix1->createInputVector();
-    auto vector2rhs   = matrix2->createInputVector();
-    auto vectorresult = matrix2->createInputVector();
+    auto vector1rhs   = matrix1->createOutputVector();
+    auto vector2rhs   = matrix2->createOutputVector();
+    auto vectorresult = matrix2->createOutputVector();
 
     vector1lhs->setRandomValues();
     vector1lhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
@@ -350,7 +350,7 @@ void MatrixTests::VerifyMultMatrix( AMP::UnitTest *utils )
     matrix = getCopyMatrix( matrix );
     matrix->zero();
     auto vectorlhs = matrix->createInputVector();
-    auto vectorrhs = matrix->createInputVector();
+    auto vectorrhs = matrix->createOutputVector();
     double normlhs, normrhs;
 
     vectorlhs->setRandomValues();
