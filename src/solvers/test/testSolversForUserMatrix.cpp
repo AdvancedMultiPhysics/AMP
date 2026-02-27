@@ -23,6 +23,10 @@
 #include <memory>
 #include <string>
 
+#ifdef AMP_USE_HYPRE
+    #include "HYPRE_config.h"
+#endif
+
 std::shared_ptr<AMP::Solver::SolverStrategy>
 buildSolver( std::shared_ptr<AMP::Database> input_db,
              const std::string &solver_name,
@@ -75,7 +79,9 @@ buildSolver( std::shared_ptr<AMP::Database> input_db,
     return solver;
 }
 
-void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &inputFileName )
+void userLinearOperatorTest( AMP::UnitTest *const ut,
+                             const std::string &inputFileName,
+                             const double &tol )
 {
     // Test create
     const std::string input_file = inputFileName;
@@ -187,7 +193,7 @@ void userLinearOperatorTest( AMP::UnitTest *const ut, const std::string &inputFi
     AMP::pout << "Initial Residual Norm: " << initialResidualNorm << std::endl;
     AMP::pout << "Final Residual Norm  : " << finalResidualNorm << std::endl;
 
-    if ( finalResidualNorm / initialResidualNorm > 1.0e-7 ) {
+    if ( finalResidualNorm / initialResidualNorm > tol ) {
         ut->failure( "solver could NOT solve a linear thermal problem" );
     }
 }
@@ -197,27 +203,35 @@ int main( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    std::vector<std::string> files;
-
+    std::vector<std::pair<std::string, double>> filesAndTol;
     if ( argc > 1 ) {
-
-        files.emplace_back( argv[1] );
+        if ( argc > 2 ) {
+            filesAndTol.emplace_back( std::make_pair( argv[1], std::stod( argv[2] ) ) );
+        } else {
+            filesAndTol.emplace_back( std::make_pair( argv[1], 1e-7 ) );
+        }
 
     } else {
 
 #ifdef AMP_USE_TRILINOS
-        files.emplace_back( "input_testSolversForUserMatrix-ML" );
+        filesAndTol.emplace_back( std::make_pair( "input_testSolversForUserMatrix-ML", 1e-7 ) );
 #endif
 #ifdef AMP_USE_HYPRE
-        files.emplace_back( "input_testSolversForUserMatrix-BoomerAMG" );
+    #ifdef HYPRE_SINGLE
+        filesAndTol.emplace_back(
+            std::make_pair( "input_testSolversForUserMatrix-BoomerAMG-SP", 1e-5 ) );
+    #else
+        filesAndTol.emplace_back(
+            std::make_pair( "input_testSolversForUserMatrix-BoomerAMG", 1e-7 ) );
+    #endif
 #endif
 #ifdef AMP_USE_TRILINOS_MUELU
-        files.emplace_back( "input_testSolversForUserMatrix-MueLu" );
+        filesAndTol.emplace_back( std::make_pair( "input_testSolversForUserMatrix-MueLu", 1e-7 ) );
 #endif
     }
 
-    for ( const auto &file : files )
-        userLinearOperatorTest( &ut, file );
+    for ( const auto &[file, tol] : filesAndTol )
+        userLinearOperatorTest( &ut, file, tol );
 
     ut.report();
 

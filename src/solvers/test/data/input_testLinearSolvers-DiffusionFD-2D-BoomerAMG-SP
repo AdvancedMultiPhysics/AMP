@@ -1,0 +1,23 @@
+<<< input_DiffusionFDOperator-2D >>>
+
+LinearSolver{
+  name = "BoomerAMGSolver"
+  absolute_tolerance = 1.e-6
+  relative_tolerance = 1.e-6
+  print_info_level = 2
+  max_iterations = 100
+  max_coarse_size = 25
+  strong_threshold = 0.5
+  cycle_type = 1
+  relax_type = 16
+  coarsen_type = 8
+  interp_type = 18
+  relax_order = 0
+}
+
+Reference{
+  iterations = 27
+  res_l2_norm = -1
+  tolerance = 0
+  strict = FALSE
+}

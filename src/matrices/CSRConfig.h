@@ -402,7 +402,7 @@ case MODE:        \
 
 #if defined( AMP_USE_HYPRE )
 template<alloc Alloc>
-using DefaultCSRConfig     = HypreConfig<Alloc>;
+using DefaultCSRConfig     = CSRConfig<Alloc, hypre_small, hypre_big, scalar::f64>;
 using DefaultHostCSRConfig = DefaultCSRConfig<alloc::host>;
 #else
 template<alloc Alloc>
