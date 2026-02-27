@@ -417,6 +417,7 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
     if ( d_is_diag ) {
         CSRMatrixDataHelpers<Config>::GlobalToLocalDiag(
             d_cols.get(), d_nnz, d_first_col, d_cols_loc.get() );
+        d_ncols_unq = d_last_col - d_first_col;
     } else {
         // for offd setup column map as part of the process
 
