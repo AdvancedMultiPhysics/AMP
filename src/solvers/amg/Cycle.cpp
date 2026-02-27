@@ -195,4 +195,44 @@ std::string_view KappaKCycle::krylovTypeName( const KappaKCycle::krylov_type kt 
         return "";
     }
 }
+
+void save_hierarchy( std::string_view base_name, const std::vector<Level> &levels )
+{
+    for ( size_t nl = 0; nl < levels.size; ++nl ) {
+        // create file names for A, R, P
+        const auto fname_A = std::string( base_name ) + "_Level" + nl + "_A";
+        const auto fname_R = std::string( base_name ) + "_Level" + nl + "_R";
+        const auto fname_P = std::string( base_name ) + "_Level" + nl + "_P";
+
+        // pull out matrices
+        auto A = levels[nl].A->getMatrix();
+        AMP_ASSERT( A->mode() < std::numeric_limits<std::uint16_t>::max() );
+        auto R_linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( levels[nl].R );
+        auto P_linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( levels[nl].P );
+        AMP_ASSERT( R_linop && P_linop );
+        auto R = R_linop->getMatrix();
+        auto P = P_linop->getMatrix();
+        AMP_ASSERT( R->mode() < std::numeric_limits<std::uint16_t>::max() );
+        AMP_ASSERT( P->mode() < std::numeric_limits<std::uint16_t>::max() );
+
+        // have matrices and all are native CSR type
+        // use visitor with save_matrix to dump each one out
+        LinearAlgebra::csrVisit( A, [fname_A]( auto csr_ptr ) {
+            AMP::IO::RestartManager writer;
+            writer.registerData( csr_ptr, "A" );
+            writer.write( fname_A );
+        } );
+        LinearAlgebra::csrVisit( R, [fname_R]( auto csr_ptr ) {
+            AMP::IO::RestartManager writer;
+            writer.registerData( csr_ptr, "R" );
+            writer.write( fname_R );
+        } );
+        LinearAlgebra::csrVisit( P, [fname_P]( auto csr_ptr ) {
+            AMP::IO::RestartManager writer;
+            writer.registerData( csr_ptr, "P" );
+            writer.write( fname_P );
+        } );
+    }
+}
+
 } // namespace AMP::Solver::AMG

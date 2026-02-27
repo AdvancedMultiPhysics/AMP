@@ -46,6 +46,13 @@ constexpr bool is_level_v = std::is_base_of_v<Level, T>;
 template<std::size_t N>
 void clone_workspace( LevelWithWorkspace<N> &level, const LinearAlgebra::Vector &donor );
 
+/** Save level matrices to file for external inspection
+
+    \param[in] base_name String to build each matrices dumped filename from
+    \param[in] levels    Vector of all levels in hierarchy to be saved
+**/
+void save_hierarchy( std::string_view base_name, const std::vector<Level> &levels );
+
 inline constexpr std::size_t num_work_kcycle = 5;
 using KCycleLevel                            = LevelWithWorkspace<num_work_kcycle>;
 
