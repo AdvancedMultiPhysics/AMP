@@ -61,13 +61,6 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
     AMPManager::incrementResource( "CSRLocalMatrixData" );
     PROFILE( "CSRLocalMatrixData::constructor" );
 
-    // diag will always have number of unique columns set to local span
-    // set that here and leave the more complicated accounting for offd
-    // blocks to the g2l call below
-    if ( d_is_diag ) {
-        d_ncols_unq = d_last_col - d_first_col;
-    }
-
     // Figure out what kind of parameters object we have
     // Note: matParams always true if ampCSRParams is by inheritance
     auto rawCSRParams = std::dynamic_pointer_cast<RawCSRMatrixParameters<Config>>( params );
@@ -608,9 +601,6 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
     // create new data, note swapped rows and cols
     auto transposeData = std::make_shared<CSRLocalMatrixData>(
         params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, d_is_diag );
-    if ( d_is_diag ) {
-        AMP_INSIST( transposeData->d_ncols_unq > 0, "CSRLocalMatrixData<Config>::transpose" );
-    }
 
     // handle edge case of empty diagonal block
     if ( d_is_empty ) {
