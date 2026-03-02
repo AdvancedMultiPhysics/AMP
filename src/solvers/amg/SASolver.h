@@ -51,6 +51,10 @@ protected:
     size_t d_min_coarse_global;
     //! Cycle type, tolerance, kappa value
     KappaKCycle::settings d_cycle_settings;
+    //! flag to save hierarchy after setup phase
+    bool d_save_to_file;
+    //! flag to save hierarchy after failure to converge
+    bool d_save_to_file_on_ftc;
 
     // **** settings that can change level-by-level **** //
     //! Number of smoothing steps applied to tentative prolongator
