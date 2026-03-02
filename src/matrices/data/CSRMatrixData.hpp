@@ -426,6 +426,9 @@ void CSRMatrixData<Config>::globalToLocalColumns()
     d_diag_matrix->globalToLocalColumns();
     d_offd_matrix->globalToLocalColumns();
 
+    AMP_INSIST( d_diag_matrix->numUniqueColumns() > 0,
+                "CSRMatrixData<Config>::globalToLocalColumns" );
+
     makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
