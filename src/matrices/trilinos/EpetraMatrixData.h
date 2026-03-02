@@ -117,20 +117,20 @@ public:
     void createValuesByGlobalID( size_t, const std::vector<size_t> & );
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
     void setValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
     void getValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
+                              const size_t *rows,
+                              const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
     void getRowByGlobalID( size_t row,

@@ -1117,7 +1117,7 @@ void CSRLocalMatrixData<Config>::getRowByGlobalID( const size_t local_row,
 template<typename Config>
 void CSRLocalMatrixData<Config>::getValuesByGlobalID( const size_t local_row,
                                                       const size_t num_cols,
-                                                      size_t *cols,
+                                                      const size_t *cols,
                                                       scalar_t *values ) const
 {
     PROFILE( "CSRLocalMatrixData::getValuesByGlobalID" );

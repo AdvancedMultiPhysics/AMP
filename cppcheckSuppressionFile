@@ -175,6 +175,7 @@ shadowVariable:*/src/utils/DelaunayTessellation.cpp
 shiftTooManyBits:*/src/utils/extended_int.cpp
 syntaxError:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
 syntaxError:*/src/utils/cuda/helper_cuda.cpp
+throwInEntryPoint:*/src/utils/threadpool/test/test_atomic_list.cpp
 uninitMemberVar:*/src/matrices/petsc/NativePetscMatrix.cpp
 uninitMemberVar:*/src/mesh/structured/structuredMeshIterator.cpp
 uninitMemberVar:*/src/operators/boundary/libmesh/TractionBoundaryOperator.cpp

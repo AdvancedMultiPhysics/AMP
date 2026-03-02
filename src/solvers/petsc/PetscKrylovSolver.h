@@ -102,6 +102,8 @@ public:
     void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                 std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
 
+    void reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> ) override;
+
     /**
      * returns the internally stored PETSc KSP object
      */

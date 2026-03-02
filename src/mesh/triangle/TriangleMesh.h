@@ -386,10 +386,10 @@ private:
     std::vector<std::vector<int>> d_remoteTri; //!< The unique ghost triangles for each gcw
     StoreTriData<int, 2> d_childEdge;          //!< The list of local children edges
     StoreTriData<int, 3> d_childFace;          //!< The list of local children faces
-    ElementList d_parents[NG][NG + 1];         //!< Parent data
+    ElementList d_parents[NG + 1][NG + 1];     //!< Parent data
     std::vector<int> d_block_ids;              //!< The global list of block ids
     std::vector<int> d_boundary_ids;           //!< The global list of boundary ids
-    std::vector<bool> d_isSurface[NG];         //!< Global list of surface elements
+    std::vector<bool> d_isSurface[NG + 1];     //!< Global list of surface elements
     std::vector<IteratorSet> d_iterators;      //!< [gcw][type]
     std::vector<IteratorSet> d_surface_it;     //!< [gcw][type]
     std::vector<std::vector<IteratorSet>> d_boundary_it; //!< [id][gcw][type]

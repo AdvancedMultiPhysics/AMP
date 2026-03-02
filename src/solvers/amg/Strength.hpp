@@ -233,9 +233,9 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
         const auto vals_offd     = std::get<2>( A.offd() );
         mask_t *mask_data        = S.diag_mask_data();
 
-        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( row_ptr_diag ) >
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( row_ptr_diag.data() ) >
                           AMP::Utilities::MemoryType::host );
-        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( vals_diag ) >
+        AMP_DEBUG_ASSERT( AMP::Utilities::getMemoryType( vals_diag.data() ) >
                           AMP::Utilities::MemoryType::host );
 
         dim3 BlockDim;

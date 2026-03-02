@@ -1,0 +1,20 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "HypreGMRESSolver"
+  uses_preconditioner = TRUE
+  absolute_tolerance = 1.0e-6
+  relative_tolerance = 1.0e-6
+  print_info_level = 2
+  max_iterations = 25
+  max_krylov_dimension = 150
+}
+
+<<< "PC-BoomerAMGParameters" >>>
+
+Reference{
+  iterations = 17
+  res_l2_norm = -1.0
+  tolerance = 0.0
+  strict = FALSE
+}

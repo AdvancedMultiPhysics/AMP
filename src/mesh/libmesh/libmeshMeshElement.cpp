@@ -184,15 +184,14 @@ MeshElement::ElementListPtr libmeshMeshElement::getElements( const GeomType type
         children = std::make_unique<MeshElementVector<libmeshMeshElement>>( N_children );
         for ( unsigned int i = 0; i < N_children; i++ ) {
             // We need to build a valid element
-            std::unique_ptr<libMesh::Elem> tmp;
+            std::shared_ptr<libMesh::Elem> element;
             if ( type == GeomType::Edge )
-                tmp = elem->build_edge_ptr( i );
+                element = elem->build_edge_ptr( i );
             else if ( type == GeomType::Face )
-                tmp = elem->build_side_ptr( i, false );
+                element = elem->build_side_ptr( i, false );
             else
                 AMP_ERROR( "Internal error" );
-            std::shared_ptr<libMesh::Elem> element( tmp.release() );
-            // We need to generate a vaild id and owning processor
+            // We need to generate a valid id and owning processor
             int N = element->n_nodes();
             AMP_ASSERT( N > ( (int) type ) && N <= 32 );
             uint32_t node_ids[32];
@@ -207,7 +206,8 @@ MeshElement::ElementListPtr libmeshMeshElement::getElements( const GeomType type
             unsigned int id         = generate_id( N, node_ids );
             element->set_id()       = id;
             // Create the libmeshMeshElement
-            ( *children )[i] = libmeshMeshElement( d_dim, type, element, d_rank, d_meshID, d_mesh );
+            ( *children )[i] =
+                libmeshMeshElement( d_dim, type, std::move( element ), d_rank, d_meshID, d_mesh );
         }
     }
     AMP_ASSERT( children );
@@ -372,39 +372,27 @@ bool libmeshMeshElement::isOnSurface() const
 bool libmeshMeshElement::isOnBoundary( int id ) const
 {
     GeomType type       = d_globalID.type();
-    bool on_boundary    = false;
     auto d_libMesh      = d_mesh->getlibMesh();
     auto &boundary_info = d_libMesh->get_boundary_info();
     if ( type == GeomType::Vertex ) {
         // Entity is a libmesh node
         auto *node = (libMesh::Node *) ptr_element;
-        std::vector<libMesh::boundary_id_type> bids;
-        boundary_info.boundary_ids( node, bids );
-        for ( auto &bid : bids ) {
-            if ( bid == id )
-                on_boundary = true;
-        }
+        return boundary_info.has_boundary_id( node, id );
     } else if ( (int) type == d_dim ) {
         // Entity is a libmesh node
         auto *elem        = (libMesh::Elem *) ptr_element;
         unsigned int side = boundary_info.side_with_boundary_id( elem, id );
-        if ( side != static_cast<unsigned int>( -1 ) )
-            on_boundary = true;
+        return side != static_cast<unsigned int>( -1 );
     } else {
         // All other entities are on the boundary iff all of their vertices are on the surface
-        on_boundary = true;
-        auto *elem  = (libMesh::Elem *) ptr_element;
-        std::vector<libMesh::boundary_id_type> bids;
+        bool on_boundary = true;
+        auto *elem       = (libMesh::Elem *) ptr_element;
         for ( unsigned int i = 0; i < elem->n_nodes(); i++ ) {
-            auto node = elem->node_ptr( i );
-            boundary_info.boundary_ids( node, bids );
-            bool test = false;
-            for ( auto &bid : bids )
-                test = test || bid == id;
-            on_boundary = on_boundary && test;
+            auto node   = elem->node_ptr( i );
+            on_boundary = on_boundary && boundary_info.has_boundary_id( node, id );
         }
+        return on_boundary;
     }
-    return on_boundary;
 }
 bool libmeshMeshElement::isInBlock( int id ) const
 {
@@ -429,16 +417,14 @@ bool libmeshMeshElement::isInBlock( int id ) const
  * Functions to generate a new id based on the nodes             *
  * Note: this function requires the node ids to be sorted        *
  ****************************************************************/
-static unsigned int fliplr( unsigned int x )
+static inline uint32_t reverseBits( uint32_t x )
 {
-    unsigned int y     = 0;
-    unsigned int mask1 = 1;
-    unsigned int mask2 = mask1 << ( sizeof( unsigned int ) * 8 - 1 );
-    for ( size_t i = 0; i < sizeof( unsigned int ) * 8; i++ ) {
-        y += ( x & mask1 ) ? mask2 : 0;
-        mask1 <<= 1;
-        mask2 >>= 1;
-    }
+    uint32_t y = x;
+    y = ( ( y >> 1 ) & 0x55555555 ) | ( ( y & 0x55555555 ) << 1 ); // Swap adjacent 1-bit groups
+    y = ( ( y >> 2 ) & 0x33333333 ) | ( ( y & 0x33333333 ) << 2 ); // Swap 2-bit groups
+    y = ( ( y >> 4 ) & 0x0F0F0F0F ) | ( ( y & 0x0F0F0F0F ) << 4 ); // Swap 4-bit groups
+    y = ( ( y >> 8 ) & 0x00FF00FF ) | ( ( y & 0x00FF00FF ) << 8 ); // Swap 8-bit groups
+    y = ( y >> 16 ) | ( y << 16 );                                 // Swap 16-bit groups
     return y;
 }
 unsigned int generate_id( int N, const unsigned int *ids )
@@ -452,7 +438,7 @@ unsigned int generate_id( int N, const unsigned int *ids )
         unsigned int shift = ( 7 * i ) % 13;
         tmp                = tmp ^ ( id_diff[i] << shift );
     }
-    unsigned int id = id0 ^ ( fliplr( tmp ) >> 1 );
+    unsigned int id = id0 ^ ( reverseBits( tmp ) >> 1 );
     return id;
 }
 

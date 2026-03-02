@@ -233,8 +233,12 @@ std::vector<size_t> NativePetscMatrixData::getColumnIDs( size_t row ) const
 
     return cols;
 }
-void NativePetscMatrixData::addValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void NativePetscMatrixData::addValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     std::vector<PetscInt> petsc_rows( num_rows );
     std::vector<PetscInt> petsc_cols( num_cols );
@@ -259,8 +263,12 @@ void NativePetscMatrixData::addValuesByGlobalID(
         AMP_ERROR( "Conversion not supported yet" );
     }
 }
-void NativePetscMatrixData::setValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void NativePetscMatrixData::setValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     std::vector<PetscInt> petsc_rows( num_rows );
     std::vector<PetscInt> petsc_cols( num_cols );
@@ -287,8 +295,8 @@ void NativePetscMatrixData::setValuesByGlobalID(
 }
 void NativePetscMatrixData::getValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
                                                  void *vals,
                                                  const typeID &id ) const
 {

@@ -64,8 +64,11 @@ public:
      * on the actual subclass of matrix used.
      */
     template<class TYPE>
-    void addValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, TYPE *values );
+    void addValuesByGlobalID( size_t num_rows,
+                              size_t num_cols,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const TYPE *values );
 
     /** \brief  Set values in the matrix
      * \param[in] num_rows The number of rows represented in values
@@ -78,8 +81,11 @@ public:
      * on the actual subclass of matrix used.
      */
     template<class TYPE>
-    void setValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, TYPE *values );
+    void setValuesByGlobalID( size_t num_rows,
+                              size_t num_cols,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const TYPE *values );
 
     /** \brief  Get values in the matrix
      * \param[in] num_rows The number of rows represented in values
@@ -91,8 +97,11 @@ public:
      *   have not been allocated or are not ghosts on the current processor.
      */
     template<class TYPE>
-    void getValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, TYPE *values ) const;
+    void getValuesByGlobalID( size_t num_rows,
+                              size_t num_cols,
+                              const size_t *rows,
+                              const size_t *cols,
+                              TYPE *values ) const;
 
     /** \brief  Retrieve a row of the matrix in compressed format
      * \param[in]  row Which row
@@ -116,9 +125,9 @@ public:
      */
     virtual void addValuesByGlobalID( size_t num_rows,
                                       size_t num_cols,
-                                      size_t *rows,
-                                      size_t *cols,
-                                      void *values,
+                                      const size_t *rows,
+                                      const size_t *cols,
+                                      const void *values,
                                       const typeID &id ) = 0;
 
     /** \brief  Set values in the matrix
@@ -134,9 +143,9 @@ public:
      */
     virtual void setValuesByGlobalID( size_t num_rows,
                                       size_t num_cols,
-                                      size_t *rows,
-                                      size_t *cols,
-                                      void *values,
+                                      const size_t *rows,
+                                      const size_t *cols,
+                                      const void *values,
                                       const typeID &id ) = 0;
 
     /** \brief  Get values in the matrix
@@ -151,8 +160,8 @@ public:
      */
     virtual void getValuesByGlobalID( size_t num_rows,
                                       size_t num_cols,
-                                      size_t *rows,
-                                      size_t *cols,
+                                      const size_t *rows,
+                                      const size_t *cols,
                                       void *values,
                                       const typeID &id ) const = 0;
 

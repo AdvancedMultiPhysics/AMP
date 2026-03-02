@@ -344,6 +344,7 @@ int main( int argc, char *argv[] )
     writeTime( 0 );
     writeTime( 1 );
     auto fid = fopen( "test_XDMF.visit", "w" );
+    AMP_INSIST( fid, "Failed to open test_XDMF.visit" );
     fprintf( fid, "test_XDMF_0.xmf\n" );
     fprintf( fid, "test_XDMF_1.xmf\n" );
     fclose( fid );

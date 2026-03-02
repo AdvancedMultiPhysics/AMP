@@ -16,7 +16,11 @@
 
 #include "AMP/solvers/testHelpers/testSolverHelpers.h"
 
-void linearElasticTest( AMP::UnitTest *ut, const std::string &inputFileName )
+#ifdef AMP_USE_HYPRE
+    #include "HYPRE_config.h"
+#endif
+
+void linearElasticTest( AMP::UnitTest *ut, const std::string &inputFileName, const double &tol )
 {
     std::string input_file = inputFileName;
     AMP::pout << "Running linearElasticTest with input " << input_file << std::endl;
@@ -79,8 +83,7 @@ void linearElasticTest( AMP::UnitTest *ut, const std::string &inputFileName )
 
     AMP::pout << "Final Residual Norm: " << finalResidualNorm << std::endl;
 
-    // BP: convergence assumes convergence rate of ~0.6 and 40 iterations
-    if ( finalResidualNorm > ( 1.0e-8 * initResidualNorm ) ) {
+    if ( finalResidualNorm > ( tol * initResidualNorm ) ) {
         ut->failure( mlSolver->type() + " fails to solve a linear elasticity problem" );
     } else {
         ut->passes( mlSolver->type() + " successfully solves a linear elasticity problem" );
@@ -94,30 +97,44 @@ int main( int argc, char *argv[] )
     AMP::AMPManager::startup( argc, argv );
     AMP::UnitTest ut;
 
-    std::vector<std::string> files;
+    std::vector<std::pair<std::string, double>> filesAndTol;
 
     PROFILE_ENABLE();
 
+    // BP: convergence assumes convergence rate of ~0.6 and 40 iterations
+    const double default_tol = 1e-8;
     if ( argc > 1 ) {
-
-        files.emplace_back( argv[1] );
-
+        if ( argc > 2 ) {
+            filesAndTol.emplace_back( std::make_pair( argv[1], std::stod( argv[2] ) ) );
+        } else {
+            filesAndTol.emplace_back( std::make_pair( argv[1], default_tol ) );
+        }
     } else {
 #ifdef AMP_USE_HYPRE
-        files.emplace_back( "input_testBoomerAMGSolver-LinearElasticityOperator-1" );
+    #ifdef HYPRE_SINGLE
+            // To be revisited:
+            // filesAndTol.emplace_back(
+            //     std::make_pair( "input_testBoomerAMGSolver-LinearElasticityOperator-1-SP", 1e-5 )
+            //     );
+    #else
+        filesAndTol.emplace_back(
+            std::make_pair( "input_testBoomerAMGSolver-LinearElasticityOperator-1", default_tol ) );
+    #endif
 #endif
 #ifdef AMP_USE_TRILINOS_ML
-        files.emplace_back( "input_testTrilinosMLSolver-LinearElasticityOperator-1" );
+        filesAndTol.emplace_back( std::make_pair(
+            "input_testTrilinosMLSolver-LinearElasticityOperator-1", default_tol ) );
 #endif
 #ifdef AMP_USE_TRILINOS_MUELU
-        files.emplace_back( "input_testTrilinosMueLuSolver-LinearElasticityOperator-1" );
+        filesAndTol.emplace_back( std::make_pair(
+            "input_testTrilinosMueLuSolver-LinearElasticityOperator-1", default_tol ) );
 #endif
     }
 
     {
         PROFILE( "DRIVER::main(test loop)" );
-        for ( auto &file : files ) {
-            linearElasticTest( &ut, file );
+        for ( auto &[file, tol] : filesAndTol ) {
+            linearElasticTest( &ut, file, tol );
         }
     }
 

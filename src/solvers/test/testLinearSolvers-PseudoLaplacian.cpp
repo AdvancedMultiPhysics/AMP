@@ -25,6 +25,10 @@
 #include <memory>
 #include <string>
 
+#ifdef AMP_USE_HYPRE
+    #include <HYPRE_config.h>
+#endif
+
 #define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
 void linearThermalTest( AMP::UnitTest *ut,
@@ -144,13 +148,21 @@ int main( int argc, char *argv[] )
         files.emplace_back( "input_testLinearSolvers-PL-AmpMesh-CG" );
 
 #ifdef AMP_USE_HYPRE
+    #ifndef HYPRE_SINGLE
         files.emplace_back( "input_testLinearSolvers-PL-AmpMesh-BoomerAMG" );
+    // #else
+    //     files.emplace_back( "input_testLinearSolvers-PL-AmpMesh-BoomerAMG-SP" );
+    #endif
 #endif
 
 #ifdef AMP_USE_LIBMESH
         files.emplace_back( "input_testLinearSolvers-PL-CylMesh-CG" );
     #ifdef AMP_USE_HYPRE
-        files.emplace_back( "input_testLinearSolvers-PL-CylMesh-BoomerAMG" );
+        #ifndef HYPRE_SINGLE
+        files.emplace_back( "input_testLinearSolvers-PL-CylMesh-BoomerAMG-SP" );
+        // #else
+        // files.emplace_back( "input_testLinearSolvers-PL-CylMesh-BoomerAMG" );
+        #endif
     #endif
 #endif
     }

@@ -115,8 +115,10 @@ void meshTests::testBoxMesh( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh:
     if ( !boxmesh )
         return;
     // Run the tests
+    PROFILE( "testBoxMesh" );
     testElementFromPoint( ut, boxmesh );
     testSurface( ut, boxmesh );
+    mesh->getComm().barrier();
 }
 
 
