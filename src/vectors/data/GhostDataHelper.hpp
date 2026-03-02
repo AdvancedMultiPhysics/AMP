@@ -624,8 +624,14 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const ty
 
     if ( id == getTypeID<TYPE>() ) {
         AMP::Utilities::memcpy( vals, d_Ghosts, d_ghostSize * sizeof( TYPE ) );
+    } else if ( id == getTypeID<float>() ) {
+        auto data = reinterpret_cast<float *>( vals );
+        AMP::Utilities::copy<TYPE, float>( d_ghostSize, d_Ghosts, data );
+    } else if ( id == getTypeID<double>() ) {
+        auto data = reinterpret_cast<double *>( vals );
+        AMP::Utilities::copy<TYPE, double>( d_ghostSize, d_Ghosts, data );
     } else {
-        AMP_ERROR( "Ghosts other than same type are not supported yet" );
+        AMP_ERROR( "Ghosts copy of mismatched type other than float/double are not supported yet" );
     }
     return d_ghostSize;
 }

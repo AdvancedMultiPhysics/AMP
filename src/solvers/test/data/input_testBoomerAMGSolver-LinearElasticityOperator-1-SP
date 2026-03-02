@@ -1,0 +1,21 @@
+<<< "input_LinearElasticityOperator-1" >>>
+
+LinearSolver{
+  name = "BoomerAMGSolver"
+//  num_functions = 3
+  cycle_type = 2  // W cycle
+  relax_type = 3
+  number_sweeps = 2
+  coarsen_type = 10
+  interp_type = 6
+  agg_interp_type = 1
+  nodal = 0
+  strong_threshold = 0.9
+  P_max_elements = 0
+  max_iterations = 100
+  absolute_tolerance = 5.0e-06
+  relative_tolerance = 5.0e-06
+  print_info_level = 2
+}
+
+

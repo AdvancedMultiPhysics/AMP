@@ -81,14 +81,14 @@ void meshTests::MeshMatrixTestLoop( AMP::UnitTest &ut,
     if ( run_tests ) {
         PROFILE( "MeshMatrixTestLoop" );
         VerifyGetMatrixTrivialTest( ut, mesh, 1, true );
-        GhostWriteTest( ut, mesh, 1, true );
+        RowWriteTest( ut, mesh, 1, true );
         if ( !fast ) {
             VerifyGetMatrixTrivialTest( ut, mesh, 3, true );
             VerifyGetMatrixTrivialTest( ut, mesh, 1, false );
             VerifyGetMatrixTrivialTest( ut, mesh, 3, false );
-            GhostWriteTest( ut, mesh, 3, true );
-            GhostWriteTest( ut, mesh, 1, false );
-            GhostWriteTest( ut, mesh, 3, false );
+            RowWriteTest( ut, mesh, 3, true );
+            RowWriteTest( ut, mesh, 1, false );
+            RowWriteTest( ut, mesh, 3, false );
         }
     }
 }

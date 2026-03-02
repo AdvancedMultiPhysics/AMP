@@ -328,10 +328,10 @@ public: // Matrix based tests
                                             int dofsPerNode,
                                             bool split );
 
-    static void GhostWriteTest( AMP::UnitTest &ut,
-                                std::shared_ptr<AMP::Mesh::Mesh> mesh,
-                                int dofsPerNode,
-                                bool split );
+    static void RowWriteTest( AMP::UnitTest &ut,
+                              std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                              int dofsPerNode,
+                              bool split );
 
 
 private:

@@ -1,6 +1,8 @@
 #include "AMP/solvers/hypre/HypreSolver.h"
 #include "AMP/discretization/DOF_Manager.h"
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/Matrix.h"
+#include "AMP/matrices/MatrixBuilder.h"
 #include "AMP/matrices/data/hypre/HypreMatrixAdaptor.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/SolverFactory.h"
@@ -60,6 +62,25 @@ void HypreSolver::initialize( std::shared_ptr<const SolverStrategyParameters> )
     }
 }
 
+static AMP::Utilities::MemoryType getAMPMemorySpace( HYPRE_MemoryLocation memory_location )
+{
+    if ( memory_location == HYPRE_MEMORY_HOST ) {
+        return AMP::Utilities::MemoryType::host;
+    } else if ( memory_location == HYPRE_MEMORY_DEVICE ) {
+#if defined( HYPRE_USING_DEVICE_MEMORY )
+        return AMP::Utilities::MemoryType::device;
+#elif defined( HYPRE_USING_UNIFIED_MEMORY )
+        return AMP::Utilities::MemoryType::managed;
+#else
+        AMP_ERROR( "Unable to detect Hypre memory location" );
+        return AMP::Utilities::MemoryType::device;
+#endif
+    } else {
+        AMP_ERROR( "Unable to detect Hypre memory location" );
+        return AMP::Utilities::MemoryType::host;
+    }
+}
+
 void HypreSolver::setCommonParameters( std::shared_ptr<const AMP::Database> db )
 {
     AMP_DEBUG_ASSERT( db );
@@ -81,8 +102,36 @@ void HypreSolver::setCommonParameters( std::shared_ptr<const AMP::Database> db )
 
 void HypreSolver::createHYPREMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
 {
+    // Check matrix is a CSR matrix, if not skip the MP-part
+    const auto mode = static_cast<AMP::LinearAlgebra::csr_mode>( matrix->mode() );
+    if ( ( matrix->mode() < std::numeric_limits<std::uint16_t>::max() ) &&
+         ( AMP::LinearAlgebra::get_scalar( mode ) != AMP::LinearAlgebra::hypre_real ) ) {
+        auto hypreMemType = getAMPMemorySpace( d_hypre_memory_location );
+        if ( hypreMemType == AMP::Utilities::MemoryType::host ) {
+            using Config   = AMP::LinearAlgebra::HypreConfig<AMP::LinearAlgebra::alloc::host>;
+            d_castedMatrix = AMP::LinearAlgebra::createMatrix<Config>( matrix );
+        } else if ( hypreMemType == AMP::Utilities::MemoryType::managed ) {
+#ifdef AMP_USE_DEVICE
+            using Config   = AMP::LinearAlgebra::HypreConfig<AMP::LinearAlgebra::alloc::managed>;
+            d_castedMatrix = AMP::LinearAlgebra::createMatrix<Config>( matrix );
+#else
+            AMP_ERROR( "Error Hypre memory type is managed but amp is not compiled for device" );
+#endif
+        } else if ( hypreMemType == AMP::Utilities::MemoryType::device ) {
+#ifdef AMP_USE_DEVICE
+            using Config   = AMP::LinearAlgebra::HypreConfig<AMP::LinearAlgebra::alloc::device>;
+            d_castedMatrix = AMP::LinearAlgebra::createMatrix<Config>( matrix );
+#else
+            AMP_ERROR( "Error Hypre memory type is device but amp is not compiled for device" );
+#endif
+        } else {
+            AMP_ERROR( "Unknown Hypre memory type" );
+        }
+    } else {
+        d_castedMatrix = matrix;
+    }
     d_HypreMatrixAdaptor =
-        std::make_shared<AMP::LinearAlgebra::HypreMatrixAdaptor>( matrix->getMatrixData() );
+        std::make_shared<AMP::LinearAlgebra::HypreMatrixAdaptor>( d_castedMatrix->getMatrixData() );
     AMP_ASSERT( d_HypreMatrixAdaptor );
     d_ijMatrix = d_HypreMatrixAdaptor->getHypreMatrix();
     if ( d_iDebugPrintInfoLevel > 3 ) {
@@ -118,25 +167,6 @@ void HypreSolver::createHYPREVectors()
     HYPRE_DescribeError( ierr, hypre_mesg );
 }
 
-static AMP::Utilities::MemoryType getAMPMemorySpace( HYPRE_MemoryLocation memory_location )
-{
-    if ( memory_location == HYPRE_MEMORY_HOST ) {
-        return AMP::Utilities::MemoryType::host;
-    } else if ( memory_location == HYPRE_MEMORY_DEVICE ) {
-#if defined( HYPRE_USING_DEVICE_MEMORY )
-        return AMP::Utilities::MemoryType::device;
-#elif defined( HYPRE_USING_UNIFIED_MEMORY )
-        return AMP::Utilities::MemoryType::managed;
-#else
-        AMP_ERROR( "Unable to detect Hypre memory location" );
-        return AMP::Utilities::MemoryType::device;
-#endif
-    } else {
-        AMP_ERROR( "Unable to detect Hypre memory location" );
-        return AMP::Utilities::MemoryType::host;
-    }
-}
-
 void HypreSolver::copyToHypre( std::shared_ptr<const AMP::LinearAlgebra::Vector> amp_v,
                                HYPRE_IJVector hypre_v )
 {
@@ -156,28 +186,35 @@ void HypreSolver::copyToHypre( std::shared_ptr<const AMP::LinearAlgebra::Vector>
 
     HYPRE_Real *vals_p = nullptr;
 
+    auto hypreMemType = getAMPMemorySpace( d_hypre_memory_location );
     if ( amp_v->isType<HYPRE_Real>( 0 ) ) {
 
         vals_p = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( amp_v )
                      ->getRawDataBlock<HYPRE_Real>();
 
-        auto memType      = AMP::Utilities::getMemoryType( vals_p );
-        auto hypreMemType = getAMPMemorySpace( d_hypre_memory_location );
+        auto memType = AMP::Utilities::getMemoryType( vals_p );
         // see if memory spaces are compatible
         if ( memType == hypreMemType ) {
             AMP_ASSERT( vals_p );
             ierr = HYPRE_IJVectorSetValues( hypre_v, nDOFS, nullptr, vals_p );
             HYPRE_DescribeError( ierr, hypre_mesg );
         } else {
-            auto compat_amp_v = AMP::LinearAlgebra::createVector( amp_v, hypreMemType );
-            compat_amp_v->copyVector( amp_v );
-            vals_p = compat_amp_v->getRawDataBlock<HYPRE_Real>();
+            // try to cache compat_amp_v and similarly below in the else
+            if ( !d_compat_amp_v )
+                d_compat_amp_v = AMP::LinearAlgebra::createVector( amp_v, hypreMemType );
+            d_compat_amp_v->copyVector( amp_v );
+            vals_p = d_compat_amp_v->getRawDataBlock<HYPRE_Real>();
             ierr   = HYPRE_IJVectorSetValues( hypre_v, nDOFS, nullptr, vals_p );
             HYPRE_DescribeError( ierr, hypre_mesg );
         }
-
     } else {
-        AMP_ERROR( "Copy from AMP to Hypre vectors of different precision not implemented" );
+        if ( !d_compat_amp_v )
+            d_compat_amp_v = AMP::LinearAlgebra::createVector<HYPRE_Real>(
+                std::const_pointer_cast<AMP::LinearAlgebra::Vector>( amp_v ), hypreMemType );
+        d_compat_amp_v->copyVector( amp_v );
+        vals_p = d_compat_amp_v->getRawDataBlock<HYPRE_Real>();
+        ierr   = HYPRE_IJVectorSetValues( hypre_v, nDOFS, nullptr, vals_p );
+        HYPRE_DescribeError( ierr, hypre_mesg );
     }
 
     ierr = HYPRE_IJVectorAssemble( hypre_v );
@@ -198,15 +235,16 @@ void HypreSolver::copyFromHypre( HYPRE_IJVector hypre_v,
     char hypre_mesg[100];
     int ierr;
 
-    auto vals_p = amp_v->getRawDataBlock<HYPRE_Real>();
+    auto hypreMemType  = getAMPMemorySpace( d_hypre_memory_location );
+    HYPRE_Real *vals_p = nullptr;
 
     if ( amp_v->isType<HYPRE_Real>( 0 ) ) {
 
-        auto memType      = AMP::Utilities::getMemoryType( vals_p );
-        auto hypreMemType = getAMPMemorySpace( d_hypre_memory_location );
+        auto memType = amp_v->getMemoryLocation();
         // see if memory spaces are compatible
         if ( memType == hypreMemType ) {
-            ierr = HYPRE_IJVectorGetValues(
+            vals_p = amp_v->getRawDataBlock<HYPRE_Real>();
+            ierr   = HYPRE_IJVectorGetValues(
                 hypre_v, static_cast<HYPRE_Int>( nDOFS ), nullptr, vals_p );
             HYPRE_DescribeError( ierr, hypre_mesg );
             return;
@@ -215,17 +253,21 @@ void HypreSolver::copyFromHypre( HYPRE_IJVector hypre_v,
             AMP_WARN_ONCE(
                 "Hypre not built with support for AMP vector memory, vector will be migrated" );
 
-            auto tmp_amp_v = AMP::LinearAlgebra::createVector( amp_v, hypreMemType );
-            AMP_ASSERT( tmp_amp_v );
-            vals_p = tmp_amp_v->getRawDataBlock<HYPRE_Real>();
+            if ( !d_compat_amp_v )
+                d_compat_amp_v = AMP::LinearAlgebra::createVector( amp_v, hypreMemType );
+            vals_p = d_compat_amp_v->getRawDataBlock<HYPRE_Real>();
             ierr   = HYPRE_IJVectorGetValues(
                 hypre_v, static_cast<HYPRE_Int>( nDOFS ), nullptr, vals_p );
             HYPRE_DescribeError( ierr, hypre_mesg );
-            amp_v->copyVector( tmp_amp_v );
+            amp_v->copyVector( d_compat_amp_v );
         }
-
     } else {
-        AMP_ERROR( "Copy from Hypre to AMP vectors of different precision not implemented" );
+        if ( !d_compat_amp_v )
+            d_compat_amp_v = AMP::LinearAlgebra::createVector<HYPRE_Real>( amp_v, hypreMemType );
+        vals_p = d_compat_amp_v->getRawDataBlock<HYPRE_Real>();
+        ierr = HYPRE_IJVectorGetValues( hypre_v, static_cast<HYPRE_Int>( nDOFS ), nullptr, vals_p );
+        HYPRE_DescribeError( ierr, hypre_mesg );
+        amp_v->copyVector( d_compat_amp_v );
     }
 }
 
