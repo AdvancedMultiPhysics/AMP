@@ -232,6 +232,7 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
 {
     const auto nRows = A->numLocalRows();
     const auto nCols = A->numUniqueColumns();
+    AMP_ASSERT( nCols > 0 );
 
     // Wrap in/out data into Kokkos Views
     Kokkos::View<const scalar_t *,
