@@ -257,8 +257,8 @@ void EpetraMatrixData::setOtherData()
         if ( ( aggregateRows[i] >= MyFirstRow ) && ( aggregateRows[i] < MyEndRow ) ) {
             setValuesByGlobalID( 1u,
                                  1u,
-                                 (size_t *) &aggregateRows[i],
-                                 (size_t *) &aggregateCols[i],
+                                 reinterpret_cast<size_t *>( &aggregateRows[i] ),
+                                 reinterpret_cast<size_t *>( &aggregateCols[i] ),
                                  &aggregateData[i],
                                  getTypeID<double>() );
         }

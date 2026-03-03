@@ -62,6 +62,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     bool ExtractData    = input_db->getWithDefault<bool>( "ExtractStressStrainData", false );
     std::string ss_file = exeName + "_UniaxialTmperatureDisplacement.txt";
     auto fout123        = fopen( ss_file.c_str(), "w" );
+    AMP_ASSERT( fout123 );
 
     // Create a nonlinear BVP operator for mechanics
     AMP_INSIST( input_db->keyExists( "NonlinearMechanicsOperator" ), "key missing!" );

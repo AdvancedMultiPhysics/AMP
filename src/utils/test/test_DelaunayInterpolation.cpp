@@ -53,8 +53,9 @@ void writePoints<double>( const char *filename, const AMP::Array<double> &x )
 {
     int ndim = x.size( 0 );
     int N    = x.size( 1 );
-    FILE *fid;
-    fid = fopen( filename, "wb" );
+    auto fid = fopen( filename, "wb" );
+    if ( !fid )
+        return;
     fprintf( fid, "%i points in %iD in double precision\n", N, ndim );
     fwrite( x.data(), sizeof( double ), x.length(), fid );
     fclose( fid );
@@ -65,8 +66,9 @@ void writePoints<int>( const char *filename, const AMP::Array<int> &x )
 {
     int ndim = x.size( 0 );
     int N    = x.size( 1 );
-    FILE *fid;
-    fid = fopen( filename, "wb" );
+    auto fid = fopen( filename, "wb" );
+    if ( !fid )
+        return;
     fprintf( fid, "%i points in %iD in int precision\n", N, ndim );
     fwrite( x.data(), sizeof( int ), x.length(), fid );
     fclose( fid );

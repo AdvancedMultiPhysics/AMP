@@ -19,6 +19,7 @@ nullPointerRedundantCheck:*
 internalAstError:*
 class_X_Y:*
 invalidPrintfArgType_uint:*
+checkersReport:*            // Throw inside a main is fine for terminating a unit test
 
 
 //***********************************************************
@@ -173,6 +174,7 @@ shadowVariable:*/src/mesh/STKmesh/STKMesh.cpp
 shadowVariable:*/src/mesh/libmesh/libmeshMesh.cpp
 shadowVariable:*/src/utils/DelaunayTessellation.cpp
 shiftTooManyBits:*/src/utils/extended_int.cpp
+syntaxError:*/src/matrices/petsc/PetscMatrixHelpers.cpp
 syntaxError:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
 syntaxError:*/src/utils/cuda/helper_cuda.cpp
 throwInEntryPoint:*/src/utils/threadpool/test/test_atomic_list.cpp
