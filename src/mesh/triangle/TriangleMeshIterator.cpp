@@ -15,7 +15,6 @@ TriangleMeshIterator<NG>::TriangleMeshIterator()
     static constexpr auto MeshIteratorType = AMP::getTypeID<decltype( *this )>().hash;
     static_assert( MeshIteratorType != 0 );
     d_typeHash = MeshIteratorType;
-    d_iterator = nullptr;
     d_size     = 0;
     d_pos      = static_cast<size_t>( -1 );
     d_element  = &d_cur_element;
@@ -29,7 +28,6 @@ TriangleMeshIterator<NG>::TriangleMeshIterator( const AMP::Mesh::TriangleMesh<NG
     static constexpr auto MeshIteratorType = AMP::getTypeID<decltype( *this )>().hash;
     static_assert( MeshIteratorType != 0 );
     d_typeHash = MeshIteratorType;
-    d_iterator = nullptr;
     d_size     = 0;
     d_pos      = pos;
     d_element  = &d_cur_element;
@@ -45,13 +43,15 @@ TriangleMeshIterator<NG>::TriangleMeshIterator( const AMP::Mesh::TriangleMesh<NG
 }
 template<uint8_t NG>
 TriangleMeshIterator<NG>::TriangleMeshIterator( const TriangleMeshIterator &rhs )
-    : MeshIterator(), d_mesh{ rhs.d_mesh }, d_list{ rhs.d_list }, d_cur_element{ rhs.d_cur_element }
+    : MeshIteratorBase(),
+      d_mesh{ rhs.d_mesh },
+      d_list{ rhs.d_list },
+      d_cur_element{ rhs.d_cur_element }
 
 {
     static constexpr auto MeshIteratorType = AMP::getTypeID<decltype( *this )>().hash;
     static_assert( MeshIteratorType != 0 );
     d_typeHash = rhs.d_typeHash;
-    d_iterator = nullptr;
     d_size     = rhs.d_size;
     d_pos      = rhs.d_pos;
     d_element  = &d_cur_element;
@@ -64,7 +64,6 @@ TriangleMeshIterator<NG> &TriangleMeshIterator<NG>::operator=( const TriangleMes
     if ( this == &rhs )
         return *this;
     d_typeHash    = rhs.d_typeHash;
-    d_iterator    = nullptr;
     d_size        = rhs.d_size;
     d_pos         = rhs.d_pos;
     d_mesh        = rhs.d_mesh;
@@ -79,9 +78,41 @@ TriangleMeshIterator<NG> &TriangleMeshIterator<NG>::operator=( const TriangleMes
  * Function to clone the iterator                        *
  ********************************************************/
 template<uint8_t NG>
-MeshIterator *TriangleMeshIterator<NG>::clone() const
+std::unique_ptr<MeshIteratorBase> TriangleMeshIterator<NG>::clone() const
 {
-    return new TriangleMeshIterator( *this );
+    return std::make_unique<TriangleMeshIterator>( *this );
+}
+
+
+/********************************************************
+ * class name                                            *
+ ********************************************************/
+template<>
+std::string TriangleMeshIterator<1>::className() const
+{
+    return "TriangleMeshIterator<1>";
+}
+template<>
+std::string TriangleMeshIterator<2>::className() const
+{
+    return "TriangleMeshIterator<2>";
+}
+template<>
+std::string TriangleMeshIterator<3>::className() const
+{
+    return "TriangleMeshIterator<3>";
+}
+
+
+/********************************************************
+ * Set position                                          *
+ ********************************************************/
+template<uint8_t NG>
+void TriangleMeshIterator<NG>::setPos( size_t pos )
+{
+    d_pos = pos;
+    if ( d_pos < d_size )
+        d_cur_element.resetElemId( d_list->operator[]( d_pos ) );
 }
 
 
@@ -91,12 +122,7 @@ MeshIterator *TriangleMeshIterator<NG>::clone() const
 template<uint8_t NG>
 MeshIterator TriangleMeshIterator<NG>::begin() const
 {
-    return TriangleMeshIterator( d_mesh, d_list, 0 );
-}
-template<uint8_t NG>
-MeshIterator TriangleMeshIterator<NG>::end() const
-{
-    return TriangleMeshIterator( d_mesh, d_list, d_size );
+    return MeshIterator::create<TriangleMeshIterator>( d_mesh, d_list, 0 );
 }
 
 
@@ -104,7 +130,7 @@ MeshIterator TriangleMeshIterator<NG>::end() const
  * Increment/Decrement the iterator                      *
  ********************************************************/
 template<uint8_t NG>
-MeshIterator &TriangleMeshIterator<NG>::operator++()
+MeshIteratorBase &TriangleMeshIterator<NG>::operator++()
 {
     // Prefix increment (increment and return this)
     d_pos++;
@@ -113,7 +139,7 @@ MeshIterator &TriangleMeshIterator<NG>::operator++()
     return *this;
 }
 template<uint8_t NG>
-MeshIterator &TriangleMeshIterator<NG>::operator--()
+MeshIteratorBase &TriangleMeshIterator<NG>::operator--()
 {
     // Prefix decrement (increment and return this)
     AMP_INSIST( d_pos > 0, "Decrementing iterator past 0" );
@@ -127,7 +153,7 @@ MeshIterator &TriangleMeshIterator<NG>::operator--()
  * Random access iterators                               *
  ********************************************************/
 template<uint8_t NG>
-MeshIterator &TriangleMeshIterator<NG>::operator+=( int n )
+MeshIteratorBase &TriangleMeshIterator<NG>::operator+=( int n )
 {
     // Check the input
     if ( n >= 0 ) {
@@ -147,7 +173,7 @@ MeshIterator &TriangleMeshIterator<NG>::operator+=( int n )
  * Compare two iterators                                 *
  ********************************************************/
 template<uint8_t NG>
-bool TriangleMeshIterator<NG>::operator==( const MeshIterator &rhs ) const
+bool TriangleMeshIterator<NG>::operator==( const MeshIteratorBase &rhs ) const
 {
     static constexpr auto MeshIteratorType = AMP::getTypeID<decltype( *this )>().hash;
     static_assert( MeshIteratorType != 0 );
@@ -156,12 +182,8 @@ bool TriangleMeshIterator<NG>::operator==( const MeshIterator &rhs ) const
     auto *tmp = reinterpret_cast<const TriangleMeshIterator *>( &rhs );
     if ( tmp->d_typeHash == MeshIteratorType ) {
         rhs2 = tmp; // We can safely cast rhs to a TriangleMeshIterator
-    } else if ( tmp->d_iterator != nullptr ) {
-        tmp = reinterpret_cast<const TriangleMeshIterator *>( tmp->d_iterator );
-        if ( tmp->d_typeHash == MeshIteratorType )
-            rhs2 = tmp; // We can safely cast rhs.iterator to a TriangleMeshIterator
     }
-    // Perform direct comparisions if we are dealing with two TriangleMeshIterators
+    // Perform direct comparisons if we are dealing with two TriangleMeshIterators
     if ( rhs2 != nullptr )
         return *d_list == *rhs2->d_list;
     /* We are comparing a TriangleMeshIterator to an arbitrary iterator
@@ -172,7 +194,7 @@ bool TriangleMeshIterator<NG>::operator==( const MeshIterator &rhs ) const
     if ( this->size() != rhs.size() )
         return false;
     // Check the current position
-    if ( this->position() != rhs.position() )
+    if ( this->pos() != rhs.pos() )
         return false;
     // Check that the elements match
     MeshIterator it1    = this->begin();
@@ -185,9 +207,30 @@ bool TriangleMeshIterator<NG>::operator==( const MeshIterator &rhs ) const
     return elements_match;
 }
 template<uint8_t NG>
-bool TriangleMeshIterator<NG>::operator!=( const MeshIterator &rhs ) const
+bool TriangleMeshIterator<NG>::operator!=( const MeshIteratorBase &rhs ) const
 {
     return !( *this == rhs );
+}
+
+
+/********************************************************
+ *  Write/read restart data (MeshIteratorBase)           *
+ ********************************************************/
+template<uint8_t NG>
+void TriangleMeshIterator<NG>::registerChildObjects( AMP::IO::RestartManager * ) const
+{
+    AMP_ERROR( "Not finished" );
+}
+template<uint8_t NG>
+void TriangleMeshIterator<NG>::writeRestart( int64_t ) const
+{
+    AMP_ERROR( "Not finished" );
+}
+template<uint8_t NG>
+TriangleMeshIterator<NG>::TriangleMeshIterator( int64_t fid, AMP::IO::RestartManager *manager )
+    : MeshIteratorBase( fid, manager ), d_mesh( nullptr )
+{
+    AMP_ERROR( "Not finished" );
 }
 
 

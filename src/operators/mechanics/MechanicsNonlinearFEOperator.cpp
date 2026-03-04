@@ -334,8 +334,8 @@ void MechanicsNonlinearFEOperator::init()
 {
     d_isInitialized = true;
 
-    AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    AMP::Mesh::MeshIterator end_el = el.end();
+    auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto end_el = el.end();
 
     d_materialModel->preNonlinearInit( d_resetReusesRadialReturn, d_jacobianReusesRadialReturn );
 
@@ -415,8 +415,8 @@ void MechanicsNonlinearFEOperator::reset( std::shared_ptr<const OperatorParamete
     if ( d_resetReusesRadialReturn ) {
         d_materialModel->globalReset();
     } else {
-        AMP::Mesh::MeshIterator el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-        AMP::Mesh::MeshIterator end_el = el.end();
+        auto el     = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+        auto end_el = el.end();
 
         setVector( Mechanics::DISPLACEMENT, myParams->d_EquilibriumVec[Mechanics::DISPLACEMENT] );
 
@@ -603,8 +603,7 @@ void MechanicsNonlinearFEOperator::printStressAndStrain(
     auto fp = fopen( fname.c_str(), "w" );
     AMP_ASSERT( fp );
 
-    std::shared_ptr<AMP::LinearAlgebra::Variable> dispVar =
-        d_inpVariables->getVariable( Mechanics::DISPLACEMENT );
+    auto dispVar    = d_inpVariables->getVariable( Mechanics::DISPLACEMENT );
     auto dispVector = mySubsetVector( u, dispVar );
     setVector( Mechanics::DISPLACEMENT, dispVector );
 

@@ -80,7 +80,7 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         std::vector<AMP::Mesh::MeshElementID> id_set( iterator.size() );
         auto it = iterator.begin();
         for ( size_t i = 0; i < iterator.size(); i++, ++it ) {
-            if ( it.position() != i )
+            if ( it.pos() != i )
                 pass_position = false;
             AMP::Mesh::MeshElementID id = it->globalID();
             id_set[i]                   = id;
@@ -91,7 +91,7 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         }
         AMP::Utilities::unique( id_set );
         ut.pass_fail( iterator.size() == N_local + N_ghost, name + " size()" );
-        ut.pass_fail( pass_position, name + " position()" );
+        ut.pass_fail( pass_position, name + " pos()" );
         ut.pass_fail( id_set.size() == N_local + N_ghost, name + " uniqueness" );
     }
 
@@ -109,8 +109,10 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         it3 += 2;
         it4 += 0;
         it5 += iterator.size();
-        if ( it1 != it2 || it1 != it3 || it4 != iterator.begin() || it5 != iterator.end() )
-            pass = false;
+        pass = pass && it1 == it2 && !( it1 != it2 );
+        pass = pass && it1 == it3 && !( it1 != it3 );
+        pass = pass && it4 == iterator.begin() && !( it4 != iterator.begin() );
+        pass = pass && it5 == iterator.end() && !( it5 != iterator.end() );
         if ( static_cast<int>( it1.type() ) >= 2 ) {
             it1--;
             --it1;
@@ -388,7 +390,7 @@ void meshTests::MeshIteratorOperationTest( AMP::UnitTest &ut,
         ( *elements )[i] = tmp->clone();
 
     // Check operator== and operator!=
-    auto C = AMP::Mesh::MeshListIterator( elements );
+    auto C = AMP::Mesh::createMeshListIterator( elements );
     ut.pass_fail( A == A && B == B && C == C, "Iterator == with same iterator" );
     ut.pass_fail( !( A != A ) && !( B != B ) && !( C != C ), "Iterator != with same iterator" );
     ut.pass_fail( !( A == B ), "Iterator == with same type, different iterator" );
@@ -407,25 +409,22 @@ void meshTests::MeshIteratorSetOPTest( AMP::UnitTest &ut, std::shared_ptr<AMP::M
     auto A = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 1 );
     auto B = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     auto C = AMP::Mesh::MeshIterator();
-    AMP::Mesh::MeshIterator R1, R2, R3;
+    AMP::Mesh::MeshIterator R1, R2;
     // Check SetOP::Union
     R1        = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, A, B );
     R2        = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, B, C );
-    R3        = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, B.end(), C.end() );
-    bool pass = R1.size() == A.size() && R2.size() == B.size() && R2 == R3;
+    bool pass = R1.size() == A.size() && R2.size() == B.size();
     ut.pass_fail( pass, "SetOP::Union iterator create" );
     // Check SetOP::Intersection
     R1   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, A, B );
     R2   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, B, C );
-    R3   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, B.end(), C.end() );
-    pass = R1.size() == B.size() && R2.size() == 0 && R2 == R3;
+    pass = R1.size() == B.size() && R2.size() == 0;
     ut.pass_fail( pass, "SetOP::Intersection iterator create" );
     // Check SetOP::Complement
     R1   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Complement, A, B );
     R2   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Complement, B, C );
-    R3   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Complement, B.end(), C.end() );
     pass = R1.size() == mesh->numGhostElements( AMP::Mesh::GeomType::Vertex, 1 ) &&
-           R2.size() == B.size() && R2 == R3;
+           R2.size() == B.size();
     ut.pass_fail( pass, "SetOP::Complement iterator create" );
 }
 

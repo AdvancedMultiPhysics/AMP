@@ -14,7 +14,7 @@ class TriangleMesh;
 
 
 template<uint8_t NG>
-class TriangleMeshIterator final : public MeshIterator
+class TriangleMeshIterator final : public MeshIteratorBase
 {
 public:
     //! Empty MeshIterator constructor
@@ -38,35 +38,45 @@ public:
     //! Assignment operator
     TriangleMeshIterator &operator=( const TriangleMeshIterator & );
 
+    //! Return the class name
+    std::string className() const override;
+
+    //! Set the position in the iterator
+    void setPos( size_t ) override;
+
     // Increment
-    MeshIterator &operator++() override;
+    MeshIteratorBase &operator++() override;
 
     // Decrement
-    MeshIterator &operator--() override;
+    MeshIteratorBase &operator--() override;
 
     // Arithmetic operator+=
-    MeshIterator &operator+=( int N ) override;
+    MeshIteratorBase &operator+=( int N ) override;
 
     // Check if two iterators are equal
-    bool operator==( const MeshIterator &rhs ) const override;
+    bool operator==( const MeshIteratorBase &rhs ) const override;
 
     // Check if two iterators are not equal
-    bool operator!=( const MeshIterator &rhs ) const override;
+    bool operator!=( const MeshIteratorBase &rhs ) const override;
 
     // Return an iterator to the begining
     MeshIterator begin() const override;
 
-    // Return an iterator to the begining
-    MeshIterator end() const override;
-
     //! Access the list of elements
     auto getList() const { return d_list; }
 
-    using MeshIterator::operator+;
-    using MeshIterator::operator+=;
-
     //! Clone the iterator
-    MeshIterator *clone() const override;
+    std::unique_ptr<MeshIteratorBase> clone() const override;
+
+    using MeshIteratorBase::operator==;
+    using MeshIteratorBase::operator!=;
+
+
+public: // Write/read restart data
+    void registerChildObjects( AMP::IO::RestartManager * ) const override;
+    void writeRestart( int64_t ) const override;
+    TriangleMeshIterator( int64_t, AMP::IO::RestartManager * );
+
 
 protected:
     // Data members

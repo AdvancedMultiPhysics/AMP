@@ -20,6 +20,7 @@ internalAstError:*
 class_X_Y:*
 invalidPrintfArgType_uint:*
 checkersReport:*            // Throw inside a main is fine for terminating a unit test
+throwInEntryPoint:*         // Throw inside a main is fine for terminating a unit test
 
 
 //***********************************************************

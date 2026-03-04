@@ -16,7 +16,7 @@ namespace AMP::Mesh {
 class libmeshMesh;
 
 
-class libmeshElemIterator : public MeshIterator
+class libmeshElemIterator : public MeshIteratorBase
 {
 public:
     //! Empty MeshIterator constructor
@@ -31,26 +31,32 @@ public:
     //! Assignment operator
     libmeshElemIterator &operator=( const libmeshElemIterator & );
 
+    //! Return the class name
+    std::string className() const override { return "libmeshElemIterator"; }
+
+    //! Set the position in the iterator
+    void setPos( size_t ) override;
+
     // Increment
-    MeshIterator &operator++() override;
+    MeshIteratorBase &operator++() override;
 
     // Decrement
-    MeshIterator &operator--() override;
+    MeshIteratorBase &operator--() override;
 
     // Arithmetic operator+=
-    MeshIterator &operator+=( int N ) override;
+    MeshIteratorBase &operator+=( int N ) override;
 
     // Check if two iterators are equal
-    bool operator==( const MeshIterator &rhs ) const override;
+    bool operator==( const MeshIteratorBase &rhs ) const override;
 
     // Check if two iterators are not equal
-    bool operator!=( const MeshIterator &rhs ) const override;
+    bool operator!=( const MeshIteratorBase &rhs ) const override;
 
     // Return an iterator to the begining
     MeshIterator begin() const override;
 
-    // Return an iterator to the begining
-    MeshIterator end() const override;
+    //! Clone the iterator
+    std::unique_ptr<MeshIteratorBase> clone() const override;
 
     // Return the current libmeshMeshElement
     const libmeshMeshElement &current() const;
@@ -58,10 +64,17 @@ public:
     // Return the current libMesh Elem
     libMesh::Elem *elem() const;
 
-    using MeshIterator::operator+;
-    using MeshIterator::operator+=;
+    using MeshIteratorBase::operator==;
+    using MeshIteratorBase::operator!=;
 
-protected:
+
+public: // Write/read restart data
+    void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
+    void writeRestart( int64_t fid ) const override;
+    // libmeshElemIterator( int64_t fid, AMP::IO::RestartManager *manager );
+
+
+public: // Advanced interfaces (use with caution)
     /** Default constructor
      * \param mesh      Pointer to the libMesh mesh
      * \param begin     Pointer to iterator with the begining position
@@ -86,10 +99,6 @@ protected:
                          int size,
                          int pos2 );
 
-    //! Clone the iterator
-    MeshIterator *clone() const override;
-
-    friend class AMP::Mesh::libmeshMesh;
 
 private:
     // Data members

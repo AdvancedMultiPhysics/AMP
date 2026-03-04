@@ -999,7 +999,7 @@ MeshIterator TriangleMesh<NG>::getIterator( const GeomType type, const int gcw )
         return MeshIterator();
     int gcw2  = d_comm.getSize() == 1 ? 0 : gcw;
     int type2 = static_cast<int>( type );
-    return d_iterators[gcw2][type2];
+    return d_iterators[gcw2][type2].clone();
 }
 
 
@@ -1013,7 +1013,7 @@ MeshIterator TriangleMesh<NG>::getSurfaceIterator( const GeomType type, const in
     int type2 = static_cast<int>( type );
     if ( type2 > NG || gcw > d_max_gcw )
         return MeshIterator();
-    return d_surface_it[gcw2][type2];
+    return d_surface_it[gcw2][type2].clone();
 }
 
 
@@ -1037,8 +1037,8 @@ TriangleMesh<NG>::getBoundaryIDIterator( const GeomType type, const int id, cons
             index = i;
     }
     if ( type2 > NG || gcw > d_max_gcw || index >= d_boundary_it.size() )
-        return TriangleMeshIterator<NG>( this, nullptr );
-    return d_boundary_it[index][gcw2][type2];
+        return MeshIterator::create<TriangleMeshIterator<NG>>( this, nullptr );
+    return d_boundary_it[index][gcw2][type2].clone();
 }
 template<uint8_t NG>
 std::vector<int> TriangleMesh<NG>::getBlockIDs() const
@@ -1060,8 +1060,8 @@ TriangleMesh<NG>::getBlockIDIterator( const GeomType type, const int id, const i
             index = i;
     }
     if ( type2 > NG || gcw > d_max_gcw || index >= d_block_it.size() )
-        return TriangleMeshIterator<NG>( this, nullptr );
-    return d_block_it[index][gcw2][type2];
+        return MeshIterator::create<TriangleMeshIterator<NG>>( this, nullptr );
+    return d_block_it[index][gcw2][type2].clone();
 }
 
 

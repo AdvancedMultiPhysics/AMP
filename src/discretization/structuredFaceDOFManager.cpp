@@ -204,7 +204,7 @@ AMP::Mesh::MeshIterator structuredFaceDOFManager::getIterator() const
         if ( d_DOFsPerFace[i] > 0 )
             faces[i] = AMP::Mesh::StructuredMeshHelper::getFaceIterator( d_mesh, 0, i );
     }
-    return AMP::Mesh::MultiIterator( faces, 0 );
+    return AMP::Mesh::MeshIterator::create<AMP::Mesh::MultiIterator>( faces, 0 );
 }
 
 
