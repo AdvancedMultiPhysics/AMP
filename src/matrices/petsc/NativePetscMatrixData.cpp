@@ -196,12 +196,12 @@ void NativePetscMatrixData::getRowByGlobalID( size_t row,
                             []( PetscInt x ) { return static_cast<size_t>( x ); } );
         }
         if constexpr ( std::is_same_v<PetscScalar, double> ) {
-            std::copy( reinterpret_cast<const PetscInt *>( out_vals ),
-                       reinterpret_cast<const PetscInt *>( out_vals + numCols ),
+            std::copy( reinterpret_cast<const PetscScalar *>( out_vals ),
+                       reinterpret_cast<const PetscScalar *>( out_vals + numCols ),
                        values.begin() );
         } else {
-            std::transform( reinterpret_cast<const PetscInt *>( out_vals ),
-                            reinterpret_cast<const PetscInt *>( out_vals + numCols ),
+            std::transform( reinterpret_cast<const PetscScalar *>( out_vals ),
+                            reinterpret_cast<const PetscScalar *>( out_vals + numCols ),
                             values.begin(),
                             []( PetscScalar x ) { return static_cast<double>( x ); } );
         }
