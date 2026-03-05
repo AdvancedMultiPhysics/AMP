@@ -1,4 +1,7 @@
 #include "AMP/solvers/amg/Cycle.hpp"
+#include "AMP/AMP_TPLs.h"
+#include "AMP/IO/RestartManager.h"
+#include "AMP/matrices/CSRVisit.h"
 
 #define AMP_AMG_CYCLE_PROFILE
 
@@ -195,4 +198,54 @@ std::string_view KappaKCycle::krylovTypeName( const KappaKCycle::krylov_type kt 
         return "";
     }
 }
+
+void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> &levels )
+{
+#ifndef AMP_USE_HDF5
+    AMP_WARN_ONCE( "AMP::Solver::AMG::save_hierarchy requires that AMP be built with HDF5 enabled. "
+                   "No Hierarchy information will be saved" );
+    return;
+#endif
+    for ( size_t nl = 0; nl < levels.size(); ++nl ) {
+        // create file name for A
+        const auto fname_A = std::string( base_name ) + "_Level" + std::to_string( nl ) + "_A";
+
+        // pull out level operator
+        auto A = levels[nl].A->getMatrix();
+        AMP_ASSERT( A->mode() < std::numeric_limits<std::uint16_t>::max() );
+
+        // make writer and use visitor to dump matrix
+        AMP::IO::RestartManager writer;
+        LinearAlgebra::csrVisit( A, [fname_A, &writer]( auto csr_ptr ) {
+            writer.registerData( csr_ptr, "A" );
+            writer.write( fname_A );
+        } );
+
+        // R and P belong to the coarser level, so finest level won't have them
+        if ( nl > 0 ) {
+            // as above: make filenames, get matrices, assert on type, use visitor to write
+            auto R_linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( levels[nl].R );
+            auto P_linop = std::dynamic_pointer_cast<AMP::Operator::LinearOperator>( levels[nl].P );
+
+            const auto fname_R = std::string( base_name ) + "_Level" + std::to_string( nl ) + "_R";
+            const auto fname_P = std::string( base_name ) + "_Level" + std::to_string( nl ) + "_P";
+
+            AMP_ASSERT( R_linop && P_linop );
+            auto R = R_linop->getMatrix();
+            auto P = P_linop->getMatrix();
+            AMP_ASSERT( R->mode() < std::numeric_limits<std::uint16_t>::max() );
+            AMP_ASSERT( P->mode() < std::numeric_limits<std::uint16_t>::max() );
+
+            LinearAlgebra::csrVisit( R, [fname_R, &writer]( auto csr_ptr ) {
+                writer.registerData( csr_ptr, "R" );
+                writer.write( fname_R );
+            } );
+            LinearAlgebra::csrVisit( P, [fname_P, &writer]( auto csr_ptr ) {
+                writer.registerData( csr_ptr, "P" );
+                writer.write( fname_P );
+            } );
+        }
+    }
+}
+
 } // namespace AMP::Solver::AMG
