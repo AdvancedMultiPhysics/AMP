@@ -11,82 +11,76 @@ namespace AMP::Mesh {
  ********************************************************/
 static constexpr auto MeshIteratorType = AMP::getTypeID<MultiIterator>().hash;
 static_assert( MeshIteratorType != 0 );
-MultiIterator::MultiIterator() : d_localPos( 0 ), d_iteratorNum( 0 )
+MultiIterator::MultiIterator() { d_typeHash = MeshIteratorType; }
+MultiIterator::MultiIterator( std::vector<MeshIterator> iterators, size_t global_pos )
 {
     d_typeHash = MeshIteratorType;
-}
-MultiIterator::MultiIterator( const std::vector<MeshIterator> &iterators, size_t global_pos )
-{
-    d_typeHash = MeshIteratorType;
-    d_iterator = nullptr;
-    d_iterators.resize( 0 );
-    d_iteratorType = MeshIterator::Type::RandomAccess;
+    d_iterators.reserve( iterators.size() );
     for ( auto &iterator : iterators ) {
-        d_iteratorType = std::min( d_iteratorType, iterator.type() );
-        if ( iterator.size() > 0 )
-            d_iterators.push_back( iterator );
-    }
-    d_iteratorSize = std::vector<size_t>( d_iterators.size(), 0 );
-    d_size         = 0;
-    for ( size_t i = 0; i < d_iterators.size(); i++ ) {
-        d_iteratorSize[i] = d_iterators[i].size();
-        d_size += d_iteratorSize[i];
-    }
-    d_pos        = global_pos;
-    cur_iterator = MeshIterator();
-    // Set the local position and the local iterator
-    if ( d_pos > d_size ) {
-        // The position is more than one past the last element
-        AMP_ERROR( "Cannot create a MultiIterator with a current index that is more than 1 past "
-                   "the last point" );
-    } else if ( d_pos == d_size ) {
-        // The position is one past the last element
-        d_localPos    = 0;
-        d_iteratorNum = d_iterators.size();
-    } else {
-        // We are inside the iterator, we need to point to the current element
-        d_iteratorNum = 0;
-        d_localPos    = global_pos;
-        while ( d_localPos >= d_iteratorSize[d_iteratorNum] ) {
-            d_iteratorNum++;
-            d_localPos -= d_iteratorSize[d_iteratorNum];
+        auto multi = dynamic_cast<MultiIterator *>(
+            const_cast<MeshIteratorBase *>( iterator.rawIterator() ) );
+        if ( multi ) {
+            for ( auto &it : multi->d_iterators )
+                d_iterators.push_back( it );
+            multi->d_iterators.clear();
+        } else {
+            if ( !iterator.empty() )
+                d_iterators.push_back( iterator.release() );
         }
-        cur_iterator = d_iterators[d_iteratorNum].begin();
-        for ( size_t i = 0; i < d_localPos; i++ )
-            ++cur_iterator;
     }
-    d_element = cur_iterator.operator->();
+    d_size         = 0;
+    d_iteratorType = MeshIterator::Type::RandomAccess;
+    for ( auto &iterator : d_iterators ) {
+        d_size += iterator->size();
+        d_iteratorType = std::min( d_iteratorType, iterator->type() );
+    }
+    setPos( global_pos );
 }
-MultiIterator::MultiIterator( const MultiIterator &rhs )
-    : MeshIterator(), // Note: we never want to call the base copy constructor
+MultiIterator::MultiIterator( std::vector<MeshIteratorBase *> &&iterators, size_t global_pos )
+    : d_iterators( std::move( iterators ) )
+{
+    d_typeHash     = MeshIteratorType;
+    d_size         = 0;
+    d_iteratorType = MeshIterator::Type::RandomAccess;
+    for ( auto &iterator : d_iterators ) {
+        size_t N = iterator->size();
+        AMP_DEBUG_ASSERT( N != 0 );
+        d_size += N;
+        d_iteratorType = std::min( d_iteratorType, iterator->type() );
+    }
+    setPos( global_pos );
+}
+MultiIterator::MultiIterator( MultiIterator &&rhs )
+    : MeshIteratorBase(), // Note: we never want to call the base copy constructor
       d_localPos( rhs.d_localPos ),
       d_iteratorNum( rhs.d_iteratorNum ),
-      d_iteratorSize( rhs.d_iteratorSize ),
-      d_iterators( rhs.d_iterators ),
-      cur_iterator( rhs.cur_iterator )
+      d_iterators( std::move( rhs.d_iterators ) )
 {
-    d_iterator     = nullptr;
     d_typeHash     = MeshIteratorType;
     d_iteratorType = rhs.d_iteratorType;
     d_size         = rhs.d_size;
     d_pos          = rhs.d_pos;
-    d_element      = cur_iterator.operator->();
+    d_iterators[d_iteratorNum]->setPos( rhs.d_pos );
+    d_element = nullptr;
+    if ( d_pos < d_size )
+        d_element = d_iterators[d_iteratorNum]->operator->();
 }
-MultiIterator &MultiIterator::operator=( const MultiIterator &rhs )
+MultiIterator &MultiIterator::operator=( MultiIterator &&rhs )
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    this->d_typeHash     = MeshIteratorType;
-    this->d_iteratorType = rhs.d_iteratorType;
-    this->d_iterator     = nullptr;
-    this->d_iterators    = rhs.d_iterators;
-    this->d_iteratorSize = rhs.d_iteratorSize;
-    this->d_size         = rhs.d_size;
-    this->d_localPos     = rhs.d_localPos;
-    this->d_pos          = rhs.d_pos;
-    this->d_iteratorNum  = rhs.d_iteratorNum;
-    this->cur_iterator   = rhs.cur_iterator;
-    d_element            = cur_iterator.operator->();
+    d_typeHash     = MeshIteratorType;
+    d_iteratorType = rhs.d_iteratorType;
+    d_size         = rhs.d_size;
+    d_localPos     = rhs.d_localPos;
+    d_pos          = rhs.d_pos;
+    d_iteratorNum  = rhs.d_iteratorNum;
+    d_iterators    = std::move( rhs.d_iterators );
+    d_element      = nullptr;
+    if ( d_pos < d_size )
+        d_element = d_iterators[d_iteratorNum]->operator->();
+    rhs.d_iterators.clear();
+    rhs.d_element = nullptr;
     return *this;
 }
 
@@ -94,77 +88,131 @@ MultiIterator &MultiIterator::operator=( const MultiIterator &rhs )
 /********************************************************
  * Function to clone the iterator                        *
  ********************************************************/
-MeshIterator *MultiIterator::clone() const { return new MultiIterator( *this ); }
+std::unique_ptr<MeshIteratorBase> MultiIterator::clone() const
+{
+    if ( d_iterators.empty() )
+        return std::make_unique<MultiIterator>();
+    auto it            = std::make_unique<MultiIterator>();
+    it->d_typeHash     = MeshIteratorType;
+    it->d_iteratorType = d_iteratorType;
+    it->d_iterators.resize( d_iterators.size() );
+    for ( size_t i = 0; i < d_iterators.size(); i++ )
+        it->d_iterators[i] = d_iterators[i]->clone().release();
+    it->d_size        = d_size;
+    it->d_localPos    = d_localPos;
+    it->d_pos         = d_pos;
+    it->d_iteratorNum = d_iteratorNum;
+    if ( d_pos < d_size ) {
+        it->d_iterators[d_iteratorNum]->setPos( d_pos );
+        it->d_element = d_iterators[d_iteratorNum]->operator->();
+    }
+    return it;
+}
 
 
 /********************************************************
- * De-constructor                                        *
+ * Destructor                                            *
  ********************************************************/
-MultiIterator::~MultiIterator() = default;
+MultiIterator::~MultiIterator()
+{
+    for ( size_t i = 0; i < d_iterators.size(); i++ )
+        delete d_iterators[i];
+    d_iterators.clear();
+}
+
+
+/********************************************************
+ * Set the position                                      *
+ ********************************************************/
+void MultiIterator::setPos( size_t pos )
+{
+    AMP_ASSERT( pos <= d_size );
+    d_pos = pos;
+    if ( d_pos == d_size ) {
+        d_localPos    = 0;
+        d_iteratorNum = d_iterators.size();
+        d_element     = nullptr;
+    } else {
+        d_iteratorNum = 0;
+        d_localPos    = pos;
+        while ( d_localPos >= d_iterators[d_iteratorNum]->size() ) {
+            d_iteratorNum++;
+            d_localPos -= d_iterators[d_iteratorNum]->size();
+        }
+        d_iterators[d_iteratorNum]->setPos( d_localPos );
+        d_element = d_iterators[d_iteratorNum]->operator->();
+    }
+    for ( size_t i = 0; i < d_iteratorNum; i++ )
+        d_iterators[i]->setPos( d_iterators[i]->size() );
+    for ( size_t i = d_iteratorNum + 1; i < d_iterators.size(); i++ )
+        d_iterators[i]->setPos( 0 );
+}
 
 
 /********************************************************
  * Return an iterator to the beginning or end            *
  ********************************************************/
-MeshIterator MultiIterator::begin() const { return MultiIterator( d_iterators, 0 ); }
-MeshIterator MultiIterator::end() const { return MultiIterator( d_iterators, d_size ); }
+MeshIterator MultiIterator::begin() const
+{
+    auto it = clone();
+    it->setPos( 0 );
+    AMP_DEBUG_ASSERT( d_element != nullptr || d_size == 0 );
+    return MeshIterator( std::move( it ) );
+}
 
 
 /********************************************************
  * Increment/Decrement the iterator                      *
  ********************************************************/
-MeshIterator &MultiIterator::operator++()
+MeshIteratorBase &MultiIterator::operator++()
 {
     // Prefix increment (increment and return this)
     if ( d_pos == d_size )
-        AMP_ERROR( "Iterating more than one past the last element" );
-    if ( d_pos + 1 == d_size ) {
+        AMP_ERROR( "Iterating past the end of the iterator" );
+    d_pos++;
+    d_localPos++;
+    d_iterators[d_iteratorNum]->operator++();
+    if ( d_pos == d_size ) {
         // We have moved to one past the last element
-        d_pos         = d_size;
         d_localPos    = 0;
         d_iteratorNum = d_iterators.size();
-        cur_iterator  = MeshIterator();
-    } else if ( d_localPos + 1 == d_iteratorSize[d_iteratorNum] ) {
+        d_element     = nullptr;
+    } else if ( d_localPos == d_iterators[d_iteratorNum]->size() ) {
         // We need to change the internal iterator
-        d_pos++;
         d_localPos = 0;
         d_iteratorNum++;
-        cur_iterator = d_iterators[d_iteratorNum].begin();
+        AMP_DEBUG_ASSERT( d_iterators[d_iteratorNum]->pos() == 0 );
+        d_element = d_iterators[d_iteratorNum]->operator->();
+        AMP_DEBUG_ASSERT( d_element );
     } else {
         // We are within the same iterator
-        d_localPos++;
-        d_pos++;
-        ++cur_iterator; // preincrement for consistency and speed
+        d_element = d_iterators[d_iteratorNum]->operator->();
+        AMP_DEBUG_ASSERT( d_element );
     }
-    d_element = cur_iterator.operator->();
     return *this;
 }
-MeshIterator &MultiIterator::operator--()
+MeshIteratorBase &MultiIterator::operator--()
 {
     // Prefix decrement (increment and return this)
     if ( d_pos == 0 )
         AMP_ERROR( "Iterating before the first element" );
     if ( d_pos == d_size ) {
         // We are starting at the end
-        d_pos         = d_size + 1;
+        d_pos         = d_size - 1;
         d_iteratorNum = d_iterators.size() - 1;
-        d_localPos    = d_iteratorSize[d_iteratorNum] - 1;
-        cur_iterator  = d_iterators[d_iteratorNum].end();
-        --cur_iterator;
+        d_localPos    = d_iterators[d_iteratorNum]->size() - 1;
     } else if ( d_localPos == 0 ) {
         // We need to change the internal iterator
         d_pos--;
         d_iteratorNum--;
-        d_localPos   = d_iteratorSize[d_iteratorNum] - 1;
-        cur_iterator = d_iterators[d_iteratorNum].end();
-        --cur_iterator;
+        d_localPos = d_iterators[d_iteratorNum]->size() - 1;
     } else {
         // We are within the same iterator
         d_localPos--;
         d_pos--;
-        --cur_iterator; // predecrement for consistency and speed
     }
-    d_element = cur_iterator.operator->();
+    d_iterators[d_iteratorNum]->operator--();
+    d_element = d_iterators[d_iteratorNum]->operator->();
     return *this;
 }
 
@@ -172,66 +220,11 @@ MeshIterator &MultiIterator::operator--()
 /********************************************************
  * Random access iterators                               *
  ********************************************************/
-MeshIterator &MultiIterator::operator+=( int n )
+MeshIteratorBase &MultiIterator::operator+=( int n )
 {
-    if ( n >= 0 ) { // increment *this
-        auto n2 = static_cast<size_t>( n );
-        if ( d_pos + n2 > d_size )
-            AMP_ERROR( "Iterated past end of iterator" );
-        if ( d_pos + n2 == d_size ) {
-            // We reached the end of the iterator
-            d_pos         = d_size;
-            d_localPos    = 0;
-            d_iteratorNum = d_iterators.size();
-            cur_iterator  = MeshIterator();
-            return *this;
-        }
-        // Move to the correct iterator
-        if ( d_localPos + n2 >= d_iteratorSize[d_iteratorNum] ) {
-            size_t i = d_iteratorSize[d_iteratorNum] - d_localPos;
-            n2 -= i;
-            d_iteratorNum++;
-            while ( d_iteratorSize[d_iteratorNum] < n2 ) {
-                n2 -= d_iteratorSize[d_iteratorNum];
-                d_iteratorNum++;
-            }
-            cur_iterator = d_iterators[d_iteratorNum].begin();
-            d_localPos   = 0;
-        }
-        // Increment local iterator
-        cur_iterator.operator+=( n2 );
-        d_localPos += n2;
-        d_pos += n;
-    } else { // decrement *this
-        auto n2 = static_cast<size_t>( -n );
-        if ( d_pos < n2 )
-            AMP_ERROR( "Iterated past beginning of iterator" );
-        if ( d_pos == n2 ) {
-            // We reached the beginning of the iterator
-            d_pos         = 0;
-            d_iteratorNum = 0;
-            d_localPos    = 0;
-            cur_iterator  = d_iterators[0].begin();
-            return *this;
-        }
-        // Move to the correct iterator
-        if ( n2 > d_localPos ) {
-            // size_t i = d_iteratorSize[d_iteratorNum] - d_localPos;
-            n2 -= d_localPos;
-            d_iteratorNum--;
-            while ( d_iteratorSize[d_iteratorNum] < n2 ) {
-                n2 -= d_iteratorSize[d_iteratorNum];
-                d_iteratorNum--;
-            }
-            cur_iterator = d_iterators[d_iteratorNum].end();
-            d_localPos   = d_iteratorSize[d_iteratorNum];
-        }
-        // Increment local iterator
-        cur_iterator.operator-=( n2 );
-        d_localPos -= n2;
-        d_pos += n;
-    }
-    d_element = cur_iterator.operator->();
+    auto pos = static_cast<int64_t>( d_pos ) + n;
+    AMP_ASSERT( pos >= 0 );
+    setPos( pos );
     return *this;
 }
 
@@ -241,19 +234,15 @@ MeshIterator &MultiIterator::operator+=( int n )
  * Two MultiIterators are the same if both the list of   *
  * iterators and the current position are the same.      *
  ********************************************************/
-bool MultiIterator::operator==( const MeshIterator &rhs ) const
+bool MultiIterator::operator==( const MeshIteratorBase &rhs ) const
 {
     const MultiIterator *rhs2 = nullptr;
     // Convert rhs to a MultiIterator* so we can access the base class members
     const auto *tmp = reinterpret_cast<const MultiIterator *>( &rhs );
     if ( tmp->d_typeHash == MeshIteratorType ) {
         rhs2 = tmp; // We can safely cast rhs to a MultiIterator
-    } else if ( tmp->d_iterator != nullptr ) {
-        tmp = reinterpret_cast<const MultiIterator *>( tmp->d_iterator );
-        if ( tmp->d_typeHash == MeshIteratorType )
-            rhs2 = tmp; // We can safely cast rhs.iterator to a MultiIterator
     }
-    // Perform direct comparisions if we are dealing with two MultiIterator
+    // Perform direct comparisons if we are dealing with two MultiIterator
     if ( rhs2 != nullptr ) {
         bool equal = true;
         equal      = equal && d_size == rhs2->d_size;
@@ -261,7 +250,7 @@ bool MultiIterator::operator==( const MeshIterator &rhs ) const
         equal      = equal && d_iterators.size() == rhs2->d_iterators.size();
         if ( equal ) {
             for ( size_t i = 0; i < d_iterators.size(); i++ )
-                equal = equal && ( *d_iterators[i] ) == ( *rhs2->d_iterators[i] );
+                equal = equal && d_iterators[i]->operator==( *rhs2->d_iterators[i] );
         }
         return equal;
     }
@@ -273,7 +262,7 @@ bool MultiIterator::operator==( const MeshIterator &rhs ) const
     if ( this->size() != rhs.size() )
         return false;
     // Check the current position
-    if ( this->position() != rhs.position() )
+    if ( this->pos() != rhs.pos() )
         return false;
     // Check that the elements match
     MeshIterator it1    = this->begin();
@@ -285,7 +274,18 @@ bool MultiIterator::operator==( const MeshIterator &rhs ) const
     }
     return elements_match;
 }
-bool MultiIterator::operator!=( const MeshIterator &rhs ) const { return !operator==( rhs ); }
+bool MultiIterator::operator!=( const MeshIteratorBase &rhs ) const { return !operator==( rhs ); }
+
+
+/********************************************************
+ *  Write/read restart data (MeshIteratorBase)           *
+ ********************************************************/
+void MultiIterator::registerChildObjects( AMP::IO::RestartManager * ) const
+{
+    AMP_ERROR( "Not finished" );
+}
+void MultiIterator::writeRestart( int64_t ) const { AMP_ERROR( "Not finished" ); }
+MultiIterator::MultiIterator( int64_t, AMP::IO::RestartManager * ) { AMP_ERROR( "Not finished" ); }
 
 
 } // namespace AMP::Mesh

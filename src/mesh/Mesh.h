@@ -89,13 +89,13 @@ public:
      * using an iterator over the existing mesh.
      * This is designed as a path to create a new mesh object of one type from
      * an existing mesh of a different type.  It also allows creating a new single mesh
-     * from a subset or superset of other meshes.  Note that instantion of this routine
+     * from a subset or superset of other meshes.  Note that instantiation of this routine
      * may not be able to create it's mesh from any arbitrary mesh, and may throw an
      * error.
      * \param old_mesh  Existing mesh that we will use to construct the new mesh
      * \param iterator  Iterator over the existing mesh
      */
-    Mesh( const std::shared_ptr<Mesh> &old_mesh, MeshIterator::shared_ptr &iterator );
+    Mesh( const std::shared_ptr<Mesh> &old_mesh, MeshIterator &iterator );
 
 
     /**
@@ -278,6 +278,9 @@ public:
      * \param B  Pointer to MeshIterator B
      */
     static MeshIterator getIterator( SetOP OP, const MeshIterator &A, const MeshIterator &B );
+    static MeshIterator getIterator( SetOP OP, const MeshIterator &, MeshIteratorEnd );
+    static MeshIterator getIterator( SetOP OP, MeshIteratorEnd, const MeshIterator & );
+    static MeshIterator getIterator( SetOP OP, MeshIteratorEnd, MeshIteratorEnd );
 
 
     /**

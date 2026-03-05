@@ -357,7 +357,6 @@ void libmeshMesh::initialize()
 libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
 {
     std::set<libmeshMeshElement> ghost;
-#if 1
     // Get a list of all nodes for the local elements
     std::vector<uint64_t> nodes;
     auto it = localElements();
@@ -370,10 +369,10 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
     }
     AMP::Utilities::unique( nodes );
     // Loop through all global elements and keep any parents of the nodes
-    auto begin = d_libMesh->not_local_elements_begin();
-    auto end   = d_libMesh->not_local_elements_end();
-    it         = libmeshElemIterator( this, begin, end );
-    for ( auto &elem : it ) {
+    it = libmeshElemIterator(
+        this, d_libMesh->not_local_elements_begin(), d_libMesh->not_local_elements_end() );
+    for ( ; it != MeshIteratorEnd(); ++it ) {
+        auto &elem = *it;
         auto N     = elem.getElementsID( GeomType::Vertex, nodes2 );
         bool found = false;
         for ( int i = 0; i < N; i++ ) {
@@ -381,57 +380,8 @@ libmeshMesh::ElemListPtr libmeshMesh::generateGhosts() const
             found       = found || binary_search( nodes.begin(), nodes.end(), id );
         }
         if ( found )
-            ghost.insert( *dynamic_cast<libmeshMeshElement *>( &elem ) );
+            ghost.insert( *dynamic_cast<const libmeshMeshElement *>( &elem ) );
     }
-#elif 0
-    // Ghost cells are neighbors of local cells or the parent of a local node
-    int rank = d_comm.getRank();
-    // Get neighbors of local elements
-    auto it = localElements();
-    std::vector<std::unique_ptr<MeshElement>> neighbors;
-    for ( auto &elem : it ) {
-        elem.getNeighbors( neighbors );
-        for ( auto &neighbor : neighbors ) {
-            auto elem2 = dynamic_cast<libmeshMeshElement *>( &neighbor );
-            if ( !elem2 )
-                continue;
-            auto id = elem2->globalID();
-            if ( !id.is_local() && !id.isNull() )
-                ghost.insert( *elem2 );
-        }
-    }
-    // Get a list of all local nodes
-    std::vector<MeshElementID> localNodes;
-    localNodes.reserve( d_libMesh->n_local_nodes() );
-    for ( auto it = d_libMesh->local_nodes_begin(); it != d_libMesh->local_nodes_end(); ++it ) {
-        auto node = *it;
-        localNodes.emplace_back( true, GeomType::Vertex, node->id(), rank, d_meshID );
-    }
-    AMP::Utilities::quicksort( localNodes );
-    // Loop through all global elements and keep any parents of local nodes
-    begin = d_libMesh->not_local_elements_begin();
-    end   = d_libMesh->not_local_elements_end();
-    it    = libmeshElemIterator( this, begin, end );
-    std::vector<MeshElementID> nodes;
-    for ( auto &elem : it ) {
-        elem.getElementsID( GeomType::Vertex, nodes );
-        bool found = false;
-        for ( auto &node : nodes )
-            found = found || binary_search( localNodes.begin(), localNodes.end(), node );
-        if ( found )
-            ghost.insert( *dynamic_cast<libmeshMeshElement *>( &elem ) );
-    }
-#else
-    // Use global list
-    auto begin = d_libMesh->elements_begin();
-    auto end   = d_libMesh->elements_end();
-    auto it    = libmeshElemIterator( this, begin, end );
-    for ( auto &elem : it ) {
-        auto id = elem.globalID();
-        if ( !id.is_local() && !id.isNull() )
-            ghost.insert( *dynamic_cast<libmeshMeshElement *>( &elem ) );
-    }
-#endif
     return std::make_shared<std::vector<libmeshMeshElement>>( ghost.begin(), ghost.end() );
 }
 
@@ -443,9 +393,7 @@ libmeshMesh::ElemListPtr libmeshMesh::generateLocalElements( GeomType type ) con
 {
     std::vector<libmeshMeshElement> local;
     local.reserve( 8 * n_local[(int) GeomDim] );
-    auto begin = d_libMesh->elements_begin();
-    auto end   = d_libMesh->elements_end();
-    auto it    = libmeshElemIterator( this, begin, end );
+    auto it = libmeshElemIterator( this, d_libMesh->elements_begin(), d_libMesh->elements_end() );
     for ( auto &elem : it ) {
         auto tmp = elem.getElements( type );
         for ( auto &elem2 : tmp ) {
@@ -554,7 +502,7 @@ void libmeshMesh::fillBoundaryElements()
                     on_boundary = false;
             }
             if ( on_boundary ) {
-                auto elem = dynamic_cast<libmeshMeshElement *>( it.get() );
+                auto elem = dynamic_cast<const libmeshMeshElement *>( it.get() );
                 if ( it->globalID().is_local() )
                     local.insert( *elem );
                 else
@@ -589,7 +537,7 @@ void libmeshMesh::fillBoundaryElements()
             auto list = std::make_shared<std::vector<libmeshMeshElement>>( 0 );
             for ( auto &elem : iterator ) {
                 if ( elem.isOnBoundary( id ) ) {
-                    list->push_back( *dynamic_cast<libmeshMeshElement *>( &elem ) );
+                    list->push_back( *dynamic_cast<const libmeshMeshElement *>( &elem ) );
                 }
             }
             if ( list->empty() )
@@ -709,9 +657,8 @@ size_t libmeshMesh::numGhostElements( const GeomType type, int gcw ) const
  ********************************************************/
 libmeshElemIterator libmeshMesh::localElements() const
 {
-    auto begin = d_libMesh->local_elements_begin();
-    auto end   = d_libMesh->local_elements_end();
-    return libmeshElemIterator( this, begin, end, begin, d_libMesh->n_local_elem(), 0 );
+    return libmeshElemIterator(
+        this, d_libMesh->local_elements_begin(), d_libMesh->local_elements_end() );
 }
 MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) const
 {
@@ -720,12 +667,14 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
         // This is a libMesh element
         auto begin = d_libMesh->local_elements_begin();
         auto end   = d_libMesh->local_elements_end();
-        auto it    = libmeshElemIterator( this, begin, end, begin, n_local[i], 0 );
         if ( gcw == 0 || n_ghost[i] == 0 ) {
-            return it;
+            return MeshIterator::create<libmeshElemIterator>(
+                this, begin, end, begin, n_local[i], 0 );
         } else if ( gcw == 1 ) {
-            auto it2 = MeshListIterator( d_ghostElements[i], 0 );
-            return MultiIterator( { it, it2 }, 0 );
+            std::vector<MeshIteratorBase *> it( 2, nullptr );
+            it[0] = new libmeshElemIterator( this, begin, end, begin, n_local[i], 0 );
+            it[1] = new MeshListIterator( d_ghostElements[i], 0 );
+            return MeshIterator::create<MultiIterator>( std::move( it ), 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
         }
@@ -733,23 +682,29 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
         // This is a libMesh node
         auto begin = d_libMesh->local_nodes_begin();
         auto end   = d_libMesh->local_nodes_end();
-        auto it    = libmeshNodeIterator( this, begin, end, begin, n_local[i], 0 );
+        auto it =
+            MeshIterator::create<libmeshNodeIterator>( this, begin, end, begin, n_local[i], 0 );
         if ( gcw == 0 || n_ghost[i] == 0 ) {
-            return it;
+            return MeshIterator::create<libmeshNodeIterator>(
+                this, begin, end, begin, n_local[i], 0 );
         } else if ( gcw == 1 ) {
-            auto it2 = MeshListIterator( d_ghostElements[i], 0 );
-            return MultiIterator( { it, it2 }, 0 );
+            std::vector<MeshIteratorBase *> it( 2, nullptr );
+            it[0] = new libmeshNodeIterator( this, begin, end, begin, n_local[i], 0 );
+            it[1] = new MeshListIterator( d_ghostElements[i], 0 );
+            return MeshIterator::create<MultiIterator>( std::move( it ), 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
         }
     } else {
         // All other types require a pre-constructed list
         if ( gcw == 0 || n_ghost[i] == 0 ) {
-            return MeshListIterator( d_localElements[i], 0 );
+            using ListItType = MeshListIterator<libmeshMeshElement>;
+            return MeshIterator::create<ListItType>( d_localElements[i], 0 );
         } else if ( gcw == 1 ) {
-            auto it1 = MeshListIterator( d_localElements[i], 0 );
-            auto it2 = MeshListIterator( d_ghostElements[i], 0 );
-            return MultiIterator( { it1, it2 }, 0 );
+            std::vector<MeshIteratorBase *> it( 2, nullptr );
+            it[0] = new MeshListIterator( d_localElements[i], 0 );
+            it[1] = new MeshListIterator( d_ghostElements[i], 0 );
+            return MeshIterator::create<MultiIterator>( std::move( it ), 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
         }
@@ -769,13 +724,13 @@ MeshIterator libmeshMesh::getSurfaceIterator( const GeomType type, const int gcw
     auto ghost = d_ghostSurfaceElements[(int) type];
     if ( local.get() == nullptr || ghost.get() == nullptr )
         AMP_ERROR( "Surface iterator over the given geometry type is not supported" );
-    if ( gcw == 0 ) {
-        return MeshListIterator( local, 0 );
+    if ( gcw == 0 || ghost->empty() ) {
+        return new MeshListIterator( local, 0 );
     } else if ( gcw == 1 ) {
-        std::vector<MeshIterator> iterators( 2 );
-        iterators[0] = MeshListIterator( local, 0 );
-        iterators[1] = MeshListIterator( ghost, 0 );
-        return MultiIterator( iterators, 0 );
+        std::vector<MeshIteratorBase *> it( 2, nullptr );
+        it[0] = new MeshListIterator( local, 0 );
+        it[1] = new MeshListIterator( ghost, 0 );
+        return new MultiIterator( std::move( it ), 0 );
     } else {
         AMP_ERROR( "libmesh has maximum ghost width of 1" );
     }
@@ -802,13 +757,14 @@ std::vector<int> libmeshMesh::getBoundaryIDs() const
 MeshIterator
 libmeshMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw ) const
 {
+    using ListItType = MeshListIterator<libmeshMeshElement>;
     AMP_INSIST( gcw == 0, "Iterator over ghost boundary elements is not supported yet" );
     auto mapid = std::pair<int, GeomType>( id, type );
     auto list  = std::make_shared<std::vector<libmeshMeshElement>>();
     auto it    = d_boundarySets.find( mapid );
     if ( it != d_boundarySets.end() )
         list = it->second;
-    return MeshListIterator( list, 0 );
+    return MeshIterator::create<ListItType>( list, 0 );
 }
 
 
@@ -933,7 +889,8 @@ void libmeshMesh::displaceMesh( const AMP::LinearAlgebra::Vector::const_shared_p
     auto nodeEnd   = d_libMesh->nodes_end();
     auto DOFs      = AMP::Discretization::simpleDOFManager::create(
         shared_from_this(),
-        libmeshNodeIterator( this, nodeBegin, nodeEnd, nodeBegin, n_global[0], 0 ),
+        MeshIterator::create<libmeshNodeIterator>(
+            this, nodeBegin, nodeEnd, nodeBegin, n_global[0], 0 ),
         getIterator( AMP::Mesh::GeomType::Vertex, 0 ),
         PhysicalDim );
     auto nodalVariable = std::make_shared<AMP::LinearAlgebra::Variable>( "tmp_pos" );

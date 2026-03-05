@@ -144,8 +144,8 @@ void computeL2Norm( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                     double *discretizationErrorNorm2 )
 {
     // CALCULATE THE L2Norm OF (U-Uh)
-    auto el                        = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    AMP::Mesh::MeshIterator end_el = el.end();
+    auto el     = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto end_el = el.end();
 
     auto dof_map = TemperatureVec->getDOFManager();
 
@@ -191,7 +191,7 @@ void computeL2Norm( std::shared_ptr<AMP::Mesh::Mesh> mesh,
                 double computedAtNode = TemperatureVec->getValueByGlobalID( bndGlobalIds[j] );
                 computedAtGauss[qp] += computedAtNode * phi[j][qp];
             } // end for j
-        }     // end for qp
+        } // end for qp
 
         for ( unsigned int qp = 0; qp < d_qrule->n_points(); qp++ ) {
             double px                  = coordinates[qp]( 0 );

@@ -186,8 +186,9 @@ void SubchannelFourEqNonlinearOperator::reset( std::shared_ptr<const OperatorPar
         if ( !d_ownSubChannel[i] )
             continue;
         std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
-        auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
-        auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
+        auto localSubchannelIt =
+            AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elemPtr );
+        auto localSubchannel = d_Mesh->Subset( localSubchannelIt, false );
         auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
         for ( size_t j = 0; j < face.size(); j++ ) {
             d_subchannelFace[i].push_back( face->clone() );
@@ -843,7 +844,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                     axial_turbulence_sum += wt * ( u_mid - u_mid_neighbor );
 
                 } // end if (lateralFaceIterator != interiorLateralFaceMap.end()) {
-            }     // end loop over gap faces
+            } // end loop over gap faces
 
             // force terms to zero if requested
             double force_factor_conduction  = 1.0;
@@ -904,7 +905,7 @@ void SubchannelFourEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const
                 outputVec->setValuesByGlobalID( 1, &minusDofs[1], &val );
             }
         } // end loop over cells of current subchannel
-    }     // end loop over subchannels
+    } // end loop over subchannels
 
     // loop over lateral faces
     auto face = d_Mesh->getIterator( AMP::Mesh::GeomType::Face, 0 ); // iterator for cells of mesh
@@ -1365,8 +1366,8 @@ SubchannelFourEqNonlinearOperator::getAxiallyAdjacentLateralFace(
             // adjacent to the current
             // lateral face
             double knownCentroid[3]           = { parentLateralFaceCentroid[0],
-                                        parentLateralFaceCentroid[1],
-                                        daughterCellCentroid[2] };
+                                                  parentLateralFaceCentroid[1],
+                                                  daughterCellCentroid[2] };
             bool isAxiallyAdjacentLateralFace = true;
             for ( size_t i = 0; i < 3; i++ ) {
                 if ( !AMP::Utilities::approx_equal(

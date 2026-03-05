@@ -312,8 +312,8 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
     // apply.
     r->setToScalar( 1. );
 
-    auto elem      = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, ghostWidth );
-    auto end_elems = elem.end();
+    auto elem = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, ghostWidth );
+    auto end  = elem.end();
 
     if ( d_coordinateSystem == "cartesian" ) {
 
@@ -323,7 +323,7 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                 AMP::pout << "Starting Power Shape Loop over Gauss Points." << std::endl;
 
             // Loop over all elements on the mesh
-            for ( ; elem != end_elems; ++elem ) {
+            for ( ; elem != end; ++elem ) {
                 d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
                 createCurrentLibMeshElement();
                 d_fe->reinit( d_currElemPtr );
@@ -393,7 +393,7 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                                d_sigmaX * d_sigmaY * PI / 2.0 );
 
             // Loop over all elements on the mesh
-            for ( ; elem != end_elems; ++elem ) {
+            for ( ; elem != end; ++elem ) {
                 d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
                 createCurrentLibMeshElement();
                 d_fe->reinit( d_currElemPtr );
@@ -448,7 +448,7 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             if ( d_iDebugPrintInfoLevel > 3 )
                 AMP::pout << "Power Shape: Processing all Gauss-Points." << std::endl;
             // Loop over all elements on the mesh
-            for ( ; elem != end_elems; ++elem ) {
+            for ( ; elem != end; ++elem ) {
                 d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
                 createCurrentLibMeshElement();
                 d_fe->reinit( d_currElemPtr );
@@ -503,7 +503,7 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             if ( d_iDebugPrintInfoLevel > 3 )
                 AMP::pout << "Power Shape: Processing all Gauss-Points." << std::endl;
             // Loop over all elements on the mesh
-            for ( ; elem != end_elems; ++elem ) {
+            for ( ; elem != end; ++elem ) {
                 d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
                 createCurrentLibMeshElement();
                 d_fe->reinit( d_currElemPtr );
@@ -594,7 +594,7 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             if ( d_iDebugPrintInfoLevel > 3 )
                 AMP::pout << "Power Shape: Processing all Gauss-Points." << std::endl;
             // Loop over all elements on the mesh
-            for ( ; elem != end_elems; ++elem ) {
+            for ( ; elem != end; ++elem ) {
                 d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
                 createCurrentLibMeshElement();
                 d_fe->reinit( d_currElemPtr );
@@ -648,7 +648,7 @@ void PowerShape::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
             if ( d_iDebugPrintInfoLevel > 3 )
                 AMP::pout << "Power Shape: Processing all Gauss-Points." << std::endl;
             // Loop over all elements on the mesh
-            for ( ; elem != end_elems; ++elem ) {
+            for ( ; elem != end; ++elem ) {
                 d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
                 createCurrentLibMeshElement();
                 d_fe->reinit( d_currElemPtr );
@@ -755,11 +755,11 @@ double PowerShape::evalLegendre( const int n, const double x )
  */
 double PowerShape::getVolumeIntegralSum( double rmax, double cx, double cy )
 {
-    double integralFr            = 0;
-    double numerator             = 0;
-    int ghostWidth               = 0;
-    AMP::Mesh::MeshIterator elem = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, ghostWidth );
-    AMP::Mesh::MeshIterator end_elems = elem.end();
+    double integralFr = 0;
+    double numerator  = 0;
+    int ghostWidth    = 0;
+    auto elem         = d_Mesh->getIterator( AMP::Mesh::GeomType::Cell, ghostWidth );
+    auto end_elems    = elem.end();
     for ( ; elem != end_elems; ++elem ) {
         d_currNodes = elem->getElements( AMP::Mesh::GeomType::Vertex );
         createCurrentLibMeshElement();
