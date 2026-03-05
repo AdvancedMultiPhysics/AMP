@@ -26,27 +26,30 @@ template<alloc>
 struct alloc_info;
 template<>
 struct alloc_info<alloc::host> {
-    using type                              = HostAllocator<void>;
-    static constexpr alloc id               = alloc::host;
-    static constexpr bool host_accessible   = true;
-    static constexpr bool device_accessible = false;
+    using type                                          = HostAllocator<void>;
+    static constexpr alloc id                           = alloc::host;
+    static constexpr AMP::Utilities::MemoryType mem_loc = AMP::Utilities::MemoryType::host;
+    static constexpr bool host_accessible               = true;
+    static constexpr bool device_accessible             = false;
     static const char *name() { return "host"; }
 };
 #ifdef AMP_USE_DEVICE
 template<>
 struct alloc_info<alloc::device> {
-    using type                              = DeviceAllocator<void>;
-    static constexpr alloc id               = alloc::device;
-    static constexpr bool host_accessible   = false;
-    static constexpr bool device_accessible = true;
+    using type                                          = DeviceAllocator<void>;
+    static constexpr alloc id                           = alloc::device;
+    static constexpr AMP::Utilities::MemoryType mem_loc = AMP::Utilities::MemoryType::device;
+    static constexpr bool host_accessible               = false;
+    static constexpr bool device_accessible             = true;
     static const char *name() { return "device"; }
 };
 template<>
 struct alloc_info<alloc::managed> {
-    using type                              = ManagedAllocator<void>;
-    static constexpr alloc id               = alloc::managed;
-    static constexpr bool host_accessible   = true;
-    static constexpr bool device_accessible = true;
+    using type                                          = ManagedAllocator<void>;
+    static constexpr alloc id                           = alloc::managed;
+    static constexpr AMP::Utilities::MemoryType mem_loc = AMP::Utilities::MemoryType::managed;
+    static constexpr bool host_accessible               = true;
+    static constexpr bool device_accessible             = true;
     static const char *name() { return "managed"; }
 };
 #endif
