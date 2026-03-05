@@ -775,15 +775,15 @@ MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
         return MeshIterator::create<structuredMeshIterator>(
             list[0].first, list[0].second, this, 0 );
     } else {
-        std::vector<MeshIterator> iterator_list;
+        std::vector<MeshIteratorBase *> iterator_list;
         iterator_list.reserve( list.size() );
         for ( const auto &item : list ) {
             if ( MeshElementIndex::numElements( item.first, item.second ) > 0 ) {
-                iterator_list.push_back( MeshIterator::create<structuredMeshIterator>(
-                    item.first, item.second, this, 0 ) );
+                iterator_list.push_back(
+                    new structuredMeshIterator( item.first, item.second, this, 0 ) );
             }
         }
-        return MeshIterator::create<MultiIterator>( iterator_list, 0 );
+        return MeshIterator::create<MultiIterator>( std::move( iterator_list ), 0 );
     }
 }
 MeshIterator BoxMesh::getIterator( const GeomType type, const int gcw ) const

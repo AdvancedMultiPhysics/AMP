@@ -662,8 +662,7 @@ libmeshElemIterator libmeshMesh::localElements() const
 }
 MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) const
 {
-    using ListItType = MeshListIterator<libmeshMeshElement>;
-    int i            = static_cast<int>( type );
+    int i = static_cast<int>( type );
     if ( type == GeomDim ) {
         // This is a libMesh element
         auto begin = d_libMesh->local_elements_begin();
@@ -672,11 +671,10 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
             return MeshIterator::create<libmeshElemIterator>(
                 this, begin, end, begin, n_local[i], 0 );
         } else if ( gcw == 1 ) {
-            std::vector<MeshIterator> it( 2 );
-            it[0] =
-                MeshIterator::create<libmeshElemIterator>( this, begin, end, begin, n_local[i], 0 );
-            it[1] = MeshIterator::create<ListItType>( d_ghostElements[i], 0 );
-            return MeshIterator::create<MultiIterator>( it, 0 );
+            std::vector<MeshIteratorBase *> it( 2, nullptr );
+            it[0] = new libmeshElemIterator( this, begin, end, begin, n_local[i], 0 );
+            it[1] = new MeshListIterator( d_ghostElements[i], 0 );
+            return MeshIterator::create<MultiIterator>( std::move( it ), 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
         }
@@ -690,23 +688,23 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
             return MeshIterator::create<libmeshNodeIterator>(
                 this, begin, end, begin, n_local[i], 0 );
         } else if ( gcw == 1 ) {
-            std::vector<MeshIterator> it( 2 );
-            it[0] =
-                MeshIterator::create<libmeshNodeIterator>( this, begin, end, begin, n_local[i], 0 );
-            it[1] = MeshIterator::create<ListItType>( d_ghostElements[i], 0 );
-            return MeshIterator::create<MultiIterator>( it, 0 );
+            std::vector<MeshIteratorBase *> it( 2, nullptr );
+            it[0] = new libmeshNodeIterator( this, begin, end, begin, n_local[i], 0 );
+            it[1] = new MeshListIterator( d_ghostElements[i], 0 );
+            return MeshIterator::create<MultiIterator>( std::move( it ), 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
         }
     } else {
         // All other types require a pre-constructed list
         if ( gcw == 0 || n_ghost[i] == 0 ) {
+            using ListItType = MeshListIterator<libmeshMeshElement>;
             return MeshIterator::create<ListItType>( d_localElements[i], 0 );
         } else if ( gcw == 1 ) {
-            std::vector<MeshIterator> it( 2 );
-            it[0] = MeshIterator::create<ListItType>( d_localElements[i], 0 );
-            it[1] = MeshIterator::create<ListItType>( d_ghostElements[i], 0 );
-            return MeshIterator::create<MultiIterator>( it, 0 );
+            std::vector<MeshIteratorBase *> it( 2, nullptr );
+            it[0] = new MeshListIterator( d_localElements[i], 0 );
+            it[1] = new MeshListIterator( d_ghostElements[i], 0 );
+            return MeshIterator::create<MultiIterator>( std::move( it ), 0 );
         } else {
             AMP_ERROR( "Unsupported ghost cell width" );
         }
@@ -721,19 +719,18 @@ MeshIterator libmeshMesh::getIterator( const GeomType type, const int gcw ) cons
  ********************************************************/
 MeshIterator libmeshMesh::getSurfaceIterator( const GeomType type, const int gcw ) const
 {
-    using ListItType = MeshListIterator<libmeshMeshElement>;
     AMP_ASSERT( type <= GeomDim );
     auto local = d_localSurfaceElements[(int) type];
     auto ghost = d_ghostSurfaceElements[(int) type];
     if ( local.get() == nullptr || ghost.get() == nullptr )
         AMP_ERROR( "Surface iterator over the given geometry type is not supported" );
-    if ( gcw == 0 ) {
-        return MeshIterator::create<ListItType>( local, 0 );
+    if ( gcw == 0 || ghost->empty() ) {
+        return new MeshListIterator( local, 0 );
     } else if ( gcw == 1 ) {
-        std::vector<MeshIterator> iterators( 2 );
-        iterators[0] = MeshIterator::create<ListItType>( local, 0 );
-        iterators[1] = MeshIterator::create<ListItType>( ghost, 0 );
-        return MeshIterator::create<MultiIterator>( iterators, 0 );
+        std::vector<MeshIteratorBase *> it( 2, nullptr );
+        it[0] = new MeshListIterator( local, 0 );
+        it[1] = new MeshListIterator( ghost, 0 );
+        return new MultiIterator( std::move( it ), 0 );
     } else {
         AMP_ERROR( "libmesh has maximum ghost width of 1" );
     }

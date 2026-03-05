@@ -66,16 +66,22 @@ MeshIterator::MeshIterator( MeshIterator &&rhs ) : it( nullptr ) { std::swap( it
 MeshIterator::MeshIterator( const MeshIterator &rhs ) : it( rhs.it->clone().release() ) {}
 MeshIterator &MeshIterator::operator=( MeshIterator &&rhs )
 {
-    it     = rhs.it;
-    rhs.it = nullptr;
+    std::swap( it, rhs.it );
     return *this;
 }
 MeshIterator &MeshIterator::operator=( const MeshIterator &rhs )
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
+    delete it;
     it = rhs.it->clone().release();
     return *this;
+}
+MeshIteratorBase *MeshIterator::release()
+{
+    auto ptr = it;
+    it       = nullptr;
+    return ptr;
 }
 
 

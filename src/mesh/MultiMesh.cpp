@@ -416,17 +416,16 @@ MeshIterator MultiMesh::getIterator( const GeomType type, const int gcw ) const
         auto it    = d_meshes[i]->getIterator( type, gcw );
         auto multi = dynamic_cast<MultiIterator *>( it.rawIterator() );
         if ( multi ) {
-            for ( auto &it2 : multi->d_iterators ) {
-                iterators.emplace_back( it2 );
-                it2 = nullptr;
-            }
+            auto &tmp = multi->d_iterators;
+            for ( auto &it2 : tmp )
+                iterators.emplace_back( std::move( it2 ) );
+            tmp.clear();
         } else {
             if ( !it.empty() )
                 iterators.emplace_back( it.release() );
         }
     }
-    std::unique_ptr<MeshIteratorBase> it( new MultiIterator( std::move( iterators ) ) );
-    return MeshIterator( std::move( it ) );
+    return MeshIterator::create<MultiIterator>( std::move( iterators ) );
 }
 MeshIterator MultiMesh::getSurfaceIterator( const GeomType type, const int gcw ) const
 {

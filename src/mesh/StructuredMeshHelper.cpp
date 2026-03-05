@@ -191,7 +191,7 @@ StructuredMeshHelper::getFaceIterator( std::shared_ptr<Mesh> mesh, int gcw, int 
         auto elements = std::make_shared<std::vector<std::unique_ptr<MeshElement>>>( index.size() );
         for ( size_t i = 0; i < index.size(); i++ )
             elements->operator[]( i ) = std::move( face_list[I[i]] );
-        return createMeshListIterator( elements );
+        return new MeshListIterator( elements );
     }
 }
 

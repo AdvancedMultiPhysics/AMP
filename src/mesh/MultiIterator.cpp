@@ -21,7 +21,8 @@ MultiIterator::MultiIterator( std::vector<MeshIterator> iterators, size_t global
             const_cast<MeshIteratorBase *>( iterator.rawIterator() ) );
         if ( multi ) {
             for ( auto &it : multi->d_iterators )
-                d_iterators.push_back( std::move( it ) );
+                d_iterators.push_back( it );
+            multi->d_iterators.clear();
         } else {
             if ( !iterator.empty() )
                 d_iterators.push_back( iterator.release() );
@@ -42,7 +43,9 @@ MultiIterator::MultiIterator( std::vector<MeshIteratorBase *> &&iterators, size_
     d_size         = 0;
     d_iteratorType = MeshIterator::Type::RandomAccess;
     for ( auto &iterator : d_iterators ) {
-        d_size += iterator->size();
+        size_t N = iterator->size();
+        AMP_DEBUG_ASSERT( N != 0 );
+        d_size += N;
         d_iteratorType = std::min( d_iteratorType, iterator->type() );
     }
     setPos( global_pos );
@@ -92,7 +95,7 @@ std::unique_ptr<MeshIteratorBase> MultiIterator::clone() const
     auto it            = std::make_unique<MultiIterator>();
     it->d_typeHash     = MeshIteratorType;
     it->d_iteratorType = d_iteratorType;
-    it->d_iterators.resize( d_iterators.size(), nullptr );
+    it->d_iterators.resize( d_iterators.size() );
     for ( size_t i = 0; i < d_iterators.size(); i++ )
         it->d_iterators[i] = d_iterators[i]->clone().release();
     it->d_size        = d_size;
@@ -110,7 +113,12 @@ std::unique_ptr<MeshIteratorBase> MultiIterator::clone() const
 /********************************************************
  * Destructor                                            *
  ********************************************************/
-MultiIterator::~MultiIterator() { d_iterators.clear(); }
+MultiIterator::~MultiIterator()
+{
+    for ( size_t i = 0; i < d_iterators.size(); i++ )
+        delete d_iterators[i];
+    d_iterators.clear();
+}
 
 
 /********************************************************
@@ -148,6 +156,7 @@ MeshIterator MultiIterator::begin() const
 {
     auto it = clone();
     it->setPos( 0 );
+    AMP_DEBUG_ASSERT( d_element != nullptr || d_size == 0 );
     return MeshIterator( std::move( it ) );
 }
 
@@ -174,9 +183,11 @@ MeshIteratorBase &MultiIterator::operator++()
         d_iteratorNum++;
         AMP_DEBUG_ASSERT( d_iterators[d_iteratorNum]->pos() == 0 );
         d_element = d_iterators[d_iteratorNum]->operator->();
+        AMP_DEBUG_ASSERT( d_element );
     } else {
         // We are within the same iterator
         d_element = d_iterators[d_iteratorNum]->operator->();
+        AMP_DEBUG_ASSERT( d_element );
     }
     return *this;
 }

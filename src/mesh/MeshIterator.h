@@ -158,11 +158,11 @@ public: // iterator_traits
 
 
 public:
-    //! Create
+    //! Create a mesh iterator
     template<class T, typename... Args>
     static MeshIterator create( Args... args )
     {
-        return MeshIterator( std::make_unique<T>( args... ) );
+        return MeshIterator( new T( std::forward<Args>( args )... ) );
     }
 
     //! Empty MeshIterator constructor
@@ -330,7 +330,7 @@ public:
      *   In this case, the pre-increment will be used instead and may reduce performance.
      *   Note: the default behavior of all random access iterators will be to call this function
      *     so derived classes only need to impliment this function for improved performance.
-     * \param N  Number to increment by (may be negitive)
+     * \param N  Number to increment by (may be negative)
      */
     MeshIterator operator+( int N ) const;
 
@@ -348,7 +348,7 @@ public:
      * \details  Random access decrement to reverse the iterator by N.
      *   Note: not all iterators support random access (libmesh).
      *   In this case, the pre-decrement will be used instead and may reduce performance.
-     * \param N  Number to decrement by (may be negitive)
+     * \param N  Number to decrement by (may be negative)
      */
     MeshIterator operator-( int N ) const;
 
@@ -366,7 +366,7 @@ public:
      * \details  Random access decrement to reverse the iterator by N.
      *   Note: not all iterators support random access (libmesh).
      *   In this case, the pre-decrement will be used instead and may reduce performance.
-     * \param N  Number to decrement by (may be negitive)
+     * \param N  Number to decrement by (may be negative)
      */
     MeshIterator &operator-=( int N );
 
@@ -381,13 +381,19 @@ public:
 
 
 public: // Advanced functions (use with caution)
+    //! Constructor that takes ownership of the raw pointer
+    MeshIterator( MeshIteratorBase *p ) : it( p ) {}
+
+    /**
+     * \brief Return a pointer to the underlying and release ownership
+     * \details  This function will return the raw pointer to the underlying
+     *   iterator and release its ownership.  It is up to the user to properly
+     *   destroy the returned iterator.
+     *   Note: This function invalidates *this and any future calls to this object
+     *   may result in a dereferencing a null pointer.
+     */
     //! Return a pointer to the underlying and releases the ownership
-    inline MeshIteratorBase *release()
-    {
-        auto ptr = it;
-        it       = nullptr;
-        return ptr;
-    }
+    MeshIteratorBase *release();
 
 
 public: // Write/read restart data

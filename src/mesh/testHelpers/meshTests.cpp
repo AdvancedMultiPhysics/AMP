@@ -381,16 +381,16 @@ void meshTests::MeshIteratorOperationTest( AMP::UnitTest &ut,
 {
     PROFILE( "MeshIteratorOperationTest" );
     // Create some iterators to work with
-    auto A = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 1 );
-    auto B = mesh->getIterator( mesh->getGeomType(), 0 );
-    auto elements =
-        std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>( A.size() );
-    auto tmp = A.begin();
+    using ElemPtr = std::unique_ptr<AMP::Mesh::MeshElement>;
+    auto A        = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 1 );
+    auto B        = mesh->getIterator( mesh->getGeomType(), 0 );
+    auto elements = std::make_shared<std::vector<ElemPtr>>( A.size() );
+    auto tmp      = A.begin();
     for ( size_t i = 0; i < A.size(); i++, ++tmp )
         ( *elements )[i] = tmp->clone();
 
     // Check operator== and operator!=
-    auto C = AMP::Mesh::createMeshListIterator( elements );
+    auto C = AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElemPtr>>( elements );
     ut.pass_fail( A == A && B == B && C == C, "Iterator == with same iterator" );
     ut.pass_fail( !( A != A ) && !( B != B ) && !( C != C ), "Iterator != with same iterator" );
     ut.pass_fail( !( A == B ), "Iterator == with same type, different iterator" );

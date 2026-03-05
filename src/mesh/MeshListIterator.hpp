@@ -14,12 +14,6 @@ namespace AMP::Mesh {
  * Constructors                                          *
  ********************************************************/
 template<class TYPE>
-MeshIterator createMeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos )
-{
-    auto ptr = std::make_unique<MeshListIterator<TYPE>>( elements, pos );
-    return MeshIterator( std::move( ptr ) );
-}
-template<class TYPE>
 MeshListIterator<TYPE>::MeshListIterator()
 {
     constexpr auto hash = AMP::getTypeID<MeshListIterator<TYPE>>().hash;

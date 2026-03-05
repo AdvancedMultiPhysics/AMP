@@ -2,7 +2,6 @@
 #include "AMP/IO/FileSystem.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/mesh/MeshParameters.h"
-#include "AMP/mesh/MultiIterator.h"
 #include "AMP/mesh/triangle/TriangleHelpers.h"
 #include "AMP/mesh/triangle/TriangleMeshIterator.h"
 #include "AMP/utils/AMP_MPI.h"

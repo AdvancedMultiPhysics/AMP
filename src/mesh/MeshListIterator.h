@@ -11,10 +11,6 @@
 namespace AMP::Mesh {
 
 
-template<class TYPE = MeshElement>
-MeshIterator createMeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
-
-
 /**
  * \class MeshListIterator
  * \brief A class used to iterate over a set of mesh elements.

@@ -227,7 +227,7 @@ MeshIterator Mesh::isMember( const MeshIterator &iterator ) const
         if ( isMember( elem.globalID() ) )
             elements->push_back( elem.clone() );
     }
-    return createMeshListIterator( elements, 0 );
+    return new MeshListIterator( elements, 0 );
 }
 
 
@@ -492,7 +492,7 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
         }
         AMP_ASSERT( N == elements->size() );
     }
-    return createMeshListIterator( elements, 0 );
+    return new MeshListIterator( elements, 0 );
 }
 MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, MeshIteratorEnd )
 {
