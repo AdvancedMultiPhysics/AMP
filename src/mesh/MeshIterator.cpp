@@ -10,19 +10,17 @@ namespace AMP::Mesh {
 /********************************************************
  * Empty Mesh iterator                                   *
  ********************************************************/
+constexpr auto EmptyItStr = "Attempting to iterate empty iterator";
 class EmptyMeshIterator final : public MeshIteratorBase
 {
 public:
     std::string className() const override { return "EmptyMeshIterator"; }
-    void setPos( size_t pos ) { AMP_INSIST( pos == 0, "Attempting to iterate empty iterator" ); }
-    MeshIteratorBase &operator++() override { AMP_ERROR( "Attempting to iterate empty iterator" ); }
-    MeshIteratorBase &operator--() override { AMP_ERROR( "Attempting to iterate empty iterator" ); }
-    MeshIteratorBase &operator+=( int ) override
-    {
-        AMP_ERROR( "Attempting to iterate empty iterator" );
-    }
-    bool operator==( const MeshIteratorBase &rhs ) const override { return rhs.size() == 0; }
-    bool operator!=( const MeshIteratorBase &rhs ) const override { return rhs.size() == 0; }
+    void setPos( size_t pos ) override { AMP_INSIST( pos == 0, EmptyItStr ); }
+    MeshIteratorBase &operator++() override { AMP_ERROR( EmptyItStr ); }
+    MeshIteratorBase &operator--() override { AMP_ERROR( EmptyItStr ); }
+    MeshIteratorBase &operator+=( int ) override { AMP_ERROR( EmptyItStr ); }
+    bool operator==( const MeshIteratorBase &rhs ) const override { return rhs.empty(); }
+    bool operator!=( const MeshIteratorBase &rhs ) const override { return rhs.empty(); }
     MeshIterator begin() const override { return MeshIterator::create<EmptyMeshIterator>(); }
     std::unique_ptr<MeshIteratorBase> clone() const override
     {
