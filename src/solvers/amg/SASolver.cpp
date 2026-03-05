@@ -32,6 +32,9 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_cycle_settings.comm_free_interp = false;
     d_cycle_settings.type =
         KappaKCycle::parseType( db->getWithDefault<std::string>( "kcycle_type", "fcg" ) );
+    d_save_to_file        = db->getWithDefault<bool>( "save_to_file", false );
+    d_save_to_file_on_ftc = db->getWithDefault<bool>( "save_to_file_on_ftc", false );
+    d_save_to_file_name   = db->getWithDefault<std::string>( "save_to_file_name", "SASolver" );
 
     // get and setup coarse solver options
     AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
@@ -304,6 +307,10 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     if ( d_iDebugPrintInfoLevel > 2 ) {
         print_summary( type(), d_levels, *d_coarse_solver );
     }
+
+    if ( d_save_to_file ) {
+        save_hierarchy( d_save_to_file_name, d_levels );
+    }
 }
 
 void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
@@ -400,6 +407,11 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
     if ( need_norms ) {
         d_dResidualNorm = current_res;
         checkStoppingCriteria( current_res );
+        const bool ftc = ( d_ConvergenceStatus != SolverStatus::ConvergedOnAbsTol &&
+                           d_ConvergenceStatus != SolverStatus::ConvergedOnRelTol );
+        if ( d_save_to_file_on_ftc && ftc ) {
+            save_hierarchy( d_save_to_file_name + "-FTC", d_levels );
+        }
 
         if ( d_iDebugPrintInfoLevel > 0 ) {
             AMP::pout << "SASolver::apply: final L2Norm of solution: " << x->L2Norm() << std::endl;
