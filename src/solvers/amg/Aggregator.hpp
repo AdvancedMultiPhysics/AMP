@@ -91,6 +91,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             A->getComm(),
             A_data->getLeftVariable(),
             A_data->getLeftVariable(),
+            A_data->getBackend(),
             std::function<std::vector<size_t>( size_t )>() );
     }
     auto P = std::make_shared<matrixdata_t>( matParams );

@@ -193,6 +193,10 @@ void SASolver::makeCoarseSolver()
 void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
                                  std::shared_ptr<LinearAlgebra::Matrix> &P ) const
 {
+    if ( d_num_smooth_prol == 0 ) {
+        return;
+    }
+
     // Get D as absolute row sums of A
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );

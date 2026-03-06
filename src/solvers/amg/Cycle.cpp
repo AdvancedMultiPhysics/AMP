@@ -207,6 +207,7 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
     return;
 #endif
     for ( size_t nl = 0; nl < levels.size(); ++nl ) {
+        AMP::pout << "save_hierarchy, level " << nl << std::endl;
         // create file name for A
         const auto fname_A = std::string( base_name ) + "_Level" + std::to_string( nl ) + "_A";
 
@@ -217,6 +218,7 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
         // make writer and use visitor to dump matrix
         AMP::IO::RestartManager writer;
         LinearAlgebra::csrVisit( A, [fname_A, &writer]( auto csr_ptr ) {
+            AMP::pout << "  writing A" << std::endl;
             writer.registerData( csr_ptr, "A" );
             writer.write( fname_A );
         } );
@@ -237,10 +239,12 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
             AMP_ASSERT( P->mode() < std::numeric_limits<std::uint16_t>::max() );
 
             LinearAlgebra::csrVisit( R, [fname_R, &writer]( auto csr_ptr ) {
+                AMP::pout << "  writing R" << std::endl;
                 writer.registerData( csr_ptr, "R" );
                 writer.write( fname_R );
             } );
             LinearAlgebra::csrVisit( P, [fname_P, &writer]( auto csr_ptr ) {
+                AMP::pout << "  writing P" << std::endl;
                 writer.registerData( csr_ptr, "P" );
                 writer.write( fname_P );
             } );

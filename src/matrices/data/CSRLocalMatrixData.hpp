@@ -1304,10 +1304,14 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
     if ( d_memory_location <= AMP::Utilities::MemoryType::host ) {
 
         row_starts.viewRaw( d_num_rows + 1, d_row_starts.get() );
-        if ( !d_is_diag )
+
+        if ( d_ncols_unq > 0 && !d_is_diag )
             cols_unq.viewRaw( d_ncols_unq, d_cols_unq.get() );
-        cols_loc.viewRaw( d_nnz, d_cols_loc.get() );
-        if ( !d_is_symbolic )
+
+        if ( d_nnz > 0 )
+            cols_loc.viewRaw( d_nnz, d_cols_loc.get() );
+
+        if ( d_nnz > 0 && !d_is_symbolic )
             coeffs.viewRaw( d_nnz, d_coeffs.get() );
 
     } else {
@@ -1315,15 +1319,17 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
         row_starts.resize( d_num_rows + 1 );
         AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts.data() );
 
-        if ( !d_is_diag ) {
+        if ( d_ncols_unq > 0 && !d_is_diag ) {
             cols_unq.resize( d_ncols_unq );
             AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq.data() );
         }
 
-        cols_loc.resize( d_nnz );
-        AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc.data() );
+        if ( d_nnz > 0 ) {
+            cols_loc.resize( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc.data() );
+        }
 
-        if ( !d_is_symbolic ) {
+        if ( d_nnz > 0 && !d_is_symbolic ) {
             coeffs.resize( d_nnz );
             AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs.data() );
         }
@@ -1335,7 +1341,7 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
         IO::writeHDF5( fid, "cols_unq", cols_unq );
     if ( d_nnz > 0 )
         IO::writeHDF5( fid, "cols_loc", cols_loc );
-    if ( d_nnz && ( !d_is_symbolic ) )
+    if ( d_nnz > 0 && !d_is_symbolic )
         IO::writeHDF5( fid, "coeffs", coeffs );
 }
 

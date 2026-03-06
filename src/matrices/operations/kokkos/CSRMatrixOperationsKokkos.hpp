@@ -36,25 +36,24 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    auto inData                 = in->getVectorData();
-    const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
-    auto outData                = out->getVectorData();
-    scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
+    auto outData           = out->getVectorData();
+    scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( inDataBlock ),
-                      "Input vector from wrong memory space" );
-
+    AMP_DEBUG_ASSERT( outDataBlock );
     AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( outDataBlock ),
                       "Output vector from wrong memory space" );
 
-    AMP_DEBUG_INSIST(
-        1 == inData->numberOfDataBlocks(),
-        "CSRMatrixOperationsKokkos::mult only implemented for vectors with one data block" );
-
-    AMP_ASSERT( inDataBlock && outDataBlock );
-
-    {
+    if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsKokkos::mult(local)" );
+        auto inData = in->getVectorData();
+        AMP_DEBUG_INSIST(
+            inData->numberOfDataBlocks() == 1,
+            "CSRMatrixOperationsKokkos::mult only implemented for vectors with one data block" );
+        const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
+        AMP_DEBUG_ASSERT( inDataBlock );
+        AMP_DEBUG_INSIST( csrData->d_memory_location ==
+                              AMP::Utilities::getMemoryType( inDataBlock ),
+                          "Input vector from wrong memory space" );
         d_localops_diag->mult( inDataBlock, 1.0, diagMatrix, 0.0, outDataBlock );
     }
 
