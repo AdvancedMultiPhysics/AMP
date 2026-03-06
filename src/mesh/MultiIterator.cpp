@@ -156,7 +156,7 @@ MeshIterator MultiIterator::begin() const
 {
     auto it = clone();
     it->setPos( 0 );
-    AMP_DEBUG_ASSERT( d_element != nullptr || d_size == 0 );
+    AMP_DEBUG_ASSERT( it->operator->() != nullptr || it->size() == 0 );
     return MeshIterator( std::move( it ) );
 }
 

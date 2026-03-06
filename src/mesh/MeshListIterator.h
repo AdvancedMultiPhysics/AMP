@@ -27,7 +27,7 @@ public:
     MeshListIterator();
 
     //! Default MeshListIterator constructor
-    explicit MeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
+    MeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
 
     //! Deconstructor
     ~MeshListIterator() = default;
