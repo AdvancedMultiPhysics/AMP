@@ -65,6 +65,7 @@ noExplicitConstructor:*/AMP/mesh/MeshID.h
 noExplicitConstructor:*/AMP/mesh/MeshPoint.h
 noExplicitConstructor:*/AMP/mesh/MeshElement.h
 noExplicitConstructor:*/AMP/mesh/MeshUtilities.h
+noExplicitConstructor:*/AMP/mesh/MeshListIterator.hpp
 noExplicitConstructor:*/AMP/utils/Array.h
 noExplicitConstructor:*/AMP/utils/ArraySize.h
 noExplicitConstructor:*/AMP/utils/AMP_MPI.h
