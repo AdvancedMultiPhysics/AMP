@@ -3,6 +3,7 @@
 
 #include "AMP/mesh/MeshID.h"
 #include "AMP/mesh/MeshIterator.h"
+#include "AMP/mesh/MeshParameters.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/enable_shared_from_this.h"
@@ -12,9 +13,6 @@
 
 
 // Forward declarations
-namespace AMP::Mesh {
-class MeshParameters;
-}
 namespace AMP::Geometry {
 class Geometry;
 }
@@ -27,6 +25,9 @@ class RestartManager;
 
 
 namespace AMP::Mesh {
+
+
+class MeshElementVectorBase;
 
 
 //! Enumeration for basic mesh-based quantities
@@ -64,8 +65,9 @@ public:
     typedef std::function<std::shared_ptr<Mesh>( std::shared_ptr<const MeshParameters> )>
         generatorType;
 
-    //! Pointer to MeshElement
+    //! Pointer to MeshElement and MeshElementVector
     using MeshElementPtr = std::unique_ptr<MeshElement>;
+    using ElementListPtr = MeshElementVectorPtr;
 
     //! Enumeration for basic mesh-based quantities
     enum class Movable : uint8_t { Fixed = 0, Displace = 1, Deform = 2 };
@@ -87,13 +89,13 @@ public:
      * using an iterator over the existing mesh.
      * This is designed as a path to create a new mesh object of one type from
      * an existing mesh of a different type.  It also allows creating a new single mesh
-     * from a subset or superset of other meshes.  Note that instantion of this routine
+     * from a subset or superset of other meshes.  Note that instantiation of this routine
      * may not be able to create it's mesh from any arbitrary mesh, and may throw an
      * error.
      * \param old_mesh  Existing mesh that we will use to construct the new mesh
      * \param iterator  Iterator over the existing mesh
      */
-    Mesh( const std::shared_ptr<Mesh> &old_mesh, MeshIterator::shared_ptr &iterator );
+    Mesh( const std::shared_ptr<Mesh> &old_mesh, MeshIterator &iterator );
 
 
     /**
@@ -276,6 +278,9 @@ public:
      * \param B  Pointer to MeshIterator B
      */
     static MeshIterator getIterator( SetOP OP, const MeshIterator &A, const MeshIterator &B );
+    static MeshIterator getIterator( SetOP OP, const MeshIterator &, MeshIteratorEnd );
+    static MeshIterator getIterator( SetOP OP, MeshIteratorEnd, const MeshIterator & );
+    static MeshIterator getIterator( SetOP OP, MeshIteratorEnd, MeshIteratorEnd );
 
 
     /**
@@ -316,8 +321,7 @@ public:
      * \param elem  Mesh element of interest
      * \param type  Element type of the parents requested
      */
-    virtual std::vector<MeshElementPtr> getElementParents( const MeshElement &elem,
-                                                           const GeomType type ) const;
+    virtual ElementListPtr getElementParents( const MeshElement &elem, const GeomType type ) const;
 
 
     //! Get the largest geometric type in the mesh
@@ -341,7 +345,7 @@ public:
 
 
     //! Is the current mesh a base mesh
-    virtual inline bool isBaseMesh() const { return true; }
+    virtual bool isBaseMesh() const;
 
 
     //! Check if two meshes are equal
@@ -379,6 +383,12 @@ public:
      *  (excluding multimeshes and subset meshes) on the current processor.
      */
     virtual std::vector<MeshID> getLocalBaseMeshIDs() const;
+
+
+    /**
+     *  Check if the mesh contains the given mesh element
+     */
+    virtual bool containsElement( const MeshElementID &id ) const;
 
 
     //! Get the mesh name

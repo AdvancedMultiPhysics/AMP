@@ -2,7 +2,11 @@
 #include "AMP/utils/Utilities.h"
 
 
+using namespace AMP::Operator::UpdatedLagrangianUtils;
+
+
 namespace AMP::Operator {
+
 
 void MechanicsNonlinearUpdatedLagrangianElement::computeStressAndStrain(
     const std::vector<std::vector<double>> &elemInputVec,

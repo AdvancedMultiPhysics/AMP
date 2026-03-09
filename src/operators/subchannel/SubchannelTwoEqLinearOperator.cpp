@@ -4,7 +4,7 @@
 #include "AMP/operators/subchannel/SubchannelOperatorParameters.h"
 
 #include "AMP/matrices/MatrixBuilder.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/utils/Database.h"
 #include "AMP/utils/Utilities.h"
@@ -76,8 +76,8 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
         d_initialized = true;
         auto myparams = std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params );
 
-        AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameters" );
-        AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
+        AMP_INSIST( myparams, "NULL parameters" );
+        AMP_INSIST( myparams->d_db, "NULL database" );
 
         d_params = myparams;
 
@@ -182,8 +182,9 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
             if ( !d_ownSubChannel[i] )
                 continue;
             std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
-            auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
-            auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
+            auto localSubchannelIt =
+                AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elemPtr );
+            auto localSubchannel = d_Mesh->Subset( localSubchannelIt, false );
             auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
             for ( size_t j = 0; j < face.size(); j++ ) {
                 d_subchannelFace[i].push_back( face->clone() );
@@ -222,7 +223,7 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
             // Get the iterator over the faces in the local subchannel
             std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub],
                                                               []( auto ) {} );
-            auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
+            auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
             AMP_ASSERT( localSubchannelIt.size() == d_z.size() );
 
             std::vector<size_t> dofs_minus;
@@ -230,12 +231,11 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
             std::vector<size_t> dofs_plus;
 
             // calculate residual for axial momentum equations
-            double A      = d_channelArea[isub]; // Channel area
-            double D      = d_channelDiam[isub]; // Channel hydraulic diameter
-            double mass   = d_channelMass[isub]; // Mass flow rate in the current subchannel
-            int j         = 1;
-            auto face     = localSubchannelIt.begin();
-            auto end_face = localSubchannelIt.end();
+            double A    = d_channelArea[isub]; // Channel area
+            double D    = d_channelDiam[isub]; // Channel hydraulic diameter
+            double mass = d_channelMass[isub]; // Mass flow rate in the current subchannel
+            int j       = 1;
+            auto face   = localSubchannelIt.begin();
             for ( size_t iface = 0; iface < localSubchannelIt.size(); ++iface, ++j ) {
                 dofMap->getDOFs( face->globalID(), dofs );
                 // ======================================================
@@ -269,7 +269,7 @@ void SubchannelTwoEqLinearOperator::reset( std::shared_ptr<const OperatorParamet
                                                dofs[1] ); // pressure evaluated at lower face
                 auto minusFaceCentroid = face->centroid();
                 double z_minus         = minusFaceCentroid[2]; // z-coordinate of lower face
-                if ( face == end_face - 1 ) {
+                if ( iface == localSubchannelIt.size() - 1 ) {
                     dofMap->getDOFs( face->globalID(), dofs );
                     d_matrix->setValueByGlobalID( dofs[1], dofs[1], 1.0 );
                 } else {

@@ -989,7 +989,7 @@ void testSerialize( UnitTest &ut )
     if ( avg > 0.9 * ms && avg < 1.4 * ms )
         ut.passes( "serialize" );
     else
-        ut.failure( "serialize: " + std::to_string( avg ) );
+        ut.failure( "serialize: %f", avg );
 }
 
 

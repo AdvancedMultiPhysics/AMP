@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <stdexcept>
 #include <vector>
 
 #include "AMP/utils/Memory.h"
@@ -183,7 +184,7 @@ public:
      * @param N1            Number of elements in the first dimension
      * @param N2            Number of elements in the second dimension
      * @param N3            Number of elements in the third dimension
-     * @param N4            Number of elements in the fourth dimension
+     * @param N4            Number of elements in the fourth dimeARRAY_INSISTnsion
      * @param N5            Number of elements in the fifth dimension
      */
     CONSTEXPR ArraySize( size_t N1, size_t N2, size_t N3, size_t N4, size_t N5 )
@@ -478,6 +479,21 @@ CONSTEXPR ArraySize operator+( size_t v, const ArraySize &x )
 {
     size_t N[5] = { x[0] + v, x[1] + v, x[2] + v, x[3] + v, x[4] + v };
     return ArraySize( x.ndim(), N );
+}
+
+
+// Get the resulting array size from multiplying two arrays
+constexpr ArraySize multiplySize( const ArraySize &sa, const ArraySize &sb )
+{
+    if ( sa[1] != sb[0] )
+        throw std::logic_error( "Inner dimensions must match" );
+    if ( sa.ndim() == 2 && sb.ndim() == 1 ) {
+        return { sa[0] };
+    } else if ( sa.ndim() <= 2 && sb.ndim() <= 2 ) {
+        return { sa[0], sb[1] };
+    } else {
+        throw std::logic_error( "Not finished yet" );
+    }
 }
 
 

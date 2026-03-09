@@ -83,17 +83,17 @@ static inline bool approx_equal( const std::array<double, N> &x,
 template<size_t NDIM, bool ordered>
 static uint64_t hash( const std::array<int, NDIM> &x )
 {
-    uint64_t hash = 0;
+    uint64_t y = 0;
     for ( size_t i = 0; i < NDIM; i++ ) {
         // Use hashing function: 2^64*0.5*(sqrt(5)-1)
         uint64_t z = static_cast<uint64_t>( x[i] ) * 0x9E3779B97F4A7C15;
         if constexpr ( ordered ) {
-            hash = ( ( hash << 5 ) + hash ) ^ z;
+            y = ( ( y << 5 ) + y ) ^ z;
         } else {
-            hash = hash ^ z;
+            y = y ^ z;
         }
     }
-    return hash;
+    return y;
 }
 template<size_t NG>
 size_t count( const std::vector<std::array<int, NG + 1>> &tri )

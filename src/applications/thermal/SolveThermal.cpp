@@ -36,7 +36,7 @@ static std::shared_ptr<AMP::Database> createSolverDatabase()
     // NonlinearDB->putScalar( "absolute_tolerance", 1e-12 );
     // NonlinearDB->putScalar( "relative_tolerance", 1e-5 );
     NonlinearDB->putScalar( "absolute_tolerance", 5e-5 );
-    NonlinearDB->putScalar( "relative_tolerance", 1e-4 );
+    NonlinearDB->putScalar( "relative_tolerance", 1e-8 );
 #else
     NonlinearDB->putScalar( "name", "PetscSNESSolver" );
     NonlinearDB->putScalar( "max_iterations", 500 );

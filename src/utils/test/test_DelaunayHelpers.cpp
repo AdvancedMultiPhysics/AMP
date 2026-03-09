@@ -105,7 +105,7 @@ void runMatTest( const int64_t *M0,
     if ( err <= 10 * tol )
         ut.passes( "determinant" + name );
     else
-        ut.failure( AMP::Utilities::stringf( "determinant%s: %e", name.data(), err ) );
+        ut.failure( "determinant%s: %e", name.data(), err );
 
     // Check the solution
     TYPE det_M, x[NDIM];
@@ -119,7 +119,7 @@ void runMatTest( const int64_t *M0,
     if ( fabs( err ) <= 10 * tol )
         ut.passes( "solve" + name );
     else
-        ut.failure( AMP::Utilities::stringf( "solve%s: %e", name.data(), err ) );
+        ut.failure( "solve%s: %e", name.data(), err );
 }
 
 

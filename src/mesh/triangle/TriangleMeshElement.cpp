@@ -91,8 +91,17 @@ static constexpr uint8_t n_Simplex_elements[4][4] = {
 
 
 /********************************************************
- * Create a unique id for each class                     *
+ * Get basic info                                        *
  ********************************************************/
+static typeID TypeIDs[4] = { AMP::getTypeID<AMP::Mesh::TriangleMeshElement<0>>(),
+                             AMP::getTypeID<AMP::Mesh::TriangleMeshElement<1>>(),
+                             AMP::getTypeID<AMP::Mesh::TriangleMeshElement<2>>(),
+                             AMP::getTypeID<AMP::Mesh::TriangleMeshElement<3>>() };
+template<uint8_t NG>
+const typeID &TriangleMeshElement<NG>::getTypeID() const
+{
+    return TypeIDs[NG];
+}
 template<uint8_t NG>
 std::string TriangleMeshElement<NG>::elementClass() const
 {
@@ -170,7 +179,7 @@ int TriangleMeshElement<NG>::getElementsID( const GeomType type, MeshElementID *
     return N;
 }
 template<uint8_t NG>
-void TriangleMeshElement<NG>::getElements( const GeomType type, ElementList &children ) const
+MeshElement::ElementListPtr TriangleMeshElement<NG>::getElements( const GeomType type ) const
 {
     // Number of elements composing a given type
     auto TYPE = static_cast<uint8_t>( d_globalID.type() );
@@ -179,10 +188,12 @@ void TriangleMeshElement<NG>::getElements( const GeomType type, ElementList &chi
     ElementID tmp[6];
     d_mesh->getElementsIDs( d_globalID.elemID(), type, tmp );
     // Create the mesh elements
-    auto meshID = d_globalID.meshID();
-    children.resize( N );
+    auto meshID   = d_globalID.meshID();
+    auto children = std::make_unique<MeshElementVector<TriangleMeshElement<NG>>>( N );
     for ( int i = 0; i < N; i++ )
-        children[i] = d_mesh->getElement( MeshElementID( meshID, tmp[i] ) );
+        children->operator[]( i ) =
+            TriangleMeshElement<NG>( MeshElementID( meshID, tmp[i] ), d_mesh );
+    return children;
 }
 
 
@@ -190,15 +201,17 @@ void TriangleMeshElement<NG>::getElements( const GeomType type, ElementList &chi
  * Function to get the neighboring elements                      *
  ****************************************************************/
 template<uint8_t NG>
-void TriangleMeshElement<NG>::getNeighbors(
-    std::vector<std::unique_ptr<MeshElement>> &neighbors ) const
+MeshElement::ElementListPtr TriangleMeshElement<NG>::getNeighbors() const
 {
     std::vector<ElementID> neighborIDs;
     d_mesh->getNeighborIDs( d_globalID.elemID(), neighborIDs );
-    neighbors.resize( neighborIDs.size() );
     auto meshID = d_globalID.meshID();
+    auto neighbors =
+        std::make_unique<MeshElementVector<TriangleMeshElement<NG>>>( neighborIDs.size() );
     for ( size_t i = 0; i < neighborIDs.size(); i++ )
-        neighbors[i].reset( d_mesh->getElement2( MeshElementID( meshID, neighborIDs[i] ) ) );
+        neighbors->operator[]( i ) =
+            TriangleMeshElement<NG>( MeshElementID( meshID, neighborIDs[i] ), d_mesh );
+    return neighbors;
 }
 
 

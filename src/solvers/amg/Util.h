@@ -242,6 +242,9 @@ struct csr_view<LinearAlgebra::CSRMatrix<Config>> {
     using gidx_t   = typename csr_policy::gidx_t;
     using scalar_t = typename csr_policy::scalar_t;
 
+    using csr_ptrs_t =
+        typename std::tuple<span<const lidx_t>, span<const lidx_t>, span<const scalar_t>>;
+
     explicit csr_view( reference p ) : ptr( &p ) {}
 
     auto diag() const { return csr_ptrs( *( data().getDiagMatrix() ) ); }
@@ -278,7 +281,7 @@ struct csr_view<LinearAlgebra::CSRMatrix<Config>> {
 
 protected:
     template<class T>
-    auto csr_ptrs( const T &local_data ) const
+    csr_ptrs_t csr_ptrs( const T &local_data ) const
     {
         auto nrows                            = local_data.numLocalRows();
         auto nnz                              = local_data.numberOfNonZeros();
@@ -303,6 +306,8 @@ struct csr_view<par_csr<Config, ColID>> {
     using lidx_t         = typename Config::lidx_t;
     using scalar_t       = typename Config::scalar_t;
     using value_type     = par_csr<Config>;
+    using csr_ptrs_t =
+        typename std::tuple<span<const lidx_t>, span<const lidx_t>, span<const scalar_t>>;
 
     csr_view( value_type val ) : data{ val } {}
 
@@ -315,7 +320,7 @@ struct csr_view<par_csr<Config, ColID>> {
     [[nodiscard]] size_t numLocalRows() const { return data.diag().rowptr.size() - 1; }
 
 private:
-    auto csr_ptrs( const typename value_type::seq_type &v ) const
+    csr_ptrs_t csr_ptrs( const typename value_type::seq_type &v ) const
     {
         return std::make_tuple( span<const lidx_t>( v.rowptr.data(), v.rowptr.size() ),
                                 span<const ColID>( v.colind.data(), v.colind.size() ),

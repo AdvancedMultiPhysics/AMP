@@ -28,9 +28,6 @@
 static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, int )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName + ".txt";
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     auto input_db = AMP::Database::parseInputFile( input_file );

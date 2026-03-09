@@ -117,15 +117,21 @@ int main( int argc, char **argv )
                 _ConvertSMVer2Cores( deviceProp.major, deviceProp.minor ),
                 _ConvertSMVer2Cores( deviceProp.major, deviceProp.minor ) *
                     deviceProp.multiProcessorCount );
+
+        int deviceClockRate;
+        checkCudaErrors( cudaDeviceGetAttribute( &deviceClockRate, cudaDevAttrClockRate, dev ) );
         printf( "  GPU Max Clock rate:                            %.0f MHz (%0.2f GHz)\n",
-                deviceProp.clockRate * 1e-3f,
-                deviceProp.clockRate * 1e-6f );
+                deviceClockRate * 1e-3f,
+                deviceClockRate * 1e-6f );
 
 
 #if CUDART_VERSION >= 5000
+        int memoryClockRate;
+        checkCudaErrors(
+            cudaDeviceGetAttribute( &memoryClockRate, cudaDevAttrMemoryClockRate, dev ) );
         // This is supported in CUDA 5.0 (runtime API device properties)
         printf( "  Memory Clock rate:                             %.0f Mhz\n",
-                deviceProp.memoryClockRate * 1e-3f );
+                memoryClockRate * 1e-3f );
         printf( "  Memory Bus Width:                              %d-bit\n",
                 deviceProp.memoryBusWidth );
 
@@ -192,10 +198,13 @@ int main( int argc, char **argv )
         printf( "  Texture alignment:                             %zu bytes\n",
                 deviceProp.textureAlignment );
         printf( "  Concurrent copy and kernel execution:          %s with %d copy engine(s)\n",
-                ( deviceProp.deviceOverlap ? "Yes" : "No" ),
+                ( deviceProp.asyncEngineCount > 0 ? "Yes" : "No" ),
                 deviceProp.asyncEngineCount );
+        int kernelExecTimeoutEnabled;
+        checkCudaErrors( cudaDeviceGetAttribute(
+            &kernelExecTimeoutEnabled, cudaDevAttrKernelExecTimeout, dev ) );
         printf( "  Run time limit on kernels:                     %s\n",
-                deviceProp.kernelExecTimeoutEnabled ? "Yes" : "No" );
+                ( kernelExecTimeoutEnabled > 0 ) ? "Yes" : "No" );
         printf( "  Integrated GPU sharing Host Memory:            %s\n",
                 deviceProp.integrated ? "Yes" : "No" );
         printf( "  Support host page-locked memory mapping:       %s\n",
@@ -228,7 +237,10 @@ int main( int argc, char **argv )
             nullptr
         };
         printf( "  Compute Mode:\n" );
-        printf( "     < %s >\n", sComputeMode[deviceProp.computeMode] );
+        int deviceComputeMode;
+        checkCudaErrors(
+            cudaDeviceGetAttribute( &deviceComputeMode, cudaDevAttrComputeMode, dev ) );
+        printf( "     < %s >\n", sComputeMode[deviceComputeMode] );
     }
 
     // If there are 2 or more GPUs, query to determine whether RDMA is supported

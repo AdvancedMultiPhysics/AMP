@@ -206,11 +206,11 @@ void CSRMatrixSpGEMMDefault<Config>::numericMultiplyReuse()
         scalar_t *C_coeffs                             = nullptr;
         std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_diag->getDataFields();
         auto tot_nnz                                   = C_diag->numberOfNonZeros();
-        std::fill( C_coeffs, C_coeffs + tot_nnz, 0.0 );
+        std::fill( C_coeffs, C_coeffs + tot_nnz, scalar_t{ 0.0 } );
         if ( !C_offd->isEmpty() ) {
             std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_offd->getDataFields();
             tot_nnz                                        = C_offd->numberOfNonZeros();
-            std::fill( C_coeffs, C_coeffs + tot_nnz, 0.0 );
+            std::fill( C_coeffs, C_coeffs + tot_nnz, scalar_t{ 0.0 } );
         }
     }
 

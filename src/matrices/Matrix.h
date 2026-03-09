@@ -224,10 +224,23 @@ public:
      * on the actual subclass of matrix used.
      */
     template<typename T>
-    void
-    setValuesByGlobalID( size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, T *values )
+    void setValuesByGlobalID(
+        size_t num_rows, size_t num_cols, const size_t *rows, const size_t *cols, const T *values )
     {
         d_matrixData->setValuesByGlobalID( num_rows, num_cols, rows, cols, values );
+    }
+
+    /** \brief  Set values for a row in the matrix
+     * \param[in]  row      Which row
+     * \param[in] cols      The column ids to set
+     * \param[in] values    The values to set
+     */
+    template<typename T = double>
+    void
+    setRowByGlobalID( size_t row, const std::vector<size_t> &cols, const std::vector<T> &values )
+    {
+        AMP_ASSERT( cols.size() == values.size() );
+        d_matrixData->setValuesByGlobalID<T>( 1, cols.size(), &row, cols.data(), values.data() );
     }
 
     /** \brief  Get values in the matrix
@@ -241,7 +254,7 @@ public:
      */
     template<typename T>
     void getValuesByGlobalID(
-        size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, T *values ) const
+        size_t num_rows, size_t num_cols, const size_t *rows, const size_t *cols, T *values ) const
     {
         d_matrixData->getValuesByGlobalID( num_rows, num_cols, rows, cols, values );
     }

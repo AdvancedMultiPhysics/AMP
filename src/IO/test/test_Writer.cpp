@@ -175,10 +175,6 @@ void testWriterMatrix( AMP::UnitTest &ut, const std::string &writerName )
         ut.expected_failure( writerName + " does not support registering a matrix" );
         return;
     }
-#if !defined( AMP_USE_PETSC ) && !defined( AMP_USE_TRILINOS )
-    ut.expected_failure( writerName + "  - no parallel matrix to test" );
-    return;
-#endif
 
     // Create and register a matrix
     auto rankStr = std::to_string( comm.getRank() + 1 );
@@ -483,7 +479,6 @@ int main( int argc, char **argv )
     AMP::UnitTest ut;
     PROFILE_ENABLE( 1 );
     PROFILE( "test_Writer" );
-    AMP::logOnlyNodeZero( "output_test_SiloIO" );
 
     std::vector<std::string> writers = { "Silo", "HDF5" };
     int commSize                     = AMP::AMP_MPI( AMP_COMM_WORLD ).getSize();

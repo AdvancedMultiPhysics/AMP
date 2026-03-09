@@ -129,7 +129,7 @@ protected:
     libMeshEnums::Order d_qruleOrder;
     libMeshEnums::QuadratureType d_qruleType;
 
-    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
+    AMP::Mesh::MeshElementVectorPtr d_currNodes;
 
 private:
 };

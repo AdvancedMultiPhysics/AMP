@@ -11,7 +11,7 @@ namespace AMP::Mesh {
 
 
 // Functions to create new ids by mixing existing ids
-static unsigned int generate_id( const std::vector<unsigned int> &ids );
+static unsigned int generate_id( int N, const unsigned int *ids );
 
 
 /********************************************************
@@ -126,6 +126,13 @@ libmeshMeshElement &libmeshMeshElement::operator=( const libmeshMeshElement &rhs
 libmeshMeshElement::~libmeshMeshElement() {}
 
 
+/********************************************************
+ * Get basic info                                        *
+ ********************************************************/
+static auto TypeID = AMP::getTypeID<AMP::Mesh::libmeshMeshElement>();
+const typeID &libmeshMeshElement::getTypeID() const { return TypeID; }
+
+
 /****************************************************************
  * Function to clone the element                                 *
  ****************************************************************/
@@ -138,70 +145,73 @@ std::unique_ptr<MeshElement> libmeshMeshElement::clone() const
 /****************************************************************
  * Function to get the elements composing the current element    *
  ****************************************************************/
-void libmeshMeshElement::getElements( const GeomType type, ElementList &children ) const
+MeshElement::ElementListPtr libmeshMeshElement::getElements( const GeomType type ) const
 {
     AMP_INSIST( type <= d_globalID.type(), "sub-elements must be of a smaller or equivalent type" );
-    children.clear();
     auto *elem = (libMesh::Elem *) ptr_element;
+    std::unique_ptr<MeshElementVector<libmeshMeshElement>> children;
     if ( d_globalID.type() == GeomType::Vertex ) {
         // A vertex does not have children, return itself
         if ( type != GeomType::Vertex )
             AMP_ERROR( "A vertex is the base element and cannot have and sub-elements" );
-        children.resize( 1 );
-        children[0] = std::make_unique<libmeshMeshElement>( *this );
+        children = std::make_unique<MeshElementVector<libmeshMeshElement>>( *this );
     } else if ( type == d_globalID.type() ) {
         // Return the children of the current element
         if ( elem->has_children() ) {
-            children.resize( elem->n_children() );
-            for ( unsigned int i = 0; i < children.size(); i++ )
-                children[i] = std::make_unique<libmeshMeshElement>(
+            children =
+                std::make_unique<MeshElementVector<libmeshMeshElement>>( elem->n_children() );
+            for ( unsigned int i = 0; i < children->size(); i++ )
+                ( *children )[i] = libmeshMeshElement(
                     d_dim, type, (void *) elem->child_ptr( i ), d_rank, d_meshID, d_mesh );
         } else {
-            children.resize( 1 );
-            children[0] = std::make_unique<libmeshMeshElement>( *this );
+            children = std::make_unique<MeshElementVector<libmeshMeshElement>>( *this );
         }
     } else if ( type == GeomType::Vertex ) {
         // Return the nodes of the current element
-        children.resize( elem->n_nodes() );
-        for ( unsigned int i = 0; i < children.size(); i++ )
-            children[i] = std::make_unique<libmeshMeshElement>(
+        children = std::make_unique<MeshElementVector<libmeshMeshElement>>( elem->n_nodes() );
+        for ( unsigned int i = 0; i < children->size(); i++ )
+            ( *children )[i] = libmeshMeshElement(
                 d_dim, type, (void *) elem->node_ptr( i ), d_rank, d_meshID, d_mesh );
     } else {
         // Return the children
+        size_t N_children = 0;
         if ( type == GeomType::Edge )
-            children.resize( elem->n_edges() );
+            N_children = elem->n_edges();
         else if ( type == GeomType::Face )
-            children.resize( elem->n_faces() );
+            N_children = elem->n_faces();
         else
             AMP_ERROR( "Internal error" );
-        for ( unsigned int i = 0; i < children.size(); i++ ) {
+        children = std::make_unique<MeshElementVector<libmeshMeshElement>>( N_children );
+        for ( unsigned int i = 0; i < N_children; i++ ) {
             // We need to build a valid element
-            std::unique_ptr<libMesh::Elem> tmp;
+            std::shared_ptr<libMesh::Elem> element;
             if ( type == GeomType::Edge )
-                tmp = elem->build_edge_ptr( i );
+                element = elem->build_edge_ptr( i );
             else if ( type == GeomType::Face )
-                tmp = elem->build_side_ptr( i, false );
+                element = elem->build_side_ptr( i, false );
             else
                 AMP_ERROR( "Internal error" );
-            std::shared_ptr<libMesh::Elem> element( tmp.release() );
-            // We need to generate a vaild id and owning processor
-            unsigned int n_node_min = ( (unsigned int) type ) + 1;
-            AMP_ASSERT( element->n_nodes() >= n_node_min );
-            std::vector<libMesh::Node *> nodes( element->n_nodes() );
-            std::vector<unsigned int> node_ids( element->n_nodes() );
-            for ( size_t j = 0; j < nodes.size(); j++ ) {
-                nodes[j]    = element->node_ptr( j );
-                node_ids[j] = nodes[j]->id();
+            // We need to generate a valid id and owning processor
+            int N = element->n_nodes();
+            AMP_ASSERT( N > ( (int) type ) && N <= 32 );
+            uint32_t node_ids[32];
+            int proc[32];
+            for ( int j = 0; j < N; j++ ) {
+                auto node   = element->node_ptr( j );
+                node_ids[j] = node->id();
+                proc[j]     = node->processor_id();
             }
-            AMP::Utilities::quicksort( node_ids, nodes );
-            element->processor_id() = nodes[0]->processor_id();
-            unsigned int id         = generate_id( node_ids );
+            AMP::Utilities::quicksort( N, node_ids, proc );
+            element->processor_id() = proc[0];
+            unsigned int id         = generate_id( N, node_ids );
             element->set_id()       = id;
             // Create the libmeshMeshElement
-            children[i] = std::make_unique<libmeshMeshElement>(
-                d_dim, type, element, d_rank, d_meshID, d_mesh );
+            ( *children )[i] =
+                libmeshMeshElement( d_dim, type, std::move( element ), d_rank, d_meshID, d_mesh );
         }
     }
+    AMP_ASSERT( children );
+    return children;
 }
 int libmeshMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
@@ -240,10 +250,9 @@ int libmeshMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) 
         return elem->n_nodes();
     } else {
         // Get the elements then the ids
-        ElementList elements;
-        this->getElements( type, elements );
+        auto elements = this->getElements( type );
         for ( size_t i = 0; i < elements.size(); i++ )
-            ID[i] = elements[i]->globalID();
+            ID[i] = elements[i].globalID();
         return elements.size();
     }
 }
@@ -252,33 +261,35 @@ int libmeshMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) 
 /****************************************************************
  * Function to get the neighboring elements                      *
  ****************************************************************/
-void libmeshMeshElement::getNeighbors( ElementList &neighbors ) const
+MeshElement::ElementListPtr libmeshMeshElement::getNeighbors() const
 {
-    neighbors.clear();
     if ( d_globalID.type() == GeomType::Vertex ) {
         // Return the neighbors of the current node
         auto neighbor_nodes = d_mesh->getNeighborNodes( d_globalID );
         int n_neighbors     = neighbor_nodes.size();
-        neighbors.reserve( n_neighbors );
+        auto neighbors = std::make_unique<MeshElementVector<libmeshMeshElement>>( n_neighbors );
         for ( int i = 0; i < n_neighbors; i++ ) {
-            neighbors.emplace_back( new libmeshMeshElement(
-                d_dim, GeomType::Vertex, (void *) neighbor_nodes[i], d_rank, d_meshID, d_mesh ) );
+            ( *neighbors )[i] = libmeshMeshElement(
+                d_dim, GeomType::Vertex, (void *) neighbor_nodes[i], d_rank, d_meshID, d_mesh );
         }
+        return neighbors;
     } else if ( (int) d_globalID.type() == d_dim ) {
         // Return the neighbors of the current element
         auto *elem      = (libMesh::Elem *) ptr_element;
         int n_neighbors = elem->n_neighbors();
-        neighbors.resize( n_neighbors );
+        auto neighbors  = std::make_unique<MeshElementVector<libmeshMeshElement>>( n_neighbors );
         for ( int i = 0; i < n_neighbors; i++ ) {
             auto *neighbor_elem = (void *) elem->neighbor_ptr( i );
             if ( neighbor_elem == nullptr )
                 continue;
-            neighbors[i] = std::unique_ptr<MeshElement>( new libmeshMeshElement(
-                d_dim, d_globalID.type(), neighbor_elem, d_rank, d_meshID, d_mesh ) );
+            ( *neighbors )[i] = libmeshMeshElement(
+                d_dim, d_globalID.type(), neighbor_elem, d_rank, d_meshID, d_mesh );
+            return neighbors;
         }
     } else {
         // We constructed a temporary libmesh object and do not have access to the neighbor info
     }
+    return std::make_unique<MeshElementVector<libmeshMeshElement>>();
 }
 
 
@@ -360,33 +371,28 @@ bool libmeshMeshElement::isOnSurface() const
 }
 bool libmeshMeshElement::isOnBoundary( int id ) const
 {
-    GeomType type    = d_globalID.type();
-    bool on_boundary = false;
-    auto d_libMesh   = d_mesh->getlibMesh();
+    GeomType type       = d_globalID.type();
+    auto d_libMesh      = d_mesh->getlibMesh();
+    auto &boundary_info = d_libMesh->get_boundary_info();
     if ( type == GeomType::Vertex ) {
         // Entity is a libmesh node
         auto *node = (libMesh::Node *) ptr_element;
-        std::vector<libMesh::boundary_id_type> bids;
-        d_libMesh->boundary_info->boundary_ids( node, bids );
-        for ( auto &bid : bids ) {
-            if ( bid == id )
-                on_boundary = true;
-        }
+        return boundary_info.has_boundary_id( node, id );
     } else if ( (int) type == d_dim ) {
         // Entity is a libmesh node
         auto *elem        = (libMesh::Elem *) ptr_element;
-        unsigned int side = d_libMesh->boundary_info->side_with_boundary_id( elem, id );
-        if ( side != static_cast<unsigned int>( -1 ) )
-            on_boundary = true;
+        unsigned int side = boundary_info.side_with_boundary_id( elem, id );
+        return side != static_cast<unsigned int>( -1 );
     } else {
         // All other entities are on the boundary iff all of their vertices are on the surface
-        ElementList nodes;
-        this->getElements( GeomType::Vertex, nodes );
-        on_boundary = true;
-        for ( auto &node : nodes )
-            on_boundary = on_boundary && node->isOnBoundary( id );
+        bool on_boundary = true;
+        auto *elem       = (libMesh::Elem *) ptr_element;
+        for ( unsigned int i = 0; i < elem->n_nodes(); i++ ) {
+            auto node   = elem->node_ptr( i );
+            on_boundary = on_boundary && boundary_info.has_boundary_id( node, id );
+        }
+        return on_boundary;
     }
-    return on_boundary;
 }
 bool libmeshMeshElement::isInBlock( int id ) const
 {
@@ -411,30 +417,28 @@ bool libmeshMeshElement::isInBlock( int id ) const
  * Functions to generate a new id based on the nodes             *
  * Note: this function requires the node ids to be sorted        *
  ****************************************************************/
-static unsigned int fliplr( unsigned int x )
+static inline uint32_t reverseBits( uint32_t x )
 {
-    unsigned int y     = 0;
-    unsigned int mask1 = 1;
-    unsigned int mask2 = mask1 << ( sizeof( unsigned int ) * 8 - 1 );
-    for ( size_t i = 0; i < sizeof( unsigned int ) * 8; i++ ) {
-        y += ( x & mask1 ) ? mask2 : 0;
-        mask1 <<= 1;
-        mask2 >>= 1;
-    }
+    uint32_t y = x;
+    y = ( ( y >> 1 ) & 0x55555555 ) | ( ( y & 0x55555555 ) << 1 ); // Swap adjacent 1-bit groups
+    y = ( ( y >> 2 ) & 0x33333333 ) | ( ( y & 0x33333333 ) << 2 ); // Swap 2-bit groups
+    y = ( ( y >> 4 ) & 0x0F0F0F0F ) | ( ( y & 0x0F0F0F0F ) << 4 ); // Swap 4-bit groups
+    y = ( ( y >> 8 ) & 0x00FF00FF ) | ( ( y & 0x00FF00FF ) << 8 ); // Swap 8-bit groups
+    y = ( y >> 16 ) | ( y << 16 );                                 // Swap 16-bit groups
     return y;
 }
-unsigned int generate_id( const std::vector<unsigned int> &ids )
+unsigned int generate_id( int N, const unsigned int *ids )
 {
     unsigned int id0 = ids[0];
     unsigned int id_diff[100];
-    for ( size_t i = 1; i < ids.size(); i++ )
+    for ( int i = 1; i < N; i++ )
         id_diff[i - 1] = ids[i] - ids[i - 1];
     unsigned int tmp = 0;
-    for ( size_t i = 0; i < ids.size() - 1; i++ ) {
+    for ( int i = 0; i < N - 1; i++ ) {
         unsigned int shift = ( 7 * i ) % 13;
         tmp                = tmp ^ ( id_diff[i] << shift );
     }
-    unsigned int id = id0 ^ ( fliplr( tmp ) >> 1 );
+    unsigned int id = id0 ^ ( reverseBits( tmp ) >> 1 );
     return id;
 }
 
@@ -446,6 +450,4 @@ unsigned int generate_id( const std::vector<unsigned int> &ids )
  * Explicit instantiations                               *
  ********************************************************/
 #include "AMP/utils/Utilities.hpp"
-template void
-AMP::Utilities::quicksort<unsigned int, libMesh::Node *>( std::vector<unsigned int> &,
-                                                          std::vector<libMesh::Node *> & );
+template void AMP::Utilities::quicksort<unsigned int, int>( size_t, unsigned int *, int * );

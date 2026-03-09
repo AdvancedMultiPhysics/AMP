@@ -897,7 +897,7 @@ template<class TYPE, class FUN, class Allocator>
 inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> &a,
                                               const Array<TYPE, FUN, Allocator> &b )
 {
-    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>::multiplySize( a.size(), b.size() ) );
+    Array<TYPE, FUN, Allocator> c( multiplySize( a.size(), b.size() ) );
     FUN::multiply( a.size(), a.data(), b.size(), b.data(), c.size(), c.data() );
     return c;
 }
@@ -907,7 +907,7 @@ inline Array<TYPE, FUN, Allocator> operator*( const Array<TYPE, FUN, Allocator> 
 {
     Array<TYPE, FUN, Allocator> b2;
     b2.viewRaw( { b.size() }, const_cast<TYPE *>( b.data() ) );
-    Array<TYPE, FUN, Allocator> c( FunctionTable<TYPE>::multiplySize( a.size(), b.size() ) );
+    Array<TYPE, FUN, Allocator> c( multiplySize( a.size(), b.size() ) );
     FUN::multiply( a.size(), a.data(), b2.size(), b2.data(), c.size(), c.data() );
     return c;
 }

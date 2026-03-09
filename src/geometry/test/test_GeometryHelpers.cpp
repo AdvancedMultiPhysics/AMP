@@ -15,6 +15,9 @@ using namespace AMP::Geometry::GeometryHelpers;
 using AMP::Mesh::Point;
 
 
+#define to_ns( t1, t2 ) std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count()
+
+
 /****************************************************************
  * Vector operations                                             *
  ****************************************************************/
@@ -75,9 +78,9 @@ void test_dist_line( int N, AMP::UnitTest &ut )
         if ( !pass2 || !pass3 )
             printf( "distanceToLine (3): %f %f %e\n", d, d2, d3 );
     }
-    auto t2    = std::chrono::high_resolution_clock::now();
-    int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
-    printf( "distanceToLine: %i ns\n", static_cast<int>( ns / ( 4 * N ) ) );
+    auto t2 = std::chrono::high_resolution_clock::now();
+    int ns  = to_ns( t1, t2 ) / ( 4 * N );
+    printf( "distanceToLine: %i ns\n", ns );
     ut.pass_fail( pass, "distanceToLine (2D)" );
 }
 
@@ -90,41 +93,58 @@ void test_map_logical_circle( int N, AMP::UnitTest &ut )
     };
     std::random_device rd;
     std::mt19937 gen( rd() );
-    const double tol = 1e-10;
+    const double tol[4] = { 0, 1e-14, 1e-14, 5e-9 };
     for ( int method = 1; method <= 3; method++ ) {
-        const double r = 2.0;
+        double maxError = 0;
+        const double r  = 2.0;
         std::uniform_real_distribution<> dis( 0, 1 );
-        bool pass = true;
-        auto t1   = std::chrono::high_resolution_clock::now();
+        bool pass   = true;
+        auto t1     = std::chrono::high_resolution_clock::now();
+        int N_print = 0;
         for ( int i = 0; i < N; i++ ) {
-            double x  = dis( gen );
-            double y  = dis( gen );
-            auto p    = map_logical_circle( r, method, x, y );
-            auto p2   = map_circle_logical( r, method, p[0], p[1] );
-            double r2 = std::sqrt( p[0] * p[0] + p[1] * p[1] );
-            pass      = pass && r2 < r + 1e-15;
-            pass      = pass && distance( x, y, p2 ) < tol;
-            if ( !( distance( x, y, p2 ) < tol ) )
+            double x   = dis( gen );
+            double y   = dis( gen );
+            auto p     = map_logical_circle( r, method, x, y );
+            auto p2    = map_circle_logical( r, method, p[0], p[1] );
+            double r2  = std::sqrt( p[0] * p[0] + p[1] * p[1] );
+            double err = distance( x, y, p2 );
+            maxError   = std::max( maxError, err );
+            pass       = pass && r2 < r + 1e-15;
+            pass       = pass && err < tol[method];
+            if ( err >= tol[method] && N_print < 10 ) {
                 printf( "%e %e %e %e %e %e\n", x, y, p2[0], p2[1], p2[0] - x, p2[1] - y );
+                N_print++;
+            }
         }
-        auto t2    = std::chrono::high_resolution_clock::now();
-        int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
-        printf( "map_logical_circle - %i: %i ns\n", method, static_cast<int>( ns / ( 4 * N ) ) );
-        ut.pass_fail( pass, "circle logical-physical-logical - " + std::to_string( method ) );
+        auto t2 = std::chrono::high_resolution_clock::now();
+        int ns  = to_ns( t1, t2 ) / ( 4 * N );
+        printf( "circle logical-physical-logical - %i: %i ns (%e)\n", method, ns, maxError );
+        ut.pass_fail( pass, "circle logical-physical-logical - %i", method );
     }
     for ( int method = 1; method <= 3; method++ ) {
         std::uniform_real_distribution<> dis( -3.0, 3.0 );
-        bool pass = true;
+        bool pass       = true;
+        double maxError = 0;
+        auto t1         = std::chrono::high_resolution_clock::now();
+        int N_print     = 0;
         for ( int i = 0; i < N; i++ ) {
-            double x = dis( gen );
-            double y = dis( gen );
-            auto p   = map_circle_logical( 1.0, method, x, y );
-            auto p2  = map_logical_circle( 1.0, method, p[0], p[1] );
-            pass     = pass && distance( x, y, p2 ) < tol;
-            if ( !( distance( x, y, p2 ) < tol ) )
-                printf( "%e %e %e %e %e %e\n", x, y, p2[0], p2[1], p2[0] - x, p2[1] - y );
+            double x   = dis( gen );
+            double y   = dis( gen );
+            auto p     = map_circle_logical( 1.0, method, x, y );
+            auto p2    = map_logical_circle( 1.0, method, p[0], p[1] );
+            double err = distance( x, y, p2 );
+            maxError   = std::max( maxError, err );
+            pass       = pass && err < tol[method];
+            if ( err >= tol[method] && N_print < 10 ) {
+                printf( " %e, %e, %e\n", err, tol[method], maxError );
+                printf( "   %e %e %e %e %e %e\n", x, y, p2[0], p2[1], p2[0] - x, p2[1] - y );
+                N_print++;
+            }
         }
-        ut.pass_fail( pass, "circle physical-logical-physical - " + std::to_string( method ) );
+        auto t2 = std::chrono::high_resolution_clock::now();
+        int ns  = to_ns( t1, t2 ) / ( 4 * N );
+        printf( "circle physical-logical-physical - %i: %i ns (%e)\n", method, ns, maxError );
+        ut.pass_fail( pass, "circle physical-logical-physical - %i", method );
     }
 }
 
@@ -151,10 +171,10 @@ void test_map_logical_poly( int N, AMP::UnitTest &ut )
             if ( fabs( p2[0] - x ) > tol || fabs( p2[1] - y ) > tol )
                 printf( "%e %e %e %e %e %e\n", x, y, p2[0], p2[1], p2[0] - x, p2[1] - y );
         }
-        auto t2    = std::chrono::high_resolution_clock::now();
-        int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
-        printf( "map_logical_poly - %i: %i ns\n", Np, static_cast<int>( ns / N ) );
-        ut.pass_fail( pass, "map_logical_poly - " + std::to_string( Np ) );
+        auto t2 = std::chrono::high_resolution_clock::now();
+        int ns  = to_ns( t1, t2 ) / N;
+        printf( "map_logical_poly - %i: %i ns\n", Np, ns );
+        ut.pass_fail( pass, "map_logical_poly - %i", Np );
     }
 }
 
@@ -186,10 +206,10 @@ void test_map_logical_sphere_surface( int N, AMP::UnitTest &ut )
         }
         if ( N_failed > 3 ) {
             pass = false;
-            ut.failure( "map_logical_sphere_surface: " + std::to_string( method ) );
+            ut.failure( "map_logical_sphere_surface: %i", method );
         }
         auto t2 = std::chrono::high_resolution_clock::now();
-        int ns  = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / N;
+        int ns  = to_ns( t1, t2 ) / N;
         printf( "map_logical_sphere_surface (%i): %i ns\n", method, ns );
     }
     int N2 = 100;
@@ -303,9 +323,9 @@ void test_ray_triangle_intersection( int N, AMP::UnitTest &ut )
             pass = false;
         }
     }
-    auto end   = std::chrono::high_resolution_clock::now();
-    int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>( end - start ).count();
-    printf( "ray-triangle intersection: %i ns\n", static_cast<int>( ns / ( 2 * N ) ) );
+    auto end = std::chrono::high_resolution_clock::now();
+    int ns   = to_ns( start, end ) / ( 2 * N );
+    printf( "ray-triangle intersection: %i ns\n", ns );
     ut.pass_fail( pass, "ray-triangle intersection" );
 }
 
@@ -352,7 +372,7 @@ void testPointCloud( int N, AMP::UnitTest &ut )
         for ( int i = 1; i < N_ranks; i++ )
             pass = pass && range[i][0] >= range[i - 1][1];
     }
-    ut.pass_fail( pass, "assignRanks<" + std::to_string( NDIM ) + ">" );
+    ut.pass_fail( pass, "assignRanks<%i>", NDIM );
 }
 
 

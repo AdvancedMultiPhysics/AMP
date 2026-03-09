@@ -2,6 +2,8 @@
 #define included_AMP_AMG_Cycle
 
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "AMP/operators/LinearOperator.h"
@@ -47,6 +49,13 @@ void clone_workspace( LevelWithWorkspace<N> &level, const LinearAlgebra::Vector 
 inline constexpr std::size_t num_work_kcycle = 5;
 using KCycleLevel                            = LevelWithWorkspace<num_work_kcycle>;
 
+/** Save level matrices to file for external inspection
+
+    \param[in] base_name String to build each matrices dumped filename from
+    \param[in] levels    Vector of all levels in hierarchy to be saved
+**/
+void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> &levels );
+
 /**
  * The Kappa K-cycle implements the Kylov-based multigrid cycle from
  * Notay, Y., & Vassilevski, P. S. (2008). Recursive Krylov‐based
@@ -68,6 +77,8 @@ struct KappaKCycle {
     enum class krylov_type { fcg, gcr };
     //! Recover krylov_type from input string (either "fcg" or "gcr").
     static krylov_type parseType( const std::string &kcycle_type );
+    //! Get krylov_type as string for printing
+    static std::string_view krylovTypeName( const krylov_type t );
 
     //! Settings for the Kappa K-cycle.
     struct settings {

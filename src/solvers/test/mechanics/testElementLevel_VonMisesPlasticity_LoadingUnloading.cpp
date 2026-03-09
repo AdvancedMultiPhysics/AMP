@@ -29,6 +29,7 @@
 
 #include "libmesh/mesh_communication.h"
 
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -37,27 +38,22 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file  = "input_" + exeName;
     std::string output_file = "output_" + exeName + ".txt";
-    std::string log_file    = "log_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-    // Create the Mesh.
+    // Create the Mesh
     auto mesh_file = input_db->getString( "mesh_file" );
     auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
 
-    AMP_INSIST( input_db->keyExists( "NumberOfLoadingSteps" ),
-                "Key ''NumberOfLoadingSteps'' is missing!" );
-    int NumberOfLoadingSteps = input_db->getScalar<int>( "NumberOfLoadingSteps" );
-
     bool ExtractData = input_db->getWithDefault<bool>( "ExtractStressStrainData", false );
-    FILE *fout123;
-    std::string ss_file = exeName + "_UniaxialStressStrain.txt";
-    fout123             = fopen( ss_file.c_str(), "w" );
+    FILE *fout123    = nullptr;
+    if ( ExtractData ) {
+        std::string ss_file = exeName + "_UniaxialStressStrain.txt";
+        fout123             = fopen( ss_file.c_str(), "w" );
+    }
 
     // Create a nonlinear BVP operator for mechanics
     AMP_INSIST( input_db->keyExists( "NonlinearMechanicsOperator" ), "key missing!" );
@@ -71,10 +67,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto mechanicsMaterialModel = nonlinearMechanicsVolumeOperator->getMaterialModel();
 
     // Create the variables
-    auto mechanicsNonlinearVolumeOperator =
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() );
-    auto dispVar = mechanicsNonlinearVolumeOperator->getOutputVariable();
+    auto dispVar = nonlinearMechanicsVolumeOperator->getOutputVariable();
 
     // For RHS (Point Forces)
     auto dirichletLoadVecOp = std::dynamic_pointer_cast<AMP::Operator::DirichletVectorCorrection>(
@@ -113,8 +106,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     // We need to reset the linear operator before the solve since TrilinosML does
     // the factorization of the matrix during construction and so the matrix must
-    // be correct before constructing the TrilinosML
-    // obje/projects/AMP/AMP/src/solvers/test/mechanics/testElementLevel_VonMisesPlasticity_LoadingUnloading.cppct.
+    // be correct before constructing the TrilinosML object.
     nonlinearMechanicsBVPoperator->apply( solVec, resVec );
     linearMechanicsBVPoperator->reset(
         nonlinearMechanicsBVPoperator->getParameters( "Jacobian", solVec ) );
@@ -155,9 +147,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     nonlinearSolver->setZeroInitialGuess( false );
 
-    // double NumberOfLoops = 5;
+    int NumberOfLoadingSteps = input_db->getScalar<int>( "NumberOfLoadingSteps" );
     double TotalLoadingSteps = NumberOfLoadingSteps / 4;
-    // double TotalUnloadingSteps = NumberOfLoadingSteps - TotalLoadingSteps;
 
     for ( int step = 0; step < NumberOfLoadingSteps; step++ ) {
         AMP::pout << "########################################" << std::endl;
@@ -204,27 +195,22 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         auto tmp_db = std::make_shared<AMP::Database>( "Dummy" );
         auto tmpParams =
             std::make_shared<AMP::Operator::MechanicsNonlinearFEOperatorParameters>( tmp_db );
-        ( nonlinearMechanicsBVPoperator->getVolumeOperator() )->reset( tmpParams );
+        nonlinearMechanicsBVPoperator->getVolumeOperator()->reset( tmpParams );
         nonlinearSolver->setZeroInitialGuess( false );
 
-        std::string number1 = std::to_string( step );
-        std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
-
-        std::dynamic_pointer_cast<AMP::Operator::MechanicsNonlinearFEOperator>(
-            nonlinearMechanicsBVPoperator->getVolumeOperator() )
-            ->printStressAndStrain( solVec, fname );
-
-        if ( ExtractData ) {
-            FILE *fin;
-            fin             = fopen( fname.c_str(), "r" );
+        if ( fout123 ) {
+            std::string number1 = std::to_string( step );
+            std::string fname   = exeName + "_Stress_Strain_" + number1 + ".txt";
+            nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, fname );
+            FILE *fin       = fopen( fname.c_str(), "r" );
             double coord[3] = { 0, 0, 0 }, stress1[6] = { 0, 0, 0 }, strain1[6] = { 0, 0, 0 };
             for ( int ijk = 0; ijk < 8; ijk++ ) {
                 for ( auto &elem : coord )
-                    [[maybe_unused]] int err = fscanf( fin, "%lf", &elem );
+                    [[maybe_unused]] int v = fscanf( fin, "%lf", &elem );
                 for ( auto &elem : stress1 )
-                    [[maybe_unused]] int err = fscanf( fin, "%lf", &elem );
+                    [[maybe_unused]] int v = fscanf( fin, "%lf", &elem );
                 for ( auto &elem : strain1 )
-                    [[maybe_unused]] int err = fscanf( fin, "%lf", &elem );
+                    [[maybe_unused]] int v = fscanf( fin, "%lf", &elem );
                 if ( ijk == 7 ) {
                     const double prev_stress = 1.0, prev_strain = 1.0;
                     double slope = 1.0;
@@ -242,10 +228,11 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     AMP::pout << "epsilon = " << epsilon << std::endl;
 
-    mechanicsNonlinearVolumeOperator->printStressAndStrain( solVec, output_file );
+    // nonlinearMechanicsVolumeOperator->printStressAndStrain( solVec, output_file );
 
     ut->passes( exeName );
-    fclose( fout123 );
+    if ( fout123 )
+        fclose( fout123 );
 }
 
 int testElementLevel_VonMisesPlasticity_LoadingUnloading( int argc, char *argv[] )

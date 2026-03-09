@@ -9,7 +9,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/elem.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
@@ -88,11 +87,11 @@ void Map1Dto3D::computeZNodeLocations()
     if ( d_MapMesh ) {
         // Get an iterator over the nodes on the boundary
         auto bnd = d_MapMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, d_boundaryId, 0 );
-        AMP::Mesh::MeshIterator end_bnd = bnd.end();
+        auto end = bnd.end();
 
         double Xx = 0;
         double Yy = 0;
-        if ( bnd != end_bnd ) {
+        if ( bnd != end ) {
             auto x = bnd->coord();
             AMP_ASSERT( x.size() == 3 );
             t_zLocations.push_back( x[2] );
@@ -100,7 +99,7 @@ void Map1Dto3D::computeZNodeLocations()
             Yy = x[1];
             ++bnd;
         }
-        for ( ; bnd != end_bnd; ++bnd ) {
+        for ( ; bnd != end; ++bnd ) {
             auto x = bnd->coord();
             if ( ( fabs( Xx - x[0] ) <= 1.e-12 ) && ( fabs( Yy - x[1] ) <= 1.e-12 ) ) {
                 t_zLocations.push_back( x[2] );
@@ -130,7 +129,7 @@ void Map1Dto3D::computeZGaussLocations()
     if ( d_MapMesh ) {
         // Get an iterator over the nodes on the boundary
         auto bnd = d_MapMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, d_boundaryId, 0 );
-        auto end_bnd = bnd.end();
+        auto end = bnd.end();
 
         auto feTypeOrder = libMesh::Utility::string_to_enum<libMeshEnums::Order>( "FIRST" );
         auto feFamily    = libMesh::Utility::string_to_enum<libMeshEnums::FEFamily>( "LAGRANGE" );
@@ -149,7 +148,7 @@ void Map1Dto3D::computeZGaussLocations()
 
         double Xx = 0;
         double Yy = 0;
-        if ( bnd != end_bnd ) {
+        if ( bnd != end ) {
             // Get the current position and DOF
             auto coordinates = d_fe->get_xyz();
 
@@ -161,7 +160,7 @@ void Map1Dto3D::computeZGaussLocations()
             ++bnd;
         }
 
-        for ( ; bnd != end_bnd; ++bnd ) {
+        for ( ; bnd != end; ++bnd ) {
             d_feType.reset( new libMesh::FEType( feTypeOrder, feFamily ) );
             d_fe.reset( ( libMesh::FEBase::build( 2, ( *d_feType ) ) ).release() );
             d_qrule.reset( ( libMesh::QBase::build( "QGAUSS", 2, qruleOrder ) ).release() );

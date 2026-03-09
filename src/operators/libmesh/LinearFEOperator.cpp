@@ -68,7 +68,7 @@ void LinearFEOperator::createCurrentLibMeshElement()
 {
     d_currElemPtr = new libMesh::Hex8;
     for ( size_t j = 0; j < d_currNodes.size(); ++j ) {
-        auto pt                      = d_currNodes[j]->coord();
+        auto pt                      = d_currNodes[j].coord();
         d_currElemPtr->set_node( j ) = new libMesh::Node( pt[0], pt[1], pt[2], j );
     } // end for j
 }

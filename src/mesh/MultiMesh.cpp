@@ -409,17 +409,30 @@ std::vector<std::shared_ptr<const Mesh>> MultiMesh::getMeshes() const
  ********************************************************/
 MeshIterator MultiMesh::getIterator( const GeomType type, const int gcw ) const
 {
-    std::vector<MeshIterator> iterators( d_meshes.size() );
-    for ( size_t i = 0; i < d_meshes.size(); i++ )
-        iterators[i] = MeshIterator( d_meshes[i]->getIterator( type, gcw ) );
-    return MultiIterator( iterators );
+    // This version uses an advanced constructor to improve performance
+    std::vector<MeshIteratorBase *> iterators;
+    iterators.reserve( d_meshes.size() );
+    for ( size_t i = 0; i < d_meshes.size(); i++ ) {
+        auto it    = d_meshes[i]->getIterator( type, gcw );
+        auto multi = dynamic_cast<MultiIterator *>( it.rawIterator() );
+        if ( multi ) {
+            auto &tmp = multi->d_iterators;
+            for ( auto &it2 : tmp )
+                iterators.emplace_back( std::move( it2 ) );
+            tmp.clear();
+        } else {
+            if ( !it.empty() )
+                iterators.emplace_back( it.release() );
+        }
+    }
+    return MeshIterator::create<MultiIterator>( std::move( iterators ) );
 }
 MeshIterator MultiMesh::getSurfaceIterator( const GeomType type, const int gcw ) const
 {
     std::vector<MeshIterator> iterators( d_meshes.size() );
     for ( size_t i = 0; i < d_meshes.size(); i++ )
         iterators[i] = MeshIterator( d_meshes[i]->getSurfaceIterator( type, gcw ) );
-    return MultiIterator( iterators );
+    return MeshIterator::create<MultiIterator>( std::move( iterators ) );
 }
 std::vector<int> MultiMesh::getBoundaryIDs() const
 {
@@ -461,7 +474,7 @@ MultiMesh::getBoundaryIDIterator( const GeomType type, const int id, const int g
         if ( it.size() > 0 )
             iterators.push_back( it );
     }
-    return MultiIterator( iterators );
+    return MeshIterator::create<MultiIterator>( std::move( iterators ) );
 }
 std::vector<int> MultiMesh::getBlockIDs() const
 {
@@ -482,7 +495,7 @@ MeshIterator MultiMesh::getBlockIDIterator( const GeomType type, const int id, c
         if ( it.size() > 0 )
             iterators.push_back( it );
     }
-    return MultiIterator( iterators );
+    return MeshIterator::create<MultiIterator>( std::move( iterators ) );
 }
 
 
@@ -544,25 +557,31 @@ MeshIterator MultiMesh::isMember( const MeshIterator &iterator ) const
         if ( it.size() > 0 )
             iterators.push_back( it );
     }
-    return MultiIterator( iterators );
+    return MeshIterator::create<MultiIterator>( std::move( iterators ) );
+}
+
+
+/********************************************************
+ * Function to check if the mesh element is contained    *
+ ********************************************************/
+bool MultiMesh::containsElement( const MeshElementID &id ) const
+{
+    for ( auto &mesh : d_meshes ) {
+        if ( mesh->containsElement( id ) )
+            return true;
+    }
+    return false;
 }
 
 
 /********************************************************
  * Function to return the element given an ID            *
  ********************************************************/
-std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &elem_id ) const
+std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &id ) const
 {
-    MeshID mesh_id = elem_id.meshID();
     for ( auto &mesh : d_meshes ) {
-        auto ids        = mesh->getLocalBaseMeshIDs();
-        bool mesh_found = false;
-        for ( auto &id : ids ) {
-            if ( id == mesh_id )
-                mesh_found = true;
-        }
-        if ( mesh_found )
-            return mesh->getElement( elem_id );
+        if ( mesh->containsElement( id ) )
+            return mesh->getElement( id );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );
     return std::make_unique<MeshElement>();
@@ -572,18 +591,12 @@ std::unique_ptr<MeshElement> MultiMesh::getElement( const MeshElementID &elem_id
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<std::unique_ptr<MeshElement>> MultiMesh::getElementParents( const MeshElement &elem,
-                                                                        const GeomType type ) const
+Mesh::ElementListPtr MultiMesh::getElementParents( const MeshElement &elem,
+                                                   const GeomType type ) const
 {
-    MeshID mesh_id = elem.globalID().meshID();
+    auto id = elem.globalID();
     for ( auto &mesh : d_meshes ) {
-        auto ids        = mesh->getLocalBaseMeshIDs();
-        bool mesh_found = false;
-        for ( auto &id : ids ) {
-            if ( id == mesh_id )
-                mesh_found = true;
-        }
-        if ( mesh_found )
+        if ( mesh->containsElement( id ) )
             return mesh->getElementParents( elem, type );
     }
     AMP_ERROR( "A mesh matching the element's mesh id was not found" );

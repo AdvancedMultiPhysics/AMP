@@ -80,7 +80,7 @@ protected:
 
     std::shared_ptr<DiffusionTransportModel> d_transportModel;
 
-    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
+    AMP::Mesh::MeshElementVectorPtr d_currNodes;
 
     AMP::LinearAlgebra::Vector::shared_ptr d_outVec;
 

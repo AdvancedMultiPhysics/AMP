@@ -12,7 +12,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
@@ -172,10 +171,10 @@ void RobinVectorCorrection::apply( AMP::LinearAlgebra::Vector::const_shared_ptr 
                 // Get the dofs for the vectors
                 std::vector<AMP::Mesh::MeshElementID> ids( d_currNodes.size() );
                 for ( size_t i = 0; i < d_currNodes.size(); i++ )
-                    ids[i] = d_currNodes[i]->globalID();
+                    ids[i] = d_currNodes[i].globalID();
 
                 for ( unsigned int i = 0; i < numNodesInCurrElem; i++ )
-                    dofManager->getDOFs( d_currNodes[i]->globalID(), dofIndices[i] );
+                    dofManager->getDOFs( d_currNodes[i].globalID(), dofIndices[i] );
 
                 dofs.resize( numNodesInCurrElem );
                 for ( size_t n = 0; n < dofIndices.size(); n++ )

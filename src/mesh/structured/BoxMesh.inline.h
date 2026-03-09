@@ -209,6 +209,8 @@ inline int BoxMesh::getRank( const MeshElementIndex &index ) const
 }
 inline MeshElementID BoxMesh::convert( const BoxMesh::MeshElementIndex &index ) const
 {
+    if ( index.isNull() )
+        return MeshElementID();
     int i        = index.index( 0 );
     int j        = index.index( 1 );
     int k        = index.index( 2 );
@@ -242,6 +244,8 @@ inline MeshElementID BoxMesh::convert( const BoxMesh::MeshElementIndex &index ) 
 }
 inline BoxMesh::MeshElementIndex BoxMesh::convert( const MeshElementID &id ) const
 {
+    if ( id.isNull() )
+        return MeshElementIndex();
     int rank = id.owner_rank();
     int size[3], index0[3];
     if ( rank == d_rank ) {

@@ -146,10 +146,8 @@ public:
      * \param[in] Y matrix data to copy to after up/down casting the coefficients
      */
     template<typename ConfigIn>
-    static void
-    copyCast( std::shared_ptr<
-                  CSRLocalMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>>> X,
-              std::shared_ptr<localmatrixdata_t> Y );
+    static void copyCast( std::shared_ptr<CSRLocalMatrixData<ConfigIn>> X,
+                          std::shared_ptr<localmatrixdata_t> Y );
 
 protected:
     ExecSpace d_exec_space;

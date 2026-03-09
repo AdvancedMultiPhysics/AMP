@@ -276,7 +276,7 @@ NonlinearSolver{
 
     LinearSolver{
         name = "PetscKrylovSolver"
-        print_info_level = 10
+        print_info_level = 0
         max_iterations = 100
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-12
@@ -291,7 +291,7 @@ NonlinearSolver{
 
         Preconditioner{
             name = "ColumnSolver"
-            print_info_level = 1
+            print_info_level = 0
             max_iterations = 1
             absolute_tolerance = 1.0e-16
             relative_tolerance = 1.0e-02
@@ -306,7 +306,7 @@ NonlinearSolver{
 
             mechanicsPreconditioner{
               name = "TrilinosMLSolver"
-              print_info_level = 1
+              print_info_level = 0
               PDE_equations = 3
               max_iterations = 1
               aggregationtype = "Uncoupled"

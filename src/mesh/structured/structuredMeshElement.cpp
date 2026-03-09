@@ -80,6 +80,13 @@ structuredMeshElement &structuredMeshElement::operator=( const structuredMeshEle
 structuredMeshElement::~structuredMeshElement() = default;
 
 
+/********************************************************
+ * Get basic info                                        *
+ ********************************************************/
+static auto TypeID = AMP::getTypeID<AMP::Mesh::structuredMeshElement>();
+const typeID &structuredMeshElement::getTypeID() const { return TypeID; }
+
+
 /****************************************************************
  * Function to clone the element                                 *
  ****************************************************************/
@@ -126,16 +133,16 @@ void structuredMeshElement::getVertices( std::vector<Point> &vertices ) const
  * Function to get the elements composing the current element    *
  * We use a Canonical numbering system                           *
  ****************************************************************/
-void structuredMeshElement::getElements( const GeomType type, ElementList &elements ) const
+MeshElement::ElementListPtr structuredMeshElement::getElements( const GeomType type ) const
 {
     int N = 0;
     BoxMesh::MeshElementIndex index[12];
     getElementIndex( type, N, index );
     // Create the elements
-    elements.clear();
-    elements.reserve( N );
+    auto elements = std::make_unique<MeshElementVector<structuredMeshElement>>( N );
     for ( int i = 0; i < N; i++ )
-        elements.emplace_back( std::make_unique<structuredMeshElement>( index[i], d_mesh ) );
+        elements->operator[]( i ).reset( index[i], d_mesh );
+    return elements;
 }
 int structuredMeshElement::getElementsID( const GeomType type, MeshElementID *ID ) const
 {
@@ -293,15 +300,14 @@ void structuredMeshElement::getElementIndex( const GeomType type,
 /****************************************************************
  * Function to get the neighboring elements                      *
  ****************************************************************/
-void structuredMeshElement::getNeighbors( ElementList &neighbors ) const
+MeshElement::ElementListPtr structuredMeshElement::getNeighbors() const
 {
     BoxMesh::MeshElementIndex index[27];
-    int N = getNeighborIndex( index );
-    neighbors.resize( N );
-    for ( int i = 0; i < N; i++ ) {
-        if ( !index[i].isNull() )
-            neighbors[i] = std::make_unique<structuredMeshElement>( index[i], d_mesh );
-    }
+    int N          = getNeighborIndex( index );
+    auto neighbors = std::make_unique<MeshElementVector<structuredMeshElement>>( N );
+    for ( int i = 0; i < N; i++ )
+        neighbors->operator[]( i ).reset( index[i], d_mesh );
+    return neighbors;
 }
 int structuredMeshElement::getNeighborIndex( BoxMesh::MeshElementIndex *index ) const
 {
@@ -418,7 +424,7 @@ int structuredMeshElement::getNeighborIndex( BoxMesh::MeshElementIndex *index ) 
 /****************************************************************
  * Function to get the parent elements                           *
  ****************************************************************/
-MeshElement::ElementList structuredMeshElement::getParents( GeomType type ) const
+MeshElement::ElementListPtr structuredMeshElement::getParents( GeomType type ) const
 {
     AMP_INSIST( static_cast<int>( type ) >= d_index.d_type,
                 "We can't return a parent of geometric type < current type" );
@@ -437,9 +443,7 @@ MeshElement::ElementList structuredMeshElement::getParents( GeomType type ) cons
     const int *ijk = d_index.d_index.data();
     if ( d_index.d_type == static_cast<int>( type ) ) {
         // We are looking for the current element
-        ElementList tmp;
-        tmp.push_back( std::make_unique<structuredMeshElement>( *this ) );
-        return tmp;
+        return std::make_unique<MeshElementVector<structuredMeshElement>>( *this );
     } else if ( static_cast<int>( type ) == d_index.d_type + 1 && type == d_meshType ) {
         // We have an entity that is the geometric type-1 and we want to get the
         // parents of the geometric type of the mesh
@@ -578,9 +582,9 @@ MeshElement::ElementList structuredMeshElement::getParents( GeomType type ) cons
         d_mesh->fixPeriodic( index );
     // Create the elements
     AMP::Utilities::quicksort( index_list );
-    std::vector<std::unique_ptr<MeshElement>> elements( index_list.size() );
+    auto elements = std::make_unique<MeshElementVector<structuredMeshElement>>( index_list.size() );
     for ( size_t i = 0; i < index_list.size(); i++ )
-        elements[i] = std::make_unique<structuredMeshElement>( index_list[i], d_mesh );
+        elements->operator[]( i ).reset( index_list[i], d_mesh );
     return elements;
 }
 

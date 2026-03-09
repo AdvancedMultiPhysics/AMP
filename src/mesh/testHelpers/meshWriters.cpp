@@ -174,6 +174,7 @@ void writeDispValsForPatchTest( const std::string &file )
     const double z[8] = { 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0 };
 
     FILE *fp = fopen( file.data(), "w" );
+    AMP_ASSERT( fp );
     fprintf( fp, "\n\n" );
     fprintf( fp, "number_of_ids = 8 \n\n" );
     for ( int i = 0; i < 8; i++ ) {
@@ -1197,6 +1198,7 @@ std::shared_ptr<AMP::Database> readBinaryTestMesh( const std::string &filename, 
     auto mesh = db->createAddDatabase( "Mesh" );
 
     FILE *fp = fopen( filename.c_str(), "rb" );
+    AMP_ASSERT( fp );
 
     int num_nodes;
     fread( &num_nodes, 1, fp );
@@ -1260,6 +1262,7 @@ void writeTestMesh( const AMP::Database &db0, const std::string &filename )
 {
     PROFILE( "writeTestMesh" );
     FILE *fp = fopen( filename.data(), "w" );
+    AMP_ASSERT( fp );
 
     auto db = db0.getDatabase( "Mesh" );
     fprintf( fp, "Mesh { \n" );
@@ -1332,6 +1335,7 @@ void writeBinaryTestMesh( const AMP::Database &db0, const std::string &filename 
     auto SideIds       = getVector( *db, "SideIds" );
 
     FILE *fp = fopen( filename.data(), "wb" );
+    AMP_ASSERT( fp );
 
     int num_nodes = nodes.size();
     fwrite( &num_nodes, 1, fp );
@@ -1399,6 +1403,7 @@ readTestMeshLibMesh( [[maybe_unused]] std::shared_ptr<AMP::Database> db,
         auto SideIds       = getVector( *db, "SideIds" );
         mesh->reserve_elem( elems.size() );
         mesh->reserve_nodes( nodes.size() );
+        auto &boundary_info = mesh->get_boundary_info();
         for ( int i = 0; i < (int) nodes.size(); i++ ) {
             auto &point = nodes[i];
             mesh->add_point( libMesh::Point( point[0], point[1], point[2] ), i );
@@ -1412,7 +1417,7 @@ readTestMeshLibMesh( [[maybe_unused]] std::shared_ptr<AMP::Database> db,
             auto &bndDofIndices = BoundaryNodes[bid - 1];
             if ( !bndDofIndices.empty() ) {
                 for ( int i = 0; i < (int) bndDofIndices.size(); i++ )
-                    mesh->boundary_info->add_node( mesh->node_ptr( bndDofIndices[i] ), bid );
+                    boundary_info.add_node( mesh->node_ptr( bndDofIndices[i] ), bid );
             }
         }
         for ( int bid = 1; bid <= (int) SideIds.size(); bid++ ) {
@@ -1420,7 +1425,7 @@ readTestMeshLibMesh( [[maybe_unused]] std::shared_ptr<AMP::Database> db,
             if ( !bndDofIndices.empty() ) {
                 int N = bndDofIndices.empty() ? 0 : bndDofIndices.size() / 2;
                 for ( int i = 0; i < N; i++ ) {
-                    mesh->boundary_info->add_side(
+                    boundary_info.add_side(
                         mesh->elem_ptr( bndDofIndices[2 * i] ), bndDofIndices[( 2 * i ) + 1], bid );
                 }
             }

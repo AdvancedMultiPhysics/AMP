@@ -76,6 +76,12 @@ public:
     //! Return the type of the matrix
     std::string type() const override { return "CSRMatrixData"; }
 
+    //! Return CSR mode of the matrix.
+    virtual std::uint16_t mode() const override
+    {
+        return static_cast<std::uint16_t>( Config::mode );
+    }
+
     /** \brief  Retrieve a row of the matrix in compressed format
      * \param[in]  row     Which row
      * \param[out] cols    The column ids of the returned values
@@ -97,9 +103,9 @@ public:
      */
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Set values in the matrix
@@ -114,9 +120,9 @@ public:
      */
     void setValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Get values from the matrix
@@ -131,8 +137,8 @@ public:
      */
     void getValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
+                              const size_t *rows,
+                              const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
 
@@ -246,7 +252,7 @@ public:
      * \param[in] nnz_diag   Number of nonzeros in each row of diagonal block
      * \param[in] nnz_offd   Number of nonzeros in each row of off-diagonal block
      */
-    void setNNZ( const std::vector<lidx_t> &nnz_diag, const std::vector<lidx_t> &nnz_offd );
+    void setNNZ( const lidx_t *nnz_diag, const lidx_t *nnz_offd );
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] do_accum  Flag for whether entries in row pointers need to be accumulated

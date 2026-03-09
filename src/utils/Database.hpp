@@ -117,7 +117,7 @@ Array<TYPE2> convert( const Array<TYPE1> &x )
             std::string type1 = typeid( TYPE1 ).name();
             std::string type2 = typeid( TYPE2 ).name();
             std::string msg = "Converting " + type1 + "-" + type2 + " results in loss of precision";
-            AMP_WARNING( msg );
+            // AMP_WARNING( msg );
         }
         return y;
     } else {

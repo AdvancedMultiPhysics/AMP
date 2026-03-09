@@ -22,11 +22,7 @@
 static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 {
     std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName;
-
-    AMP::logOnlyNodeZero( log_file );
-
-    auto input_db = AMP::Database::parseInputFile( input_file );
+    auto input_db          = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
     auto matModelDatabase = input_db->getDatabase( "MechanicsMaterialModel" );
@@ -127,8 +123,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
                                 ( eph11p[max_load + i] - eph11p[max_load + i - 1] );
     }
 
-    FILE *fout;
-    fout = fopen( "vmik_stress_strain_results.txt", "w" );
+    auto fout = fopen( "vmik_stress_strain_results.txt", "w" );
+    AMP_ASSERT( fout );
     for ( int i = 0; i < max_num; i++ ) {
         fprintf( fout,
                  "%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",

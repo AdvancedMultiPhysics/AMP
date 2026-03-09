@@ -161,8 +161,9 @@ void libMeshThreeElementGenerator::build_mesh()
     }
 
     const short int boundaryId = 1;
+    auto &boundary_info        = local_mesh->get_boundary_info();
     for ( auto &bndDofIndice : getBndDofIndices() ) {
-        local_mesh->boundary_info->add_node( local_mesh->node_ptr( bndDofIndice ), boundaryId );
+        boundary_info.add_node( local_mesh->node_ptr( bndDofIndice ), boundaryId );
     }
 
     local_mesh->prepare_for_use( false );

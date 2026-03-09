@@ -19,6 +19,10 @@
 #include <memory>
 #include <string>
 
+#ifdef AMP_USE_HYPRE
+    #include "HYPRE_config.h"
+#endif
+
 #define to_ms( x ) std::chrono::duration_cast<std::chrono::milliseconds>( x ).count()
 
 void driver( AMP::AMP_MPI comm,
@@ -240,14 +244,25 @@ int main( int argc, char **argv )
         // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG"
         // );
 #ifdef AMP_USE_DEVICE
-        // managedExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG"
-        // ); deviceExeNames.emplace_back(
-        // "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG" );
+        // Device side solves of the above with FCG acceleration, HybridGS not supported on device
+        // managedExeNames.emplace_back(
+        //     "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
+        // managedExeNames.emplace_back(
+        //     "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1-FCG" );
+        deviceExeNames.emplace_back(
+            "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
+        deviceExeNames.emplace_back(
+            "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1-FCG" );
 #endif
 #ifdef AMP_USE_HYPRE
         // Boomer with/without CG acceleration
+    #ifdef HYPRE_SINGLE
+        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-SP" );
+        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-SP" );
+    #else
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG" );
+    #endif
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
     #ifdef AMP_USE_DEVICE

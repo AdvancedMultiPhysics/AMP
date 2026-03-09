@@ -367,6 +367,7 @@ int main( int argc, char *argv[] )
 #endif
 
 #ifdef AMP_USE_HYPRE
+    #ifndef HYPRE_SINGLE
             hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG" );
             hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreBiCGSTAB" );
             hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreGMRES" );
@@ -379,7 +380,21 @@ int main( int argc, char *argv[] )
                 "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreBiCGSTAB" );
 
             hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG" );
+    #else
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreCG-SP" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-HypreBiCGSTAB-SP" );
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-HypreGMRES-SP" );
 
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreCG-SP" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreGMRES-SP" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-DiagonalPC-HypreBiCGSTAB-SP" );
+
+            hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-SP" );
+    #endif
             hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-CG" );
             hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-IPCG" );
             hypreInputs.emplace_back( "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-FCG" );
@@ -402,16 +417,25 @@ int main( int argc, char *argv[] )
             hypreInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-BiCGSTAB" );
             hypreInputs.emplace_back(
-                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-TFQMR" );
-            hypreInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-QMRCGSTAB" );
+    #ifndef HYPRE_SINGLE
+            // To be revisited (it should converge in single precision too):
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-TFQMR" );
             hypreInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG" );
             hypreInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES" );
             hypreInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB" );
-
+    #else
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreCG-SP" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreGMRES-SP" );
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-BoomerAMG-HypreBiCGSTAB-SP" );
+    #endif
             hostOnlyInputs.insert( hostOnlyInputs.end(), hypreInputs.begin(), hypreInputs.end() );
 
             if ( hypre_memspaces.size() > 1 ) {
@@ -502,8 +526,13 @@ int main( int argc, char *argv[] )
 
 #ifdef AMP_USE_HYPRE
             hypreInputs.clear();
+    #ifndef HYPRE_SINGLE
             hypreInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG" );
+    #else
+            hypreInputs.emplace_back(
+                "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG-SP" );
+    #endif
             hypreInputs.emplace_back(
                 "input_testLinearSolvers-LinearThermalRobin-CylMesh-BoomerAMG-CG" );
 

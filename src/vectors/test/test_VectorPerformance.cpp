@@ -92,33 +92,41 @@ struct test_times {
     }
 };
 
-#define runTest0( TEST )                                                                      \
-    do {                                                                                      \
-        auto t1 = std::chrono::steady_clock::now();                                           \
-        vec->TEST();                                                                          \
-        auto t2    = std::chrono::steady_clock::now();                                        \
-        times.TEST = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count(); \
+#define runTest0( TEST )                                                                    \
+    do {                                                                                    \
+        auto t1 = std::chrono::steady_clock::now();                                         \
+        for ( size_t i = 0; i < 50; ++i )                                                   \
+            vec->TEST();                                                                    \
+        auto t2 = std::chrono::steady_clock::now();                                         \
+        times.TEST =                                                                        \
+            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
     } while ( 0 )
-#define runTest1( TEST, X )                                                                   \
-    do {                                                                                      \
-        auto t1 = std::chrono::steady_clock::now();                                           \
-        vec->TEST( X );                                                                       \
-        auto t2    = std::chrono::steady_clock::now();                                        \
-        times.TEST = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count(); \
+#define runTest1( TEST, X )                                                                 \
+    do {                                                                                    \
+        auto t1 = std::chrono::steady_clock::now();                                         \
+        for ( size_t i = 0; i < 50; ++i )                                                   \
+            vec->TEST( X );                                                                 \
+        auto t2 = std::chrono::steady_clock::now();                                         \
+        times.TEST =                                                                        \
+            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
     } while ( 0 )
-#define runTest2( TEST, X, Y )                                                                \
-    do {                                                                                      \
-        auto t1 = std::chrono::steady_clock::now();                                           \
-        vec->TEST( X, Y );                                                                    \
-        auto t2    = std::chrono::steady_clock::now();                                        \
-        times.TEST = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count(); \
+#define runTest2( TEST, X, Y )                                                              \
+    do {                                                                                    \
+        auto t1 = std::chrono::steady_clock::now();                                         \
+        for ( size_t i = 0; i < 50; ++i )                                                   \
+            vec->TEST( X, Y );                                                              \
+        auto t2 = std::chrono::steady_clock::now();                                         \
+        times.TEST =                                                                        \
+            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
     } while ( 0 )
-#define runTest3( TEST, X, Y, Z )                                                             \
-    do {                                                                                      \
-        auto t1 = std::chrono::steady_clock::now();                                           \
-        vec->TEST( X, Y, Z );                                                                 \
-        auto t2    = std::chrono::steady_clock::now();                                        \
-        times.TEST = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count(); \
+#define runTest3( TEST, X, Y, Z )                                                           \
+    do {                                                                                    \
+        auto t1 = std::chrono::steady_clock::now();                                         \
+        for ( size_t i = 0; i < 50; ++i )                                                   \
+            vec->TEST( X, Y, Z );                                                           \
+        auto t2 = std::chrono::steady_clock::now();                                         \
+        times.TEST =                                                                        \
+            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
     } while ( 0 )
 
 test_times testPerformance( AMP::LinearAlgebra::Vector::shared_ptr vec )
@@ -185,24 +193,44 @@ int main( int argc, char **argv )
         }
 #endif
 
-        // #ifdef AMP_USE_KOKKOS
-        //         {
-        //             using ALLOC = AMP::DeviceAllocator<void>;
-        //     #ifdef AMP_USE_DEVICE
-        //             using DATA = AMP::LinearAlgebra::VectorDataDevice<double, ALLOC>;
-        //     #else
-        //             using DATA = AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>;
-        //     #endif
-        //             using OPS = AMP::LinearAlgebra::VectorOperationsKokkos<double>;
-        //             vec = AMP::LinearAlgebra::createSimpleVector<double, OPS, DATA>( N, var,
-        //             globalComm ); auto time_kokkos = testPerformance( vec ); if ( rank == 0 ) {
-        //                 AMP::pout << "SimpleVector<Managed>:" << std::endl;
-        //                 time_kokkos.print();
-        //                 time_kokkos.print_speedup( time0 );
-        //                 AMP::pout << std::endl;
-        //             }
-        //         }
-        // #endif
+#ifdef AMP_USE_KOKKOS
+        {
+    #ifdef AMP_USE_DEVICE
+            using ALLOC = AMP::DeviceAllocator<void>;
+            using DATA  = AMP::LinearAlgebra::VectorDataDevice<double, ALLOC>;
+    #else
+            using ALLOC = AMP::HostAllocator<void>;
+            using DATA  = AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>;
+    #endif
+            using OPS = AMP::LinearAlgebra::VectorOperationsKokkos<double>;
+            vec = AMP::LinearAlgebra::createSimpleVector<double, OPS, DATA>( N, var, globalComm );
+            auto time_kokkos = testPerformance( vec );
+            if ( rank == 0 ) {
+                AMP::pout << "SimpleVector<Device>(kokkos):" << std::endl;
+                time_kokkos.print();
+                time_kokkos.print_speedup( time0 );
+                AMP::pout << std::endl;
+            }
+        }
+        {
+    #ifdef AMP_USE_DEVICE
+            using ALLOC = AMP::ManagedAllocator<void>;
+            using DATA  = AMP::LinearAlgebra::VectorDataDevice<double, ALLOC>;
+    #else
+            using ALLOC = AMP::HostAllocator<void>;
+            using DATA  = AMP::LinearAlgebra::VectorDataDefault<double, ALLOC>;
+    #endif
+            using OPS = AMP::LinearAlgebra::VectorOperationsKokkos<double>;
+            vec = AMP::LinearAlgebra::createSimpleVector<double, OPS, DATA>( N, var, globalComm );
+            auto time_kokkos = testPerformance( vec );
+            if ( rank == 0 ) {
+                AMP::pout << "SimpleVector<Managed>(kokkos):" << std::endl;
+                time_kokkos.print();
+                time_kokkos.print_speedup( time0 );
+                AMP::pout << std::endl;
+            }
+        }
+#endif
 
 #ifdef AMP_USE_DEVICE
         {
@@ -213,6 +241,19 @@ int main( int argc, char **argv )
             auto time_cuda = testPerformance( vec );
             if ( rank == 0 ) {
                 AMP::pout << "SimpleVector<Managed>:" << std::endl;
+                time_cuda.print();
+                time_cuda.print_speedup( time0 );
+                AMP::pout << std::endl;
+            }
+        }
+        {
+            using ALLOC = AMP::DeviceAllocator<void>;
+            using DATA  = AMP::LinearAlgebra::VectorDataDevice<double, ALLOC>;
+            using OPS   = AMP::LinearAlgebra::VectorOperationsDevice<double>;
+            vec = AMP::LinearAlgebra::createSimpleVector<double, OPS, DATA>( N, var, globalComm );
+            auto time_cuda = testPerformance( vec );
+            if ( rank == 0 ) {
+                AMP::pout << "SimpleVector<Device>:" << std::endl;
                 time_cuda.print();
                 time_cuda.print_speedup( time0 );
                 AMP::pout << std::endl;

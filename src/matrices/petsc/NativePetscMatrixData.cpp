@@ -190,17 +190,18 @@ void NativePetscMatrixData::getRowByGlobalID( size_t row,
         if constexpr ( std::is_same_v<PetscInt, size_t> ) {
             std::copy( out_cols, ( out_cols + numCols ), cols.begin() );
         } else {
-            std::transform( (PetscInt *) out_cols,
-                            (PetscInt *) ( out_cols + numCols ),
+            std::transform( reinterpret_cast<const PetscInt *>( out_cols ),
+                            reinterpret_cast<const PetscInt *>( out_cols + numCols ),
                             cols.begin(),
                             []( PetscInt x ) { return static_cast<size_t>( x ); } );
         }
         if constexpr ( std::is_same_v<PetscScalar, double> ) {
-            std::copy(
-                (PetscScalar *) out_vals, (PetscScalar *) ( out_vals + numCols ), values.begin() );
+            std::copy( reinterpret_cast<const PetscScalar *>( out_vals ),
+                       reinterpret_cast<const PetscScalar *>( out_vals + numCols ),
+                       values.begin() );
         } else {
-            std::transform( (PetscScalar *) out_vals,
-                            (PetscScalar *) ( out_vals + numCols ),
+            std::transform( reinterpret_cast<const PetscScalar *>( out_vals ),
+                            reinterpret_cast<const PetscScalar *>( out_vals + numCols ),
                             values.begin(),
                             []( PetscScalar x ) { return static_cast<double>( x ); } );
         }
@@ -223,8 +224,8 @@ std::vector<size_t> NativePetscMatrixData::getColumnIDs( size_t row ) const
         if constexpr ( std::is_same_v<PetscInt, size_t> ) {
             std::copy( out_cols, ( out_cols + numCols ), cols.begin() );
         } else {
-            std::transform( (PetscInt *) out_cols,
-                            (PetscInt *) ( out_cols + numCols ),
+            std::transform( reinterpret_cast<const PetscInt *>( out_cols ),
+                            reinterpret_cast<const PetscInt *>( out_cols + numCols ),
                             cols.begin(),
                             []( PetscInt x ) { return static_cast<size_t>( x ); } );
         }
@@ -233,8 +234,12 @@ std::vector<size_t> NativePetscMatrixData::getColumnIDs( size_t row ) const
 
     return cols;
 }
-void NativePetscMatrixData::addValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void NativePetscMatrixData::addValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     std::vector<PetscInt> petsc_rows( num_rows );
     std::vector<PetscInt> petsc_cols( num_cols );
@@ -259,8 +264,12 @@ void NativePetscMatrixData::addValuesByGlobalID(
         AMP_ERROR( "Conversion not supported yet" );
     }
 }
-void NativePetscMatrixData::setValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void NativePetscMatrixData::setValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     std::vector<PetscInt> petsc_rows( num_rows );
     std::vector<PetscInt> petsc_cols( num_cols );
@@ -287,8 +296,8 @@ void NativePetscMatrixData::setValuesByGlobalID(
 }
 void NativePetscMatrixData::getValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
                                                  void *vals,
                                                  const typeID &id ) const
 {

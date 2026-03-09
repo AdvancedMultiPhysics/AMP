@@ -278,8 +278,8 @@ void AMP_MPI::reset()
             if ( err != MPI_SUCCESS )
                 AMP_ERROR( "Problem free'ing MPI_Comm object" );
             d_comm = commNull;
-            ++N_MPI_Comm_destroyed;
 #endif
+            ++N_MPI_Comm_destroyed;
         }
         if ( d_ranks )
             delete[] d_ranks;
@@ -768,15 +768,13 @@ AMP_MPI AMP_MPI::dup( bool manage ) const
     if ( d_isNull )
         return AMP_MPI( commNull );
     PROFILE( "dup", profile_level );
-    AMP_MPI::Comm new_MPI_comm = d_comm;
 #if defined( AMP_USE_MPI ) || defined( AMP_USE_PETSC )
     // USE MPI to duplicate the communicator
-    MPI_Comm tmp;
-    MPI_Comm_dup( d_comm, &tmp );
-    new_MPI_comm = tmp;
+    MPI_Comm new_MPI_comm;
+    MPI_Comm_dup( d_comm, &new_MPI_comm );
 #else
     static AMP_MPI::Comm uniqueGlobalComm = 11;
-    new_MPI_comm = uniqueGlobalComm;
+    auto new_MPI_comm = uniqueGlobalComm;
     uniqueGlobalComm++;
 #endif
     // Create the new comm object
@@ -1412,13 +1410,13 @@ void AMP_MPI::waitAll( int count, Request2 *request )
         return;
     PROFILE( "waitAll", profile_level );
     int flag = 0;
-    int err  = MPI_Testall( count, request, &flag, MPI_STATUS_IGNORE );
+    int err  = MPI_Testall( count, request, &flag, MPI_STATUSES_IGNORE );
     AMP_ASSERT( err == MPI_SUCCESS ); // Check that the first call is valid
     while ( !flag ) {
         // Put the current thread to sleep to allow other threads to run
         std::this_thread::yield();
         // Check if the request has finished
-        MPI_Testall( count, request, &flag, MPI_STATUS_IGNORE );
+        MPI_Testall( count, request, &flag, MPI_STATUSES_IGNORE );
     }
 }
 std::vector<int> AMP_MPI::waitSome( int count, Request2 *request )
@@ -1428,14 +1426,14 @@ std::vector<int> AMP_MPI::waitSome( int count, Request2 *request )
     PROFILE( "waitSome", profile_level );
     std::vector<int> indicies( count, -1 );
     int outcount = 0;
-    int err      = MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUS_IGNORE );
+    int err      = MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUSES_IGNORE );
     AMP_ASSERT( err == MPI_SUCCESS );        // Check that the first call is valid
     AMP_ASSERT( outcount != MPI_UNDEFINED ); // Check that the first call is valid
     while ( outcount == 0 ) {
         // Put the current thread to sleep to allow other threads to run
         std::this_thread::yield();
         // Check if the request has finished
-        MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUS_IGNORE );
+        MPI_Testsome( count, request, &outcount, &indicies[0], MPI_STATUSES_IGNORE );
     }
     indicies.resize( outcount );
     return indicies;

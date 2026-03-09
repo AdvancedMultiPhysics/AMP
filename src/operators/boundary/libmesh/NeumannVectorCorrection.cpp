@@ -12,7 +12,6 @@
 DISABLE_WARNINGS
 #include "libmesh/libmesh_config.h"
 #undef LIBMESH_ENABLE_REFERENCE_COUNTING
-#include "libmesh/auto_ptr.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
@@ -181,7 +180,7 @@ void NeumannVectorCorrection::addRHScorrection(
 
                     dofIndices.resize( numNodesInCurrElem );
                     for ( unsigned int i = 0; i < numNodesInCurrElem; i++ ) {
-                        dofManager->getDOFs( d_currNodes[i]->globalID(), dofIndices[i] );
+                        dofManager->getDOFs( d_currNodes[i].globalID(), dofIndices[i] );
                     }
 
                     std::shared_ptr<AMP::Discretization::DOFManager> fluxDOFManager;

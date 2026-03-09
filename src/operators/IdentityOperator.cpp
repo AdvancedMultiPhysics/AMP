@@ -39,14 +39,14 @@ void IdentityOperator::setMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> )
 void IdentityOperator::apply( AMP::LinearAlgebra::Vector::const_shared_ptr u,
                               AMP::LinearAlgebra::Vector::shared_ptr r )
 {
-    AMP_INSIST( ( ( u.get() ) != nullptr ), "NULL Solution Vector" );
-    AMP_INSIST( ( ( r.get() ) != nullptr ), "NULL Residual Vector" );
+    AMP_INSIST( u, "NULL Solution Vector" );
+    AMP_INSIST( r, "NULL Residual Vector" );
 
     auto uInternal = subsetInputVector( u );
     auto rInternal = subsetOutputVector( r );
 
-    AMP_INSIST( ( uInternal ), "uInternal is NULL" );
-    AMP_INSIST( ( rInternal ), "rInternal is NULL" );
+    AMP_INSIST( uInternal, "uInternal is NULL" );
+    AMP_INSIST( rInternal, "rInternal is NULL" );
 
     rInternal->copyVector( uInternal );
 

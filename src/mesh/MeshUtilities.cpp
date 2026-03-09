@@ -122,7 +122,7 @@ std::vector<Point> sample( const MeshElement &elem, double dx )
     auto nodes = elem.getElements( AMP::Mesh::GeomType::Vertex );
     std::vector<Point> x( nodes.size() );
     for ( size_t i = 0; i < nodes.size(); i++ )
-        x[i] = nodes[i]->coord();
+        x[i] = nodes[i].coord();
     // Check if we are dealing with a volume (in the coordinate space)
     if ( static_cast<int>( type ) == x[0].ndim() ) {
         // Create a uniform grid
@@ -462,15 +462,14 @@ void ElementFinder::initialize() const
     // Create a list of points in each element and the mesh ids
     std::vector<AMP::Mesh::MeshElementID> ids;
     std::vector<std::array<double, 3>> points;
-    std::vector<std::unique_ptr<MeshElement>> children;
     std::vector<std::array<double, 3>> nodes;
     for ( const auto &elem : d_elements ) {
         auto id = elem.globalID();
         // Get the nodes for the current element
-        elem.getElements( AMP::Mesh::GeomType::Vertex, children );
+        auto children = elem.getElements( AMP::Mesh::GeomType::Vertex );
         nodes.resize( children.size() );
         for ( size_t i = 0; i < children.size(); i++ ) {
-            auto p      = children[i]->coord();
+            auto p      = children[i].coord();
             nodes[i][0] = p.x();
             nodes[i][1] = p.y();
             nodes[i][2] = p.z();

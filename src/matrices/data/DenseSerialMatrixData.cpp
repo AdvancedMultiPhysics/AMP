@@ -71,8 +71,12 @@ std::shared_ptr<MatrixData> DenseSerialMatrixData::transpose() const
 /********************************************************
  * Get/Set values                                        *
  ********************************************************/
-void DenseSerialMatrixData::addValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void DenseSerialMatrixData::addValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     if ( id == getTypeID<double>() ) {
         auto values = reinterpret_cast<const double *>( vals );
@@ -101,8 +105,12 @@ void DenseSerialMatrixData::addValuesByGlobalID(
         AMP_ERROR( "Conversion not supported yet" );
     }
 }
-void DenseSerialMatrixData::setValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void DenseSerialMatrixData::setValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     if ( id == getTypeID<double>() ) {
         auto values = reinterpret_cast<const double *>( vals );
@@ -133,8 +141,8 @@ void DenseSerialMatrixData::setValuesByGlobalID(
 }
 void DenseSerialMatrixData::getValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
                                                  void *vals,
                                                  const typeID &id ) const
 {

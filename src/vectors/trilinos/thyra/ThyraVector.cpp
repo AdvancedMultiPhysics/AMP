@@ -33,8 +33,9 @@ std::shared_ptr<const ThyraVector> ThyraVector::constView( Vector::const_shared_
 std::shared_ptr<ThyraVector> ThyraVector::view( Vector::shared_ptr inVector )
 {
     // Check if we have an exisiting view
-    if ( std::dynamic_pointer_cast<ThyraVector>( inVector ) != nullptr )
-        return std::dynamic_pointer_cast<ThyraVector>( inVector );
+    auto retVal = std::dynamic_pointer_cast<ThyraVector>( inVector );
+    if ( retVal )
+        return retVal;
     if ( inVector->hasView<ManagedThyraVector>() )
         return inVector->getView<ManagedThyraVector>();
     // Check if we are dealing with a managed vector
@@ -45,7 +46,6 @@ std::shared_ptr<ThyraVector> ThyraVector::view( Vector::shared_ptr inVector )
         return retVal;
     }
     // Create a new view
-    std::shared_ptr<ThyraVector> retVal;
     if ( std::dynamic_pointer_cast<MultiVector>( inVector ) ) {
         auto newVector = std::make_shared<ManagedThyraVector>( inVector );
         newVector->setVariable( inVector->getVariable() );
@@ -78,7 +78,7 @@ static void nullDeleter( T * )
 AMP::LinearAlgebra::Vector::shared_ptr ThyraVector::view( Thyra::VectorBase<double> *vec )
 {
     AMP::LinearAlgebra::Vector::shared_ptr vec_out;
-    if ( vec == nullptr ) {
+    if ( !vec ) {
         // Null vec, do nothing
     } else if ( dynamic_cast<AMP::LinearAlgebra::ThyraVectorWrapper *>( vec ) ) {
         auto *tmp = dynamic_cast<AMP::LinearAlgebra::ThyraVectorWrapper *>( vec );
@@ -108,7 +108,7 @@ AMP::LinearAlgebra::Vector::const_shared_ptr
 ThyraVector::constView( const Thyra::VectorBase<double> *vec )
 {
     AMP::LinearAlgebra::Vector::const_shared_ptr vec_out;
-    if ( vec == nullptr ) {
+    if ( !vec ) {
         // Null vec, do nothing
     } else if ( dynamic_cast<const AMP::LinearAlgebra::ThyraVectorWrapper *>( vec ) ) {
         const auto *tmp = dynamic_cast<const AMP::LinearAlgebra::ThyraVectorWrapper *>( vec );

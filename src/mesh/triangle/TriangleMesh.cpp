@@ -2,7 +2,6 @@
 #include "AMP/IO/FileSystem.h"
 #include "AMP/geometry/GeometryHelpers.h"
 #include "AMP/mesh/MeshParameters.h"
-#include "AMP/mesh/MultiIterator.h"
 #include "AMP/mesh/triangle/TriangleHelpers.h"
 #include "AMP/mesh/triangle/TriangleMeshIterator.h"
 #include "AMP/utils/AMP_MPI.h"
@@ -23,11 +22,6 @@
 
 
 namespace AMP::Mesh {
-
-
-using Edge        = std::array<ElementID, 2>;
-using Triangle    = std::array<ElementID, 3>;
-using Tetrahedron = std::array<ElementID, 4>;
 
 
 /****************************************************************
@@ -54,11 +48,11 @@ static constexpr uint8_t n_Simplex_elements[10][10] = {
  ****************************************************************/
 #ifdef AMP_DEBUG
 typedef std::array<double, 3> TriPoint;
-static inline Point operator-( const TriPoint &x, const TriPoint &y )
+[[maybe_unused]] static inline Point operator-( const TriPoint &x, const TriPoint &y )
 {
     return { x[0] - y[0], x[1] - y[1], x[2] - y[2] };
 }
-static inline double dot( const TriPoint &x, const TriPoint &y )
+[[maybe_unused]] static inline double dot( const TriPoint &x, const TriPoint &y )
 {
     return x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
 }
@@ -952,14 +946,15 @@ TriangleMesh<NG>::getElementParents( const ElementID &id, const GeomType type ) 
     return std::make_pair( list.begin( index ), list.end( index ) );
 }
 template<uint8_t NG>
-std::vector<std::unique_ptr<MeshElement>>
-TriangleMesh<NG>::getElementParents( const MeshElement &elem, const GeomType type ) const
+Mesh::ElementListPtr TriangleMesh<NG>::getElementParents( const MeshElement &elem,
+                                                          const GeomType type ) const
 {
-    auto ids = getElementParents( elem.globalID().elemID(), type );
-    std::vector<std::unique_ptr<MeshElement>> parents( ids.second - ids.first );
-    auto it = ids.first;
-    for ( size_t i = 0; i < parents.size(); i++, ++it )
-        parents[i] = getElement( MeshElementID( d_meshID, *it ) );
+    auto ids     = getElementParents( elem.globalID().elemID(), type );
+    size_t N     = ids.second - ids.first;
+    auto parents = std::make_unique<MeshElementVector<TriangleMeshElement<NG>>>( N );
+    auto it      = ids.first;
+    for ( size_t i = 0; i < N; i++, ++it )
+        parents->operator[]( i ) = TriangleMeshElement<NG>( MeshElementID( d_meshID, *it ), this );
     return parents;
 }
 
@@ -1003,7 +998,7 @@ MeshIterator TriangleMesh<NG>::getIterator( const GeomType type, const int gcw )
         return MeshIterator();
     int gcw2  = d_comm.getSize() == 1 ? 0 : gcw;
     int type2 = static_cast<int>( type );
-    return d_iterators[gcw2][type2];
+    return d_iterators[gcw2][type2].clone();
 }
 
 
@@ -1017,7 +1012,7 @@ MeshIterator TriangleMesh<NG>::getSurfaceIterator( const GeomType type, const in
     int type2 = static_cast<int>( type );
     if ( type2 > NG || gcw > d_max_gcw )
         return MeshIterator();
-    return d_surface_it[gcw2][type2];
+    return d_surface_it[gcw2][type2].clone();
 }
 
 
@@ -1041,8 +1036,8 @@ TriangleMesh<NG>::getBoundaryIDIterator( const GeomType type, const int id, cons
             index = i;
     }
     if ( type2 > NG || gcw > d_max_gcw || index >= d_boundary_it.size() )
-        return TriangleMeshIterator<NG>( this, nullptr );
-    return d_boundary_it[index][gcw2][type2];
+        return MeshIterator::create<TriangleMeshIterator<NG>>( this, nullptr );
+    return d_boundary_it[index][gcw2][type2].clone();
 }
 template<uint8_t NG>
 std::vector<int> TriangleMesh<NG>::getBlockIDs() const
@@ -1064,8 +1059,8 @@ TriangleMesh<NG>::getBlockIDIterator( const GeomType type, const int id, const i
             index = i;
     }
     if ( type2 > NG || gcw > d_max_gcw || index >= d_block_it.size() )
-        return TriangleMeshIterator<NG>( this, nullptr );
-    return d_block_it[index][gcw2][type2];
+        return MeshIterator::create<TriangleMeshIterator<NG>>( this, nullptr );
+    return d_block_it[index][gcw2][type2].clone();
 }
 
 

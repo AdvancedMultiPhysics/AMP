@@ -3,6 +3,8 @@
 
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/solvers/amg/Util.h"
+
+#include <tuple>
 #include <vector>
 
 namespace AMP::Solver::AMG {
@@ -70,43 +72,58 @@ private:
     struct storage {
         using alloc_t = typename std::allocator_traits<
             typename csr_view<Mat>::allocator_type>::template rebind_alloc<mask_t>;
-        using value_type = std::vector<mask_t, alloc_t>;
+        using csr_ptrs_t = typename csr_view<Mat>::csr_ptrs_t;
 
-        value_type values;
         span<const lidx_t> rowptr;
         span<const lidx_t> colind;
         span<const scalar_t> mat_values;
+        mask_t *values;
+        alloc_t valueAllocator;
+
+        storage( csr_ptrs_t A_ptrs )
+            : rowptr( std::get<0>( A_ptrs ) ),
+              colind( std::get<1>( A_ptrs ) ),
+              mat_values( std::get<2>( A_ptrs ) )
+        {
+            values = valueAllocator.allocate( colind.size() );
+        }
+
+        ~storage() { valueAllocator.deallocate( values, colind.size() ); }
 
         struct reference {
-            using ref_type       = typename value_type::reference;
-            using const_ref_type = typename value_type::const_reference;
-            value_type *ptr;
+            using ref_type       = mask_t &;
+            using const_ref_type = const mask_t &;
+            mask_t *ptr;
             lidx_t offset;
-            constexpr ref_type operator[]( lidx_t i ) { return ( *ptr )[offset + i]; }
-            constexpr const_ref_type operator[]( lidx_t i ) const { return ( *ptr )[offset + i]; }
+            constexpr ref_type operator[]( lidx_t i ) { return ptr[offset + i]; }
+            constexpr const_ref_type operator[]( lidx_t i ) const { return ptr[offset + i]; }
         };
-        constexpr reference row( lidx_t r ) { return { &values, rowptr[r] }; }
+        constexpr reference row( lidx_t r ) { return { values, rowptr[r] }; }
 
-        constexpr reference row( lidx_t r ) const { return { &values, rowptr[r] }; }
+        constexpr reference row( lidx_t r ) const { return { values, rowptr[r] }; }
     } d_diag, d_offd;
 
 public:
-    using rep_type =
-        std::tuple<span<const lidx_t>, span<const lidx_t>, const typename storage::value_type &>;
+    using rep_type = std::tuple<span<const lidx_t>, span<const lidx_t>, const mask_t *>;
     auto diag() const { return rep_type{ d_diag.rowptr, d_diag.colind, d_diag.values }; }
 
     auto offd() const { return rep_type{ d_offd.rowptr, d_offd.colind, d_offd.values }; }
 
-    auto diag_mask_data() const { return d_diag.values.data(); }
+    const auto diag_mask_data() const { return d_diag.values; }
 
-    auto offd_mask_data() const { return d_offd.values.data(); }
+    const auto offd_mask_data() const { return d_offd.values; }
+
+    auto diag_mask_data() { return d_diag.values; }
+
+    auto offd_mask_data() { return d_offd.values; }
 };
 
 enum class norm { abs, min };
 template<norm norm_type>
 struct classical_strength;
 
-struct evolution_strength;
+template<norm norm_type>
+struct symagg_strength;
 
 template<class StrengthPolicy, class Mat>
 Strength<Mat> compute_soc( csr_view<Mat> A, float threshold );

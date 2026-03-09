@@ -257,8 +257,8 @@ void EpetraMatrixData::setOtherData()
         if ( ( aggregateRows[i] >= MyFirstRow ) && ( aggregateRows[i] < MyEndRow ) ) {
             setValuesByGlobalID( 1u,
                                  1u,
-                                 (size_t *) &aggregateRows[i],
-                                 (size_t *) &aggregateCols[i],
+                                 reinterpret_cast<size_t *>( &aggregateRows[i] ),
+                                 reinterpret_cast<size_t *>( &aggregateCols[i] ),
                                  &aggregateData[i],
                                  getTypeID<double>() );
         }
@@ -332,8 +332,12 @@ AMP::AMP_MPI EpetraMatrixData::getComm() const { return d_pParameters->getComm()
 /********************************************************
  * Set/Add values by global id                           *
  ********************************************************/
-void EpetraMatrixData::addValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void EpetraMatrixData::addValuesByGlobalID( size_t num_rows,
+                                            size_t num_cols,
+                                            const size_t *rows,
+                                            const size_t *cols,
+                                            const void *vals,
+                                            const typeID &id )
 {
     std::vector<int> epetra_cols( num_cols );
     std::copy( cols, cols + num_cols, epetra_cols.begin() );
@@ -349,8 +353,12 @@ void EpetraMatrixData::addValuesByGlobalID(
     }
 }
 
-void EpetraMatrixData::setValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void EpetraMatrixData::setValuesByGlobalID( size_t num_rows,
+                                            size_t num_cols,
+                                            const size_t *rows,
+                                            const size_t *cols,
+                                            const void *vals,
+                                            const typeID &id )
 {
     std::vector<int> epetra_cols( num_cols );
     std::copy( cols, cols + num_cols, epetra_cols.begin() );
@@ -382,8 +390,8 @@ void EpetraMatrixData::setValuesByGlobalID(
  ********************************************************/
 void EpetraMatrixData::getValuesByGlobalID( size_t num_rows,
                                             size_t num_cols,
-                                            size_t *rows,
-                                            size_t *cols,
+                                            const size_t *rows,
+                                            const size_t *cols,
                                             void *vals,
                                             const typeID &id ) const
 {

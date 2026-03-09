@@ -1,9 +1,10 @@
 #include "AMP/mesh/testHelpers/meshTests.h"
+#include "AMP/AMP_TPLs.h"
 #include "AMP/geometry/MultiGeometry.h"
 #include "AMP/mesh/Mesh.h"
 #include "AMP/mesh/MeshElement.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
 #include "AMP/mesh/MeshIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MultiMesh.h"
 #include "AMP/mesh/SubsetMesh.h"
 #include "AMP/mesh/structured/PureLogicalMesh.h"
@@ -16,8 +17,13 @@
 
 #include "ProfilerApp.h"
 
+#include <chrono>
 #include <set>
 #include <vector>
+
+#ifdef AMP_USE_LIBMESH
+    #include "AMP/mesh/libmesh/libmeshMeshElement.h"
+#endif
 
 
 using AMP::Utilities::stringf;
@@ -67,26 +73,27 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
     ut.pass_fail( begin_it != end_it, name + " begin and end returned" );
 
     // Check that the iterator iterates through the proper number of elements
-    size_t N_local = 0;
-    size_t N_ghost = 0;
-    std::set<AMP::Mesh::MeshElementID> id_set;
+    size_t N_local     = 0;
+    size_t N_ghost     = 0;
     bool pass_position = true;
     {
+        std::vector<AMP::Mesh::MeshElementID> id_set( iterator.size() );
         auto it = iterator.begin();
         for ( size_t i = 0; i < iterator.size(); i++, ++it ) {
-            if ( it.position() != i )
+            if ( it.pos() != i )
                 pass_position = false;
             AMP::Mesh::MeshElementID id = it->globalID();
-            id_set.insert( id );
+            id_set[i]                   = id;
             if ( id.is_local() )
                 N_local++;
             else
                 N_ghost++;
         }
+        AMP::Utilities::unique( id_set );
+        ut.pass_fail( iterator.size() == N_local + N_ghost, name + " size()" );
+        ut.pass_fail( pass_position, name + " pos()" );
+        ut.pass_fail( id_set.size() == N_local + N_ghost, name + " uniqueness" );
     }
-    ut.pass_fail( iterator.size() == N_local + N_ghost, name + " size()" );
-    ut.pass_fail( pass_position, name + " position()" );
-    ut.pass_fail( id_set.size() == N_local + N_ghost, name + " uniqueness" );
 
     // Check that we can increment and decrement properly
     if ( iterator.size() >= 4 ) {
@@ -102,8 +109,10 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
         it3 += 2;
         it4 += 0;
         it5 += iterator.size();
-        if ( it1 != it2 || it1 != it3 || it4 != iterator.begin() || it5 != iterator.end() )
-            pass = false;
+        pass = pass && it1 == it2 && !( it1 != it2 );
+        pass = pass && it1 == it3 && !( it1 != it3 );
+        pass = pass && it4 == iterator.begin() && !( it4 != iterator.begin() );
+        pass = pass && it5 == iterator.end() && !( it5 != iterator.end() );
         if ( static_cast<int>( it1.type() ) >= 2 ) {
             it1--;
             --it1;
@@ -124,10 +133,13 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
     bool elements_pass = true;
     bool block_pass    = true;
     bool skip_nearest  = false;
+#ifdef AMP_USE_LIBMESH
     for ( const auto &element : iterator ) {
-        if ( element.elementClass() == "libmeshMeshElement" )
+        constexpr auto libmeshType = AMP::getTypeID<AMP::Mesh::libmeshMeshElement>();
+        if ( element.getTypeID() == libmeshType )
             skip_nearest = true;
     }
+#endif
     int N_skip        = skip_nearest ? 10 : 3;
     int neighbor_pass = 1;
     int commSize      = mesh->getComm().getSize();
@@ -198,17 +210,17 @@ std::pair<size_t, size_t> meshTests::ElementIteratorTest( AMP::UnitTest &ut,
                     size_t N      = element.getElementsID( type2, ids );
                     elements_pass = elements_pass && !pieces.empty() && pieces.size() == N;
                     for ( size_t j = 0; j < pieces.size(); j++ )
-                        elements_pass = elements_pass && ids[j] == pieces[j]->globalID();
+                        elements_pass = elements_pass && ids[j] == pieces[j].globalID();
                 }
                 // Test getNeighbors
                 // Note: some neighbors may be null (e.g. surfaces)
                 auto neighbors     = element.getNeighbors();
                 size_t N_neighbors = 0;
                 for ( auto &neighbor : neighbors ) {
-                    if ( neighbor ) {
+                    if ( !neighbor.isNull() ) {
                         N_neighbors++;
                         // Verify that the neighbors does not include self
-                        if ( *neighbor == element )
+                        if ( neighbor == element )
                             neighbor_pass = 0;
                     }
                 }
@@ -358,6 +370,8 @@ void meshTests::MeshIteratorTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::
         for ( auto mesh2 : multimesh->getMeshes() )
             MeshIteratorTest( ut, mesh2 );
     }
+    // Sync the ranks
+    mesh->getComm().barrier();
 }
 
 
@@ -367,16 +381,16 @@ void meshTests::MeshIteratorOperationTest( AMP::UnitTest &ut,
 {
     PROFILE( "MeshIteratorOperationTest" );
     // Create some iterators to work with
-    auto A = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 1 );
-    auto B = mesh->getIterator( mesh->getGeomType(), 0 );
-    auto elements =
-        std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>( A.size() );
-    auto tmp = A.begin();
+    using ElemPtr = std::unique_ptr<AMP::Mesh::MeshElement>;
+    auto A        = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 1 );
+    auto B        = mesh->getIterator( mesh->getGeomType(), 0 );
+    auto elements = std::make_shared<std::vector<ElemPtr>>( A.size() );
+    auto tmp      = A.begin();
     for ( size_t i = 0; i < A.size(); i++, ++tmp )
         ( *elements )[i] = tmp->clone();
 
     // Check operator== and operator!=
-    auto C = AMP::Mesh::MeshElementVectorIterator( elements );
+    auto C = AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElemPtr>>( elements );
     ut.pass_fail( A == A && B == B && C == C, "Iterator == with same iterator" );
     ut.pass_fail( !( A != A ) && !( B != B ) && !( C != C ), "Iterator != with same iterator" );
     ut.pass_fail( !( A == B ), "Iterator == with same type, different iterator" );
@@ -395,25 +409,22 @@ void meshTests::MeshIteratorSetOPTest( AMP::UnitTest &ut, std::shared_ptr<AMP::M
     auto A = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 1 );
     auto B = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     auto C = AMP::Mesh::MeshIterator();
-    AMP::Mesh::MeshIterator R1, R2, R3;
+    AMP::Mesh::MeshIterator R1, R2;
     // Check SetOP::Union
     R1        = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, A, B );
     R2        = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, B, C );
-    R3        = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Union, B.end(), C.end() );
-    bool pass = R1.size() == A.size() && R2.size() == B.size() && R2 == R3;
+    bool pass = R1.size() == A.size() && R2.size() == B.size();
     ut.pass_fail( pass, "SetOP::Union iterator create" );
     // Check SetOP::Intersection
     R1   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, A, B );
     R2   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, B, C );
-    R3   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Intersection, B.end(), C.end() );
-    pass = R1.size() == B.size() && R2.size() == 0 && R2 == R3;
+    pass = R1.size() == B.size() && R2.size() == 0;
     ut.pass_fail( pass, "SetOP::Intersection iterator create" );
     // Check SetOP::Complement
     R1   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Complement, A, B );
     R2   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Complement, B, C );
-    R3   = AMP::Mesh::Mesh::getIterator( AMP::Mesh::SetOP::Complement, B.end(), C.end() );
     pass = R1.size() == mesh->numGhostElements( AMP::Mesh::GeomType::Vertex, 1 ) &&
-           R2.size() == B.size() && R2 == R3;
+           R2.size() == B.size();
     ut.pass_fail( pass, "SetOP::Complement iterator create" );
 }
 
@@ -846,15 +857,13 @@ void meshTests::testBoxMeshIndicies( AMP::UnitTest &ut, int ndim )
 
     // For each local element, check the neighbors
     bool pass2 = true;
-    std::vector<std::unique_ptr<MeshElement>> neighbors;
     std::vector<AMP::Mesh::MeshElementID> notFound;
     size_t N_neighbors = 2 * ndim;
     for ( auto &element : local ) {
-        neighbors.clear();
-        element.getNeighbors( neighbors );
-        pass2 = pass2 && neighbors.size() == N_neighbors;
+        auto neighbors = element.getNeighbors();
+        pass2          = pass2 && neighbors.size() == N_neighbors;
         for ( auto &neighbor : neighbors ) {
-            auto id = neighbor->globalID();
+            auto id = neighbor.globalID();
             int i   = AMP::Utilities::findfirst( ghostIDs, id );
             i       = std::min<int>( i, ghostIDs.size() - 1 );
             if ( ghostIDs[i] != id )
@@ -907,8 +916,8 @@ void meshTests::getNodeNeighbors( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::
         // Store the neighbor list
         neighbors.resize( 0 );
         for ( auto &element : elements ) {
-            if ( element )
-                neighbors.push_back( element->globalID() );
+            if ( !element.isNull() )
+                neighbors.push_back( element.globalID() );
         }
         // Sort the neighbor list for easy searching
         AMP::Utilities::quicksort( neighbors );
@@ -952,7 +961,7 @@ void meshTests::getNodeNeighbors( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::
     for ( size_t i = 0; i < elementIterator.size(); i++ ) {
         auto nodes = elementIterator->getElements( AMP::Mesh::GeomType::Vertex );
         for ( size_t j = 0; j < nodes.size(); j++ ) {
-            auto id = nodes[j]->globalID();
+            auto id = nodes[j].globalID();
             if ( !id.is_local() )
                 continue; // Node is not owned, move on
             auto iterator = neighbor_list.find( id );
@@ -968,7 +977,7 @@ void meshTests::getNodeNeighbors( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::
             for ( size_t k = 0; k < nodes.size(); k++ ) {
                 if ( k == j )
                     continue;
-                size_t index = AMP::Utilities::findfirst( neighbors, nodes[k]->globalID() );
+                size_t index = AMP::Utilities::findfirst( neighbors, nodes[k].globalID() );
                 if ( index == neighbors.size() )
                     passed = false;
             }
@@ -1067,13 +1076,13 @@ void meshTests::getParents( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> 
             for ( int type2 = 0; type2 < type1; type2++ ) {
                 auto elements = it->getElements( (AMP::Mesh::GeomType) type2 );
                 for ( auto &element : elements ) {
-                    if ( !element->globalID().is_local() )
+                    if ( !element.globalID().is_local() )
                         continue;
-                    auto parents = mesh->getElementParents( *element, (AMP::Mesh::GeomType) type1 );
+                    auto parents = mesh->getElementParents( element, (AMP::Mesh::GeomType) type1 );
                     // Check that the current parent was found (find all parents)
                     bool found = false;
                     for ( auto &parent : parents ) {
-                        if ( *parent == *it )
+                        if ( parent == *it )
                             found = true;
                     }
                     if ( !found )
@@ -1081,10 +1090,10 @@ void meshTests::getParents( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> 
                     // Check that all parents do have the current element as a child (no extra
                     // parents found)
                     for ( auto &parent : parents ) {
-                        auto children = parent->getElements( (AMP::Mesh::GeomType) type2 );
+                        auto children = parent.getElements( (AMP::Mesh::GeomType) type2 );
                         found         = false;
                         for ( auto &m : children ) {
-                            if ( *m == *element )
+                            if ( m == element )
                                 found = true;
                         }
                         if ( !found )
@@ -1096,13 +1105,13 @@ void meshTests::getParents( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> 
         }
     }
     ut.pass_fail( pass, "getParents passed" );
+    mesh->getComm().barrier();
 }
 
 
 // VerifyElementForNode
 void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
-    PROFILE( "VerifyElementForNode" );
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( multimesh ) {
         // Mesh is a multimesh and test is not valid if multimesh contains meshes with
@@ -1114,6 +1123,7 @@ void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Me
         ut.expected_failure( "VerifyElementForNode not supported for libMesh" );
         return;
     } else {
+        PROFILE( "VerifyElementForNode" );
         auto element_has_node = []( const AMP::Mesh::MeshElement &elem,
                                     const AMP::Mesh::MeshElement &n ) {
             MeshElementID ids[32];
@@ -1130,13 +1140,14 @@ void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Me
         bool pass = true;
         for ( auto &node : mesh->getIterator( AMP::Mesh::GeomType::Vertex ) ) {
             for ( auto &elem : mesh->getElementParents( node, type ) )
-                pass = pass && element_has_node( *elem, node );
+                pass = pass && element_has_node( elem, node );
         }
         if ( pass )
             ut.passes( "All elements found are correct" );
         else
             ut.failure( "Found an incorrect element" );
     }
+    mesh->getComm().barrier();
 }
 
 
@@ -1144,7 +1155,6 @@ void meshTests::VerifyElementForNode( AMP::UnitTest &ut, std::shared_ptr<AMP::Me
 void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
                                                std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
-    PROFILE( "VerifyNodeElemMapIteratorTest" );
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( multimesh ) {
         // Mesh is a multimesh and test is not valid if multimesh contains meshes with
@@ -1156,12 +1166,13 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
         ut.expected_failure( "Verify Node<->Element not supported for libMesh" );
         return;
     } else {
+        PROFILE( "VerifyNodeElemMapIteratorTest" );
         auto verify_node = []( const AMP::Mesh::MeshElement &node,
                                std::shared_ptr<AMP::Mesh::Mesh> mesh ) {
             std::set<AMP::Mesh::MeshElementID> elems_from_node, elems_from_mesh;
             auto elements = mesh->getElementParents( node, mesh->getGeomType() );
             for ( const auto &elem : elements )
-                elems_from_node.insert( elem->globalID() );
+                elems_from_node.insert( elem.globalID() );
             MeshElementID ids[32];
             for ( const auto &elem : mesh->getIterator( mesh->getGeomType(), 1 ) ) {
                 int N = elem.getElementsID( AMP::Mesh::GeomType::Vertex, ids );
@@ -1191,6 +1202,7 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
         }
         ut.passes( "Verify Node<->Element map iterator" );
     }
+    mesh->getComm().barrier();
 }
 
 
@@ -1198,7 +1210,6 @@ void meshTests::VerifyNodeElemMapIteratorTest( AMP::UnitTest &ut,
 void meshTests::VerifyBoundaryIteratorTest( AMP::UnitTest &ut,
                                             std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
-    PROFILE( "VerifyBoundaryIteratorTest" );
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( multimesh ) {
         // Mesh is a multimesh and test is not valid if multimesh contains meshes with
@@ -1210,10 +1221,11 @@ void meshTests::VerifyBoundaryIteratorTest( AMP::UnitTest &ut,
         ut.expected_failure( "Verify Boundary iterator not supported for libMesh" );
         return;
     } else {
+        PROFILE( "VerifyBoundaryIteratorTest" );
         auto isBoundaryElement = []( const AMP::Mesh::MeshElement &elem ) {
             auto neighbors = elem.getNeighbors();
             for ( const auto &neighbor : neighbors )
-                if ( !neighbor )
+                if ( neighbor.isNull() )
                     return true;
             return false;
         };
@@ -1221,7 +1233,7 @@ void meshTests::VerifyBoundaryIteratorTest( AMP::UnitTest &ut,
                                                      std::shared_ptr<AMP::Mesh::Mesh> mesh ) {
             auto elements = mesh->getElementParents( node, mesh->getGeomType() );
             for ( const auto &elem : elements ) {
-                if ( !isBoundaryElement( *elem ) )
+                if ( !isBoundaryElement( elem ) )
                     return false;
             }
             return true;
@@ -1237,6 +1249,7 @@ void meshTests::VerifyBoundaryIteratorTest( AMP::UnitTest &ut,
         }
         ut.passes( "Verify Boundary iterator: " + mesh->getName() );
     }
+    mesh->getComm().barrier();
 }
 
 
@@ -1279,19 +1292,21 @@ void meshTests::cloneMesh( AMP::UnitTest &ut, std::shared_ptr<const AMP::Mesh::M
         pass     = pass && err < 1e-6;
     }
     ut.pass_fail( pass, "cloneMesh " + mesh->getName() );
+    mesh->getComm().barrier();
 }
 
 
 // Test the performance of some common mesh operations
-static inline double runAndTime( std::function<void( std::shared_ptr<AMP::Mesh::Mesh> )> fun,
-                                 std::shared_ptr<AMP::Mesh::Mesh> mesh,
-                                 int N = 1 )
+static inline int runAndTime( std::function<void( std::shared_ptr<AMP::Mesh::Mesh> )> fun,
+                              std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                              size_t N,
+                              size_t N_it )
 {
-    auto start = AMP::Utilities::time();
-    for ( int i = 0; i < N; i++ )
+    auto t1 = std::chrono::high_resolution_clock::now();
+    for ( size_t i = 0; i < N_it; i++ )
         fun( mesh );
-    auto stop = AMP::Utilities::time();
-    return ( stop - start ) / N;
+    auto t2 = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / ( N * N_it );
 }
 static inline void getIterator( std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
@@ -1368,69 +1383,51 @@ static inline void getElementIDs( std::shared_ptr<AMP::Mesh::Mesh> mesh )
         AMP_ASSERT( pass );
     }
 }
-static inline void getElements1( std::shared_ptr<AMP::Mesh::Mesh> mesh )
-{
-    auto type = mesh->getGeomType();
-    if ( type > AMP::Mesh::GeomType::Vertex ) {
-        bool pass = true;
-        std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> x;
-        for ( const auto &elem : mesh->getIterator( type, 0 ) ) {
-            elem.getElements( AMP::Mesh::GeomType::Vertex, x );
-            pass = pass && !x.empty();
-        }
-        AMP_ASSERT( pass );
-    }
-}
-static inline void getElements2( std::shared_ptr<AMP::Mesh::Mesh> mesh )
+static inline void getElements( std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
     auto type = mesh->getGeomType();
     if ( type > AMP::Mesh::GeomType::Vertex ) {
         bool pass = true;
         for ( const auto &elem : mesh->getIterator( type, 0 ) ) {
             auto x = elem.getElements( AMP::Mesh::GeomType::Vertex );
-            pass   = pass && x.size() > 0;
+            pass   = pass && !x.empty();
         }
         AMP_ASSERT( pass );
     }
 }
 void meshTests::MeshPerformance( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh )
 {
-    if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getRank() != 0 )
-        return;
-    try {
-        printf( "%s performance:\n", mesh->getName().c_str() );
-        const size_t N_nodes = mesh->numLocalElements( AMP::Mesh::GeomType::Vertex );
-        const size_t N_elem  = mesh->numLocalElements( mesh->getGeomType() );
-        // Get the test timing
-        auto t1  = runAndTime( getIterator, mesh, 1000 );
-        auto t2  = runAndTime( incIterator, mesh, 10 );
-        auto t3  = runAndTime( rangeLoop, mesh, 10 );
-        auto t4  = runAndTime( globalID, mesh, 10 );
-        auto t5  = runAndTime( coord1, mesh, 10 );
-        auto t6  = runAndTime( coord2, mesh, 10 );
-        auto t7  = runAndTime( centroid, mesh, 10 );
-        auto t8  = runAndTime( getElementIDs, mesh, 10 );
-        auto t9  = runAndTime( getElements1, mesh, 10 );
-        auto t10 = runAndTime( getElements2, mesh, 10 );
-        auto t11 = runAndTime( volume, mesh, 10 );
-        // Print the results
-        auto to_ns = []( double time, size_t N ) {
-            return static_cast<int>( 1e9 * std::max( time, 0.0 ) / N );
-        };
-        printf( "   getIterator: %i ns\n", static_cast<int>( 1e9 * t1 ) );
-        printf( "   ++iterator: %i ns\n", to_ns( t2, N_nodes ) );
-        printf( "   rangeLoop: %i ns\n", to_ns( t3, N_nodes ) );
-        printf( "   globalID: %i ns\n", to_ns( t4 - t3, N_nodes ) );
-        printf( "   coord (1): %i ns\n", to_ns( t5 - t3, N_nodes ) );
-        printf( "   coord (2): %i ns\n", to_ns( t6 - t3, N_nodes ) );
-        printf( "   centroid: %i ns\n", to_ns( t7 - t3, N_elem ) );
-        printf( "   getElementIDs: %i ns\n", to_ns( t8 - t3, N_elem ) );
-        printf( "   getElements (1): %i ns\n", to_ns( t9 - t3, N_elem ) );
-        printf( "   getElements (2): %i ns\n", to_ns( t10 - t3, N_elem ) );
-        printf( "   volume: %i ns\n", to_ns( t11 - t3, N_elem ) );
-    } catch ( ... ) {
-        ut.failure( "Caught exception testing performance: " + mesh->getName() );
+    PROFILE( "MeshPerformance" );
+    auto comm = mesh->getComm();
+    comm.barrier();
+    if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getRank() == 0 ) {
+        try {
+            auto meshType = mesh->meshClass();
+            if ( meshType.find( "MultiMesh" ) != std::string::npos )
+                meshType = "MultiMesh";
+            printf( "%s performance (%i,%s):\n",
+                    mesh->getName().c_str(),
+                    mesh->meshID().getLocalID(),
+                    meshType.c_str() );
+            const size_t N_nodes = mesh->numLocalElements( AMP::Mesh::GeomType::Vertex );
+            const size_t N_elem  = mesh->numLocalElements( mesh->getGeomType() );
+            const size_t N_it    = std::max<size_t>( 1, 1000 / N_elem );
+            // Get the test timing
+            printf( "   getIterator: %i ns\n", runAndTime( getIterator, mesh, 1, 100 ) );
+            printf( "   ++iterator: %i ns\n", runAndTime( incIterator, mesh, N_nodes, N_it ) );
+            printf( "   rangeLoop: %i ns\n", runAndTime( rangeLoop, mesh, N_nodes, N_it ) );
+            printf( "   globalID: %i ns\n", runAndTime( globalID, mesh, N_nodes, N_it ) );
+            printf( "   coord (1): %i ns\n", runAndTime( coord1, mesh, N_nodes, N_it ) );
+            printf( "   coord (2): %i ns\n", runAndTime( coord2, mesh, N_nodes, N_it ) );
+            printf( "   centroid: %i ns\n", runAndTime( centroid, mesh, N_elem, N_it ) );
+            printf( "   getElementIDs: %i ns\n", runAndTime( getElementIDs, mesh, N_elem, N_it ) );
+            printf( "   getElements: %i ns\n", runAndTime( getElements, mesh, N_elem, N_it ) );
+            printf( "   volume: %i ns\n", runAndTime( volume, mesh, N_elem, N_it ) );
+        } catch ( ... ) {
+            ut.failure( "Caught exception testing performance: " + mesh->getName() );
+        }
     }
+    comm.barrier();
     // Repeat the tests for all base meshes if we are dealing with a multimesh
     auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
     if ( multimesh ) {

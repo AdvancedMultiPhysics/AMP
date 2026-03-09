@@ -68,7 +68,7 @@ void FunctionTable<TYPE>::rand( size_t N, TYPE *x )
  ********************************************************/
 template<class TYPE>
 template<typename LAMBDA>
-TYPE FunctionTable<TYPE>::reduce( LAMBDA &op, size_t N, const TYPE *x, TYPE y )
+TYPE FunctionTable<TYPE>::reduce( LAMBDA op, size_t N, const TYPE *x, TYPE y )
 {
     for ( size_t i = 0; i < N; i++ )
         y = op( x[i], y );
@@ -76,7 +76,7 @@ TYPE FunctionTable<TYPE>::reduce( LAMBDA &op, size_t N, const TYPE *x, TYPE y )
 }
 template<class TYPE>
 template<typename LAMBDA>
-TYPE FunctionTable<TYPE>::reduce( LAMBDA &op, size_t N, const TYPE *x, const TYPE *y, TYPE z )
+TYPE FunctionTable<TYPE>::reduce( LAMBDA op, size_t N, const TYPE *x, const TYPE *y, TYPE z )
 {
     for ( size_t i = 0; i < N; i++ )
         z = op( x[i], y[i], z );
@@ -131,14 +131,14 @@ TYPE FunctionTable<TYPE>::sum( size_t N, const TYPE *x )
  ********************************************************/
 template<class TYPE>
 template<typename LAMBDA>
-void FunctionTable<TYPE>::transform( LAMBDA &fun, size_t N, const TYPE *x, TYPE *y )
+void FunctionTable<TYPE>::transform( LAMBDA fun, size_t N, const TYPE *x, TYPE *y )
 {
     for ( size_t i = 0; i < N; i++ )
         y[i] = fun( x[i] );
 }
 template<class TYPE>
 template<typename LAMBDA>
-void FunctionTable<TYPE>::transform( LAMBDA &fun, size_t N, const TYPE *x, const TYPE *y, TYPE *z )
+void FunctionTable<TYPE>::transform( LAMBDA fun, size_t N, const TYPE *x, const TYPE *y, TYPE *z )
 {
     for ( size_t i = 0; i < N; i++ )
         z[i] = fun( x[i], y[i] );
@@ -149,22 +149,11 @@ void FunctionTable<TYPE>::transform( LAMBDA &fun, size_t N, const TYPE *x, const
  *  axpy                                                 *
  ********************************************************/
 template<class TYPE>
-void call_axpy( size_t N, const TYPE alpha, const TYPE *x, TYPE *y );
-template<>
-void call_axpy<float>( size_t N, const float alpha, const float *x, float *y );
-template<>
-void call_axpy<double>( size_t N, const double alpha, const double *x, double *y );
-template<class TYPE>
-void call_axpy( size_t N, const TYPE alpha, const TYPE *x, TYPE *y )
-{
-    for ( size_t i = 0; i < N; i++ )
-        y[i] += alpha * x[i];
-}
-template<class TYPE>
 void FunctionTable<TYPE>::axpy( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
     if constexpr ( is_numeric_v<TYPE> ) {
-        call_axpy( N, alpha, x, y );
+        for ( size_t i = 0; i < N; i++ )
+            y[i] += alpha * x[i];
     } else {
         AMP_ERROR( "axpy not implemented" );
     }
@@ -174,7 +163,8 @@ void FunctionTable<TYPE>::axpby( TYPE alpha, size_t N, const TYPE *x, TYPE beta,
 {
     if constexpr ( is_numeric_v<TYPE> ) {
         if ( beta == TYPE( 1 ) ) {
-            axpy( alpha, N, x, y );
+            for ( size_t i = 0; i < N; i++ )
+                y[i] += alpha * x[i];
         } else {
             for ( size_t i = 0; i < N; i++ )
                 y[i] = alpha * x[i] + beta * y[i];
@@ -310,19 +300,6 @@ void call_gemm(
         }
     } else {
         AMP_ERROR( "gemv not implemented" );
-    }
-}
-template<class TYPE>
-ArraySize FunctionTable<TYPE>::multiplySize( const ArraySize &sa, const ArraySize &sb )
-{
-    if ( sa[1] != sb[0] )
-        AMP_ERROR( "Inner dimensions must match" );
-    if ( sa.ndim() == 2 && sb.ndim() == 1 ) {
-        return { sa[0] };
-    } else if ( sa.ndim() <= 2 && sb.ndim() <= 2 ) {
-        return { sa[0], sb[1] };
-    } else {
-        AMP_ERROR( "Not finished yet" );
     }
 }
 template<class TYPE>

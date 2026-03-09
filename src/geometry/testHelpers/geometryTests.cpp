@@ -190,9 +190,8 @@ static bool testCentroid( const AMP::Geometry::Geometry &geom, AMP::UnitTest &ut
         err       = std::max( err, std::abs( c[d] - centroid[d] ) / dx );
     }
     pass = err < 0.01;
-    using AMP::Utilities::stringf;
     if ( !pass )
-        ut.failure( stringf( "testGeometry centroid: %s (%f)", name.data(), err ) );
+        ut.failure( "testGeometry centroid: %s (%f)", name.data(), err );
     return pass;
 }
 

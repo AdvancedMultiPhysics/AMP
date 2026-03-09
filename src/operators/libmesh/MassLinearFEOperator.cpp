@@ -48,8 +48,7 @@ MassLinearFEOperator::MassLinearFEOperator(
 
     d_massLinElem = std::dynamic_pointer_cast<MassLinearElement>( d_elemOp );
 
-    AMP_INSIST( ( ( d_massLinElem.get() ) != nullptr ),
-                "d_elemOp is not of type MassLinearElement" );
+    AMP_INSIST( d_massLinElem, "d_elemOp is not of type MassLinearElement" );
 
     d_densityModel = params->d_densityModel;
 
@@ -124,39 +123,39 @@ void MassLinearFEOperator::preElementOperation( const AMP::Mesh::MeshElement &el
     std::vector<size_t> dofs;
 
     if ( d_useConstantTemperature ) {
-        for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
+        for ( size_t r = 0; r < num_local_dofs; r++ ) {
             localTemperature[r] = d_constantTemperatureValue;
         }
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_temperature->getDOFManager();
-        for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
+        for ( size_t r = 0; r < num_local_dofs; r++ ) {
+            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localTemperature[r] = d_temperature->getValueByGlobalID( dofs[0] );
         }
     }
 
     if ( d_useConstantConcentration ) {
-        for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
+        for ( size_t r = 0; r < num_local_dofs; r++ ) {
             localConcentration[r] = d_constantConcentrationValue;
         }
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_concentration->getDOFManager();
-        for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
+        for ( size_t r = 0; r < num_local_dofs; r++ ) {
+            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localConcentration[r] = d_concentration->getValueByGlobalID( dofs[0] );
         }
     }
 
     if ( d_useConstantBurnup ) {
-        for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
+        for ( size_t r = 0; r < num_local_dofs; r++ ) {
             localBurnup[r] = d_constantBurnupValue;
         }
     } else {
         std::shared_ptr<AMP::Discretization::DOFManager> DOF = d_burnup->getDOFManager();
-        for ( size_t r = 0; r < d_currNodes.size(); r++ ) {
-            DOF->getDOFs( d_currNodes[r]->globalID(), dofs );
+        for ( size_t r = 0; r < num_local_dofs; r++ ) {
+            DOF->getDOFs( d_currNodes[r].globalID(), dofs );
             AMP_ASSERT( dofs.size() == 1 );
             localBurnup[r] = d_burnup->getValueByGlobalID( dofs[0] );
         }
@@ -178,7 +177,7 @@ void MassLinearFEOperator::postElementOperation()
 
     std::vector<size_t> d_dofIndices( d_currNodes.size() ), dofs( 1 );
     for ( size_t i = 0; i < d_currNodes.size(); i++ ) {
-        d_inDofMap->getDOFs( d_currNodes[i]->globalID(), dofs );
+        d_inDofMap->getDOFs( d_currNodes[i].globalID(), dofs );
         AMP_ASSERT( dofs.size() == 1 );
         d_dofIndices[i] = dofs[0];
     }

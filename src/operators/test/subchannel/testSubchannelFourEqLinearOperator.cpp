@@ -196,7 +196,7 @@ getLateralFaces( std::shared_ptr<AMP::Mesh::Mesh> mesh, bool )
         // loop over vertices of current face
         for ( auto &vertice : vertices ) {
             // get coordinates of current vertex
-            auto vertexCoord = vertice->coord();
+            auto vertexCoord = vertice.coord();
             // if any vertex does not have the same x-coordinate as the face centroid,
             if ( !AMP::Utilities::approx_equal( vertexCoord[0], faceCentroid[0], 1.0e-6 ) )
                 // then the face is not perpindicular to x-axis

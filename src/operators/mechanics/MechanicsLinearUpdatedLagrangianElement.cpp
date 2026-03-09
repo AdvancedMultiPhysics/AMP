@@ -2,6 +2,9 @@
 #include "AMP/utils/Utilities.h"
 
 
+using namespace AMP::Operator::UpdatedLagrangianUtils;
+
+
 namespace AMP::Operator {
 
 void MechanicsLinearUpdatedLagrangianElement::computeStressAndStrain(

@@ -113,9 +113,11 @@ public: // Copy/assignment operators
 private: // Internal data
     // Structure used to store point data in the lowest leaf
     struct data_struct {
-        size_t N   = 0;
-        Point *x   = nullptr;
-        TYPE *data = nullptr;
+        data_struct( const data_struct & ) = delete;
+        data_struct &operator=( const data_struct & ) = delete;
+        size_t N                                      = 0;
+        Point *x                                      = nullptr;
+        TYPE *data                                    = nullptr;
         data_struct( size_t N );
         ~data_struct();
         void add( const Point &x2, const TYPE &d2 );
@@ -135,7 +137,6 @@ private: // Internal data
 private: // Internal functions
     kdtree2( size_t N, Point *x, TYPE *data );
     void initialize( size_t N, Point *x, TYPE *data );
-    static size_t find_split( size_t N, const double *x );
     void splitData( size_t N, Point *x, TYPE *data );
     bool intersect( const Point &x, double dist2 ) const;
     void getPoints( std::vector<Point> &x ) const;
@@ -152,10 +153,6 @@ private: // Internal functions
                          std::vector<std::tuple<Point, TYPE>> &nearest ) const;
     void
     checkNearest( const Point &x, size_t N, std::tuple<Point, TYPE> *nearest, double *dist ) const;
-    static double distanceToBox( const std::array<double, NDIM> &pos,
-                                 const std::array<double, NDIM> &ang,
-                                 const std::array<double, NDIM> &lb,
-                                 const std::array<double, NDIM> &ub );
 };
 
 

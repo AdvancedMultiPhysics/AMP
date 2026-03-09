@@ -83,6 +83,8 @@ void random_kernel( ExecSpace exec, ViewT xv )
         "VectorOperationsKokkos::random", pol, KOKKOS_LAMBDA( const int i ) {
             auto gen = random_pool.get_state();
             xv( i )  = static_cast<T>( gen.drand( 0.0, 1.0 ) );
+            // do not forget to release the state of the engine
+            random_pool.free_state( gen );
         } );
 }
 

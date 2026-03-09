@@ -4,13 +4,13 @@
 
 namespace AMP::Operator::Subchannel {
 
-const double scaleAxialMassFlowRate =
+constexpr double scaleAxialMassFlowRate =
     1e-3; // Scale the axial mass flow rate by this constant in the vector (controls the norm)
-const double scaleEnthalpy =
+constexpr double scaleEnthalpy =
     1e-3; // Scale the enthalapy by this constant in the vector (controls the norm)
-const double scalePressure =
+constexpr double scalePressure =
     1e-3; // Scale the pressure by this constant in the vector (controls the norm)
-const double scaleLateralMassFlowRate =
+constexpr double scaleLateralMassFlowRate =
     1e-3; // Scale the lateral mass flow rate by this constant in the vector (controls the norm)
 } // namespace AMP::Operator::Subchannel
 

@@ -7,7 +7,6 @@
 #include "AMP/utils/Database.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/VectorBuilder.h"
-#include "libmesh/auto_ptr.h"
 #include "libmesh/boundary_info.h"
 #include "libmesh/cell_hex8.h"
 #include "libmesh/elem.h"
@@ -63,9 +62,10 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto T = AMP::LinearAlgebra::createVector( dof_map, myVar, true );
 
     FILE *fp = fopen( "InverseJacobian.txt", "w" );
+    AMP_ASSERT( fp );
     for ( int i = 0; i < 8; i++ ) {
-        auto pt = nodes[i]->coord();
-        fprintf( fp, "nd = %d, x = %.15f, y = %.15f, z = %.15f \n", i, pt[0], pt[1], pt[2] );
+        auto p = nodes[i].coord();
+        fprintf( fp, "nd = %d, x = %.15f, y = %.15f, z = %.15f \n", i, p[0], p[1], p[2] );
     }
 
     auto feTypeOrder = libMesh::Utility::string_to_enum<libMeshEnums::Order>( "FIRST" );
@@ -94,13 +94,13 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     std::vector<size_t> d_dofIndices;
     std::vector<AMP::Mesh::MeshElementID> globalIDs( 8 );
     for ( int j = 0; j < 8; j++ )
-        globalIDs[j] = nodes[j]->globalID();
+        globalIDs[j] = nodes[j].globalID();
     dof_map->getDOFs( globalIDs, d_dofIndices );
 
     libMesh::Hex8 currElem;
     libMesh::Node *libmeshNodes[8];
     for ( int j = 0; j < 8; j++ ) {
-        auto pt                = nodes[j]->coord();
+        auto pt                = nodes[j].coord();
         libmeshNodes[j]        = new libMesh::Node( pt[0], pt[1], pt[2], j );
         currElem.set_node( j ) = libmeshNodes[j];
     }

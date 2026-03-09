@@ -45,8 +45,6 @@ static void inverseTest1( AMP::UnitTest *ut, const std::string &exeName )
 
     // Initialization
     std::string input_file = exeName;
-    std::string log_file   = "output_" + exeName;
-    AMP::logOnlyNodeZero( log_file );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Read the input file
