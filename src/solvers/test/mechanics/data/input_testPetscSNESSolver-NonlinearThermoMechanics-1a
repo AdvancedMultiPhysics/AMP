@@ -12,14 +12,14 @@ Mesh{
 NumberOfLoadingSteps = 1
 
 testNonlinearThermalOperator {
-  name="NonlinearBVPOperator"
+    name="NonlinearBVPOperator"
     print_info_level = 1
     VolumeOperator = "DiffusionNonlinearFEOperator1"
     BoundaryOperator = "DirichletVectorCorrection1"
 }
 
 DiffusionTransportModel1{
-  name = "DiffusionTransportModel"
+    name = "DiffusionTransportModel"
     Material = "UO2_MSRZC_09"
     Property = "ThermalConductivity"
     Default_Concentration = .15
@@ -28,7 +28,7 @@ DiffusionTransportModel1{
 } 
 
 ThermalStrainMaterialModel3 { 
-  name="ThermalStrainMaterialModel"
+    name="ThermalStrainMaterialModel"
     USE_MATERIALS_LIBRARY = FALSE
     USE_UPDATED_LAGRANGIAN = TRUE
     USE_JAUMANN_RATE = TRUE
@@ -43,12 +43,12 @@ ThermalStrainMaterialModel3 {
 }
 
 DiffusionNonlinearFEOperator1 {
-  name = "DiffusionNonlinearFEOperator" 
+    name = "DiffusionNonlinearFEOperator" 
     print_info_level = 1
     ActiveInputVariables {
       temperature = "temperature"
     }
-  OutputVariable = "temperature"
+    OutputVariable = "temperature"
     PrincipalVariable = "temperature" 
 
     DiffusionElement{
@@ -64,7 +64,7 @@ DiffusionNonlinearFEOperator1 {
 }
 
 DirichletVectorCorrection1 {
-  name = "DirichletVectorCorrection"
+    name = "DirichletVectorCorrection"
     print_info_level = 1
     skip_params = FALSE
     number_of_ids = 2
@@ -79,14 +79,14 @@ DirichletVectorCorrection1 {
 }
 
 testLinearThermalOperator {
-  name = "LinearBVPOperator"
+    name = "LinearBVPOperator"
     print_info_level = 1
     VolumeOperator = "DiffusionLinearFEOperator2"
     BoundaryOperator = "DirichletMatrixCorrection2"
 }
 
 DiffusionLinearFEOperator2 {
-  name = "DiffusionLinearFEOperator"
+    name = "DiffusionLinearFEOperator"
     print_info_level = 1
     reset_reuses_matrix = TRUE
     InputVariable = "temperature"
@@ -107,7 +107,7 @@ DiffusionLinearFEOperator2 {
 }
 
 DirichletMatrixCorrection2 {
-  name = "DirichletMatrixCorrection"
+    name = "DirichletMatrixCorrection"
     print_info_level = 1
     skip_params = FALSE
     skip_rhs_correction = TRUE
@@ -120,32 +120,31 @@ DirichletMatrixCorrection2 {
     dof_1_0 = 0
 }
 
-
 LinearMechanicsElement {
-      name="MechanicsLinearUpdatedLagrangianElement"
-        USE_REDUCED_INTEGRATION = FALSE 
-        USE_JAUMANN_RATE = TRUE
-        FE_ORDER = "FIRST"  
-        FE_FAMILY = "LAGRANGE"
-        QRULE_TYPE = "QGAUSS"
-        QRULE_ORDER = "DEFAULT"
+    name="MechanicsLinearUpdatedLagrangianElement"
+    USE_REDUCED_INTEGRATION = FALSE 
+    USE_JAUMANN_RATE = TRUE
+    FE_ORDER = "FIRST"  
+    FE_FAMILY = "LAGRANGE"
+    QRULE_TYPE = "QGAUSS"
+    QRULE_ORDER = "DEFAULT"
 }
 
 testNonlinearMechanicsOperator {
-  name="NonlinearBVPOperator"
+    name="NonlinearBVPOperator"
     print_info_level = 2
     VolumeOperator = "MechanicsNonlinearFEOperator3"
     BoundaryOperator = "DirichletVectorCorrection3"
 }
 
 MechanicsNonlinearFEOperator3 {
-  name = "MechanicsNonlinearFEOperator"
+    name = "MechanicsNonlinearFEOperator"
     print_info_level = 1
     ActiveInputVariables {
       DISPLACEMENT = "disp"
         TEMPERATURE = "temperature"
     }
-  OutputVariable = "disp"
+    OutputVariable = "disp"
     RESET_REUSES_RADIAL_RETURN = TRUE
     JACOBIAN_REUSES_RADIAL_RETURN = TRUE
     USE_UPDATED_LAGRANGIAN = TRUE
@@ -162,8 +161,8 @@ MechanicsNonlinearFEOperator3 {
         QRULE_ORDER = "DEFAULT"
     }
 
-  MechanicsLinearElement = LinearMechanicsElement
-  LocalModel = ThermalStrainMaterialModel3
+    MechanicsLinearElement = LinearMechanicsElement
+    LocalModel = ThermalStrainMaterialModel3
 }
 
 
@@ -191,7 +190,7 @@ DirichletVectorCorrection3 {
 }
 
 testLinearMechanicsOperator {
-  name="LinearBVPOperator"
+    name="LinearBVPOperator"
     print_info_level = 1
     VolumeOperator = "MechanicsLinearFEOperator4"
     BoundaryOperator = "DirichletMatrixCorrection4"
@@ -208,7 +207,7 @@ MechanicsLinearFEOperator4 {
 }
 
 DirichletMatrixCorrection4 {
-  name = "DirichletMatrixCorrection"
+    name = "DirichletMatrixCorrection"
     print_info_level = 1
     skip_params = FALSE
     skip_rhs_correction = TRUE
@@ -226,7 +225,7 @@ DirichletMatrixCorrection4 {
 }
 
 MechanicsInitialGuess {
-  name = "DirichletVectorCorrection"
+    name = "DirichletVectorCorrection"
     print_info_level = 1
     skip_params = FALSE
     number_of_ids = 2
@@ -249,7 +248,7 @@ MechanicsInitialGuess {
 }
 
 ThermalInitialGuess {
-  name = "DirichletVectorCorrection"
+    name = "DirichletVectorCorrection"
     print_info_level = 1
     skip_params = FALSE
     number_of_ids = 2
@@ -264,15 +263,15 @@ ThermalInitialGuess {
 }
 
 NonlinearSolver{
-  print_info_level = 2
+    print_info_level = 2
     max_iterations = 100
     absolute_tolerance = 1.0e-12
-    relative_tolerance = 1.0e-12
+    relative_tolerance = 1.0e-9
     stepTolerance = 1.0e-16
     maximumFunctionEvals = 1000
     usesJacobian=FALSE
 
-    SNESOptions = "-snes_monitor -snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
+    SNESOptions = "-snes_type ls -snes_converged_reason -snes_ls_alpha 0.01"
 
     LinearSolver{
         name = "PetscKrylovSolver"
@@ -280,39 +279,37 @@ NonlinearSolver{
         max_iterations = 100
         ksp_type = "fgmres"
         absolute_tolerance = 1.0e-12
-        relative_tolerance = 0.1
-        divergence_tolerance = 1.0e03
-        max_krylov_dimension = 40
+        relative_tolerance = 0.01
+        divergence_tolerance = 1.0e3
+        max_krylov_dimension = 100
         uses_preconditioner=TRUE
         pc_type = "shell"
         pc_side = "RIGHT"
 
-        KSPOptions = "-ksp_monitor -ksp_converged_reason -ksp_max_it 100"
+        KSPOptions = "-ksp_converged_reason -ksp_max_it 100"
 
         Preconditioner{
             name = "ColumnSolver"
             print_info_level = 0
             max_iterations = 1
             absolute_tolerance = 1.0e-16
-            relative_tolerance = 1.0e-02
+            relative_tolerance = 0.1
             divergence_tolerance = 1.0e03
             solvers = "thermalPreconditioner", "mechanicsPreconditioner"
-
             thermalPreconditioner{
                 name = "TrilinosMLSolver"
                 print_info_level = 1
                 max_iterations = 1
             }
-
             mechanicsPreconditioner{
-              name = "TrilinosMLSolver"
-              print_info_level = 0
-              PDE_equations = 3
-              max_iterations = 1
-              aggregationtype = "Uncoupled"
-              smoothertype = "Chebyshev"
-              smoother_sweeps = 3
-          }
+                name = "TrilinosMLSolver"
+                print_info_level = 0
+                PDE_equations = 3
+                max_iterations = 1
+                aggregationtype = "Uncoupled"
+                smoothertype = "Chebyshev"
+                smoother_sweeps = 3
+            }
         }
     }
 }
