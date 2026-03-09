@@ -232,6 +232,7 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
 {
     const auto nRows = A->numLocalRows();
     const auto nCols = A->numUniqueColumns();
+    AMP_ASSERT( nCols > 0 );
 
     // Wrap in/out data into Kokkos Views
     Kokkos::View<const scalar_t *,
@@ -580,9 +581,7 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copy(
 template<typename Config, class ExecSpace, class ViewSpace>
 template<typename ConfigIn>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast(
-    std::shared_ptr<CSRLocalMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>>>
-        X,
-    std::shared_ptr<localmatrixdata_t> Y )
+    std::shared_ptr<CSRLocalMatrixData<ConfigIn>> X, std::shared_ptr<localmatrixdata_t> Y )
 {
     // Check compatibility
     AMP_ASSERT( Y->getMemoryLocation() == X->getMemoryLocation() );

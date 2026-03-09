@@ -81,6 +81,9 @@ public:
 
     std::string type() const;
 
+    //! Return CSR mode of the matrix.
+    std::uint16_t mode() const { return static_cast<std::uint16_t>( Config::mode ); }
+
     //! Get all data fields as tuple
     std::tuple<lidx_t *, gidx_t *, lidx_t *, scalar_t *> getDataFields()
     {
@@ -120,7 +123,10 @@ public:
     lidx_t numLocalColumns() const { return d_last_col - d_first_col; }
 
     //! Get number of unique columns
-    lidx_t numUniqueColumns() const { return d_ncols_unq; }
+    lidx_t numUniqueColumns() const
+    {
+        return d_is_diag ? ( d_last_col - d_first_col ) : d_ncols_unq;
+    }
 
     //! Get global index of first row in block (inclusive)
     gidx_t beginRow() const { return d_first_row; }
