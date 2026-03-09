@@ -164,7 +164,7 @@ AMP::Mesh::MeshIterator multiDOFManager::getIterator() const
     }
     AMP::Utilities::unique( *elements );
     // Create an iterator over the elements
-    return AMP::Mesh::MeshListIterator( elements );
+    return new AMP::Mesh::MeshListIterator( elements );
 }
 
 

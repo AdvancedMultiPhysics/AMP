@@ -19,6 +19,8 @@ nullPointerRedundantCheck:*
 internalAstError:*
 class_X_Y:*
 invalidPrintfArgType_uint:*
+checkersReport:*            // Throw inside a main is fine for terminating a unit test
+throwInEntryPoint:*         // Throw inside a main is fine for terminating a unit test
 
 
 //***********************************************************
@@ -33,6 +35,7 @@ invalidPrintfArgType_uint:*
 // Keeping these separate is useful for downstream packages *
 //***********************************************************
 arrayIndexOutOfBounds:*/AMP/utils/DelaunayFaceList.hpp
+dangerousTypeCast:*/solvers/amg/Stats.hpp
 duplicateExpression:*/AMP/utils/Array.hpp
 duplicateExpression:*/AMP/utils/Database.hpp
 duplInheritedMember:*/AMP/mesh/MultiMesh.h
@@ -62,6 +65,7 @@ noExplicitConstructor:*/AMP/mesh/MeshID.h
 noExplicitConstructor:*/AMP/mesh/MeshPoint.h
 noExplicitConstructor:*/AMP/mesh/MeshElement.h
 noExplicitConstructor:*/AMP/mesh/MeshUtilities.h
+noExplicitConstructor:*/AMP/mesh/MeshListIterator.hpp
 noExplicitConstructor:*/AMP/utils/Array.h
 noExplicitConstructor:*/AMP/utils/ArraySize.h
 noExplicitConstructor:*/AMP/utils/AMP_MPI.h
@@ -86,7 +90,6 @@ passedByValue:*/AMP/utils/Database.h
 passedByValue:*/AMP/utils/Database.hpp
 passedByValue:*/AMP/utils/FactoryStrategy.hpp
 pointerOutOfBoundsCond:*/AMP/utils/kdtree2.hpp
-syntaxError:*/AMP/mesh/*Iterator.h
 templateRecursion:*/AMP/utils/AMP_MPI.I
 unusedPrivateFunction:*/AMP/materials/Property.h
 invalidPointerCast:*/AMP/vectors/data/VectorDataIterator.hpp
@@ -173,8 +176,12 @@ shadowVariable:*/src/mesh/STKmesh/STKMesh.cpp
 shadowVariable:*/src/mesh/libmesh/libmeshMesh.cpp
 shadowVariable:*/src/utils/DelaunayTessellation.cpp
 shiftTooManyBits:*/src/utils/extended_int.cpp
+syntaxError:*/src/matrices/petsc/PetscMatrixHelpers.cpp
 syntaxError:*/src/vectors/trilinos/thyra/ThyraVectorWrapper.cpp
 syntaxError:*/src/utils/cuda/helper_cuda.cpp
+syntaxError:*/src/solvers/petsc/PetscKrylovSolver.cpp
+syntaxError:*/src/solvers/petsc/PetscSNESSolver.cpp
+syntaxError:*/src/vectors/petsc/PetscHelpers.cpp
 throwInEntryPoint:*/src/utils/threadpool/test/test_atomic_list.cpp
 uninitMemberVar:*/src/matrices/petsc/NativePetscMatrix.cpp
 uninitMemberVar:*/src/mesh/structured/structuredMeshIterator.cpp

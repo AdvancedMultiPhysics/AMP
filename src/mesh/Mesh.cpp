@@ -227,7 +227,7 @@ MeshIterator Mesh::isMember( const MeshIterator &iterator ) const
         if ( isMember( elem.globalID() ) )
             elements->push_back( elem.clone() );
     }
-    return AMP::Mesh::MeshListIterator( elements, 0 );
+    return new MeshListIterator( elements, 0 );
 }
 
 
@@ -492,8 +492,39 @@ MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, const MeshItera
         }
         AMP_ASSERT( N == elements->size() );
     }
-    return MeshListIterator( elements, 0 );
+    return new MeshListIterator( elements, 0 );
 }
+MeshIterator Mesh::getIterator( SetOP OP, const MeshIterator &A, MeshIteratorEnd )
+{
+    if ( OP == SetOP::Union ) {
+        // Perform a union: A U B
+        return A;
+    } else if ( OP == SetOP::Intersection ) {
+        // Perform a intersection: A n B
+        return MeshIterator();
+    } else if ( OP == SetOP::Complement ) {
+        // Perform a SetOP::Complement: A - B
+        return A;
+    } else {
+        AMP_ERROR( "Unknown set operation" );
+    }
+}
+MeshIterator Mesh::getIterator( SetOP OP, MeshIteratorEnd, const MeshIterator &B )
+{
+    if ( OP == SetOP::Union ) {
+        // Perform a union: A U B
+        return B;
+    } else if ( OP == SetOP::Intersection ) {
+        // Perform a intersection: A n B
+        return MeshIterator();
+    } else if ( OP == SetOP::Complement ) {
+        // Perform a SetOP::Complement: A - B
+        return MeshIterator();
+    } else {
+        AMP_ERROR( "Unknown set operation" );
+    }
+}
+MeshIterator Mesh::getIterator( SetOP, MeshIteratorEnd, MeshIteratorEnd ) { return MeshIterator(); }
 
 
 /********************************************************
