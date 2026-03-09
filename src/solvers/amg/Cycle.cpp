@@ -238,12 +238,12 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
             AMP_ASSERT( P->mode() < std::numeric_limits<std::uint16_t>::max() );
 
             LinearAlgebra::csrVisit( R, [fname_R]( auto csr_ptr ) {
-		AMP::IO::RestartManager writer;
+                AMP::IO::RestartManager writer;
                 writer.registerData( csr_ptr, "R" );
                 writer.write( fname_R );
             } );
             LinearAlgebra::csrVisit( P, [fname_P]( auto csr_ptr ) {
-		AMP::IO::RestartManager writer;
+                AMP::IO::RestartManager writer;
                 writer.registerData( csr_ptr, "P" );
                 writer.write( fname_P );
             } );
