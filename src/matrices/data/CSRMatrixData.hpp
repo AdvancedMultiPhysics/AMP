@@ -971,25 +971,23 @@ void CSRMatrixData<Config>::registerChildObjects( AMP::IO::RestartManager *manag
     auto id = manager->registerObject( d_diag_matrix );
     AMP_ASSERT( id == d_diag_matrix->getID() );
 
-    if ( d_offd_matrix ) {
-        auto id = manager->registerObject( d_offd_matrix );
-        AMP_ASSERT( id == d_offd_matrix->getID() );
-    }
+    id = manager->registerObject( d_offd_matrix );
+    AMP_ASSERT( id == d_offd_matrix->getID() );
 
     if ( d_leftDOFManager ) {
-        auto id = manager->registerObject( d_leftDOFManager );
+        id = manager->registerObject( d_leftDOFManager );
         AMP_ASSERT( id == d_leftDOFManager->getID() );
     }
     if ( d_rightDOFManager ) {
-        auto id = manager->registerObject( d_rightDOFManager );
+        id = manager->registerObject( d_rightDOFManager );
         AMP_ASSERT( id == d_rightDOFManager->getID() );
     }
     if ( d_leftCommList ) {
-        auto id = manager->registerObject( d_leftCommList );
+        id = manager->registerObject( d_leftCommList );
         AMP_ASSERT( id == d_leftCommList->getID() );
     }
     if ( d_rightCommList ) {
-        auto id = manager->registerObject( d_rightCommList );
+        id = manager->registerObject( d_rightCommList );
         AMP_ASSERT( id == d_rightCommList->getID() );
     }
 }
@@ -1077,7 +1075,7 @@ void CSRMatrixData<Config>::writeRestart( int64_t fid ) const
     uint64_t diagMatrixID = d_diag_matrix->getID();
     IO::writeHDF5( fid, "diagMatrixID", diagMatrixID );
 
-    uint64_t offdMatrixID = d_offd_matrix ? d_offd_matrix->getID() : 0;
+    uint64_t offdMatrixID = d_offd_matrix->getID();
     IO::writeHDF5( fid, "offdMatrixID", offdMatrixID );
 
     uint64_t leftCommListID = d_leftCommList ? d_leftCommList->getID() : 0;
@@ -1120,8 +1118,7 @@ CSRMatrixData<Config>::CSRMatrixData( int64_t fid, AMP::IO::RestartManager *mana
 
     d_diag_matrix = manager->getData<localmatrixdata_t>( diagMatrixID );
 
-    if ( offdMatrixID )
-        d_offd_matrix = manager->getData<localmatrixdata_t>( offdMatrixID );
+    d_offd_matrix = manager->getData<localmatrixdata_t>( offdMatrixID );
 
     if ( leftCommListID != 0 )
         d_leftCommList = manager->getData<CommunicationList>( leftCommListID );

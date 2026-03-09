@@ -659,6 +659,8 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         // do cumulative sum of row counts to turn into offsets
         AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
             out_row_starts, out_num_rows + 1, out_row_starts, 0 );
+        AMP_DEBUG_INSIST( tot_nnz == out_row_starts[out_num_rows],
+                          "CSRMatrixDataHelpers::TransposeDiag: inconsistent total nnz" );
 
         // second pass fill in entries using extra space for row position counters
         AMP::Utilities::Algorithms<lidx_t>::fill_n( counters, out_num_rows, 0 );

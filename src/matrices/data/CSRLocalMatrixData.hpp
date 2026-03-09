@@ -1335,14 +1335,18 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
         }
     }
 
-    if ( d_num_rows > 0 )
+    if ( d_num_rows > 0 ) {
         IO::writeHDF5( fid, "row_starts", row_starts );
-    if ( d_ncols_unq > 0 && !d_is_diag )
+    }
+    if ( d_ncols_unq > 0 && !d_is_diag ) {
         IO::writeHDF5( fid, "cols_unq", cols_unq );
-    if ( d_nnz > 0 )
+    }
+    if ( d_nnz > 0 ) {
         IO::writeHDF5( fid, "cols_loc", cols_loc );
-    if ( d_nnz > 0 && !d_is_symbolic )
+    }
+    if ( d_nnz > 0 && !d_is_symbolic ) {
         IO::writeHDF5( fid, "coeffs", coeffs );
+    }
 }
 
 template<typename Config>

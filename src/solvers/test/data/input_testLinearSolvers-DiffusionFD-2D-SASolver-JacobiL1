@@ -5,12 +5,14 @@ LinearSolver{
   absolute_tolerance = 1.e-12
   relative_tolerance = 1.e-12
   print_info_level = 3
-  max_iterations = 100
+  max_iterations = 5
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
   kappa = 2
   kcycle_type = "fcg"
+  // save_to_file = true
+  // save_to_file_name = "amp-dumps/jl1-2d"
 
 <<< SASolver-Level-MIS2 >>>
   

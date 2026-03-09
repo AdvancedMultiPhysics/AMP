@@ -68,6 +68,18 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     auto agg_ids       = localmatrixdata_t::makeLidxArray( A_nrows );
     const auto num_agg = assignLocalAggregates( A, agg_ids.get() );
 
+    // DEBUG
+    {
+        for ( lidx_t row = 0, ctr = 0; row < A_nrows && ctr < 17; ++row ) {
+            const auto aid = agg_ids[row];
+            if ( aid != 0 && aid != 1 ) {
+                continue;
+            }
+            AMP::pout << "  row: " << row << " id = " << aid << std::endl;
+            ++ctr;
+        }
+    }
+
     auto A_data = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
 
     // if there is no parameters object passed in create one matching usual
@@ -135,6 +147,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
                 P_coeffs[rs]   = 1.0;
             }
         }
+        AMP::pout << "Agg(host):\n";
     } else {
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
@@ -146,6 +159,23 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
 #else
         AMP_ERROR( "Aggregator::getAggregateMatrix Undefined memory location" );
 #endif
+        AMP::pout << "Agg(device):\n";
+    }
+
+    // DEBUG
+    if ( 0 ) {
+        for ( lidx_t row = 0, ctr = 0; row < A_nrows && ctr < 17; ++row ) {
+            const auto row_len = P_rs[row + 1] - P_rs[row];
+            if ( row_len == 0 ) {
+                continue;
+            }
+            AMP::pout << "  row: " << row << " rs = " << P_rs[row] << "\n    ";
+            for ( lidx_t k = P_rs[row]; k < P_rs[row + 1]; ++k ) {
+                AMP::pout << "(" << P_cols_loc[k] << "," << P_cols[k] << "," << P_coeffs[k] << ") ";
+            }
+            AMP::pout << std::endl;
+            ++ctr;
+        }
     }
 
     // reset dof managers and return matrix
