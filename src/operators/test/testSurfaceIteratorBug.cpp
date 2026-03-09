@@ -135,7 +135,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
                     AMP_ASSERT( phi[i][qp] >= 0.0 );
                     vals[i] += ( djxw[qp] * phi[i][qp] * 100.0 );
                 } // end qp
-            } // end i
+            }     // end i
             vec->addValuesByGlobalID( bndGlobalIds.size(), &( bndGlobalIds[0] ), &( vals[0] ) );
         }
 
