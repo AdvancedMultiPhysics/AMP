@@ -58,6 +58,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     FILE *fout123;
     std::string ss_file = exeName + "_UniaxialTmperatureDisplacement.txt";
     fout123             = fopen( ss_file.c_str(), "w" );
+    AMP_ASSERT( fout123 );
 
     // Create a nonlinear BVP operator for mechanics
     AMP_INSIST( input_db->keyExists( "NonlinearMechanicsOperator" ), "key missing!" );

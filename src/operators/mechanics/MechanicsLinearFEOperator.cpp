@@ -219,6 +219,7 @@ void MechanicsLinearFEOperator::printStressAndStrain( AMP::LinearAlgebra::Vector
                                                       const std::string &fname )
 {
     FILE *fp = fopen( fname.c_str(), "w" );
+    AMP_ASSERT( fp );
     fprintf( fp,
              "x, y, z, Stresses(11, 22, 33, 23, 13, 12), Strains(11, 22, 33, 23, 13, 12) \n\n" );
 

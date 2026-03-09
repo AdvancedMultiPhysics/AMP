@@ -40,8 +40,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     AMP_INSIST( input_db->keyExists( "OutputFileName" ), "Key ''OutputFileName'' is missing!" );
     std::string outFileName = input_db->getString( "OutputFileName" );
 
-    FILE *fp;
-    fp = fopen( outFileName.c_str(), "w" );
+    auto fp = fopen( outFileName.c_str(), "w" );
+    AMP_ASSERT( fp );
     fprintf( fp, "clc; \n clear; \n A = zeros(24, 24); \n \n" );
 
     // Create a nonlinear BVP operator for mechanics

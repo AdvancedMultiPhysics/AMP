@@ -84,8 +84,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         }
     }
 
-    FILE *fout;
-    fout = fopen( "stress_stain_results.xls", "w" );
+    auto fout = fopen( "stress_stain_results.xls", "w" );
+    AMP_ASSERT( fout );
     for ( int i = 0; i < max_num; i++ ) {
         fprintf( fout,
                  "%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
@@ -99,23 +99,9 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     }
     fclose( fout );
 
-    /*  for(int i = 0; i < 6; i++) {
-        printf("stress[%d]=%lf\n",i,stress[i]);
-      }*/
-
-    // vmepModel->preNonlinearJacobian();
-    // vmepModel->nonlinearJacobianGaussPointOperation(strain);
-    // vmepModel->postNonlinearJacobianGaussPointOperation();
-
     vmepModel->preLinearAssembly();
     vmepModel->getConstitutiveMatrix( C );
     vmepModel->postLinearGaussPointOperation();
-
-    /*  for(int i = 0; i < 6; i++) {
-        for(int j = 0; j < 6; j++) {
-          printf("C[%d][%d] = %lf\n",i,j,C[(i * 6) + j]);
-        }
-      }*/
 
     diff_norm = 0.0;
     for ( int i = 0; i < max_num; i++ ) {

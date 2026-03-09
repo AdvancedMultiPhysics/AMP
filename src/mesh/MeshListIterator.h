@@ -18,52 +18,72 @@ namespace AMP::Mesh {
  * of mesh elments that are in a std::vector.
  */
 template<class TYPE = MeshElement>
-class MeshListIterator final : public MeshIterator
+class MeshListIterator final : public MeshIteratorBase
 {
 public:
+    static MeshIterator create( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
+
     //! Empty MeshListIterator constructor
     MeshListIterator();
 
     //! Default MeshListIterator constructor
-    explicit MeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
+    MeshListIterator( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
 
     //! Deconstructor
-    virtual ~MeshListIterator() = default;
+    ~MeshListIterator() = default;
 
     //! Copy constructor
     MeshListIterator( const MeshListIterator & );
 
+    //! Move constructor
+    MeshListIterator( MeshListIterator && ) = delete;
+
     //! Assignment operator
     MeshListIterator &operator=( const MeshListIterator & );
 
+    //! Move operator
+    MeshListIterator &operator=( MeshListIterator && ) = delete;
+
+    //! Return the class name
+    std::string className() const override { return "MeshListIterator"; }
+
+    //! Set the position in the iterator
+    void setPos( size_t ) override;
+
     //! Increment
-    MeshIterator &operator++() override;
+    MeshIteratorBase &operator++() override;
 
     //! Decrement
-    MeshIterator &operator--() override;
+    MeshIteratorBase &operator--() override;
 
     // Arithmetic operator+=
-    MeshIterator &operator+=( int N ) override;
+    MeshIteratorBase &operator+=( int N ) override;
 
     //! Check if two iterators are equal
-    bool operator==( const MeshIterator &rhs ) const override;
+    bool operator==( const MeshIteratorBase &rhs ) const override;
 
     //! Check if two iterators are not equal
-    bool operator!=( const MeshIterator &rhs ) const override;
+    bool operator!=( const MeshIteratorBase &rhs ) const override;
 
     //! Return an iterator to the begining
     MeshIterator begin() const override;
 
-    //! Return an iterator to the begining
-    MeshIterator end() const override;
+    using MeshIteratorBase::operator==;
+    using MeshIteratorBase::operator!=;
 
-    using MeshIterator::operator+;
-    using MeshIterator::operator+=;
+
+public: // Write/read restart data
+    void registerChildObjects( AMP::IO::RestartManager * ) const override;
+    void writeRestart( int64_t ) const override;
+    MeshListIterator( int64_t, AMP::IO::RestartManager * );
+
 
 protected:
     //! Clone the iterator
-    MeshIterator *clone() const override;
+    std::unique_ptr<MeshIteratorBase> clone() const override;
 
+
+private:
     // A pointer to a std::vector containing the desired mesh elements
     std::shared_ptr<std::vector<TYPE>> d_elements;
 };

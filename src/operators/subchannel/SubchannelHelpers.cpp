@@ -55,15 +55,17 @@ subsetForSubchannel( std::shared_ptr<AMP::Mesh::Mesh> subchannel, size_t i, size
     size_t Nx = x.size() - 1;
     size_t Ny = y.size() - 1;
     // Get the elements in the subchannel of interest
-    auto el       = subchannel->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>();
+    using ElementPtr = std::unique_ptr<AMP::Mesh::MeshElement>;
+    auto el          = subchannel->getIterator( AMP::Mesh::GeomType::Cell, 0 );
+    auto elements    = std::make_shared<std::vector<ElementPtr>>();
     elements->reserve( el.size() / ( Nx * Ny ) );
     for ( size_t k = 0; k < el.size(); ++k, ++el ) {
         auto coord = el->centroid();
         if ( coord[0] >= x[i] && coord[0] <= x[i + 1] && coord[1] >= y[j] && coord[1] <= y[j + 1] )
             elements->push_back( el->clone() );
     }
-    return subchannel->Subset( AMP::Mesh::MeshListIterator( elements ) );
+    auto it = AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elements );
+    return subchannel->Subset( it );
 }
 
 

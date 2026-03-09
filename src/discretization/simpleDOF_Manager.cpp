@@ -489,8 +489,8 @@ void simpleDOFManager::registerChildObjects( AMP::IO::RestartManager *manager ) 
 {
     DOFManager::registerChildObjects( manager );
     manager->registerObject( d_mesh );
-    manager->registerObject( d_localIterator.shared_from_this() );
-    manager->registerObject( d_ghostIterator.shared_from_this() );
+    manager->registerObject( d_localIterator );
+    manager->registerObject( d_ghostIterator );
 }
 void simpleDOFManager::writeRestart( int64_t fid ) const
 {

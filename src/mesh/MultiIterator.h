@@ -9,6 +9,9 @@
 namespace AMP::Mesh {
 
 
+class MultiMesh;
+
+
 /**
  * \class MultiIterator
  * \brief A class used to combine multiple iterators
@@ -16,64 +19,84 @@ namespace AMP::Mesh {
  *  specifically, this class combines multiple iterators into one.  This
  *  is primarily needed for MultiMesh, but may be used for other applicaitons.
  */
-class MultiIterator final : public MeshIterator
+class MultiIterator final : public MeshIteratorBase
 {
+public:
+    using MeshIteratorPtr = std::unique_ptr<MeshIteratorBase>;
+
+
 public:
     //! Empty MultiIterator constructor
     MultiIterator();
 
     //! Default MultiIterator constructor
-    explicit MultiIterator( const std::vector<MeshIterator> &iterators, size_t global_pos = 0 );
+    explicit MultiIterator( std::vector<MeshIterator> iterators, size_t pos = 0 );
 
     //! Deconstructor
     virtual ~MultiIterator();
 
     //! Move constructor
-    MultiIterator( MultiIterator && ) = default;
+    MultiIterator( MultiIterator && );
 
     //! Copy constructor
-    MultiIterator( const MultiIterator & );
+    MultiIterator( const MultiIterator & ) = delete;
 
     //! Move operator
-    MultiIterator &operator=( MultiIterator && ) = default;
+    MultiIterator &operator=( MultiIterator && );
 
     //! Assignment operator
-    MultiIterator &operator=( const MultiIterator & );
+    MultiIterator &operator=( const MultiIterator & ) = delete;
+
+    //! Return the class name
+    std::string className() const override { return "MultiIterator"; }
+
+    //! Set the position in the iterator
+    void setPos( size_t ) override;
 
     // Increment
-    MeshIterator &operator++() override;
+    MeshIteratorBase &operator++() override;
 
     // Decrement
-    MeshIterator &operator--() override;
+    MeshIteratorBase &operator--() override;
 
     // Arithmetic operator+=
-    MeshIterator &operator+=( int N ) override;
+    MeshIteratorBase &operator+=( int N ) override;
 
     //! Check if two iterators are equal
-    bool operator==( const MeshIterator &rhs ) const override;
+    bool operator==( const MeshIteratorBase &rhs ) const override;
 
     //! Check if two iterators are not equal
-    bool operator!=( const MeshIterator &rhs ) const override;
+    bool operator!=( const MeshIteratorBase &rhs ) const override;
 
     //! Return an iterator to the begining
     MeshIterator begin() const override;
 
-    //! Return an iterator to the begining
-    MeshIterator end() const override;
+    //! Clone the iterator
+    std::unique_ptr<MeshIteratorBase> clone() const override;
 
-    using MeshIterator::operator+;
-    using MeshIterator::operator+=;
+    using MeshIteratorBase::operator==;
+    using MeshIteratorBase::operator!=;
+
+
+public: // Write/read restart data
+    void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
+    void writeRestart( int64_t fid ) const override;
+    MultiIterator( int64_t fid, AMP::IO::RestartManager *manager );
+
+
+public: // Advanced interfaces (use with caution)
+    explicit MultiIterator( std::vector<MeshIteratorBase *> &&iterators, size_t pos = 0 );
+
 
 protected:
-    //! Clone the iterator
-    MeshIterator *clone() const override;
+    friend class MultiMesh;
 
-private:
+
+protected:
     // Data members
-    size_t d_localPos, d_iteratorNum;
-    std::vector<size_t> d_iteratorSize;
-    std::vector<MeshIterator> d_iterators;
-    MeshIterator cur_iterator;
+    size_t d_localPos    = 0;
+    size_t d_iteratorNum = 0;
+    std::vector<MeshIteratorBase *> d_iterators;
 };
 
 

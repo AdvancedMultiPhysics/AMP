@@ -186,8 +186,9 @@ void SubchannelFourEqNonlinearOperator::reset( std::shared_ptr<const OperatorPar
         if ( !d_ownSubChannel[i] )
             continue;
         std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
-        auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
-        auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
+        auto localSubchannelIt =
+            AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elemPtr );
+        auto localSubchannel = d_Mesh->Subset( localSubchannelIt, false );
         auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
         for ( size_t j = 0; j < face.size(); j++ ) {
             d_subchannelFace[i].push_back( face->clone() );

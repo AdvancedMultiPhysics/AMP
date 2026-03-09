@@ -81,6 +81,9 @@ public:
 
     std::string type() const;
 
+    //! Return CSR mode of the matrix.
+    std::uint16_t mode() const { return static_cast<std::uint16_t>( Config::mode ); }
+
     //! Get all data fields as tuple
     std::tuple<lidx_t *, gidx_t *, lidx_t *, scalar_t *> getDataFields()
     {
