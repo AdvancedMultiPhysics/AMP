@@ -96,8 +96,7 @@ std::ostream &operator<<( std::ostream &out, const Matrix &M_in )
     out << "Compressed Matix: " << std::endl;
     for ( size_t row = leftDOF->beginDOF(); row < leftDOF->endDOF(); row++ ) {
         M->getRowByGlobalID( row, cols, values );
-        out << "Row " << row << " (" << cols.size() << " entries):"
-            << "\n";
+        out << "Row " << row << " (" << cols.size() << " entries):" << "\n";
         for ( size_t i = 0; i < cols.size(); i++ )
             out << "    M(" << row << "," << cols[i] << ") = " << values[i] << "\n";
     }
@@ -205,6 +204,33 @@ Matrix::Matrix( int64_t fid, AMP::IO::RestartManager *manager )
     d_matrixData = manager->getData<AMP::LinearAlgebra::MatrixData>( MatrixDataID );
     d_matrixOps  = manager->getData<AMP::LinearAlgebra::MatrixOperations>( MatrixOpsID );
 }
+
+
+/********************************************************
+ * Additional scaling operations                         *
+ ********************************************************/
+Vector::shared_ptr Matrix::getRowSums( Vector::shared_ptr buf ) const
+{
+    PROFILE( "getRowSums" );
+    Vector::shared_ptr out = buf;
+    if ( !buf )
+        out = this->createOutputVector();
+    out->setNoGhosts();
+    d_matrixOps->getRowSums( *getMatrixData(), out );
+    return out;
+}
+Vector::shared_ptr Matrix::getRowSumsAbsolute( Vector::shared_ptr buf,
+                                               const bool remove_zeros ) const
+{
+    PROFILE( "getRowSumsAbsolute" );
+    Vector::shared_ptr out = buf;
+    if ( !buf )
+        out = this->createOutputVector();
+    out->setNoGhosts();
+    d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out, remove_zeros );
+    return out;
+}
+
 
 } // namespace AMP::LinearAlgebra
 

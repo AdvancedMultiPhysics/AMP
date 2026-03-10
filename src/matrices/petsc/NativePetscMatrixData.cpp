@@ -209,6 +209,12 @@ void NativePetscMatrixData::getRowByGlobalID( size_t row,
         MatRestoreRow( d_Mat, row, &numCols, &out_cols, &out_vals );
     }
 }
+size_t NativePetscMatrixData::numberColumnIDs( size_t row ) const
+{
+    PetscInt numCols;
+    MatGetRow( d_Mat, row, &numCols, nullptr, nullptr );
+    return numCols;
+}
 std::vector<size_t> NativePetscMatrixData::getColumnIDs( size_t row ) const
 {
     PetscInt numCols;

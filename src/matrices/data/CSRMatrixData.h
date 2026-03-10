@@ -136,6 +136,11 @@ public:
                               void *values,
                               const typeID &id ) const override;
 
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in]  row Which row
+     */
+    size_t numberColumnIDs( size_t row ) const override;
+
     //! Get the global indices of nonzeros in a given row
     std::vector<size_t> getColumnIDs( size_t row ) const override;
 

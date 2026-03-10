@@ -233,9 +233,8 @@ AMP::Scalar DenseSerialMatrixOperations::LinfNorm( MatrixData const &A ) const
     double norm = 0.0;
     for ( size_t i = 0; i < nrows; i++ ) {
         double sum = 0.0;
-        for ( size_t j = 0; j < ncols; j++ ) {
-            sum += fabs( m1RawData[i + j * nrows] );
-        }
+        for ( size_t j = 0, k = i; j < ncols; j++, k += nrows )
+            sum += fabs( m1RawData[k] );
         norm = std::max( norm, sum );
     }
     return norm;
@@ -278,15 +277,43 @@ void DenseSerialMatrixOperations::scaleInv( AMP::Scalar,
 {
     AMP_ERROR( "Not implemented" );
 }
-void DenseSerialMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
+
+
+/****************************************************************
+ * Get row sums                                                  *
+ ****************************************************************/
+void DenseSerialMatrixOperations::getRowSums( MatrixData const &A, std::shared_ptr<Vector> sum )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_ASSERT( sum );
+    auto B = dynamic_cast<const DenseSerialMatrixData *>( &A );
+    AMP_ASSERT( B );
+    size_t Nr = B->d_rows;
+    size_t Nc = B->d_cols;
+    auto data = B->d_M;
+    for ( size_t i = 0; i < Nr; i++ ) {
+        double s = 0.0;
+        for ( size_t j = 0, k = i; j < Nc; j++, k += Nr )
+            s += data[k];
+        sum->setValueByGlobalID( i, s );
+    }
 }
-void DenseSerialMatrixOperations::getRowSumsAbsolute( MatrixData const &,
-                                                      std::shared_ptr<Vector>,
-                                                      const bool )
+void DenseSerialMatrixOperations::getRowSumsAbsolute( MatrixData const &A,
+                                                      std::shared_ptr<Vector> sum,
+                                                      const bool removeZeros )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_ASSERT( !removeZeros );
+    AMP_ASSERT( sum );
+    auto B = dynamic_cast<const DenseSerialMatrixData *>( &A );
+    AMP_ASSERT( B );
+    size_t Nr = B->d_rows;
+    size_t Nc = B->d_cols;
+    auto data = B->d_M;
+    for ( size_t i = 0; i < Nr; i++ ) {
+        double s = 0.0;
+        for ( size_t j = 0, k = i; j < Nc; j++, k += Nr )
+            s += fabs( data[k] );
+        sum->setValueByGlobalID( i, s );
+    }
 }
 
 

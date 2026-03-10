@@ -149,15 +149,6 @@ void EpetraMatrixOperations::scaleInv( AMP::Scalar, std::shared_ptr<const Vector
 {
     AMP_ERROR( "Not implemented" );
 }
-void EpetraMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
-{
-    AMP_ERROR( "Not implemented" );
-}
-void EpetraMatrixOperations::getRowSumsAbsolute( MatrixData const &,
-                                                 std::shared_ptr<Vector>,
-                                                 const bool )
-{
-    AMP_ERROR( "Not implemented" );
-}
+
 
 } // namespace AMP::LinearAlgebra

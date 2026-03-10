@@ -26,8 +26,8 @@ public:
      */
     explicit DenseSerialMatrixData( std::shared_ptr<MatrixParametersBase> params );
 
-    DenseSerialMatrixData()                                = delete;
-    DenseSerialMatrixData( const DenseSerialMatrixData & ) = delete;
+    DenseSerialMatrixData()                                           = delete;
+    DenseSerialMatrixData( const DenseSerialMatrixData & )            = delete;
     DenseSerialMatrixData &operator=( const DenseSerialMatrixData & ) = delete;
 
     /** \brief Destructor
@@ -108,6 +108,11 @@ public:
     void getRowByGlobalID( size_t row,
                            std::vector<size_t> &cols,
                            std::vector<double> &values ) const override;
+
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in]  row Which row
+     */
+    size_t numberColumnIDs( size_t row ) const override;
 
     /** \brief  Given a row, retrieve the non-zero column indices of the matrix in compressed format
      * \param[in]  row Which row

@@ -54,7 +54,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
 
     // Create the matrix
     auto A = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
-    fillWithPseudoLaplacian( A, dofManager );
+    fillWithPseudoLaplacian( A );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t nGlobalRows = A->numGlobalRows();

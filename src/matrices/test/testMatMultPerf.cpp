@@ -52,7 +52,7 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
     inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
     outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
     auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-    fillWithPseudoLaplacian( matrix_h, dofManager );
+    fillWithPseudoLaplacian( matrix_h );
 
     // migrate matrix if requested and possible
     auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );

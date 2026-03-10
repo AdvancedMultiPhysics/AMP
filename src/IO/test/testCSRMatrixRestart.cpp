@@ -43,8 +43,7 @@ bool equalRawArrays( const size_t n1, const size_t n2, entries_t const *a1, entr
     for ( size_t i = 0u; i < n1; ++i ) {
         pass = pass && ( a1[i] == a2[i] );
         if ( !pass )
-            AMP::pout << "a1[" << i << "]"
-                      << "a2[" << i << "]" << std::endl;
+            AMP::pout << "a1[" << i << "]" << "a2[" << i << "]" << std::endl;
     }
     if ( !pass )
         AMP::pout << "Values don't match " << std::endl;
@@ -193,7 +192,7 @@ void testCSRMatrixRestartWithDOFs( AMP::UnitTest *ut,
     createMatrixAndVectors<Config>(
         ut, AMP::Utilities::Backend::Serial, dofManager, matrix, uVec, yVec );
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    fillWithPseudoLaplacian( matrix );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     uVec->setRandomValues();

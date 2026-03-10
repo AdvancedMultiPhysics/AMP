@@ -189,13 +189,12 @@ void DenseSerialMatrixData::getRowByGlobalID( size_t row,
 /********************************************************
  * Get column indices by global id                       *
  ********************************************************/
+size_t DenseSerialMatrixData::numberColumnIDs( size_t ) const { return d_cols; }
 std::vector<size_t> DenseSerialMatrixData::getColumnIDs( size_t row ) const
 {
     AMP_ASSERT( row < d_rows );
-
     std::vector<size_t> cols( d_cols );
     std::iota( cols.begin(), cols.end(), 0 );
-
     return cols;
 }
 

@@ -143,7 +143,7 @@ void testCopyCast( AMP::UnitTest *ut,
     createMatrixAndVectors<ConfigD>( ut, test_name, backend, dofManager, C, x, y );
     createMatrixAndVectors<ConfigF>( ut, test_name, backend, dofManager, D, x, y );
 
-    fillWithPseudoLaplacian( A, dofManager );
+    fillWithPseudoLaplacian( A );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     B->copyCast( A );
