@@ -76,6 +76,12 @@ public:
     //! Return the type of the matrix
     std::string type() const override { return "CSRMatrixData"; }
 
+    //! Return CSR mode of the matrix.
+    virtual std::uint16_t mode() const override
+    {
+        return static_cast<std::uint16_t>( Config::mode );
+    }
+
     /** \brief  Retrieve a row of the matrix in compressed format
      * \param[in]  row     Which row
      * \param[out] cols    The column ids of the returned values

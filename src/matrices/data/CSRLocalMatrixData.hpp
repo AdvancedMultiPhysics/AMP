@@ -552,8 +552,9 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
     auto outData = std::make_shared<outdata_t>(
         nullptr, memloc, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
 
-    outData->d_is_empty = d_is_empty;
-    outData->d_nnz      = static_cast<typename outdata_t::lidx_t>( d_nnz );
+    outData->d_is_empty  = d_is_empty;
+    outData->d_nnz       = static_cast<typename outdata_t::lidx_t>( d_nnz );
+    outData->d_ncols_unq = d_ncols_unq;
 
     outData->d_cols     = nullptr;
     outData->d_cols_loc = nullptr;
@@ -580,8 +581,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
             AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
         }
         if ( d_cols_unq.get() != nullptr ) {
-            outData->d_ncols_unq = d_ncols_unq;
-            outData->d_cols_unq  = outdata_t::makeGidxArray( d_ncols_unq );
+            outData->d_cols_unq = outdata_t::makeGidxArray( d_ncols_unq );
             AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
         }
     }
@@ -1318,7 +1318,8 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
     if ( d_memory_location <= AMP::Utilities::MemoryType::host ) {
 
         row_starts.viewRaw( d_num_rows + 1, d_row_starts.get() );
-        cols_unq.viewRaw( d_ncols_unq, d_cols_unq.get() );
+        if ( !d_is_diag )
+            cols_unq.viewRaw( d_ncols_unq, d_cols_unq.get() );
         cols_loc.viewRaw( d_nnz, d_cols_loc.get() );
         if ( !d_is_symbolic )
             coeffs.viewRaw( d_nnz, d_coeffs.get() );
@@ -1328,8 +1329,10 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
         row_starts.resize( d_num_rows + 1 );
         AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts.data() );
 
-        cols_unq.resize( d_ncols_unq );
-        AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq.data() );
+        if ( !d_is_diag ) {
+            cols_unq.resize( d_ncols_unq );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq.data() );
+        }
 
         cols_loc.resize( d_nnz );
         AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc.data() );
@@ -1342,7 +1345,7 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
 
     if ( d_num_rows > 0 )
         IO::writeHDF5( fid, "row_starts", row_starts );
-    if ( d_ncols_unq > 0 )
+    if ( d_ncols_unq > 0 && !d_is_diag )
         IO::writeHDF5( fid, "cols_unq", cols_unq );
     if ( d_nnz > 0 )
         IO::writeHDF5( fid, "cols_loc", cols_loc );
@@ -1384,7 +1387,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
         AMP::Utilities::copy( d_num_rows + 1, row_starts.data(), d_row_starts.get() );
     }
 
-    if ( d_ncols_unq > 0 ) {
+    if ( d_ncols_unq > 0 && !d_is_diag ) {
         d_cols_unq = makeGidxArray( d_ncols_unq );
         AMP::Utilities::copy( d_ncols_unq, cols_unq.data(), d_cols_unq.get() );
     }

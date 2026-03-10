@@ -11,6 +11,7 @@
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Database.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Variable.h"
@@ -36,8 +37,9 @@
 template<typename Config>
 void createMatrixAndVectors( AMP::UnitTest *ut,
                              const std::string &test_name,
+                             AMP::Utilities::MemoryType mem_loc,
                              AMP::Utilities::Backend backend,
-                             std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                             std::shared_ptr<AMP::Discretization::DOFManager> dofManager,
                              std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &y )
@@ -46,19 +48,8 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-    // clang-format off
-#ifdef AMP_USE_DEVICE
-    // using AMP::ManagedAllocator<void>;
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-#else
-    // using AMP::HostAllocator<void>;
-    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
-#endif
-    // clang-format on
+    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
+    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
 
     ///// Temporary before updating create matrix
     // Get the DOFs
@@ -99,9 +90,9 @@ template<class Config>
 void checkEqualEntries( AMP::UnitTest *ut,
                         const std::string &test_name,
                         const std::string &task,
-                        std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
-                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &X,
-                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &Y,
+                        std::shared_ptr<AMP::Discretization::DOFManager> dofManager,
+                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> X,
+                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> Y,
                         double tol )
 {
     for ( size_t i = dofManager->beginDOF(); i != dofManager->endDOF(); i++ ) {
@@ -125,12 +116,14 @@ template<AMP::LinearAlgebra::alloc Allocator>
 void testCopyCast( AMP::UnitTest *ut,
                    const std::string &test_name,
                    AMP::Utilities::Backend backend,
-                   std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
+                   std::shared_ptr<AMP::Discretization::DOFManager> dofManager )
 {
     using AMP::LinearAlgebra::index;
     using AMP::LinearAlgebra::scalar;
     using ConfigD = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f64>;
     using ConfigF = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f32>;
+
+    const auto mem_loc = AMP::LinearAlgebra::alloc_info<Allocator>::mem_loc;
 
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigD>> A = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigF>> B = nullptr;
@@ -138,10 +131,10 @@ void testCopyCast( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigF>> D = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> x             = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Vector> y             = nullptr;
-    createMatrixAndVectors<ConfigD>( ut, test_name, backend, dofManager, A, x, y );
-    createMatrixAndVectors<ConfigF>( ut, test_name, backend, dofManager, B, x, y );
-    createMatrixAndVectors<ConfigD>( ut, test_name, backend, dofManager, C, x, y );
-    createMatrixAndVectors<ConfigF>( ut, test_name, backend, dofManager, D, x, y );
+    createMatrixAndVectors<ConfigD>( ut, test_name, mem_loc, backend, dofManager, A, x, y );
+    createMatrixAndVectors<ConfigF>( ut, test_name, mem_loc, backend, dofManager, B, x, y );
+    createMatrixAndVectors<ConfigD>( ut, test_name, mem_loc, backend, dofManager, C, x, y );
+    createMatrixAndVectors<ConfigF>( ut, test_name, mem_loc, backend, dofManager, D, x, y );
 
     fillWithPseudoLaplacian( A );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );

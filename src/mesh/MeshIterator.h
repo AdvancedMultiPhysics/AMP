@@ -122,11 +122,11 @@ public: // Write/read restart data
 
 
 protected:
-    MeshIteratorBase()                                      = default;
-    MeshIteratorBase( const MeshIteratorBase & )            = delete;
+    MeshIteratorBase()                           = default;
+    MeshIteratorBase( const MeshIteratorBase & ) = delete;
     MeshIteratorBase &operator=( const MeshIteratorBase & ) = delete;
     MeshIteratorBase( MeshIteratorBase && )                 = delete;
-    MeshIteratorBase &operator=( MeshIteratorBase && )      = delete;
+    MeshIteratorBase &operator=( MeshIteratorBase && ) = delete;
 
 
 protected:
