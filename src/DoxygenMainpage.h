@@ -7,11 +7,23 @@
 \mainpage The AMP (Advanced Multi-Physics) Package Documentation System
 
 \par Authors
-<a href="mailto:philipb@ornl.gov">Bobby Philip (ORNL)</a>.<BR>
+
 <a href="mailto:berrillma@ornl.gov">Mark Berrill (ORNL)</a>.<BR>
-<a href="mailto:clarnokt@ornl.gov">Kevin Clarno (ORNL)</a>.<BR>
-<a href="mailto:sampathrs@ornl.gov">Rahul Sampath (ORNL)</a>.<BR>
-<a href="mailto:hamiltonsp@ornl.gov">Steven Hamilton (ORNL)</a>.<BR>
+Bobby Philip (ORNL/LANL)<BR>
+Andrew Reisner (LANL)<BR>
+Richard Berger (LANL)<BR>
+Brian Romero (LANL)<BR>
+Ian May (LANL)<BR>
+Charles Ferenbaugh (LANL)<BR>
+Jesus Bonilla (LANL)<BR>
+Kevin Clarno (ORNL)<BR>
+Damien Lebrun-Grandie (ORNL)<BR>
+Gary Dilts (LANL)<BR>
+Bill Cochran (ORNL)<BR>
+Rahul Sampath (ORNL)<BR>
+Srikanth Allu (ORNL)<BR>
+Steven Hamilton (ORNL)<BR>
+Giacomo Capodaglio (LANL)<BR>
 
 \par Executive Summary
 Simulations of multiphysics systems are becoming increasingly important in many
