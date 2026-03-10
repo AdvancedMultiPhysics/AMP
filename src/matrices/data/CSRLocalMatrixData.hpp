@@ -74,19 +74,21 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         // Pull out block specific parameters
         auto &blParams = d_is_diag ? rawCSRParams->d_diag : rawCSRParams->d_off_diag;
 
+        // we guarantee that row_starts always exists, even for empty matrices
         if ( blParams.d_row_starts == nullptr ) {
-            d_is_empty = true;
+            d_is_empty   = true;
+            d_nnz        = 0;
+            d_row_starts = makeLidxArray( d_num_rows + 1 );
+            AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
             return;
         }
 
         // count nnz and decide if block is empty
-        d_nnz = blParams.d_row_starts[d_num_rows];
-
-        if ( d_nnz == 0 ) {
-            d_is_empty = true;
-            return;
-        }
-        d_is_empty = false;
+        // row starts may not be host-accessible, so do a copy to get last entry
+        lidx_t nnz;
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( &blParams.d_row_starts[d_num_rows], 1, &nnz );
+        d_nnz      = nnz;
+        d_is_empty = ( d_nnz == 0 );
 
         // Wrap raw pointers from blParams to match internal
         // shared_ptr<T[]> type
@@ -1336,15 +1338,19 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
     }
 
     if ( d_num_rows > 0 ) {
+        AMP_INSIST( row_starts.data(), "CSRLocalMatrixData::writeRestart: bad row starts" );
         IO::writeHDF5( fid, "row_starts", row_starts );
     }
     if ( d_ncols_unq > 0 && !d_is_diag ) {
+        AMP_INSIST( cols_unq.data(), "CSRLocalMatrixData::writeRestart: bad cols unq" );
         IO::writeHDF5( fid, "cols_unq", cols_unq );
     }
     if ( d_nnz > 0 ) {
+        AMP_INSIST( cols_loc.data(), "CSRLocalMatrixData::writeRestart: bad cols loc" );
         IO::writeHDF5( fid, "cols_loc", cols_loc );
     }
     if ( d_nnz > 0 && !d_is_symbolic ) {
+        AMP_INSIST( coeffs.data(), "CSRLocalMatrixData::writeRestart: bad coeffs" );
         IO::writeHDF5( fid, "coeffs", coeffs );
     }
 }
