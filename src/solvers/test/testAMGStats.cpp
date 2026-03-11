@@ -4,8 +4,8 @@
 #include "AMP/operators/LinearBVPOperator.h"
 #include "AMP/operators/OperatorBuilder.h"
 #include "AMP/solvers/SolverFactory.h"
+#include "AMP/solvers/amg/SASolver.h"
 #include "AMP/solvers/amg/Stats.h"
-#include "AMP/solvers/amg/UASolver.h"
 #include "AMP/solvers/testHelpers/SolverTestParameters.h"
 #include "AMP/solvers/testHelpers/testSolverHelpers.h"
 #include "AMP/utils/AMPManager.h"
@@ -86,15 +86,15 @@ bool compare_expected( AMP::UnitTest &ut,
     using level_t = AMP::Solver::AMG::HierarchyStats::level_type;
     for ( std::size_t i = 0; i < a.levels.size(); ++i ) {
         if ( ![&]( const level_t &al, const level_t &bl ) {
-			auto cmp = [](const char * name, auto a, auto b) {
-				if (a != b)
-					AMP::pout << name << ": " << a << " vs " << b << std::endl;
-			};
-			cmp("comm_size", al.comm_size, bl.comm_size);
-			cmp("nrows", al.nrows, bl.nrows);
-			cmp("nnz", al.nnz, bl.nnz);
-			cmp("max_local_rows", al.max_local_rows, bl.max_local_rows);
-			cmp("min_local_rows", al.min_local_rows, bl.min_local_rows);
+                 auto cmp = []( const char *name, auto a, auto b ) {
+                     if ( a != b )
+                         AMP::pout << name << ": " << a << " vs " << b << std::endl;
+                 };
+                 cmp( "comm_size", al.comm_size, bl.comm_size );
+                 cmp( "nrows", al.nrows, bl.nrows );
+                 cmp( "nnz", al.nnz, bl.nnz );
+                 cmp( "max_local_rows", al.max_local_rows, bl.max_local_rows );
+                 cmp( "min_local_rows", al.min_local_rows, bl.min_local_rows );
                  return al.solver_name == bl.solver_name && al.comm_size == bl.comm_size &&
                         al.nrows == bl.nrows && al.nnz == bl.nnz &&
                         al.max_local_rows == bl.max_local_rows &&
@@ -132,20 +132,18 @@ void statsTest( AMP::UnitTest *ut,
 
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, linearOperator );
-    auto amg =
-        std::dynamic_pointer_cast<AMP::Solver::AMG::UASolver>( linearSolver->getNestedSolver() );
+    auto amg = std::dynamic_pointer_cast<AMP::Solver::AMG::SASolver>( linearSolver );
     AMP_INSIST( amg, "testAMGStats: preconditioner must be AMG" );
 
-    AMP::Solver::AMG::HierarchyStats expected{ 1.15,
-                                               1.13535523,
-                                               { { "UASolver", 2, 4913, 117649, 2601, 2312 },
-                                                 { "UASolver", 2, 581, 16124, 327, 254 },
-                                                 { "UASolver", 2, 74, 1444, 42, 32 },
-                                                 { "BoomerAMGSolver", 2, 10, 80, 6, 4 } } };
+    AMP::Solver::AMG::HierarchyStats expected{ 1.12446,
+                                               1.0458,
+                                               { { "SASolver", 2, 4913, 117649, 2601, 2312 },
+                                                 { "SASolver", 2, 216, 14562, 108, 108 },
+                                                 { "BoomerAMGSolver", 2, 9, 81, 5, 4 } } };
 
     auto stats =
-         AMP::Solver::AMG::collect_statistics( amg->type(), amg->levels(), amg->getCoarseSolver() );
-	AMP::Solver::AMG::print_summary( amg->type(), amg->levels(), amg->getCoarseSolver() );
+        AMP::Solver::AMG::collect_statistics( amg->type(), amg->levels(), amg->getCoarseSolver() );
+    AMP::Solver::AMG::print_summary( amg->type(), amg->levels(), amg->getCoarseSolver() );
 
     auto is_expected = compare_expected( *ut, stats, expected );
     if ( is_expected )
@@ -166,7 +164,7 @@ int main( int argc, char *argv[] )
     AMP::UnitTest ut;
 
     std::string physicsInput = "input_LinearThermalRobinOperator";
-    std::string generalInput = "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG";
+    std::string generalInput = "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG";
     AMP_INSIST( AMP::LinearAlgebra::getDefaultMatrixType() == "CSRMatrix",
                 "CSRMatrix required for AMG Stats." );
 #ifdef AMP_USE_HYPRE

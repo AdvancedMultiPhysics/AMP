@@ -38,6 +38,8 @@ public:
 
     void apply( std::shared_ptr<const LinearAlgebra::Vector> f,
                 std::shared_ptr<LinearAlgebra::Vector> u ) override;
+    const std::vector<KCycleLevel> &levels() const { return d_levels; }
+    const SolverStrategy &getCoarseSolver() const { return *d_coarse_solver; }
 
 protected:
     // **** settings applicable to solver as a whole **** //
