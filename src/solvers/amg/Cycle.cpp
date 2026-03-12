@@ -2,6 +2,7 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/matrices/CSRVisit.h"
+#include "AMP/matrices/data/CSRMatrixData.h"
 
 #define AMP_AMG_CYCLE_PROFILE
 
@@ -215,8 +216,8 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
         AMP_ASSERT( A->mode() < std::numeric_limits<std::uint16_t>::max() );
 
         // make writer and use visitor to dump matrix
-        AMP::IO::RestartManager writer;
-        LinearAlgebra::csrVisit( A, [fname_A, &writer]( auto csr_ptr ) {
+        LinearAlgebra::csrVisit( A, [fname_A]( auto csr_ptr ) {
+            AMP::IO::RestartManager writer;
             writer.registerData( csr_ptr, "A" );
             writer.write( fname_A );
         } );
@@ -236,11 +237,13 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
             AMP_ASSERT( R->mode() < std::numeric_limits<std::uint16_t>::max() );
             AMP_ASSERT( P->mode() < std::numeric_limits<std::uint16_t>::max() );
 
-            LinearAlgebra::csrVisit( R, [fname_R, &writer]( auto csr_ptr ) {
+            LinearAlgebra::csrVisit( R, [fname_R]( auto csr_ptr ) {
+                AMP::IO::RestartManager writer;
                 writer.registerData( csr_ptr, "R" );
                 writer.write( fname_R );
             } );
-            LinearAlgebra::csrVisit( P, [fname_P, &writer]( auto csr_ptr ) {
+            LinearAlgebra::csrVisit( P, [fname_P]( auto csr_ptr ) {
+                AMP::IO::RestartManager writer;
                 writer.registerData( csr_ptr, "P" );
                 writer.write( fname_P );
             } );

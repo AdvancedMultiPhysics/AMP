@@ -220,24 +220,25 @@ template<typename lidx_t>
 AMP_FUNCTION_HD void agg_from_row( const lidx_t row,
                                    const lidx_t *row_start,
                                    const lidx_t *cols_loc,
+                                   const lidx_t *agg_ids_curr,
                                    uint64_t *labels,
                                    lidx_t *agg_size,
-                                   lidx_t *agg_ids )
+                                   lidx_t *agg_ids_out )
 {
-    if ( labels[row] != MIS2Aggregator::IN || agg_ids[row] != MIS2Aggregator::UNASSIGNED ) {
+    if ( labels[row] != MIS2Aggregator::IN || agg_ids_curr[row] != MIS2Aggregator::UNASSIGNED ) {
         // not (valid) root node, nothing to do
         return;
     }
     // have root node, push new aggregate and set ids
     agg_size[row] = 0;
     for ( lidx_t c = row_start[row]; c < row_start[row + 1]; ++c ) {
-        if ( agg_ids[cols_loc[c]] != MIS2Aggregator::UNASSIGNED ) {
+        if ( agg_ids_curr[cols_loc[c]] != MIS2Aggregator::UNASSIGNED ) {
             continue;
         }
         if ( c > row_start[row] ) {
             labels[cols_loc[c]] = MIS2Aggregator::OUT;
         }
-        agg_ids[cols_loc[c]] = row;
+        agg_ids_out[cols_loc[c]] = row;
         agg_size[row]++;
     }
 }
@@ -427,13 +428,15 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( agg_root_ids.get(), A_nrows, agg_ids );
         auto Tv_ptr           = Tv.get();
         auto agg_size_ptr     = agg_size.get();
         auto agg_root_ids_ptr = agg_root_ids.get();
         auto build_agg =
-            [Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr] AMP_FUNCTION_HD(
+            [Am_rs, Am_cols_loc, agg_ids, Tv_ptr, agg_size_ptr, agg_root_ids_ptr] AMP_FUNCTION_HD(
                 const lidx_t row ) -> void {
-            agg_from_row( row, Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr );
+            agg_from_row(
+                row, Am_rs, Am_cols_loc, agg_ids, Tv_ptr, agg_size_ptr, agg_root_ids_ptr );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -483,13 +486,15 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     {
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( agg_root_ids.get(), A_nrows, agg_ids );
         auto Tv_ptr           = Tv.get();
         auto agg_size_ptr     = agg_size.get();
         auto agg_root_ids_ptr = agg_root_ids.get();
         auto build_agg =
-            [Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr] AMP_FUNCTION_HD(
+            [Am_rs, Am_cols_loc, agg_ids, Tv_ptr, agg_size_ptr, agg_root_ids_ptr] AMP_FUNCTION_HD(
                 const lidx_t row ) -> void {
-            agg_from_row( row, Am_rs, Am_cols_loc, Tv_ptr, agg_size_ptr, agg_root_ids_ptr );
+            agg_from_row(
+                row, Am_rs, Am_cols_loc, agg_ids, Tv_ptr, agg_size_ptr, agg_root_ids_ptr );
         };
         if constexpr ( host_exec ) {
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
@@ -510,10 +515,6 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     Tv_hat.reset();
 
     // Add unmarked entries to the smallest aggregate they are nbrs with
-    // this differs from host version, here sizes are not updated during
-    // growth to avoid race conditions. "smallest aggregate" now means
-    // smallest from above steps only. Also, for simplicity it just gets
-    // called twice
     for ( int ngrow = 0; ngrow < 3; ++ngrow ) {
         auto agg_size_ptr     = agg_size.get();
         auto agg_root_ids_ptr = agg_root_ids.get();
