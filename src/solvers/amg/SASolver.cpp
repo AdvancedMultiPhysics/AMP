@@ -49,9 +49,9 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
 void SASolver::resetLevelOptions()
 {
     d_coarsen_settings.strength_threshold =
-        d_db->getWithDefault<float>( "strength_threshold", 0.25 );
+        d_db->getWithDefault<float>( "strength_threshold", 0.01 );
     d_coarsen_settings.strength_measure =
-        d_db->getWithDefault<std::string>( "strength_measure", "classical_min" );
+        d_db->getWithDefault<std::string>( "strength_measure", "symagg_min" );
     d_coarsen_settings.checkdd              = d_db->getWithDefault<bool>( "checkdd", true );
     d_pair_coarsen_settings                 = d_coarsen_settings;
     d_pair_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
@@ -152,19 +152,21 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
         AMP_ERROR( "Unrecognized memory location" );
     }
 
+    // get in/out variables from given op so that all remaining
+    // ops have compatible ones
+    auto xVar = fine_op->getInputVariable();
+    auto bVar = fine_op->getOutputVariable();
+
     // fill in finest level and setup remaining levels
     auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
     d_levels.back().A->setMatrix( mat );
+    d_levels.back().A->setVariables( xVar, bVar );
     d_levels.back().pre_relaxation  = createRelaxation( 0, fine_op, d_pre_relax_params );
     d_levels.back().post_relaxation = createRelaxation( 0, fine_op, d_post_relax_params );
     d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
-
-    auto xVar = d_levels.back().correction->getVariable();
-    auto bVar = d_levels.back().r->getVariable();
-    d_levels.back().A->setVariables( xVar, bVar );
 
     setup( xVar, bVar );
 }
@@ -193,6 +195,10 @@ void SASolver::makeCoarseSolver()
 void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
                                  std::shared_ptr<LinearAlgebra::Matrix> &P ) const
 {
+    if ( d_num_smooth_prol == 0 ) {
+        return;
+    }
+
     // Get D as absolute row sums of A
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
