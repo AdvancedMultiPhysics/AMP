@@ -1,10 +1,12 @@
 #include "AMP/matrices/data/DenseSerialMatrixData.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/vectors/VectorBuilder.h"
+
 #include <cstdio>
 #include <cstring>
-
 #include <numeric>
+#include <stdlib.h>
+
 
 namespace AMP::LinearAlgebra {
 
@@ -21,14 +23,13 @@ DenseSerialMatrixData::DenseSerialMatrixData( std::shared_ptr<MatrixParametersBa
     d_DOFManagerRight = params->getRightDOFManager();
     d_rows            = params->getGlobalNumberOfRows();
     d_cols            = params->getGlobalNumberOfColumns();
-    d_M               = new double[d_rows * d_cols];
-    memset( d_M, 0, d_rows * d_cols * sizeof( double ) );
+    d_M               = (double *) calloc( d_rows * d_cols, sizeof( double ) );
 }
 
 DenseSerialMatrixData::~DenseSerialMatrixData()
 {
     if ( d_M ) {
-        delete[] d_M;
+        free( d_M );
         d_M = nullptr;
     }
 }
