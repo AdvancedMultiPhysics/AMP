@@ -26,8 +26,8 @@ public:
      */
     explicit DenseSerialMatrixData( std::shared_ptr<MatrixParametersBase> params );
 
-    DenseSerialMatrixData()                                           = delete;
-    DenseSerialMatrixData( const DenseSerialMatrixData & )            = delete;
+    DenseSerialMatrixData()                                = delete;
+    DenseSerialMatrixData( const DenseSerialMatrixData & ) = delete;
     DenseSerialMatrixData &operator=( const DenseSerialMatrixData & ) = delete;
 
     /** \brief Destructor

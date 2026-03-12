@@ -96,7 +96,8 @@ std::ostream &operator<<( std::ostream &out, const Matrix &M_in )
     out << "Compressed Matix: " << std::endl;
     for ( size_t row = leftDOF->beginDOF(); row < leftDOF->endDOF(); row++ ) {
         M->getRowByGlobalID( row, cols, values );
-        out << "Row " << row << " (" << cols.size() << " entries):" << "\n";
+        out << "Row " << row << " (" << cols.size() << " entries):"
+            << "\n";
         for ( size_t i = 0; i < cols.size(); i++ )
             out << "    M(" << row << "," << cols[i] << ") = " << values[i] << "\n";
     }
