@@ -53,10 +53,11 @@ NativePetscMatrixData::NativePetscMatrixData( std::shared_ptr<MatrixParametersBa
     // to find the on and off diag nnz counts
     std::vector<PetscInt> diag_nnz( nrows, 0 ), off_diag_nnz( nrows, 0 );
     size_t max_row_nnz = 0;
+    std::vector<std::vector<size_t>> cols( nrows );
     for ( size_t i = 0; i < nrows; ++i ) {
-        const auto cols = getRow( i + srow );
+        cols[i] = getRow( i + srow );
         // test if columns are on/off diag and increment accordingly
-        for ( auto &&col : cols ) {
+        for ( auto &&col : cols[i] ) {
             if ( fcol <= col && col < lcol ) {
                 diag_nnz[i]++;
             } else {
@@ -64,7 +65,7 @@ NativePetscMatrixData::NativePetscMatrixData( std::shared_ptr<MatrixParametersBa
             }
         }
         // also track the longest row (regardless of where the nnz go)
-        const auto row_nnz = cols.size();
+        const auto row_nnz = cols[i].size();
         max_row_nnz        = row_nnz > max_row_nnz ? row_nnz : max_row_nnz;
     }
 
@@ -80,12 +81,9 @@ NativePetscMatrixData::NativePetscMatrixData( std::shared_ptr<MatrixParametersBa
     std::vector<PetscReal> petsc_vals( max_row_nnz, 0 );
     for ( size_t i = 0; i < nrows; ++i ) {
         PetscInt global_row = srow + i;
-        const auto amp_cols = getRow( global_row );
-        std::transform( amp_cols.begin(),
-                        amp_cols.end(),
-                        petsc_cols.begin(),
-                        []( size_t c ) -> PetscInt { return c; } );
-        PetscInt nvals = static_cast<PetscInt>( amp_cols.size() );
+        for ( size_t j = 0; j < cols[i].size(); j++ )
+            petsc_cols[j] = static_cast<PetscInt>( cols[i][j] );
+        PetscInt nvals = static_cast<PetscInt>( cols[i].size() );
         MatSetValues(
             d_Mat, 1, &global_row, nvals, petsc_cols.data(), petsc_vals.data(), INSERT_VALUES );
     }
