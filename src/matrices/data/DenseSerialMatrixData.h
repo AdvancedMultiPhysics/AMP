@@ -158,26 +158,35 @@ public:
      */
     size_t numGlobalColumns() const override { return d_cols; }
 
+    /** \brief  Get the number of values in the matrix
+     * \return  The total number of values (rows * columns)
+     */
+    inline size_t size() const { return d_rows *d_cols; }
+
+    /** \brief  Get the underlying raw pointer
+     * \return  The the pointer to the data
+     */
+    inline double *getM() { return d_M; }
+
+    /** \brief  Get the underlying raw pointer
+     * \return  The the pointer to the data
+     */
+    inline const double *getM() const { return d_M; }
+
     /** \brief Return the typeid of the matrix coeffs
      */
-    typeID getCoeffType() const override
+    inline typeID getCoeffType() const override
     {
         constexpr auto type = getTypeID<double>();
         return type;
     }
 
 protected:
-    // AMP variables and DOFManagers for the left and right vectors
-    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerLeft;
-    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerRight;
-
-    // Data for the matrix
-    size_t d_rows;
-    size_t d_cols;
-    double *d_M = nullptr;
-
-    friend class DenseSerialMatrix;
-    friend class DenseSerialMatrixOperations;
+    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerLeft;  //!< Left DOF Manager
+    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerRight; //!< Right DOF Manager
+    size_t d_rows;                                                      //!< Number of rows
+    size_t d_cols;                                                      //!< Number of columns
+    double *d_M = nullptr;                                              //!< Matrix data
 };
 } // namespace AMP::LinearAlgebra
 
