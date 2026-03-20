@@ -161,7 +161,7 @@ public:
     /** \brief  Get the number of values in the matrix
      * \return  The total number of values (rows * columns)
      */
-    inline size_t size() const { return d_rows *d_cols; }
+    inline size_t size() const { return d_rows * d_cols; }
 
     /** \brief  Get the underlying raw pointer
      * \return  The the pointer to the data

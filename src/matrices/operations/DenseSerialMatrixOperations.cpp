@@ -111,7 +111,7 @@ void DenseSerialMatrixOperations::matMatMult( std::shared_ptr<MatrixData> Am,
     for ( size_t m = 0; m < M; m++ ) {
         for ( size_t k = 0; k < K; k++ ) {
             double b = B[k + m * K];
-            for ( size_t n = 0, ic = m*N, iA = k*N; n < N; n++, ic++, iA++ ) {
+            for ( size_t n = 0, ic = m * N, iA = k * N; n < N; n++, ic++, iA++ ) {
                 C[ic] += A[iA] * b;
             }
         }
