@@ -206,6 +206,33 @@ Matrix::Matrix( int64_t fid, AMP::IO::RestartManager *manager )
     d_matrixOps  = manager->getData<AMP::LinearAlgebra::MatrixOperations>( MatrixOpsID );
 }
 
+
+/********************************************************
+ * Additional scaling operations                         *
+ ********************************************************/
+Vector::shared_ptr Matrix::getRowSums( Vector::shared_ptr buf ) const
+{
+    PROFILE( "getRowSums" );
+    Vector::shared_ptr out = buf;
+    if ( !buf )
+        out = this->createOutputVector();
+    out->setNoGhosts();
+    d_matrixOps->getRowSums( *getMatrixData(), out );
+    return out;
+}
+Vector::shared_ptr Matrix::getRowSumsAbsolute( Vector::shared_ptr buf,
+                                               const bool remove_zeros ) const
+{
+    PROFILE( "getRowSumsAbsolute" );
+    Vector::shared_ptr out = buf;
+    if ( !buf )
+        out = this->createOutputVector();
+    out->setNoGhosts();
+    d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out, remove_zeros );
+    return out;
+}
+
+
 } // namespace AMP::LinearAlgebra
 
 

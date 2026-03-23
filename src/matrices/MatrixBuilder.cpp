@@ -219,13 +219,9 @@ createDenseSerialMatrix( AMP::LinearAlgebra::Vector::shared_ptr leftVec,
     auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
         leftDOF, rightDOF, comm, leftVec->getVariable(), rightVec->getVariable() );
 
-    // Create the matrix
+    // Create the matrix (it is initialized internally to zero)
     auto data      = std::make_shared<AMP::LinearAlgebra::DenseSerialMatrixData>( params );
     auto newMatrix = std::make_shared<AMP::LinearAlgebra::DenseSerialMatrix>( data );
-
-    // Initialize the matrix
-    newMatrix->zero();
-    newMatrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     return newMatrix;
 }
 

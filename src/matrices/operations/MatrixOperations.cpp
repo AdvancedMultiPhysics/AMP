@@ -1,7 +1,9 @@
 #include "AMP/matrices/operations/MatrixOperations.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/IO/RestartManager.h"
+#include "AMP/matrices/data/MatrixData.h"
 #include "AMP/matrices/operations/MatrixOperationsFactory.h"
+#include "AMP/vectors/Vector.h"
 
 
 namespace AMP::LinearAlgebra {
@@ -9,18 +11,59 @@ namespace AMP::LinearAlgebra {
 /****************************************************************
  * Constructors                                                  *
  ****************************************************************/
-// this should change to be unique across processes
 MatrixOperations::MatrixOperations() : d_hash( reinterpret_cast<uint64_t>( this ) ) {}
+
 
 /****************************************************************
  * Get an id                                                     *
  ****************************************************************/
 uint64_t MatrixOperations::getID() const { return d_hash; }
 
+
+/****************************************************************
+ * Copy cast data                                                *
+ ****************************************************************/
 void MatrixOperations::copyCast( const MatrixData &, MatrixData & )
 {
     AMP_ERROR( "NOT IMPLEMENTED" );
 }
+
+
+/****************************************************************
+ * Default implementation of getRowSums                          *
+ ****************************************************************/
+void MatrixOperations::getRowSums( MatrixData const &A, std::shared_ptr<Vector> sum )
+{
+    AMP_ASSERT( sum );
+    sum->zero();
+    std::vector<size_t> cols;
+    std::vector<double> values;
+    for ( size_t row = A.beginRow(); row != A.endRow(); row++ ) {
+        A.getRowByGlobalID( row, cols, values );
+        double s = 0.0;
+        for ( auto &value : values )
+            s += value;
+        sum->setValueByGlobalID( row, s );
+    }
+}
+void MatrixOperations::getRowSumsAbsolute( MatrixData const &A,
+                                           std::shared_ptr<Vector> sum,
+                                           const bool removeZeros )
+{
+    AMP_ASSERT( !removeZeros );
+    AMP_ASSERT( sum );
+    sum->zero();
+    std::vector<size_t> cols;
+    std::vector<double> values;
+    for ( size_t row = A.beginRow(); row != A.endRow(); row++ ) {
+        A.getRowByGlobalID( row, cols, values );
+        double s = 0.0;
+        for ( auto &value : values )
+            s += fabs( value );
+        sum->setValueByGlobalID( row, s );
+    }
+}
+
 
 /****************************************************************
  * Write/Read restart data                                       *

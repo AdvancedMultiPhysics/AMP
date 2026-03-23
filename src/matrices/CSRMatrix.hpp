@@ -282,49 +282,12 @@ Vector::shared_ptr CSRMatrix<Config>::extractDiagonal( Vector::shared_ptr buf ) 
 }
 
 /********************************************************
- * Additional scaling operations                         *
- ********************************************************/
-template<typename Config>
-Vector::shared_ptr CSRMatrix<Config>::getRowSums( Vector::shared_ptr buf ) const
-{
-    PROFILE( "CSRMatrix::getRowSums" );
-
-    Vector::shared_ptr out = buf;
-    if ( !buf ) {
-        out = this->createOutputVector();
-    }
-    out->setNoGhosts();
-
-    d_matrixOps->getRowSums( *getMatrixData(), out );
-
-    return out;
-}
-
-template<typename Config>
-Vector::shared_ptr CSRMatrix<Config>::getRowSumsAbsolute( Vector::shared_ptr buf,
-                                                          const bool remove_zeros ) const
-{
-    PROFILE( "CSRMatrix::getRowSumsAbsolute" );
-
-    Vector::shared_ptr out = buf;
-    if ( !buf ) {
-        out = this->createOutputVector();
-    }
-    out->setNoGhosts();
-
-    d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out, remove_zeros );
-
-    return out;
-}
-
-/********************************************************
  * Get the left/right vectors and DOFManagers            *
  ********************************************************/
 template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::createInputVector() const
 {
     PROFILE( "CSRMatrix::createInputVector" );
-
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getRightVariable();
     auto backend      = d_matrixData->getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
@@ -335,13 +298,16 @@ template<typename Config>
 Vector::shared_ptr CSRMatrix<Config>::createOutputVector() const
 {
     PROFILE( "CSRMatrix::createOutputVector" );
-
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getLeftVariable();
     auto backend      = d_matrixData->getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
     return createVector( getLeftDOFManager(), var, true, memloc, backend );
 }
 
+
+/********************************************************
+ *  Restart operations                                   *
+ ********************************************************/
 template<typename Config>
 CSRMatrix<Config>::CSRMatrix( int64_t fid, AMP::IO::RestartManager *manager )
     : Matrix( fid, manager )

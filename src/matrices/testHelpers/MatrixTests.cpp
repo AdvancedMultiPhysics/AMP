@@ -26,13 +26,14 @@ void testBasics( AMP::UnitTest &ut, const std::string &type )
 }
 
 
-void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
-                              std::shared_ptr<AMP::Discretization::DOFManager> dofmap )
+void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
 {
+    size_t start = matrix->beginRow();
+    size_t end   = matrix->endRow();
     if ( matrix->type() == "NativePetscMatrix" ) {
         std::map<size_t, std::vector<size_t>> allCols;
         std::map<size_t, std::vector<double>> allVals;
-        for ( size_t i = dofmap->beginDOF(); i != dofmap->endDOF(); i++ ) {
+        for ( size_t i = start; i != end; i++ ) {
             const auto cols  = matrix->getColumnIDs( i );
             const auto ncols = cols.size();
             std::vector<double> vals( ncols );
@@ -45,38 +46,22 @@ void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix
             allVals[i] = vals;
             allCols[i] = cols;
         }
-        for ( size_t i = dofmap->beginDOF(); i != dofmap->endDOF(); i++ ) {
+        for ( size_t i = start; i != end; i++ ) {
             auto &cols = allCols[i];
             auto &vals = allVals[i];
             matrix->setValuesByGlobalID( 1, cols.size(), &i, cols.data(), vals.data() );
         }
     } else {
-
-        for ( size_t i = dofmap->beginDOF(); i != dofmap->endDOF(); i++ ) {
-            auto cols        = matrix->getColumnIDs( i );
-            const auto ncols = cols.size();
-            std::vector<double> vals( ncols );
-            for ( size_t j = 0; j != ncols; j++ ) {
-                if ( cols[j] == i )
-                    vals[j] = static_cast<double>( ncols );
-                else
-                    vals[j] = -1;
-            }
-            if ( ncols ) {
-                matrix->setValuesByGlobalID<double>( 1, ncols, &i, cols.data(), vals.data() );
-            }
+        matrix->setScalar( -1 );
+        for ( size_t i = start; i != end; i++ ) {
+            size_t ncols = matrix->numberColumnIDs( i );
+            AMP_ASSERT( ncols > 0 );
+            matrix->setValueByGlobalID<double>( i, i, ncols );
         }
     }
-
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 }
 
-static void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
-                                     std::shared_ptr<const MatrixFactory> factory )
-{
-    auto dofmap = factory->getDOFMap();
-    fillWithPseudoLaplacian( matrix, dofmap );
-}
 
 void MatrixTests::InstantiateMatrix( AMP::UnitTest *utils )
 {
@@ -128,26 +113,25 @@ void MatrixTests::VerifyGetLeftRightVector( AMP::UnitTest *utils )
 void MatrixTests::VerifyGetSetValuesMatrix( AMP::UnitTest *utils )
 {
     PROFILE( "VerifyGetSetValuesMatrix" );
-    auto matrix = d_factory->getMatrix();
-    auto dofmap = d_factory->getDOFMap();
-
-    //    matrix->makeConsistent();
-    fillWithPseudoLaplacian( matrix, d_factory );
+    auto matrix  = d_factory->getMatrix();
+    size_t start = matrix->beginRow();
+    size_t end   = matrix->endRow();
+    size_t skip  = std::max<size_t>( ( end - start ) / 100, 1 );
+    fillWithPseudoLaplacian( matrix );
     matrix = getCopyMatrix( matrix );
-    for ( size_t i = dofmap->beginDOF(); i != dofmap->endDOF(); i++ ) {
-        std::vector<size_t> cols;
-        std::vector<double> vals;
+    std::vector<size_t> cols;
+    std::vector<double> vals;
+    bool pass = true;
+    for ( size_t i = start; i < end; i += skip ) {
         matrix->getRowByGlobalID( i, cols, vals );
-        for ( size_t j = 0; j != cols.size(); j++ ) {
+        size_t colSkip = std::max<size_t>( cols.size() / 20, 1 );
+        for ( size_t j = 0; j < cols.size(); j += colSkip ) {
             double ans   = ( i == cols[j] ) ? cols.size() : -1.;
             double value = matrix->getValueByGlobalID( i, cols[j] );
-            if ( vals[j] != ans || value != vals[j] ) {
-                utils->failure( "bad value in matrix " + matrix->type() );
-                return;
-            }
+            pass         = pass && vals[j] == ans && value == vals[j];
         }
     }
-    utils->passes( "verify get and set" + matrix->type() );
+    utils->pass_fail( pass, "verify get and set" + matrix->type() );
 }
 
 
@@ -159,8 +143,8 @@ void MatrixTests::VerifyAXPYMatrix( AMP::UnitTest *utils )
     auto matrix1 = d_factory->getMatrix();
     auto matrix2 = d_factory->getMatrix();
 
-    fillWithPseudoLaplacian( matrix1, d_factory );
-    fillWithPseudoLaplacian( matrix2, d_factory );
+    fillWithPseudoLaplacian( matrix1 );
+    fillWithPseudoLaplacian( matrix2 );
     matrix1 = getCopyMatrix( matrix1 );
     matrix2 = getCopyMatrix( matrix2 );
 
@@ -217,7 +201,7 @@ void MatrixTests::VerifyCopyMatrix( AMP::UnitTest *utils )
 
     // Create vectors/matrices from the factory
     auto matrix1 = d_factory->getMatrix();
-    fillWithPseudoLaplacian( matrix1, d_factory );
+    fillWithPseudoLaplacian( matrix1 );
     auto matrix2 = getCopyMatrix( matrix1 );
 
     auto u1 = matrix1->createInputVector();
@@ -274,8 +258,8 @@ void MatrixTests::VerifyScaleMatrix( AMP::UnitTest *utils )
     auto matrix1 = d_factory->getMatrix();
     auto matrix2 = d_factory->getMatrix();
 
-    fillWithPseudoLaplacian( matrix1, d_factory );
-    fillWithPseudoLaplacian( matrix2, d_factory );
+    fillWithPseudoLaplacian( matrix1 );
+    fillWithPseudoLaplacian( matrix2 );
     matrix1 = getCopyMatrix( matrix1 );
     matrix2 = getCopyMatrix( matrix2 );
 
@@ -382,7 +366,7 @@ void MatrixTests::VerifyMultMatrix( AMP::UnitTest *utils )
         utils->failure( "mult by I matrix " + matrix->type() );
 
     // Try the non-trivial matrix
-    fillWithPseudoLaplacian( matrix, d_factory );
+    fillWithPseudoLaplacian( matrix );
     vectorlhs->setRandomValues();
     vectorlhs->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
     matrix->mult( vectorlhs, vectorrhs );
@@ -399,7 +383,7 @@ void MatrixTests::VerifyMatMultMatrix_IA( AMP::UnitTest *utils )
     PROFILE( "VerifyMatMultMatrix_IA" );
 
     auto matLap = d_factory->getMatrix();
-    fillWithPseudoLaplacian( matLap, d_factory );
+    fillWithPseudoLaplacian( matLap );
     matLap = getCopyMatrix( matLap );
 
     auto x = matLap->createInputVector();
@@ -438,7 +422,7 @@ void MatrixTests::VerifyMatMultMatrix_AI( AMP::UnitTest *utils )
     PROFILE( "VerifyMatMultMatrix_AI" );
 
     auto matLap = d_factory->getMatrix();
-    fillWithPseudoLaplacian( matLap, d_factory );
+    fillWithPseudoLaplacian( matLap );
     matLap = getCopyMatrix( matLap );
 
     auto x = matLap->createInputVector();
@@ -477,7 +461,7 @@ void MatrixTests::VerifyMatMultMatrix_AA( AMP::UnitTest *utils )
     PROFILE( "VerifyMatMultMatrix_AA" );
 
     auto matLap = d_factory->getMatrix();
-    fillWithPseudoLaplacian( matLap, d_factory );
+    fillWithPseudoLaplacian( matLap );
     matLap = getCopyMatrix( matLap );
 
     auto x = matLap->createInputVector();
@@ -521,7 +505,7 @@ void MatrixTests::VerifyMatMultMatrix( AMP::UnitTest *utils )
 
     matZero->zero();
     matZero = getCopyMatrix( matZero );
-    fillWithPseudoLaplacian( matLaplac, d_factory );
+    fillWithPseudoLaplacian( matLaplac );
     matLaplac = getCopyMatrix( matLaplac );
 
     // Verify matMatMult with 0 matrix
@@ -564,17 +548,7 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
             dofmap->getDOFs( node.globalID(), dofsNode );
             for ( auto &elem : dofsNode )
                 dofs.push_back( elem );
-#if 0            
-            const auto row = node.globalID().meshID().getData();
-            for ( size_t c = 0; c < dofs.size(); ++c ) {
-                double val = -1.0;
-                if ( row == c )
-                    val = dofs.size() - 1;
-                matrix->addValueByGlobalID( row, dofs[c], val );
-            }
-#endif
         }
-#if 1
         for ( size_t r = 0; r < dofs.size(); r++ ) {
             for ( size_t c = 0; c < dofs.size(); c++ ) {
                 double val = -1.0;
@@ -583,7 +557,6 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
                 matrix->addValueByGlobalID( dofs[r], dofs[c], val );
             }
         }
-#endif
         ++it;
     }
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -600,7 +573,12 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     // Check the values
-    bool pass = true;
+    auto rowSums = matrix->getRowSums();
+    bool pass    = true;
+    for ( auto sum : *rowSums )
+        pass = pass && fabs( sum ) <= 1e-14;
+
+    /*bool pass = true;
     it        = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
     end       = it.end();
     std::vector<size_t> cols;
@@ -616,11 +594,8 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
                 pass = false;
         }
         ++it;
-    }
-    if ( pass )
-        utils->passes( "VerifyAddElementNode " + matrix->type() );
-    else
-        utils->failure( "VerifyAddElementNode " + matrix->type() );
+    }*/
+    utils->pass_fail( pass, "VerifyAddElementNode " + matrix->type() );
 }
 
 

@@ -21,8 +21,6 @@ template<class TYPE = MeshElement>
 class MeshListIterator final : public MeshIteratorBase
 {
 public:
-    static MeshIterator create( std::shared_ptr<std::vector<TYPE>> elements, size_t pos = 0 );
-
     //! Empty MeshListIterator constructor
     MeshListIterator();
 

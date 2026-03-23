@@ -1235,6 +1235,20 @@ void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
 }
 
 template<typename Config>
+size_t CSRLocalMatrixData<Config>::numberColumnIDs( size_t local_row ) const
+{
+    if ( d_is_empty )
+        return 0;
+    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+                "CSRLocalMatrixData::numberColumnIDs not implemented for device memory" );
+    AMP_INSIST( d_cols_loc && d_row_starts,
+                "CSRLocalMatrixData::numberColumnIDs nnz layout must be initialized" );
+    const auto start = d_row_starts[local_row];
+    const auto end   = d_row_starts[local_row + 1];
+    return end - start;
+}
+
+template<typename Config>
 std::vector<size_t> CSRLocalMatrixData<Config>::getColumnIDs( const size_t local_row ) const
 {
     PROFILE( "CSRLocalMatrixData::getColumnIDs" );

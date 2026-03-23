@@ -333,6 +333,11 @@ protected:
                               const size_t *cols,
                               const scalar_t *vals );
 
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in] local_row  Local index of desired row
+     */
+    size_t numberColumnIDs( size_t local_row ) const;
+
     /** \brief  Get columns and values from one row
      * \param[in] local_row  Local index of desired row
      * \return std::vector of global column ids in row

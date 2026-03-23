@@ -56,6 +56,7 @@ public:
         size_t, size_t, const size_t *, const size_t *, void *, const typeID & ) const override;
     void getRowByGlobalID( size_t, std::vector<size_t> &, std::vector<double> & ) const override;
 
+    size_t numberColumnIDs( size_t row ) const override;
     std::vector<size_t> getColumnIDs( size_t ) const override;
 
     void makeConsistent( AMP::LinearAlgebra::ScatterType t ) override;

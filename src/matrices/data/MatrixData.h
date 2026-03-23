@@ -168,6 +168,11 @@ public:
                                       void *values,
                                       const typeID &id ) const = 0;
 
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in]  row Which row
+     */
+    virtual size_t numberColumnIDs( size_t row ) const = 0;
+
     /** \brief  Given a row, retrieve the non-zero column indices of the matrix in compressed format
      * \param[in]  row Which row
      */

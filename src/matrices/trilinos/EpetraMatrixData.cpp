@@ -58,16 +58,15 @@ EpetraMatrixData::EpetraMatrixData( std::shared_ptr<MatrixParametersBase> params
         const auto nrows = rowDOFs->numLocalDOF();
         const auto srow  = rowDOFs->beginDOF();
         std::vector<int> entries( nrows, 0 );
+        std::vector<std::vector<size_t>> cols( nrows );
         for ( size_t i = 0; i < nrows; ++i ) {
-            const auto cols = getRow( i + srow );
-            entries[i]      = static_cast<int>( cols.size() );
+            cols[i]    = getRow( i + srow );
+            entries[i] = static_cast<int>( cols[i].size() );
         }
         d_epetraMatrix = new Epetra_FECrsMatrix( Copy, *d_RangeMap, entries.data(), false );
         // Fill matrix and call fillComplete to set the nz structure
-        for ( size_t i = 0; i < nrows; ++i ) {
-            const auto cols = getRow( i + srow );
-            createValuesByGlobalID( i + srow, cols );
-        }
+        for ( size_t i = 0; i < nrows; ++i )
+            createValuesByGlobalID( i + srow, cols[i] );
         fillComplete();
     } else {
         d_epetraMatrix = new Epetra_FECrsMatrix( Copy, *d_RangeMap, 0, false );
@@ -456,7 +455,17 @@ void EpetraMatrixData::getRowByGlobalID( size_t row,
     }
 }
 
-
+size_t EpetraMatrixData::numberColumnIDs( size_t row ) const
+{
+    auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
+    AMP_ASSERT( params );
+    size_t firstRow = params->getLeftDOFManager()->beginDOF();
+    size_t numRows  = params->getLeftDOFManager()->numLocalDOF();
+    AMP_ASSERT( row >= firstRow );
+    AMP_ASSERT( row < firstRow + numRows );
+    size_t localRow = row - firstRow;
+    return d_epetraMatrix->NumMyEntries( localRow );
+}
 std::vector<size_t> EpetraMatrixData::getColumnIDs( size_t row ) const
 {
     auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
@@ -465,11 +474,9 @@ std::vector<size_t> EpetraMatrixData::getColumnIDs( size_t row ) const
     size_t numRows  = params->getLeftDOFManager()->numLocalDOF();
     AMP_ASSERT( row >= firstRow );
     AMP_ASSERT( row < firstRow + numRows );
-
     size_t localRow = row - firstRow;
     int numCols     = d_epetraMatrix->NumMyEntries( localRow );
     std::vector<size_t> cols( numCols );
-
     if ( numCols ) {
         std::vector<double> values( numCols );
         std::vector<int> epetra_cols( numCols );
@@ -478,7 +485,6 @@ std::vector<size_t> EpetraMatrixData::getColumnIDs( size_t row ) const
                             "getRowByGlobalID" );
         std::copy( epetra_cols.begin(), epetra_cols.end(), cols.begin() );
     }
-
     return cols;
 }
 
