@@ -562,19 +562,47 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
     outData->d_cols_loc = nullptr;
     outData->d_coeffs   = nullptr;
 
-    if ( !d_is_empty ) {
+    if ( d_is_empty ) {
+        return outData;
+    }
+
+    // row starts always allocated internally, so always copy across
+    AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
+
+    if constexpr ( Config::allocator == ConfigOut::allocator ) {
+        // migrate is only being called for type casting
+        // we can share fields that match on type and only allocate/cast
+        // for mismatches
+        if constexpr ( Config::lidx == ConfigOut::lidx ) {
+            outData->d_cols_loc = d_cols_loc;
+        } else {
+            outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
+        }
+        if constexpr ( Config::scalar_id == ConfigOut::scalar_id ) {
+            outData->d_coeffs = d_coeffs;
+        } else {
+            outData->d_coeffs = outdata_t::makeScalarArray( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
+        }
+        if constexpr ( Config::gidx == ConfigOut::gidx ) {
+            outData->d_cols     = d_cols;
+            outData->d_cols_unq = d_cols_unq;
+        } else {
+            if ( d_cols.get() != nullptr ) {
+                outData->d_cols = outdata_t::makeGidxArray( d_nnz );
+                AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
+            }
+            if ( d_cols_unq.get() != nullptr ) {
+                outData->d_cols_unq = outdata_t::makeGidxArray( d_ncols_unq );
+                AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
+            }
+        }
+    } else {
+        // different allocators, so migrate used to actually move across
+        // memory spaces, and deep copies required for all fields
         outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
         outData->d_coeffs   = outdata_t::makeScalarArray( d_nnz );
-
-        /****************************************************
-         * Potential performance improvement:
-         * If config::alloc == configout::alloc  &&
-         *   config::lidx_t == configout::lidx_t &&
-         *   config::gidx_t == configout::gidx_t
-         * then it's not required to create copies of the index arrays pointers would suffice
-         ****************************************************/
-
-        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
         AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
         AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
 
