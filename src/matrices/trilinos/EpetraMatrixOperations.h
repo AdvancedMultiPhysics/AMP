@@ -84,14 +84,6 @@ class EpetraMatrixOperations : public MatrixOperations
      */
     void extractDiagonal( MatrixData const &A, std::shared_ptr<Vector> buf ) override;
 
-    /** \brief Extract the row sums into a vector
-     */
-    void getRowSums( MatrixData const &, std::shared_ptr<Vector> ) override;
-
-    /** \brief Extract the absolute row sums into a vector
-     */
-    void getRowSumsAbsolute( MatrixData const &, std::shared_ptr<Vector>, const bool ) override;
-
     /** \brief  Set the matrix to the identity matrix
      * \param[out] A The matrix to set
      */

@@ -117,28 +117,26 @@ public:
     void createValuesByGlobalID( size_t, const std::vector<size_t> & );
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
     void setValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
     void getValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
+                              const size_t *rows,
+                              const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
     void getRowByGlobalID( size_t row,
                            std::vector<size_t> &cols,
                            std::vector<double> &values ) const override;
-    /** \brief  Given a row, retrieve the non-zero column indices of the matrix in compressed format
-     * \param[in]  row Which row
-     */
+    size_t numberColumnIDs( size_t row ) const override;
     std::vector<size_t> getColumnIDs( size_t row ) const override;
     void makeConsistent( AMP::LinearAlgebra::ScatterType t ) override;
     size_t numLocalRows() const override;

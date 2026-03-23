@@ -240,7 +240,7 @@ protected:
 
     std::shared_ptr<AMP::Discretization::DOFManager> d_dofMap[Mechanics::TOTAL_NUMBER_OF_VARIABLES];
 
-    std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> d_currNodes;
+    AMP::Mesh::MeshElementVectorPtr d_currNodes;
 
     std::vector<std::vector<size_t>> d_dofIndices; /**< Primary DOF indices */
 };

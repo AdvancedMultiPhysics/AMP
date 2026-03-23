@@ -4,7 +4,7 @@
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/discretization/subsetCommSelfDOFManager.h"
 #include "AMP/discretization/subsetDOFManager.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/time_integrators/TimeIntegratorFactory.h"
 #include "AMP/utils/Utilities.h"
 

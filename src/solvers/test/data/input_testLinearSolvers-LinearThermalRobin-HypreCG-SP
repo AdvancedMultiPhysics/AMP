@@ -1,0 +1,17 @@
+<<< "input_LinearThermalRobinOperator" >>>
+
+LinearSolver{
+  name = "HyprePCGSolver"
+  uses_preconditioner = FALSE
+  absolute_tolerance = 1.0e-6
+  relative_tolerance = 1.0e-6
+  max_iterations = 100
+  print_info_level = 2
+}
+
+Reference{
+  iterations = 83
+  res_l2_norm = -1.0
+  tolerance = 0.0
+  strict = FALSE
+}

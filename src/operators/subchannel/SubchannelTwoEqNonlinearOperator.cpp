@@ -1,5 +1,5 @@
 #include "AMP/operators/subchannel/SubchannelTwoEqNonlinearOperator.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/StructuredMeshHelper.h"
 #include "AMP/operators/subchannel/SubchannelConstants.h"
 #include "AMP/operators/subchannel/SubchannelHelpers.h"
@@ -67,8 +67,8 @@ void SubchannelTwoEqNonlinearOperator::reset( std::shared_ptr<const OperatorPara
     if ( params ) {
 
         auto myparams = std::dynamic_pointer_cast<const SubchannelOperatorParameters>( params );
-        AMP_INSIST( ( ( myparams.get() ) != nullptr ), "NULL parameters" );
-        AMP_INSIST( ( ( ( myparams->d_db ).get() ) != nullptr ), "NULL database" );
+        AMP_INSIST( myparams, "NULL parameters" );
+        AMP_INSIST( myparams->d_db, "NULL database" );
         d_params = myparams;
 
         // Get the subchannel mesh coordinates
@@ -171,8 +171,9 @@ void SubchannelTwoEqNonlinearOperator::reset( std::shared_ptr<const OperatorPara
             if ( !d_ownSubChannel[i] )
                 continue;
             std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
-            auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
-            auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
+            auto localSubchannelIt =
+                AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elemPtr );
+            auto localSubchannel = d_Mesh->Subset( localSubchannelIt, false );
             auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
             for ( size_t j = 0; j < face.size(); j++ ) {
                 d_subchannelFace[i].push_back( face->clone() );
@@ -196,8 +197,8 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
         reset( d_params );
 
     // ensure that solution and residual vectors aren't NULL
-    AMP_INSIST( ( ( r.get() ) != nullptr ), "NULL Residual Vector" );
-    AMP_INSIST( ( ( u.get() ) != nullptr ), "NULL Solution Vector" );
+    AMP_INSIST( r, "NULL Residual Vector" );
+    AMP_INSIST( u, "NULL Solution Vector" );
     AMP_INSIST( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED,
                 "Input vector is in an inconsistent state" );
 
@@ -226,7 +227,7 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
 
         // Get the iterator over the faces in the local subchannel
         std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelFace[isub], []( auto ) {} );
-        auto localSubchannelIt = AMP::Mesh::MeshElementVectorIterator( elemPtr );
+        auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
         AMP_ASSERT( localSubchannelIt.size() == d_z.size() );
 
         // get solution sizes
@@ -292,9 +293,8 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
         double D    = d_channelDiam[isub]; // Channel hydraulic diameter
         double mass = d_channelMass[isub]; // Mass flow rate in the current subchannel
         double R_h, R_p;
-        int j         = 1;
-        auto face     = localSubchannelIt.begin();
-        auto end_face = localSubchannelIt.end();
+        int j     = 1;
+        auto face = localSubchannelIt.begin();
         for ( size_t iface = 0; iface < localSubchannelIt.size(); ++iface, ++j ) {
 
             // ======================================================
@@ -331,7 +331,7 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
                                            dofs[1] ); // pressure evaluated at lower face
             auto minusFaceCentroid = face->centroid();
             double z_minus         = minusFaceCentroid[2]; // z-coordinate of lower face
-            if ( face == end_face - 1 ) {
+            if ( iface == localSubchannelIt.size() - 1 ) {
                 R_p = p_minus - d_Pout;
             } else {
                 ++face;

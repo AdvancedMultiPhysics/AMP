@@ -20,7 +20,7 @@
 namespace AMP::IO {
 
 
-static inline const void *H5Ptr( const void *x ) { return x == nullptr ? ( (void *) 1 ) : x; }
+static inline const void *H5Ptr( const void *x ) { return x == nullptr ? ( (void *) 0x01 ) : x; }
 
 
 /************************************************************************

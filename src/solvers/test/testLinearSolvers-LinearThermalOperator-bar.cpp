@@ -18,6 +18,10 @@
 #include <limits>
 #include <string>
 
+#ifdef AMP_USE_HYPRE
+    #include "HYPRE_config.h"
+#endif
+
 void linearThermalTest( AMP::UnitTest *ut, const std::string &inputFileName )
 {
     // Input and output file names
@@ -120,7 +124,11 @@ int main( int argc, char *argv[] )
 
     } else {
 #ifdef AMP_USE_HYPRE
+    #ifdef HYPRE_SINGLE
+        files.emplace_back( "input_testBoomerAMGSolver-LinearThermalOperator-bar-SP" );
+    #else
         files.emplace_back( "input_testBoomerAMGSolver-LinearThermalOperator-bar" );
+    #endif
 #endif
 #ifdef AMP_USE_TRILINOS_MUELU
         files.emplace_back( "input_testTrilinosMueLuSolver-LinearThermalOperator-bar" );

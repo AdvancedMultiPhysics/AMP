@@ -1,10 +1,12 @@
 #include "AMP/matrices/data/DenseSerialMatrixData.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/vectors/VectorBuilder.h"
+
 #include <cstdio>
 #include <cstring>
-
 #include <numeric>
+#include <stdlib.h>
+
 
 namespace AMP::LinearAlgebra {
 
@@ -21,14 +23,13 @@ DenseSerialMatrixData::DenseSerialMatrixData( std::shared_ptr<MatrixParametersBa
     d_DOFManagerRight = params->getRightDOFManager();
     d_rows            = params->getGlobalNumberOfRows();
     d_cols            = params->getGlobalNumberOfColumns();
-    d_M               = new double[d_rows * d_cols];
-    memset( d_M, 0, d_rows * d_cols * sizeof( double ) );
+    d_M               = (double *) calloc( d_rows * d_cols, sizeof( double ) );
 }
 
 DenseSerialMatrixData::~DenseSerialMatrixData()
 {
     if ( d_M ) {
-        delete[] d_M;
+        free( d_M );
         d_M = nullptr;
     }
 }
@@ -71,8 +72,12 @@ std::shared_ptr<MatrixData> DenseSerialMatrixData::transpose() const
 /********************************************************
  * Get/Set values                                        *
  ********************************************************/
-void DenseSerialMatrixData::addValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void DenseSerialMatrixData::addValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     if ( id == getTypeID<double>() ) {
         auto values = reinterpret_cast<const double *>( vals );
@@ -101,8 +106,12 @@ void DenseSerialMatrixData::addValuesByGlobalID(
         AMP_ERROR( "Conversion not supported yet" );
     }
 }
-void DenseSerialMatrixData::setValuesByGlobalID(
-    size_t num_rows, size_t num_cols, size_t *rows, size_t *cols, void *vals, const typeID &id )
+void DenseSerialMatrixData::setValuesByGlobalID( size_t num_rows,
+                                                 size_t num_cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
+                                                 const void *vals,
+                                                 const typeID &id )
 {
     if ( id == getTypeID<double>() ) {
         auto values = reinterpret_cast<const double *>( vals );
@@ -133,8 +142,8 @@ void DenseSerialMatrixData::setValuesByGlobalID(
 }
 void DenseSerialMatrixData::getValuesByGlobalID( size_t num_rows,
                                                  size_t num_cols,
-                                                 size_t *rows,
-                                                 size_t *cols,
+                                                 const size_t *rows,
+                                                 const size_t *cols,
                                                  void *vals,
                                                  const typeID &id ) const
 {
@@ -181,13 +190,12 @@ void DenseSerialMatrixData::getRowByGlobalID( size_t row,
 /********************************************************
  * Get column indices by global id                       *
  ********************************************************/
+size_t DenseSerialMatrixData::numberColumnIDs( size_t ) const { return d_cols; }
 std::vector<size_t> DenseSerialMatrixData::getColumnIDs( size_t row ) const
 {
     AMP_ASSERT( row < d_rows );
-
     std::vector<size_t> cols( d_cols );
     std::iota( cols.begin(), cols.end(), 0 );
-
     return cols;
 }
 

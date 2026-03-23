@@ -81,6 +81,9 @@ public:
 
     std::string type() const;
 
+    //! Return CSR mode of the matrix.
+    std::uint16_t mode() const { return static_cast<std::uint16_t>( Config::mode ); }
+
     //! Get all data fields as tuple
     std::tuple<lidx_t *, gidx_t *, lidx_t *, scalar_t *> getDataFields()
     {
@@ -120,7 +123,10 @@ public:
     lidx_t numLocalColumns() const { return d_last_col - d_first_col; }
 
     //! Get number of unique columns
-    lidx_t numUniqueColumns() const { return d_ncols_unq; }
+    lidx_t numUniqueColumns() const
+    {
+        return d_is_diag ? ( d_last_col - d_first_col ) : d_ncols_unq;
+    }
 
     //! Get global index of first row in block (inclusive)
     gidx_t beginRow() const { return d_first_row; }
@@ -300,7 +306,7 @@ protected:
      */
     void getValuesByGlobalID( const size_t local_row,
                               const size_t num_cols,
-                              size_t *cols,
+                              const size_t *cols,
                               scalar_t *values ) const;
 
     /** \brief  Add to existing values at given column locations in a row
@@ -326,6 +332,11 @@ protected:
                               const size_t num_cols,
                               const size_t *cols,
                               const scalar_t *vals );
+
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in] local_row  Local index of desired row
+     */
+    size_t numberColumnIDs( size_t local_row ) const;
 
     /** \brief  Get columns and values from one row
      * \param[in] local_row  Local index of desired row

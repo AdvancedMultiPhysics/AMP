@@ -3,19 +3,12 @@
 
 #include "AMP/utils/UtilityMacros.h"
 
-#include <memory>
-#include <mutex>
-#include <sstream>
 #include <stdarg.h>
-#include <stdio.h>
 #include <string>
 #include <vector>
 
 
 namespace AMP {
-
-
-class AMP_MPI;
 
 
 /*!
@@ -55,8 +48,8 @@ void tstOne(AMP::UnitTest *ut)
 class UnitTest final
 {
 public:
-    //! Constructor
-    UnitTest();
+    //! Default constructor
+    UnitTest() = default;
 
     //! Destructor
     ~UnitTest();
@@ -91,7 +84,7 @@ public:
     //! Return the number of passed tests locally
     size_t NumPassGlobal() const;
 
-    //! Return the number of failed tests locally#include <stdio.h>
+    //! Return the number of failed tests locally
     size_t NumFailGlobal() const;
 
     //! Return the number of expected failed tests locally
@@ -128,9 +121,6 @@ public:
 
     //! Clear the messages
     void reset();
-
-    //! Make the unit test operator verbose?
-    void verbose( bool verbose = true ) { d_verbose = verbose; }
 
 
 public: // printf like interfaces
@@ -187,9 +177,6 @@ private:
     std::vector<std::string> d_pass;
     std::vector<std::string> d_fail;
     std::vector<std::string> d_expected;
-    bool d_verbose;
-    mutable std::mutex d_mutex;
-    std::unique_ptr<AMP::AMP_MPI> d_comm;
 };
 
 

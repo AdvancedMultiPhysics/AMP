@@ -33,7 +33,6 @@ structuredMeshIterator::structuredMeshIterator()
 
 {
     d_typeHash = MeshIteratorType;
-    d_iterator = nullptr;
     d_pos      = 0;
     d_size     = 0;
     d_element  = &d_cur_element;
@@ -44,7 +43,6 @@ structuredMeshIterator::structuredMeshIterator( const BoxMesh::MeshElementIndexI
     : d_it( it ), d_mesh( mesh )
 {
     d_typeHash = MeshIteratorType;
-    d_iterator = nullptr;
     d_pos      = pos;
     d_size     = d_it.size();
     d_element  = &d_cur_element;
@@ -66,19 +64,17 @@ structuredMeshIterator::structuredMeshIterator(
     : d_elements( std::move( elements ) ), d_mesh( mesh )
 {
     d_typeHash    = MeshIteratorType;
-    d_iterator    = nullptr;
     d_pos         = pos;
     d_size        = d_elements->size();
     d_element     = &d_cur_element;
     d_cur_element = structuredMeshElement( getCurrentIndex(), d_mesh );
 }
 structuredMeshIterator::structuredMeshIterator( const structuredMeshIterator &rhs )
-    : MeshIterator(), d_it( rhs.d_it ), d_elements( rhs.d_elements ), d_mesh( rhs.d_mesh )
+    : MeshIteratorBase(), d_it( rhs.d_it ), d_elements( rhs.d_elements ), d_mesh( rhs.d_mesh )
 {
     d_pos         = rhs.d_pos;
     d_size        = rhs.d_size;
     d_typeHash    = MeshIteratorType;
-    d_iterator    = nullptr;
     d_element     = &d_cur_element;
     d_cur_element = structuredMeshElement( getCurrentIndex(), d_mesh );
 }
@@ -87,7 +83,6 @@ structuredMeshIterator &structuredMeshIterator::operator=( const structuredMeshI
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
     d_typeHash    = MeshIteratorType;
-    d_iterator    = nullptr;
     d_pos         = rhs.d_pos;
     d_size        = rhs.d_size;
     d_it          = rhs.d_it;
@@ -102,13 +97,29 @@ structuredMeshIterator &structuredMeshIterator::operator=( const structuredMeshI
 /********************************************************
  * Function to clone the iterator                        *
  ********************************************************/
-MeshIterator *structuredMeshIterator::clone() const { return new structuredMeshIterator( *this ); }
+std::unique_ptr<MeshIteratorBase> structuredMeshIterator::clone() const
+{
+    return std::make_unique<structuredMeshIterator>( *this );
+}
 
 
 /********************************************************
- * De-constructor                                        *
+ * Destructor                                            *
  ********************************************************/
 structuredMeshIterator::~structuredMeshIterator() = default;
+
+
+/********************************************************
+ * Set the position                                      *
+ ********************************************************/
+void structuredMeshIterator::setPos( size_t pos )
+{
+    if ( pos == d_pos )
+        return;
+    d_pos = pos;
+    d_it.set( d_pos );
+    d_cur_element.reset( getCurrentIndex() );
+}
 
 
 /********************************************************
@@ -117,23 +128,16 @@ structuredMeshIterator::~structuredMeshIterator() = default;
 MeshIterator structuredMeshIterator::begin() const
 {
     if ( d_elements )
-        return structuredMeshIterator( d_elements, d_mesh, 0 );
+        return MeshIterator::create<structuredMeshIterator>( d_elements, d_mesh, 0 );
     else
-        return structuredMeshIterator( d_it, d_mesh, 0 );
-}
-MeshIterator structuredMeshIterator::end() const
-{
-    if ( d_elements )
-        return structuredMeshIterator( d_elements, d_mesh, d_size );
-    else
-        return structuredMeshIterator( d_it, d_mesh, d_size );
+        return MeshIterator::create<structuredMeshIterator>( d_it, d_mesh, 0 );
 }
 
 
 /********************************************************
  * Increment/Decrement the iterator                      *
  ********************************************************/
-MeshIterator &structuredMeshIterator::operator++()
+MeshIteratorBase &structuredMeshIterator::operator++()
 {
     // Prefix increment (increment and return this)
     d_pos++;
@@ -143,7 +147,7 @@ MeshIterator &structuredMeshIterator::operator++()
     d_cur_element.reset( getCurrentIndex() );
     return *this;
 }
-MeshIterator &structuredMeshIterator::operator--()
+MeshIteratorBase &structuredMeshIterator::operator--()
 {
     // Prefix decrement (increment and return this)
     if ( d_pos != 0 )
@@ -157,7 +161,7 @@ MeshIterator &structuredMeshIterator::operator--()
 /********************************************************
  * Random access iterators                               *
  ********************************************************/
-MeshIterator &structuredMeshIterator::operator+=( int n )
+MeshIteratorBase &structuredMeshIterator::operator+=( int n )
 {
     if ( n >= 0 ) { // increment *this
         auto n2 = static_cast<size_t>( n );
@@ -179,7 +183,7 @@ MeshIterator &structuredMeshIterator::operator+=( int n )
 /********************************************************
  * Compare two iterators                                 *
  ********************************************************/
-bool structuredMeshIterator::operator==( const MeshIterator &rhs ) const
+bool structuredMeshIterator::operator==( const MeshIteratorBase &rhs ) const
 {
     if ( size() != rhs.size() )
         return false;
@@ -188,10 +192,6 @@ bool structuredMeshIterator::operator==( const MeshIterator &rhs ) const
     auto *tmp = reinterpret_cast<const structuredMeshIterator *>( &rhs );
     if ( tmp->d_typeHash == MeshIteratorType ) {
         rhs2 = tmp; // We can safely cast rhs to a structuredMeshIterator
-    } else if ( tmp->d_iterator ) {
-        tmp = reinterpret_cast<const structuredMeshIterator *>( tmp->d_iterator );
-        if ( tmp->d_typeHash == MeshIteratorType )
-            rhs2 = tmp; // We can safely cast rhs.iterator to a structuredMeshIterator
     }
     // Perform direct comparisions if we are dealing with two structuredMeshIterators
     if ( rhs2 ) {
@@ -220,13 +220,13 @@ bool structuredMeshIterator::operator==( const MeshIterator &rhs ) const
     if ( this->size() != rhs.size() )
         return false;
     // Check the current position
-    if ( this->position() != rhs.position() )
+    if ( this->pos() != rhs.pos() )
         return false;
     // Check that the elements match
     auto iterator = rhs.begin();
     auto set1     = getElements();
     for ( size_t i = 0; i < d_size; i++ ) {
-        auto *elem2 = dynamic_cast<structuredMeshElement *>( iterator.get() );
+        auto *elem2 = dynamic_cast<const structuredMeshElement *>( iterator.get() );
         if ( elem2 == nullptr )
             return false;
         const auto &index1 = set1->operator[]( i );
@@ -237,7 +237,7 @@ bool structuredMeshIterator::operator==( const MeshIterator &rhs ) const
     }
     return true;
 }
-bool structuredMeshIterator::operator!=( const MeshIterator &rhs ) const
+bool structuredMeshIterator::operator!=( const MeshIteratorBase &rhs ) const
 {
     return !( ( *this ) == rhs );
 }
@@ -268,7 +268,7 @@ void structuredMeshIterator::registerChildObjects( AMP::IO::RestartManager *mana
 }
 void structuredMeshIterator::writeRestart( int64_t fid ) const
 {
-    MeshIterator::writeRestart( fid );
+    MeshIteratorBase::writeRestart( fid );
     auto elements = d_elements;
     IO::writeHDF5( fid, "meshID", d_mesh->meshID() );
     if ( d_elements ) {
@@ -279,7 +279,7 @@ void structuredMeshIterator::writeRestart( int64_t fid ) const
     }
 }
 structuredMeshIterator::structuredMeshIterator( int64_t fid, AMP::IO::RestartManager *manager )
-    : MeshIterator( fid )
+    : MeshIteratorBase( fid, manager )
 {
     MeshID meshID;
     IO::readHDF5( fid, "meshID", meshID );

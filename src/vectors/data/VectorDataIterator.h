@@ -235,18 +235,6 @@ public:
       * decremented.
       */
     int operator-( const VectorDataIterator &rhs ) const;
-
-
-    /** \brief Return data a distance from the current iterator
-      * \param i Offset from this iterator
-      * \return The data pointed to at this + i
-      * \details  Equivalent to
-      * \code
-        VectorDataIterator t = *this + i;
-        return *t;
-        \endcode
-      */
-    TYPE &operator[]( int i );
 };
 
 

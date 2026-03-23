@@ -227,6 +227,14 @@ void PetscKrylovSolver::getFromInput( std::shared_ptr<AMP::Database> db )
 }
 
 
+void PetscKrylovSolver::reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
+{
+    if ( d_bUsesPreconditioner ) {
+        AMP_ASSERT( d_pNestedSolver );
+        d_pNestedSolver->reset( params );
+    }
+}
+
 /****************************************************************
  *  Solve                                                        *
  ****************************************************************/

@@ -26,7 +26,6 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
                                               std::shared_ptr<Vector> out )
 {
     PROFILE( "CSRMatrixOperationsDevice::mult" );
-
     AMP_DEBUG_ASSERT( in && out );
     AMP_DEBUG_ASSERT( in->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
@@ -41,25 +40,24 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     out->zero();
 
-    auto inData                 = in->getVectorData();
-    const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
-    auto outData                = out->getVectorData();
-    scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
+    auto outData           = out->getVectorData();
+    scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( inDataBlock ),
-                      "Input vector from wrong memory space" );
-
+    AMP_DEBUG_ASSERT( outDataBlock );
     AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( outDataBlock ),
                       "Output vector from wrong memory space" );
 
-    AMP_DEBUG_INSIST(
-        1 == inData->numberOfDataBlocks(),
-        "CSRMatrixOperationsDevice::mult only implemented for vectors with one data block" );
-
-    AMP_ASSERT( inDataBlock && outDataBlock );
-
-    {
+    if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsDevice::mult(local)" );
+        auto inData = in->getVectorData();
+        AMP_DEBUG_INSIST(
+            inData->numberOfDataBlocks() == 1,
+            "CSRMatrixOperationsDevice::mult only implemented for vectors with one data block" );
+        const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
+        AMP_DEBUG_ASSERT( inDataBlock );
+        AMP_DEBUG_INSIST( csrData->d_memory_location ==
+                              AMP::Utilities::getMemoryType( inDataBlock ),
+                          "Input vector from wrong memory space" );
         CSRLocalMatrixOperationsDevice<Config>::mult( inDataBlock, diagMatrix, outDataBlock );
     }
 

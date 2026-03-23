@@ -479,7 +479,6 @@ int main( int argc, char **argv )
     AMP::UnitTest ut;
     PROFILE_ENABLE( 1 );
     PROFILE( "test_Writer" );
-    AMP::logOnlyNodeZero( "output_test_SiloIO" );
 
     std::vector<std::string> writers = { "Silo", "HDF5" };
     int commSize                     = AMP::AMP_MPI( AMP_COMM_WORLD ).getSize();

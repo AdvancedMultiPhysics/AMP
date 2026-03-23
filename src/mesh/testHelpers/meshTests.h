@@ -323,15 +323,18 @@ public: // Vector based tests
 
 
 public: // Matrix based tests
-    template<int DOF_PER_NODE, bool SPLIT>
     static void VerifyGetMatrixTrivialTest( AMP::UnitTest &ut,
-                                            std::shared_ptr<AMP::Mesh::Mesh> mesh );
+                                            std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                                            int dofsPerNode,
+                                            bool split );
 
-    template<int DOF_PER_NODE, bool SPLIT>
-    static void GhostWriteTest( AMP::UnitTest &ut, std::shared_ptr<AMP::Mesh::Mesh> mesh );
+    static void RowWriteTest( AMP::UnitTest &ut,
+                              std::shared_ptr<AMP::Mesh::Mesh> mesh,
+                              int dofsPerNode,
+                              bool split );
 
 
-private:
+public:
     static std::pair<size_t, size_t> ElementIteratorTest( AMP::UnitTest &ut,
                                                           std::shared_ptr<AMP::Mesh::Mesh> mesh,
                                                           const AMP::Mesh::MeshIterator &iterator,
@@ -339,6 +342,7 @@ private:
                                                           const std::vector<int> &blockIds,
                                                           const std::string &name );
 
+private:
     static std::shared_ptr<AMP::Mesh::Mesh> globalMeshForMeshVectorFactory;
 };
 
@@ -346,7 +350,6 @@ private:
 } // namespace AMP::Mesh
 
 // Extra includes
-#include "AMP/mesh/testHelpers/meshMatrixTests.inline.h"
 #include "AMP/mesh/testHelpers/meshVectorTests.inline.h"
 
 

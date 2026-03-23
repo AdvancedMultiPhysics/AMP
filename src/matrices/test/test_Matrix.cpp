@@ -53,7 +53,6 @@ int main( int argc, char **argv )
     if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getSize() == 1 )
         types.emplace_back( "DenseSerialMatrix" );
 
-
     // Test some basic properties
     AMP::pout << "Running basic tests" << std::endl << std::endl;
     testBasics( ut, "auto" );
@@ -80,7 +79,6 @@ int main( int argc, char **argv )
     }
     AMP::pout << std::endl;
 
-
     // Test using the copy factories between types
     for ( auto type1 : types ) {
         for ( auto type2 : types ) {
@@ -96,7 +94,6 @@ int main( int argc, char **argv )
             AMP::pout << " (" << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;
         }
     }
-
 
     ut.report();
     PROFILE_SAVE( "test_Matrix" );

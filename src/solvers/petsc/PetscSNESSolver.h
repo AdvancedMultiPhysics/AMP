@@ -231,6 +231,7 @@ private:
     void setConvergenceStatus( void );
 
     void createPetscObjects( std::shared_ptr<const SolverStrategyParameters> params );
+    void resetPetscObjects( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params );
     void initializePetscObjects( void );
     void destroyPetscObjects( void );
 

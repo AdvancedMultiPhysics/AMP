@@ -439,10 +439,10 @@ public: // Get/Set data/variables/operations
     size_t getNumberOfComponents() const;
 
     //! Return the vector name
-    std::string getName() const;
+    virtual std::string getName() const;
 
     //! Set the vector name
-    void setName( const std::string &name );
+    virtual void setName( const std::string &name );
 
     /** \brief Renames
      * \details  Renames the vector and any components matching src to dst.

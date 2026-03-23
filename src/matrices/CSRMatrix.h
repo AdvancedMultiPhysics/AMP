@@ -108,21 +108,6 @@ public:
     Vector::shared_ptr
     extractDiagonal( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
 
-    /** \brief  Get sum of each row in matrix
-     * \param[in]  buf  An optional vector to use as a buffer
-     * \return  A vector of the sums
-     */
-    virtual Vector::shared_ptr
-    getRowSums( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
-
-    /** \brief  Get absolute sum of each row in matrix
-     * \param[in]  buf           An optional vector to use as a buffer
-     * \param[in]  remove_zeros  If true zero values in sum are replaced with ones
-     * \return  A vector of the sums
-     */
-    virtual Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr buf  = Vector::shared_ptr(),
-                                                   const bool remove_zeros = false ) const override;
-
     /** \brief Get a right vector( For \f$\mathbf{y}^T\mathbf{Ax}\f$, \f$\mathbf{x}\f$ is a right
      * vector )
      * \return  A newly created right vector

@@ -170,6 +170,8 @@ protected:
 
     AMP_MPI d_comm;
 
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> d_castedMatrix;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> d_compat_amp_v;
     std::shared_ptr<AMP::LinearAlgebra::HypreMatrixAdaptor> d_HypreMatrixAdaptor;
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> d_r;

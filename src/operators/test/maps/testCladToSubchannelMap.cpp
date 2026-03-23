@@ -2,8 +2,8 @@
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/discretization/simpleDOF_Manager.h"
 #include "AMP/mesh/Mesh.h"
-#include "AMP/mesh/MeshElementVectorIterator.h"
 #include "AMP/mesh/MeshFactory.h"
+#include "AMP/mesh/MeshListIterator.h"
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/operators/map/AsyncMapColumnOperator.h"
 #include "AMP/operators/map/CladToSubchannelMap.h"
@@ -22,14 +22,15 @@ double getTemp( const AMP::Mesh::Point &x ) { return 500 + x[0] * 100 + x[1] * 1
 AMP::Mesh::MeshIterator getZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> subChannel,
                                           int ghostWidth )
 {
-    std::multimap<double, std::unique_ptr<AMP::Mesh::MeshElement>> xyFace;
+    using ElementPtr = std::unique_ptr<AMP::Mesh::MeshElement>;
+    std::multimap<double, ElementPtr> xyFace;
     auto iterator = subChannel->getIterator( AMP::Mesh::GeomType::Face, ghostWidth );
     for ( size_t i = 0; i < iterator.size(); ++i ) {
         auto nodes    = iterator->getElements( AMP::Mesh::GeomType::Vertex );
         auto center   = iterator->centroid();
         bool is_valid = true;
         for ( auto &node : nodes ) {
-            auto coord = node->coord();
+            auto coord = node.coord();
             if ( !AMP::Utilities::approx_equal( coord[2], center[2], 1e-6 ) )
                 is_valid = false;
         }
@@ -38,11 +39,11 @@ AMP::Mesh::MeshIterator getZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> subCh
         }
         ++iterator;
     }
-    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>();
+    auto elements = std::make_shared<std::vector<ElementPtr>>();
     elements->reserve( xyFace.size() );
     for ( auto &elem : xyFace )
         elements->push_back( elem.second->clone() );
-    return AMP::Mesh::MeshElementVectorIterator( elements );
+    return AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elements );
 }
 
 

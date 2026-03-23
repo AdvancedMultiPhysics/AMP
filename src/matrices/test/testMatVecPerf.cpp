@@ -60,7 +60,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
     auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
     {
         PROFILE( "fillWithPseudoLaplacian" );
-        fillWithPseudoLaplacian( matrix_h, dofManager );
+        fillWithPseudoLaplacian( matrix_h );
     }
 
     auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );

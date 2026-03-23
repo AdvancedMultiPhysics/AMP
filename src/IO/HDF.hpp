@@ -350,7 +350,7 @@ void writeHDF5ArrayDefault( hid_t fid, const std::string &name, const AMP::Array
     hid_t datatype  = getHDF5datatype<T>();
     hid_t dataset =
         H5Dcreate2( fid, name.data(), datatype, dataspace, H5P_DEFAULT, plist, H5P_DEFAULT );
-    const void *ptr = data.data() == NULL ? ( (void *) 1 ) : data.data();
+    const void *ptr = data.data() == NULL ? ( (void *) 0x01 ) : data.data();
     H5Dwrite( dataset, datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, ptr );
     H5Dclose( dataset );
     H5Tclose( datatype );

@@ -616,7 +616,8 @@ void PetscSNESSolver::apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f
     u->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
 }
 
-void PetscSNESSolver::reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
+void PetscSNESSolver::resetPetscObjects(
+    std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
 {
     // BP: 02/14/2012
     // the reset call will typically happen after a regrid
@@ -634,12 +635,13 @@ void PetscSNESSolver::reset( std::shared_ptr<AMP::Solver::SolverStrategyParamete
     if ( d_pScratchVector )
         d_pScratchVector->getVectorData()->reset();
 
-    destroyPetscObjects();
-    // BP: 04/5/2022
-    // We need to be careful that the params object is correctly initialized for
-    // the internal creation of Krylov solvers.
-    createPetscObjects( params );
-    initializePetscObjects();
+    AMP_ASSERT( d_pKrylovSolver );
+    d_pKrylovSolver->reset( params );
+}
+
+void PetscSNESSolver::reset( std::shared_ptr<AMP::Solver::SolverStrategyParameters> params )
+{
+    resetPetscObjects( params );
 }
 
 int PetscSNESSolver::defaultLineSearchPreCheck( std::shared_ptr<AMP::LinearAlgebra::Vector> x,

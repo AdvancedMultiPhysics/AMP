@@ -254,7 +254,6 @@ int testNonlinearThermalOxygenDiffusionWithMechanics( int argc, char *argv[] )
     startup_properties.use_MPI_Abort = false;
     AMP::AMPManager::startup( argc, argv, startup_properties );
     AMP::UnitTest ut;
-    ut.verbose();
 
     std::vector<std::string> exeNames;
     exeNames.emplace_back( "nonlinearBVP-Mechanics-ThermalStrain-Thermal-Oxygen-UO2MSRZC09-1" );

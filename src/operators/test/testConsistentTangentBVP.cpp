@@ -40,7 +40,6 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName, int callLinRe
     auto input_db = AMP::Database::parseInputFile( input_file );
     input_db->print( AMP::plog );
 
-
     auto mesh_file = input_db->getString( "mesh_file" );
     auto mesh      = AMP::Mesh::MeshWriters::readTestMeshLibMesh( mesh_file, AMP_COMM_WORLD );
 
@@ -157,7 +156,6 @@ int testConsistentTangentBVP( int argc, char *argv[] )
 {
 
     AMP::AMPManager::startup( argc, argv );
-    auto libmeshInit = std::make_shared<AMP::Mesh::initializeLibMesh>( AMP_COMM_WORLD );
 
     AMP::UnitTest ut;
 
@@ -178,7 +176,6 @@ int testConsistentTangentBVP( int argc, char *argv[] )
     ut.report();
     int num_failed = ut.NumFailGlobal();
 
-    libmeshInit.reset();
     AMP::AMPManager::shutdown();
     return num_failed;
 }

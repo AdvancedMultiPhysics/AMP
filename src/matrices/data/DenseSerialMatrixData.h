@@ -59,9 +59,9 @@ public:
      */
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Set values in the matrix
@@ -77,9 +77,9 @@ public:
      */
     void setValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Get values in the matrix
@@ -94,8 +94,8 @@ public:
      */
     void getValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
+                              const size_t *rows,
+                              const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
 
@@ -108,6 +108,11 @@ public:
     void getRowByGlobalID( size_t row,
                            std::vector<size_t> &cols,
                            std::vector<double> &values ) const override;
+
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in]  row Which row
+     */
+    size_t numberColumnIDs( size_t row ) const override;
 
     /** \brief  Given a row, retrieve the non-zero column indices of the matrix in compressed format
      * \param[in]  row Which row
@@ -153,26 +158,35 @@ public:
      */
     size_t numGlobalColumns() const override { return d_cols; }
 
+    /** \brief  Get the number of values in the matrix
+     * \return  The total number of values (rows * columns)
+     */
+    inline size_t size() const { return d_rows * d_cols; }
+
+    /** \brief  Get the underlying raw pointer
+     * \return  The the pointer to the data
+     */
+    inline double *getM() { return d_M; }
+
+    /** \brief  Get the underlying raw pointer
+     * \return  The the pointer to the data
+     */
+    inline const double *getM() const { return d_M; }
+
     /** \brief Return the typeid of the matrix coeffs
      */
-    typeID getCoeffType() const override
+    inline typeID getCoeffType() const override
     {
         constexpr auto type = getTypeID<double>();
         return type;
     }
 
 protected:
-    // AMP variables and DOFManagers for the left and right vectors
-    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerLeft;
-    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerRight;
-
-    // Data for the matrix
-    size_t d_rows;
-    size_t d_cols;
-    double *d_M = nullptr;
-
-    friend class DenseSerialMatrix;
-    friend class DenseSerialMatrixOperations;
+    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerLeft;  //!< Left DOF Manager
+    std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManagerRight; //!< Right DOF Manager
+    size_t d_rows;                                                      //!< Number of rows
+    size_t d_cols;                                                      //!< Number of columns
+    double *d_M = nullptr;                                              //!< Matrix data
 };
 } // namespace AMP::LinearAlgebra
 

@@ -285,7 +285,7 @@ void BoxMesh::createBoundingBox()
     }
     double x[3] = { 0, 0, 0 };
     for ( auto &node : getIterator( GeomType::Vertex, 0 ) ) {
-        auto element = dynamic_cast<structuredMeshElement *>( &node );
+        auto element = dynamic_cast<const structuredMeshElement *>( &node );
         AMP_ASSERT( element );
         coord( element->getIndex(), x );
         for ( int d = 0; d < PhysicalDim; d++ ) {
@@ -586,19 +586,16 @@ BoxMesh::MeshElementIndex BoxMesh::getElementFromPhysical( const AMP::Geometry::
 /********************************************************
  * Function to return parents of an element              *
  ********************************************************/
-std::vector<std::unique_ptr<MeshElement>> BoxMesh::getElementParents( const MeshElement &meshelem,
-                                                                      const GeomType type ) const
+Mesh::ElementListPtr BoxMesh::getElementParents( const MeshElement &meshelem,
+                                                 const GeomType type ) const
 {
-    auto id = meshelem.globalID();
-    if ( type == id.type() ) {
-        std::vector<std::unique_ptr<MeshElement>> parents;
-        parents.push_back( meshelem.clone() );
-        return parents;
-    }
-    AMP_INSIST( id.meshID() == d_meshID, "MeshElement is not from the given mesh" );
-    // Get the element of interest
     const auto *elem = dynamic_cast<const structuredMeshElement *>( &meshelem );
-    AMP_ASSERT( elem );
+    const auto id    = meshelem.globalID();
+    AMP_DEBUG_ASSERT( elem );
+    AMP_DEBUG_INSIST( id.meshID() == d_meshID, "MeshElement is not from the given mesh" );
+    if ( type == id.type() )
+        return std::make_unique<MeshElementVector<structuredMeshElement>>( *elem );
+    // Get the element of interest
     return elem->getParents( type );
 }
 
@@ -775,17 +772,18 @@ MeshIterator BoxMesh::createIterator( const ElementBlocks &list ) const
     if ( list.empty() ) {
         return {};
     } else if ( list.size() == 1 ) {
-        return structuredMeshIterator( list[0].first, list[0].second, this, 0 );
+        return MeshIterator::create<structuredMeshIterator>(
+            list[0].first, list[0].second, this, 0 );
     } else {
-        std::vector<MeshIterator> iterator_list;
+        std::vector<MeshIteratorBase *> iterator_list;
         iterator_list.reserve( list.size() );
         for ( const auto &item : list ) {
             if ( MeshElementIndex::numElements( item.first, item.second ) > 0 ) {
-                structuredMeshIterator it( item.first, item.second, this, 0 );
-                iterator_list.push_back( it );
+                iterator_list.push_back(
+                    new structuredMeshIterator( item.first, item.second, this, 0 ) );
             }
         }
-        return MultiIterator( iterator_list, 0 );
+        return MeshIterator::create<MultiIterator>( std::move( iterator_list ), 0 );
     }
 }
 MeshIterator BoxMesh::getIterator( const GeomType type, const int gcw ) const
@@ -818,13 +816,13 @@ MeshIterator BoxMesh::getSurfaceIterator( const GeomType type, const int gcw ) c
     if ( !d_surface[type2][gcw] ) {
         d_surface[type2][gcw] = std::make_shared<std::vector<MeshElementIndex>>();
         for ( auto &elem : getIterator( type, gcw ) ) {
-            auto elem2 = dynamic_cast<structuredMeshElement *>( &elem );
+            auto elem2 = dynamic_cast<const structuredMeshElement *>( &elem );
             if ( elem2->isOnSurface() )
                 d_surface[type2][gcw]->push_back( elem2->getIndex() );
         }
     }
     // Create the iterator
-    return structuredMeshIterator( d_surface[type2][gcw], this, 0 );
+    return MeshIterator::create<structuredMeshIterator>( d_surface[type2][gcw], this, 0 );
 }
 
 
@@ -875,7 +873,7 @@ BoxMesh::getBoundaryIDIterator( const GeomType type, const int id, const int gcw
         return {};
     if ( d_bnd[type2][index][gcw]->empty() )
         return {};
-    return structuredMeshIterator( d_bnd[type2][index][gcw], this, 0 );
+    return MeshIterator::create<structuredMeshIterator>( d_bnd[type2][index][gcw], this, 0 );
 }
 std::vector<int> BoxMesh::getBlockIDs() const { return { d_blockID }; }
 MeshIterator BoxMesh::getBlockIDIterator( const GeomType type, const int id, const int gcw ) const

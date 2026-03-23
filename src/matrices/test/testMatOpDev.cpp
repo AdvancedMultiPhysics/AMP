@@ -80,7 +80,7 @@ void testGetSetValues( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::Vector> y                 = nullptr;
     createMatrixAndVectors<Config>( ut, dofManager, matrix, x, y );
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    fillWithPseudoLaplacian( matrix );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     for ( size_t i = dofManager->beginDOF(); i != dofManager->endDOF(); i++ ) {
@@ -111,7 +111,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::Vector> y                 = nullptr;
     createMatrixAndVectors<Config>( ut, dofManager, matrix, x, y );
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    fillWithPseudoLaplacian( matrix );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t nGlobalRows = matrix->numGlobalRows();
@@ -169,9 +169,9 @@ void testAXPY( AMP::UnitTest *ut, std::shared_ptr<AMP::Discretization::DOFManage
     std::shared_ptr<AMP::LinearAlgebra::Vector> lY           = nullptr;
     createMatrixAndVectors<Config>( ut, dofManager, Y, rY, lY );
 
-    fillWithPseudoLaplacian( X, dofManager );
+    fillWithPseudoLaplacian( X );
     X->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-    fillWithPseudoLaplacian( Y, dofManager );
+    fillWithPseudoLaplacian( Y );
     Y->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     // X = Y = pL
@@ -214,7 +214,7 @@ void testScale( AMP::UnitTest *ut, std::shared_ptr<AMP::Discretization::DOFManag
     std::shared_ptr<AMP::LinearAlgebra::Vector> y            = nullptr;
     createMatrixAndVectors<Config>( ut, dofManager, A, x, y );
 
-    fillWithPseudoLaplacian( A, dofManager );
+    fillWithPseudoLaplacian( A );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t nGlobalRows = A->numGlobalRows();
@@ -289,7 +289,7 @@ void testGetSetDiagonal( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::Vector> y            = nullptr;
     createMatrixAndVectors<Config>( ut, dofManager, A, x, y );
 
-    fillWithPseudoLaplacian( A, dofManager );
+    fillWithPseudoLaplacian( A );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     x->setToScalar( 1.0 );
     A->setDiagonal( x );
@@ -322,7 +322,7 @@ void testLinfNorm( AMP::UnitTest *ut, std::shared_ptr<AMP::Discretization::DOFMa
     std::shared_ptr<AMP::LinearAlgebra::Vector> y            = nullptr;
     createMatrixAndVectors<Config>( ut, dofManager, A, x, y );
 
-    fillWithPseudoLaplacian( A, dofManager );
+    fillWithPseudoLaplacian( A );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t lmax = 0;

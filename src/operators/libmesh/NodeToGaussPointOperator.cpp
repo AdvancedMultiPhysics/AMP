@@ -61,7 +61,7 @@ NodeToGaussPointOperator::NodeToGaussPointOperator(
         auto nodes = iterator->getElements( AMP::Mesh::GeomType::Vertex );
         d_nodes[i].resize( nodes.size() );
         for ( size_t j = 0; j < nodes.size(); j++ )
-            d_nodes[i][j] = nodes[j]->globalID();
+            d_nodes[i][j] = nodes[j].globalID();
         size_t N_nodes = d_nodes[i].size();
         // Cache the shape functions for all elements
         libMesh::Elem *elem =

@@ -76,6 +76,12 @@ public:
     //! Return the type of the matrix
     std::string type() const override { return "CSRMatrixData"; }
 
+    //! Return CSR mode of the matrix.
+    virtual std::uint16_t mode() const override
+    {
+        return static_cast<std::uint16_t>( Config::mode );
+    }
+
     /** \brief  Retrieve a row of the matrix in compressed format
      * \param[in]  row     Which row
      * \param[out] cols    The column ids of the returned values
@@ -97,9 +103,9 @@ public:
      */
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Set values in the matrix
@@ -114,9 +120,9 @@ public:
      */
     void setValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
-                              void *values,
+                              const size_t *rows,
+                              const size_t *cols,
+                              const void *values,
                               const typeID &id ) override;
 
     /** \brief  Get values from the matrix
@@ -131,10 +137,15 @@ public:
      */
     void getValuesByGlobalID( size_t num_rows,
                               size_t num_cols,
-                              size_t *rows,
-                              size_t *cols,
+                              const size_t *rows,
+                              const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
+
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in]  row Which row
+     */
+    size_t numberColumnIDs( size_t row ) const override;
 
     //! Get the global indices of nonzeros in a given row
     std::vector<size_t> getColumnIDs( size_t row ) const override;
