@@ -135,10 +135,8 @@ coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop
         return aggregator_coarsen( Aop, *d_aggregator );
     }
 
-    auto A = Aop->getMatrix();
-    std::shared_ptr<LinearAlgebra::Matrix> P;
-    std::tie( P, std::ignore ) =
-        d_aggregator->getAggregateMatrix( A, std::shared_ptr<LinearAlgebra::Vector>() );
+    auto A  = Aop->getMatrix();
+    auto P  = d_aggregator->getAggregateMatrix( A );
     auto R  = P->transpose();
     auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
     auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );

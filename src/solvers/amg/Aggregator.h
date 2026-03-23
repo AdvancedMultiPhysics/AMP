@@ -32,12 +32,24 @@ struct Aggregator {
     virtual int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) = 0;
 
     // Invoke aggregator and return in the form of a tentative prolongator
+    std::shared_ptr<LinearAlgebra::Matrix>
+    getAggregateMatrix( std::shared_ptr<LinearAlgebra::Matrix> A,
+                        std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
+
+    // Produce non-type erased matrix for above tentative prolongator
+    template<typename Config>
+    std::shared_ptr<LinearAlgebra::Matrix>
+    getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                        std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
+
+    // Invoke aggregator and return in the form of a tentative prolongator
+    // now scattering custom near-nullspace vector into it
     std::tuple<std::shared_ptr<LinearAlgebra::Matrix>, std::shared_ptr<LinearAlgebra::Vector>>
     getAggregateMatrix( std::shared_ptr<LinearAlgebra::Matrix> A,
                         std::shared_ptr<const LinearAlgebra::Vector> nearNullVec,
                         std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
 
-    // Produce non-type erased matrix for above tentative prolongator
+    // Produce non-type erased matrix for above tentative prolongator with NNV
     template<typename Config>
     std::tuple<std::shared_ptr<LinearAlgebra::Matrix>, std::shared_ptr<LinearAlgebra::Vector>>
     getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,

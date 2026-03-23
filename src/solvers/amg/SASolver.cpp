@@ -249,9 +249,9 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
     // and that it is a constant on the finest level.
     // This gets scattered into the tentative prolongator and
     // orthonormalized there.
-    auto nearNullVec = d_levels.back().A->getMatrix()->createInputVector();
-    nearNullVec->setNoGhosts();      // tentative only cares about local values
-    nearNullVec->setToScalar( 1.0 ); // initially constant, could pre-smooth later
+    // auto nearNullVec = d_levels.back().A->getMatrix()->createInputVector();
+    // nearNullVec->setNoGhosts();      // tentative only cares about local values
+    // nearNullVec->setToScalar( 1.0 ); // initially constant, could pre-smooth later
 
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         // Get matrix for current level
@@ -260,9 +260,11 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         // aggregate on matrix to get tentative prolongator
         // and normalization factors for orthogonalizing current
         // nearNullVec down to next coarse space
-        auto [P, coarseNearNullVec] = d_aggregator->getAggregateMatrix( A, nearNullVec );
-        nearNullVec.swap( coarseNearNullVec );
-        coarseNearNullVec.reset();
+        auto P = d_aggregator->getAggregateMatrix( A );
+        // auto [P, coarseNearNullVec] = d_aggregator->getAggregateMatrix( A, nearNullVec );
+        // nearNullVec.swap( coarseNearNullVec );
+        // coarseNearNullVec.reset();
+
         // then smooth and transpose to get P/R
         smoothP_JacobiL1( A, P );
         auto R = P->transpose();
@@ -334,7 +336,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 {
     PROFILE( "SASolver::apply" );
 
-    AMP_INSIST( x, "SASolver::apply Can't have null solution vector" );
+    AMP_DEBUG_INSIST( x, "SASolver::apply Can't have null solution vector" );
 
     d_iNumberIterations = 0;
     const bool need_norms =
