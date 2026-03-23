@@ -7,7 +7,6 @@
 #include "AMP/matrices/CSRVisit.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/amg/Relaxation.h"
-#include "AMP/utils/Constants.h"
 #include "AMP/utils/Memory.h"
 
 #include <cmath>

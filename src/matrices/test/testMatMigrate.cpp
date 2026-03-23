@@ -109,7 +109,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
         ut->failure( "Unable to create a square matrix" );
     }
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    fillWithPseudoLaplacian( matrix );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t nGlobalRows = matrix->numGlobalRows();

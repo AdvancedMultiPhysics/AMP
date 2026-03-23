@@ -755,6 +755,13 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
 }
 
 template<typename Config>
+size_t CSRMatrixData<Config>::numberColumnIDs( size_t row ) const
+{
+    auto local_row = row - d_first_row;
+    return d_diag_matrix->numberColumnIDs( local_row ) +
+           d_offd_matrix->numberColumnIDs( local_row );
+}
+template<typename Config>
 std::vector<size_t> CSRMatrixData<Config>::getColumnIDs( size_t row ) const
 {
     PROFILE( "CSRMatrixData::getColumnIDs" );
