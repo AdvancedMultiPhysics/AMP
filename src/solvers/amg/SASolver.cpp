@@ -156,6 +156,8 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     // ops have compatible ones
     auto xVar = fine_op->getInputVariable();
     auto bVar = fine_op->getOutputVariable();
+    AMP_INSIST( xVar && bVar,
+                "SASolver::registerOperator: Given operator must have input/output variables" );
 
     // fill in finest level and setup remaining levels
     auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
