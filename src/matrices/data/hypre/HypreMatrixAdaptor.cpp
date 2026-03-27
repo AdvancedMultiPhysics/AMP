@@ -91,10 +91,6 @@ HypreMatrixAdaptor::~HypreMatrixAdaptor() { HYPRE_IJMatrixDestroy( d_matrix ); }
 template<class Config>
 void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Config>> csrData )
 {
-    using gidx_t   = typename Config::gidx_t;
-    using lidx_t   = typename Config::lidx_t;
-    using scalar_t = typename Config::scalar_t;
-
     // The hypre vs amp ownership rules require elaboration.
     // We set the internal owns_data flags on the diag and offd
     // hypre blocks to false so that hypre (mostly) doesn't
