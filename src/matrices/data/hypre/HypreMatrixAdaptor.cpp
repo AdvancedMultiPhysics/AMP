@@ -69,16 +69,13 @@ HypreMatrixAdaptor::HypreMatrixAdaptor( std::shared_ptr<MatrixData> matrixData )
             std::vector<HYPRE_BigInt> hypre_cols( cols.size() );
             std::copy( cols.begin(), cols.end(), hypre_cols.begin() );
 
-            const int nrows  = 1;
-            const auto irow  = i;
-            const auto ncols = cols.size();
+            const int nrows   = 1;
+            HYPRE_BigInt irow = i;
+            HYPRE_Int ncols   = cols.size();
+            auto data         = reinterpret_cast<const HYPRE_Real *>( values.data() );
 
-            ierr = HYPRE_IJMatrixSetValues( d_matrix,
-                                            nrows,
-                                            (HYPRE_Int *) &ncols,
-                                            (HYPRE_BigInt *) &irow,
-                                            hypre_cols.data(),
-                                            (const HYPRE_Real *) values.data() );
+            ierr =
+                HYPRE_IJMatrixSetValues( d_matrix, nrows, &ncols, &irow, hypre_cols.data(), data );
             HYPRE_DescribeError( ierr, hypre_mesg );
         }
 
@@ -221,11 +218,11 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
 
     // Now set diag/off_diag members to point at our data
     diag->big_j = NULL;
-    diag->data  = (HYPRE_Real *) coeffs_d;
+    diag->data  = reinterpret_cast<HYPRE_Real *>( coeffs_d );
     diag->j     = cols_loc_d;
 
     off_diag->big_j = NULL;
-    off_diag->data  = (HYPRE_Real *) coeffs_od;
+    off_diag->data  = reinterpret_cast<HYPRE_Real *>( coeffs_od );
     off_diag->j     = cols_loc_od;
 
     // Update metadata fields to match what we've inserted!
