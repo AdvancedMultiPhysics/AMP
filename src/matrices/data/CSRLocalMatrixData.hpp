@@ -569,7 +569,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
     // row starts always allocated internally, so always copy across
     AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
 
-    if constexpr ( Config::allocator == ConfigOut::allocator ) {
+    if constexpr ( Config::allocator == ConfigOut::allocator && false ) {
         // migrate is only being called for type casting
         // we can share fields that match on type and only allocate/cast
         // for mismatches
