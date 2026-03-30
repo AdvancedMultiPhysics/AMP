@@ -17,7 +17,7 @@ class RestartManager;
 namespace AMP::Geometry {
 
 
-using Point = AMP::Mesh::MeshPoint<double>;
+using Point = AMP::Mesh::MeshPoint;
 
 
 /**
@@ -190,9 +190,9 @@ protected:
     Geometry( int ndim ) : d_physicalDim( ndim ) {}
 
     // Delete copy constructors
-    Geometry( Geometry && )      = delete;
-    Geometry( const Geometry & ) = default;
-    Geometry &operator=( Geometry && ) = delete;
+    Geometry( Geometry && )                 = delete;
+    Geometry( const Geometry & )            = default;
+    Geometry &operator=( Geometry && )      = delete;
     Geometry &operator=( const Geometry & ) = delete;
 
 
