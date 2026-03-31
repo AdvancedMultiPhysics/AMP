@@ -8,7 +8,7 @@ DiffusionSolves{
   max_levels = 10
   min_coarse_local = 10
   min_coarse_global = 40
-  kappa = 1
+  kcycle_kappa = 1
   agg_type = "simple"
   prol_trunc = 0.005
   num_smooth_prol = 1

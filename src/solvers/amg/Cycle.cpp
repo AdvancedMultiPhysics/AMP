@@ -65,6 +65,9 @@ void KappaKCycle::cycle( size_t lvl,
                          const std::vector<level> &ml,
                          SolverStrategy &coarse_solver ) const
 {
+    if ( lvl >= d_settings.trunc_depth )
+        kappa = 1;
+
     auto &flevel = ml[lvl];
     auto &clevel = ml[lvl + 1];
     auto &A      = flevel.A;

@@ -128,9 +128,11 @@ private:
     mutable idxAllocator_t d_idx_alloc;
     mutable scalarAllocator_t d_scalar_alloc;
 
-    mutable size_t d_scratchSize      = 0;
-    mutable size_t *d_idx_req_scratch = nullptr;
+    mutable size_t d_map_scratch_size = 0;
     mutable size_t *d_idx_map_scratch = nullptr;
+
+    mutable size_t d_scratch_size     = 0;
+    mutable size_t *d_idx_req_scratch = nullptr;
     mutable TYPE *d_scalar_scratch    = nullptr;
 };
 

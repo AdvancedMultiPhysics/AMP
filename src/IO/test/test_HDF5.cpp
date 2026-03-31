@@ -86,7 +86,7 @@ void writeOpaque( hid_t fid, const std::string &name, const TYPE &data )
 template<class TYPE>
 void checkHDF5( hid_t fid, const std::string &name, const TYPE &x, AMP::UnitTest &ut )
 {
-    TYPE y;
+    TYPE y = TYPE();
     AMP::IO::readHDF5( fid, name, y );
     record( x == y, name, ut );
 }

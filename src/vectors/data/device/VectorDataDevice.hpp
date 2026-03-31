@@ -58,6 +58,18 @@ VectorDataDevice<TYPE, Allocator>::VectorDataDevice( size_t start,
 template<typename TYPE, class Allocator>
 VectorDataDevice<TYPE, Allocator>::~VectorDataDevice()
 {
+    if ( this->d_idx_map_scratch ) {
+        d_idx_alloc.deallocate( this->d_idx_map_scratch, this->d_map_scratch_size );
+        this->d_idx_map_scratch = nullptr;
+    }
+    if ( this->d_idx_req_scratch ) {
+        d_idx_alloc.deallocate( this->d_idx_req_scratch, this->d_scratch_size );
+        this->d_idx_req_scratch = nullptr;
+    }
+    if ( this->d_scalar_scratch ) {
+        d_scalar_alloc.deallocate( this->d_scalar_scratch, this->d_scratch_size );
+        this->d_scalar_scratch = nullptr;
+    }
 }
 
 template<typename T>
@@ -69,10 +81,10 @@ bool inDeviceMemory( T *v )
 template<typename TYPE, class Allocator>
 void VectorDataDevice<TYPE, Allocator>::setMapScratchSpace( const size_t N ) const
 {
-    if ( N > this->d_scratchSize ) {
-        d_idx_alloc.deallocate( this->d_idx_map_scratch, this->d_scratchSize );
-        this->d_scratchSize     = N;
-        this->d_idx_map_scratch = d_idx_alloc.allocate( this->d_scratchSize );
+    if ( N > this->d_map_scratch_size ) {
+        d_idx_alloc.deallocate( this->d_idx_map_scratch, this->d_map_scratch_size );
+        this->d_map_scratch_size = N;
+        this->d_idx_map_scratch  = d_idx_alloc.allocate( this->d_map_scratch_size );
         AMP::Utilities::Algorithms<size_t>::fill_n( this->d_idx_map_scratch, N, 0 );
     }
     AMP_ASSERT( d_idx_map_scratch );
@@ -81,12 +93,12 @@ void VectorDataDevice<TYPE, Allocator>::setMapScratchSpace( const size_t N ) con
 template<typename TYPE, class Allocator>
 void VectorDataDevice<TYPE, Allocator>::setScratchSpace( const size_t N ) const
 {
-    if ( N > this->d_scratchSize || !this->d_idx_req_scratch ) {
-        d_idx_alloc.deallocate( this->d_idx_req_scratch, this->d_scratchSize );
-        d_scalar_alloc.deallocate( this->d_scalar_scratch, this->d_scratchSize );
-        this->d_scratchSize     = N;
-        this->d_idx_req_scratch = d_idx_alloc.allocate( this->d_scratchSize );
-        this->d_scalar_scratch  = d_scalar_alloc.allocate( this->d_scratchSize );
+    if ( N > this->d_scratch_size || !this->d_idx_req_scratch ) {
+        d_idx_alloc.deallocate( this->d_idx_req_scratch, this->d_scratch_size );
+        d_scalar_alloc.deallocate( this->d_scalar_scratch, this->d_scratch_size );
+        this->d_scratch_size    = N;
+        this->d_idx_req_scratch = d_idx_alloc.allocate( this->d_scratch_size );
+        this->d_scalar_scratch  = d_scalar_alloc.allocate( this->d_scratch_size );
     }
     AMP_ASSERT( d_idx_req_scratch && d_scalar_scratch );
 }

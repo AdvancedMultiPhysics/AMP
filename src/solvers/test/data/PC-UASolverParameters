@@ -10,7 +10,6 @@ Preconditioner{
   min_coarse_local = 10
   strong_threshold = 0.5
   pairwise_passes = 3
-  kappa = 100000
   pre_relaxation {
     name = "HybridGS"
 	num_sweeps = 1

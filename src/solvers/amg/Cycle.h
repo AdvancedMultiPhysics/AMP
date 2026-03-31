@@ -95,6 +95,8 @@ struct KappaKCycle {
         bool comm_free_interp = false;
         //! Krylov method for cycle.
         krylov_type type = krylov_type::fcg;
+        //! truncation depth for cycle (coarser levels use V-cycle).
+        size_t trunc_depth = std::numeric_limits<size_t>::max();
     };
 
     KappaKCycle( const settings & );

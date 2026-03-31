@@ -1,6 +1,7 @@
 #ifndef included_AMP_GhostDataHelper
 #define included_AMP_GhostDataHelper
 
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/CommunicationList.h"
 #include "AMP/vectors/data/VectorData.h"
 
@@ -60,6 +61,10 @@ public: // Functions overloaded from VectorData
     const AMP_MPI &getComm() const override;
     void dumpGhostedData( std::ostream &out, size_t offset ) const override;
     void copyGhostValues( const VectorData &rhs ) override;
+    AMP::Utilities::MemoryType getMemoryLocation() const override
+    {
+        return AMP::Utilities::getAllocatorMemoryType<Allocator>();
+    }
 
     using VectorData::addGhostValuesByGlobalID;
     using VectorData::getGhostAddValuesByGlobalID;
