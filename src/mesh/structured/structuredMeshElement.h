@@ -71,8 +71,8 @@ public: // Functions derived from MeshElement
         d_mesh->coord( d_index, x.data() );
         return x;
     }
-    MeshPoint<double> nearest( const MeshPoint<double> &pos ) const override;
-    double distance( const MeshPoint<double> &pos, const MeshPoint<double> &dir ) const override;
+    MeshPoint nearest( const MeshPoint &pos ) const override;
+    double distance( const MeshPoint &pos, const MeshPoint &dir ) const override;
     bool containsPoint( const Point &pos, double TOL = 1e-12 ) const override;
     bool isOnSurface() const override;
     bool isOnBoundary( int id ) const override;
