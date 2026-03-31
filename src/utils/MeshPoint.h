@@ -80,9 +80,9 @@ public:
 
 
     // Copy/assignment operators
-    constexpr MeshPoint( MeshPoint && ) noexcept                 = default;
-    constexpr MeshPoint( const MeshPoint & ) noexcept            = default;
-    constexpr MeshPoint &operator=( MeshPoint && ) noexcept      = default;
+    constexpr MeshPoint( MeshPoint && ) noexcept      = default;
+    constexpr MeshPoint( const MeshPoint & ) noexcept = default;
+    constexpr MeshPoint &operator=( MeshPoint && ) noexcept = default;
     constexpr MeshPoint &operator=( const MeshPoint & ) noexcept = default;
 
     // Number of dimensions
