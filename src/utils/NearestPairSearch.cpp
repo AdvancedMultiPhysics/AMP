@@ -6,7 +6,7 @@ namespace AMP {
 
 
 // Calculate the closest pair of points in a list
-std::pair<int, int> find_min_dist( const std::vector<AMP::Mesh::MeshPoint<double>> &x )
+std::pair<int, int> find_min_dist( const std::vector<AMP::Mesh::MeshPoint> &x )
 {
     if ( x.empty() )
         return std::pair<int, int>( 0, 0 );
