@@ -163,12 +163,14 @@ PetscErrorCode _AMP_setlocaltoglobalmapping( Vec, ISLocalToGlobalMapping )
     AMP_ERROR( "44 Not implemented" );
     return 0;
 }
+#if PETSC_VERSION_LT( 3, 24, 0 )
 PetscErrorCode
 _AMP_setvalueslocal( Vec, PetscInt, const PetscInt *, const PetscScalar *, InsertMode )
 {
     AMP_ERROR( "45 Not implemented" );
     return 0;
 }
+#endif
 
 PetscErrorCode _AMP_getvalues( Vec, PetscInt, const PetscInt[], PetscScalar[] )
 {
@@ -689,7 +691,6 @@ void reset_vec_ops( Vec t )
     t->ops->reciprocal              = _AMP_reciprocal;
     t->ops->conjugate               = _AMP_conjugate;
     t->ops->setlocaltoglobalmapping = _AMP_setlocaltoglobalmapping;
-    t->ops->setvalueslocal          = _AMP_setvalueslocal;
     t->ops->maxpointwisedivide      = _AMP_maxpointwisedivide;
     t->ops->load                    = _AMP_load;
     t->ops->pointwisemax            = _AMP_pointwisemax;
@@ -703,6 +704,9 @@ void reset_vec_ops( Vec t )
     t->ops->shift                   = _AMP_shift;
     t->ops->create                  = _AMP_create;
     t->ops->dotnorm2                = _AMP_l2normanddot;
+#if PETSC_VERSION_LT( 3, 24, 0 )
+    t->ops->setvalueslocal = _AMP_setvalueslocal;
+#endif
 
     auto p = getAMP( t );
     if ( p->getVectorData()->hasContiguousData() ) {
