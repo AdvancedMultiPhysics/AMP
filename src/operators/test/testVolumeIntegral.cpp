@@ -237,11 +237,6 @@ int testVolumeIntegral( int argc, char *argv[] )
     AMP::AMPManagerProperties startup_properties;
     startup_properties.use_MPI_Abort = false;
     AMP::AMPManager::startup( argc, argv, startup_properties );
-    PROFILE_ENABLE( 5 );
-#ifdef AMP_USE_TIMER
-    global_profiler.ignoreTimerErrors( true );
-#endif
-    PROFILE( "main" );
 
     AMP::UnitTest ut;
 
@@ -254,7 +249,6 @@ int testVolumeIntegral( int argc, char *argv[] )
         sourceTest( &ut, file );
 
     ut.report();
-    PROFILE_SAVE( "testVolumeIntegral-1" );
 
     int num_failed = ut.NumFailGlobal();
     AMP::AMPManager::shutdown();
