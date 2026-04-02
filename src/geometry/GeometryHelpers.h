@@ -7,10 +7,6 @@
 #include <vector>
 
 
-namespace AMP::Mesh {
-using Point = AMP::Mesh::MeshPoint<double>;
-} // namespace AMP::Mesh
-
 namespace AMP::Geometry::GeometryHelpers {
 
 

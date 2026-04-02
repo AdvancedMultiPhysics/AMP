@@ -63,10 +63,10 @@ public:
     double volume() const override;
 
     //! Return the normal to the current element (does not apply to all elements)
-    MeshPoint<double> norm() const override;
+    MeshPoint norm() const override;
 
     //! Return the coordinates of all vertices composing the element
-    MeshPoint<double> coord() const override;
+    MeshPoint coord() const override;
 
     /**
      * \brief     Return the centroid of the element
@@ -74,7 +74,7 @@ public:
      *   centroid is defined as the average of the coordinates of the vertices.
      *   The centroid of a vertex is the vertex and will return the same result as coord().
      */
-    MeshPoint<double> centroid() const override;
+    MeshPoint centroid() const override;
 
     /**
      * \brief     Return true if the element contains the point
@@ -84,14 +84,14 @@ public:
      * \param pos   The coordinates of the point to check.
      * \param TOL   The tolerance to use for the computation.
      */
-    bool containsPoint( const MeshPoint<double> &pos, double TOL = 1e-12 ) const override;
+    bool containsPoint( const MeshPoint &pos, double TOL = 1e-12 ) const override;
 
     /**
      * \brief    Calculate the nearest point on the element
      * \details  This function computes nearest point on/in the element to the given point
      * \param[in] pos   Current position of the point
      */
-    MeshPoint<double> nearest( const MeshPoint<double> &pos ) const override;
+    MeshPoint nearest( const MeshPoint &pos ) const override;
 
     /**
      * \brief    Calculate the distance to the element given a ray
@@ -101,8 +101,7 @@ public:
      * \param[in] dir   Direction of ray (should be normalized for most uses)
      * @return          Returns the distance to the element surface
      */
-    virtual double distance( const MeshPoint<double> &pos,
-                             const MeshPoint<double> &dir ) const override;
+    virtual double distance( const MeshPoint &pos, const MeshPoint &dir ) const override;
 
     //! Check if the element is on the surface
     bool isOnSurface() const override;

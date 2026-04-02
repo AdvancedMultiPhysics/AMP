@@ -792,7 +792,7 @@ bool structuredMeshElement::isInBlock( int id ) const
 /****************************************************************
  * Calculate the nearest point on the element                    *
  ****************************************************************/
-MeshPoint<double> structuredMeshElement::nearest( const MeshPoint<double> &pos0 ) const
+MeshPoint structuredMeshElement::nearest( const MeshPoint &pos0 ) const
 {
     using AMP::Geometry::GeometryHelpers::nearest;
     using AMP::Geometry::GeometryHelpers::Point2D;
@@ -846,7 +846,7 @@ MeshPoint<double> structuredMeshElement::nearest( const MeshPoint<double> &pos0 
     } else {
         AMP_ERROR( "Internal error in structuredMeshElement::nearest" );
     }
-    return MeshPoint<double>( pos0.ndim(), y.data() );
+    return MeshPoint( pos0.ndim(), y.data() );
 }
 
 
@@ -862,12 +862,11 @@ static inline std::array<double, N> point( const double *x )
     return y;
 }
 template<std::size_t N>
-static inline std::array<double, N> point( const MeshPoint<double> &x )
+static inline std::array<double, N> point( const MeshPoint &x )
 {
     return point<N>( x.data() );
 }
-double structuredMeshElement::distance( const MeshPoint<double> &pos,
-                                        const MeshPoint<double> &dir ) const
+double structuredMeshElement::distance( const MeshPoint &pos, const MeshPoint &dir ) const
 {
     using AMP::Geometry::GeometryHelpers::distanceToLine;
     using AMP::Geometry::GeometryHelpers::distanceToQuadrilateral;

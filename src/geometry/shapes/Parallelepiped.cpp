@@ -58,7 +58,7 @@ Parallelepiped::Parallelepiped( std::shared_ptr<const AMP::Database> db ) : Logi
     d_V = std::abs( det );
     // Compute the normals to the surface (pointing out from the center)
     auto computeNormal = []( auto a, auto b, auto c ) {
-        auto n = AMP::Mesh::cross<double>( { a[0], a[1], a[2] }, { b[0], b[1], b[2] } );
+        auto n = AMP::Mesh::cross( { a[0], a[1], a[2] }, { b[0], b[1], b[2] } );
         n      = normalize( n );
         if ( dot( n, { c[0], c[1], c[2] } ) < 0.0 )
             n = -n;

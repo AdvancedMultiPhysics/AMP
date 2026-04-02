@@ -61,7 +61,7 @@ kdtree::kdtree( const int N_dim, const size_t N, const double *const *x )
     else
         AMP_ERROR( "Not finished" );
 }
-kdtree::kdtree( const std::vector<AMP::Mesh::MeshPoint<double>> &x )
+kdtree::kdtree( const std::vector<AMP::Mesh::MeshPoint> &x )
     : d_dim( 0 ), d_N( x.size() ), d_tree( nullptr )
 {
     if ( x.empty() )
@@ -207,7 +207,7 @@ void kdtree::add( const double *x )
 /********************************************************
  * Nearest neighbor search                               *
  ********************************************************/
-AMP::Mesh::MeshPoint<double> kdtree::find_nearest( const AMP::Mesh::MeshPoint<double> &p ) const
+AMP::Mesh::MeshPoint kdtree::find_nearest( const AMP::Mesh::MeshPoint &p ) const
 {
     auto p2      = p;
     double dist2 = 1e100;
