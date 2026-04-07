@@ -63,7 +63,6 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
 {
     using gidx_t            = typename Config::gidx_t;
     using lidx_t            = typename Config::lidx_t;
-    using scalar_t          = typename Config::scalar_t;
     using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
