@@ -232,7 +232,47 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // optimal weight for prescribed lower e-val estimate
+    // special cases for 1 and 2 pass smoothing using optimized polynomials
+    // of Dinv*A as smoothers, see DOI:10.1002/nla.775
+    if ( d_num_smooth_prol == 1 ) {
+        // one pass smoothing
+        // P <- (I - w * Dinv * A)*P with w=4/3
+        auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P ); // A*P
+        P_smooth->scaleInv( -4.0 / 3.0, D );                       // -w*Dinv*A*P
+        P_smooth->axpy( 1.0, P );                                  // P - w*Dinv*A*P
+        // replace P with P_smooth and truncate if requested
+        P.swap( P_smooth );
+        P_smooth.reset();
+        if ( d_prol_trunc > 0.0 ) {
+            P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
+        }
+        return;
+    } else if ( d_num_smooth_prol == 2 ) {
+        // two pass smoothing
+        // P <- (I - w * Dinv * A + q * (Dinv * A)^2 )*P with w=4, q=16/5
+        // factor out as
+        // P <- [I - w * Dinv * A * (I - q/w * Dinv * A)] * P
+        // and compute in two steps. Handle inner term first
+        auto P_1 = LinearAlgebra::Matrix::matMatMult( A, P ); // A*P
+        P_1->scaleInv( -4.0 / 5.0, D );                       // -(q/w)Dinv*A*P
+        P_1->axpy( 1.0, P );                                  // P' = (I - q/w * Dinv * A) * P
+
+        auto P_2 = LinearAlgebra::Matrix::matMatMult( A, P_1 ); // A*P'
+        P_1.reset();                                            // P' not needed any longer
+        P_2->scaleInv( -4.0, D );                               // -w * Dinv * A * P'
+        P_2->axpy( 1.0, P );                                    // P smoothed
+
+        // replace P with P_smooth and truncate if requested
+        P.swap( P_2 );
+        P_2.reset();
+        if ( d_prol_trunc > 0.0 ) {
+            P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
+        }
+        return;
+    }
+
+    // More smoothing steps requested, just apply JL1 with estimate on
+    // lower e-val
     const double omega = 2.0 / ( 1.0 + d_prol_spec_lower );
 
     // Smooth P, swapping at end each time
@@ -248,12 +288,10 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
 
         P.swap( P_smooth );
         P_smooth.reset();
-
         if ( d_prol_trunc > 0.0 ) {
             P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
         }
     }
-    D.reset();
 }
 
 void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
@@ -281,8 +319,8 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
         // This gets scattered into the tentative prolongator and
         // orthonormalized there.
         nearNullVec = d_levels.back().A->getMatrix()->createInputVector();
-        nearNullVec->setNoGhosts();      // tentative only cares about local values
-        nearNullVec->setToScalar( 1.0 ); // initially constant, could pre-smooth later
+        nearNullVec->setNoGhosts();
+        nearNullVec->setToScalar( 1.0 );
     }
 
     for ( size_t i = 0; i < d_max_levels; ++i ) {
@@ -432,7 +470,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
-    double prev_res = 0.0;
+    double prev_res = current_res, iter2_res = 0.0;
     KappaKCycle cycle{ d_cycle_settings };
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
@@ -445,12 +483,19 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "SA: iteration " << d_iNumberIterations << ", residual " << current_res
                       << ", conv ratio ";
-            if ( prev_res > 0.0 ) {
-                AMP::pout << current_res / prev_res << std::endl;
-            } else {
-                AMP::pout << "--" << std::endl;
+            if ( d_iNumberIterations == 2 ) {
+                iter2_res = current_res;
             }
+            AMP::pout << current_res / prev_res;
             prev_res = current_res;
+            AMP::pout << ", avg conv ratio ";
+            if ( iter2_res > 0.0 ) {
+                AMP::pout << std::pow( current_res / iter2_res,
+                                       1.0 / static_cast<double>( d_iNumberIterations - 1 ) )
+                          << std::endl;
+            } else {
+                AMP::pout << "-----" << std::endl;
+            }
         }
 
         if ( need_norms && checkStoppingCriteria( current_res ) ) {

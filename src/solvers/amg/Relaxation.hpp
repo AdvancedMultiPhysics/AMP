@@ -12,7 +12,7 @@
 #include <cmath>
 #include <numeric>
 
-#define AMP_AMG_RELAXATION_PROFILE
+// define AMP_AMG_RELAXATION_PROFILE
 
 namespace AMP::Solver::AMG {
 
@@ -523,7 +523,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
         // put first iterate into xprev and swap to prime for following iterates
         d_z->scale( scalar_t{ 4.0 / 3.0 } );
         x->axpy( scalar_t{ 1.0 }, *d_z, *x );
-        x->makeConsistent(); // needed?
+        x->makeConsistent();
 
         // iterate further, coeffs use 1-based indexing so start at k=2
         // since k=1 set above
@@ -544,7 +544,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
             // x <- x + d_z
             d_z->axpby( beta, alpha, *d_r );
             x->axpy( scalar_t{ 1.0 }, *d_z, *x );
-            x->makeConsistent(); // needed?
+            x->makeConsistent();
         }
     };
 
@@ -594,7 +594,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
     // put first iterate into xprev and swap to prime for following iterates
     d_z->scale( scalar_t{ 4.0 / 3.0 } );
     x->axpy( scalar_t{ 1.0 }, *d_z, *x );
-    x->makeConsistent(); // needed?
+    x->makeConsistent();
 
     // iterate further, coeffs use 1-based indexing so start at k=2
     // since k=1 set above
@@ -613,7 +613,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
         // x <- x + d_z
         d_z->axpby( beta, alpha, *d_r );
         x->axpy( scalar_t{ 1.0 }, *d_z, *x );
-        x->makeConsistent(); // needed?
+        x->makeConsistent();
     }
 }
 #endif

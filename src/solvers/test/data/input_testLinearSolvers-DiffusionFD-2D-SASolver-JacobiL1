@@ -11,19 +11,17 @@ LinearSolver{
   min_coarse_global = 40
   kcycle_kappa = 2
   kcycle_type = "fcg"
-  // save_to_file = true
-  // save_to_file_name = "amp-dumps/jl1-2d"
 
 <<< SASolver-Level-MIS2 >>>
   
   pre_relaxation{
     name = "JacobiL1"
-    num_sweeps = 2
+    num_sweeps = 4
   }
 
   post_relaxation{
     name = "JacobiL1"
-    num_sweeps = 2
+    num_sweeps = 4
   }
 
   coarse_solver{
@@ -33,7 +31,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 62
+  iterations = 41
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE
