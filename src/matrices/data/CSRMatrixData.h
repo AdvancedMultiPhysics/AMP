@@ -35,8 +35,9 @@ public:
     template<typename C>
     friend class CSRMatrixData;
 
-    using gidx_t         = typename Config::gidx_t;
-    using lidx_t         = typename Config::lidx_t;
+    using gidx_t = typename Config::gidx_t;
+    using lidx_t = typename Config::lidx_t;
+    static_assert( std::is_signed_v<lidx_t> );
     using scalar_t       = typename Config::scalar_t;
     using allocator_type = typename Config::allocator_type;
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );

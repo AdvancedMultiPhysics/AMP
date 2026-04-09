@@ -10,11 +10,13 @@
 
 #include <memory>
 #include <numeric>
+#include <tuple>
 
 namespace AMP::Solver::AMG {
 
 // Base class for all aggregators
 struct Aggregator {
+
     Aggregator( const CoarsenSettings &settings )
         : d_strength_threshold( settings.strength_threshold ),
           d_strength_measure( settings.strength_measure ),
@@ -25,6 +27,8 @@ struct Aggregator {
     virtual ~Aggregator() {}
 
     // This function must be supplied by each specific aggregator implementation
+    // virtual functions can't be templated, so agg_ids always taken as int,
+    // and float/double scalar types wrapped in variant
     virtual int assignLocalAggregates( std::shared_ptr<LinearAlgebra::Matrix> A, int *agg_ids ) = 0;
 
     // Invoke aggregator and return in the form of a tentative prolongator
@@ -36,6 +40,20 @@ struct Aggregator {
     template<typename Config>
     std::shared_ptr<LinearAlgebra::Matrix>
     getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                        std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
+
+    // Invoke aggregator and return in the form of a tentative prolongator
+    // now scattering custom near-nullspace vector into it
+    std::tuple<std::shared_ptr<LinearAlgebra::Matrix>, std::shared_ptr<LinearAlgebra::Vector>>
+    getAggregateMatrix( std::shared_ptr<LinearAlgebra::Matrix> A,
+                        std::shared_ptr<const LinearAlgebra::Vector> nearNullVec,
+                        std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
+
+    // Produce non-type erased matrix for above tentative prolongator with NNV
+    template<typename Config>
+    std::tuple<std::shared_ptr<LinearAlgebra::Matrix>, std::shared_ptr<LinearAlgebra::Vector>>
+    getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
+                        std::shared_ptr<const LinearAlgebra::Vector> nearNullVec,
                         std::shared_ptr<LinearAlgebra::MatrixParameters> matParams = {} );
 
     const float d_strength_threshold;

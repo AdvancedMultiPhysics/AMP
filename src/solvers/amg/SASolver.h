@@ -51,6 +51,8 @@ protected:
     size_t d_min_coarse_global;
     //! Cycle type, tolerance, kappa value
     KappaKCycle::settings d_cycle_settings;
+    //! Whether or not near-nullspace vectors should be sent down levels or all just constant
+    bool d_propagate_nearnull;
     //! flag to save hierarchy after setup phase
     bool d_save_to_file;
     //! flag to save hierarchy after failure to converge
