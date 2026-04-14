@@ -76,8 +76,9 @@ void random_kernel( ExecSpace exec, ViewT xv )
 {
     using T = typename ViewT::non_const_value_type;
     // adapted from example in Kokkos docs
-    // seed is hardcoded
-    Kokkos::Random_XorShift64_Pool<ExecSpace> random_pool( 12345 );
+    std::random_device rd;
+    uint64_t seed = rd();
+    Kokkos::Random_XorShift64_Pool<ExecSpace> random_pool( seed );
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
         "VectorOperationsKokkos::random", pol, KOKKOS_LAMBDA( const int i ) {

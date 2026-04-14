@@ -2,6 +2,7 @@
 #define included_AMP_VectorOperationsOpenMP_hpp
 
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/copycast/CopyCast.hpp"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"

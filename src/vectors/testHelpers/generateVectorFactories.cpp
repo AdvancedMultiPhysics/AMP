@@ -218,6 +218,8 @@ std::shared_ptr<VectorFactory> generateSimpleVectorFactory( const std::string &n
         factory = generateSimpleVectorFactory<double>( name, N, global, ops, data );
     } else if ( type == "float" ) {
         factory = generateSimpleVectorFactory<float>( name, N, global, ops, data );
+    } else if ( type == "int" ) {
+        factory = generateSimpleVectorFactory<int>( name, N, global, ops, data );
     } else {
         AMP_ERROR( "Unknown VectorOperations" );
     }
@@ -254,6 +256,9 @@ std::shared_ptr<VectorFactory> generateVectorFactory( const std::string &name )
                 to_int( args[0] ), to_int( args[1] ), to_bool( args[2] ) ) );
         } else if ( args[3] == "float" ) {
             factory.reset( new ArrayVectorFactory<float>(
+                to_int( args[0] ), to_int( args[1] ), to_bool( args[2] ) ) );
+        } else if ( args[3] == "int" ) {
+            factory.reset( new ArrayVectorFactory<int>(
                 to_int( args[0] ), to_int( args[1] ), to_bool( args[2] ) ) );
         } else {
             AMP_ERROR( "Unknown type" );
@@ -347,6 +352,8 @@ std::vector<std::string> getSimpleVectorFactories()
     list.emplace_back( "SimpleVectorFactory<15,true,float>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float,openmp,cpu>" );
     list.emplace_back( "SimpleVectorFactory<15,false,float,gpu,gpu>" );
+    list.emplace_back( "SimpleVectorFactory<15,false,int>" );
+    list.emplace_back( "SimpleVectorFactory<15,true,int>" );
     list = cleanList( list );
     return list;
 }
@@ -357,6 +364,8 @@ std::vector<std::string> getArrayVectorFactories()
     list.emplace_back( "ArrayVectorFactory<4,10,true,double>" );
     list.emplace_back( "ArrayVectorFactory<4,10,false,float>" );
     list.emplace_back( "ArrayVectorFactory<4,10,true,float>" );
+    list.emplace_back( "ArrayVectorFactory<4,10,false,int>" );
+    list.emplace_back( "ArrayVectorFactory<4,10,true,int>" );
     list = cleanList( list );
     return list;
 }
