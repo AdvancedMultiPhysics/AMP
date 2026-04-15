@@ -17,6 +17,10 @@
 
     #include "Kokkos_Core.hpp"
 
+    #ifdef AMP_USE_KOKKOSKERNELS
+        #include "AMP/matrices/operations/kokkos/spgemm/CSRMatrixSpGEMMKokkos.hpp"
+    #endif
+
 namespace AMP::LinearAlgebra {
 
 template<typename Config, class ExecSpace, class ViewSpace>
@@ -217,18 +221,62 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
 {
     PROFILE( "CSRMatrixOperationsKokkos::matMatMult" );
 
-    if ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
+    #ifdef AMP_USE_KOKKOSKERNELS
+    auto csrDataA = std::dynamic_pointer_cast<CSRMatrixData<Config>>( A );
+    auto csrDataB = std::dynamic_pointer_cast<CSRMatrixData<Config>>( B );
+    auto csrDataC = std::dynamic_pointer_cast<CSRMatrixData<Config>>( C );
+
+    AMP_DEBUG_ASSERT( csrDataA && csrDataB && csrDataC );
+
+    // Verify that A and B have compatible dimensions
+    const auto globalKa = csrDataA->numGlobalColumns();
+    const auto globalKb = csrDataB->numGlobalRows();
+    const auto localKa  = csrDataA->numLocalColumns();
+    const auto localKb  = csrDataB->numLocalRows();
+    AMP_INSIST( globalKa == globalKb,
+                "CSRMatrixOperationsDefault::matMatMult got incompatible global dimensions" );
+    AMP_INSIST( localKa == localKb,
+                "CSRMatrixOperationsDefault::matMatMult got incompatible local dimensions" );
+
+    // Verify that all matrices have the same memory space and that it isn't device
+    const auto memLocA = csrDataA->getMemoryLocation();
+    const auto memLocB = csrDataB->getMemoryLocation();
+    const auto memLocC = csrDataC->getMemoryLocation();
+    AMP_INSIST( memLocA == AMP::Utilities::MemoryType::device,
+                "CSRMatrixOperationsKokkos::matMatMult only implemented for device matrices" );
+    AMP_INSIST( memLocA == memLocB,
+                "CSRMatrixOperationsKokkos::matMatMult A and B must have the same memory type" );
+    AMP_INSIST( memLocA == memLocC,
+                "CSRMatrixOperationsKokkos::matMatMult A and C must have the same memory type" );
+
+    // Check if an SpGEMM helper has already been constructed for this combination
+    // of matrices. If not create it first and do symbolic phase, otherwise skip
+    // ahead to numeric phase
+    auto bcPair = std::make_pair( csrDataB, csrDataC );
+    if ( d_SpGEMMHelpers.find( bcPair ) == d_SpGEMMHelpers.end() ) {
+        AMP_INSIST( csrDataC->isEmpty(),
+                    "CSRMatrixOperationsKokkos::matMatMult A*B->C only applicable to non-empty C "
+                    "if it came from same A and B input matrices originally" );
+        d_SpGEMMHelpers[bcPair] =
+            CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>( csrDataA, csrDataB, csrDataC );
+        d_SpGEMMHelpers[bcPair].multiply();
+    } else {
+        AMP_WARN_ONCE( "CSRMatrixOperationsKokkos::matMatMult: Reuse of C not yet supported, "
+                       "falling back to full calculation" );
+        d_SpGEMMHelpers[bcPair].multiply();
+    }
+
+    #else // don't have kokkos-kernels, forward to default or device ops as appropriate
+    if ( !alloc_info<Config::allocator>::device_accessible ) {
         d_matrixOpsDefault.matMatMult( A, B, C );
     } else {
-    #ifdef AMP_USE_DEVICE
-        if ( std::is_same_v<typename Config::allocator_type, AMP::ManagedAllocator<void>> ||
-             std::is_same_v<typename Config::allocator_type, AMP::DeviceAllocator<void>> ) {
-            d_matrixOpsDevice.matMatMult( A, B, C );
-            return;
-        }
-    #endif
-        AMP_ERROR( "CSRMatrixOperationsKokkos: Unrecognized memory space" );
+        #ifdef AMP_USE_DEVICE
+        d_matrixOpsDevice.matMatMult( A, B, C );
+        #else
+        AMP_ERROR( "CSRMatrixOperationsKokkos::matMatMult Undefined memory location" );
+        #endif
     }
+    #endif
 }
 
 template<typename Config, class ExecSpace, class ViewSpace>

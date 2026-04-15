@@ -1,5 +1,5 @@
-#ifndef included_AMP_CSRMatrixSpGEMMDevice
-#define included_AMP_CSRMatrixSpGEMMDevice
+#ifndef included_AMP_CSRMatrixSpGEMMKokkos
+#define included_AMP_CSRMatrixSpGEMMKokkos
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
@@ -7,13 +7,11 @@
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Memory.h"
 
-#ifdef AMP_USE_CUDA
-    #include "AMP/matrices/operations/device/spgemm/cuda/SpGEMM_Cuda.h"
-#endif
-
-#ifdef AMP_USE_HIP
-    #include "AMP/matrices/operations/device/spgemm/hip/SpGEMM_Hip.h"
-#endif
+#include <KokkosSparse_CrsMatrix.hpp>
+#include <KokkosSparse_StaticCrsGraph.hpp>
+#include <KokkosSparse_spgemm_numeric.hpp>
+#include <KokkosSparse_spgemm_symbolic.hpp>
+#include <Kokkos_Core.hpp>
 
 #include <map>
 #include <memory>
@@ -22,8 +20,8 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config>
-class CSRMatrixSpGEMMDevice
+template<typename Config, class ExecSpace, class ViewSpace>
+class CSRMatrixSpGEMMKokkos
 {
 public:
     using allocator_type    = typename Config::allocator_type;
@@ -36,8 +34,21 @@ public:
 
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );
 
-    CSRMatrixSpGEMMDevice() = default;
-    CSRMatrixSpGEMMDevice( std::shared_ptr<matrixdata_t> A_,
+    // Only floats and doubles supported for value types (AMP requirement)
+    static_assert( std::is_same_v<scalar_t, float> || std::is_same_v<scalar_t, double> );
+
+    using handle_t = typename KokkosKernels::Experimental::
+        KokkosKernelsHandle<lidx_t, lidx_t, scalar_t, ExecSpace, ViewSpace, ViewSpace>;
+    using device_t = typename Kokkos::Device<ExecSpace, ViewSpace>;
+    using matrix_t = typename KokkosSparse::
+        CrsMatrix<scalar_t, lidx_t, device_t, Kokkos::MemoryTraits<Kokkos::Unmanaged>, lidx_t>;
+    using graph_t   = typename matrix_t::staticcrsgraph_type;
+    using rowmap_t  = typename graph_t::row_map_type::non_const_type;
+    using entries_t = typename graph_t::entries_type::non_const_type;
+    using values_t  = typename matrix_t::values_type::non_const_type;
+
+    CSRMatrixSpGEMMKokkos() = default;
+    CSRMatrixSpGEMMKokkos( std::shared_ptr<matrixdata_t> A_,
                            std::shared_ptr<matrixdata_t> B_,
                            std::shared_ptr<matrixdata_t> C_ )
         : A( A_ ),
@@ -58,13 +69,25 @@ public:
             "CSRMatrixSpGEMMDevice: All three matrices must have the same communicator" );
     }
 
-    ~CSRMatrixSpGEMMDevice() = default;
+    ~CSRMatrixSpGEMMKokkos() = default;
 
     void multiply();
 
     void multiply( std::shared_ptr<localmatrixdata_t> A_data,
                    std::shared_ptr<localmatrixdata_t> B_data,
                    std::shared_ptr<localmatrixdata_t> C_data );
+
+    static std::tuple<rowmap_t, entries_t, values_t>
+    wrapDataFields( std::shared_ptr<localmatrixdata_t> mat )
+    {
+        auto [rs, cols, cols_loc, coeffs] = mat->getDataFields();
+        const auto nrows                  = mat->numLocalRows();
+        const auto nnz                    = mat->numberOfNonZeros();
+        rowmap_t rm( rs, nrows + 1 );
+        entries_t ent( cols_loc, nnz );
+        values_t val( coeffs, nnz );
+        return std::make_tuple( rm, ent, val );
+    }
 
 protected:
     void setupBRemoteComm();

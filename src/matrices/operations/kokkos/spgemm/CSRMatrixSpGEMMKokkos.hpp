@@ -1,5 +1,5 @@
 #include "AMP/matrices/CSRConfig.h"
-#include "AMP/matrices/operations/device/spgemm/CSRMatrixSpGEMMDevice.h"
+#include "AMP/matrices/operations/kokkos/spgemm/CSRMatrixSpGEMMKokkos.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 
@@ -13,10 +13,10 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::multiply()
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::multiply()
 {
-    PROFILE( "CSRMatrixSpGEMMDevice::multiply" );
+    PROFILE( "CSRMatrixSpGEMMKokkos::multiply" );
 
     // start communication to build BRemote before doing anything
     if ( A->hasOffDiag() ) {
@@ -39,14 +39,14 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
                                                        false );
 
     {
-        PROFILE( "CSRMatrixSpGEMMDevice::multiply (local)" );
+        PROFILE( "CSRMatrixSpGEMMKokkos::multiply (local)" );
         multiply( A_diag, B_diag, C_diag_diag );
         multiply( A_diag, B_offd, C_diag_offd );
     }
 
     if ( A->hasOffDiag() ) {
         endBRemoteComm();
-        PROFILE( "CSRMatrixSpGEMMDevice::multiply (remote)" );
+        PROFILE( "CSRMatrixSpGEMMKokkos::multiply (remote)" );
         if ( BR_diag.get() != nullptr ) {
             C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
                                                                C->getMemoryLocation(),
@@ -80,10 +80,11 @@ void CSRMatrixSpGEMMDevice<Config>::multiply()
     C->assemble( true );
 }
 
-template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t> A_data,
-                                              std::shared_ptr<localmatrixdata_t> B_data,
-                                              std::shared_ptr<localmatrixdata_t> C_data )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::multiply(
+    std::shared_ptr<localmatrixdata_t> A_data,
+    std::shared_ptr<localmatrixdata_t> B_data,
+    std::shared_ptr<localmatrixdata_t> C_data )
 {
     AMP_DEBUG_ASSERT( A_data != nullptr );
     AMP_DEBUG_ASSERT( B_data != nullptr );
@@ -100,52 +101,70 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
     const auto B_ncols = B_data->isDiag() ? static_cast<int64_t>( B_data->numLocalColumns() ) :
                                             static_cast<int64_t>( B_data->numUniqueColumns() );
 
-    // all fields from blocks involved
-    lidx_t *A_rs = nullptr, *A_cols_loc = nullptr;
-    gidx_t *A_cols     = nullptr;
-    scalar_t *A_coeffs = nullptr;
+    // all fields from blocks involved as spgemm compatible views
+    auto [A_rowmap, A_entries, A_values] = wrapDataFields( A_data );
+    auto [B_rowmap, B_entries, B_values] = wrapDataFields( B_data );
 
-    lidx_t *B_rs = nullptr, *B_cols_loc = nullptr;
-    gidx_t *B_cols     = nullptr;
-    scalar_t *B_coeffs = nullptr;
-
-    // Extract data fields from A and B
-    std::tie( A_rs, A_cols, A_cols_loc, A_coeffs ) = A_data->getDataFields();
-    std::tie( B_rs, B_cols, B_cols_loc, B_coeffs ) = B_data->getDataFields();
     const auto A_nnz = static_cast<int64_t>( A_data->numberOfNonZeros() );
     const auto B_nnz = static_cast<int64_t>( B_data->numberOfNonZeros() );
 
-    // C has row pointers allocated but unfilled
-    lidx_t *C_rs = C_data->getRowStarts();
+    // set up kokkos-kernels handle for state persistent across symbolic/numeric phases
+    handle_t handle;
+    handle.set_team_work_size( 16 );
+    handle.set_dynamic_scheduling( true );
+    handle.create_spgemm_handle( /*algo type?*/ );
 
-    // Create vendor SpGEMM object and trigger internal allocs
-    VendorSpGEMM<lidx_t, lidx_t, scalar_t> spgemm( A_nrows,
-                                                   B_ncols,
-                                                   A_ncols,
-                                                   A_nnz,
-                                                   A_rs,
-                                                   A_cols_loc,
-                                                   A_coeffs,
-                                                   B_nnz,
-                                                   B_rs,
-                                                   B_cols_loc,
-                                                   B_coeffs,
-                                                   C_rs );
+    {
+        // C has row pointers allocated but unfilled
+        // wrap it for symbolic call but scope it so that we can
+        // wrap all C fields after setting NNZ
+        rowmap_t C_rowmap( C_data->getRowStarts(), A_nrows + 1 );
+        KokkosSparse::spgemm_symbolic( &handle,
+                                       A_nrows,
+                                       B_ncols,
+                                       A_ncols,
+                                       A_rowmap,
+                                       A_entries,
+                                       false,
+                                       B_rowmap,
+                                       B_entries,
+                                       false,
+                                       C_rowmap,
+                                       false );
+    }
 
     // Get nnz for C and allocate internals
-    auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
+    const lidx_t C_nnz = handle.get_spgemm_handle()->get_c_nnz();
     C_data->setNNZ( C_nnz );
 
     // pull out the now allocated C internals
-    lidx_t *C_cols_loc                             = nullptr;
+    auto [C_rowmap, C_entries, C_values] = wrapDataFields( C_data );
+
+    // numeric phase
+    KokkosSparse::spgemm_numeric( &handle,
+                                  A_nrows,
+                                  B_ncols,
+                                  A_ncols,
+                                  A_rowmap,
+                                  A_entries,
+                                  A_values,
+                                  false,
+                                  B_rowmap,
+                                  B_entries,
+                                  B_values,
+                                  false,
+                                  C_rowmap,
+                                  C_entries,
+                                  C_values );
+
+    // can now free handle internals
+    handle.destroy_spgemm_handle();
+
+    // Convert the local indices to globals to make merges easier
+    lidx_t *C_rs = nullptr, *C_cols_loc = nullptr;
     gidx_t *C_cols                                 = nullptr;
     scalar_t *C_coeffs                             = nullptr;
     std::tie( C_rs, C_cols, C_cols_loc, C_coeffs ) = C_data->getDataFields();
-
-    // Compute SpGEMM
-    spgemm.compute( C_rs, C_cols_loc, C_coeffs );
-
-    // Convert the local indices to globals to make merges easier
     if ( C_data->isDiag() ) {
         const auto first_col = C_data->beginCol();
         thrust::transform( thrust::device,
@@ -164,7 +183,6 @@ void CSRMatrixSpGEMMDevice<Config>::multiply( std::shared_ptr<localmatrixdata_t>
             C_cols,
             [colmap] __device__( const lidx_t lc ) -> gidx_t { return colmap[lc]; } );
     }
-    // exiting function destructs spgemm wrapper and frees its internals
 }
 
 template<typename gidx_t, typename lidx_t>
@@ -258,12 +276,13 @@ __global__ void merge_row_fill( const lidx_t num_rows,
     }
 }
 
-template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> inL,
-                                           std::shared_ptr<localmatrixdata_t> inR,
-                                           std::shared_ptr<localmatrixdata_t> out )
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::merge(
+    std::shared_ptr<localmatrixdata_t> inL,
+    std::shared_ptr<localmatrixdata_t> inR,
+    std::shared_ptr<localmatrixdata_t> out )
 {
-    PROFILE( "CSRMatrixSpGEMMDevice::merge" );
+    PROFILE( "CSRMatrixSpGEMMKokkos::merge" );
 
     // handle special case where either (or both) inputs are empty/null
     if ( inL.get() == nullptr && inR.get() == nullptr ) {
@@ -328,8 +347,8 @@ void CSRMatrixSpGEMMDevice<Config>::merge( std::shared_ptr<localmatrixdata_t> in
     }
 }
 
-template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::setupBRemoteComm()
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::setupBRemoteComm()
 {
     /*
      * Setting up the comms is somewhat involved. A high level overview
@@ -343,7 +362,7 @@ void CSRMatrixSpGEMMDevice<Config>::setupBRemoteComm()
      *  Step 4 uses non-blocking recvs and blocking sends.
      */
 
-    PROFILE( "CSRMatrixSpGEMMDevice::setupBRemoteComm" );
+    PROFILE( "CSRMatrixSpGEMMKokkos::setupBRemoteComm" );
 
     using lidx_t = typename Config::lidx_t;
 
@@ -409,14 +428,14 @@ void CSRMatrixSpGEMMDevice<Config>::setupBRemoteComm()
     comm.waitAll( static_cast<int>( irecvs.size() ), irecvs.data() );
 }
 
-template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::startBRemoteComm()
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::startBRemoteComm()
 {
     if ( comm.getSize() == 1 ) {
         return;
     }
 
-    PROFILE( "CSRMatrixSpGEMMDevice::startBRemoteComm" );
+    PROFILE( "CSRMatrixSpGEMMKokkos::startBRemoteComm" );
 
     // check if the communicator information is available and create if needed
     if ( d_dest_info.empty() ) {
@@ -431,14 +450,14 @@ void CSRMatrixSpGEMMDevice<Config>::startBRemoteComm()
     d_csr_comm.sendMatrices( d_send_matrices );
 }
 
-template<typename Config>
-void CSRMatrixSpGEMMDevice<Config>::endBRemoteComm()
+template<typename Config, class ExecSpace, class ViewSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::endBRemoteComm()
 {
     if ( comm.getSize() == 1 ) {
         return;
     }
 
-    PROFILE( "CSRMatrixSpGEMMDevice::endBRemoteComm" );
+    PROFILE( "CSRMatrixSpGEMMKokkos::endBRemoteComm" );
 
     d_recv_matrices = d_csr_comm.recvMatrices( 0, 0, 0, B->numGlobalColumns() );
 
