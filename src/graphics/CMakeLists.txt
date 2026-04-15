@@ -7,3 +7,5 @@ ENDIF()
 IF ( USE_OGRE )
     ADD_SUBDIRECTORY( ogre )
 ENDIF()
+ADD_SUBDIRECTORY( test )
+
