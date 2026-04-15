@@ -774,9 +774,9 @@ typename ViewCT::non_const_value_type l2_norm_kernel( ExecSpace exec, ViewCT xv 
 }
 
 template<typename T>
-Scalar VectorOperationsKokkos<T>::localL2Norm( const VectorData &x ) const
+Scalar VectorOperationsKokkos<T>::localL2Norm2( const VectorData &x ) const
 {
-    PROFILE( "VectorOperationsKokkos::localL2Norm" );
+    PROFILE( "VectorOperationsKokkos::localL2Norm2" );
 
     T norm = 0.0;
 
@@ -799,7 +799,7 @@ Scalar VectorOperationsKokkos<T>::localL2Norm( const VectorData &x ) const
     #endif
     }
 
-    return std::sqrt( norm );
+    return norm;
 }
 
 template<class ExecSpace, class ViewCT>

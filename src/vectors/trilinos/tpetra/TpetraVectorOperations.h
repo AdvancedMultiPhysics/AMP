@@ -67,6 +67,7 @@ public:
 
     Scalar localL1Norm( const AMP::LinearAlgebra::VectorData &x ) const override;
     Scalar localL2Norm( const AMP::LinearAlgebra::VectorData &x ) const override;
+    Scalar localL2Norm2( const AMP::LinearAlgebra::VectorData &x ) const override;
     Scalar localMaxNorm( const AMP::LinearAlgebra::VectorData &x ) const override;
     Scalar localDot( const AMP::LinearAlgebra::VectorData &x, const VectorData &y ) const override;
 

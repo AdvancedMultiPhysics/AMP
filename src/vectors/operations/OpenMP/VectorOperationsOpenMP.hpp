@@ -468,9 +468,9 @@ Scalar VectorOperationsOpenMP<TYPE>::localL1Norm( const VectorData &x ) const
 }
 
 template<typename TYPE>
-Scalar VectorOperationsOpenMP<TYPE>::localL2Norm( const VectorData &x ) const
+Scalar VectorOperationsOpenMP<TYPE>::localL2Norm2( const VectorData &x ) const
 {
-    PROFILE( "VectorOperationsOpenMP::localL2Norm" );
+    PROFILE( "VectorOperationsOpenMP::localL2Norm2" );
 
     size_t N_blocks = x.numberOfDataBlocks();
     TYPE ans        = 0;
@@ -483,7 +483,7 @@ Scalar VectorOperationsOpenMP<TYPE>::localL2Norm( const VectorData &x ) const
             ans += tmp * tmp;
         }
     }
-    return std::sqrt( ans );
+    return ans;
 }
 
 template<typename TYPE>

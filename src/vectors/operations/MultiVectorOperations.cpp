@@ -437,21 +437,21 @@ Scalar MultiVectorOperations::localL1Norm( const VectorData &x ) const
     return ans;
 }
 
-Scalar MultiVectorOperations::localL2Norm( const VectorData &x ) const
+Scalar MultiVectorOperations::localL2Norm2( const VectorData &x ) const
 {
-    PROFILE( "MultiVectorOperations::localL2Norm" );
+    PROFILE( "MultiVectorOperations::localL2Norm2" );
 
     AMP_ASSERT( getMultiVectorData( x ) );
     if ( d_operations.empty() )
         return 0;
     Scalar ans;
     for ( size_t i = 0; i != d_operations.size(); i++ ) {
-        auto tmp = d_operations[i]->localL2Norm( *getVectorDataComponent( x, i ) );
-        ans      = ans + tmp * tmp;
+        auto tmp = d_operations[i]->localL2Norm2( *getVectorDataComponent( x, i ) );
+        ans      = tmp + ans;
     }
     if ( !ans.has_value() )
         return 0;
-    return ans.sqrt();
+    return ans;
 }
 
 Scalar MultiVectorOperations::localMaxNorm( const VectorData &x ) const

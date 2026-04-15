@@ -618,8 +618,8 @@ Scalar VectorOperationsDefault<TYPE>::localMin( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsDefault::localMin" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans              = std::numeric_limits<TYPE>::max();
+    size_t N_blocks = x.numberOfDataBlocks();
+    TYPE ans        = std::numeric_limits<TYPE>::max();
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
@@ -650,8 +650,8 @@ Scalar VectorOperationsDefault<TYPE>::localSum( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsDefault::localSum" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans              = 0;
+    size_t N_blocks = x.numberOfDataBlocks();
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
@@ -667,7 +667,7 @@ Scalar VectorOperationsDefault<TYPE>::localL1Norm( const VectorData &x ) const
     PROFILE( "VectorOperationsDefault::localL1Norm" );
 
     size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans        = 0;
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         size_t size      = x.sizeOfDataBlock( i );
         const TYPE *data = x.getRawDataBlock<TYPE>( i );
@@ -678,19 +678,19 @@ Scalar VectorOperationsDefault<TYPE>::localL1Norm( const VectorData &x ) const
 }
 
 template<typename TYPE>
-Scalar VectorOperationsDefault<TYPE>::localL2Norm( const VectorData &x ) const
+Scalar VectorOperationsDefault<TYPE>::localL2Norm2( const VectorData &x ) const
 {
-    PROFILE( "VectorOperationsDefault::localL2Norm" );
+    PROFILE( "VectorOperationsDefault::localL2Norm2" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    double ans            = 0;
+    size_t N_blocks = x.numberOfDataBlocks();
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
         for ( size_t j = 0; j < size; j++ )
             ans += data[j] * data[j];
     }
-    return std::sqrt( ans );
+    return ans;
 }
 
 template<typename TYPE>
@@ -698,13 +698,13 @@ Scalar VectorOperationsDefault<TYPE>::localMaxNorm( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsDefault::localMaxNorm" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans              = 0;
+    size_t N_blocks = x.numberOfDataBlocks();
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
         for ( size_t j = 0; j < size; j++ )
-            ans = std::max( std::abs( data[j] ), ans );
+            ans = std::max<double>( std::abs( data[j] ), ans );
     }
     return ans;
 }

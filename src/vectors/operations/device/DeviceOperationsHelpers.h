@@ -34,7 +34,7 @@ public:
     static TYPE localMax( size_t N, const TYPE *x );
     static TYPE localSum( size_t N, const TYPE *x );
     static TYPE localL1Norm( size_t N, const TYPE *x );
-    static TYPE localL2Norm( size_t N, const TYPE *x );
+    static TYPE localL2Norm2( size_t N, const TYPE *x );
     static TYPE localMaxNorm( size_t N, const TYPE *x );
     static TYPE localDot( size_t N, const TYPE *x, const TYPE *y );
     static TYPE localMinQuotient( size_t N, const TYPE *x, const TYPE *y );

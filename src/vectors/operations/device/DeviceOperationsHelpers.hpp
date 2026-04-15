@@ -164,12 +164,12 @@ TYPE DeviceOperationsHelpers<TYPE>::localL1Norm( size_t N, const TYPE *x )
 }
 
 template<typename TYPE>
-TYPE DeviceOperationsHelpers<TYPE>::localL2Norm( size_t N, const TYPE *x )
+TYPE DeviceOperationsHelpers<TYPE>::localL2Norm2( size_t N, const TYPE *x )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x * x; };
     auto result = thrust::transform_reduce(
         thrust::device, x, x + N, lambda, (TYPE) 0, thrust::plus<TYPE>() );
-    return std::sqrt( result );
+    return result;
 }
 
 template<typename TYPE>

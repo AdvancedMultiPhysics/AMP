@@ -476,17 +476,17 @@ Scalar VectorOperationsDevice<TYPE>::localL1Norm( const VectorData &x ) const
 }
 
 template<typename TYPE>
-Scalar VectorOperationsDevice<TYPE>::localL2Norm( const VectorData &x ) const
+Scalar VectorOperationsDevice<TYPE>::localL2Norm2( const VectorData &x ) const
 {
-    PROFILE( "VectorOperationsDevice::localL2Norm" );
+    PROFILE( "VectorOperationsDevice::localL2Norm2" );
 
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localL2Norm( N, xdata );
+        return DeviceOperationsHelpers<TYPE>::localL2Norm2( N, xdata );
     } else {
         // Default to VectorOperationsDefault (on cpu)
-        return getDefaultOps()->localL2Norm( x );
+        return getDefaultOps()->localL2Norm2( x );
     }
 }
 

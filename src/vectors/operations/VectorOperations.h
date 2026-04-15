@@ -317,7 +317,14 @@ public:
      * \details Returns \f[\sqrt{\sum_i x_i^2}\f]
      * \param[in] x     a vector
      */
-    virtual Scalar localL2Norm( const VectorData &x ) const = 0;
+    virtual Scalar localL2Norm( const VectorData &x ) const;
+
+    /**
+     * \brief Return square of local discrete @f$ L_2 @f$ -norm of this vector.
+     * \details Returns \f[\sum_i x_i^2\f]
+     * \param[in] x     a vector
+     */
+    virtual Scalar localL2Norm2( const VectorData &x ) const = 0;
 
     /**
      * \brief Return the local @f$ L_\infty @f$ -norm of this vector.
