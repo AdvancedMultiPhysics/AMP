@@ -105,12 +105,13 @@ invalidFunctionArgBool:*/AMP/utils/FunctionTable.hpp
 *:*/src/utils/tinyexpr/tinyexpr.c
 *:*/src/mesh/dendro/*
 *:*/src/mesh/hex8_element_t.cpp
-autovarInvalidDeallocation:*/src/discretization/subsetCommSelfDOFManager.cpp
 arrayIndexOutOfBounds:*/src/utils/DelaunayTessellation.cpp
 arrayIndexOutOfBoundsCond:*/src/geometry/shapes/SquareFrustum.cpp
 arrayIndexOutOfBoundsCond:*/src/mesh/edge_t.cpp
 arrayIndexOutOfBoundsCond:*/src/mesh/triangle_t.cpp
 arrayIndexOutOfBoundsCond:*/src/operators/mechanics/UpdatedLagrangianUtils.cpp
+argumentSize:*/src/graphics/BMP_Writer.cpp
+autovarInvalidDeallocation:*/src/discretization/subsetCommSelfDOFManager.cpp
 autovarInvalidDeallocation:*/src/vectors/petsc/PetscHelpers.cpp
 constVariable:*/src/mesh/edge_t.cpp
 constVariable:*/src/mesh/structured/structuredMeshElement.cpp
