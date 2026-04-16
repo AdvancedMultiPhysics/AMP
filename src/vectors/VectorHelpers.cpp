@@ -46,7 +46,7 @@ static std::vector<double> computeL1Norm( const std::shared_ptr<const Vector> &v
                                           const std::vector<std::string> &names )
 {
     auto vecs = getVecs( vec, names );
-    std::vector<double> x( names.size() );
+    std::vector<double> x( names.size(), 0 );
     for ( size_t i = 0; i < x.size(); i++ ) {
         for ( size_t j = 0; j < vecs[i].size(); j++ ) {
             auto v = vecs[i][j].get();
@@ -60,7 +60,7 @@ std::vector<double> computeL2Norm2( const std::shared_ptr<const Vector> &vec,
                                     const std::vector<std::string> &names )
 {
     auto vecs = getVecs( vec, names );
-    std::vector<double> x( names.size() );
+    std::vector<double> x( names.size(), 0 );
     for ( size_t i = 0; i < x.size(); i++ ) {
         for ( size_t j = 0; j < vecs[i].size(); j++ ) {
             auto v = vecs[i][j].get();
@@ -75,7 +75,7 @@ std::vector<double> computeMaxNorm( const std::shared_ptr<const Vector> &vec,
                                     const std::vector<std::string> &names )
 {
     auto vecs = getVecs( vec, names );
-    std::vector<double> x( names.size() );
+    std::vector<double> x( names.size(), 0 );
     for ( size_t i = 0; i < x.size(); i++ ) {
         for ( size_t j = 0; j < vecs[i].size(); j++ ) {
             auto v = vecs[i][j].get();
