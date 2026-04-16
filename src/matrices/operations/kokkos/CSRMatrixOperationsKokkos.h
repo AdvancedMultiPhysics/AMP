@@ -211,13 +211,11 @@ protected:
     std::map<std::pair<std::shared_ptr<matrixdata_t>, std::shared_ptr<matrixdata_t>>,
              CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>>
         d_SpGEMMHelpers;
-    #else
-    // without kokkos-kernels we need to fall back to either default or device ops
-    // for SpGEMM
+    #endif
+    // Can need to fall back to either default or device ops for SpGEMM if needed
     CSRMatrixOperationsDefault<Config> d_matrixOpsDefault;
-        #ifdef AMP_USE_DEVICE
+    #ifdef AMP_USE_DEVICE
     CSRMatrixOperationsDevice<Config> d_matrixOpsDevice;
-        #endif
     #endif
 };
 
