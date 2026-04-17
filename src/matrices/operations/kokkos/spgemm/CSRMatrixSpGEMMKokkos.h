@@ -14,10 +14,8 @@
 #include <KokkosSparse_spgemm_symbolic.hpp>
 #include <Kokkos_Core.hpp>
 
-#include <map>
 #include <memory>
-#include <type_traits>
-#include <vector>
+#include <tuple>
 
 namespace AMP::LinearAlgebra {
 
@@ -26,7 +24,6 @@ class CSRMatrixSpGEMMKokkos : public CSRMatrixSpGEMMCommon<Config>
 {
 public:
     using allocator_type    = typename Config::allocator_type;
-    using config_type       = Config;
     using matrixdata_t      = CSRMatrixData<Config>;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
     using lidx_t            = typename Config::lidx_t;
@@ -56,10 +53,6 @@ public:
     virtual void multiplyLocal( std::shared_ptr<localmatrixdata_t> A_data,
                                 std::shared_ptr<localmatrixdata_t> B_data,
                                 std::shared_ptr<localmatrixdata_t> C_data ) override;
-
-    virtual void merge( std::shared_ptr<localmatrixdata_t> inL,
-                        std::shared_ptr<localmatrixdata_t> inR,
-                        std::shared_ptr<localmatrixdata_t> out ) override;
 
     static std::tuple<rowmap_t, entries_t, values_t>
     wrapDataFields( std::shared_ptr<localmatrixdata_t> mat )

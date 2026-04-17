@@ -143,6 +143,7 @@ void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::multiplyLocal(
     }
 }
 
+#if 0
 template<typename gidx_t, typename lidx_t>
 __global__ void merge_row_count( const lidx_t num_rows,
                                  const lidx_t *A_rs,
@@ -304,5 +305,6 @@ void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::merge(
         getLastDeviceError( "CSRMatrixSpGEMMDevice::merge::merge_row_count" );
     }
 }
+#endif
 
 } // namespace AMP::LinearAlgebra

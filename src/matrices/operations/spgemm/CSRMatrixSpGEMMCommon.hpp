@@ -3,6 +3,15 @@
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 
+#ifdef AMP_USE_DEVICE
+    #include <thrust/device_vector.h>
+    #include <thrust/execution_policy.h>
+    #include <thrust/transform.h>
+    #define AMP_FUNCTION_HD __host__ __device__
+#else
+    #define AMP_FUNCTION_HD
+#endif
+
 #include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
@@ -72,6 +81,191 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
     C_offd_offd.reset();
 
     C->assemble( true );
+}
+
+template<typename gidx_t, typename lidx_t>
+AMP_FUNCTION_HD void merge_row_count( const lidx_t row,
+                                      const lidx_t *A_rs,
+                                      const gidx_t *A_cols,
+                                      const lidx_t *B_rs,
+                                      const gidx_t *B_cols,
+                                      lidx_t *C_rs )
+{
+    // all of A counts in automatically
+    C_rs[row] = A_rs[row + 1] - A_rs[row];
+    // column values are sorted, so walk through A cols and B cols
+    // simultaneously to find matches
+    lidx_t num_repeats = 0, A_ptr = A_rs[row], B_ptr = B_rs[row];
+    for ( ; A_ptr < A_rs[row + 1] && B_ptr < B_rs[row + 1]; ) {
+        const auto Ac = A_cols[A_ptr], Bc = B_cols[B_ptr];
+        if ( Ac == Bc ) {
+            // entries match, increment counter and both ptrs
+            ++num_repeats;
+            ++A_ptr;
+            ++B_ptr;
+        } else if ( Ac < Bc ) {
+            // A lags B, increment A ptr to check further in row
+            ++A_ptr;
+        } else {
+            // B lags A, Bc not a repeat, so increment B ptr to check next
+            ++B_ptr;
+        }
+    }
+    // either all A cols or all B cols have been checked
+    // either way, all possible repeats accounted for
+    // add in length of B row, minus repeats
+    C_rs[row] += B_rs[row + 1] - B_rs[row] - num_repeats;
+}
+
+template<typename gidx_t, typename lidx_t, typename scalar_t>
+AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
+                                     const lidx_t *A_rs,
+                                     const gidx_t *A_cols,
+                                     const scalar_t *A_coeffs,
+                                     const lidx_t *B_rs,
+                                     const gidx_t *B_cols,
+                                     const scalar_t *B_coeffs,
+                                     lidx_t *C_rs,
+                                     gidx_t *C_cols,
+                                     scalar_t *C_coeffs )
+{
+    const auto A_start = A_rs[row], A_len = A_rs[row + 1] - A_start;
+    const auto B_start = B_rs[row], B_len = B_rs[row + 1] - B_start;
+    const auto C_start = C_rs[row], C_len = C_rs[row + 1] - C_start;
+    // all of A counts in automatically
+    for ( lidx_t off = 0; off < A_len; ++off ) {
+        C_cols[C_start + off]   = A_cols[A_start + off];
+        C_coeffs[C_start + off] = A_coeffs[A_start + off];
+    }
+
+    lidx_t C_app = A_len, search_start = C_start;
+    for ( lidx_t B_ptr = B_start; B_ptr < B_rs[row + 1]; ++B_ptr ) {
+        const auto Bc = B_cols[B_ptr];
+        const auto Bv = B_coeffs[B_ptr];
+        bool matched  = false;
+        for ( lidx_t C_ptr = search_start; C_ptr < C_rs[row + 1]; ++C_ptr ) {
+            const auto Cc = C_cols[C_ptr];
+            if ( Cc == Bc ) {
+                // have a matching column index, add to the current coeff,
+                // flag that a match was found
+                C_coeffs[C_ptr] += Bv;
+                matched = true;
+                // column idxs are ordered, so no need to look at any
+                // entries from here back in later searches
+                search_start = C_ptr + 1;
+                break;
+            } else if ( Cc > Bc ) {
+                // C column is larger than the B column we are looking
+                // for, no need to look any further
+                break;
+            }
+        }
+        if ( !matched ) {
+            C_cols[C_start + C_app]   = Bc;
+            C_coeffs[C_start + C_app] = Bv;
+            ++C_app;
+        }
+    }
+}
+
+template<typename Config>
+void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> inL,
+                                           std::shared_ptr<localmatrixdata_t> inR,
+                                           std::shared_ptr<localmatrixdata_t> out )
+{
+    PROFILE( "CSRMatrixSpGEMMDevice::merge" );
+
+    // handle special case where either (or both) inputs are empty/null
+    if ( inL.get() == nullptr && inR.get() == nullptr ) {
+        return;
+    }
+    if ( inR.get() == nullptr || inR->isEmpty() ) {
+        out->swapDataFields( *inL );
+        return;
+    }
+    if ( inL.get() == nullptr || inL->isEmpty() ) {
+        out->swapDataFields( *inR );
+        return;
+    }
+
+    // pull out fields from blocks to merge and row pointers from output
+    const auto num_rows = out->numLocalRows();
+    AMP_ASSERT( num_rows == inL->numLocalRows() && num_rows == inR->numLocalRows() );
+    lidx_t *inL_rs, *inR_rs, *out_rs;
+    lidx_t *inL_cols_loc, *inR_cols_loc;
+    gidx_t *inL_cols, *inR_cols;
+    scalar_t *inL_coeffs, *inR_coeffs;
+
+    std::tie( inL_rs, inL_cols, inL_cols_loc, inL_coeffs ) = inL->getDataFields();
+    std::tie( inR_rs, inR_cols, inR_cols_loc, inR_coeffs ) = inR->getDataFields();
+    out_rs                                                 = out->getRowStarts();
+
+    // count unique entries in each row
+    {
+        auto merge_row_count_all = [inL_rs, inL_cols, inR_rs, inR_cols, out_rs] AMP_FUNCTION_HD(
+                                       const lidx_t row ) -> void {
+            merge_row_count( row, inL_rs, inL_cols, inR_rs, inR_cols, out_rs );
+        };
+        if constexpr ( !alloc_info<Config::allocator>::device_accessible ) {
+            for ( lidx_t row = 0; row < num_rows; ++row ) {
+                merge_row_count_all( row );
+            }
+        } else {
+#ifdef AMP_USE_DEVICE
+            thrust::for_each( thrust::device,
+                              thrust::make_counting_iterator( 0 ),
+                              thrust::make_counting_iterator( num_rows ),
+                              merge_row_count_all );
+            getLastDeviceError( "CSRMatrixSpGEMMDevice::merge::merge_row_count" );
+#endif
+        }
+    }
+
+    // trigger allocation of output internals and set up row pointers
+    out->setNNZ( true );
+
+    // get fields from output
+    lidx_t *out_cols_loc;
+    gidx_t *out_cols;
+    scalar_t *out_coeffs;
+    std::tie( out_rs, out_cols, out_cols_loc, out_coeffs ) = out->getDataFields();
+
+    // fill rows of output as sums of each block
+    {
+        auto merge_row_fill_all = [inL_rs,
+                                   inL_cols,
+                                   inL_coeffs,
+                                   inR_rs,
+                                   inR_cols,
+                                   inR_coeffs,
+                                   out_rs,
+                                   out_cols,
+                                   out_coeffs] AMP_FUNCTION_HD( const lidx_t row ) -> void {
+            merge_row_fill( row,
+                            inL_rs,
+                            inL_cols,
+                            inL_coeffs,
+                            inR_rs,
+                            inR_cols,
+                            inR_coeffs,
+                            out_rs,
+                            out_cols,
+                            out_coeffs );
+        };
+        if constexpr ( !alloc_info<Config::allocator>::device_accessible ) {
+            for ( lidx_t row = 0; row < num_rows; ++row ) {
+                merge_row_fill_all( row );
+            }
+        } else {
+#ifdef AMP_USE_DEVICE
+            thrust::for_each( thrust::device,
+                              thrust::make_counting_iterator( 0 ),
+                              thrust::make_counting_iterator( num_rows ),
+                              merge_row_fill_all );
+            getLastDeviceError( "CSRMatrixSpGEMMDevice::merge::merge_row_fill" );
+#endif
+        }
+    }
 }
 
 template<typename Config>
@@ -213,3 +407,5 @@ void CSRMatrixSpGEMMCommon<Config>::endBRemoteComm()
 }
 
 } // namespace AMP::LinearAlgebra
+
+#undef AMP_FUNCTION_HD

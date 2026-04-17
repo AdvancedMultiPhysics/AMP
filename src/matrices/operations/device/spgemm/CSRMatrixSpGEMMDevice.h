@@ -48,10 +48,6 @@ public:
     virtual void multiplyLocal( std::shared_ptr<localmatrixdata_t> A_data,
                                 std::shared_ptr<localmatrixdata_t> B_data,
                                 std::shared_ptr<localmatrixdata_t> C_data ) override;
-
-    virtual void merge( std::shared_ptr<localmatrixdata_t> inL,
-                        std::shared_ptr<localmatrixdata_t> inR,
-                        std::shared_ptr<localmatrixdata_t> out ) override;
 };
 
 } // namespace AMP::LinearAlgebra

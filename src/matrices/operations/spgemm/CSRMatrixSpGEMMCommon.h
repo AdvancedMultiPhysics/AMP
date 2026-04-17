@@ -1,7 +1,6 @@
 #ifndef included_AMP_CSRMatrixSpGEMMCommon
 #define included_AMP_CSRMatrixSpGEMMCommon
 
-#include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/utils/AMP_MPI.h"
@@ -52,15 +51,15 @@ public:
 
     virtual ~CSRMatrixSpGEMMCommon() = default;
 
-    void multiply();
+    virtual void multiply();
 
     virtual void multiplyLocal( std::shared_ptr<localmatrixdata_t> A_data,
                                 std::shared_ptr<localmatrixdata_t> B_data,
                                 std::shared_ptr<localmatrixdata_t> C_data ) = 0;
 
-    virtual void merge( std::shared_ptr<localmatrixdata_t> inL,
-                        std::shared_ptr<localmatrixdata_t> inR,
-                        std::shared_ptr<localmatrixdata_t> out ) = 0;
+    void merge( std::shared_ptr<localmatrixdata_t> inL,
+                std::shared_ptr<localmatrixdata_t> inR,
+                std::shared_ptr<localmatrixdata_t> out );
 
 protected:
     void setupBRemoteComm();
