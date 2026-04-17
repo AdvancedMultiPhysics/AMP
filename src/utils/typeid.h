@@ -3,6 +3,7 @@
 
 #include <complex>
 #include <cstdint>
+#include <ostream>
 #include <string_view>
 #include <type_traits>
 
@@ -307,6 +308,14 @@ constexpr typeID getTypeID()
     constexpr auto id = getTypeIDEval<TYPE>();
     static_assert( id != 0 );
     return id;
+}
+
+
+// Print the typeid name
+inline std::ostream &operator<<( std::ostream &out, const typeID &id )
+{
+    out << id.name;
+    return out;
 }
 
 

@@ -48,10 +48,9 @@ static std::vector<double> computeL1Norm( const std::shared_ptr<const Vector> &v
     auto vecs = getVecs( vec, names );
     std::vector<double> x( names.size(), 0 );
     for ( size_t i = 0; i < x.size(); i++ ) {
-        for ( size_t j = 0; j < vecs[i].size(); j++ ) {
-            auto v = vecs[i][j].get();
-            x[i] += static_cast<double>(
-                v->getVectorOperations()->localL1Norm( *( v->getVectorData() ) ) );
+        for ( auto &v : vecs[i] ) {
+            auto data = v->getVectorData();
+            x[i] += static_cast<double>( v->getVectorOperations()->localL1Norm( *data ) );
         }
     }
     return x;
@@ -62,11 +61,9 @@ std::vector<double> computeL2Norm2( const std::shared_ptr<const Vector> &vec,
     auto vecs = getVecs( vec, names );
     std::vector<double> x( names.size(), 0 );
     for ( size_t i = 0; i < x.size(); i++ ) {
-        for ( size_t j = 0; j < vecs[i].size(); j++ ) {
-            auto v = vecs[i][j].get();
-            auto y = static_cast<double>(
-                v->getVectorOperations()->localL2Norm( *( v->getVectorData() ) ) );
-            x[i] += y * y;
+        for ( auto &v : vecs[i] ) {
+            auto data = v->getVectorData();
+            x[i] += static_cast<double>( v->getVectorOperations()->localL2Norm2( *data ) );
         }
     }
     return x;
@@ -77,11 +74,10 @@ std::vector<double> computeMaxNorm( const std::shared_ptr<const Vector> &vec,
     auto vecs = getVecs( vec, names );
     std::vector<double> x( names.size(), 0 );
     for ( size_t i = 0; i < x.size(); i++ ) {
-        for ( size_t j = 0; j < vecs[i].size(); j++ ) {
-            auto v = vecs[i][j].get();
-            auto y = static_cast<double>(
-                v->getVectorOperations()->localMaxNorm( *( v->getVectorData() ) ) );
-            x[i] = std::max( x[i], y );
+        for ( auto &v : vecs[i] ) {
+            auto data = v->getVectorData();
+            auto y    = static_cast<double>( v->getVectorOperations()->localMaxNorm( *data ) );
+            x[i]      = std::max( x[i], y );
         }
     }
     return x;

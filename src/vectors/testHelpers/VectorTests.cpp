@@ -340,9 +340,9 @@ void VectorTests::L2NormVector( AMP::UnitTest *ut )
     norm  = static_cast<double>( vec->L2Norm() );
     norm2 = static_cast<double>( vec->dot( *vec ) );
     PASS_FAIL( fabs( norm * norm - norm2 ) <= tol * norm2, "L2 norm 2" );
-    norm      = static_cast<double>( vec->L2Norm() );
-    norm2     = static_cast<double>( VectorHelpers::L2Norm( vec, { vec->getName() } )[0] );
-    bool pass = fabs( norm - norm2 ) <= tol;
+    norm  = static_cast<double>( vec->L2Norm() );
+    norm2 = static_cast<double>( VectorHelpers::L2Norm( vec, { vec->getName() } )[0] );
+    PASS_FAIL( fabs( norm - norm2 ) <= tol, "VectorHelpers (vec)" );
     if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
         auto vec2 = vec->clone();
         vec2->setRandomValues();
@@ -355,11 +355,11 @@ void VectorTests::L2NormVector( AMP::UnitTest *ut )
         double n[3] = { static_cast<double>( norms[0] ),
                         static_cast<double>( norms[1] ),
                         static_cast<double>( norms[2] ) };
-        pass        = pass && fabs( n[0] - norm ) <= tol * n[0];
+        bool pass   = fabs( n[0] - norm ) <= tol * n[0];
         pass        = pass && fabs( n[1] - norm2 ) <= tol * n[1];
         pass        = pass && n[2] == 0;
+        PASS_FAIL( pass, "VectorHelpers (multivec)" );
     }
-    PASS_FAIL( pass, "VectorHelpers" );
 }
 
 
@@ -392,9 +392,9 @@ void VectorTests::L1NormVector( AMP::UnitTest *ut )
         ut->passes( "L1 norm" );
     else
         ut->failure( "L1 norm (%e) (%e)", fabs( norm - norm2 ), tol );
-    norm      = static_cast<double>( vec->L1Norm() );
-    norm2     = static_cast<double>( VectorHelpers::L1Norm( vec, { vec->getName() } )[0] );
-    bool pass = fabs( norm - norm2 ) <= tol;
+    norm  = static_cast<double>( vec->L1Norm() );
+    norm2 = static_cast<double>( VectorHelpers::L1Norm( vec, { vec->getName() } )[0] );
+    PASS_FAIL( fabs( norm - norm2 ) <= tol, "VectorHelpers (vec)" );
     if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
         auto vec2 = vec->clone();
         vec2->setRandomValues();
@@ -407,11 +407,11 @@ void VectorTests::L1NormVector( AMP::UnitTest *ut )
         double n[3] = { static_cast<double>( norms[0] ),
                         static_cast<double>( norms[1] ),
                         static_cast<double>( norms[2] ) };
-        pass        = pass && fabs( n[0] - norm ) <= tol;
+        bool pass   = fabs( n[0] - norm ) <= tol;
         pass        = pass && fabs( n[1] - norm2 ) <= tol;
         pass        = pass && n[2] == 0;
+        PASS_FAIL( pass, "VectorHelpers (multivec)" );
     }
-    PASS_FAIL( pass, "VectorHelpers" );
 }
 
 

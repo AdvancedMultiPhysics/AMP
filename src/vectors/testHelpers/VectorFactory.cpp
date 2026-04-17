@@ -11,13 +11,12 @@ namespace AMP::LinearAlgebra {
 /****************************************************************
  * CloneFactory                                                  *
  ****************************************************************/
-CloneFactory::CloneFactory( std::shared_ptr<const VectorFactory> factory ) : d_factory( factory ) {}
-AMP::LinearAlgebra::Vector::shared_ptr CloneFactory::getVector() const
+CloneFactory::CloneFactory( std::shared_ptr<const VectorFactory> factory )
+    : d_name( "CloneFactory<" + factory->name() + ">" ), d_vec( factory->getVector() )
 {
-    auto vec = d_factory->getVector();
-    return vec->clone();
 }
-std::string CloneFactory::name() const { return "CloneFactory<" + d_factory->name() + ">"; }
+AMP::LinearAlgebra::Vector::shared_ptr CloneFactory::getVector() const { return d_vec->clone(); }
+std::string CloneFactory::name() const { return d_name; }
 
 
 /****************************************************************

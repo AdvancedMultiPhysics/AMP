@@ -146,7 +146,7 @@ void VectorOperationsDefault<TYPE>::setRandomValues( VectorData &x )
     } else if constexpr ( std::is_integral_v<TYPE> ) {
         const TYPE max = sqrt( 0.1 * std::numeric_limits<TYPE>::max() );
         AMP_DEBUG_ASSERT( max > 0 );
-        std::uniform_int_distribution<TYPE> dis( 0, max );
+        std::uniform_int_distribution<TYPE> dis( 1, max );
         size_t N_blocks = x.numberOfDataBlocks();
         for ( size_t block = 0; block < N_blocks; block++ ) {
             size_t N  = x.sizeOfDataBlock( block );

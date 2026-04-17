@@ -41,7 +41,8 @@ public:
 
 private:
     CloneFactory();
-    std::shared_ptr<const VectorFactory> d_factory;
+    std::string d_name;
+    std::shared_ptr<const Vector> d_vec;
 };
 
 

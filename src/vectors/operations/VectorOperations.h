@@ -69,6 +69,13 @@ public:
 
     /**
      * \brief Set data in this vector to random values
+     * \details  This function will set all the values in a vector to random values.
+     *     It will call makeConsistent to ensure ghosts are updated correctly.
+     *     The implimentation details are specific to the VectorOperation implimentation.
+     *     For the default vector operations the behavior is:
+     *        Floating point data: The range will be [0,1]
+     *        Integer data: The range will be [1,M], where M is sqrt( 0.1 * MAX ),
+     *                      where MAX is the largest possible positive integer.
      * \param[out] x        a vector
      */
     virtual void setRandomValues( VectorData &x ) = 0;

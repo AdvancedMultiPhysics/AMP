@@ -33,8 +33,8 @@ static inline void record( bool pass, const std::string &name, AMP::UnitTest &ut
 
 // Structure to test HDF5 compounds
 struct compoundStruct {
-    compoundStruct()                         = default;
-    compoundStruct( const compoundStruct & ) = default;
+    compoundStruct()                                    = default;
+    compoundStruct( const compoundStruct & )            = default;
     compoundStruct &operator=( const compoundStruct & ) = default;
     compoundStruct( int x, float y, double z ) : a( x ), b( y ), c( z ) {}
     bool operator==( const compoundStruct &x ) const { return x.a == a && x.b == b && x.c == c; }
@@ -275,6 +275,7 @@ public: // Functions
         str.write( fid );
         compound.write( fid );
         writeOpaque( fid, "opaque", 3.0 );
+        AMP::IO::writeHDF5( fid, "typeID", AMP::getTypeID<data_struct>() );
     }
     void check( hid_t fid, AMP::UnitTest &ut )
     {
@@ -295,6 +296,9 @@ public: // Functions
         cmplx.check( fid, ptr, ut );
         str.check( fid, ptr, ut );
         compound.check( fid, ptr, ut );
+        AMP::typeID id;
+        AMP::IO::readHDF5( fid, "typeID", id );
+        ut.pass_fail( id == AMP::getTypeID<data_struct>(), "typeID" );
     }
 
 public: // Data members
