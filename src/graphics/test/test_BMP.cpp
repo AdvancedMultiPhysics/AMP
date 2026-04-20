@@ -1,8 +1,8 @@
 // This file tests the .bmp interfaces
 
+#include "AMP/graphics/BMP_Writer.h"
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/graphics/BMP_Writer.h"
 
 #include <cmath>
 

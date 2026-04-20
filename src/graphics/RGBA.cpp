@@ -29,7 +29,7 @@ static constexpr bool runTests()
 static_assert( runTests() );
 
 
-} // namespace AMP
+} // namespace AMP::Graphics
 
 
 /********************************************************
@@ -47,4 +47,3 @@ template AMP::Array<ARGB> AMP::Array<ARGB>::subset( const std::vector<size_t>& )
 template void AMP::Array<RGBA>::copySubset( const std::vector<size_t>&, const AMP::Array<RGBA>& );
 template void AMP::Array<ARGB>::copySubset( const std::vector<size_t>&, const AMP::Array<ARGB>& );
 // clang-format on
-

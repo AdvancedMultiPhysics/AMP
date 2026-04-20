@@ -33,7 +33,7 @@ class MainWindow : public ThreadedSlotsClass
 
 public:
     MainWindow();
-    MainWindow( const MainWindow & )            = delete;
+    MainWindow( const MainWindow & ) = delete;
     MainWindow &operator=( const MainWindow & ) = delete;
     virtual ~MainWindow();
 
