@@ -179,24 +179,16 @@ size_t matMatTest( AMP::UnitTest *ut, const std::string &input_file )
     matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, "serial", "host" );
 #endif
 
-    // Get the acceleration backend for the matrix
-    std::vector<std::string> backends;
-    if ( input_db->keyExists( "MatrixAccelerationBackend" ) ) {
-        backends.emplace_back( input_db->getString( "MatrixAccelerationBackend" ) );
-    } else {
-        backends.emplace_back( "serial" );
-#ifdef AMP_USE_KOKKOS
-        backends.emplace_back( "kokkos" );
-#endif
-#ifdef AMP_USE_DEVICE
-        backends.emplace_back( "hip_cuda" );
-#endif
-    }
-
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
     backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+#ifdef AMP_USE_KOKKOS
+    backendsAndMemory.emplace_back( "kokkos", "host" );
+#endif
 #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
+    #ifdef AMP_USE_KOKKOS
+    backendsAndMemory.emplace_back( "kokkos", "device" );
+    #endif
 #endif
 
     size_t nGlobal = 0;

@@ -43,8 +43,23 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
 
     {
         PROFILE( "CSRMatrixSpGEMMCommon::multiply (local)" );
+        comm.sleepBarrier();
+
         multiplyLocal( A_diag, B_diag, C_diag_diag );
+
+        if ( comm.getRank() == 0 ) {
+            AMP::pout << " ==== C_dd print all ====" << std::endl;
+            C_diag_diag->printAll();
+        }
+        comm.sleepBarrier();
+
         multiplyLocal( A_diag, B_offd, C_diag_offd );
+
+        if ( comm.getRank() == 0 ) {
+            AMP::pout << " ==== C_do print all ====" << std::endl;
+            C_diag_offd->printAll();
+        }
+        comm.sleepBarrier();
     }
 
     if ( A->hasOffDiag() ) {
@@ -58,7 +73,15 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
                                                                C->beginCol(),
                                                                C->endCol(),
                                                                true );
+            comm.sleepBarrier();
+
             multiplyLocal( A_offd, BR_diag, C_offd_diag );
+
+            if ( comm.getRank() == 0 ) {
+                AMP::pout << " ==== C_od print all ====" << std::endl;
+                C_offd_diag->printAll();
+            }
+            comm.sleepBarrier();
         }
         if ( BR_offd.get() != nullptr ) {
             C_offd_offd = std::make_shared<localmatrixdata_t>( nullptr,
@@ -68,15 +91,41 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
                                                                C->beginCol(),
                                                                C->endCol(),
                                                                false );
+            comm.sleepBarrier();
+
             multiplyLocal( A_offd, BR_offd, C_offd_offd );
+
+            if ( comm.getRank() == 0 ) {
+                AMP::pout << " ==== C_oo print all ====" << std::endl;
+                C_offd_offd->printAll();
+            }
+            comm.sleepBarrier();
         }
     }
 
+    comm.sleepBarrier();
+
     merge( C_diag_diag, C_offd_diag, C_diag );
+
+    if ( comm.getRank() == 0 ) {
+        AMP::pout << " ==== C_d print all ====" << std::endl;
+        C_diag->printAll();
+    }
+    comm.sleepBarrier();
+
     C_diag_diag.reset();
     C_offd_diag.reset();
 
+    comm.sleepBarrier();
+
     merge( C_diag_offd, C_offd_offd, C_offd );
+
+    if ( comm.getRank() == 0 ) {
+        AMP::pout << " ==== C_o print all ====" << std::endl;
+        C_offd->printAll();
+    }
+    comm.sleepBarrier();
+
     C_diag_offd.reset();
     C_offd_offd.reset();
 
@@ -129,9 +178,10 @@ AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
                                      gidx_t *C_cols,
                                      scalar_t *C_coeffs )
 {
-    const auto A_start = A_rs[row], A_len = A_rs[row + 1] - A_start;
-    const auto B_start = B_rs[row], B_len = B_rs[row + 1] - B_start;
-    const auto C_start = C_rs[row], C_len = C_rs[row + 1] - C_start;
+    const auto A_start = A_rs[row];
+    const auto A_len   = A_rs[row + 1] - A_start;
+    const auto B_start = B_rs[row];
+    const auto C_start = C_rs[row];
     // all of A counts in automatically
     for ( lidx_t off = 0; off < A_len; ++off ) {
         C_cols[C_start + off]   = A_cols[A_start + off];
@@ -192,13 +242,12 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
     const auto num_rows = out->numLocalRows();
     AMP_ASSERT( num_rows == inL->numLocalRows() && num_rows == inR->numLocalRows() );
     lidx_t *inL_rs, *inR_rs, *out_rs;
-    lidx_t *inL_cols_loc, *inR_cols_loc;
     gidx_t *inL_cols, *inR_cols;
     scalar_t *inL_coeffs, *inR_coeffs;
 
-    std::tie( inL_rs, inL_cols, inL_cols_loc, inL_coeffs ) = inL->getDataFields();
-    std::tie( inR_rs, inR_cols, inR_cols_loc, inR_coeffs ) = inR->getDataFields();
-    out_rs                                                 = out->getRowStarts();
+    std::tie( inL_rs, inL_cols, std::ignore, inL_coeffs ) = inL->getDataFields();
+    std::tie( inR_rs, inR_cols, std::ignore, inR_coeffs ) = inR->getDataFields();
+    out_rs                                                = out->getRowStarts();
 
     // count unique entries in each row
     {
@@ -225,10 +274,9 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
     out->setNNZ( true );
 
     // get fields from output
-    lidx_t *out_cols_loc;
     gidx_t *out_cols;
     scalar_t *out_coeffs;
-    std::tie( out_rs, out_cols, out_cols_loc, out_coeffs ) = out->getDataFields();
+    std::tie( out_rs, out_cols, std::ignore, out_coeffs ) = out->getDataFields();
 
     // fill rows of output as sums of each block
     {

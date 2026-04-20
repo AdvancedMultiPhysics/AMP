@@ -1089,6 +1089,9 @@ void CSRLocalMatrixData<Config>::printAll( bool force ) const
                 } else {
                     cg = have_gbl ? cols[c] : cols_unq[cols_loc[c]];
                 }
+                if ( cl != 0 || cg != 0 ) {
+                    continue;
+                }
                 std::cout << "[" << cl << "|" << cg << "|" << coeffs[c] << "] ";
             }
             std::cout << std::endl;

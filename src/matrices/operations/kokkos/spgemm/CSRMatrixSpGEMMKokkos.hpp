@@ -9,6 +9,8 @@
     #include <thrust/transform.h>
 #endif
 
+#include <algorithm>
+
 #include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
