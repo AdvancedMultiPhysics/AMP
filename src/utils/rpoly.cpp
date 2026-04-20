@@ -1,12 +1,16 @@
 // rpoly based off Jenkins–Traub algorithm (TOMS 493)
+#include "AMP/utils/UtilityMacros.h"
+
 #include <algorithm>
 #include <cmath>
 #include <complex>
 #include <limits>
-#include <stdexcept>
 #include <vector>
 
 namespace AMP {
+
+
+constexpr int n_max = 100;
 
 
 /******************************************************************
@@ -51,21 +55,48 @@ static void quad( double a, double b, double c, std::complex<double> *roots )
 
 /******************************************************************
  * Polynomial / Derivative evaluation                              *
+ * The real versions use the Compensated Horner Scheme to increase *
+ * precision.                                                      *
  ******************************************************************/
-template<class T>
-static inline T eval( int n, const double *p, T x )
+static inline std::complex<double> eval( int n, const double *a, std::complex<double> x )
 {
-    T result = p[n];
+    std::complex<double> result = a[n];
     for ( int i = n - 1; i >= 0; --i )
-        result = result * x + p[i];
+        result = result * x + a[i];
+    return result;
+}
+/*static inline double eval( int n, const double *a, double x )
+{
+    double r = a[n];
+    double c = 0.0; // Correction term accumulator
+    for (int i = n - 1; i >= 0; --i) {
+        double p = std::fma(r, x, a[i]); // Main Horner step with FMA
+        // Two-Product error: tracks error from (r * x)
+        // Using FMA: error_prod = (r * x) - fl(r * x)
+        double prod = r * x;
+        double error_prod = std::fma(r, x, -prod);
+        // Two-Sum error: tracks error from (prod + a[i])
+        double error_sum = (prod - (p - a[i])) + (a[i] - (p - prod));
+        // Update correction term: c = c * x + (error_prod + error_sum)
+        c = std::fma(c, x, error_prod + error_sum);
+        r = p;
+    }
+    return r + c; // Final corrected result
+}*/
+static inline double eval( int n, const double *a, long double x )
+{
+    long double result = a[n];
+    for ( int i = n - 1; i >= 0; --i )
+        result = result * x + static_cast<long double>( a[i] );
     return result;
 }
 template<class T>
-static inline T evalDeriv( int n, const double *p, T x )
+static inline T evalDeriv( int n, const double *a, T x )
 {
     T result = 0.0;
-    for ( int i = n - 1; i >= 0; --i )
-        result = result * x + ( i + 1 ) * p[i];
+    for ( int i = n; i > 0; --i )
+        result = ( result + i * a[i] ) * x;
+    result += a[1];
     return result;
 }
 
@@ -91,6 +122,113 @@ static inline T refineRoot( int n, const double *p, T x0 )
             break;
     }
     return x;
+}
+
+
+/******************************************************************
+ * Find the root of the polynomial in the given interval           *
+ ******************************************************************/
+#define sign_equal( a, b ) ( ( a >= 0 ) == ( b >= 0 ) )
+static inline double findRoot( int n, const double *p, double lb, double ub )
+{
+    if ( ub < lb )
+        std::swap( lb, ub );
+    double f_lb = eval( n, p, lb );
+    double f_ub = eval( n, p, ub );
+    if ( f_lb == 0.0 )
+        return lb;
+    if ( f_ub == 0.0 )
+        return ub;
+    if ( sign_equal( f_lb, f_ub ) )
+        return 0;
+    // Use a combination of Newton's method and the bisection method
+    double x     = 0.5 * ( lb + ub );
+    auto f       = eval( n, p, x );
+    double range = ub - lb;
+    int it       = 0;
+    double tol   = 1e-14 * fabs( x );
+    while ( range > tol ) {
+        // Adjust the boundaries to maintain the bisection method
+        if ( sign_equal( f, f_lb ) ) {
+            lb   = x;
+            f_lb = f;
+        } else {
+            ub   = x;
+            f_ub = f;
+        }
+        range = ub - lb;
+        if ( range < 0.0 )
+            return lb;
+        // Choose the new guess (use Newton's method and the adjust)
+        auto df = evalDeriv( n, p, x );
+        x -= f / df;
+        x += ( it % 2 == 0 ? -0.01 : 0.01 ) * range;
+        x = std::max( x, lb + 0.15 * range );
+        x = std::min( x, ub - 0.15 * range );
+        f = eval( n, p, x );
+        ++it;
+    }
+    return 0.5 * ( lb + ub );
+}
+
+
+/******************************************************************
+ * Remove a (real) root: P = p / ( r - x )                         *
+ ******************************************************************/
+static inline int removeRoot( int n, double *p, double r )
+{
+    double pr[n_max + 1];
+    for ( int i = 0; i <= n; i++ )
+        pr[i] = p[i];
+    n--;
+    for ( int i = n; i >= 0; i-- ) {
+        p[i] = -pr[i + 1];
+        pr[i] -= p[i] * r;
+        pr[i + 1] += p[i];
+    }
+    for ( int i = 0; i < n; i++ )
+        p[i] = p[i] / p[n];
+    p[n] = 1;
+    return n;
+}
+
+
+/******************************************************************
+ * Perform Durand–Kerner iteration                                 *
+ ******************************************************************/
+static inline double iterate( int n, const double *a, std::complex<double> *roots )
+{
+    constexpr int max_iter = 200;
+    constexpr double tol   = 1e-12;
+    for ( int iter = 0; iter < max_iter; ++iter ) {
+        bool converged = true;
+        for ( int i = 0; i < n; ++i ) {
+            std::complex<double> denom = 1.0;
+            for ( int j = 0; j < n; ++j )
+                if ( i != j )
+                    denom *= ( roots[i] - roots[j] );
+            auto delta = eval( n, a, roots[i] ) / denom;
+            roots[i] -= delta;
+            if ( std::abs( delta ) > tol )
+                converged = false;
+            // Check for real roots
+            if ( ( ( iter & 0x7 ) == 0 ) && fabs( roots[i].imag() / roots[i].real() ) < 1e-4 ) {
+                double r = findRoot( n, a, 0.9 * roots[i].real(), 1.1 * roots[i].real() );
+                if ( r != 0 )
+                    return r;
+            }
+        }
+        if ( converged )
+            break;
+    }
+    for ( int i = 0; i < n; ++i ) {
+        if ( fabs( roots[i].imag() / roots[i].real() ) < 1e-4 ) {
+            double r = findRoot( n, a, 0.9 * roots[i].real(), 1.1 * roots[i].real() );
+            if ( r != 0 )
+                return r;
+        }
+    }
+    return 0;
 }
 
 
@@ -186,17 +324,11 @@ static void enforce_conjugate_pairs( int n,
  ******************************************************************/
 void rpoly( int n, const double *coeffs, std::complex<double> *roots )
 {
-    if ( n == 0 )
-        throw std::invalid_argument( "Polynomial must not be empty" );
+    AMP_INSIST( n > 0, "Polynomial must not be empty" );
+    AMP_INSIST( coeffs[n] != 0, "Leading coefficient cannot be zero" );
 
-    if ( coeffs[n] == 0 )
-        throw std::invalid_argument( "Leading coefficient cannot be zero" );
-
-    if ( n > 1000 )
-        throw std::invalid_argument( "rpoly is not stable for large number of roots" );
-
+    // Handle roots == 0 directly
     if ( coeffs[0] == 0 ) {
-        // Handle roots == 0 directly
         int i = 0;
         while ( coeffs[i] == 0 ) {
             roots[i] = 0;
@@ -216,73 +348,45 @@ void rpoly( int n, const double *coeffs, std::complex<double> *roots )
         return;
     }
 
-    // Initial guesses distributed on circle
+    // Copy coefficients (scaling by a_n)
+    AMP_INSIST( n <= n_max, "rpoly is not stable for large number of roots" );
+    double a[n_max + 1];
+    for ( int i = 0; i < n; i++ )
+        a[i] = coeffs[i] / coeffs[n];
+    a[n] = 1;
+
+    // Initial guess
     constexpr double pi = 3.1415926535897932;
     for ( int i = 0; i < n; ++i ) {
-        double theta = 2 * pi * ( 0.5 + i ) / n;
-        roots[i]     = std::complex<double>( std::cos( theta ), std::sin( theta ) );
+        double t = 2 * pi * ( 0.5 + i ) / n;
+        roots[i] = std::complex<double>( std::cos( t ), std::sin( t ) );
     }
 
-#if 0
-    // Aberth iteration
-    constexpr int max_iter = 500;
-    constexpr double tol   = 1e-12;
-    for ( int iter = 0; iter < max_iter; ++iter ) {
-        bool converged = true;
-        for ( int i = 0; i < n; ++i ) {
-            auto zi = roots[i];
-            auto f = eval(n,coeffs, zi);
-            auto fp = evalDeriv(n,coeffs, zi);
-            if ( std::abs(f) < tol )
-                continue;
-            // Aberth correction term
-            std::complex<double> sum = 0.0;
-            for (int j = 0; j < n; ++j) {
-                if (i != j) {
-                    auto diff = zi - roots[j];
-                    if (std::abs(diff) > 1e-14)
-                        sum += 1.0 / diff;
-                }
-            }
-            auto denom = fp - f * sum;
-            if (std::abs(denom) < tol)
-                continue;
-            auto delta = f / denom;
-            roots[i] -= delta;
-            if ( std::abs(delta) > tol )
-                converged = false;
-        }
-        if (converged)
+    // Find the roots
+    int N  = 0;
+    int n2 = n;
+    while ( true ) {
+        double r = iterate( n2, a, &roots[N] );
+        if ( r == 0 )
             break;
+        roots[N++] = r;
+        n2         = removeRoot( n2, a, r );
     }
-#else
-    // Durand–Kerner iteration
-    constexpr int max_iter = 200;
-    constexpr double tol   = 1e-12;
-    for ( int iter = 0; iter < max_iter; ++iter ) {
-        bool converged = true;
-        for ( int i = 0; i < n; ++i ) {
-            std::complex<double> denom = 1.0;
-            for ( int j = 0; j < n; ++j )
-                if ( i != j )
-                    denom *= ( roots[i] - roots[j] );
-            auto delta = eval( n, coeffs, roots[i] ) / denom;
-            roots[i] -= delta;
-            if ( std::abs( delta ) > tol )
-                converged = false;
-        }
-        if ( converged )
-            break;
-    }
-#endif
 
     // Refine roots
-    for ( int i = 0; i < n; i++ )
-        roots[i] = refineRoot( n, coeffs, roots[i] );
+    for ( int i = 0; i < N; i++ ) {
+        double r = roots[i].real();
+        r        = findRoot( n, coeffs, 0.999 * r, 1.001 * r );
+        if ( r != 0 )
+            roots[i] = r;
+    }
+    for ( int i = N; i < n; i++ )
+        roots[i] = refineRoot( n2, a, roots[i] );
 
     // Clean / pair the roots
-    enforce_conjugate_pairs( n, coeffs, roots );
+    enforce_conjugate_pairs( n2, a, &roots[N] );
 
+    // Sort the roots
     sort( n, roots );
 }
 

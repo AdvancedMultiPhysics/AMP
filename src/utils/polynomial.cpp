@@ -19,26 +19,7 @@
 namespace AMP {
 
 
-/******************************************************************
- * Refine the polynomial root                                      *
- ******************************************************************/
 #define sign_equal( a, b ) ( ( a >= 0 ) == ( b >= 0 ) )
-static double refineRealRoot( const Polynomial &p, double root )
-{
-    double tol = 1e-12;
-    double lb  = root - tol;
-    double ub  = root + tol;
-    int it     = 0;
-    while ( sign_equal( p.eval( lb ), p.eval( ub ) ) ) {
-        tol *= 10;
-        lb = root - tol;
-        ub = root + tol;
-        if ( ++it > 10 )
-            return root;
-    }
-    double root2 = p.rootInterval( lb, ub, 1e-14 );
-    return root2;
-}
 
 
 /******************************************************************
@@ -63,16 +44,90 @@ Polynomial::Polynomial( std::vector<double> a ) : d_p( std::move( a ) )
     while ( d_p.size() > 1 && d_p.back() == 0.0 )
         d_p.resize( d_p.size() - 1 );
 }
+
+
+/******************************************************************
+ * Create polynomial coefficients from roots using a product-tree  *
+ ******************************************************************/
+using TYPE = double;
+static int poly_mul( int na, const TYPE *a, int nb, const TYPE *b, TYPE *c )
+{
+    int nc = na + nb - 1;
+    for ( int i = 0; i < nc; i++ )
+        c[i] = 0;
+    for ( int i = 0; i < na; ++i ) {
+        for ( int j = 0; j < nb; ++j ) {
+            c[i + j] = std::fma( a[i], b[j], c[i + j] );
+        }
+    }
+    return nc;
+}
 Polynomial Polynomial::createFromRoots( int n, const double *roots )
 {
-    std::vector<double> p( n + 1, 0 );
-    p[0] = 1.0;
-    for ( int i = 0; i < n; i++ ) {
-        for ( int j = i + 1; j > 0; j-- )
-            p[j] = p[j - 1] - roots[i] * p[j];
-        p[0] = -roots[i] * p[0];
+    if ( n == 0 )
+        return {};
+    if ( n == 1 )
+        return Polynomial( { -roots[0], 1.0 } );
+
+    // Allocate temporary memory for processing
+    auto polys = new TYPE[5 * n + 1];
+    AMP_ASSERT( polys );
+
+    // Copy + sort by magnitude (important for stability)
+    auto r = &polys[3 * n];
+    for ( int i = 0; i < n; i++ )
+        r[i] = roots[i];
+    std::sort( r, r + n, []( TYPE a, TYPE b ) { return std::abs( a ) < std::abs( b ); } );
+
+    // Start with linear factors (x - r)
+    int N  = 0;
+    int np = 3;
+    for ( int i = 0; i < n; i += 2 ) {
+        auto p = &polys[3 * N];
+        if ( i + 1 < n ) {
+            p[0] = r[i] * r[i + 1];
+            p[1] = -r[i] - r[i + 1];
+            p[2] = 1.0L;
+        } else {
+            p[0] = -r[i];
+            p[1] = 1.0L;
+            p[2] = 0.0L;
+        }
+        N++;
     }
-    return Polynomial( std::move( p ) );
+
+    // Build the tree
+    auto c = &polys[3 * n];
+    while ( N > 1 ) {
+        int nc = 2 * np - 1;
+        int N2 = 0;
+        for ( int i = 0; i < N; i += 2 ) {
+            auto a = &polys[i * np];
+            auto b = &polys[( i + 1 ) * np];
+            if ( i + 1 < N ) {
+                poly_mul( np, a, np, b, c );
+            } else {
+                for ( int i = 0; i < np; i++ )
+                    c[i] = a[i];
+                for ( int i = np; i < nc; i++ )
+                    c[i] = 0;
+            }
+            a = &polys[N2 * nc];
+            for ( int i = 0; i < nc; i++ )
+                a[i] = c[i];
+            N2++;
+        }
+        np = nc;
+        N  = N2;
+    }
+
+    // Convert back to double
+    std::vector<double> result( n + 1 );
+    for ( size_t i = 0; i < result.size(); ++i )
+        result[i] = static_cast<double>( polys[i] );
+    delete[] polys;
+
+    return Polynomial( std::move( result ) );
 }
 Polynomial Polynomial::createFromRoots( const std::vector<double> &roots )
 {
@@ -132,14 +187,13 @@ Polynomial operator-( const Polynomial &a, const Polynomial &b )
 }
 Polynomial operator*( const Polynomial &a, const Polynomial &b )
 {
-    std::vector<double> p( a.order() + b.order() + 1, 0.0 );
-    for ( size_t i = 0; i < a.d_p.size(); i++ ) {
-        for ( size_t j = 0; j < b.d_p.size(); j++ ) {
-            if ( i + j < p.size() )
-                p[i + j] += a.d_p[i] * b.d_p[j];
+    std::vector<double> c( a.order() + b.order() + 1, 0.0 );
+    for ( int i = 0; i <= a.order(); ++i ) {
+        for ( int j = 0; j <= b.order(); ++j ) {
+            c[i + j] = std::fma( a[i], b[j], c[i + j] );
         }
     }
-    return Polynomial( std::move( p ) );
+    return Polynomial( std::move( c ) );
 }
 std::tuple<Polynomial, Polynomial> operator/( const Polynomial &a, const Polynomial &b )
 {
@@ -288,11 +342,6 @@ std::vector<std::complex<double>> Polynomial::roots() const
     int n = d_p.size() - 1;
     std::vector<std::complex<double>> roots( n, 0 );
     rpoly( n, d_p.data(), roots.data() );
-    // Refine the roots if possible
-    for ( int i = 0; i < n; i++ ) {
-        if ( roots[i].imag() == 0 && roots[i].real() != 0 )
-            roots[i] = refineRealRoot( *this, roots[i].real() );
-    }
     return roots;
 }
 

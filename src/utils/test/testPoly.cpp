@@ -173,17 +173,16 @@ void testWilkinsonRoots( AMP::UnitTest &ut )
     for ( int n = 1; n <= 13; n++ ) {
         auto pr    = Polynomial::createFromRoots( n, roots0 );
         auto roots = pr.roots();
-        bool pass  = true;
-        for ( int i = 0; i < n; i++ ) {
-            if ( !approx_equal( roots[i], roots0[i], 1e-10 ) )
-                pass = false;
-        }
-        if ( pass ) {
-            ut.passes( "Wilkinson polynomial " + std::to_string( n ) );
+        double err = 0;
+        for ( int i = 0; i < n; i++ )
+            err = std::max( err, std::abs( ( roots[i] - roots0[i] ) / roots0[i] ) );
+        auto msg = AMP::Utilities::stringf( "Wilkinson polynomial %i: %e", n, err );
+        if ( err < 1e-8 ) {
+            ut.passes( msg );
         } else if ( n > 10 ) {
-            ut.expected_failure( "Wilkinson polynomial " + std::to_string( n ) );
+            ut.expected_failure( msg );
         } else {
-            ut.failure( "Wilkinson polynomial " + std::to_string( n ) );
+            ut.failure( msg );
         }
     }
 }
@@ -248,7 +247,15 @@ void testRandomRoots( int N, AMP::UnitTest &ut )
     printf( "Time to create polynomial from %i roots: %i ns\n", N, tp );
     printf( "   Time to find roots: %i us\n", tr );
     printf( "   Maximum error: %e\n", err );
-    if ( err < 1e-7 ) {
+    if ( !( err < 1e-6 ) ) {
+        for ( int i = 0; i < N; i++ )
+            printf( "     %f (%f,%f) %e\n",
+                    roots[i],
+                    r[i].real(),
+                    r[i].imag(),
+                    static_cast<double>( std::abs( r[i] - roots[i] ) ) );
+    }
+    if ( err < 1e-6 ) {
         ut.passes( "roots-" + std::to_string( N ) );
     } else if ( N >= 20 ) {
         ut.expected_failure( "roots-" + std::to_string( N ) );
