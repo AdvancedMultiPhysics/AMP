@@ -38,6 +38,7 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
     d_save_to_file        = db->getWithDefault<bool>( "save_to_file", false );
     d_save_to_file_on_ftc = db->getWithDefault<bool>( "save_to_file_on_ftc", false );
     d_save_to_file_name   = db->getWithDefault<std::string>( "save_to_file_name", "SASolver" );
+    d_propagate_nearnull  = db->getWithDefault<bool>( "propagate_nearnull", true );
 
     // get and setup coarse solver options
     AMP_INSIST( db->keyExists( "coarse_solver" ), "Key coarse_solver is missing!" );
@@ -52,14 +53,14 @@ void SASolver::getFromInput( std::shared_ptr<Database> db )
 void SASolver::resetLevelOptions()
 {
     d_coarsen_settings.strength_threshold =
-        d_db->getWithDefault<float>( "strength_threshold", 0.01 );
+        d_db->getWithDefault<float>( "strength_threshold", 0.002 );
     d_coarsen_settings.strength_measure =
         d_db->getWithDefault<std::string>( "strength_measure", "symagg_min" );
     d_coarsen_settings.checkdd              = d_db->getWithDefault<bool>( "checkdd", true );
     d_pair_coarsen_settings                 = d_coarsen_settings;
     d_pair_coarsen_settings.pairwise_passes = d_db->getWithDefault<size_t>( "pairwise_passes", 2 );
     d_num_smooth_prol                       = d_db->getWithDefault<int>( "num_smooth_prol", 1 );
-    d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0 );
+    d_prol_trunc                            = d_db->getWithDefault<float>( "prol_trunc", 0.005 );
     d_prol_spec_lower                       = d_db->getWithDefault<float>( "prol_spec_lower", 0.5 );
     d_agg_type      = d_db->getWithDefault<std::string>( "agg_type", "simple" );
     d_pre_relax_db  = d_db->getDatabase( "pre_relaxation" );
@@ -116,18 +117,25 @@ void SASolver::setLevelOptions( const size_t lvl )
     // these are the only items with no defaults so these DBs must exist from somewhere
     AMP_INSIST( d_pre_relax_db && d_post_relax_db,
                 "SASolver: pre_relaxation and post_relaxation parameters must be set" );
+    if ( d_mem_loc == Utilities::MemoryType::host ) {
+        d_pre_relax_db->putScalar<std::string>( "MemoryLocation", "host" );
+        d_post_relax_db->putScalar<std::string>( "MemoryLocation", "host" );
+    } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
+        d_pre_relax_db->putScalar<std::string>( "MemoryLocation", "managed" );
+        d_post_relax_db->putScalar<std::string>( "MemoryLocation", "managed" );
+    } else if ( d_mem_loc == Utilities::MemoryType::device ) {
+        d_pre_relax_db->putScalar<std::string>( "MemoryLocation", "device" );
+        d_post_relax_db->putScalar<std::string>( "MemoryLocation", "device" );
+    } else {
+        // unreachable from test above
+        AMP_ERROR( "SASolver: Unrecognized memory space" );
+    }
     d_pre_relax_params  = std::make_shared<AMG::RelaxationParameters>( d_pre_relax_db );
     d_post_relax_params = std::make_shared<AMG::RelaxationParameters>( d_post_relax_db );
 }
 
 void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
 {
-    // store operator, destroy hierarchy, reset to fine level options
-    d_pOperator = op;
-    d_levels.clear();
-    resetLevelOptions();
-    setLevelOptions( 0 );
-
     // unwrap operator
     auto fine_op = std::dynamic_pointer_cast<Operator::LinearOperator>( op );
     AMP_INSIST( fine_op, "SASolver: operator must be linear" );
@@ -155,6 +163,12 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
         AMP_ERROR( "Unrecognized memory location" );
     }
 
+    // store operator, destroy hierarchy, reset to fine level options
+    d_pOperator = op;
+    d_levels.clear();
+    resetLevelOptions();
+    setLevelOptions( 0 );
+
     // get in/out variables from given op so that all remaining
     // ops have compatible ones
     auto xVar = fine_op->getInputVariable();
@@ -163,14 +177,24 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
                 "SASolver::registerOperator: Given operator must have input/output variables" );
 
     // fill in finest level and setup remaining levels
-    auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
+    auto op_db = std::make_shared<Database>( "SASolver::Internal" );
+    if ( d_mem_loc == Utilities::MemoryType::host ) {
+        op_db->putScalar<std::string>( "MemoryLocation", "host" );
+    } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
+        op_db->putScalar<std::string>( "MemoryLocation", "managed" );
+    } else if ( d_mem_loc == Utilities::MemoryType::device ) {
+        op_db->putScalar<std::string>( "MemoryLocation", "device" );
+    } else {
+        // unreachable from test above
+        AMP_ERROR( "SASolver: Unrecognized memory space" );
+    }
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
     d_levels.back().A->setMatrix( mat );
     d_levels.back().A->setVariables( xVar, bVar );
     d_levels.back().pre_relaxation  = createRelaxation( 0, fine_op, d_pre_relax_params );
     d_levels.back().post_relaxation = createRelaxation( 0, fine_op, d_post_relax_params );
-    d_levels.back().r               = fine_op->getMatrix()->createOutputVector();
+    d_levels.back().r               = fine_op->getMatrix()->createInputVector(); // in or out vec?
     d_levels.back().correction      = fine_op->getMatrix()->createInputVector();
 
     setup( xVar, bVar );
@@ -208,7 +232,47 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
     // ignore zero values since those rows won't matter anyway
     auto D = A->getRowSumsAbsolute( LinearAlgebra::Vector::shared_ptr(), true );
 
-    // optimal weight for prescribed lower e-val estimate
+    // special cases for 1 and 2 pass smoothing using optimized polynomials
+    // of Dinv*A as smoothers, see DOI:10.1002/nla.775
+    if ( d_num_smooth_prol == 1 ) {
+        // one pass smoothing
+        // P <- (I - w * Dinv * A)*P with w=4/3
+        auto P_smooth = LinearAlgebra::Matrix::matMatMult( A, P ); // A*P
+        P_smooth->scaleInv( -4.0 / 3.0, D );                       // -w*Dinv*A*P
+        P_smooth->axpy( 1.0, P );                                  // P - w*Dinv*A*P
+        // replace P with P_smooth and truncate if requested
+        P.swap( P_smooth );
+        P_smooth.reset();
+        if ( d_prol_trunc > 0.0 ) {
+            P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
+        }
+        return;
+    } else if ( d_num_smooth_prol == 2 ) {
+        // two pass smoothing
+        // P <- (I - w * Dinv * A + q * (Dinv * A)^2 )*P with w=4, q=16/5
+        // factor out as
+        // P <- [I - w * Dinv * A * (I - q/w * Dinv * A)] * P
+        // and compute in two steps. Handle inner term first
+        auto P_1 = LinearAlgebra::Matrix::matMatMult( A, P ); // A*P
+        P_1->scaleInv( -4.0 / 5.0, D );                       // -(q/w)Dinv*A*P
+        P_1->axpy( 1.0, P );                                  // P' = (I - q/w * Dinv * A) * P
+
+        auto P_2 = LinearAlgebra::Matrix::matMatMult( A, P_1 ); // A*P'
+        P_1.reset();                                            // P' not needed any longer
+        P_2->scaleInv( -4.0, D );                               // -w * Dinv * A * P'
+        P_2->axpy( 1.0, P );                                    // P smoothed
+
+        // replace P with P_smooth and truncate if requested
+        P.swap( P_2 );
+        P_2.reset();
+        if ( d_prol_trunc > 0.0 ) {
+            P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
+        }
+        return;
+    }
+
+    // More smoothing steps requested, just apply JL1 with estimate on
+    // lower e-val
     const double omega = 2.0 / ( 1.0 + d_prol_spec_lower );
 
     // Smooth P, swapping at end each time
@@ -224,14 +288,10 @@ void SASolver::smoothP_JacobiL1( std::shared_ptr<LinearAlgebra::Matrix> A,
 
         P.swap( P_smooth );
         P_smooth.reset();
-
         if ( d_prol_trunc > 0.0 ) {
             P->getMatrixData()->removeRange( -d_prol_trunc, d_prol_trunc );
         }
     }
-    D.reset();
-    auto Ds = P->getRowSums();
-    P->scaleInv( 1.0, Ds );
 }
 
 void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
@@ -241,24 +301,46 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
 
     auto op_db = std::make_shared<Database>( "SASolver::Internal" );
     if ( d_mem_loc == Utilities::MemoryType::host ) {
-        op_db->putScalar<std::string>( "memory_location", "host" );
+        op_db->putScalar<std::string>( "MemoryLocation", "host" );
     } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
-        op_db->putScalar<std::string>( "memory_location", "managed" );
+        op_db->putScalar<std::string>( "MemoryLocation", "managed" );
     } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        op_db->putScalar<std::string>( "memory_location", "device" );
+        op_db->putScalar<std::string>( "MemoryLocation", "device" );
     } else {
         // unreachable from test above
         AMP_ERROR( "SASolver: Unrecognized memory space" );
     }
     auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 
+    std::shared_ptr<LinearAlgebra::Vector> nearNullVec;
+    if ( d_propagate_nearnull ) {
+        // For now assume that there is only one near-nullspace vector
+        // and that it is a constant on the finest level.
+        // This gets scattered into the tentative prolongator and
+        // orthonormalized there.
+        nearNullVec = d_levels.back().A->getMatrix()->createInputVector();
+        nearNullVec->setNoGhosts();
+        nearNullVec->setToScalar( 1.0 );
+    }
+
     for ( size_t i = 0; i < d_max_levels; ++i ) {
         // Get matrix for current level
         auto A = d_levels.back().A->getMatrix();
 
-        // aggregate on matrix to get tentative prolongator
+        std::shared_ptr<LinearAlgebra::Matrix> P;
+        if ( d_propagate_nearnull ) {
+            // aggregate on matrix to get tentative prolongator
+            // and normalization factors for orthogonalizing current
+            // nearNullVec down to next coarse space
+            std::shared_ptr<LinearAlgebra::Vector> coarseNearNullVec;
+            std::tie( P, coarseNearNullVec ) = d_aggregator->getAggregateMatrix( A, nearNullVec );
+            nearNullVec.swap( coarseNearNullVec );
+            coarseNearNullVec.reset();
+        } else {
+            P = d_aggregator->getAggregateMatrix( A );
+        }
+
         // then smooth and transpose to get P/R
-        auto P = d_aggregator->getAggregateMatrix( A );
         smoothP_JacobiL1( A, P );
         auto R = P->transpose();
 
@@ -329,7 +411,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 {
     PROFILE( "SASolver::apply" );
 
-    AMP_INSIST( x, "SASolver::apply Can't have null solution vector" );
+    AMP_DEBUG_INSIST( x, "SASolver::apply Can't have null solution vector" );
 
     d_iNumberIterations = 0;
     const bool need_norms =
@@ -388,7 +470,7 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         return;
     }
 
-    double prev_res = 0.0;
+    double prev_res = current_res, iter2_res = 0.0;
     KappaKCycle cycle{ d_cycle_settings };
     for ( d_iNumberIterations = 1; d_iNumberIterations <= d_iMaxIterations;
           ++d_iNumberIterations ) {
@@ -401,12 +483,19 @@ void SASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
         if ( need_norms && d_iDebugPrintInfoLevel > 1 ) {
             AMP::pout << "SA: iteration " << d_iNumberIterations << ", residual " << current_res
                       << ", conv ratio ";
-            if ( prev_res > 0.0 ) {
-                AMP::pout << current_res / prev_res << std::endl;
-            } else {
-                AMP::pout << "--" << std::endl;
+            if ( d_iNumberIterations == 2 ) {
+                iter2_res = current_res;
             }
+            AMP::pout << current_res / prev_res;
             prev_res = current_res;
+            AMP::pout << ", avg conv ratio ";
+            if ( iter2_res > 0.0 ) {
+                AMP::pout << std::pow( current_res / iter2_res,
+                                       1.0 / static_cast<double>( d_iNumberIterations - 1 ) )
+                          << std::endl;
+            } else {
+                AMP::pout << "-----" << std::endl;
+            }
         }
 
         if ( need_norms && checkStoppingCriteria( current_res ) ) {

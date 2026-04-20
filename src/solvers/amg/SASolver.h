@@ -38,6 +38,8 @@ public:
 
     void apply( std::shared_ptr<const LinearAlgebra::Vector> f,
                 std::shared_ptr<LinearAlgebra::Vector> u ) override;
+    const std::vector<KCycleLevel> &levels() const { return d_levels; }
+    const SolverStrategy &getCoarseSolver() const { return *d_coarse_solver; }
 
 protected:
     // **** settings applicable to solver as a whole **** //
@@ -51,6 +53,8 @@ protected:
     size_t d_min_coarse_global;
     //! Cycle type, tolerance, kappa value
     KappaKCycle::settings d_cycle_settings;
+    //! Whether or not near-nullspace vectors should be sent down levels or all just constant
+    bool d_propagate_nearnull;
     //! flag to save hierarchy after setup phase
     bool d_save_to_file;
     //! flag to save hierarchy after failure to converge
