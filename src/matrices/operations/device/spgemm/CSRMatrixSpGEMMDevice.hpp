@@ -18,6 +18,8 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
                                                    std::shared_ptr<localmatrixdata_t> B_data,
                                                    std::shared_ptr<localmatrixdata_t> C_data )
 {
+    PROFILE( "CSRMatrixSpGEMMDevice::multiplyLocal" );
+
     AMP_DEBUG_ASSERT( A_data != nullptr );
     AMP_DEBUG_ASSERT( B_data != nullptr );
     AMP_DEBUG_ASSERT( C_data != nullptr );
@@ -28,23 +30,19 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
 
     // shapes of A and B
     const auto A_nrows = static_cast<int64_t>( A_data->numLocalRows() );
-    const auto A_ncols = A_data->isDiag() ? static_cast<int64_t>( A_data->numLocalColumns() ) :
-                                            static_cast<int64_t>( A_data->numUniqueColumns() );
-    const auto B_ncols = B_data->isDiag() ? static_cast<int64_t>( B_data->numLocalColumns() ) :
-                                            static_cast<int64_t>( B_data->numUniqueColumns() );
+    const auto A_ncols = static_cast<int64_t>( A_data->numUniqueColumns() );
+    const auto B_ncols = static_cast<int64_t>( B_data->numUniqueColumns() );
 
     // all fields from blocks involved
     lidx_t *A_rs = nullptr, *A_cols_loc = nullptr;
-    gidx_t *A_cols     = nullptr;
     scalar_t *A_coeffs = nullptr;
 
     lidx_t *B_rs = nullptr, *B_cols_loc = nullptr;
-    gidx_t *B_cols     = nullptr;
     scalar_t *B_coeffs = nullptr;
 
     // Extract data fields from A and B
-    std::tie( A_rs, A_cols, A_cols_loc, A_coeffs ) = A_data->getDataFields();
-    std::tie( B_rs, B_cols, B_cols_loc, B_coeffs ) = B_data->getDataFields();
+    std::tie( A_rs, std::ignore, A_cols_loc, A_coeffs ) = A_data->getDataFields();
+    std::tie( B_rs, std::ignore, B_cols_loc, B_coeffs ) = B_data->getDataFields();
     const auto A_nnz = static_cast<int64_t>( A_data->numberOfNonZeros() );
     const auto B_nnz = static_cast<int64_t>( B_data->numberOfNonZeros() );
 

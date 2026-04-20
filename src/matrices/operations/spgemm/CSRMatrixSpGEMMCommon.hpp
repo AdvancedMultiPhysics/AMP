@@ -202,7 +202,7 @@ AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
                 matched = true;
                 // column idxs are ordered, so no need to look at any
                 // entries from here back in later searches
-                search_start = C_ptr + 1;
+                // search_start = C_ptr + 1;
                 break;
             } else if ( Cc > Bc ) {
                 // C column is larger than the B column we are looking
@@ -223,7 +223,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                                            std::shared_ptr<localmatrixdata_t> inR,
                                            std::shared_ptr<localmatrixdata_t> out )
 {
-    PROFILE( "CSRMatrixSpGEMMDevice::merge" );
+    PROFILE( "CSRMatrixSpGEMMCommon::merge" );
 
     // handle special case where either (or both) inputs are empty/null
     if ( inL.get() == nullptr && inR.get() == nullptr ) {
@@ -265,7 +265,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_count_all );
-            getLastDeviceError( "CSRMatrixSpGEMMDevice::merge::merge_row_count" );
+            getLastDeviceError( "CSRMatrixSpGEMMCommon::merge::merge_row_count" );
 #endif
         }
     }
@@ -310,7 +310,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_fill_all );
-            getLastDeviceError( "CSRMatrixSpGEMMDevice::merge::merge_row_fill" );
+            getLastDeviceError( "CSRMatrixSpGEMMCommon::merge::merge_row_fill" );
 #endif
         }
     }

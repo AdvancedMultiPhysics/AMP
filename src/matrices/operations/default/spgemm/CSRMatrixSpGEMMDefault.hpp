@@ -18,8 +18,8 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyLocal( std::shared_ptr<localmatrixd
                                                     std::shared_ptr<localmatrixdata_t> B_data,
                                                     std::shared_ptr<localmatrixdata_t> C_data )
 {
-    multiplyPhase<Mode::SYMBOLIC, BlockType::DIAG>( A_data, B_data, C_data );
-    multiplyPhase<Mode::NUMERIC, BlockType::DIAG>( A_data, B_data, C_data );
+    multiplyPhase<Mode::SYMBOLIC, BlockType::OFFD>( A_data, B_data, C_data );
+    multiplyPhase<Mode::NUMERIC, BlockType::OFFD>( A_data, B_data, C_data );
 
     // Convert the local indices to globals to make merges easier
     lidx_t *C_rs = nullptr, *C_cols_loc = nullptr;
