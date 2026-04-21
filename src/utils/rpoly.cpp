@@ -10,9 +10,6 @@
 namespace AMP {
 
 
-constexpr int n_max = 100;
-
-
 /******************************************************************
  * Sort the roots                                                  *
  ******************************************************************/
@@ -87,7 +84,7 @@ static inline double eval( int n, const double *a, long double x )
 {
     long double result = a[n];
     for ( int i = n - 1; i >= 0; --i )
-        result = result * x + static_cast<long double>( a[i] );
+        result = std::fmal( result, x, a[i] );
     return result;
 }
 template<class T>
@@ -177,17 +174,13 @@ static inline double findRoot( int n, const double *p, double lb, double ub )
  ******************************************************************/
 static inline int removeRoot( int n, double *p, double r )
 {
-    double pr[n_max + 1];
-    for ( int i = 0; i <= n; i++ )
-        pr[i] = p[i];
-    n--;
+    long double pr = p[n--];
+    long double s  = 1.0L / pr;
     for ( int i = n; i >= 0; i-- ) {
-        p[i] = -pr[i + 1];
-        pr[i] -= p[i] * r;
-        pr[i + 1] += p[i];
+        long double p0 = p[i];
+        p[i]           = s * pr;
+        pr             = std::fmal( pr, r, p0 );
     }
-    for ( int i = 0; i < n; i++ )
-        p[i] = p[i] / p[n];
     p[n] = 1;
     return n;
 }
@@ -213,7 +206,7 @@ static inline double iterate( int n, const double *a, std::complex<double> *root
                 converged = false;
             // Check for real roots
             if ( ( ( iter & 0x7 ) == 0 ) && fabs( roots[i].imag() / roots[i].real() ) < 1e-4 ) {
-                double r = findRoot( n, a, 0.9 * roots[i].real(), 1.1 * roots[i].real() );
+                double r = findRoot( n, a, 0.99 * roots[i].real(), 1.01 * roots[i].real() );
                 if ( r != 0 )
                     return r;
             }
@@ -223,9 +216,16 @@ static inline double iterate( int n, const double *a, std::complex<double> *root
     }
     for ( int i = 0; i < n; ++i ) {
         if ( fabs( roots[i].imag() / roots[i].real() ) < 1e-4 ) {
-            double r = findRoot( n, a, 0.9 * roots[i].real(), 1.1 * roots[i].real() );
+            double r  = roots[i].real();
+            double r2 = findRoot( n, a, 0.99 * r, 1.01 * r );
+            if ( r2 != 0 )
+                return r2;
+            r2 = findRoot( n, a, 0.9 * r, 1.1 * r );
             if ( r != 0 )
-                return r;
+                return r2;
+            r2 = findRoot( n, a, 0.5 * r, 2 * r );
+            if ( r2 != 0 )
+                return r2;
         }
     }
     return 0;
@@ -349,8 +349,9 @@ void rpoly( int n, const double *coeffs, std::complex<double> *roots )
     }
 
     // Copy coefficients (scaling by a_n)
-    AMP_INSIST( n <= n_max, "rpoly is not stable for large number of roots" );
-    double a[n_max + 1];
+    constexpr int n_max = 120;
+    AMP_INSIST( n < n_max, "rpoly is not stable for large number of roots" );
+    double a[n_max];
     for ( int i = 0; i < n; i++ )
         a[i] = coeffs[i] / coeffs[n];
     a[n] = 1;
