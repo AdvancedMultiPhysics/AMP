@@ -6,18 +6,20 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/random.h>
 
+#include <random>
+
+
 namespace AMP {
 namespace LinearAlgebra {
 
-// the random value part suggested from google AI
-struct GenRand {
-    __host__ __device__ float operator()( const size_t idx ) const
-    {
-        thrust::random::default_random_engine randEng;
-        thrust::uniform_real_distribution<float> uniDist( 0.0f, 1.0f ); // Example: range [0.0, 1.0)
 
-        // Use the index to seed the engine for unique sequences
-        randEng.discard( idx );
+struct GenRand {
+    size_t seed;                                                   // Random seed
+    GenRand( size_t s ) : seed( s ) {}                             // Constructor to set the seed
+    __host__ __device__ float operator()( const size_t idx ) const // Generate a random number
+    {
+        thrust::random::default_random_engine randEng( seed + idx );
+        thrust::uniform_real_distribution<float> uniDist( 0.0f, 1.0f ); // Example: range [0.0, 1.0)
         return uniDist( randEng );
     }
 };
@@ -26,8 +28,11 @@ struct GenRand {
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::setRandomValues( size_t N, TYPE *x )
 {
+    static std::mt19937 gen;
+    static std::uniform_int_distribution<size_t> dist;
+    size_t seed = dist( gen );
     thrust::counting_iterator<unsigned int> index_begin( 0 );
-    thrust::transform( thrust::device, index_begin, index_begin + N, x, GenRand() );
+    thrust::transform( thrust::device, index_begin, index_begin + N, x, GenRand( seed ) );
 }
 
 template<typename TYPE>

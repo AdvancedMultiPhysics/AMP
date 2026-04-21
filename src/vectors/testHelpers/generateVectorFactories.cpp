@@ -165,9 +165,13 @@ generateSimpleVectorFactory( const std::string &name, int N, bool global, const 
         factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
     } else if ( data == "gpu" ) {
 #ifdef AMP_USE_DEVICE
-        using ALLOC = ManagedAllocator<void>;
-        using DATA  = AMP::LinearAlgebra::VectorDataDevice<TYPE, ALLOC>;
-        factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
+        if constexpr ( std::is_integral_v<TYPE> ) {
+            AMP_ERROR( "SimpleVectorFactory<int,VectorDataDevice> is not supported" );
+        } else {
+            using ALLOC = ManagedAllocator<void>;
+            using DATA  = AMP::LinearAlgebra::VectorDataDevice<TYPE, ALLOC>;
+            factory.reset( new SimpleVectorFactory<TYPE, VecOps, DATA>( N, global, name ) );
+        }
 #endif
     } else {
         AMP_ERROR( "Unknown VectorData" );
@@ -197,9 +201,13 @@ std::shared_ptr<VectorFactory> generateSimpleVectorFactory(
 #endif
     } else if ( ops == "gpu" ) {
 #ifdef AMP_USE_DEVICE
-        factory =
-            generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsDevice<TYPE>>(
-                name, N, global, data );
+        if constexpr ( std::is_integral_v<TYPE> ) {
+            AMP_ERROR( "VectorOperationsDevice<int> is not supported" );
+        } else {
+            factory =
+                generateSimpleVectorFactory<TYPE, AMP::LinearAlgebra::VectorOperationsDevice<TYPE>>(
+                    name, N, global, data );
+        }
 #endif
     } else {
         AMP_ERROR( "Unknown VectorOperations" );

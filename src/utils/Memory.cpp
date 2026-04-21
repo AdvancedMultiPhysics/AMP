@@ -163,7 +163,11 @@ void copy( size_t N, const T1 *src, T2 *dst )
             delete[] tmp;
         } else {
 #ifdef AMP_USE_DEVICE
-            copyCast<T1, T2, Backend::Hip_Cuda>( N, src, dst );
+            if constexpr ( std::is_integral_v<T1> || std::is_integral_v<T2> ) {
+                AMP_ERROR( "Converting device vector int/float conversion is not supported" );
+            } else {
+                copyCast<T1, T2, Backend::Hip_Cuda>( N, src, dst );
+            }
 #else
             AMP_ERROR( "No backend" );
 #endif
