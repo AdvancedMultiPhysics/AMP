@@ -226,7 +226,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
 {
     PROFILE( "CSRMatrixOperationsKokkos::matMatMult" );
 
-    #ifdef AMP_USE_KOKKOSKERNELS
     auto csrDataA = std::dynamic_pointer_cast<CSRMatrixData<Config>>( A );
     auto csrDataB = std::dynamic_pointer_cast<CSRMatrixData<Config>>( B );
     auto csrDataC = std::dynamic_pointer_cast<CSRMatrixData<Config>>( C );
@@ -255,9 +254,9 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
                 "CSRMatrixOperationsKokkos::matMatMult A and C must have the same memory type" );
 
     // construct SpGEMM helper and call multiply
+    #ifdef AMP_USE_KOKKOSKERNELS
     CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace> spgemm( csrDataA, csrDataB, csrDataC );
     spgemm.multiply();
-
     #else // don't have kokkos-kernels, forward to default or device ops as appropriate
     if ( !alloc_info<Config::allocator>::device_accessible ) {
         CSRMatrixSpGEMMDefault<Config> spgemm( csrDataA, csrDataB, csrDataC );
