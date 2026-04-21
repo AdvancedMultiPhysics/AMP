@@ -871,18 +871,18 @@ void VectorTests::VerifyVectorMaxMin( AMP::UnitTest *ut )
 void VectorTests::SetRandomValuesVector( AMP::UnitTest *ut )
 {
     PROFILE( "SetRandomValuesVector" );
-    auto vector    = d_factory->getVector();
-    auto type      = getType( d_factory->getVector() );
-    double l2norm1 = -1;
+    auto vector = d_factory->getVector();
+    auto type   = getType( d_factory->getVector() );
+    double n1   = -1;
     for ( size_t i = 0; i < 5; i++ ) {
         vector->setRandomValues();
-        auto l2norm2 = static_cast<double>( vector->L2Norm() );
-        PASS_FAIL( fabs( l2norm1 - l2norm2 ) > 0.000001, "Distinct vector created" );
-        PASS_FAIL( l2norm2 > 0, "Non-zero vector created" );
+        auto n2 = static_cast<double>( vector->L2Norm() );
+        PASS_FAIL( fabs( n1 - n2 ) > 0.000001, "Distinct vector created" );
+        PASS_FAIL( n2 > 0, "Non-zero vector created" );
         PASS_FAIL( vector->min() >= 0, "Min value >= 0" );
         if ( type.is_floating_point() )
             PASS_FAIL( vector->max() < 1, "Max value < 1" );
-        l2norm1 = l2norm2;
+        n1 = n2;
     }
 }
 

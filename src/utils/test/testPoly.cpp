@@ -167,15 +167,15 @@ void testBasicRoots( AMP::UnitTest &ut )
 // Test finding roots of simple Wilkinson's like polynomials
 void testWilkinsonRoots( AMP::UnitTest &ut )
 {
-    double roots0[20];
+    double roots[20];
     for ( int i = 0; i < 20; i++ )
-        roots0[i] = i + 1;
-    for ( int n = 1; n <= 13; n++ ) {
-        auto pr    = Polynomial::createFromRoots( n, roots0 );
-        auto roots = pr.roots();
+        roots[i] = i + 1;
+    for ( int n = 1; n <= 15; n++ ) {
+        auto p     = Polynomial::createFromRoots( n, roots );
+        auto r     = p.roots();
         double err = 0;
         for ( int i = 0; i < n; i++ )
-            err = std::max( err, std::abs( ( roots[i] - roots0[i] ) / roots0[i] ) );
+            err = std::max( err, std::abs( ( r[i] - roots[i] ) / roots[i] ) );
         auto msg = AMP::Utilities::stringf( "Wilkinson polynomial %i: %e", n, err );
         if ( err < 1e-8 ) {
             ut.passes( msg );

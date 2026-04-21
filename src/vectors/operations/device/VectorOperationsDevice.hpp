@@ -130,6 +130,8 @@ void VectorOperationsDevice<TYPE>::setRandomValues( VectorData &x )
     TYPE *data     = x.getRawDataBlock<TYPE>( 0 );
     const size_t N = x.sizeOfDataBlock( 0 );
     DeviceOperationsHelpers<TYPE>::setRandomValues( N, data );
+    // Call makeConsistent to leave the vector in a consistent state
+    x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename TYPE>
