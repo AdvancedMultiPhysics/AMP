@@ -44,9 +44,8 @@ public:
           comm( A->getComm() ),
           d_csr_comm( A->getRightCommList() )
     {
-        AMP_DEBUG_INSIST(
-            comm == B->getComm() && comm == C->getComm(),
-            "CSRMatrixSpGEMMCommon: All three matrices must have the same communicator" );
+        AMP_INSIST( comm == B->getComm() && comm == C->getComm(),
+                    "CSRMatrixSpGEMMCommon: All three matrices must have the same communicator" );
     }
 
     virtual ~CSRMatrixSpGEMMCommon() = default;

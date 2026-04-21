@@ -1,3 +1,4 @@
+#include "AMP/IO/PIO.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/operations/spgemm/CSRMatrixSpGEMMCommon.h"
 #include "AMP/utils/Memory.h"
@@ -43,23 +44,8 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
 
     {
         PROFILE( "CSRMatrixSpGEMMCommon::multiply (local)" );
-        comm.sleepBarrier();
-
         multiplyLocal( A_diag, B_diag, C_diag_diag );
-
-        if ( comm.getRank() == 0 ) {
-            AMP::pout << " ==== C_dd print all ====" << std::endl;
-            C_diag_diag->printAll();
-        }
-        comm.sleepBarrier();
-
         multiplyLocal( A_diag, B_offd, C_diag_offd );
-
-        if ( comm.getRank() == 0 ) {
-            AMP::pout << " ==== C_do print all ====" << std::endl;
-            C_diag_offd->printAll();
-        }
-        comm.sleepBarrier();
     }
 
     if ( A->hasOffDiag() ) {
@@ -73,15 +59,12 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
                                                                C->beginCol(),
                                                                C->endCol(),
                                                                true );
-            comm.sleepBarrier();
-
             multiplyLocal( A_offd, BR_diag, C_offd_diag );
-
-            if ( comm.getRank() == 0 ) {
-                AMP::pout << " ==== C_od print all ====" << std::endl;
-                C_offd_diag->printAll();
-            }
-            comm.sleepBarrier();
+            merge( C_diag_diag, C_offd_diag, C_diag );
+            C_diag_diag.reset();
+            C_offd_diag.reset();
+        } else {
+            C_diag->swapDataFields( *C_diag_diag );
         }
         if ( BR_offd.get() != nullptr ) {
             C_offd_offd = std::make_shared<localmatrixdata_t>( nullptr,
@@ -91,43 +74,17 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
                                                                C->beginCol(),
                                                                C->endCol(),
                                                                false );
-            comm.sleepBarrier();
-
             multiplyLocal( A_offd, BR_offd, C_offd_offd );
-
-            if ( comm.getRank() == 0 ) {
-                AMP::pout << " ==== C_oo print all ====" << std::endl;
-                C_offd_offd->printAll();
-            }
-            comm.sleepBarrier();
+            merge( C_diag_offd, C_offd_offd, C_offd );
+            C_diag_offd.reset();
+            C_offd_offd.reset();
+        } else {
+            C_offd->swapDataFields( *C_diag_offd );
         }
+    } else {
+        C_diag->swapDataFields( *C_diag_diag );
+        C_offd->swapDataFields( *C_diag_offd );
     }
-
-    comm.sleepBarrier();
-
-    merge( C_diag_diag, C_offd_diag, C_diag );
-
-    if ( comm.getRank() == 0 ) {
-        AMP::pout << " ==== C_d print all ====" << std::endl;
-        C_diag->printAll();
-    }
-    comm.sleepBarrier();
-
-    C_diag_diag.reset();
-    C_offd_diag.reset();
-
-    comm.sleepBarrier();
-
-    merge( C_diag_offd, C_offd_offd, C_offd );
-
-    if ( comm.getRank() == 0 ) {
-        AMP::pout << " ==== C_o print all ====" << std::endl;
-        C_offd->printAll();
-    }
-    comm.sleepBarrier();
-
-    C_diag_offd.reset();
-    C_offd_offd.reset();
 
     C->assemble( true );
 }
@@ -140,30 +97,25 @@ AMP_FUNCTION_HD void merge_row_count( const lidx_t row,
                                       const gidx_t *B_cols,
                                       lidx_t *C_rs )
 {
-    // all of A counts in automatically
-    C_rs[row] = A_rs[row + 1] - A_rs[row];
-    // column values are sorted, so walk through A cols and B cols
-    // simultaneously to find matches
-    lidx_t num_repeats = 0, A_ptr = A_rs[row], B_ptr = B_rs[row];
-    for ( ; A_ptr < A_rs[row + 1] && B_ptr < B_rs[row + 1]; ) {
-        const auto Ac = A_cols[A_ptr], Bc = B_cols[B_ptr];
-        if ( Ac == Bc ) {
-            // entries match, increment counter and both ptrs
-            ++num_repeats;
-            ++A_ptr;
-            ++B_ptr;
-        } else if ( Ac < Bc ) {
-            // A lags B, increment A ptr to check further in row
-            ++A_ptr;
-        } else {
-            // B lags A, Bc not a repeat, so increment B ptr to check next
-            ++B_ptr;
+    const auto A_start = A_rs[row];
+    const auto A_len   = A_rs[row + 1] - A_start;
+    const auto B_start = B_rs[row];
+
+    C_rs[row] = A_len;
+    for ( lidx_t B_ptr = B_start; B_ptr < B_rs[row + 1]; ++B_ptr ) {
+        const auto Bc = B_cols[B_ptr];
+        bool matched  = false;
+        for ( lidx_t A_ptr = A_start; A_ptr < A_rs[row + 1]; ++A_ptr ) {
+            const auto Ac = A_cols[A_ptr];
+            if ( Ac == Bc ) {
+                matched = true;
+                break;
+            }
+        }
+        if ( !matched ) {
+            C_rs[row]++;
         }
     }
-    // either all A cols or all B cols have been checked
-    // either way, all possible repeats accounted for
-    // add in length of B row, minus repeats
-    C_rs[row] += B_rs[row + 1] - B_rs[row] - num_repeats;
 }
 
 template<typename gidx_t, typename lidx_t, typename scalar_t>
@@ -188,25 +140,16 @@ AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
         C_coeffs[C_start + off] = A_coeffs[A_start + off];
     }
 
-    lidx_t C_app = A_len, search_start = C_start;
+    lidx_t C_app = A_len;
     for ( lidx_t B_ptr = B_start; B_ptr < B_rs[row + 1]; ++B_ptr ) {
         const auto Bc = B_cols[B_ptr];
         const auto Bv = B_coeffs[B_ptr];
         bool matched  = false;
-        for ( lidx_t C_ptr = search_start; C_ptr < C_rs[row + 1]; ++C_ptr ) {
+        for ( lidx_t C_ptr = C_start; C_ptr < C_rs[row + 1]; ++C_ptr ) {
             const auto Cc = C_cols[C_ptr];
             if ( Cc == Bc ) {
-                // have a matching column index, add to the current coeff,
-                // flag that a match was found
                 C_coeffs[C_ptr] += Bv;
                 matched = true;
-                // column idxs are ordered, so no need to look at any
-                // entries from here back in later searches
-                // search_start = C_ptr + 1;
-                break;
-            } else if ( Cc > Bc ) {
-                // C column is larger than the B column we are looking
-                // for, no need to look any further
                 break;
             }
         }
@@ -225,15 +168,16 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
 {
     PROFILE( "CSRMatrixSpGEMMCommon::merge" );
 
+    AMP_ASSERT( inL && inR && out );
     // handle special case where either (or both) inputs are empty/null
-    if ( inL.get() == nullptr && inR.get() == nullptr ) {
+    if ( inL->isEmpty() && inR->isEmpty() ) {
         return;
     }
-    if ( inR.get() == nullptr || inR->isEmpty() ) {
+    if ( inR->isEmpty() ) {
         out->swapDataFields( *inL );
         return;
     }
-    if ( inL.get() == nullptr || inL->isEmpty() ) {
+    if ( inL->isEmpty() ) {
         out->swapDataFields( *inR );
         return;
     }
@@ -266,6 +210,8 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_count_all );
             getLastDeviceError( "CSRMatrixSpGEMMCommon::merge::merge_row_count" );
+#else
+            AMP_ERROR( "CSRMatrixSpGEMMCommon::merge Unrecognized memory space" );
 #endif
         }
     }
@@ -311,6 +257,8 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_fill_all );
             getLastDeviceError( "CSRMatrixSpGEMMCommon::merge::merge_row_fill" );
+#else
+            AMP_ERROR( "CSRMatrixSpGEMMCommon::merge Unrecognized memory space" );
 #endif
         }
     }

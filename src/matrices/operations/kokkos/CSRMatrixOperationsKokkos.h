@@ -21,10 +21,6 @@
 
     #include "Kokkos_Core.hpp"
 
-    #ifdef AMP_USE_KOKKOSKERNELS
-        #include "AMP/matrices/operations/kokkos/spgemm/CSRMatrixSpGEMMKokkos.h"
-    #endif
-
 namespace AMP::LinearAlgebra {
 
 template<typename Config,
@@ -205,18 +201,6 @@ protected:
     ExecSpace d_exec_space;
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
-
-
-    #ifdef AMP_USE_KOKKOSKERNELS
-    std::map<std::pair<std::shared_ptr<matrixdata_t>, std::shared_ptr<matrixdata_t>>,
-             CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>>
-        d_SpGEMMHelpers;
-    #endif
-    // Can need to fall back to either default or device ops for SpGEMM if needed
-    CSRMatrixOperationsDefault<Config> d_matrixOpsDefault;
-    #ifdef AMP_USE_DEVICE
-    CSRMatrixOperationsDevice<Config> d_matrixOpsDevice;
-    #endif
 };
 
 } // namespace AMP::LinearAlgebra

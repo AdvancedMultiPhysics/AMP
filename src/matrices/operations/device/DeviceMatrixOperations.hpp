@@ -15,11 +15,12 @@ __global__ void mult_kernel( const L *__restrict__ row_starts,
                              const S *__restrict__ x,
                              S *__restrict__ y )
 {
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
-        int start = row_starts[i];
-        int end   = row_starts[i + 1];
-        S sum     = 0.0;
-        for ( int j = start; j < end; j++ )
+    for ( unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
+          i += blockDim.x * gridDim.x ) {
+        L start = row_starts[i];
+        L end   = row_starts[i + 1];
+        S sum   = 0.0;
+        for ( L j = start; j < end; j++ )
             sum += coeffs[j] * x[cols_loc[j]];
         y[i] += sum;
     }
@@ -39,7 +40,8 @@ void DeviceMatrixOperations<G, L, S>::mult(
 template<typename S>
 __global__ void scale_kernel( const size_t N, S *__restrict__ x, const S alpha )
 {
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
+    for ( unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
+          i += blockDim.x * gridDim.x ) {
         x[i] *= alpha;
     }
 }
@@ -57,7 +59,8 @@ void DeviceMatrixOperations<G, L, S>::scale( const size_t N, S *x, const S alpha
 template<typename S>
 __global__ void axpy_kernel( const size_t N, const S alpha, S *__restrict__ x, S *__restrict__ y )
 {
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
+    for ( unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
+          i += blockDim.x * gridDim.x ) {
         y[i] += alpha * x[i];
     }
 }
@@ -87,7 +90,8 @@ __global__ static void extractDiagonal_kernel( const L *row_starts,
                                                const size_t N,
                                                S *__restrict__ diag )
 {
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
+    for ( unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
+          i += blockDim.x * gridDim.x ) {
         diag[i] = coeffs[row_starts[i]];
     }
 }
@@ -113,7 +117,8 @@ __global__ static void setDiagonal_kernel( const L *__restrict__ row_starts,
                                            const size_t N,
                                            const S *__restrict__ diag )
 {
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
+    for ( unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
+          i += blockDim.x * gridDim.x ) {
         coeffs[row_starts[i]] = diag[i];
     }
 }
@@ -137,7 +142,8 @@ template<typename L, typename S>
 __global__ static void
 setIdentity_kernel( const L *__restrict__ row_starts, S *__restrict__ coeffs, const size_t N )
 {
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
+    for ( unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
+          i += blockDim.x * gridDim.x ) {
         coeffs[row_starts[i]] = 1.0;
     }
 }
@@ -158,7 +164,8 @@ __global__ static void LinfNorm_kernel( const size_t N,
                                         const L *__restrict__ row_starts,
                                         S *__restrict__ row_sums )
 {
-    for ( int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x ) {
+    for ( unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
+          i += blockDim.x * gridDim.x ) {
         const auto start = row_starts[i];
         const auto end   = row_starts[i + 1];
         S sum            = 0.0;

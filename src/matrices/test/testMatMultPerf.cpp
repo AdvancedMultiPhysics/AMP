@@ -29,8 +29,7 @@
 // profiling information regarding SpGEMMs with different matrix classes
 
 // Number of products to evaluate to average out timings
-#define NUM_PRODUCTS_NOREUSE 10
-#define NUM_PRODUCTS_REUSE 10
+#define NUM_PRODUCTS 10
 
 size_t matMatTestWithDOFs( AMP::UnitTest *ut,
                            const std::string &type,
@@ -74,12 +73,11 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
 #endif
 
     // First do products without allowing reuse of result matrix
-    // skip one and do it outside the loop to produce a result
-    // matrix for the next phase with reuse
+    // later may add support for re-using symbolic phase of SpGEMM
     const auto yNormExpect = static_cast<scalar_t>( A->numGlobalRows() );
     scalar_t yNormFail     = 0.0;
     bool allPass           = true;
-    for ( int nProd = 1; nProd < NUM_PRODUCTS_NOREUSE; ++nProd ) {
+    for ( int nProd = 0; nProd < NUM_PRODUCTS; ++nProd ) {
         PROFILE( "SpGEMM test no reuse" );
         auto Asq = AMP::LinearAlgebra::Matrix::matMatMult( A, A );
         auto x   = Asq->createInputVector();
@@ -94,57 +92,16 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
             yNormFail = yNorm;
         }
     }
-    auto Asq = AMP::LinearAlgebra::Matrix::matMatMult( A, A );
-    auto x   = Asq->createInputVector();
-    auto y   = Asq->createOutputVector();
-    x->setToScalar( 1.0 );
-    x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    y->zero();
-    Asq->mult( x, y );
-    auto yNorm = static_cast<scalar_t>( y->L1Norm() );
-    if ( yNorm != yNormExpect ) {
-        allPass   = false;
-        yNormFail = yNorm;
-    }
 
     if ( allPass ) {
         ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
-                    ": Passes 1 norm test with squared pseudo Laplacian, no re-use" );
+                    ": Passes L1 norm test with squared pseudo Laplacian" );
     } else {
-        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend << ", 1 Norm "
-                  << yNormFail << ", number of rows " << A->numGlobalRows() << std::endl;
+        AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend
+                  << ", L1 Norm: " << yNormFail << ", expected: " << A->numGlobalRows()
+                  << std::endl;
         ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
-                     ": Fails 1 norm test with squared pseudo Laplacian, no re-use" );
-    }
-
-    // now do products where reuse of result matrix is supported
-    if ( NUM_PRODUCTS_REUSE > 0 && memoryLocation == "host" ) {
-        yNormFail = 0.0;
-        allPass   = true;
-        for ( int nProd = 0; nProd < NUM_PRODUCTS_REUSE; ++nProd ) {
-            PROFILE( "SpGEMM test reuse" );
-            AMP::LinearAlgebra::Matrix::matMatMult( A, A, Asq );
-            x->setToScalar( 1.0 );
-            x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-            y->zero();
-            Asq->mult( x, y );
-            const auto yNorm = static_cast<scalar_t>( y->L1Norm() );
-            if ( yNorm != yNormExpect ) {
-                allPass   = false;
-                yNormFail = yNorm;
-            }
-        }
-
-        if ( allPass ) {
-            ut->passes( type + ", " + memoryLocation + ", " + accelerationBackend +
-                        ": Passes 1 norm test with squared pseudo Laplacian, with re-use" );
-        } else {
-            AMP::pout << type << ", " << memoryLocation << ", " << accelerationBackend
-                      << ", 1 Norm " << yNormFail << ", number of rows " << A->numGlobalRows()
-                      << std::endl;
-            ut->failure( type + ", " + memoryLocation + ", " + accelerationBackend +
-                         ": Fails 1 norm test with squared pseudo Laplacian, with re-use" );
-        }
+                     ": Fails L1 norm test with squared pseudo Laplacian" );
     }
 
     return nGlobalRows;
@@ -205,11 +162,8 @@ int main( int argc, char *argv[] )
     PROFILE_ENABLE();
 
     if ( argc > 1 ) {
-
         files.emplace_back( argv[1] );
-
     } else {
-
         files.emplace_back( "input_testMatVecPerf-1" );
     }
 

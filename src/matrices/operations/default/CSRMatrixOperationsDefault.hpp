@@ -236,19 +236,10 @@ void CSRMatrixOperationsDefault<Config>::matMatMult( std::shared_ptr<MatrixData>
     AMP_INSIST( memLocA == memLocC,
                 "CSRMatrixOperationsDefault::matMatMult A and C must have the same memory type" );
 
-    // Check if an SpGEMM helper has already been constructed for this combination
-    // of matrices. If not create it first and do symbolic phase, otherwise skip
-    // ahead to numeric phase
-    auto bcPair = std::make_pair( csrDataB, csrDataC );
-    if ( d_SpGEMMHelpers.find( bcPair ) == d_SpGEMMHelpers.end() ) {
-        AMP_INSIST( csrDataC->isEmpty(),
-                    "CSRMatrixOperationsDefault::matMatMult A*B->C only applicable to non-empty C "
-                    "if it came from same A and B input matrices originally" );
-        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDefault( csrDataA, csrDataB, csrDataC );
-        d_SpGEMMHelpers[bcPair].multiply();
-    } else {
-        d_SpGEMMHelpers[bcPair].multiply();
-    }
+    // Create an SpGEMM helper object and call multiply
+    // later versions may allow re-use of symbolic phase
+    CSRMatrixSpGEMMDefault<Config> spgemm( csrDataA, csrDataB, csrDataC );
+    spgemm.multiply();
 }
 
 template<typename Config>

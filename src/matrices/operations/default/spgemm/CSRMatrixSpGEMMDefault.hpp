@@ -18,6 +18,11 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyLocal( std::shared_ptr<localmatrixd
                                                     std::shared_ptr<localmatrixdata_t> B_data,
                                                     std::shared_ptr<localmatrixdata_t> C_data )
 {
+    AMP_ASSERT( A_data && B_data && C_data );
+    if ( A_data->isEmpty() || B_data->isEmpty() ) {
+        return;
+    }
+
     multiplyPhase<Mode::SYMBOLIC, BlockType::OFFD>( A_data, B_data, C_data );
     multiplyPhase<Mode::NUMERIC, BlockType::OFFD>( A_data, B_data, C_data );
 

@@ -19,6 +19,11 @@
 
     #ifdef AMP_USE_KOKKOSKERNELS
         #include "AMP/matrices/operations/kokkos/spgemm/CSRMatrixSpGEMMKokkos.hpp"
+    #else
+        #include "AMP/matrices/operations/default/spgemm/CSRMatrixSpGEMMDefault.h"
+        #ifdef AMP_USE_DEVICE
+            #include "AMP/matrices/operations/device/spgemm/CSRMatrixSpGEMMDevice.h"
+        #endif
     #endif
 
 namespace AMP::LinearAlgebra {
@@ -249,29 +254,18 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
     AMP_INSIST( memLocA == memLocC,
                 "CSRMatrixOperationsKokkos::matMatMult A and C must have the same memory type" );
 
-    // Check if an SpGEMM helper has already been constructed for this combination
-    // of matrices. If not create it first and do symbolic phase, otherwise skip
-    // ahead to numeric phase
-    auto bcPair = std::make_pair( csrDataB, csrDataC );
-    if ( d_SpGEMMHelpers.find( bcPair ) == d_SpGEMMHelpers.end() ) {
-        AMP_INSIST( csrDataC->isEmpty(),
-                    "CSRMatrixOperationsKokkos::matMatMult A*B->C only applicable to non-empty C "
-                    "if it came from same A and B input matrices originally" );
-        d_SpGEMMHelpers[bcPair] =
-            CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>( csrDataA, csrDataB, csrDataC );
-        d_SpGEMMHelpers[bcPair].multiply();
-    } else {
-        AMP_WARN_ONCE( "CSRMatrixOperationsKokkos::matMatMult: Reuse of C not yet supported, "
-                       "falling back to full calculation" );
-        d_SpGEMMHelpers[bcPair].multiply();
-    }
+    // construct SpGEMM helper and call multiply
+    CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace> spgemm( csrDataA, csrDataB, csrDataC );
+    spgemm.multiply();
 
     #else // don't have kokkos-kernels, forward to default or device ops as appropriate
     if ( !alloc_info<Config::allocator>::device_accessible ) {
-        d_matrixOpsDefault.matMatMult( A, B, C );
+        CSRMatrixSpGEMMDefault<Config> spgemm( csrDataA, csrDataB, csrDataC );
+        spgemm.multiply();
     } else {
         #ifdef AMP_USE_DEVICE
-        d_matrixOpsDevice.matMatMult( A, B, C );
+        CSRMatrixSpGEMMDevice<Config> spgemm( csrDataA, csrDataB, csrDataC );
+        spgemm.multiply();
         #else
         AMP_ERROR( "CSRMatrixOperationsKokkos::matMatMult Undefined memory location" );
         #endif
