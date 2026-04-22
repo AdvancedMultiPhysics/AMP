@@ -133,7 +133,7 @@ AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
     const auto A_start = A_rs[row];
     const auto A_len   = A_rs[row + 1] - A_start;
     const auto B_start = B_rs[row];
-    const auto C_start = C_rs[row];
+    const auto C_start = C_rs[row], C_search_end = C_start + A_len;
     // all of A counts in automatically
     for ( lidx_t off = 0; off < A_len; ++off ) {
         C_cols[C_start + off]   = A_cols[A_start + off];
@@ -145,7 +145,7 @@ AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
         const auto Bc = B_cols[B_ptr];
         const auto Bv = B_coeffs[B_ptr];
         bool matched  = false;
-        for ( lidx_t C_ptr = C_start; C_ptr < C_rs[row + 1]; ++C_ptr ) {
+        for ( lidx_t C_ptr = C_start; C_ptr < C_search_end; ++C_ptr ) {
             const auto Cc = C_cols[C_ptr];
             if ( Cc == Bc ) {
                 C_coeffs[C_ptr] += Bv;
@@ -330,7 +330,7 @@ void CSRMatrixSpGEMMCommon<Config>::setupBRemoteComm()
 
     // 4. send rowids to their owners
     // start by posting the irecvs
-    const int TAG = 7800;
+    const int TAG = comm.newTag();
     std::vector<AMP_MPI::Request> irecvs;
     for ( auto it = d_dest_info.begin(); it != d_dest_info.end(); ++it ) {
         it->second.rowids.resize( it->second.numrow );
@@ -390,14 +390,13 @@ void CSRMatrixSpGEMMCommon<Config>::endBRemoteComm()
     d_recv_matrices.clear();
 
     // trigger remotes to build local indices
-    BR_diag->globalToLocalColumns();
-    BR_offd->globalToLocalColumns();
-
-    // test shape of concatenated matrices
+    // and test shape of concatenated matrices
     if ( BR_diag ) {
+        BR_diag->globalToLocalColumns();
         AMP_DEBUG_ASSERT( A_offd->numUniqueColumns() == BR_diag->numLocalRows() );
     }
     if ( BR_offd ) {
+        BR_offd->globalToLocalColumns();
         AMP_DEBUG_ASSERT( A_offd->numUniqueColumns() == BR_offd->numLocalRows() );
     }
 }

@@ -456,6 +456,8 @@ void CSRLocalMatrixData<Config>::sortColumns()
         return;
     }
 
+    AMP_DEBUG_INSIST( d_row_starts.get() != nullptr,
+                      "CSRLocalMatrixData::sortColumns Row starts must be allocated" );
     AMP_DEBUG_INSIST( d_cols.get() != nullptr,
                       "CSRLocalMatrixData::sortColumns Access to global columns required" );
 
