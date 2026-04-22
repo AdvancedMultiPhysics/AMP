@@ -7,6 +7,11 @@
 #include "AMP/utils/Database.h"
 
 #include "StackTrace/StackTrace.h"
+#if __has_include("StackTrace/StackTrace_Version.h")
+#include "StackTrace/StackTrace_Version.h"
+#else
+#include "StackTrace_Version.h"
+#endif
 
 #include <algorithm>
 #include <array>
@@ -71,11 +76,6 @@ static std::mutex Utilities_mutex;
  * We will eventually remove this function once everyone has had time to     *
  * update to a more recent version of StackTrace                             *
  ****************************************************************************/
-#if __has_include("StackTrace/StackTrace_Version.h")
-#include "StackTrace/StackTrace_Version.h"
-#else
-#include "StackTrace_Version.h"
-#endif
 #ifndef StackTrace_BUILD_VERSION
     #define StackTrace_BUILD_VERSION 0
 #endif
