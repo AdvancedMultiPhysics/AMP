@@ -33,16 +33,33 @@
 namespace AMP::LinearAlgebra {
 
 
-static double getTol( const Vector &x )
+static double getTol( const typeID &type )
+{
+    if ( type == getTypeID<double>() || type == getTypeID<std::complex<double>>() )
+        return std::numeric_limits<double>::epsilon();
+    else if ( type == getTypeID<float>() || type == getTypeID<std::complex<float>>() )
+        return std::numeric_limits<float>::epsilon();
+    else if ( type.is_integral() )
+        return 0;
+    AMP_ERROR( "Unknown type" );
+}
+static double getTol( const VectorData &x )
 {
     double tol = 0;
-    for ( size_t i = 0; i < x.numberOfDataBlocks(); i++ ) {
-        if ( x.isType<double>( i ) )
-            tol = std::max<double>( tol, std::numeric_limits<double>::epsilon() );
-        if ( x.isType<float>( i ) )
-            tol = std::max<float>( tol, std::numeric_limits<float>::epsilon() );
-    }
+    for ( size_t i = 0; i < x.numberOfDataBlocks(); i++ )
+        tol = std::max( tol, getTol( x.getType( i ) ) );
     return tol;
+}
+static double getTol( const Vector &x ) { return getTol( *x.getVectorData() ); }
+
+
+static inline typeID getType( std::shared_ptr<const AMP::LinearAlgebra::Vector> vec )
+{
+    auto data = vec->getVectorData();
+    auto type = data->getType( 0 );
+    for ( size_t i = 1; i < data->numberOfDataBlocks(); i++ )
+        AMP_INSIST( data->isType( type, i ), "Mixed types" );
+    return type;
 }
 
 
@@ -208,70 +225,56 @@ bool vectorValuesNotEqual( Vector::shared_ptr vector, T val )
     return fail;
 }
 
+template<class TYPE>
+static void SetToScalarVectorType( AMP::UnitTest &ut,
+                                   std::shared_ptr<AMP::LinearAlgebra::Vector> vector,
+                                   const std::string &name0 )
+{
+    auto name = name0 + " - " + __FUNCTION__ + ": ";
+
+    TYPE zero = 0;
+    vector->setToScalar( 0. );
+    vector->makeConsistent( ScatterType::CONSISTENT_SET );
+    bool fail = vectorValuesNotEqual<TYPE>( vector, zero );
+    ut.pass_fail( !fail, name + "Set data to 0" );
+
+    TYPE five = 5;
+    vector->setToScalar( TYPE( 5 ) );
+    vector->makeConsistent( ScatterType::CONSISTENT_SET );
+    fail = vectorValuesNotEqual<TYPE>( vector, five );
+    ut.pass_fail( !fail, name + "Set data to 5" );
+
+    auto remoteDofs = vector->getDOFManager()->getRemoteDOFs();
+    fail            = false;
+    for ( auto &remoteDof : remoteDofs ) {
+        if ( vector->getValueByGlobalID<TYPE>( remoteDof ) != five )
+            fail = true;
+    }
+    ut.pass_fail( !fail, name + "Set ghost data to 5" );
+}
 void VectorTests::SetToScalarVector( AMP::UnitTest *ut )
 {
     PROFILE( "SetToScalarVector" );
-    auto vector = d_factory->getVector();
+    auto vector      = d_factory->getVector();
+    std::string name = d_factory->name();
+    auto type        = getType( vector );
+
+    auto data = vector->getVectorData();
     vector->setToScalar( 0. );
     vector->makeConsistent( ScatterType::CONSISTENT_SET );
-    ut->passes( "setToScalar ran to completion " + d_factory->name() );
-    bool fail = false;
-    if ( vector->getVectorData()->isType<double>() ) {
-        fail = vectorValuesNotEqual<double>( vector, 0.0 );
-    } else if ( vector->getVectorData()->isType<float>() ) {
-        fail = vectorValuesNotEqual<float>( vector, 0.0 );
-    } else if ( vector->getVectorData()->isType<std::complex<double>>() ) {
-        fail = vectorValuesNotEqual<std::complex<double>>( vector, 0.0 );
-    } else if ( vector->getVectorData()->isType<std::complex<float>>() ) {
-        fail = vectorValuesNotEqual<std::complex<float>>( vector, 0.0 );
+    if ( type == getTypeID<double>() ) {
+        SetToScalarVectorType<double>( *ut, vector, name );
+    } else if ( type == getTypeID<float>() ) {
+        SetToScalarVectorType<float>( *ut, vector, name );
+    } else if ( type == getTypeID<int>() ) {
+        SetToScalarVectorType<int>( *ut, vector, name );
+    } else if ( type == getTypeID<std::complex<double>>() ) {
+        SetToScalarVectorType<std::complex<double>>( *ut, vector, name );
+    } else if ( type == getTypeID<std::complex<float>>() ) {
+        SetToScalarVectorType<std::complex<float>>( *ut, vector, name );
     } else {
         AMP_ERROR( "Vector data not of correct scalar type" );
     }
-
-    PASS_FAIL( !fail, "Set data to 0" );
-    fail = false;
-    vector->setToScalar( 5. );
-    vector->makeConsistent( ScatterType::CONSISTENT_SET );
-    if ( vector->getVectorData()->isType<double>() ) {
-        fail = vectorValuesNotEqual<double>( vector, 5.0 );
-    } else if ( vector->getVectorData()->isType<float>() ) {
-        fail = vectorValuesNotEqual<float>( vector, 5.0 );
-    } else if ( vector->getVectorData()->isType<std::complex<double>>() ) {
-        fail = vectorValuesNotEqual<std::complex<double>>( vector, 5.0 );
-    } else if ( vector->getVectorData()->isType<std::complex<float>>() ) {
-        fail = vectorValuesNotEqual<std::complex<float>>( vector, 5.0 );
-    } else {
-        AMP_ERROR( "Vector data not of correct scalar type" );
-    }
-    PASS_FAIL( !fail, "Set data to 5" );
-    auto remoteDofs = vector->getDOFManager()->getRemoteDOFs();
-    fail            = false;
-    if ( vector->getVectorData()->isType<double>() ) {
-        for ( auto &remoteDof : remoteDofs ) {
-            if ( vector->getValueByGlobalID( remoteDof ) != 5. )
-                fail = true;
-        }
-    } else if ( vector->getVectorData()->isType<float>() ) {
-        for ( auto &remoteDof : remoteDofs ) {
-            if ( vector->getValueByGlobalID<float>( remoteDof ) != 5. )
-                fail = true;
-        }
-    } else if ( vector->getVectorData()->isType<std::complex<double>>() ) {
-        const std::complex<double> five( 5.0, 0 );
-        for ( auto &remoteDof : remoteDofs ) {
-            if ( vector->getValueByGlobalID<std::complex<double>>( remoteDof ) != five )
-                fail = true;
-        }
-    } else if ( vector->getVectorData()->isType<std::complex<float>>() ) {
-        const std::complex<float> five( 5.0, 0 );
-        for ( auto &remoteDof : remoteDofs ) {
-            if ( vector->getValueByGlobalID<std::complex<float>>( remoteDof ) != five )
-                fail = true;
-        }
-    } else {
-        AMP_ERROR( "Vector data not of correct scalar type" );
-    }
-    PASS_FAIL( !fail, "Set ghost data to 5" );
 }
 
 void VectorTests::CloneVector( AMP::UnitTest *ut )
@@ -327,19 +330,19 @@ void VectorTests::L2NormVector( AMP::UnitTest *ut )
     PROFILE( "L2NormVector" );
     auto vec = d_factory->getVector();
     vec->setToScalar( 1. );
-    auto norm  = static_cast<double>( vec->L2Norm() );
-    auto norm2 = static_cast<double>( vec->dot( *vec ) );
-    double tol = 0.000001;
+    double norm  = static_cast<double>( vec->L2Norm() );
+    double norm2 = static_cast<double>( vec->dot( *vec ) );
+    double tol   = 1e-12;
     if ( vec->getVectorData()->isType<float>() )
-        tol = 0.00001;
-    PASS_FAIL( fabs( static_cast<double>( norm * norm - norm2 ) ) < tol, "L2 norm 1" );
+        tol = 1e-5;
+    PASS_FAIL( fabs( norm * norm - norm2 ) <= tol * norm2, "L2 norm 1" );
     vec->setRandomValues();
     norm  = static_cast<double>( vec->L2Norm() );
     norm2 = static_cast<double>( vec->dot( *vec ) );
-    PASS_FAIL( fabs( static_cast<double>( norm * norm - norm2 ) ) < tol, "L2 norm 2" );
-    norm      = static_cast<double>( vec->L2Norm() );
-    norm2     = static_cast<double>( VectorHelpers::L2Norm( vec, { vec->getName() } )[0] );
-    bool pass = fabs( norm - norm2 ) < tol;
+    PASS_FAIL( fabs( norm * norm - norm2 ) <= tol * norm2, "L2 norm 2" );
+    norm  = static_cast<double>( vec->L2Norm() );
+    norm2 = static_cast<double>( VectorHelpers::L2Norm( vec, { vec->getName() } )[0] );
+    PASS_FAIL( fabs( norm - norm2 ) <= tol, "VectorHelpers (vec)" );
     if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
         auto vec2 = vec->clone();
         vec2->setRandomValues();
@@ -352,11 +355,11 @@ void VectorTests::L2NormVector( AMP::UnitTest *ut )
         double n[3] = { static_cast<double>( norms[0] ),
                         static_cast<double>( norms[1] ),
                         static_cast<double>( norms[2] ) };
-        pass        = pass && fabs( n[0] - norm ) < tol;
-        pass        = pass && fabs( n[1] - norm2 ) < tol;
+        bool pass   = fabs( n[0] - norm ) <= tol * n[0];
+        pass        = pass && fabs( n[1] - norm2 ) <= tol * n[1];
         pass        = pass && n[2] == 0;
+        PASS_FAIL( pass, "VectorHelpers (multivec)" );
     }
-    PASS_FAIL( pass, "VectorHelpers" );
 }
 
 
@@ -385,13 +388,13 @@ void VectorTests::L1NormVector( AMP::UnitTest *ut )
     vec->abs( *vec );
     auto norm2 = static_cast<double>( vec->dot( *vec1 ) );
     double tol = 50 * norm * getTol( *vec );
-    if ( fabs( norm - norm2 ) < tol )
+    if ( fabs( norm - norm2 ) <= tol )
         ut->passes( "L1 norm" );
     else
         ut->failure( "L1 norm (%e) (%e)", fabs( norm - norm2 ), tol );
-    norm      = static_cast<double>( vec->L1Norm() );
-    norm2     = static_cast<double>( VectorHelpers::L1Norm( vec, { vec->getName() } )[0] );
-    bool pass = fabs( norm - norm2 ) < tol;
+    norm  = static_cast<double>( vec->L1Norm() );
+    norm2 = static_cast<double>( VectorHelpers::L1Norm( vec, { vec->getName() } )[0] );
+    PASS_FAIL( fabs( norm - norm2 ) <= tol, "VectorHelpers (vec)" );
     if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
         auto vec2 = vec->clone();
         vec2->setRandomValues();
@@ -404,48 +407,51 @@ void VectorTests::L1NormVector( AMP::UnitTest *ut )
         double n[3] = { static_cast<double>( norms[0] ),
                         static_cast<double>( norms[1] ),
                         static_cast<double>( norms[2] ) };
-        pass        = pass && fabs( n[0] - norm ) < tol;
-        pass        = pass && fabs( n[1] - norm2 ) < tol;
+        bool pass   = fabs( n[0] - norm ) <= tol;
+        pass        = pass && fabs( n[1] - norm2 ) <= tol;
         pass        = pass && n[2] == 0;
+        PASS_FAIL( pass, "VectorHelpers (multivec)" );
     }
-    PASS_FAIL( pass, "VectorHelpers" );
 }
 
 
-void VectorTests::MaxNormVector( AMP::UnitTest *ut )
+template<class TYPE>
+static void testMaxNormType( AMP::UnitTest &ut,
+                             std::shared_ptr<AMP::LinearAlgebra::Vector> vec,
+                             const std::string &name )
 {
-    PROFILE( "MaxNormVector" );
-    auto vec = d_factory->getVector();
     vec->setRandomValues();
     auto infNorm = vec->maxNorm();
     vec->abs( *vec );
-    if ( vec->getVectorData()->isType<double>() ) {
-        auto curData   = vec->begin();
-        auto endData   = vec->end();
-        auto local_ans = *curData;
-        while ( curData != endData ) {
-            local_ans = std::max( local_ans, *curData );
-            ++curData;
-        }
-        auto global_ans = vec->getComm().maxReduce( local_ans );
-        PASS_FAIL( global_ans == infNorm, "Inf norm" );
-    } else if ( vec->getVectorData()->isType<float>() ) {
-        auto curData   = vec->begin<float>();
-        auto endData   = vec->end<float>();
-        auto local_ans = *curData;
-        while ( curData != endData ) {
-            local_ans = std::max( local_ans, *curData );
-            ++curData;
-        }
-        auto global_ans = vec->getComm().maxReduce( local_ans );
-        PASS_FAIL( global_ans == infNorm, "Inf norm" );
+    auto curData   = vec->begin<TYPE>();
+    auto endData   = vec->end<TYPE>();
+    auto local_ans = *curData;
+    while ( curData != endData ) {
+        local_ans = std::max( local_ans, *curData );
+        ++curData;
+    }
+    auto global_ans = vec->getComm().maxReduce( local_ans );
+    ut.pass_fail( global_ans == infNorm, name + "Inf norm" );
+}
+void VectorTests::MaxNormVector( AMP::UnitTest *ut )
+{
+    PROFILE( "MaxNormVector" );
+    auto vec         = d_factory->getVector();
+    auto type        = getType( vec );
+    std::string name = d_factory->name();
+    if ( type == getTypeID<double>() ) {
+        testMaxNormType<double>( *ut, vec, name );
+    } else if ( type == getTypeID<float>() ) {
+        testMaxNormType<float>( *ut, vec, name );
+    } else if ( type == getTypeID<int>() ) {
+        testMaxNormType<int>( *ut, vec, name );
     } else {
         AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
     }
     auto norm  = static_cast<double>( vec->maxNorm() );
     auto norm2 = static_cast<double>( VectorHelpers::maxNorm( vec, { vec->getName() } )[0] );
     double tol = 2 * getTol( *vec );
-    bool pass  = fabs( norm - norm2 ) < tol;
+    bool pass  = fabs( norm - norm2 ) <= tol;
     if ( !std::dynamic_pointer_cast<MultiVector>( vec ) ) {
         auto vec2 = vec->clone();
         vec2->setRandomValues();
@@ -458,18 +464,21 @@ void VectorTests::MaxNormVector( AMP::UnitTest *ut )
         double n[3] = { static_cast<double>( norms[0] ),
                         static_cast<double>( norms[1] ),
                         static_cast<double>( norms[2] ) };
-        pass        = pass && fabs( n[0] - norm ) < tol;
-        pass        = pass && fabs( n[1] - norm2 ) < tol;
+        pass        = pass && fabs( n[0] - norm ) <= tol;
+        pass        = pass && fabs( n[1] - norm2 ) <= tol;
         pass        = pass && n[2] == 0;
     }
     PASS_FAIL( pass, "VectorHelpers" );
 }
 
 template<typename TYPE>
-bool scaleTest( Vector::shared_ptr vector1, Vector::shared_ptr vector2, TYPE beta )
+static bool scaleTest( Vector::shared_ptr vector1, Vector::shared_ptr vector2, TYPE beta )
 {
     PROFILE( "scaleTest" );
-    bool pass     = true;
+    bool pass = true;
+    vector2->setRandomValues();
+    vector1->scale( beta, *vector2 );
+    vector1->makeConsistent( ScatterType::CONSISTENT_SET );
     auto curData1 = vector1->begin<TYPE>();
     auto endData1 = vector1->end<TYPE>();
     auto curData2 = vector2->begin<TYPE>();
@@ -487,32 +496,30 @@ void VectorTests::ScaleVector( AMP::UnitTest *ut )
     PROFILE( "ScaleVector" );
     auto vector1( d_factory->getVector() );
     auto vector2( d_factory->getVector() );
-    double beta = 1.2345;
-    vector2->setRandomValues();
-    vector1->scale( beta, *vector2 );
-    vector1->makeConsistent( ScatterType::CONSISTENT_SET );
+    auto type = getType( vector1 );
     bool pass;
-    if ( vector1->getVectorData()->isType<double>() &&
-         vector2->getVectorData()->isType<double>() ) {
+    double beta = 1.2345;
+    if ( type == getTypeID<double>() ) {
         pass = scaleTest<double>( vector1, vector2, beta );
-    } else if ( vector1->getVectorData()->isType<float>() &&
-                vector2->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         pass = scaleTest<float>( vector1, vector2, beta );
-    } else if ( vector1->getVectorData()->isType<std::complex<double>>() &&
-                vector2->getVectorData()->isType<std::complex<double>>() ) {
+    } else if ( type == getTypeID<int>() ) {
+        beta = 1; // Need to improve this
+        pass = scaleTest<int>( vector1, vector2, beta );
+    } else if ( type == getTypeID<std::complex<double>>() ) {
         pass = scaleTest<std::complex<double>>( vector1, vector2, beta );
-    } else if ( vector1->getVectorData()->isType<std::complex<float>>() &&
-                vector2->getVectorData()->isType<std::complex<float>>() ) {
+    } else if ( type == getTypeID<std::complex<float>>() ) {
         pass = scaleTest<std::complex<float>>( vector1, vector2, beta );
     } else {
-        AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
+        std::string type = vector1->getVectorData()->getType( 0 ).name;
+        AMP_ERROR( "ScaleVector not implemented for " + type );
     }
     PASS_FAIL( pass, "scale vector 1" );
     vector2->scale( beta );
     vector1->subtract( *vector2, *vector1 );
     vector1->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vector1 );
-    PASS_FAIL( vector1->maxNorm() < tol, "scale vector 2" );
+    PASS_FAIL( vector1->maxNorm() <= tol, "scale vector 2" );
 }
 
 
@@ -555,9 +562,9 @@ void VectorTests::Bug_491( [[maybe_unused]] AMP::UnitTest *ut )
         VecNormEnd( managed_vec, NORM_INFINITY, &ninf );
 
         PetscReal tol = 0.00000001 * n1;
-        PASS_FAIL( fabs( n1 - sp_n1 ) < tol, "L1 norm -- Petsc interface begin/end" );
-        PASS_FAIL( fabs( n2 - sp_n2 ) < tol, "L2 norm -- Petsc interface begin/end" );
-        PASS_FAIL( fabs( ninf - sp_inf ) < tol, "Linf norm -- Petsc interface begin/end" );
+        PASS_FAIL( fabs( n1 - sp_n1 ) <= tol, "L1 norm -- Petsc interface begin/end" );
+        PASS_FAIL( fabs( n2 - sp_n2 ) <= tol, "L2 norm -- Petsc interface begin/end" );
+        PASS_FAIL( fabs( ninf - sp_inf ) <= tol, "Linf norm -- Petsc interface begin/end" );
 
         VecNorm( managed_vec, NORM_1, &n1 );
         VecNorm( managed_vec, NORM_2, &n2 );
@@ -566,9 +573,9 @@ void VectorTests::Bug_491( [[maybe_unused]] AMP::UnitTest *ut )
         PetscReal L1Norm( vector1->L1Norm() );
         PetscReal L2Norm( vector1->L2Norm() );
         PetscReal maxNorm( vector1->maxNorm() );
-        PASS_FAIL( fabs( n1 - L1Norm ) < tol, "L1 norm -- Petsc interface begin/end " );
-        PASS_FAIL( fabs( n2 - L2Norm ) < tol, "L2 norm -- Petsc interface begin/end " );
-        PASS_FAIL( fabs( ninf - maxNorm ) < tol, "inf norm -- Petsc interface begin/end " );
+        PASS_FAIL( fabs( n1 - L1Norm ) <= tol, "L1 norm -- Petsc interface begin/end " );
+        PASS_FAIL( fabs( n2 - L2Norm ) <= tol, "L2 norm -- Petsc interface begin/end " );
+        PASS_FAIL( fabs( ninf - maxNorm ) <= tol, "inf norm -- Petsc interface begin/end " );
     }
 #endif
 }
@@ -602,30 +609,27 @@ void VectorTests::AddVector( AMP::UnitTest *ut )
     auto vector1( d_factory->getVector() );
     auto vector2( d_factory->getVector() );
     auto vector3( d_factory->getVector() );
+    auto type = getType( vector1 );
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->add( *vector1, *vector2 );
     vector3->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
-    if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
-         vector3->getVectorData()->isType<double>() ) {
+    if ( type == getTypeID<double>() ) {
         pass = binaryOpTest<double>( vector1, vector2, vector3, std::plus<double>() );
-    } else if ( vector1->getVectorData()->isType<float>() &&
-                vector2->getVectorData()->isType<float>() &&
-                vector3->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         pass = binaryOpTest<float>( vector1, vector2, vector3, std::plus<float>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<double>>() &&
-                vector2->getVectorData()->isType<std::complex<double>>() &&
-                vector3->getVectorData()->isType<std::complex<double>>() ) {
+    } else if ( type == getTypeID<int>() ) {
+        pass = binaryOpTest<int>( vector1, vector2, vector3, std::plus<float>() );
+    } else if ( type == getTypeID<std::complex<double>>() ) {
         pass = binaryOpTest<std::complex<double>>(
             vector1, vector2, vector3, std::plus<std::complex<double>>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<float>>() &&
-                vector2->getVectorData()->isType<std::complex<float>>() &&
-                vector3->getVectorData()->isType<std::complex<float>>() ) {
+    } else if ( type == getTypeID<std::complex<float>>() ) {
         pass = binaryOpTest<std::complex<float>>(
             vector1, vector2, vector3, std::plus<std::complex<float>>() );
     } else {
-        AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
+        std::string type = vector1->getVectorData()->getType( 0 ).name;
+        AMP_ERROR( "AddVector not implemented for " + type );
     }
     PASS_FAIL( pass, "add vector" );
 }
@@ -638,30 +642,27 @@ void VectorTests::SubtractVector( AMP::UnitTest *ut )
     auto vector2( d_factory->getVector() );
     auto vector3( d_factory->getVector() );
     auto vector4( d_factory->getVector() );
+    auto type = getType( vector1 );
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->subtract( *vector1, *vector2 );
     vector3->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
-    if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
-         vector3->getVectorData()->isType<double>() ) {
+    if ( type == getTypeID<double>() ) {
         pass = binaryOpTest<double>( vector1, vector2, vector3, std::minus<double>() );
-    } else if ( vector1->getVectorData()->isType<float>() &&
-                vector2->getVectorData()->isType<float>() &&
-                vector3->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         pass = binaryOpTest<float>( vector1, vector2, vector3, std::minus<float>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<double>>() &&
-                vector2->getVectorData()->isType<std::complex<double>>() &&
-                vector3->getVectorData()->isType<std::complex<double>>() ) {
+    } else if ( type == getTypeID<int>() ) {
+        pass = binaryOpTest<int>( vector1, vector2, vector3, std::minus<float>() );
+    } else if ( type == getTypeID<std::complex<double>>() ) {
         pass = binaryOpTest<std::complex<double>>(
             vector1, vector2, vector3, std::minus<std::complex<double>>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<float>>() &&
-                vector2->getVectorData()->isType<std::complex<float>>() &&
-                vector3->getVectorData()->isType<std::complex<float>>() ) {
+    } else if ( type == getTypeID<std::complex<float>>() ) {
         pass = binaryOpTest<std::complex<float>>(
             vector1, vector2, vector3, std::minus<std::complex<float>>() );
     } else {
-        AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
+        std::string type = vector1->getVectorData()->getType( 0 ).name;
+        AMP_ERROR( "SubtractVector not implemented for " + type );
     }
     PASS_FAIL( pass, "vector subtract 1" );
     vector2->scale( -1. );
@@ -669,7 +670,7 @@ void VectorTests::SubtractVector( AMP::UnitTest *ut )
     vector4->subtract( *vector3, *vector4 );
     vector4->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vector1 );
-    PASS_FAIL( vector4->maxNorm() < tol, "vector subtract 2" );
+    PASS_FAIL( vector4->maxNorm() <= tol, "vector subtract 2" );
 }
 
 
@@ -679,30 +680,27 @@ void VectorTests::MultiplyVector( AMP::UnitTest *ut )
     auto vector1( d_factory->getVector() );
     auto vector2( d_factory->getVector() );
     auto vector3( d_factory->getVector() );
+    auto type = getType( vector1 );
     vector1->setRandomValues();
     vector2->setToScalar( 3. );
     vector3->multiply( *vector1, *vector2 );
     vector3->makeConsistent( ScatterType::CONSISTENT_SET );
     bool pass;
-    if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
-         vector3->getVectorData()->isType<double>() ) {
+    if ( type == getTypeID<double>() ) {
         pass = binaryOpTest<double>( vector1, vector2, vector3, std::multiplies<double>() );
-    } else if ( vector1->getVectorData()->isType<float>() &&
-                vector2->getVectorData()->isType<float>() &&
-                vector3->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         pass = binaryOpTest<float>( vector1, vector2, vector3, std::multiplies<float>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<double>>() &&
-                vector2->getVectorData()->isType<std::complex<double>>() &&
-                vector3->getVectorData()->isType<std::complex<double>>() ) {
+    } else if ( type == getTypeID<int>() ) {
+        pass = binaryOpTest<int>( vector1, vector2, vector3, std::multiplies<float>() );
+    } else if ( type == getTypeID<std::complex<double>>() ) {
         pass = binaryOpTest<std::complex<double>>(
             vector1, vector2, vector3, std::multiplies<std::complex<double>>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<float>>() &&
-                vector2->getVectorData()->isType<std::complex<float>>() &&
-                vector3->getVectorData()->isType<std::complex<float>>() ) {
+    } else if ( type == getTypeID<std::complex<float>>() ) {
         pass = binaryOpTest<std::complex<float>>(
             vector1, vector2, vector3, std::multiplies<std::complex<float>>() );
     } else {
-        AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
+        std::string type = vector1->getVectorData()->getType( 0 ).name;
+        AMP_ERROR( "MultiplyVector not implemented for " + type );
     }
     PASS_FAIL( pass, "vector::multiply" );
 }
@@ -714,30 +712,27 @@ void VectorTests::DivideVector( AMP::UnitTest *ut )
     auto vector1( d_factory->getVector() );
     auto vector2( d_factory->getVector() );
     auto vector3( d_factory->getVector() );
+    auto type = getType( vector1 );
     vector1->setRandomValues();
     vector2->setRandomValues();
     vector3->divide( *vector1, *vector2 );
     vector3->makeConsistent( ScatterType::CONSISTENT_SET );
-    bool pass;
-    if ( vector1->getVectorData()->isType<double>() && vector2->getVectorData()->isType<double>() &&
-         vector3->getVectorData()->isType<double>() ) {
+    bool pass = true;
+    if ( type == getTypeID<double>() ) {
         pass = binaryOpTest<double>( vector1, vector2, vector3, std::divides<double>() );
-    } else if ( vector1->getVectorData()->isType<float>() &&
-                vector2->getVectorData()->isType<float>() &&
-                vector3->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         pass = binaryOpTest<float>( vector1, vector2, vector3, std::divides<float>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<double>>() &&
-                vector2->getVectorData()->isType<std::complex<double>>() &&
-                vector3->getVectorData()->isType<std::complex<double>>() ) {
+    } else if ( type == getTypeID<int>() ) {
+        ut->expected_failure( "Skipping divide test for int" );
+    } else if ( type == getTypeID<std::complex<double>>() ) {
         pass = binaryOpTest<std::complex<double>>(
             vector1, vector2, vector3, std::divides<std::complex<double>>() );
-    } else if ( vector1->getVectorData()->isType<std::complex<float>>() &&
-                vector2->getVectorData()->isType<std::complex<float>>() &&
-                vector3->getVectorData()->isType<std::complex<float>>() ) {
+    } else if ( type == getTypeID<std::complex<float>>() ) {
         pass = binaryOpTest<std::complex<float>>(
             vector1, vector2, vector3, std::divides<std::complex<float>>() );
     } else {
-        AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
+        std::string type = vector1->getVectorData()->getType( 0 ).name;
+        AMP_ERROR( "DivideVector not implemented for " + type );
     }
     PASS_FAIL( pass, "vector::divide" );
 }
@@ -747,23 +742,28 @@ void VectorTests::VectorIteratorLengthTest( AMP::UnitTest *ut )
 {
     PROFILE( "VectorIteratorLengthTest" );
     auto vector1( d_factory->getVector() );
-    size_t i = 0;
-    if ( vector1->getVectorData()->isType<double>() ) {
+    auto type = getType( vector1 );
+    size_t i  = 0;
+    if ( type == getTypeID<double>() ) {
         for ( auto it = vector1->begin(); it != vector1->end(); ++it )
             i++;
-    } else if ( vector1->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         for ( auto it = vector1->begin<float>(); it != vector1->end<float>(); ++it )
             i++;
-    } else if ( vector1->getVectorData()->isType<std::complex<double>>() ) {
+    } else if ( type == getTypeID<int>() ) {
+        for ( auto it = vector1->begin<int>(); it != vector1->end<int>(); ++it )
+            i++;
+    } else if ( type == getTypeID<std::complex<double>>() ) {
         for ( auto it = vector1->begin(); it != vector1->end(); ++it )
             i++;
-    } else if ( vector1->getVectorData()->isType<std::complex<float>>() ) {
+    } else if ( type == getTypeID<std::complex<float>>() ) {
         for ( auto it = vector1->begin<std::complex<float>>();
               it != vector1->end<std::complex<float>>();
               ++it )
             i++;
     } else {
-        AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
+        std::string type = vector1->getVectorData()->getType( 0 ).name;
+        AMP_ERROR( "VectorIteratorLengthTest not implemented for " + type );
     }
     size_t k = vector1->getLocalSize();
     PASS_FAIL( i == k, "Iterated over the correct number of entries" );
@@ -774,12 +774,16 @@ void VectorTests::VectorIteratorTests( AMP::UnitTest *ut )
 {
     PROFILE( "VectorIteratorTests" );
     auto vector1 = d_factory->getVector();
-    if ( vector1->getVectorData()->isType<double>() ) {
+    auto type    = getType( vector1 );
+    if ( type == getTypeID<double>() ) {
         both_VectorIteratorTests<double>( vector1, ut );
         both_VectorIteratorTests<const double>( vector1, ut );
-    } else if ( vector1->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         both_VectorIteratorTests<float>( vector1, ut );
         both_VectorIteratorTests<const float>( vector1, ut );
+    } else if ( type == getTypeID<int>() ) {
+        both_VectorIteratorTests<int>( vector1, ut );
+        both_VectorIteratorTests<const int>( vector1, ut );
     } else {
         AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
     }
@@ -800,36 +804,53 @@ void VectorTests::VerifyVectorSum( AMP::UnitTest *ut )
 void VectorTests::VerifyVectorMin( AMP::UnitTest *ut )
 {
     PROFILE( "VerifyVectorMin" );
-    auto vec = d_factory->getVector();
+    auto vec  = d_factory->getVector();
+    auto type = getType( vec );
     vec->setRandomValues();
     vec->scale( -1.0 ); // make negative
     double min( vec->min() );
     double norm( vec->maxNorm() );
     PASS_FAIL( fabs( min + norm ) < 1.e-10 * norm, "minimum of negative vector == ||.||_infty" );
-    vec->setMin( -0.5 );
-    min = static_cast<double>( vec->min() );
-    PASS_FAIL( min >= -0.5, "setMin" );
+    if ( type.is_floating_point() ) {
+        vec->setMin( -0.5 );
+        min = static_cast<double>( vec->min() );
+        PASS_FAIL( min >= -0.5, "setMin" );
+    } else {
+        vec->setMin( -179 );
+        min = static_cast<double>( vec->min() );
+        PASS_FAIL( min >= -179, "setMin" );
+    }
 }
 
 
 void VectorTests::VerifyVectorMax( AMP::UnitTest *ut )
 {
     PROFILE( "VerifyVectorMax" );
-    auto vec = d_factory->getVector();
+    auto vec  = d_factory->getVector();
+    auto type = getType( vec );
     vec->setRandomValues();
     double max( vec->max() );
     double norm( vec->maxNorm() );
     PASS_FAIL( fabs( max - norm ) < 1.e-10 * norm, "maximum of positive vector == ||.||_infty" );
-    vec->setMax( 0.5 );
-    max = static_cast<double>( vec->max() );
-    PASS_FAIL( max <= 0.5, "setMax" );
+    if ( type.is_floating_point() ) {
+        vec->setMax( 0.5 );
+        max = static_cast<double>( vec->max() );
+        PASS_FAIL( max <= 0.5, "setMax" );
+    } else {
+        vec->setMax( 179 );
+        max = static_cast<double>( vec->max() );
+        PASS_FAIL( max <= 179, "setMin" );
+    }
 }
 
 
 void VectorTests::VerifyVectorMaxMin( AMP::UnitTest *ut )
 {
     PROFILE( "VerifyVectorMaxMin" );
-    auto vec    = d_factory->getVector();
+    auto vec  = d_factory->getVector();
+    auto type = getType( vec );
+    if ( type.is_integral() )
+        return;
     bool passes = true;
     for ( size_t i = 0; i != 10; i++ ) {
         vec->setRandomValues();
@@ -850,16 +871,18 @@ void VectorTests::VerifyVectorMaxMin( AMP::UnitTest *ut )
 void VectorTests::SetRandomValuesVector( AMP::UnitTest *ut )
 {
     PROFILE( "SetRandomValuesVector" );
-    auto vector  = d_factory->getVector();
-    auto l2norm1 = -1;
+    auto vector = d_factory->getVector();
+    auto type   = getType( d_factory->getVector() );
+    double n1   = -1;
     for ( size_t i = 0; i < 5; i++ ) {
         vector->setRandomValues();
-        auto l2norm2 = static_cast<double>( vector->L2Norm() );
-        PASS_FAIL( fabs( l2norm1 - l2norm2 ) > 0.000001, "Distinct vector created" );
-        l2norm1 = l2norm2;
+        auto n2 = static_cast<double>( vector->L2Norm() );
+        PASS_FAIL( fabs( n1 - n2 ) > 0.000001, "Distinct vector created" );
+        PASS_FAIL( n2 > 0, "Non-zero vector created" );
         PASS_FAIL( vector->min() >= 0, "Min value >= 0" );
-        PASS_FAIL( vector->max() < 1, "Max value < 1" );
-        PASS_FAIL( vector->L2Norm() > 0, "Non-zero vector created" );
+        if ( type.is_floating_point() )
+            PASS_FAIL( vector->max() < 1, "Max value < 1" );
+        n1 = n2;
     }
 }
 
@@ -879,7 +902,7 @@ void VectorTests::ReciprocalVector( AMP::UnitTest *ut )
     vectord->subtract( *vectorb, *vectorc );
     vectord->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vectora );
-    PASS_FAIL( vectord->maxNorm() < tol, "vector::reciprocal" );
+    PASS_FAIL( vectord->maxNorm() <= tol, "vector::reciprocal" );
 }
 
 
@@ -903,15 +926,20 @@ static void LinearSumVectorRun( std::shared_ptr<const VectorFactory> d_factory,
     vectord->subtract( *vectorc, *vectord );
     vectord->makeConsistent( ScatterType::CONSISTENT_SET );
     double tol = 10 * getTol( *vectora );
-    PASS_FAIL( vectord->maxNorm() < tol, msg );
+    PASS_FAIL( vectord->maxNorm() <= tol, msg );
 }
 void VectorTests::LinearSumVector( AMP::UnitTest *ut )
 {
     PROFILE( "LinearSumVector" );
-    LinearSumVectorRun( d_factory, ut, 1.2345, 9.8765, "linear sum 1" );
-    LinearSumVectorRun( d_factory, ut, -1.2345, 9.8765, "linear sum 2" );
-    LinearSumVectorRun( d_factory, ut, 1.2345, -9.8765, "linear sum 3" );
-    LinearSumVectorRun( d_factory, ut, -1.2345, -9.8765, "linear sum 4" );
+    auto type = getType( d_factory->getVector() );
+    if ( type.is_floating_point() ) {
+        LinearSumVectorRun( d_factory, ut, 1.2345, 9.8765, "linear sum 1" );
+        LinearSumVectorRun( d_factory, ut, -1.2345, 9.8765, "linear sum 2" );
+        LinearSumVectorRun( d_factory, ut, 1.2345, -9.8765, "linear sum 3" );
+        LinearSumVectorRun( d_factory, ut, -1.2345, -9.8765, "linear sum 4" );
+    } else {
+        LinearSumVectorRun( d_factory, ut, 2, 7, "linear sum" );
+    }
 }
 
 
@@ -933,13 +961,18 @@ static void AxpyVectorRun( std::shared_ptr<const VectorFactory> d_factory,
     vectorc->makeConsistent( ScatterType::CONSISTENT_SET );
     double err = static_cast<double>( vectorc->maxNorm() );
     double tol = 10 * getTol( *vectora );
-    PASS_FAIL( err < tol, msg );
+    PASS_FAIL( err <= tol, msg );
 }
 void VectorTests::AxpyVector( AMP::UnitTest *ut )
 {
     PROFILE( "AxpyVector" );
-    AxpyVectorRun( d_factory, ut, 6.38295, "axpy 1" );
-    AxpyVectorRun( d_factory, ut, -6.38295, "axpy 2" );
+    auto type = getType( d_factory->getVector() );
+    if ( type.is_floating_point() ) {
+        AxpyVectorRun( d_factory, ut, 6.38295, "axpy 1" );
+        AxpyVectorRun( d_factory, ut, -6.38295, "axpy 2" );
+    } else {
+        AxpyVectorRun( d_factory, ut, 6, "axpy" );
+    }
 }
 
 template<typename T>
@@ -970,38 +1003,39 @@ static void AxpbyVectorRun( std::shared_ptr<const VectorFactory> d_factory,
     auto vectorb1 = d_factory->getVector();
     auto vectorc  = d_factory->getVector();
     auto vectord  = d_factory->getVector();
+    auto type     = getType( vectora );
     vectora->setRandomValues();
     vectorb->setRandomValues();
     vectorc->copyVector( vectorb );
-    if ( vectora->getVectorData()->isType<double>() && vectorb->getVectorData()->isType<double>() &&
-         vectorb1->getVectorData()->isType<double>() &&
-         vectorc->getVectorData()->isType<double>() &&
-         vectord->getVectorData()->isType<double>() ) {
+    if ( type == getTypeID<double>() ) {
         AxpbyVectorRun<double>( alpha, beta, vectora, vectorb, vectorb1, vectorc, vectord );
-    } else if ( vectora->getVectorData()->isType<float>() &&
-                vectorb->getVectorData()->isType<float>() &&
-                vectorb1->getVectorData()->isType<float>() &&
-                vectorc->getVectorData()->isType<float>() &&
-                vectord->getVectorData()->isType<float>() ) {
+    } else if ( type == getTypeID<float>() ) {
         AxpbyVectorRun<float>( alpha, beta, vectora, vectorb, vectorb1, vectorc, vectord );
+    } else if ( type == getTypeID<int>() ) {
+        AxpbyVectorRun<int>( alpha, beta, vectora, vectorb, vectorb1, vectorc, vectord );
     } else {
         AMP_ERROR( "VectorIteratorTests not implemented for provided scalar TYPE" );
     }
 
     auto maxNorm = vectord->maxNorm();
     double tol   = 10 * getTol( *vectora );
-    PASS_FAIL( maxNorm < tol, msg );
+    PASS_FAIL( maxNorm <= tol, msg );
     vectord->subtract( *vectorc, *vectorb );
     maxNorm = vectord->maxNorm();
-    PASS_FAIL( maxNorm < tol, msg );
+    PASS_FAIL( maxNorm <= tol, msg );
 }
 void VectorTests::AxpbyVector( AMP::UnitTest *ut )
 {
     PROFILE( "AxpbyVector" );
-    AxpbyVectorRun( d_factory, ut, 6.38295, 99.273624, "axpby 1" );
-    AxpbyVectorRun( d_factory, ut, 6.38295, -99.273624, "axpby 2" );
-    AxpbyVectorRun( d_factory, ut, -6.38295, 99.273624, "axpby 3" );
-    AxpbyVectorRun( d_factory, ut, -6.38295, -99.273624, "axpby 4" );
+    auto type = getType( d_factory->getVector() );
+    if ( type.is_floating_point() ) {
+        AxpbyVectorRun( d_factory, ut, 6.38295, 99.273624, "axpby 1" );
+        AxpbyVectorRun( d_factory, ut, 6.38295, -99.273624, "axpby 2" );
+        AxpbyVectorRun( d_factory, ut, -6.38295, 99.273624, "axpby 3" );
+        AxpbyVectorRun( d_factory, ut, -6.38295, -99.273624, "axpby 4" );
+    } else {
+        AxpbyVectorRun( d_factory, ut, 2, 3, "axpby 1" );
+    }
 }
 
 
@@ -1011,6 +1045,7 @@ void VectorTests::CopyVector( AMP::UnitTest *ut )
     auto vectora = d_factory->getVector();
     auto vectorb = d_factory->getVector();
     auto vectorc = d_factory->getVector();
+    auto type    = getType( vectora );
 
     vectora->setRandomValues();
     vectorb->copyVector( vectora );
@@ -1019,20 +1054,14 @@ void VectorTests::CopyVector( AMP::UnitTest *ut )
 
     vectora->scale( 100. );
     vectorc->subtract( *vectora, *vectorb );
-    if ( vectorb->getVectorData()->isType<double>() &&
-         vectorc->getVectorData()->isType<double>() ) {
-        auto c_maxNorm = vectorc->maxNorm().get<double>();
-        auto b_maxNorm = vectorb->maxNorm().get<double>();
-        PASS_FAIL( fabs( c_maxNorm - 99 * b_maxNorm ) < 1e-12 * b_maxNorm, "copy vector 2" );
-    } else if ( vectorb->getVectorData()->isType<float>() &&
-                vectorc->getVectorData()->isType<float>() ) {
-        auto c_maxNorm = vectorc->maxNorm().get<float>();
-        auto b_maxNorm = vectorb->maxNorm().get<float>();
-        //        PASS_FAIL( fabs( c_maxNorm - 99 * b_maxNorm ) < 1e-5 * b_maxNorm, "copy vector 2"
-        //        );
-        PASS_FAIL( AMP::Utilities::approx_equal( c_maxNorm, 99 * b_maxNorm ), "copy vector 2" );
-    } else {
-        AMP_ERROR( "CopyVector tests not implemented for provided scalar TYPE" );
+    double tol     = 50 * getTol( type );
+    auto c_maxNorm = vectorc->maxNorm().get<double>();
+    auto b_maxNorm = vectorb->maxNorm().get<double>();
+    PASS_FAIL( fabs( c_maxNorm - 99 * b_maxNorm ) <= tol * c_maxNorm, "copy vector 2" );
+
+    if ( type == getTypeID<int>() ) {
+        ut->expected_failure( "CopyVector to double/single" );
+        return;
     }
 
     auto simple1 = createSimpleVector<double>(
@@ -1044,8 +1073,8 @@ void VectorTests::CopyVector( AMP::UnitTest *ut )
     double aNorm( vectora->L2Norm() );
     double norm1( simple1->L2Norm() );
     double norm2( simple2->L2Norm() );
-    PASS_FAIL( fabs( aNorm - norm1 ) < 1e-5 * aNorm, "copy vector double" );
-    PASS_FAIL( fabs( aNorm - norm2 ) < 1e-5 * aNorm, "copy vector single" );
+    PASS_FAIL( fabs( aNorm - norm1 ) <= tol * aNorm, "copy vector double" );
+    PASS_FAIL( fabs( aNorm - norm2 ) <= 1e-5 * aNorm, "copy vector single" );
     // vectorb->copyVector( simple1 );
     // vectorc->copyVector( simple2 );
 }

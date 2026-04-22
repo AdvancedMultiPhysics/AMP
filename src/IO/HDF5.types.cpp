@@ -421,29 +421,14 @@ hid_t getHDF5datatype<AMP::typeID>()
   hid_t datatype = H5Tcreate( H5T_COMPOUND, sizeof( typeID ) );
   H5Tinsert( datatype, "bytes", HOFFSET( typeID, bytes ), H5T_NATIVE_UINT32 );
   H5Tinsert( datatype, "hash", HOFFSET( typeID, hash ), H5T_NATIVE_UINT32 );
-  const hsize_t rank = 120;
+  H5Tinsert( datatype, "traits", HOFFSET( typeID, traits ), H5T_NATIVE_UINT32 );
+  const hsize_t rank = 116;
   hid_t array_id = H5Tarray_create(H5T_NATIVE_CHAR, 1, &rank);
   H5Tinsert( datatype, "name", HOFFSET( typeID, name ), array_id );
   return datatype;
 }
-template<>
-void readHDF5Scalar<AMP::typeID>( hid_t fid, const std::string &name, AMP::typeID &x )
-{
-  auto datatype = getHDF5datatype<AMP::typeID>();
-  hid_t dataset   = H5Dopen2( fid, name.data(), H5P_DEFAULT );
-  H5Dread(dataset, datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &x);
-  H5Dclose( dataset );
-  H5Tclose( datatype );
-}
-template<>
-void writeHDF5Scalar<AMP::typeID>( hid_t fid, const std::string &name, const AMP::typeID &data )
-{
-  auto datatype = getHDF5datatype<AMP::typeID>();
-  hid_t dataset   = H5Dopen2( fid, name.data(), H5P_DEFAULT );
-  H5Dwrite( dataset, datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, H5Ptr( &data ) );
-  H5Dclose( dataset );
-  H5Tclose( datatype );
-}
+template void writeHDF5Scalar<AMP::typeID>( hid_t, const std::string &, const AMP::typeID & );
+template void readHDF5Scalar<AMP::typeID>( hid_t, const std::string &, AMP::typeID & );
 template<>
 void readHDF5Array<AMP::typeID>( hid_t fid, const std::string &name, AMP::Array<AMP::typeID> &data )
 {

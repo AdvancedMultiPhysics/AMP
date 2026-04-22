@@ -4,3 +4,4 @@
 // Explicit instantiations
 template class AMP::LinearAlgebra::VectorOperationsDefault<double>;
 template class AMP::LinearAlgebra::VectorOperationsDefault<float>;
+template class AMP::LinearAlgebra::VectorOperationsDefault<int>;

@@ -163,26 +163,40 @@ void copy( size_t N, const T1 *src, T2 *dst )
             delete[] tmp;
         } else {
 #ifdef AMP_USE_DEVICE
-            copyCast<T1, T2, Backend::Hip_Cuda>( N, src, dst );
+            if constexpr ( std::is_integral_v<T1> || std::is_integral_v<T2> ) {
+                AMP_ERROR( "Converting device vector int/float conversion is not supported" );
+            } else {
+                copyCast<T1, T2, Backend::Hip_Cuda>( N, src, dst );
+            }
 #else
             AMP_ERROR( "No backend" );
 #endif
         }
     }
 }
-template void copy<int, int>( size_t N, const int *, int * );
-template void copy<int, long long>( size_t N, const int *, long long * );
-template void copy<long long, int>( size_t N, const long long *, int * );
-template void copy<int, unsigned long>( size_t N, const int *, unsigned long * );
-template void copy<unsigned long, int>( size_t N, const unsigned long *, int * );
-template void copy<size_t, size_t>( size_t N, const size_t *, size_t * );
-template void copy<size_t, long long>( size_t N, const size_t *, long long * );
-template void copy<long long, unsigned long>( size_t N, const long long *, unsigned long * );
-template void copy<long long, long long>( size_t N, const long long *, long long * );
-template void copy<float, float>( size_t N, const float *, float * );
-template void copy<double, double>( size_t N, const double *, double * );
-template void copy<float, double>( size_t N, const float *, double * );
-template void copy<double, float>( size_t N, const double *, float * );
+
+
+/****************************************************************************
+ *  Explicit instantiations                                                  *
+ ****************************************************************************/
+#define INSTANTIATE( T1, T2 ) template void copy<T1, T2>( size_t N, const T1 *, T2 * )
+INSTANTIATE( int, int );
+INSTANTIATE( int, long long );
+INSTANTIATE( int, unsigned long );
+INSTANTIATE( int, float );
+INSTANTIATE( int, double );
+INSTANTIATE( long long, int );
+INSTANTIATE( long long, long long );
+INSTANTIATE( long long, unsigned long );
+INSTANTIATE( unsigned long, int );
+INSTANTIATE( size_t, size_t );
+INSTANTIATE( size_t, long long );
+INSTANTIATE( float, int );
+INSTANTIATE( float, float );
+INSTANTIATE( float, double );
+INSTANTIATE( double, int );
+INSTANTIATE( double, float );
+INSTANTIATE( double, double );
 
 
 } // namespace AMP::Utilities
