@@ -7,7 +7,7 @@
 #include "AMP/utils/Database.h"
 
 #include "StackTrace/StackTrace.h"
-#include "StackTrace_Version.h"
+#include "StackTrace/StackTrace_Version.h"
 
 #include <algorithm>
 #include <array>
