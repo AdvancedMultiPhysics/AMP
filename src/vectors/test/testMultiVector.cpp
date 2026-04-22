@@ -22,14 +22,10 @@ inline bool approx_equal( const AMP::Scalar &x, const AMP::Scalar &y, double tol
     return AMP::Utilities::approx_equal( static_cast<double>( x ), static_cast<double>( y ), tol );
 }
 
-static void myTest( AMP::UnitTest *ut, const std::string &exeName )
+static void myTest( AMP::UnitTest *ut, const std::string &input )
 {
-    std::string input_file = "input_" + exeName;
-    std::string log_file   = "output_" + exeName;
-    AMP::logOnlyNodeZero( log_file );
-
     // Read the input file
-    auto input_db = AMP::Database::parseInputFile( input_file );
+    auto input_db = AMP::Database::parseInputFile( input );
 
     // Get the Mesh database and create the mesh parameters
     auto database = input_db->getDatabase( "Mesh" );
@@ -100,7 +96,7 @@ int main( int argc, char *argv[] )
     AMP::UnitTest ut;
 
     std::vector<std::string> exeNames;
-    exeNames.emplace_back( "testMultiVector" );
+    exeNames.emplace_back( "input_testMultiVector" );
     for ( auto &exeName : exeNames ) {
         myTest( &ut, exeName );
     }

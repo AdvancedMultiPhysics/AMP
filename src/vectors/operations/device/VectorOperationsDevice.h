@@ -61,7 +61,7 @@ public:
     Scalar localMax( const VectorData & ) const override;
     Scalar localSum( const VectorData & ) const override;
     Scalar localL1Norm( const VectorData & ) const override;
-    Scalar localL2Norm( const VectorData & ) const override;
+    Scalar localL2Norm2( const VectorData & ) const override;
     Scalar localMaxNorm( const VectorData & ) const override;
     Scalar localDot( const VectorData &x, const VectorData &y ) const override;
     Scalar localMinQuotient( const VectorData &x, const VectorData &y ) const override;
@@ -83,6 +83,7 @@ public: // Pull VectorOperations into the current scope
     using VectorOperations::dot;
     using VectorOperations::equals;
     using VectorOperations::linearSum;
+    using VectorOperations::localL2Norm;
     using VectorOperations::minQuotient;
     using VectorOperations::multiply;
     using VectorOperations::reciprocal;

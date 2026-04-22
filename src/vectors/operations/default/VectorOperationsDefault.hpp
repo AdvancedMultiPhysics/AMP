@@ -8,6 +8,7 @@
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
+#include <limits>
 #include <random>
 #include <string_view>
 
@@ -135,19 +136,23 @@ void VectorOperationsDefault<TYPE>::setRandomValues( VectorData &x )
     std::mt19937 gen( rd() );
     if constexpr ( std::is_floating_point_v<TYPE> ) {
         std::uniform_real_distribution<TYPE> dis( 0, 1 );
-        auto y    = x.begin<TYPE>();
-        auto last = x.end<TYPE>();
-        while ( y != last ) {
-            *y = dis( gen );
-            ++y;
+        size_t N_blocks = x.numberOfDataBlocks();
+        for ( size_t block = 0; block < N_blocks; block++ ) {
+            size_t N  = x.sizeOfDataBlock( block );
+            auto data = x.getRawDataBlock<TYPE>( block );
+            for ( size_t i = 0; i < N; i++ )
+                data[i] = dis( gen );
         }
     } else if constexpr ( std::is_integral_v<TYPE> ) {
-        std::uniform_int_distribution<TYPE> dis;
-        auto y    = x.begin<TYPE>();
-        auto last = x.end<TYPE>();
-        while ( y != last ) {
-            *y = dis( gen );
-            ++y;
+        const TYPE max = sqrt( 0.1 * std::numeric_limits<TYPE>::max() );
+        AMP_DEBUG_ASSERT( max > 0 );
+        std::uniform_int_distribution<TYPE> dis( 1, max );
+        size_t N_blocks = x.numberOfDataBlocks();
+        for ( size_t block = 0; block < N_blocks; block++ ) {
+            size_t N  = x.sizeOfDataBlock( block );
+            auto data = x.getRawDataBlock<TYPE>( block );
+            for ( size_t i = 0; i < N; i++ )
+                data[i] = dis( gen );
         }
     } else {
         AMP_ERROR( "Not finished" );
@@ -613,8 +618,8 @@ Scalar VectorOperationsDefault<TYPE>::localMin( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsDefault::localMin" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans              = std::numeric_limits<TYPE>::max();
+    size_t N_blocks = x.numberOfDataBlocks();
+    TYPE ans        = std::numeric_limits<TYPE>::max();
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
@@ -645,8 +650,8 @@ Scalar VectorOperationsDefault<TYPE>::localSum( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsDefault::localSum" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans              = 0;
+    size_t N_blocks = x.numberOfDataBlocks();
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
@@ -662,7 +667,7 @@ Scalar VectorOperationsDefault<TYPE>::localL1Norm( const VectorData &x ) const
     PROFILE( "VectorOperationsDefault::localL1Norm" );
 
     size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans        = 0;
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         size_t size      = x.sizeOfDataBlock( i );
         const TYPE *data = x.getRawDataBlock<TYPE>( i );
@@ -673,19 +678,19 @@ Scalar VectorOperationsDefault<TYPE>::localL1Norm( const VectorData &x ) const
 }
 
 template<typename TYPE>
-Scalar VectorOperationsDefault<TYPE>::localL2Norm( const VectorData &x ) const
+Scalar VectorOperationsDefault<TYPE>::localL2Norm2( const VectorData &x ) const
 {
-    PROFILE( "VectorOperationsDefault::localL2Norm" );
+    PROFILE( "VectorOperationsDefault::localL2Norm2" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans              = 0;
+    size_t N_blocks = x.numberOfDataBlocks();
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
         for ( size_t j = 0; j < size; j++ )
             ans += data[j] * data[j];
     }
-    return std::sqrt( ans );
+    return ans;
 }
 
 template<typename TYPE>
@@ -693,13 +698,13 @@ Scalar VectorOperationsDefault<TYPE>::localMaxNorm( const VectorData &x ) const
 {
     PROFILE( "VectorOperationsDefault::localMaxNorm" );
 
-    const size_t N_blocks = x.numberOfDataBlocks();
-    TYPE ans              = 0;
+    size_t N_blocks = x.numberOfDataBlocks();
+    double ans      = 0;
     for ( size_t i = 0; i < N_blocks; i++ ) {
         const size_t size = x.sizeOfDataBlock( i );
         const TYPE *data  = x.getRawDataBlock<TYPE>( i );
         for ( size_t j = 0; j < size; j++ )
-            ans = std::max( std::abs( data[j] ), ans );
+            ans = std::max<double>( std::abs( data[j] ), ans );
     }
     return ans;
 }
@@ -711,7 +716,7 @@ Scalar VectorOperationsDefault<TYPE>::localDot( const VectorData &x, const Vecto
 
     AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
 
-    TYPE ans = 0;
+    double ans = 0;
 
     if ( allDefaultDataType( x, y ) ) {
         auto const xdata = x.getRawDataBlock<TYPE>();

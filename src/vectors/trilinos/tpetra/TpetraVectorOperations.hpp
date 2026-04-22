@@ -283,6 +283,16 @@ Scalar TpetraVectorOperations<ST, LO, GO, NT>::localL2Norm( const VectorData &x 
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
+Scalar TpetraVectorOperations<ST, LO, GO, NT>::localL2Norm2( const VectorData &x ) const
+{
+    const auto &xt   = getTpetraVector<ST, LO, GO, NT>( x );
+    const auto &lmap = getLocalMap<ST, LO, GO, NT>( xt.getMap() );
+    const auto &xl   = xt.offsetView( lmap, 0 );
+    Scalar n         = xl->norm2();
+    return n * n;
+}
+
+template<typename ST, typename LO, typename GO, typename NT>
 Scalar TpetraVectorOperations<ST, LO, GO, NT>::localMaxNorm( const VectorData &x ) const
 {
     const auto &xt   = getTpetraVector<ST, LO, GO, NT>( x );
