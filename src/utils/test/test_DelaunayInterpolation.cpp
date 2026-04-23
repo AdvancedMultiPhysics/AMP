@@ -287,8 +287,7 @@ void testTessellation( AMP::UnitTest &ut,
     }
 
     // Check building using a predefined triangle list
-    AMP::DelaunayInterpolation<TYPE> data2;
-    data2.create_tessellation( x, tri );
+    AMP::DelaunayInterpolation data2( x, tri );
     auto tri2 = data2.get_tri();
     auto nab2 = data2.get_tri_nab();
     if ( tri != tri2 || tri_nab != nab2 ) {
@@ -332,7 +331,7 @@ void testTessellation( AMP::UnitTest &ut,
     }
 }
 template<class TYPE>
-std::shared_ptr<AMP::DelaunayInterpolation<TYPE>>
+std::shared_ptr<AMP::DelaunayInterpolation>
 createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
 {
     if ( x.empty() )
@@ -342,8 +341,7 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
     auto msg = stringf( "(%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
 
     // Create the tessellation
-    auto data = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
-    data->create_tessellation( x );
+    auto data    = std::make_shared<AMP::DelaunayInterpolation>( x );
     size_t N_tri = data->get_N_tri();
     if ( N_tri > 0 ) {
         ut.passes( "Created tessellation " + msg );
@@ -612,7 +610,7 @@ void testInterpolation( AMP::UnitTest &ut,
         }
 
         // Test nearest-neighbor interpolation
-        auto fi                  = data->interp_nearest( f, x, nearest );
+        auto fi                  = data->interp_nearest( f, nearest );
         bool pass_interp_nearest = true;
         for ( size_t i = 0; i < N; i++ ) {
             if ( !approx_equal( f( i ), fi( i ) ) )
