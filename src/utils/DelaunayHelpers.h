@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "AMP/utils/Array.h"
+#include "AMP/utils/DelaunayTessellation.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/extended_int.h"
 
@@ -221,8 +222,7 @@ void inverse( int NDIM, const double *M, double *M_inv );
  *    The exact math component requires N^D precision            *
  ****************************************************************/
 template<int NDIM, class TYPE>
-std::array<double, NDIM + 1> computeBarycentric( const std::array<TYPE, NDIM> *x,
-                                                 const std::array<TYPE, NDIM> &xi )
+std::array<double, NDIM + 1> computeBarycentric( const std::array<TYPE, NDIM> *x, const TYPE *xi )
 {
     // Compute the barycentric coordinates T*L=r-r0
     // http://en.wikipedia.org/wiki/Barycentric_coordinate_system_(mathematics)
@@ -284,28 +284,239 @@ double calcVolume( const std::array<TYPE, NDIM> *x )
 }
 
 
-/********************************************************************
- * Helper interfaces to convert arrays                               *
- ********************************************************************/
-template<class TYPE, std::size_t NDIM>
-AMP::Array<TYPE> convert( const std::vector<std::array<TYPE, NDIM>> &x )
+/************************************************************************
+ * Function to return the circumsphere containing a simplex              *
+ *************************************************************************
+ * This function computes the circumsphere containing the simplex        *
+ *     http://mathworld.wolfram.com/Circumsphere.html                    *
+ * We have 4 points that define the circumsphere (x1, x2, x3, x4).       *
+ * We will work in a reduced coordinate system with x1 at the center     *
+ *    so that we can reduce the size of the determinant and the number   *
+ *    of significant digits.                                             *
+ *                                                                       *
+ *     | x2-x1  y2-y1  z2-z1 |                                           *
+ * a = | x3-x1  y3-y1  z3-z1 |                                           *
+ *     | x4-x1  y4-y1  z4-z1 |                                           *
+ *                                                                       *
+ *      | (x2-x1)^2+(y2-y1)^2+(z2-z1)^2  y2  z2 |                        *
+ * Dx = | (x3-x1)^2+(y3-y1)^2+(z3-z1)^2  y3  z3 |                        *
+ *      | (x4-x1)^2+(y4-y1)^2+(z4-z1)^2  y4  z4 |                        *
+ *                                                                       *
+ *        | (x2-x1)^2+(y2-y1)^2+(z2-z1)^2  x2  z2 |                      *
+ * Dy = - | (x3-x1)^2+(y3-y1)^2+(z3-z1)^2  x3  z3 |                      *
+ *        | (x4-x1)^2+(y4-y1)^2+(z4-z1)^2  x4  z4 |                      *
+ *                                                                       *
+ *      | (x2-x1)^2+(y2-y1)^2+(z2-z1)^2  x2  y2 |                        *
+ * Dz = | (x3-x1)^2+(y3-y1)^2+(z3-z1)^2  x3  y3 |                        *
+ *      | (x4-x1)^2+(y4-y1)^2+(z4-z1)^2  x4  y4 |                        *
+ *                                                                       *
+ * c = 0                                                                 *
+ *                                                                       *
+ ************************************************************************/
+template<int NDIM, class TYPE>
+void getCircumsphere( const std::array<TYPE, NDIM> *x0, double &R, double *center )
 {
-    AMP::Array<TYPE> y( NDIM, x.size() );
-    for ( size_t i = 0; i < x.size(); i++ ) {
-        for ( size_t d = 0; d < NDIM; d++ )
-            y( d, i ) = x[i][d];
+    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
+    if constexpr ( NDIM == 1 ) {
+        center[0] = 0.5 * ( x0[0][0] + x0[1][0] );
+        R         = 0.5 * std::abs( x0[0][0] - x0[1][0] );
+        return;
     }
-    return y;
+    ETYPE x[NDIM * NDIM];
+    for ( int i = 0; i < NDIM; i++ ) {
+        for ( int j = 0; j < NDIM; j++ )
+            x[j + i * NDIM] = ETYPE( x0[i + 1][j] - x0[0][j] );
+    }
+    ETYPE A[NDIM * NDIM], D[NDIM][NDIM * NDIM];
+    for ( int i = 0; i < NDIM; i++ ) {
+        ETYPE tmp( 0 );
+        for ( int j = 0; j < NDIM; j++ ) {
+            ETYPE x2 = ETYPE( x[j + i * NDIM] );
+            tmp += x2 * x2;
+            A[i + j * NDIM] = x2;
+            for ( int k = j + 1; k < NDIM; k++ )
+                D[k][i + ( j + 1 ) * NDIM] = x2;
+            for ( int k = 0; k < j; k++ )
+                D[k][i + j * NDIM] = x2;
+        }
+        for ( auto &elem : D )
+            elem[i] = tmp;
+    }
+    double a = static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( A ) );
+    R        = 0.0;
+    for ( int i = 0; i < NDIM; i++ ) {
+        double d = ( ( i % 2 == 0 ) ? 1 : -1 ) *
+                   static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( D[i] ) );
+        center[i] = d / ( 2 * a ) + static_cast<double>( x0[0][i] );
+        R += d * d;
+    }
+    R = std::sqrt( R ) / fabs( static_cast<double>( 2 * a ) );
 }
-template<class TYPE, std::size_t NDIM>
-std::vector<std::array<TYPE, NDIM>> convert( const AMP::Array<TYPE> &x )
+
+
+/********************************************************************
+ * Compute the dot product of two vectors                            *
+ * Note: We are already using an increased precision, and want to    *
+ * maintain the maximum degree of accuracy possible.                 *
+ ********************************************************************/
+inline double dot( int N, const long double *x, const long double *y )
 {
-    AMP_ASSERT( x.size( 0 ) == NDIM );
-    std::vector<std::array<TYPE, NDIM>> y( x.size( 1 ) );
-    for ( size_t i = 0; i < y.size(); i++ ) {
-        for ( size_t d = 0; d < NDIM; d++ )
-            y[i][d] = x( d, i );
+    // Approximate dot product for long double precision
+    bool sign[8];
+    long double z[8];
+    for ( int i = 0; i < N; i++ ) {
+        z[i]    = x[i] * y[i];
+        sign[i] = z[i] >= 0;
     }
+    long double ans = z[0];
+    z[0]            = 0;
+    while ( true ) {
+        int index     = -1;
+        bool sign_ans = ans >= 0;
+        for ( int i = 1; i < N; i++ ) {
+            if ( ( sign_ans != sign[i] ) && z[i] != 0 )
+                index = i;
+        }
+        if ( index == -1 )
+            break;
+        ans += z[index];
+        z[index] = 0;
+    }
+    for ( int i = 1; i < N; i++ ) {
+        if ( z[i] != 0 )
+            ans += z[i];
+    }
+    return static_cast<double>( ans );
+}
+
+
+/************************************************************************
+ * This function tests if a point is inside the circumsphere of an       *
+ *    nd-simplex.                                                        *
+ * For performance, I assume the points are ordered properly such that   *
+ * the volume of the simplex (as calculated by calc_volume) is positive. *
+ *                                                                       *
+ * The point is inside the circumsphere if the determinant is positive   *
+ * for points stored in a clockwise manner.  If the order is not known,  *
+ * we can compare to a point we know is inside the cicumsphere.          *
+ *    |  x1-xi   y1-yi   z1-zi   (x1-xi)^2+(y1-yi)^2+(z1-yi)^2  |        *
+ *    |  x2-xi   y2-yi   z2-zi   (x2-xi)^2+(y2-yi)^2+(z2-yi)^2  |        *
+ *    |  x3-xi   y3-yi   z3-zi   (x3-xi)^2+(y3-yi)^2+(z3-yi)^2  |        *
+ *    |  x4-xi   y4-yi   z4-zi   (x4-xi)^2+(y4-yi)^2+(z4-yi)^2  |        *
+ * det(A) == 0:  We are on the circumsphere                              *
+ * det(A) > 0:   We are inside the circumsphere                          *
+ * det(A) < 0:   We are outside the circumsphere                         *
+ *                                                                       *
+ * Note: this implementation requires N^(D+2) precision                  *
+ ************************************************************************/
+template<int NDIM, class TYPE>
+int test_in_circumsphere( const std::array<TYPE, NDIM> *x,
+                          const std::array<TYPE, NDIM> &xi,
+                          double TOL_VOL )
+{
+    if constexpr ( NDIM == 1 ) {
+        TYPE x1 = std::min( x[0][0], x[1][0] );
+        TYPE x2 = std::max( x[0][0], x[1][0] );
+        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x1 ) <= TOL_VOL )
+            return 0; // We are on the circumsphere
+        if ( xi[0] > x1 && xi[0] < x2 )
+            return 1; // We inside the circumsphere
+        return -1;    // We outside the circumsphere
+    } else if constexpr ( std::is_same_v<TYPE, int> ) {
+        return AMP::DelaunayTessellation::test_in_circumsphere<NDIM>( x, xi );
+    } else {
+        // Solve the sub-determinants (requires N^NDIM precision)
+        using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
+        double R2   = 0.0;
+        ETYPE det2[NDIM + 1], R[NDIM + 1];
+        for ( int d = 0; d <= NDIM; d++ ) {
+            ETYPE A2[NDIM * NDIM];
+            ETYPE sum( 0 );
+            for ( int j = 0; j < NDIM; j++ ) {
+                ETYPE tmp( x[d][j] - xi[j] );
+                sum += tmp * tmp;
+                for ( int i = 0; i < d; i++ )
+                    A2[i + j * NDIM] = ETYPE( x[i][j] - xi[j] );
+                for ( int i = d + 1; i <= NDIM; i++ )
+                    A2[i - 1 + j * NDIM] = ETYPE( x[i][j] - xi[j] );
+            }
+            R[d] = sum;
+            R2 += static_cast<double>( R[d] );
+            det2[d] = DelaunayHelpers::det<ETYPE, NDIM>( A2 );
+            if ( ( NDIM + d ) % 2 == 1 )
+                det2[d] = -det2[d];
+        }
+        // Compute the determinate
+        double det_A = dot( NDIM + 1, det2, R );
+        if ( fabs( det_A ) <= 0.1 * R2 * TOL_VOL ) {
+            // We are on the circumsphere
+            return 0;
+        } else if ( det_A > 0 ) {
+            // We inside the circumsphere
+            return 1;
+        } else {
+            // We outside the circumsphere
+            return -1;
+        }
+    }
+}
+
+
+/********************************************************************
+ * Convert coordinates                                               *
+ * We want to use int with a range of (-2^30:2^30)                   *
+ * Note all numbers must be strictly < 2^30                          *
+ ********************************************************************/
+template<class TYPE>
+std::pair<double, double> getConversionConstant( const AMP::Array<TYPE> &x0 )
+{
+    auto N   = x0.length();
+    auto x   = x0.data();
+    TYPE max = 0;
+    for ( size_t i = 0; i < N; i++ )
+        max = std::max<TYPE>( std::abs( x[i] ), max );
+    if constexpr ( std::is_floating_point_v<TYPE> ) {
+        double scale = pow( 2.0, ceil( 30 - log2( max ) ) - 1 );
+        return { scale, 1.0 / scale };
+    } else {
+        constexpr int64_t int_max = 0x40000000; // 2^30
+        int shift                 = 0;
+        double scale              = 1.0;
+        while ( static_cast<int64_t>( max ) >= int_max ) {
+            shift++;
+            max = max >> 1;
+            scale *= 2;
+        }
+        return { shift, scale };
+    }
+}
+template<class TYPE>
+void convert( size_t N, double factor, const TYPE *x, int *y )
+{
+    if constexpr ( std::is_floating_point_v<TYPE> ) {
+        auto scale = factor;
+        for ( size_t i = 0; i < N; i++ ) {
+            auto z = scale * x[i];
+            AMP_ASSERT( z < static_cast<TYPE>( std::numeric_limits<int>::max() ) );
+            y[i] = z;
+        }
+    } else {
+        int shift = factor;
+        if ( shift == 0 ) {
+            for ( size_t i = 0; i < N; i++ )
+                y[i] = x[i];
+        } else {
+            for ( size_t i = 0; i < N; i++ )
+                y[i] = x[i] >> shift;
+        }
+    }
+}
+template<class TYPE>
+AMP::Array<int> convert( const AMP::Array<TYPE> &x )
+{
+    AMP::Array<int> y( x.size() );
+    auto f = getConversionConstant( x );
+    convert( x.length(), f.first, x.data(), y.data() );
     return y;
 }
 

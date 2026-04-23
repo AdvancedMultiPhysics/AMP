@@ -194,8 +194,12 @@ void DelaunayInterpolation<TYPE>::create_tessellation( const AMP::Array<TYPE> &x
             d_tri( 1, i ) = i_tmp[i + 1];
         }
         create_tri_neighbors();
-    } else if ( ndim == 2 || ndim == 3 ) {
-        std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation( x );
+    } else if ( ndim == 2 ) {
+        auto y                       = AMP::DelaunayHelpers::convert( x );
+        std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<2>( y );
+    } else if ( ndim == 3 ) {
+        auto y                       = AMP::DelaunayHelpers::convert( x );
+        std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<3>( y );
     } else {
         throw std::logic_error( "Unsupported dimension" );
     }

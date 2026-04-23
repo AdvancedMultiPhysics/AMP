@@ -770,7 +770,8 @@ createTessellation( const std::vector<Point> &points )
             x1( d, i ) = points[i][d];
     }
     // Tessellate
-    auto [tri, nab] = DelaunayTessellation::create_tessellation( x1 );
+    auto y          = AMP::DelaunayHelpers::convert( x1 );
+    auto [tri, nab] = DelaunayTessellation::create_tessellation<NDIM>( y );
     // Convert to output format
     constexpr auto nullTri = createNullTri<NDIM>();
     std::vector<std::array<int, NDIM + 1>> tri2( tri.size( 1 ), nullTri );
