@@ -246,8 +246,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
     const auto memLocA = csrDataA->getMemoryLocation();
     const auto memLocB = csrDataB->getMemoryLocation();
     const auto memLocC = csrDataC->getMemoryLocation();
-    AMP_INSIST( memLocA == AMP::Utilities::MemoryType::device,
-                "CSRMatrixOperationsKokkos::matMatMult only implemented for device matrices" );
     AMP_INSIST( memLocA == memLocB,
                 "CSRMatrixOperationsKokkos::matMatMult A and B must have the same memory type" );
     AMP_INSIST( memLocA == memLocC,
