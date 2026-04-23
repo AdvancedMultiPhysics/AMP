@@ -60,7 +60,8 @@ public:
     CSRMatrixOperationsKokkos()
         : d_exec_space(),
           d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
+          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) ),
+          d_use_kokkoskernels_spgemm( false )
     {
     }
 
@@ -202,12 +203,8 @@ protected:
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
 
-    // This currently forwards SpGEMM operations to either default ops or device ops
-    // so internal versions of each are held
-    CSRMatrixOperationsDefault<Config> d_matrixOpsDefault;
-    #ifdef AMP_USE_DEVICE
-    CSRMatrixOperationsDevice<Config> d_matrixOpsDevice;
-    #endif
+    //! Flag to use kokkos-kernels for spgemm, no effect if kokkos-kernels unavailable
+    bool d_use_kokkoskernels_spgemm;
 };
 
 } // namespace AMP::LinearAlgebra
