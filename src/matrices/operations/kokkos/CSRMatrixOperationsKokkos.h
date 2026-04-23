@@ -60,7 +60,8 @@ public:
     CSRMatrixOperationsKokkos()
         : d_exec_space(),
           d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
+          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) ),
+          d_use_kokkoskernels_spgemm( false )
     {
     }
 
@@ -201,6 +202,9 @@ protected:
     ExecSpace d_exec_space;
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
+
+    //! Flag to use kokkos-kernels for spgemm, no effect if kokkos-kernels unavailable
+    bool d_use_kokkoskernels_spgemm;
 };
 
 } // namespace AMP::LinearAlgebra

@@ -36,16 +36,15 @@ public:
                                 std::shared_ptr<localmatrixdata_t> C_data ) override;
 
     enum class Mode { SYMBOLIC, NUMERIC };
-    enum class BlockType { DIAG, OFFD };
 
-    template<Mode mode_t, BlockType block_t>
+    template<Mode mode_t, bool dense_acc>
     void multiplyPhase( std::shared_ptr<localmatrixdata_t> A_data,
                         std::shared_ptr<localmatrixdata_t> B_data,
                         std::shared_ptr<localmatrixdata_t> C_data );
 
 protected:
     // default starting size for sparse accumulators
-    static constexpr lidx_t SPACC_SIZE = 256;
+    static constexpr lidx_t SPACC_SIZE = 8192;
 
     // Internal row accumlator classes
     struct DenseAccumulator {

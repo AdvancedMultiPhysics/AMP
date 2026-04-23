@@ -23,8 +23,16 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyLocal( std::shared_ptr<localmatrixd
         return;
     }
 
-    multiplyPhase<Mode::SYMBOLIC, BlockType::OFFD>( A_data, B_data, C_data );
-    multiplyPhase<Mode::NUMERIC, BlockType::OFFD>( A_data, B_data, C_data );
+    // choose between dense and sparse accumulators
+    // dense are faster but need more memory, sparse slower
+    // but with lower memory footprint
+    if ( B_data->numUniqueColumns() < 4 * SPACC_SIZE ) {
+        multiplyPhase<Mode::SYMBOLIC, true>( A_data, B_data, C_data );
+        multiplyPhase<Mode::NUMERIC, true>( A_data, B_data, C_data );
+    } else {
+        multiplyPhase<Mode::SYMBOLIC, false>( A_data, B_data, C_data );
+        multiplyPhase<Mode::NUMERIC, false>( A_data, B_data, C_data );
+    }
 
     // Convert the local indices to globals to make merges easier
     lidx_t *C_rs = nullptr, *C_cols_loc = nullptr;
@@ -48,14 +56,13 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyLocal( std::shared_ptr<localmatrixd
 }
 
 template<typename Config>
-template<typename CSRMatrixSpGEMMDefault<Config>::Mode mode_t,
-         typename CSRMatrixSpGEMMDefault<Config>::BlockType block_t>
+template<typename CSRMatrixSpGEMMDefault<Config>::Mode mode_t, bool dense_acc>
 void CSRMatrixSpGEMMDefault<Config>::multiplyPhase( std::shared_ptr<localmatrixdata_t> A_data,
                                                     std::shared_ptr<localmatrixdata_t> B_data,
                                                     std::shared_ptr<localmatrixdata_t> C_data )
 {
-    using acc_t = typename std::
-        conditional<block_t == BlockType::DIAG, DenseAccumulator, SparseAccumulator>::type;
+    using accumulator_t =
+        typename std::conditional<dense_acc, DenseAccumulator, SparseAccumulator>::type;
 
     AMP_DEBUG_ASSERT( A_data != nullptr );
     AMP_DEBUG_ASSERT( B_data != nullptr );
@@ -81,14 +88,13 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyPhase( std::shared_ptr<localmatrixd
     std::tie( B_rs, std::ignore, B_cols_loc, B_coeffs ) = B_data->getDataFields();
 
     // Create accumulator with appropriate capacity
-    const lidx_t acc_cap = block_t == BlockType::DIAG ? B_ncols : SPACC_SIZE;
-    acc_t acc( acc_cap );
+    const lidx_t acc_cap = dense_acc ? B_ncols : SPACC_SIZE;
+    accumulator_t acc( acc_cap );
 
     // Finally, after all the setup do the actual computation
     if constexpr ( mode_t == Mode::SYMBOLIC ) {
-        PROFILE( block_t == BlockType::DIAG ?
-                     "CSRMatrixSpGEMMDefault::multiply (symbolic -- C_diag)" :
-                     "CSRMatrixSpGEMMDefault::multiply (symbolic -- C_offd)" );
+        PROFILE( dense_acc ? "CSRMatrixSpGEMMDefault::multiply (symbolic -- DenseAcc)" :
+                             "CSRMatrixSpGEMMDefault::multiply (symbolic -- SparseAcc)" );
         lidx_t *C_rs = C_data->getRowStarts();
         // If this is a symbolic call just count NZ and write to
         // rs field in C
@@ -108,7 +114,7 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyPhase( std::shared_ptr<localmatrixd
         }
         C_data->setNNZ( true );
 #if CSRSPGEMM_REPORT_SPACC_STATS
-        if ( !use_dense && ( acc.total_collisions > 0 || acc.total_grows > 0 ) ) {
+        if ( !dense_acc && ( acc.total_collisions > 0 || acc.total_grows > 0 ) ) {
             AMP::pout << "\nSparseAcc stats:\n"
                       << "  Insertions: " << acc.total_inserted << "\n"
                       << "  Collisions: " << acc.total_collisions << "\n"
@@ -119,9 +125,8 @@ void CSRMatrixSpGEMMDefault<Config>::multiplyPhase( std::shared_ptr<localmatrixd
         }
 #endif
     } else {
-        PROFILE( block_t == BlockType::DIAG ?
-                     "CSRMatrixSpGEMMDefault::multiply (numeric -- C_diag)" :
-                     "CSRMatrixSpGEMMDefault::multiply (numeric -- C_offd)" );
+        PROFILE( dense_acc ? "CSRMatrixSpGEMMDefault::multiply (numeric -- DenseAcc)" :
+                             "CSRMatrixSpGEMMDefault::multiply (numeric -- SparseAcc)" );
         lidx_t *C_rs = nullptr, *C_cols_loc = nullptr;
         scalar_t *C_coeffs                                  = nullptr;
         std::tie( C_rs, std::ignore, C_cols_loc, C_coeffs ) = C_data->getDataFields();

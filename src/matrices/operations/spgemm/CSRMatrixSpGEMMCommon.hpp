@@ -89,6 +89,7 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
     C->assemble( true );
 }
 
+#if 0
 template<typename gidx_t, typename lidx_t>
 AMP_FUNCTION_HD void merge_row_count( const lidx_t row,
                                       const lidx_t *A_rs,
@@ -102,11 +103,11 @@ AMP_FUNCTION_HD void merge_row_count( const lidx_t row,
     const auto B_start = B_rs[row];
 
     C_rs[row] = A_len;
-    for ( lidx_t B_ptr = B_start; B_ptr < B_rs[row + 1]; ++B_ptr ) {
-        const auto Bc = B_cols[B_ptr];
+    for ( lidx_t B_cur = B_start; B_cur < B_rs[row + 1]; ++B_cur ) {
+        const auto Bc = B_cols[B_cur];
         bool matched  = false;
-        for ( lidx_t A_ptr = A_start; A_ptr < A_rs[row + 1]; ++A_ptr ) {
-            const auto Ac = A_cols[A_ptr];
+        for ( lidx_t A_cur = A_start; A_cur < A_rs[row + 1]; ++A_cur ) {
+            const auto Ac = A_cols[A_cur];
             if ( Ac == Bc ) {
                 matched = true;
                 break;
@@ -141,14 +142,14 @@ AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
     }
 
     lidx_t C_app = A_len;
-    for ( lidx_t B_ptr = B_start; B_ptr < B_rs[row + 1]; ++B_ptr ) {
-        const auto Bc = B_cols[B_ptr];
-        const auto Bv = B_coeffs[B_ptr];
+    for ( lidx_t B_cur = B_start; B_cur < B_rs[row + 1]; ++B_cur ) {
+        const auto Bc = B_cols[B_cur];
+        const auto Bv = B_coeffs[B_cur];
         bool matched  = false;
-        for ( lidx_t C_ptr = C_start; C_ptr < C_search_end; ++C_ptr ) {
-            const auto Cc = C_cols[C_ptr];
+        for ( lidx_t C_cur = C_start; C_cur < C_search_end; ++C_cur ) {
+            const auto Cc = C_cols[C_cur];
             if ( Cc == Bc ) {
-                C_coeffs[C_ptr] += Bv;
+                C_coeffs[C_cur] += Bv;
                 matched = true;
                 break;
             }
@@ -160,6 +161,108 @@ AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
         }
     }
 }
+#else
+template<typename gidx_t, typename lidx_t, typename scalar_t>
+AMP_FUNCTION_HD void merge_row_count( const lidx_t row,
+                                      const lidx_t *A_rs,
+                                      const gidx_t *A_cols,
+                                      const scalar_t *A_coeffs,
+                                      const lidx_t *B_rs,
+                                      const gidx_t *B_cols,
+                                      const scalar_t *B_coeffs,
+                                      lidx_t *C_rs )
+{
+    const auto A_start = A_rs[row], A_end = A_rs[row + 1];
+    const auto B_start = B_rs[row], B_end = B_rs[row + 1];
+    const auto C_start = C_rs[row];
+
+    // Count only actual non-zeros from A
+    for ( lidx_t A_cur = A_start; A_cur < A_end; ++A_cur ) {
+        const auto Av = A_coeffs[A_cur];
+        if ( Av != 0 ) {
+            C_rs[row]++;
+        }
+    }
+
+    // Count from B that are non-zero and don't overlap
+    // non-zeros from A
+    for ( lidx_t B_cur = B_start; B_cur < B_end; ++B_cur ) {
+        const auto Bv = B_coeffs[B_cur];
+        if ( Bv == 0 ) {
+            continue;
+        }
+        const auto Bc = B_cols[B_cur];
+        bool matched  = false;
+        for ( lidx_t A_cur = A_start; A_cur < A_end; ++A_cur ) {
+            const auto Av = A_coeffs[A_cur];
+            if ( Av == 0 ) {
+                continue;
+            }
+            const auto Ac = A_cols[A_cur];
+            if ( Ac == Bc ) {
+                matched = true;
+                break;
+            }
+        }
+        if ( !matched ) {
+            C_rs[row]++;
+        }
+    }
+}
+
+template<typename gidx_t, typename lidx_t, typename scalar_t>
+AMP_FUNCTION_HD void merge_row_fill( const lidx_t row,
+                                     const lidx_t *A_rs,
+                                     const gidx_t *A_cols,
+                                     const scalar_t *A_coeffs,
+                                     const lidx_t *B_rs,
+                                     const gidx_t *B_cols,
+                                     const scalar_t *B_coeffs,
+                                     lidx_t *C_rs,
+                                     gidx_t *C_cols,
+                                     scalar_t *C_coeffs )
+{
+    const auto A_start = A_rs[row], A_end = A_rs[row + 1];
+    const auto B_start = B_rs[row], B_end = B_rs[row + 1];
+    const auto C_start = C_rs[row];
+    lidx_t C_app       = C_start;
+
+    // Insert only actual non-zeros from A
+    for ( lidx_t A_cur = A_start; A_cur < A_end; ++A_cur ) {
+        const auto Av = A_coeffs[A_cur];
+        if ( Av != 0 ) {
+            C_cols[C_app]   = A_cols[A_cur];
+            C_coeffs[C_app] = Av;
+            ++C_app;
+        }
+    }
+
+    // Add in entries from B that are non-zero
+    // either summing into existing position or appending
+    const auto C_search_end = C_app;
+    for ( lidx_t B_cur = B_start; B_cur < B_end; ++B_cur ) {
+        const auto Bv = B_coeffs[B_cur];
+        if ( Bv == 0 ) {
+            continue;
+        }
+        const auto Bc = B_cols[B_cur];
+        bool matched  = false;
+        for ( lidx_t C_cur = C_start; C_cur < C_search_end; ++C_cur ) {
+            const auto Cc = C_cols[C_cur];
+            if ( Cc == Bc ) {
+                C_coeffs[C_cur] += Bv;
+                matched = true;
+                break;
+            }
+        }
+        if ( !matched ) {
+            C_cols[C_app]   = Bc;
+            C_coeffs[C_app] = Bv;
+            ++C_app;
+        }
+    }
+}
+#endif
 
 template<typename Config>
 void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> inL,
@@ -195,9 +298,11 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
 
     // count unique entries in each row
     {
-        auto merge_row_count_all = [inL_rs, inL_cols, inR_rs, inR_cols, out_rs] AMP_FUNCTION_HD(
-                                       const lidx_t row ) -> void {
-            merge_row_count( row, inL_rs, inL_cols, inR_rs, inR_cols, out_rs );
+        auto merge_row_count_all =
+            [inL_rs, inL_cols, inL_coeffs, inR_rs, inR_cols, inR_coeffs, out_rs] AMP_FUNCTION_HD(
+                const lidx_t row ) -> void {
+            merge_row_count(
+                row, inL_rs, inL_cols, inL_coeffs, inR_rs, inR_cols, inR_coeffs, out_rs );
         };
         if constexpr ( !alloc_info<Config::allocator>::device_accessible ) {
             for ( lidx_t row = 0; row < num_rows; ++row ) {
