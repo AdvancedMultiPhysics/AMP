@@ -114,6 +114,8 @@ DelaunayInterpolation::DelaunayInterpolation( const AMP::Array<TYPE> &x ) : Dela
     AMP_ASSERT( d_tri.min() >= 0 );
     d_N_node_sum = 0;
 }
+template DelaunayInterpolation::DelaunayInterpolation<int>( const AMP::Array<int> & );
+template DelaunayInterpolation::DelaunayInterpolation<double>( const AMP::Array<double> & );
 
 
 /********************************************************************
@@ -154,6 +156,7 @@ const AMP::Array<int> &DelaunayInterpolation::get_tri_nab() const
     create_tri_neighbors();
     return d_tri_nab;
 }
+const AMP::Array<double> &DelaunayInterpolation::get_x() const { return d_x; }
 
 
 /************************************************************************
@@ -1426,10 +1429,5 @@ static void Gauss_Seidel( const uint32_t Nb,
     delete[] D_inv;
 }
 
-
-// Explicit instantiations
-// clang-format off
-template DelaunayInterpolation::DelaunayInterpolation<int>( const AMP::Array<int> & );
-template DelaunayInterpolation::DelaunayInterpolation<double>( const AMP::Array<double> & );
 
 } // namespace AMP

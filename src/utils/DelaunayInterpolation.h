@@ -73,6 +73,10 @@ public:
     const AMP::Array<int> &get_tri_nab() const;
 
 
+    //! Function to return the verticies
+    const AMP::Array<double> &get_x() const;
+
+
     //! Subroutine to find the nearest neighbor to a point
     /*!
      * This function finds the nearest neighbor to each point.
