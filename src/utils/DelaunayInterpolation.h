@@ -5,6 +5,7 @@
 #include <tuple>
 
 #include "AMP/utils/Array.h"
+#include "AMP/utils/DelaunayHelpers.h"
 #include "AMP/utils/kdtree.h"
 
 
@@ -32,7 +33,20 @@ public:
      * @param x         The coordinates of the vertices ( ndim x N )
      */
     template<class TYPE>
-    DelaunayInterpolation( const AMP::Array<TYPE> &x );
+    DelaunayInterpolation( const AMP::Array<TYPE> &x ) : DelaunayInterpolation()
+    {
+        d_x.copy( x );
+        int ndim = x.size( 0 );
+        AMP_ASSERT( ndim >= 1 && ndim <= 3 && x.ndim() == 2 );
+        auto y = AMP::DelaunayHelpers::convert( x );
+        if ( x.size( 0 ) == 1 ) {
+            std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<1>( y );
+        } else if ( ndim == 2 ) {
+            std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<2>( y );
+        } else if ( ndim == 3 ) {
+            std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<3>( y );
+        }
+    }
 
 
     //! Function to construct the tessellation using a given tessellation
@@ -50,7 +64,8 @@ public:
     DelaunayInterpolation( const Array<TYPE> &x, const Array<int> &tri ) : DelaunayInterpolation()
     {
         d_x.copy( x );
-        d_tri = tri;
+        d_tri     = tri;
+        d_tri_nab = DelaunayHelpers::create_tri_neighbors( d_tri );
     }
 
 
@@ -225,7 +240,6 @@ private:
     FG interp_linear2( const VEC &, const VEC &, const AMP::Array<int> &, bool extrap ) const;
     FG interp_cubic2( const VEC &, const VEC &, const VEC &, const AMP::Array<int> &, int ) const;
     void create_node_neighbors() const;
-    void create_tri_neighbors() const;
     void create_node_tri() const;
     void create_kdtree() const;
     void interp_cubic_single(

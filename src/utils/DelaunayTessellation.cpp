@@ -1654,6 +1654,33 @@ bool find_flip( const std::array<int, 3> *x,
 /********************************************************************
  * This is the main function that creates the tessellation           *
  ********************************************************************/
+template<>
+std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation<1>( const AMP::Array<int> &x0 )
+{
+    AMP_ASSERT( x0.size( 0 ) == 1 );
+    int N = x0.size( 1 );
+    if ( N < 2 )
+        return {};
+    PROFILE( "create_tessellation<0>" );
+    // Sort the points
+    std::vector<int> x( N );
+    std::vector<int> I( N );
+    for ( int i = 0; i < N; i++ )
+        x[i] = x0( i );
+    for ( int i = 0; i < N; i++ )
+        I[i] = (int) i;
+    AMP::Utilities::quicksort( x, I );
+    // Create the "triangles" (line segments)
+    int N_tri = N - 1;
+    AMP::Array<int> tri( 2, N_tri );
+    for ( int i = 0; i < N_tri; i++ ) {
+        tri( 0, i ) = I[i + 0];
+        tri( 1, i ) = I[i + 1];
+    }
+    // Create the triangle neighbors
+    auto tri_nab = DelaunayHelpers::create_tri_neighbors( tri );
+    return { tri, tri_nab };
+}
 template<int NDIM>
 std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const AMP::Array<int> &x0 )
 {

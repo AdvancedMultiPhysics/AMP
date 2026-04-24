@@ -38,8 +38,10 @@ template<> struct getETYPE<4,double> { typedef long double ETYPE; };
  * Create triangles neighbors from the triangles                     *
  ********************************************************************/
 template<size_t NG>
-std::vector<std::array<int, NG + 1>>
-create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri );
+void create_tri_neighbors( size_t N,
+                           const std::array<int, NG + 1> *tri,
+                           std::array<int, NG + 1> *nab );
+AMP::Array<int> create_tri_neighbors( const AMP::Array<int> &tri );
 
 
 /********************************************************************

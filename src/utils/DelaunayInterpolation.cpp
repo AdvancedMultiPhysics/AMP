@@ -99,48 +99,6 @@ DelaunayInterpolation::DelaunayInterpolation()
     d_node_tri   = nullptr;
     d_tree       = nullptr;
 }
-template<class TYPE>
-DelaunayInterpolation::DelaunayInterpolation( const AMP::Array<TYPE> &x ) : DelaunayInterpolation()
-{
-    if ( x.empty() )
-        return;
-    PROFILE( "create_tessellation", ProfileLevel );
-    // Copy the points
-    d_x.copy( x );
-    // Create the tessellation
-    size_t ndim = x.size( 0 );
-    size_t N    = x.size( 1 );
-    if ( x.size( 0 ) == 1 ) {
-        // The triangles are just the sorted points (note the duplicate indices)
-        std::vector<TYPE> x_tmp( N );
-        std::vector<int> i_tmp( N );
-        for ( size_t i = 0; i < N; i++ )
-            x_tmp[i] = x( i );
-        for ( size_t i = 0; i < N; i++ )
-            i_tmp[i] = (int) i;
-        AMP::Utilities::quicksort( x_tmp, i_tmp );
-        int N_tri = N - 1;
-        d_tri.resize( 2, N_tri );
-        for ( int i = 0; i < N_tri; i++ ) {
-            d_tri( 0, i ) = i_tmp[i + 0];
-            d_tri( 1, i ) = i_tmp[i + 1];
-        }
-        create_tri_neighbors();
-    } else if ( ndim == 2 ) {
-        auto y                       = AMP::DelaunayHelpers::convert( x );
-        std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<2>( y );
-    } else if ( ndim == 3 ) {
-        auto y                       = AMP::DelaunayHelpers::convert( x );
-        std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<3>( y );
-    } else {
-        throw std::logic_error( "Unsupported dimension" );
-    }
-    AMP_ASSERT( !d_tri.empty() );
-    AMP_ASSERT( d_tri.min() >= 0 );
-    d_N_node_sum = 0;
-}
-template DelaunayInterpolation::DelaunayInterpolation<int>( const AMP::Array<int> & );
-template DelaunayInterpolation::DelaunayInterpolation<double>( const AMP::Array<double> & );
 
 
 /********************************************************************
@@ -176,11 +134,7 @@ size_t DelaunayInterpolation::get_N_tri() const
     return d_tri.size( 1 );
 }
 const AMP::Array<int> &DelaunayInterpolation::get_tri() const { return d_tri; }
-const AMP::Array<int> &DelaunayInterpolation::get_tri_nab() const
-{
-    create_tri_neighbors();
-    return d_tri_nab;
-}
+const AMP::Array<int> &DelaunayInterpolation::get_tri_nab() const { return d_tri_nab; }
 const AMP::Array<double> &DelaunayInterpolation::get_x() const { return d_x; }
 
 
@@ -243,8 +197,6 @@ Array<int> DelaunayInterpolation::find_tri2( const Array<double> &xi, bool extra
     create_kdtree();
     // Create a list of the nodes that link to every other node
     create_node_neighbors();
-    // For each triangle, get a list of the triangles that are neighbors
-    create_tri_neighbors();
     // For each node, get a starting triangle
     create_node_tri();
     // First choose a starting triangle
@@ -1162,36 +1114,6 @@ void DelaunayInterpolation::create_node_neighbors() const
     // Delete the temporary memory
     delete[] node_list_tmp[0];
     delete[] node_list_tmp;
-}
-
-
-/**************************************************************************
- * Function to get a list of the triangles that neighbors to each triangle *
- **************************************************************************/
-void DelaunayInterpolation::create_tri_neighbors() const
-{
-    size_t N = d_tri.size( 1 );
-    int ndim = d_x.size( 0 );
-    AMP_ASSERT( d_tri.size() == ArraySize( ndim + 1, N ) );
-    d_tri_nab.resize( ndim + 1, N );
-    if ( ndim == 1 ) {
-        std::vector<std::array<int, 2>> tri( N );
-        memcpy( tri.data()->data(), d_tri.data(), 2 * N * sizeof( int ) );
-        auto nab = DelaunayHelpers::create_tri_neighbors<1>( tri );
-        memcpy( d_tri_nab.data(), nab.data()->data(), 2 * N * sizeof( int ) );
-    } else if ( ndim == 2 ) {
-        std::vector<std::array<int, 3>> tri( N );
-        memcpy( tri.data()->data(), d_tri.data(), 3 * N * sizeof( int ) );
-        auto nab = DelaunayHelpers::create_tri_neighbors<2>( tri );
-        memcpy( d_tri_nab.data(), nab.data()->data(), 3 * N * sizeof( int ) );
-    } else if ( ndim == 3 ) {
-        std::vector<std::array<int, 4>> tri( N );
-        memcpy( tri.data()->data(), d_tri.data(), 4 * N * sizeof( int ) );
-        auto nab = DelaunayHelpers::create_tri_neighbors<3>( tri );
-        memcpy( d_tri_nab.data(), nab.data()->data(), 4 * N * sizeof( int ) );
-    } else {
-        AMP_ERROR( "Unsupported number of dimensions" );
-    }
 }
 
 

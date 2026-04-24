@@ -279,9 +279,9 @@ bool isMultiDomain( const std::vector<std::array<int, 3>> &tri,
     if ( N_unique != tri.size() )
         return true;
     // Create triangle neighbors if needed
-    std::vector<std::array<int, 3>> nab;
+    std::vector<std::array<int, 3>> nab( tri.size() );
     try {
-        nab = DelaunayHelpers::create_tri_neighbors<2>( tri );
+        DelaunayHelpers::create_tri_neighbors<2>( tri.size(), tri.data(), nab.data() );
     } catch ( ... ) {
         return true;
     }
@@ -533,8 +533,11 @@ generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangl
         if ( !multidomain ) {
             for ( size_t i = 0; i < tri.size(); i++ ) {
                 // Get the triangle neighbors
-                if ( tri_nab[i].size() != tri[i].size() )
-                    tri_nab[i] = DelaunayHelpers::create_tri_neighbors<2>( tri[i] );
+                if ( tri_nab[i].size() != tri[i].size() ) {
+                    tri_nab[i].resize( tri[i].size() );
+                    DelaunayHelpers::create_tri_neighbors<2>(
+                        tri[i].size(), tri[i].data(), tri_nab[i].data() );
+                }
                 // Check if the geometry is closed
                 bool closed = true;
                 for ( const auto &t : tri_nab[i] ) {
