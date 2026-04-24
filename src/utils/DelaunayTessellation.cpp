@@ -38,32 +38,6 @@ struct check_surface_struct {
 
 
 /********************************************************************
- * Forward declares                                                  *
- ********************************************************************/
-template<int NDIM>
-static void clean_triangles( const int N,
-                             const std::array<int, NDIM> *x,
-                             size_t &N_tri,
-                             std::array<int, NDIM + 1> *tri,
-                             std::array<int, NDIM + 1> *tri_nab );
-template<int NDIM>
-static void swap_triangles( int i1,
-                            int i2,
-                            std::array<int, NDIM + 1> *tri,
-                            std::array<int, NDIM + 1> *tri_nab );
-template<int NDIM>
-static bool find_flip( const std::array<int, NDIM> *x,
-                       const std::array<int, NDIM + 1> *tri,
-                       const std::array<int, NDIM + 1> *tri_nab,
-                       std::vector<check_surface_struct> &check_surface,
-                       int &N_tri_old,
-                       int &N_tri_new,
-                       int *index_old,
-                       int *new_tri,
-                       int *new_tri_nab );
-
-
-/********************************************************************
  * Compute the dot product of two vectors                            *
  * Note: We are already using an increased precision, and want to    *
  * maintain the maximum degree of accuracy possible.                 *
@@ -118,8 +92,7 @@ static inline double dot4( const int128_t *x, const uint64_t *y )
  *                                                                       *
  * Note: this implementation requires N^(D+2) precision                  *
  ************************************************************************/
-template<>
-int test_in_circumsphere<2>( const std::array<int, 2> x[], const std::array<int, 2> &xi )
+static int test_in_circumsphere( const std::array<int, 2> x[], const std::array<int, 2> &xi )
 {
     // Solve the sub-determinants (requires N^2 precision)
     int64_t det2[3];
@@ -147,8 +120,7 @@ int test_in_circumsphere<2>( const std::array<int, 2> x[], const std::array<int,
     else
         return -1; // We outside the circumsphere
 }
-template<>
-int test_in_circumsphere<3>( const std::array<int, 3> x[], const std::array<int, 3> &xi )
+static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<int, 3> &xi )
 {
     using ETYPE = typename getETYPE<3, int>::ETYPE;
     // Solve the sub-determinants (requires N^3 precision)
@@ -460,408 +432,6 @@ static std::tuple<std::array<int, NDIM + 1>, std::vector<int>> createInitialTria
     }
     return std::tie( tri, I );
 }
-
-
-/********************************************************************
- * This is the main function that creates the tessellation           *
- ********************************************************************/
-template<int NDIM>
-std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const AMP::Array<int> &x0 )
-{
-    using Point    = std::array<int, NDIM>;
-    using Triangle = std::array<int, NDIM + 1>;
-    static_assert( sizeof( std::array<int, NDIM> ) == NDIM * sizeof( int ) );
-
-    AMP_ASSERT( x0.size( 0 ) == NDIM );
-    int N  = x0.size( 1 );
-    auto x = reinterpret_cast<const std::array<int, NDIM> *>( x0.data() );
-
-    uint32_t max = 0;
-    for ( size_t i = 0; i < x0.length(); i++ )
-        max = std::max<uint32_t>( std::abs( x0( i ) ), max );
-    AMP_INSIST( max < 0x40000000, "x is out of range" );
-
-    PROFILE2( AMP::Utilities::stringf( "create_tessellation<%i>", NDIM ) );
-
-    try {
-
-        // First, get the two closest points
-        auto index_pair = find_min_dist<NDIM, int>( N, x[0].data() );
-        checkClosest<NDIM>( N, x, index_pair );
-
-        // Initial amount of memory to allocate for tri
-        std::vector<Triangle> tri, tri_nab;
-        check_tri_size<NDIM>( 2 * N, tri, tri_nab );
-
-        // Create an initial triangle
-        std::vector<int> I;
-        std::tie( tri[0], I ) = createInitialTriangle<NDIM>( N, x[index_pair.first], x, 0 );
-        size_t N_tri          = 1;
-
-        // Maintain a list of the triangle faces on the convex hull
-        FaceList<NDIM> face_list( N, x, 0, tri[0] );
-
-        // Maintain a list of the unused triangles (those that are all -1, but less than N_tri)
-        std::vector<size_t> unused;
-        unused.reserve( 512 );
-
-        // Maintain a list of surfaces to check
-        std::vector<check_surface_struct> check_surface;
-        check_surface.reserve( 256 );
-
-        // Subsequently add each point to the convex hull
-        std::vector<Triangle> new_tri;
-        std::vector<Triangle> new_tri_nab;
-        std::vector<int> neighbor;
-        std::vector<int> face;
-        std::vector<uint32_t> new_tri_id;
-        for ( int i = NDIM + 1; i < N; i++ ) {
-            PROFILE( "create-add_points", 3 );
-            // Add a point to the convex hull and create the new triangles
-            face_list.add_node(
-                I[i], unused, N_tri, new_tri_id, new_tri, new_tri_nab, neighbor, face );
-            int N_tri_new = new_tri_id.size();
-            // Increase the storage for tri and tri_nab if necessary
-            check_tri_size<NDIM>( N_tri, tri, tri_nab );
-            // Add each triangle and update the structures
-            for ( int j = 0; j < N_tri_new; j++ ) {
-                int index_new = new_tri_id[j];
-                for ( int j1 = 0; j1 <= NDIM; j1++ )
-                    tri[index_new][j1] = new_tri[j][j1];
-                for ( int j1 = 0; j1 <= NDIM; j1++ )
-                    tri_nab[index_new][j1] = new_tri_nab[j][j1];
-                std::swap( tri_nab[neighbor[j]][face[j]], index_new );
-                AMP_ASSERT( index_new == -1 );
-            }
-            // Get a list of the surfaces we need to check for a valid tesselation
-            for ( int j = 0; j < N_tri_new; j++ ) {
-                int index_new = new_tri_id[j];
-                for ( int j1 = 0; j1 <= NDIM; j1++ ) {
-                    if ( tri_nab[index_new][j1] != -1 ) {
-                        bool found = false;
-                        for ( auto &elem : check_surface ) {
-                            if ( index_new == elem.t1 && j1 == elem.f1 ) {
-                                // The surface is already in the list to check
-                                found = true;
-                                break;
-                            }
-                            if ( index_new == elem.t2 && j1 == elem.f2 ) {
-                                // The surface is already in the list to check
-                                found = true;
-                                break;
-                            }
-                        }
-                        if ( !found ) {
-                            check_surface_struct tmp;
-                            tmp.test = 0x00;
-                            tmp.t1   = index_new;
-                            tmp.f1   = j1;
-                            tmp.t2   = tri_nab[index_new][j1];
-                            int m    = tri_nab[index_new][j1];
-                            for ( int j2 = 0; j2 <= NDIM; j2++ ) {
-                                if ( tri_nab[m][j2] == index_new )
-                                    tmp.f2 = j2;
-                            }
-                            check_surface.push_back( tmp );
-                        }
-                    }
-                }
-            }
-
-            // Now that we have created a new triangle, perform any edge flips that
-            // are necessary to create a valid tesselation
-            size_t it = 1;
-            AMP_ASSERT( !check_surface.empty() );
-            while ( !check_surface.empty() ) {
-                PROFILE( "create-edge_flips", 4 );
-                if ( it > std::max<size_t>( 500, N_tri ) )
-                    AMP_ERROR( "Error: infinite loop detected" );
-                // First, lets eliminate all the surfaces that are fine
-                for ( auto &elem : check_surface ) {
-                    /* Check the surface to see if the triangle pairs need to undergo a flip
-                     * The surface is invalid and the triangles need to undergo a flip
-                     * if the vertex of either triangle lies within the circumsphere of the other.
-                     * Note: if the vertex of one triangle lies within the circumsphere of the
-                     * other, then the vertex of the other triangle will lie within the circumsphere
-                     * of the current triangle.  Consequently we only need to check one
-                     * vertex/triangle pair
-                     */
-                    if ( ( elem.test & 0x01 ) != 0 ) {
-                        // We already checked this surface
-                        continue;
-                    }
-                    Point x2[NDIM + 1];
-                    for ( int j1 = 0; j1 < NDIM + 1; j1++ ) {
-                        int m  = tri[elem.t1][j1];
-                        x2[j1] = x[m];
-                    }
-                    int m     = tri[elem.t2][elem.f2];
-                    int test  = test_in_circumsphere<NDIM>( x2, x[m] );
-                    elem.test = ( test != 1 ) ? 0xFF : 0x01;
-                }
-                // Remove all surfaces that are good
-                size_t n = 0;
-                for ( size_t k = 0; k < check_surface.size(); k++ ) {
-                    if ( check_surface[k].test != 0xFF ) {
-                        std::swap( check_surface[n], check_surface[k] );
-                        n++;
-                    }
-                }
-                check_surface.resize( n );
-                if ( check_surface.size() == 0 ) {
-                    // All surfaces are good, we are finished
-                    break;
-                }
-                // Find a valid flip
-                // The maximum flip currently supported is a 4-4 flip
-                int index_old[5], new_tri[( NDIM + 1 ) * 4], new_tri_nab[( NDIM + 1 ) * 4];
-                int N_tri_old     = 0;
-                int N_tri_new     = 0;
-                bool flipped_edge = find_flip<NDIM>( x,
-                                                     tri.data(),
-                                                     tri_nab.data(),
-                                                     check_surface,
-                                                     N_tri_old,
-                                                     N_tri_new,
-                                                     index_old,
-                                                     new_tri,
-                                                     new_tri_nab );
-                if ( !flipped_edge ) {
-                    // We did not find any valid flips, this is an error
-                    for ( auto &elem : check_surface )
-                        elem.test = 0;
-                    bool test = find_flip<NDIM>( x,
-                                                 tri.data(),
-                                                 tri_nab.data(),
-                                                 check_surface,
-                                                 N_tri_old,
-                                                 N_tri_new,
-                                                 index_old,
-                                                 new_tri,
-                                                 new_tri_nab );
-                    if ( test )
-                        printf( "   Valid flips were detected if we reset check_surface\n" );
-                    AMP_ERROR( "Error: no valid flips detected" );
-                }
-                // Check that we conserved the boundary triangles
-                int old_tri_nab[( NDIM + 1 ) *
-                                4]; // The maximum flip currently supported is a 4-4 flip
-                for ( int j1 = 0; j1 < N_tri_old; j1++ ) {
-                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
-                        int tmp = tri_nab[index_old[j1]][j2];
-                        for ( int j3 = 0; j3 < N_tri_old; j3++ ) {
-                            if ( tmp == index_old[j3] )
-                                tmp = -2 - tmp;
-                        }
-                        old_tri_nab[j2 + j1 * ( NDIM + 1 )] = tmp;
-                    }
-                }
-                bool pass = conserved_neighbors(
-                    N_tri_old * ( NDIM + 1 ), old_tri_nab, N_tri_new * ( NDIM + 1 ), new_tri_nab );
-                if ( !pass )
-                    AMP_ERROR( "Error: triangle neighbors not conserved" );
-                // Delete the old triangles, add the new ones, and update the structures
-                // First get the indicies where we will store the new triangles
-                int index_new[4];
-                for ( int j = 0; j < N_tri_new; j++ ) {
-                    if ( j < N_tri_old ) {
-                        // We can just reuse the storage of the old indicies
-                        index_new[j] = index_old[j];
-                    } else if ( !unused.empty() ) {
-                        // Use a previously freed place
-                        index_new[j] = (int) unused.back();
-                        unused.pop_back();
-                    } else {
-                        // We will need to expand N_tri
-                        check_tri_size<NDIM>( N_tri + 1, tri, tri_nab );
-                        index_new[j] = (int) N_tri;
-                        N_tri++;
-                    }
-                }
-                // Delete the old triangles
-                int N_face_update = 0;
-                int old_tri_id[4 * ( NDIM + 1 )], old_face_id[4 * ( NDIM + 1 )],
-                    new_tri_id[4 * ( NDIM + 1 )], new_face_id[4 * ( NDIM + 1 )];
-                for ( int j = N_tri_new; j < N_tri_old; j++ )
-                    unused.push_back( index_old[j] );
-                for ( int j1 = 0; j1 < N_tri_old; j1++ ) {
-                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
-                        tri[index_old[j1]][j2] = -1;
-                        if ( tri_nab[index_old[j1]][j2] == -1 ) {
-                            // The given face is on the convex hull
-                            old_tri_id[N_face_update]  = index_old[j1];
-                            old_face_id[N_face_update] = j2;
-                            N_face_update++;
-                        } else {
-                            // The given face is not on the convex hull
-                            /*bool is_old = false;
-                            for (int j3=0; j3<N_tri_old; j3++) {
-                                if ( tri_nab[index_old[j1]][j2]==index_old[j3] )
-                                    is_old = true;
-                            }*/
-                        }
-                        tri_nab[index_old[j1]][j2] = -2;
-                    }
-                }
-                for ( int j1 = 0; j1 < N_tri_old; j1++ ) {
-                    size_t j2 = 0;
-                    while ( j2 < check_surface.size() ) {
-                        if ( check_surface[j2].t1 == index_old[j1] ||
-                             check_surface[j2].t2 == index_old[j1] ) {
-                            std::swap( check_surface[j2], check_surface.back() );
-                            check_surface.pop_back();
-                        } else {
-                            j2++;
-                        }
-                    }
-                }
-                // Create the new triangles
-                for ( int j1 = 0; j1 < N_tri_new; j1++ ) {
-                    for ( int j2 = 0; j2 <= NDIM; j2++ )
-                        tri[index_new[j1]][j2] = new_tri[j2 + j1 * ( NDIM + 1 )];
-                }
-                // Update the triangle neighbors and determine the new lists of surfaces to check
-                int N_face_update2 = 0;
-                for ( int j1 = 0; j1 < N_tri_new; j1++ ) {
-                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
-                        int k1 = index_new[j1];
-                        int k2 = new_tri_nab[j2 + j1 * ( NDIM + 1 )];
-                        if ( k2 < -1 ) {
-                            // Neighbor triangle is one of the new triangles; update tr_nab
-                            tri_nab[k1][j2] = index_new[-k2 - 2];
-                        } else if ( k2 == -1 ) {
-                            // Face is on the convex hull; update tri_nab and store the face
-                            tri_nab[k1][j2]             = -1;
-                            new_tri_id[N_face_update2]  = index_new[j1];
-                            new_face_id[N_face_update2] = j2;
-                            N_face_update2++;
-                        } else {
-                            // Neighbor triangle is an existing triangle; update tr_nab for the new
-                            // triangle, the exisiting triangle, and add the face to check_surface
-                            tri_nab[k1][j2] = k2;
-                            int tmp[NDIM];
-                            for ( int m = 0; m < j2; m++ )
-                                tmp[m] = tri[k1][m];
-                            for ( int m = j2 + 1; m <= NDIM; m++ )
-                                tmp[m - 1] = tri[k1][m];
-                            int face = -1;
-                            for ( int m1 = 0; m1 <= NDIM; m1++ ) {
-                                bool found = false;
-                                for ( auto &elem : tmp ) {
-                                    if ( tri[k2][m1] == elem )
-                                        found = true;
-                                }
-                                if ( !found ) {
-                                    face = m1;
-                                    break;
-                                }
-                            }
-                            tri_nab[k2][face] = index_new[j1];
-                            check_surface_struct tmp2;
-                            tmp2.test = 0x00;
-                            tmp2.t1   = k1;
-                            tmp2.f1   = j2;
-                            tmp2.t2   = k2;
-                            tmp2.f2   = face;
-                            check_surface.push_back( tmp2 );
-                        }
-                    }
-                }
-                // Update the faces on the convex hull
-                if ( N_face_update != N_face_update2 ) {
-                    printf( "N_face_update = %i, k = %i\n", N_face_update, N_face_update2 );
-                    AMP_ERROR( "internal error" );
-                }
-                face_list.update_face(
-                    N_face_update, old_tri_id, old_face_id, new_tri_id, new_face_id, tri.data() );
-                it++;
-            }
-        }
-        check_surface.clear();
-        I = std::vector<int>();
-
-        // Delete any unused triangles
-        PROFILE( "clean up", 3 );
-        while ( !unused.empty() ) {
-            // First, see if any unused slots are at the end of the list
-            size_t index = unused.size();
-            for ( size_t i = 0; i < unused.size(); i++ ) {
-                if ( unused[i] == N_tri - 1 ) {
-                    index = i;
-                    break;
-                }
-            }
-            if ( index < unused.size() ) {
-                unused[index] = unused.back();
-                unused.pop_back();
-                N_tri--;
-                continue;
-            }
-            // Move the last triangle to fill the last gap
-            auto new_tri_id = static_cast<int>( unused.back() ); // The new triangle number
-            auto old_tri_id = static_cast<int>( N_tri - 1 );     // The old triangle number
-            for ( int j = 0; j <= NDIM; j++ ) {
-                tri[new_tri_id][j]     = tri[old_tri_id][j];
-                tri_nab[new_tri_id][j] = tri_nab[old_tri_id][j];
-                // Update the neighbors
-                if ( tri_nab[new_tri_id][j] != -1 ) {
-                    bool found = false;
-                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
-                        if ( tri_nab[tri_nab[new_tri_id][j]][j2] == old_tri_id ) {
-                            tri_nab[tri_nab[new_tri_id][j]][j2] = new_tri_id;
-                            found                               = true;
-                        }
-                    }
-                    if ( !found )
-                        AMP_ERROR( "Error with internal structures (delete any unused triangles)" );
-                }
-            }
-            // Update the face list
-            for ( int j = 0; j <= NDIM; j++ ) {
-                if ( tri_nab[new_tri_id][j] == -1 )
-                    face_list.update_face( 1, &old_tri_id, &j, &new_tri_id, &j, tri.data() );
-            }
-            unused.pop_back();
-            N_tri--;
-        }
-        bool test = false;
-        for ( size_t i = 0; i < N_tri; i++ ) {
-            for ( int d = 0; d <= NDIM; d++ ) {
-                if ( tri[i][d] == -1 )
-                    test = true;
-            }
-        }
-        if ( test ) {
-            // We should have removed all the NULL triangles in the previous step
-            AMP_ERROR( "Error with internal structures (NULL tri)\n" );
-        }
-
-        // Check the final set of triangles to make sure they are all valid
-        bool all_valid =
-            check_current_triangles<NDIM>( N, x, N_tri, tri.data(), tri_nab.data(), unused );
-        if ( !all_valid )
-            AMP_ERROR( "Final check of triangles failed" );
-
-        // Resize the output vectors
-        AMP::Array<int> tri2( NDIM + 1, N_tri ), tri_nab2( NDIM + 1, N_tri );
-        memcpy( tri2.data(), tri[0].data(), ( NDIM + 1 ) * N_tri * sizeof( int ) );
-        memcpy( tri_nab2.data(), tri_nab[0].data(), ( NDIM + 1 ) * N_tri * sizeof( int ) );
-        return std::tie( tri2, tri_nab2 );
-
-    } catch ( const StackTrace::abort_error &e ) {
-        std::cout << "Failed to create tessellation\n";
-#ifdef USE_AMP_HDF5
-        auto fid = AMP::IO::openHDF5( "DelaunayTessellationFailed.hdf", "w" );
-        AMP::IO::writeHDF5( fid, "x", x0 );
-        AMP::IO::closeHDF5( fid );
-#endif
-        throw e;
-    }
-}
-template std::tuple<AMP::Array<int>, AMP::Array<int>>
-create_tessellation<2>( const AMP::Array<int> & );
-template std::tuple<AMP::Array<int>, AMP::Array<int>>
-create_tessellation<3>( const AMP::Array<int> & );
 
 
 /********************************************************************
@@ -1221,7 +791,7 @@ static bool flip_3D_22( const std::array<int, 3> x[],
                 int k = new_tri[j];
                 x2[j] = x[k];
             }
-            int test = test_in_circumsphere<3>( x2, x[v4] );
+            int test = test_in_circumsphere( x2, x[v4] );
             if ( test == 1 ) {
                 // The flip did not fix the Delaunay condition
                 continue;
@@ -1401,7 +971,7 @@ static bool flip_3D_32( const std::array<int, 3> x[],
             int k = new_tri[j];
             x2[j] = x[k];
         }
-        int test = test_in_circumsphere<3>( x2, x[nodes[1]] );
+        int test = test_in_circumsphere( x2, x[nodes[1]] );
         if ( test == 1 ) {
             // The new triangles did not fixed the surface
             continue;
@@ -1543,7 +1113,7 @@ static bool flip_3D_23( const std::array<int, 3> x[],
         } else {
             k = is[0];
         }
-        int test = test_in_circumsphere<3>( x2, x[k] );
+        int test = test_in_circumsphere( x2, x[k] );
         if ( test == 1 ) {
             // The new triangles did not fix the surface
             isvalid = false;
@@ -1871,7 +1441,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
                         k = new_tri[7];
                     else if ( it2 == 1 || it2 == 3 )
                         k = new_tri[3];
-                    int test = test_in_circumsphere<3>( x2, x[k] );
+                    int test = test_in_circumsphere( x2, x[k] );
                     if ( test == 1 )
                         isvalid = false;
                 }
@@ -1935,16 +1505,15 @@ static bool flip_3D_44( const std::array<int, 3> x[],
  *      new_tri_nab -(i+1) - Triangle neighbor is the ith new triangle   *
  *      new_tri_nab ==-1   - Triangle face is on the convex hull         *
  ************************************************************************/
-template<>
-bool find_flip<2>( const std::array<int, 2> *x,
-                   const std::array<int, 3> *tri,
-                   const std::array<int, 3> *tri_nab,
-                   std::vector<check_surface_struct> &check_surface,
-                   int &N_tri_old,
-                   int &N_tri_new,
-                   int *index_old,
-                   int *new_tri,
-                   int *new_tri_nab )
+bool find_flip( const std::array<int, 2> *x,
+                const std::array<int, 3> *tri,
+                const std::array<int, 3> *tri_nab,
+                std::vector<check_surface_struct> &check_surface,
+                int &N_tri_old,
+                int &N_tri_new,
+                int *index_old,
+                int *new_tri,
+                int *new_tri_nab )
 {
     PROFILE( "find_flip<2>", 4 );
     // In 2D we only have one type of flip (2-2 flip)
@@ -1973,16 +1542,15 @@ bool find_flip<2>( const std::array<int, 2> *x,
     }
     return found;
 }
-template<>
-bool find_flip<3>( const std::array<int, 3> *x,
-                   const std::array<int, 4> *tri0,
-                   const std::array<int, 4> *tri_nab0,
-                   std::vector<check_surface_struct> &check_surface,
-                   int &N_tri_old,
-                   int &N_tri_new,
-                   int *index_old,
-                   int *new_tri,
-                   int *new_tri_nab )
+bool find_flip( const std::array<int, 3> *x,
+                const std::array<int, 4> *tri0,
+                const std::array<int, 4> *tri_nab0,
+                std::vector<check_surface_struct> &check_surface,
+                int &N_tri_old,
+                int &N_tri_new,
+                int *index_old,
+                int *new_tri,
+                int *new_tri_nab )
 {
     PROFILE( "find_flip<3>", 4 );
     const int *tri     = tri0[0].data();
@@ -2081,6 +1649,408 @@ bool find_flip<3>( const std::array<int, 3> *x,
     }
     return found;
 }
+
+
+/********************************************************************
+ * This is the main function that creates the tessellation           *
+ ********************************************************************/
+template<int NDIM>
+std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const AMP::Array<int> &x0 )
+{
+    using Point    = std::array<int, NDIM>;
+    using Triangle = std::array<int, NDIM + 1>;
+    static_assert( sizeof( std::array<int, NDIM> ) == NDIM * sizeof( int ) );
+
+    AMP_ASSERT( x0.size( 0 ) == NDIM );
+    int N  = x0.size( 1 );
+    auto x = reinterpret_cast<const std::array<int, NDIM> *>( x0.data() );
+
+    uint32_t max = 0;
+    for ( size_t i = 0; i < x0.length(); i++ )
+        max = std::max<uint32_t>( std::abs( x0( i ) ), max );
+    AMP_INSIST( max < 0x40000000, "x is out of range" );
+
+    PROFILE2( AMP::Utilities::stringf( "create_tessellation<%i>", NDIM ) );
+
+    try {
+
+        // First, get the two closest points
+        auto index_pair = find_min_dist<NDIM, int>( N, x[0].data() );
+        checkClosest<NDIM>( N, x, index_pair );
+
+        // Initial amount of memory to allocate for tri
+        std::vector<Triangle> tri, tri_nab;
+        check_tri_size<NDIM>( 2 * N, tri, tri_nab );
+
+        // Create an initial triangle
+        std::vector<int> I;
+        std::tie( tri[0], I ) = createInitialTriangle<NDIM>( N, x[index_pair.first], x, 0 );
+        size_t N_tri          = 1;
+
+        // Maintain a list of the triangle faces on the convex hull
+        FaceList<NDIM> face_list( N, x, 0, tri[0] );
+
+        // Maintain a list of the unused triangles (those that are all -1, but less than N_tri)
+        std::vector<size_t> unused;
+        unused.reserve( 512 );
+
+        // Maintain a list of surfaces to check
+        std::vector<check_surface_struct> check_surface;
+        check_surface.reserve( 256 );
+
+        // Subsequently add each point to the convex hull
+        std::vector<Triangle> new_tri;
+        std::vector<Triangle> new_tri_nab;
+        std::vector<int> neighbor;
+        std::vector<int> face;
+        std::vector<uint32_t> new_tri_id;
+        for ( int i = NDIM + 1; i < N; i++ ) {
+            PROFILE( "create-add_points", 3 );
+            // Add a point to the convex hull and create the new triangles
+            face_list.add_node(
+                I[i], unused, N_tri, new_tri_id, new_tri, new_tri_nab, neighbor, face );
+            int N_tri_new = new_tri_id.size();
+            // Increase the storage for tri and tri_nab if necessary
+            check_tri_size<NDIM>( N_tri, tri, tri_nab );
+            // Add each triangle and update the structures
+            for ( int j = 0; j < N_tri_new; j++ ) {
+                int index_new = new_tri_id[j];
+                for ( int j1 = 0; j1 <= NDIM; j1++ )
+                    tri[index_new][j1] = new_tri[j][j1];
+                for ( int j1 = 0; j1 <= NDIM; j1++ )
+                    tri_nab[index_new][j1] = new_tri_nab[j][j1];
+                std::swap( tri_nab[neighbor[j]][face[j]], index_new );
+                AMP_ASSERT( index_new == -1 );
+            }
+            // Get a list of the surfaces we need to check for a valid tesselation
+            for ( int j = 0; j < N_tri_new; j++ ) {
+                int index_new = new_tri_id[j];
+                for ( int j1 = 0; j1 <= NDIM; j1++ ) {
+                    if ( tri_nab[index_new][j1] != -1 ) {
+                        bool found = false;
+                        for ( auto &elem : check_surface ) {
+                            if ( index_new == elem.t1 && j1 == elem.f1 ) {
+                                // The surface is already in the list to check
+                                found = true;
+                                break;
+                            }
+                            if ( index_new == elem.t2 && j1 == elem.f2 ) {
+                                // The surface is already in the list to check
+                                found = true;
+                                break;
+                            }
+                        }
+                        if ( !found ) {
+                            check_surface_struct tmp;
+                            tmp.test = 0x00;
+                            tmp.t1   = index_new;
+                            tmp.f1   = j1;
+                            tmp.t2   = tri_nab[index_new][j1];
+                            int m    = tri_nab[index_new][j1];
+                            for ( int j2 = 0; j2 <= NDIM; j2++ ) {
+                                if ( tri_nab[m][j2] == index_new )
+                                    tmp.f2 = j2;
+                            }
+                            check_surface.push_back( tmp );
+                        }
+                    }
+                }
+            }
+
+            // Now that we have created a new triangle, perform any edge flips that
+            // are necessary to create a valid tesselation
+            size_t it = 1;
+            AMP_ASSERT( !check_surface.empty() );
+            while ( !check_surface.empty() ) {
+                PROFILE( "create-edge_flips", 4 );
+                if ( it > std::max<size_t>( 500, N_tri ) )
+                    AMP_ERROR( "Error: infinite loop detected" );
+                // First, lets eliminate all the surfaces that are fine
+                for ( auto &elem : check_surface ) {
+                    /* Check the surface to see if the triangle pairs need to undergo a flip
+                     * The surface is invalid and the triangles need to undergo a flip
+                     * if the vertex of either triangle lies within the circumsphere of the other.
+                     * Note: if the vertex of one triangle lies within the circumsphere of the
+                     * other, then the vertex of the other triangle will lie within the circumsphere
+                     * of the current triangle.  Consequently we only need to check one
+                     * vertex/triangle pair
+                     */
+                    if ( ( elem.test & 0x01 ) != 0 ) {
+                        // We already checked this surface
+                        continue;
+                    }
+                    Point x2[NDIM + 1];
+                    for ( int j1 = 0; j1 < NDIM + 1; j1++ ) {
+                        int m  = tri[elem.t1][j1];
+                        x2[j1] = x[m];
+                    }
+                    int m     = tri[elem.t2][elem.f2];
+                    int test  = test_in_circumsphere( x2, x[m] );
+                    elem.test = ( test != 1 ) ? 0xFF : 0x01;
+                }
+                // Remove all surfaces that are good
+                size_t n = 0;
+                for ( size_t k = 0; k < check_surface.size(); k++ ) {
+                    if ( check_surface[k].test != 0xFF ) {
+                        std::swap( check_surface[n], check_surface[k] );
+                        n++;
+                    }
+                }
+                check_surface.resize( n );
+                if ( check_surface.size() == 0 ) {
+                    // All surfaces are good, we are finished
+                    break;
+                }
+                // Find a valid flip
+                // The maximum flip currently supported is a 4-4 flip
+                int index_old[5], new_tri[( NDIM + 1 ) * 4], new_tri_nab[( NDIM + 1 ) * 4];
+                int N_tri_old     = 0;
+                int N_tri_new     = 0;
+                bool flipped_edge = find_flip( x,
+                                               tri.data(),
+                                               tri_nab.data(),
+                                               check_surface,
+                                               N_tri_old,
+                                               N_tri_new,
+                                               index_old,
+                                               new_tri,
+                                               new_tri_nab );
+                if ( !flipped_edge ) {
+                    // We did not find any valid flips, this is an error
+                    for ( auto &elem : check_surface )
+                        elem.test = 0;
+                    bool test = find_flip( x,
+                                           tri.data(),
+                                           tri_nab.data(),
+                                           check_surface,
+                                           N_tri_old,
+                                           N_tri_new,
+                                           index_old,
+                                           new_tri,
+                                           new_tri_nab );
+                    if ( test )
+                        printf( "   Valid flips were detected if we reset check_surface\n" );
+                    AMP_ERROR( "Error: no valid flips detected" );
+                }
+                // Check that we conserved the boundary triangles
+                int old_tri_nab[( NDIM + 1 ) *
+                                4]; // The maximum flip currently supported is a 4-4 flip
+                for ( int j1 = 0; j1 < N_tri_old; j1++ ) {
+                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
+                        int tmp = tri_nab[index_old[j1]][j2];
+                        for ( int j3 = 0; j3 < N_tri_old; j3++ ) {
+                            if ( tmp == index_old[j3] )
+                                tmp = -2 - tmp;
+                        }
+                        old_tri_nab[j2 + j1 * ( NDIM + 1 )] = tmp;
+                    }
+                }
+                bool pass = conserved_neighbors(
+                    N_tri_old * ( NDIM + 1 ), old_tri_nab, N_tri_new * ( NDIM + 1 ), new_tri_nab );
+                if ( !pass )
+                    AMP_ERROR( "Error: triangle neighbors not conserved" );
+                // Delete the old triangles, add the new ones, and update the structures
+                // First get the indicies where we will store the new triangles
+                int index_new[4];
+                for ( int j = 0; j < N_tri_new; j++ ) {
+                    if ( j < N_tri_old ) {
+                        // We can just reuse the storage of the old indicies
+                        index_new[j] = index_old[j];
+                    } else if ( !unused.empty() ) {
+                        // Use a previously freed place
+                        index_new[j] = (int) unused.back();
+                        unused.pop_back();
+                    } else {
+                        // We will need to expand N_tri
+                        check_tri_size<NDIM>( N_tri + 1, tri, tri_nab );
+                        index_new[j] = (int) N_tri;
+                        N_tri++;
+                    }
+                }
+                // Delete the old triangles
+                int N_face_update = 0;
+                int old_tri_id[4 * ( NDIM + 1 )], old_face_id[4 * ( NDIM + 1 )],
+                    new_tri_id[4 * ( NDIM + 1 )], new_face_id[4 * ( NDIM + 1 )];
+                for ( int j = N_tri_new; j < N_tri_old; j++ )
+                    unused.push_back( index_old[j] );
+                for ( int j1 = 0; j1 < N_tri_old; j1++ ) {
+                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
+                        tri[index_old[j1]][j2] = -1;
+                        if ( tri_nab[index_old[j1]][j2] == -1 ) {
+                            // The given face is on the convex hull
+                            old_tri_id[N_face_update]  = index_old[j1];
+                            old_face_id[N_face_update] = j2;
+                            N_face_update++;
+                        } else {
+                            // The given face is not on the convex hull
+                            /*bool is_old = false;
+                            for (int j3=0; j3<N_tri_old; j3++) {
+                                if ( tri_nab[index_old[j1]][j2]==index_old[j3] )
+                                    is_old = true;
+                            }*/
+                        }
+                        tri_nab[index_old[j1]][j2] = -2;
+                    }
+                }
+                for ( int j1 = 0; j1 < N_tri_old; j1++ ) {
+                    size_t j2 = 0;
+                    while ( j2 < check_surface.size() ) {
+                        if ( check_surface[j2].t1 == index_old[j1] ||
+                             check_surface[j2].t2 == index_old[j1] ) {
+                            std::swap( check_surface[j2], check_surface.back() );
+                            check_surface.pop_back();
+                        } else {
+                            j2++;
+                        }
+                    }
+                }
+                // Create the new triangles
+                for ( int j1 = 0; j1 < N_tri_new; j1++ ) {
+                    for ( int j2 = 0; j2 <= NDIM; j2++ )
+                        tri[index_new[j1]][j2] = new_tri[j2 + j1 * ( NDIM + 1 )];
+                }
+                // Update the triangle neighbors and determine the new lists of surfaces to check
+                int N_face_update2 = 0;
+                for ( int j1 = 0; j1 < N_tri_new; j1++ ) {
+                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
+                        int k1 = index_new[j1];
+                        int k2 = new_tri_nab[j2 + j1 * ( NDIM + 1 )];
+                        if ( k2 < -1 ) {
+                            // Neighbor triangle is one of the new triangles; update tr_nab
+                            tri_nab[k1][j2] = index_new[-k2 - 2];
+                        } else if ( k2 == -1 ) {
+                            // Face is on the convex hull; update tri_nab and store the face
+                            tri_nab[k1][j2]             = -1;
+                            new_tri_id[N_face_update2]  = index_new[j1];
+                            new_face_id[N_face_update2] = j2;
+                            N_face_update2++;
+                        } else {
+                            // Neighbor triangle is an existing triangle; update tr_nab for the new
+                            // triangle, the exisiting triangle, and add the face to check_surface
+                            tri_nab[k1][j2] = k2;
+                            int tmp[NDIM];
+                            for ( int m = 0; m < j2; m++ )
+                                tmp[m] = tri[k1][m];
+                            for ( int m = j2 + 1; m <= NDIM; m++ )
+                                tmp[m - 1] = tri[k1][m];
+                            int face = -1;
+                            for ( int m1 = 0; m1 <= NDIM; m1++ ) {
+                                bool found = false;
+                                for ( auto &elem : tmp ) {
+                                    if ( tri[k2][m1] == elem )
+                                        found = true;
+                                }
+                                if ( !found ) {
+                                    face = m1;
+                                    break;
+                                }
+                            }
+                            tri_nab[k2][face] = index_new[j1];
+                            check_surface_struct tmp2;
+                            tmp2.test = 0x00;
+                            tmp2.t1   = k1;
+                            tmp2.f1   = j2;
+                            tmp2.t2   = k2;
+                            tmp2.f2   = face;
+                            check_surface.push_back( tmp2 );
+                        }
+                    }
+                }
+                // Update the faces on the convex hull
+                if ( N_face_update != N_face_update2 ) {
+                    printf( "N_face_update = %i, k = %i\n", N_face_update, N_face_update2 );
+                    AMP_ERROR( "internal error" );
+                }
+                face_list.update_face(
+                    N_face_update, old_tri_id, old_face_id, new_tri_id, new_face_id, tri.data() );
+                it++;
+            }
+        }
+        check_surface.clear();
+        I = std::vector<int>();
+
+        // Delete any unused triangles
+        PROFILE( "clean up", 3 );
+        while ( !unused.empty() ) {
+            // First, see if any unused slots are at the end of the list
+            size_t index = unused.size();
+            for ( size_t i = 0; i < unused.size(); i++ ) {
+                if ( unused[i] == N_tri - 1 ) {
+                    index = i;
+                    break;
+                }
+            }
+            if ( index < unused.size() ) {
+                unused[index] = unused.back();
+                unused.pop_back();
+                N_tri--;
+                continue;
+            }
+            // Move the last triangle to fill the last gap
+            auto new_tri_id = static_cast<int>( unused.back() ); // The new triangle number
+            auto old_tri_id = static_cast<int>( N_tri - 1 );     // The old triangle number
+            for ( int j = 0; j <= NDIM; j++ ) {
+                tri[new_tri_id][j]     = tri[old_tri_id][j];
+                tri_nab[new_tri_id][j] = tri_nab[old_tri_id][j];
+                // Update the neighbors
+                if ( tri_nab[new_tri_id][j] != -1 ) {
+                    bool found = false;
+                    for ( int j2 = 0; j2 <= NDIM; j2++ ) {
+                        if ( tri_nab[tri_nab[new_tri_id][j]][j2] == old_tri_id ) {
+                            tri_nab[tri_nab[new_tri_id][j]][j2] = new_tri_id;
+                            found                               = true;
+                        }
+                    }
+                    if ( !found )
+                        AMP_ERROR( "Error with internal structures (delete any unused triangles)" );
+                }
+            }
+            // Update the face list
+            for ( int j = 0; j <= NDIM; j++ ) {
+                if ( tri_nab[new_tri_id][j] == -1 )
+                    face_list.update_face( 1, &old_tri_id, &j, &new_tri_id, &j, tri.data() );
+            }
+            unused.pop_back();
+            N_tri--;
+        }
+        bool test = false;
+        for ( size_t i = 0; i < N_tri; i++ ) {
+            for ( int d = 0; d <= NDIM; d++ ) {
+                if ( tri[i][d] == -1 )
+                    test = true;
+            }
+        }
+        if ( test ) {
+            // We should have removed all the NULL triangles in the previous step
+            AMP_ERROR( "Error with internal structures (NULL tri)\n" );
+        }
+
+        // Check the final set of triangles to make sure they are all valid
+        bool all_valid =
+            check_current_triangles<NDIM>( N, x, N_tri, tri.data(), tri_nab.data(), unused );
+        if ( !all_valid )
+            AMP_ERROR( "Final check of triangles failed" );
+
+        // Resize the output vectors
+        AMP::Array<int> tri2( NDIM + 1, N_tri ), tri_nab2( NDIM + 1, N_tri );
+        memcpy( tri2.data(), tri[0].data(), ( NDIM + 1 ) * N_tri * sizeof( int ) );
+        memcpy( tri_nab2.data(), tri_nab[0].data(), ( NDIM + 1 ) * N_tri * sizeof( int ) );
+        return std::tie( tri2, tri_nab2 );
+
+    } catch ( const StackTrace::abort_error &e ) {
+        std::cout << "Failed to create tessellation\n";
+#ifdef USE_AMP_HDF5
+        auto fid = AMP::IO::openHDF5( "DelaunayTessellationFailed.hdf", "w" );
+        AMP::IO::writeHDF5( fid, "x", x0 );
+        AMP::IO::closeHDF5( fid );
+#endif
+        throw e;
+    }
+}
+template std::tuple<AMP::Array<int>, AMP::Array<int>>
+create_tessellation<2>( const AMP::Array<int> & );
+template std::tuple<AMP::Array<int>, AMP::Array<int>>
+create_tessellation<3>( const AMP::Array<int> & );
 
 
 } // namespace AMP::DelaunayTessellation

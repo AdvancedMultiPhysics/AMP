@@ -13,7 +13,6 @@
 namespace AMP::DelaunayTessellation {
 
 
-//! Check if
 /*!
  * @brief  Check if all the points are collinear
  * @details  This function will check if all the points in a set are collinear
@@ -25,7 +24,6 @@ namespace AMP::DelaunayTessellation {
 bool collinear( const AMP::Array<int> &x );
 
 
-//! Function that creates the Delaunay Tessellation
 /*!
  * @brief  Creates a Delaunay Tessellation
  * @details  This function will create a valid Delaunay Tessellation in multiple dimensions.
@@ -42,22 +40,6 @@ bool collinear( const AMP::Array<int> &x );
 template<int NDIM>
 std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const AMP::Array<int> &x );
 
-
-//! Function to check if a point is inside the circumsphere of a simplex.
-/*!
- * This function checks if a point is inside the circumsphere of a simplex.
- * It returns -1 if the point is outside the circumsphere, 1 if it is inside the sphere,
- * and 0 if it is within the tolerance of the sphere.
- * Note:  For this function to work properly, the volume of the simplex
- *    (as computed by calcVolume) must be positive.
- * Note:  If we are checking the surface between 2 simplicies and they are both valid
- *    (have a positive, non-zero volume), it is suffcient to check the vertex of 1 volume
- *    against the circumcircle of the other.  We do not need to perform both checks.
- * @param x         The coordinates of the vertices of the simplex
- * @param xi        The coordinates of the vertex to check
- */
-template<int NDIM>
-int test_in_circumsphere( const std::array<int, NDIM> x[], const std::array<int, NDIM> &xi );
 
 } // namespace AMP::DelaunayTessellation
 

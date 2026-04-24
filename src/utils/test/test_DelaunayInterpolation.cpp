@@ -239,13 +239,13 @@ void checkCircumsphere( AMP::UnitTest &ut, const AMP::Array<TYPE> &x, const AMP:
             for ( int d = 0; d < NDIM; d++ )
                 xi[d] = c[d];
             xi[j]     = c[j] - 10.0 * R;
-            int test1 = AMP::DelaunayHelpers::test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            int test1 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
             xi[j]     = c[j] - 0.1 * R;
-            int test2 = AMP::DelaunayHelpers::test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            int test2 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
             xi[j]     = c[j] + 10.0 * R;
-            int test3 = AMP::DelaunayHelpers::test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            int test3 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
             xi[j]     = c[j] + 0.1 * R;
-            int test4 = AMP::DelaunayHelpers::test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            int test4 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
             if ( test1 != -1 || test2 != 1 || test3 != -1 || test4 != 1 ) {
                 pass = false;
             }
@@ -317,7 +317,7 @@ void testTessellation( AMP::UnitTest &ut,
             for ( size_t j = 0; j < N; j++ ) {
                 for ( int d = 0; d < NDIM; d++ )
                     xi[d] = x( d, j );
-                int test = AMP::DelaunayHelpers::test_in_circumsphere<NDIM, TYPE>( x2, xi, 1e-8 );
+                int test = test_in_circumsphere<NDIM, TYPE>( x2, xi, 1e-8 );
                 if ( test == 1 ) {
                     pass_circumsphere = false;
                     break;

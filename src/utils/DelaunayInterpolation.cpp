@@ -63,6 +63,31 @@ static void compute_gradient( const int ndim, const double *x, const double *f, 
 static constexpr double TRI_TOL = 1e-10;
 
 
+/****************************************************************
+ * Function to compute the Barycentric coordinates               *
+ ****************************************************************/
+static void compute_Barycentric( int ndim, const double *x, const double *xi, double *L )
+{
+    // Compute the barycentric coordinates T*L=r-r0
+    // http://en.wikipedia.org/wiki/Barycentric_coordinate_system_(mathematics)
+    double T[NDIM_MAX * NDIM_MAX];
+    for ( int i = 0; i < ndim * ndim; i++ )
+        T[i] = 0.0;
+    for ( int i = 0; i < ndim; i++ ) {
+        for ( int j = 0; j < ndim; j++ ) {
+            T[j + i * ndim] = x[j + i * ndim] - x[j + ndim * ndim];
+        }
+    }
+    double r[NDIM_MAX] = { 0 };
+    for ( int i = 0; i < ndim; i++ )
+        r[i] = xi[i] - x[i + ndim * ndim];
+    DelaunayHelpers::solve( ndim, T, r, L );
+    L[ndim] = 1.0;
+    for ( int i = 0; i < ndim; i++ )
+        L[ndim] -= L[i];
+}
+
+
 /********************************************************************
  * Constructors                                                      *
  ********************************************************************/
@@ -676,7 +701,7 @@ void DelaunayInterpolation::interp_cubic_single( const double f[],
         if ( fabs( L[j] ) < TRI_TOL )
             L[j] = 0.0;
     }
-    // Count the number of zero-valued and negitive dimensions
+    // Count the number of zero-valued and negative dimensions
     int N_L_zero = 0;
     int N_L_neg  = 0;
     for ( int j = 0; j < ndim + 1; j++ ) {
@@ -1189,35 +1214,6 @@ void DelaunayInterpolation::create_node_tri() const
         for ( int j = 0; j <= ndim; j++ )
             d_node_tri[d_tri( j, i )] = static_cast<int>( i );
     }
-}
-
-
-/****************************************************************
- * Function to compute the Barycentric coordinates               *
- ****************************************************************/
-void DelaunayInterpolation::compute_Barycentric( const int ndim,
-                                                 const double *x,
-                                                 const double *xi,
-                                                 double *L )
-{
-    // Compute the barycentric coordinates T*L=r-r0
-    // http://en.wikipedia.org/wiki/Barycentric_coordinate_system_(mathematics)
-    double T[NDIM_MAX * NDIM_MAX];
-    for ( int i = 0; i < ndim * ndim; i++ )
-        T[i] = 0.0;
-    for ( int i = 0; i < ndim; i++ ) {
-        for ( int j = 0; j < ndim; j++ ) {
-            T[j + i * ndim] = x[j + i * ndim] - x[j + ndim * ndim];
-        }
-    }
-    // double r[ndim];
-    double r[NDIM_MAX] = { 0 };
-    for ( int i = 0; i < ndim; i++ )
-        r[i] = xi[i] - x[i + ndim * ndim];
-    DelaunayHelpers::solve( ndim, T, r, L );
-    L[ndim] = 1.0;
-    for ( int i = 0; i < ndim; i++ )
-        L[ndim] -= L[i];
 }
 
 

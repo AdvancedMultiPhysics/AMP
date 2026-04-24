@@ -154,7 +154,6 @@ public:
     /*!
      * This function performs nearest-neighbor interpoaltion.
      * @param f         Function values at the triangle vertices (N)
-     * @param xi        Coordinates of the query points ( ndim x Ni )
      * @param nearest   The nearest-neighbor points (see find_nearest) ( Ni)
      * @return          Return the interpolated function values at xi (Ni)
      */
@@ -216,18 +215,6 @@ public:
     {
         return interp_cubic2( f, g, xi.template cloneTo<double>(), index, extrap );
     }
-
-
-    //! Subroutine to compute the Barycentric coordinates
-    /**
-     * This function computes the Barycentric coordinates and the matrix T to convert
-     * from Barycentric coordinates to cartesian (x=T*L).
-     * @param ndim  Number of dimensions
-     * @param x     Coordinates of the triangle vertices( ndim x ndim+1 )
-     * @param xi    Coordinates of the desired point( ndim x 1 )
-     * @param L     (output) The Barycentric coordinates of the point( ndim+1 x 1 )
-     */
-    static void compute_Barycentric( const int ndim, const double *x, const double *xi, double *L );
 
 
 private:
