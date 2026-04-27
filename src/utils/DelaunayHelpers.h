@@ -68,11 +68,11 @@ inline TYPE det( const TYPE *M )
     } else if constexpr ( NDIM == 2 ) {
         return M[0] * M[3] - M[1] * M[2];
     } else if constexpr ( NDIM == 3 ) {
-        TYPE det( 0 );
-        det += M[0] * ( M[4] * M[8] - M[7] * M[5] );
-        det -= M[3] * ( M[1] * M[8] - M[7] * M[2] );
-        det += M[6] * ( M[1] * M[5] - M[4] * M[2] );
-        return det;
+        TYPE D( 0 );
+        D += M[0] * ( M[4] * M[8] - M[7] * M[5] );
+        D -= M[3] * ( M[1] * M[8] - M[7] * M[2] );
+        D += M[6] * ( M[1] * M[5] - M[4] * M[2] );
+        return D;
     } else if constexpr ( NDIM == 4 ) {
         TYPE tmp[6];
         tmp[0] = M[2] * M[7] - M[6] * M[3];
@@ -81,12 +81,12 @@ inline TYPE det( const TYPE *M )
         tmp[3] = M[6] * M[11] - M[10] * M[7];
         tmp[4] = M[6] * M[15] - M[14] * M[7];
         tmp[5] = M[10] * M[15] - M[14] * M[11];
-        TYPE det( 0 );
-        det += M[0] * ( M[5] * tmp[5] - M[9] * tmp[4] + M[13] * tmp[3] );
-        det -= M[4] * ( M[1] * tmp[5] - M[9] * tmp[2] + M[13] * tmp[1] );
-        det += M[8] * ( M[1] * tmp[4] - M[5] * tmp[2] + M[13] * tmp[0] );
-        det -= M[12] * ( M[1] * tmp[3] - M[5] * tmp[1] + M[9] * tmp[0] );
-        return det;
+        TYPE D( 0 );
+        D += M[0] * ( M[5] * tmp[5] - M[9] * tmp[4] + M[13] * tmp[3] );
+        D -= M[4] * ( M[1] * tmp[5] - M[9] * tmp[2] + M[13] * tmp[1] );
+        D += M[8] * ( M[1] * tmp[4] - M[5] * tmp[2] + M[13] * tmp[0] );
+        D -= M[12] * ( M[1] * tmp[3] - M[5] * tmp[1] + M[9] * tmp[0] );
+        return D;
     } else {
         throw std::logic_error( "Not programmed" );
     }
@@ -108,11 +108,10 @@ inline typename getETYPE<3, int>::ETYPE det2<3>( const int *M )
 {
     using int64  = int64_t;
     using int128 = typename getETYPE<3, int>::ETYPE;
-    int128 t1    = int128( int64( M[4] ) * int64( M[8] ) - int64( M[7] ) * int64( M[5] ) );
-    int128 t2    = int128( int64( M[1] ) * int64( M[8] ) - int64( M[7] ) * int64( M[2] ) );
-    int128 t3    = int128( int64( M[1] ) * int64( M[5] ) - int64( M[4] ) * int64( M[2] ) );
-    auto det     = int128( M[0] ) * t1 + int128( -M[3] ) * t2 + int128( M[6] ) * t3;
-    return det;
+    int128 t1( int64( M[4] ) * int64( M[8] ) - int64( M[7] ) * int64( M[5] ) );
+    int128 t2( int64( M[1] ) * int64( M[8] ) - int64( M[7] ) * int64( M[2] ) );
+    int128 t3( int64( M[1] ) * int64( M[5] ) - int64( M[4] ) * int64( M[2] ) );
+    return int128( M[0] ) * t1 + int128( -M[3] ) * t2 + int128( M[6] ) * t3;
 }
 template<std::size_t NDIM>
 inline long double det2( const double *M )

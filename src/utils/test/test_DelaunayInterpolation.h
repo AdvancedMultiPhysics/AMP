@@ -262,26 +262,26 @@ AMP::Array<double> createRandomPoints<double>( int ndim, int N )
  * det(A) == 0:  We are on the circumsphere                              *
  * det(A) > 0:   We are inside the circumsphere                          *
  * det(A) < 0:   We are outside the circumsphere                         *
- *                                                                       *
- * Note: this implementation uses floating point types                   *
  ************************************************************************/
 template<int NDIM, class TYPE>
 int test_in_circumsphere( const std::array<TYPE, NDIM> *x,
                           const std::array<TYPE, NDIM> &xi,
-                          double TOL_VOL )
+                          [[maybe_unused]] double TOL_VOL )
 {
-    if constexpr ( NDIM == 1 ) {
+    if constexpr ( std::is_same_v<TYPE, int> ) {
+        return AMP::DelaunayTessellation::test_in_circumsphere<NDIM>( x, xi );
+    } else if constexpr ( NDIM == 1 ) {
         TYPE x1 = std::min( x[0][0], x[1][0] );
         TYPE x2 = std::max( x[0][0], x[1][0] );
-        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x1 ) <= TOL_VOL )
+        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x2 ) <= TOL_VOL )
             return 0; // We are on the circumsphere
         if ( xi[0] > x1 && xi[0] < x2 )
             return 1; // We inside the circumsphere
         return -1;    // We outside the circumsphere
     } else {
         // Solve the sub-determinants (requires N^NDIM precision)
-        double R2 = 0.0;
-        long double det2[NDIM + 1], R[NDIM + 1];
+        double R2                  = 0.0;
+        long double det2[NDIM + 1] = { 0 }, R[NDIM + 1] = { 0 };
         for ( int d = 0; d <= NDIM; d++ ) {
             long double A2[NDIM * NDIM];
             long double sum( 0 );

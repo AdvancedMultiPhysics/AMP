@@ -42,35 +42,22 @@ struct check_surface_struct {
  * Note: We are already using an increased precision, and want to    *
  * maintain the maximum degree of accuracy possible.                 *
  ********************************************************************/
-#ifdef __SIZEOF_INT128__
+using int128 = typename getETYPE<3, int>::ETYPE;
+using int256 = AMP::extended::int256_t;
 DISABLE_WARNINGS
 static inline double dot3( const int64_t *x, const uint64_t *y )
 {
-    auto ans = __int128( x[0] ) * __int128( y[0] ) + __int128( x[1] ) * __int128( y[1] ) +
-               __int128( x[2] ) * __int128( y[2] );
+    auto ans = int128( x[0] ) * int128( y[0] ) + int128( x[1] ) * int128( y[1] ) +
+               int128( x[2] ) * int128( y[2] );
     return static_cast<double>( ans );
 }
-static inline double dot4( const __int128 *x, const uint64_t *y )
+static inline double dot4( const int128 *x, const uint64_t *y )
 {
-    auto ans = int256_t( x[0] ) * int256_t( y[0] ) + int256_t( x[1] ) * int256_t( y[1] ) +
-               int256_t( x[2] ) * int256_t( y[2] ) + int256_t( x[3] ) * int256_t( y[3] );
+    auto ans = int256( x[0] ) * int256( y[0] ) + int256( x[1] ) * int256( y[1] ) +
+               int256( x[2] ) * int256( y[2] ) + int256( x[3] ) * int256( y[3] );
     return static_cast<double>( ans );
 }
 ENABLE_WARNINGS
-#else
-static inline double dot3( const int64_t *x, const uint64_t *y )
-{
-    auto ans = int128_t( x[0] ) * int128_t( y[0] ) + int128_t( x[1] ) * int128_t( y[1] ) +
-               int128_t( x[2] ) * int128_t( y[2] );
-    return static_cast<double>( ans );
-}
-static inline double dot4( const int128_t *x, const uint64_t *y )
-{
-    auto ans = int256_t( x[0] ) * int256_t( y[0] ) + int256_t( x[1] ) * int256_t( y[1] ) +
-               int256_t( x[2] ) * int256_t( y[2] ) + int256_t( x[3] ) * int256_t( y[3] );
-    return static_cast<double>( ans );
-}
-#endif
 
 
 /************************************************************************
@@ -92,56 +79,46 @@ static inline double dot4( const int128_t *x, const uint64_t *y )
  *                                                                       *
  * Note: this implementation requires N^(D+2) precision                  *
  ************************************************************************/
-static int test_in_circumsphere( const std::array<int, 2> x[], const std::array<int, 2> &xi )
+template<>
+int test_in_circumsphere<1>( const std::array<int, 1> x[], const std::array<int, 1> &xi )
 {
-    // Solve the sub-determinants (requires N^2 precision)
-    int64_t det2[3];
-    uint64_t R[3] = { 0, 0, 0 };
-    for ( int d = 0; d <= 2; d++ ) {
-        int A2[4];
-        for ( int j = 0; j < 2; j++ ) {
-            int64_t tmp = x[d][j] - xi[j];
-            R[d] += tmp * tmp;
-            for ( int i = 0; i < d; i++ )
-                A2[i + j * 2] = x[i][j] - xi[j];
-            for ( int i = d + 1; i <= 2; i++ )
-                A2[i - 1 + j * 2] = x[i][j] - xi[j];
-        }
-        det2[d] = DelaunayHelpers::det2<2>( A2 );
-        if ( ( 2 + d ) % 2 == 1 )
-            det2[d] = -det2[d];
-    }
-    // Compute the determinate
-    double det_A = dot3( det2, R );
-    if ( fabs( det_A ) == 0 )
+    int x1 = std::min( x[0][0], x[1][0] );
+    int x2 = std::max( x[0][0], x[1][0] );
+    if ( xi[0] == x1 || xi[0] == x2 )
         return 0; // We are on the circumsphere
-    else if ( det_A > 0 )
+    if ( xi[0] > x1 && xi[0] < x2 )
         return 1; // We inside the circumsphere
-    else
-        return -1; // We outside the circumsphere
+    return -1;    // We outside the circumsphere
 }
-static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<int, 3> &xi )
+template<int NDIM>
+int test_in_circumsphere( const std::array<int, NDIM> x[], const std::array<int, NDIM> &xi )
 {
-    using ETYPE = typename getETYPE<3, int>::ETYPE;
+    using ETYPE = typename getETYPE<NDIM, int>::ETYPE;
     // Solve the sub-determinants (requires N^3 precision)
-    ETYPE det2[4];
-    uint64_t R[4] = { 0, 0, 0, 0 };
-    for ( int d = 0; d <= 3; d++ ) {
-        int A2[9];
-        for ( int j = 0; j < 3; j++ ) {
+    ETYPE det2[NDIM + 1];
+    uint64_t R[NDIM + 1];
+    for ( int d = 0; d <= NDIM; d++ ) {
+        R[d] = 0;
+        int A2[NDIM * NDIM];
+        for ( int j = 0; j < NDIM; j++ ) {
             int64_t tmp = x[d][j] - xi[j];
             R[d] += tmp * tmp;
             for ( int i = 0; i < d; i++ )
-                A2[i + j * 3] = x[i][j] - xi[j];
-            for ( int i = d + 1; i <= 3; i++ )
-                A2[i - 1 + j * 3] = x[i][j] - xi[j];
+                A2[i + j * NDIM] = x[i][j] - xi[j];
+            for ( int i = d + 1; i <= NDIM; i++ )
+                A2[i - 1 + j * NDIM] = x[i][j] - xi[j];
         }
-        det2[d] = DelaunayHelpers::det2<3>( A2 );
-        if ( ( 3 + d ) % 2 == 1 )
+        det2[d] = DelaunayHelpers::det2<NDIM>( A2 );
+        if ( ( NDIM + d ) % 2 == 1 )
             det2[d] = -det2[d];
     }
     // Compute the determinate
-    double det_A = dot4( det2, R );
+    double det_A = 0;
+    if constexpr ( NDIM == 2 ) {
+        det_A = dot3( det2, R );
+    } else if constexpr ( NDIM == 3 ) {
+        det_A = dot4( det2, R );
+    }
     if ( fabs( det_A ) == 0 )
         return 0; // We are on the circumsphere
     else if ( det_A > 0 )
@@ -149,6 +126,8 @@ static int test_in_circumsphere( const std::array<int, 3> x[], const std::array<
     else
         return -1; // We outside the circumsphere
 }
+template int test_in_circumsphere<2>( const std::array<int, 2>[], const std::array<int, 2> & );
+template int test_in_circumsphere<3>( const std::array<int, 3>[], const std::array<int, 3> & );
 
 
 /********************************************************************
@@ -791,7 +770,7 @@ static bool flip_3D_22( const std::array<int, 3> x[],
                 int k = new_tri[j];
                 x2[j] = x[k];
             }
-            int test = test_in_circumsphere( x2, x[v4] );
+            int test = test_in_circumsphere<3>( x2, x[v4] );
             if ( test == 1 ) {
                 // The flip did not fix the Delaunay condition
                 continue;
@@ -971,7 +950,7 @@ static bool flip_3D_32( const std::array<int, 3> x[],
             int k = new_tri[j];
             x2[j] = x[k];
         }
-        int test = test_in_circumsphere( x2, x[nodes[1]] );
+        int test = test_in_circumsphere<3>( x2, x[nodes[1]] );
         if ( test == 1 ) {
             // The new triangles did not fixed the surface
             continue;
@@ -1113,7 +1092,7 @@ static bool flip_3D_23( const std::array<int, 3> x[],
         } else {
             k = is[0];
         }
-        int test = test_in_circumsphere( x2, x[k] );
+        int test = test_in_circumsphere<3>( x2, x[k] );
         if ( test == 1 ) {
             // The new triangles did not fix the surface
             isvalid = false;
@@ -1441,7 +1420,7 @@ static bool flip_3D_44( const std::array<int, 3> x[],
                         k = new_tri[7];
                     else if ( it2 == 1 || it2 == 3 )
                         k = new_tri[3];
-                    int test = test_in_circumsphere( x2, x[k] );
+                    int test = test_in_circumsphere<3>( x2, x[k] );
                     if ( test == 1 )
                         isvalid = false;
                 }
@@ -1812,7 +1791,7 @@ std::tuple<AMP::Array<int>, AMP::Array<int>> create_tessellation( const AMP::Arr
                         x2[j1] = x[m];
                     }
                     int m     = tri[elem.t2][elem.f2];
-                    int test  = test_in_circumsphere( x2, x[m] );
+                    int test  = test_in_circumsphere<NDIM>( x2, x[m] );
                     elem.test = ( test != 1 ) ? 0xFF : 0x01;
                 }
                 // Remove all surfaces that are good
