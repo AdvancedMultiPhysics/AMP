@@ -107,7 +107,6 @@ bool VS_Components::isSelected( const Vector &vec ) const
 std::shared_ptr<Vector> VS_Components::subset( std::shared_ptr<Vector> p ) const
 {
     PROFILE( "VS_Components::subset" );
-
     if ( d_index.empty() )
         return nullptr;
     size_t N = p->getNumberOfComponents();
@@ -117,19 +116,15 @@ std::shared_ptr<Vector> VS_Components::subset( std::shared_ptr<Vector> p ) const
     } else if ( std::dynamic_pointer_cast<MultiVector>( p ) ) {
         auto multivec = std::dynamic_pointer_cast<MultiVector>( p );
         std::vector<std::shared_ptr<Vector>> vecs;
-        auto index = d_index;
-#if 1
         std::vector<size_t> nc( N );
         size_t i = 0;
         for ( auto vec : *multivec ) {
             nc[i] = vec->getNumberOfComponents();
             ++i;
         }
-
         for ( i = 1u; i < N; ++i )
             nc[i] += nc[i - 1];
-
-        for ( auto &ic : index ) {
+        for ( auto ic : d_index ) {
             for ( i = 0u; i < N; ++i ) {
                 if ( nc[i] > ic ) {
                     auto cv = multivec->getVector( i );
@@ -142,20 +137,6 @@ std::shared_ptr<Vector> VS_Components::subset( std::shared_ptr<Vector> p ) const
                 }
             }
         }
-#else
-        for ( auto vec : *multivec ) {
-            auto N2   = vec->getNumberOfComponents();
-            auto vec2 = vec->selectInto( VS_Components( index ) );
-            if ( vec2 )
-                vecs.push_back( vec );
-            std::vector<size_t> index2;
-            for ( auto &i : index ) {
-                if ( i >= N2 )
-                    index2.push_back( i - N2 );
-            }
-            std::swap( index, index2 );
-        }
-#endif
         return MultiVector::create( p->getName(), p->getComm(), vecs );
     } else {
         AMP_ERROR( "Not finished: " + p->type() );

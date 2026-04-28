@@ -35,8 +35,6 @@ using AMP::Utilities::stringf;
 
 
 constexpr int NDIM_MAX = 3; // The maximum number of dimensions supported (currently 3)
-constexpr int NTRI_MAX = NDIM_MAX + 1;
-constexpr int NVTX_MAX = NTRI_MAX * NDIM_MAX;
 
 
 // Helper function to check if two numbers are approximately equal
