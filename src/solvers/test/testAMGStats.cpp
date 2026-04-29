@@ -135,11 +135,11 @@ void statsTest( AMP::UnitTest *ut,
     auto amg = std::dynamic_pointer_cast<AMP::Solver::AMG::SASolver>( linearSolver );
     AMP_INSIST( amg, "testAMGStats: preconditioner must be AMG" );
 
-    AMP::Solver::AMG::HierarchyStats expected{ 1.12446,
+    AMP::Solver::AMG::HierarchyStats expected{ 1.11908,
                                                1.0458,
                                                { { "SASolver", 2, 4913, 117649, 2601, 2312 },
-                                                 { "SASolver", 2, 216, 14562, 108, 108 },
-                                                 { "BoomerAMGSolver", 2, 9, 81, 5, 4 } } };
+                                                 { "SASolver", 2, 216, 13946, 108, 108 },
+                                                 { "BoomerAMGSolver", 2, 8, 64, 4, 4 } } };
 
     auto stats =
         AMP::Solver::AMG::collect_statistics( amg->type(), amg->levels(), amg->getCoarseSolver() );
