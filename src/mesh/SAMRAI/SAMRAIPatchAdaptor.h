@@ -21,10 +21,10 @@ class SAMRAIPatchAdaptor : public SAMRPatch
 {
 
 public:
-    SAMRAIPatchAdaptor()                                         = default;
-    SAMRAIPatchAdaptor( const SAMRAIPatchAdaptor & )             = delete;
-    SAMRAIPatchAdaptor( SAMRAIPatchAdaptor && )                  = delete;
-    SAMRAIPatchAdaptor &operator=( const SAMRAIPatchAdaptor & )  = delete;
+    SAMRAIPatchAdaptor()                             = default;
+    SAMRAIPatchAdaptor( const SAMRAIPatchAdaptor & ) = delete;
+    SAMRAIPatchAdaptor( SAMRAIPatchAdaptor && )      = delete;
+    SAMRAIPatchAdaptor &operator=( const SAMRAIPatchAdaptor & ) = delete;
     SAMRAIPatchAdaptor &operator=( const SAMRAIPatchAdaptor && ) = delete;
     explicit SAMRAIPatchAdaptor( std::shared_ptr<SAMRAI::hier::Patch> patch );
     virtual ~SAMRAIPatchAdaptor() = default;

@@ -34,10 +34,10 @@ public:
     virtual std::vector<int> getPeriodicShift( void )                                     = 0;
     virtual void reset( void )                                                            = 0;
 
-    SAMRHierarchy()                                    = default;
-    SAMRHierarchy( const SAMRHierarchy & )             = delete;
-    SAMRHierarchy( SAMRHierarchy && )                  = delete;
-    SAMRHierarchy &operator=( const SAMRHierarchy & )  = delete;
+    SAMRHierarchy()                        = default;
+    SAMRHierarchy( const SAMRHierarchy & ) = delete;
+    SAMRHierarchy( SAMRHierarchy && )      = delete;
+    SAMRHierarchy &operator=( const SAMRHierarchy & ) = delete;
     SAMRHierarchy &operator=( const SAMRHierarchy && ) = delete;
 
     // functions derived from AMP::Mesh

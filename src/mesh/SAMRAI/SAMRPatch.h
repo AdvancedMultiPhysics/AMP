@@ -11,10 +11,10 @@ public:
     virtual bool inHierarchy()      = 0;
     virtual unsigned short getDim() = 0;
 
-    SAMRPatch()                                = default;
-    SAMRPatch( const SAMRPatch & )             = delete;
-    SAMRPatch( SAMRPatch && )                  = delete;
-    SAMRPatch &operator=( const SAMRPatch & )  = delete;
+    SAMRPatch()                    = default;
+    SAMRPatch( const SAMRPatch & ) = delete;
+    SAMRPatch( SAMRPatch && )      = delete;
+    SAMRPatch &operator=( const SAMRPatch & ) = delete;
     SAMRPatch &operator=( const SAMRPatch && ) = delete;
 };
 

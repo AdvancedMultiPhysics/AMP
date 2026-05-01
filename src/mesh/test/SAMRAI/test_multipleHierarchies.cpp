@@ -29,25 +29,25 @@ struct Expected {
 
 struct inp_1_hier_1 : Expected<inp_1_hier_1, 3, 64, 64> {
     static constexpr char name[] = "input 1, Hierarchy 1";
-    static constexpr std::array<int, number_of_levels * dim> ratio_to_level_zero_ = { 1, 1, 1,
-                                                                                      2, 2, 2 };
+    static constexpr std::array<int, number_of_levels *dim> ratio_to_level_zero_ = { 1, 1, 1,
+                                                                                     2, 2, 2 };
 };
 
 struct inp_1_hier_2 : Expected<inp_1_hier_2, 3, 512, 128> {
     static constexpr char name[] = "input 1, Hierarchy 2";
-    static constexpr std::array<int, number_of_levels * dim> ratio_to_level_zero_ = { 1, 1, 1,
-                                                                                      2, 1, 1 };
+    static constexpr std::array<int, number_of_levels *dim> ratio_to_level_zero_ = { 1, 1, 1,
+                                                                                     2, 1, 1 };
 };
 
 struct inp_2_hier_1 : Expected<inp_2_hier_1, 2, 16, 16> {
     static constexpr char name[] = "input 2, Hierarchy 1";
-    static constexpr std::array<int, number_of_levels * dim> ratio_to_level_zero_ = { 1, 1, 2, 2 };
+    static constexpr std::array<int, number_of_levels *dim> ratio_to_level_zero_ = { 1, 1, 2, 2 };
 };
 
 struct inp_2_hier_2 : Expected<inp_2_hier_2, 3, 512, 128> {
     static constexpr char name[] = "input 2, Hierarchy 2";
-    static constexpr std::array<int, number_of_levels * dim> ratio_to_level_zero_ = { 1, 1, 1,
-                                                                                      2, 1, 1 };
+    static constexpr std::array<int, number_of_levels *dim> ratio_to_level_zero_ = { 1, 1, 1,
+                                                                                     2, 1, 1 };
 };
 
 template<typename T, typename U>

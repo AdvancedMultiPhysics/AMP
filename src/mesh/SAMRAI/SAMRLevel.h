@@ -31,10 +31,10 @@ public:
     virtual std::vector<int> getPeriodicShift( void )                  = 0;
     virtual void reset( void )                                         = 0;
 
-    SAMRLevel()                                = default;
-    SAMRLevel( const SAMRLevel & )             = delete;
-    SAMRLevel( SAMRLevel && )                  = delete;
-    SAMRLevel &operator=( const SAMRLevel & )  = delete;
+    SAMRLevel()                    = default;
+    SAMRLevel( const SAMRLevel & ) = delete;
+    SAMRLevel( SAMRLevel && )      = delete;
+    SAMRLevel &operator=( const SAMRLevel & ) = delete;
     SAMRLevel &operator=( const SAMRLevel && ) = delete;
 
     // functions derived from AMP::Mesh

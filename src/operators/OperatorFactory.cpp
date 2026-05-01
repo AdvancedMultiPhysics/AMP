@@ -44,8 +44,8 @@ static auto createInstance( std::shared_ptr<OperatorParameters> params )
 {
     return std::make_unique<TYPE>( params );
 }
-[[maybe_unused]] static auto
-createNullInstance( std::shared_ptr<OperatorParameters> ) -> std::unique_ptr<Operator>
+[[maybe_unused]] static auto createNullInstance( std::shared_ptr<OperatorParameters> )
+    -> std::unique_ptr<Operator>
 {
     AMP_ERROR( "Operator requires libMesh" );
 }

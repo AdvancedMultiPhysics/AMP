@@ -23,7 +23,7 @@ public:
     DelaunayInterpolation();
 
     // Deleted constructors
-    DelaunayInterpolation( const DelaunayInterpolation & )            = delete;
+    DelaunayInterpolation( const DelaunayInterpolation & ) = delete;
     DelaunayInterpolation &operator=( const DelaunayInterpolation & ) = delete;
 
 
