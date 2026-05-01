@@ -7,7 +7,10 @@
 #include "AMP/mesh/MeshParameters.h"
 #include "AMP/mesh/SAMRAI/SAMRLevel.h"
 
-#include "SAMRAI/hier/PatchLevel.h"
+
+namespace SAMRAI::hier {
+class PatchLevel;
+}
 
 
 namespace AMP::IO {
@@ -19,19 +22,10 @@ namespace AMP::Mesh {
 class SAMRAILevelParameters : public AMP::Mesh::MeshParameters
 {
 public:
-    explicit SAMRAILevelParameters( const std::shared_ptr<AMP::Database> db )
-        : AMP::Mesh::MeshParameters( db )
-    {
-    }
+    explicit SAMRAILevelParameters( const std::shared_ptr<AMP::Database> db );
 
     SAMRAILevelParameters( const std::shared_ptr<AMP::Database> db,
-                           std::shared_ptr<SAMRAI::hier::PatchLevel> level )
-        : AMP::Mesh::MeshParameters( db ), d_level( level )
-    {
-        AMP_ASSERT( d_level );
-        AMP::AMP_MPI mpi_comm( d_level->getBoxLevel()->getMPI() );
-        setComm( mpi_comm );
-    }
+                           std::shared_ptr<SAMRAI::hier::PatchLevel> level );
 
     virtual ~SAMRAILevelParameters() {}
 
@@ -47,30 +41,24 @@ public:
     explicit SAMRAILevelAdaptor( std::shared_ptr<SAMRAI::hier::PatchLevel> );
     explicit SAMRAILevelAdaptor( const std::shared_ptr<SAMRAILevelParameters> & );
     //    SAMRAILevelAdaptor( int64_t fid, AMP::IO::RestartManager *manager );
+    virtual ~SAMRAILevelAdaptor() = default;
 
-    virtual ~SAMRAILevelAdaptor() { d_patches.clear(); };
-    bool inHierarchy() override { return d_samrai_level->inHierarchy(); }
-    unsigned short getDim() override { return d_samrai_level->getDim().getValue(); }
-    int getLevelNumber( void ) override { return d_samrai_level->getLevelNumber(); }
-    int getLocalNumberOfPatches( void ) override
-    {
-        return d_samrai_level->getLocalNumberOfPatches();
-    }
-    unsigned long getGlobalNumberOfCells( void ) override
-    {
-        return d_samrai_level->getGlobalNumberOfCells();
-    }
+    bool inHierarchy() override;
+    unsigned short getDim() override;
+    int getLevelNumber() override;
+    int getLocalNumberOfPatches() override;
+    unsigned long getGlobalNumberOfCells() override;
     std::shared_ptr<SAMRPatch> getPatch( const int pn ) override { return d_patches[pn]; };
-    std::vector<int> getRatioToLevelZero( void ) override;
-    std::vector<int> getRatioToCoarserLevel( void ) override;
-    std::shared_ptr<SAMRLevel> constructCoarsenedLevel( void ) override;
-    std::vector<int> getPeriodicShift( void ) override;
-    void reset( void ) override;
+    std::vector<int> getRatioToLevelZero() override;
+    std::vector<int> getRatioToCoarserLevel() override;
+    std::shared_ptr<SAMRLevel> constructCoarsenedLevel() override;
+    std::vector<int> getPeriodicShift() override;
+    void reset() override;
 
     static std::shared_ptr<SAMRAI::hier::PatchLevel>
     getSAMRAILevel( std::shared_ptr<AMP::Mesh::SAMRLevel> samr_level );
 
-    std::shared_ptr<SAMRAI::hier::PatchLevel> getSAMRAILevel( void ) { return d_samrai_level; }
+    std::shared_ptr<SAMRAI::hier::PatchLevel> getSAMRAILevel() { return d_samrai_level; }
 
     SAMRAILevelAdaptor()                             = default;
     SAMRAILevelAdaptor( const SAMRAILevelAdaptor & ) = delete;

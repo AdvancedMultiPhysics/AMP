@@ -23,3 +23,8 @@ ADD_AMP_TEST( test_multipleHierarchies input_MultipleHierarchies-1 log.MultipleH
 ADD_AMP_TEST( test_multipleHierarchies input_MultipleHierarchies-2 log.MultipleHierarchies-2 PROCS 4 )
 ADD_AMP_TEST( test_PeriodicPatchHierarchy input_PeriodicPatchHierarchy-1 log_PeriodicPatchHierarchy-1 PROCS 1 )
 
+# Set compile properties
+IF ( USE_CUDA )
+    FILE( GLOB SAMRAI_FILES *.cpp )
+    SET_SOURCE_FILES_PROPERTIES( ${SAMRAI_FILES} PROPERTIES LANGUAGE CUDA )
+ENDIF()

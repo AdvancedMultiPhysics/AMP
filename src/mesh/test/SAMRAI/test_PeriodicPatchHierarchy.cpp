@@ -7,6 +7,10 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/utils/UtilityMacros.h"
 
+#include "SAMRAI/hier/Patch.h"
+#include "SAMRAI/hier/PatchHierarchy.h"
+#include "SAMRAI/hier/PatchLevel.h"
+
 #include <string>
 
 

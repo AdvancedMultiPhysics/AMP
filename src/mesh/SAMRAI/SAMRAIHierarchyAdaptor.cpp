@@ -4,11 +4,33 @@
 #include "AMP/utils/UtilityMacros.h"
 
 #include "SAMRAI/geom/CartesianGridGeometry.h"
+#include "SAMRAI/hier/PatchHierarchy.h"
 
 
 namespace AMP::Mesh {
 
 
+/****************************************************************
+ * SAMRAIHierarchyParameters                                        *
+ ****************************************************************/
+SAMRAIHierarchyParameters::SAMRAIHierarchyParameters( const std::shared_ptr<AMP::Database> db )
+    : AMP::Mesh::MeshParameters( db )
+{
+}
+SAMRAIHierarchyParameters::SAMRAIHierarchyParameters(
+    const std::shared_ptr<AMP::Database> db,
+    std::shared_ptr<SAMRAI::hier::PatchHierarchy> hierarchy )
+    : AMP::Mesh::MeshParameters( db ), d_hierarchy( hierarchy )
+{
+    AMP_ASSERT( d_hierarchy );
+    AMP::AMP_MPI mpi_comm( d_hierarchy->getMPI() );
+    setComm( mpi_comm );
+}
+
+
+/****************************************************************
+ * SAMRAIHierarchyAdaptor                                        *
+ ****************************************************************/
 SAMRAIHierarchyAdaptor::SAMRAIHierarchyAdaptor(
     std::shared_ptr<SAMRAI::hier::PatchHierarchy> hierarchy )
     : d_samrai_hierarchy( hierarchy )
@@ -28,6 +50,28 @@ SAMRAIHierarchyAdaptor::SAMRAIHierarchyAdaptor(
     : SAMRHierarchy( params ), d_samrai_hierarchy( params->d_hierarchy )
 {
     setLevelAdaptors();
+}
+
+
+unsigned short SAMRAIHierarchyAdaptor::getDim() { return d_samrai_hierarchy->getDim().getValue(); }
+std::shared_ptr<SAMRLevel> SAMRAIHierarchyAdaptor::getPatchLevel( const int ln )
+{
+    return d_levels[ln];
+}
+std::shared_ptr<SAMRAI::hier::PatchLevel>
+SAMRAIHierarchyAdaptor::getSAMRAIPatchLevel( const int ln )
+{
+    const auto &src_level_adaptor =
+        std::dynamic_pointer_cast<AMP::Mesh::SAMRAILevelAdaptor>( d_levels[ln] );
+    return src_level_adaptor->getSAMRAILevel();
+}
+int SAMRAIHierarchyAdaptor::getFinestLevelNumber( void )
+{
+    return d_samrai_hierarchy->getFinestLevelNumber();
+}
+int SAMRAIHierarchyAdaptor::getNumberOfLevels( void )
+{
+    return d_samrai_hierarchy->getNumberOfLevels();
 }
 
 void SAMRAIHierarchyAdaptor::reset( void ) { setLevelAdaptors(); }
@@ -62,7 +106,6 @@ std::vector<int> SAMRAIHierarchyAdaptor::getPeriodicShift( void )
 
 std::shared_ptr<SAMRAI::hier::PatchHierarchy> SAMRAIHierarchyAdaptor::getSAMRAIHierarchy(
     std::shared_ptr<AMP::Mesh::SAMRHierarchy> samr_hierarchy )
-
 {
     auto hierarchy_adaptor =
         std::dynamic_pointer_cast<AMP::Mesh::SAMRAIHierarchyAdaptor>( samr_hierarchy );

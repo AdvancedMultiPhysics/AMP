@@ -4,11 +4,32 @@
 #include "AMP/utils/UtilityMacros.h"
 
 #include "SAMRAI/geom/CartesianGridGeometry.h"
+#include "SAMRAI/hier/PatchLevel.h"
 
 
 namespace AMP::Mesh {
 
 
+/****************************************************************
+ * Constructors                                                  *
+ ****************************************************************/
+SAMRAILevelParameters::SAMRAILevelParameters( const std::shared_ptr<AMP::Database> db )
+    : AMP::Mesh::MeshParameters( db )
+{
+}
+SAMRAILevelParameters::SAMRAILevelParameters( const std::shared_ptr<AMP::Database> db,
+                                              std::shared_ptr<SAMRAI::hier::PatchLevel> level )
+    : AMP::Mesh::MeshParameters( db ), d_level( level )
+{
+    AMP_ASSERT( d_level );
+    AMP::AMP_MPI mpi_comm( d_level->getBoxLevel()->getMPI() );
+    setComm( mpi_comm );
+}
+
+
+/****************************************************************
+ * SAMRAILevelAdaptor                                            *
+ ****************************************************************/
 SAMRAILevelAdaptor::SAMRAILevelAdaptor( std::shared_ptr<SAMRAI::hier::PatchLevel> level )
     : d_samrai_level( level )
 {
@@ -16,16 +37,16 @@ SAMRAILevelAdaptor::SAMRAILevelAdaptor( std::shared_ptr<SAMRAI::hier::PatchLevel
     d_comm = AMP::AMP_MPI( level->getBoxLevel()->getMPI() );
     setPatchAdaptors();
 }
-
 SAMRAILevelAdaptor::SAMRAILevelAdaptor( const std::shared_ptr<SAMRAILevelParameters> &params )
     : SAMRLevel( params ), d_samrai_level( params->d_level )
 {
     setPatchAdaptors();
 }
-
-void SAMRAILevelAdaptor::reset( void ) { setPatchAdaptors(); }
-
-void SAMRAILevelAdaptor::setPatchAdaptors( void )
+void SAMRAILevelAdaptor::reset() { setPatchAdaptors(); }
+bool SAMRAILevelAdaptor::inHierarchy() { return d_samrai_level->inHierarchy(); }
+unsigned short SAMRAILevelAdaptor::getDim() { return d_samrai_level->getDim().getValue(); }
+int SAMRAILevelAdaptor::getLevelNumber() { return d_samrai_level->getLevelNumber(); }
+void SAMRAILevelAdaptor::setPatchAdaptors()
 {
     AMP_ASSERT( d_samrai_level );
     d_patches.clear();
@@ -33,7 +54,7 @@ void SAMRAILevelAdaptor::setPatchAdaptors( void )
         d_patches.emplace_back( std::make_shared<SAMRAIPatchAdaptor>( patch ) );
 }
 
-std::vector<int> SAMRAILevelAdaptor::getRatioToLevelZero( void )
+std::vector<int> SAMRAILevelAdaptor::getRatioToLevelZero()
 {
     auto ratio = d_samrai_level->getRatioToLevelZero();
     std::vector<int> rv;
@@ -42,7 +63,7 @@ std::vector<int> SAMRAILevelAdaptor::getRatioToLevelZero( void )
     return rv;
 }
 
-std::vector<int> SAMRAILevelAdaptor::getRatioToCoarserLevel( void )
+std::vector<int> SAMRAILevelAdaptor::getRatioToCoarserLevel()
 {
     auto ratio = d_samrai_level->getRatioToCoarserLevel();
     std::vector<int> rv;
@@ -51,7 +72,7 @@ std::vector<int> SAMRAILevelAdaptor::getRatioToCoarserLevel( void )
     return rv;
 }
 
-std::shared_ptr<SAMRLevel> SAMRAILevelAdaptor::constructCoarsenedLevel( void )
+std::shared_ptr<SAMRLevel> SAMRAILevelAdaptor::constructCoarsenedLevel()
 {
     // for now restrict to levels in the hierarchy and coarsen
     // by the ratio to the next coarser level. In future this could change
@@ -63,7 +84,7 @@ std::shared_ptr<SAMRLevel> SAMRAILevelAdaptor::constructCoarsenedLevel( void )
     return std::make_shared<SAMRAILevelAdaptor>( coarsened_level );
 }
 
-std::vector<int> SAMRAILevelAdaptor::getPeriodicShift( void )
+std::vector<int> SAMRAILevelAdaptor::getPeriodicShift()
 {
     auto grid_geometry = std::dynamic_pointer_cast<SAMRAI::geom::CartesianGridGeometry>(
         d_samrai_level->getGridGeometry() );
@@ -87,6 +108,16 @@ SAMRAILevelAdaptor::getSAMRAILevel( std::shared_ptr<AMP::Mesh::SAMRLevel> samr_l
     AMP_ASSERT( level );
     return level;
 }
+
+int SAMRAILevelAdaptor::getLocalNumberOfPatches()
+{
+    return d_samrai_level->getLocalNumberOfPatches();
+}
+unsigned long SAMRAILevelAdaptor::getGlobalNumberOfCells()
+{
+    return d_samrai_level->getGlobalNumberOfCells();
+}
+
 
 #if 0
 /****************************************************************

@@ -6,12 +6,17 @@
 #include <vector>
 
 #include "AMP/mesh/Mesh.h"
+#include "AMP/mesh/SAMRAI/SAMRLevel.h"
 #include "AMP/utils/Utilities.h"
-#include "SAMRAI/hier/PatchLevel.h"
+
+
+namespace SAMRAI::hier {
+class PatchLevel;
+}
+
 
 namespace AMP::Mesh {
 
-class SAMRLevel;
 
 class SAMRHierarchy : public AMP::Mesh::Mesh
 {

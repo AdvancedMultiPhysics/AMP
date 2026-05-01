@@ -2,9 +2,19 @@
 #include "AMP/IO/RestartManager.h"
 #include "AMP/utils/UtilityMacros.h"
 
+#include "SAMRAI/hier/Patch.h"
+
 
 namespace AMP::Mesh {
 
+
+/****************************************************************
+ * SAMRAIPatchAdaptor                                            *
+ ****************************************************************/
+SAMRAIPatchAdaptor::SAMRAIPatchAdaptor( std::shared_ptr<SAMRAI::hier::Patch> patch )
+    : d_samrai_patch( patch )
+{
+}
 std::shared_ptr<SAMRAI::hier::Patch>
 SAMRAIPatchAdaptor::getSAMRAIPatch( std::shared_ptr<SAMRPatch> samr_patch )
 {
@@ -14,6 +24,9 @@ SAMRAIPatchAdaptor::getSAMRAIPatch( std::shared_ptr<SAMRPatch> samr_patch )
     AMP_ASSERT( patch );
     return patch;
 }
+bool SAMRAIPatchAdaptor::inHierarchy() { return d_samrai_patch->inHierarchy(); }
+unsigned short SAMRAIPatchAdaptor::getDim() { return d_samrai_patch->getDim().getValue(); }
+std::shared_ptr<SAMRAI::hier::Patch> SAMRAIPatchAdaptor::getSAMRAIPatch() { return d_samrai_patch; }
 
 
 #if 0

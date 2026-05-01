@@ -7,6 +7,9 @@
 #include "AMP/mesh/SAMRAI/SAMRHierarchy.h"
 #include "AMP/utils/AMPManager.h"
 
+#include "SAMRAI/hier/PatchHierarchy.h"
+#include "SAMRAI/hier/PatchLevel.h"
+#include "SAMRAI/hier/Patch.h"
 #include "SAMRAI/geom/CartesianPatchGeometry.h"
 
 #include <string>
