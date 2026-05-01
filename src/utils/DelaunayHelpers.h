@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "AMP/utils/Array.h"
+#include "AMP/utils/DelaunayTessellation.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/extended_int.h"
 
@@ -37,8 +38,10 @@ template<> struct getETYPE<4,double> { typedef long double ETYPE; };
  * Create triangles neighbors from the triangles                     *
  ********************************************************************/
 template<size_t NG>
-std::vector<std::array<int, NG + 1>>
-create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri );
+void create_tri_neighbors( size_t N,
+                           const std::array<int, NG + 1> *tri,
+                           std::array<int, NG + 1> *nab );
+AMP::Array<int> create_tri_neighbors( const AMP::Array<int> &tri );
 
 
 /********************************************************************
@@ -65,11 +68,11 @@ inline TYPE det( const TYPE *M )
     } else if constexpr ( NDIM == 2 ) {
         return M[0] * M[3] - M[1] * M[2];
     } else if constexpr ( NDIM == 3 ) {
-        TYPE det( 0 );
-        det += M[0] * ( M[4] * M[8] - M[7] * M[5] );
-        det -= M[3] * ( M[1] * M[8] - M[7] * M[2] );
-        det += M[6] * ( M[1] * M[5] - M[4] * M[2] );
-        return det;
+        TYPE D( 0 );
+        D += M[0] * ( M[4] * M[8] - M[7] * M[5] );
+        D -= M[3] * ( M[1] * M[8] - M[7] * M[2] );
+        D += M[6] * ( M[1] * M[5] - M[4] * M[2] );
+        return D;
     } else if constexpr ( NDIM == 4 ) {
         TYPE tmp[6];
         tmp[0] = M[2] * M[7] - M[6] * M[3];
@@ -78,12 +81,12 @@ inline TYPE det( const TYPE *M )
         tmp[3] = M[6] * M[11] - M[10] * M[7];
         tmp[4] = M[6] * M[15] - M[14] * M[7];
         tmp[5] = M[10] * M[15] - M[14] * M[11];
-        TYPE det( 0 );
-        det += M[0] * ( M[5] * tmp[5] - M[9] * tmp[4] + M[13] * tmp[3] );
-        det -= M[4] * ( M[1] * tmp[5] - M[9] * tmp[2] + M[13] * tmp[1] );
-        det += M[8] * ( M[1] * tmp[4] - M[5] * tmp[2] + M[13] * tmp[0] );
-        det -= M[12] * ( M[1] * tmp[3] - M[5] * tmp[1] + M[9] * tmp[0] );
-        return det;
+        TYPE D( 0 );
+        D += M[0] * ( M[5] * tmp[5] - M[9] * tmp[4] + M[13] * tmp[3] );
+        D -= M[4] * ( M[1] * tmp[5] - M[9] * tmp[2] + M[13] * tmp[1] );
+        D += M[8] * ( M[1] * tmp[4] - M[5] * tmp[2] + M[13] * tmp[0] );
+        D -= M[12] * ( M[1] * tmp[3] - M[5] * tmp[1] + M[9] * tmp[0] );
+        return D;
     } else {
         throw std::logic_error( "Not programmed" );
     }
@@ -105,11 +108,10 @@ inline typename getETYPE<3, int>::ETYPE det2<3>( const int *M )
 {
     using int64  = int64_t;
     using int128 = typename getETYPE<3, int>::ETYPE;
-    int128 t1    = int128( int64( M[4] ) * int64( M[8] ) - int64( M[7] ) * int64( M[5] ) );
-    int128 t2    = int128( int64( M[1] ) * int64( M[8] ) - int64( M[7] ) * int64( M[2] ) );
-    int128 t3    = int128( int64( M[1] ) * int64( M[5] ) - int64( M[4] ) * int64( M[2] ) );
-    auto det     = int128( M[0] ) * t1 + int128( -M[3] ) * t2 + int128( M[6] ) * t3;
-    return det;
+    int128 t1( int64( M[4] ) * int64( M[8] ) - int64( M[7] ) * int64( M[5] ) );
+    int128 t2( int64( M[1] ) * int64( M[8] ) - int64( M[7] ) * int64( M[2] ) );
+    int128 t3( int64( M[1] ) * int64( M[5] ) - int64( M[4] ) * int64( M[2] ) );
+    return int128( M[0] ) * t1 + int128( -M[3] ) * t2 + int128( M[6] ) * t3;
 }
 template<std::size_t NDIM>
 inline long double det2( const double *M )
@@ -221,8 +223,7 @@ void inverse( int NDIM, const double *M, double *M_inv );
  *    The exact math component requires N^D precision            *
  ****************************************************************/
 template<int NDIM, class TYPE>
-std::array<double, NDIM + 1> computeBarycentric( const std::array<TYPE, NDIM> *x,
-                                                 const std::array<TYPE, NDIM> &xi )
+std::array<double, NDIM + 1> computeBarycentric( const std::array<TYPE, NDIM> *x, const TYPE *xi )
 {
     // Compute the barycentric coordinates T*L=r-r0
     // http://en.wikipedia.org/wiki/Barycentric_coordinate_system_(mathematics)
@@ -284,28 +285,167 @@ double calcVolume( const std::array<TYPE, NDIM> *x )
 }
 
 
-/********************************************************************
- * Helper interfaces to convert arrays                               *
- ********************************************************************/
-template<class TYPE, std::size_t NDIM>
-AMP::Array<TYPE> convert( const std::vector<std::array<TYPE, NDIM>> &x )
+/************************************************************************
+ * Function to return the circumsphere containing a simplex              *
+ *************************************************************************
+ * This function computes the circumsphere containing the simplex        *
+ *     http://mathworld.wolfram.com/Circumsphere.html                    *
+ * We have 4 points that define the circumsphere (x1, x2, x3, x4).       *
+ * We will work in a reduced coordinate system with x1 at the center     *
+ *    so that we can reduce the size of the determinant and the number   *
+ *    of significant digits.                                             *
+ *                                                                       *
+ *     | x2-x1  y2-y1  z2-z1 |                                           *
+ * a = | x3-x1  y3-y1  z3-z1 |                                           *
+ *     | x4-x1  y4-y1  z4-z1 |                                           *
+ *                                                                       *
+ *      | (x2-x1)^2+(y2-y1)^2+(z2-z1)^2  y2  z2 |                        *
+ * Dx = | (x3-x1)^2+(y3-y1)^2+(z3-z1)^2  y3  z3 |                        *
+ *      | (x4-x1)^2+(y4-y1)^2+(z4-z1)^2  y4  z4 |                        *
+ *                                                                       *
+ *        | (x2-x1)^2+(y2-y1)^2+(z2-z1)^2  x2  z2 |                      *
+ * Dy = - | (x3-x1)^2+(y3-y1)^2+(z3-z1)^2  x3  z3 |                      *
+ *        | (x4-x1)^2+(y4-y1)^2+(z4-z1)^2  x4  z4 |                      *
+ *                                                                       *
+ *      | (x2-x1)^2+(y2-y1)^2+(z2-z1)^2  x2  y2 |                        *
+ * Dz = | (x3-x1)^2+(y3-y1)^2+(z3-z1)^2  x3  y3 |                        *
+ *      | (x4-x1)^2+(y4-y1)^2+(z4-z1)^2  x4  y4 |                        *
+ *                                                                       *
+ * c = 0                                                                 *
+ *                                                                       *
+ ************************************************************************/
+template<int NDIM, class TYPE>
+void getCircumsphere( const std::array<TYPE, NDIM> *x0, double &R, double *center )
 {
-    AMP::Array<TYPE> y( NDIM, x.size() );
-    for ( size_t i = 0; i < x.size(); i++ ) {
-        for ( size_t d = 0; d < NDIM; d++ )
-            y( d, i ) = x[i][d];
+    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
+    if constexpr ( NDIM == 1 ) {
+        center[0] = 0.5 * ( x0[0][0] + x0[1][0] );
+        R         = 0.5 * std::abs( x0[0][0] - x0[1][0] );
+        return;
     }
-    return y;
+    ETYPE x[NDIM * NDIM];
+    for ( int i = 0; i < NDIM; i++ ) {
+        for ( int j = 0; j < NDIM; j++ )
+            x[j + i * NDIM] = ETYPE( x0[i + 1][j] - x0[0][j] );
+    }
+    ETYPE A[NDIM * NDIM], D[NDIM][NDIM * NDIM];
+    for ( int i = 0; i < NDIM; i++ ) {
+        ETYPE tmp( 0 );
+        for ( int j = 0; j < NDIM; j++ ) {
+            ETYPE x2 = ETYPE( x[j + i * NDIM] );
+            tmp += x2 * x2;
+            A[i + j * NDIM] = x2;
+            for ( int k = j + 1; k < NDIM; k++ )
+                D[k][i + ( j + 1 ) * NDIM] = x2;
+            for ( int k = 0; k < j; k++ )
+                D[k][i + j * NDIM] = x2;
+        }
+        for ( auto &elem : D )
+            elem[i] = tmp;
+    }
+    double a = static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( A ) );
+    R        = 0.0;
+    for ( int i = 0; i < NDIM; i++ ) {
+        double d = ( ( i % 2 == 0 ) ? 1 : -1 ) *
+                   static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( D[i] ) );
+        center[i] = d / ( 2 * a ) + static_cast<double>( x0[0][i] );
+        R += d * d;
+    }
+    R = std::sqrt( R ) / fabs( static_cast<double>( 2 * a ) );
 }
-template<class TYPE, std::size_t NDIM>
-std::vector<std::array<TYPE, NDIM>> convert( const AMP::Array<TYPE> &x )
+
+
+/********************************************************************
+ * Compute the dot product of two vectors                            *
+ * Note: We are already using an increased precision, and want to    *
+ * maintain the maximum degree of accuracy possible.                 *
+ ********************************************************************/
+inline double dot( int N, const long double *x, const long double *y )
 {
-    AMP_ASSERT( x.size( 0 ) == NDIM );
-    std::vector<std::array<TYPE, NDIM>> y( x.size( 1 ) );
-    for ( size_t i = 0; i < y.size(); i++ ) {
-        for ( size_t d = 0; d < NDIM; d++ )
-            y[i][d] = x( d, i );
+    // Approximate dot product for long double precision
+    bool sign[8];
+    long double z[8];
+    for ( int i = 0; i < N; i++ ) {
+        z[i]    = x[i] * y[i];
+        sign[i] = z[i] >= 0;
     }
+    long double ans = z[0];
+    z[0]            = 0;
+    while ( true ) {
+        int index     = -1;
+        bool sign_ans = ans >= 0;
+        for ( int i = 1; i < N; i++ ) {
+            if ( ( sign_ans != sign[i] ) && z[i] != 0 )
+                index = i;
+        }
+        if ( index == -1 )
+            break;
+        ans += z[index];
+        z[index] = 0;
+    }
+    for ( int i = 1; i < N; i++ ) {
+        if ( z[i] != 0 )
+            ans += z[i];
+    }
+    return static_cast<double>( ans );
+}
+
+
+/********************************************************************
+ * Convert coordinates                                               *
+ * We want to use int with a range of (-2^30:2^30)                   *
+ * Note all numbers must be strictly < 2^30                          *
+ ********************************************************************/
+template<class TYPE>
+std::pair<double, double> getConversionConstant( const AMP::Array<TYPE> &x0 )
+{
+    auto N   = x0.length();
+    auto x   = x0.data();
+    TYPE max = 0;
+    for ( size_t i = 0; i < N; i++ )
+        max = std::max<TYPE>( std::abs( x[i] ), max );
+    if constexpr ( std::is_floating_point_v<TYPE> ) {
+        double scale = pow( 2.0, ceil( 30 - log2( max ) ) - 1 );
+        return { scale, 1.0 / scale };
+    } else {
+        constexpr int64_t int_max = 0x40000000; // 2^30
+        int shift                 = 0;
+        double scale              = 1.0;
+        while ( static_cast<int64_t>( max ) >= int_max ) {
+            shift++;
+            max = max >> 1;
+            scale *= 2;
+        }
+        return { shift, scale };
+    }
+}
+template<class TYPE>
+void convert( size_t N, double factor, const TYPE *x, int *y )
+{
+    if constexpr ( std::is_floating_point_v<TYPE> ) {
+        auto scale = factor;
+        for ( size_t i = 0; i < N; i++ ) {
+            auto z = scale * x[i];
+            AMP_ASSERT( z < static_cast<TYPE>( std::numeric_limits<int>::max() ) );
+            y[i] = z;
+        }
+    } else {
+        int shift = factor;
+        if ( shift == 0 ) {
+            for ( size_t i = 0; i < N; i++ )
+                y[i] = x[i];
+        } else {
+            for ( size_t i = 0; i < N; i++ )
+                y[i] = x[i] >> shift;
+        }
+    }
+}
+template<class TYPE>
+AMP::Array<int> convert( const AMP::Array<TYPE> &x )
+{
+    AMP::Array<int> y( x.size() );
+    auto f = getConversionConstant( x );
+    convert( x.length(), f.first, x.data(), y.data() );
     return y;
 }
 

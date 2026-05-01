@@ -1,0 +1,86 @@
+
+FirstHierarchy{
+
+dim=3
+
+CartesianGeometry{
+   domain_boxes = [(0,0,0), (3,3,3)]
+   x_lo         = 0.0, 0.0, 0.0
+   x_up         = 0.1, 0.1, 0.1
+   periodic_dimension = 1,1,1
+}
+
+GriddingAlgorithm{
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
+}
+
+PatchHierarchy{
+   max_levels = 2
+   largest_patch_size {
+      level_0 = 8,100,100
+   }
+   smallest_patch_size {
+      level_0 = 4,4,4
+   }
+   ratio_to_coarser {
+      level_1  = 2,2,2
+   }
+}
+
+
+StandardTagAndInitialize{
+   tagging_method = "REFINE_BOXES"
+   level_0{
+       boxes = [(1,1,1),(2,2,2)]
+   }
+}
+
+TreeLoadBalancer {
+}
+
+}
+
+
+SecondHierarchy{
+
+dim=3
+
+CartesianGeometry{
+   domain_boxes = [(0,0,0), (7,7,7)]
+   x_lo         = 0.5, 0.5, 0.5
+   x_up         = 0.6, 0.6, 0.6
+   periodic_dimension = 1,1,1
+}
+
+GriddingAlgorithm{
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
+}
+
+PatchHierarchy{
+   max_levels = 2
+   largest_patch_size {
+      level_0 = 8,100,100
+   }
+   smallest_patch_size {
+      level_0 = 4,4,4
+   }
+   ratio_to_coarser {
+      level_1  = 2,1,1
+   }
+}
+
+
+StandardTagAndInitialize{
+   tagging_method = "REFINE_BOXES"
+   level_0{
+       boxes = [(2,2,2),5,5,5)]
+   }
+}
+
+TreeLoadBalancer {
+}
+
+}
+

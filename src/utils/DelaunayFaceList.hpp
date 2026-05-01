@@ -15,15 +15,6 @@
 
 #define DEBUG_CHECK 0 // Flag to enable extra checks (1: some additional cost, 2: very expensive)
 
-// Choose our numerical format and precision
-// Note: for exact integer arithmetic, we need to support at least O(N^D)
-//    where N is the index range and D is the dimension.
-//    Note: I have not determined the small constant, but is is likely ~4
-//    Note: Some routines use higher precisision internally (test_in_circumsphere)
-typedef AMP::extended::int128_t int128_t;
-typedef AMP::extended::int256_t int256_t;
-typedef AMP::extended::int512_t int512_t;
-
 
 namespace AMP::DelaunayTessellation {
 
