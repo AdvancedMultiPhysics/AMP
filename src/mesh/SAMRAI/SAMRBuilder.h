@@ -1,7 +1,7 @@
 #ifndef included_AMP_SAMRBuilder
 #define included_AMP_SAMRBuilder
 
-#include "AMP/mesh/SAMRAI/SAMRHierarchy.h"
+#include "AMP/mesh/SAMRAI/SAMRAIHierarchyAdaptor.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Database.h"
 
@@ -69,7 +69,7 @@ public:
      * @param restrict_gcw_domain Restrict chost cell width?
      * @param mpi           Communicator to use
      */
-    static std::shared_ptr<AMP::Mesh::SAMRHierarchy>
+    static std::shared_ptr<AMP::Mesh::SAMRAIHierarchyAdaptor>
     buildHierarchy( std::shared_ptr<AMP::Database> db,
                     std::shared_ptr<SAMRAI::mesh::StandardTagAndInitStrategy> &test_object,
                     std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> &gridding_algorithm,
@@ -77,7 +77,7 @@ public:
                     bool restrict_gcw_domain = true,
                     const AMP::AMP_MPI &mpi  = AMP::AMP_MPI( AMP_COMM_WORLD ) );
 
-    static std::shared_ptr<AMP::Mesh::SAMRHierarchy>
+    static std::shared_ptr<AMP::Mesh::SAMRAIHierarchyAdaptor>
     buildHierarchy( std::shared_ptr<AMP::Database> db,
                     int max_gcw             = 0,
                     const AMP::AMP_MPI &mpi = AMP::AMP_MPI( AMP_COMM_WORLD ) );

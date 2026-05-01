@@ -132,7 +132,7 @@ std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> SAMRBuilder::buildGridd
     return gridding_algorithm;
 }
 
-std::shared_ptr<AMP::Mesh::SAMRHierarchy> SAMRBuilder::buildHierarchy(
+std::shared_ptr<AMP::Mesh::SAMRAIHierarchyAdaptor> SAMRBuilder::buildHierarchy(
     std::shared_ptr<AMP::Database> db, int max_gcw, const AMP::AMP_MPI &mpi )
 {
     AMP_ASSERT( db );
@@ -142,7 +142,7 @@ std::shared_ptr<AMP::Mesh::SAMRHierarchy> SAMRBuilder::buildHierarchy(
     return buildHierarchy( db, test_object, gridding_algorithm, max_gcw, restrict_gcw_domain, mpi );
 }
 
-std::shared_ptr<AMP::Mesh::SAMRHierarchy> SAMRBuilder::buildHierarchy(
+std::shared_ptr<AMP::Mesh::SAMRAIHierarchyAdaptor> SAMRBuilder::buildHierarchy(
     std::shared_ptr<AMP::Database> amp_db,
     std::shared_ptr<SAMRAI::mesh::StandardTagAndInitStrategy> &test_object,
     std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> &gridding_algorithm,
