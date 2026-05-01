@@ -7,6 +7,7 @@
 #include "AMP/utils/Database.h"
 
 #include "StackTrace/StackTrace.h"
+
 #if __has_include( "StackTrace/StackTrace_Version.h" )
     #include "StackTrace/StackTrace_Version.h"
 #else

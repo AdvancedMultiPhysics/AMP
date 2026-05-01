@@ -4,10 +4,7 @@
 #include "AMP/matrices/data/MatrixData.h"
 #include "AMP/matrices/operations/MatrixOperations.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
-#include "AMP/matrices/operations/device/spgemm/CSRMatrixSpGEMMDevice.h"
 #include "AMP/vectors/Vector.h"
-
-#include <map>
 
 namespace AMP::LinearAlgebra {
 
@@ -167,11 +164,6 @@ public:
 
     CSRMatrixOperationsDevice() = default;
     CSRMatrixOperationsDevice( int64_t, AMP::IO::RestartManager * ) {}
-
-protected:
-    std::map<std::pair<std::shared_ptr<matrixdata_t>, std::shared_ptr<matrixdata_t>>,
-             CSRMatrixSpGEMMDevice<Config>>
-        d_SpGEMMHelpers;
 };
 
 } // namespace AMP::LinearAlgebra
