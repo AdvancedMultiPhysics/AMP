@@ -12,5 +12,11 @@ ADD_AMP_EXAMPLE( createMesh input_createMesh-2d NO_RESOURCES )
 ADD_AMP_EXAMPLE( createMesh input_createMesh-3d NO_RESOURCES )
 ADD_AMP_EXAMPLE( createMesh input_createMesh-Multimesh NO_RESOURCES )
 
+# Add SAMRAI examples
+IF ( USE_SAMRAI )
+    ADD_SUBDIRECTORY( SAMRAI )
+ENDIF()
+
 # Install the examples
 INSTALL_AMP_EXAMPLE( mesh )
+

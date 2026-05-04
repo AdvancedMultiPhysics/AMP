@@ -3,6 +3,7 @@
 #include "AMP/IO/HDF.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
+#include "AMP/utils/DelaunayHelpers.h"
 #include "AMP/utils/DelaunayInterpolation.h"
 #include "AMP/utils/DelaunayTessellation.h"
 #include "AMP/utils/NearestPairSearch.h"
@@ -34,8 +35,6 @@ using AMP::Utilities::stringf;
 
 
 constexpr int NDIM_MAX = 3; // The maximum number of dimensions supported (currently 3)
-constexpr int NTRI_MAX = NDIM_MAX + 1;
-constexpr int NVTX_MAX = NTRI_MAX * NDIM_MAX;
 
 
 // Helper function to check if two numbers are approximately equal
@@ -169,33 +168,112 @@ void testPointSearch( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
 }
 
 
-// Function to create and test the construction of the tessellation
-template<class TYPE>
-std::shared_ptr<AMP::DelaunayInterpolation<TYPE>>
-createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
+// Function to check the volume of a tessellation
+template<int NDIM, class TYPE>
+void checkVolume( AMP::UnitTest &ut, const AMP::Array<TYPE> &x, const AMP::Array<int> &tri )
 {
-    if ( x.empty() )
-        return nullptr;
-    int ndim = x.size( 0 );
-    size_t N = x.size( 1 );
-    auto msg = stringf( "(%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
-
-    // Create the tessellation
-    auto data = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
-    data->create_tessellation( x );
-    size_t N_tri = data->get_N_tri();
-    if ( N_tri > 0 ) {
-        ut.passes( "Created tessellation " + msg );
-    } else {
-        ut.failure( "Created tessellation " + msg );
-        return nullptr;
+    AMP_ASSERT( x.size( 0 ) == NDIM );
+    AMP_ASSERT( tri.size( 0 ) == NDIM + 1 );
+    PROFILE( "Check volume", 1 );
+    int N          = x.size( 1 );
+    int N_tri      = tri.size( 1 );
+    double vol_min = 1e100;
+    double vol_max = 0.0;
+    bool neg_vol   = false;
+    std::array<TYPE, NDIM> x2[NDIM + 1];
+    for ( int i = 0; i < N_tri; i++ ) {
+        for ( int d1 = 0; d1 <= NDIM; d1++ ) {
+            int j = tri( d1, i );
+            for ( int d2 = 0; d2 < NDIM; d2++ )
+                x2[d1][d2] = x( d2, j );
+        }
+        double vol = AMP::DelaunayHelpers::calcVolume<NDIM, TYPE>( x2 );
+        if ( vol < 0 ) {
+            neg_vol = true;
+            vol     = -vol;
+        }
+        vol_min = std::min( vol_min, vol );
+        vol_max = std::max( vol_max, vol );
     }
+    auto msg = stringf( "(%i,%i,%s)", NDIM, N, AMP::getTypeID<TYPE>().name );
+    if ( !neg_vol && vol_min > 0.0 && vol_min >= 1e-10 * vol_max )
+        ut.passes( "Tessellation volume is valid " + msg );
+    else
+        ut.failure( "Tessellation volume is invalid " + msg );
+}
+
+
+// Check the behavior of get_circumsphere and test_in_circumsphere
+template<int NDIM, class TYPE>
+void checkCircumsphere( AMP::UnitTest &ut, const AMP::Array<TYPE> &x, const AMP::Array<int> &tri )
+{
+    PROFILE( "Check circumsphere", 1 );
+    int N          = x.size( 1 );
+    int N_tri      = tri.size( 1 );
+    bool pass      = true;
+    double R       = 0;
+    double c[NDIM] = { 0 };
+    std::array<TYPE, NDIM> x1[NDIM + 1];
+    std::array<double, NDIM> xi;
+    std::array<double, NDIM> x2[NDIM + 1];
+    for ( int i = 0; i < N_tri; i++ ) {
+        for ( int d1 = 0; d1 <= NDIM; d1++ ) {
+            int k = tri( d1, i );
+            for ( int d2 = 0; d2 < NDIM; d2++ ) {
+                x1[d1][d2] = x( d2, k );
+                x2[d1][d2] = x( d2, k );
+            }
+        }
+        AMP::DelaunayHelpers::getCircumsphere<NDIM, TYPE>( x1, R, c );
+        AMP_ASSERT( R > 0 );
+        for ( int j = 0; j <= NDIM; j++ ) {
+            double dist = 0.0;
+            for ( int d = 0; d < NDIM; d++ )
+                dist += ( x2[j][d] - c[d] ) * ( x2[j][d] - c[d] );
+            if ( fabs( std::sqrt( dist ) - R ) / R > 1e-7 )
+                pass = false;
+        }
+        for ( int j = 0; j < NDIM; j++ ) {
+            for ( int d = 0; d < NDIM; d++ )
+                xi[d] = c[d];
+            xi[j]     = c[j] - 10.0 * R;
+            int test1 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            xi[j]     = c[j] - 0.1 * R;
+            int test2 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            xi[j]     = c[j] + 10.0 * R;
+            int test3 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            xi[j]     = c[j] + 0.1 * R;
+            int test4 = test_in_circumsphere<NDIM, double>( x2, xi, 0 );
+            if ( test1 != -1 || test2 != 1 || test3 != -1 || test4 != 1 ) {
+                pass = false;
+            }
+        }
+    }
+    auto msg = stringf( "(%i,%i,%s)", NDIM, N, AMP::getTypeID<TYPE>().name );
+    if ( pass )
+        ut.passes( "get_circumsphere and test_in_circumsphere " + msg );
+    else
+        ut.expected_failure( "get_circumsphere and test_in_circumsphere " + msg );
+}
+
+
+// Function to create and test the construction of the tessellation
+template<int NDIM, class TYPE>
+void testTessellation( AMP::UnitTest &ut,
+                       const AMP::Array<TYPE> &x,
+                       const AMP::Array<int> &tri,
+                       const AMP::Array<int> &tri_nab )
+{
+    AMP_ASSERT( x.size( 0 ) == NDIM );
+    AMP_ASSERT( tri.size( 0 ) == NDIM + 1 );
+    size_t N     = x.size( 1 );
+    size_t N_tri = tri.size( 1 );
+    auto msg     = stringf( "(%i,%i,%s)", NDIM, (int) N, AMP::getTypeID<TYPE>().name );
 
     // Check the triangle neighbors
-    auto tri_nab = data->get_tri_nab();
-    bool pass    = true;
+    bool pass = true;
     for ( size_t i = 0; i < N_tri; i++ ) {
-        for ( int d = 0; d < ndim + 1; d++ ) {
+        for ( int d = 0; d <= NDIM; d++ ) {
             if ( tri_nab( d, i ) == (int) i || tri_nab( d, i ) < -1 ||
                  tri_nab( d, i ) >= (int) N_tri )
                 pass = false;
@@ -203,145 +281,41 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
     }
     if ( !pass ) {
         ut.failure( "Triangle neighbors are invalid " + msg );
-        return nullptr;
+        return;
     }
 
     // Check building using a predefined triangle list
-    auto data2 = std::make_shared<AMP::DelaunayInterpolation<TYPE>>();
-    data2->create_tessellation( x, data->get_tri() );
-    auto tri1 = data->get_tri();
-    auto tri2 = data2->get_tri();
-    auto nab1 = data->get_tri_nab();
-    auto nab2 = data2->get_tri_nab();
-    if ( tri1 != tri2 || nab1 != nab2 ) {
+    AMP::DelaunayInterpolation data2( x, tri );
+    auto tri2 = data2.get_tri();
+    auto nab2 = data2.get_tri_nab();
+    if ( tri != tri2 || tri_nab != nab2 ) {
         ut.failure( "Building triangles from exisitng failed " + msg );
     }
 
-    // Copy the tessellation
-    {
-        PROFILE( "Copy tessellation", 1 );
-        auto [x2, tri] = data->copy_tessellation();
-        int N2         = x2.size( 1 );
-        int N_tri2     = tri.size( 1 );
-        bool error     = static_cast<size_t>( N2 ) != N || static_cast<size_t>( N_tri2 ) != N_tri;
-        if ( error == 0 ) {
-            for ( size_t i = 0; i < x.length(); i++ ) {
-                if ( x( i ) != x2( i ) )
-                    error = true;
-            }
-            for ( size_t i = 0; i < tri.length(); i++ ) {
-                if ( tri( i ) < 0 || tri( i ) >= N2 )
-                    error = true;
-            }
-        }
-        AMP::DelaunayInterpolation<TYPE> data2;
-        data2.create_tessellation( x, tri );
-        if ( data2.get_N_tri() != N_tri )
-            error = true;
-        if ( !error )
-            ut.passes( "Copy of tessellation " + msg );
-        else
-            ut.failure( "Copy of tessellation " + msg );
-    }
-
     // Check the behavior of get_circumsphere and test_in_circumsphere
-    {
-        PROFILE( "Check circumsphere", 1 );
-        pass                = true;
-        double R            = 0;
-        auto tri            = data->get_tri();
-        TYPE x1[NVTX_MAX]   = { 0 };
-        double c[NDIM_MAX]  = { 0 };
-        double xi[NDIM_MAX] = { 0 };
-        double x2[NVTX_MAX] = { 0 };
-        for ( size_t i = 0; i < N_tri; i++ ) {
-            for ( int d1 = 0; d1 < ndim + 1; d1++ ) {
-                int k = tri( d1, i );
-                for ( int d2 = 0; d2 < ndim; d2++ ) {
-                    x1[d2 + d1 * ndim] = x( d2, k );
-                    x2[d2 + d1 * ndim] = x( d2, k );
-                }
-            }
-            get_circumsphere( ndim, x1, R, c );
-            AMP_ASSERT( R > 0 );
-            for ( int j = 0; j < ndim + 1; j++ ) {
-                double dist = 0.0;
-                for ( int d = 0; d < ndim; d++ )
-                    dist += ( x2[d + j * ndim] - c[d] ) * ( x2[d + j * ndim] - c[d] );
-                if ( fabs( std::sqrt( dist ) - R ) / R > 1e-7 )
-                    pass = false;
-            }
-            for ( int j = 0; j < ndim; j++ ) {
-                for ( int d = 0; d < ndim; d++ )
-                    xi[d] = c[d];
-                xi[j]     = c[j] - 10.0 * R;
-                int test1 = test_in_circumsphere( ndim, x2, xi, 0 );
-                xi[j]     = c[j] - 0.1 * R;
-                int test2 = test_in_circumsphere( ndim, x2, xi, 0 );
-                xi[j]     = c[j] + 10.0 * R;
-                int test3 = test_in_circumsphere( ndim, x2, xi, 0 );
-                xi[j]     = c[j] + 0.1 * R;
-                int test4 = test_in_circumsphere( ndim, x2, xi, 0 );
-                if ( test1 != -1 || test2 != 1 || test3 != -1 || test4 != 1 ) {
-                    pass = false;
-                }
-            }
-        }
-        if ( pass )
-            ut.passes( "get_circumsphere and test_in_circumsphere " + msg );
-        else
-            ut.expected_failure( "get_circumsphere and test_in_circumsphere " + msg );
-    }
+    checkCircumsphere<NDIM, TYPE>( ut, x, tri );
 
     // Check that the volume of each triangle is positive and > 0
-    {
-        PROFILE( "Check volume", 1 );
-        auto tri       = data->get_tri();
-        double vol_min = 1e100;
-        double vol_max = 0.0;
-        bool neg_vol   = false;
-        for ( size_t i = 0; i < N_tri; i++ ) {
-            int tri2[NTRI_MAX]  = { 0 };
-            double x2[NVTX_MAX] = { 0 };
-            for ( int d1 = 0; d1 < ndim + 1; d1++ ) {
-                tri2[d1] = tri( d1, i );
-                for ( int d2 = 0; d2 < ndim; d2++ )
-                    x2[d2 + d1 * ndim] = x( d2, tri2[d1] );
-            }
-            double vol = AMP::DelaunayTessellation::calc_volume( ndim, x2 );
-            if ( vol < 0 ) {
-                neg_vol = true;
-                vol     = -vol;
-            }
-            vol_min = std::min( vol_min, vol );
-            vol_max = std::max( vol_max, vol );
-        }
-        if ( !neg_vol && vol_min > 0.0 && vol_min >= 1e-10 * vol_max )
-            ut.passes( "Tessellation volume is valid " + msg );
-        else
-            ut.failure( "Tessellation volume is invalid " + msg );
-    }
+    checkVolume<NDIM, TYPE>( ut, x, tri );
 
     // Perform a rigorous check of the tessellation by checking that no point in the
     // tessellation lies withing the circumsphere of any triangle
     // Note: This is an N^2 test and will only be run for "reasonable" problem sizes
     if ( N <= 5000 ) {
         PROFILE( "Check tessellation", 1 );
-        auto tri               = data->get_tri();
         bool pass_circumsphere = true;
         for ( size_t i = 0; i < N_tri; i++ ) {
-            int tri2[NTRI_MAX] = { 0 };
-            TYPE x2[NVTX_MAX]  = { 0 };
-            TYPE xi[NDIM_MAX]  = { 0 };
-            for ( int d1 = 0; d1 < ndim + 1; d1++ ) {
-                tri2[d1] = tri( d1, i );
-                for ( int d2 = 0; d2 < ndim; d2++ )
-                    x2[d2 + d1 * ndim] = x( d2, tri2[d1] );
+            std::array<TYPE, NDIM> x2[NDIM + 1];
+            std::array<TYPE, NDIM> xi;
+            for ( int d1 = 0; d1 <= NDIM; d1++ ) {
+                auto t = tri( d1, i );
+                for ( int d2 = 0; d2 < NDIM; d2++ )
+                    x2[d1][d2] = x( d2, t );
             }
             for ( size_t j = 0; j < N; j++ ) {
-                for ( int d = 0; d < ndim; d++ )
+                for ( int d = 0; d < NDIM; d++ )
                     xi[d] = x( d, j );
-                int test = test_in_circumsphere( ndim, x2, xi, 1e-8 );
+                int test = test_in_circumsphere<NDIM, TYPE>( x2, xi, 1e-8 );
                 if ( test == 1 ) {
                     pass_circumsphere = false;
                     break;
@@ -353,6 +327,36 @@ createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x
         else
             ut.failure( "Tessellation is invalid " + msg );
     }
+}
+template<class TYPE>
+std::shared_ptr<AMP::DelaunayInterpolation>
+createAndTestDelaunayInterpolation( AMP::UnitTest &ut, const AMP::Array<TYPE> &x )
+{
+    if ( x.empty() )
+        return nullptr;
+    int ndim = x.size( 0 );
+    size_t N = x.size( 1 );
+    auto msg = stringf( "(%i,%i,%s)", ndim, (int) N, AMP::getTypeID<TYPE>().name );
+
+    // Create the tessellation
+    auto data    = std::make_shared<AMP::DelaunayInterpolation>( x );
+    size_t N_tri = data->get_N_tri();
+    if ( N_tri > 0 ) {
+        ut.passes( "Created tessellation " + msg );
+    } else {
+        ut.failure( "Created tessellation " + msg );
+        return nullptr;
+    }
+
+    // Run the tests
+    auto tri     = data->get_tri();
+    auto tri_nab = data->get_tri_nab();
+    if ( ndim == 1 )
+        testTessellation<1>( ut, x, tri, tri_nab );
+    else if ( ndim == 2 )
+        testTessellation<2>( ut, x, tri, tri_nab );
+    else if ( ndim == 3 )
+        testTessellation<3>( ut, x, tri, tri_nab );
 
     return data;
 }
@@ -604,7 +608,7 @@ void testInterpolation( AMP::UnitTest &ut,
         }
 
         // Test nearest-neighbor interpolation
-        auto fi                  = data->interp_nearest( f, x, nearest );
+        auto fi                  = data->interp_nearest( f, nearest );
         bool pass_interp_nearest = true;
         for ( size_t i = 0; i < N; i++ ) {
             if ( !approx_equal( f( i ), fi( i ) ) )
@@ -701,17 +705,7 @@ void testInterpolation( AMP::UnitTest &ut,
 template<class TYPE>
 void testInterpolationRandom( AMP::UnitTest &ut, int d, int N )
 {
-    // Generate random points
     auto x = createRandomPoints<TYPE>( d, N );
-    // Verify small number of points are not collinear
-    if ( d == 2 && N <= 10 ) {
-        int i = 0;
-        while ( AMP::DelaunayTessellation::collinear( x ) && i < 5 ) {
-            x = createRandomPoints<TYPE>( d, N );
-            i++;
-        }
-    }
-    // Run the tests
     testInterpolation( ut, "random", x );
 }
 
@@ -854,27 +848,6 @@ AMP::Array<TYPE> createProblem( int problem )
 }
 
 
-// Test the frequency with which random points are collinear
-// Note the number of collinear sets is primarilly determined by TOL_COLLINEAR
-void testCollinear( AMP::UnitTest &ut )
-{
-    PROFILE( "testCollinear" );
-    int N = 100000;
-    int C = 0;
-    for ( int i = 0; i < N; i++ ) {
-        auto x    = createRandomPoints<double>( 2, 3 );
-        bool test = AMP::DelaunayTessellation::collinear( x );
-        if ( test )
-            C++;
-    }
-    printf( "   %i of %i sets of points were collinear\n", C, N );
-    if ( C <= 0.04 * N )
-        ut.passes( "expected number of sets are collinear" );
-    else
-        ut.failure( "excessive number of sets are collinear" );
-}
-
-
 // Get the convergence
 template<class TYPE>
 void testConvergence( AMP::UnitTest &ut, int ndim )
@@ -939,14 +912,10 @@ void runDefault( AMP::UnitTest &ut )
         testPointSearch( ut, createRandomPoints<int>( d, 100 ) );
     }
 
-    // Test collinear
-    printp( "Running collinear test\n" );
-    testCollinear( ut );
-
     // Test DelaunayInterpolation with random points in 1D, 2D and 3D
     for ( int d = 1; d <= NDIM_MAX; d++ ) {
         printp( "Running interpolation tests with random points %iD (double)\n", d );
-        testInterpolationRandom<double>( ut, d, d + 1 ); // minimum # of points
+        testInterpolationRandom<double>( ut, d, d + 1 ); // minimum # of points*/
         testInterpolationRandom<double>( ut, d, 10 );    // small # of points
         testInterpolationRandom<double>( ut, d, 1000 );  // medium # of points
         testInterpolationRandom<double>( ut, d, 10000 ); // large # of points

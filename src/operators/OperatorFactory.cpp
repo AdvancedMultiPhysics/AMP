@@ -39,18 +39,21 @@ namespace AMP::Operator {
 
 
 // Macros to register an operator
-#define REGISTER_OPERATOR( OP, NAME )                                      \
-    d_factories[NAME] = []( std::shared_ptr<OperatorParameters> params ) { \
-        return std::make_unique<OP>( params );                             \
-    }
+template<typename TYPE>
+static auto createInstance( std::shared_ptr<OperatorParameters> params )
+{
+    return std::make_unique<TYPE>( params );
+}
+[[maybe_unused]] static auto createNullInstance( std::shared_ptr<OperatorParameters> )
+    -> std::unique_ptr<Operator>
+{
+    AMP_ERROR( "Operator requires libMesh" );
+}
+#define REGISTER_OPERATOR( OP, NAME ) d_factories[NAME] = createInstance<OP>
 #ifdef AMP_USE_LIBMESH
-    #define REGISTER_OPERATOR_LIBMESH( OP, NAME ) REGISTER_OPERATOR( OP, NAME )
+    #define REGISTER_LIBMESH( OP, NAME ) d_factories[NAME] = createInstance<OP>
 #else
-    #define REGISTER_OPERATOR_LIBMESH( OP, NAME )                       \
-        d_factories[NAME] = []( std::shared_ptr<OperatorParameters> ) { \
-            AMP_ERROR( std::string( NAME ) + " requires libMesh" );     \
-            return nullptr;                                             \
-        }
+    #define REGISTER_LIBMESH( OP, NAME ) d_factories[NAME] = createNullInstance
 #endif
 
 
@@ -83,25 +86,23 @@ void AMP::FactoryStrategy<AMP::Operator::Operator,
     REGISTER_OPERATOR( DirichletMatrixCorrection, "DirichletMatrixCorrection" );
     REGISTER_OPERATOR( DirichletVectorCorrection, "DirichletVectorCorrection" );
     REGISTER_OPERATOR( NeutronicsRhs, "NeutronicsRhsOperator" );
-    REGISTER_OPERATOR_LIBMESH( MapSurface, "MapSurface" );
-    REGISTER_OPERATOR_LIBMESH( VolumeIntegralOperator, "VolumeIntegralOperator" );
-    REGISTER_OPERATOR_LIBMESH( MassLinearFEOperator, "MassLinearFEOperator" );
-    REGISTER_OPERATOR_LIBMESH( DiffusionLinearFEOperator, "DiffusionLinearFEOperator" );
-    REGISTER_OPERATOR_LIBMESH( DiffusionNonlinearFEOperator, "DiffusionNonlinearFEOperator" );
-    REGISTER_OPERATOR_LIBMESH( MechanicsLinearFEOperator, "MechanicsLinearFEOperator" );
-    REGISTER_OPERATOR_LIBMESH( MechanicsNonlinearFEOperator, "MechanicsNonlinearFEOperator" );
-    REGISTER_OPERATOR_LIBMESH( RobinMatrixCorrection, "RobinMatrixCorrection" );
-    REGISTER_OPERATOR_LIBMESH( RobinVectorCorrection, "RobinVectorCorrection" );
-    REGISTER_OPERATOR_LIBMESH( FlowFrapconJacobian, "FlowFrapconJacobian" );
-    REGISTER_OPERATOR_LIBMESH( FlowFrapconOperator, "FlowFrapconOperator" );
-    REGISTER_OPERATOR_LIBMESH( SubchannelTwoEqLinearOperator, "SubchannelTwoEqLinearOperator" );
-    REGISTER_OPERATOR_LIBMESH( SubchannelFourEqLinearOperator, "SubchannelFourEqLinearOperator" );
-    REGISTER_OPERATOR_LIBMESH( SubchannelTwoEqNonlinearOperator,
-                               "SubchannelTwoEqNonlinearOperator" );
-    REGISTER_OPERATOR_LIBMESH( SubchannelFourEqNonlinearOperator,
-                               "SubchannelFourEqNonlinearOperator" );
-    REGISTER_OPERATOR_LIBMESH( PressureBoundaryOperator, "PressureBoundaryOperator" );
-    REGISTER_OPERATOR_LIBMESH( MassMatrixCorrection, "MassMatrixCorrection" );
-    REGISTER_OPERATOR_LIBMESH( NeumannVectorCorrection, "NeumannVectorCorrection" );
-    REGISTER_OPERATOR_LIBMESH( FickSoretNonlinearFEOperator, "FickSoretNonlinearFEOperator" );
+    REGISTER_LIBMESH( MapSurface, "MapSurface" );
+    REGISTER_LIBMESH( VolumeIntegralOperator, "VolumeIntegralOperator" );
+    REGISTER_LIBMESH( MassLinearFEOperator, "MassLinearFEOperator" );
+    REGISTER_LIBMESH( DiffusionLinearFEOperator, "DiffusionLinearFEOperator" );
+    REGISTER_LIBMESH( DiffusionNonlinearFEOperator, "DiffusionNonlinearFEOperator" );
+    REGISTER_LIBMESH( MechanicsLinearFEOperator, "MechanicsLinearFEOperator" );
+    REGISTER_LIBMESH( MechanicsNonlinearFEOperator, "MechanicsNonlinearFEOperator" );
+    REGISTER_LIBMESH( RobinMatrixCorrection, "RobinMatrixCorrection" );
+    REGISTER_LIBMESH( RobinVectorCorrection, "RobinVectorCorrection" );
+    REGISTER_LIBMESH( FlowFrapconJacobian, "FlowFrapconJacobian" );
+    REGISTER_LIBMESH( FlowFrapconOperator, "FlowFrapconOperator" );
+    REGISTER_LIBMESH( SubchannelTwoEqLinearOperator, "SubchannelTwoEqLinearOperator" );
+    REGISTER_LIBMESH( SubchannelFourEqLinearOperator, "SubchannelFourEqLinearOperator" );
+    REGISTER_LIBMESH( SubchannelTwoEqNonlinearOperator, "SubchannelTwoEqNonlinearOperator" );
+    REGISTER_LIBMESH( SubchannelFourEqNonlinearOperator, "SubchannelFourEqNonlinearOperator" );
+    REGISTER_LIBMESH( PressureBoundaryOperator, "PressureBoundaryOperator" );
+    REGISTER_LIBMESH( MassMatrixCorrection, "MassMatrixCorrection" );
+    REGISTER_LIBMESH( NeumannVectorCorrection, "NeumannVectorCorrection" );
+    REGISTER_LIBMESH( FickSoretNonlinearFEOperator, "FickSoretNonlinearFEOperator" );
 }

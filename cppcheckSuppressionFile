@@ -124,6 +124,7 @@ containerOutOfBounds:*/src/mesh/MeshElement.cpp
 containerOutOfBounds:*/src/mesh/structured/structuredMeshElement.cpp
 containerOutOfBounds:*/src/mesh/triangle/TriangleMesh.cpp
 containerOutOfBounds:*/src/utils/DelaunayTessellation.cpp
+containerOutOfBounds:*/src/utils/DelaunayInterpolation.cpp
 containerOutOfBounds:*/src/utils/test/test_AMP_MPI.cpp
 containerOutOfBounds:*/src/geometry/LogicalGeometry.cpp
 copyCtorPointerCopying:*/src/utils/AMP_MPI.cpp

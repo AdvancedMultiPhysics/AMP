@@ -1,0 +1,63 @@
+// This is a sample hierarchy obtained by running nrdf with input.BDF2.FAC.16b4l on 24 cores on vayu
+
+dim=3
+
+CartesianGeometry{
+   domain_boxes  =  [(0,0,0), (3,3,3)]
+   x_lo          =  0.0e0, 0.0e0, 0.0e0   
+   x_up          =  1.0e0, 1.0e0, 1.0e0
+   periodic_dimension = 0,0,0
+}
+
+GriddingAlgorithm{
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
+}
+
+PatchHierarchy{
+   max_levels = 6
+   largest_patch_size {
+      level_0  =  4,4,4
+      level_1  =  8,8,8
+      level_2  =  16,16,16
+      level_3  =  32,32,32
+   }
+   smallest_patch_size {
+      level_0  =  4,4,4
+      level_1  =  8,8,8
+      level_2  =  8,16,16
+      level_3  =  8,16,16
+   }
+   ratio_to_coarser {
+      level_1   =  2,2,2
+      level_2   =  2,2,2
+      level_3   =  2,2,2
+      level_4   =  2,2,2
+      level_5   =  2,2,2
+   }
+}
+
+StandardTagAndInitialize{
+   tagging_method = "REFINE_BOXES"
+   level_0 {
+      boxes  =  [(0,0,0),(3,3,3)]
+   }
+   level_1 {
+      boxes  =  [(0,0,0),(7,7,7)]
+   }
+   level_2 {
+      boxes  =  [(0,0,0),(3,15,15)]
+   }
+   level_3 {
+      boxes  =  [(0,0,0),(3,31,31)]
+   }
+   level_4 {
+      boxes  =  [(0,0,0),(3,63,63)]
+   }
+}
+
+ChopAndPackLoadBalancer {
+   use_spatial_bin_pack  = TRUE              // input not used
+   bin_pack_method       = "SPATIAL"         // from default
+}
+
