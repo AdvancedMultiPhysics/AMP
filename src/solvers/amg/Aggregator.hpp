@@ -229,7 +229,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
 #ifdef AMP_USE_DEVICE
             dim3 BlockDim;
             dim3 GridDim;
-            setKernelDims( A_nrows, BlockDim, GridDim );
+            setKernelDims( A_nrows, acc_coarse_null<lidx_t, scalar_t>, BlockDim, GridDim );
             acc_coarse_null<<<GridDim, BlockDim>>>(
                 agg_ids.get(), null_vals, A_nrows, coarse_null_vals );
             getLastDeviceError( "Aggregator::getAggregateMatrix" );
@@ -267,7 +267,8 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             {
                 dim3 BlockDim;
                 dim3 GridDim;
-                setKernelDims( A_nrows, BlockDim, GridDim );
+                setKernelDims(
+                    A_nrows, fill_p_diag_scatter<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
                 fill_p_diag_scatter<<<GridDim, BlockDim>>>( agg_ids.get(),
                                                             P_rs,
                                                             null_vals,
@@ -305,7 +306,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             {
                 dim3 BlockDim;
                 dim3 GridDim;
-                setKernelDims( A_nrows, BlockDim, GridDim );
+                setKernelDims( A_nrows, fill_p_diag<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
                 fill_p_diag<<<GridDim, BlockDim>>>(
                     agg_ids.get(), P_rs, A_nrows, begin_col, P_cols, P_cols_loc, P_coeffs );
                 getLastDeviceError( "Aggregator::getAggregateMatrix" );

@@ -240,7 +240,10 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
 
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows,
+                       compute_soc_device<StrengthPolicy, lidx_t, scalar_t, mask_t>,
+                       BlockDim,
+                       GridDim );
         compute_soc_device<<<GridDim, BlockDim>>>( StrengthPolicy{},
                                                    row_ptr_diag,
                                                    cols_loc_diag,
