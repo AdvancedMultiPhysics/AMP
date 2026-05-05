@@ -140,7 +140,8 @@ template<typename FUNC>
 static void inline setKernelDims( const int n, FUNC func, dim3 &BlockDim, dim3 &GridDim )
 {
     int minGridSize = 0, blockSize = 0;
-    auto err = cudaOccupancyMaxPotentialBlockSizeWithFlags( &minGridSize, &blockSize, func );
+    checkCudaErrors(
+        cudaOccupancyMaxPotentialBlockSizeWithFlags( &minGridSize, &blockSize, func, 0, 0 ) );
     const int gridSize = ( n + blockSize - 1 ) / blockSize;
     BlockDim           = dim3( blockSize, 1, 1 );
     GridDim            = dim3( gridSize, 1, 1 );
