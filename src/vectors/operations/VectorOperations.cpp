@@ -109,11 +109,16 @@ Scalar VectorOperations::L2Norm( const VectorData &x ) const
 {
     PROFILE( "VectorOperations::L2Norm" );
 
-    auto ans   = localL2Norm( x );
+    auto ans   = localL2Norm2( x );
     auto &comm = x.getComm();
     if ( comm.getSize() > 1 )
-        ans = comm.sumReduce( ans * ans ).sqrt();
-    return ans;
+        ans = comm.sumReduce( ans );
+    return ans.sqrt();
+}
+
+Scalar VectorOperations::localL2Norm( const VectorData &x ) const
+{
+    return localL2Norm2( x ).sqrt();
 }
 
 Scalar VectorOperations::minQuotient( const VectorData &x, const VectorData &y ) const

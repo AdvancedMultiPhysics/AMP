@@ -3,6 +3,7 @@
 
 #include <complex>
 #include <cstdint>
+#include <ostream>
 #include <string_view>
 #include <type_traits>
 
@@ -208,13 +209,44 @@ namespace AMP {
 
 //! Class to store type info
 struct alignas( 8 ) typeID {
-    uint32_t bytes = 0;     //!< Size of object (bytes)
-    uint32_t hash  = 0;     //!< Hash of function
-    char name[120] = { 0 }; //!< Name of function (may be truncated, null-terminated)
+    uint32_t bytes  = 0;     //!< Size of object (bytes)
+    uint32_t hash   = 0;     //!< Hash of function
+    uint32_t traits = 0;     //! Store some basic properties
+    char name[116]  = { 0 }; //!< Name of function (may be truncated, null-terminated)
     constexpr bool operator==( uint32_t rhs ) const { return hash == rhs; }
     constexpr bool operator!=( uint32_t rhs ) const { return hash != rhs; }
     constexpr bool operator==( const typeID &rhs ) const { return hash == rhs.hash; }
     constexpr bool operator!=( const typeID &rhs ) const { return hash != rhs.hash; }
+    constexpr bool is_void() const { return traits & 0x1; }
+    constexpr bool is_null_pointer() const { return traits & 0x2; }
+    constexpr bool is_integral() const { return traits & 0x4; }
+    constexpr bool is_floating_point() const { return traits & 0x8; }
+    constexpr bool is_array() const { return traits & 0x10; }
+    constexpr bool is_enum() const { return traits & 0x20; }
+    constexpr bool is_union() const { return traits & 0x40; }
+    constexpr bool is_class() const { return traits & 0x80; }
+    constexpr bool is_function() const { return traits & 0x100; }
+    constexpr bool is_pointer() const { return traits & 0x200; }
+    constexpr bool is_member_object_pointer() const { return traits & 0x400; }
+    constexpr bool is_member_function_pointer() const { return traits & 0x800; }
+    constexpr bool is_fundamental() const { return traits & 0x1000; }
+    constexpr bool is_scalar() const { return traits & 0x2000; }
+    constexpr bool is_object() const { return traits & 0x4000; }
+    constexpr bool is_compound() const { return traits & 0x8000; }
+    constexpr bool is_trivially_copyable() const { return traits & 0x10000; }
+    constexpr bool has_unique_object_representations() const { return traits & 0x20000; }
+    constexpr bool is_empty() const { return traits & 0x40000; }
+    constexpr bool is_polymorphic() const { return traits & 0x80000; }
+    constexpr bool is_abstract() const { return traits & 0x100000; }
+    constexpr bool is_final() const { return traits & 0x200000; }
+    constexpr bool is_aggregate() const { return traits & 0x400000; }
+    constexpr bool is_signed() const { return traits & 0x800000; }
+    constexpr bool is_arithmetic() const { return is_integral() || is_floating_point(); }
+    constexpr bool is_unsigned() const { return is_arithmetic() && !is_signed(); }
+    constexpr bool is_member_pointer() const
+    {
+        return is_member_object_pointer() || is_member_function_pointer();
+    }
 };
 static_assert( sizeof( typeID ) == 128 );
 
@@ -238,6 +270,35 @@ constexpr typeID getTypeIDEval()
         id.hash = MurmurHash64A<sizeof( name )>( name );
     // Set the size
     id.bytes = sizeof( T );
+    // Set the properties
+    auto set = [&id]( uint8_t i, bool val ) {
+        if ( val )
+            id.traits |= ( (uint32_t) 0x1 ) << i;
+    };
+    set( 0, std::is_void_v<T0> );
+    set( 1, std::is_null_pointer_v<T0> );
+    set( 2, std::is_integral_v<T0> );
+    set( 3, std::is_floating_point_v<T0> );
+    set( 4, std::is_array_v<T0> );
+    set( 5, std::is_enum_v<T0> );
+    set( 6, std::is_union_v<T0> );
+    set( 7, std::is_class_v<T0> );
+    set( 8, std::is_function_v<T0> );
+    set( 9, std::is_pointer_v<T0> );
+    set( 10, std::is_member_object_pointer_v<T0> );
+    set( 11, std::is_member_function_pointer_v<T0> );
+    set( 12, std::is_fundamental_v<T0> );
+    set( 13, std::is_scalar_v<T0> );
+    set( 14, std::is_object_v<T0> );
+    set( 15, std::is_compound_v<T0> );
+    set( 16, std::is_trivially_copyable_v<T0> );
+    set( 17, std::has_unique_object_representations_v<T0> );
+    set( 18, std::is_empty_v<T0> );
+    set( 19, std::is_polymorphic_v<T0> );
+    set( 20, std::is_abstract_v<T0> );
+    set( 21, std::is_final_v<T0> );
+    set( 22, std::is_aggregate_v<T0> );
+    set( 23, std::is_signed_v<T0> );
     return id;
 }
 //! Get the type info (does not resolve dynamic types)
@@ -247,6 +308,14 @@ constexpr typeID getTypeID()
     constexpr auto id = getTypeIDEval<TYPE>();
     static_assert( id != 0 );
     return id;
+}
+
+
+// Print the typeid name
+inline std::ostream &operator<<( std::ostream &out, const typeID &id )
+{
+    out << id.name;
+    return out;
 }
 
 

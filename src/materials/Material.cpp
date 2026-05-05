@@ -129,7 +129,12 @@ bool isMaterial( const std::string &name ) { return MaterialFactory::exists( nam
 /********************************************************************
  * Register default materials                                        *
  ********************************************************************/
-#define REGISTER_MATERIAL( NAME ) d_factories[#NAME] = []() { return std::make_unique<NAME>(); };
+template<typename TYPE>
+static auto createInstance()
+{
+    return std::make_unique<TYPE>();
+}
+#define REGISTER_MATERIAL( NAME ) d_factories[#NAME] = createInstance<NAME>
 template<>
 void AMP::FactoryStrategy<AMP::Materials::Material>::registerDefault()
 {

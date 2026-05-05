@@ -223,6 +223,7 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
             sid = fopen( sname.data(), "w" );
         else
             sid = fopen( sname.data(), "a" );
+        AMP_ASSERT( sid );
         fprintf( sid, "%s\n", AMP::IO::filename( fname ).data() );
         fclose( sid );
     }

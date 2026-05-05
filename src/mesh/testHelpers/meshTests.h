@@ -334,7 +334,7 @@ public: // Matrix based tests
                               bool split );
 
 
-private:
+public:
     static std::pair<size_t, size_t> ElementIteratorTest( AMP::UnitTest &ut,
                                                           std::shared_ptr<AMP::Mesh::Mesh> mesh,
                                                           const AMP::Mesh::MeshIterator &iterator,
@@ -342,6 +342,7 @@ private:
                                                           const std::vector<int> &blockIds,
                                                           const std::string &name );
 
+private:
     static std::shared_ptr<AMP::Mesh::Mesh> globalMeshForMeshVectorFactory;
 };
 

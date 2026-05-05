@@ -41,7 +41,8 @@ public:
 
 private:
     CloneFactory();
-    std::shared_ptr<const VectorFactory> d_factory;
+    std::string d_name;
+    std::shared_ptr<const Vector> d_vec;
 };
 
 
@@ -92,7 +93,14 @@ public:
             return AMP::LinearAlgebra::createArrayVector<TYPE>( { D, I }, var );
         }
     }
-    std::string name() const override { return "ArrayVectorFactory"; }
+    std::string name() const override
+    {
+        return AMP::Utilities::stringf( "ArrayVectorFactory<%i,%i,%s,%s>",
+                                        (int) D,
+                                        (int) I,
+                                        GLOBAL ? "true" : "false",
+                                        getTypeID<TYPE>().name );
+    }
 
 private:
     ArrayVectorFactory() = delete;

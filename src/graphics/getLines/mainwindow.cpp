@@ -311,12 +311,12 @@ void MainWindow::loadFile( const std::string &filename, bool )
         // Load the image
         QImage image( QString( filename.data() ) );
         d_data.resize( image.width(), image.height() );
-        d_data.fill( AMP::ARGB32() );
+        d_data.fill( AMP::Graphics::ARGB32() );
         for ( size_t i = 0; i < d_data.size( 0 ); i++ ) {
             for ( size_t j = 0; j < d_data.size( 1 ); j++ ) {
-                auto rgb = image.pixel( i, j );
-                d_data( i, j ) =
-                    AMP::ARGB32( qRed( rgb ), qGreen( rgb ), qBlue( rgb ), qAlpha( rgb ) );
+                auto rgb       = image.pixel( i, j );
+                d_data( i, j ) = AMP::Graphics::ARGB32(
+                    qRed( rgb ), qGreen( rgb ), qBlue( rgb ), qAlpha( rgb ) );
             }
         }
         // Set the title window

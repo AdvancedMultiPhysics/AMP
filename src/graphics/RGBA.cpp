@@ -2,7 +2,7 @@
 #include "AMP/utils/Array.hpp"
 
 
-namespace AMP {
+namespace AMP::Graphics {
 
 
 /********************************************************
@@ -29,19 +29,21 @@ static constexpr bool runTests()
 static_assert( runTests() );
 
 
-} // namespace AMP
+} // namespace AMP::Graphics
 
 
 /********************************************************
  *  Explicit instantiations of Array<RGB>                *
  ********************************************************/
 // clang-format off
-instantiateArrayConstructors( AMP::RGBA32 );
-instantiateArrayConstructors( AMP::ARGB32 );
-template AMP::Array<AMP::RGBA32> AMP::Array<AMP::RGBA32>::repmat( const AMP::ArraySize & ) const;
-template AMP::Array<AMP::ARGB32> AMP::Array<AMP::ARGB32>::repmat( const AMP::ArraySize & ) const;
-template AMP::Array<AMP::RGBA32> AMP::Array<AMP::RGBA32>::subset( const std::vector<size_t> & ) const;
-template AMP::Array<AMP::ARGB32> AMP::Array<AMP::ARGB32>::subset( const std::vector<size_t> & ) const;
-template void AMP::Array<AMP::RGBA32>::copySubset( const std::vector<size_t> &, const AMP::Array<AMP::RGBA32> & );
-template void AMP::Array<AMP::ARGB32>::copySubset( const std::vector<size_t> &, const AMP::Array<AMP::ARGB32> & );
+using RGBA = AMP::Graphics::RGBA32;
+using ARGB = AMP::Graphics::ARGB32;
+instantiateArrayConstructors( RGBA );
+instantiateArrayConstructors( ARGB );
+template AMP::Array<RGBA> AMP::Array<RGBA>::repmat( const AMP::ArraySize& ) const;
+template AMP::Array<ARGB> AMP::Array<ARGB>::repmat( const AMP::ArraySize& ) const;
+template AMP::Array<RGBA> AMP::Array<RGBA>::subset( const std::vector<size_t>& ) const;
+template AMP::Array<ARGB> AMP::Array<ARGB>::subset( const std::vector<size_t>& ) const;
+template void AMP::Array<RGBA>::copySubset( const std::vector<size_t>&, const AMP::Array<RGBA>& );
+template void AMP::Array<ARGB>::copySubset( const std::vector<size_t>&, const AMP::Array<ARGB>& );
 // clang-format on

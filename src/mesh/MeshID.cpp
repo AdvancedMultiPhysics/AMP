@@ -302,6 +302,8 @@ template class AMP::kdtree2<2, AMP::Mesh::MeshElementID>;
 template class AMP::kdtree2<3, AMP::Mesh::MeshElementID>;
 template void AMP::Utilities::quicksort<int, AMP::Mesh::MeshElementID>(
     size_t, int *, AMP::Mesh::MeshElementID * );
+template void AMP::Utilities::quicksort<AMP::Mesh::MeshElementID, size_t>(
+    size_t, AMP::Mesh::MeshElementID *, size_t * );
 template void
 AMP::Utilities::quicksort<int, AMP::Mesh::MeshElementID>( std::vector<int> &,
                                                           std::vector<AMP::Mesh::MeshElementID> & );

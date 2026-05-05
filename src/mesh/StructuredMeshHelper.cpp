@@ -14,7 +14,7 @@ namespace AMP::Mesh {
 /************************************************************
  * Function to return the coordinates of a cube mesh         *
  ************************************************************/
-void StructuredMeshHelper::getXYZCoordinates( std::shared_ptr<AMP::Mesh::Mesh> mesh,
+void StructuredMeshHelper::getXYZCoordinates( std::shared_ptr<Mesh> mesh,
                                               std::vector<double> &x_out,
                                               std::vector<double> &y_out,
                                               std::vector<double> &z_out,
@@ -22,7 +22,7 @@ void StructuredMeshHelper::getXYZCoordinates( std::shared_ptr<AMP::Mesh::Mesh> m
 {
     AMP_ASSERT( mesh );
     std::set<double> x, y, z;
-    auto it = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
+    auto it = mesh->getIterator( GeomType::Vertex, 0 );
     for ( size_t i = 0; i < it.size(); i++ ) {
         auto coord = it->coord();
         AMP_ASSERT( coord.size() == 3 );
@@ -59,43 +59,40 @@ void StructuredMeshHelper::getXYZCoordinates( std::shared_ptr<AMP::Mesh::Mesh> m
     size_t Ny = y.size() - 1;
     size_t Nz = z.size() - 1;
     if ( check )
-        AMP_ASSERT( Nx * Ny * Nz == mesh->numGlobalElements( AMP::Mesh::GeomType::Cell ) );
+        AMP_ASSERT( Nx * Ny * Nz == mesh->numGlobalElements( GeomType::Cell ) );
 }
 
 
 /************************************************************
  * Functions to iterators over particular sets of faces      *
  ************************************************************/
-AMP::Mesh::MeshIterator
-StructuredMeshHelper::getXYFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> mesh, int gcw )
+MeshIterator StructuredMeshHelper::getXYFaceIterator( std::shared_ptr<Mesh> mesh, int gcw )
 {
     return getFaceIterator( mesh, gcw, 2 );
 }
-AMP::Mesh::MeshIterator
-StructuredMeshHelper::getXZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> mesh, int gcw )
+MeshIterator StructuredMeshHelper::getXZFaceIterator( std::shared_ptr<Mesh> mesh, int gcw )
 {
     return getFaceIterator( mesh, gcw, 1 );
 }
-AMP::Mesh::MeshIterator
-StructuredMeshHelper::getYZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> mesh, int gcw )
+MeshIterator StructuredMeshHelper::getYZFaceIterator( std::shared_ptr<Mesh> mesh, int gcw )
 {
     return getFaceIterator( mesh, gcw, 0 );
 }
-AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
-    std::shared_ptr<AMP::Mesh::Mesh> mesh, int gcw, int direction )
+MeshIterator
+StructuredMeshHelper::getFaceIterator( std::shared_ptr<Mesh> mesh, int gcw, int direction )
 {
-    auto multimesh = std::dynamic_pointer_cast<AMP::Mesh::MultiMesh>( mesh );
-    auto boxmesh   = std::dynamic_pointer_cast<AMP::Mesh::BoxMesh>( mesh );
+    auto multimesh = std::dynamic_pointer_cast<MultiMesh>( mesh );
+    auto boxmesh   = std::dynamic_pointer_cast<BoxMesh>( mesh );
     if ( multimesh != nullptr ) {
         // Optimization for multi-meshes
         auto meshlist = multimesh->getMeshes();
         if ( meshlist.size() == 1 ) {
             return getFaceIterator( meshlist[0], gcw, direction );
         } else {
-            std::vector<AMP::Mesh::MeshIterator> iterators( meshlist.size() );
+            std::vector<MeshIterator> iterators( meshlist.size() );
             for ( size_t i = 0; i < meshlist.size(); i++ )
                 iterators[i] = getFaceIterator( meshlist[i], gcw, direction );
-            return AMP::Mesh::MultiIterator( iterators );
+            return MeshIterator::create<MultiIterator>( iterators );
         }
     } else if ( boxmesh != nullptr ) {
         // Optimization for AMP structured meshes
@@ -119,8 +116,8 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
             for ( int k = box.first[2]; k <= box.last[2]; k++ ) {
                 for ( int j = box.first[1]; j <= box.last[1]; j++ ) {
                     for ( int i = box.first[0]; i <= box.last[0] + last[0]; i++ )
-                        face_list->push_back( AMP::Mesh::BoxMesh::MeshElementIndex(
-                            AMP::Mesh::GeomType::Face, 0, i, j, k ) );
+                        face_list->push_back(
+                            BoxMesh::MeshElementIndex( GeomType::Face, 0, i, j, k ) );
                 }
             }
         } else if ( direction == 1 ) {
@@ -128,8 +125,8 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
             for ( int k = box.first[2]; k <= box.last[2]; k++ ) {
                 for ( int i = box.first[0]; i <= box.last[0]; i++ ) {
                     for ( int j = box.first[1]; j <= box.last[1] + last[1]; j++ )
-                        face_list->push_back( AMP::Mesh::BoxMesh::MeshElementIndex(
-                            AMP::Mesh::GeomType::Face, 1, i, j, k ) );
+                        face_list->push_back(
+                            BoxMesh::MeshElementIndex( GeomType::Face, 1, i, j, k ) );
                 }
             }
         } else if ( direction == 2 ) {
@@ -137,18 +134,18 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
             for ( int j = box.first[1]; j <= box.last[1]; j++ ) {
                 for ( int i = box.first[0]; i <= box.last[0]; i++ ) {
                     for ( int k = box.first[2]; k <= box.last[2] + last[2]; k++ )
-                        face_list->push_back( AMP::Mesh::BoxMesh::MeshElementIndex(
-                            AMP::Mesh::GeomType::Face, 2, i, j, k ) );
+                        face_list->push_back(
+                            BoxMesh::MeshElementIndex( GeomType::Face, 2, i, j, k ) );
                 }
             }
         } else {
             AMP_ERROR( "Unfinished" );
         }
-        return structuredMeshIterator( face_list, boxmesh.get(), 0 );
+        return MeshIterator::create<structuredMeshIterator>( face_list, boxmesh.get(), 0 );
     } else {
         // General case
-        auto iterator = mesh->getIterator( AMP::Mesh::GeomType::Face, gcw );
-        std::vector<std::unique_ptr<AMP::Mesh::MeshElement>> face_list;
+        auto iterator = mesh->getIterator( GeomType::Face, gcw );
+        std::vector<std::unique_ptr<MeshElement>> face_list;
         std::vector<double> face_index;
         face_list.reserve( iterator.size() );
         face_index.reserve( iterator.size() );
@@ -157,7 +154,7 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
         std::vector<std::tuple<int, int, int>> index;
         index.reserve( iterator.size() );
         for ( size_t i = 0; i < iterator.size(); ++i ) {
-            auto nodes    = iterator->getElements( AMP::Mesh::GeomType::Vertex );
+            auto nodes    = iterator->getElements( GeomType::Vertex );
             auto center   = iterator->centroid();
             bool is_valid = true;
             for ( auto &node : nodes ) {
@@ -191,20 +188,18 @@ AMP::Mesh::MeshIterator StructuredMeshHelper::getFaceIterator(
         std::vector<int> I( index.size() );
         std::iota( I.begin(), I.end(), 0 );
         Utilities::quicksort( index, I );
-        auto elements =
-            std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>( index.size() );
+        auto elements = std::make_shared<std::vector<std::unique_ptr<MeshElement>>>( index.size() );
         for ( size_t i = 0; i < index.size(); i++ )
             elements->operator[]( i ) = std::move( face_list[I[i]] );
-        return AMP::Mesh::MeshListIterator( elements );
+        return new MeshListIterator( elements );
     }
 }
 
 
-AMP::Mesh::MeshIterator StructuredMeshHelper::getGapFaceIterator( std::shared_ptr<AMP::Mesh::Mesh>,
-                                                                  int )
+MeshIterator StructuredMeshHelper::getGapFaceIterator( std::shared_ptr<Mesh>, int )
 {
     AMP_ERROR( "Not finished" );
-    return AMP::Mesh::MeshIterator();
+    return MeshIterator();
 }
 
 

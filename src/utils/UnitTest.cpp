@@ -1,6 +1,6 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/IO/PIO.h"
-#include "AMP/utils/AMP_MPI.I"
+#include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
 
 #include <cstring>

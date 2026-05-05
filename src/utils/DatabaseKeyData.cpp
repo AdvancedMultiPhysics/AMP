@@ -406,8 +406,13 @@ template void Database::putScalar<std::vector<bool>::reference>(
 /********************************************************
  *  Register KeyData with factory                        *
  ********************************************************/
-#define REGISTER_KEYDATA( TYPE ) \
-    d_factories[AMP::getTypeID<TYPE>().name] = []() { return std::make_unique<TYPE>(); }
+template<typename TYPE>
+static auto createInstance()
+{
+    return std::make_unique<TYPE>();
+}
+#define REGISTER_KEYDATA0( NAME, TYPE ) d_factories[NAME] = createInstance<TYPE>
+#define REGISTER_KEYDATA( TYPE ) d_factories[AMP::getTypeID<TYPE>().name] = createInstance<TYPE>
 #define REGISTER_KEYDATA2( TYPE )                 \
     REGISTER_KEYDATA( AMP::KeyDataScalar<TYPE> ); \
     REGISTER_KEYDATA( AMP::KeyDataArray<TYPE> )
@@ -430,17 +435,15 @@ void AMP::FactoryStrategy<AMP::KeyData>::registerDefault()
     REGISTER_KEYDATA2( std::complex<float> );
     REGISTER_KEYDATA2( std::complex<double> );
     REGISTER_KEYDATA2( std::string );
-    REGISTER_KEYDATA2( DatabaseBox );
+    REGISTER_KEYDATA2( AMP::DatabaseBox );
     REGISTER_KEYDATA( AMP::Database );
     REGISTER_KEYDATA( AMP::EmptyKeyData );
     REGISTER_KEYDATA( AMP::DatabaseVector );
     REGISTER_KEYDATA( AMP::EquationKeyData );
-    d_factories["AMP::KeyDataScalar<std::basic_string<char>>"] = []() {
-        return std::make_unique<AMP::KeyDataScalar<std::string>>();
-    };
-    d_factories["AMP::KeyDataArray<std::basic_string<char>>"] = []() {
-        return std::make_unique<AMP::KeyDataArray<std::string>>();
-    };
+    REGISTER_KEYDATA0( "AMP::KeyDataScalar<std::basic_string<char>>",
+                       AMP::KeyDataScalar<std::string> );
+    REGISTER_KEYDATA0( "AMP::KeyDataArray<std::basic_string<char>>",
+                       AMP::KeyDataArray<std::string> );
 }
 
 

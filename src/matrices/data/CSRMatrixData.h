@@ -35,8 +35,9 @@ public:
     template<typename C>
     friend class CSRMatrixData;
 
-    using gidx_t         = typename Config::gidx_t;
-    using lidx_t         = typename Config::lidx_t;
+    using gidx_t = typename Config::gidx_t;
+    using lidx_t = typename Config::lidx_t;
+    static_assert( std::is_signed_v<lidx_t> );
     using scalar_t       = typename Config::scalar_t;
     using allocator_type = typename Config::allocator_type;
     static_assert( std::is_same_v<typename allocator_type::value_type, void> );
@@ -75,6 +76,12 @@ public:
 
     //! Return the type of the matrix
     std::string type() const override { return "CSRMatrixData"; }
+
+    //! Return CSR mode of the matrix.
+    virtual std::uint16_t mode() const override
+    {
+        return static_cast<std::uint16_t>( Config::mode );
+    }
 
     /** \brief  Retrieve a row of the matrix in compressed format
      * \param[in]  row     Which row
@@ -135,6 +142,11 @@ public:
                               const size_t *cols,
                               void *values,
                               const typeID &id ) const override;
+
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in]  row Which row
+     */
+    size_t numberColumnIDs( size_t row ) const override;
 
     //! Get the global indices of nonzeros in a given row
     std::vector<size_t> getColumnIDs( size_t row ) const override;

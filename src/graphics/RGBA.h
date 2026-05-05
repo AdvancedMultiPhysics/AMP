@@ -4,7 +4,7 @@
 #include <cstdint>
 
 
-namespace AMP {
+namespace AMP::Graphics {
 
 
 class ARGB32;
@@ -88,6 +88,6 @@ constexpr RGBA32::RGBA32( ARGB32 x ) : data( store( x.red(), x.green(), x.blue()
 constexpr ARGB32::ARGB32( RGBA32 x ) : data( store( x.alpha(), x.red(), x.green(), x.blue() ) ) {}
 
 
-} // namespace AMP
+} // namespace AMP::Graphics
 
 #endif

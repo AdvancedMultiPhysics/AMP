@@ -16,7 +16,7 @@ LinearSolver{
 }
 
 Reference{
-  iterations = 47
+  iterations = 35
   res_l2_norm = -1
   tolerance = 0
   strict = FALSE

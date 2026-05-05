@@ -244,7 +244,7 @@ double TriangleMeshElement<NG>::volume() const
     return 0;
 }
 template<uint8_t NG>
-MeshPoint<double> TriangleMeshElement<NG>::norm() const
+MeshPoint TriangleMeshElement<NG>::norm() const
 {
     std::array<std::array<double, 3>, 4> x;
     d_mesh->getVertexCoord( d_globalID.elemID(), x.data() );
@@ -256,23 +256,23 @@ MeshPoint<double> TriangleMeshElement<NG>::norm() const
     } else {
         AMP_ERROR( elementClass() + "norm - Not finished" );
     }
-    return MeshPoint<double>();
+    return MeshPoint();
 }
 template<uint8_t NG>
-MeshPoint<double> TriangleMeshElement<NG>::coord() const
+MeshPoint TriangleMeshElement<NG>::coord() const
 {
     auto TYPE = static_cast<uint8_t>( d_globalID.type() );
     if ( TYPE == 0 ) {
         std::array<double, 3> x;
         d_mesh->getVertexCoord( d_globalID.elemID(), &x );
-        return MeshPoint<double>( d_mesh->getDim(), x.data() );
+        return MeshPoint( d_mesh->getDim(), x.data() );
     } else {
         AMP_ERROR( "coord is only valid for vertices: " + std::to_string( (int) TYPE ) );
-        return MeshPoint<double>();
+        return MeshPoint();
     }
 }
 template<uint8_t NG>
-MeshPoint<double> TriangleMeshElement<NG>::centroid() const
+MeshPoint TriangleMeshElement<NG>::centroid() const
 {
     uint8_t NP = d_mesh->getDim();
     std::array<std::array<double, 3>, 4> x;
@@ -286,10 +286,10 @@ MeshPoint<double> TriangleMeshElement<NG>::centroid() const
         for ( size_t d = 0; d < NP; d++ )
             x[0][d] /= ( TYPE + 1 );
     }
-    return MeshPoint<double>( (size_t) NP, x[0].data() );
+    return MeshPoint( (size_t) NP, x[0].data() );
 }
 template<uint8_t NG>
-bool TriangleMeshElement<NG>::containsPoint( const MeshPoint<double> &pos, double TOL ) const
+bool TriangleMeshElement<NG>::containsPoint( const MeshPoint &pos, double TOL ) const
 {
     // Check if the point is in the triangle
     std::array<std::array<double, 3>, 4> x;
@@ -338,7 +338,7 @@ bool TriangleMeshElement<NG>::isInBlock( int id ) const
  * Calculate the nearest point on the element                    *
  ****************************************************************/
 template<uint8_t NG>
-MeshPoint<double> TriangleMeshElement<NG>::nearest( const MeshPoint<double> &pos ) const
+MeshPoint TriangleMeshElement<NG>::nearest( const MeshPoint &pos ) const
 {
     // Get the vertex coordinates
     std::array<std::array<double, 3>, 4> x;
@@ -372,7 +372,7 @@ MeshPoint<double> TriangleMeshElement<NG>::nearest( const MeshPoint<double> &pos
         if ( containsPoint( pos ) )
             return pos;
         std::array<double, 3> p0 = { pos.x(), pos.y(), pos.z() };
-        MeshPoint<double> p      = { 1e100, 1e100, 1e100 };
+        MeshPoint p              = { 1e100, 1e100, 1e100 };
         for ( int i = 0; i < 4; i++ ) {
             std::array<std::array<double, 3>, 4> x2;
             for ( int j = 0, k = 0; j < 4; j++ ) {
@@ -381,7 +381,7 @@ MeshPoint<double> TriangleMeshElement<NG>::nearest( const MeshPoint<double> &pos
                     k++;
                 }
             }
-            MeshPoint<double> p2 = AMP::Geometry::GeometryHelpers::nearest( x2, p0 );
+            MeshPoint p2 = AMP::Geometry::GeometryHelpers::nearest( x2, p0 );
             if ( ( p2 - pos ).norm() < ( p - pos ).norm() )
                 p = p2;
         }
@@ -395,8 +395,7 @@ MeshPoint<double> TriangleMeshElement<NG>::nearest( const MeshPoint<double> &pos
  * Calculate the distance to the element                         *
  ****************************************************************/
 template<uint8_t NG>
-double TriangleMeshElement<NG>::distance( const MeshPoint<double> &pos,
-                                          const MeshPoint<double> &dir ) const
+double TriangleMeshElement<NG>::distance( const MeshPoint &pos, const MeshPoint &dir ) const
 {
     // Get the vertex coordinates
     std::array<std::array<double, 3>, 4> x;

@@ -100,7 +100,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     createMatrixAndVectors<Config>(
         ut, AMP::Utilities::Backend::Hip_Cuda, dofManager, dev_mat, dev_x, dev_y );
 
-    fillWithPseudoLaplacian( dev_mat, dofManager );
+    fillWithPseudoLaplacian( dev_mat );
     dev_mat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     dev_x->setRandomValues();
@@ -116,7 +116,7 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
     createMatrixAndVectors<Config>(
         ut, AMP::Utilities::Backend::Kokkos, dofManager, kks_mat, kks_x, kks_y );
 
-    fillWithPseudoLaplacian( kks_mat, dofManager );
+    fillWithPseudoLaplacian( kks_mat );
     kks_mat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     kks_x->copyVector( dev_x );

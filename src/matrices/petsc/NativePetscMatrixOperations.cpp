@@ -104,9 +104,31 @@ void NativePetscMatrixOperations::axpy( AMP::Scalar alpha, const MatrixData &X, 
 void NativePetscMatrixOperations::setScalar( AMP::Scalar alpha_in, MatrixData &A )
 {
     const auto alpha = static_cast<PetscScalar>( alpha_in );
-    if ( alpha != 0.0 )
-        AMP_ERROR( "Cannot perform operation on NativePetscMatrix yet!" );
-    MatZeroEntries( getMat( A ) );
+    if ( alpha == 0.0 ) {
+        MatZeroEntries( getMat( A ) );
+    } else {
+        std::map<size_t, std::vector<size_t>> allCols;
+        std::map<size_t, std::vector<double>> allVals;
+        for ( size_t i = A.beginRow(); i != A.endRow(); i++ ) {
+            auto cols  = A.getColumnIDs( i );
+            auto ncols = cols.size();
+            std::vector<double> vals( ncols );
+            for ( size_t j = 0; j != ncols; j++ ) {
+                if ( cols[j] == i )
+                    vals[j] = static_cast<double>( ncols );
+                else
+                    vals[j] = -1;
+            }
+            allVals[i] = vals;
+            allCols[i] = cols;
+        }
+        for ( size_t i = A.beginRow(); i != A.endRow(); i++ ) {
+            auto &cols = allCols[i];
+            auto &vals = allVals[i];
+            A.setValuesByGlobalID( 1, cols.size(), &i, cols.data(), vals.data() );
+        }
+    }
+    A.makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 }
 
 void NativePetscMatrixOperations::zero( MatrixData &A ) { MatZeroEntries( getMat( A ) ); }
@@ -153,15 +175,6 @@ void NativePetscMatrixOperations::scaleInv( AMP::Scalar,
 {
     AMP_ERROR( "Not implemented" );
 }
-void NativePetscMatrixOperations::getRowSums( MatrixData const &, std::shared_ptr<Vector> )
-{
-    AMP_ERROR( "Not implemented" );
-}
-void NativePetscMatrixOperations::getRowSumsAbsolute( MatrixData const &,
-                                                      std::shared_ptr<Vector>,
-                                                      const bool )
-{
-    AMP_ERROR( "Not implemented" );
-}
+
 
 } // namespace AMP::LinearAlgebra

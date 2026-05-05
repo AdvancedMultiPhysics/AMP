@@ -88,13 +88,12 @@ static void myTest( AMP::UnitTest *ut )
             std::vector<size_t> slaveIndices;
             std::vector<double> slaveValues;
             int const boundaryID = 2;
-            AMP::Mesh::MeshIterator it =
-                mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, boundaryID );
+            auto it = mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Vertex, boundaryID );
             size_t const numDOFs = it.size() * dofsPerNode;
             slaveIndices.resize( numDOFs );
             slaveValues.resize( numDOFs );
-            AMP::Mesh::MeshIterator it_begin = it.begin();
-            AMP::Mesh::MeshIterator it_end   = it.end();
+            auto it_begin = it.begin();
+            auto it_end   = it.end();
             std::vector<size_t> dofIndices;
             double dirichletValues[3] = { 2.0, 1.0, 0.0 };
             size_t p                  = 0;

@@ -133,6 +133,12 @@ void BDFRadDifOpPJacOpSplitPrec::setDiffusionSolvers()
     auto E       = std::make_shared<AMP::Operator::LinearOperator>( EParams );
     AMP_INSIST( op->d_data->d_E_BDF, "E diffusion matrix is null" );
     E->setMatrix( op->d_data->d_E_BDF );
+    auto E_inVar  = op->d_data->d_E_BDF->getMatrixData()->getRightVariable();
+    auto E_outVar = op->d_data->d_E_BDF->getMatrixData()->getLeftVariable();
+    AMP_INSIST( E_inVar && E_outVar,
+                "BDFRadDifOpPJacOpSplitPrec::setDiffusionSolvers E operator must have input/output "
+                "variables" );
+    E->setVariables( E_inVar, E_outVar );
 
     // T
     auto T_db    = AMP::Database::create( "name", "TOperator", "print_info_level", 0 );
@@ -140,6 +146,12 @@ void BDFRadDifOpPJacOpSplitPrec::setDiffusionSolvers()
     auto T       = std::make_shared<AMP::Operator::LinearOperator>( TParams );
     T->setMatrix( op->d_data->d_T_BDF );
     AMP_INSIST( T->getMatrix(), "T diffusion matrix is null" );
+    auto T_inVar  = op->d_data->d_T_BDF->getMatrixData()->getRightVariable();
+    auto T_outVar = op->d_data->d_T_BDF->getMatrixData()->getLeftVariable();
+    AMP_INSIST( T_inVar && T_outVar,
+                "BDFRadDifOpPJacOpSplitPrec::setDiffusionSolvers T operator must have input/output "
+                "variables" );
+    T->setVariables( T_inVar, T_outVar );
 
     // Create solver parameters
     auto comm      = op->getMesh()->getComm();

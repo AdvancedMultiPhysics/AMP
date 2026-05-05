@@ -74,7 +74,7 @@ void linearThermalTest( AMP::UnitTest *ut,
 
     // Create the matrix
     auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
-    fillWithPseudoLaplacian( matrix_h, scalarDOFs );
+    fillWithPseudoLaplacian( matrix_h );
 
     auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
 

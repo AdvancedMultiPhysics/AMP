@@ -140,8 +140,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         previous_strain = strain[0][0];
     }
 
-    FILE *fout;
-    fout = fopen( "pevp_stress_strain_results.txt", "w" );
+    auto fout = fopen( "pevp_stress_strain_results.txt", "w" );
+    AMP_ASSERT( fout );
     for ( int i = 0; i < max_load; i++ ) {
         // fprintf(fout,"%15.8lf%15.8lf%15.8lf%15.8lf%15.8lf%15.8lf%15.8lf\n",eph11[i],sig11[i],slope[i],eph11p[i],sig11p[i],slope_p[i],sig11_init[i]);
         fprintf( fout,

@@ -41,45 +41,6 @@ L2errNorm( const AMP::Array<double> &x1, const AMP::Array<double> &x2, const boo
 }
 
 
-// Get the circumsphere
-template<class TYPE>
-void get_circumsphere( int ndim, const TYPE x[], double &R, double *center )
-{
-    if ( ndim == 1 ) {
-        std::array<TYPE, 1> x0[2] = { { x[0] }, { x[1] } };
-        AMP::DelaunayTessellation::get_circumsphere<1, TYPE>( x0, R, center );
-    } else if ( ndim == 2 ) {
-        std::array<TYPE, 2> x0[3] = { { x[0], x[1] }, { x[2], x[3] }, { x[4], x[5] } };
-        AMP::DelaunayTessellation::get_circumsphere<2, TYPE>( x0, R, center );
-    } else if ( ndim == 3 ) {
-        std::array<TYPE, 3> x0[4] = {
-            { x[0], x[1], x[2] }, { x[3], x[4], x[5] }, { x[6], x[7], x[8] }, { x[9], x[10], x[11] }
-        };
-        AMP::DelaunayTessellation::get_circumsphere<3, TYPE>( x0, R, center );
-    }
-}
-template<class TYPE>
-int test_in_circumsphere( int ndim, const TYPE x[], const TYPE xi[], double TOL_VOL )
-{
-    if ( ndim == 1 ) {
-        std::array<TYPE, 1> x0[2] = { { x[0] }, { x[1] } };
-        std::array<TYPE, 1> xi2   = { xi[0] };
-        return AMP::DelaunayTessellation::test_in_circumsphere<1, TYPE>( x0, xi2, TOL_VOL );
-    } else if ( ndim == 2 ) {
-        std::array<TYPE, 2> x0[3] = { { x[0], x[1] }, { x[2], x[3] }, { x[4], x[5] } };
-        std::array<TYPE, 2> xi2   = { xi[0], xi[1] };
-        return AMP::DelaunayTessellation::test_in_circumsphere<2, TYPE>( x0, xi2, TOL_VOL );
-    } else if ( ndim == 3 ) {
-        std::array<TYPE, 3> x0[4] = {
-            { x[0], x[1], x[2] }, { x[3], x[4], x[5] }, { x[6], x[7], x[8] }, { x[9], x[10], x[11] }
-        };
-        std::array<TYPE, 3> xi2 = { xi[0], xi[1], xi[2] };
-        return AMP::DelaunayTessellation::test_in_circumsphere<3, TYPE>( x0, xi2, TOL_VOL );
-    }
-    return 0;
-}
-
-
 // Structure to store a point
 template<int NDIM>
 struct PointInt {
@@ -282,4 +243,73 @@ AMP::Array<double> createRandomPoints<double>( int ndim, int N )
         }
     }
     return points;
+}
+
+
+/************************************************************************
+ * This function tests if a point is inside the circumsphere of an       *
+ *    nd-simplex.                                                        *
+ * For performance, I assume the points are ordered properly such that   *
+ * the volume of the simplex (as calculated by calc_volume) is positive. *
+ *                                                                       *
+ * The point is inside the circumsphere if the determinant is positive   *
+ * for points stored in a clockwise manner.  If the order is not known,  *
+ * we can compare to a point we know is inside the cicumsphere.          *
+ *    |  x1-xi   y1-yi   z1-zi   (x1-xi)^2+(y1-yi)^2+(z1-yi)^2  |        *
+ *    |  x2-xi   y2-yi   z2-zi   (x2-xi)^2+(y2-yi)^2+(z2-yi)^2  |        *
+ *    |  x3-xi   y3-yi   z3-zi   (x3-xi)^2+(y3-yi)^2+(z3-yi)^2  |        *
+ *    |  x4-xi   y4-yi   z4-zi   (x4-xi)^2+(y4-yi)^2+(z4-yi)^2  |        *
+ * det(A) == 0:  We are on the circumsphere                              *
+ * det(A) > 0:   We are inside the circumsphere                          *
+ * det(A) < 0:   We are outside the circumsphere                         *
+ ************************************************************************/
+template<int NDIM, class TYPE>
+int test_in_circumsphere( const std::array<TYPE, NDIM> *x,
+                          const std::array<TYPE, NDIM> &xi,
+                          [[maybe_unused]] double TOL_VOL )
+{
+    if constexpr ( std::is_same_v<TYPE, int> ) {
+        return AMP::DelaunayTessellation::test_in_circumsphere<NDIM>( x, xi );
+    } else if constexpr ( NDIM == 1 ) {
+        TYPE x1 = std::min( x[0][0], x[1][0] );
+        TYPE x2 = std::max( x[0][0], x[1][0] );
+        if ( fabs( xi[0] - x1 ) <= TOL_VOL || fabs( xi[0] - x2 ) <= TOL_VOL )
+            return 0; // We are on the circumsphere
+        if ( xi[0] > x1 && xi[0] < x2 )
+            return 1; // We inside the circumsphere
+        return -1;    // We outside the circumsphere
+    } else {
+        // Solve the sub-determinants (requires N^NDIM precision)
+        double R2                  = 0.0;
+        long double det2[NDIM + 1] = { 0 }, R[NDIM + 1] = { 0 };
+        for ( int d = 0; d <= NDIM; d++ ) {
+            long double A2[NDIM * NDIM];
+            long double sum( 0 );
+            for ( int j = 0; j < NDIM; j++ ) {
+                long double tmp( x[d][j] - xi[j] );
+                sum += tmp * tmp;
+                for ( int i = 0; i < d; i++ )
+                    A2[i + j * NDIM] = x[i][j] - xi[j];
+                for ( int i = d + 1; i <= NDIM; i++ )
+                    A2[i - 1 + j * NDIM] = x[i][j] - xi[j];
+            }
+            R[d] = sum;
+            R2 += static_cast<double>( R[d] );
+            det2[d] = AMP::DelaunayHelpers::det<long double, NDIM>( A2 );
+            if ( ( NDIM + d ) % 2 == 1 )
+                det2[d] = -det2[d];
+        }
+        // Compute the determinate
+        double det_A = AMP::DelaunayHelpers::dot( NDIM + 1, det2, R );
+        if ( fabs( det_A ) <= 0.1 * R2 * TOL_VOL ) {
+            // We are on the circumsphere
+            return 0;
+        } else if ( det_A > 0 ) {
+            // We inside the circumsphere
+            return 1;
+        } else {
+            // We outside the circumsphere
+            return -1;
+        }
+    }
 }

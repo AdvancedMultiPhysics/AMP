@@ -8,7 +8,6 @@
 
 
 namespace AMP::Mesh {
-template<class TYPE>
 class MeshPoint; // Forward declare MeshPoint
 } // namespace AMP::Mesh
 
@@ -30,7 +29,7 @@ inline std::pair<int, int> find_min_dist( const int N, const TYPE *x );
  * This function will calculate the closest pair of points in a list
  * @param x         The coordinates of the vertices
  */
-std::pair<int, int> find_min_dist( const std::vector<AMP::Mesh::MeshPoint<double>> &x );
+std::pair<int, int> find_min_dist( const std::vector<AMP::Mesh::MeshPoint> &x );
 
 
 } // namespace AMP

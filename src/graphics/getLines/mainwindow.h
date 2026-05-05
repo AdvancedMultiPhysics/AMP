@@ -94,7 +94,7 @@ private:
 
 protected: // Internal data
     std::string d_lastPath;
-    AMP::Array<AMP::ARGB32> d_data;
+    AMP::Array<AMP::Graphics::ARGB32> d_data;
 
 public: // Data for unit testing
     bool runUnitTests( const std::string &file );

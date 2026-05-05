@@ -230,25 +230,21 @@ int main( int argc, char **argv )
         // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-JacobiL1" );
         // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-HybridGS" );
 
-        // SASolver with/without FCG acceleration
-        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1" );
-        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1" );
+        // SASolver without FCG, commented out for standard tests, can be run manually if desired
+        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1" );
+        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1" );
+        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
+        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
+
+        // SASolver with FCG acceleration
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1-FCG" );
-
-        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS" );
-        hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-SASolver-HybridGS-FCG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-SASolver-HybridGS-FCG" );
 
-        // hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-DiagonalSolver-CG"
-        // );
 #ifdef AMP_USE_DEVICE
         // Device side solves of the above with FCG acceleration, HybridGS not supported on device
-        // managedExeNames.emplace_back(
-        //     "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
-        // managedExeNames.emplace_back(
-        //     "input_testLinearSolvers-DiffusionFD-3D-SASolver-JacobiL1-FCG" );
+        // SpGEMM not implemented for managed memory yet, so device only for this
         deviceExeNames.emplace_back(
             "input_testLinearSolvers-DiffusionFD-2D-SASolver-JacobiL1-FCG" );
         deviceExeNames.emplace_back(
@@ -266,10 +262,8 @@ int main( int argc, char **argv )
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
         hostExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
     #ifdef AMP_USE_DEVICE
-            // managedExeNames.emplace_back(
-            // "input_testLinearSolvers-DiffusionFD-3D-DiagonalPC-HypreCG" );
-            // deviceExeNames.emplace_back(
-            // "input_testLinearSolvers-DiffusionFD-3D-DiagonalPC-HypreCG" );
+        deviceExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-2D-BoomerAMG-CG" );
+        deviceExeNames.emplace_back( "input_testLinearSolvers-DiffusionFD-3D-BoomerAMG-CG" );
     #endif
 #endif
     }

@@ -1,5 +1,3 @@
-#include "AMP/AMP_TPLs.h"
-#include "AMP/IO/PIO.h"
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Memory.h"
@@ -17,157 +15,130 @@
     #include "AMP/vectors/operations/kokkos/VectorOperationsKokkos.h"
 #endif
 
-#include "ProfilerApp.h"
 
 #include <chrono>
 
-static inline double speedup( size_t x, size_t y )
+
+static inline double speedup( int x, int y )
 {
     return static_cast<double>( y ) / static_cast<double>( x );
 }
 
+
 struct test_times {
-    size_t clone;
-    size_t zero;
-    size_t setToScalar;
-    size_t setRandomValues;
-    size_t L1Norm;
-    size_t L2Norm;
-    size_t maxNorm;
-    size_t axpy;
-    size_t dot;
-    size_t min;
-    size_t max;
-    size_t multiply;
-    size_t divide;
-    test_times()
-        : clone( 0 ),
-          zero( 0 ),
-          setToScalar( 0 ),
-          setRandomValues( 0 ),
-          L1Norm( 0 ),
-          L2Norm( 0 ),
-          maxNorm( 0 ),
-          axpy( 0 ),
-          dot( 0 ),
-          min( 0 ),
-          max( 0 ),
-          multiply( 0 ),
-          divide( 0 )
-    {
-    }
+    int clone       = 0;
+    int zero        = 0;
+    int setToScalar = 0;
+    int setRandom   = 0;
+    int L1Norm      = 0;
+    int L2Norm      = 0;
+    int maxNorm     = 0;
+    int axpy        = 0;
+    int dot         = 0;
+    int min         = 0;
+    int max         = 0;
+    int multiply    = 0;
+    int divide      = 0;
     void print()
     {
-        AMP::pout << "    clone: " << clone / 1000 << " us" << std::endl;
-        AMP::pout << "    zero: " << zero / 1000 << " us" << std::endl;
-        AMP::pout << "    setToScalar: " << setToScalar / 1000 << " us" << std::endl;
-        AMP::pout << "    setRandom: " << setRandomValues / 1000 << " us" << std::endl;
-        AMP::pout << "    L1Norm: " << L1Norm / 1000 << " us" << std::endl;
-        AMP::pout << "    L2Norm: " << L2Norm / 1000 << " us" << std::endl;
-        AMP::pout << "    maxNorm: " << maxNorm / 1000 << " us" << std::endl;
-        AMP::pout << "    axpy: " << axpy / 1000 << " us" << std::endl;
-        AMP::pout << "    min: " << min / 1000 << " us" << std::endl;
-        AMP::pout << "    max: " << max / 1000 << " us" << std::endl;
-        AMP::pout << "    dot: " << dot / 1000 << " us" << std::endl;
-        AMP::pout << "    multiply: " << multiply / 1000 << " us" << std::endl;
-        AMP::pout << "    divide: " << divide / 1000 << " us" << std::endl;
+        printf( "    clone: %i us\n", clone );
+        printf( "    zero: %i us\n", zero );
+        printf( "    setToScalar: %i us\n", setToScalar );
+        printf( "    setRandom: %i us\n", setRandom );
+        printf( "    L1Norm: %i us\n", L1Norm );
+        printf( "    L2Norm: %i us\n", L2Norm );
+        printf( "    maxNorm: %i us\n", maxNorm );
+        printf( "    axpy: %i us\n", axpy );
+        printf( "    min: %i us\n", min );
+        printf( "    max: %i us\n", max );
+        printf( "    dot: %i us\n", dot );
+        printf( "    multiply: %i us\n", multiply );
+        printf( "    divide: %i us\n", divide );
     }
     void print_speedup( const test_times &time0 )
     {
-        AMP::pout << "  Speedup: " << std::endl;
-        AMP::pout << "    clone: " << speedup( clone, time0.clone ) << std::endl;
-        AMP::pout << "    zero: " << speedup( zero, time0.zero ) << std::endl;
-        AMP::pout << "    setToScalar: " << speedup( setToScalar, time0.setToScalar ) << std::endl;
-        AMP::pout << "    setRandom: " << speedup( setRandomValues, time0.setRandomValues )
-                  << std::endl;
-        AMP::pout << "    L1Norm: " << speedup( L1Norm, time0.L1Norm ) << std::endl;
-        AMP::pout << "    L2Norm: " << speedup( L2Norm, time0.L2Norm ) << std::endl;
-        AMP::pout << "    maxNorm: " << speedup( maxNorm, time0.maxNorm ) << std::endl;
-        AMP::pout << "    axpy: " << speedup( axpy, time0.axpy ) << std::endl;
-        AMP::pout << "    min: " << speedup( min, time0.min ) << std::endl;
-        AMP::pout << "    max: " << speedup( max, time0.max ) << std::endl;
-        AMP::pout << "    dot: " << speedup( dot, time0.dot ) << std::endl;
-        AMP::pout << "    multiply: " << speedup( multiply, time0.multiply ) << std::endl;
-        AMP::pout << "    divide: " << speedup( divide, time0.divide ) << std::endl;
+        printf( "  Speedup: \n" );
+        printf( "    clone: %0.2f\n", speedup( clone, time0.clone ) );
+        printf( "    zero: %0.2f\n", speedup( zero, time0.zero ) );
+        printf( "    setToScalar: %0.2f\n", speedup( setToScalar, time0.setToScalar ) );
+        printf( "    setRandom: %0.2f\n", speedup( setRandom, time0.setRandom ) );
+        printf( "    L1Norm: %0.2f\n", speedup( L1Norm, time0.L1Norm ) );
+        printf( "    L2Norm: %0.2f\n", speedup( L2Norm, time0.L2Norm ) );
+        printf( "    maxNorm: %0.2f\n", speedup( maxNorm, time0.maxNorm ) );
+        printf( "    axpy: %0.2f\n", speedup( axpy, time0.axpy ) );
+        printf( "    min: %0.2f\n", speedup( min, time0.min ) );
+        printf( "    max: %0.2f\n", speedup( max, time0.max ) );
+        printf( "    dot: %0.2f\n", speedup( dot, time0.dot ) );
+        printf( "    multiply: %0.2f\n", speedup( multiply, time0.multiply ) );
+        printf( "    divide: %0.2f\n", speedup( divide, time0.divide ) );
     }
 };
 
-#define runTest0( TEST )                                                                    \
-    do {                                                                                    \
-        auto t1 = std::chrono::steady_clock::now();                                         \
-        for ( size_t i = 0; i < 50; ++i )                                                   \
-            vec->TEST();                                                                    \
-        auto t2 = std::chrono::steady_clock::now();                                         \
-        times.TEST =                                                                        \
-            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
+
+#define to_us( t1, t2, N ) \
+    std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() / N;
+
+#define runTestN( TEST, ... )                          \
+    do {                                               \
+        auto t1 = std::chrono::steady_clock::now();    \
+        for ( size_t i = 0; i < 20; ++i )              \
+            vec->TEST( __VA_ARGS__ );                  \
+        auto t2    = std::chrono::steady_clock::now(); \
+        times.TEST = to_us( t1, t2, 20 );              \
     } while ( 0 )
-#define runTest1( TEST, X )                                                                 \
-    do {                                                                                    \
-        auto t1 = std::chrono::steady_clock::now();                                         \
-        for ( size_t i = 0; i < 50; ++i )                                                   \
-            vec->TEST( X );                                                                 \
-        auto t2 = std::chrono::steady_clock::now();                                         \
-        times.TEST =                                                                        \
-            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
+#define runTest0( TEST )                               \
+    do {                                               \
+        auto t1 = std::chrono::steady_clock::now();    \
+        for ( size_t i = 0; i < 20; ++i )              \
+            vec->TEST();                               \
+        auto t2    = std::chrono::steady_clock::now(); \
+        times.TEST = to_us( t1, t2, 20 );              \
     } while ( 0 )
-#define runTest2( TEST, X, Y )                                                              \
-    do {                                                                                    \
-        auto t1 = std::chrono::steady_clock::now();                                         \
-        for ( size_t i = 0; i < 50; ++i )                                                   \
-            vec->TEST( X, Y );                                                              \
-        auto t2 = std::chrono::steady_clock::now();                                         \
-        times.TEST =                                                                        \
-            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
-    } while ( 0 )
-#define runTest3( TEST, X, Y, Z )                                                           \
-    do {                                                                                    \
-        auto t1 = std::chrono::steady_clock::now();                                         \
-        for ( size_t i = 0; i < 50; ++i )                                                   \
-            vec->TEST( X, Y, Z );                                                           \
-        auto t2 = std::chrono::steady_clock::now();                                         \
-        times.TEST =                                                                        \
-            std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count() / 50.0; \
-    } while ( 0 )
+
 
 test_times testPerformance( AMP::LinearAlgebra::Vector::shared_ptr vec )
 {
     test_times times;
     // Test the performance of clone
-    auto t1     = std::chrono::steady_clock::now();
-    auto vec2   = vec->clone();
-    auto t2     = std::chrono::steady_clock::now();
-    times.clone = std::chrono::duration_cast<std::chrono::nanoseconds>( t2 - t1 ).count();
-    auto vec3   = vec->clone();
+    auto t1   = std::chrono::steady_clock::now();
+    auto vec2 = vec->clone();
+    auto vec3 = vec->clone();
+    auto t2   = std::chrono::steady_clock::now();
     vec2->setRandomValues();
     vec3->setRandomValues();
+    auto t3         = std::chrono::steady_clock::now();
+    times.clone     = to_us( t1, t2, 2 );
+    times.setRandom = to_us( t2, t3, 2 );
     // Run the tests
     runTest0( zero );
-    runTest1( setToScalar, 3.14 );
-    runTest0( setRandomValues );
+    runTestN( setToScalar, 3.14 );
     runTest0( L1Norm );
     runTest0( L2Norm );
     runTest0( maxNorm );
     runTest0( min );
     runTest0( max );
-    runTest1( dot, *vec2 );
-    runTest3( axpy, 2.5, *vec2, *vec3 );
-    runTest2( multiply, *vec2, *vec3 );
-    runTest2( multiply, *vec2, *vec3 );
-
+    runTestN( dot, *vec2 );
+    runTestN( axpy, 2.5, *vec2, *vec3 );
+    runTestN( multiply, *vec2, *vec3 );
+    runTestN( divide, *vec2, *vec3 );
     return times;
 }
 
+
 int main( int argc, char **argv )
 {
-
     AMP::AMPManager::startup( argc, argv );
-    PROFILE_DISABLE();
 
     {
         AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
         int rank = globalComm.getRank();
 
+#if ( defined( DEBUG ) || defined( _DEBUG ) ) && !defined( NDEBUG )
+        size_t N = 1e6;
+#else
         size_t N = 4e6;
+#endif
+
         auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "vec" );
 
         auto vec   = AMP::LinearAlgebra::createSimpleVector<double>( N, var, globalComm );

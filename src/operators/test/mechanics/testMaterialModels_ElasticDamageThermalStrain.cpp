@@ -100,8 +100,8 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
         }
     }
 
-    FILE *fout;
-    fout = fopen( "edts_stress_stain_results.xls_6", "w" );
+    auto fout = fopen( "edts_stress_stain_results.xls_6", "w" );
+    AMP_ASSERT( fout );
     for ( int i = 0; i < max_num; i++ ) {
         // fprintf(fout,"%15.8lf%15.8lf%15.8lf%15.8lf%15.8lf%15.8lf%15.8lf\n",eph11[i],sig11[i],slope[i],eph11p[i],sig11p[i],slope_p[i],sig11_init[i]);
         fprintf(

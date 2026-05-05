@@ -102,9 +102,8 @@ void Map3Dto1D::apply_Gauss( AMP::LinearAlgebra::Vector::const_shared_ptr u,
         AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
-        AMP::Mesh::MeshIterator bnd =
-            d_MapMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, d_boundaryId, 0 );
-        AMP::Mesh::MeshIterator end_bnd = bnd.end();
+        auto bnd = d_MapMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, d_boundaryId, 0 );
+        auto end_bnd = bnd.end();
 
         // Iterator for the solid-clad boundary
         for ( ; bnd != end_bnd; ++bnd ) {
@@ -239,9 +238,8 @@ void Map3Dto1D::apply_Nodal( AMP::LinearAlgebra::Vector::const_shared_ptr u,
         AMP_ASSERT( outputVec );
 
         // Get an iterator over the side elements
-        AMP::Mesh::MeshIterator bnd =
-            d_MapMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, d_boundaryId, 0 );
-        AMP::Mesh::MeshIterator end_bnd = bnd.end();
+        auto bnd = d_MapMesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, d_boundaryId, 0 );
+        auto end_bnd = bnd.end();
 
         // Iterator for the solid-clad boundary
         for ( ; bnd != end_bnd; ++bnd ) {

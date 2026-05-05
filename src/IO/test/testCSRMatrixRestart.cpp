@@ -193,7 +193,7 @@ void testCSRMatrixRestartWithDOFs( AMP::UnitTest *ut,
     createMatrixAndVectors<Config>(
         ut, AMP::Utilities::Backend::Serial, dofManager, matrix, uVec, yVec );
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    fillWithPseudoLaplacian( matrix );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     uVec->setRandomValues();

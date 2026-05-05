@@ -439,6 +439,7 @@ void testFileSystem( AMP::UnitTest &ut )
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
     if ( globalComm.getRank() == 0 ) {
         FILE *fid = fopen( "testDeleteFile.txt", "w" );
+        AMP_ASSERT( fid );
         fputs( "Temporary test", fid );
         fclose( fid );
         ut.pass_fail( AMP::IO::exists( "testDeleteFile.txt" ), "File exists" );

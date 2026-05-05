@@ -72,11 +72,11 @@ static AMP::Utilities::MemoryType getAMPMemorySpace( HYPRE_MemoryLocation memory
 #elif defined( HYPRE_USING_UNIFIED_MEMORY )
         return AMP::Utilities::MemoryType::managed;
 #else
-        AMP_ERROR( "Unable to detect Hypre memory location" );
+        AMP_WARN_ONCE( "Unable to detect Hypre memory location" );
         return AMP::Utilities::MemoryType::device;
 #endif
     } else {
-        AMP_ERROR( "Unable to detect Hypre memory location" );
+        AMP_WARN_ONCE( "Unable to detect Hypre memory location" );
         return AMP::Utilities::MemoryType::host;
     }
 }

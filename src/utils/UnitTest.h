@@ -15,35 +15,6 @@ namespace AMP {
  * @brief Class UnitTest is simple utility for running unit tests.
  * It provides basic routines for tracing success or failure of tests,
  * and reporting the results.
- * \par Code Sample:
- * \code
-int main(int argc, char *argv[])
-{
-    AMP::AMPManager::startup(argc, argv);
-    AMP::UnitTest ut;
-    try {
-        std::cout << "Testing tstOne" << std::endl;
-        tstOne(&ut);
-        ut.passes("Test XXX passed");
-    } catch( ... ) {
-        ut.failure("An unknown exception was thrown");
-    }
-    ut.report();
-    return ut.NumFail();
-}
-
-void tstOne(AMP::UnitTest *ut)
-{
-    // Run the test code
-    if ( problem1 ) {
-        ut.failure("Problem 1 detected");
-        return
-    }
-    // Finished running test
-    ut.passes("Test XXX passed");
-}
- * \endcode
-
  */
 class UnitTest final
 {

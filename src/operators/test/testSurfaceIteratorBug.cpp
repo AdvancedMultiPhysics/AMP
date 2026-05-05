@@ -72,7 +72,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
 
     auto bnd = mesh->getBoundaryIDIterator( AMP::Mesh::GeomType::Face, surfaceId, 0 );
     std::cout << "Number of surface elements: " << bnd.size() << std::endl;
-    AMP::Mesh::MeshIterator end_bnd = bnd.end();
+    auto end_bnd = bnd.end();
 
     bool volume_passes = true;
     std::vector<size_t> dofs;

@@ -171,8 +171,9 @@ void SubchannelTwoEqNonlinearOperator::reset( std::shared_ptr<const OperatorPara
             if ( !d_ownSubChannel[i] )
                 continue;
             std::shared_ptr<std::vector<ElementPtr>> elemPtr( &d_subchannelElem[i], []( auto ) {} );
-            auto localSubchannelIt = AMP::Mesh::MeshListIterator( elemPtr );
-            auto localSubchannel   = d_Mesh->Subset( localSubchannelIt, false );
+            auto localSubchannelIt =
+                AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elemPtr );
+            auto localSubchannel = d_Mesh->Subset( localSubchannelIt, false );
             auto face = AMP::Mesh::StructuredMeshHelper::getXYFaceIterator( localSubchannel, 0 );
             for ( size_t j = 0; j < face.size(); j++ ) {
                 d_subchannelFace[i].push_back( face->clone() );
@@ -292,9 +293,8 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
         double D    = d_channelDiam[isub]; // Channel hydraulic diameter
         double mass = d_channelMass[isub]; // Mass flow rate in the current subchannel
         double R_h, R_p;
-        int j         = 1;
-        auto face     = localSubchannelIt.begin();
-        auto end_face = localSubchannelIt.end();
+        int j     = 1;
+        auto face = localSubchannelIt.begin();
         for ( size_t iface = 0; iface < localSubchannelIt.size(); ++iface, ++j ) {
 
             // ======================================================
@@ -331,7 +331,7 @@ void SubchannelTwoEqNonlinearOperator::apply( AMP::LinearAlgebra::Vector::const_
                                            dofs[1] ); // pressure evaluated at lower face
             auto minusFaceCentroid = face->centroid();
             double z_minus         = minusFaceCentroid[2]; // z-coordinate of lower face
-            if ( face == end_face - 1 ) {
+            if ( iface == localSubchannelIt.size() - 1 ) {
                 R_p = p_minus - d_Pout;
             } else {
                 ++face;

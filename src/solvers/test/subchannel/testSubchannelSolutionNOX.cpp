@@ -260,7 +260,7 @@ static void flowTest( AMP::UnitTest *ut, const std::string &exeName )
               << std::endl;
     std::cout << "Inlet Computed Temperature = " << TinSol << std::endl;
     std::cout << std::endl;
-    face = --( ( xyFaceMesh->getIterator( AMP::Mesh::GeomType::Face, 0 ) ).end() );
+    face.setPos( face.size() - 1 );
     faceDOFManager->getDOFs( face->globalID(), dofs );
     tempDOFManager->getDOFs( face->globalID(), tdofs );
     double ToutSol = tempVec->getValueByGlobalID( tdofs[0] );

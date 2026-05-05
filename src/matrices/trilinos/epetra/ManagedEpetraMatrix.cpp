@@ -78,6 +78,7 @@ std::shared_ptr<Matrix> ManagedEpetraMatrix::transpose() const
     return std::make_shared<ManagedEpetraMatrix>( d_matrixData->transpose() );
 }
 
+
 /********************************************************
  * Get the left/right Vector/DOFManager                  *
  ********************************************************/
@@ -132,5 +133,6 @@ void ManagedEpetraMatrix::multiply( shared_ptr other_op, std::shared_ptr<Matrix>
     PROFILE( "Epetra::MatrixMultiply" );
     d_matrixOps->matMatMult( d_matrixData, other_op->getMatrixData(), result->getMatrixData() );
 }
+
 
 } // namespace AMP::LinearAlgebra

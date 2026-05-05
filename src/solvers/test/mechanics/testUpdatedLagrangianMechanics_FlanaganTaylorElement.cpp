@@ -47,6 +47,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto outFileName = input_db->getString( "OutputFileName" );
 
     auto fp = fopen( outFileName.c_str(), "w" );
+    AMP_ASSERT( fp );
     fprintf( fp, "clc; \n clear; \n A = zeros(24, 24); \n \n" );
 
     // Create a nonlinear BVP operator for mechanics

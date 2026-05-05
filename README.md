@@ -14,22 +14,22 @@ To access the Advanced Multi-Physics (AMP) code:
 
 The websites associated with the AMP package includes:
 
-* Wiki: https://bitbucket.org/AdvancedMultiPhysics/amp/wiki/Home
+* Wiki: https://github.com/AdvancedMultiPhysics/AMP/wiki
 * Doxygen documentation: https://advancedmultiphysics.bitbucket.io
 * Git repositories: git@github.com:AdvancedMultiPhysics/AMP
 * Issue tracker: https://github.com/AdvancedMultiPhysics/AMP/issues
 
 # Team #
 
-* Bobby Philip (LANL)
 * Mark Berrill (ORNL)
+* Bobby Philip (ORNL/LANL)
+* Ian May (LANL)
 
 # Contributors #
 
 * Andrew Reisner (LANL)
 * Richard Berger (LANL)
 * Brian Romero (LANL)
-* Ian May (LANL)
 * Charles Ferenbaugh (LANL)
 * Jesus Bonilla (LANL)
 

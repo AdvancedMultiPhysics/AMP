@@ -53,7 +53,7 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
         auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
         auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
         matrix_h    = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-        fillWithPseudoLaplacian( matrix_h, dofManager );
+        fillWithPseudoLaplacian( matrix_h );
 
         if ( memoryLocation == "host" && type == "CSRMatrix" ) {
             matrix_h->setBackend( backend );

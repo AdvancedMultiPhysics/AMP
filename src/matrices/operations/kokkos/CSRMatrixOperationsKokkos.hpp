@@ -17,6 +17,15 @@
 
     #include "Kokkos_Core.hpp"
 
+    #ifdef AMP_USE_KOKKOSKERNELS
+        #include "AMP/matrices/operations/kokkos/spgemm/CSRMatrixSpGEMMKokkos.hpp"
+    #else
+        #include "AMP/matrices/operations/default/spgemm/CSRMatrixSpGEMMDefault.h"
+        #ifdef AMP_USE_DEVICE
+            #include "AMP/matrices/operations/device/spgemm/CSRMatrixSpGEMMDevice.h"
+        #endif
+    #endif
+
 namespace AMP::LinearAlgebra {
 
 template<typename Config, class ExecSpace, class ViewSpace>
@@ -36,25 +45,24 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
 
     AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
-    auto inData                 = in->getVectorData();
-    const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
-    auto outData                = out->getVectorData();
-    scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
+    auto outData           = out->getVectorData();
+    scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( inDataBlock ),
-                      "Input vector from wrong memory space" );
-
+    AMP_DEBUG_ASSERT( outDataBlock );
     AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( outDataBlock ),
                       "Output vector from wrong memory space" );
 
-    AMP_DEBUG_INSIST(
-        1 == inData->numberOfDataBlocks(),
-        "CSRMatrixOperationsKokkos::mult only implemented for vectors with one data block" );
-
-    AMP_ASSERT( inDataBlock && outDataBlock );
-
-    {
+    if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsKokkos::mult(local)" );
+        auto inData = in->getVectorData();
+        AMP_DEBUG_INSIST(
+            inData->numberOfDataBlocks() == 1,
+            "CSRMatrixOperationsKokkos::mult only implemented for vectors with one data block" );
+        const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
+        AMP_DEBUG_ASSERT( inDataBlock );
+        AMP_DEBUG_INSIST( csrData->d_memory_location ==
+                              AMP::Utilities::getMemoryType( inDataBlock ),
+                          "Input vector from wrong memory space" );
         d_localops_diag->mult( inDataBlock, 1.0, diagMatrix, 0.0, outDataBlock );
     }
 
@@ -218,18 +226,48 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
 {
     PROFILE( "CSRMatrixOperationsKokkos::matMatMult" );
 
-    if ( std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>> ) {
-        d_matrixOpsDefault.matMatMult( A, B, C );
+    auto csrDataA = std::dynamic_pointer_cast<CSRMatrixData<Config>>( A );
+    auto csrDataB = std::dynamic_pointer_cast<CSRMatrixData<Config>>( B );
+    auto csrDataC = std::dynamic_pointer_cast<CSRMatrixData<Config>>( C );
+
+    AMP_DEBUG_ASSERT( csrDataA && csrDataB && csrDataC );
+
+    // Verify that A and B have compatible dimensions
+    const auto globalKa = csrDataA->numGlobalColumns();
+    const auto globalKb = csrDataB->numGlobalRows();
+    const auto localKa  = csrDataA->numLocalColumns();
+    const auto localKb  = csrDataB->numLocalRows();
+    AMP_INSIST( globalKa == globalKb,
+                "CSRMatrixOperationsDefault::matMatMult got incompatible global dimensions" );
+    AMP_INSIST( localKa == localKb,
+                "CSRMatrixOperationsDefault::matMatMult got incompatible local dimensions" );
+
+    // Verify that all matrices have the same memory space and that it isn't device
+    const auto memLocA = csrDataA->getMemoryLocation();
+    const auto memLocB = csrDataB->getMemoryLocation();
+    const auto memLocC = csrDataC->getMemoryLocation();
+    AMP_INSIST( memLocA == memLocB,
+                "CSRMatrixOperationsKokkos::matMatMult A and B must have the same memory type" );
+    AMP_INSIST( memLocA == memLocC,
+                "CSRMatrixOperationsKokkos::matMatMult A and C must have the same memory type" );
+
+    // construct SpGEMM helper and call multiply
+    #ifdef AMP_USE_KOKKOSKERNELS
+    CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace> spgemm( csrDataA, csrDataB, csrDataC );
+    spgemm.multiply();
+    #else // don't have kokkos-kernels, forward to default or device ops as appropriate
+    if ( !alloc_info<Config::allocator>::device_accessible ) {
+        CSRMatrixSpGEMMDefault<Config> spgemm( csrDataA, csrDataB, csrDataC );
+        spgemm.multiply();
     } else {
-    #ifdef AMP_USE_DEVICE
-        if ( std::is_same_v<typename Config::allocator_type, AMP::ManagedAllocator<void>> ||
-             std::is_same_v<typename Config::allocator_type, AMP::DeviceAllocator<void>> ) {
-            d_matrixOpsDevice.matMatMult( A, B, C );
-            return;
-        }
-    #endif
-        AMP_ERROR( "CSRMatrixOperationsKokkos: Unrecognized memory space" );
+        #ifdef AMP_USE_DEVICE
+        CSRMatrixSpGEMMDevice<Config> spgemm( csrDataA, csrDataB, csrDataC );
+        spgemm.multiply();
+        #else
+        AMP_ERROR( "CSRMatrixOperationsKokkos::matMatMult Undefined memory location" );
+        #endif
     }
+    #endif
 }
 
 template<typename Config, class ExecSpace, class ViewSpace>
@@ -490,19 +528,28 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast( const Ma
 {
     PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
 
+    // both X and Y must be CSRMatrixData's
+    const auto mode_x = static_cast<csr_mode>( X.mode() ),
+               mode_y = static_cast<csr_mode>( Y.mode() );
+    AMP_ASSERT( mode_x != csr_mode::other && mode_y != csr_mode::other );
+
+    // copyCast is only for handling the scalar values
+    // memory location and index types need to match
+    AMP_ASSERT( get_alloc( mode_x ) == get_alloc( mode_y ) );
+    AMP_ASSERT( get_lidx( mode_x ) == get_lidx( mode_y ) );
+    AMP_ASSERT( get_gidx( mode_x ) == get_gidx( mode_y ) );
+
     auto csrDataY = getCSRMatrixData<Config>( Y );
     AMP_DEBUG_ASSERT( csrDataY );
     if ( X.getCoeffType() == getTypeID<double>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f64>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
+        using ConfigIn = typename Config::template set_scalar_t<scalar::f64>;
+        auto csrDataX  = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
         AMP_DEBUG_ASSERT( csrDataX );
 
         copyCast<ConfigIn>( csrDataX, csrDataY );
     } else if ( X.getCoeffType() == getTypeID<float>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f32>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
+        using ConfigIn = typename Config::template set_scalar_t<scalar::f32>;
+        auto csrDataX  = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
         AMP_DEBUG_ASSERT( csrDataX );
 
         copyCast<ConfigIn>( csrDataX, csrDataY );
@@ -513,13 +560,10 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast( const Ma
 
 template<typename Config, class ExecSpace, class ViewSpace>
 template<typename ConfigIn>
-void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast(
-    CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
+void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast( CSRMatrixData<ConfigIn> *X,
+                                                                        matrixdata_t *Y )
 {
     PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
-
-    AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
-                      "CSRMatrixOperationsKokkos::copyCast X and Y must be in same memory space" );
 
     auto diagMatrixX = X->getDiagMatrix();
     auto offdMatrixX = X->getOffdMatrix();

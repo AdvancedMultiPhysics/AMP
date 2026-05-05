@@ -50,7 +50,7 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
         ut->failure( "Unable to create a square matrix" );
     }
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    fillWithPseudoLaplacian( matrix );
 
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
@@ -156,7 +156,7 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
     }
 
     auto csrMatrix2 = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
-    fillWithPseudoLaplacian( csrMatrix2, dofManager );
+    fillWithPseudoLaplacian( csrMatrix2 );
     csrMatrix2->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
     y1->zero();
     y2->zero();

@@ -72,3 +72,10 @@ ADD_AMP_TEST( writeMesh )
 # Misc tests
 ADD_AMP_TEST( testTriangleProjection )
 ADD_AMP_TEST( testHex8Element )
+
+# Add SAMRAI tests
+IF ( USE_SAMRAI )
+    ADD_SUBDIRECTORY( SAMRAI )
+ENDIF()
+
+

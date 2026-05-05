@@ -74,19 +74,21 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         // Pull out block specific parameters
         auto &blParams = d_is_diag ? rawCSRParams->d_diag : rawCSRParams->d_off_diag;
 
+        // we guarantee that row_starts always exists, even for empty matrices
         if ( blParams.d_row_starts == nullptr ) {
-            d_is_empty = true;
+            d_is_empty   = true;
+            d_nnz        = 0;
+            d_row_starts = makeLidxArray( d_num_rows + 1 );
+            AMP::Utilities::Algorithms<lidx_t>::fill_n( d_row_starts.get(), d_num_rows + 1, 0 );
             return;
         }
 
         // count nnz and decide if block is empty
-        d_nnz = blParams.d_row_starts[d_num_rows];
-
-        if ( d_nnz == 0 ) {
-            d_is_empty = true;
-            return;
-        }
-        d_is_empty = false;
+        // row starts may not be host-accessible, so do a copy to get last entry
+        lidx_t nnz;
+        AMP::Utilities::Algorithms<lidx_t>::copy_n( &blParams.d_row_starts[d_num_rows], 1, &nnz );
+        d_nnz      = nnz;
+        d_is_empty = ( d_nnz == 0 );
 
         // Wrap raw pointers from blParams to match internal
         // shared_ptr<T[]> type
@@ -454,6 +456,8 @@ void CSRLocalMatrixData<Config>::sortColumns()
         return;
     }
 
+    AMP_DEBUG_INSIST( d_row_starts.get() != nullptr,
+                      "CSRLocalMatrixData::sortColumns Row starts must be allocated" );
     AMP_DEBUG_INSIST( d_cols.get() != nullptr,
                       "CSRLocalMatrixData::sortColumns Access to global columns required" );
 
@@ -552,26 +556,55 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
     auto outData = std::make_shared<outdata_t>(
         nullptr, memloc, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
 
-    outData->d_is_empty = d_is_empty;
-    outData->d_nnz      = static_cast<typename outdata_t::lidx_t>( d_nnz );
+    outData->d_is_empty  = d_is_empty;
+    outData->d_nnz       = static_cast<typename outdata_t::lidx_t>( d_nnz );
+    outData->d_ncols_unq = d_ncols_unq;
 
     outData->d_cols     = nullptr;
     outData->d_cols_loc = nullptr;
     outData->d_coeffs   = nullptr;
 
-    if ( !d_is_empty ) {
+    if ( d_is_empty ) {
+        return outData;
+    }
+
+    // row starts always allocated internally, so always copy across
+    AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
+
+    if constexpr ( Config::allocator == ConfigOut::allocator && false ) {
+        // migrate is only being called for type casting
+        // we can share fields that match on type and only allocate/cast
+        // for mismatches
+        if constexpr ( Config::lidx == ConfigOut::lidx ) {
+            outData->d_cols_loc = d_cols_loc;
+        } else {
+            outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
+        }
+        if constexpr ( Config::scalar_id == ConfigOut::scalar_id ) {
+            outData->d_coeffs = d_coeffs;
+        } else {
+            outData->d_coeffs = outdata_t::makeScalarArray( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
+        }
+        if constexpr ( Config::gidx == ConfigOut::gidx ) {
+            outData->d_cols     = d_cols;
+            outData->d_cols_unq = d_cols_unq;
+        } else {
+            if ( d_cols.get() != nullptr ) {
+                outData->d_cols = outdata_t::makeGidxArray( d_nnz );
+                AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
+            }
+            if ( d_cols_unq.get() != nullptr ) {
+                outData->d_cols_unq = outdata_t::makeGidxArray( d_ncols_unq );
+                AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
+            }
+        }
+    } else {
+        // different allocators, so migrate used to actually move across
+        // memory spaces, and deep copies required for all fields
         outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
         outData->d_coeffs   = outdata_t::makeScalarArray( d_nnz );
-
-        /****************************************************
-         * Potential performance improvement:
-         * If config::alloc == configout::alloc  &&
-         *   config::lidx_t == configout::lidx_t &&
-         *   config::gidx_t == configout::gidx_t
-         * then it's not required to create copies of the index arrays pointers would suffice
-         ****************************************************/
-
-        AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
         AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
         AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
 
@@ -580,8 +613,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
             AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
         }
         if ( d_cols_unq.get() != nullptr ) {
-            outData->d_ncols_unq = d_ncols_unq;
-            outData->d_cols_unq  = outdata_t::makeGidxArray( d_ncols_unq );
+            outData->d_cols_unq = outdata_t::makeGidxArray( d_ncols_unq );
             AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
         }
     }
@@ -846,58 +878,58 @@ void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
 template<typename Config>
 void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) const
 {
-    std::cout << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
+    AMP::plog << ( d_is_diag ? "  diag block:" : "  offd block:" ) << std::endl;
     if ( d_is_empty ) {
-        std::cout << "    EMPTY" << std::endl;
+        AMP::plog << "    EMPTY" << std::endl;
         return;
     }
-    std::cout << "    first | last row: " << d_first_row << " | " << d_last_row << std::endl;
-    std::cout << "    first | last col: " << d_first_col << " | " << d_last_col << std::endl;
+    AMP::plog << "    first | last row: " << d_first_row << " | " << d_last_row << std::endl;
+    AMP::plog << "    first | last col: " << d_first_col << " | " << d_last_col << std::endl;
 
     if ( d_cols.get() ) {
-        std::cout << "    min | max col: "
+        AMP::plog << "    min | max col: "
                   << AMP::Utilities::Algorithms<gidx_t>::min_element( d_cols.get(), d_nnz ) << " | "
                   << AMP::Utilities::Algorithms<gidx_t>::max_element( d_cols.get(), d_nnz )
                   << std::endl;
     }
 
-    std::cout << "    num unique: " << d_ncols_unq << std::endl;
+    AMP::plog << "    num unique: " << d_ncols_unq << std::endl;
     scalar_t avg_nnz = static_cast<scalar_t>( d_nnz ) / static_cast<scalar_t>( d_num_rows );
-    std::cout << "    avg nnz per row: " << avg_nnz << std::endl;
-    std::cout << "    tot nnz: " << d_nnz << std::endl;
+    AMP::plog << "    avg nnz per row: " << avg_nnz << std::endl;
+    AMP::plog << "    tot nnz: " << d_nnz << std::endl;
     if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
-        std::cout << "    row 0: ";
+        AMP::plog << "    row 0: ";
         for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
             if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
-                std::cout << "("
+                AMP::plog << "("
                           << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
                                               static_cast<long long>( d_cols_loc[n] ) )
                           << "," << d_coeffs[n] << "), ";
             } else if ( show_zeros ) {
-                std::cout << "("
+                AMP::plog << "("
                           << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
                                               static_cast<long long>( d_cols_loc[n] ) )
                           << ",--), ";
             }
         }
-        std::cout << "\n    row last: ";
+        AMP::plog << "\n    row last: ";
         for ( auto n = d_row_starts[d_num_rows - 1]; n < d_row_starts[d_num_rows]; ++n ) {
             if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
-                std::cout << "("
+                AMP::plog << "("
                           << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
                                               static_cast<long long>( d_cols_loc[n] ) )
                           << "," << d_coeffs[n] << "), ";
             } else if ( show_zeros ) {
-                std::cout << "("
+                AMP::plog << "("
                           << ( d_cols.get() ? static_cast<long long>( d_cols[n] ) :
                                               static_cast<long long>( d_cols_loc[n] ) )
                           << ",--), ";
             }
         }
         if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
-            std::cout << "\n    column map: ";
+            AMP::plog << "\n    column map: ";
             for ( auto n = 0; n < d_ncols_unq; ++n ) {
-                std::cout << "[" << n << "|" << d_cols_unq[n] << "], ";
+                AMP::plog << "[" << n << "|" << d_cols_unq[n] << "], ";
             }
         }
     } else if ( verbose ) {
@@ -917,23 +949,23 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
             if ( d_cols.get() ) {
                 std::vector<gidx_t> fr_cols( fr_len, 0 );
                 AMP::Utilities::copy( fr_len, d_cols.get(), fr_cols.data() );
-                std::cout << "    row 0: ";
+                AMP::plog << "    row 0: ";
                 for ( lidx_t n = 0; n < fr_len; ++n ) {
                     if ( fr_coeffs[n] != 0 || show_zeros ) {
-                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                        AMP::plog << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
                     }
                 }
-                std::cout << std::endl;
+                AMP::plog << std::endl;
             } else {
                 std::vector<lidx_t> fr_cols( fr_len, 0 );
                 AMP::Utilities::copy( fr_len, d_cols_loc.get(), fr_cols.data() );
-                std::cout << "    row 0: ";
+                AMP::plog << "    row 0: ";
                 for ( lidx_t n = 0; n < fr_len; ++n ) {
                     if ( fr_coeffs[n] != 0 || show_zeros ) {
-                        std::cout << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
+                        AMP::plog << "(" << fr_cols[n] << "," << fr_coeffs[n] << "), ";
                     }
                 }
-                std::cout << std::endl;
+                AMP::plog << std::endl;
             }
         }
 
@@ -945,20 +977,20 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
             if ( d_cols.get() ) {
                 std::vector<gidx_t> lr_cols( lr_len, 0 );
                 AMP::Utilities::copy( lr_len, d_cols.get() + rs_h[d_num_rows - 1], lr_cols.data() );
-                std::cout << "    row last: ";
+                AMP::plog << "    row last: ";
                 for ( lidx_t n = 0; n < lr_len; ++n ) {
                     if ( lr_coeffs[n] != 0 || show_zeros ) {
-                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                        AMP::plog << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
                     }
                 }
             } else {
                 std::vector<lidx_t> lr_cols( lr_len, 0 );
                 AMP::Utilities::copy(
                     lr_len, d_cols_loc.get() + rs_h[d_num_rows - 1], lr_cols.data() );
-                std::cout << "    row last: ";
+                AMP::plog << "    row last: ";
                 for ( lidx_t n = 0; n < lr_len; ++n ) {
                     if ( lr_coeffs[n] != 0 || show_zeros ) {
-                        std::cout << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
+                        AMP::plog << "(" << lr_cols[n] << "," << lr_coeffs[n] << "), ";
                     }
                 }
             }
@@ -968,13 +1000,13 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
         if ( d_ncols_unq > 0 && d_ncols_unq < 200 ) {
             std::vector<gidx_t> colmap_h( d_ncols_unq, 0 );
             AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), colmap_h.data() );
-            std::cout << "\n    column map: ";
+            AMP::plog << "\n    column map: ";
             for ( auto n = 0; n < d_ncols_unq; ++n ) {
-                std::cout << "[" << n << "|" << colmap_h[n] << "], ";
+                AMP::plog << "[" << n << "|" << colmap_h[n] << "], ";
             }
         }
     }
-    std::cout << std::endl << std::endl;
+    AMP::plog << std::endl << std::endl;
 }
 
 
@@ -1039,18 +1071,18 @@ void CSRLocalMatrixData<Config>::printAll( bool force ) const
 
     // print all unique columns
     if ( cols_unq ) {
-        std::cout << "Unique cols: ";
+        AMP::plog << "Unique cols: ";
         for ( lidx_t n = 0; n < d_ncols_unq; ++n ) {
-            std::cout << "[" << n << "|" << cols_unq[n] << "] ";
+            AMP::plog << "[" << n << "|" << cols_unq[n] << "] ";
         }
-        std::cout << std::endl << std::endl;
+        AMP::plog << std::endl << std::endl;
     }
 
     // print all global columns and values row-by-row
     for ( lidx_t row = 0; row < d_num_rows; ++row ) {
         // skip empty rows to avoid a bunch of blank newlines
         if ( row_starts[row] < row_starts[row + 1] ) {
-            std::cout << "Row " << row << ": ";
+            AMP::plog << "Row " << row << ": ";
             for ( lidx_t c = row_starts[row]; c < row_starts[row + 1]; ++c ) {
                 lidx_t cl = have_loc ? cols_loc[c] : -1;
                 gidx_t cg;
@@ -1059,9 +1091,9 @@ void CSRLocalMatrixData<Config>::printAll( bool force ) const
                 } else {
                     cg = have_gbl ? cols[c] : cols_unq[cols_loc[c]];
                 }
-                std::cout << "[" << cl << "|" << cg << "|" << coeffs[c] << "] ";
+                AMP::plog << "[" << cl << "|" << cg << "|" << coeffs[c] << "] ";
             }
-            std::cout << std::endl;
+            AMP::plog << std::endl;
         }
     }
 }
@@ -1233,6 +1265,20 @@ void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
 }
 
 template<typename Config>
+size_t CSRLocalMatrixData<Config>::numberColumnIDs( size_t local_row ) const
+{
+    if ( d_is_empty )
+        return 0;
+    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+                "CSRLocalMatrixData::numberColumnIDs not implemented for device memory" );
+    AMP_INSIST( d_cols_loc && d_row_starts,
+                "CSRLocalMatrixData::numberColumnIDs nnz layout must be initialized" );
+    const auto start = d_row_starts[local_row];
+    const auto end   = d_row_starts[local_row + 1];
+    return end - start;
+}
+
+template<typename Config>
 std::vector<size_t> CSRLocalMatrixData<Config>::getColumnIDs( const size_t local_row ) const
 {
     PROFILE( "CSRLocalMatrixData::getColumnIDs" );
@@ -1304,9 +1350,14 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
     if ( d_memory_location <= AMP::Utilities::MemoryType::host ) {
 
         row_starts.viewRaw( d_num_rows + 1, d_row_starts.get() );
-        cols_unq.viewRaw( d_ncols_unq, d_cols_unq.get() );
-        cols_loc.viewRaw( d_nnz, d_cols_loc.get() );
-        if ( !d_is_symbolic )
+
+        if ( d_ncols_unq > 0 && !d_is_diag )
+            cols_unq.viewRaw( d_ncols_unq, d_cols_unq.get() );
+
+        if ( d_nnz > 0 )
+            cols_loc.viewRaw( d_nnz, d_cols_loc.get() );
+
+        if ( d_nnz > 0 && !d_is_symbolic )
             coeffs.viewRaw( d_nnz, d_coeffs.get() );
 
     } else {
@@ -1314,26 +1365,38 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
         row_starts.resize( d_num_rows + 1 );
         AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), row_starts.data() );
 
-        cols_unq.resize( d_ncols_unq );
-        AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq.data() );
+        if ( d_ncols_unq > 0 && !d_is_diag ) {
+            cols_unq.resize( d_ncols_unq );
+            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), cols_unq.data() );
+        }
 
-        cols_loc.resize( d_nnz );
-        AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc.data() );
+        if ( d_nnz > 0 ) {
+            cols_loc.resize( d_nnz );
+            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), cols_loc.data() );
+        }
 
-        if ( !d_is_symbolic ) {
+        if ( d_nnz > 0 && !d_is_symbolic ) {
             coeffs.resize( d_nnz );
             AMP::Utilities::copy( d_nnz, d_coeffs.get(), coeffs.data() );
         }
     }
 
-    if ( d_num_rows > 0 )
+    if ( d_num_rows > 0 ) {
+        AMP_INSIST( row_starts.data(), "CSRLocalMatrixData::writeRestart: bad row starts" );
         IO::writeHDF5( fid, "row_starts", row_starts );
-    if ( d_ncols_unq > 0 )
+    }
+    if ( d_ncols_unq > 0 && !d_is_diag ) {
+        AMP_INSIST( cols_unq.data(), "CSRLocalMatrixData::writeRestart: bad cols unq" );
         IO::writeHDF5( fid, "cols_unq", cols_unq );
-    if ( d_nnz > 0 )
+    }
+    if ( d_nnz > 0 ) {
+        AMP_INSIST( cols_loc.data(), "CSRLocalMatrixData::writeRestart: bad cols loc" );
         IO::writeHDF5( fid, "cols_loc", cols_loc );
-    if ( d_nnz && ( !d_is_symbolic ) )
+    }
+    if ( d_nnz > 0 && !d_is_symbolic ) {
+        AMP_INSIST( coeffs.data(), "CSRLocalMatrixData::writeRestart: bad coeffs" );
         IO::writeHDF5( fid, "coeffs", coeffs );
+    }
 }
 
 template<typename Config>
@@ -1370,7 +1433,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
         AMP::Utilities::copy( d_num_rows + 1, row_starts.data(), d_row_starts.get() );
     }
 
-    if ( d_ncols_unq > 0 ) {
+    if ( d_ncols_unq > 0 && !d_is_diag ) {
         d_cols_unq = makeGidxArray( d_ncols_unq );
         AMP::Utilities::copy( d_ncols_unq, cols_unq.data(), d_cols_unq.get() );
     }

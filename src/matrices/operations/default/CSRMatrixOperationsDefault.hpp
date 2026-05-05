@@ -35,23 +35,22 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
     // e.g. by accumulating into output data
     out->zero();
 
-    // get all local in/out data buffers
-    auto inData                 = in->getVectorData();
-    const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
-    auto outData                = out->getVectorData();
-    scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
+    // get all local output data buffer
+    auto outData           = out->getVectorData();
+    scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
+    AMP_DEBUG_ASSERT( outDataBlock );
     AMP_DEBUG_INSIST( csrData->d_memory_location != AMP::Utilities::MemoryType::device,
                       "CSRMatrixOperationsDefault is not implemented for device memory" );
 
-    AMP_DEBUG_INSIST(
-        1 == inData->numberOfDataBlocks(),
-        "CSRMatrixOperationsDefault::mult only implemented for vectors with one data block" );
-
-    AMP_ASSERT( inDataBlock && outDataBlock );
-
-    {
+    if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsDefault::mult (local)" );
+        auto inData = in->getVectorData();
+        AMP_DEBUG_INSIST(
+            inData->numberOfDataBlocks() == 1,
+            "CSRMatrixOperationsDefault::mult only implemented for vectors with one data block" );
+        const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
+        AMP_DEBUG_ASSERT( inDataBlock );
         d_localops_diag->mult( inDataBlock, diagMatrix, outDataBlock );
     }
 
@@ -237,20 +236,10 @@ void CSRMatrixOperationsDefault<Config>::matMatMult( std::shared_ptr<MatrixData>
     AMP_INSIST( memLocA == memLocC,
                 "CSRMatrixOperationsDefault::matMatMult A and C must have the same memory type" );
 
-    // Check if an SpGEMM helper has already been constructed for this combination
-    // of matrices. If not create it first and do symbolic phase, otherwise skip
-    // ahead to numeric phase
-    auto bcPair = std::make_pair( csrDataB, csrDataC );
-    if ( d_SpGEMMHelpers.find( bcPair ) == d_SpGEMMHelpers.end() ) {
-        AMP_INSIST( csrDataC->isEmpty(),
-                    "CSRMatrixOperationsDefault::matMatMult A*B->C only applicable to non-empty C "
-                    "if it came from same A and B input matrices originally" );
-        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDefault( csrDataA, csrDataB, csrDataC, true );
-        d_SpGEMMHelpers[bcPair].symbolicMultiply();
-        d_SpGEMMHelpers[bcPair].numericMultiply();
-    } else {
-        d_SpGEMMHelpers[bcPair].numericMultiplyReuse();
-    }
+    // Create an SpGEMM helper object and call multiply
+    // later versions may allow re-use of symbolic phase
+    CSRMatrixSpGEMMDefault<Config> spgemm( csrDataA, csrDataB, csrDataC );
+    spgemm.multiply();
 }
 
 template<typename Config>

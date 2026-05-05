@@ -69,6 +69,13 @@ public:
 
     /**
      * \brief Set data in this vector to random values
+     * \details  This function will set all the values in a vector to random values.
+     *     It will call makeConsistent to ensure ghosts are updated correctly.
+     *     The implimentation details are specific to the VectorOperation implimentation.
+     *     For the default vector operations the behavior is:
+     *        Floating point data: The range will be [0,1]
+     *        Integer data: The range will be [1,M], where M is sqrt( 0.1 * MAX ),
+     *                      where MAX is the largest possible positive integer.
      * \param[out] x        a vector
      */
     virtual void setRandomValues( VectorData &x ) = 0;
@@ -317,7 +324,14 @@ public:
      * \details Returns \f[\sqrt{\sum_i x_i^2}\f]
      * \param[in] x     a vector
      */
-    virtual Scalar localL2Norm( const VectorData &x ) const = 0;
+    virtual Scalar localL2Norm( const VectorData &x ) const;
+
+    /**
+     * \brief Return square of local discrete @f$ L_2 @f$ -norm of this vector.
+     * \details Returns \f[\sum_i x_i^2\f]
+     * \param[in] x     a vector
+     */
+    virtual Scalar localL2Norm2( const VectorData &x ) const = 0;
 
     /**
      * \brief Return the local @f$ L_\infty @f$ -norm of this vector.

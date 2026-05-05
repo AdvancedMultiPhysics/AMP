@@ -1,0 +1,40 @@
+// This is a sample hierarchy that has caused problems on 4 processors
+
+dim=3
+
+CartesianGeometry{
+   domain_boxes = [(0,0,0), (15,15,15)]
+   x_lo         = 0.0e0, 0.0e0, 0.0e0   
+   x_up         = 1.0e0, 1.0e0, 1.0e0
+   periodic_dimension = 0,0,0
+}
+
+GriddingAlgorithm{
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
+}
+
+PatchHierarchy{
+   max_levels = 2
+   largest_patch_size {
+      level_0 = 100,100,100
+   }
+   smallest_patch_size {
+      level_0 = 4,4,4
+   }
+   ratio_to_coarser {
+      level_1  = 2, 2, 2
+   }
+}
+
+
+StandardTagAndInitialize{
+   tagging_method = "REFINE_BOXES"
+   level_0{
+       boxes = [(0,0,0),(3,7,7)], [(4,0,0),(7,7,7)], [(0,0,8),(3,7,15)], [(4,0,8),(7,7,15)], [(0,8,0),(3,15,7)], [(4,8,0),(7,15,7)], [(0,8,8),(3,15,15)], [(4,8,8),(7,15,15)]
+   }
+}
+
+TreeLoadBalancer {
+}
+

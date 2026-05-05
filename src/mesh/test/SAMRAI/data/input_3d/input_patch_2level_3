@@ -1,0 +1,44 @@
+dim=3
+
+CartesianGeometry{
+   domain_boxes = [(0,0,0), (31,31,0)]
+   x_lo         = 0.0, 0.0, 0.0
+   x_up         = 1.0, 1.0, 1.0
+   periodic_dimension = 0,1,1
+}
+
+GriddingAlgorithm{
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
+}
+
+PatchHierarchy{
+   max_levels = 2
+   largest_patch_size {
+      level_0 = 16,16,1
+   }
+   smallest_patch_size {
+      level_0 = 16,16,1
+   }
+   ratio_to_coarser {
+      level_1  = 2, 2, 1
+      level_2  = 2, 2, 1
+      level_3  = 2, 2, 1
+      level_4  = 2, 2, 1
+      level_5  = 2, 2, 1
+      level_6  = 2, 2, 1
+   }
+}
+
+
+
+StandardTagAndInitialize{
+   tagging_method = "REFINE_BOXES"
+   level_0{
+        boxes = [(8,8,0),(23,23,0)]
+   }
+}
+
+TreeLoadBalancer {
+}
+

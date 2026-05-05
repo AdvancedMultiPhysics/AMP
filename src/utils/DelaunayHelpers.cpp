@@ -243,52 +243,56 @@ static constexpr std::array<int, N + 1> createNullTri()
     return null;
 }
 template<>
-std::vector<std::array<int, 2>>
-create_tri_neighbors<1>( const std::vector<std::array<int, 2>> &tri )
+void create_tri_neighbors<1>( size_t N, const std::array<int, 2> *, std::array<int, 2> *nab )
 {
-    std::vector<std::array<int, 2>> tri_nab( tri.size(), createNullTri<1>() );
-    if ( tri.size() == 1 )
-        return tri_nab;
-    for ( size_t i = 0; i < tri.size(); i++ ) {
-        tri_nab[i][0] = i + 1;
-        tri_nab[i][1] = i - 1;
+    if ( N == 0 )
+        return;
+    if ( N == 1 ) {
+        nab[0] = { -1, -1 };
+        return;
     }
-    tri_nab[0][1]              = -1;
-    tri_nab[tri.size() - 1][0] = -1;
-    return tri_nab;
+    for ( size_t i = 0; i < N; i++ ) {
+        nab[i][0] = i + 1;
+        nab[i][1] = i - 1;
+    }
+    nab[0][1]     = -1;
+    nab[N - 1][0] = -1;
 }
 template<size_t NG>
-std::vector<std::array<int, NG + 1>>
-create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri )
+void create_tri_neighbors( size_t N,
+                           const std::array<int, NG + 1> *tri,
+                           std::array<int, NG + 1> *tri_nab )
 {
     PROFILE( "create_tri_neighbors" );
-    // Allocate memory
-    std::vector<std::array<int, NG + 1>> tri_nab( tri.size(), createNullTri<NG>() );
-    if ( tri.size() == 1 )
-        return tri_nab;
+    // Initialize triangles
+    constexpr auto null = createNullTri<NG>();
+    for ( size_t i = 0; i < N; i++ )
+        tri_nab[i] = null;
+    if ( N == 1 )
+        return;
     // Get the number of vertices
     size_t N_vertex = 0;
-    for ( const auto &t : tri ) {
-        for ( size_t i = 0; i < NG + 1; i++ )
-            N_vertex = std::max<size_t>( N_vertex, t[i] + 1 );
+    for ( size_t i = 0; i < N; i++ ) {
+        for ( size_t j = 0; j <= NG; j++ )
+            N_vertex = std::max<size_t>( N_vertex, tri[i][j] + 1 );
     }
     // Count the number of triangles connected to each vertex
     std::vector<int> N_tri_nab( N_vertex, 0 );
-    for ( size_t i = 0; i < tri.size(); i++ ) {
+    for ( size_t i = 0; i < N; i++ ) {
         for ( size_t d = 0; d < NG + 1; d++ )
             N_tri_nab[tri[i][d]]++;
     }
     // For each node, get a list of the triangles that connect to that node
     auto tri_list = new int *[N_vertex]; // List of triangles connected each node (N)
-    tri_list[0]   = new int[( NG + 1 ) * tri.size()];
+    tri_list[0]   = new int[( NG + 1 ) * N];
     for ( size_t i = 1; i < N_vertex; i++ )
         tri_list[i] = &tri_list[i - 1][N_tri_nab[i - 1]];
-    for ( size_t i = 0; i < ( NG + 1 ) * tri.size(); i++ )
+    for ( size_t i = 0; i < ( NG + 1 ) * N; i++ )
         tri_list[0][i] = -1;
     // Create a sorted list of all triangles that have each node as a vertex
     for ( size_t i = 0; i < N_vertex; i++ )
         N_tri_nab[i] = 0;
-    for ( size_t i = 0; i < tri.size(); i++ ) {
+    for ( size_t i = 0; i < N; i++ ) {
         for ( size_t j = 0; j <= NG; j++ ) {
             int k                     = tri[i][j];
             tri_list[k][N_tri_nab[k]] = i;
@@ -304,7 +308,7 @@ create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri )
     }
     // Note, if a triangle is a neighbor, it will share all but the current node
     int size[NG];
-    for ( int i = 0; i < (int) tri.size(); i++ ) {
+    for ( int i = 0; i < (int) N; i++ ) {
         // Loop through the different faces of the triangle
         for ( size_t j = 0; j <= NG; j++ ) {
             int *list[NG] = { nullptr };
@@ -336,20 +340,39 @@ create_tri_neighbors( const std::vector<std::array<int, NG + 1>> &tri )
         }
     }
     // Check tri_nab
-    for ( int i = 0; i < (int) tri.size(); i++ ) {
+    for ( int i = 0; i < (int) N; i++ ) {
         for ( size_t d = 0; d <= NG; d++ ) {
-            if ( tri_nab[i][d] < -1 || tri_nab[i][d] >= (int) tri.size() || tri_nab[i][d] == i )
+            if ( tri_nab[i][d] < -1 || tri_nab[i][d] >= (int) N || tri_nab[i][d] == i )
                 AMP_ERROR( "Internal error" );
         }
     }
     delete[] tri_list[0];
     delete[] tri_list;
-    return tri_nab;
 }
-template std::vector<std::array<int, 3>>
-create_tri_neighbors<2>( const std::vector<std::array<int, 3>> & );
-template std::vector<std::array<int, 4>>
-create_tri_neighbors<3>( const std::vector<std::array<int, 4>> & );
+AMP::Array<int> create_tri_neighbors( const AMP::Array<int> &tri )
+{
+    AMP_ASSERT( tri.ndim() == 2 );
+    int ndim = tri.size( 0 ) - 1;
+    int N    = tri.size( 1 );
+    AMP::Array<int> nab( tri.size() );
+    nab.fill( -1 );
+    if ( ndim == 1 ) {
+        create_tri_neighbors<1>( N,
+                                 reinterpret_cast<const std::array<int, 2> *>( tri.data() ),
+                                 reinterpret_cast<std::array<int, 2> *>( nab.data() ) );
+    } else if ( ndim == 2 ) {
+        create_tri_neighbors<2>( N,
+                                 reinterpret_cast<const std::array<int, 3> *>( tri.data() ),
+                                 reinterpret_cast<std::array<int, 3> *>( nab.data() ) );
+    } else if ( ndim == 3 ) {
+        create_tri_neighbors<3>( N,
+                                 reinterpret_cast<const std::array<int, 4> *>( tri.data() ),
+                                 reinterpret_cast<std::array<int, 4> *>( nab.data() ) );
+    } else {
+        AMP_ERROR( "Unsupported dimension" );
+    }
+    return nab;
+}
 
 
 /****************************************************************

@@ -5,6 +5,7 @@
 #include <tuple>
 
 #include "AMP/utils/Array.h"
+#include "AMP/utils/DelaunayHelpers.h"
 #include "AMP/utils/kdtree.h"
 
 
@@ -15,7 +16,6 @@ namespace AMP {
  *
  * This class provides Delaunay based N-dimensional simplex interpolation.
  */
-template<class TYPE>
 class DelaunayInterpolation
 {
 public:
@@ -26,7 +26,50 @@ public:
     DelaunayInterpolation( const DelaunayInterpolation & ) = delete;
     DelaunayInterpolation &operator=( const DelaunayInterpolation & ) = delete;
 
-    //! Empty destructor.
+
+    //! Function to construct the tessellation
+    /*!
+     * This function creates the tessellation using the given points.
+     * @param x         The coordinates of the vertices ( ndim x N )
+     */
+    template<class TYPE>
+    DelaunayInterpolation( const AMP::Array<TYPE> &x ) : DelaunayInterpolation()
+    {
+        d_x.copy( x );
+        int ndim = x.size( 0 );
+        AMP_ASSERT( ndim >= 1 && ndim <= 3 && x.ndim() == 2 );
+        auto y = AMP::DelaunayHelpers::convert( x );
+        if ( x.size( 0 ) == 1 ) {
+            std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<1>( y );
+        } else if ( ndim == 2 ) {
+            std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<2>( y );
+        } else if ( ndim == 3 ) {
+            std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation<3>( y );
+        }
+    }
+
+
+    //! Function to construct the tessellation using a given tessellation
+    /*!
+     * This function sets the internal tessellation to match a provided tessellation.
+     * It does not check if the provided tessellation is valid.  It allows the user to
+     * provide their own tessellation if desired.
+     * If sucessful, this routine returns 0.
+     * @param x         The coordinates of the vertices ( ndim x N )
+     *                  or to update the coordinate pointers before each call.
+     *                  See update_coordinates for more information.
+     * @param tri       The tesselation ( ndim+1 x N_tri )
+     */
+    template<class TYPE>
+    DelaunayInterpolation( const Array<TYPE> &x, const Array<int> &tri ) : DelaunayInterpolation()
+    {
+        d_x.copy( x );
+        d_tri     = tri;
+        d_tri_nab = DelaunayHelpers::create_tri_neighbors( d_tri );
+    }
+
+
+    //! Empty destructor
     ~DelaunayInterpolation();
 
 
@@ -38,51 +81,15 @@ public:
 
 
     //! Function to return the triangles in the tessellation
-    AMP::Array<int> get_tri() const;
+    const AMP::Array<int> &get_tri() const;
 
 
     //! Function to return the triangles neignbors
-    AMP::Array<int> get_tri_nab() const;
+    const AMP::Array<int> &get_tri_nab() const;
 
 
-    //! Function to construct the tessellation
-    /*!
-     * This function creates the tessellation using the given points.
-     * @param x         The coordinates of the vertices( ndim x N )
-     */
-    void create_tessellation( const AMP::Array<TYPE> &x );
-
-
-    //! Function to construct the tessellation
-    /*!
-     * This function creates the tessellation using the given points.
-     * @param N         The number of vertices
-     * @param x         The coordinates of the x vertices
-     * @param y         The coordinates of the y vertices (may be NULL for 1D)
-     * @param z         The coordinates of the z vertices (may be NULL for 1D/2D)
-     */
-    void create_tessellation( size_t N, const TYPE *x, const TYPE *y, const TYPE *z );
-
-
-    //! Function to construct the tessellation using a given tessellation
-    /*!
-     * This function sets the internal tessellation to match a provided tessellation.
-     * It does not check if the provided tessellation is valid.  It allows the user to
-     * provide their own tesselation if desired.
-     * If sucessful, this routine returns 0.
-     * @param x         The coordinates of the vertices( ndim x N )
-     *                  or to update the coordinate pointers before each call.
-     *                  See update_coordinates for more information.
-     * @param tri       The tesselation( ndim+1 x N_tri )
-     */
-    void create_tessellation( const Array<TYPE> &x, const Array<int> &tri );
-
-
-    //! Function to copy the tessellation
-    /*!
-     * This function copies the internal tessellation to a user-provided array.
-     */
-    std::tuple<AMP::Array<TYPE>, AMP::Array<int>> copy_tessellation() const;
+    //! Function to return the verticies
+    const AMP::Array<double> &get_x() const;
 
 
     //! Subroutine to find the nearest neighbor to a point
@@ -94,8 +101,11 @@ public:
      * @param xi        Coordinates of the query points ( ndim x Ni )
      * @return          Return the index of the nearest neighbor (N)
      */
-    template<class TYPE2>
-    Array<size_t> find_nearest( const Array<TYPE2> &xi ) const;
+    template<class TYPE>
+    inline Array<size_t> find_nearest( const Array<TYPE> &xi ) const
+    {
+        return find_nearest2( xi.template cloneTo<double>() );
+    }
 
 
     //! Subroutine to find the triangle that contains the point
@@ -110,14 +120,17 @@ public:
      * @return          Ouput index of triangle containing the point
      *                  ( -1: Point is outside convex hull, -2: Search failed )
      */
-    template<class TYPE2>
-    Array<int> find_tri( const Array<TYPE2> &xi, bool extrap = false ) const;
+    template<class TYPE>
+    inline Array<int> find_tri( const Array<TYPE> &xi, bool extrap = false ) const
+    {
+        return find_tri2( xi.template cloneTo<double>(), extrap );
+    }
 
 
     //! Subroutine to calculate the gradient at each node
     /*!
      * This function gets a list of the nodes that connect to each node
-     * @param f         Function values at the vertices( ndim )
+     * @param f         Function values at the vertices (ndim)
      * @param method    Gradient method to use
      *                  1 - Use a simple least squares method using only the local nodes.
      *                      This method is relatively fast, but only first order in the gradient,
@@ -142,9 +155,9 @@ public:
      *                 4 - This is the same as method 3, but does not store any internal data.
      *                      This saves us from creating a large temporary structure ~10*ndim^2*N
      *                      at a cost of ~2x in performance.
-     * @param grad      (Output) Calculated gradient at the nodes( ndim x N )
-     * @param n_it      Optional argument specifying the number of Gauss-Seidel iterations.  Only
-     * used if method = 3 or 4.
+     * @param grad      (Output) Calculated gradient at the nodes ( ndim x N )
+     * @param n_it      Optional argument specifying the number of Gauss-Seidel iterations.
+     *                  Only used if method = 3 or 4.
      */
     void calc_node_gradient( const double *f,
                              const int method,
@@ -155,15 +168,11 @@ public:
     //! Subroutine to perform nearest-neighbor interpoaltion
     /*!
      * This function performs nearest-neighbor interpoaltion.
-     * @param f         Function values at the triangle vertices( 1 x N )
-     * @param xi        Coordinates of the query points( ndim x Ni )
-     * @param nearest   The nearest-neighbor points (see find_nearest)( 1 x Ni)
-     * @return          Return the interpolated function values at xi( 1 x Ni)
+     * @param f         Function values at the triangle vertices (N)
+     * @param nearest   The nearest-neighbor points (see find_nearest) ( Ni)
+     * @return          Return the interpolated function values at xi (Ni)
      */
-    template<class TYPE2>
-    Array<double> interp_nearest( const Array<double> &f,
-                                  const Array<TYPE2> &xi,
-                                  const Array<size_t> &nearest ) const;
+    Array<double> interp_nearest( const Array<double> &f, const Array<size_t> &nearest ) const;
 
 
     //! Subroutine to perform linear interpoaltion
@@ -171,8 +180,8 @@ public:
      * This function performs linear interpoaltion.
      * If a valid triangle index is not given, NaN will be returned.
      * If extrap is false and the point is not within the triangle, NaN will be returned.
-     * @param f         Function values at the triangle vertices( 1 x N )
-     * @param xi        Coordinates of the query points( ndim x Ni )
+     * @param f         Function values at the triangle vertices ( N )
+     * @param xi        Coordinates of the query points ( ndim x Ni )
      * @param index     The index of the triangle containing the point (see find_tri)
      * @param extrap    Do we want to extrapolate from the current triangle
      *                  Note: extrapolating can incure large error if sliver triangles
@@ -181,21 +190,25 @@ public:
      *                  fi - The interpolated function values ( Ni )
      *                  gi - The interpolated gradient ( ndim x Ni )
      */
-    template<class TYPE2>
-    std::tuple<AMP::Array<double>, AMP::Array<double>> interp_linear( const AMP::Array<double> &f,
-                                                                      const AMP::Array<TYPE2> &xi,
-                                                                      const AMP::Array<int> &index,
-                                                                      bool extrap = false ) const;
+    template<class TYPE>
+    inline std::tuple<AMP::Array<double>, AMP::Array<double>>
+    interp_linear( const AMP::Array<double> &f,
+                   const AMP::Array<TYPE> &xi,
+                   const AMP::Array<int> &index,
+                   bool extrap = false ) const
+    {
+        return interp_linear2( f, xi.template cloneTo<double>(), index, extrap );
+    }
 
 
     //! Subroutine to perform cubic interpoaltion
     /*!
      * This function performs cubic interpoaltion.
      * Note: If the point is not contained within a triangle NaN will be returned.
-     * @param f         Function values at the triangle vertices( 1 x N )
-     * @param g         Gradient of f(x) at the triangle vertices( ndim x N ) (see
-     * calc_node_gradient if unknown)
-     * @param xi        Coordinates of the query points( ndim x Ni )
+     * @param f         Function values at the triangle vertices (N)
+     * @param g         Gradient of f(x) at the triangle vertices ( ndim x N )
+                        (see calc_node_gradient if unknown)
+     * @param xi        Coordinates of the query points ( ndim x Ni )
      * @param index     The index of the triangle containing the point (see find_tri)
      * @param extrap    Do we want to extrapolate from the current triangle
      *                  0: Do not extrapolate (NaNs will be used for points outside the domain)
@@ -207,55 +220,34 @@ public:
      *                  fi - The interpolated function values ( Ni )
      *                  gi - The interpolated gradient ( ndim x Ni )
      */
-    template<class TYPE2>
-    std::tuple<AMP::Array<double>, AMP::Array<double>> interp_cubic( const AMP::Array<double> &f,
-                                                                     const AMP::Array<double> &g,
-                                                                     const AMP::Array<TYPE2> &xi,
-                                                                     const AMP::Array<int> &index,
-                                                                     int extrap = 0 ) const;
-
-
-    //! Subroutine to compute the Barycentric coordinates
-    /**
-     * This function computes the Barycentric coordinates and the matrix T to convert
-     * from Barycentric coordinates to cartesian (x=T*L).
-     * @param ndim  Number of dimensions
-     * @param x     Coordinates of the triangle vertices( ndim x ndim+1 )
-     * @param xi    Coordinates of the desired point( ndim x 1 )
-     * @param L     (output) The Barycentric coordinates of the point( ndim+1 x 1 )
-     */
-    static void compute_Barycentric( const int ndim, const double *x, const double *xi, double *L );
-
-
-    //! Clear the data
-    void clear();
+    template<class TYPE>
+    inline std::tuple<AMP::Array<double>, AMP::Array<double>>
+    interp_cubic( const AMP::Array<double> &f,
+                  const AMP::Array<double> &g,
+                  const AMP::Array<TYPE> &xi,
+                  const AMP::Array<int> &index,
+                  int extrap = 0 ) const
+    {
+        return interp_cubic2( f, g, xi.template cloneTo<double>(), index, extrap );
+    }
 
 
 private:
-    //! Subroutine to get the list of nodes that are connected to each node
+    using FG  = std::tuple<AMP::Array<double>, AMP::Array<double>>;
+    using VEC = AMP::Array<double>;
+    Array<size_t> find_nearest2( const VEC & ) const;
+    Array<int> find_tri2( const VEC &, bool ) const;
+    FG interp_linear2( const VEC &, const VEC &, const AMP::Array<int> &, bool extrap ) const;
+    FG interp_cubic2( const VEC &, const VEC &, const VEC &, const AMP::Array<int> &, int ) const;
     void create_node_neighbors() const;
-
-    //! Subroutine to get the list of triangle that are connected to each triangle
-    void create_tri_neighbors() const;
-
-    //! Subroutine to get the starting triangle for each node
     void create_node_tri() const;
-
-    //! Subroutine to get the list of triangle that are connected to each triangle
     void create_kdtree() const;
-
-    // Subroutine to perform cubic interpolation for a single point
-    void interp_cubic_single( const double f[],
-                              const double g[],
-                              const double xi[],
-                              const int index,
-                              double &fi,
-                              double *gi,
-                              int extrap ) const;
+    void interp_cubic_single(
+        const double[], const double[], const double[], const int, double &, double *, int ) const;
 
 
 private:                            // Internal Data
-    Array<TYPE> d_x;                // Pointer to the coordinates (ndim x N)
+    Array<double> d_x;              // Pointer to the coordinates (ndim x N)
     Array<int> d_tri;               // Pointer to the coordinates (ndim+1 x N_tri)
     mutable Array<int> d_tri_nab;   // List of neighbor triangles ( ndim+1 x N_tri )
     mutable size_t d_N_node_sum;    // The sum of the number of node neighbors

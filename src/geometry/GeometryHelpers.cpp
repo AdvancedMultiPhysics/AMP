@@ -781,13 +781,13 @@ template<>
 std::array<double, 3> barycentric<3, 2>( const std::array<std::array<double, 2>, 3> &x,
                                          const std::array<double, 2> &xi )
 {
-    return DelaunayHelpers::computeBarycentric<2, double>( x.data(), xi );
+    return DelaunayHelpers::computeBarycentric<2, double>( x.data(), xi.data() );
 }
 template<>
 std::array<double, 4> barycentric<4, 3>( const std::array<std::array<double, 3>, 4> &x,
                                          const std::array<double, 3> &xi )
 {
-    return DelaunayHelpers::computeBarycentric<3, double>( x.data(), xi );
+    return DelaunayHelpers::computeBarycentric<3, double>( x.data(), xi.data() );
 }
 
 

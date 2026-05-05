@@ -86,7 +86,7 @@ void writeOpaque( hid_t fid, const std::string &name, const TYPE &data )
 template<class TYPE>
 void checkHDF5( hid_t fid, const std::string &name, const TYPE &x, AMP::UnitTest &ut )
 {
-    TYPE y;
+    TYPE y = TYPE();
     AMP::IO::readHDF5( fid, name, y );
     record( x == y, name, ut );
 }
@@ -275,6 +275,7 @@ public: // Functions
         str.write( fid );
         compound.write( fid );
         writeOpaque( fid, "opaque", 3.0 );
+        AMP::IO::writeHDF5( fid, "typeID", AMP::getTypeID<data_struct>() );
     }
     void check( hid_t fid, AMP::UnitTest &ut )
     {
@@ -295,6 +296,9 @@ public: // Functions
         cmplx.check( fid, ptr, ut );
         str.check( fid, ptr, ut );
         compound.check( fid, ptr, ut );
+        AMP::typeID id;
+        AMP::IO::readHDF5( fid, "typeID", id );
+        ut.pass_fail( id == AMP::getTypeID<data_struct>(), "typeID" );
     }
 
 public: // Data members

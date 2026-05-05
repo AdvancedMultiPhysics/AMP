@@ -26,7 +26,6 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
                                               std::shared_ptr<Vector> out )
 {
     PROFILE( "CSRMatrixOperationsDevice::mult" );
-
     AMP_DEBUG_ASSERT( in && out );
     AMP_DEBUG_ASSERT( in->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
@@ -41,25 +40,24 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     out->zero();
 
-    auto inData                 = in->getVectorData();
-    const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
-    auto outData                = out->getVectorData();
-    scalar_t *outDataBlock      = outData->getRawDataBlock<scalar_t>( 0 );
+    auto outData           = out->getVectorData();
+    scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
-    AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( inDataBlock ),
-                      "Input vector from wrong memory space" );
-
+    AMP_DEBUG_ASSERT( outDataBlock );
     AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( outDataBlock ),
                       "Output vector from wrong memory space" );
 
-    AMP_DEBUG_INSIST(
-        1 == inData->numberOfDataBlocks(),
-        "CSRMatrixOperationsDevice::mult only implemented for vectors with one data block" );
-
-    AMP_ASSERT( inDataBlock && outDataBlock );
-
-    {
+    if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsDevice::mult(local)" );
+        auto inData = in->getVectorData();
+        AMP_DEBUG_INSIST(
+            inData->numberOfDataBlocks() == 1,
+            "CSRMatrixOperationsDevice::mult only implemented for vectors with one data block" );
+        const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
+        AMP_DEBUG_ASSERT( inDataBlock );
+        AMP_DEBUG_INSIST( csrData->d_memory_location ==
+                              AMP::Utilities::getMemoryType( inDataBlock ),
+                          "Input vector from wrong memory space" );
         CSRLocalMatrixOperationsDevice<Config>::mult( inDataBlock, diagMatrix, outDataBlock );
     }
 
@@ -84,9 +82,9 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 }
 
 template<typename Config>
-void CSRMatrixOperationsDevice<Config>::multTranspose( std::shared_ptr<const Vector> in,
-                                                       MatrixData const &A,
-                                                       std::shared_ptr<Vector> out )
+void CSRMatrixOperationsDevice<Config>::multTranspose( std::shared_ptr<const Vector>,
+                                                       MatrixData const &,
+                                                       std::shared_ptr<Vector> )
 {
     AMP_ERROR( "multTranspose not enabled for device." );
 }
@@ -147,21 +145,9 @@ void CSRMatrixOperationsDevice<Config>::matMatMult( std::shared_ptr<MatrixData> 
     AMP_INSIST( memLocA == memLocC,
                 "CSRMatrixOperationsDevice::matMatMult A and C must have the same memory type" );
 
-    // Check if an SpGEMM helper has already been constructed for this combination
-    // of matrices. If not create it first and do symbolic phase, otherwise skip
-    // ahead to numeric phase
-    auto bcPair = std::make_pair( csrDataB, csrDataC );
-    if ( d_SpGEMMHelpers.find( bcPair ) == d_SpGEMMHelpers.end() ) {
-        AMP_INSIST( csrDataC->isEmpty(),
-                    "CSRMatrixOperationsDevice::matMatMult A*B->C only applicable to non-empty C "
-                    "if it came from same A and B input matrices originally" );
-        d_SpGEMMHelpers[bcPair] = CSRMatrixSpGEMMDevice( csrDataA, csrDataB, csrDataC );
-        d_SpGEMMHelpers[bcPair].multiply();
-    } else {
-        AMP_WARN_ONCE( "CSRMatrixOperationsDevice::matMatMult: Reuse of C not yet supported, "
-                       "falling back to full calculation" );
-        d_SpGEMMHelpers[bcPair].multiply();
-    }
+    // Create an SpGEMM helper object and call multiply
+    CSRMatrixSpGEMMDevice<Config> spgemm( csrDataA, csrDataB, csrDataC );
+    spgemm.multiply();
 }
 
 template<typename Config>

@@ -27,6 +27,8 @@ struct UASolver : SolverStrategy {
 
     void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector> f,
                 std::shared_ptr<AMP::LinearAlgebra::Vector> u ) override;
+    const std::vector<KCycleLevel> &levels() const { return d_levels; }
+    const SolverStrategy &getCoarseSolver() const { return *d_coarse_solver; }
 
 private:
     coarse_ops_type coarsen( std::shared_ptr<Operator::LinearOperator> A,

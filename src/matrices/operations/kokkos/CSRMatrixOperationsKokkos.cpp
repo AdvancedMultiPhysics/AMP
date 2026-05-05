@@ -28,14 +28,11 @@ CSR_CONFIG_FORALL( CSR_INST )
 
     #define KOKKOS_CC_INST( mode, mode_in, execspace, viewspace )                                 \
         template void CSRMatrixOperationsKokkos<config_mode_t<mode>, execspace, viewspace>::      \
-            copyCast<config_mode_t<mode_in>>(                                                     \
-                CSRMatrixData<typename config_mode_t<mode_in>::template set_alloc_t<              \
-                    config_mode_t<mode>::allocator>> *,                                           \
-                CSRMatrixData<config_mode_t<mode>> * );                                           \
+            copyCast<config_mode_t<mode_in>>( CSRMatrixData<config_mode_t<mode_in>> *,            \
+                                              CSRMatrixData<config_mode_t<mode>> * );             \
         template void CSRLocalMatrixOperationsKokkos<config_mode_t<mode>, execspace, viewspace>:: \
             copyCast<config_mode_t<mode_in>>(                                                     \
-                std::shared_ptr<CSRLocalMatrixData<typename config_mode_t<                        \
-                    mode_in>::template set_alloc_t<config_mode_t<mode>::allocator>>>,             \
+                std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode_in>>>,                      \
                 std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode>>> );
 
     #ifdef AMP_USE_DEVICE

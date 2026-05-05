@@ -63,11 +63,35 @@ static void compute_gradient( const int ndim, const double *x, const double *f, 
 static constexpr double TRI_TOL = 1e-10;
 
 
+/****************************************************************
+ * Function to compute the Barycentric coordinates               *
+ ****************************************************************/
+static void compute_Barycentric( int ndim, const double *x, const double *xi, double *L )
+{
+    // Compute the barycentric coordinates T*L=r-r0
+    // http://en.wikipedia.org/wiki/Barycentric_coordinate_system_(mathematics)
+    double T[NDIM_MAX * NDIM_MAX];
+    for ( int i = 0; i < ndim * ndim; i++ )
+        T[i] = 0.0;
+    for ( int i = 0; i < ndim; i++ ) {
+        for ( int j = 0; j < ndim; j++ ) {
+            T[j + i * ndim] = x[j + i * ndim] - x[j + ndim * ndim];
+        }
+    }
+    double r[NDIM_MAX] = { 0 };
+    for ( int i = 0; i < ndim; i++ )
+        r[i] = xi[i] - x[i + ndim * ndim];
+    DelaunayHelpers::solve( ndim, T, r, L );
+    L[ndim] = 1.0;
+    for ( int i = 0; i < ndim; i++ )
+        L[ndim] -= L[i];
+}
+
+
 /********************************************************************
- * Primary constructor                                               *
+ * Constructors                                                      *
  ********************************************************************/
-template<class TYPE>
-DelaunayInterpolation<TYPE>::DelaunayInterpolation()
+DelaunayInterpolation::DelaunayInterpolation()
 {
     d_N_node_sum = 0;
     d_N_node     = nullptr;
@@ -78,15 +102,9 @@ DelaunayInterpolation<TYPE>::DelaunayInterpolation()
 
 
 /********************************************************************
- * De-constructor                                                    *
+ * Destructor                                                    *
  ********************************************************************/
-template<class TYPE>
-DelaunayInterpolation<TYPE>::~DelaunayInterpolation()
-{
-    clear();
-}
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::clear()
+DelaunayInterpolation::~DelaunayInterpolation()
 {
     d_x.clear();
     d_tri.clear();
@@ -109,126 +127,21 @@ void DelaunayInterpolation<TYPE>::clear()
 /********************************************************************
  * Function to return the triangles                                  *
  ********************************************************************/
-template<class TYPE>
-size_t DelaunayInterpolation<TYPE>::get_N_tri() const
+size_t DelaunayInterpolation::get_N_tri() const
 {
     if ( d_tri.empty() )
         return 0;
     return d_tri.size( 1 );
 }
-template<class TYPE>
-AMP::Array<int> DelaunayInterpolation<TYPE>::get_tri() const
-{
-    return d_tri;
-}
-template<class TYPE>
-AMP::Array<int> DelaunayInterpolation<TYPE>::get_tri_nab() const
-{
-    create_tri_neighbors();
-    return d_tri_nab;
-}
-template<class TYPE>
-std::tuple<AMP::Array<TYPE>, AMP::Array<int>> DelaunayInterpolation<TYPE>::copy_tessellation() const
-{
-    return std::tie( d_x, d_tri );
-}
-
-
-/********************************************************************
- * Function to construct the tessellation                            *
- ********************************************************************/
-template<class TYPE>
-void write_failed_points( int ndim, int N, const TYPE *data, FILE *fid );
-template<>
-void write_failed_points<double>( int ndim, int N, const double *data, FILE *fid )
-{
-    fprintf( fid, "%i points in %iD in double precision\n", N, ndim );
-    fwrite( data, sizeof( double ), N * ndim, fid );
-}
-template<>
-void write_failed_points<int>( int ndim, int N, const int *data, FILE *fid )
-{
-    fprintf( fid, "%i points in %iD in int precision\n", N, ndim );
-    fwrite( data, sizeof( int ), N * ndim, fid );
-}
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::create_tessellation( size_t N,
-                                                       const TYPE *x,
-                                                       const TYPE *y,
-                                                       const TYPE *z )
-{
-    AMP::Array<TYPE> xyz( 3, N );
-    for ( size_t i = 0; i < N; i++ ) {
-        xyz( 0, i ) = x[i];
-        xyz( 1, i ) = y[i];
-        xyz( 2, i ) = z[i];
-    }
-    create_tessellation( xyz );
-}
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::create_tessellation( const AMP::Array<TYPE> &x )
-{
-    PROFILE( "create_tessellation", ProfileLevel );
-    // Delete the existing data
-    clear();
-    if ( x.empty() )
-        return;
-    // Copy the points
-    d_x = x;
-    // Create the tessellation
-    size_t ndim = x.size( 0 );
-    size_t N    = x.size( 1 );
-    if ( x.size( 0 ) == 1 ) {
-        // The triangles are just the sorted points (note the duplicate indices)
-        std::vector<TYPE> x_tmp( N );
-        std::vector<int> i_tmp( N );
-        for ( size_t i = 0; i < N; i++ )
-            x_tmp[i] = d_x( i );
-        for ( size_t i = 0; i < N; i++ )
-            i_tmp[i] = (int) i;
-        AMP::Utilities::quicksort( x_tmp, i_tmp );
-        int N_tri = N - 1;
-        d_tri.resize( 2, N_tri );
-        for ( int i = 0; i < N_tri; i++ ) {
-            d_tri( 0, i ) = i_tmp[i + 0];
-            d_tri( 1, i ) = i_tmp[i + 1];
-        }
-        create_tri_neighbors();
-    } else if ( ndim == 2 || ndim == 3 ) {
-        std::tie( d_tri, d_tri_nab ) = DelaunayTessellation::create_tessellation( x );
-    } else {
-        throw std::logic_error( "Unsupported dimension" );
-    }
-    AMP_ASSERT( !d_tri.empty() );
-    AMP_ASSERT( d_tri.min() >= 0 );
-    d_N_node_sum = 0;
-}
-
-
-/********************************************************************
- * Function to construct the tessellation using a given tessellation *
- ********************************************************************/
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::create_tessellation( const Array<TYPE> &x, const Array<int> &tri )
-{
-    // Delete the existing data
-    clear();
-    if ( tri.empty() )
-        return;
-    // Check the inputs
-    AMP_ASSERT( x.size( 0 ) <= 3 );
-    AMP_ASSERT( tri.size( 0 ) == x.size( 0 ) + 1 );
-    // Copy the data
-    d_x   = x;
-    d_tri = tri;
-}
+const AMP::Array<int> &DelaunayInterpolation::get_tri() const { return d_tri; }
+const AMP::Array<int> &DelaunayInterpolation::get_tri_nab() const { return d_tri_nab; }
+const AMP::Array<double> &DelaunayInterpolation::get_x() const { return d_x; }
 
 
 /************************************************************************
  * This function creates the kdtree                                      *
  ************************************************************************/
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::create_kdtree() const
+void DelaunayInterpolation::create_kdtree() const
 {
     // Create the kdtree
     if ( d_tree == nullptr ) {
@@ -251,9 +164,7 @@ void DelaunayInterpolation<TYPE>::create_kdtree() const
 /************************************************************************
  * This function find the nearest point to the desired point             *
  ************************************************************************/
-template<class TYPE>
-template<class TYPE2>
-Array<size_t> DelaunayInterpolation<TYPE>::find_nearest( const Array<TYPE2> &xi ) const
+Array<size_t> DelaunayInterpolation::find_nearest2( const Array<double> &xi ) const
 {
     if ( xi.empty() )
         return Array<size_t>();
@@ -263,13 +174,7 @@ Array<size_t> DelaunayInterpolation<TYPE>::find_nearest( const Array<TYPE2> &xi 
     create_kdtree();
     // Use the kdtree to perform the nearest neighbor interpolation
     Array<size_t> index( xi.size( 1 ) );
-    if constexpr ( std::is_same_v<TYPE2, double> ) {
-        d_tree->find_nearest( xi.size( 1 ), xi.data(), index.data() );
-    } else {
-        Array<double> xi2;
-        xi2.copy( xi );
-        d_tree->find_nearest( xi2.size( 1 ), xi2.data(), index.data() );
-    }
+    d_tree->find_nearest( xi.size( 1 ), xi.data(), index.data() );
     return index;
 }
 
@@ -281,9 +186,7 @@ Array<size_t> DelaunayInterpolation<TYPE>::find_nearest( const Array<TYPE2> &xi 
  * Ex: in 3d with 1e5 points:                                            *
  *   70% is spent in get_tri_tri, 10% in the loop, 15% in get_node_node  *
  ************************************************************************/
-template<class TYPE>
-template<class TYPE2>
-Array<int> DelaunayInterpolation<TYPE>::find_tri( const Array<TYPE2> &xi, bool extrap ) const
+Array<int> DelaunayInterpolation::find_tri2( const Array<double> &xi, bool extrap ) const
 {
     if ( xi.empty() )
         return Array<int>();
@@ -294,8 +197,6 @@ Array<int> DelaunayInterpolation<TYPE>::find_tri( const Array<TYPE2> &xi, bool e
     create_kdtree();
     // Create a list of the nodes that link to every other node
     create_node_neighbors();
-    // For each triangle, get a list of the triangles that are neighbors
-    create_tri_neighbors();
     // For each node, get a starting triangle
     create_node_tri();
     // First choose a starting triangle
@@ -305,12 +206,11 @@ Array<int> DelaunayInterpolation<TYPE>::find_tri( const Array<TYPE2> &xi, bool e
     // Loop through the query points
     int ndim         = d_x.size( 0 );
     unsigned char Nd = ndim + 1;
-    double x2[NDIM_MAX * ( NDIM_MAX + 1 )], xi2[NDIM_MAX], L[NDIM_MAX + 1];
+    double x2[NDIM_MAX * ( NDIM_MAX + 1 )], L[NDIM_MAX + 1];
     bool failed_search = false;
     size_t N_it_tot    = 0;
     for ( uint32_t i = 0; i < xi.size( 1 ); i++ ) {
-        for ( int j = 0; j < ndim; j++ )
-            xi2[j] = xi( j, i );
+        auto xi2        = &xi( 0, i );
         int current_tri = index( i );
         size_t it       = 0;
         while ( true ) {
@@ -403,11 +303,10 @@ Array<int> DelaunayInterpolation<TYPE>::find_tri( const Array<TYPE2> &xi, bool e
 /****************************************************************
  * Function to get a list of the nodes that connect to each node *
  ****************************************************************/
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::calc_node_gradient( const double *f,
-                                                      const int method,
-                                                      double *grad,
-                                                      const int n_it ) const
+void DelaunayInterpolation::calc_node_gradient( const double *f,
+                                                const int method,
+                                                double *grad,
+                                                const int n_it ) const
 {
     PROFILE( "calc_node_gradient", ProfileLevel );
     // First we need to get a list of the nodes that link to every other node
@@ -610,16 +509,12 @@ void DelaunayInterpolation<TYPE>::calc_node_gradient( const double *f,
 /********************************************************************
  * Function to perform nearest-neighbor interpolation                *
  ********************************************************************/
-template<class TYPE>
-template<class TYPE2>
-Array<double> DelaunayInterpolation<TYPE>::interp_nearest( const Array<double> &f,
-                                                           const Array<TYPE2> &xi,
-                                                           const Array<size_t> &nearest ) const
+Array<double> DelaunayInterpolation::interp_nearest( const Array<double> &f,
+                                                     const Array<size_t> &nearest ) const
 {
-    AMP_ASSERT( !xi.empty() );
     AMP_ASSERT( f.size() == ArraySize( d_x.size( 1 ) ) );
     PROFILE( "interp_nearest", ProfileLevel );
-    Array<double> fi( xi.size( 1 ) );
+    Array<double> fi( nearest.size() );
     for ( size_t i = 0; i < fi.length(); i++ )
         fi( i ) = f( nearest( i ) );
     return f;
@@ -629,13 +524,11 @@ Array<double> DelaunayInterpolation<TYPE>::interp_nearest( const Array<double> &
 /********************************************************************
  * Function to perform linear interpolation                          *
  ********************************************************************/
-template<class TYPE>
-template<class TYPE2>
 std::tuple<AMP::Array<double>, AMP::Array<double>>
-DelaunayInterpolation<TYPE>::interp_linear( const AMP::Array<double> &f,
-                                            const AMP::Array<TYPE2> &xi,
-                                            const AMP::Array<int> &index,
-                                            bool extrap ) const
+DelaunayInterpolation::interp_linear2( const AMP::Array<double> &f,
+                                       const AMP::Array<double> &xi,
+                                       const AMP::Array<int> &index,
+                                       bool extrap ) const
 {
     int ndim  = d_x.size( 0 );
     size_t Ni = xi.size( 1 );
@@ -667,9 +560,7 @@ DelaunayInterpolation<TYPE>::interp_linear( const AMP::Array<double> &f,
                 x2[j2 + j * ndim] = d_x( j2, k );
             f2[j] = f( k );
         }
-        double xi2[NDIM_MAX];
-        for ( int d = 0; d < ndim; d++ )
-            xi2[d] = xi( d, i );
+        auto xi2 = &xi( 0, i );
         compute_Barycentric( ndim, x2, xi2, L );
         if ( !extrap ) {
             bool outside = false;
@@ -696,14 +587,12 @@ DelaunayInterpolation<TYPE>::interp_linear( const AMP::Array<double> &f,
 /****************************************************************
  * Function to perform cubic interpolation                       *
  ****************************************************************/
-template<class TYPE>
-template<class TYPE2>
 std::tuple<AMP::Array<double>, AMP::Array<double>>
-DelaunayInterpolation<TYPE>::interp_cubic( const AMP::Array<double> &f,
-                                           const AMP::Array<double> &g,
-                                           const AMP::Array<TYPE2> &xi,
-                                           const AMP::Array<int> &index,
-                                           int extrap ) const
+DelaunayInterpolation::interp_cubic2( const AMP::Array<double> &f,
+                                      const AMP::Array<double> &g,
+                                      const AMP::Array<double> &xi,
+                                      const AMP::Array<int> &index,
+                                      int extrap ) const
 {
     PROFILE( "interp_cubic", ProfileLevel );
     int ndim  = d_x.size( 0 );
@@ -719,22 +608,19 @@ DelaunayInterpolation<TYPE>::interp_cubic( const AMP::Array<double> &f,
     AMP::Array<double> gi( ndim, Ni );
     fi.fill( 0 );
     gi.fill( 0 );
-    double xi0[NDIM_MAX];
     for ( uint32_t i = 0; i < Ni; i++ ) {
-        for ( int d = 0; d < ndim; d++ )
-            xi0[d] = xi( d, i );
-        interp_cubic_single( f.data(), g.data(), xi0, index( i ), fi( i ), &gi( 0, i ), extrap );
+        interp_cubic_single(
+            f.data(), g.data(), &xi( 0, i ), index( i ), fi( i ), &gi( 0, i ), extrap );
     }
     return std::tie( fi, gi );
 }
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::interp_cubic_single( const double f[],
-                                                       const double g[],
-                                                       const double xi[],
-                                                       const int index,
-                                                       double &fi,
-                                                       double *gi,
-                                                       int extrap ) const
+void DelaunayInterpolation::interp_cubic_single( const double f[],
+                                                 const double g[],
+                                                 const double xi[],
+                                                 const int index,
+                                                 double &fi,
+                                                 double *gi,
+                                                 int extrap ) const
 {
     PROFILE( "interp_cubic_single", ProfileLevel );
     const bool check_collinear = true; // Do we want to perform checks that points are collinear
@@ -767,7 +653,7 @@ void DelaunayInterpolation<TYPE>::interp_cubic_single( const double f[],
         if ( fabs( L[j] ) < TRI_TOL )
             L[j] = 0.0;
     }
-    // Count the number of zero-valued and negitive dimensions
+    // Count the number of zero-valued and negative dimensions
     int N_L_zero = 0;
     int N_L_neg  = 0;
     for ( int j = 0; j < ndim + 1; j++ ) {
@@ -1161,8 +1047,7 @@ double interp_line( const int n,
 /********************************************************************
  * Function to get a list of the nodes that connect to each node     *
  ********************************************************************/
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::create_node_neighbors() const
+void DelaunayInterpolation::create_node_neighbors() const
 {
     // Check to see if we already created the structure
     if ( d_N_node != nullptr )
@@ -1232,44 +1117,12 @@ void DelaunayInterpolation<TYPE>::create_node_neighbors() const
 }
 
 
-/**************************************************************************
- * Function to get a list of the triangles that neighbors to each triangle *
- **************************************************************************/
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::create_tri_neighbors() const
-{
-    size_t N = d_tri.size( 1 );
-    int ndim = d_x.size( 0 );
-    AMP_ASSERT( d_tri.size() == ArraySize( ndim + 1, N ) );
-    d_tri_nab.resize( ndim + 1, N );
-    if ( ndim == 1 ) {
-        std::vector<std::array<int, 2>> tri( N );
-        memcpy( tri.data()->data(), d_tri.data(), 2 * N * sizeof( int ) );
-        auto nab = DelaunayHelpers::create_tri_neighbors<1>( tri );
-        memcpy( d_tri_nab.data(), nab.data()->data(), 2 * N * sizeof( int ) );
-    } else if ( ndim == 2 ) {
-        std::vector<std::array<int, 3>> tri( N );
-        memcpy( tri.data()->data(), d_tri.data(), 3 * N * sizeof( int ) );
-        auto nab = DelaunayHelpers::create_tri_neighbors<2>( tri );
-        memcpy( d_tri_nab.data(), nab.data()->data(), 3 * N * sizeof( int ) );
-    } else if ( ndim == 3 ) {
-        std::vector<std::array<int, 4>> tri( N );
-        memcpy( tri.data()->data(), d_tri.data(), 4 * N * sizeof( int ) );
-        auto nab = DelaunayHelpers::create_tri_neighbors<3>( tri );
-        memcpy( d_tri_nab.data(), nab.data()->data(), 4 * N * sizeof( int ) );
-    } else {
-        AMP_ERROR( "Unsupported number of dimensions" );
-    }
-}
-
-
 /****************************************************************
  * Function to compute the starting triangle for each node       *
  * Note: since each node is likely a member of many triangles    *
  *   it doesn't matter which one we use                          *
  ****************************************************************/
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::create_node_tri() const
+void DelaunayInterpolation::create_node_tri() const
 {
     // Check to see if we already created the structure
     if ( d_node_tri != nullptr )
@@ -1283,36 +1136,6 @@ void DelaunayInterpolation<TYPE>::create_node_tri() const
         for ( int j = 0; j <= ndim; j++ )
             d_node_tri[d_tri( j, i )] = static_cast<int>( i );
     }
-}
-
-
-/****************************************************************
- * Function to compute the Barycentric coordinates               *
- ****************************************************************/
-template<class TYPE>
-void DelaunayInterpolation<TYPE>::compute_Barycentric( const int ndim,
-                                                       const double *x,
-                                                       const double *xi,
-                                                       double *L )
-{
-    // Compute the barycentric coordinates T*L=r-r0
-    // http://en.wikipedia.org/wiki/Barycentric_coordinate_system_(mathematics)
-    double T[NDIM_MAX * NDIM_MAX];
-    for ( int i = 0; i < ndim * ndim; i++ )
-        T[i] = 0.0;
-    for ( int i = 0; i < ndim; i++ ) {
-        for ( int j = 0; j < ndim; j++ ) {
-            T[j + i * ndim] = x[j + i * ndim] - x[j + ndim * ndim];
-        }
-    }
-    // double r[ndim];
-    double r[NDIM_MAX] = { 0 };
-    for ( int i = 0; i < ndim; i++ )
-        r[i] = xi[i] - x[i + ndim * ndim];
-    DelaunayHelpers::solve( ndim, T, r, L );
-    L[ndim] = 1.0;
-    for ( int i = 0; i < ndim; i++ )
-        L[ndim] -= L[i];
 }
 
 
@@ -1524,30 +1347,5 @@ static void Gauss_Seidel( const uint32_t Nb,
     delete[] D_inv;
 }
 
-
-// Explicit instantiations
-// clang-format off
-using FG = std::tuple<AMP::Array<double>, AMP::Array<double>>;
-
-template class DelaunayInterpolation<int>;
-template class DelaunayInterpolation<double>;
-
-template Array<size_t> DelaunayInterpolation<int>::find_nearest<int>( const Array<int>& ) const;
-template Array<int> DelaunayInterpolation<int>::find_tri<int>( const Array<int>&, bool ) const;
-template Array<double> DelaunayInterpolation<int>::interp_nearest<int>( const Array<double>&, const Array<int>&, const Array<size_t>& ) const;
-template FG DelaunayInterpolation<int>::interp_linear<int>( const AMP::Array<double>&, const AMP::Array<int>&, const AMP::Array<int>&, bool ) const;
-template FG DelaunayInterpolation<int>::interp_cubic<int>( const AMP::Array<double>&, const AMP::Array<double>&, const AMP::Array<int>&, const AMP::Array<int>&, int ) const;
-
-template Array<size_t> DelaunayInterpolation<int>::find_nearest<double>( const Array<double>& ) const;
-template Array<int> DelaunayInterpolation<int>::find_tri<double>( const Array<double>&, bool ) const;
-template Array<double> DelaunayInterpolation<int>::interp_nearest<double>( const Array<double>&, const Array<double>&, const Array<size_t>& ) const;
-template FG DelaunayInterpolation<int>::interp_linear<double>( const AMP::Array<double>&, const AMP::Array<double>&, const AMP::Array<int>&, bool ) const;
-template FG DelaunayInterpolation<int>::interp_cubic<double>( const AMP::Array<double>&, const AMP::Array<double>&, const AMP::Array<double>&, const AMP::Array<int>&, int ) const;
-
-template Array<size_t> DelaunayInterpolation<double>::find_nearest<double>( const Array<double>& ) const;
-template Array<int> DelaunayInterpolation<double>::find_tri<double>( const Array<double>&, bool ) const;
-template Array<double> DelaunayInterpolation<double>::interp_nearest<double>( const Array<double>&, const Array<double>&, const Array<size_t>& ) const;
-template FG DelaunayInterpolation<double>::interp_linear<double>( const AMP::Array<double>&, const AMP::Array<double>&, const AMP::Array<int>&, bool ) const;
-template FG DelaunayInterpolation<double>::interp_cubic<double>( const AMP::Array<double>&, const AMP::Array<double>&, const AMP::Array<double>&, const AMP::Array<int>&, int ) const;
 
 } // namespace AMP

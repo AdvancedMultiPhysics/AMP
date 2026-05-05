@@ -136,9 +136,7 @@ public:
     void getRowByGlobalID( size_t row,
                            std::vector<size_t> &cols,
                            std::vector<double> &values ) const override;
-    /** \brief  Given a row, retrieve the non-zero column indices of the matrix in compressed format
-     * \param[in]  row Which row
-     */
+    size_t numberColumnIDs( size_t row ) const override;
     std::vector<size_t> getColumnIDs( size_t row ) const override;
     void makeConsistent( AMP::LinearAlgebra::ScatterType t ) override;
     size_t numLocalRows() const override;

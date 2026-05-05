@@ -182,9 +182,6 @@ computeExactSolution( std::shared_ptr<AMP::Mesh::Mesh> mesh,
 static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, int )
 {
     std::string inputFile = "input_" + exeName;
-    std::string logFile   = "output_" + exeName + ".txt";
-
-    AMP::logOnlyNodeZero( logFile );
     AMP::AMP_MPI globalComm( AMP_COMM_WORLD );
 
     // Reading the input file
@@ -382,11 +379,10 @@ static void linearElasticTest( AMP::UnitTest *ut, const std::string &exeName, in
 
     AMP::pout << "Final Solution Norm: " << solVec->L2Norm() << std::endl;
 
-    std::string fname = exeName + "_StressAndStrain.txt";
-
-    std::dynamic_pointer_cast<AMP::Operator::MechanicsLinearFEOperator>(
-        bvpOperator->getVolumeOperator() )
-        ->printStressAndStrain( solVec, fname );
+    // std::string fname = exeName + "_StressAndStrain.txt";
+    // std::dynamic_pointer_cast<AMP::Operator::MechanicsLinearFEOperator>(
+    //     bvpOperator->getVolumeOperator() )
+    //     ->printStressAndStrain( solVec, fname );
 
     bvpOperator->residual( rhsVec, solVec, resVec );
 

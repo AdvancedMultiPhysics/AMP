@@ -2,11 +2,13 @@
 #define included_CSRMatrixOperationsKokkos_H_
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
 #include "AMP/matrices/operations/MatrixOperations.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
+#include "AMP/utils/Memory.h"
 #include "AMP/vectors/Vector.h"
 
 #ifdef AMP_USE_DEVICE
@@ -23,15 +25,15 @@ namespace AMP::LinearAlgebra {
 
 template<typename Config,
     #ifdef AMP_USE_DEVICE
-         class ExecSpace = typename std::conditional<
-             std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
-             Kokkos::DefaultHostExecutionSpace,
-             Kokkos::DefaultExecutionSpace>::type,
+         class ExecSpace = typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
+                                                         AMP::Utilities::MemoryType::host,
+                                                     Kokkos::DefaultHostExecutionSpace,
+                                                     Kokkos::DefaultExecutionSpace>::type,
          class ViewSpace = typename std::conditional<
-             std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>,
+             alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
              Kokkos::HostSpace,
              typename std::conditional<
-                 std::is_same_v<typename Config::allocator_type, AMP::ManagedAllocator<void>>,
+                 alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::managed,
                  Kokkos::SharedSpace,
                  typename Kokkos::DefaultExecutionSpace::memory_space>::type>::type
     #else
@@ -58,7 +60,8 @@ public:
     CSRMatrixOperationsKokkos()
         : d_exec_space(),
           d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
+          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) ),
+          d_use_kokkoskernels_spgemm( false )
     {
     }
 
@@ -177,9 +180,7 @@ public:
     void copyCast( const MatrixData &X, MatrixData &Y ) override;
 
     template<typename ConfigIn>
-    static void
-    copyCast( CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X,
-              CSRMatrixData<Config> *Y );
+    static void copyCast( CSRMatrixData<ConfigIn> *X, CSRMatrixData<Config> *Y );
 
     std::string type() const override { return "CSRMatrixOperationsKokkos"; }
 
@@ -202,12 +203,8 @@ protected:
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
 
-    // This currently forwards SpGEMM operations to either default ops or device ops
-    // so internal versions of each are held
-    CSRMatrixOperationsDefault<Config> d_matrixOpsDefault;
-    #ifdef AMP_USE_DEVICE
-    CSRMatrixOperationsDevice<Config> d_matrixOpsDevice;
-    #endif
+    //! Flag to use kokkos-kernels for spgemm, no effect if kokkos-kernels unavailable
+    bool d_use_kokkoskernels_spgemm;
 };
 
 } // namespace AMP::LinearAlgebra

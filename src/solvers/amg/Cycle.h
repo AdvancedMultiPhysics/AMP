@@ -49,6 +49,13 @@ void clone_workspace( LevelWithWorkspace<N> &level, const LinearAlgebra::Vector 
 inline constexpr std::size_t num_work_kcycle = 5;
 using KCycleLevel                            = LevelWithWorkspace<num_work_kcycle>;
 
+/** Save level matrices to file for external inspection
+
+    \param[in] base_name String to build each matrices dumped filename from
+    \param[in] levels    Vector of all levels in hierarchy to be saved
+**/
+void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> &levels );
+
 /**
  * The Kappa K-cycle implements the Kylov-based multigrid cycle from
  * Notay, Y., & Vassilevski, P. S. (2008). Recursive Krylov‐based
@@ -88,6 +95,8 @@ struct KappaKCycle {
         bool comm_free_interp = false;
         //! Krylov method for cycle.
         krylov_type type = krylov_type::fcg;
+        //! truncation depth for cycle (coarser levels use V-cycle).
+        size_t trunc_depth = std::numeric_limits<size_t>::max();
     };
 
     KappaKCycle( const settings & );

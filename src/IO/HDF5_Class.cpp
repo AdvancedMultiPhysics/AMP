@@ -501,6 +501,8 @@ static std::unique_ptr<HDF5data> readDatabase( hid_t fid, const std::string_view
         data.reset( new HDF5_primitive<std::complex<double>>( fid, name ) );
     } else if ( H5Tequal( tid, getHDF5datatype<std::complex<float>>() ) ) {
         data.reset( new HDF5_primitive<std::complex<float>>( fid, name ) );
+    } else if ( H5Tequal( tid, getHDF5datatype<AMP::typeID>() ) ) {
+        data.reset( new HDF5_primitive<AMP::typeID>( fid, name ) );
     } else if ( classid == H5T_STRING ) {
         data.reset( new HDF5_primitive<std::string>( fid, name ) );
     } else if ( classid == H5T_BITFIELD ) {

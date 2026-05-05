@@ -109,7 +109,7 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
         ut->failure( "Unable to create a square matrix" );
     }
 
-    fillWithPseudoLaplacian( matrix, dofManager );
+    fillWithPseudoLaplacian( matrix );
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     size_t nGlobalRows = matrix->numGlobalRows();
@@ -165,8 +165,10 @@ size_t matVecTestWithDOFs( AMP::UnitTest *ut,
         AMP::LinearAlgebra::CSRConfig<alloc::host, index::i32, index::i64, scalar::f32>;
     test_space_n_precision_migration<Config_hf>( matrix, inVec, outVec, ut );
 #ifdef AMP_USE_HYPRE
-    using Config_H_hf =
-        AMP::LinearAlgebra::CSRConfig<alloc::host, index::i32, index::ill, scalar::f32>;
+    using Config_H_hf = AMP::LinearAlgebra::CSRConfig<alloc::host,
+                                                      AMP::LinearAlgebra::hypre_small,
+                                                      AMP::LinearAlgebra::hypre_big,
+                                                      scalar::f32>;
     test_space_n_precision_migration<Config_H_hf>( matrix, inVec, outVec, ut );
 #endif
 

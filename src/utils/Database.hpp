@@ -14,38 +14,28 @@
 #include <type_traits>
 
 
-#define DATABASE_ERROR( SRC, ... )                                          \
-    do {                                                                    \
-        char msg[1000];                                                     \
-        snprintf( msg, sizeof( msg ), __VA_ARGS__ );                        \
-        if ( SRC.empty() )                                                  \
-            StackTrace::Utilities::abort( msg, SOURCE_LOCATION_CURRENT() ); \
-        else                                                                \
-            StackTrace::Utilities::abort( msg, SRC );                       \
+#define DATABASE_ERROR( SRC, ... )                   \
+    do {                                             \
+        char msg[1000];                              \
+        snprintf( msg, sizeof( msg ), __VA_ARGS__ ); \
+        StackTrace::Utilities::abort( msg, SRC );    \
     } while ( 0 )
-#define DATABASE_WARNING( SRC, ... )                                                          \
-    do {                                                                                      \
-        char msg[4096] = "WARNING: ";                                                         \
-        char *ptr      = &msg[9];                                                             \
-        ptr += snprintf( ptr, 4000, __VA_ARGS__ );                                            \
-        if ( SRC.empty() ) {                                                                  \
-            sprintf( ptr, "\nWarning called in %s on line %i", __FILE__, __LINE__ );          \
-        } else {                                                                              \
-            sprintf( ptr, "\nWarning called in %s on line %i", SRC.file_name(), SRC.line() ); \
-        }                                                                                     \
-        AMP::pout << msg << std::endl;                                                        \
-        AMP::plog << msg << std::endl << std::flush;                                          \
+#define DATABASE_WARNING( SRC, ... )                                                      \
+    do {                                                                                  \
+        char msg[4096] = "WARNING: ";                                                     \
+        char *ptr      = &msg[9];                                                         \
+        ptr += snprintf( ptr, 4000, __VA_ARGS__ );                                        \
+        sprintf( ptr, "\nWarning called in %s on line %i", SRC.file_name(), SRC.line() ); \
+        AMP::pout << msg << std::endl;                                                    \
+        AMP::plog << msg << std::endl << std::flush;                                      \
     } while ( 0 )
-#define DATABASE_INSIST( TEST, SRC, ... )                                       \
-    do {                                                                        \
-        if ( !( TEST ) ) {                                                      \
-            char msg[1000];                                                     \
-            snprintf( msg, sizeof( msg ), __VA_ARGS__ );                        \
-            if ( SRC.empty() )                                                  \
-                StackTrace::Utilities::abort( msg, SOURCE_LOCATION_CURRENT() ); \
-            else                                                                \
-                StackTrace::Utilities::abort( msg, SRC );                       \
-        }                                                                       \
+#define DATABASE_INSIST( TEST, SRC, ... )                \
+    do {                                                 \
+        if ( !( TEST ) ) {                               \
+            char msg[1000];                              \
+            snprintf( msg, sizeof( msg ), __VA_ARGS__ ); \
+            StackTrace::Utilities::abort( msg, SRC );    \
+        }                                                \
     } while ( 0 )
 
 

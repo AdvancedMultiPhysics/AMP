@@ -12,7 +12,7 @@
 namespace AMP::Mesh {
 
 
-class structuredMeshIterator final : public MeshIterator
+class structuredMeshIterator final : public MeshIteratorBase
 {
 public:
     //! Empty structuredMeshIterator constructor
@@ -39,13 +39,13 @@ public:
     virtual ~structuredMeshIterator();
 
     //! Move constructor
-    structuredMeshIterator( structuredMeshIterator && ) = default;
+    structuredMeshIterator( structuredMeshIterator && ) = delete;
 
     //! Copy constructor
     structuredMeshIterator( const structuredMeshIterator & );
 
     //! Move operator
-    structuredMeshIterator &operator=( structuredMeshIterator && ) = default;
+    structuredMeshIterator &operator=( structuredMeshIterator && ) = delete;
 
     //! Assignment operator
     structuredMeshIterator &operator=( const structuredMeshIterator & );
@@ -53,44 +53,47 @@ public:
     //! Return the class name
     std::string className() const override { return "structuredMeshIterator"; }
 
+    //! Set the position in the iterator
+    void setPos( size_t ) override;
+
     //! Increment
-    MeshIterator &operator++() override;
+    MeshIteratorBase &operator++() override;
 
     //! Decrement
-    MeshIterator &operator--() override;
+    MeshIteratorBase &operator--() override;
 
     // Arithmetic operator+=
-    MeshIterator &operator+=( int N ) override;
+    MeshIteratorBase &operator+=( int N ) override;
 
     //! Check if two iterators are equal
-    bool operator==( const MeshIterator &rhs ) const override;
+    bool operator==( const MeshIteratorBase &rhs ) const override;
 
     //! Check if two iterators are not equal
-    bool operator!=( const MeshIterator &rhs ) const override;
+    bool operator!=( const MeshIteratorBase &rhs ) const override;
 
     //! Return an iterator to the begining
     MeshIterator begin() const override;
 
-    //! Return an iterator to the begining
-    MeshIterator end() const override;
+    //! Clone the iterator
+    std::unique_ptr<MeshIteratorBase> clone() const override;
 
-    using MeshIterator::operator+;
-    using MeshIterator::operator+=;
+    using MeshIteratorBase::operator==;
+    using MeshIteratorBase::operator!=;
+
 
 public: // Write/read restart data
     void registerChildObjects( AMP::IO::RestartManager *manager ) const override;
     void writeRestart( int64_t fid ) const override;
     structuredMeshIterator( int64_t fid, AMP::IO::RestartManager *manager );
 
-public: // Advanced interfaces
-    //! Clone the iterator
-    MeshIterator *clone() const override;
 
+public: // Advanced interfaces
     // Get the elements in the iterator
     std::shared_ptr<const std::vector<BoxMesh::MeshElementIndex>> getElements() const;
 
     // Get the current index
     BoxMesh::MeshElementIndex getCurrentIndex() const;
+
 
 private:
     // Data members

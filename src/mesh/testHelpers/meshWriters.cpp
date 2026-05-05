@@ -174,6 +174,7 @@ void writeDispValsForPatchTest( const std::string &file )
     const double z[8] = { 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0 };
 
     FILE *fp = fopen( file.data(), "w" );
+    AMP_ASSERT( fp );
     fprintf( fp, "\n\n" );
     fprintf( fp, "number_of_ids = 8 \n\n" );
     for ( int i = 0; i < 8; i++ ) {
@@ -1197,6 +1198,7 @@ std::shared_ptr<AMP::Database> readBinaryTestMesh( const std::string &filename, 
     auto mesh = db->createAddDatabase( "Mesh" );
 
     FILE *fp = fopen( filename.c_str(), "rb" );
+    AMP_ASSERT( fp );
 
     int num_nodes;
     fread( &num_nodes, 1, fp );
@@ -1260,6 +1262,7 @@ void writeTestMesh( const AMP::Database &db0, const std::string &filename )
 {
     PROFILE( "writeTestMesh" );
     FILE *fp = fopen( filename.data(), "w" );
+    AMP_ASSERT( fp );
 
     auto db = db0.getDatabase( "Mesh" );
     fprintf( fp, "Mesh { \n" );
@@ -1332,6 +1335,7 @@ void writeBinaryTestMesh( const AMP::Database &db0, const std::string &filename 
     auto SideIds       = getVector( *db, "SideIds" );
 
     FILE *fp = fopen( filename.data(), "wb" );
+    AMP_ASSERT( fp );
 
     int num_nodes = nodes.size();
     fwrite( &num_nodes, 1, fp );

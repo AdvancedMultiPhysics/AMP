@@ -10,7 +10,6 @@
 
 
 namespace AMP::Mesh {
-template<class TYPE>
 class MeshPoint; // Forward declare MeshPoint
 } // namespace AMP::Mesh
 
@@ -49,7 +48,7 @@ public:
      * \details  This an alternative constructor for creating the kdtree
      * \param[in] x     The coordinates of each point in the tree
      */
-    kdtree( const std::vector<AMP::Mesh::MeshPoint<double>> &x );
+    kdtree( const std::vector<AMP::Mesh::MeshPoint> &x );
 
     //!  Destructor
     ~kdtree();
@@ -106,7 +105,7 @@ public:
      * \param[in] p      The point to search
      * \return           The nearest point
      */
-    AMP::Mesh::MeshPoint<double> find_nearest( const AMP::Mesh::MeshPoint<double> &p ) const;
+    AMP::Mesh::MeshPoint find_nearest( const AMP::Mesh::MeshPoint &p ) const;
 
     /**
      * \brief   Search the tree for the nearest neighbor point

@@ -58,7 +58,7 @@ libmeshNodeIterator::libmeshNodeIterator( const AMP::Mesh::libmeshMesh *mesh,
     setCurrentElement();
 }
 libmeshNodeIterator::libmeshNodeIterator( const libmeshNodeIterator &rhs )
-    : MeshIterator(), // Note: we never want to call the base copy constructor
+    : MeshIteratorBase(), // Note: we never want to call the base copy constructor
       d_dim( rhs.d_dim ),
       d_rank( rhs.d_rank ),
       d_begin2( rhs.d_begin2 ),
@@ -78,7 +78,6 @@ libmeshNodeIterator &libmeshNodeIterator::operator=( const libmeshNodeIterator &
 {
     if ( this == &rhs ) // protect against invalid self-assignment
         return *this;
-    this->d_iterator     = nullptr;
     this->d_typeHash     = MeshIteratorType;
     this->d_iteratorType = rhs.d_iteratorType;
     this->d_mesh         = rhs.d_mesh;
@@ -99,7 +98,10 @@ libmeshNodeIterator &libmeshNodeIterator::operator=( const libmeshNodeIterator &
 /********************************************************
  * Function to clone the iterator                        *
  ********************************************************/
-MeshIterator *libmeshNodeIterator::clone() const { return new libmeshNodeIterator( *this ); }
+std::unique_ptr<MeshIteratorBase> libmeshNodeIterator::clone() const
+{
+    return std::make_unique<libmeshNodeIterator>( *this );
+}
 
 
 /********************************************************
@@ -107,18 +109,39 @@ MeshIterator *libmeshNodeIterator::clone() const { return new libmeshNodeIterato
  ********************************************************/
 MeshIterator libmeshNodeIterator::begin() const
 {
-    return libmeshNodeIterator( d_mesh, d_begin2, d_end2, d_begin2, d_size, 0 );
+    return MeshIterator::create<libmeshNodeIterator>(
+        d_mesh, d_begin2, d_end2, d_begin2, d_size, 0 );
 }
-MeshIterator libmeshNodeIterator::end() const
+
+
+/********************************************************
+ * Set the position in the iterator                      *
+ ********************************************************/
+void libmeshNodeIterator::setPos( size_t pos )
 {
-    return libmeshNodeIterator( d_mesh, d_begin2, d_end2, d_end2, d_size, d_size );
+    if ( pos == d_pos )
+        return;
+    if ( pos == d_size ) {
+        d_pos  = d_size;
+        d_pos2 = d_end2;
+    } else {
+        if ( pos < d_pos ) {
+            d_pos  = 0;
+            d_pos2 = d_begin2;
+        }
+        while ( d_pos < pos ) {
+            ++d_pos;
+            ++d_pos2;
+        }
+    }
+    setCurrentElement();
 }
 
 
 /********************************************************
  * Increment/Decrement the iterator                      *
  ********************************************************/
-MeshIterator &libmeshNodeIterator::operator++()
+MeshIteratorBase &libmeshNodeIterator::operator++()
 {
     // Prefix increment (increment and return this)
     ++d_pos;
@@ -126,7 +149,7 @@ MeshIterator &libmeshNodeIterator::operator++()
     setCurrentElement();
     return *this;
 }
-MeshIterator &libmeshNodeIterator::operator--()
+MeshIteratorBase &libmeshNodeIterator::operator--()
 {
     // Prefix decrement (decrement and return this)
     AMP_ERROR( "Decrementing libmeshMesh iterators is not supported" );
@@ -137,7 +160,7 @@ MeshIterator &libmeshNodeIterator::operator--()
 /********************************************************
  * Random access incrementors                            *
  ********************************************************/
-MeshIterator &libmeshNodeIterator::operator+=( int n )
+MeshIteratorBase &libmeshNodeIterator::operator+=( int n )
 {
     // Check the input
     if ( n >= 0 ) {
@@ -163,17 +186,13 @@ MeshIterator &libmeshNodeIterator::operator+=( int n )
 /********************************************************
  * Compare two iterators                                 *
  ********************************************************/
-bool libmeshNodeIterator::operator==( const MeshIterator &rhs ) const
+bool libmeshNodeIterator::operator==( const MeshIteratorBase &rhs ) const
 {
     const libmeshNodeIterator *rhs2 = nullptr;
     // Convert rhs to a libmeshNodeIterator* so we can access the base class members
     auto *tmp = reinterpret_cast<const libmeshNodeIterator *>( &rhs );
     if ( tmp->d_typeHash == MeshIteratorType ) {
         rhs2 = tmp; // We can safely cast rhs to a libmeshNodeIterator
-    } else if ( tmp->d_iterator != nullptr ) {
-        tmp = reinterpret_cast<const libmeshNodeIterator *>( tmp->d_iterator );
-        if ( tmp->d_typeHash == MeshIteratorType )
-            rhs2 = tmp; // We can safely cast rhs.iterator to a libmeshNodeIterator
     }
     // Perform direct comparisions if we are dealing with two libmeshNodeIterators;
     if ( rhs2 != nullptr )
@@ -186,11 +205,11 @@ bool libmeshNodeIterator::operator==( const MeshIterator &rhs ) const
     if ( this->size() != rhs.size() )
         return false;
     // Check the current position
-    if ( this->position() != rhs.position() )
+    if ( this->pos() != rhs.pos() )
         return false;
     // Check that the elements match
-    MeshIterator it1    = this->begin();
-    MeshIterator it2    = rhs.begin();
+    auto it1            = this->begin();
+    auto it2            = rhs.begin();
     bool elements_match = true;
     for ( size_t i = 0; i < it1.size(); ++i, ++it1, ++it2 ) {
         if ( it1->globalID() != it2->globalID() )
@@ -198,7 +217,7 @@ bool libmeshNodeIterator::operator==( const MeshIterator &rhs ) const
     }
     return elements_match;
 }
-bool libmeshNodeIterator::operator!=( const MeshIterator &rhs ) const
+bool libmeshNodeIterator::operator!=( const MeshIteratorBase &rhs ) const
 {
     return !( ( *this ) == rhs );
 }
@@ -215,6 +234,21 @@ void libmeshNodeIterator::setCurrentElement()
         d_cur_element =
             libmeshMeshElement( d_dim, GeomType::Vertex, *d_pos2, d_rank, d_meshID, d_mesh );
 }
+
+
+/****************************************************************
+ * Write/Read restart data                                       *
+ ****************************************************************/
+void libmeshNodeIterator::registerChildObjects( AMP::IO::RestartManager * ) const
+{
+    AMP_ERROR( "Not finished" );
+}
+void libmeshNodeIterator::writeRestart( int64_t ) const { AMP_ERROR( "Not finished" ); }
+/*libmeshMeshElement::libmeshMeshElement( int64_t, AMP::IO::RestartManager * )
+    : MeshIteratorBase( fid, manager )
+{
+    AMP_ERROR("Not finished");
+}*/
 
 
 } // namespace AMP::Mesh

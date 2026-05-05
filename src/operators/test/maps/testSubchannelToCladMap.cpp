@@ -23,7 +23,8 @@ static double getTemp( const AMP::Mesh::Point &x ) { return 500 + x[2] * 100; }
 static AMP::Mesh::MeshIterator getZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh> subChannel,
                                                  int ghostWidth )
 {
-    std::multimap<double, std::unique_ptr<AMP::Mesh::MeshElement>> xyFace;
+    using ElementPtr = std::unique_ptr<AMP::Mesh::MeshElement>;
+    std::multimap<double, ElementPtr> xyFace;
     auto iterator = subChannel->getIterator( AMP::Mesh::GeomType::Face, ghostWidth );
     for ( size_t i = 0; i < iterator.size(); ++i ) {
         auto nodes    = iterator->getElements( AMP::Mesh::GeomType::Vertex );
@@ -38,11 +39,11 @@ static AMP::Mesh::MeshIterator getZFaceIterator( std::shared_ptr<AMP::Mesh::Mesh
             xyFace.insert( decltype( xyFace )::value_type( center[2], iterator->clone() ) );
         ++iterator;
     }
-    auto elements = std::make_shared<std::vector<std::unique_ptr<AMP::Mesh::MeshElement>>>();
+    auto elements = std::make_shared<std::vector<ElementPtr>>();
     elements->reserve( xyFace.size() );
     for ( auto &elem : xyFace )
         elements->push_back( elem.second->clone() );
-    return AMP::Mesh::MeshListIterator( elements );
+    return AMP::Mesh::MeshIterator::create<AMP::Mesh::MeshListIterator<ElementPtr>>( elements );
 }
 
 

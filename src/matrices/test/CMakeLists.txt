@@ -14,9 +14,9 @@ IF ( AMP_DATA )
 ENDIF()
 
 # Add matrix test
-ADD_AMP_TEST_1_2_4( testMatCreate )
-ADD_AMP_TEST_1_2_4( test_Matrix )
+ADD_AMP_TEST_1_2_4( test_Matrix NO_RESOURCES )
 ADD_AMP_TEST_1_2_4( test_RectangularMatricesMultiplication )
+ADD_AMP_TEST_1_2_4( testMatCreate )
 ADD_AMP_TEST_1_2_4( testMatMultCoarsen )
 ADD_AMP_TEST_1_2_4( testMatTranspose GPU )
 ADD_AMP_TEST_1_2_4( testMatVecPerf GPU )

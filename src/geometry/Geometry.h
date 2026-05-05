@@ -17,7 +17,7 @@ class RestartManager;
 namespace AMP::Geometry {
 
 
-using Point = AMP::Mesh::MeshPoint<double>;
+using Point = AMP::Mesh::MeshPoint;
 
 
 /**

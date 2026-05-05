@@ -62,6 +62,7 @@ static void myTest( AMP::UnitTest *ut, const std::string &exeName )
     auto T = AMP::LinearAlgebra::createVector( dof_map, myVar, true );
 
     FILE *fp = fopen( "InverseJacobian.txt", "w" );
+    AMP_ASSERT( fp );
     for ( int i = 0; i < 8; i++ ) {
         auto p = nodes[i].coord();
         fprintf( fp, "nd = %d, x = %.15f, y = %.15f, z = %.15f \n", i, p[0], p[1], p[2] );

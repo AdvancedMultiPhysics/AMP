@@ -83,17 +83,17 @@ static inline bool approx_equal( const std::array<double, N> &x,
 template<size_t NDIM, bool ordered>
 static uint64_t hash( const std::array<int, NDIM> &x )
 {
-    uint64_t hash = 0;
+    uint64_t y = 0;
     for ( size_t i = 0; i < NDIM; i++ ) {
         // Use hashing function: 2^64*0.5*(sqrt(5)-1)
         uint64_t z = static_cast<uint64_t>( x[i] ) * 0x9E3779B97F4A7C15;
         if constexpr ( ordered ) {
-            hash = ( ( hash << 5 ) + hash ) ^ z;
+            y = ( ( y << 5 ) + y ) ^ z;
         } else {
-            hash = hash ^ z;
+            y = y ^ z;
         }
     }
-    return hash;
+    return y;
 }
 template<size_t NG>
 size_t count( const std::vector<std::array<int, NG + 1>> &tri )
@@ -279,9 +279,9 @@ bool isMultiDomain( const std::vector<std::array<int, 3>> &tri,
     if ( N_unique != tri.size() )
         return true;
     // Create triangle neighbors if needed
-    std::vector<std::array<int, 3>> nab;
+    std::vector<std::array<int, 3>> nab( tri.size() );
     try {
-        nab = DelaunayHelpers::create_tri_neighbors<2>( tri );
+        DelaunayHelpers::create_tri_neighbors<2>( tri.size(), tri.data(), nab.data() );
     } catch ( ... ) {
         return true;
     }
@@ -533,8 +533,11 @@ generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangl
         if ( !multidomain ) {
             for ( size_t i = 0; i < tri.size(); i++ ) {
                 // Get the triangle neighbors
-                if ( tri_nab[i].size() != tri[i].size() )
-                    tri_nab[i] = DelaunayHelpers::create_tri_neighbors<2>( tri[i] );
+                if ( tri_nab[i].size() != tri[i].size() ) {
+                    tri_nab[i].resize( tri[i].size() );
+                    DelaunayHelpers::create_tri_neighbors<2>(
+                        tri[i].size(), tri[i].data(), tri_nab[i].data() );
+                }
                 // Check if the geometry is closed
                 bool closed = true;
                 for ( const auto &t : tri_nab[i] ) {
@@ -770,7 +773,8 @@ createTessellation( const std::vector<Point> &points )
             x1( d, i ) = points[i][d];
     }
     // Tessellate
-    auto [tri, nab] = DelaunayTessellation::create_tessellation( x1 );
+    auto y          = AMP::DelaunayHelpers::convert( x1 );
+    auto [tri, nab] = DelaunayTessellation::create_tessellation<NDIM>( y );
     // Convert to output format
     constexpr auto nullTri = createNullTri<NDIM>();
     std::vector<std::array<int, NDIM + 1>> tri2( tri.size( 1 ), nullTri );

@@ -13,8 +13,7 @@
 
 namespace AMP::LinearAlgebra {
 
-void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix,
-                              std::shared_ptr<AMP::Discretization::DOFManager> dofmap );
+void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix );
 
 
 /**

@@ -53,6 +53,9 @@ public:
     //! Return the type of the matrix
     virtual std::string type() const = 0;
 
+    //! Return CSR mode of the matrix.
+    virtual std::uint16_t mode() const { return std::numeric_limits<std::uint16_t>::max(); }
+
     /** \brief  Add values to those in the matrix
      * \param[in] num_rows The number of rows represented in values
      * \param[in] num_cols The number of cols represented in values
@@ -164,6 +167,11 @@ public:
                                       const size_t *cols,
                                       void *values,
                                       const typeID &id ) const = 0;
+
+    /** \brief  Given a row, retrieve the number of non-zero column indices of the matrix
+     * \param[in]  row Which row
+     */
+    virtual size_t numberColumnIDs( size_t row ) const = 0;
 
     /** \brief  Given a row, retrieve the non-zero column indices of the matrix in compressed format
      * \param[in]  row Which row

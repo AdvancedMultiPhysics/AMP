@@ -8,6 +8,10 @@
  ********************************************************/
 template class AMP::LinearAlgebra::VectorOperationsOpenMP<double>;
 template class AMP::LinearAlgebra::VectorOperationsOpenMP<float>;
+template class AMP::LinearAlgebra::VectorOperationsOpenMP<int>;
+INSTANTIATE_SIMPLE_VECTOR( int,
+                           AMP::LinearAlgebra::VectorOperationsOpenMP<int>,
+                           AMP::LinearAlgebra::VectorDataDefault<int> );
 INSTANTIATE_SIMPLE_VECTOR( float,
                            AMP::LinearAlgebra::VectorOperationsOpenMP<float>,
                            AMP::LinearAlgebra::VectorDataDefault<double> );

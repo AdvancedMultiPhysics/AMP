@@ -84,6 +84,17 @@ SubsetVectorData::SubsetVectorData( std::shared_ptr<SubsetVectorParameters> para
             data_ptr[i] = const_cast<float *>( std::addressof( *iterator ) );
         }
         std::tie( d_dataBlockPtr, d_dataBlockSize ) = getDataBlocks<float>( data_ptr );
+    } else if ( d_ViewVector->getVectorData()->isType<int>() ) {
+        d_typeID = getTypeID<int>();
+        std::vector<int *> data_ptr( d_SubsetLocalIDToViewGlobalID.size(), nullptr );
+        auto iterator   = d_ViewVector->constBegin<int>();
+        size_t last_pos = d_ViewVector->getCommunicationList()->getStartGID();
+        for ( size_t i = 0; i < data_ptr.size(); i++ ) {
+            iterator += (int) ( d_SubsetLocalIDToViewGlobalID[i] - last_pos );
+            last_pos    = d_SubsetLocalIDToViewGlobalID[i];
+            data_ptr[i] = const_cast<int *>( std::addressof( *iterator ) );
+        }
+        std::tie( d_dataBlockPtr, d_dataBlockSize ) = getDataBlocks<int>( data_ptr );
     } else {
         AMP_ERROR( "scalar data type no handled at present" );
     }
