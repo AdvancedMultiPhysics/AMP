@@ -136,21 +136,15 @@ bool checkCudaCapabilities( int major_version, int minor_version );
 
 #endif
 
-static void inline setKernelDims( size_t n, dim3 &BlockDim, dim3 &GridDim )
+template<typename FUNC>
+static void inline setKernelDims( const int n, FUNC func, dim3 &BlockDim, dim3 &GridDim )
 {
-    // Parameters for an NVIDIA Volta.
-    // https://images.nvidia.com/content/volta-architecture/pdf/volta-architecture-whitepaper.pdf
-    // We should move to using occupancy API
-    constexpr int warpSize    = 32;
-    constexpr int maxGridSize = 32 * 80; // max 32 blocks per SM of Volta, 80 SM's
-                                         //  this number might need to be tuned
-                                         //  consider querying for device info
-    int warpCount    = ( n / warpSize ) + ( ( ( n % warpSize ) == 0 ) ? 0 : 1 );
-    int warpPerBlock = std::max( 1, std::min( 4, warpCount ) );
-    int threadCount  = warpSize * warpPerBlock;
-    int blockCount   = std::min( maxGridSize, std::max( 1, warpCount / warpPerBlock ) );
-    BlockDim         = dim3( threadCount, 1, 1 );
-    GridDim          = dim3( blockCount, 1, 1 );
+    int minGridSize = 0, blockSize = 0;
+    checkCudaErrors(
+        cudaOccupancyMaxPotentialBlockSizeWithFlags( &minGridSize, &blockSize, func, 0, 0 ) );
+    const int gridSize = ( n + blockSize - 1 ) / blockSize;
+    BlockDim           = dim3( blockSize, 1, 1 );
+    GridDim            = dim3( gridSize, 1, 1 );
     return;
 }
 

@@ -488,7 +488,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsDiag( typename Config::lidx_t *row
         AMP_ASSERT( AMP::Utilities::getMemoryType( coeffs ) > AMP::Utilities::MemoryType::host );
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, sort_row_diag<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         sort_row_diag<<<GridDim, BlockDim>>>( row_starts, cols, coeffs, num_rows, first_col );
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsDiag" );
 #else
@@ -542,7 +542,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsOffd( typename Config::lidx_t *row
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, sort_row_offd<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         sort_row_offd<<<GridDim, BlockDim>>>( row_starts, cols, coeffs, num_rows );
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsOffd" );
 #else
@@ -690,7 +690,7 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         {
             dim3 BlockDim;
             dim3 GridDim;
-            setKernelDims( in_num_rows, BlockDim, GridDim );
+            setKernelDims( in_num_rows, diag_to_coo<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
             diag_to_coo<<<GridDim, BlockDim>>>( in_row_starts,
                                                 in_cols_loc,
                                                 in_coeffs,
@@ -790,7 +790,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
         {
             dim3 BlockDim;
             dim3 GridDim;
-            setKernelDims( in_num_rows, BlockDim, GridDim );
+            setKernelDims( in_num_rows, offd_to_coo<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
             offd_to_coo<<<GridDim, BlockDim>>>( in_row_starts,
                                                 in_cols,
                                                 in_coeffs,
@@ -861,7 +861,7 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, row_sub_count<lidx_t, gidx_t>, BlockDim, GridDim );
         row_sub_count<<<GridDim, BlockDim>>>(
             rows, num_rows, first_row, diag_row_starts, offd_row_starts, counts );
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetCountNNZ" );
@@ -910,7 +910,7 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill( const typename Config::gidx_t 
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, row_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         row_sub_fill<<<GridDim, BlockDim>>>( rows,
                                              num_rows,
                                              first_row,
@@ -966,7 +966,7 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, col_sub_count<lidx_t, gidx_t>, BlockDim, GridDim );
         col_sub_count<<<GridDim, BlockDim>>>( idx_lo,
                                               idx_up,
                                               first_col,
@@ -1025,7 +1025,7 @@ void CSRMatrixDataHelpers<Config>::ColSubsetFill( const typename Config::gidx_t 
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, col_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         col_sub_fill<<<GridDim, BlockDim>>>( idx_lo,
                                              idx_up,
                                              first_col,
@@ -1061,7 +1061,7 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, horz_cat_count<lidx_t>, BlockDim, GridDim );
         horz_cat_count<<<GridDim, BlockDim>>>( in_row_starts, num_rows, out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ" );
 #else
@@ -1095,7 +1095,7 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, horz_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         horz_cat_fill<<<GridDim, BlockDim>>>( in_row_starts,
                                               in_cols,
                                               in_coeffs,
@@ -1136,7 +1136,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, vert_cat_count<lidx_t, gidx_t>, BlockDim, GridDim );
         vert_cat_count<<<GridDim, BlockDim>>>(
             row_starts, cols, num_rows, first_col, last_col, keep_inside, counts );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatVerticalCountNNZ" );
@@ -1178,7 +1178,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, vert_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         vert_cat_fill<<<GridDim, BlockDim>>>( in_row_starts,
                                               in_cols,
                                               in_coeffs,
@@ -1218,7 +1218,7 @@ void CSRMatrixDataHelpers<Config>::MaskCountNNZ( const typename Config::lidx_t *
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, mask_diag_count<lidx_t>, BlockDim, GridDim );
         mask_diag_count<<<GridDim, BlockDim>>>(
             in_row_starts, mask, keep_first, num_rows, out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::MaskCountNNZ" );
@@ -1256,7 +1256,7 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, mask_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
         mask_diag_fill<<<GridDim, BlockDim>>>( in_row_starts,
                                                in_cols_loc,
                                                in_coeffs,
@@ -1385,7 +1385,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, remrange_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
         remrange_diag_fill<<<GridDim, BlockDim>>>( old_row_starts,
                                                    old_cols_loc,
                                                    old_coeffs,
@@ -1431,7 +1431,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
 #ifdef AMP_USE_DEVICE
         dim3 BlockDim;
         dim3 GridDim;
-        setKernelDims( num_rows, BlockDim, GridDim );
+        setKernelDims( num_rows, remrange_offd_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         remrange_offd_fill<<<GridDim, BlockDim>>>( old_row_starts,
                                                    old_cols_loc,
                                                    old_cols_unq,
