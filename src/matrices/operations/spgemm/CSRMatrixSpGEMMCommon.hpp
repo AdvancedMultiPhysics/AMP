@@ -174,7 +174,6 @@ AMP_FUNCTION_HD void merge_row_count( const lidx_t row,
 {
     const auto A_start = A_rs[row], A_end = A_rs[row + 1];
     const auto B_start = B_rs[row], B_end = B_rs[row + 1];
-    const auto C_start = C_rs[row];
 
     // Count only actual non-zeros from A
     for ( lidx_t A_cur = A_start; A_cur < A_end; ++A_cur ) {

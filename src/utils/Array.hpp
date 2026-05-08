@@ -22,17 +22,9 @@
  *  Macros to help instantiate functions                 *
  ********************************************************/
 // clang-format off
-#ifndef AMP_CXX_STANDARD
-    #define AMP_CXX_STANDARD 17
-#endif
-#if AMP_CXX_STANDARD >= 20
 #define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
-#elif defined( __NVCOMPILER )
-#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
-#else
-#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array<TYPE,FUN,A>();
-#endif
-#define instantiateArrayConstructors2( TYPE, FUN, A )                                    \
+
+#define instantiateArrayConstructors2( TYPE, FUN, A )					\
     instantiateDestructor(TYPE,FUN,A)                                                    \
     template AMP::Array<TYPE,FUN,A>::Array();                                            \
     template AMP::Array<TYPE,FUN,A>::Array( const AMP::ArraySize&, TYPE const* );        \
