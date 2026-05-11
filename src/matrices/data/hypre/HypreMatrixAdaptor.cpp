@@ -108,15 +108,41 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
     using alloc_t          = typename Config::allocator_type;
     const auto csr_mem_loc = AMP::Utilities::getAllocatorMemoryType<alloc_t>();
 
-    // Set the hypre memory space and migrate the input matrix to match.
-    // Migration is a no-op if spaces match and having a single matrix
-    // to pull fields out of is simpler, so always migrate.
+    // Set the hypre memory space, matching the space of the input matrix
+    // if possible.
+    // If matching spaces is not possible then issue a warning to the user,
+    // migrate the matrix, and call this function again. This lets the rest
+    // of the adaptor work with matching spaces.
     HYPRE_MemoryLocation memory_location = HYPRE_MEMORY_HOST;
     if ( csr_mem_loc > AMP::Utilities::MemoryType::host ) {
-#if defined( HYPRE_USING_DEVICE_MEMORY ) || defined( HYPRE_USING_UNIFIED_MEMORY )
         // Hypre builds with only unified memory or only pure device memory,
         // and does not support both in one installation. They only recognize
         // device from the outside and map it down internally.
+#if defined( HYPRE_USING_DEVICE_MEMORY )
+        if ( csr_mem_loc != AMP::Utilities::MemoryType::device ) {
+            // hypre built for device memory but this took in a managed-space matrix
+            AMP_WARN_ONCE(
+                "HypreMatrixAdaptor: Hypre was with GPU device memory support but a managed memory "
+                "matrix was passed in.\nMatrix will be migrated to device." );
+            auto migrated =
+                csrData->template migrate<HypreConfig<alloc::device>>( csrData->getBackend() );
+            d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
+            initializeHypreMatrix( migrated );
+            return;
+        }
+        memory_location = HYPRE_MEMORY_DEVICE;
+#elif defined( HYPRE_USING_UNIFIED_MEMORY )
+        if ( csr_mem_loc != AMP::Utilities::MemoryType::managed ) {
+            // hypre built for managed memory but this took in a device-space matrix
+            AMP_WARN_ONCE(
+                "HypreMatrixAdaptor: Hypre was with GPU managed memory support but a device memory "
+                "matrix was passed in.\nMatrix will be migrated to managed memory." );
+            auto migrated =
+                csrData->template migrate<HypreConfig<alloc::managed>>( csrData->getBackend() );
+            d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
+            initializeHypreMatrix( migrated );
+            return;
+        }
         memory_location = HYPRE_MEMORY_DEVICE;
 #else
         // neither flag defined means we stay with host memory, issue a warning and move on
@@ -160,55 +186,9 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
     const auto nnz_total_od = static_cast<HYPRE_BigInt>( csrData->numberOfNonZerosOffDiag() );
     const bool haveOffd     = csrData->hasOffDiag();
     const auto nrows        = last_row - first_row + 1;
+    auto [rs_d, cols_d, cols_loc_d, coeffs_d]     = csrData->getDiagMatrix()->getDataFields();
+    auto [rs_od, cols_od, cols_loc_od, coeffs_od] = csrData->getOffdMatrix()->getDataFields();
 
-    // define fields to extract, but don't pull out of data blocks until migration
-    // tested/handled
-    HYPRE_Int *rs_d = nullptr, *rs_od = nullptr;
-    HYPRE_Int *cols_loc_d = nullptr, *cols_loc_od = nullptr;
-    HYPRE_BigInt *cols_d = nullptr, *cols_od = nullptr;
-    HYPRE_Real *coeffs_d = nullptr, *coeffs_od = nullptr;
-
-    if ( memory_location == HYPRE_MEMORY_HOST ) {
-        if ( csr_mem_loc != AMP::Utilities::MemoryType::host ) {
-            AMP_WARN_ONCE( "HypreMatrixAdaptor: Migrating matrix to host memory space" );
-        }
-        auto migrated =
-            csrData->template migrate<HypreConfig<alloc::host>>( csrData->getBackend() );
-        std::tie( rs_d, cols_d, cols_loc_d, coeffs_d ) = migrated->getDiagMatrix()->getDataFields();
-        std::tie( rs_od, cols_od, cols_loc_od, coeffs_od ) =
-            migrated->getOffdMatrix()->getDataFields();
-        d_csrdata_migrated = migrated;
-    } else {
-#ifdef AMP_USE_DEVICE
-    #if defined( HYPRE_USING_UNIFIED_MEMORY )
-        if ( csr_mem_loc != AMP::Utilities::MemoryType::managed ) {
-            AMP_WARN_ONCE( "HypreMatrixAdaptor: Migrating matrix to managed memory space" );
-        }
-        auto migrated =
-            csrData->template migrate<HypreConfig<alloc::managed>>( csrData->getBackend() );
-        std::tie( rs_d, cols_d, cols_loc_d, coeffs_d ) = migrated->getDiagMatrix()->getDataFields();
-        std::tie( rs_od, cols_od, cols_loc_od, coeffs_od ) =
-            migrated->getOffdMatrix()->getDataFields();
-        d_csrdata_migrated = migrated;
-    #elif defined( HYPRE_USING_DEVICE_MEMORY )
-        if ( csr_mem_loc != AMP::Utilities::MemoryType::device ) {
-            AMP_WARN_ONCE( "HypreMatrixAdaptor: Migrating matrix to device memory space" );
-        }
-        auto migrated =
-            csrData->template migrate<HypreConfig<alloc::device>>( csrData->getBackend() );
-        std::tie( rs_d, cols_d, cols_loc_d, coeffs_d ) = migrated->getDiagMatrix()->getDataFields();
-        std::tie( rs_od, cols_od, cols_loc_od, coeffs_od ) =
-            migrated->getOffdMatrix()->getDataFields();
-        d_csrdata_migrated = migrated;
-    #else
-        // Above logic should make this impossible, so issue a hard error rather than migrating
-        // to host
-        AMP_ERROR( "HypreMatrixAdaptor: Hypre built without GPU support but GPU memory requested" );
-    #endif
-#else
-        AMP_ERROR( "HypreMatrixAdaptor: Unrecognized memory location" );
-#endif
-    }
     AMP_INSIST( rs_d && cols_loc_d && coeffs_d, "diagonal block layout cannot be NULL" );
 
     // Fill in the ->i fields of diag and off_diag
