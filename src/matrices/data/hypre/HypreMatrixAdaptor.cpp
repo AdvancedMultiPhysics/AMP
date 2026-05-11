@@ -149,6 +149,11 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
         AMP_WARN_ONCE( "HypreMatrixAdaptor: Hypre was not built with GPU support but a device "
                        "matrix was passed in.\nMatrix will be migrated to host, consider "
                        "re-building Hypre with GPU support." );
+        auto migrated =
+            csrData->template migrate<HypreConfig<alloc::host>>( csrData->getBackend() );
+        d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
+        initializeHypreMatrix( migrated );
+        return;
 #endif
     }
     HYPRE_SetMemoryLocation( memory_location );
