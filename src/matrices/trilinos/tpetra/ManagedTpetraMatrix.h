@@ -28,22 +28,10 @@ template<typename ST = Tpetra_ST,
          typename NT = Tpetra::Vector<>::node_type>
 class ManagedTpetraMatrix : public Matrix
 {
-protected:
+public:
     //!  Empty constructor
     ManagedTpetraMatrix() = delete;
 
-    //!  Copy constructor
-    ManagedTpetraMatrix( const ManagedTpetraMatrix<ST, LO, GO, NT> &rhs );
-
-    //!  Assignment operator
-    ManagedTpetraMatrix &operator=( const ManagedTpetraMatrix<ST, LO, GO, NT> &rhs ) = delete;
-
-    void multiply( shared_ptr other_op, shared_ptr &result ) override;
-
-    //! Return the type of the matrix
-    std::string type() const override { return "ManagedTpetraMatrix"; }
-
-public:
     /** \brief Constructor
      * \param[in] p  The description of the matrix
      */
@@ -57,9 +45,21 @@ public:
      */
     explicit ManagedTpetraMatrix( Teuchos::RCP<Tpetra::CrsMatrix<ST, LO, GO, NT>> m );
 
+    //!  Copy constructor
+    ManagedTpetraMatrix( const ManagedTpetraMatrix<ST, LO, GO, NT> &rhs );
+
+    //!  Assignment operator
+    ManagedTpetraMatrix &operator=( const ManagedTpetraMatrix<ST, LO, GO, NT> &rhs ) = delete;
+
     //! Destructor
     virtual ~ManagedTpetraMatrix() {}
 
+    //! Return the type of the matrix
+    std::string type() const override { return "ManagedTpetraMatrix"; }
+
+    /** \brief  Return an Tpetra_CrsMatrix
+     * \return An Tpetra_CrsMatrix view of this matrix
+     */
     Tpetra::CrsMatrix<ST, LO, GO, NT> &getTpetra_CrsMatrix();
 
     /** \brief  Return an Tpetra_CrsMatrix
@@ -69,19 +69,16 @@ public:
 
     std::shared_ptr<Matrix> transpose() const override;
 
+    std::shared_ptr<Matrix> clone() const override;
+
     Vector::shared_ptr
     extractDiagonal( Vector::shared_ptr buf = Vector::shared_ptr() ) const override;
-    Vector::shared_ptr getRowSums( Vector::shared_ptr = Vector::shared_ptr() ) const override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
-    Vector::shared_ptr getRowSumsAbsolute( Vector::shared_ptr, const bool = false ) const override
-    {
-        AMP_ERROR( "Not implemented" );
-    }
-    std::shared_ptr<Matrix> clone() const override;
+
     Vector::shared_ptr createInputVector() const override;
     Vector::shared_ptr createOutputVector() const override;
+
+protected:
+    void multiply( shared_ptr other_op, shared_ptr &result ) override;
 };
 
 

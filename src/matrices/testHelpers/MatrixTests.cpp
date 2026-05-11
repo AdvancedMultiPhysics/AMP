@@ -80,7 +80,7 @@ MatrixTests::getCopyMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
     // if the copy factory does not exist return the input matrix
     if ( d_copy_factory ) {
         auto copyMatrix = d_copy_factory->getMatrix();
-        copyMatrix->zero(); // src and dst matricies may store zeros differently
+        copyMatrix->zero(); // src and dst matrices may store zeros differently
         copyMatrix->copy( matrix );
         return copyMatrix;
     } else {
@@ -217,7 +217,6 @@ void MatrixTests::VerifyCopyMatrix( AMP::UnitTest *utils )
 
     u2->copyVector( u1 );
     u2->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-
     matrix1->mult( u1, v1 );
     matrix2->mult( u2, v2 ); // v2 = v1
     vectorresult->copyVector( v1 );

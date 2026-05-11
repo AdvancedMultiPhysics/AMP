@@ -69,9 +69,19 @@ public:
      */
     explicit TpetraMatrixData( Teuchos::RCP<Tpetra::CrsMatrix<ST, LO, GO, NT>> inMatrix );
 
+    /** \brief Destructor
+     */
+    virtual ~TpetraMatrixData();
+
+    TpetraMatrixData<ST, LO, GO, NT> &
+    operator=( const TpetraMatrixData<ST, LO, GO, NT> & ) = delete;
+
     std::shared_ptr<MatrixData> cloneMatrixData() const override;
 
     std::shared_ptr<MatrixData> transpose() const override;
+
+    //! Return the type of the matrix
+    std::string type() const override { return "TpetraMatrixData"; }
 
     void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
 
@@ -82,16 +92,6 @@ public:
      *
      */
     void setTpetraMaps( std::shared_ptr<Vector> range, std::shared_ptr<Vector> domain );
-
-    TpetraMatrixData<ST, LO, GO, NT> &
-    operator=( const TpetraMatrixData<ST, LO, GO, NT> & ) = delete;
-
-    /** \brief Destructor
-     */
-    virtual ~TpetraMatrixData();
-
-    //! Return the type of the matrix
-    std::string type() const override { return "TpetraMatrixData"; }
 
     /** \brief  Return an Tpetra_CrsMatrix
      * \return An Tpetra_CrsMatrix view of this matrix
@@ -136,6 +136,7 @@ public:
     void getRowByGlobalID( size_t row,
                            std::vector<size_t> &cols,
                            std::vector<double> &values ) const override;
+    size_t numberColumnIDs( size_t row ) const override;
     /** \brief  Given a row, retrieve the non-zero column indices of the matrix in compressed format
      * \param[in]  row Which row
      */

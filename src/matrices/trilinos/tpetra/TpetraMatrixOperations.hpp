@@ -171,33 +171,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::extractDiagonal( MatrixData const &
 template<typename ST, typename LO, typename GO, typename NT>
 AMP::Scalar TpetraMatrixOperations<ST, LO, GO, NT>::LinfNorm( MatrixData const &A ) const
 {
-    // this is only correct for host code, we need to eventually get it working everywhere
-    // and assumes all entries of a row are locally present
-    // getNormInf only appears to be in some Trilinos version > 16.1.0 -- should do check
-    using row_matrix_type           = Tpetra::RowMatrix<ST, LO, GO, NT>;
-    using local_inds_host_view_type = typename row_matrix_type::local_inds_host_view_type;
-    using values_host_view_type     = typename row_matrix_type::values_host_view_type;
-
-    auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
-
-    ST normInf = static_cast<ST>( 0 );
-    // Get the current row's data
-    for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
-        auto numCols = matrix.getNumEntriesInLocalRow( row );
-        std::vector<LO> colInds( numCols );
-        std::vector<ST> vals( numCols );
-        local_inds_host_view_type colView( colInds.data(), numCols );
-        values_host_view_type valsView( vals.data(), numCols );
-        matrix.getLocalRowView( row, colView, valsView );
-        auto rowAbsSum =
-            std::accumulate( vals.begin(), vals.end(), 0.0, []( const ST &a, const ST &b ) {
-                return std::abs( a ) + std::abs( b );
-            } );
-
-        normInf = std::max( normInf, rowAbsSum );
-    }
-    auto comm = A.getComm(); // modify to return ref?
-    return comm.maxReduce( normInf );
+    return getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).getNormInf();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -220,11 +194,15 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::copy( const MatrixData &X, MatrixDa
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixOperations<ST, LO, GO, NT>::scale( AMP::Scalar,
-                                                    std::shared_ptr<const Vector>,
-                                                    MatrixData & )
+void TpetraMatrixOperations<ST, LO, GO, NT>::scale( AMP::Scalar alpha,
+                                                    std::shared_ptr<const Vector> D,
+                                                    MatrixData &A )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_ASSERT( D->getGlobalSize() == A.numGlobalRows() );
+    auto D_view       = TpetraVector::constView( D );
+    const auto &D_vec = D_view->getTpetra_Vector();
+    getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).leftScale( D_vec );
+    getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).scale( static_cast<ST>( alpha ) );
 }
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::scaleInv( AMP::Scalar,
@@ -234,17 +212,67 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::scaleInv( AMP::Scalar,
     AMP_ERROR( "Not implemented" );
 }
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSums( MatrixData const &,
-                                                         std::shared_ptr<Vector> )
+void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSums( MatrixData const &A,
+                                                         std::shared_ptr<Vector> buf )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
+    AMP_ASSERT( buf->isType<ST>( 0 ) );
+
+    auto *rawVecData = buf->getRawDataBlock<ST>();
+
+    // this is only correct for host code, we need to eventually get it working everywhere
+    // and assumes all entries of a row are locally present
+    // getNormInf only appears to be in some Trilinos version > 16.1.0 -- should do check
+    using row_matrix_type           = Tpetra::RowMatrix<ST, LO, GO, NT>;
+    using local_inds_host_view_type = typename row_matrix_type::local_inds_host_view_type;
+    using values_host_view_type     = typename row_matrix_type::values_host_view_type;
+
+    auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+
+    // Get the current row's data
+    for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
+        auto numCols = matrix.getNumEntriesInLocalRow( row );
+        std::vector<LO> colInds( numCols );
+        std::vector<ST> vals( numCols );
+        local_inds_host_view_type colView( colInds.data(), numCols );
+        values_host_view_type valsView( vals.data(), numCols );
+        matrix.getLocalRowView( row, colView, valsView );
+        rawVecData[row] = std::accumulate(
+            vals.begin(), vals.end(), 0.0, []( const ST &a, const ST &b ) -> ST { return a + b; } );
+    }
 }
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSumsAbsolute( MatrixData const &,
-                                                                 std::shared_ptr<Vector>,
+void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSumsAbsolute( MatrixData const &A,
+                                                                 std::shared_ptr<Vector> buf,
                                                                  const bool )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_ASSERT( buf && buf->numberOfDataBlocks() == 1 );
+    AMP_ASSERT( buf->isType<ST>( 0 ) );
+
+    auto *rawVecData = buf->getRawDataBlock<ST>();
+
+    // this is only correct for host code, we need to eventually get it working everywhere
+    // and assumes all entries of a row are locally present
+    // getNormInf only appears to be in some Trilinos version > 16.1.0 -- should do check
+    using row_matrix_type           = Tpetra::RowMatrix<ST, LO, GO, NT>;
+    using local_inds_host_view_type = typename row_matrix_type::local_inds_host_view_type;
+    using values_host_view_type     = typename row_matrix_type::values_host_view_type;
+
+    auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+
+    // Get the current row's data
+    for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
+        auto numCols = matrix.getNumEntriesInLocalRow( row );
+        std::vector<LO> colInds( numCols );
+        std::vector<ST> vals( numCols );
+        local_inds_host_view_type colView( colInds.data(), numCols );
+        values_host_view_type valsView( vals.data(), numCols );
+        matrix.getLocalRowView( row, colView, valsView );
+        rawVecData[row] =
+            std::accumulate( vals.begin(), vals.end(), 0.0, []( const ST &a, const ST &b ) -> ST {
+                return std::abs( a ) + std::abs( b );
+            } );
+    }
 }
 
 } // namespace AMP::LinearAlgebra

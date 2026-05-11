@@ -576,6 +576,15 @@ void TpetraMatrixData<ST, LO, GO, NT>::getRowByGlobalID( size_t row,
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
+size_t TpetraMatrixData<ST, LO, GO, NT>::numberColumnIDs( size_t row ) const
+{
+    auto params         = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
+    const auto firstRow = params->getLeftDOFManager()->beginDOF();
+    const auto localRow = static_cast<size_t>( row - firstRow );
+    return static_cast<size_t>( d_tpetraMatrix->getNumEntriesInLocalRow( localRow ) );
+}
+
+template<typename ST, typename LO, typename GO, typename NT>
 std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row ) const
 {
     using row_matrix_type = Tpetra::RowMatrix<ST, LO, GO, NT>;
@@ -590,8 +599,8 @@ std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row )
     AMP_ASSERT( row >= firstRow );
     AMP_ASSERT( row < firstRow + numRows );
 
-    size_t localRow = row - firstRow;
-    auto numCols    = d_tpetraMatrix->getNumEntriesInLocalRow( localRow );
+    const size_t localRow = row - firstRow;
+    auto numCols          = d_tpetraMatrix->getNumEntriesInLocalRow( localRow );
     std::vector<size_t> cols( numCols );
 
     std::vector<GO> row_cols;
