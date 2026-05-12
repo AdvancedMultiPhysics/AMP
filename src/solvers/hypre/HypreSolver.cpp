@@ -72,11 +72,13 @@ static AMP::Utilities::MemoryType getAMPMemorySpace( HYPRE_MemoryLocation memory
 #elif defined( HYPRE_USING_UNIFIED_MEMORY )
         return AMP::Utilities::MemoryType::managed;
 #else
-        AMP_WARN_ONCE( "Unable to detect Hypre memory location" );
-        return AMP::Utilities::MemoryType::device;
+        AMP_WARN_ONCE(
+            "Hypre device/managed memory requested but neither\n  HYPRE_USING_DEVICE_MEMORY nor\n  "
+            "HYPRE_USING_UNIFIED_MEMORY\nare defined. Ensure Hypre was built with GPU support." );
+        return AMP::Utilities::MemoryType::host;
 #endif
     } else {
-        AMP_WARN_ONCE( "Unable to detect Hypre memory location" );
+        AMP_WARN_ONCE( "Unrecognized Hypre memory location requested." );
         return AMP::Utilities::MemoryType::host;
     }
 }

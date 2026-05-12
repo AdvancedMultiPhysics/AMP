@@ -40,9 +40,6 @@ void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::multiplyLocal(
     auto [A_rowmap, A_entries, A_values] = wrapDataFields( A_data );
     auto [B_rowmap, B_entries, B_values] = wrapDataFields( B_data );
 
-    const auto A_nnz = static_cast<int64_t>( A_data->numberOfNonZeros() );
-    const auto B_nnz = static_cast<int64_t>( B_data->numberOfNonZeros() );
-
     // set up kokkos-kernels handle for state persistent across symbolic/numeric phases
     handle_t handle;
     handle.set_team_work_size( 16 );
