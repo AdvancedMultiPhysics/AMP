@@ -831,7 +831,8 @@ loadDatabase( const std::string &errMsgPrefix,
               std::string_view buffer,
               Database &db,
               std::map<std::string, const KeyData *> databaseKeys = {},
-              int line0                                           = 0 )
+              int line0                                           = 0,
+              Database::Check check = Database::Check::GetDatabaseDefault )
 {
     size_t pos = 0;
     std::set<std::string> usedKeys;
@@ -884,7 +885,7 @@ loadDatabase( const std::string &errMsgPrefix,
                 AMP_ERROR(
                     generateMsg( errMsgPrefix, "Error loading key (empty data)", line, key ) );
             databaseKeys[std::string( key )] = data.get();
-            db.putData( key, std::move( data ) );
+            db.putData( key, std::move( data ), check );
             pos += i;
         } else if ( type == token_type::define ) {
             // We are defining a token in terms of others
@@ -892,20 +893,39 @@ loadDatabase( const std::string &errMsgPrefix,
             auto [j, data, keys] = read_operator_value( &buffer[pos], key, databaseKeys );
             updateUsedKeys( keys );
             databaseKeys[std::string( key )] = data.get();
-            db.putData( key, std::move( data ) );
+            db.putData( key, std::move( data ), check );
             pos += j;
         } else if ( type == token_type::bracket ) {
             // Read database
             AMP_INSIST( !key.empty(), generateMsg( errMsgPrefix, "Empty key", line ) );
             pos += i;
-            auto database = std::make_unique<Database>();
-            auto tmp =
-                loadDatabase( errMsgPrefix, buffer.substr( pos ), *database, databaseKeys, line );
+            AMP_INSIST( std::count( key.begin(), key.end(), ':' ) <= 1,
+                        generateMsg( errMsgPrefix,
+                                     "Multiple instances of ':' found in database line",
+                                     line ) );
+            size_t pos2 = key.find( ':' );
+            std::unique_ptr<Database> database;
+            auto name  = std::string( key );
+            auto check = Database::Check::GetDatabaseDefault;
+            if ( pos2 == std::string::npos ) {
+                database = std::make_unique<Database>();
+            } else {
+                name     = deblank( key.substr( 0, pos2 ) );
+                auto src = deblank( key.substr( pos2 + 1 ) );
+                database = dynamic_cast<const Database *>( databaseKeys[std::string( src )] )
+                               ->cloneDatabase();
+                auto keys2 = database->getAllKeys( false );
+                for ( auto key2 : keys2 )
+                    databaseKeys[key2] = database->getData( key2 );
+                check = Database::Check::Overwrite;
+            }
+            database->setName( name );
+            auto tmp = loadDatabase(
+                errMsgPrefix, buffer.substr( pos ), *database, databaseKeys, line, check );
             pos += std::get<0>( tmp );
             updateUsedKeys( std::get<1>( tmp ) );
-            database->setName( std::string( key ) );
-            databaseKeys[std::string( key )] = database.get();
-            db.putData( key, std::move( database ) );
+            databaseKeys[name] = database.get();
+            db.putData( name, std::move( database ), check );
         } else if ( type == token_type::end_bracket || type == token_type::end ) {
             // Finished with the database
             pos += i;
@@ -922,7 +942,7 @@ loadDatabase( const std::string &errMsgPrefix,
                 filename = filename.substr( 1, filename.size() - 2 );
             auto db2 = Database::parseInputFile( std::string( filename ) );
             for ( auto &key : db2->getAllKeys() )
-                db.putData( key, db2->getData( key )->clone() );
+                db.putData( key, db2->getData( key )->clone(), check );
         } else {
             throw std::logic_error( "Error loading data" );
         }
