@@ -277,6 +277,12 @@ public:
         d_pParameters->d_backend = backend;
     }
 
+    //! Get the memory space where data is stored
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return AMP::Utilities::MemoryType::host;
+    }
+
     /** \brief Return the typeid of the matrix coeffs
      */
     virtual typeID getCoeffType() const = 0;

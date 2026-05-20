@@ -246,7 +246,10 @@ public:
     bool hasOffDiag() const { return !d_offd_matrix->d_is_empty; }
 
     //! Get the memory space where data is stored
-    auto getMemoryLocation() const { return d_memory_location; }
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const override
+    {
+        return d_memory_location;
+    }
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] tot_nnz_diag   Number of nonzeros in whole diagonal block

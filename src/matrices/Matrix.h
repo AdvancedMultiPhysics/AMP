@@ -56,6 +56,15 @@ public:
     //! Replace current backend with different one, no-op if same, no-op if not a CSRMatrix
     virtual void setBackend( AMP::Utilities::Backend );
 
+    //! Get backend associated with matrix operations
+    virtual AMP::Utilities::Backend getBackend() const { return AMP::Utilities::Backend::Serial; }
+
+    //! Get memory location of matrix data
+    AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return d_matrixData->getMemoryLocation();
+    }
+
     /** \brief  Matrix-vector multiplication
      * \param[in]  in  The vector to multiply
      * \param[out] out The resulting vectory

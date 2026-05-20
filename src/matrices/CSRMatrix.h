@@ -101,6 +101,9 @@ public:
     //! Replace current backend with different one, no-op if same
     void setBackend( AMP::Utilities::Backend backend ) override;
 
+    //! Get backend from current matrix operations object
+    virtual AMP::Utilities::Backend getBackend() const override;
+
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer
      * \return  A vector of the diagonal values

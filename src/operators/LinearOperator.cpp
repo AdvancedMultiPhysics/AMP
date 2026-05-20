@@ -21,7 +21,9 @@ std::shared_ptr<AMP::LinearAlgebra::Matrix> LinearOperator::getMatrix() { return
 
 void LinearOperator::setMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> in_mat )
 {
-    d_matrix = in_mat;
+    d_matrix          = in_mat;
+    d_memory_location = d_matrix->getMemoryLocation();
+    d_backend         = d_matrix->getBackend();
 }
 
 std::shared_ptr<AMP::LinearAlgebra::Vector> LinearOperator::createInputVector() const

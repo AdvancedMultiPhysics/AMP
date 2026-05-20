@@ -212,6 +212,26 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 }
 
 template<typename Config>
+AMP::Utilities::Backend CSRMatrix<Config>::getBackend() const
+{
+#ifdef AMP_USE_DEVICE
+    if ( std::dynamic_pointer_cast<CSRMatrixOperationsDevice<Config>>( d_matrixOps ) ) {
+        return AMP::Utilities::Backend::Hip_Cuda;
+    }
+#endif
+#ifdef AMP_USE_KOKKOS
+    if ( std::dynamic_pointer_cast<CSRMatrixOperationsKokkos<Config>>( d_matrixOps ) ) {
+        return AMP::Utilities::Backend::Kokkos;
+    }
+#endif
+    if ( !std::dynamic_pointer_cast<CSRMatrixOperationsDefault<Config>>( d_matrixOps ) ) {
+        AMP_ERROR( "CSRMatrix::getBackend: Can't identify matrix operations type" );
+    }
+
+    return AMP::Utilities::Backend::Serial;
+}
+
+template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
 {
     PROFILE( "CSRMatrix::transpose" );

@@ -25,9 +25,8 @@ public:
     using ExecSpaceHost = Kokkos::DefaultHostExecutionSpace;
     using ViewSpaceHost = typename ExecSpaceHost::memory_space;
     #ifdef AMP_USE_DEVICE
-    using ExecSpaceDevice  = Kokkos::DefaultExecutionSpace;
-    using ViewSpaceDevice  = typename ExecSpaceDevice::memory_space;
-    using ViewSpaceManaged = Kokkos::SharedSpace;
+    using ExecSpaceDevice = Kokkos::DefaultExecutionSpace;
+    using ViewSpaceDevice = typename ExecSpaceDevice::memory_space;
     #endif
 
     // Constructor
