@@ -224,7 +224,7 @@ public:
 
     bool getConverged( void ) const
     {
-        return d_ConvergenceStatus <= SolverStatus::ConvergedUserCondition ? 1 : 0;
+        return d_ConvergenceStatus <= SolverStatus::ConvergedUserCondition;
     }
 
     SolverStatus getConvergenceStatus( void ) const { return d_ConvergenceStatus; }

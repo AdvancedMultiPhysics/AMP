@@ -59,9 +59,9 @@ void SolverStrategy::getBaseFromInput( std::shared_ptr<AMP::Database> db )
         d_exec_space = AMP::Utilities::executionSpaceFromString(
             db->getScalar<std::string>( "execution_space" ) );
     }
-    if ( db->keyExists( "MemoryLocation" ) ) {
+    if ( db->keyExists( "memory_location" ) ) {
         d_memory_location = AMP::Utilities::memoryLocationFromString(
-            db->getScalar<std::string>( "MemoryLocation" ) );
+            db->getScalar<std::string>( "memory_location" ) );
     }
 }
 
@@ -79,22 +79,18 @@ void SolverStrategy::registerOperator( std::shared_ptr<AMP::Operator::Operator> 
 {
     if ( op ) {
 
-        // attempt to set to memory location from operator
-        if ( d_memory_location == AMP::Utilities::MemoryType::none ) {
-            d_memory_location = op->getMemoryLocation();
-        }
-
-        if ( d_exec_space == AMP::Utilities::ExecutionSpace::unspecified )
-            d_exec_space = AMP::Utilities::getDefaultExecutionSpace( d_memory_location );
+        // set memory location and execution space from operator
+        d_memory_location = op->getMemoryLocation();
+        d_exec_space      = AMP::Utilities::getDefaultExecutionSpace( d_memory_location );
 
         if ( d_memory_location == op->getMemoryLocation() ) {
             d_pOperator = op;
         } else {
-            // this is experimental at present
+            // this is experimental, and disabled at present
             // construct an adaptor based on memory address space
             auto opdb = std::make_shared<AMP::Database>( "MemorySpaceOperator" );
             std::string mem_str( AMP::Utilities::getString( d_memory_location ) );
-            opdb->putScalar<std::string>( "MemoryLocation", mem_str );
+            opdb->putScalar<std::string>( "memory_location", mem_str );
             auto opParams         = std::make_shared<AMP::Operator::OperatorParameters>( opdb );
             opParams->d_pOperator = op;
 

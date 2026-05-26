@@ -118,14 +118,14 @@ void SASolver::setLevelOptions( const size_t lvl )
     AMP_INSIST( d_pre_relax_db && d_post_relax_db,
                 "SASolver: pre_relaxation and post_relaxation parameters must be set" );
     if ( d_mem_loc == Utilities::MemoryType::host ) {
-        d_pre_relax_db->putScalar<std::string>( "MemoryLocation", "host" );
-        d_post_relax_db->putScalar<std::string>( "MemoryLocation", "host" );
+        d_pre_relax_db->putScalar<std::string>( "memory_location", "host" );
+        d_post_relax_db->putScalar<std::string>( "memory_location", "host" );
     } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
-        d_pre_relax_db->putScalar<std::string>( "MemoryLocation", "managed" );
-        d_post_relax_db->putScalar<std::string>( "MemoryLocation", "managed" );
+        d_pre_relax_db->putScalar<std::string>( "memory_location", "managed" );
+        d_post_relax_db->putScalar<std::string>( "memory_location", "managed" );
     } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        d_pre_relax_db->putScalar<std::string>( "MemoryLocation", "device" );
-        d_post_relax_db->putScalar<std::string>( "MemoryLocation", "device" );
+        d_pre_relax_db->putScalar<std::string>( "memory_location", "device" );
+        d_post_relax_db->putScalar<std::string>( "memory_location", "device" );
     } else {
         // unreachable from test above
         AMP_ERROR( "SASolver: Unrecognized memory space" );
@@ -179,11 +179,11 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
     // fill in finest level and setup remaining levels
     auto op_db = std::make_shared<Database>( "SASolver::Internal" );
     if ( d_mem_loc == Utilities::MemoryType::host ) {
-        op_db->putScalar<std::string>( "MemoryLocation", "host" );
+        op_db->putScalar<std::string>( "memory_location", "host" );
     } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
-        op_db->putScalar<std::string>( "MemoryLocation", "managed" );
+        op_db->putScalar<std::string>( "memory_location", "managed" );
     } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        op_db->putScalar<std::string>( "MemoryLocation", "device" );
+        op_db->putScalar<std::string>( "memory_location", "device" );
     } else {
         // unreachable from test above
         AMP_ERROR( "SASolver: Unrecognized memory space" );
@@ -301,11 +301,11 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
 
     auto op_db = std::make_shared<Database>( "SASolver::Internal" );
     if ( d_mem_loc == Utilities::MemoryType::host ) {
-        op_db->putScalar<std::string>( "MemoryLocation", "host" );
+        op_db->putScalar<std::string>( "memory_location", "host" );
     } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
-        op_db->putScalar<std::string>( "MemoryLocation", "managed" );
+        op_db->putScalar<std::string>( "memory_location", "managed" );
     } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        op_db->putScalar<std::string>( "MemoryLocation", "device" );
+        op_db->putScalar<std::string>( "memory_location", "device" );
     } else {
         // unreachable from test above
         AMP_ERROR( "SASolver: Unrecognized memory space" );

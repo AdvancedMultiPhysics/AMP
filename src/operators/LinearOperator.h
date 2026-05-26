@@ -48,7 +48,8 @@ public:
     virtual std::shared_ptr<AMP::LinearAlgebra::Matrix> getMatrix();
 
     /**
-     * Copies the shared pointer for the matrix representation of this linear operator.
+     * Copies the shared pointer for the matrix representation of this linear operator,
+     * and updates the memory location flags.
      *  @param [in] in_mat The matrix representation of this linear operator.
      */
     virtual void setMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> in_mat );

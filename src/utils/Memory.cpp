@@ -72,10 +72,10 @@ MemoryType memoryLocationFromString( [[maybe_unused]] std::string_view name )
  ****************************************************************************/
 bool memoryLocationsDeviceAccessible( const MemoryType t )
 {
-  // Trivial version of following functions. This simply
-  // asserts that a space is registered and returns true
-  // if device accessible
-  
+    // Trivial version of following functions. This simply
+    // asserts that a space is registered and returns true
+    // if device accessible
+
     AMP_INSIST( t > MemoryType::unregistered,
                 "AMP::Utilities::memoryLocationsDeviceAccessible: t1 unregistered" );
     return t >= MemoryType::managed;

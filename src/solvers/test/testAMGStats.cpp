@@ -125,7 +125,7 @@ void statsTest( AMP::UnitTest *ut,
 
     auto &comm     = rhs->getComm();
     auto solver_db = input_db->getDatabase( "LinearSolver" );
-    solver_db->putScalar( "MemoryLocation", memoryLocation );
+    solver_db->putScalar( "memory_location", memoryLocation );
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
     linearOperator->getMatrix()->setBackend( backend );
