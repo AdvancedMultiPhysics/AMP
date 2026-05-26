@@ -117,19 +117,6 @@ void SASolver::setLevelOptions( const size_t lvl )
     // these are the only items with no defaults so these DBs must exist from somewhere
     AMP_INSIST( d_pre_relax_db && d_post_relax_db,
                 "SASolver: pre_relaxation and post_relaxation parameters must be set" );
-    if ( d_mem_loc == Utilities::MemoryType::host ) {
-        d_pre_relax_db->putScalar<std::string>( "memory_location", "host" );
-        d_post_relax_db->putScalar<std::string>( "memory_location", "host" );
-    } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
-        d_pre_relax_db->putScalar<std::string>( "memory_location", "managed" );
-        d_post_relax_db->putScalar<std::string>( "memory_location", "managed" );
-    } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        d_pre_relax_db->putScalar<std::string>( "memory_location", "device" );
-        d_post_relax_db->putScalar<std::string>( "memory_location", "device" );
-    } else {
-        // unreachable from test above
-        AMP_ERROR( "SASolver: Unrecognized memory space" );
-    }
     d_pre_relax_params  = std::make_shared<AMG::RelaxationParameters>( d_pre_relax_db );
     d_post_relax_params = std::make_shared<AMG::RelaxationParameters>( d_post_relax_db );
 }
@@ -177,17 +164,7 @@ void SASolver::registerOperator( std::shared_ptr<Operator::Operator> op )
                 "SASolver::registerOperator: Given operator must have input/output variables" );
 
     // fill in finest level and setup remaining levels
-    auto op_db = std::make_shared<Database>( "SASolver::Internal" );
-    if ( d_mem_loc == Utilities::MemoryType::host ) {
-        op_db->putScalar<std::string>( "memory_location", "host" );
-    } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
-        op_db->putScalar<std::string>( "memory_location", "managed" );
-    } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        op_db->putScalar<std::string>( "memory_location", "device" );
-    } else {
-        // unreachable from test above
-        AMP_ERROR( "SASolver: Unrecognized memory space" );
-    }
+    auto op_db                = std::make_shared<Database>( "SASolver::Internal" );
     auto op_params            = std::make_shared<Operator::OperatorParameters>( op_db );
     d_levels.emplace_back().A = std::make_shared<LevelOperator>( op_params );
     d_levels.back().A->setMatrix( mat );
@@ -299,17 +276,7 @@ void SASolver::setup( std::shared_ptr<LinearAlgebra::Variable> xVar,
 {
     PROFILE( "SASolver::setup" );
 
-    auto op_db = std::make_shared<Database>( "SASolver::Internal" );
-    if ( d_mem_loc == Utilities::MemoryType::host ) {
-        op_db->putScalar<std::string>( "memory_location", "host" );
-    } else if ( d_mem_loc == Utilities::MemoryType::managed ) {
-        op_db->putScalar<std::string>( "memory_location", "managed" );
-    } else if ( d_mem_loc == Utilities::MemoryType::device ) {
-        op_db->putScalar<std::string>( "memory_location", "device" );
-    } else {
-        // unreachable from test above
-        AMP_ERROR( "SASolver: Unrecognized memory space" );
-    }
+    auto op_db     = std::make_shared<Database>( "SASolver::Internal" );
     auto op_params = std::make_shared<Operator::OperatorParameters>( op_db );
 
     std::shared_ptr<LinearAlgebra::Vector> nearNullVec;
