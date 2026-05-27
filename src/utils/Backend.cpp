@@ -118,9 +118,9 @@ bool backendMemoryTypeCompatible( const Backend backend, const MemoryType memory
 #endif
 
     // None of the other backends are supported yet, regardless of
-    // memory space compatibility. Let this be the point for error
-    // hanling of that.
-    AMP_ERROR( "Unsupported backend" );
+    // memory space compatibility. Let this be the point for warning
+    // about that.
+    AMP_WARNING( "Unsupported backend" );
     return false;
 }
 

@@ -37,20 +37,14 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
     AMP_DEBUG_ASSERT( in->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
 
     auto csrData = getCSRMatrixData<Config>( const_cast<MatrixData &>( A ) );
-
     AMP_DEBUG_ASSERT( csrData );
-
     auto diagMatrix = csrData->getDiagMatrix();
     auto offdMatrix = csrData->getOffdMatrix();
-
-    AMP_DEBUG_ASSERT( diagMatrix && offdMatrix );
 
     auto outData           = out->getVectorData();
     scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
     AMP_DEBUG_ASSERT( outDataBlock );
-    AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( outDataBlock ),
-                      "Output vector from wrong memory space" );
 
     if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsKokkos::mult(local)" );
@@ -60,9 +54,7 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::mult(
             "CSRMatrixOperationsKokkos::mult only implemented for vectors with one data block" );
         const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
         AMP_DEBUG_ASSERT( inDataBlock );
-        AMP_DEBUG_INSIST( csrData->d_memory_location ==
-                              AMP::Utilities::getMemoryType( inDataBlock ),
-                          "Input vector from wrong memory space" );
+
         d_localops_diag->mult( inDataBlock, 1.0, diagMatrix, 0.0, outDataBlock );
     }
 
@@ -118,9 +110,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::multTranspose(
 
         d_localops_diag->multTranspose( inDataBlock, diagMatrix, outDataBlock );
     }
-
-    // present in default ops, why not here?
-    //    out->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     if ( csrData->hasOffDiag() ) {
         PROFILE( "CSRMatrixOperationsKokkos::multTranspose (ghost)" );

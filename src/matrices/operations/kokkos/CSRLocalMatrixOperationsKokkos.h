@@ -11,7 +11,7 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config, class ExecSpace, class ViewSpace>
+template<typename Config, class ExecSpace>
 class CSRLocalMatrixOperationsKokkos
 {
 public:
@@ -24,6 +24,32 @@ public:
     using gidx_t   = typename Config::gidx_t;
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
+
+    // convert allocator_type from config into equivalent Kokkos memory space
+    #ifndef AMP_USE_DEVICE
+    // only one memory space, choice is easy
+    using kokkos_memspace_t = Kokkos::HostSpace;
+    #else
+        #ifdef AMP_USE_CUDA
+    // pick between host, cudauvm, and cuda
+    using kokkos_memspace_t = typename std::conditional<
+        alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
+        Kokkos::HostSpace,
+        typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
+                                      AMP::Utilities::MemoryType::managed,
+                                  Kokkos::CudaUVMSpace,
+                                  typename Kokkos::CudaSpace>::type>::type;
+        #else
+    // pick between host, hipmanaged, and hip
+    using kokkos_memspace_t = typename std::conditional<
+        alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
+        Kokkos::HostSpace,
+        typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
+                                      AMP::Utilities::MemoryType::managed,
+                                  Kokkos::HIPManagedSpace,
+                                  typename Kokkos::HIPSpace>::type>::type;
+        #endif
+    #endif
 
     CSRLocalMatrixOperationsKokkos( const ExecSpace &exec_space ) : d_exec_space( exec_space ) {}
 

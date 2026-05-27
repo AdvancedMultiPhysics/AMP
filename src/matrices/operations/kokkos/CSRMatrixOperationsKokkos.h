@@ -65,7 +65,7 @@ public:
     using matrixdata_t      = CSRMatrixData<Config>;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    using localops_t = CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>;
+    using localops_t = CSRLocalMatrixOperationsKokkos<Config, ExecSpace>;
 
     using gidx_t   = typename Config::gidx_t;
     using lidx_t   = typename Config::lidx_t;
