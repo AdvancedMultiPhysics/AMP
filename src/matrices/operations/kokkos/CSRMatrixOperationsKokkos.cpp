@@ -14,11 +14,17 @@ namespace AMP::LinearAlgebra {
         template class CSRMatrixOperationsKokkos<config_mode_t<mode>, execspace, viewspace>;
 
     #ifdef AMP_USE_DEVICE
-        #define CSR_INST( mode )                                                      \
-            KOKKOS_INST( mode, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
-            KOKKOS_INST( mode, Kokkos::DefaultExecutionSpace, Kokkos::SharedSpace )   \
-            KOKKOS_INST(                                                              \
-                mode, Kokkos::DefaultExecutionSpace, Kokkos::DefaultExecutionSpace::memory_space )
+        #ifdef AMP_USE_CUDA
+            #define CSR_INST( mode )                                                      \
+                KOKKOS_INST( mode, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
+                KOKKOS_INST( mode, Kokkos::Cuda, Kokkos::CudaUVMSpace )                   \
+                KOKKOS_INST( mode, Kokkos::Cuda, Kokkos::CudaSpace )
+        #else
+            #define CSR_INST( mode )                                                      \
+                KOKKOS_INST( mode, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
+                KOKKOS_INST( mode, Kokkos::HIP, Kokkos::HIPManagedSpace )                 \
+                KOKKOS_INST( mode, Kokkos::HIP, Kokkos::HIPSpace )
+        #endif
 CSR_CONFIG_FORALL( CSR_INST )
     #else
         #define CSR_INST( mode ) \
@@ -36,13 +42,19 @@ CSR_CONFIG_FORALL( CSR_INST )
                 std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode>>> );
 
     #ifdef AMP_USE_DEVICE
-        #define CC_INST( mode, mode_in )                                                          \
-            KOKKOS_CC_INST( mode, mode_in, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
-            KOKKOS_CC_INST( mode, mode_in, Kokkos::DefaultExecutionSpace, Kokkos::SharedSpace )   \
-            KOKKOS_CC_INST( mode,                                                                 \
-                            mode_in,                                                              \
-                            Kokkos::DefaultExecutionSpace,                                        \
-                            Kokkos::DefaultExecutionSpace::memory_space )
+        #ifdef AMP_USE_CUDA
+            #define CC_INST( mode, mode_in )                                              \
+                KOKKOS_CC_INST(                                                           \
+                    mode, mode_in, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
+                KOKKOS_CC_INST( mode, mode_in, Kokkos::Cuda, Kokkos::CudaUVMSpace )       \
+                KOKKOS_CC_INST( mode, mode_in, Kokkos::Cuda, Kokkos::CudaSpace )
+        #else
+            #define CC_INST( mode, mode_in )                                              \
+                KOKKOS_CC_INST(                                                           \
+                    mode, mode_in, Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace ) \
+                KOKKOS_CC_INST( mode, mode_in, Kokkos::HIP, Kokkos::HIPManagedSpace )     \
+                KOKKOS_CC_INST( mode, mode_in, Kokkos::HIP, Kokkos::HIPSpace )
+        #endif
 CSR_CONFIG_CC_FORALL( CC_INST )
     #else
         #define CC_INST( mode, mode_in ) \

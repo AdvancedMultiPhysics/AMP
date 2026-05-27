@@ -25,17 +25,31 @@ namespace AMP::LinearAlgebra {
 
 template<typename Config,
     #ifdef AMP_USE_DEVICE
+        #ifdef AMP_USE_CUDA
          class ExecSpace = typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
                                                          AMP::Utilities::MemoryType::host,
                                                      Kokkos::DefaultHostExecutionSpace,
-                                                     Kokkos::DefaultExecutionSpace>::type,
+                                                     Kokkos::Cuda>::type,
          class ViewSpace = typename std::conditional<
              alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
              Kokkos::HostSpace,
-             typename std::conditional<
-                 alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::managed,
-                 Kokkos::SharedSpace,
-                 typename Kokkos::DefaultExecutionSpace::memory_space>::type>::type
+             typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
+                                           AMP::Utilities::MemoryType::managed,
+                                       Kokkos::CudaUVMSpace,
+                                       typename Kokkos::CudaSpace>::type>::type
+        #else
+         class ExecSpace = typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
+                                                         AMP::Utilities::MemoryType::host,
+                                                     Kokkos::DefaultHostExecutionSpace,
+                                                     Kokkos::HIP>::type,
+         class ViewSpace = typename std::conditional<
+             alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
+             Kokkos::HostSpace,
+             typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
+                                           AMP::Utilities::MemoryType::managed,
+                                       Kokkos::HIPManagedSpace,
+                                       typename Kokkos::HIPSpace>::type>::type
+        #endif
     #else
          class ExecSpace = Kokkos::DefaultHostExecutionSpace,
          class ViewSpace = Kokkos::HostSpace
