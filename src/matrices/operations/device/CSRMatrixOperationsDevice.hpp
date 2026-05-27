@@ -135,15 +135,8 @@ void CSRMatrixOperationsDevice<Config>::matMatMult( std::shared_ptr<MatrixData> 
                 "CSRMatrixOperationsDefault::matMatMult got incompatible local dimensions" );
 
     // Verify that all matrices have the same memory space and that it isn't device
-    const auto memLocA = csrDataA->getMemoryLocation();
-    const auto memLocB = csrDataB->getMemoryLocation();
-    const auto memLocC = csrDataC->getMemoryLocation();
-    AMP_INSIST( memLocA == AMP::Utilities::MemoryType::device,
+    AMP_INSIST( csrDataA->d_memory_location == AMP::Utilities::MemoryType::device,
                 "CSRMatrixOperationsDevice::matMatMult only implemented for device matrices" );
-    AMP_INSIST( memLocA == memLocB,
-                "CSRMatrixOperationsDevice::matMatMult A and B must have the same memory type" );
-    AMP_INSIST( memLocA == memLocC,
-                "CSRMatrixOperationsDevice::matMatMult A and C must have the same memory type" );
 
     // Create an SpGEMM helper object and call multiply
     CSRMatrixSpGEMMDevice<Config> spgemm( csrDataA, csrDataB, csrDataC );

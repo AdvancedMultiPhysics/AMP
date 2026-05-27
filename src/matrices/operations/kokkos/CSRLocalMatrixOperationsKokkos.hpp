@@ -584,7 +584,7 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::copyCast(
     std::shared_ptr<CSRLocalMatrixData<ConfigIn>> X, std::shared_ptr<localmatrixdata_t> Y )
 {
     // Check compatibility
-    AMP_ASSERT( Y->getMemoryLocation() == X->getMemoryLocation() );
+    AMP_ASSERT( Y->d_memory_location == X->d_memory_location );
     AMP_ASSERT( Y->beginRow() == X->beginRow() );
     AMP_ASSERT( Y->endRow() == X->endRow() );
     AMP_ASSERT( Y->beginCol() == X->beginCol() );

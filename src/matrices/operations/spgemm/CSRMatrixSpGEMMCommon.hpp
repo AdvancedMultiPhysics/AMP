@@ -27,20 +27,10 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
         startBRemoteComm();
     }
 
-    C_diag_diag = std::make_shared<localmatrixdata_t>( nullptr,
-                                                       C->getMemoryLocation(),
-                                                       C->beginRow(),
-                                                       C->endRow(),
-                                                       C->beginCol(),
-                                                       C->endCol(),
-                                                       true );
-    C_diag_offd = std::make_shared<localmatrixdata_t>( nullptr,
-                                                       C->getMemoryLocation(),
-                                                       C->beginRow(),
-                                                       C->endRow(),
-                                                       C->beginCol(),
-                                                       C->endCol(),
-                                                       false );
+    C_diag_diag = std::make_shared<localmatrixdata_t>(
+        nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), true );
+    C_diag_offd = std::make_shared<localmatrixdata_t>(
+        nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), false );
 
     {
         PROFILE( "CSRMatrixSpGEMMCommon::multiply (local)" );
@@ -52,13 +42,8 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
         endBRemoteComm();
         PROFILE( "CSRMatrixSpGEMMCommon::multiply (remote)" );
         if ( BR_diag.get() != nullptr ) {
-            C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
-                                                               C->getMemoryLocation(),
-                                                               C->beginRow(),
-                                                               C->endRow(),
-                                                               C->beginCol(),
-                                                               C->endCol(),
-                                                               true );
+            C_offd_diag = std::make_shared<localmatrixdata_t>(
+                nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), true );
             multiplyLocal( A_offd, BR_diag, C_offd_diag );
             merge( C_diag_diag, C_offd_diag, C_diag );
             C_diag_diag.reset();
@@ -67,13 +52,8 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
             C_diag->swapDataFields( *C_diag_diag );
         }
         if ( BR_offd.get() != nullptr ) {
-            C_offd_offd = std::make_shared<localmatrixdata_t>( nullptr,
-                                                               C->getMemoryLocation(),
-                                                               C->beginRow(),
-                                                               C->endRow(),
-                                                               C->beginCol(),
-                                                               C->endCol(),
-                                                               false );
+            C_offd_offd = std::make_shared<localmatrixdata_t>(
+                nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), false );
             multiplyLocal( A_offd, BR_offd, C_offd_offd );
             merge( C_diag_offd, C_offd_offd, C_offd );
             C_diag_offd.reset();

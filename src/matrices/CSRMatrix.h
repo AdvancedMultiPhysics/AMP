@@ -85,20 +85,13 @@ public:
     shared_ptr migrate( AMP::Utilities::MemoryType memType, AMP::Utilities::Backend backend ) const;
 
     /** \brief  Return a copy of the matrix with the specified ConfigOut
-     * \return  The new matrix
-     * \details This selects the operations backend from the default based on memType
-     */
-    template<typename ConfigOut>
-    shared_ptr migrate() const;
-
-    /** \brief  Return a copy of the matrix with the specified ConfigOut
      * \param[in] backend Acceleration backend for operations
      * \return  The new matrix
      */
     template<typename ConfigOut>
     shared_ptr migrate( AMP::Utilities::Backend backend ) const;
 
-    //! Replace current backend with different one, no-op if same
+    //! Replace current backend with different one
     void setBackend( AMP::Utilities::Backend backend ) override;
 
     //! Get backend from current matrix operations object

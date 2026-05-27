@@ -158,7 +158,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             A->getComm(),
             A_data->getLeftVariable(),
             A_data->getLeftVariable(),
-            A_data->getBackend(),
+            A->getBackend(),
             std::function<std::vector<size_t>( size_t )>() );
     } else {
         rightDOFs = matParams->getRightDOFManager();
@@ -203,7 +203,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
                                           A_data->getLeftVariable(),
                                           true,
                                           A_data->getMemoryLocation(),
-                                          A_data->getBackend() );
+                                          A->getBackend() );
         coarseNearNullVec->setNoGhosts();
         coarseNearNullVec->setToScalar( 0.0 );
         scalar_t *coarse_null_vals =

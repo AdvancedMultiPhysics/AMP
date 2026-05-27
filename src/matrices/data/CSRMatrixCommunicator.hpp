@@ -121,7 +121,6 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
     }
 
     std::map<int, std::shared_ptr<localmatrixdata_t>> blocks;
-    const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
 
     // there are d_num_sources matrices to receive
     // always sent in order row_starts, cols, coeffs
@@ -146,7 +145,7 @@ CSRMatrixCommunicator<Config>::recvMatrices( typename Config::gidx_t first_row,
         auto [it, inserted] =
             blocks.insert( { source,
                              std::make_shared<localmatrixdata_t>(
-                                 nullptr, mem_loc, fr, lr, first_col, last_col, false ) } );
+                                 nullptr, fr, lr, first_col, last_col, false ) } );
         AMP_ASSERT( inserted );
         auto block = ( *it ).second;
         // matrix now exists and has row_starts buffer, recv it and trigger allocations

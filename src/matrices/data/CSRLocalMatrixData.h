@@ -57,7 +57,6 @@ public:
 
     /** \brief Constructor
      * \param[in] params           Description of the matrix
-     * \param[in] memory_location  Memory space where data is located
      * \param[in] first_row        Global index of starting row (inclusive)
      * \param[in] last_row         Global index of final row (exclusive)
      * \param[in] first_col        Global index of starting column (inclusive)
@@ -67,7 +66,6 @@ public:
      * \param[in] hash             Hash value
      */
     explicit CSRLocalMatrixData( std::shared_ptr<MatrixParametersBase> params,
-                                 AMP::Utilities::MemoryType memory_location,
                                  typename Config::gidx_t first_row,
                                  typename Config::gidx_t last_row,
                                  typename Config::gidx_t first_col,
@@ -103,9 +101,6 @@ public:
 
     //! Get row pointers
     lidx_t *getRowStarts() { return d_row_starts.get(); }
-
-    //! Get the memory space where data is stored
-    auto getMemoryLocation() const { return d_memory_location; }
 
     //! Check if this is a diagonal block
     bool isDiag() const { return d_is_diag; }
@@ -243,11 +238,9 @@ public:
         return sharedArrayBuilder<scalar_t>( N );
     }
 
-public: // Non virtual functions
-        //! Get a unique id hash for the vector
+    //! Get a unique id hash
     uint64_t getID() const { return d_hash; }
 
-public: // Write/read restart data
     /**
      * \brief    Register any child objects
      * \details  This function will register child objects with the manager
@@ -266,6 +259,10 @@ public: // Write/read restart data
      * \brief Constructor from restart data
      */
     CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager *manager );
+
+    //! Memory location, set by examining type of Allocator
+    static constexpr AMP::Utilities::MemoryType d_memory_location =
+        AMP::Utilities::getAllocatorMemoryType<allocator_type>();
 
 protected:
     /** \brief  Sort the columns/values within each row
@@ -345,8 +342,6 @@ protected:
     std::vector<size_t> getColumnIDs( const size_t local_row ) const;
 
     // Data members passed from outer CSRMatrixData object
-    //! Memory space where data lives, compatible with allocator template parameter
-    AMP::Utilities::MemoryType d_memory_location;
     //! Global index of first row of this block
     gidx_t d_first_row;
     //! Global index of last row of this block

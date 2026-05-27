@@ -242,15 +242,6 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>::matMatMult(
     AMP_INSIST( localKa == localKb,
                 "CSRMatrixOperationsDefault::matMatMult got incompatible local dimensions" );
 
-    // Verify that all matrices have the same memory space and that it isn't device
-    const auto memLocA = csrDataA->getMemoryLocation();
-    const auto memLocB = csrDataB->getMemoryLocation();
-    const auto memLocC = csrDataC->getMemoryLocation();
-    AMP_INSIST( memLocA == memLocB,
-                "CSRMatrixOperationsKokkos::matMatMult A and B must have the same memory type" );
-    AMP_INSIST( memLocA == memLocC,
-                "CSRMatrixOperationsKokkos::matMatMult A and C must have the same memory type" );
-
     // construct SpGEMM helper and call multiply
     #ifdef AMP_USE_KOKKOSKERNELS
     CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace> spgemm( csrDataA, csrDataB, csrDataC );

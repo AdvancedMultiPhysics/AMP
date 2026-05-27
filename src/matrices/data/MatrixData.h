@@ -264,19 +264,6 @@ public:
         return d_pParameters->getComm();
     }
 
-    //! Get the backend
-    inline virtual AMP::Utilities::Backend getBackend() const
-    {
-        AMP_ASSERT( d_pParameters );
-        return d_pParameters->d_backend;
-    }
-
-    inline virtual void setBackend( AMP::Utilities::Backend backend )
-    {
-        AMP_ASSERT( d_pParameters );
-        d_pParameters->d_backend = backend;
-    }
-
     //! Get the memory space where data is stored
     virtual AMP::Utilities::MemoryType getMemoryLocation() const
     {
@@ -310,9 +297,9 @@ public: // Write/read restart data
 
     MatrixData( int64_t fid, AMP::IO::RestartManager *manager );
 
-protected:
     std::shared_ptr<MatrixParametersBase> d_pParameters;
 
+protected:
     // unique hash to identify this object
     uint64_t d_hash = 0;
 };

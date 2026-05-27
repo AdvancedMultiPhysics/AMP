@@ -13,10 +13,9 @@ namespace AMP::LinearAlgebra {
 CSR_CONFIG_FORALL( CSR_INST )
 #undef CSR_INST
 
-#define CSR_INST( mode, mode_in )                                        \
-    template std::shared_ptr<CSRMatrixData<config_mode_t<mode>>>         \
-    CSRMatrixData<config_mode_t<mode_in>>::migrate<config_mode_t<mode>>( \
-        AMP::Utilities::Backend backend ) const;
+#define CSR_INST( mode, mode_in )                                \
+    template std::shared_ptr<CSRMatrixData<config_mode_t<mode>>> \
+    CSRMatrixData<config_mode_t<mode_in>>::migrate<config_mode_t<mode>>() const;
 CSR_INOUT_CONFIG_MIGRATE( CSR_INST )
 
 } // namespace AMP::LinearAlgebra

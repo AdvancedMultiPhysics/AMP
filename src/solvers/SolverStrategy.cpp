@@ -55,11 +55,9 @@ void SolverStrategy::getBaseFromInput( std::shared_ptr<AMP::Database> db )
     d_dAbsoluteTolerance   = db->getWithDefault<double>( "absolute_tolerance", 1.0e-14 );
     d_dRelativeTolerance   = db->getWithDefault<double>( "relative_tolerance", 1.0e-09 );
     d_bComputeResidual     = db->getWithDefault<bool>( "compute_residual", false );
-    if ( db->keyExists( "execution_space" ) ) {
-        d_exec_space = AMP::Utilities::executionSpaceFromString(
-            db->getScalar<std::string>( "execution_space" ) );
-    }
     if ( db->keyExists( "memory_location" ) ) {
+        AMP_WARN_ONCE( "Setting solver memory location through input DB not advised, it will be "
+                       "overridden by registerOperator to match space of operator" );
         d_memory_location = AMP::Utilities::memoryLocationFromString(
             db->getScalar<std::string>( "memory_location" ) );
     }
@@ -79,9 +77,8 @@ void SolverStrategy::registerOperator( std::shared_ptr<AMP::Operator::Operator> 
 {
     if ( op ) {
 
-        // set memory location and execution space from operator
+        // set memory location from operator
         d_memory_location = op->getMemoryLocation();
-        d_exec_space      = AMP::Utilities::getDefaultExecutionSpace( d_memory_location );
 
         if ( d_memory_location == op->getMemoryLocation() ) {
             d_pOperator = op;

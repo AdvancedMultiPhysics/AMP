@@ -40,7 +40,6 @@ std::shared_ptr<data_type[]> sharedArrayWrapper( data_type *raw_array )
 
 template<typename Config>
 CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParametersBase> params,
-                                                AMP::Utilities::MemoryType memory_location,
                                                 typename Config::gidx_t first_row,
                                                 typename Config::gidx_t last_row,
                                                 typename Config::gidx_t first_col,
@@ -48,8 +47,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
                                                 bool is_diag,
                                                 bool is_symbolic,
                                                 uint64_t hash )
-    : d_memory_location( memory_location ),
-      d_first_row( first_row ),
+    : d_first_row( first_row ),
       d_last_row( last_row ),
       d_first_col( first_col ),
       d_last_col( last_col ),
@@ -261,7 +259,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
 
     // Create output matrix
     auto concat_matrix = std::make_shared<CSRLocalMatrixData<Config>>(
-        params, mem_loc, first_row, last_row, first_col, last_col, false );
+        params, first_row, last_row, first_col, last_col, false );
 
     // count number of non-zeros in each row
     for ( auto it : blocks ) {
@@ -332,7 +330,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
 
     // create output matrix
     auto concat_matrix = std::make_shared<CSRLocalMatrixData<Config>>(
-        params, mem_loc, 0, num_rows, first_col, last_col, is_diag );
+        params, 0, num_rows, first_col, last_col, is_diag );
     // Count total number of non-zeros in each row from combination.
     lidx_t cat_row = 0; // counter for which row we are on in concat_matrix
     for ( auto it : blocks ) {
@@ -505,14 +503,8 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
     }
 
     // create matrix with same layout and location, possibly now symbolic
-    auto outData = std::make_shared<outdata_t>( nullptr,
-                                                d_memory_location,
-                                                d_first_row,
-                                                d_last_row,
-                                                d_first_col,
-                                                d_last_col,
-                                                d_is_diag,
-                                                is_symbolic );
+    auto outData = std::make_shared<outdata_t>(
+        nullptr, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag, is_symbolic );
 
     // count entries in mask and allocate output
     const auto num_rows = numLocalRows();
@@ -552,9 +544,8 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::migrate not implemented for symbolic matrices" );
 
-    auto memloc  = AMP::Utilities::getAllocatorMemoryType<out_alloc_t>();
     auto outData = std::make_shared<outdata_t>(
-        nullptr, memloc, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
+        nullptr, d_first_row, d_last_row, d_first_col, d_last_col, d_is_diag );
 
     outData->d_is_empty  = d_is_empty;
     outData->d_nnz       = static_cast<typename outdata_t::lidx_t>( d_nnz );
@@ -632,7 +623,7 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
 
     // create new data, note swapped rows and cols
     auto transposeData = std::make_shared<CSRLocalMatrixData>(
-        params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, d_is_diag );
+        params, d_first_col, d_last_col, d_first_row, d_last_row, d_is_diag );
 
     // handle edge case of empty diagonal block
     if ( d_is_empty ) {
@@ -1404,7 +1395,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
 {
     signed char memory_location;
     IO::readHDF5( fid, "memory_location", memory_location );
-    d_memory_location = static_cast<AMP::Utilities::MemoryType>( memory_location );
+    AMP_ASSERT( d_memory_location == static_cast<AMP::Utilities::MemoryType>( memory_location ) );
 
     IO::readHDF5( fid, "first_row", d_first_row );
     IO::readHDF5( fid, "last_row", d_last_row );

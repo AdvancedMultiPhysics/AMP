@@ -69,7 +69,7 @@ public:
 
     //! Migrate data to different configuration, mostly for moving memory spaces
     template<typename ConfigOut>
-    std::shared_ptr<CSRMatrixData<ConfigOut>> migrate( AMP::Utilities::Backend backend ) const;
+    std::shared_ptr<CSRMatrixData<ConfigOut>> migrate() const;
 
     //! Transpose
     std::shared_ptr<MatrixData> transpose() const override;
@@ -364,7 +364,8 @@ protected:
 
 public:
     //! Memory location, set by examining type of Allocator
-    AMP::Utilities::MemoryType d_memory_location;
+    static constexpr AMP::Utilities::MemoryType d_memory_location =
+        AMP::Utilities::getAllocatorMemoryType<allocator_type>();
 
 protected:
     //! Matrix is square if true
