@@ -12,20 +12,22 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename T, class ViewSpace>
+template<typename T>
 auto wrapVecDataKokkos( const VectorData &x )
 {
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     const auto N = x.sizeOfDataBlock( 0 );
-    return Kokkos::View<const T *, Kokkos::LayoutRight, ViewSpace>( x.getRawDataBlock<T>( 0 ), N );
+    return Kokkos::View<const T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace>(
+        x.getRawDataBlock<T>( 0 ), N );
 }
 
-template<typename T, class ViewSpace>
+template<typename T>
 auto wrapVecDataKokkos( VectorData &x )
 {
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     const auto N = x.sizeOfDataBlock( 0 );
-    return Kokkos::View<T *, Kokkos::LayoutRight, ViewSpace>( x.getRawDataBlock<T>( 0 ), N );
+    return Kokkos::View<T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace>(
+        x.getRawDataBlock<T>( 0 ), N );
 }
 
 template<typename T>
@@ -51,16 +53,15 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     const T alpha = alpha_in.get<T>();
+    auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        Kokkos::deep_copy( xv, alpha );
+        Kokkos::deep_copy( Kokkos::HostSpace(), xv, alpha );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        Kokkos::deep_copy( xv, alpha );
+        Kokkos::deep_copy( Kokkos::DefaultExecutionSpace(), xv, alpha );
     #endif
     }
     x.fillGhosts( alpha_in );
@@ -93,14 +94,13 @@ void VectorOperationsKokkos<T>::setRandomValues( VectorData &x )
     const auto device_exec =
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
+    auto xv = wrapVecDataKokkos<T>( x );
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
         random_kernel( d_exec_host, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         random_kernel( d_exec_device, xv );
     #endif
     }
@@ -138,14 +138,13 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, VectorData &x )
 
     const T alpha = alpha_in.get<T>();
 
+    auto xv = wrapVecDataKokkos<T>( x );
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
         scale_kernel( d_exec_host, alpha, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         scale_kernel( d_exec_device, alpha, xv );
     #endif
     }
@@ -171,17 +170,15 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, const VectorData 
         x.getMemoryLocation(), y.getMemoryLocation() );
 
     const T alpha = alpha_in.get<T>();
+    auto xv       = wrapVecDataKokkos<T>( x );
+    auto yv       = wrapVecDataKokkos<T>( y );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
         scale_kernel( d_exec_host, alpha, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         scale_kernel( d_exec_device, alpha, xv, yv );
     #endif
     }
@@ -222,18 +219,16 @@ void VectorOperationsKokkos<T>::multiply( const VectorData &x, const VectorData 
     const auto device_exec = AMP::Utilities::memoryLocationsDeviceAccessible(
         x.getMemoryLocation(), y.getMemoryLocation(), z.getMemoryLocation() );
 
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
+    auto zv = wrapVecDataKokkos<T>( z );
+
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
-        auto zv = wrapVecDataKokkos<T, ViewSpaceHost>( z );
         multiply_kernel( d_exec_host, xv, yv, zv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
-        auto zv = wrapVecDataKokkos<T, ViewSpaceDevice>( z );
         multiply_kernel( d_exec_device, xv, yv, zv );
     #endif
     }
@@ -258,18 +253,16 @@ void VectorOperationsKokkos<T>::divide( const VectorData &x, const VectorData &y
     const auto device_exec = AMP::Utilities::memoryLocationsDeviceAccessible(
         x.getMemoryLocation(), y.getMemoryLocation(), z.getMemoryLocation() );
 
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
+    auto zv = wrapVecDataKokkos<T>( z );
+
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
-        auto zv = wrapVecDataKokkos<T, ViewSpaceHost>( z );
         divide_kernel( d_exec_host, xv, yv, zv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
-        auto zv = wrapVecDataKokkos<T, ViewSpaceDevice>( z );
         divide_kernel( d_exec_device, xv, yv, zv );
     #endif
     }
@@ -294,16 +287,15 @@ void VectorOperationsKokkos<T>::reciprocal( const VectorData &x, VectorData &y )
     const auto device_exec = AMP::Utilities::memoryLocationsDeviceAccessible(
         x.getMemoryLocation(), y.getMemoryLocation() );
 
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
+
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
         reciprocal_kernel( d_exec_host, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         reciprocal_kernel( d_exec_device, xv, yv );
     #endif
     }
@@ -334,19 +326,16 @@ void VectorOperationsKokkos<T>::linearSum( const Scalar &alpha_in,
 
     const T alpha = alpha_in.get<T>();
     const T beta  = beta_in.get<T>();
+    auto xv       = wrapVecDataKokkos<T>( x );
+    auto yv       = wrapVecDataKokkos<T>( y );
+    auto zv       = wrapVecDataKokkos<T>( z );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
-        auto zv = wrapVecDataKokkos<T, ViewSpaceHost>( z );
         linsum_kernel( d_exec_host, alpha, xv, beta, yv, zv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
-        auto zv = wrapVecDataKokkos<T, ViewSpaceDevice>( z );
         linsum_kernel( d_exec_device, alpha, xv, beta, yv, zv );
     #endif
     }
@@ -393,16 +382,15 @@ void VectorOperationsKokkos<T>::abs( const VectorData &x, VectorData &y )
     const auto device_exec = AMP::Utilities::memoryLocationsDeviceAccessible(
         x.getMemoryLocation(), y.getMemoryLocation() );
 
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
+
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
         abs_kernel( d_exec_host, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         abs_kernel( d_exec_device, xv, yv );
     #endif
     }
@@ -430,17 +418,15 @@ void VectorOperationsKokkos<T>::addScalar( const VectorData &x,
         x.getMemoryLocation(), y.getMemoryLocation() );
 
     const T alpha = alpha_in.get<T>();
+    auto xv       = wrapVecDataKokkos<T>( x );
+    auto yv       = wrapVecDataKokkos<T>( y );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
         add_scalar_kernel( d_exec_host, alpha, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         add_scalar_kernel( d_exec_device, alpha, xv, yv );
     #endif
     }
@@ -466,15 +452,14 @@ void VectorOperationsKokkos<T>::setMin( const Scalar &alpha_in, VectorData &x )
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     const T alpha = alpha_in.get<T>();
+    auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
         set_min_kernel( d_exec_host, alpha, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         set_min_kernel( d_exec_device, alpha, xv );
     #endif
     }
@@ -500,15 +485,14 @@ void VectorOperationsKokkos<T>::setMax( const Scalar &alpha_in, VectorData &x )
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     const T alpha = alpha_in.get<T>();
+    auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
         set_max_kernel( d_exec_host, alpha, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         set_max_kernel( d_exec_device, alpha, xv );
     #endif
     }
@@ -538,15 +522,14 @@ Scalar VectorOperationsKokkos<T>::localMin( const VectorData &x ) const
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     T min_val;
+    auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
         min_val = min_kernel( d_exec_host, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         min_val      = min_kernel( d_exec_device, xv );
     #endif
     }
@@ -577,15 +560,14 @@ Scalar VectorOperationsKokkos<T>::localMax( const VectorData &x ) const
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     T max_val;
+    auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
         max_val = max_kernel( d_exec_host, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         max_val      = max_kernel( d_exec_device, xv );
     #endif
     }
@@ -616,15 +598,14 @@ Scalar VectorOperationsKokkos<T>::localSum( const VectorData &x ) const
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     T sum;
+    auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        sum     = sum_kernel( d_exec_host, xv );
+        sum = sum_kernel( d_exec_host, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         sum          = sum_kernel( d_exec_device, xv );
     #endif
     }
@@ -655,15 +636,14 @@ Scalar VectorOperationsKokkos<T>::localL1Norm( const VectorData &x ) const
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     T norm;
+    auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        norm    = l1_norm_kernel( d_exec_host, xv );
+        norm = l1_norm_kernel( d_exec_host, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         norm         = l1_norm_kernel( d_exec_device, xv );
     #endif
     }
@@ -693,16 +673,15 @@ Scalar VectorOperationsKokkos<T>::localL2Norm2( const VectorData &x ) const
     const auto device_exec =
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
-    T norm = 0.0;
+    T norm  = 0.0;
+    auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        norm    = l2_norm_kernel( d_exec_host, xv );
+        norm = l2_norm_kernel( d_exec_host, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         norm         = l2_norm_kernel( d_exec_device, xv );
     #endif
     }
@@ -736,15 +715,14 @@ Scalar VectorOperationsKokkos<T>::localMaxNorm( const VectorData &x ) const
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
 
     T norm;
+    auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        norm    = max_norm_kernel( d_exec_host, xv );
+        norm = max_norm_kernel( d_exec_host, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
         norm         = max_norm_kernel( d_exec_device, xv );
     #endif
     }
@@ -775,17 +753,15 @@ Scalar VectorOperationsKokkos<T>::localDot( const VectorData &x, const VectorDat
         x.getMemoryLocation(), y.getMemoryLocation() );
 
     T dot;
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
-        dot     = dot_kernel( d_exec_host, xv, yv );
+        dot = dot_kernel( d_exec_host, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv      = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         dot          = dot_kernel( d_exec_device, xv, yv );
     #endif
     }
@@ -819,17 +795,15 @@ Scalar VectorOperationsKokkos<T>::localMinQuotient( const VectorData &x, const V
         x.getMemoryLocation(), y.getMemoryLocation() );
 
     T min_quotient;
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_exec ) {
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv      = wrapVecDataKokkos<T, ViewSpaceHost>( y );
         min_quotient = min_quotient_kernel( d_exec_host, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv      = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         min_quotient = min_quotient_kernel( d_exec_device, xv, yv );
     #endif
     }
@@ -860,17 +834,15 @@ Scalar VectorOperationsKokkos<T>::localWrmsNorm( const VectorData &x, const Vect
         x.getMemoryLocation(), y.getMemoryLocation() );
 
     T norm;
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
-        norm    = wrms_kernel( d_exec_host, xv, yv );
+        norm = wrms_kernel( d_exec_host, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv      = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         norm         = wrms_kernel( d_exec_device, xv, yv );
     #endif
     }
@@ -908,19 +880,16 @@ Scalar VectorOperationsKokkos<T>::localWrmsNormMask( const VectorData &x,
         x.getMemoryLocation(), mask.getMemoryLocation(), y.getMemoryLocation() );
 
     T norm;
+    auto xv = wrapVecDataKokkos<T>( x );
+    auto yv = wrapVecDataKokkos<T>( y );
+    auto mv = wrapVecDataKokkos<T>( mask );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
-        auto mv = wrapVecDataKokkos<T, ViewSpaceHost>( mask );
-        norm    = wrms_mask_kernel( d_exec_host, mv, xv, yv );
+        norm = wrms_mask_kernel( d_exec_host, mv, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv      = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
-        auto mv      = wrapVecDataKokkos<T, ViewSpaceDevice>( mask );
         norm         = wrms_mask_kernel( d_exec_device, mv, xv, yv );
     #endif
     }
@@ -958,17 +927,15 @@ bool VectorOperationsKokkos<T>::localEquals( const VectorData &x,
 
     bool equals;
     const T tol = tol_in.get<T>();
+    auto xv     = wrapVecDataKokkos<T>( x );
+    auto yv     = wrapVecDataKokkos<T>( y );
 
     if ( !device_exec ) {
-        auto xv = wrapVecDataKokkos<T, ViewSpaceHost>( x );
-        auto yv = wrapVecDataKokkos<T, ViewSpaceHost>( y );
-        equals  = equals_kernel( d_exec_host, tol, xv, yv );
+        equals = equals_kernel( d_exec_host, tol, xv, yv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        auto xv      = wrapVecDataKokkos<T, ViewSpaceDevice>( x );
-        auto yv      = wrapVecDataKokkos<T, ViewSpaceDevice>( y );
         equals       = equals_kernel( d_exec_device, tol, xv, yv );
     #endif
     }

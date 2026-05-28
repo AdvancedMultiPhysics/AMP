@@ -5,7 +5,6 @@
 #include "AMP/utils/Memory.h"
 
 #include <type_traits>
-#include <variant>
 
 #ifdef AMP_USE_KOKKOS
 
@@ -226,44 +225,13 @@ public:
     //! Helper function for wrapping csr data into kokkos views
     static csr_tuple_t wrapCSRDataKokkos( std::shared_ptr<localmatrixdata_t> A );
 
-    #ifndef AMP_USE_DEVICE
-    //! Helper to wrap incoming data into view
     template<typename T, typename... ViewArgs>
     static auto WrapVector( T *ptr, lidx_t num, AMP::Utilities::MemoryType )
     {
-        using ViewVariant =
-            std::variant<Kokkos::View<T *, Kokkos::LayoutRight, kokkos_host_space_t, ViewArgs...>>;
-        ViewVariant erased_view =
-            Kokkos::View<T *, Kokkos::LayoutRight, kokkos_host_space_t, ViewArgs...>( ptr, num );
-        return erased_view;
-    }
-    #else
-    //! Helper to wrap incoming data into view matching its runtime known memory space
-    template<typename T, typename... ViewArgs>
-    static auto WrapVector( T *ptr, lidx_t num, AMP::Utilities::MemoryType mem_loc )
-    {
-        using ViewVariant = std::variant<
-            Kokkos::View<T *, Kokkos::LayoutRight, kokkos_host_space_t, ViewArgs...>,
-            Kokkos::View<T *, Kokkos::LayoutRight, kokkos_managed_space_t, ViewArgs...>,
-            Kokkos::View<T *, Kokkos::LayoutRight, kokkos_device_space_t, ViewArgs...>>;
-        ViewVariant erased_view;
-        if ( mem_loc == AMP::Utilities::MemoryType::host ) {
-            erased_view = Kokkos::View<T *, Kokkos::LayoutRight, kokkos_host_space_t, ViewArgs...>(
-                ptr, num );
-        } else if ( mem_loc == AMP::Utilities::MemoryType::managed ) {
-            erased_view =
-                Kokkos::View<T *, Kokkos::LayoutRight, kokkos_managed_space_t, ViewArgs...>( ptr,
-                                                                                             num );
-        } else if ( mem_loc == AMP::Utilities::MemoryType::device ) {
-            erased_view =
-                Kokkos::View<T *, Kokkos::LayoutRight, kokkos_device_space_t, ViewArgs...>( ptr,
+        return Kokkos::View<T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace, ViewArgs...>( ptr,
                                                                                             num );
-        } else {
-            AMP_ERROR( "Unrecognized memory space requested" );
-        }
-        return erased_view;
     }
-    #endif
+
 protected:
     ExecSpace d_exec_space;
 };
