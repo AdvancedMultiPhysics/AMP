@@ -12,7 +12,7 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config, class ExecSpace>
+template<typename Config>
 class CSRLocalMatrixOperationsKokkos
 {
 public:
@@ -63,7 +63,11 @@ public:
                    Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>,
                    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, csr_memspace_t>>;
 
-    CSRLocalMatrixOperationsKokkos( const ExecSpace &exec_space ) : d_exec_space( exec_space ) {}
+    CSRLocalMatrixOperationsKokkos( Kokkos::DefaultHostExecutionSpace &exec_host,
+                                    Kokkos::DefaultExecutionSpace &exec_device )
+        : d_exec_host( exec_host ), d_exec_device( exec_device )
+    {
+    }
 
     /** \brief  Matrix-vector multiplication
      * \param[in]  in The vector to multiply
@@ -226,14 +230,16 @@ public:
     static csr_tuple_t wrapCSRDataKokkos( std::shared_ptr<localmatrixdata_t> A );
 
     template<typename T, typename... ViewArgs>
-    static auto WrapVector( T *ptr, lidx_t num, AMP::Utilities::MemoryType )
+    static auto WrapVector( T *ptr, lidx_t num )
     {
         return Kokkos::View<T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace, ViewArgs...>( ptr,
                                                                                             num );
     }
 
 protected:
-    ExecSpace d_exec_space;
+    Kokkos::DefaultHostExecutionSpace d_exec_host;
+    // not device on host-only builds, but also not used in that case
+    Kokkos::DefaultExecutionSpace d_exec_device;
 };
 
 } // namespace AMP::LinearAlgebra

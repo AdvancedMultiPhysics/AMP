@@ -9,50 +9,24 @@
 
 namespace AMP::LinearAlgebra {
 
-    #define KOKKOS_INST( mode, execspace )                                             \
-        template class CSRLocalMatrixOperationsKokkos<config_mode_t<mode>, execspace>; \
-        template class CSRMatrixOperationsKokkos<config_mode_t<mode>, execspace>;
+    #define KOKKOS_INST( mode )                                             \
+        template class CSRLocalMatrixOperationsKokkos<config_mode_t<mode>>; \
+        template class CSRMatrixOperationsKokkos<config_mode_t<mode>>;
 
-    #ifdef AMP_USE_DEVICE
-        #ifdef AMP_USE_CUDA
-            #define CSR_INST( mode )                                   \
-                KOKKOS_INST( mode, Kokkos::DefaultHostExecutionSpace ) \
-                KOKKOS_INST( mode, Kokkos::Cuda )
-        #else
-            #define CSR_INST( mode )                                   \
-                KOKKOS_INST( mode, Kokkos::DefaultHostExecutionSpace ) \
-                KOKKOS_INST( mode, Kokkos::HIP )
-        #endif
+        #define CSR_INST( mode ) KOKKOS_INST( mode )
 CSR_CONFIG_FORALL( CSR_INST )
-    #else
-        #define CSR_INST( mode ) KOKKOS_INST( mode, Kokkos::DefaultHostExecutionSpace )
-CSR_CONFIG_FORALL( CSR_INST )
-    #endif
 
-    #define KOKKOS_CC_INST( mode, mode_in, execspace )                                            \
-        template void CSRMatrixOperationsKokkos<config_mode_t<mode>, execspace>::copyCast<        \
-            config_mode_t<mode_in>>( CSRMatrixData<config_mode_t<mode_in>> *,                     \
-                                     CSRMatrixData<config_mode_t<mode>> * );                      \
-        template void CSRLocalMatrixOperationsKokkos<config_mode_t<mode>, execspace>::copyCast<   \
-            config_mode_t<mode_in>>( std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode_in>>>, \
-                                     std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode>>> );
+    #define KOKKOS_CC_INST( mode, mode_in )                                                        \
+        template void                                                                              \
+        CSRMatrixOperationsKokkos<config_mode_t<mode>>::copyCast<config_mode_t<mode_in>>(          \
+            CSRMatrixData<config_mode_t<mode_in>> *, CSRMatrixData<config_mode_t<mode>> * );       \
+        template void                                                                              \
+            CSRLocalMatrixOperationsKokkos<config_mode_t<mode>>::copyCast<config_mode_t<mode_in>>( \
+                std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode_in>>>,                       \
+                std::shared_ptr<CSRLocalMatrixData<config_mode_t<mode>>> );
 
-    #ifdef AMP_USE_DEVICE
-        #ifdef AMP_USE_CUDA
-            #define CC_INST( mode, mode_in )                                       \
-                KOKKOS_CC_INST( mode, mode_in, Kokkos::DefaultHostExecutionSpace ) \
-                KOKKOS_CC_INST( mode, mode_in, Kokkos::Cuda )
-        #else
-            #define CC_INST( mode, mode_in )                                       \
-                KOKKOS_CC_INST( mode, mode_in, Kokkos::DefaultHostExecutionSpace ) \
-                KOKKOS_CC_INST( mode, mode_in, Kokkos::HIP )
-        #endif
+    #define CC_INST( mode, mode_in ) KOKKOS_CC_INST( mode, mode_in )
 CSR_CONFIG_CC_FORALL( CC_INST )
-    #else
-        #define CC_INST( mode, mode_in ) \
-            KOKKOS_CC_INST( mode, mode_in, Kokkos::DefaultHostExecutionSpace )
-CSR_CONFIG_CC_FORALL( CC_INST )
-    #endif
 
 } // namespace AMP::LinearAlgebra
 #endif

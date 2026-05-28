@@ -44,10 +44,20 @@ void VectorOperationsKokkos<T>::zero( VectorData &x )
     setToScalar( T{ 0 }, x );
 }
 
+template<typename T, class ExecSpace, class ViewT>
+void set_scalar_kernel( ExecSpace exec, const T alpha, ViewT xv )
+{
+    Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
+    Kokkos::parallel_for(
+        "VectorOperationsKokkos::set_scalar", pol, KOKKOS_LAMBDA( const int i ) {
+            xv( i ) = alpha;
+        } );
+}
+
 template<typename T>
 void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData &x )
 {
-    PROFILE( "VectorOperationsKokkos::setToScalar" );
+    PROFILE( "VectorOperationsKokkos::scale" );
 
     const auto device_exec =
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );
@@ -56,12 +66,13 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
     auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        Kokkos::deep_copy( Kokkos::HostSpace(), xv, alpha );
+        // Note: need kernel since deep_copy does not work on AnonymousSpace views
+        set_scalar_kernel( d_exec_host, alpha, xv );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        Kokkos::deep_copy( Kokkos::DefaultExecutionSpace(), xv, alpha );
+        set_scalar_kernel( d_exec_device, alpha, xv );
     #endif
     }
     x.fillGhosts( alpha_in );
