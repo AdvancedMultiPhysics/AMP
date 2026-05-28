@@ -29,30 +29,15 @@ template<typename Config,
          class ExecSpace = typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
                                                          AMP::Utilities::MemoryType::host,
                                                      Kokkos::DefaultHostExecutionSpace,
-                                                     Kokkos::Cuda>::type,
-         class ViewSpace = typename std::conditional<
-             alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
-             Kokkos::HostSpace,
-             typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
-                                           AMP::Utilities::MemoryType::managed,
-                                       Kokkos::CudaUVMSpace,
-                                       typename Kokkos::CudaSpace>::type>::type
+                                                     Kokkos::Cuda>::type
         #else
          class ExecSpace = typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
                                                          AMP::Utilities::MemoryType::host,
                                                      Kokkos::DefaultHostExecutionSpace,
-                                                     Kokkos::HIP>::type,
-         class ViewSpace = typename std::conditional<
-             alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
-             Kokkos::HostSpace,
-             typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
-                                           AMP::Utilities::MemoryType::managed,
-                                       Kokkos::HIPManagedSpace,
-                                       typename Kokkos::HIPSpace>::type>::type
+                                                     Kokkos::HIP>::type
         #endif
     #else
-         class ExecSpace = Kokkos::DefaultHostExecutionSpace,
-         class ViewSpace = Kokkos::HostSpace
+         class ExecSpace = Kokkos::DefaultHostExecutionSpace
     #endif
          >
 class CSRMatrixOperationsKokkos : public MatrixOperations

@@ -16,8 +16,10 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config, class MemSpace>
-auto wrapCSRDataKokkos( std::shared_ptr<const CSRLocalMatrixData<Config>> A )
+template<typename Config, class ExecSpace>
+typename CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::csr_const_tuple_t
+CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::wrapCSRDataKokkos(
+    std::shared_ptr<const CSRLocalMatrixData<Config>> A )
 {
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
@@ -29,13 +31,15 @@ auto wrapCSRDataKokkos( std::shared_ptr<const CSRLocalMatrixData<Config>> A )
 
     // coeffs not marked const so that setScalar and similar will work
     return std::make_tuple(
-        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, MemSpace>( rowstarts, nrows + 1 ),
-        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, MemSpace>( cols_loc, nnz_tot ),
-        Kokkos::View<const scalar_t *, Kokkos::LayoutRight, MemSpace>( coeffs, nnz_tot ) );
+        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>( rowstarts, nrows + 1 ),
+        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>( cols_loc, nnz_tot ),
+        Kokkos::View<const scalar_t *, Kokkos::LayoutRight, csr_memspace_t>( coeffs, nnz_tot ) );
 }
 
-template<typename Config, class MemSpace>
-auto wrapCSRDataKokkos( std::shared_ptr<CSRLocalMatrixData<Config>> A )
+template<typename Config, class ExecSpace>
+typename CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::csr_tuple_t
+CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::wrapCSRDataKokkos(
+    std::shared_ptr<CSRLocalMatrixData<Config>> A )
 {
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
@@ -46,9 +50,9 @@ auto wrapCSRDataKokkos( std::shared_ptr<CSRLocalMatrixData<Config>> A )
 
     // coeffs not marked const so that setScalar and similar will work
     return std::make_tuple(
-        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, MemSpace>( rowstarts, nrows + 1 ),
-        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, MemSpace>( cols_loc, nnz_tot ),
-        Kokkos::View<scalar_t *, Kokkos::LayoutRight, MemSpace>( coeffs, nnz_tot ) );
+        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>( rowstarts, nrows + 1 ),
+        Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>( cols_loc, nnz_tot ),
+        Kokkos::View<scalar_t *, Kokkos::LayoutRight, csr_memspace_t>( coeffs, nnz_tot ) );
 }
 
 namespace CSRMatOpsKokkosFunctor {
@@ -144,7 +148,7 @@ struct aAxpby {
     }
 };
 
-template<typename Policy,
+template<typename Config,
          class ExecSpace,
          class RSView,
          class JAView,
@@ -152,8 +156,8 @@ template<typename Policy,
          class XView,
          class YView>
 struct MultTranspose {
-    typedef typename Policy::lidx_t lidx_t;
-    typedef typename Policy::scalar_t scalar_t;
+    typedef typename Config::lidx_t lidx_t;
+    typedef typename Config::scalar_t scalar_t;
 
     lidx_t num_rows;
     lidx_t num_rows_team;
@@ -220,110 +224,268 @@ struct MultTranspose {
     }
 };
 
+template<typename Config, class RSView, class AAView, class DView>
+struct Scale {
+    typedef typename Config::lidx_t lidx_t;
+    typedef typename Config::scalar_t scalar_t;
+
+    RSView rowstarts;
+    AAView coeffs;
+    DView diag;
+    const scalar_t alpha;
+
+    Scale( RSView rowstarts_, AAView coeffs_, DView diag_, const scalar_t alpha_ )
+        : rowstarts( rowstarts_ ), coeffs( coeffs_ ), diag( diag_ ), alpha( alpha_ )
+    {
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()( const lidx_t row ) const
+    {
+        for ( lidx_t c = rowstarts( row ); c < rowstarts( row + 1 ); ++c ) {
+            coeffs( c ) *= alpha * diag( row );
+        }
+    }
+};
+
+template<typename Config, class RSView, class AAView, class DView>
+struct ScaleInv {
+    typedef typename Config::lidx_t lidx_t;
+    typedef typename Config::scalar_t scalar_t;
+
+    RSView rowstarts;
+    AAView coeffs;
+    DView diag;
+    const scalar_t alpha;
+
+    ScaleInv( RSView rowstarts_, AAView coeffs_, DView diag_, const scalar_t alpha_ )
+        : rowstarts( rowstarts_ ), coeffs( coeffs_ ), diag( diag_ ), alpha( alpha_ )
+    {
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()( const lidx_t row ) const
+    {
+        for ( lidx_t c = rowstarts( row ); c < rowstarts( row + 1 ); ++c ) {
+            coeffs( c ) *= alpha / diag( row );
+        }
+    }
+};
+
+template<typename Config, class RSView, class AAView, class DView>
+struct SetDiag {
+    typedef typename Config::lidx_t lidx_t;
+
+    RSView rowstarts;
+    AAView coeffs;
+    DView diag;
+
+    SetDiag( RSView rowstarts_, AAView coeffs_, DView diag_ )
+        : rowstarts( rowstarts_ ), coeffs( coeffs_ ), diag( diag_ )
+    {
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()( const lidx_t row ) const { coeffs( rowstarts( row ) ) = diag( row ); }
+};
+
+template<typename Config, class RSView, class AAView, class DView>
+struct ExtractDiag {
+    typedef typename Config::lidx_t lidx_t;
+
+    RSView rowstarts;
+    AAView coeffs;
+    DView diag;
+
+    ExtractDiag( RSView rowstarts_, AAView coeffs_, DView diag_ )
+        : rowstarts( rowstarts_ ), coeffs( coeffs_ ), diag( diag_ )
+    {
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()( const lidx_t row ) const { diag( row ) = coeffs( rowstarts( row ) ); }
+};
+
+template<typename Config, class RSView, class AAView, class SView>
+struct RowSums {
+    typedef typename Config::lidx_t lidx_t;
+
+    RSView rowstarts;
+    AAView coeffs;
+    SView sums;
+
+    RowSums( RSView rowstarts_, AAView coeffs_, SView sums_ )
+        : rowstarts( rowstarts_ ), coeffs( coeffs_ ), sums( sums_ )
+    {
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()( const lidx_t row ) const
+    {
+        for ( lidx_t c = rowstarts( row ); c < rowstarts( row + 1 ); ++c ) {
+            sums( row ) += coeffs( c );
+        }
+    }
+};
+
+template<typename Config, class RSView, class AAView, class SView>
+struct AbsRowSums {
+    typedef typename Config::lidx_t lidx_t;
+
+    RSView rowstarts;
+    AAView coeffs;
+    SView sums;
+
+    AbsRowSums( RSView rowstarts_, AAView coeffs_, SView sums_ )
+        : rowstarts( rowstarts_ ), coeffs( coeffs_ ), sums( sums_ )
+    {
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()( const lidx_t row ) const
+    {
+        for ( lidx_t c = rowstarts( row ); c < rowstarts( row + 1 ); ++c ) {
+            sums( row ) += Kokkos::fabs( coeffs( c ) );
+        }
+    }
+};
+
 } // namespace CSRMatOpsKokkosFunctor
 
 template<typename Config, class ExecSpace>
-void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::mult( const typename Config::scalar_t *in,
-                                                              const typename Config::scalar_t alpha,
-                                                              std::shared_ptr<localmatrixdata_t> A,
-                                                              const typename Config::scalar_t beta,
-                                                              typename Config::scalar_t *out )
+void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::mult(
+    const typename Config::scalar_t *in,
+    const AMP::Utilities::MemoryType in_loc,
+    const typename Config::scalar_t alpha,
+    std::shared_ptr<localmatrixdata_t> A,
+    const typename Config::scalar_t beta,
+    typename Config::scalar_t *out,
+    const AMP::Utilities::MemoryType out_loc )
 {
     const auto nRows = A->numLocalRows();
     const auto nCols = A->numUniqueColumns();
     AMP_ASSERT( nCols > 0 );
 
+    // wrap matrix data in views
+    const auto [rowstarts, cols_loc, coeffs] = wrapCSRDataKokkos( A );
+
     // Wrap in/out data into Kokkos Views
-    Kokkos::View<const scalar_t *,
-                 Kokkos::LayoutRight,
-                 ViewSpace,
-                 Kokkos::MemoryTraits<Kokkos::RandomAccess>>
-        inView( in, nCols );
-    Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> outView( out, nRows );
+    auto in_view_var =
+        WrapVector<const scalar_t, Kokkos::MemoryTraits<Kokkos::RandomAccess>>( in, nCols, in_loc );
+    auto out_view_var = WrapVector<scalar_t>( out, nRows, out_loc );
 
-    const auto [rowstarts, cols_loc, coeffs] = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, cols_loc, coeffs, alpha, beta, in_view_var](
+            auto out_view ) {
+            std::visit(
+                [exec_space, nRows, rowstarts, cols_loc, coeffs, alpha, beta, out_view](
+                    auto in_view ) {
+                    // rows per team and vector length influenced by KokkosKernels
+                    // should tune to architecture (AMD vs. NVidia) and "typical" problems
+                    const lidx_t team_rows     = 64;
+                    const lidx_t vector_length = 8;
+                    const lidx_t num_teams     = ( nRows + team_rows - 1 ) / team_rows;
 
-    // rows per team and vector length influenced by KokkosKernels
-    // should tune to architecture (AMD vs. NVidia) and "typical" problems
-    const lidx_t team_rows     = 64;
-    const lidx_t vector_length = 8;
-    const lidx_t num_teams     = ( nRows + team_rows - 1 ) / team_rows;
+                    CSRMatOpsKokkosFunctor::aAxpby<Config,
+                                                   ExecSpace,
+                                                   decltype( rowstarts ),
+                                                   decltype( cols_loc ),
+                                                   decltype( coeffs ),
+                                                   decltype( in_view ),
+                                                   decltype( out_view )>
+                        ftor( nRows,
+                              team_rows,
+                              rowstarts,
+                              cols_loc,
+                              coeffs,
+                              alpha,
+                              beta,
+                              in_view,
+                              out_view );
 
-    CSRMatOpsKokkosFunctor::aAxpby<Config,
-                                   ExecSpace,
-                                   decltype( rowstarts ),
-                                   decltype( cols_loc ),
-                                   decltype( coeffs ),
-                                   decltype( inView ),
-                                   decltype( outView )>
-        ftor( nRows, team_rows, rowstarts, cols_loc, coeffs, alpha, beta, inView, outView );
-
-    if constexpr ( std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace> ) {
-        Kokkos::TeamPolicy<ExecSpace, Kokkos::Schedule<Kokkos::Dynamic>> team_policy(
-            d_exec_space, num_teams, Kokkos::AUTO, vector_length );
-        Kokkos::parallel_for( "CSRMatrixOperationsKokkos::mult (local - team)", team_policy, ftor );
-    } else {
-        Kokkos::parallel_for( "CSRMatrixOperationsKokkos::mult (local - flat)",
-                              Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-                              ftor );
-    }
+                    if constexpr ( std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace> ) {
+                        Kokkos::TeamPolicy<ExecSpace, Kokkos::Schedule<Kokkos::Dynamic>>
+                            team_policy( exec_space, num_teams, Kokkos::AUTO, vector_length );
+                        Kokkos::parallel_for(
+                            "CSRMatrixOperationsKokkos::mult (local - team)", team_policy, ftor );
+                    } else {
+                        Kokkos::parallel_for(
+                            "CSRMatrixOperationsKokkos::mult (local - flat)",
+                            Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                            ftor );
+                    }
+                },
+                in_view_var );
+        },
+        out_view_var );
 }
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::multTranspose(
     const typename Config::scalar_t *in,
+    const AMP::Utilities::MemoryType in_loc,
     std::shared_ptr<localmatrixdata_t> A,
-    typename Config::scalar_t *out )
+    typename Config::scalar_t *out,
+    const AMP::Utilities::MemoryType out_loc )
 {
-    const auto [rowstarts, cols_loc, coeffs] = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto [rowstarts, cols_loc, coeffs] = wrapCSRDataKokkos( A );
 
     const auto nRows    = A->numLocalRows();
     const auto nCols    = A->numLocalColumns();
     const auto nColsUnq = A->numUniqueColumns();
 
     // Wrap in/out data into Kokkos Views
-    Kokkos::View<const scalar_t *,
-                 Kokkos::LayoutRight,
-                 ViewSpace,
-                 Kokkos::MemoryTraits<Kokkos::RandomAccess>>
-        inView( in, nCols );
+    auto in_view_var =
+        WrapVector<const scalar_t, Kokkos::MemoryTraits<Kokkos::RandomAccess>>( in, nCols, in_loc );
+    auto out_view_var =
+        WrapVector<scalar_t, Kokkos::MemoryTraits<Kokkos::Atomic>>( out, nColsUnq, out_loc );
 
-    // vvals only on host, use temporary and copy as needed after
-    Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace, Kokkos::MemoryTraits<Kokkos::Atomic>>
-        outView( out, nColsUnq );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, cols_loc, coeffs, in_view_var]( auto out_view ) {
+            std::visit(
+                [exec_space, nRows, rowstarts, cols_loc, coeffs, out_view]( auto in_view ) {
+                    // rows per team and vector length influenced by KokkosKernels
+                    // should tune to architecture (AMD vs. NVidia) and "typical" problems
+                    const lidx_t team_rows     = 64;
+                    const lidx_t vector_length = 8;
+                    const lidx_t num_teams     = ( nRows + team_rows - 1 ) / team_rows;
 
-    // rows per team and vector length influenced by KokkosKernels
-    // should tune to architecture (AMD vs. NVidia) and "typical" problems
-    const lidx_t team_rows     = 64;
-    const lidx_t vector_length = 8;
-    const lidx_t num_teams     = ( nRows + team_rows - 1 ) / team_rows;
+                    CSRMatOpsKokkosFunctor::MultTranspose<Config,
+                                                          ExecSpace,
+                                                          decltype( rowstarts ),
+                                                          decltype( cols_loc ),
+                                                          decltype( coeffs ),
+                                                          decltype( in_view ),
+                                                          decltype( out_view )>
+                        ftor( nRows, team_rows, rowstarts, cols_loc, coeffs, in_view, out_view );
 
-    CSRMatOpsKokkosFunctor::MultTranspose<Config,
-                                          ExecSpace,
-                                          decltype( rowstarts ),
-                                          decltype( cols_loc ),
-                                          decltype( coeffs ),
-                                          decltype( inView ),
-                                          decltype( outView )>
-        ftor( nRows, team_rows, rowstarts, cols_loc, coeffs, inView, outView );
-
-    if constexpr ( std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace> && false ) {
-        Kokkos::TeamPolicy<ExecSpace, Kokkos::Schedule<Kokkos::Dynamic>> team_policy(
-            d_exec_space, num_teams, Kokkos::AUTO, vector_length );
-        Kokkos::parallel_for(
-            "CSRMatrixOperationsKokkos::multTranspose (local - team)", team_policy, ftor );
-    } else {
-        Kokkos::parallel_for( "CSRMatrixOperationsKokkos::multTranspose (local - flat)",
-                              Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-                              ftor );
-    }
+                    if constexpr ( std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace> &&
+                                   false ) {
+                        Kokkos::TeamPolicy<ExecSpace, Kokkos::Schedule<Kokkos::Dynamic>>
+                            team_policy( exec_space, num_teams, Kokkos::AUTO, vector_length );
+                        Kokkos::parallel_for(
+                            "CSRMatrixOperationsKokkos::multTranspose (local - team)",
+                            team_policy,
+                            ftor );
+                    } else {
+                        Kokkos::parallel_for(
+                            "CSRMatrixOperationsKokkos::multTranspose (local - flat)",
+                            Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                            ftor );
+                    }
+                },
+                in_view_var );
+        },
+        out_view_var );
 }
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::scale(
     typename Config::scalar_t alpha, std::shared_ptr<localmatrixdata_t> A )
 {
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto coeffs     = std::get<2>( vTpl );
 
     const auto tnnz = A->numberOfNonZeros();
@@ -338,48 +500,58 @@ template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::scale(
     typename Config::scalar_t alpha,
     const typename Config::scalar_t *D,
+    const AMP::Utilities::MemoryType D_loc,
     std::shared_ptr<localmatrixdata_t> A )
 {
     const auto nRows = static_cast<lidx_t>( A->numLocalRows() );
 
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto rowstarts  = std::get<0>( vTpl );
     auto coeffs     = std::get<2>( vTpl );
 
-    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, ViewSpace> Dv( D, nRows );
+    // Wrap D into Kokkos View
+    auto D_view_var = WrapVector<const scalar_t>( D, nRows, D_loc );
 
-    Kokkos::parallel_for(
-        "CSRMatrixOperationsKokkos::scale",
-        Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-        KOKKOS_LAMBDA( lidx_t row ) {
-            for ( lidx_t c = rowstarts[row]; c < rowstarts[row + 1]; ++c ) {
-                coeffs( c ) *= alpha * Dv( row );
-            }
-        } );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, coeffs, alpha]( auto D_view ) {
+            Kokkos::parallel_for(
+                "CSRMatrixOperationsKokkos::scale",
+                Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                CSRMatOpsKokkosFunctor::
+                    Scale<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
+                        rowstarts, coeffs, D_view, alpha ) );
+        },
+        D_view_var );
 }
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::scaleInv(
     typename Config::scalar_t alpha,
     const typename Config::scalar_t *D,
+    const AMP::Utilities::MemoryType D_loc,
     std::shared_ptr<localmatrixdata_t> A )
 {
     const auto nRows = static_cast<lidx_t>( A->numLocalRows() );
 
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto rowstarts  = std::get<0>( vTpl );
     auto coeffs     = std::get<2>( vTpl );
 
-    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, ViewSpace> Dv( D, nRows );
+    // Wrap D into Kokkos View
+    auto D_view_var = WrapVector<const scalar_t>( D, nRows, D_loc );
 
-    Kokkos::parallel_for(
-        "CSRMatrixOperationsKokkos::scaleInv",
-        Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-        KOKKOS_LAMBDA( lidx_t row ) {
-            for ( lidx_t c = rowstarts[row]; c < rowstarts[row + 1]; ++c ) {
-                coeffs( c ) *= alpha / Dv( row );
-            }
-        } );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, coeffs, alpha]( auto D_view ) {
+            Kokkos::parallel_for(
+                "CSRMatrixOperationsKokkos::scaleInv",
+                Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                CSRMatOpsKokkosFunctor::
+                    ScaleInv<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
+                        rowstarts, coeffs, D_view, alpha ) );
+        },
+        D_view_var );
 }
 
 template<typename Config, class ExecSpace>
@@ -396,12 +568,12 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::axpy( typename Config::s
                                                               std::shared_ptr<localmatrixdata_t> X,
                                                               std::shared_ptr<localmatrixdata_t> Y )
 {
-    const auto vTplX = wrapCSRDataKokkos<Config, kokkos_memspace_t>( X );
+    const auto vTplX = wrapCSRDataKokkos( X );
     auto rsX         = std::get<0>( vTplX );
     auto colslocX    = std::get<1>( vTplX );
     auto coeffsX     = std::get<2>( vTplX );
 
-    const auto vTplY = wrapCSRDataKokkos<Config, kokkos_memspace_t>( Y );
+    const auto vTplY = wrapCSRDataKokkos( Y );
     auto rsY         = std::get<0>( vTplY );
     auto colslocY    = std::get<1>( vTplY );
     auto coeffsY     = std::get<2>( vTplY );
@@ -428,7 +600,7 @@ template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::setScalar(
     typename Config::scalar_t alpha, std::shared_ptr<localmatrixdata_t> A )
 {
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto coeffs     = std::get<2>( vTpl );
 
     Kokkos::deep_copy( d_exec_space, coeffs, alpha );
@@ -442,7 +614,9 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::zero( std::shared_ptr<lo
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::setDiagonal(
-    const typename Config::scalar_t *in, std::shared_ptr<localmatrixdata_t> A )
+    const typename Config::scalar_t *D,
+    const AMP::Utilities::MemoryType D_loc,
+    std::shared_ptr<localmatrixdata_t> A )
 {
     if ( !A->isDiag() ) {
         AMP_WARNING( "Attempted to call CSRLocalMatrixOperationsKokkos::setDiagonal on "
@@ -452,16 +626,24 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::setDiagonal(
 
     const auto nRows = A->numLocalRows();
 
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto rowstarts  = std::get<0>( vTpl );
     auto coeffs     = std::get<2>( vTpl );
 
-    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, ViewSpace> vvals( in, nRows );
+    // Wrap D into Kokkos View
+    auto D_view_var = WrapVector<const scalar_t>( D, nRows, D_loc );
 
-    Kokkos::parallel_for(
-        "CSRMatrixOperationsKokkos::setDiagonal",
-        Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-        KOKKOS_LAMBDA( lidx_t row ) { coeffs( rowstarts( row ) ) = vvals( row ); } );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, coeffs]( auto D_view ) {
+            Kokkos::parallel_for(
+                "CSRMatrixOperationsKokkos::setDiagonal",
+                Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                CSRMatOpsKokkosFunctor::
+                    SetDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
+                        rowstarts, coeffs, D_view ) );
+        },
+        D_view_var );
 }
 
 template<typename Config, class ExecSpace>
@@ -470,7 +652,7 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::setIdentity(
 {
     const auto nRows = A->numLocalRows();
 
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto rowstarts  = std::get<0>( vTpl );
     auto coeffs     = std::get<2>( vTpl );
 
@@ -486,7 +668,9 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::setIdentity(
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::extractDiagonal(
-    std::shared_ptr<localmatrixdata_t> A, typename Config::scalar_t *buf )
+    std::shared_ptr<localmatrixdata_t> A,
+    typename Config::scalar_t *D,
+    const AMP::Utilities::MemoryType D_loc )
 {
     if ( !A->isDiag() ) {
         AMP_WARNING( "Attempted to call CSRLocalMatrixOperationsKokkos::extractDiagonal on "
@@ -496,80 +680,100 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::extractDiagonal(
 
     const auto nRows = static_cast<lidx_t>( A->numLocalRows() );
 
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto rowstarts  = std::get<0>( vTpl );
     auto coeffs     = std::get<2>( vTpl );
 
-    Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> vvals( buf, nRows );
+    // Wrap D into Kokkos View
+    auto D_view_var = WrapVector<scalar_t>( D, nRows, D_loc );
 
-    Kokkos::parallel_for(
-        "CSRMatrixOperationsKokkos::extractDiagonal",
-        Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-        KOKKOS_LAMBDA( lidx_t row ) { vvals( row ) = coeffs( rowstarts( row ) ); } );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, coeffs]( auto D_view ) {
+            Kokkos::parallel_for(
+                "CSRMatrixOperationsKokkos::extractDiagonal",
+                Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                CSRMatOpsKokkosFunctor::
+                    SetDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
+                        rowstarts, coeffs, D_view ) );
+        },
+        D_view_var );
 }
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::getRowSums(
     std::shared_ptr<localmatrixdata_t> A,
-    typename Config::scalar_t *rowSums,
+    typename Config::scalar_t *buf,
+    const AMP::Utilities::MemoryType buf_loc,
     const bool zero_first ) const
 {
     const auto nRows = A->numLocalRows();
 
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto rowstarts  = std::get<0>( vTpl );
     auto coeffs     = std::get<2>( vTpl );
 
-    Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> sums( rowSums, nRows );
-    if ( zero_first ) {
-        Kokkos::deep_copy( sums, 0.0 );
-    }
+    // Wrap D into Kokkos View
+    auto buf_view_var = WrapVector<scalar_t>( buf, nRows, buf_loc );
 
-    Kokkos::parallel_for(
-        "CSRMatrixOperationsKokkos::getRowSums",
-        Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-        KOKKOS_LAMBDA( lidx_t row ) {
-            for ( lidx_t c = rowstarts( row ); c < rowstarts( row + 1 ); ++c ) {
-                sums( row ) += coeffs( c );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, coeffs, zero_first]( auto buf_view ) {
+            if ( zero_first ) {
+                Kokkos::deep_copy( buf_view, 0.0 );
             }
-        } );
+            Kokkos::parallel_for( "CSRMatrixOperationsKokkos::getRowSums",
+                                  Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                                  CSRMatOpsKokkosFunctor::RowSums<Config,
+                                                                  decltype( rowstarts ),
+                                                                  decltype( coeffs ),
+                                                                  decltype( buf_view )>(
+                                      rowstarts, coeffs, buf_view ) );
+        },
+        buf_view_var );
 }
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::getRowSumsAbsolute(
     std::shared_ptr<localmatrixdata_t> A,
-    typename Config::scalar_t *rowSums,
+    typename Config::scalar_t *buf,
+    const AMP::Utilities::MemoryType buf_loc,
     const bool zero_first ) const
 {
     const auto nRows = A->numLocalRows();
 
-    const auto vTpl = wrapCSRDataKokkos<Config, kokkos_memspace_t>( A );
+    const auto vTpl = wrapCSRDataKokkos( A );
     auto rowstarts  = std::get<0>( vTpl );
     auto coeffs     = std::get<2>( vTpl );
 
-    Kokkos::View<scalar_t *, Kokkos::LayoutRight, ViewSpace> sums( rowSums, nRows );
-    if ( zero_first ) {
-        Kokkos::deep_copy( sums, 0.0 );
-    }
+    // Wrap D into Kokkos View
+    auto buf_view_var = WrapVector<scalar_t>( buf, nRows, buf_loc );
 
-    Kokkos::parallel_for(
-        "CSRMatrixOperationsKokkos::getRowSumsAbsolute",
-        Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-        KOKKOS_LAMBDA( lidx_t row ) {
-            for ( lidx_t c = rowstarts( row ); c < rowstarts( row + 1 ); ++c ) {
-                sums( row ) += Kokkos::fabs( coeffs( c ) );
+    ExecSpace exec_space = d_exec_space;
+    std::visit(
+        [exec_space, nRows, rowstarts, coeffs, zero_first]( auto buf_view ) {
+            if ( zero_first ) {
+                Kokkos::deep_copy( buf_view, 0.0 );
             }
-        } );
+            Kokkos::parallel_for( "CSRMatrixOperationsKokkos::getRowSumsAbsolute",
+                                  Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                                  CSRMatOpsKokkosFunctor::AbsRowSums<Config,
+                                                                     decltype( rowstarts ),
+                                                                     decltype( coeffs ),
+                                                                     decltype( buf_view )>(
+                                      rowstarts, coeffs, buf_view ) );
+        },
+        buf_view_var );
 }
 
 template<typename Config, class ExecSpace>
 void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::copy(
     std::shared_ptr<const localmatrixdata_t> X, std::shared_ptr<localmatrixdata_t> Y )
 {
-    const auto vTplX = wrapCSRDataKokkos<Config, kokkos_memspace_t>( X );
+    const auto vTplX = wrapCSRDataKokkos( X );
     auto coeffsX     = std::get<2>( vTplX );
 
-    const auto vTplY = wrapCSRDataKokkos<Config, kokkos_memspace_t>( Y );
+    const auto vTplY = wrapCSRDataKokkos( Y );
     auto coeffsY     = std::get<2>( vTplY );
 
     Kokkos::deep_copy( coeffsY, coeffsX );
@@ -613,9 +817,9 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::copyCast(
     using scalar_t_in  = typename ConfigIn::scalar_t;
     using scalar_t_out = typename Config::scalar_t;
     if constexpr ( std::is_same_v<scalar_t_in, scalar_t_out> ) {
-        const auto X_v = Kokkos::View<scalar_t_in *, Kokkos::LayoutRight, ViewSpace>(
+        const auto X_v = Kokkos::View<scalar_t_in *, Kokkos::LayoutRight, csr_memspace_t>(
             X_coeffs, X->numberOfNonZeros() );
-        auto Y_v = Kokkos::View<scalar_t_out *, Kokkos::LayoutRight, ViewSpace>(
+        auto Y_v = Kokkos::View<scalar_t_out *, Kokkos::LayoutRight, csr_memspace_t>(
             Y_coeffs, Y->numberOfNonZeros() );
 
         Kokkos::deep_copy( Y_v, X_v );

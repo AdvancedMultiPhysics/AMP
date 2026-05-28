@@ -310,10 +310,9 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     AMP_INSIST( blocks.size() > 0, "Attempted to concatenate empty set of blocks" );
 
     // count number of rows and check compatibility of blocks
-    auto block         = ( *blocks.begin() ).second;
-    const auto mem_loc = block->d_memory_location;
-    lidx_t num_rows    = 0;
-    bool all_empty     = block->isEmpty();
+    auto block      = ( *blocks.begin() ).second;
+    lidx_t num_rows = 0;
+    bool all_empty  = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
         AMP_DEBUG_INSIST( mem_loc == block->d_memory_location,
@@ -538,8 +537,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
 {
     PROFILE( "CSRLocalMatrixData::migrate" );
 
-    using outdata_t   = CSRLocalMatrixData<ConfigOut>;
-    using out_alloc_t = typename outdata_t::allocator_type;
+    using outdata_t = CSRLocalMatrixData<ConfigOut>;
 
     AMP_INSIST( !d_is_symbolic,
                 "CSRLocalMatrixData::migrate not implemented for symbolic matrices" );
