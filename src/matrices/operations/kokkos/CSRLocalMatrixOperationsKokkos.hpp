@@ -350,6 +350,21 @@ struct AbsRowSums {
     }
 };
 
+template<typename Config, class SView>
+struct RemoveZeros {
+    typedef typename Config::lidx_t lidx_t;
+
+    SView sums;
+
+    RemoveZeros( SView sums_ ) : sums( sums_ ) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()( const lidx_t row ) const
+    {
+        sums( row ) = sums( row ) != 0.0 ? sums( row ) : 1.0;
+    }
+};
+
 } // namespace CSRMatOpsKokkosFunctor
 
 template<typename Config, class ExecSpace>
@@ -383,9 +398,7 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::mult(
                     auto in_view ) {
                     // rows per team and vector length influenced by KokkosKernels
                     // should tune to architecture (AMD vs. NVidia) and "typical" problems
-                    const lidx_t team_rows     = 64;
-                    const lidx_t vector_length = 8;
-                    const lidx_t num_teams     = ( nRows + team_rows - 1 ) / team_rows;
+                    const lidx_t team_rows = 64;
 
                     CSRMatOpsKokkosFunctor::aAxpby<Config,
                                                    ExecSpace,
@@ -405,6 +418,8 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::mult(
                               out_view );
 
                     if constexpr ( std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace> ) {
+                        const lidx_t num_teams     = ( nRows + team_rows - 1 ) / team_rows;
+                        const lidx_t vector_length = 8;
                         Kokkos::TeamPolicy<ExecSpace, Kokkos::Schedule<Kokkos::Dynamic>>
                             team_policy( exec_space, num_teams, Kokkos::AUTO, vector_length );
                         Kokkos::parallel_for(
@@ -690,12 +705,13 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::extractDiagonal(
     ExecSpace exec_space = d_exec_space;
     std::visit(
         [exec_space, nRows, rowstarts, coeffs]( auto D_view ) {
-            Kokkos::parallel_for(
-                "CSRMatrixOperationsKokkos::extractDiagonal",
-                Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
-                CSRMatOpsKokkosFunctor::
-                    SetDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
-                        rowstarts, coeffs, D_view ) );
+            Kokkos::parallel_for( "CSRMatrixOperationsKokkos::extractDiagonal",
+                                  Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                                  CSRMatOpsKokkosFunctor::ExtractDiag<Config,
+                                                                      decltype( rowstarts ),
+                                                                      decltype( coeffs ),
+                                                                      decltype( D_view )>(
+                                      rowstarts, coeffs, D_view ) );
         },
         D_view_var );
 }
@@ -738,7 +754,8 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::getRowSumsAbsolute(
     std::shared_ptr<localmatrixdata_t> A,
     typename Config::scalar_t *buf,
     const AMP::Utilities::MemoryType buf_loc,
-    const bool zero_first ) const
+    const bool zero_first,
+    const bool remove_zeros ) const
 {
     const auto nRows = A->numLocalRows();
 
@@ -751,7 +768,7 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::getRowSumsAbsolute(
 
     ExecSpace exec_space = d_exec_space;
     std::visit(
-        [exec_space, nRows, rowstarts, coeffs, zero_first]( auto buf_view ) {
+        [exec_space, nRows, rowstarts, coeffs, zero_first, remove_zeros]( auto buf_view ) {
             if ( zero_first ) {
                 Kokkos::deep_copy( buf_view, 0.0 );
             }
@@ -762,6 +779,12 @@ void CSRLocalMatrixOperationsKokkos<Config, ExecSpace>::getRowSumsAbsolute(
                                                                      decltype( coeffs ),
                                                                      decltype( buf_view )>(
                                       rowstarts, coeffs, buf_view ) );
+            if ( remove_zeros ) {
+                Kokkos::parallel_for(
+                    "CSRMatrixOperationsKokkos::getRowSumsAbsolute(remove zeros)",
+                    Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
+                    CSRMatOpsKokkosFunctor::RemoveZeros<Config, decltype( buf_view )>( buf_view ) );
+            }
         },
         buf_view_var );
 }

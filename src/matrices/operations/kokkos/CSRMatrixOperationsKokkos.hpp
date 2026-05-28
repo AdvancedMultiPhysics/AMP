@@ -256,7 +256,8 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace>::matMatMult( std::shared_ptr<M
 
     // construct SpGEMM helper and call multiply
     #ifdef AMP_USE_KOKKOSKERNELS
-    CSRMatrixSpGEMMKokkos<Config, ExecSpace, typename localops_t::csr_memspace_t> spgemm( csrDataA, csrDataB, csrDataC );
+    CSRMatrixSpGEMMKokkos<Config, ExecSpace, typename localops_t::csr_memspace_t> spgemm(
+        csrDataA, csrDataB, csrDataC );
     spgemm.multiply();
     #else // don't have kokkos-kernels, forward to default or device ops as appropriate
     if ( !alloc_info<Config::allocator>::device_accessible ) {
@@ -447,28 +448,23 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace>::getRowSumsAbsolute( MatrixDat
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
 
+    bool initialize_to_zero = true;
     d_localops_diag->getRowSumsAbsolute(
-        csrData->getDiagMatrix(), rawVecData, buf->getMemoryLocation(), true );
+        csrData->getDiagMatrix(), rawVecData, buf->getMemoryLocation(), initialize_to_zero, false );
     d_exec_space.fence();
     if ( csrData->hasOffDiag() ) {
-        d_localops_offd->getRowSumsAbsolute(
-            csrData->getOffdMatrix(), rawVecData, buf->getMemoryLocation(), false );
-        d_exec_space.fence();
-    }
-
-    if ( remove_zeros ) {
-        Kokkos::View<scalar_t *, Kokkos::LayoutRight> sums( rawVecData, nRows );
-        Kokkos::parallel_for(
-            "CSRMatrixOperationsKokkos::getRowSumsAbsolute(remove zeros)",
-            Kokkos::RangePolicy<ExecSpace>( d_exec_space, 0, nRows ),
-            KOKKOS_LAMBDA( lidx_t row ) { sums( row ) = sums( row ) != 0.0 ? sums( row ) : 1.0; } );
+        initialize_to_zero = false;
+        d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(),
+                                             rawVecData,
+                                             buf->getMemoryLocation(),
+                                             initialize_to_zero,
+                                             remove_zeros );
         d_exec_space.fence();
     }
 }
 
 template<typename Config, class ExecSpace>
-AMP::Scalar
-CSRMatrixOperationsKokkos<Config, ExecSpace>::LinfNorm( MatrixData const &A ) const
+AMP::Scalar CSRMatrixOperationsKokkos<Config, ExecSpace>::LinfNorm( MatrixData const &A ) const
 {
     PROFILE( "CSRMatrixOperationsKokkos::LinfNorm" );
 
@@ -485,12 +481,20 @@ CSRMatrixOperationsKokkos<Config, ExecSpace>::LinfNorm( MatrixData const &A ) co
     Kokkos::View<scalar_t *, Kokkos::LayoutRight, typename localops_t::csr_memspace_t> sums(
         "CSRMatrixOperationsKokkos::LinfNorm sum buffer", nRows );
 
-    d_localops_diag->getRowSumsAbsolute(
-        diagMatrix, sums.data(), localmatrixdata_t::d_memory_location, true );
+    bool initialize_to_zero = true, remove_zeros = false;
+    d_localops_diag->getRowSumsAbsolute( diagMatrix,
+                                         sums.data(),
+                                         localmatrixdata_t::d_memory_location,
+                                         initialize_to_zero,
+                                         remove_zeros );
     d_exec_space.fence();
     if ( csrData->hasOffDiag() ) {
-        d_localops_offd->getRowSumsAbsolute(
-            offdMatrix, sums.data(), localmatrixdata_t::d_memory_location, false );
+        initialize_to_zero = false;
+        d_localops_offd->getRowSumsAbsolute( offdMatrix,
+                                             sums.data(),
+                                             localmatrixdata_t::d_memory_location,
+                                             initialize_to_zero,
+                                             remove_zeros );
         d_exec_space.fence();
     }
 
@@ -501,8 +505,7 @@ CSRMatrixOperationsKokkos<Config, ExecSpace>::LinfNorm( MatrixData const &A ) co
 }
 
 template<typename Config, class ExecSpace>
-void CSRMatrixOperationsKokkos<Config, ExecSpace>::copy( const MatrixData &X,
-                                                                    MatrixData &Y )
+void CSRMatrixOperationsKokkos<Config, ExecSpace>::copy( const MatrixData &X, MatrixData &Y )
 {
     PROFILE( "CSRMatrixOperationsKokkos::copy" );
 
@@ -532,8 +535,7 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace>::copy( const MatrixData &X,
 }
 
 template<typename Config, class ExecSpace>
-void CSRMatrixOperationsKokkos<Config, ExecSpace>::copyCast( const MatrixData &X,
-                                                                        MatrixData &Y )
+void CSRMatrixOperationsKokkos<Config, ExecSpace>::copyCast( const MatrixData &X, MatrixData &Y )
 {
     PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
 
@@ -570,7 +572,7 @@ void CSRMatrixOperationsKokkos<Config, ExecSpace>::copyCast( const MatrixData &X
 template<typename Config, class ExecSpace>
 template<typename ConfigIn>
 void CSRMatrixOperationsKokkos<Config, ExecSpace>::copyCast( CSRMatrixData<ConfigIn> *X,
-                                                                        matrixdata_t *Y )
+                                                             matrixdata_t *Y )
 {
     PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
 

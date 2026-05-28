@@ -190,11 +190,14 @@ public:
      * \param[in]  A The matrix to read from
      * \param[out] buf Buffer to write row sums into
      * \param[in]  buf_loc Memory space of buffer
+     * \param[in]  zero_first Flag to zero out buffer before summing
+     * \param[in]  remove_zeros Flag to replace zeros with ones after summing
      */
     void getRowSumsAbsolute( std::shared_ptr<localmatrixdata_t> A,
                              scalar_t *buf,
                              const AMP::Utilities::MemoryType buf_loc,
-                             const bool zero_first ) const;
+                             const bool zero_first,
+                             const bool remove_zeros ) const;
 
     /** \brief  Set the matrix to the identity matrix
      * \param[out] A The matrix to set
