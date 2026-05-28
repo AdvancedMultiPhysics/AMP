@@ -315,8 +315,6 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     bool all_empty  = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
-        AMP_DEBUG_INSIST( mem_loc == block->d_memory_location,
-                          "Blocks to concatenate must be in same memory space" );
         AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
         num_rows += block->d_num_rows;
         all_empty = all_empty && block->isEmpty();
