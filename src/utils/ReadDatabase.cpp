@@ -912,8 +912,9 @@ loadDatabase( const std::string &errMsgPrefix,
             } else {
                 name     = deblank( key.substr( 0, pos2 ) );
                 auto src = deblank( key.substr( pos2 + 1 ) );
-                database = dynamic_cast<const Database *>( databaseKeys[std::string( src )] )
-                               ->cloneDatabase();
+                auto db0 = dynamic_cast<const Database *>( databaseKeys[std::string( src )] );
+                AMP_INSIST( db0, generateMsg( errMsgPrefix, "Source database not found", line ) );
+                database   = db0->cloneDatabase();
                 auto keys2 = database->getAllKeys( false );
                 for ( auto key2 : keys2 )
                     databaseKeys[key2] = database->getData( key2 );

@@ -1,4 +1,5 @@
 // This file tests the HDF5 interfaces
+#include "AMP/IO/FileSystem.h"
 #include "AMP/IO/HDF.h"
 #include "AMP/IO/HDF.hpp"
 #include "AMP/IO/HDF5_Class.h"
@@ -33,8 +34,8 @@ static inline void record( bool pass, const std::string &name, AMP::UnitTest &ut
 
 // Structure to test HDF5 compounds
 struct compoundStruct {
-    compoundStruct()                         = default;
-    compoundStruct( const compoundStruct & ) = default;
+    compoundStruct()                                    = default;
+    compoundStruct( const compoundStruct & )            = default;
     compoundStruct &operator=( const compoundStruct & ) = default;
     compoundStruct( int x, float y, double z ) : a( x ), b( y ), c( z ) {}
     bool operator==( const compoundStruct &x ) const { return x.a == a && x.b == b && x.c == c; }
@@ -345,6 +346,17 @@ void testCompression( [[maybe_unused]] AMP::UnitTest &ut )
     AMP::IO::closeHDF5( fid1 );
     AMP::IO::closeHDF5( fid2 );
     AMP::IO::closeHDF5( fid3 );
+    // Get the sizes of the files
+    const char *filenames[] = { "test_HDF5.none.hdf5",
+                                "test_HDF5.gzip.hdf5",
+                                "test_HDF5.szip.hdf5" };
+    for ( auto file : filenames ) {
+        size_t bytes1         = AMP::IO::fileSize( file );
+        auto fid              = AMP::IO::openHDF5( file, "r" );
+        auto [bytes2, bytes3] = AMP::IO::getSize( fid );
+        AMP::IO::closeHDF5( fid );
+        printf( "%s: %i, %i, %i\n", file, (int) bytes1, (int) bytes2, (int) bytes3 );
+    }
 }
 
 

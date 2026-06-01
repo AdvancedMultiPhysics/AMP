@@ -16,14 +16,14 @@ class NullWriter : public AMP::IO::Writer
 {
 public:
     //!  Default constructor
-    NullWriter() {}
+    NullWriter( const WriterParameters &params = WriterParameters() );
 
     //!  Default destructor
-    virtual ~NullWriter() {}
+    virtual ~NullWriter() = default;
 
     // Inherited functions
     WriterProperties getProperties() const override;
-    void readFile( const std::string & ) override{};
+    void readFile( const std::string & ) override {};
     void writeFile( const std::string &, size_t, double = 0 ) override {}
 };
 

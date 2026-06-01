@@ -30,7 +30,7 @@ class HDF5writer : public AMP::IO::Writer
 {
 public:
     //!  Default constructor
-    HDF5writer();
+    HDF5writer( const WriterParameters &properties = WriterParameters() );
 
     //!  Default destructor
     virtual ~HDF5writer();

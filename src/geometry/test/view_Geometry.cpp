@@ -41,7 +41,7 @@ void viewGeometry( const std::string &input )
     auto input_db = AMP::Database::parseInputFile( input );
 
     // Create the writer
-    auto writer = AMP::IO::Writer::buildWriter( "auto", AMP_COMM_WORLD );
+    auto writer = AMP::IO::Writer::buildWriter( "auto" );
 
     // Loop through the databases, load the geometry, and build and register a mesh
     std::set<std::string> meshNames;

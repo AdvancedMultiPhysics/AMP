@@ -76,6 +76,7 @@ static typeID getType( hid_t tid )
 /******************************************************************
  * Classes to store HDF5 data                                      *
  ******************************************************************/
+HDF5data::HDF5data( hid_t fid, const std::string_view &name ) : d_fid( fid ), d_name( name ) {}
 static int find( const std::vector<std::string> &vec, const std::string_view &x )
 {
     for ( size_t i = 0; i < vec.size(); i++ ) {
@@ -121,15 +122,28 @@ public:
 private:
     std::string d_type;
 };
-static void printSize( const AMP::ArraySize &size )
+static void printSize( double bytes )
+{
+    if ( bytes > 1e9 )
+        printf( " (%0.1f GB)", 1e-9 * bytes );
+    else if ( bytes > 1e6 )
+        printf( " (%0.1f MB)", 1e-6 * bytes );
+    else if ( bytes > 1e3 )
+        printf( " (%0.1f kB)", 1e-2 * bytes );
+    else if ( bytes > 0 )
+        printf( " (%i B)", static_cast<int>( bytes ) );
+    printf( "\n" );
+}
+static void printSize( const AMP::ArraySize &size, size_t bytes )
 {
     printf( " (%i", (int) size[0] );
     for ( int d = 1; d < size.ndim(); d++ )
         printf( ",%i", (int) size[d] );
-    printf( ")\n" );
+    printf( ")" );
+    printSize( bytes );
 }
 template<class TYPE>
-static void printIntArray( int level, const AMP::Array<TYPE> &data )
+static void printIntArray( int level, const AMP::Array<TYPE> &data, size_t bytes )
 {
     if ( data.length() == 1 ) {
         printf( ": %i\n", static_cast<int>( data( 0 ) ) );
@@ -139,11 +153,11 @@ static void printIntArray( int level, const AMP::Array<TYPE> &data )
             printf( ", %i", static_cast<int>( data( i ) ) );
         printf( " ]\n" );
     } else {
-        printSize( data.size() );
+        printSize( data.size(), bytes );
     }
 }
 template<class TYPE>
-static void printArray( int level, const AMP::Array<TYPE> &data )
+static void printArray( int level, const AMP::Array<TYPE> &data, size_t bytes )
 {
     if constexpr ( std::is_same_v<TYPE, char> ) {
         if ( data.min() >= 32 && data.max() < 127 && data.ndim() == 1 && data.length() < 128 ) {
@@ -152,10 +166,10 @@ static void printArray( int level, const AMP::Array<TYPE> &data )
                 printf( "%c", data( i ) );
             printf( "'\n" );
         } else {
-            printIntArray( level, data );
+            printIntArray( level, data, bytes );
         }
     } else if constexpr ( std::is_integral_v<TYPE> ) {
-        printIntArray( level, data );
+        printIntArray( level, data, bytes );
     } else {
         if ( data.length() == 1 ) {
             AMP::pout << ": " << data( 0 ) << std::endl;
@@ -165,7 +179,7 @@ static void printArray( int level, const AMP::Array<TYPE> &data )
                 AMP::pout << ", " << data( i );
             AMP::pout << " ]" << std::endl;
         } else {
-            printSize( data.size() );
+            printSize( data.size(), bytes );
         }
     }
 }
@@ -176,15 +190,20 @@ public:
     HDF5_primitive( hid_t fid, const std::string_view &name ) : HDF5data( fid, name )
     {
         readHDF5( fid, std::string( name ), d_data );
+        hid_t dataset = H5Dopen2( fid, name.data(), H5P_DEFAULT );
+        d_bytes       = getSize( dataset )[0];
+        H5Dclose( dataset );
     }
     HDF5_primitive( const std::string_view &name, const TYPE &data )
-        : HDF5data( 0, name ), d_data( 1 )
+        : HDF5data( -1, name ), d_data( 1 )
     {
         d_data( 0 ) = data;
+        d_bytes     = d_data.length() * sizeof( TYPE );
     }
     HDF5_primitive( const std::string_view &name, const AMP::Array<TYPE> &data )
-        : HDF5data( 0, name ), d_data( std::move( data ) )
+        : HDF5data( -1, name ), d_data( std::move( data ) )
     {
+        d_bytes = d_data.length() * sizeof( TYPE );
     }
     ~HDF5_primitive() override = default;
     std::string type() const override
@@ -220,10 +239,11 @@ public:
         if ( d_data.empty() )
             printf( " []\n" );
         else
-            printArray( level, d_data );
+            printArray( level, d_data, d_bytes );
     }
 
 private:
+    size_t d_bytes;
     AMP::Array<TYPE> d_data;
 };
 template<class TYPE>
@@ -309,7 +329,8 @@ public:
             return;
         size_t N = d_data.length() / d_data.size( 0 );
         if ( N == 1 && level >= 2 ) {
-            printf( "%s%s\n", prefix.data(), d_name.data() );
+            printf( "%s%s", prefix.data(), d_name.data() );
+            printSize( d_bytes );
             for ( size_t i = 0; i < d_data.size( 0 ); i++ ) {
                 if ( d_data( i ) )
                     d_data( i )->print( level, std::string( prefix ) + "  " );
@@ -340,6 +361,7 @@ private:
     //    All other dimensions are the dimensions of this
     std::vector<std::string> d_names;
     AMP::Array<std::shared_ptr<HDF5data>> d_data;
+    size_t d_bytes = 0;
 };
 class HDF5_compound final : public HDF5data
 {
@@ -383,10 +405,8 @@ public:
                 getData( 0, d_names[i] )->print( level, std::string( prefix ) + "  " );
             }
         } else {
-            printf( "%s%s (%i", prefix.data(), d_name.data(), (int) d_size[0] );
-            for ( int d = 1; d < d_data.ndim(); d++ )
-                printf( ",%i", (int) d_size[d] );
-            printf( ")\n" );
+            printf( "%s%s ", prefix.data(), d_name.data() );
+            printSize( d_size, 0 );
             size_t N_max = N;
             if ( level < 3 )
                 N_max = std::min<size_t>( N_max, 5 );
@@ -620,6 +640,7 @@ HDF5_group::HDF5_group( hid_t fid, const std::string_view &name ) : HDF5data( fi
             }
         }
     }
+    d_bytes = getSize( gid )[0];
     H5Gclose( gid );
 }
 HDF5_compound::HDF5_compound( hid_t fid, const std::string_view &name ) : HDF5data( fid, name )

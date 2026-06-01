@@ -24,7 +24,7 @@ class AsciiWriter : public AMP::IO::Writer
 {
 public:
     //!  Default constructor
-    AsciiWriter();
+    AsciiWriter( const WriterParameters &properties = WriterParameters() );
 
     //!  Default destructor
     virtual ~AsciiWriter();

@@ -85,6 +85,15 @@ Writer::WriterProperties::WriterProperties()
 
 
 /************************************************************
+ * Constructor                                               *
+ ************************************************************/
+Writer::Writer( const WriterParameters &properties )
+    : d_comm( properties.comm ), d_decomposition( properties.decomposition )
+{
+}
+
+
+/************************************************************
  * Writer::VectorData                                        *
  ************************************************************/
 Writer::VectorData::VectorData( std::shared_ptr<AMP::LinearAlgebra::Vector> vec_,
@@ -122,41 +131,46 @@ Writer::MatrixData::MatrixData( std::shared_ptr<AMP::LinearAlgebra::Matrix> mat_
 /************************************************************
  * Builder                                                   *
  ************************************************************/
-std::shared_ptr<AMP::IO::Writer> Writer::buildWriter( std::string type, AMP_MPI comm )
+std::shared_ptr<AMP::IO::Writer> Writer::buildWriter( std::string type,
+                                                      const WriterParameters &params )
 {
     std::for_each( type.begin(), type.end(), []( char &c ) { c = ::tolower( c ); } );
     std::shared_ptr<AMP::IO::Writer> writer;
     if ( type == "none" || type == "null" ) {
-        writer.reset( new AMP::IO::NullWriter() );
+        writer.reset( new AMP::IO::NullWriter( params ) );
     } else if ( type == "silo" ) {
-        writer.reset( new AMP::IO::SiloIO() );
+        writer.reset( new AMP::IO::SiloIO( params ) );
     } else if ( type == "hdf5" ) {
-        writer.reset( new AMP::IO::HDF5writer() );
+        writer.reset( new AMP::IO::HDF5writer( params ) );
     } else if ( type == "ascii" ) {
-        writer.reset( new AMP::IO::AsciiWriter() );
+        writer.reset( new AMP::IO::AsciiWriter( params ) );
     } else if ( type == "auto" ) {
 #ifdef AMP_USE_HDF5
-        if ( comm.getSize() == 1 )
-            return buildWriter( "hdf5", comm );
-#endif
-#ifdef AMP_USE_SILO
-        return buildWriter( "silo", comm );
+        return buildWriter( "hdf5", params );
+#elif defined( AMP_USE_SILO )
+        return buildWriter( "silo", params );
 #else
-        return buildWriter( "null", comm );
+        return buildWriter( "null", params );
 #endif
     } else {
         AMP_ERROR( "Unknown writer: " + type );
     }
-    writer->d_comm = std::move( comm );
     return writer;
 }
 std::shared_ptr<AMP::IO::Writer> Writer::buildWriter( std::shared_ptr<AMP::Database> db )
 {
-    auto type   = db->getString( "Name" );
-    auto writer = Writer::buildWriter( type );
-    if ( db->keyExists( "Decomposition" ) )
-        writer->setDecomposition( db->getScalar<int>( "Decomposition" ) );
-    return writer;
+    auto type = db->getString( "Name" );
+    WriterParameters params;
+    if ( db->keyExists( "Decomposition" ) ) {
+        int d = db->getScalar<int>( "Decomposition" );
+        if ( d == 1 )
+            params.decomposition = DecompositionType::SINGLE;
+        else if ( d == 1 )
+            params.decomposition = DecompositionType::MULTIPLE;
+        else
+            AMP_ERROR( "Unknown value for Decomposition" );
+    }
+    return Writer::buildWriter( type, params );
 }
 
 
@@ -164,13 +178,6 @@ std::shared_ptr<AMP::IO::Writer> Writer::buildWriter( std::shared_ptr<AMP::Datab
  * Some basic functions                                      *
  ************************************************************/
 std::string Writer::getExtension() const { return getProperties().extension; }
-void Writer::setDecomposition( int d )
-{
-    if ( d == 1 )
-        d_decomposition = DecompositionType::SINGLE;
-    else
-        d_decomposition = DecompositionType::MULTIPLE;
-}
 void Writer::createDirectories( const std::string &filename )
 {
     size_t i = filename.rfind( '/' );
