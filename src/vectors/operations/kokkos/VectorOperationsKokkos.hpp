@@ -17,8 +17,7 @@ auto wrapVecDataKokkos( const VectorData &x )
 {
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     const auto N = x.sizeOfDataBlock( 0 );
-    return Kokkos::View<const T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace>(
-        x.getRawDataBlock<T>( 0 ), N );
+    return Kokkos::View<const T *, Kokkos::AnonymousSpace>( x.getRawDataBlock<T>( 0 ), N );
 }
 
 template<typename T>
@@ -26,8 +25,7 @@ auto wrapVecDataKokkos( VectorData &x )
 {
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     const auto N = x.sizeOfDataBlock( 0 );
-    return Kokkos::View<T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace>(
-        x.getRawDataBlock<T>( 0 ), N );
+    return Kokkos::View<T *, Kokkos::AnonymousSpace>( x.getRawDataBlock<T>( 0 ), N );
 }
 
 template<typename T>
@@ -66,13 +64,13 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
     auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_exec ) {
-        // Note: need kernel since deep_copy does not work on AnonymousSpace views
-        set_scalar_kernel( d_exec_host, alpha, xv );
+        Kokkos::deep_copy( d_exec_host, xv, alpha );
     } else {
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        set_scalar_kernel( d_exec_device, alpha, xv );
+        Kokkos::deep_copy( d_exec_device, xv, alpha );
+        d_exec_device.fence();
     #endif
     }
     x.fillGhosts( alpha_in );
