@@ -23,7 +23,7 @@ public:
 
     // Inherited functions
     WriterProperties getProperties() const override;
-    void readFile( const std::string & ) override {};
+    void readFile( const std::string & ) override{};
     void writeFile( const std::string &, size_t, double = 0 ) override {}
 };
 
