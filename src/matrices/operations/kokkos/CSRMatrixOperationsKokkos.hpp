@@ -256,9 +256,15 @@ void CSRMatrixOperationsKokkos<Config>::matMatMult( std::shared_ptr<MatrixData> 
 
     // construct SpGEMM helper and call multiply
     #ifdef AMP_USE_KOKKOSKERNELS
-    CSRMatrixSpGEMMKokkos<Config, typename localops_t::csr_memspace_t> spgemm(
-        csrDataA, csrDataB, csrDataC );
-    spgemm.multiply();
+    if constexpr (alloc_info<Config::allocator>::device_accessible) {
+        CSRMatrixSpGEMMKokkos<Config, Kokkos::DefaultExecutionSpace> spgemm(
+            csrDataA, csrDataB, csrDataC );
+        spgemm.multiply();
+    } else {
+        CSRMatrixSpGEMMKokkos<Config, Kokkos::DefaultHostExecutionSpace> spgemm(
+            csrDataA, csrDataB, csrDataC );
+        spgemm.multiply();
+    }
     #else // don't have kokkos-kernels, forward to default or device ops as appropriate
     if ( !alloc_info<Config::allocator>::device_accessible ) {
         CSRMatrixSpGEMMDefault<Config> spgemm( csrDataA, csrDataB, csrDataC );

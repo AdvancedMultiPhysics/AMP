@@ -15,8 +15,8 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config, class ExecSpace, class ViewSpace>
-void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::multiplyLocal(
+template<typename Config, class ExecSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace>::multiplyLocal(
     std::shared_ptr<localmatrixdata_t> A_data,
     std::shared_ptr<localmatrixdata_t> B_data,
     std::shared_ptr<localmatrixdata_t> C_data )
@@ -234,8 +234,8 @@ __global__ void merge_row_fill( const lidx_t num_rows,
     }
 }
 
-template<typename Config, class ExecSpace, class ViewSpace>
-void CSRMatrixSpGEMMKokkos<Config, ExecSpace, ViewSpace>::merge(
+template<typename Config, class ExecSpace>
+void CSRMatrixSpGEMMKokkos<Config, ExecSpace>::merge(
     std::shared_ptr<localmatrixdata_t> inL,
     std::shared_ptr<localmatrixdata_t> inR,
     std::shared_ptr<localmatrixdata_t> out )

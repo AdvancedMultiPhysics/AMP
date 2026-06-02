@@ -13,7 +13,7 @@ namespace AMP::LinearAlgebra {
         template class CSRLocalMatrixOperationsKokkos<config_mode_t<mode>>; \
         template class CSRMatrixOperationsKokkos<config_mode_t<mode>>;
 
-        #define CSR_INST( mode ) KOKKOS_INST( mode )
+    #define CSR_INST( mode ) KOKKOS_INST( mode )
 CSR_CONFIG_FORALL( CSR_INST )
 
     #define KOKKOS_CC_INST( mode, mode_in )                                                        \

@@ -8,7 +8,7 @@
 #ifndef AMP_USE_DEVICE
     #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
     #define deviceMemset( ... ) AMP_ERROR( "Device memset without device" )
-    #define deviceSynchronize() AMP_ERROR( "Device memset without device" )
+    #define deviceSynchronize() AMP_ERROR( "Device synchronize without device" )
 #endif
 
 
@@ -192,12 +192,14 @@ void memcpy( void *dst, const void *src, std::size_t count )
         std::memcpy( dst, src, count );
     } else if ( op == MemoryDirection::DEVICE_TO_HOST ) {
         deviceMemcpy( dst, src, count, deviceMemcpyDeviceToHost );
+        deviceSynchronize();
     } else if ( op == MemoryDirection::HOST_TO_DEVICE ) {
         deviceMemcpy( dst, src, count, deviceMemcpyHostToDevice );
+        deviceSynchronize();
     } else {
         deviceMemcpy( dst, src, count, deviceMemcpyDeviceToDevice );
+        deviceSynchronize();
     }
-    deviceSynchronize();
 }
 void memset( void *dst, int ch, std::size_t count )
 {
