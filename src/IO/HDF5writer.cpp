@@ -33,6 +33,8 @@ writeHDF5( hid_t fid, const std::string &name, const Array<double> &data, Writer
         writeHDF5( fid, name, data.cloneTo<float>() );
     else if ( type == Writer::VectorType::INT )
         writeHDF5( fid, name, data.cloneTo<int>() );
+    else if ( type == Writer::VectorType::UINT8 )
+        writeHDF5( fid, name, data.cloneTo<uint8_t>() );
     else
         AMP_ERROR( "Unknown vector type" );
 }
@@ -73,7 +75,7 @@ static std::vector<std::string> splitPath( const std::string &path )
 /************************************************************
  * Constructor/Destructor                                    *
  ************************************************************/
-HDF5writer::HDF5writer() : AMP::IO::Writer() {}
+HDF5writer::HDF5writer( const WriterParameters &properties ) : AMP::IO::Writer( properties ) {}
 HDF5writer::~HDF5writer() = default;
 
 
@@ -94,7 +96,8 @@ Writer::WriterProperties HDF5writer::getProperties() const
 #else
     properties.enabled = false;
 #endif
-    properties.isNull = false;
+    properties.isNull        = false;
+    properties.decomposition = d_decomposition;
     return properties;
 }
 

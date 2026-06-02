@@ -312,6 +312,70 @@ void readHDF5( hid_t fid, const std::string &name, size_t N_bytes, void *data )
 }
 
 
+/************************************************************************
+ * Get the size of the path                                              *
+ ************************************************************************/
+typedef struct {
+    hsize_t total_compressed;
+    hsize_t total_uncompressed;
+} size_accumulator_t;
+static herr_t
+size_visitor_cb( hid_t obj_id, const char *name, const H5O_info2_t *info, void *op_data )
+{
+    size_accumulator_t *acc = (size_accumulator_t *) op_data;
+
+    // We only calculate sizes for datasets. Groups and named datatypes are ignored.
+    if ( info->type == H5O_TYPE_DATASET ) {
+        // Open the dataset relative to the current group handle using its relative name
+        hid_t dataset_id = H5Dopen2( obj_id, name, H5P_DEFAULT );
+        if ( dataset_id < 0 )
+            return H5_ITER_CONT; // Skip if open fails, continue iteration
+
+        // 1. Get compressed size
+        acc->total_compressed += H5Dget_storage_size( dataset_id );
+
+        // 2. Get uncompressed size
+        hid_t space_id = H5Dget_space( dataset_id );
+        hid_t type_id  = H5Dget_type( dataset_id );
+
+        if ( space_id >= 0 && type_id >= 0 ) {
+            hssize_t total_elements = H5Sget_simple_extent_npoints( space_id );
+            size_t element_bytes    = H5Tget_size( type_id );
+
+            if ( total_elements >= 0 && element_bytes > 0 ) {
+                acc->total_uncompressed += ( (hsize_t) total_elements * (hsize_t) element_bytes );
+            }
+        }
+
+        // Clean up internal handles for this specific dataset
+        if ( type_id >= 0 )
+            H5Tclose( type_id );
+        if ( space_id >= 0 )
+            H5Sclose( space_id );
+        H5Dclose( dataset_id );
+    }
+
+    return H5_ITER_CONT; // Keep iterating through the remaining items
+}
+std::array<size_t, 2> getSize( hid_t fid )
+{
+    size_accumulator_t acc = { 0, 0 };
+    H5O_info2_t object_info;
+    if ( H5Oget_info3( fid, &object_info, H5O_INFO_BASIC ) < 0 )
+        AMP_ERROR( "Error: Failed to query object information from handle" );
+    if ( object_info.type == H5O_TYPE_DATASET ) {
+        // Object is a dataset
+        size_visitor_cb( fid, ".", &object_info, &acc );
+    } else if ( object_info.type == H5O_TYPE_GROUP ) {
+        // Object is a  group, recursively visit all objects
+        auto err =
+            H5Ovisit3( fid, H5_INDEX_NAME, H5_ITER_NATIVE, size_visitor_cb, &acc, H5O_INFO_BASIC );
+        AMP_ASSERT( err >= 0 );
+    }
+    return { acc.total_compressed, acc.total_uncompressed };
+}
+
+
 #else // No HDF5
 // Dummy implementations for no HDF5
 bool HDF5enabled() { return false; }
@@ -342,6 +406,7 @@ openObjects( hid_t )
     std::vector<hid_t> file, set, group, type, attr;
     return std::tie( file, set, group, type, attr );
 }
+std::array<size_t, 2> getSize( hid_t ) { return { 0, 0 }; }
 #endif
 
 } // namespace AMP::IO

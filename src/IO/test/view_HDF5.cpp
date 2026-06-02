@@ -41,10 +41,15 @@ int main( int argc, char *argv[] )
             std::cerr << "File does not exist\n";
             return -1;
         }
-        auto fid  = AMP::IO::openHDF5( file, "r" );
-        auto data = AMP::IO::readHDF5( fid, path );
+        auto fid              = AMP::IO::openHDF5( file, "r" );
+        auto data             = AMP::IO::readHDF5( fid, path );
+        size_t bytes1         = AMP::IO::fileSize( file );
+        auto [bytes2, bytes3] = AMP::IO::getSize( fid );
         AMP::IO::closeHDF5( fid );
         data->print( 2, "  " );
+        std::cout << "File size: " << bytes1 << std::endl;
+        std::cout << "Compressed size: " << bytes2 << std::endl;
+        std::cout << "Uncompressed size: " << bytes3 << std::endl;
         std::cout << std::endl;
     }
 

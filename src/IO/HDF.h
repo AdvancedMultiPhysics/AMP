@@ -247,6 +247,15 @@ std::tuple<std::vector<hid_t>,
 openObjects( hid_t fid );
 
 
+/**
+ * Retrieves the total compressed and uncompressed size of a target path.
+ *
+ * @param fid           Valid, open handle to the HDF5  dataset or group.
+ * @return              Returns the [compressed,uncompressed] storage size (bytes)
+ */
+std::array<size_t, 2> getSize( hid_t fid );
+
+
 } // namespace AMP::IO
 
 #endif

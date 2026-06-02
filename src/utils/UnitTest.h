@@ -71,6 +71,13 @@ public:
     inline const auto &getExpected() const { return d_expected; }
 
     /*!
+     * Copy the messages
+     * @param src     Source to copy from
+     * @param prefix  Optional prefix to append each message
+     */
+    void copy( const UnitTest &ut, const std::string &prefix );
+
+    /*!
      * Print a report of the passed and failed tests.
      * Note: This is a blocking call that all processors must execute together.
      * Note: Only rank 0 will print the messages (this is necessary as other ranks may not be able
