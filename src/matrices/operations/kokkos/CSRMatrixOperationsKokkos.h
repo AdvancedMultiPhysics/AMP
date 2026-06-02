@@ -189,6 +189,13 @@ protected:
 
     //! Flag to use kokkos-kernels for spgemm, no effect if kokkos-kernels unavailable
     bool d_use_kokkoskernels_spgemm;
+
+    void fence() const
+    {
+    #ifdef AMP_USE_DEVICE
+        d_exec_device.fence();
+    #endif
+    }
 };
 
 } // namespace AMP::LinearAlgebra
