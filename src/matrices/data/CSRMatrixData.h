@@ -69,7 +69,7 @@ public:
 
     //! Migrate data to different configuration, mostly for moving memory spaces
     template<typename ConfigOut>
-    std::shared_ptr<CSRMatrixData<ConfigOut>> migrate( AMP::Utilities::Backend backend ) const;
+    std::shared_ptr<CSRMatrixData<ConfigOut>> migrate() const;
 
     //! Transpose
     std::shared_ptr<MatrixData> transpose() const override;
@@ -246,7 +246,10 @@ public:
     bool hasOffDiag() const { return !d_offd_matrix->d_is_empty; }
 
     //! Get the memory space where data is stored
-    auto getMemoryLocation() const { return d_memory_location; }
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const override
+    {
+        return d_memory_location;
+    }
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] tot_nnz_diag   Number of nonzeros in whole diagonal block
@@ -361,7 +364,8 @@ protected:
 
 public:
     //! Memory location, set by examining type of Allocator
-    AMP::Utilities::MemoryType d_memory_location;
+    static constexpr AMP::Utilities::MemoryType d_memory_location =
+        AMP::Utilities::getAllocatorMemoryType<allocator_type>();
 
 protected:
     //! Matrix is square if true

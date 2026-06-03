@@ -597,14 +597,14 @@ void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
     auto outer_db = input_db->getDatabase( outerOperatorName );
     AMP_INSIST( outer_db, "OperatorBuilder: outer DB is null" );
 
-    if ( outer_db->keyExists( "MemoryLocation" ) ) {
+    if ( outer_db->keyExists( "memory_location" ) ) {
         // if outer operator requests a memory location it takes precedent
-        auto memLoc = outer_db->getScalar<std::string>( "MemoryLocation" );
+        auto memLoc = outer_db->getScalar<std::string>( "memory_location" );
         for ( auto &innerName : nestedOperatorNames ) {
             auto inner_db = input_db->getDatabase( innerName );
             AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null" );
             inner_db->putScalar(
-                "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+                "memory_location", memLoc, Units(), Database::Check::WarnOverwrite );
         }
     } else {
         // outer db does not specify a memory location, check if any internal one does
@@ -639,20 +639,20 @@ void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
         for ( auto &innerName : nestedOperatorNames ) {
             auto inner_db = input_db->getDatabase( innerName );
             AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null (" + innerName + ")" );
-            if ( inner_db->keyExists( "MemoryLocation" ) ) {
+            if ( inner_db->keyExists( "memory_location" ) ) {
                 found        = true;
-                auto memLocI = inner_db->getScalar<std::string>( "MemoryLocation" );
+                auto memLocI = inner_db->getScalar<std::string>( "memory_location" );
                 memLoc       = memRestrict( memLoc, memLocI );
             }
         }
         if ( found ) {
             outer_db->putScalar(
-                "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+                "memory_location", memLoc, Units(), Database::Check::WarnOverwrite );
             for ( auto &innerName : nestedOperatorNames ) {
                 auto inner_db = input_db->getDatabase( innerName );
                 AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null" );
                 inner_db->putScalar(
-                    "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+                    "memory_location", memLoc, Units(), Database::Check::WarnOverwrite );
             }
         }
     }

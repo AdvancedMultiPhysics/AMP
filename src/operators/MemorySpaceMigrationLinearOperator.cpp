@@ -68,6 +68,17 @@ std::shared_ptr<AMP::LinearAlgebra::Matrix> MemorySpaceMigrationLinearOperator::
 {
     return std::dynamic_pointer_cast<LinearOperator>( d_pOperator )->getMatrix();
 }
+void MemorySpaceMigrationLinearOperator::setMatrix(
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> in_mat )
+{
+    std::dynamic_pointer_cast<LinearOperator>( d_pOperator )->setMatrix( in_mat );
+    d_migrate_data = ( d_memory_location != d_pOperator->getMemoryLocation() );
+    if ( !d_migrate_data ) {
+        d_inputVec.reset();
+        d_outputVec.reset();
+        d_resVec.reset();
+    }
+}
 
 void MemorySpaceMigrationLinearOperator::setDebugPrintInfoLevel( int level )
 {

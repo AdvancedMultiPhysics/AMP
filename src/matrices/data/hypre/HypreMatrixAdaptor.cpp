@@ -124,8 +124,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
             AMP_WARN_ONCE(
                 "HypreMatrixAdaptor: Hypre was with GPU device memory support but a managed memory "
                 "matrix was passed in.\nMatrix will be migrated to device." );
-            auto migrated =
-                csrData->template migrate<HypreConfig<alloc::device>>( csrData->getBackend() );
+            auto migrated      = csrData->template migrate<HypreConfig<alloc::device>>();
             d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
             initializeHypreMatrix( migrated );
             return;
@@ -137,8 +136,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
             AMP_WARN_ONCE(
                 "HypreMatrixAdaptor: Hypre was with GPU managed memory support but a device memory "
                 "matrix was passed in.\nMatrix will be migrated to managed memory." );
-            auto migrated =
-                csrData->template migrate<HypreConfig<alloc::managed>>( csrData->getBackend() );
+            auto migrated      = csrData->template migrate<HypreConfig<alloc::managed>>();
             d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
             initializeHypreMatrix( migrated );
             return;
@@ -149,8 +147,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
         AMP_WARN_ONCE( "HypreMatrixAdaptor: Hypre was not built with GPU support but a device "
                        "matrix was passed in.\nMatrix will be migrated to host, consider "
                        "re-building Hypre with GPU support." );
-        auto migrated =
-            csrData->template migrate<HypreConfig<alloc::host>>( csrData->getBackend() );
+        auto migrated      = csrData->template migrate<HypreConfig<alloc::host>>();
         d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
         initializeHypreMatrix( migrated );
         return;

@@ -32,15 +32,13 @@ namespace AMP::LinearAlgebra {
  ********************************************************/
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData()
-    : d_memory_location( AMP::Utilities::getAllocatorMemoryType<allocator_type>() )
 {
     AMPManager::incrementResource( "CSRMatrixData" );
 }
 
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> params )
-    : MatrixData( params ),
-      d_memory_location( AMP::Utilities::getAllocatorMemoryType<allocator_type>() )
+    : MatrixData( params )
 {
     PROFILE( "CSRMatrixData::constructor" );
 
@@ -64,24 +62,10 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
         d_last_col  = rawCSRParams->d_last_col;
 
         // Construct on/off diag blocks
-        d_diag_matrix = std::make_shared<localmatrixdata_t>( params,
-                                                             d_memory_location,
-                                                             d_first_row,
-                                                             d_last_row,
-                                                             d_first_col,
-                                                             d_last_col,
-                                                             true,
-                                                             false,
-                                                             diag_hash );
-        d_offd_matrix = std::make_shared<localmatrixdata_t>( params,
-                                                             d_memory_location,
-                                                             d_first_row,
-                                                             d_last_row,
-                                                             d_first_col,
-                                                             d_last_col,
-                                                             false,
-                                                             false,
-                                                             offd_hash );
+        d_diag_matrix = std::make_shared<localmatrixdata_t>(
+            params, d_first_row, d_last_row, d_first_col, d_last_col, true, false, diag_hash );
+        d_offd_matrix = std::make_shared<localmatrixdata_t>(
+            params, d_first_row, d_last_row, d_first_col, d_last_col, false, false, offd_hash );
 
         d_leftDOFManager  = nullptr;
         d_rightDOFManager = nullptr;
@@ -101,24 +85,10 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
         d_rightCommList = matParams->getRightCommList();
 
         // Construct on/off diag blocks
-        d_diag_matrix = std::make_shared<localmatrixdata_t>( params,
-                                                             d_memory_location,
-                                                             d_first_row,
-                                                             d_last_row,
-                                                             d_first_col,
-                                                             d_last_col,
-                                                             true,
-                                                             false,
-                                                             diag_hash );
-        d_offd_matrix = std::make_shared<localmatrixdata_t>( params,
-                                                             d_memory_location,
-                                                             d_first_row,
-                                                             d_last_row,
-                                                             d_first_col,
-                                                             d_last_col,
-                                                             false,
-                                                             false,
-                                                             offd_hash );
+        d_diag_matrix = std::make_shared<localmatrixdata_t>(
+            params, d_first_row, d_last_row, d_first_col, d_last_col, true, false, diag_hash );
+        d_offd_matrix = std::make_shared<localmatrixdata_t>(
+            params, d_first_row, d_last_row, d_first_col, d_last_col, false, false, offd_hash );
 
         // If, more specifically, have ampCSRParams then blocks are not yet
         // filled. This consolidates calls to getRow{NNZ,Cols} for both blocks
@@ -203,8 +173,7 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::cloneMatrixData() const
 
 template<typename Config>
 template<typename ConfigOut>
-std::shared_ptr<CSRMatrixData<ConfigOut>>
-CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
+std::shared_ptr<CSRMatrixData<ConfigOut>> CSRMatrixData<Config>::migrate() const
 {
     PROFILE( "CSRMatrixData::migrate" );
 
@@ -223,7 +192,7 @@ CSRMatrixData<Config>::migrate( AMP::Utilities::Backend backend ) const
     outData->d_leftCommList           = d_leftCommList;
     outData->d_rightCommList          = d_rightCommList;
     outData->d_pParameters            = std::make_shared<MatrixParametersBase>( *d_pParameters );
-    outData->d_pParameters->d_backend = backend;
+    outData->d_pParameters->d_backend = getDefaultBackend( outData->d_memory_location );
 
     outData->d_diag_matrix = d_diag_matrix->template migrate<ConfigOut>();
     outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
@@ -265,7 +234,7 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
                                             d_pParameters->getLeftVariable(),
                                             d_rightCommList,
                                             d_leftCommList,
-                                            this->getBackend() );
+                                            d_pParameters->d_backend );
 
     transposeData->d_diag_matrix         = d_diag_matrix->transpose( transposeData->d_pParameters );
     transposeData->d_diag_matrix->d_hash = getComm().rand();
@@ -276,7 +245,6 @@ std::shared_ptr<MatrixData> CSRMatrixData<Config>::transpose() const
     } else {
         transposeData->d_offd_matrix =
             std::make_shared<localmatrixdata_t>( transposeData->d_pParameters,
-                                                 d_memory_location,
                                                  d_first_col,
                                                  d_last_col,
                                                  d_first_row,
@@ -311,7 +279,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
         // pull offd column map to host if not accessible
         std::vector<gidx_t> col_map_migrate;
-        if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+        if constexpr ( d_memory_location == AMP::Utilities::MemoryType::device ) {
             d_offd_matrix->getColumnMap( col_map_migrate );
         }
 
@@ -372,7 +340,7 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
     // handle edge case of no recv'd matrices (e.g. parallel matrix is block diagonal)
     if ( recv_blocks.size() == 0 ) {
         return std::make_shared<localmatrixdata_t>(
-            params, d_memory_location, d_first_col, d_last_col, d_first_row, d_last_row, false );
+            params, d_first_col, d_last_col, d_first_row, d_last_row, false );
     }
 
     // return horizontal concatenation of recv'd blocks
@@ -509,18 +477,13 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
 {
     PROFILE( "CSRMatrixData::subsetRows" );
 
-    auto sub_matrix = std::make_shared<localmatrixdata_t>( nullptr,
-                                                           d_memory_location,
-                                                           0,
-                                                           static_cast<gidx_t>( rows.size() ),
-                                                           0,
-                                                           numGlobalColumns(),
-                                                           true );
+    auto sub_matrix = std::make_shared<localmatrixdata_t>(
+        nullptr, 0, static_cast<gidx_t>( rows.size() ), 0, numGlobalColumns(), true );
 
     // copy row selection to device if needed
-    bool rows_migrated = d_memory_location == AMP::Utilities::MemoryType::device;
-    gidx_t *rows_d     = nullptr;
-    if ( rows_migrated ) {
+    constexpr bool rows_migrated = d_memory_location == AMP::Utilities::MemoryType::device;
+    gidx_t *rows_d               = nullptr;
+    if constexpr ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
         AMP::Utilities::copy( rows.size(), rows.data(), rows_d );
     }
@@ -579,7 +542,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
     AMP_DEBUG_ASSERT( idx_up > idx_lo );
 
     auto sub_matrix = std::make_shared<localmatrixdata_t>(
-        nullptr, d_memory_location, d_first_row, d_last_row, idx_lo, idx_up, is_diag );
+        nullptr, d_first_row, d_last_row, idx_lo, idx_up, is_diag );
     const auto nrows = static_cast<lidx_t>( d_last_row - d_first_row );
 
     // count nnz within each row that lie in the given range
@@ -1108,7 +1071,7 @@ CSRMatrixData<Config>::CSRMatrixData( int64_t fid, AMP::IO::RestartManager *mana
 
     signed char memory_location;
     IO::readHDF5( fid, "memory_location", memory_location );
-    d_memory_location = static_cast<AMP::Utilities::MemoryType>( memory_location );
+    AMP_ASSERT( d_memory_location == static_cast<AMP::Utilities::MemoryType>( memory_location ) );
 
     IO::readHDF5( fid, "is_square", d_is_square );
     IO::readHDF5( fid, "first_row", d_first_row );

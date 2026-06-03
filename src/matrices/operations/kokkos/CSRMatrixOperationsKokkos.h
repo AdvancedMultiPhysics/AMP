@@ -23,24 +23,7 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config,
-    #ifdef AMP_USE_DEVICE
-         class ExecSpace = typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
-                                                         AMP::Utilities::MemoryType::host,
-                                                     Kokkos::DefaultHostExecutionSpace,
-                                                     Kokkos::DefaultExecutionSpace>::type,
-         class ViewSpace = typename std::conditional<
-             alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
-             Kokkos::HostSpace,
-             typename std::conditional<
-                 alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::managed,
-                 Kokkos::SharedSpace,
-                 typename Kokkos::DefaultExecutionSpace::memory_space>::type>::type
-    #else
-         class ExecSpace = Kokkos::DefaultHostExecutionSpace,
-         class ViewSpace = Kokkos::HostSpace
-    #endif
-         >
+template<typename Config>
 class CSRMatrixOperationsKokkos : public MatrixOperations
 {
 public:
@@ -51,16 +34,15 @@ public:
     using matrixdata_t      = CSRMatrixData<Config>;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    using localops_t = CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>;
+    using localops_t = CSRLocalMatrixOperationsKokkos<Config>;
 
     using gidx_t   = typename Config::gidx_t;
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
     CSRMatrixOperationsKokkos()
-        : d_exec_space(),
-          d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) ),
+        : d_localops_diag( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
+          d_localops_offd( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
           d_use_kokkoskernels_spgemm( false )
     {
     }
@@ -192,19 +174,28 @@ public:
     void writeRestart( int64_t fid ) const override;
 
     CSRMatrixOperationsKokkos( int64_t, AMP::IO::RestartManager * )
-        : d_exec_space(),
-          d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
+        : d_localops_diag( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
+          d_localops_offd( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
+          d_use_kokkoskernels_spgemm( false )
     {
     }
 
 protected:
-    ExecSpace d_exec_space;
+    Kokkos::DefaultHostExecutionSpace d_exec_host;
+    // not device on host-only builds, but also not used in that case
+    Kokkos::DefaultExecutionSpace d_exec_device;
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
 
     //! Flag to use kokkos-kernels for spgemm, no effect if kokkos-kernels unavailable
     bool d_use_kokkoskernels_spgemm;
+
+    void fence() const
+    {
+    #ifdef AMP_USE_DEVICE
+        d_exec_device.fence();
+    #endif
+    }
 };
 
 } // namespace AMP::LinearAlgebra

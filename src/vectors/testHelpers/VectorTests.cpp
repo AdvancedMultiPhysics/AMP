@@ -1094,6 +1094,11 @@ void VectorTests::CopyRawDataBlockVector( AMP::UnitTest *ut )
     vectorb->getVectorData()->assemble(); // required for petsc
     delete[] buf;
     vectorc->subtract( *vectora, *vectorb );
+    if ( vectorc->maxNorm() != 0 ) {
+        AMP::pout << "data type: " << vectora->getVectorData()->VectorDataName()
+                  << ", ops type: " << vectora->getVectorOperations()->VectorOpName() << std::endl;
+        AMP_ERROR( "broken" );
+    }
     PASS_FAIL( vectorc->maxNorm() == 0, "copy raw data block" );
 }
 

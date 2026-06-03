@@ -29,6 +29,20 @@ std::string_view getString( MemoryType );
 //! Return the memory type from a string
 MemoryType memoryLocationFromString( std::string_view name );
 
+//! Check if MemoryType is device accessible and not unregistered
+bool memoryLocationsDeviceAccessible( const MemoryType t );
+
+//! Check if MemoryTypes are all compatible, registered, and device-accessible
+bool memoryLocationsDeviceAccessible( const MemoryType t1,
+                                      const MemoryType t2,
+                                      const bool check_strict = false );
+
+//! Check if MemoryTypes are all compatible, registered, and device-accessible
+bool memoryLocationsDeviceAccessible( const MemoryType t1,
+                                      const MemoryType t2,
+                                      const MemoryType t3,
+                                      const bool check_strict = false );
+
 //! Perform memory-memory copy (pointer may be in any memory space)
 void memcpy( void *dest, const void *src, std::size_t count );
 

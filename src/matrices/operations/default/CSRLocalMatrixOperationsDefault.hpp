@@ -246,7 +246,7 @@ void CSRLocalMatrixOperationsDefault<Config>::copyCast(
     PROFILE( "CSRLocalMatrixOperationsDefault::copyCast" );
 
     // Check compatibility
-    AMP_ASSERT( Y->getMemoryLocation() == X->getMemoryLocation() );
+    AMP_ASSERT( Y->d_memory_location == X->d_memory_location );
     AMP_ASSERT( Y->beginRow() == X->beginRow() );
     AMP_ASSERT( Y->endRow() == X->endRow() );
     AMP_ASSERT( Y->beginCol() == X->beginCol() );

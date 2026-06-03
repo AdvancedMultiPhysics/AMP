@@ -62,7 +62,6 @@ void compareLocalMatrixData(
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
-    PASS_FAIL( d1->getMemoryLocation() == d2->getMemoryLocation(), "getMemoryLocation" );
     PASS_FAIL( d1->isDiag() == d2->isDiag(), "isDiag" );
     PASS_FAIL( d1->isEmpty() == d2->isEmpty(), "isEmpty" );
     PASS_FAIL( d1->numberOfNonZeros() == d2->numberOfNonZeros(), "numberOfNonZeros" );
@@ -112,7 +111,7 @@ void compareMatrices( AMP::UnitTest *ut,
     PASS_FAIL( d1->endRow() == d2->endRow(), "endRow" );
     PASS_FAIL( d1->beginCol() == d2->beginCol(), "beginCol" );
     PASS_FAIL( d1->endCol() == d2->endCol(), "endCol" );
-    PASS_FAIL( d1->getBackend() == d2->getBackend(), "getBackend" );
+    PASS_FAIL( m1->getBackend() == m2->getBackend(), "getBackend" );
     PASS_FAIL( d1->getCoeffType() == d2->getCoeffType(), "getCoeffType" );
     PASS_FAIL( d1->isSquare() == d2->isSquare(), "isSquare" );
     PASS_FAIL( d1->isEmpty() == d2->isEmpty(), "isEmpty" );
