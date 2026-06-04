@@ -59,7 +59,9 @@ int AMPManager::d_argc                        = 0;
 const char *const *AMPManager::d_argv         = nullptr;
 AMPManagerProperties AMPManager::d_properties = AMPManagerProperties();
 std::vector<std::function<void()>> AMPManager::d_atShutdown;
-
+namespace Utilities {
+computeStream_t DeviceContext::stream = nullptr;
+}
 
 /****************************************************************************
  *  Get the global communicator                                              *
@@ -67,11 +69,6 @@ std::vector<std::function<void()>> AMPManager::d_atShutdown;
 static AMP_MPI comm_world = AMP::AMP_MPI( AMP_COMM_NULL );
 const AMP_MPI &AMPManager::getCommWorld() { return comm_world; }
 void AMPManager::setCommWorld( const AMP::AMP_MPI &comm ) { comm_world = comm; }
-
-/****************************************************************************
- *  Get the device compute stream                                            *
- ****************************************************************************/
-computeStream_t AMPManager::getComputeStream() { return d_properties.compute_stream; }
 
 /****************************************************************************
  * Functions to count resources                                              *
@@ -332,6 +329,7 @@ double AMPManager::bindDevices()
     if ( d_properties.manage_compute_stream ) {
         deviceStreamCreate( &d_properties.compute_stream );
     }
+    Utilities::DeviceContext::stream = d_properties.compute_stream;
 
     void *tmp;
     deviceMallocManaged( &tmp, 10, deviceMemAttachGlobal );

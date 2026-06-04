@@ -7,15 +7,6 @@
 #include "AMP/vectors/data/device/DeviceDataHelpers.h"
 
 #include <string>
-#include <thrust/binary_search.h>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/functional.h>
-#include <thrust/gather.h>
-#include <thrust/iterator/permutation_iterator.h>
-#include <thrust/logical.h>
-#include <thrust/scatter.h>
-#include <thrust/transform.h>
 
 #include "ProfilerApp.h"
 
@@ -77,7 +68,8 @@ void DeviceDataHelpers<STYPE, DTYPE>::setValuesByIndex( const size_t N,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, set_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
-    set_vals_kernel<<<GridDim, BlockDim>>>( N, indices, src, dst );
+    set_vals_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        N, indices, src, dst );
     deviceSynchronize();
 }
 
@@ -113,7 +105,8 @@ void DeviceDataHelpers<STYPE, DTYPE>::addValuesByIndex( const size_t N,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, add_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
-    add_vals_kernel<<<GridDim, BlockDim>>>( N, indices, src, dst );
+    add_vals_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        N, indices, src, dst );
     deviceSynchronize();
 }
 
@@ -139,7 +132,8 @@ void DeviceDataHelpers<STYPE, DTYPE>::getValuesByIndex( const size_t N,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, get_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
-    get_vals_kernel<<<GridDim, BlockDim>>>( N, indices, src, dst );
+    get_vals_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        N, indices, src, dst );
     deviceSynchronize();
 }
 
@@ -165,8 +159,14 @@ void DeviceDataHelpers<STYPE, DTYPE>::setGhostValuesByGlobalID( const size_t gsi
                 "dst not on device" );
 
     // Perform vectorized lower_bound
-    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
-    thrust::scatter( thrust::device, src, src + N, ndxMap, dst );
+    thrust::lower_bound( thrust::device.on( Utilities::DeviceContext::stream ),
+                         globalids,
+                         globalids + gsize,
+                         ndxReq,
+                         ndxReq + N,
+                         ndxMap );
+    thrust::scatter(
+        thrust::device.on( Utilities::DeviceContext::stream ), src, src + N, ndxMap, dst );
 }
 
 
@@ -192,13 +192,23 @@ void DeviceDataHelpers<STYPE, DTYPE>::addGhostValuesByGlobalID( const size_t gsi
                 "dst not on device" );
 
     // Perform vectorized lower_bound to find positions in destination
-    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
+    thrust::lower_bound( thrust::device.on( Utilities::DeviceContext::stream ),
+                         globalids,
+                         globalids + gsize,
+                         ndxReq,
+                         ndxReq + N,
+                         ndxMap );
     // construct the [begin, end) for the map
     auto begin_map = thrust::make_permutation_iterator( dst, ndxMap );
     auto end_map   = thrust::make_permutation_iterator( dst, ndxMap + N );
 
     // add the src vector to the mapped locations using transform with a binary op
-    thrust::transform( thrust::device, begin_map, end_map, src, begin_map, thrust::plus<DTYPE>() );
+    thrust::transform( thrust::device.on( Utilities::DeviceContext::stream ),
+                       begin_map,
+                       end_map,
+                       src,
+                       begin_map,
+                       thrust::plus<DTYPE>() );
 }
 
 template<typename TYPE>
@@ -240,7 +250,12 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID( const size_t gsi
                       "dst not on device" );
 
     // Perform vectorized lower_bound to find positions in src
-    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
+    thrust::lower_bound( thrust::device.on( Utilities::DeviceContext::stream ),
+                         globalids,
+                         globalids + gsize,
+                         ndxReq,
+                         ndxReq + N,
+                         ndxMap );
 
     auto map_data_1_begin = thrust::make_permutation_iterator( src1, ndxMap );
     auto map_data_1_end   = thrust::make_permutation_iterator( src1, ndxMap + N );
@@ -252,7 +267,11 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID( const size_t gsi
     auto zip_end =
         thrust::make_zip_iterator( thrust::make_tuple( map_data_1_end, map_data_2_end ) );
 
-    thrust::transform( thrust::device, zip_begin, zip_end, dst, pair_plus_op<DTYPE>() );
+    thrust::transform( thrust::device.on( Utilities::DeviceContext::stream ),
+                       zip_begin,
+                       zip_end,
+                       dst,
+                       pair_plus_op<DTYPE>() );
 }
 
 template<typename STYPE, typename DTYPE>
@@ -277,9 +296,15 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostAddValuesByGlobalID( const size_t 
                 "dst not on device" );
 
     // Perform vectorized lower_bound to find positions in src
-    thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
+    thrust::lower_bound( thrust::device.on( Utilities::DeviceContext::stream ),
+                         globalids,
+                         globalids + gsize,
+                         ndxReq,
+                         ndxReq + N,
+                         ndxMap );
 
-    thrust::gather( thrust::device, ndxMap, ndxMap + N, src, dst );
+    thrust::gather(
+        thrust::device.on( Utilities::DeviceContext::stream ), ndxMap, ndxMap + N, src, dst );
 }
 
 } // namespace LinearAlgebra

@@ -9,6 +9,7 @@
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
 #include "AMP/utils/Memory.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/Vector.h"
 
 #ifdef AMP_USE_DEVICE
@@ -40,11 +41,15 @@ public:
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
-    CSRMatrixOperationsKokkos()
-        : d_localops_diag( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_use_kokkoskernels_spgemm( false )
+    CSRMatrixOperationsKokkos() : d_use_kokkoskernels_spgemm( false )
     {
+    #ifdef AMP_USE_DEVICE
+        // if we have device then bind exeuction space to the compute stream
+        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::Utilities::DeviceContext::stream );
+    #endif
+
+        d_localops_diag = std::make_shared<localops_t>( d_exec_host, d_exec_device );
+        d_localops_offd = std::make_shared<localops_t>( d_exec_host, d_exec_device );
     }
 
     /** \brief  Matrix-vector multiplication

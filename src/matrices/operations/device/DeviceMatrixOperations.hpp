@@ -33,7 +33,8 @@ void DeviceMatrixOperations<G, L, S>::mult(
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, mult_kernel<L, S>, BlockDim, GridDim );
-    mult_kernel<<<GridDim, BlockDim>>>( row_starts, cols_loc, coeffs, N, in, out );
+    mult_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        row_starts, cols_loc, coeffs, N, in, out );
 }
 
 // scale
@@ -52,7 +53,7 @@ void DeviceMatrixOperations<G, L, S>::scale( const size_t N, S *x, const S alpha
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, scale_kernel<S>, BlockDim, GridDim );
-    scale_kernel<<<GridDim, BlockDim>>>( N, x, alpha );
+    scale_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>( N, x, alpha );
 }
 
 // axpy
@@ -71,7 +72,7 @@ void DeviceMatrixOperations<G, L, S>::axpy( const size_t N, const S alpha, S *x,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, axpy_kernel<S>, BlockDim, GridDim );
-    axpy_kernel<<<GridDim, BlockDim>>>( N, alpha, x, y );
+    axpy_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>( N, alpha, x, y );
 }
 
 // copy
@@ -107,7 +108,8 @@ void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, extractDiagonal_kernel<L, S>, BlockDim, GridDim );
-    extractDiagonal_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N, diag );
+    extractDiagonal_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        row_starts, coeffs, N, diag );
 }
 
 // set diagonal
@@ -134,7 +136,8 @@ void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, setDiagonal_kernel<L, S>, BlockDim, GridDim );
-    setDiagonal_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N, diag );
+    setDiagonal_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        row_starts, coeffs, N, diag );
 }
 
 // set identity
@@ -154,7 +157,8 @@ void DeviceMatrixOperations<G, L, S>::setIdentity( const L *row_starts, S *coeff
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, setIdentity_kernel<L, S>, BlockDim, GridDim );
-    setIdentity_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N );
+    setIdentity_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        row_starts, coeffs, N );
 }
 
 // Linf norms
@@ -186,7 +190,8 @@ void DeviceMatrixOperations<G, L, S>::LinfNorm( const size_t N,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, LinfNorm_kernel<L, S>, BlockDim, GridDim );
-    LinfNorm_kernel<<<GridDim, BlockDim>>>( N, x, row_starts, row_sums );
+    LinfNorm_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+        N, x, row_starts, row_sums );
 }
 
 } // namespace LinearAlgebra

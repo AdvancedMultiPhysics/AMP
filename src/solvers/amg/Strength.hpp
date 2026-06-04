@@ -6,6 +6,7 @@
 #include "AMP/solvers/amg/Strength.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 
 #include <algorithm>
 #include <numeric>
@@ -244,15 +245,16 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
                        compute_soc_device<StrengthPolicy, lidx_t, scalar_t, mask_t>,
                        BlockDim,
                        GridDim );
-        compute_soc_device<<<GridDim, BlockDim>>>( StrengthPolicy{},
-                                                   row_ptr_diag,
-                                                   cols_loc_diag,
-                                                   vals_diag,
-                                                   row_ptr_offd,
-                                                   vals_offd,
-                                                   num_rows,
-                                                   threshold,
-                                                   mask_data );
+        compute_soc_device<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+            StrengthPolicy{},
+            row_ptr_diag,
+            cols_loc_diag,
+            vals_diag,
+            row_ptr_offd,
+            vals_offd,
+            num_rows,
+            threshold,
+            mask_data );
         getLastDeviceError( "compute_soc" );
 #else
         AMP_ERROR( "compute_soc: Undefined memory location" );

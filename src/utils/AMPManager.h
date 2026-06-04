@@ -222,9 +222,6 @@ public:
     //! Register a function to perform cleanup at AMP::AMPManager::shutdown
     static void registerShutdown( std::function<void()> );
 
-    //! Get the device compute stream, always nullptr for non-device builds
-    static computeStream_t getComputeStream();
-
 private:
     // Private constructor (we do not actually want to create an object)
     AMPManager() = delete;

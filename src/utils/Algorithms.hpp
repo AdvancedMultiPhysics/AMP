@@ -5,18 +5,7 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-
-#ifdef AMP_USE_DEVICE
-    #include <thrust/device_vector.h>
-    #include <thrust/execution_policy.h>
-    #include <thrust/extrema.h>
-    #include <thrust/fill.h>
-    #include <thrust/scan.h>
-    #include <thrust/sort.h>
-    #include <thrust/unique.h>
-#else
-    #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
-#endif
+#include "AMP/utils/device/Device.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -34,7 +23,7 @@ void Algorithms<TYPE>::fill_n( TYPE *x, const size_t N, const TYPE alpha )
             std::fill( x, x + N, alpha );
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::fill_n( thrust::device, x, N, alpha );
+            thrust::fill_n( thrust::device.on( Utilities::DeviceContext::stream ), x, N, alpha );
 #else
             AMP_ERROR( "Invalid memory type" );
 #endif
@@ -56,7 +45,8 @@ void Algorithms<TYPE>::inclusive_scan( const TYPE *x, const size_t N, TYPE *y )
         std::inclusive_scan( x, x + N, y );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::inclusive_scan( thrust::device, x, x + N, y );
+        thrust::inclusive_scan(
+            thrust::device.on( Utilities::DeviceContext::stream ), x, x + N, y );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -70,7 +60,8 @@ void Algorithms<TYPE>::exclusive_scan( const TYPE *x, const size_t N, TYPE *y, T
         std::exclusive_scan( x, x + N, y, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::exclusive_scan( thrust::device, x, x + N, y, alpha );
+        thrust::exclusive_scan(
+            thrust::device.on( Utilities::DeviceContext::stream ), x, x + N, y, alpha );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -86,7 +77,7 @@ void Algorithms<TYPE>::sort( TYPE *x, const size_t N )
     if ( getMemoryType( x ) <= MemoryType::host ) {
         std::sort( x, x + N );
     } else {
-        thrust::sort( thrust::device, x, x + N );
+        thrust::sort( thrust::device.on( Utilities::DeviceContext::stream ), x, x + N );
     }
 #endif
 }
@@ -101,7 +92,7 @@ size_t Algorithms<TYPE>::unique( TYPE *x, const size_t N )
     if ( getMemoryType( x ) <= MemoryType::host ) {
         last = std::unique( x, x + N );
     } else {
-        last = thrust::unique( thrust::device, x, x + N );
+        last = thrust::unique( thrust::device.on( Utilities::DeviceContext::stream ), x, x + N );
     }
 #endif
     std::ptrdiff_t diff = last - x;
@@ -116,7 +107,7 @@ TYPE Algorithms<TYPE>::min_element( const TYPE *x, const size_t N )
         return *std::min_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        return *thrust::min_element( thrust::device,
+        return *thrust::min_element( thrust::device.on( Utilities::DeviceContext::stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
 #else
@@ -133,7 +124,7 @@ TYPE Algorithms<TYPE>::max_element( const TYPE *x, const size_t N )
         return *std::max_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        return *thrust::max_element( thrust::device,
+        return *thrust::max_element( thrust::device.on( Utilities::DeviceContext::stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
 #else
@@ -150,7 +141,11 @@ TYPE Algorithms<TYPE>::accumulate( const TYPE *x, const size_t N, TYPE alpha )
         return std::accumulate( x, x + N, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
-        return thrust::reduce( thrust::device, x, x + N, alpha, thrust::plus<TYPE>() );
+        return thrust::reduce( thrust::device.on( Utilities::DeviceContext::stream ),
+                               x,
+                               x + N,
+                               alpha,
+                               thrust::plus<TYPE>() );
 #else
         AMP_ERROR( "Invalid memory type" );
         return TYPE{ 0 };

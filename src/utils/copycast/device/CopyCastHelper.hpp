@@ -3,17 +3,9 @@
 
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
-#include <memory>
-#include <thrust/copy.h>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/functional.h>
-#include <thrust/host_vector.h>
-#include <thrust/iterator/transform_iterator.h>
-#include <thrust/mr/allocator.h>
-#include <thrust/transform_reduce.h>
+#include "AMP/utils/device/Device.h"
 
-#include <iostream>
+#include <memory>
 
 namespace AMP::Utilities {
 
@@ -31,7 +23,11 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::ManagedAllocato
     void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
         auto lambda = [] __host__ __device__( T1 x ) { return static_cast<T2>( x ); };
-        thrust::transform( thrust::device, vec_in, vec_in + len, vec_out, lambda );
+        thrust::transform( thrust::device.on( Utilities::DeviceContext::stream ),
+                           vec_in,
+                           vec_in + len,
+                           vec_out,
+                           lambda );
     }
 };
 
@@ -40,7 +36,11 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::DeviceAllocator
     void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
         auto lambda = [] __host__ __device__( T1 x ) { return static_cast<T2>( x ); };
-        thrust::transform( thrust::device, vec_in, vec_in + len, vec_out, lambda );
+        thrust::transform( thrust::device.on( Utilities::DeviceContext::stream ),
+                           vec_in,
+                           vec_in + len,
+                           vec_out,
+                           lambda );
     }
 };
 

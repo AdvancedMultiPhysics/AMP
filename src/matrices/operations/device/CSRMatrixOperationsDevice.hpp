@@ -8,11 +8,8 @@
 #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/utils/typeid.h"
-
-#include "thrust/device_vector.h"
-#include "thrust/execution_policy.h"
-#include "thrust/extrema.h"
 
 #include <algorithm>
 
@@ -285,8 +282,9 @@ AMP::Scalar CSRMatrixOperationsDevice<Config>::LinfNorm( MatrixData const &A ) c
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = *thrust::max_element( thrust::device, rowSums.begin(), rowSums.end() );
-    AMP_MPI comm  = csrData->getComm();
+    auto max_norm = *thrust::max_element(
+        thrust::device.on( Utilities::DeviceContext::stream ), rowSums.begin(), rowSums.end() );
+    AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
 

@@ -2,6 +2,7 @@
 #define included_AMP_VectorOperationsKokkos
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
@@ -21,14 +22,14 @@ template<typename TYPE = double>
 class VectorOperationsKokkos : public VectorOperations
 {
 public:
-    // type aliases for execution and view spaces
-    using ExecSpaceHost = Kokkos::DefaultHostExecutionSpace;
-    #ifdef AMP_USE_DEVICE
-    using ExecSpaceDevice = Kokkos::DefaultExecutionSpace;
-    #endif
-
     // Constructor
-    VectorOperationsKokkos() : d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() ) {}
+    VectorOperationsKokkos() : d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() )
+    {
+    #ifdef AMP_USE_DEVICE
+        // if we have device then bind exeuction space to the compute stream
+        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::Utilities::DeviceContext::stream );
+    #endif
+    }
 
     //! Destructor
     virtual ~VectorOperationsKokkos() = default;
@@ -83,10 +84,8 @@ public:
                       const Scalar &tol = 1e-6 ) const override;
 
 protected:
-    ExecSpaceHost d_exec_host;
-    #ifdef AMP_USE_DEVICE
-    ExecSpaceDevice d_exec_device;
-    #endif
+    Kokkos::DefaultHostExecutionSpace d_exec_host;
+    Kokkos::DefaultExecutionSpace d_exec_device;
     std::shared_ptr<VectorOperationsDefault<TYPE>> d_default_ops;
 };
 
