@@ -24,6 +24,4 @@ public:
 } // namespace Utilities
 } // namespace AMP
 
-#include "AMP/utils/Algorithms.hpp"
-
 #endif
