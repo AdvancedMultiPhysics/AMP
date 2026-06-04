@@ -16,10 +16,6 @@
     #include <omp.h>
 #endif
 
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/Device.h"
-#endif
-
 #ifdef AMP_USE_TIMER
     #include "MemoryApp.h"
 #endif
@@ -72,6 +68,10 @@ static AMP_MPI comm_world = AMP::AMP_MPI( AMP_COMM_NULL );
 const AMP_MPI &AMPManager::getCommWorld() { return comm_world; }
 void AMPManager::setCommWorld( const AMP::AMP_MPI &comm ) { comm_world = comm; }
 
+/****************************************************************************
+ *  Get the device compute stream                                            *
+ ****************************************************************************/
+computeStream_t AMPManager::getComputeStream() { return d_properties.compute_stream; }
 
 /****************************************************************************
  * Functions to count resources                                              *
@@ -298,7 +298,7 @@ void AMPManager::registerShutdown( std::function<void()> fun ) { d_atShutdown.pu
 
 
 /****************************************************************************
- * Function to start/stop CUDA                                               *
+ * Functions to start/stop HIP/Cuda                                          *
  ****************************************************************************/
 double AMPManager::initDevices()
 {
@@ -329,9 +329,28 @@ double AMPManager::bindDevices()
         deviceBind( device_id ); // Map MPI-process to a GPU
     }
 
+    if ( d_properties.manage_compute_stream ) {
+        deviceStreamCreate( &d_properties.compute_stream );
+    }
+
     void *tmp;
     deviceMallocManaged( &tmp, 10, deviceMemAttachGlobal );
     deviceFree( tmp );
+
+#endif
+    return getDuration( start );
+}
+
+double AMPManager::freeDevices()
+{
+    if ( !d_properties.initialize_device )
+        return 0;
+    auto start = std::chrono::steady_clock::now();
+#ifdef AMP_USE_DEVICE
+
+    if ( d_properties.manage_compute_stream ) {
+        deviceStreamDestroy( d_properties.compute_stream );
+    }
 
 #endif
     return getDuration( start );

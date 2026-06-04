@@ -2,6 +2,7 @@
 #define included_AMP_AMPManager
 
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/device/Device.h"
 
 #include <array>
 #include <functional>
@@ -115,6 +116,20 @@ public:
      */
     int default_OpenMP_threads = 0;
 
+    //! Set whether AMP should create a device compute stream, meaningless for host-only
+    bool manage_compute_stream = true;
+
+    /*!
+     * Device compute stream to queue kernels into
+     * In host-only builds this resolves to void* and is never used.
+     * In device-enabled builds {HIP,Cuda} this resolves to {hip,cuda}Stream_t
+     *    If manage_device_compute_stream is true then this is created/destroyed
+     *    by bindDevices/freeDevices in AMPManager.
+     *    If manage_device_compute_stream is false then this must be passed from
+     *    the outside. AMP does not create or destroy it in this case.
+     */
+    computeStream_t compute_stream = nullptr;
+
 private:
     friend class AMPManager;
 };
@@ -207,6 +222,9 @@ public:
     //! Register a function to perform cleanup at AMP::AMPManager::shutdown
     static void registerShutdown( std::function<void()> );
 
+    //! Get the device compute stream, always nullptr for non-device builds
+    static computeStream_t getComputeStream();
+
 private:
     // Private constructor (we do not actually want to create an object)
     AMPManager() = delete;
@@ -227,6 +245,7 @@ private:
     static double start_HYPRE();
     static double initDevices();
     static double bindDevices();
+    static double freeDevices();
     static double start_OpenMP();
     static double stop_SAMRAI();
     static double stop_HYPRE();

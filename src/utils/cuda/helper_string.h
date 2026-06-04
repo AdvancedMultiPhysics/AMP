@@ -69,10 +69,6 @@
     #endif
 #endif
 
-#ifndef EXIT_WAIVED
-    #define EXIT_WAIVED 2
-#endif
-
 // CUDA Utility Helper Functions
 inline int stringRemoveDelimiter( char delimiter, const char *string )
 {

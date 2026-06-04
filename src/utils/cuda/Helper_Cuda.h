@@ -13,6 +13,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+typedef cudaStream_t computeStream_t;
+
 #define hostDeviceId cudaCpuDeviceId
 
 #define deviceMemAttachGlobal cudaMemAttachGlobal
@@ -25,29 +27,17 @@
 #define deviceGetCount( ... ) checkCudaErrors( cudaGetDeviceCount( __VA_ARGS__ ) )
 #define deviceBind( ... ) checkCudaErrors( cudaSetDevice( __VA_ARGS__ ) )
 #define deviceId( ... ) checkCudaErrors( cudaGetDevice( __VA_ARGS__ ) )
+
+#define deviceStreamCreate( ... ) checkHipErrors( hipStreamCreate( __VA_ARGS__ ) )
+#define deviceStreamDestroy( ... ) checkHipErrors( hipStreamDestroy( __VA_ARGS__ ) )
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
+
 #define deviceMalloc( ... ) checkCudaErrors( cudaMalloc( __VA_ARGS__ ) )
 #define deviceMallocManaged( ... ) checkCudaErrors( cudaMallocManaged( __VA_ARGS__ ) )
 #define deviceMemcpy( ... ) checkCudaErrors( cudaMemcpy( __VA_ARGS__ ) )
 #define deviceMemset( ... ) checkCudaErrors( cudaMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkCudaErrors( cudaFree( __VA_ARGS__ ) )
 #define deviceMemPrefetchAsync( ... ) checkCudaErrors( cudaMemPrefetchAsync( __VA_ARGS__ ) )
-
-
-#ifndef EXIT_WAIVED
-    #define EXIT_WAIVED 2
-#endif
-
-
-#ifdef __DRIVER_TYPES_H__
-    #ifndef DEVICE_RESET
-        #define DEVICE_RESET cudaDeviceReset();
-    #endif
-#else
-    #ifndef DEVICE_RESET
-        #define DEVICE_RESET
-    #endif
-#endif
 
 
 namespace AMP::Utilities {

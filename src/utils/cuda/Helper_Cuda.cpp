@@ -37,7 +37,9 @@ void checkCudaErrors( T result, const StackTrace::source_location &source )
                  cudaGetName( result ),
                  source.function_name() );
         // Make sure we call CUDA Device Reset before exiting
-        DEVICE_RESET
+#ifdef __DRIVER_TYPES_H__
+        cudaDeviceReset();
+#endif
         exit( EXIT_FAILURE );
     }
 }
