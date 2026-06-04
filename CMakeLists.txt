@@ -128,7 +128,6 @@ SET( DROP_SITE "" )
 SET( DROP_LOCATION "/CDash/submit.php?project=AMP" )
 SET( TRIGGER_SITE "" )
 SET( DROP_SITE_CDASH TRUE )
-ENABLE_TESTING()
 INCLUDE( CTest )
 
 # Configure AMP ( all external libraries must be configured first )
