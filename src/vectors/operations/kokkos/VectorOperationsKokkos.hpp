@@ -42,16 +42,6 @@ void VectorOperationsKokkos<T>::zero( VectorData &x )
     setToScalar( T{ 0 }, x );
 }
 
-template<typename T, class ExecSpace, class ViewT>
-void set_scalar_kernel( ExecSpace exec, const T alpha, ViewT xv )
-{
-    Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
-    Kokkos::parallel_for(
-        "VectorOperationsKokkos::set_scalar", pol, KOKKOS_LAMBDA( const int i ) {
-            xv( i ) = alpha;
-        } );
-}
-
 template<typename T>
 void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData &x )
 {
