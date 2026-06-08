@@ -16,10 +16,7 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/copycast/CopyCastHelper.h"
-
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/Device.h"
-#endif
+#include "AMP/utils/device/Device.h"
 
 #include "ProfilerApp.h"
 
@@ -485,7 +482,8 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     gidx_t *rows_d               = nullptr;
     if constexpr ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
-        AMP::Utilities::copy( rows.size(), rows.data(), rows_d );
+        AMP::Utilities::copy(
+            rows.size(), rows.data(), rows_d, AMP::Utilities::DeviceContext::stream );
     }
 
     // count nnz per row and write into sub matrix directly

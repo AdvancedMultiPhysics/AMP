@@ -1,6 +1,7 @@
 #ifndef included_AMP_VectorData_inline
 #define included_AMP_VectorData_inline
 
+#include "AMP/utils/device/Device.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/data/VectorDataIterator.h"
 
@@ -140,12 +141,14 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ 
     TYPE *vals_mem  = nullptr;
     if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        AMP::Utilities::memcpy( ndx_mem, ndx_, N * sizeof( size_t ) );
+        AMP::Utilities::memcpy(
+            ndx_mem, ndx_, N * sizeof( size_t ), AMP::Utilities::DeviceContext::stream );
         ndx = ndx_mem;
     }
     if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
         vals_mem = new TYPE[N];
-        AMP::Utilities::memcpy( vals_mem, vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::memcpy(
+            vals_mem, vals_, N * sizeof( TYPE ), AMP::Utilities::DeviceContext::stream );
         vals = vals_mem;
     }
     constexpr size_t N_max = 128;
@@ -197,12 +200,14 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
     TYPE *vals_mem  = nullptr;
     if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        AMP::Utilities::memcpy( ndx_mem, ndx_, N * sizeof( size_t ) );
+        AMP::Utilities::memcpy(
+            ndx_mem, ndx_, N * sizeof( size_t ), AMP::Utilities::DeviceContext::stream );
         ndx = ndx_mem;
     }
     if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
         vals_mem = new TYPE[N];
-        AMP::Utilities::memcpy( vals_mem, vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::memcpy(
+            vals_mem, vals_, N * sizeof( TYPE ), AMP::Utilities::DeviceContext::stream );
         vals = vals_mem;
     }
     constexpr size_t N_max = 128;
@@ -247,12 +252,18 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
     if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
         ndx     = ndx_mem;
-        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ),
+                                ndx_,
+                                N * sizeof( size_t ),
+                                AMP::Utilities::DeviceContext::stream );
     }
     if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
         vals_mem = new TYPE[N];
         vals     = vals_mem;
-        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ),
+                                vals_,
+                                N * sizeof( TYPE ),
+                                AMP::Utilities::DeviceContext::stream );
     }
     constexpr size_t N_max = 128;
     while ( N != 0 ) {

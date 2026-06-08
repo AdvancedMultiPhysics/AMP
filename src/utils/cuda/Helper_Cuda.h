@@ -30,6 +30,7 @@ typedef cudaStream_t computeStream_t;
 
 #define deviceStreamCreate( ... ) checkHipErrors( hipStreamCreate( __VA_ARGS__ ) )
 #define deviceStreamDestroy( ... ) checkHipErrors( hipStreamDestroy( __VA_ARGS__ ) )
+#define deviceStreamSynchronize( STREAM ) checkCudaErrors( cudaStreamSynchronize( STREAM ) )
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
 
 #define deviceMalloc( ... ) checkCudaErrors( cudaMalloc( __VA_ARGS__ ) )
@@ -37,6 +38,11 @@ typedef cudaStream_t computeStream_t;
 #define deviceMemcpy( ... ) checkCudaErrors( cudaMemcpy( __VA_ARGS__ ) )
 #define deviceMemset( ... ) checkCudaErrors( cudaMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkCudaErrors( cudaFree( __VA_ARGS__ ) )
+
+#define deviceMallocAsync( ... ) checkCudaErrors( cudaMallocAsync( __VA_ARGS__ ) )
+#define deviceMemcpyAsync( ... ) checkCudaErrors( cudaMemcpyAsync( __VA_ARGS__ ) )
+#define deviceMemsetAsync( ... ) checkCudaErrors( cudaMemsetAsync( __VA_ARGS__ ) )
+#define deviceFreeAsync( ... ) checkCudaErrors( cudaFreeAsync( __VA_ARGS__ ) )
 #define deviceMemPrefetchAsync( ... ) checkCudaErrors( cudaMemPrefetchAsync( __VA_ARGS__ ) )
 
 

@@ -9,6 +9,10 @@
     #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
     #define deviceMemset( ... ) AMP_ERROR( "Device memset without device" )
     #define deviceSynchronize() AMP_ERROR( "Device synchronize without device" )
+
+    #define deviceMemcpyAsync( ... ) AMP_ERROR( "Device memcpy without device" )
+    #define deviceMemsetAsync( ... ) AMP_ERROR( "Device memset without device" )
+    #define deviceSynchronizeAsync() AMP_ERROR( "Device synchronize without device" )
 #endif
 
 
@@ -245,6 +249,82 @@ void copy( size_t N, const T1 *src, T2 *dst )
             for ( size_t i = 0; i < N; i++ )
                 tmp[i] = src[i];
             AMP::Utilities::memcpy( dst, tmp, N * sizeof( T2 ) );
+            delete[] tmp;
+        } else {
+#ifdef AMP_USE_DEVICE
+            if constexpr ( std::is_integral_v<T1> || std::is_integral_v<T2> ) {
+                AMP_ERROR( "Converting device vector int/float conversion is not supported" );
+            } else {
+                copyCast<T1, T2, Backend::Hip_Cuda>( N, src, dst );
+            }
+#else
+            AMP_ERROR( "No backend" );
+#endif
+        }
+    }
+}
+
+/****************************************************************************
+ *  Copy / Fill memory asynchronously                                        *
+ ****************************************************************************/
+void memcpy( void *dst, const void *src, std::size_t count, computeStream_t stream )
+{
+    auto op = getMemoryOp( src, dst );
+    if ( op == MemoryDirection::HOST ) {
+        std::memcpy( dst, src, count );
+    } else if ( op == MemoryDirection::DEVICE_TO_HOST ) {
+        deviceMemcpyAsync( dst, src, count, deviceMemcpyDeviceToHost, stream );
+        deviceStreamSynchronize( stream );
+    } else if ( op == MemoryDirection::HOST_TO_DEVICE ) {
+        deviceMemcpyAsync( dst, src, count, deviceMemcpyHostToDevice, stream );
+        deviceStreamSynchronize( stream );
+    } else {
+        deviceMemcpyAsync( dst, src, count, deviceMemcpyDeviceToDevice, stream );
+        deviceStreamSynchronize( stream );
+    }
+}
+void memset( void *dst, int ch, std::size_t count, computeStream_t stream )
+{
+    const auto t = getMemoryType( dst );
+    if ( t == MemoryType::host ) {
+        std::memset( dst, ch, count );
+    } else if ( t >= MemoryType::managed ) {
+        deviceMemsetAsync( dst, ch, count );
+    } else {
+        AMP_ERROR( "Unknown memory space" );
+    }
+}
+void zero( void *dst, std::size_t count, computeStream_t stream )
+{
+    AMP::Utilities::memset( dst, 0, count, stream );
+}
+template<class T1, class T2>
+void copy( size_t N, const T1 *src, T2 *dst, computeStream_t stream )
+{
+    static_assert( std::is_trivially_copyable_v<T1> );
+    static_assert( std::is_trivially_copyable_v<T2> );
+    if constexpr ( std::is_same_v<T1, T2> ) {
+        // The types are the same and trivial, use memcpy
+        AMP::Utilities::memcpy( dst, src, N * sizeof( T1 ), stream );
+    } else {
+        // Types are not the same
+        auto op = getMemoryOp( src, dst );
+        if ( op == MemoryDirection::HOST ) {
+            for ( size_t i = 0; i < N; i++ )
+                dst[i] = src[i];
+        } else if ( op == MemoryDirection::DEVICE_TO_HOST ) {
+            auto tmp = new T1[N];
+            AMP::Utilities::memcpy( tmp, src, N * sizeof( T1 ), stream );
+            deviceStreamSynchronize( stream );
+            for ( size_t i = 0; i < N; i++ )
+                dst[i] = tmp[i];
+            delete[] tmp;
+        } else if ( op == MemoryDirection::HOST_TO_DEVICE ) {
+            auto tmp = new T2[N];
+            for ( size_t i = 0; i < N; i++ )
+                tmp[i] = src[i];
+            AMP::Utilities::memcpy( dst, tmp, N * sizeof( T2 ), stream );
+            deviceStreamSynchronize( stream );
             delete[] tmp;
         } else {
 #ifdef AMP_USE_DEVICE

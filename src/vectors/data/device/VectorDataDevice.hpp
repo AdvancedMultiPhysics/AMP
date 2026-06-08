@@ -4,6 +4,7 @@
 #include "AMP/IO/RestartManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/data/device/DeviceDataHelpers.h"
 #include "AMP/vectors/data/device/VectorDataDevice.h"
 #include <cstring>
@@ -115,17 +116,24 @@ std::tuple<bool, size_t *, void *> VectorDataDevice<TYPE, Allocator>::copyToScra
         this->setScratchSpace( num );
         ind_req = this->d_idx_req_scratch;
         vals    = this->d_scalar_scratch;
-        AMP::Utilities::copy<size_t, size_t>( num, indices_, ind_req );
+        AMP::Utilities::copy<size_t, size_t>(
+            num, indices_, ind_req, AMP::Utilities::DeviceContext::stream );
 
         if ( id == getTypeID<TYPE>() ) {
-            AMP::Utilities::copy<TYPE, TYPE>(
-                num, reinterpret_cast<const TYPE *>( vals_ ), this->d_scalar_scratch );
+            AMP::Utilities::copy<TYPE, TYPE>( num,
+                                              reinterpret_cast<const TYPE *>( vals_ ),
+                                              this->d_scalar_scratch,
+                                              AMP::Utilities::DeviceContext::stream );
         } else if ( id == getTypeID<double>() ) {
-            AMP::Utilities::copy<double, TYPE>(
-                num, reinterpret_cast<const double *>( vals_ ), this->d_scalar_scratch );
+            AMP::Utilities::copy<double, TYPE>( num,
+                                                reinterpret_cast<const double *>( vals_ ),
+                                                this->d_scalar_scratch,
+                                                AMP::Utilities::DeviceContext::stream );
         } else if ( id == getTypeID<float>() ) {
-            AMP::Utilities::copy<float, TYPE>(
-                num, reinterpret_cast<const float *>( vals_ ), this->d_scalar_scratch );
+            AMP::Utilities::copy<float, TYPE>( num,
+                                               reinterpret_cast<const float *>( vals_ ),
+                                               this->d_scalar_scratch,
+                                               AMP::Utilities::DeviceContext::stream );
         } else {
             AMP_ERROR( "Conversion not supported yet" );
         }
@@ -220,11 +228,20 @@ inline void VectorDataDevice<TYPE, Allocator>::getValuesByLocalID( size_t num,
     if ( scratchUsed ) {
         auto data = reinterpret_cast<TYPE *>( vals );
         if ( id == getTypeID<TYPE>() ) {
-            AMP::Utilities::copy<TYPE, TYPE>( num, data, reinterpret_cast<TYPE *>( vals_ ) );
+            AMP::Utilities::copy<TYPE, TYPE>( num,
+                                              data,
+                                              reinterpret_cast<TYPE *>( vals_ ),
+                                              AMP::Utilities::DeviceContext::stream );
         } else if ( id == getTypeID<double>() ) {
-            AMP::Utilities::copy<TYPE, double>( num, data, reinterpret_cast<double *>( vals_ ) );
+            AMP::Utilities::copy<TYPE, double>( num,
+                                                data,
+                                                reinterpret_cast<double *>( vals_ ),
+                                                AMP::Utilities::DeviceContext::stream );
         } else if ( id == getTypeID<float>() ) {
-            AMP::Utilities::copy<TYPE, float>( num, data, reinterpret_cast<float *>( vals_ ) );
+            AMP::Utilities::copy<TYPE, float>( num,
+                                               data,
+                                               reinterpret_cast<float *>( vals_ ),
+                                               AMP::Utilities::DeviceContext::stream );
         }
     }
 }
@@ -241,10 +258,12 @@ void VectorDataDevice<TYPE, Allocator>::putRawData( const void *in, const typeID
         AMP::Utilities::Algorithms<TYPE>::copy_n( data, this->d_localSize, this->d_data );
     } else if ( id == getTypeID<double>() ) {
         const auto *data_in = reinterpret_cast<const double *>( in );
-        AMP::Utilities::copy<double, TYPE>( this->d_localSize, data_in, this->d_data );
+        AMP::Utilities::copy<double, TYPE>(
+            this->d_localSize, data_in, this->d_data, AMP::Utilities::DeviceContext::stream );
     } else if ( id == getTypeID<float>() ) {
         const auto *data_in = reinterpret_cast<const float *>( in );
-        AMP::Utilities::copy<float, TYPE>( this->d_localSize, data_in, this->d_data );
+        AMP::Utilities::copy<float, TYPE>(
+            this->d_localSize, data_in, this->d_data, AMP::Utilities::DeviceContext::stream );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -255,13 +274,16 @@ void VectorDataDevice<TYPE, Allocator>::getRawData( void *out, const typeID &id 
 {
     if ( id == getTypeID<TYPE>() ) {
         auto data = reinterpret_cast<TYPE *>( out );
-        AMP::Utilities::Algorithms<TYPE>::copy_n( this->d_data, this->d_localSize, data );
+        AMP::Utilities::Algorithms<TYPE>::copy_n(
+            this->d_data, this->d_localSize, data, AMP::Utilities::DeviceContext::stream );
     } else if ( id == getTypeID<double>() ) {
         auto *data_out = reinterpret_cast<double *>( out );
-        AMP::Utilities::copy<TYPE, double>( this->d_localSize, this->d_data, data_out );
+        AMP::Utilities::copy<TYPE, double>(
+            this->d_localSize, this->d_data, data_out, AMP::Utilities::DeviceContext::stream );
     } else if ( id == getTypeID<float>() ) {
         auto *data_out = reinterpret_cast<float *>( out );
-        AMP::Utilities::copy<TYPE, float>( this->d_localSize, this->d_data, data_out );
+        AMP::Utilities::copy<TYPE, float>(
+            this->d_localSize, this->d_data, data_out, AMP::Utilities::DeviceContext::stream );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -425,7 +447,8 @@ void VectorDataDevice<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
                                                            data );
 
         if ( scratchUsed ) {
-            AMP::Utilities::copy<TYPE, TYPE>( N, data, reinterpret_cast<TYPE *>( vals_ ) );
+            AMP::Utilities::copy<TYPE, TYPE>(
+                N, data, reinterpret_cast<TYPE *>( vals_ ), AMP::Utilities::DeviceContext::stream );
         }
     }
 }
@@ -457,7 +480,8 @@ void VectorDataDevice<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
                                                               this->d_AddBuffer,
                                                               data );
         if ( scratchUsed ) {
-            AMP::Utilities::copy<TYPE, TYPE>( N, data, reinterpret_cast<TYPE *>( vals_ ) );
+            AMP::Utilities::copy<TYPE, TYPE>(
+                N, data, reinterpret_cast<TYPE *>( vals_ ), AMP::Utilities::DeviceContext::stream );
         }
     }
 }

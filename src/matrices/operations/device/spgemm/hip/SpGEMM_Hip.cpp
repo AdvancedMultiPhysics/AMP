@@ -1,4 +1,5 @@
 #include "AMP/matrices/operations/device/spgemm/hip/SpGEMM_Hip.h"
+#include "AMP/utils/device/Device.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -24,6 +25,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
 
     // create handle and matrix descriptions
     rocsparse_create_handle( &handle );
+    rocsparse_set_stream( AMP::Utilities::DeviceContext::stream );
     rocsparse_create_csr_descr(
         &matA, M, K, A_nnz, A_rs, A_cols, A_vals, itype, jtype, rocsparse_index_base_zero, ttype );
     rocsparse_create_csr_descr(
@@ -49,7 +51,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                       &buffer_size,
                       nullptr );
 
-    deviceMalloc( &temp_buffer, buffer_size );
+    deviceMallocAsync( &temp_buffer, buffer_size, AMP::Utilities::DeviceContext::stream );
 }
 
 template<typename rowidx_t, typename colidx_t, typename scalar_t>
@@ -63,7 +65,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::~VendorSpGEMM()
     rocsparse_destroy_handle( handle );
 
     // free workspace buffer
-    deviceFree( temp_buffer );
+    deviceFreeAsync( temp_buffer, AMP::Utilities::DeviceContext::stream );
 }
 
 template<typename rowidx_t, typename colidx_t, typename scalar_t>

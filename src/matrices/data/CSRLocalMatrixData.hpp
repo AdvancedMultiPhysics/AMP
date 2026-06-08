@@ -187,7 +187,10 @@ size_t *CSRLocalMatrixData<Config>::getColumnMapSizeT() const
     }
     if ( !d_cols_unq_size_t ) {
         d_cols_unq_size_t = sharedArrayBuilder<size_t>( d_ncols_unq );
-        AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), d_cols_unq_size_t.get() );
+        AMP::Utilities::copy( d_ncols_unq,
+                              d_cols_unq.get(),
+                              d_cols_unq_size_t.get(),
+                              AMP::Utilities::DeviceContext::stream );
     }
     return d_cols_unq_size_t.get();
 }
@@ -556,7 +559,10 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
     }
 
     // row starts always allocated internally, so always copy across
-    AMP::Utilities::copy( d_num_rows + 1, d_row_starts.get(), outData->d_row_starts.get() );
+    AMP::Utilities::copy( d_num_rows + 1,
+                          d_row_starts.get(),
+                          outData->d_row_starts.get(),
+                          AMP::Utilities::DeviceContext::stream );
 
     if constexpr ( Config::allocator == ConfigOut::allocator && false ) {
         // migrate is only being called for type casting
@@ -566,13 +572,19 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
             outData->d_cols_loc = d_cols_loc;
         } else {
             outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
-            AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
+            AMP::Utilities::copy( d_nnz,
+                                  d_cols_loc.get(),
+                                  outData->d_cols_loc.get(),
+                                  AMP::Utilities::DeviceContext::stream );
         }
         if constexpr ( Config::scalar_id == ConfigOut::scalar_id ) {
             outData->d_coeffs = d_coeffs;
         } else {
             outData->d_coeffs = outdata_t::makeScalarArray( d_nnz );
-            AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
+            AMP::Utilities::copy( d_nnz,
+                                  d_coeffs.get(),
+                                  outData->d_coeffs.get(),
+                                  AMP::Utilities::DeviceContext::stream );
         }
         if constexpr ( Config::gidx == ConfigOut::gidx ) {
             outData->d_cols     = d_cols;
@@ -580,11 +592,17 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
         } else {
             if ( d_cols.get() != nullptr ) {
                 outData->d_cols = outdata_t::makeGidxArray( d_nnz );
-                AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
+                AMP::Utilities::copy( d_nnz,
+                                      d_cols.get(),
+                                      outData->d_cols.get(),
+                                      AMP::Utilities::DeviceContext::stream );
             }
             if ( d_cols_unq.get() != nullptr ) {
                 outData->d_cols_unq = outdata_t::makeGidxArray( d_ncols_unq );
-                AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
+                AMP::Utilities::copy( d_ncols_unq,
+                                      d_cols_unq.get(),
+                                      outData->d_cols_unq.get(),
+                                      AMP::Utilities::DeviceContext::stream );
             }
         }
     } else {
@@ -592,16 +610,24 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
         // memory spaces, and deep copies required for all fields
         outData->d_cols_loc = outdata_t::makeLidxArray( d_nnz );
         outData->d_coeffs   = outdata_t::makeScalarArray( d_nnz );
-        AMP::Utilities::copy( d_nnz, d_cols_loc.get(), outData->d_cols_loc.get() );
-        AMP::Utilities::copy( d_nnz, d_coeffs.get(), outData->d_coeffs.get() );
+        AMP::Utilities::copy( d_nnz,
+                              d_cols_loc.get(),
+                              outData->d_cols_loc.get(),
+                              AMP::Utilities::DeviceContext::stream );
+        AMP::Utilities::copy(
+            d_nnz, d_coeffs.get(), outData->d_coeffs.get(), AMP::Utilities::DeviceContext::stream );
 
         if ( d_cols.get() != nullptr ) {
             outData->d_cols = outdata_t::makeGidxArray( d_nnz );
-            AMP::Utilities::copy( d_nnz, d_cols.get(), outData->d_cols.get() );
+            AMP::Utilities::copy(
+                d_nnz, d_cols.get(), outData->d_cols.get(), AMP::Utilities::DeviceContext::stream );
         }
         if ( d_cols_unq.get() != nullptr ) {
             outData->d_cols_unq = outdata_t::makeGidxArray( d_ncols_unq );
-            AMP::Utilities::copy( d_ncols_unq, d_cols_unq.get(), outData->d_cols_unq.get() );
+            AMP::Utilities::copy( d_ncols_unq,
+                                  d_cols_unq.get(),
+                                  outData->d_cols_unq.get(),
+                                  AMP::Utilities::DeviceContext::stream );
         }
     }
 

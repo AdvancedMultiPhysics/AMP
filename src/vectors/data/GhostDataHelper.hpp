@@ -4,11 +4,8 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/RestartManager.h"
 #include "AMP/utils/Algorithms.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/data/GhostDataHelper.h"
-
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/Device.h"
-#endif
 
 #include <cstring>
 
@@ -623,13 +620,16 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const ty
     PROFILE( "GhostDataHelper::getAllGhostValues" );
 
     if ( id == getTypeID<TYPE>() ) {
-        AMP::Utilities::memcpy( vals, d_Ghosts, d_ghostSize * sizeof( TYPE ) );
+        AMP::Utilities::memcpy(
+            vals, d_Ghosts, d_ghostSize * sizeof( TYPE ), AMP::Utilities::DeviceContext::stream );
     } else if ( id == getTypeID<float>() ) {
         auto data = reinterpret_cast<float *>( vals );
-        AMP::Utilities::copy<TYPE, float>( d_ghostSize, d_Ghosts, data );
+        AMP::Utilities::copy<TYPE, float>(
+            d_ghostSize, d_Ghosts, data, AMP::Utilities::DeviceContext::stream );
     } else if ( id == getTypeID<double>() ) {
         auto data = reinterpret_cast<double *>( vals );
-        AMP::Utilities::copy<TYPE, double>( d_ghostSize, d_Ghosts, data );
+        AMP::Utilities::copy<TYPE, double>(
+            d_ghostSize, d_Ghosts, data, AMP::Utilities::DeviceContext::stream );
     } else {
         AMP_ERROR( "Ghosts copy of mismatched type other than float/double are not supported yet" );
     }

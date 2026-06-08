@@ -81,7 +81,8 @@ void DeviceMatrixOperations<G, L, S>::copy( const size_t N,
                                             const S *__restrict__ x,
                                             S *__restrict__ y )
 {
-    deviceMemcpy( y, x, N * sizeof( S ), deviceMemcpyDeviceToDevice );
+    deviceMemcpyAsync(
+        y, x, N * sizeof( S ), deviceMemcpyDeviceToDevice, AMP::Utilities::DeviceContext::stream );
 }
 
 // extract diagonal

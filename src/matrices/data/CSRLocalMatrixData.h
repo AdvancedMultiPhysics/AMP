@@ -5,6 +5,7 @@
 #include "AMP/matrices/data/MatrixData.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 
 #include <algorithm>
 #include <functional>
@@ -173,7 +174,10 @@ public:
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            AMP::Utilities::copy<gidx_t, idx_t>( d_ncols_unq, d_cols_unq.get(), colMap.data() );
+            AMP::Utilities::copy<gidx_t, idx_t>( d_ncols_unq,
+                                                 d_cols_unq.get(),
+                                                 colMap.data(),
+                                                 AMP::Utilities::DeviceContext::stream );
         }
     }
 

@@ -7,6 +7,7 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 
 #include <numeric>
 
@@ -194,9 +195,13 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
     AMP_INSIST( rs_d && cols_loc_d && coeffs_d, "diagonal block layout cannot be NULL" );
 
     // Fill in the ->i fields of diag and off_diag
-    AMP::Utilities::copy( static_cast<size_t>( nrows + 1 ), rs_d, diag->i );
+    AMP::Utilities::copy(
+        static_cast<size_t>( nrows + 1 ), rs_d, diag->i, AMP::Utilities::DeviceContext::stream );
     if ( haveOffd ) {
-        AMP::Utilities::copy( static_cast<size_t>( nrows + 1 ), rs_od, off_diag->i );
+        AMP::Utilities::copy( static_cast<size_t>( nrows + 1 ),
+                              rs_od,
+                              off_diag->i,
+                              AMP::Utilities::DeviceContext::stream );
     } else {
         AMP::Utilities::Algorithms<HYPRE_Int>::fill_n(
             off_diag->i, static_cast<size_t>( nrows + 1 ), 0 );
@@ -228,8 +233,10 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
         // always allocate and set host side offd map
         par_matrix->col_map_offd =
             hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_HOST );
-        AMP::Utilities::copy(
-            static_cast<size_t>( off_diag->num_cols ), colMap, par_matrix->col_map_offd );
+        AMP::Utilities::copy( static_cast<size_t>( off_diag->num_cols ),
+                              colMap,
+                              par_matrix->col_map_offd,
+                              AMP::Utilities::DeviceContext::stream );
 
         // and do device map if needed
         if ( memory_location == HYPRE_MEMORY_DEVICE ) {
@@ -237,7 +244,8 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
                 hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_DEVICE );
             AMP::Utilities::copy( static_cast<size_t>( off_diag->num_cols ),
                                   colMap,
-                                  par_matrix->device_col_map_offd );
+                                  par_matrix->device_col_map_offd,
+                                  AMP::Utilities::DeviceContext::stream );
         }
     }
 

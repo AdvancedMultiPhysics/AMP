@@ -4,6 +4,7 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Backend.h"
 #include "AMP/utils/Memory.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
@@ -177,7 +178,8 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
             auto xdata = x.getRawDataBlock<TYPE>( i );
             auto ydata = y.getRawDataBlock<TYPE>( i );
             AMP_ASSERT( xdata && ydata && N == x.sizeOfDataBlock( i ) );
-            AMP::Utilities::memcpy( ydata, xdata, N * sizeof( TYPE ) );
+            AMP::Utilities::memcpy(
+                ydata, xdata, N * sizeof( TYPE ), AMP::Utilities::DeviceContext::stream );
         }
         y.copyGhostValues( x );
     } else if ( N_blocks_x == N_blocks && !x.isType<TYPE>() ) {
@@ -188,10 +190,10 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
             AMP_ASSERT( N == x.sizeOfDataBlock( i ) );
             if ( type == getTypeID<float>() ) {
                 auto xdata = x.getRawDataBlock<float>( i );
-                AMP::Utilities::copy( N, xdata, ydata );
+                AMP::Utilities::copy( N, xdata, ydata, AMP::Utilities::DeviceContext::stream );
             } else if ( type == getTypeID<double>() ) {
                 auto xdata = x.getRawDataBlock<double>( i );
-                AMP::Utilities::copy( N, xdata, ydata );
+                AMP::Utilities::copy( N, xdata, ydata, AMP::Utilities::DeviceContext::stream );
             } else {
                 AMP_ERROR( "copy only implemented for float or doubles" );
             }

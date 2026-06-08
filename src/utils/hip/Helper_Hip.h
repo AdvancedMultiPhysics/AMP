@@ -27,6 +27,7 @@ typedef hipStream_t computeStream_t;
 
 #define deviceStreamCreate( ... ) checkHipErrors( hipStreamCreate( __VA_ARGS__ ) )
 #define deviceStreamDestroy( ... ) checkHipErrors( hipStreamDestroy( __VA_ARGS__ ) )
+#define deviceStreamSynchronize( STREAM ) checkHipErrors( hipStreamSynchronize( STREAM ) )
 #define deviceSynchronize() checkHipErrors( hipDeviceSynchronize() )
 
 #define deviceMalloc( ... ) checkHipErrors( hipMalloc( __VA_ARGS__ ) )
@@ -34,6 +35,11 @@ typedef hipStream_t computeStream_t;
 #define deviceMemcpy( ... ) checkHipErrors( hipMemcpy( __VA_ARGS__ ) )
 #define deviceMemset( ... ) checkHipErrors( hipMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkHipErrors( hipFree( __VA_ARGS__ ) )
+
+#define deviceMallocAsync( ... ) checkHipErrors( hipMallocAsync( __VA_ARGS__ ) )
+#define deviceMemcpyAsync( ... ) checkHipErrors( hipMemcpyAsync( __VA_ARGS__ ) )
+#define deviceMemsetAsync( ... ) checkHipErrors( hipMemsetAsync( __VA_ARGS__ ) )
+#define deviceFreeAsync( ... ) checkHipErrors( hipFreeAsync( __VA_ARGS__ ) )
 #define deviceMemPrefetchAsync( ... ) checkHipErrors( hipMemPrefetchAsync( __VA_ARGS__ ) )
 
 namespace AMP::Utilities {

@@ -1,4 +1,5 @@
 #include "AMP/matrices/operations/device/spgemm/cuda/SpGEMM_Cuda.h"
+#include "AMP/utils/device/Device.h"
 
 namespace AMP::LinearAlgebra {
 
@@ -33,10 +34,11 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
       computeType( std::is_same_v<scalar_t, float> ? CUDA_R_32F : CUDA_R_64F ),
       opA( CUSPARSE_OPERATION_NON_TRANSPOSE ),
       opB( CUSPARSE_OPERATION_NON_TRANSPOSE ),
-      alg( CUSPARSE_SPGEMM_ALG3 )
+      alg( CUSPARSE_SPGEMM_ALG2 )
 {
     // create cusparse handle and spgemm context
     CHECK_CUSPARSE( cusparseCreate( &handle ) );
+    CHECK_CUSPARSE( cusparseSetStream( handle, AMP::Utilities::DeviceContext::stream ) );
     CHECK_CUSPARSE( cusparseSpGEMM_createDescr( &spgemmDesc ) );
 
     // Create csr descriptions
@@ -63,9 +65,9 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                    spgemmDesc,
                                                    &bufferSize1,
                                                    nullptr ) );
-    deviceMalloc( &dBuffer1, bufferSize1 );
 
-    int64_t num_prods;
+    deviceMallocAsync( &dBuffer1, bufferSize1, AMP::Utilities::DeviceContext::stream );
+
     CHECK_CUSPARSE( cusparseSpGEMM_workEstimation( handle,
                                                    opA,
                                                    opB,
@@ -79,7 +81,6 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                    spgemmDesc,
                                                    &bufferSize1,
                                                    dBuffer1 ) );
-    CHECK_CUSPARSE( cusparseSpGEMM_getNumProducts( spgemmDesc, &num_prods ) );
 
     size_t buffer_tmp_size;
     void *buffer_tmp;
@@ -98,7 +99,8 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                    &buffer_tmp_size,
                                                    nullptr,
                                                    nullptr ) );
-    deviceMalloc( &buffer_tmp, buffer_tmp_size );
+
+    deviceMallocAsync( &buffer_tmp, buffer_tmp_size, AMP::Utilities::DeviceContext::stream );
 
     CHECK_CUSPARSE( cusparseSpGEMM_estimateMemory( handle,
                                                    opA,
@@ -115,29 +117,9 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                    &buffer_tmp_size,
                                                    buffer_tmp,
                                                    &bufferSize2 ) );
-    deviceFree( buffer_tmp );
-    deviceMalloc( &dBuffer2, bufferSize2 );
-}
+    deviceFreeAsync( buffer_tmp, AMP::Utilities::DeviceContext::stream );
+    deviceMallocAsync( &dBuffer2, bufferSize2, AMP::Utilities::DeviceContext::stream );
 
-template<typename rowidx_t, typename colidx_t, typename scalar_t>
-VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::~VendorSpGEMM()
-{
-    // destroy matrix/vector descriptors
-    CHECK_CUSPARSE( cusparseSpGEMM_destroyDescr( spgemmDesc ) );
-    CHECK_CUSPARSE( cusparseDestroySpMat( matA ) );
-    CHECK_CUSPARSE( cusparseDestroySpMat( matB ) );
-    CHECK_CUSPARSE( cusparseDestroySpMat( matC ) );
-    CHECK_CUSPARSE( cusparseDestroy( handle ) );
-
-    // free temporary buffers
-    deviceFree( dBuffer1 );
-    deviceFree( dBuffer2 );
-}
-
-template<typename rowidx_t, typename colidx_t, typename scalar_t>
-int64_t VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::getCnnz()
-{
-    // intermediate product
     CHECK_CUSPARSE( cusparseSpGEMM_compute( handle,
                                             opA,
                                             opB,
@@ -151,7 +133,26 @@ int64_t VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::getCnnz()
                                             spgemmDesc,
                                             &bufferSize2,
                                             dBuffer2 ) );
+}
 
+template<typename rowidx_t, typename colidx_t, typename scalar_t>
+VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::~VendorSpGEMM()
+{
+    // destroy matrix/vector descriptors
+    CHECK_CUSPARSE( cusparseSpGEMM_destroyDescr( spgemmDesc ) );
+    CHECK_CUSPARSE( cusparseDestroySpMat( matA ) );
+    CHECK_CUSPARSE( cusparseDestroySpMat( matB ) );
+    CHECK_CUSPARSE( cusparseDestroySpMat( matC ) );
+    CHECK_CUSPARSE( cusparseDestroy( handle ) );
+
+    // free temporary buffers
+    deviceFreeAsync( dBuffer1, AMP::Utilities::DeviceContext::stream );
+    deviceFreeAsync( dBuffer2, AMP::Utilities::DeviceContext::stream );
+}
+
+template<typename rowidx_t, typename colidx_t, typename scalar_t>
+int64_t VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::getCnnz()
+{
     // query and return size
     int64_t C_nrows, C_ncols, C_nnz;
     CHECK_CUSPARSE( cusparseSpMatGetSize( matC, &C_nrows, &C_ncols, &C_nnz ) );
@@ -167,6 +168,7 @@ void VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::compute( rowidx_t *C_rs,
     CHECK_CUSPARSE( cusparseCsrSetPointers( matC, C_rs, C_cols, C_vals ) );
     CHECK_CUSPARSE( cusparseSpGEMM_copy(
         handle, opA, opB, &alpha, matA, matB, &beta, matC, computeType, alg, spgemmDesc ) );
+    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
 }
 
 // explicit instantiations, only two index types and two scalar types supported

@@ -35,7 +35,7 @@ template<typename TYPE>
 void Algorithms<TYPE>::copy_n( const TYPE *x, const size_t N, TYPE *y )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
-    AMP::Utilities::memcpy( y, x, N * sizeof( TYPE ) );
+    AMP::Utilities::memcpy( y, x, N * sizeof( TYPE ), AMP::Utilities::DeviceContext::stream );
 }
 
 template<typename TYPE>
