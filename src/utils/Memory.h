@@ -3,6 +3,7 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/device/Device.h"
 
 #ifdef AMP_USE_CUDA
     #include "AMP/utils/cuda/CudaAllocator.h"

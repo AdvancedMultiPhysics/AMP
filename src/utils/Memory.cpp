@@ -12,7 +12,7 @@
 
     #define deviceMemcpyAsync( ... ) AMP_ERROR( "Device memcpy without device" )
     #define deviceMemsetAsync( ... ) AMP_ERROR( "Device memset without device" )
-    #define deviceSynchronizeAsync() AMP_ERROR( "Device synchronize without device" )
+    #define deviceStreamSynchronize( STREAM ) AMP_ERROR( "Device synchronize without device" )
 #endif
 
 
@@ -267,7 +267,10 @@ void copy( size_t N, const T1 *src, T2 *dst )
 /****************************************************************************
  *  Copy / Fill memory asynchronously                                        *
  ****************************************************************************/
-void memcpy( void *dst, const void *src, std::size_t count, computeStream_t stream )
+void memcpy( void *dst,
+             const void *src,
+             std::size_t count,
+             [[maybe_unused]] computeStream_t stream )
 {
     auto op = getMemoryOp( src, dst );
     if ( op == MemoryDirection::HOST ) {
@@ -283,7 +286,7 @@ void memcpy( void *dst, const void *src, std::size_t count, computeStream_t stre
         deviceStreamSynchronize( stream );
     }
 }
-void memset( void *dst, int ch, std::size_t count, computeStream_t stream )
+void memset( void *dst, int ch, std::size_t count, [[maybe_unused]] computeStream_t stream )
 {
     const auto t = getMemoryType( dst );
     if ( t == MemoryType::host ) {
@@ -294,12 +297,12 @@ void memset( void *dst, int ch, std::size_t count, computeStream_t stream )
         AMP_ERROR( "Unknown memory space" );
     }
 }
-void zero( void *dst, std::size_t count, computeStream_t stream )
+void zero( void *dst, std::size_t count, [[maybe_unused]] computeStream_t stream )
 {
     AMP::Utilities::memset( dst, 0, count, stream );
 }
 template<class T1, class T2>
-void copy( size_t N, const T1 *src, T2 *dst, computeStream_t stream )
+void copy( size_t N, const T1 *src, T2 *dst, [[maybe_unused]] computeStream_t stream )
 {
     static_assert( std::is_trivially_copyable_v<T1> );
     static_assert( std::is_trivially_copyable_v<T2> );
