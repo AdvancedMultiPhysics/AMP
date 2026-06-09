@@ -109,9 +109,9 @@ public:
 
     auto offd() const { return rep_type{ d_offd.rowptr, d_offd.colind, d_offd.values }; }
 
-    const auto diag_mask_data() const { return d_diag.values; }
+    auto diag_mask_data() const { return d_diag.values; }
 
-    const auto offd_mask_data() const { return d_offd.values; }
+    auto offd_mask_data() const { return d_offd.values; }
 
     auto diag_mask_data() { return d_diag.values; }
 

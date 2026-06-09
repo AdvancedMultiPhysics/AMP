@@ -344,7 +344,10 @@ void copy( size_t N, const T1 *src, T2 *dst, computeStream_t stream )
 /****************************************************************************
  *  Explicit instantiations                                                  *
  ****************************************************************************/
-#define INSTANTIATE( T1, T2 ) template void copy<T1, T2>( size_t N, const T1 *, T2 * )
+#define INSTANTIATE( T1, T2 )                                 \
+    template void copy<T1, T2>( size_t N, const T1 *, T2 * ); \
+    template void copy<T1, T2>( size_t N, const T1 *, T2 *, computeStream_t )
+
 INSTANTIATE( int, int );
 INSTANTIATE( int, long long );
 INSTANTIATE( int, unsigned long );

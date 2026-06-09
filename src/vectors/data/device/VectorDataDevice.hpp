@@ -274,8 +274,7 @@ void VectorDataDevice<TYPE, Allocator>::getRawData( void *out, const typeID &id 
 {
     if ( id == getTypeID<TYPE>() ) {
         auto data = reinterpret_cast<TYPE *>( out );
-        AMP::Utilities::Algorithms<TYPE>::copy_n(
-            this->d_data, this->d_localSize, data, AMP::Utilities::DeviceContext::stream );
+        AMP::Utilities::Algorithms<TYPE>::copy_n( this->d_data, this->d_localSize, data );
     } else if ( id == getTypeID<double>() ) {
         auto *data_out = reinterpret_cast<double *>( out );
         AMP::Utilities::copy<TYPE, double>(

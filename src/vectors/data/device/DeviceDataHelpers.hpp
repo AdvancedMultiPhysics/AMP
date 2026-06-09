@@ -70,7 +70,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::setValuesByIndex( const size_t N,
     setKernelDims( N, set_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
     set_vals_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
         N, indices, src, dst );
-    deviceSynchronize();
+    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
 }
 
 template<typename STYPE, typename DTYPE>
@@ -107,7 +107,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::addValuesByIndex( const size_t N,
     setKernelDims( N, add_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
     add_vals_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
         N, indices, src, dst );
-    deviceSynchronize();
+    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
 }
 
 template<typename STYPE, typename DTYPE>
@@ -134,7 +134,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::getValuesByIndex( const size_t N,
     setKernelDims( N, get_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
     get_vals_kernel<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
         N, indices, src, dst );
-    deviceSynchronize();
+    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
 }
 
 template<typename STYPE, typename DTYPE>

@@ -4,10 +4,6 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/data/CSRMatrixCommunicator.h"
 
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/Device.h"
-#endif
-
 #include "ProfilerApp.h"
 
 namespace AMP::LinearAlgebra {
@@ -26,10 +22,6 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
     }
 
     AMP_DEBUG_ASSERT( d_tag_test >= 0 && d_tag_row >= 0 && d_tag_col >= 0 && d_tag_coeff >= 0 );
-
-#ifdef AMP_USE_DEVICE
-    deviceSynchronize();
-#endif
 
     // At present we allow that the held communication list refer to a
     // super-set of the communications that need to be sent. First count

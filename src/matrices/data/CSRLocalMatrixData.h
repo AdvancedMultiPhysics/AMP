@@ -174,10 +174,7 @@ public:
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            AMP::Utilities::copy<gidx_t, idx_t>( d_ncols_unq,
-                                                 d_cols_unq.get(),
-                                                 colMap.data(),
-                                                 AMP::Utilities::DeviceContext::stream );
+            AMP::Utilities::copy<gidx_t, idx_t>( d_ncols_unq, d_cols_unq.get(), colMap.data() );
         }
     }
 

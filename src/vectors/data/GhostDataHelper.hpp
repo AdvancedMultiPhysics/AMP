@@ -243,7 +243,7 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
     PROFILE( "GhostDataHelper::makeConsistent" );
 
 #ifdef AMP_USE_DEVICE
-    deviceSynchronize();
+    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
     getLastDeviceError( "GhostDataHelper::makeConsistent" );
 #endif
 

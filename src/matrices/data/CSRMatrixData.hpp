@@ -194,6 +194,10 @@ std::shared_ptr<CSRMatrixData<ConfigOut>> CSRMatrixData<Config>::migrate() const
     outData->d_diag_matrix = d_diag_matrix->template migrate<ConfigOut>();
     outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
 
+#ifdef AMP_USE_DEVICE
+    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
+#endif
+
     outData->d_diag_matrix->d_hash = getComm().rand();
     if ( d_offd_matrix )
         outData->d_offd_matrix->d_hash = getComm().rand();
@@ -838,7 +842,7 @@ void CSRMatrixData<Config>::makeConsistent( AMP::LinearAlgebra::ScatterType t )
     PROFILE( "CSRMatrixData::makeConsistent" );
 
 #ifdef AMP_USE_DEVICE
-    deviceSynchronize();
+    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
     getLastDeviceError( "CSRMatrixData::makeConsistent" );
 #endif
 

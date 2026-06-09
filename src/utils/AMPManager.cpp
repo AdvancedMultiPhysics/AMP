@@ -215,6 +215,8 @@ void AMPManager::shutdown()
     double hypre_time = stop_HYPRE();
     // shutdown Kokkos
     AMP::Utilities::finalizeKokkos();
+    // free device compute stream if needed
+    freeDevices();
     // Shutdown MPI
     auto MPI_start = std::chrono::steady_clock::now();
     comm_world     = AMP_COMM_NULL;

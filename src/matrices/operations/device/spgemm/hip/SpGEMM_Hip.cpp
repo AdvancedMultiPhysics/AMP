@@ -25,7 +25,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
 
     // create handle and matrix descriptions
     rocsparse_create_handle( &handle );
-    rocsparse_set_stream( AMP::Utilities::DeviceContext::stream );
+    rocsparse_set_stream( handle, AMP::Utilities::DeviceContext::stream );
     rocsparse_create_csr_descr(
         &matA, M, K, A_nnz, A_rs, A_cols, A_vals, itype, jtype, rocsparse_index_base_zero, ttype );
     rocsparse_create_csr_descr(
