@@ -28,8 +28,8 @@ typedef cudaStream_t computeStream_t;
 #define deviceBind( ... ) checkCudaErrors( cudaSetDevice( __VA_ARGS__ ) )
 #define deviceId( ... ) checkCudaErrors( cudaGetDevice( __VA_ARGS__ ) )
 
-#define deviceStreamCreate( ... ) checkHipErrors( hipStreamCreate( __VA_ARGS__ ) )
-#define deviceStreamDestroy( ... ) checkHipErrors( hipStreamDestroy( __VA_ARGS__ ) )
+#define deviceStreamCreate( ... ) checkCudaErrors( cudaStreamCreate( __VA_ARGS__ ) )
+#define deviceStreamDestroy( ... ) checkCudaErrors( cudaStreamDestroy( __VA_ARGS__ ) )
 #define deviceStreamSynchronize( STREAM ) checkCudaErrors( cudaStreamSynchronize( STREAM ) )
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
 

@@ -55,7 +55,10 @@ void getLastDeviceError( const char *errorMessage, const StackTrace::source_loca
                  errorMessage,
                  (int) err,
                  cudaGetErrorString( err ) );
-        DEVICE_RESET
+        // Make sure we call CUDA Device Reset before exiting
+    #ifdef __DRIVER_TYPES_H__
+        cudaDeviceReset();
+    #endif
         exit( EXIT_FAILURE );
     }
 #endif
