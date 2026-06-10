@@ -62,7 +62,7 @@
     template bool AMP::Array<TYPE,FUN,A>::operator==( const AMP::Array<TYPE,FUN,A>& ) const; \
     template bool AMP::Array<TYPE,FUN,A>::operator!=( const AMP::Array<TYPE,FUN,A>& ) const
 #define instantiateArrayConstructors( TYPE )                              \
-    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, std::allocator<void> )
+    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, AMP::HostAllocator<void> )
 #define PACK_UNPACK_ARRAY( TYPE )                                         \
     template size_t AMP::packSize( const AMP::Array<TYPE> & );            \
     template size_t AMP::pack( const AMP::Array<TYPE> &, std::byte * );   \

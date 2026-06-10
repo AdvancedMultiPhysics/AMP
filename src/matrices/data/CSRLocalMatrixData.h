@@ -221,7 +221,10 @@ public:
         using alloc_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<U>;
         alloc_t alloc;
         return std::shared_ptr<typename alloc_t::value_type[]>(
-            alloc.allocate( N ), [N, &alloc]( auto p ) -> void { alloc.deallocate( p, N ); } );
+            alloc.allocate( N, AMP::Utilities::DeviceContext::stream ),
+            [N, &alloc]( auto p ) -> void {
+                alloc.deallocate( p, N, AMP::Utilities::DeviceContext::stream );
+            } );
     }
 
     static std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N )

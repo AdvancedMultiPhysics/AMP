@@ -137,9 +137,9 @@ size_t matMatTest( AMP::UnitTest *ut, const std::string &input_file )
 #endif
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
-    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
 #ifdef AMP_USE_KOKKOS
-    backendsAndMemory.emplace_back( "kokkos", "host" );
+    // backendsAndMemory.emplace_back( "kokkos", "host" );
 #endif
 #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );

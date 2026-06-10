@@ -334,8 +334,9 @@ double AMPManager::bindDevices()
     Utilities::DeviceContext::stream = d_properties.compute_stream;
 
     void *tmp;
-    deviceMallocManaged( &tmp, 10, deviceMemAttachGlobal );
-    deviceFree( tmp );
+    deviceMallocAsync( &tmp, 10, Utilities::DeviceContext::stream );
+    deviceFreeAsync( tmp, Utilities::DeviceContext::stream );
+    deviceStreamSynchronize( Utilities::DeviceContext::stream );
 
 #endif
     return getDuration( start );

@@ -28,9 +28,23 @@ public:
         return ptr;
     }
 
+    T *allocate( size_t n, hipStream_t stream )
+    {
+        T *ptr;
+        auto err = hipMallocAsync( &ptr, n * sizeof( T ), stream );
+        checkHipErrors( err );
+        return ptr;
+    }
+
     void deallocate( T *p, size_t )
     {
         auto err = hipFree( p );
+        checkHipErrors( err );
+    }
+
+    void deallocate( T *p, size_t, hipStream_t stream )
+    {
+        auto err = hipFreeAsync( p, stream );
         checkHipErrors( err );
     }
 };
@@ -53,11 +67,15 @@ public:
         return ptr;
     }
 
+    T *allocate( size_t n, hipStream_t ) { return allocate( n ); }
+
     void deallocate( T *p, size_t )
     {
         auto err = hipFree( p );
         checkHipErrors( err );
     }
+
+    void deallocate( T *p, size_t, hipStream_t ) { deallocate( p, 0 ); }
 };
 
 } // namespace AMP

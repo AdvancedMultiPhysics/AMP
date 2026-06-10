@@ -201,6 +201,7 @@ void driver( AMP::AMP_MPI comm,
 int main( int argc, char **argv )
 {
     AMP::AMPManager::startup( argc, argv );
+    AMP::pout << "in main" << std::endl;
     AMP::UnitTest ut;
 
     PROFILE_ENABLE();

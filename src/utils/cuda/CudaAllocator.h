@@ -28,9 +28,23 @@ public:
         return ptr;
     }
 
+    T *allocate( size_t n, cudaStream_t stream )
+    {
+        T *ptr;
+        auto err = cudaMallocAsync( &ptr, n * sizeof( T ), stream );
+        checkCudaErrors( err );
+        return ptr;
+    }
+
     void deallocate( T *p, size_t )
     {
         auto err = cudaFree( p );
+        checkCudaErrors( err );
+    }
+
+    void deallocate( T *p, size_t, cudaStream_t stream )
+    {
+        auto err = cudaFreeAsync( p, stream );
         checkCudaErrors( err );
     }
 };
@@ -50,17 +64,19 @@ public:
     {
         T *ptr;
         auto err = cudaMallocManaged( &ptr, n * sizeof( T ), cudaMemAttachGlobal );
-        //        auto err = cudaMalloc( &ptr, n * sizeof( T ) );
         checkCudaErrors( err );
-        checkCudaErrors( cudaMemset( ptr, 0, n ) );
         return ptr;
     }
+
+    T *allocate( size_t n, cudaStream_t ) { return allocate( n ); }
 
     void deallocate( T *p, size_t )
     {
         auto err = cudaFree( p );
         checkCudaErrors( err );
     }
+
+    void deallocate( T *p, size_t, cudaStream_t ) { deallocate( p, 0 ); }
 };
 
 } // namespace AMP

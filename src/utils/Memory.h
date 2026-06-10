@@ -93,8 +93,22 @@ using DeviceAllocator = AMP::HipDevAllocator<TYPE>;
 #endif
 
 // host allocator
-template<typename TYPE>
-using HostAllocator = std::allocator<TYPE>;
+template<typename T>
+class HostAllocator
+{
+public:
+    using value_type = T;
+
+    std::allocator<T> a;
+
+    T *allocate( size_t n ) { return a.allocate( n ); }
+    T *allocate( size_t n, computeStream_t ) { return a.allocate( n ); }
+    void deallocate( T *p, size_t n ) { a.deallocate( p, n ); }
+    void deallocate( T *p, size_t n, computeStream_t ) { a.deallocate( p, n ); }
+};
+
+// template<typename TYPE>
+// using HostAllocator = std::allocator<TYPE>;
 
 } // namespace AMP
 
@@ -104,7 +118,7 @@ template<typename ALLOC>
 constexpr AMP::Utilities::MemoryType getAllocatorMemoryType()
 {
     using intAllocator = typename std::allocator_traits<ALLOC>::template rebind_alloc<int>;
-    if ( std::is_same_v<intAllocator, std::allocator<int>> ) {
+    if ( std::is_same_v<intAllocator, HostAllocator<int>> ) {
         return AMP::Utilities::MemoryType::host;
 #ifdef AMP_USE_CUDA
     } else if ( std::is_same_v<intAllocator, AMP::CudaManagedAllocator<int>> ) {
