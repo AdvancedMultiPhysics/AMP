@@ -27,6 +27,9 @@ public: // Member types
     using scalarAllocator_t =
         typename std::allocator_traits<Allocator>::template rebind_alloc<TYPE>;
 
+    static constexpr AMP::Utilities::MemoryType d_memory_location =
+        AMP::Utilities::getAllocatorMemoryType<Allocator>();
+
 public: // Constructors
     VectorDataDefault( size_t start, size_t localSize, size_t globalSize );
 
@@ -156,7 +159,7 @@ public: // Advanced virtual functions
 
     /** \brief returns the memory location for data
      */
-    AMP::Utilities::MemoryType getMemoryLocation() const override;
+    AMP::Utilities::MemoryType getMemoryLocation() const override { return d_memory_location; }
 
 public: // Non-virtual functions
     /** \brief Access the raw element

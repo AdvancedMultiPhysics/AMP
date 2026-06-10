@@ -85,7 +85,7 @@ void VectorDataDevice<TYPE, Allocator>::setMapScratchSpace( const size_t N ) con
         d_idx_alloc.deallocate( this->d_idx_map_scratch, this->d_map_scratch_size );
         this->d_map_scratch_size = N;
         this->d_idx_map_scratch  = d_idx_alloc.allocate( this->d_map_scratch_size );
-        AMP::Utilities::Algorithms<size_t>::fill_n( this->d_idx_map_scratch, N, 0 );
+        AMP::Utilities::Algorithms::zero_n( this->d_idx_map_scratch, N, d_memory_location );
     }
     AMP_ASSERT( d_idx_map_scratch );
 }
@@ -237,14 +237,16 @@ template<typename TYPE, class Allocator>
 void VectorDataDevice<TYPE, Allocator>::putRawData( const void *in, const typeID &id )
 {
     if ( id == getTypeID<TYPE>() ) {
-        auto data = reinterpret_cast<const TYPE *>( in );
-        AMP::Utilities::Algorithms<TYPE>::copy_n( data, this->d_localSize, this->d_data );
+        const auto in_loc = AMP::Utilities::getMemoryType( in );
+        auto data         = static_cast<const TYPE *>( in );
+        AMP::Utilities::Algorithms::copy_n(
+            this->d_data, d_memory_location, data, in_loc, this->d_localSize );
     } else if ( id == getTypeID<double>() ) {
-        const auto *data_in = reinterpret_cast<const double *>( in );
-        AMP::Utilities::copy<double, TYPE>( this->d_localSize, data_in, this->d_data );
+        const auto *data_in = static_cast<const double *>( in );
+        AMP::Utilities::copy<double, TYPE>( this->d_data, data_in, this->d_localSize );
     } else if ( id == getTypeID<float>() ) {
-        const auto *data_in = reinterpret_cast<const float *>( in );
-        AMP::Utilities::copy<float, TYPE>( this->d_localSize, data_in, this->d_data );
+        const auto *data_in = static_cast<const float *>( in );
+        AMP::Utilities::copy<float, TYPE>( this->d_data, data_in, this->d_localSize );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -254,14 +256,16 @@ template<typename TYPE, class Allocator>
 void VectorDataDevice<TYPE, Allocator>::getRawData( void *out, const typeID &id ) const
 {
     if ( id == getTypeID<TYPE>() ) {
-        auto data = reinterpret_cast<TYPE *>( out );
-        AMP::Utilities::Algorithms<TYPE>::copy_n( this->d_data, this->d_localSize, data );
+        const auto out_loc = AMP::Utilities::getMemoryType( out );
+        auto data          = static_cast<TYPE *>( out );
+        AMP::Utilities::Algorithms::copy_n(
+            data, out_loc, this->d_data, d_memory_location, this->d_localSize );
     } else if ( id == getTypeID<double>() ) {
-        auto *data_out = reinterpret_cast<double *>( out );
-        AMP::Utilities::copy<TYPE, double>( this->d_localSize, this->d_data, data_out );
+        auto *data_out = static_cast<double *>( out );
+        AMP::Utilities::copy<TYPE, double>( data_out, this->d_data, this->d_localSize );
     } else if ( id == getTypeID<float>() ) {
-        auto *data_out = reinterpret_cast<float *>( out );
-        AMP::Utilities::copy<TYPE, float>( this->d_localSize, this->d_data, data_out );
+        auto *data_out = static_cast<float *>( out );
+        AMP::Utilities::copy<TYPE, float>( data_out, this->d_data, this->d_localSize );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -279,8 +283,8 @@ VectorDataDevice<TYPE, Allocator>::cloneData( const std::string & ) const
 
     if ( this->hasGhosts() ) {
         retVal->copyGhostValues( *this );
-        AMP::Utilities::Algorithms<TYPE>::copy_n(
-            this->d_AddBuffer, this->d_ghostSize, retVal->d_AddBuffer );
+        AMP::Utilities::Algorithms::copy_n(
+            retVal->d_AddBuffer, this->d_AddBuffer, this->d_ghostSize, d_memory_location );
     }
 
     return retVal;
@@ -312,9 +316,8 @@ template<typename TYPE, class Allocator>
 void VectorDataDevice<TYPE, Allocator>::fillGhosts( const Scalar &val_in )
 {
     const auto val = static_cast<TYPE>( val_in );
-    AMP::Utilities::Algorithms<TYPE>::fill_n( this->d_Ghosts, this->d_ghostSize, val );
-    AMP::Utilities::Algorithms<TYPE>::fill_n(
-        this->d_AddBuffer, this->d_ghostSize, static_cast<TYPE>( 0.0 ) );
+    AMP::Utilities::Algorithms::fill_n( this->d_Ghosts, this->d_ghostSize, val, d_memory_location );
+    AMP::Utilities::Algorithms::zero_n( this->d_AddBuffer, this->d_ghostSize, d_memory_location );
 }
 
 template<typename TYPE, class Allocator>
@@ -425,7 +428,7 @@ void VectorDataDevice<TYPE, Allocator>::getGhostValuesByGlobalID( size_t N,
                                                            data );
 
         if ( scratchUsed ) {
-            AMP::Utilities::copy<TYPE, TYPE>( N, data, reinterpret_cast<TYPE *>( vals_ ) );
+            AMP::Utilities::copy<TYPE, TYPE>( reinterpret_cast<TYPE *>( vals_ ), data, N );
         }
     }
 }
@@ -457,7 +460,7 @@ void VectorDataDevice<TYPE, Allocator>::getGhostAddValuesByGlobalID( size_t N,
                                                               this->d_AddBuffer,
                                                               data );
         if ( scratchUsed ) {
-            AMP::Utilities::copy<TYPE, TYPE>( N, data, reinterpret_cast<TYPE *>( vals_ ) );
+            AMP::Utilities::copy<TYPE, TYPE>( reinterpret_cast<TYPE *>( vals_ ), data, N );
         }
     }
 }

@@ -78,15 +78,16 @@ void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
         this->d_AddBuffer      = d_alloc.allocate( d_ghostSize );
         this->d_ReceiveDOFList = d_size_t_alloc.allocate( d_ghostSize );
 
-        AMP::Utilities::Algorithms<TYPE>::fill_n(
-            this->d_Ghosts, this->d_ghostSize, static_cast<TYPE>( 0.0 ) );
-
-        AMP::Utilities::Algorithms<TYPE>::fill_n(
-            this->d_AddBuffer, this->d_ghostSize, static_cast<TYPE>( 0.0 ) );
+        AMP::Utilities::Algorithms::zero_n( this->d_Ghosts, this->d_ghostSize, d_memory_location );
+        AMP::Utilities::Algorithms::zero_n(
+            this->d_AddBuffer, this->d_ghostSize, d_memory_location );
 
         const auto &ghostIDs = this->d_CommList->getGhostIDList();
-        AMP::Utilities::Algorithms<size_t>::copy_n(
-            ghostIDs.data(), this->d_ghostSize, this->d_ReceiveDOFList );
+        AMP::Utilities::Algorithms::copy_n( this->d_ReceiveDOFList,
+                                            d_memory_location,
+                                            ghostIDs.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            this->d_ghostSize );
     }
 }
 
@@ -187,8 +188,11 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
 
     if ( N > 0 ) {
         this->d_localRemote = d_size_t_alloc.allocate( N );
-        AMP::Utilities::Algorithms<size_t>::copy_n(
-            replicatedVec.data(), d_numRemote, d_localRemote );
+        AMP::Utilities::Algorithms::copy_n( d_localRemote,
+                                            d_memory_location,
+                                            replicatedVec.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            d_numRemote );
     }
 
     const auto &recvSizes = d_CommList->getReceiveSizes();
@@ -202,10 +206,26 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
         d_recvSizes         = d_int_alloc.allocate( size );
         d_sendDisplacements = d_int_alloc.allocate( size );
         d_recvDisplacements = d_int_alloc.allocate( size );
-        AMP::Utilities::Algorithms<int>::copy_n( sendSizes.data(), size, d_sendSizes );
-        AMP::Utilities::Algorithms<int>::copy_n( recvSizes.data(), size, d_recvSizes );
-        AMP::Utilities::Algorithms<int>::copy_n( sendDisp.data(), size, d_sendDisplacements );
-        AMP::Utilities::Algorithms<int>::copy_n( recvDisp.data(), size, d_recvDisplacements );
+        AMP::Utilities::Algorithms::copy_n( d_sendSizes,
+                                            d_memory_location,
+                                            sendSizes.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            size );
+        AMP::Utilities::Algorithms::copy_n( d_recvSizes,
+                                            d_memory_location,
+                                            recvSizes.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            size );
+        AMP::Utilities::Algorithms::copy_n( d_sendDisplacements,
+                                            d_memory_location,
+                                            sendDisp.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            size );
+        AMP::Utilities::Algorithms::copy_n( d_recvDisplacements,
+                                            d_memory_location,
+                                            recvDisp.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            size );
     }
 }
 
@@ -254,7 +274,8 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
         if ( t == ScatterType::CONSISTENT_ADD ) {
             AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
             scatter_add();
-            AMP::Utilities::Algorithms<TYPE>::fill_n( this->d_AddBuffer, this->d_ghostSize, 0 );
+            AMP::Utilities::Algorithms::zero_n(
+                this->d_AddBuffer, this->d_ghostSize, d_memory_location );
         }
         *d_UpdateState = UpdateState::SETTING;
         scatter_set();
@@ -318,7 +339,11 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
         if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
             PROFILE( "GhostDataHelper::scatter_set (D->H copy)" );
-            AMP::Utilities::Algorithms<TYPE>::copy_n( d_SendRecv, d_numRemote, send_p );
+            AMP::Utilities::Algorithms::copy_n( send_p,
+                                                AMP::Utilities::MemoryType::host,
+                                                d_SendRecv,
+                                                d_memory_location,
+                                                d_numRemote );
 #endif
         }
     }
@@ -340,7 +365,11 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
         PROFILE( "GhostDataHelper::scatter_set (H->D copy)" );
-        AMP::Utilities::Algorithms<TYPE>::copy_n( ghosts_p, this->d_ghostSize, d_Ghosts );
+        AMP::Utilities::Algorithms::copy_n( d_Ghosts,
+                                            d_memory_location,
+                                            ghosts_p,
+                                            AMP::Utilities::MemoryType::host,
+                                            this->d_ghostSize );
 #endif
     }
 
@@ -396,13 +425,16 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
         // copy into host buffers
         d_SendRecv_h.resize( this->d_numRemote );
         d_AddBuffer_h.resize( this->d_ghostSize );
-
-        AMP::Utilities::Algorithms<TYPE>::copy_n(
-            d_SendRecv, this->d_numRemote, d_SendRecv_h.data() );
-
-        AMP::Utilities::Algorithms<TYPE>::copy_n(
-            d_AddBuffer, this->d_ghostSize, d_AddBuffer_h.data() );
-
+        AMP::Utilities::Algorithms::copy_n( d_SendRecv_h.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            d_SendRecv,
+                                            d_memory_location,
+                                            this->d_numRemote );
+        AMP::Utilities::Algorithms::copy_n( d_AddBuffer_h.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            d_AddBuffer,
+                                            d_memory_location,
+                                            this->d_ghostSize );
         send_recv_p = d_SendRecv_h.data();
         ghost_add_p = d_AddBuffer_h.data();
 #endif
@@ -415,9 +447,11 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
     // memory (TODO)
     if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
-
-        AMP::Utilities::Algorithms<TYPE>::copy_n(
-            d_SendRecv_h.data(), this->d_numRemote, d_SendRecv );
+        AMP::Utilities::Algorithms::copy_n( d_SendRecv,
+                                            d_memory_location,
+                                            d_SendRecv_h.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            this->d_numRemote );
 #endif
     }
 
@@ -446,10 +480,8 @@ void GhostDataHelper<TYPE, Allocator>::fillGhosts( const Scalar &scalar )
     PROFILE( "GhostDataHelper::fillGhosts" );
 
     const auto y = static_cast<TYPE>( scalar );
-    for ( size_t i = 0; i < d_ghostSize; ++i ) {
-        this->d_Ghosts[i]    = y;
-        this->d_AddBuffer[i] = static_cast<TYPE>( 0 );
-    }
+    AMP::Utilities::Algorithms::fill_n( this->d_Ghosts, this->d_ghostSize, y, d_memory_location );
+    AMP::Utilities::Algorithms::zero_n( this->d_AddBuffer, this->d_ghostSize, d_memory_location );
 }
 
 
@@ -623,13 +655,14 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const ty
     PROFILE( "GhostDataHelper::getAllGhostValues" );
 
     if ( id == getTypeID<TYPE>() ) {
-        AMP::Utilities::memcpy( vals, d_Ghosts, d_ghostSize * sizeof( TYPE ) );
+        auto data = static_cast<TYPE *>( vals );
+        AMP::Utilities::Algorithms::copy_n( data, d_Ghosts, d_ghostSize, d_memory_location );
     } else if ( id == getTypeID<float>() ) {
-        auto data = reinterpret_cast<float *>( vals );
-        AMP::Utilities::copy<TYPE, float>( d_ghostSize, d_Ghosts, data );
+        auto data = static_cast<float *>( vals );
+        AMP::Utilities::copy( data, d_Ghosts, d_ghostSize, );
     } else if ( id == getTypeID<double>() ) {
-        auto data = reinterpret_cast<double *>( vals );
-        AMP::Utilities::copy<TYPE, double>( d_ghostSize, d_Ghosts, data );
+        auto data = static_cast<double *>( vals );
+        AMP::Utilities::copy( data, d_Ghosts, d_ghostSize );
     } else {
         AMP_ERROR( "Ghosts copy of mismatched type other than float/double are not supported yet" );
     }

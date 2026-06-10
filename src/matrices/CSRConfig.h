@@ -278,10 +278,11 @@ enum class csr_mode : std::uint16_t {
 
 template<alloc Alloc, index LocalInd, index GlobalInd, scalar Scalar>
 struct CSRConfig {
-    static constexpr alloc allocator  = Alloc;
-    static constexpr index lidx       = LocalInd;
-    static constexpr index gidx       = GlobalInd;
-    static constexpr scalar scalar_id = Scalar;
+    static constexpr alloc allocator                    = Alloc;
+    static constexpr index lidx                         = LocalInd;
+    static constexpr index gidx                         = GlobalInd;
+    static constexpr scalar scalar_id                   = Scalar;
+    static constexpr AMP::Utilities::MemoryType mem_loc = alloc_info<Alloc>::mem_loc;
 
     static constexpr csr_mode mode =
         static_cast<csr_mode>( make_mode_v<allocator, lidx, gidx, scalar_id> );

@@ -57,7 +57,7 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
     this->d_globalSize = globalSize;
     this->d_localStart = start;
     this->d_data       = this->d_alloc.allocate( localSize );
-    AMP::Utilities::memset( this->d_data, 0, localSize * sizeof( TYPE ) );
+    AMP::Utilities::Algorithms::zero_n( this->d_data, localSize, d_memory_location );
 }
 
 template<typename TYPE, class Allocator>
@@ -125,12 +125,6 @@ template<typename TYPE, class Allocator>
 size_t VectorDataDefault<TYPE, Allocator>::sizeofDataBlockType( size_t ) const
 {
     return sizeof( TYPE );
-}
-
-template<typename TYPE, class Allocator>
-AMP::Utilities::MemoryType VectorDataDefault<TYPE, Allocator>::getMemoryLocation() const
-{
-    return AMP::Utilities::getAllocatorMemoryType<Allocator>();
 }
 
 /****************************************************************

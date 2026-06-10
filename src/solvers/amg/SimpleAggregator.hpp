@@ -68,7 +68,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // fill initial ids with -1's to mark as not associated
-    AMP::Utilities::Algorithms<int>::fill_n( agg_ids, A_nrows, -1 );
+    AMP::Utilities::Algorithms::fill_n( agg_ids, A_nrows, -1, Config::mem_loc );
 
     // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size( A_nrows, -1 );

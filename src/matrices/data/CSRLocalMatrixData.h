@@ -173,7 +173,7 @@ public:
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            AMP::Utilities::copy<gidx_t, idx_t>( d_ncols_unq, d_cols_unq.get(), colMap.data() );
+            AMP::Utilities::copy( colMap.data(), d_cols_unq.get(), d_ncols_unq );
         }
     }
 
@@ -182,7 +182,7 @@ public:
     void setNNZ( lidx_t tot_nnz );
 
     //! Set number of nonzeros in each row and allocate space accordingly
-    void setNNZ( const lidx_t *nnz );
+    void setNNZ( const lidx_t *nnz, const AMP::Utilities::MemoryType nnz_loc );
 
     //! setNNZ function that references d_row_starts and optionally does scan
     void setNNZ( bool do_accum );

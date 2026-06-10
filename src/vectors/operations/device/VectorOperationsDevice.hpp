@@ -81,7 +81,7 @@ void VectorOperationsDevice<TYPE>::zero( VectorData &x )
     if ( useGPU ) {
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        AMP::Utilities::memset( data, 0, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::zero_n( data, N, x.getMemoryLocation() );
     } else {
         // Default to cpu version
         auto curMe = x.begin<TYPE>();
@@ -101,12 +101,12 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
 {
     PROFILE( "VectorOperationsDevice::setToScalar" );
 
-    bool useGPU = checkData( x );
-    TYPE alpha  = alpha_in.get<TYPE>();
+    bool useGPU      = checkData( x );
+    const TYPE alpha = alpha_in.get<TYPE>();
     if ( useGPU ) {
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        AMP::Utilities::Algorithms<TYPE>::fill_n( data, N, alpha );
+        AMP::Utilities::Algorithms::fill_n( data, N, alpha, x.getMemoryLocation() );
     } else {
         // Default to cpu version
         auto curMe = x.begin<TYPE>();

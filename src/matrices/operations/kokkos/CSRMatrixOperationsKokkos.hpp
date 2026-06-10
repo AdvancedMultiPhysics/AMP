@@ -505,7 +505,7 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = AMP::Utilities::Algorithms<scalar_t>::max_element( sums.data(), nRows );
+    auto max_norm = AMP::Utilities::Algorithms::max_element( sums.data(), nRows, Config::mem_loc );
     AMP_MPI comm  = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }

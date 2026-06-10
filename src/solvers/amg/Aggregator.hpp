@@ -169,7 +169,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     // non-zeros only in diag block and at most one per row
     auto diag_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
     auto offd_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
-    AMP::Utilities::Algorithms<lidx_t>::fill_n( offd_nnz.get(), A_nrows, 0 );
+    AMP::Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc );
     if constexpr ( !AMP::LinearAlgebra::alloc_info<Config::allocator>::device_accessible ) {
         std::transform( agg_ids.get(),
                         agg_ids.get() + A_nrows,

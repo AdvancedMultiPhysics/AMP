@@ -65,7 +65,7 @@ void TpetraVectorData<ST, LO, GO, NT>::putRawData( const void *in, const typeID 
     AMP_INSIST( id == getTypeID<ST>(), "Tpetra only supports putRawData for native type" );
     const auto srcData = reinterpret_cast<const ST *>( in );
     auto dstData       = this->getTpetraVector()->getDataNonConst( 0 );
-    AMP::Utilities::Algorithms<ST>::copy_n( srcData, dstData.size(), dstData.get() );
+    AMP::Utilities::Algorithms::copy_n( dstData.get(), srcData, dstData.size(), );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -77,7 +77,7 @@ void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *out, const typeID &id )
     AMP_INSIST( tVec && tVec->getNumVectors() == 1,
                 "Only implemented for single data block vectors" );
     const auto srcData = tVec->getData( 0 );
-    AMP::Utilities::Algorithms<ST>::copy_n( srcData.get(), srcData.size(), dstData );
+    AMP::Utilities::Algorithms::copy_n( dstData, srcData.get(), srcData.size(), );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

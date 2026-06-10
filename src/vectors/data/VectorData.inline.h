@@ -1,10 +1,9 @@
 #ifndef included_AMP_VectorData_inline
 #define included_AMP_VectorData_inline
 
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/data/VectorDataIterator.h"
-
-#include <algorithm>
 
 #include "ProfilerApp.h"
 
@@ -134,18 +133,22 @@ template<typename TYPE>
 void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ ) const
 {
     PROFILE( "VectorData::getValuesByGlobalID" );
-    auto ndx        = ndx_;
-    auto vals       = vals_;
-    size_t *ndx_mem = nullptr;
-    TYPE *vals_mem  = nullptr;
-    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    size_t *ndx_mem    = nullptr;
+    TYPE *vals_mem     = nullptr;
+    const auto ndx_loc = AMP::Utilities::getMemoryType( ndx_ );
+    if ( ndx_loc >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        AMP::Utilities::memcpy( ndx_mem, ndx_, N * sizeof( size_t ) );
+        AMP::Utilities::Algorithms::copy_n(
+            ndx_mem, AMP::Utilities::MemoryType::host, ndx_, ndx_loc, N );
         ndx = ndx_mem;
     }
-    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+    const auto vals_loc = AMP::Utilities::getMemoryType( vals_ );
+    if ( vals_loc >= AMP::Utilities::MemoryType::managed ) {
         vals_mem = new TYPE[N];
-        AMP::Utilities::memcpy( vals_mem, vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::copy_n(
+            vals_mem, AMP::Utilities::MemoryType::host, vals_, vals_loc, N );
         vals = vals_mem;
     }
     constexpr size_t N_max = 128;
@@ -191,18 +194,22 @@ template<typename TYPE>
 void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
 {
     PROFILE( "VectorData::setValuesByGlobalID" );
-    auto ndx        = ndx_;
-    auto vals       = vals_;
-    size_t *ndx_mem = nullptr;
-    TYPE *vals_mem  = nullptr;
-    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    size_t *ndx_mem    = nullptr;
+    TYPE *vals_mem     = nullptr;
+    const auto ndx_loc = AMP::Utilities::getMemoryType( ndx_ );
+    if ( ndx_loc >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        AMP::Utilities::memcpy( ndx_mem, ndx_, N * sizeof( size_t ) );
+        AMP::Utilities::Algorithms::copy_n(
+            ndx_mem, AMP::Utilities::MemoryType::host, ndx_, ndx_loc, N );
         ndx = ndx_mem;
     }
-    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+    const auto vals_loc = AMP::Utilities::getMemoryType( vals_ );
+    if ( vals_loc >= AMP::Utilities::MemoryType::managed ) {
         vals_mem = new TYPE[N];
-        AMP::Utilities::memcpy( vals_mem, vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::copy_n(
+            vals_mem, AMP::Utilities::MemoryType::host, vals_, vals_loc, N );
         vals = vals_mem;
     }
     constexpr size_t N_max = 128;
@@ -240,19 +247,23 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
 {
     PROFILE( "VectorData::addValuesByGlobalID" );
 
-    auto ndx        = ndx_;
-    auto vals       = vals_;
-    size_t *ndx_mem = nullptr;
-    TYPE *vals_mem  = nullptr;
-    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+    auto ndx           = ndx_;
+    auto vals          = vals_;
+    size_t *ndx_mem    = nullptr;
+    TYPE *vals_mem     = nullptr;
+    const auto ndx_loc = AMP::Utilities::getMemoryType( ndx_ );
+    if ( ndx_loc >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        ndx     = ndx_mem;
-        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
+        AMP::Utilities::Algorithms::copy_n(
+            ndx_mem, AMP::Utilities::MemoryType::host, ndx_, ndx_loc, N );
+        ndx = ndx_mem;
     }
-    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+    const auto vals_loc = AMP::Utilities::getMemoryType( vals_ );
+    if ( vals_loc >= AMP::Utilities::MemoryType::managed ) {
         vals_mem = new TYPE[N];
-        vals     = vals_mem;
-        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::copy_n(
+            vals_mem, AMP::Utilities::MemoryType::host, vals_, vals_loc, N );
+        vals = vals_mem;
     }
     constexpr size_t N_max = 128;
     while ( N != 0 ) {

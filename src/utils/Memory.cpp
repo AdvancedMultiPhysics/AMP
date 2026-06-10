@@ -1,5 +1,6 @@
 #include "AMP/utils/Memory.h"
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 
 #include <cstring>
@@ -31,6 +32,7 @@ MemoryType getMemoryType( [[maybe_unused]] const void *ptr )
     if ( type != MemoryType::unregistered )
         return type;
 #endif
+    AMP_ASSERT( type != MemoryType::unregistered );
     return MemoryType::host;
 }
 
@@ -155,24 +157,22 @@ bool memoryLocationsDeviceAccessible( const MemoryType t1,
  *  Helper enum / function to determine type of copy operation               *
  ****************************************************************************/
 enum class MemoryDirection { HOST, DEVICE, MANAGED, HOST_TO_DEVICE, DEVICE_TO_HOST };
-MemoryDirection getMemoryOp( const void *src, void *dst )
+MemoryDirection getMemoryOp( const MemoryType src_loc, const MemoryType dst_loc )
 {
-    const auto t1 = getMemoryType( src );
-    const auto t2 = getMemoryType( dst );
-    if ( t1 == MemoryType::managed && t2 == MemoryType::managed ) {
+    if ( src_loc == MemoryType::managed && dst_loc == MemoryType::managed ) {
         // managed-managed operations can use device or CPU
 #ifdef AMP_USE_DEVICE
         return MemoryDirection::DEVICE;
 #else
         return MemoryDirection::HOST;
 #endif
-    } else if ( t1 <= MemoryType::managed && t2 <= MemoryType::managed ) {
+    } else if ( src_loc <= MemoryType::managed && dst_loc <= MemoryType::managed ) {
         // host-host
         return MemoryDirection::HOST;
-    } else if ( t1 <= MemoryType::host ) {
+    } else if ( src_loc <= MemoryType::host ) {
         // host to device
         return MemoryDirection::HOST_TO_DEVICE;
-    } else if ( t2 <= MemoryType::host ) {
+    } else if ( dst_loc <= MemoryType::host ) {
         // device to host
         return MemoryDirection::DEVICE_TO_HOST;
     } else {
@@ -181,77 +181,45 @@ MemoryDirection getMemoryOp( const void *src, void *dst )
     }
 }
 
-
 /****************************************************************************
  *  Copy / Fill memory                                                       *
  ****************************************************************************/
-void memcpy( void *dst, const void *src, std::size_t count )
+template<class TDst, class TSrc>
+void copy( TDst *dst, const TSrc *src, size_t N )
 {
-    auto op = getMemoryOp( src, dst );
-    if ( op == MemoryDirection::HOST ) {
-        std::memcpy( dst, src, count );
-    } else if ( op == MemoryDirection::DEVICE_TO_HOST ) {
-        deviceMemcpy( dst, src, count, deviceMemcpyDeviceToHost );
-        deviceSynchronize();
-    } else if ( op == MemoryDirection::HOST_TO_DEVICE ) {
-        deviceMemcpy( dst, src, count, deviceMemcpyHostToDevice );
-        deviceSynchronize();
-    } else {
-        deviceMemcpy( dst, src, count, deviceMemcpyDeviceToDevice );
-        deviceSynchronize();
-    }
-}
-void memset( void *dst, int ch, std::size_t count )
-{
-    const auto t = getMemoryType( dst );
-    if ( t == MemoryType::managed ) {
-        // managed memory operations can use device or CPU
-#ifdef AMP_USE_DEVICE
-        deviceMemset( dst, ch, count );
-#else
-        std::memset( dst, ch, count );
-#endif
-    } else if ( t < MemoryType::managed ) {
-        // host memset
-        std::memset( dst, ch, count );
-    } else {
-        // device memset
-        deviceMemset( dst, ch, count );
-    }
-}
-void zero( void *dst, std::size_t count ) { AMP::Utilities::memset( dst, 0, count ); }
-template<class T1, class T2>
-void copy( size_t N, const T1 *src, T2 *dst )
-{
-    static_assert( std::is_trivially_copyable_v<T1> );
-    static_assert( std::is_trivially_copyable_v<T2> );
-    if constexpr ( std::is_same_v<T1, T2> ) {
+    static_assert( std::is_trivially_copyable_v<TSrc> );
+    static_assert( std::is_trivially_copyable_v<TDst> );
+
+    const auto src_loc = getMemoryType( src );
+    const auto dst_loc = getMemoryType( dst );
+
+    if constexpr ( std::is_same_v<TSrc, TDst> ) {
         // The types are the same and trivial, use memcpy
-        AMP::Utilities::memcpy( dst, src, N * sizeof( T1 ) );
+        AMP::Utilities::Algorithms::copy_n( dst, dst_loc, src, src_loc, N );
     } else {
         // Types are not the same
-        auto op = getMemoryOp( src, dst );
+        auto op = getMemoryOp( src_loc, dst_loc );
         if ( op == MemoryDirection::HOST ) {
             for ( size_t i = 0; i < N; i++ )
                 dst[i] = src[i];
         } else if ( op == MemoryDirection::DEVICE_TO_HOST ) {
-            auto tmp = new T1[N];
-            AMP::Utilities::memcpy( tmp, src, N * sizeof( T1 ) );
+            auto tmp = new TSrc[N];
+            AMP::Utilities::Algorithms::copy_n( tmp, MemoryType::host, src, src_loc, N );
             for ( size_t i = 0; i < N; i++ )
                 dst[i] = tmp[i];
             delete[] tmp;
         } else if ( op == MemoryDirection::HOST_TO_DEVICE ) {
-            auto tmp = new T2[N];
+            auto tmp = new TDst[N];
             for ( size_t i = 0; i < N; i++ )
                 tmp[i] = src[i];
-            AMP::Utilities::memcpy( dst, tmp, N * sizeof( T2 ) );
+            AMP::Utilities::Algorithms::copy_n( dst, dst_loc, tmp, MemoryType::host, N );
             delete[] tmp;
         } else {
 #ifdef AMP_USE_DEVICE
-            if constexpr ( std::is_integral_v<T1> || std::is_integral_v<T2> ) {
+            if constexpr ( std::is_integral_v<TSrc> || std::is_integral_v<TDst> ) {
                 AMP_ERROR( "Converting device vector int/float conversion is not supported" );
             } else {
-                copyCast<T1, T2, Backend::Hip_Cuda>( N, src, dst );
+                copyCast<TSrc, TDst, Backend::Hip_Cuda>( N, src, dst );
             }
 #else
             AMP_ERROR( "No backend" );
@@ -259,7 +227,6 @@ void copy( size_t N, const T1 *src, T2 *dst )
         }
     }
 }
-
 
 /****************************************************************************
  *  Explicit instantiations                                                  *

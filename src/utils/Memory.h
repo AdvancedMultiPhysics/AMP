@@ -43,18 +43,9 @@ bool memoryLocationsDeviceAccessible( const MemoryType t1,
                                       const MemoryType t3,
                                       const bool check_strict = false );
 
-//! Perform memory-memory copy (pointer may be in any memory space)
-void memcpy( void *dest, const void *src, std::size_t count );
-
-//! Perform memory set (pointer may be in any memory space)
-void memset( void *dest, int ch, std::size_t count );
-
-//! Perform memory zero (pointer may be in any memory space)
-void zero( void *dest, std::size_t count );
-
 //! Perform copy with conversion if necessary
-template<class T1, class T2>
-void copy( size_t N, const T1 *src, T2 *dst );
+template<class TDst, class TSrc>
+void copy( TDst *dst, const TSrc *src, size_t N );
 
 } // namespace AMP::Utilities
 

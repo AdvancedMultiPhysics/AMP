@@ -21,6 +21,9 @@ public: // Member types
         typename std::allocator_traits<Allocator>::template rebind_alloc<TYPE>;
     using idxAllocator_t = typename std::allocator_traits<Allocator>::template rebind_alloc<size_t>;
 
+    static constexpr AMP::Utilities::MemoryType d_memory_location =
+        AMP::Utilities::getAllocatorMemoryType<Allocator>();
+
 public: // Constructors
     VectorDataDevice( size_t start, size_t localSize, size_t globalSize );
 

@@ -19,6 +19,9 @@ public:
         typename std::allocator_traits<Allocator>::template rebind_alloc<size_t>;
     using intAllocator_t = typename std::allocator_traits<Allocator>::template rebind_alloc<int>;
 
+    static constexpr AMP::Utilities::MemoryType d_memory_location =
+        AMP::Utilities::getAllocatorMemoryType<Allocator>();
+
     GhostDataHelper();
     GhostDataHelper( std::shared_ptr<CommunicationList> );
     ~GhostDataHelper();
@@ -61,10 +64,7 @@ public: // Functions overloaded from VectorData
     const AMP_MPI &getComm() const override;
     void dumpGhostedData( std::ostream &out, size_t offset ) const override;
     void copyGhostValues( const VectorData &rhs ) override;
-    AMP::Utilities::MemoryType getMemoryLocation() const override
-    {
-        return AMP::Utilities::getAllocatorMemoryType<Allocator>();
-    }
+    AMP::Utilities::MemoryType getMemoryLocation() const override { return d_memory_location; }
 
     using VectorData::addGhostValuesByGlobalID;
     using VectorData::getGhostAddValuesByGlobalID;

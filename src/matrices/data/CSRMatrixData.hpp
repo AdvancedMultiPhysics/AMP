@@ -110,10 +110,17 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
             auto diag_cols = rowHelper->getLocals();
             auto offd_cols = rowHelper->getRemotes();
 
-            AMP::Utilities::copy( d_diag_matrix->d_nnz, diag_cols, d_diag_matrix->d_cols.get() );
+            AMP::Utilities::Algorithms::copy_n( d_diag_matrix->d_cols.get(),
+                                                Config::mem_loc,
+                                                diag_cols,
+                                                AMP::Utilities::MemoryType::host,
+                                                d_diag_matrix->d_nnz );
             if ( !d_offd_matrix->d_is_empty ) {
-                AMP::Utilities::copy(
-                    d_offd_matrix->d_nnz, offd_cols, d_offd_matrix->d_cols.get() );
+                AMP::Utilities::Algorithms::copy_n( d_offd_matrix->d_cols.get(),
+                                                    Config::mem_loc,
+                                                    offd_cols,
+                                                    AMP::Utilities::MemoryType::host,
+                                                    d_offd_matrix->d_nnz );
             }
 
             // contents of rowHelper no longer useful, trigger deallocation
@@ -485,7 +492,8 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     gidx_t *rows_d               = nullptr;
     if constexpr ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
-        AMP::Utilities::copy( rows.size(), rows.data(), rows_d );
+        AMP::Utilities::Algorithms::copy_n(
+            rows_d, Config::mem_loc, rows.data(), AMP::Utilities::MemoryType::host, rows.size() );
     }
 
     // count nnz per row and write into sub matrix directly

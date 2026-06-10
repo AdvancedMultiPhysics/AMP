@@ -657,13 +657,13 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         }
 
         // do cumulative sum of row counts to turn into offsets
-        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0 );
+        AMP::Utilities::Algorithms::exclusive_scan(
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
         AMP_DEBUG_INSIST( tot_nnz == out_row_starts[out_num_rows],
                           "CSRMatrixDataHelpers::TransposeDiag: inconsistent total nnz" );
 
         // second pass fill in entries using extra space for row position counters
-        AMP::Utilities::Algorithms<lidx_t>::fill_n( counters, out_num_rows, 0 );
+        AMP::Utilities::Algorithms::zero_n( counters, out_num_rows, Config::mem_loc );
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto icl  = in_cols_loc[k];
@@ -729,8 +729,8 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         // copy into row starts and accumulate
         thrust::scatter(
             thrust::device, counters, counters + num_unq, reduce_space, out_row_starts );
-        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0 );
+        AMP::Utilities::Algorithms::exclusive_scan(
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
 
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag" );
 #else
@@ -767,11 +767,11 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
         }
 
         // do cumulative sum of row counts to turn into offsets
-        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0 );
+        AMP::Utilities::Algorithms::exclusive_scan(
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
 
         // second pass fill in entries using extra space for row position counters
-        AMP::Utilities::Algorithms<lidx_t>::fill_n( counters, out_num_rows, 0 );
+        AMP::Utilities::Algorithms::zero_n( counters, out_num_rows, Config::mem_loc );
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto icl  = in_cols[k] - in_first_col;
@@ -830,8 +830,8 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
         // copy into row starts and accumulate
         thrust::scatter(
             thrust::device, counters, counters + num_unq, reduce_space, out_row_starts );
-        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0 );
+        AMP::Utilities::Algorithms::exclusive_scan(
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
 
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd" );
 #else
@@ -1349,8 +1349,8 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
                                       del_per_row[row];
                            } );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart" );
-        AMP::Utilities::Algorithms<lidx_t>::exclusive_scan(
-            out_row_starts, num_rows + 1, out_row_starts, 0 );
+        AMP::Utilities::Algorithms::exclusive_scan(
+            out_row_starts, num_rows + 1, out_row_starts, 0, Config::mem_loc );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart Undefined memory location" );
 #endif
