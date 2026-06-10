@@ -329,7 +329,9 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
             PROFILE( "GhostDataHelper::scatter_set (D->H copy)" );
             AMP::Utilities::Algorithms<TYPE>::copy_n( d_SendRecv, d_numRemote, send_p );
+    #ifdef AMP_USE_DEVICE
             deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
+    #endif
 #endif
         }
     }
@@ -352,7 +354,9 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
         PROFILE( "GhostDataHelper::scatter_set (H->D copy)" );
         AMP::Utilities::Algorithms<TYPE>::copy_n( ghosts_p, this->d_ghostSize, d_Ghosts );
+    #ifdef AMP_USE_DEVICE
         deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
+    #endif
 #endif
     }
 
