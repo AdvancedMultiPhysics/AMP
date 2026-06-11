@@ -104,23 +104,28 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
             for ( lidx_t n = 0; n < nrows; ++n ) {
                 rowHelper->NNZ( d_first_row + n, nnz_diag[n], nnz_offd[n] );
             }
-            d_diag_matrix->setNNZ( nnz_diag.data() );
-            d_offd_matrix->setNNZ( nnz_offd.data() );
+            d_diag_matrix->setNNZ( nnz_diag.data(), AMP::Utilities::MemoryType::host );
+            AMP_ASSERT( d_diag_matrix->d_nnz > 0 );
+            d_offd_matrix->setNNZ( nnz_offd.data(), AMP::Utilities::MemoryType::host );
 
             auto diag_cols = rowHelper->getLocals();
             auto offd_cols = rowHelper->getRemotes();
 
-            AMP::Utilities::Algorithms::copy_n( d_diag_matrix->d_cols.get(),
-                                                Config::mem_loc,
-                                                diag_cols,
-                                                AMP::Utilities::MemoryType::host,
-                                                d_diag_matrix->d_nnz );
+            for ( lidx_t nn = 0; nn < d_diag_matrix->d_nnz && nn < 20; ++nn ) {
+                AMP::pout << "dc[" << nn << "]: " << diag_cols[nn] << std::endl;
+            }
+
+            AMP::Utilities::Algorithms::copyCast( d_diag_matrix->d_cols.get(),
+                                                  Config::mem_loc,
+                                                  diag_cols,
+                                                  AMP::Utilities::MemoryType::host,
+                                                  d_diag_matrix->d_nnz );
             if ( !d_offd_matrix->d_is_empty ) {
-                AMP::Utilities::Algorithms::copy_n( d_offd_matrix->d_cols.get(),
-                                                    Config::mem_loc,
-                                                    offd_cols,
-                                                    AMP::Utilities::MemoryType::host,
-                                                    d_offd_matrix->d_nnz );
+                AMP::Utilities::Algorithms::copyCast( d_offd_matrix->d_cols.get(),
+                                                      Config::mem_loc,
+                                                      offd_cols,
+                                                      AMP::Utilities::MemoryType::host,
+                                                      d_offd_matrix->d_nnz );
             }
 
             // contents of rowHelper no longer useful, trigger deallocation

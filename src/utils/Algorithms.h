@@ -25,6 +25,10 @@ public:
                         const MemoryType src_loc,
                         const size_t N );
 
+    template<class TDst, class TSrc>
+    static void copyCast(
+        TDst *dst, const MemoryType dst_loc, const TSrc *src, const MemoryType src_loc, size_t N );
+
     template<typename TYPE>
     static void exclusive_scan(
         const TYPE *x, const size_t N, TYPE *y, const TYPE alpha, const MemoryType mem_loc );

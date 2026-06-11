@@ -43,10 +43,6 @@ bool memoryLocationsDeviceAccessible( const MemoryType t1,
                                       const MemoryType t3,
                                       const bool check_strict = false );
 
-//! Perform copy with conversion if necessary
-template<class TDst, class TSrc>
-void copy( TDst *dst, const TSrc *src, size_t N );
-
 } // namespace AMP::Utilities
 
 

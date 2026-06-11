@@ -227,18 +227,21 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
         // always allocate and set host side offd map
         par_matrix->col_map_offd =
             hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_HOST );
-        AMP::Utilities::Algorithms::copy_n( par_matrix->col_map_offd,
-                                            AMP::Utilities::MemoryType::host,
-                                            colMap,
-                                            csr_mem_loc,
-                                            off_diag->num_cols );
+        AMP::Utilities::Algorithms::copyCast( par_matrix->col_map_offd,
+                                              AMP::Utilities::MemoryType::host,
+                                              colMap,
+                                              csr_mem_loc,
+                                              off_diag->num_cols );
 
         // and do device map if needed
         if ( memory_location == HYPRE_MEMORY_DEVICE ) {
             par_matrix->device_col_map_offd =
                 hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_DEVICE );
-            AMP::Utilities::Algorithms::copy_n(
-                par_matrix->device_col_map_offd, colMap, off_diag->num_cols, csr_mem_loc );
+            AMP::Utilities::Algorithms::copyCast( par_matrix->device_col_map_offd,
+                                                  csr_mem_loc,
+                                                  colMap,
+                                                  csr_mem_loc,
+                                                  off_diag->num_cols );
         }
     }
 

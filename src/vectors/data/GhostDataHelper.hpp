@@ -654,15 +654,19 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const ty
 {
     PROFILE( "GhostDataHelper::getAllGhostValues" );
 
+    const auto vals_loc = AMP::Utilities::getMemoryType( vals );
     if ( id == getTypeID<TYPE>() ) {
         auto data = static_cast<TYPE *>( vals );
-        AMP::Utilities::Algorithms::copy_n( data, d_Ghosts, d_ghostSize, d_memory_location );
+        AMP::Utilities::Algorithms::copy_n(
+            data, vals_loc, d_Ghosts, d_memory_location, d_ghostSize );
     } else if ( id == getTypeID<float>() ) {
         auto data = static_cast<float *>( vals );
-        AMP::Utilities::copy( data, d_Ghosts, d_ghostSize, );
+        AMP::Utilities::Algorithms::copyCast(
+            data, vals_loc, d_Ghosts, d_memory_location, d_ghostSize );
     } else if ( id == getTypeID<double>() ) {
         auto data = static_cast<double *>( vals );
-        AMP::Utilities::copy( data, d_Ghosts, d_ghostSize );
+        AMP::Utilities::Algorithms::copyCast(
+            data, vals_loc, d_Ghosts, d_memory_location, d_ghostSize );
     } else {
         AMP_ERROR( "Ghosts copy of mismatched type other than float/double are not supported yet" );
     }

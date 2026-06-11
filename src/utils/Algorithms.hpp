@@ -13,6 +13,7 @@
     #include <thrust/fill.h>
     #include <thrust/scan.h>
     #include <thrust/sort.h>
+    #include <thrust/transform.h>
     #include <thrust/unique.h>
 #else
     #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
@@ -73,10 +74,6 @@ void Algorithms::copy_n(
     if ( dst_loc == src_loc ) {
         copy_n<TYPE>( dst, src, N, src_loc );
         return;
-    } else if ( src_loc <= MemoryType::managed && dst_loc <= MemoryType::managed ) {
-        // mixture of host and managed, do host copy
-        std::memcpy( dst, src, N * sizeof( TYPE ) );
-        return;
     }
 
 #ifdef AMP_USE_DEVICE
@@ -95,7 +92,62 @@ void Algorithms::copy_n(
     }
 #endif
 
+    if ( src_loc <= MemoryType::managed && dst_loc <= MemoryType::managed ) {
+        // mixture of host and managed, do host copy
+        std::memcpy( dst, src, N * sizeof( TYPE ) );
+        return;
+    }
+
     AMP_ERROR( "Algorithms::copy_n: un-copyable memory locations" );
+}
+
+template<class TDst, class TSrc>
+void Algorithms::copyCast(
+    TDst *dst, const MemoryType dst_loc, const TSrc *src, const MemoryType src_loc, size_t N )
+{
+    static_assert( std::is_trivially_copyable_v<TSrc> );
+    static_assert( std::is_trivially_copyable_v<TDst> );
+
+    AMP_INSIST( src && dst, "copyCast bad buffer before" );
+    if constexpr ( std::is_same_v<TSrc, TDst> ) {
+        // The types are the same, fall back to simpler copy
+        copy_n<TDst>( static_cast<TSrc *>( dst ), dst_loc, src, src_loc, N );
+    } else if ( dst_loc <= MemoryType::host && src_loc <= MemoryType::host ) {
+        // both on host, use std::transform to convert
+        std::transform(
+            src, src + N, dst, []( const TSrc in ) -> TDst { return static_cast<TDst>( in ); } );
+    } else {
+#ifdef AMP_USE_DEVICE
+        // at least one is on device, ensure both available there and use thrust transform
+        TDst *dst_cpy = dst;
+        if ( dst_loc <= MemoryType::host ) {
+            deviceMalloc( &dst_cpy, N * sizeof( TDst ) );
+            copy_n<TDst>( dst_cpy, MemoryType::device, dst, MemoryType::host, N );
+        }
+        TSrc *src_cpy = const_cast<TSrc *>( src );
+        if ( src_loc <= MemoryType::host ) {
+            deviceMalloc( &src_cpy, N * sizeof( TSrc ) );
+            copy_n<TSrc>( src_cpy, MemoryType::device, src, MemoryType::host, N );
+        }
+
+        // transform
+        thrust::transform(
+            thrust::device, src_cpy, src_cpy + N, dst_cpy, []( const TSrc in ) -> TDst {
+                return static_cast<TDst>( in );
+            } );
+
+        // free if needed
+        if ( dst_loc <= MemoryType::host ) {
+            deviceFree( dst_cpy );
+        }
+        if ( src_loc <= MemoryType::host ) {
+            deviceFree( src_cpy );
+        }
+#else
+        AMP_ERROR( "Algorithms::copy_n: un-copyable memory locations" );
+#endif
+    }
+    AMP_INSIST( src && dst, "copyCast bad buffer after" );
 }
 
 template<typename TYPE>

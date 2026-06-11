@@ -3,6 +3,7 @@
 
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 
@@ -173,7 +174,11 @@ public:
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            AMP::Utilities::copy( colMap.data(), d_cols_unq.get(), d_ncols_unq );
+            AMP::Utilities::Algorithms::copyCast( colMap.data(),
+                                                  AMP::Utilities::MemoryType::host,
+                                                  d_cols_unq.get(),
+                                                  Config::mem_loc,
+                                                  d_ncols_unq );
         }
     }
 

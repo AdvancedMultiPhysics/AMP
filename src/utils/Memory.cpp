@@ -32,7 +32,10 @@ MemoryType getMemoryType( [[maybe_unused]] const void *ptr )
     if ( type != MemoryType::unregistered )
         return type;
 #endif
-    AMP_ASSERT( type != MemoryType::unregistered );
+    if ( type == MemoryType::unregistered ) {
+        AMP_WARNING( "********** Unregistered memory!! ***********" );
+    }
+
     return MemoryType::host;
 }
 
@@ -152,103 +155,5 @@ bool memoryLocationsDeviceAccessible( const MemoryType t1,
         return false;
     }
 }
-
-/****************************************************************************
- *  Helper enum / function to determine type of copy operation               *
- ****************************************************************************/
-enum class MemoryDirection { HOST, DEVICE, MANAGED, HOST_TO_DEVICE, DEVICE_TO_HOST };
-MemoryDirection getMemoryOp( const MemoryType src_loc, const MemoryType dst_loc )
-{
-    if ( src_loc == MemoryType::managed && dst_loc == MemoryType::managed ) {
-        // managed-managed operations can use device or CPU
-#ifdef AMP_USE_DEVICE
-        return MemoryDirection::DEVICE;
-#else
-        return MemoryDirection::HOST;
-#endif
-    } else if ( src_loc <= MemoryType::managed && dst_loc <= MemoryType::managed ) {
-        // host-host
-        return MemoryDirection::HOST;
-    } else if ( src_loc <= MemoryType::host ) {
-        // host to device
-        return MemoryDirection::HOST_TO_DEVICE;
-    } else if ( dst_loc <= MemoryType::host ) {
-        // device to host
-        return MemoryDirection::DEVICE_TO_HOST;
-    } else {
-        // device to device
-        return MemoryDirection::DEVICE;
-    }
-}
-
-/****************************************************************************
- *  Copy / Fill memory                                                       *
- ****************************************************************************/
-template<class TDst, class TSrc>
-void copy( TDst *dst, const TSrc *src, size_t N )
-{
-    static_assert( std::is_trivially_copyable_v<TSrc> );
-    static_assert( std::is_trivially_copyable_v<TDst> );
-
-    const auto src_loc = getMemoryType( src );
-    const auto dst_loc = getMemoryType( dst );
-
-    if constexpr ( std::is_same_v<TSrc, TDst> ) {
-        // The types are the same and trivial, use memcpy
-        AMP::Utilities::Algorithms::copy_n( dst, dst_loc, src, src_loc, N );
-    } else {
-        // Types are not the same
-        auto op = getMemoryOp( src_loc, dst_loc );
-        if ( op == MemoryDirection::HOST ) {
-            for ( size_t i = 0; i < N; i++ )
-                dst[i] = src[i];
-        } else if ( op == MemoryDirection::DEVICE_TO_HOST ) {
-            auto tmp = new TSrc[N];
-            AMP::Utilities::Algorithms::copy_n( tmp, MemoryType::host, src, src_loc, N );
-            for ( size_t i = 0; i < N; i++ )
-                dst[i] = tmp[i];
-            delete[] tmp;
-        } else if ( op == MemoryDirection::HOST_TO_DEVICE ) {
-            auto tmp = new TDst[N];
-            for ( size_t i = 0; i < N; i++ )
-                tmp[i] = src[i];
-            AMP::Utilities::Algorithms::copy_n( dst, dst_loc, tmp, MemoryType::host, N );
-            delete[] tmp;
-        } else {
-#ifdef AMP_USE_DEVICE
-            if constexpr ( std::is_integral_v<TSrc> || std::is_integral_v<TDst> ) {
-                AMP_ERROR( "Converting device vector int/float conversion is not supported" );
-            } else {
-                copyCast<TSrc, TDst, Backend::Hip_Cuda>( N, src, dst );
-            }
-#else
-            AMP_ERROR( "No backend" );
-#endif
-        }
-    }
-}
-
-/****************************************************************************
- *  Explicit instantiations                                                  *
- ****************************************************************************/
-#define INSTANTIATE( T1, T2 ) template void copy<T1, T2>( size_t N, const T1 *, T2 * )
-INSTANTIATE( int, int );
-INSTANTIATE( int, long long );
-INSTANTIATE( int, unsigned long );
-INSTANTIATE( int, float );
-INSTANTIATE( int, double );
-INSTANTIATE( long long, int );
-INSTANTIATE( long long, long long );
-INSTANTIATE( long long, unsigned long );
-INSTANTIATE( unsigned long, int );
-INSTANTIATE( size_t, size_t );
-INSTANTIATE( size_t, long long );
-INSTANTIATE( float, int );
-INSTANTIATE( float, float );
-INSTANTIATE( float, double );
-INSTANTIATE( double, int );
-INSTANTIATE( double, float );
-INSTANTIATE( double, double );
-
 
 } // namespace AMP::Utilities
