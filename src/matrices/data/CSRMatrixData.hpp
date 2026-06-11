@@ -105,15 +105,10 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
                 rowHelper->NNZ( d_first_row + n, nnz_diag[n], nnz_offd[n] );
             }
             d_diag_matrix->setNNZ( nnz_diag.data(), AMP::Utilities::MemoryType::host );
-            AMP_ASSERT( d_diag_matrix->d_nnz > 0 );
             d_offd_matrix->setNNZ( nnz_offd.data(), AMP::Utilities::MemoryType::host );
 
             auto diag_cols = rowHelper->getLocals();
             auto offd_cols = rowHelper->getRemotes();
-
-            for ( lidx_t nn = 0; nn < d_diag_matrix->d_nnz && nn < 20; ++nn ) {
-                AMP::pout << "dc[" << nn << "]: " << diag_cols[nn] << std::endl;
-            }
 
             AMP::Utilities::Algorithms::copyCast( d_diag_matrix->d_cols.get(),
                                                   Config::mem_loc,

@@ -1199,7 +1199,6 @@ size_t CSRLocalMatrixData<Config>::numberColumnIDs( size_t local_row ) const
 {
     AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
                 "CSRLocalMatrixData::numberColumnIDs not implemented for device memory" );
-    AMP_INSIST( d_nnz > 0, "CSRLocalMatrixData::numberColumnIDs must not be empty" );
     AMP_INSIST( d_row_starts,
                 "CSRLocalMatrixData::numberColumnIDs nnz layout must be initialized" );
     const auto start = d_row_starts[local_row];
