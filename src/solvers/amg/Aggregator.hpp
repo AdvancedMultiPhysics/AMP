@@ -170,7 +170,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     auto diag_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
     auto offd_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
     AMP::Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc );
-    if constexpr ( !AMP::LinearAlgebra::alloc_info<Config::allocator>::device_accessible ) {
+    if constexpr ( !Config::device_accessible ) {
         std::transform( agg_ids.get(),
                         agg_ids.get() + A_nrows,
                         diag_nnz.get(),
@@ -188,7 +188,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
         AMP_ERROR( "Aggregator::getAggregateMatrix Undefined memory location" );
 #endif
     }
-    P->setNNZ( diag_nnz.get(), offd_nnz.get() );
+    P->setNNZ( diag_nnz.get(), offd_nnz.get(), Config::mem_loc );
 
     // Pull values out of near null vector for
     // accumulation while aggregates are being written

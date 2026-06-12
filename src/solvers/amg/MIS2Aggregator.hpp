@@ -23,7 +23,6 @@
 
 #include "ProfilerApp.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <numeric>

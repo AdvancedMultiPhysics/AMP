@@ -32,7 +32,7 @@ void Algorithms::fill_n( TYPE *x, const size_t N, const TYPE alpha, const Memory
 {
     if ( N > 0 ) {
         if ( mem_loc <= MemoryType::host ) {
-            std::fill( x, x + N, alpha );
+            std::fill_n( x, N, alpha );
         } else {
 #ifdef AMP_USE_DEVICE
             thrust::fill_n( thrust::device, x, N, alpha );
@@ -54,7 +54,7 @@ void Algorithms::copy_n( TYPE *dst, const TYPE *src, const size_t N, const Memor
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
     if ( mem_loc <= MemoryType::host ) {
-        std::memcpy( dst, src, N * sizeof( TYPE ) );
+        std::copy_n( src, N, dst );
     } else {
 #ifdef AMP_USE_DEVICE
         deviceMemcpy( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice );
@@ -94,7 +94,7 @@ void Algorithms::copy_n(
 
     if ( src_loc <= MemoryType::managed && dst_loc <= MemoryType::managed ) {
         // mixture of host and managed, do host copy
-        std::memcpy( dst, src, N * sizeof( TYPE ) );
+        std::copy_n( src, N, dst );
         return;
     }
 
@@ -182,30 +182,30 @@ void Algorithms::exclusive_scan(
 template<typename TYPE>
 void Algorithms::sort( TYPE *x, const size_t N, const MemoryType mem_loc )
 {
-#ifndef AMP_USE_DEVICE
-    std::sort( x, x + N );
-#else
     if ( mem_loc <= MemoryType::host ) {
         std::sort( x, x + N );
     } else {
+#ifdef AMP_USE_DEVICE
         thrust::sort( thrust::device, x, x + N );
-    }
+#else
+        AMP_ERROR( "Invalid memory type" );
 #endif
+    }
 }
 
 template<typename TYPE>
 size_t Algorithms::unique( TYPE *x, const size_t N, const MemoryType mem_loc )
 {
     TYPE *last = nullptr;
-#ifndef AMP_USE_DEVICE
-    last = std::unique( x, x + N );
-#else
     if ( mem_loc <= MemoryType::host ) {
         last = std::unique( x, x + N );
     } else {
+#ifdef AMP_USE_DEVICE
         last = thrust::unique( thrust::device, x, x + N );
-    }
+#else
+        AMP_ERROR( "Invalid memory type" );
 #endif
+    }
     std::ptrdiff_t diff = last - x;
     AMP_DEBUG_ASSERT( diff > 0 );
     return static_cast<size_t>( diff );

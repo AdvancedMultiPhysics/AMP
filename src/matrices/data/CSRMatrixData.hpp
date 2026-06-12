@@ -365,13 +365,15 @@ void CSRMatrixData<Config>::setNNZ( lidx_t tot_nnz_diag, lidx_t tot_nnz_offd )
 }
 
 template<typename Config>
-void CSRMatrixData<Config>::setNNZ( const lidx_t *nnz_diag, const lidx_t *nnz_offd )
+void CSRMatrixData<Config>::setNNZ( const lidx_t *nnz_diag,
+                                    const lidx_t *nnz_offd,
+                                    const AMP::Utilities::MemoryType mem_loc )
 {
     PROFILE( "CSRMatrixData::setNNZ" );
 
     // forward to internal blocks to get the internals allocated
-    d_diag_matrix->setNNZ( nnz_diag );
-    d_offd_matrix->setNNZ( nnz_offd );
+    d_diag_matrix->setNNZ( nnz_diag, mem_loc );
+    d_offd_matrix->setNNZ( nnz_offd, mem_loc );
 }
 
 template<typename Config>
