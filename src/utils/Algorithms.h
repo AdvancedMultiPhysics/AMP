@@ -1,7 +1,7 @@
 #ifndef included_AMP_Algorithms
-    #define included_AMP_Algorithms
+#define included_AMP_Algorithms
 
-    #include "AMP/utils/Memory.h"
+#include "AMP/utils/Memory.h"
 
 namespace AMP {
 namespace Utilities {

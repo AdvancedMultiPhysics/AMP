@@ -101,12 +101,16 @@ template<typename TYPE, class Allocator>
 std::tuple<bool, size_t *, void *> VectorDataDevice<TYPE, Allocator>::copyToScratchSpace(
     size_t num, const size_t *indices_, const void *vals_, const typeID &id ) const
 {
-    bool scratchUsed    = false;
     const auto idx_loc  = AMP::Utilities::getMemoryType( indices_ );
     const auto vals_loc = AMP::Utilities::getMemoryType( vals_ );
 
-    if ( idx_loc <= AMP::Utilities::MemoryType::host ||
-         vals_loc <= AMP::Utilities::MemoryType::host ) {
+    const bool scratchUsed =
+        idx_loc <= AMP::Utilities::MemoryType::host || vals_loc <= AMP::Utilities::MemoryType::host;
+
+    if ( !scratchUsed ) {
+        return std::make_tuple(
+            scratchUsed, const_cast<size_t *>( indices_ ), const_cast<void *>( vals_ ) );
+    } else {
         this->setScratchSpace( num );
         AMP::Utilities::Algorithms::copy_n(
             this->d_idx_req_scratch, d_memory_location, indices_, idx_loc, num );
@@ -126,10 +130,8 @@ std::tuple<bool, size_t *, void *> VectorDataDevice<TYPE, Allocator>::copyToScra
         } else {
             AMP_ERROR( "Conversion not supported yet" );
         }
-        scratchUsed = true;
+        return std::make_tuple( scratchUsed, this->d_idx_req_scratch, this->d_scalar_scratch );
     }
-
-    return std::make_tuple( scratchUsed, this->d_idx_req_scratch, this->d_scalar_scratch );
 }
 
 template<typename TYPE, class Allocator>
