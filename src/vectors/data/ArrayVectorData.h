@@ -85,15 +85,19 @@ public:
     /**\brief Copy data into this vector
      *\param[in] buf  Buffer to copy from
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      */
-    void putRawData( const void *buf, const typeID &id ) override;
+    void
+    putRawData( const void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) override;
 
     /**\brief Copy data out of this vector
      *\param[out] buf  Buffer to copy to
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      *\details The Vector should be pre-allocated to the correct size (getLocalSize())
      */
-    void getRawData( void *buf, const typeID &id ) const override;
+    void
+    getRawData( void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const override;
 
     /**
      * \brief Set values in the vector by their local offset
@@ -101,6 +105,7 @@ public:
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
@@ -108,7 +113,8 @@ public:
     void setValuesByLocalID( size_t num,
                              const size_t *indices,
                              const void *vals,
-                             const typeID &id ) override;
+                             const typeID &id,
+                             AMP::Utilities::MemoryType buf_loc ) override;
 
     /**
      * \brief Add values to vector entities by their local offset
@@ -116,6 +122,7 @@ public:
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
@@ -124,7 +131,8 @@ public:
     void addValuesByLocalID( size_t num,
                              const size_t *indices,
                              const void *vals,
-                             const typeID &id ) override;
+                             const typeID &id,
+                             AMP::Utilities::MemoryType buf_loc ) override;
 
     /**
      * \brief Get local values in the vector by their lcoal offset
@@ -132,12 +140,14 @@ public:
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      * \details This will get any value owned by this core.
      */
     void getValuesByLocalID( size_t num,
                              const size_t *indices,
                              void *vals,
-                             const typeID &id ) const override;
+                             const typeID &id,
+                             AMP::Utilities::MemoryType buf_loc ) const override;
 
     /**\brief  A unique id for the underlying data allocation
      *\details This is a unique id that is associated with the data

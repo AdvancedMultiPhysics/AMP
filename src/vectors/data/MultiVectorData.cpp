@@ -196,7 +196,8 @@ const void *MultiVectorData::getRawDataBlockAsVoid( size_t i ) const
 void MultiVectorData::setValuesByLocalID( size_t N,
                                           const size_t *indices,
                                           const void *vals,
-                                          const typeID &id )
+                                          const typeID &id,
+                                          AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "setValuesByLocalID", 1 );
     auto data = reinterpret_cast<const std::byte *>( vals );
@@ -204,14 +205,15 @@ void MultiVectorData::setValuesByLocalID( size_t N,
         auto [dof, manager] = d_dofMap.globalToSub( indices[i] + d_localStart );
         AMP_DEBUG_ASSERT( manager >= 0 );
         dof -= d_data[manager]->getLocalStartID();
-        d_data[manager]->setValuesByLocalID( 1, &dof, data, id );
+        d_data[manager]->setValuesByLocalID( 1, &dof, data, id, buf_loc );
     }
 }
 
 void MultiVectorData::addValuesByLocalID( size_t N,
                                           const size_t *indices,
                                           const void *vals,
-                                          const typeID &id )
+                                          const typeID &id,
+                                          AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "addValuesByLocalID", 1 );
     auto data = reinterpret_cast<const std::byte *>( vals );
@@ -219,14 +221,15 @@ void MultiVectorData::addValuesByLocalID( size_t N,
         auto [dof, manager] = d_dofMap.globalToSub( indices[i] + d_localStart );
         AMP_DEBUG_ASSERT( manager >= 0 );
         dof -= d_data[manager]->getLocalStartID();
-        d_data[manager]->addValuesByLocalID( 1, &dof, data, id );
+        d_data[manager]->addValuesByLocalID( 1, &dof, data, id, buf_loc );
     }
 }
 
 void MultiVectorData::getValuesByLocalID( size_t N,
                                           const size_t *indices,
                                           void *vals,
-                                          const typeID &id ) const
+                                          const typeID &id,
+                                          AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "getValuesByLocalID", 1 );
     auto data = reinterpret_cast<std::byte *>( vals );
@@ -234,68 +237,72 @@ void MultiVectorData::getValuesByLocalID( size_t N,
         auto [dof, manager] = d_dofMap.globalToSub( indices[i] + d_localStart );
         AMP_DEBUG_ASSERT( manager >= 0 );
         dof -= d_data[manager]->getLocalStartID();
-        d_data[manager]->getValuesByLocalID( 1, &dof, data, id );
+        d_data[manager]->getValuesByLocalID( 1, &dof, data, id, buf_loc );
     }
 }
 
 void MultiVectorData::setGhostValuesByGlobalID( size_t N,
                                                 const size_t *indices,
                                                 const void *vals,
-                                                const typeID &id )
+                                                const typeID &id,
+                                                AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "setGhostValuesByGlobalID", 1 );
     auto data = reinterpret_cast<const std::byte *>( vals );
     for ( size_t i = 0; i < N; i++, data += id.bytes ) {
         auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
         AMP_DEBUG_ASSERT( manager >= 0 );
-        d_data[manager]->setGhostValuesByGlobalID( 1, &dof, data, id );
+        d_data[manager]->setGhostValuesByGlobalID( 1, &dof, data, id, buf_loc );
     }
 }
 
 void MultiVectorData::addGhostValuesByGlobalID( size_t N,
                                                 const size_t *indices,
                                                 const void *vals,
-                                                const typeID &id )
+                                                const typeID &id,
+                                                AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "addGhostValuesByGlobalID", 1 );
     auto data = reinterpret_cast<const std::byte *>( vals );
     for ( size_t i = 0; i < N; i++, data += id.bytes ) {
         auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
         AMP_DEBUG_ASSERT( manager >= 0 );
-        d_data[manager]->addGhostValuesByGlobalID( 1, &dof, data, id );
+        d_data[manager]->addGhostValuesByGlobalID( 1, &dof, data, id, buf_loc );
     }
 }
 
 void MultiVectorData::getGhostValuesByGlobalID( size_t N,
                                                 const size_t *indices,
                                                 void *vals,
-                                                const typeID &id ) const
+                                                const typeID &id,
+                                                AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "getGhostValuesByGlobalID", 1 );
     auto data = reinterpret_cast<std::byte *>( vals );
     for ( size_t i = 0; i < N; i++, data += id.bytes ) {
         auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
         AMP_DEBUG_ASSERT( manager >= 0 );
-        d_data[manager]->getGhostValuesByGlobalID( 1, &dof, data, id );
+        d_data[manager]->getGhostValuesByGlobalID( 1, &dof, data, id, buf_loc );
     }
 }
 
 void MultiVectorData::getGhostAddValuesByGlobalID( size_t N,
                                                    const size_t *indices,
                                                    void *vals,
-                                                   const AMP::typeID &id ) const
+                                                   const AMP::typeID &id,
+                                                   AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "getGhostAddValuesByGlobalID", 1 );
     auto data = reinterpret_cast<std::byte *>( vals );
     for ( size_t i = 0; i < N; i++, data += id.bytes ) {
         auto [dof, manager] = d_dofMap.globalToSub( indices[i] );
         AMP_DEBUG_ASSERT( manager >= 0 );
-        d_data[manager]->getGhostAddValuesByGlobalID( 1, &dof, data, id );
+        d_data[manager]->getGhostAddValuesByGlobalID( 1, &dof, data, id, buf_loc );
     }
 }
 
 template<class TYPE>
-size_t MultiVectorData::getAllGhostValues( TYPE *vals ) const
+size_t MultiVectorData::getAllGhostValues( TYPE *vals, AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "getAllGhostValues" );
 
@@ -305,7 +312,7 @@ size_t MultiVectorData::getAllGhostValues( TYPE *vals ) const
         auto list = d_data[i]->getCommunicationList();
         if ( list ) {
             auto ptr  = &vals[remoteDofs.size()];
-            size_t N  = d_data[i]->getAllGhostValues( ptr, id );
+            size_t N  = d_data[i]->getAllGhostValues( ptr, id, buf_loc );
             auto dofs = list->getGhostIDList();
             AMP_ASSERT( N == dofs.size() );
             remoteDofs.reserve( remoteDofs.size() + dofs.size() );
@@ -317,14 +324,16 @@ size_t MultiVectorData::getAllGhostValues( TYPE *vals ) const
     return remoteDofs.size();
 }
 
-size_t MultiVectorData::getAllGhostValues( void *vals, const typeID &id ) const
+size_t MultiVectorData::getAllGhostValues( void *vals,
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "MultiVectorData::getAllGhostValues" );
 
     if ( id == getTypeID<double>() ) {
-        return getAllGhostValues( reinterpret_cast<double *>( vals ) );
+        return getAllGhostValues( reinterpret_cast<double *>( vals ), buf_loc );
     } else if ( id == getTypeID<float>() ) {
-        return getAllGhostValues( reinterpret_cast<float *>( vals ) );
+        return getAllGhostValues( reinterpret_cast<float *>( vals ), buf_loc );
     } else {
         AMP_ERROR( "Not finished" );
     }
@@ -334,24 +343,28 @@ size_t MultiVectorData::getAllGhostValues( void *vals, const typeID &id ) const
 /****************************************************************
  * Copy raw data                                                 *
  ****************************************************************/
-void MultiVectorData::putRawData( const void *in, const typeID &id )
+void MultiVectorData::putRawData( const void *in,
+                                  const typeID &id,
+                                  AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "MultiVectorData::putRawData" );
 
     const char *ptr = reinterpret_cast<const char *>( in );
     for ( const auto &data : d_data ) {
-        data->putRawData( ptr, id );
+        data->putRawData( ptr, id, buf_loc );
         ptr += id.bytes * data->getLocalSize();
     }
 }
 
-void MultiVectorData::getRawData( void *out, const typeID &id ) const
+void MultiVectorData::getRawData( void *out,
+                                  const typeID &id,
+                                  AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "MultiVectorData::getRawData" );
 
     char *ptr = reinterpret_cast<char *>( out );
     for ( const auto &data : d_data ) {
-        data->getRawData( ptr, id );
+        data->getRawData( ptr, id, buf_loc );
         ptr += id.bytes * data->getLocalSize();
     }
 }
@@ -501,16 +514,9 @@ std::shared_ptr<VectorData> MultiVectorData::cloneData( const std::string & ) co
     return std::shared_ptr<VectorData>();
 }
 
-AMP::Utilities::MemoryType MultiVectorData::getMemoryLocation() const
+AMP::Utilities::MemoryType MultiVectorData::getMemoryLocation( size_t i ) const
 {
-    auto rval = d_data[0]->getMemoryLocation();
-    for ( size_t i = 1; i < d_data.size(); i++ ) {
-        if ( d_data[i]->getMemoryLocation() != rval ) {
-            rval = AMP::Utilities::MemoryType::none;
-            break;
-        }
-    }
-    return rval;
+    return d_data[i]->getMemoryLocation();
 }
 
 

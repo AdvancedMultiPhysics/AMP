@@ -39,15 +39,19 @@ public: // Virtual functions
     /**\brief Copy data into this vector
      *\param[in] buf  Buffer to copy from
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      */
-    void putRawData( const void *buf, const typeID &id ) override;
+    void
+    putRawData( const void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) override;
 
     /**\brief Copy data out of this vector
      * \param[out] buf  Buffer to copy to
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      *\details The Vector should be pre-allocated to the correct size (getLocalSize())
      */
-    void getRawData( void *buf, const typeID &id ) const override;
+    void
+    getRawData( void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const override;
 
     /**
      * \brief Set values in the vector by their local offset
@@ -55,6 +59,7 @@ public: // Virtual functions
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of vals buffer
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
@@ -62,7 +67,8 @@ public: // Virtual functions
     void setValuesByLocalID( size_t num,
                              const size_t *indices,
                              const void *vals,
-                             const typeID &id ) override;
+                             const typeID &id,
+                             AMP::Utilities::MemoryType buf_loc ) override;
 
     /**
      * \brief Add values to vector entities by their local offset
@@ -70,6 +76,7 @@ public: // Virtual functions
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of vals buffer
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
@@ -78,7 +85,8 @@ public: // Virtual functions
     void addValuesByLocalID( size_t num,
                              const size_t *indices,
                              const void *vals,
-                             const typeID &id ) override;
+                             const typeID &id,
+                             AMP::Utilities::MemoryType buf_loc ) override;
 
     /**
      * \brief Get values to vector entities by their local offset
@@ -86,6 +94,7 @@ public: // Virtual functions
      * \param[in] indices the indices of the values to get
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of vals buffer
      * \details This will get the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
@@ -94,7 +103,8 @@ public: // Virtual functions
     void getValuesByLocalID( size_t num,
                              const size_t *indices,
                              void *vals,
-                             const typeID &id ) const override;
+                             const typeID &id,
+                             AMP::Utilities::MemoryType buf_loc ) const override;
 
     /** \brief Clone the data
      */
@@ -104,11 +114,26 @@ public: // Functions overloaded from GhostDataHelpers and in turn VectorData
     void fillGhosts( const Scalar & ) override;
     bool allGhostIndices( size_t N, const size_t *ndx ) const override;
     bool containsGlobalElement( size_t ) const override;
-    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void
-    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
+    void setGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void addGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void getGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) const override;
+    void getGhostAddValuesByGlobalID( size_t,
+                                      const size_t *,
+                                      void *,
+                                      const typeID &,
+                                      AMP::Utilities::MemoryType buf_loc ) const override;
 
     using VectorData::addGhostValuesByGlobalID;
     using VectorData::getGhostAddValuesByGlobalID;
@@ -123,10 +148,12 @@ public: // Write/read restart data
 private:
     void setScratchSpace( size_t N ) const;
     void setMapScratchSpace( size_t N ) const;
-    std::tuple<bool, size_t *, void *> copyToScratchSpace( size_t num,
-                                                           const size_t *indices_,
-                                                           const void *vals_,
-                                                           const typeID &id ) const;
+    std::tuple<bool, size_t *, void *>
+    copyToScratchSpace( size_t num,
+                        const size_t *indices_,
+                        const void *vals_,
+                        const typeID &id,
+                        AMP::Utilities::MemoryType buf_loc ) const;
 
     mutable idxAllocator_t d_idx_alloc;
     mutable scalarAllocator_t d_scalar_alloc;

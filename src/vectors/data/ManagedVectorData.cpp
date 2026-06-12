@@ -169,75 +169,83 @@ void ManagedVectorData::assemble() { d_Engine->getVectorData()->assemble(); }
 void ManagedVectorData::getValuesByLocalID( size_t N,
                                             const size_t *ndx,
                                             void *vals,
-                                            const typeID &id ) const
+                                            const typeID &id,
+                                            AMP::Utilities::MemoryType buf_loc ) const
 {
-    getEngineData( *this )->getValuesByLocalID( N, ndx, vals, id );
+    getEngineData( *this )->getValuesByLocalID( N, ndx, vals, id, buf_loc );
 }
 void ManagedVectorData::getGhostValuesByGlobalID( size_t N,
                                                   const size_t *ndx,
                                                   void *vals,
-                                                  const typeID &id ) const
+                                                  const typeID &id,
+                                                  AMP::Utilities::MemoryType buf_loc ) const
 {
     auto vec = getVectorEngine();
     if ( !vec ) {
-        GhostDataHelper<double>::getGhostValuesByGlobalID( N, ndx, vals, id );
+        GhostDataHelper<double>::getGhostValuesByGlobalID( N, ndx, vals, id, buf_loc );
     } else {
-        vec->getVectorData()->getGhostValuesByGlobalID( N, ndx, vals, id );
+        vec->getVectorData()->getGhostValuesByGlobalID( N, ndx, vals, id, buf_loc );
     }
 }
 void ManagedVectorData::setValuesByLocalID( size_t N,
                                             const size_t *ndx,
                                             const void *val,
-                                            const typeID &id )
+                                            const typeID &id,
+                                            AMP::Utilities::MemoryType buf_loc )
 {
     AMP_ASSERT( *d_UpdateState != UpdateState::ADDING );
     if ( *d_UpdateState == UpdateState::UNCHANGED )
         *d_UpdateState = UpdateState::LOCAL_CHANGED;
-    getEngineData( *this )->setValuesByLocalID( N, ndx, val, id );
+    getEngineData( *this )->setValuesByLocalID( N, ndx, val, id, buf_loc );
     fireDataChange();
 }
 void ManagedVectorData::setGhostValuesByGlobalID( size_t N,
                                                   const size_t *ndx,
                                                   const void *vals,
-                                                  const typeID &id )
+                                                  const typeID &id,
+                                                  AMP::Utilities::MemoryType buf_loc )
 {
     auto vec = getVectorEngine();
     if ( !vec ) {
-        GhostDataHelper<double>::setGhostValuesByGlobalID( N, ndx, vals, id );
+        GhostDataHelper<double>::setGhostValuesByGlobalID( N, ndx, vals, id, buf_loc );
     } else {
-        vec->getVectorData()->setGhostValuesByGlobalID( N, ndx, vals, id );
+        vec->getVectorData()->setGhostValuesByGlobalID( N, ndx, vals, id, buf_loc );
     }
 }
 void ManagedVectorData::addValuesByLocalID( size_t N,
                                             const size_t *ndx,
                                             const void *val,
-                                            const typeID &id )
+                                            const typeID &id,
+                                            AMP::Utilities::MemoryType buf_loc )
 {
     AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
     if ( *d_UpdateState == UpdateState::UNCHANGED )
         *d_UpdateState = UpdateState::LOCAL_CHANGED;
-    getEngineData( *this )->addValuesByLocalID( N, ndx, val, id );
+    getEngineData( *this )->addValuesByLocalID( N, ndx, val, id, buf_loc );
     fireDataChange();
 }
 void ManagedVectorData::addGhostValuesByGlobalID( size_t N,
                                                   const size_t *ndx,
                                                   const void *vals,
-                                                  const typeID &id )
+                                                  const typeID &id,
+                                                  AMP::Utilities::MemoryType buf_loc )
 {
     auto vec = getVectorEngine();
     if ( !vec ) {
-        GhostDataHelper<double>::addGhostValuesByGlobalID( N, ndx, vals, id );
+        GhostDataHelper<double>::addGhostValuesByGlobalID( N, ndx, vals, id, buf_loc );
     } else {
-        vec->getVectorData()->addGhostValuesByGlobalID( N, ndx, vals, id );
+        vec->getVectorData()->addGhostValuesByGlobalID( N, ndx, vals, id, buf_loc );
     }
 }
-size_t ManagedVectorData::getAllGhostValues( void *vals, const typeID &id ) const
+size_t ManagedVectorData::getAllGhostValues( void *vals,
+                                             const typeID &id,
+                                             AMP::Utilities::MemoryType buf_loc ) const
 {
     auto vec = getVectorEngine();
     if ( !vec ) {
-        return GhostDataHelper<double>::getAllGhostValues( vals, id );
+        return GhostDataHelper<double>::getAllGhostValues( vals, id, buf_loc );
     } else {
-        return vec->getVectorData()->getAllGhostValues( vals, id );
+        return vec->getVectorData()->getAllGhostValues( vals, id, buf_loc );
     }
 }
 void ManagedVectorData::makeConsistent( ScatterType t )
@@ -251,14 +259,18 @@ void ManagedVectorData::makeConsistent( ScatterType t )
     *d_UpdateState = UpdateState::UNCHANGED;
 }
 
-void ManagedVectorData::putRawData( const void *in, const typeID &id )
+void ManagedVectorData::putRawData( const void *in,
+                                    const typeID &id,
+                                    AMP::Utilities::MemoryType buf_loc )
 {
-    getEngineData( *this )->putRawData( in, id );
+    getEngineData( *this )->putRawData( in, id, buf_loc );
 }
 
-void ManagedVectorData::getRawData( void *in, const typeID &id ) const
+void ManagedVectorData::getRawData( void *in,
+                                    const typeID &id,
+                                    AMP::Utilities::MemoryType buf_loc ) const
 {
-    getEngineData( *this )->getRawData( in, id );
+    getEngineData( *this )->getRawData( in, id, buf_loc );
 }
 
 typeID ManagedVectorData::getType( size_t i ) const { return getEngineData( *this )->getType( i ); }

@@ -153,17 +153,6 @@ void DeviceDataHelpers<STYPE, DTYPE>::setGhostValuesByGlobalID( const size_t gsi
                                                                 const size_t dst_size,
                                                                 DTYPE *dst )
 {
-    AMP_INSIST( AMP::Utilities::getMemoryType( globalids ) >= AMP::Utilities::MemoryType::managed,
-                "globalids not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >= AMP::Utilities::MemoryType::managed,
-                "ndxReq not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >= AMP::Utilities::MemoryType::managed,
-                "ndxMap not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( src ) >= AMP::Utilities::MemoryType::managed,
-                "src not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
-                "dst not on device" );
-
     // Perform vectorized lower_bound
     thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
     thrust::scatter( thrust::device, src, src + N, ndxMap, dst );
@@ -180,17 +169,6 @@ void DeviceDataHelpers<STYPE, DTYPE>::addGhostValuesByGlobalID( const size_t gsi
                                                                 const size_t dst_size,
                                                                 DTYPE *dst )
 {
-    AMP_INSIST( AMP::Utilities::getMemoryType( globalids ) >= AMP::Utilities::MemoryType::managed,
-                "globalids not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >= AMP::Utilities::MemoryType::managed,
-                "ndxReq not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >= AMP::Utilities::MemoryType::managed,
-                "ndxMap not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( src ) >= AMP::Utilities::MemoryType::managed,
-                "src not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
-                "dst not on device" );
-
     // Perform vectorized lower_bound to find positions in destination
     thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
     // construct the [begin, end) for the map
@@ -223,22 +201,6 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID( const size_t gsi
 {
     PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID" );
 
-    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( globalids ) >=
-                          AMP::Utilities::MemoryType::managed,
-                      "globalids not on device" );
-    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >=
-                          AMP::Utilities::MemoryType::managed,
-                      "ndxReq not on device" );
-    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >=
-                          AMP::Utilities::MemoryType::managed,
-                      "ndxMap not on device" );
-    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( src1 ) >= AMP::Utilities::MemoryType::managed,
-                      "src1 not on device" );
-    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( src2 ) >= AMP::Utilities::MemoryType::managed,
-                      "src2 not on device" );
-    AMP_DEBUG_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
-                      "dst not on device" );
-
     // Perform vectorized lower_bound to find positions in src
     thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
 
@@ -265,17 +227,6 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostAddValuesByGlobalID( const size_t 
                                                                    const STYPE *src,
                                                                    DTYPE *dst )
 {
-    AMP_INSIST( AMP::Utilities::getMemoryType( globalids ) >= AMP::Utilities::MemoryType::managed,
-                "globalids not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndxReq ) >= AMP::Utilities::MemoryType::managed,
-                "ndxReq not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( ndxMap ) >= AMP::Utilities::MemoryType::managed,
-                "ndxMap not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( src ) >= AMP::Utilities::MemoryType::managed,
-                "src not on device" );
-    AMP_INSIST( AMP::Utilities::getMemoryType( dst ) >= AMP::Utilities::MemoryType::managed,
-                "dst not on device" );
-
     // Perform vectorized lower_bound to find positions in src
     thrust::lower_bound( thrust::device, globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
 

@@ -140,7 +140,9 @@ void ArrayVectorData<T, FUN, Allocator>::resize( const ArraySize &localDims )
  * Get/Set raw data                                              *
  ****************************************************************/
 template<typename T, typename FUN, typename Allocator>
-void ArrayVectorData<T, FUN, Allocator>::putRawData( const void *buf, const typeID &id )
+void ArrayVectorData<T, FUN, Allocator>::putRawData( const void *buf,
+                                                     const typeID &id,
+                                                     AMP::Utilities::MemoryType )
 {
     PROFILE( "ArrayVectorData::putRawData" );
 
@@ -157,7 +159,9 @@ void ArrayVectorData<T, FUN, Allocator>::putRawData( const void *buf, const type
 }
 
 template<typename T, typename FUN, typename Allocator>
-void ArrayVectorData<T, FUN, Allocator>::getRawData( void *buf, const typeID &id ) const
+void ArrayVectorData<T, FUN, Allocator>::getRawData( void *buf,
+                                                     const typeID &id,
+                                                     AMP::Utilities::MemoryType ) const
 {
     PROFILE( "ArrayVectorData::getRawData" );
 
@@ -181,7 +185,8 @@ template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::setValuesByLocalID( size_t num,
                                                              const size_t *indices,
                                                              const void *vals,
-                                                             const typeID &id )
+                                                             const typeID &id,
+                                                             AMP::Utilities::MemoryType )
 {
     PROFILE( "ArrayVectorData::setValuesByLocalID" );
 
@@ -204,7 +209,8 @@ template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::addValuesByLocalID( size_t num,
                                                              const size_t *indices,
                                                              const void *vals,
-                                                             const typeID &id )
+                                                             const typeID &id,
+                                                             AMP::Utilities::MemoryType )
 {
     PROFILE( "ArrayVectorData::addValuesByLocalID" );
 
@@ -227,7 +233,8 @@ template<typename T, typename FUN, typename Allocator>
 void ArrayVectorData<T, FUN, Allocator>::getValuesByLocalID( size_t num,
                                                              const size_t *indices,
                                                              void *vals,
-                                                             const typeID &id ) const
+                                                             const typeID &id,
+                                                             AMP::Utilities::MemoryType ) const
 {
     PROFILE( "ArrayVectorData::getValuesByLocalID" );
 

@@ -40,24 +40,24 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     out->zero();
 
+    auto inData            = in->getVectorData();
     auto outData           = out->getVectorData();
     scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
     AMP_DEBUG_ASSERT( outDataBlock );
-    AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( outDataBlock ),
+    AMP_DEBUG_ASSERT( Config::device_accessible );
+    AMP_DEBUG_INSIST( in->getMemoryLocation() <= AMP::Utilities::MemoryType::managed,
+                      "Input vector from wrong memory space" );
+    AMP_DEBUG_INSIST( out->getMemoryLocation() <= AMP::Utilities::MemoryType::managed,
                       "Output vector from wrong memory space" );
 
     if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsDevice::mult(local)" );
-        auto inData = in->getVectorData();
         AMP_DEBUG_INSIST(
             inData->numberOfDataBlocks() == 1,
             "CSRMatrixOperationsDevice::mult only implemented for vectors with one data block" );
         const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
         AMP_DEBUG_ASSERT( inDataBlock );
-        AMP_DEBUG_INSIST( csrData->d_memory_location ==
-                              AMP::Utilities::getMemoryType( inDataBlock ),
-                          "Input vector from wrong memory space" );
         CSRLocalMatrixOperationsDevice<Config>::mult( inDataBlock, diagMatrix, outDataBlock );
     }
 
@@ -68,14 +68,14 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             auto colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else {
             // Fall back to forcing a copy-cast inside matrix data
             auto colMap = offdMatrix->getColumnMapSizeT();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         }
         CSRLocalMatrixOperationsDevice<Config>::mult( ghosts, offdMatrix, outDataBlock );
     }

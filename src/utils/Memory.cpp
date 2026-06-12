@@ -33,7 +33,7 @@ MemoryType getMemoryType( [[maybe_unused]] const void *ptr )
         return type;
 #endif
     if ( type == MemoryType::unregistered ) {
-        AMP_WARNING( "********** Unregistered memory!! ***********" );
+        AMP_WARN_ONCE( "********** Unregistered memory!! ***********" );
     }
 
     return MemoryType::host;

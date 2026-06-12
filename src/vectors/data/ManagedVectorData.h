@@ -56,15 +56,39 @@ protected:
 public: // Derived from VectorData
     size_t numberOfDataBlocks() const override;
     size_t sizeOfDataBlock( size_t ) const override;
-    void setValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getValuesByLocalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    size_t getAllGhostValues( void *, const typeID & ) const override;
-    void putRawData( const void *, const typeID & ) override;
-    void getRawData( void *, const typeID & ) const override;
+    void setValuesByLocalID( size_t,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) override;
+    void addValuesByLocalID( size_t,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) override;
+    void getValuesByLocalID( size_t,
+                             const size_t *,
+                             void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) const override;
+    void setGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void addGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void getGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) const override;
+    size_t getAllGhostValues( void *, const typeID &, AMP::Utilities::MemoryType ) const override;
+    void putRawData( const void *, const typeID &, AMP::Utilities::MemoryType buf_loc ) override;
+    void getRawData( void *, const typeID &, AMP::Utilities::MemoryType buf_loc ) const override;
     UpdateState getLocalUpdateStatus() const override;
     void setUpdateStatus( UpdateState state ) override;
     typeID getType( size_t ) const override;

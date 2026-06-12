@@ -307,58 +307,8 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
                                         std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
                                         T *data )
 {
-    auto var              = std::make_shared<Variable>( name );
-    auto params           = std::make_shared<CommunicationListParameters>();
-    params->d_comm        = DOFs->getComm();
-    params->d_localsize   = DOFs->numLocalDOF();
-    params->d_remote_DOFs = DOFs->getRemoteDOFs();
-    auto commList         = std::make_shared<CommunicationList>( params );
-
     auto memType = AMP::Utilities::getMemoryType( data );
-    auto backend = AMP::Utilities::getDefaultBackend( memType );
-
-    std::shared_ptr<VectorData> vecData;
-    if ( memType <= AMP::Utilities::MemoryType::host ) {
-        vecData = ArrayVectorData<T>::create( DOFs->numLocalDOF(), commList, data );
-    } else if ( memType == AMP::Utilities::MemoryType::managed ) {
-#ifdef AMP_USE_DEVICE
-        vecData = ArrayVectorData<T, GPUFunctionTable<T>, AMP::ManagedAllocator<T>>::create(
-            DOFs->numLocalDOF(), commList, data );
-#endif
-    } else if ( memType == AMP::Utilities::MemoryType::device ) {
-#ifdef AMP_USE_DEVICE
-        vecData = ArrayVectorData<T, GPUFunctionTable<T>, AMP::DeviceAllocator<T>>::create(
-            DOFs->numLocalDOF(), commList, data );
-#endif
-    } else {
-        AMP_ERROR( "Unknown memory location specified for data" );
-    }
-
-    std::shared_ptr<VectorOperations> vecOps;
-    if ( backend == AMP::Utilities::Backend::Serial ) {
-        vecOps = std::make_shared<VectorOperationsDefault<T>>();
-    } else if ( backend == AMP::Utilities::Backend::OpenMP ) {
-        AMP_WARN_ONCE( "createVector: OpenMP backend not yet support, reverting to serial" );
-        // vecOps = std::make_shared<VectorOperationsOpenMP<T>>();
-        vecOps = std::make_shared<VectorOperationsDefault<T>>();
-    }
-#ifdef AMP_USE_KOKKOS
-    if ( backend == AMP::Utilities::Backend::Kokkos ) {
-        vecOps = std::make_shared<VectorOperationsKokkos<T>>();
-    }
-#endif
-#ifdef AMP_USE_DEVICE
-    if ( backend == AMP::Utilities::Backend::Hip_Cuda ) {
-        vecOps = std::make_shared<VectorOperationsDevice<T>>();
-    }
-#endif
-    if ( !vecOps ) {
-        AMP_ERROR( "Unknown backend" );
-    }
-
-    auto vec = std::make_shared<Vector>( vecData, vecOps, var, DOFs );
-    vec->makeConsistent( ScatterType::CONSISTENT_SET );
-    return vec;
+    return createVectorAdaptor( name, DOFs, data, memType );
 }
 
 template<typename T>

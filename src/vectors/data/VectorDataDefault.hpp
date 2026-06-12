@@ -136,8 +136,6 @@ inline void *VectorDataDefault<TYPE, Allocator>::getRawDataBlockAsVoid( size_t i
     if ( i != 0 ) {
         return 0;
     }
-    AMP_DEBUG_ASSERT( AMP::Utilities::getAllocatorMemoryType<Allocator>() ==
-                      AMP::Utilities::getMemoryType( this->d_data ) );
     return this->d_data;
 }
 template<typename TYPE, class Allocator>
@@ -146,8 +144,6 @@ inline const void *VectorDataDefault<TYPE, Allocator>::getRawDataBlockAsVoid( si
     if ( i != 0 ) {
         return 0;
     }
-    AMP_DEBUG_ASSERT( AMP::Utilities::getAllocatorMemoryType<Allocator>() ==
-                      AMP::Utilities::getMemoryType( this->d_data ) );
     return this->d_data;
 }
 
@@ -170,7 +166,8 @@ template<typename TYPE, class Allocator>
 inline void VectorDataDefault<TYPE, Allocator>::setValuesByLocalID( size_t num,
                                                                     const size_t *indices,
                                                                     const void *vals,
-                                                                    const typeID &id )
+                                                                    const typeID &id,
+                                                                    AMP::Utilities::MemoryType )
 {
     PROFILE( "VectorDataDefault::setValuesByLocalID" );
 
@@ -197,7 +194,8 @@ template<typename TYPE, class Allocator>
 inline void VectorDataDefault<TYPE, Allocator>::addValuesByLocalID( size_t num,
                                                                     const size_t *indices,
                                                                     const void *vals,
-                                                                    const typeID &id )
+                                                                    const typeID &id,
+                                                                    AMP::Utilities::MemoryType )
 {
     PROFILE( "VectorDataDefault::addValuesByLocalID" );
 
@@ -221,10 +219,12 @@ inline void VectorDataDefault<TYPE, Allocator>::addValuesByLocalID( size_t num,
 }
 
 template<typename TYPE, class Allocator>
-inline void VectorDataDefault<TYPE, Allocator>::getValuesByLocalID( size_t num,
-                                                                    const size_t *indices,
-                                                                    void *vals,
-                                                                    const typeID &id ) const
+inline void
+VectorDataDefault<TYPE, Allocator>::getValuesByLocalID( size_t num,
+                                                        const size_t *indices,
+                                                        void *vals,
+                                                        const typeID &id,
+                                                        AMP::Utilities::MemoryType ) const
 {
     PROFILE( "VectorDataDefault::getValuesByLocalID" );
 
@@ -250,7 +250,9 @@ inline void VectorDataDefault<TYPE, Allocator>::getValuesByLocalID( size_t num,
  * Copy raw data                                                 *
  ****************************************************************/
 template<typename TYPE, class Allocator>
-void VectorDataDefault<TYPE, Allocator>::putRawData( const void *in, const typeID &id )
+void VectorDataDefault<TYPE, Allocator>::putRawData( const void *in,
+                                                     const typeID &id,
+                                                     AMP::Utilities::MemoryType )
 {
     PROFILE( "VectorDataDefault::putRawData" );
 
@@ -266,7 +268,9 @@ void VectorDataDefault<TYPE, Allocator>::putRawData( const void *in, const typeI
 }
 
 template<typename TYPE, class Allocator>
-void VectorDataDefault<TYPE, Allocator>::getRawData( void *out, const typeID &id ) const
+void VectorDataDefault<TYPE, Allocator>::getRawData( void *out,
+                                                     const typeID &id,
+                                                     AMP::Utilities::MemoryType ) const
 {
     PROFILE( "VectorDataDefault::getRawData" );
 
@@ -318,7 +322,7 @@ void VectorDataDefault<TYPE, Allocator>::writeRestart( int64_t fid ) const
 {
     GhostDataHelper<TYPE, Allocator>::writeRestart( fid );
     AMP::Array<TYPE> data( this->d_localSize );
-    getRawData( data.data(), getTypeID<TYPE>() );
+    getRawData( data.data(), getTypeID<TYPE>(), AMP::Utilities::MemoryType::host );
     IO::writeHDF5( fid, "data", data );
 }
 template<typename TYPE, class Allocator>
@@ -329,7 +333,7 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( int64_t fid,
     AMP::Array<TYPE> data;
     IO::readHDF5( fid, "data", data );
     d_data = this->d_alloc.allocate( this->d_localSize );
-    putRawData( data.data(), getTypeID<TYPE>() );
+    putRawData( data.data(), getTypeID<TYPE>(), AMP::Utilities::MemoryType::host );
 }
 
 

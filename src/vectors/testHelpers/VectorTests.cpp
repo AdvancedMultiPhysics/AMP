@@ -1262,7 +1262,8 @@ void VectorTests::VerifyVectorMakeConsistentSet( AMP::UnitTest *ut )
         std::vector<double> ghost1( N, -1.0 );
         std::vector<double> ghost2( N, -1.0 );
         vector->getGhostValuesByGlobalID( N, ghostIDList.data(), ghost1.data() );
-        size_t N2 = vector->getVectorData()->getAllGhostValues( ghost2.data() );
+        size_t N2 = vector->getVectorData()->getAllGhostValues( ghost2.data(),
+                                                                AMP::Utilities::MemoryType::host );
         bool pass = N == N2;
         for ( size_t i = 0; i != N; i++ )
             pass = pass && ghost1[i] == ghost2[i];

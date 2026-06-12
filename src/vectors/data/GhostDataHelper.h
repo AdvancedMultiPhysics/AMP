@@ -37,24 +37,31 @@ public: // Functions overloaded from VectorData
     void setGhostValuesByGlobalID( size_t num,
                                    const size_t *indices,
                                    const void *vals,
-                                   const typeID &id ) override;
+                                   const typeID &id,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
     void addGhostValuesByGlobalID( size_t num,
                                    const size_t *indices,
                                    const void *vals,
-                                   const typeID &id ) override;
+                                   const typeID &id,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
     void getGhostValuesByGlobalID( size_t num,
                                    const size_t *indices,
                                    void *vals,
-                                   const typeID &id ) const override;
+                                   const typeID &id,
+                                   AMP::Utilities::MemoryType buf_loc ) const override;
     void getGhostValuesByGlobalIDUnsorted( size_t num,
                                            const size_t *indices,
                                            void *vals,
-                                           const typeID &id ) const;
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc ) const;
     void getGhostAddValuesByGlobalID( size_t num,
                                       const size_t *indices,
                                       void *vals,
-                                      const typeID &id ) const override;
-    size_t getAllGhostValues( void *vals, const typeID &id ) const override;
+                                      const typeID &id,
+                                      AMP::Utilities::MemoryType buf_loc ) const override;
+    size_t getAllGhostValues( void *vals,
+                              const typeID &id,
+                              AMP::Utilities::MemoryType buf_loc ) const override;
     UpdateState getLocalUpdateStatus() const override;
     void setUpdateStatus( UpdateState state ) override;
     void setUpdateStatusPtr( std::shared_ptr<UpdateState> rhs ) override;
@@ -64,7 +71,10 @@ public: // Functions overloaded from VectorData
     const AMP_MPI &getComm() const override;
     void dumpGhostedData( std::ostream &out, size_t offset ) const override;
     void copyGhostValues( const VectorData &rhs ) override;
-    AMP::Utilities::MemoryType getMemoryLocation() const override { return d_memory_location; }
+    AMP::Utilities::MemoryType getMemoryLocation( size_t ) const override
+    {
+        return d_memory_location;
+    }
 
     using VectorData::addGhostValuesByGlobalID;
     using VectorData::getGhostAddValuesByGlobalID;

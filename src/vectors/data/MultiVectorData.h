@@ -41,17 +41,46 @@ public: // Virtual functions
 public: // Basic virtual functions
     size_t numberOfDataBlocks() const override;
     size_t sizeOfDataBlock( size_t i = 0 ) const override;
-    void putRawData( const void *buf, const typeID &id ) override;
-    void getRawData( void *buf, const typeID &id ) const override;
-    void setValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getValuesByLocalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
     void
-    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    size_t getAllGhostValues( void *, const typeID & ) const override;
+    putRawData( const void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) override;
+    void
+    getRawData( void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const override;
+    void setValuesByLocalID( size_t,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) override;
+    void addValuesByLocalID( size_t,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) override;
+    void getValuesByLocalID( size_t,
+                             const size_t *,
+                             void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) const override;
+    void setGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void addGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void getGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) const override;
+    void getGhostAddValuesByGlobalID( size_t,
+                                      const size_t *,
+                                      void *,
+                                      const typeID &,
+                                      AMP::Utilities::MemoryType buf_loc ) const override;
+    size_t getAllGhostValues( void *, const typeID &, AMP::Utilities::MemoryType ) const override;
     size_t getGhostSize() const override;
     void fillGhosts( const Scalar & ) override;
     void makeConsistent() override;
@@ -115,7 +144,7 @@ public: // Advanced virtual functions
      */
     std::shared_ptr<VectorData> cloneData( const std::string &name = "" ) const override;
 
-    AMP::Utilities::MemoryType getMemoryLocation() const override;
+    AMP::Utilities::MemoryType getMemoryLocation( size_t i ) const override;
 
     void
     dumpOwnedData( std::ostream &out, size_t GIDoffset = 0, size_t LIDoffset = 0 ) const override;
@@ -209,7 +238,7 @@ protected:
 
     // Get all ghost values
     template<class TYPE>
-    size_t getAllGhostValues( TYPE * ) const;
+    size_t getAllGhostValues( TYPE *, AMP::Utilities::MemoryType ) const;
 
 
 protected:

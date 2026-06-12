@@ -155,27 +155,8 @@ HybridGS::~HybridGS() { deallocateGhosts(); }
 void HybridGS::deallocateGhosts()
 {
     if ( d_ghost_vals != nullptr ) {
-        auto mem_loc = AMP::Utilities::getMemoryType( d_ghost_vals );
-        if ( mem_loc == AMP::Utilities::MemoryType::host ) {
-            AMP::HostAllocator<std::byte> byteAlloc;
-            byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
-        } else if ( mem_loc == AMP::Utilities::MemoryType::managed ) {
-#ifdef AMP_USE_DEVICE
-            AMP::ManagedAllocator<std::byte> byteAlloc;
-            byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
-#else
-            AMP_ERROR( "Non-host pointer on host only build" );
-#endif
-        } else if ( mem_loc == AMP::Utilities::MemoryType::device ) {
-#ifdef AMP_USE_DEVICE
-            AMP::DeviceAllocator<std::byte> byteAlloc;
-            byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
-#else
-            AMP_ERROR( "Non-host pointer on host only build" );
-#endif
-        } else {
-            AMP_ERROR( "Unrecognized memory type" );
-        }
+        AMP::HostAllocator<std::byte> byteAlloc;
+        byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
         d_ghost_vals      = nullptr;
         d_num_ghosts      = 0;
         d_num_ghost_bytes = 0;
@@ -197,6 +178,10 @@ void HybridGS::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
         AMP::pout << "Expected a CSRMatrix but received a matrix of type: " << mat->type()
                   << std::endl;
         AMP_ERROR( "HybridGS::registerOperator: Must pass in linear operator in CSRMatrix format" );
+    }
+    auto alloc = AMP::LinearAlgebra::get_alloc( static_cast<AMP::LinearAlgebra::csr_mode>( mode ) );
+    if ( alloc == AMP::LinearAlgebra::alloc::device ) {
+        AMP_ERROR( "HybridGS::registerOperator: matrix must be host-accessible" );
     }
 }
 
@@ -401,12 +386,14 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             size_t *Ao_colmap = A_offd->getColumnMap();
-            xvec.getGhostValuesByGlobalID( num_ghosts, Ao_colmap, ghosts );
+            xvec.getVectorData()->getGhostValuesByGlobalID(
+                num_ghosts, Ao_colmap, ghosts, AMP::Utilities::MemoryType::host );
         } else {
             // type mismatch, need to copy/cast into temporary vector
             std::vector<size_t> Ao_colmap;
             A_offd->getColumnMap( Ao_colmap );
-            xvec.getGhostValuesByGlobalID( num_ghosts, Ao_colmap.data(), ghosts );
+            xvec.getVectorData()->getGhostValuesByGlobalID(
+                num_ghosts, Ao_colmap.data(), ghosts, AMP::Utilities::MemoryType::host );
         }
     }
 
@@ -606,7 +593,7 @@ void JacobiL1::relax( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
 
         // term coefficients
         const auto alpha = static_cast<scalar_t>( 2 * k - 3 ) / static_cast<scalar_t>( 2 * k + 1 );
-        const auto beta = static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
+        const auto beta  = static_cast<scalar_t>( 8 * k - 4 ) / static_cast<scalar_t>( 2 * k + 1 );
 
         // create new iterate, in total want
         // d_z <- alpha * d_z + beta * d_r
