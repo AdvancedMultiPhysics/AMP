@@ -1,6 +1,3 @@
-#ifndef included_AMP_Algorithms_hpp
-#define included_AMP_Algorithms_hpp
-
 #include "AMP/AMP_TPLs.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
@@ -117,7 +114,7 @@ void Algorithms::copyCast(
         std::transform(
             src, src + N, dst, []( const TSrc in ) -> TDst { return static_cast<TDst>( in ); } );
     } else {
-#ifdef AMP_USE_DEVICE
+#ifdef AMP_USE_DEVICE_KAUGSF
         // at least one is on device, ensure both available there and use thrust transform
         TDst *dst_cpy = dst;
         if ( dst_loc <= MemoryType::host ) {
@@ -144,7 +141,7 @@ void Algorithms::copyCast(
             deviceFree( src_cpy );
         }
 #else
-        AMP_ERROR( "Algorithms::copy_n: un-copyable memory locations" );
+        AMP_ERROR( "Algorithms::copyCast: un-copyable memory locations" );
 #endif
     }
     AMP_INSIST( src && dst, "copyCast bad buffer after" );
@@ -262,5 +259,3 @@ TYPE Algorithms::accumulate( const TYPE *x, const size_t N, TYPE alpha, const Me
 
 } // namespace Utilities
 } // namespace AMP
-
-#endif

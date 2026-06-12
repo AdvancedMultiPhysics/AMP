@@ -56,5 +56,3 @@ public:
 } // namespace AMP
 
 #endif
-
-#include "AMP/utils/Algorithms.hpp"

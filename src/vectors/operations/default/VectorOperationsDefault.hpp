@@ -187,14 +187,20 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
             auto ydata = y.getRawDataBlock<TYPE>( i );
             auto type  = x.getType( i );
             AMP_ASSERT( N == x.sizeOfDataBlock( i ) );
-            if ( type == getTypeID<float>() ) {
+            if ( type == getTypeID<float>() && std::is_same_v<TYPE, double> ) {
                 auto xdata = x.getRawDataBlock<float>( i );
-                AMP::Utilities::Algorithms::copyCast(
-                    ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N );
-            } else if ( type == getTypeID<double>() ) {
+                AMP::Utilities::Algorithms::copyCast( reinterpret_cast<double *>( ydata ),
+                                                      y.getMemoryLocation(),
+                                                      xdata,
+                                                      x.getMemoryLocation(),
+                                                      N );
+            } else if ( type == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
                 auto xdata = x.getRawDataBlock<double>( i );
-                AMP::Utilities::Algorithms::copyCast(
-                    ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N );
+                AMP::Utilities::Algorithms::copyCast( reinterpret_cast<float *>( ydata ),
+                                                      y.getMemoryLocation(),
+                                                      xdata,
+                                                      x.getMemoryLocation(),
+                                                      N );
             } else {
                 AMP_ERROR( "copy only implemented for float or doubles" );
             }

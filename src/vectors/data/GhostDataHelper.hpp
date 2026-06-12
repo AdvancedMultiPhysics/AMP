@@ -659,16 +659,18 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals, const ty
         auto data = static_cast<TYPE *>( vals );
         AMP::Utilities::Algorithms::copy_n(
             data, vals_loc, d_Ghosts, d_memory_location, d_ghostSize );
-    } else if ( id == getTypeID<float>() ) {
-        auto data = static_cast<float *>( vals );
+    } else if ( id == getTypeID<float>() && std::is_same_v<TYPE, double> ) {
+        auto data       = static_cast<float *>( vals );
+        auto dbl_ghosts = reinterpret_cast<const double *>( d_Ghosts );
         AMP::Utilities::Algorithms::copyCast(
-            data, vals_loc, d_Ghosts, d_memory_location, d_ghostSize );
-    } else if ( id == getTypeID<double>() ) {
-        auto data = static_cast<double *>( vals );
+            data, vals_loc, dbl_ghosts, d_memory_location, d_ghostSize );
+    } else if ( id == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
+        auto data       = static_cast<double *>( vals );
+        auto flt_ghosts = reinterpret_cast<const float *>( d_Ghosts );
         AMP::Utilities::Algorithms::copyCast(
-            data, vals_loc, d_Ghosts, d_memory_location, d_ghostSize );
+            data, vals_loc, flt_ghosts, d_memory_location, d_ghostSize );
     } else {
-        AMP_ERROR( "Ghosts copy of mismatched type other than float/double are not supported yet" );
+        AMP_ERROR( "Ghosts copy with mismatched types only supports float/double combinations" );
     }
     return d_ghostSize;
 }
