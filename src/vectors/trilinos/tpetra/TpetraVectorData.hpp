@@ -33,57 +33,53 @@ TpetraVectorData<ST, LO, GO, NT>::TpetraVectorData(
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::setValuesByLocalID( size_t,
-                                                           const size_t *,
-                                                           const void *,
-                                                           const typeID & )
+void TpetraVectorData<ST, LO, GO, NT>::setValuesByLocalID(
+    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
 {
     AMP_ERROR( "Not implemented" );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::addValuesByLocalID( size_t,
-                                                           const size_t *,
-                                                           const void *,
-                                                           const typeID & )
+void TpetraVectorData<ST, LO, GO, NT>::addValuesByLocalID(
+    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
 {
     AMP_ERROR( "Not implemented" );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::getValuesByLocalID( size_t,
-                                                           const size_t *,
-                                                           void *,
-                                                           const typeID & ) const
+void TpetraVectorData<ST, LO, GO, NT>::getValuesByLocalID(
+    size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const
 {
     AMP_ERROR( "Not implemented" );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::putRawData( const void *in, const typeID &id )
+void TpetraVectorData<ST, LO, GO, NT>::putRawData( const void *in,
+                                                   const typeID &id,
+                                                   AMP::Utilities::MemoryType buf_loc )
 {
     AMP_INSIST( id == getTypeID<ST>(), "Tpetra only supports putRawData for native type" );
     const auto src_data = reinterpret_cast<const ST *>( in );
-    const auto src_loc  = AMP::Utilities::getMemoryType( src_data );
     auto dst_data       = this->getTpetraVector()->getDataNonConst( 0 );
     const auto dst_loc  = AMP::Utilities::getMemoryType( dst_data.get() );
     AMP::Utilities::Algorithms::copy_n(
-        dst_data.get(), dst_loc, src_data, src_loc, dst_data.size() );
+        dst_data.get(), dst_loc, src_data, buf_loc, dst_data.size() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *out, const typeID &id ) const
+void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *out,
+                                                   const typeID &id,
+                                                   AMP::Utilities::MemoryType buf_loc ) const
 {
     AMP_INSIST( id == getTypeID<ST>(), "Tpetra only supports getRawData for native type" );
-    auto dst_data      = reinterpret_cast<ST *>( out );
-    const auto dst_loc = AMP::Utilities::getMemoryType( dst_data );
-    auto tVec          = this->getTpetraVector();
+    auto dst_data = reinterpret_cast<ST *>( out );
+    auto tVec     = this->getTpetraVector();
     AMP_INSIST( tVec && tVec->getNumVectors() == 1,
                 "Only implemented for single data block vectors" );
     const auto src_data = tVec->getData( 0 );
     const auto src_loc  = AMP::Utilities::getMemoryType( src_data.get() );
     AMP::Utilities::Algorithms::copy_n(
-        dst_data, dst_loc, src_data.get(), src_loc, src_data.size() );
+        dst_data, buf_loc, src_data.get(), src_loc, src_data.size() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

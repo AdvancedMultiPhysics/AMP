@@ -48,7 +48,9 @@ std::shared_ptr<VectorData> NativeThyraVectorData::cloneData( const std::string 
     return std::make_shared<NativeThyraVectorData>( d_thyraVec->clone_v(), d_localSize, getComm() );
 }
 
-void NativeThyraVectorData::putRawData( const void *in, const typeID &id )
+void NativeThyraVectorData::putRawData( const void *in,
+                                        const typeID &id,
+                                        AMP::Utilities::MemoryType )
 {
     if ( id == getTypeID<double>() ) {
         size_t i = 0;
@@ -64,7 +66,9 @@ void NativeThyraVectorData::putRawData( const void *in, const typeID &id )
 }
 
 
-void NativeThyraVectorData::getRawData( void *out, const typeID &id ) const
+void NativeThyraVectorData::getRawData( void *out,
+                                        const typeID &id,
+                                        AMP::Utilities::MemoryType ) const
 {
     if ( id == getTypeID<double>() ) {
         size_t i = 0;
@@ -171,26 +175,20 @@ Teuchos::RCP<Thyra::VectorBase<double>> NativeThyraVectorData::getThyraVec( Vect
     return vec2->getVec();
 }
 
-void NativeThyraVectorData::getValuesByLocalID( size_t,
-                                                const size_t *,
-                                                void *,
-                                                const typeID & ) const
+void NativeThyraVectorData::getValuesByLocalID(
+    size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const
 {
     AMP_ERROR( "not implemented" );
 }
 
-void NativeThyraVectorData::setValuesByLocalID( size_t,
-                                                const size_t *,
-                                                const void *,
-                                                const typeID & )
+void NativeThyraVectorData::setValuesByLocalID(
+    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
 {
     AMP_ERROR( "not implemented" );
 }
 
-void NativeThyraVectorData::addValuesByLocalID( size_t,
-                                                const size_t *,
-                                                const void *,
-                                                const typeID & )
+void NativeThyraVectorData::addValuesByLocalID(
+    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
 {
     AMP_ERROR( "not implemented" );
 }

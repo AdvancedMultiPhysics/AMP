@@ -5,14 +5,6 @@
 
 #include <cstring>
 
-
-#ifndef AMP_USE_DEVICE
-    #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
-    #define deviceMemset( ... ) AMP_ERROR( "Device memset without device" )
-    #define deviceSynchronize() AMP_ERROR( "Device synchronize without device" )
-#endif
-
-
 namespace AMP::Utilities {
 
 
