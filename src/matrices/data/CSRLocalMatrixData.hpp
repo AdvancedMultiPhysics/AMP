@@ -113,7 +113,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
             return;
         }
 
-        AMP_INSIST( d_memory_location != AMP::Utilities::MemoryType::device,
+        AMP_INSIST( Config::mem_loc != AMP::Utilities::MemoryType::device,
                     "CSRLocalMatrixData: construction from MatrixParameters on device not yet "
                     "supported. Try building from AMPCSRMatrixParameters." );
 
@@ -238,7 +238,6 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     // Blocks must have valid global columns present
     // Count total number of non-zeros in each row from combination.
     auto block           = ( *blocks.begin() ).second;
-    const auto mem_loc   = block->d_memory_location;
     const auto first_row = block->d_first_row;
     const auto last_row  = block->d_last_row;
     const auto nrows     = static_cast<lidx_t>( last_row - first_row );
@@ -256,8 +255,6 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
                         first_col == block->d_first_col && last_col == block->d_last_col,
                     "Blocks to concatenate must have compatible layouts" );
         AMP_INSIST( block->d_cols.get(), "Blocks to concatenate must have global columns" );
-        AMP_INSIST( mem_loc == block->d_memory_location,
-                    "Blocks to concatenate must be in same memory space" );
         AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
     }
 
@@ -674,10 +671,10 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
     // host needs out_num_rows worth of lidx_t's
     // device needs two buffers of lidx_t's with nnz entries each
     const auto worksize =
-        d_memory_location == AMP::Utilities::MemoryType::host ? transposeData->d_num_rows : d_nnz;
+        Config::mem_loc == AMP::Utilities::MemoryType::host ? transposeData->d_num_rows : d_nnz;
     auto counters = makeLidxArray( worksize );
     auto reduce_space =
-        d_memory_location == AMP::Utilities::MemoryType::host ? nullptr : makeLidxArray( worksize );
+        Config::mem_loc == AMP::Utilities::MemoryType::host ? nullptr : makeLidxArray( worksize );
 
     if ( d_is_diag ) {
         AMP_INSIST( d_cols_loc.get(),
@@ -756,7 +753,7 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
             d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0, Config::mem_loc );
     }
 
-    if ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+    if ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
         const lidx_t *ptr_loc = d_row_starts.get() + d_num_rows;
         AMP::Utilities::Algorithms::copy_n(
             &d_nnz, AMP::Utilities::MemoryType::host, ptr_loc, Config::mem_loc, 1 );
@@ -891,7 +888,7 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
 template<typename Config>
 void CSRLocalMatrixData<Config>::getColPtrs( std::vector<gidx_t *> &col_ptrs )
 {
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                 "CSRLocalMatrixData::getColPtrs not implemented on device yet" );
 
     if ( !d_is_empty ) {
@@ -928,7 +925,7 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
     scalar_t avg_nnz = static_cast<scalar_t>( d_nnz ) / static_cast<scalar_t>( d_num_rows );
     AMP::plog << "    avg nnz per row: " << avg_nnz << std::endl;
     AMP::plog << "    tot nnz: " << d_nnz << std::endl;
-    if ( verbose && d_memory_location < AMP::Utilities::MemoryType::device ) {
+    if ( verbose && Config::mem_loc == AMP::Utilities::MemoryType::host ) {
         AMP::plog << "    row 0: ";
         for ( auto n = d_row_starts[0]; n < d_row_starts[1]; ++n ) {
             if ( d_coeffs.get() && ( d_coeffs[n] != 0 || show_zeros ) ) {
@@ -1043,7 +1040,7 @@ void CSRLocalMatrixData<Config>::getRowByGlobalID( const size_t local_row,
         return;
     }
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                 "CSRLocalMatrixData::getRowByGlobalID not implemented for device memory" );
 
     const auto start = d_row_starts[local_row];
@@ -1092,7 +1089,7 @@ void CSRLocalMatrixData<Config>::getValuesByGlobalID( const size_t local_row,
         return;
     }
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                 "CSRLocalMatrixData::getValuesByGlobalID not implemented for device memory" );
 
     const auto start = d_row_starts[local_row];
@@ -1125,7 +1122,7 @@ void CSRLocalMatrixData<Config>::addValuesByGlobalID( const size_t local_row,
         return;
     }
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                 "CSRLocalMatrixData::addValuesByGlobalID not implemented for device memory" );
 
     const auto start = d_row_starts[local_row];
@@ -1167,7 +1164,7 @@ void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
         return;
     }
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                 "CSRLocalMatrixData::setValuesByGlobalID not implemented for device memory" );
 
     const auto start = d_row_starts[local_row];
@@ -1197,7 +1194,7 @@ void CSRLocalMatrixData<Config>::setValuesByGlobalID( const size_t local_row,
 template<typename Config>
 size_t CSRLocalMatrixData<Config>::numberColumnIDs( size_t local_row ) const
 {
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                 "CSRLocalMatrixData::numberColumnIDs not implemented for device memory" );
     AMP_INSIST( d_row_starts,
                 "CSRLocalMatrixData::numberColumnIDs nnz layout must be initialized" );
@@ -1216,7 +1213,7 @@ std::vector<size_t> CSRLocalMatrixData<Config>::getColumnIDs( const size_t local
         return std::vector<size_t>();
     }
 
-    AMP_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                 "CSRLocalMatrixData::getColumnIDs not implemented for device memory" );
 
     AMP_INSIST( d_cols_loc && d_row_starts,
@@ -1255,7 +1252,7 @@ void CSRLocalMatrixData<Config>::registerChildObjects( AMP::IO::RestartManager *
 template<typename Config>
 void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
 {
-    IO::writeHDF5( fid, "memory_location", static_cast<signed char>( d_memory_location ) );
+    IO::writeHDF5( fid, "memory_location", static_cast<signed char>( Config::mem_loc ) );
     IO::writeHDF5( fid, "first_row", d_first_row );
     IO::writeHDF5( fid, "last_row", d_last_row );
     IO::writeHDF5( fid, "first_col", d_first_col );
@@ -1275,7 +1272,7 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
     AMP::Array<lidx_t> cols_loc;
     AMP::Array<scalar_t> coeffs;
 
-    if ( d_memory_location <= AMP::Utilities::MemoryType::host ) {
+    if ( Config::mem_loc <= AMP::Utilities::MemoryType::host ) {
 
         row_starts.viewRaw( d_num_rows + 1, d_row_starts.get() );
 
@@ -1348,7 +1345,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
 {
     signed char memory_location;
     IO::readHDF5( fid, "memory_location", memory_location );
-    AMP_ASSERT( d_memory_location == static_cast<AMP::Utilities::MemoryType>( memory_location ) );
+    AMP_ASSERT( Config::mem_loc == static_cast<AMP::Utilities::MemoryType>( memory_location ) );
 
     IO::readHDF5( fid, "first_row", d_first_row );
     IO::readHDF5( fid, "last_row", d_last_row );

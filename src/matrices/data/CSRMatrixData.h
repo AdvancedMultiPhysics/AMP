@@ -248,7 +248,7 @@ public:
     //! Get the memory space where data is stored
     virtual AMP::Utilities::MemoryType getMemoryLocation() const override
     {
-        return d_memory_location;
+        return Config::mem_loc;
     }
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
@@ -300,7 +300,7 @@ public:
     void printStats( bool verbose, bool show_zeros ) const
     {
         std::cout << "CSRMatrixData stats:" << std::endl;
-        std::cout << "  Memory location: " << AMP::Utilities::getString( d_memory_location )
+        std::cout << "  Memory location: " << AMP::Utilities::getString( Config::mem_loc )
                   << std::endl;
         std::cout << "  Global size: (" << numGlobalRows() << " x " << numGlobalColumns() << ")"
                   << std::endl;
@@ -366,9 +366,8 @@ protected:
                              std::map<gidx_t, std::map<gidx_t, scalar_t>> &data );
 
 public:
-    //! Memory location, set by examining type of Allocator
-    static constexpr AMP::Utilities::MemoryType d_memory_location =
-        AMP::Utilities::getAllocatorMemoryType<allocator_type>();
+    //! Memory location alias
+    static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
 
 protected:
     //! Matrix is square if true

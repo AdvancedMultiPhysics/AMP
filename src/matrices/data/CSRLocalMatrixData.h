@@ -266,8 +266,7 @@ public:
     CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager *manager );
 
     //! Memory location, set by examining type of Allocator
-    static constexpr AMP::Utilities::MemoryType d_memory_location =
-        AMP::Utilities::getAllocatorMemoryType<allocator_type>();
+    static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
 
 protected:
     /** \brief  Sort the columns/values within each row

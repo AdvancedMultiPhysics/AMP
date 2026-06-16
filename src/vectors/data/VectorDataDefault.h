@@ -195,7 +195,7 @@ public: // Write/read restart data
 
 protected:
     bool d_data_owned = true;
-    TYPE *d_data = nullptr;
+    TYPE *d_data      = nullptr;
 };
 
 
