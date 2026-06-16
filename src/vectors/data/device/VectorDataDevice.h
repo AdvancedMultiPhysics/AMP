@@ -27,6 +27,8 @@ public: // Member types
 public: // Constructors
     VectorDataDevice( size_t start, size_t localSize, size_t globalSize );
 
+    explicit VectorDataDevice( std::shared_ptr<CommunicationList> commList, TYPE *data );
+
     VectorDataDevice( const VectorDataDevice & ) = delete;
 
 public: // Virtual functions

@@ -56,6 +56,13 @@ VectorDataDevice<TYPE, Allocator>::VectorDataDevice( size_t start,
 }
 
 template<typename TYPE, class Allocator>
+VectorDataDevice<TYPE, Allocator>::VectorDataDevice( std::shared_ptr<CommunicationList> commList,
+                                                     TYPE *data )
+    : VectorDataDefault<TYPE, Allocator>( commList, data )
+{
+}
+
+template<typename TYPE, class Allocator>
 VectorDataDevice<TYPE, Allocator>::~VectorDataDevice()
 {
     if ( this->d_idx_map_scratch ) {

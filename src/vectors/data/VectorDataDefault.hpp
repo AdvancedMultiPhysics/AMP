@@ -43,7 +43,7 @@ std::string VectorDataDefault<TYPE, Allocator>::VectorDataName() const
 
 
 /****************************************************************
- * Allocate the data                                             *
+ * Allocate/wrap the data                                        *
  ****************************************************************/
 template<typename TYPE, class Allocator>
 VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
@@ -56,18 +56,35 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
     this->d_localSize  = localSize;
     this->d_globalSize = globalSize;
     this->d_localStart = start;
+    this->d_data_owned = true;
     this->d_data       = this->d_alloc.allocate( localSize );
     AMP::Utilities::Algorithms::zero_n( this->d_data, localSize, d_memory_location );
 }
 
 template<typename TYPE, class Allocator>
-VectorDataDefault<TYPE, Allocator>::~VectorDataDefault()
+VectorDataDefault<TYPE, Allocator>::VectorDataDefault( std::shared_ptr<CommunicationList> commList,
+                                                       TYPE *data )
 {
-    for ( size_t i = 0; i < this->d_localSize; ++i )
-        this->d_data[i].~TYPE();
-    this->d_alloc.deallocate( this->d_data, this->d_localSize );
+    PROFILE( "VectorDataDefault::constructor" );
+
+    static_assert( std::is_same_v<typename Allocator::value_type, void> );
+
+    this->d_localStart = commList->getStartGID();
+    this->d_localSize  = commList->numLocalRows();
+    this->d_globalSize = commList->getTotalSize();
+    this->setCommunicationList( commList );
+    this->setUpdateStatus( UpdateState::UNCHANGED );
+    this->d_data_owned = false;
+    this->d_data       = data;
 }
 
+template<typename TYPE, class Allocator>
+VectorDataDefault<TYPE, Allocator>::~VectorDataDefault()
+{
+    if ( this->d_data_owned ) {
+        this->d_alloc.deallocate( this->d_data, this->d_localSize );
+    }
+}
 
 /****************************************************************
  * Clone the data                                                *

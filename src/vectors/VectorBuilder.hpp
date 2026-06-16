@@ -300,7 +300,7 @@ Vector::shared_ptr createArrayVector( const ArraySize &localSize,
 
 
 /****************************************************************
- * Vector view based on ArrayVector                             *
+ * Vector views                                                  *
  ****************************************************************/
 template<typename T>
 Vector::shared_ptr createVectorAdaptor( const std::string &name,
@@ -317,6 +317,17 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
                                         T *data,
                                         const AMP::Utilities::MemoryType memType )
 {
+    return createVectorAdaptor(
+        name, DOFs, data, memType, AMP::Utilities::getDefaultBackend( memType ) );
+}
+
+template<typename T>
+Vector::shared_ptr createVectorAdaptor( const std::string &name,
+                                        std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                        T *data,
+                                        const AMP::Utilities::MemoryType memType,
+                                        const AMP::Utilities::Backend backend )
+{
     auto var              = std::make_shared<Variable>( name );
     auto params           = std::make_shared<CommunicationListParameters>();
     params->d_comm        = DOFs->getComm();
@@ -324,20 +335,19 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
     params->d_remote_DOFs = DOFs->getRemoteDOFs();
     auto commList         = std::make_shared<CommunicationList>( params );
 
-    auto backend = AMP::Utilities::getDefaultBackend( memType );
-
     std::shared_ptr<VectorData> vecData;
     if ( memType <= AMP::Utilities::MemoryType::host ) {
-        vecData = ArrayVectorData<T>::create( DOFs->numLocalDOF(), commList, data );
+        vecData =
+            std::make_shared<VectorDataDefault<T, AMP::HostAllocator<void>>>( commList, data );
     } else if ( memType == AMP::Utilities::MemoryType::managed ) {
 #ifdef AMP_USE_DEVICE
-        vecData = ArrayVectorData<T, GPUFunctionTable<T>, AMP::ManagedAllocator<T>>::create(
-            DOFs->numLocalDOF(), commList, data );
+        vecData =
+            std::make_shared<VectorDataDevice<T, AMP::ManagedAllocator<void>>>( commList, data );
 #endif
     } else if ( memType == AMP::Utilities::MemoryType::device ) {
 #ifdef AMP_USE_DEVICE
-        vecData = ArrayVectorData<T, GPUFunctionTable<T>, AMP::DeviceAllocator<T>>::create(
-            DOFs->numLocalDOF(), commList, data );
+        vecData =
+            std::make_shared<VectorDataDevice<T, AMP::DeviceAllocator<void>>>( commList, data );
 #endif
     } else {
         AMP_ERROR( "Unknown memory location specified for data" );

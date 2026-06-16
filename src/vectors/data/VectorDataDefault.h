@@ -33,6 +33,8 @@ public: // Member types
 public: // Constructors
     VectorDataDefault( size_t start, size_t localSize, size_t globalSize );
 
+    explicit VectorDataDefault( std::shared_ptr<CommunicationList> commList, TYPE *data );
+
     VectorDataDefault( const VectorDataDefault & ) = delete;
 
 public: // Virtual functions
@@ -192,6 +194,7 @@ public: // Write/read restart data
     VectorDataDefault( int64_t, AMP::IO::RestartManager * );
 
 protected:
+    bool d_data_owned = true;
     TYPE *d_data = nullptr;
 };
 
