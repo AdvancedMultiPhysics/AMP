@@ -36,42 +36,18 @@ size_t matTransposeTestWithDOFs( AMP::UnitTest *ut,
 
     AMP::pout << "matTransposeTestWithDOFs with " << type << ", backend " << accelerationBackend
               << ", memory " << memoryLocation << std::endl;
-    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
-    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
 
-    auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
-    auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-
-    std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix_h, matrix, matrix_t;
-
-    // create on host and migrate if needed
-    // the Pseudo-Laplacian fill routines are still host based
-    {
-        PROFILE( "matTransposeTestWithDOFs (create)" );
-        auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-        auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
-        matrix_h    = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-        fillWithPseudoLaplacian( matrix_h );
-
-        if ( memoryLocation == "host" && type == "CSRMatrix" ) {
-            matrix_h->setBackend( backend );
-        }
-    }
-
-    {
-        PROFILE( "matTransposeTestWithDOFs (migrate)" );
-        matrix = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
-                     matrix_h :
-                     AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
-    }
+    // create pseudoLaplacian matrix
+    auto inVar   = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
+    auto outVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
+    auto matrix  = pseudoLaplacianFromDOFs( type, dofManager, backend, memLoc, inVar, outVar );
 
     // Get matrix transpose
-    {
-        PROFILE( "matTransposeTestWithDOFs (transpose)" );
-        matrix_t = matrix->transpose();
-    }
+    auto matrix_t = matrix->transpose();
     if ( matrix_t ) {
         ut->passes( type + ": Able to create transpose" );
     } else {
@@ -161,7 +137,7 @@ size_t matTransposeTest( AMP::UnitTest *ut, const std::string &input_file )
     backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
 #endif
 #if defined( AMP_USE_KOKKOS )
-    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    // backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );

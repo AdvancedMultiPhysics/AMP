@@ -55,8 +55,7 @@ int MIS2Aggregator::classifyVertices(
     using gidx_t   = typename Config::gidx_t;
     using scalar_t = typename Config::scalar_t;
 
-    constexpr bool host_exec =
-        std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>;
+    constexpr bool host_exec = !Config::device_accessible;
 
     // unpack diag block
     const auto begin_row = A_diag->beginRow();
@@ -289,8 +288,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    constexpr bool host_exec =
-        std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>;
+    constexpr bool host_exec = !Config::device_accessible;
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );

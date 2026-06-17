@@ -276,23 +276,23 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
     // make a matrix communicator based on right comm list
     CSRMatrixCommunicator<Config> mat_comm( d_rightCommList, true );
-    auto comm    = d_rightCommList->getComm();
-    auto my_rank = comm.getRank();
+    auto comm          = d_rightCommList->getComm();
+    const auto my_rank = comm.getRank();
     std::map<int, std::shared_ptr<localmatrixdata_t>> send_blocks;
 
     if ( !d_offd_matrix->isEmpty() ) {
         // extract info from offd block
-        auto num_unq = d_offd_matrix->numUniqueColumns();
+        const auto num_unq = d_offd_matrix->numUniqueColumns();
 
         // pull offd column map to host if not accessible
         std::vector<gidx_t> col_map_migrate;
-        if constexpr ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
-            d_offd_matrix->getColumnMap( col_map_migrate );
-        }
-
-        gidx_t *col_map = Config::mem_loc == AMP::Utilities::MemoryType::host ?
-                              d_offd_matrix->getColumnMap() :
-                              col_map_migrate.data();
+        gidx_t *col_map = [&col_map_migrate, d_offd_matrix = d_offd_matrix]() -> gidx_t * {
+            if ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
+                d_offd_matrix->getColumnMap( col_map_migrate );
+                return col_map_migrate.data();
+            }
+            return d_offd_matrix->getColumnMap();
+        }();
 
         // Get the partition from right comm list and test
         // which blocks need to be created
@@ -334,7 +334,8 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
             const auto part_end   = static_cast<gidx_t>( partition[rd] );
             auto block            = subsetCols( part_start, part_end, false );
             if ( !block->isEmpty() ) {
-                send_blocks.insert( { rd, block->transpose( params ) } );
+                auto block_t = block->transpose( params );
+                send_blocks.insert( { rd, block_t } );
             }
         }
     }

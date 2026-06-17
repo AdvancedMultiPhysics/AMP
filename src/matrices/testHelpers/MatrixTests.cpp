@@ -28,6 +28,7 @@ void testBasics( AMP::UnitTest &ut, const std::string &type )
 
 void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
 {
+    AMP_ASSERT( matrix->getMemoryLocation() == AMP::Utilities::MemoryType::host );
     size_t start = matrix->beginRow();
     size_t end   = matrix->endRow();
     if ( matrix->type() == "NativePetscMatrix" ) {
@@ -60,6 +61,29 @@ void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix
         }
     }
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+}
+
+
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+pseudoLaplacianFromDOFs( const std::string &type,
+                         std::shared_ptr<AMP::Discretization::DOFManager> dofManager,
+                         const AMP::Utilities::Backend backend,
+                         const AMP::Utilities::MemoryType memLoc,
+                         std::shared_ptr<AMP::LinearAlgebra::Variable> inVar,
+                         std::shared_ptr<AMP::LinearAlgebra::Variable> outVar )
+{
+    auto inVec    = AMP::LinearAlgebra::createVector( dofManager, inVar );
+    auto outVec   = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
+    fillWithPseudoLaplacian( matrix_h );
+    if ( memLoc == AMP::Utilities::MemoryType::host ) {
+        matrix_h->setBackend( backend );
+        return matrix_h;
+    } else if ( type == "CSRMatrix" ) {
+        return AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
+    }
+    AMP_ERROR( "Only native CSRMatrix supports non-host memory" );
+    return nullptr;
 }
 
 

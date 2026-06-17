@@ -42,24 +42,12 @@ size_t matMatTestWithDOFs( AMP::UnitTest *ut,
 
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
 
-    auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
-    auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-
-    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
-
-    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
-    inVec         = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    outVec        = AMP::LinearAlgebra::createVector( dofManager, outVar );
-    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-    fillWithPseudoLaplacian( matrix_h );
-
-    // migrate matrix if requested and possible
+    // create pseudoLaplacian matrix
+    auto inVar   = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
+    auto outVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
     auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
-
-    auto A = ( memoryLocation == "host" || type != "CSRMatrix" ) ?
-                 matrix_h :
-                 AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
+    auto A       = pseudoLaplacianFromDOFs( type, dofManager, backend, memLoc, inVar, outVar );
 
     size_t nGlobalRows = A->numGlobalRows();
     size_t nLocalRows  = A->numLocalRows();
