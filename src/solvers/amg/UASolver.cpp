@@ -188,24 +188,47 @@ coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop
 {
     using direction = IntergridRedist::direction;
 
-    if ( d_flags.raised( flags::implicit_RAP ) ) {
-        if ( !d_aggregator )
-            return pairwise_coarsen( Aop, coarsen_settings );
-        return aggregator_coarsen( Aop, *d_aggregator );
-    }
+    auto make_op = [=]( auto mat ) {
+        auto op = std::make_shared<Operator::LinearOperator>( op_params );
+        op->setMatrix( mat );
+        return op;
+    };
 
-    auto A = Aop->getMatrix();
-
+    auto A            = Aop->getMatrix();
     auto maybe_redist = redistributeIfNeeded( A );
-    if ( !A ) {
-        AMP_ASSERT( maybe_redist.has_value() );
+
+    auto make_inactive_coarsening = [=]( const redist_context &context ) -> coarse_ops_type {
         auto make_inactive_intergrid =
             [=]( direction dir ) -> std::shared_ptr<AMP::Operator::Operator> {
-            return std::make_shared<IntergridRedist>( op_params, dir, maybe_redist.value() );
+            return std::make_shared<IntergridRedist>( op_params, dir, context );
         };
         return { make_inactive_intergrid( direction::down ),
                  nullptr,
                  make_inactive_intergrid( direction::up ) };
+    };
+
+    if ( !A ) {
+        AMP_ASSERT( maybe_redist.has_value() );
+        return make_inactive_coarsening( maybe_redist.value() );
+    }
+
+    auto wrap_intergrid =
+        [=, &maybe_redist]( std::shared_ptr<AMP::Operator::Operator> transfer,
+                            direction dir ) -> std::shared_ptr<AMP::Operator::Operator> {
+        if ( !maybe_redist.has_value() ) {
+            return transfer;
+        }
+
+        return std::make_shared<IntergridRedist>(
+            op_params, dir, maybe_redist.value(), std::move( transfer ) );
+    };
+
+    if ( d_flags.raised( flags::implicit_RAP ) ) {
+        auto fine_op    = maybe_redist.has_value() ? make_op( A ) : Aop;
+        auto [R, Ac, P] = ( !d_aggregator ) ? pairwise_coarsen( fine_op, coarsen_settings ) :
+                                              aggregator_coarsen( fine_op, *d_aggregator );
+
+        return { wrap_intergrid( R, direction::down ), Ac, wrap_intergrid( P, direction::up ) };
     }
 
     auto P  = d_aggregator->getAggregateMatrix( A );
@@ -213,27 +236,9 @@ coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop
     auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
     auto Ac = LinearAlgebra::Matrix::matMatMult( R, AP );
 
-    auto make_op = [=]( auto mat ) {
-        auto op = std::make_shared<Operator::LinearOperator>( op_params );
-        op->setMatrix( mat );
-        return op;
-    };
-
-    auto make_intergrid =
-        [=, &maybe_redist]( auto mat, direction dir ) -> std::shared_ptr<AMP::Operator::Operator> {
-        if ( !maybe_redist.has_value() )
-            return make_op( mat );
-
-        auto op = std::make_shared<IntergridRedist>( op_params, dir, maybe_redist.value() );
-        if ( mat ) {
-            op->setMatrix( mat );
-        }
-        return op;
-    };
-
-    return { make_intergrid( R, direction::down ),
+    return { wrap_intergrid( make_op( R ), direction::down ),
              make_op( Ac ),
-             make_intergrid( P, direction::up ) };
+             wrap_intergrid( make_op( P ), direction::up ) };
 }
 
 

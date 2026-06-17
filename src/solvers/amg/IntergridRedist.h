@@ -13,6 +13,10 @@ struct IntergridRedist : AMP::Operator::LinearOperator {
     IntergridRedist( std::shared_ptr<AMP::Operator::OperatorParameters> params,
                      direction dir,
                      const redist_context &ctx );
+    IntergridRedist( std::shared_ptr<AMP::Operator::OperatorParameters> params,
+                     direction dir,
+                     const redist_context &ctx,
+                     std::shared_ptr<AMP::Operator::Operator> transfer );
 
     virtual void apply( std::shared_ptr<const LinearAlgebra::Vector> x,
                         std::shared_ptr<LinearAlgebra::Vector> b ) override;
@@ -20,6 +24,7 @@ struct IntergridRedist : AMP::Operator::LinearOperator {
 private:
     direction d_direction;
     redist_context d_redist_context;
+    std::shared_ptr<AMP::Operator::Operator> d_transfer;
     std::shared_ptr<LinearAlgebra::Vector> tmp;
 };
 
