@@ -299,11 +299,7 @@ void UASolver::setup()
     }
 
     makeCoarseSolver();
-    auto dropped_ranks = [&]() {
-        auto comm = d_levels.front().A->getMatrix()->getComm();
-        return comm.anyReduce( !d_levels.back().A );
-    }();
-    if ( d_iDebugPrintInfoLevel > 1 && !dropped_ranks )
+    if ( d_iDebugPrintInfoLevel > 1 )
         print_summary( type(), d_levels, *d_coarse_solver );
 }
 

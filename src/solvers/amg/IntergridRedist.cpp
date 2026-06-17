@@ -29,8 +29,6 @@ void IntergridRedist::apply( std::shared_ptr<const LinearAlgebra::Vector> u,
     switch ( d_direction ) {
     case direction::down: {
         AMP_INSIST( u, "NULL Solution Vector" );
-        AMP_INSIST( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED,
-                    "Input vector is in an inconsistent state" );
 
         auto uInternal = subsetInputVector( u );
         AMP_INSIST( uInternal, "uInternal is NULL" );
@@ -65,8 +63,10 @@ void IntergridRedist::apply( std::shared_ptr<const LinearAlgebra::Vector> u,
         if ( d_redist_context.isActive() ) {
             AMP_INSIST( u, "NULL Solution Vector" );
             AMP_INSIST( d_transfer || d_matrix, "NULL Transfer Operator" );
-            AMP_INSIST( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED,
-                        "Input vector is in an inconsistent state" );
+            if ( !d_transfer ) {
+                AMP_INSIST( u->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED,
+                            "Input vector is in an inconsistent state" );
+            }
 
             auto uInternal = subsetInputVector( u );
             AMP_INSIST( uInternal, "uInternal is NULL" );
