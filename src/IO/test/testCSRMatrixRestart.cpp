@@ -139,7 +139,8 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
     matrix =
-        pseudoLaplacianFromDOFs( "CSRMatrix", dofManager, backend, Config::mem_loc, inVar, outVar );
+        std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrix<Config>>( pseudoLaplacianFromDOFs(
+            "CSRMatrix", dofManager, backend, Config::mem_loc, inVar, outVar ) );
 
     if ( matrix ) {
         ut->passes( " Able to create a square matrix" );

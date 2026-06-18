@@ -39,8 +39,8 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
     // create pseudoLaplacian matrix
     auto inVar   = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-    auto memLoc  = AMP::Utilities::host;
-    auto backend = AMP::Utilities::serial;
+    auto memLoc  = AMP::Utilities::MemoryType::host;
+    auto backend = AMP::Utilities::Backend::Serial;
     auto matrix  = pseudoLaplacianFromDOFs( type, dofManager, backend, memLoc, inVar, outVar );
 
     auto nGlobalRows1 = matrix->numGlobalRows();
