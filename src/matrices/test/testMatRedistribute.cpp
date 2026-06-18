@@ -11,7 +11,46 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/VectorBuilder.h"
 
+#include <algorithm>
+#include <memory>
+#include <string>
+
 namespace {
+
+template<typename Config>
+void redistributeAndCheck( AMP::UnitTest *ut,
+                           const std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &csr,
+                           int nout,
+                           const std::string &label )
+{
+    AMP_INSIST( csr, label + " requires a CSR matrix" );
+
+    auto redistributed = csr->redistribute( nout );
+    if ( redistributed == nullptr ) {
+        ut->passes( label + ": inactive ranks correctly drop out of redistributed matrix" );
+        return;
+    }
+
+    auto red = std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrix<Config>>( redistributed );
+    AMP_INSIST( red, label + ": redistributed matrix should preserve its CSR config" );
+
+    auto xr = red->createInputVector();
+    auto yr = red->createOutputVector();
+    xr->setToScalar( 1.0 );
+    xr->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+    yr->zero();
+    red->mult( xr, yr );
+    yr->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
+
+    const auto norm = yr->L1Norm();
+    if ( norm == static_cast<double>( red->numGlobalRows() ) ) {
+        ut->passes( label + ": redistributed CSR matrix preserves pseudo-Laplacian matvec" );
+    } else {
+        AMP::pout << label << ": redistributed L1 norm " << norm << ", rows "
+                  << red->numGlobalRows() << std::endl;
+        ut->failure( label + ": redistributed CSR matrix failed pseudo-Laplacian matvec test" );
+    }
+}
 
 void testRedistribute( AMP::UnitTest *ut, const std::string &input_file )
 {
@@ -32,43 +71,21 @@ void testRedistribute( AMP::UnitTest *ut, const std::string &input_file )
     AMP::LinearAlgebra::fillWithPseudoLaplacian( A );
     A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
-    auto csr = std::dynamic_pointer_cast<
+    auto host_csr = std::dynamic_pointer_cast<
         AMP::LinearAlgebra::CSRMatrix<AMP::LinearAlgebra::DefaultHostCSRConfig>>( A );
-    AMP_INSIST( csr, "testMatRedistribute requires the default host CSR matrix" );
+    AMP_INSIST( host_csr, "testMatRedistribute requires the default host CSR matrix" );
 
-    auto world         = AMP::AMP_MPI( AMP_COMM_WORLD );
-    const int nout     = std::max( 1, world.getSize() / 2 );
-    auto redistributed = csr->redistribute( nout );
+    auto world     = AMP::AMP_MPI( AMP_COMM_WORLD );
+    const int nout = std::max( 1, world.getSize() / 2 );
+    redistributeAndCheck( ut, host_csr, nout, "Host CSR" );
 
-    if ( redistributed == nullptr ) {
-        if ( redistributed == nullptr ) {
-            ut->passes( "Inactive ranks correctly drop out of redistributed matrix" );
-        } else {
-            ut->failure( "Inactive ranks should not retain redistributed matrix state" );
-        }
-        return;
-    }
-
-    auto red = std::dynamic_pointer_cast<
-        AMP::LinearAlgebra::CSRMatrix<AMP::LinearAlgebra::DefaultHostCSRConfig>>( redistributed );
-    AMP_INSIST( red, "Redistributed matrix should still be a host CSR matrix" );
-
-    auto xr = red->createInputVector();
-    auto yr = red->createOutputVector();
-    xr->setToScalar( 1.0 );
-    xr->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-    yr->zero();
-    red->mult( xr, yr );
-    yr->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );
-
-    const auto norm = yr->L1Norm();
-    if ( norm == static_cast<double>( red->numGlobalRows() ) ) {
-        ut->passes( "Redistributed CSR matrix preserves pseudo-Laplacian matvec" );
-    } else {
-        AMP::pout << "Redistributed L1 norm " << norm << ", rows " << red->numGlobalRows()
-                  << std::endl;
-        ut->failure( "Redistributed CSR matrix failed pseudo-Laplacian matvec test" );
-    }
+#ifdef AMP_USE_DEVICE
+    auto device_matrix = AMP::LinearAlgebra::createMatrix( A, AMP::Utilities::MemoryType::device );
+    using DeviceConfig = AMP::LinearAlgebra::DefaultCSRConfig<AMP::LinearAlgebra::alloc::device>;
+    auto device_csr =
+        std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrix<DeviceConfig>>( device_matrix );
+    redistributeAndCheck( ut, device_csr, nout, "Device CSR" );
+#endif
 }
 
 } // namespace

@@ -312,17 +312,10 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     // count number of rows and check compatibility of blocks
     auto block      = ( *blocks.begin() ).second;
     lidx_t num_rows = 0;
-    bool all_empty  = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
         AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
         num_rows += block->d_num_rows;
-        all_empty = all_empty && block->isEmpty();
-    }
-
-    // extreme edge case where every block happened to be empty
-    if ( all_empty ) {
-        return nullptr;
     }
 
     // create output matrix

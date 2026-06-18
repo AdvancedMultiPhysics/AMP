@@ -294,20 +294,12 @@ CSRMatrixData<Config>::redistribute( const AMP::Utilities::GroupedRedistribution
         return nullptr;
     }
 
-    gidx_t target_begin = 0;
-    gidx_t target_end   = 0;
-    bool have_rows      = false;
-    for ( std::size_t i = 0; i < gathered_first.size(); ++i ) {
-        if ( gathered_last[i] > gathered_first[i] ) {
-            if ( !have_rows ) {
-                target_begin = gathered_first[i];
-                target_end   = gathered_last[i];
-                have_rows    = true;
-            } else {
-                target_begin = std::min( target_begin, gathered_first[i] );
-                target_end   = std::max( target_end, gathered_last[i] );
-            }
-        }
+    AMP_ASSERT( !gathered_first.empty() );
+    gidx_t target_begin = gathered_first[0];
+    gidx_t target_end   = gathered_last[0];
+    for ( std::size_t i = 1; i < gathered_first.size(); ++i ) {
+        target_begin = std::min( target_begin, gathered_first[i] );
+        target_end   = std::max( target_end, gathered_last[i] );
     }
 
     auto params = std::make_shared<MatrixParametersBase>(
@@ -354,15 +346,6 @@ CSRMatrixData<Config>::redistribute( const AMP::Utilities::GroupedRedistribution
         params, gathered_blocks, target_begin, target_end, true );
     out->d_offd_matrix = localmatrixdata_t::ConcatVertical(
         params, gathered_blocks, target_begin, target_end, false );
-
-    if ( !out->d_diag_matrix ) {
-        out->d_diag_matrix = std::make_shared<localmatrixdata_t>(
-            params, target_begin, target_end, target_begin, target_end, true );
-    }
-    if ( !out->d_offd_matrix ) {
-        out->d_offd_matrix = std::make_shared<localmatrixdata_t>(
-            params, target_begin, target_end, target_begin, target_end, false );
-    }
 
     out->d_diag_matrix->d_first_row = target_begin;
     out->d_diag_matrix->d_last_row  = target_end;
