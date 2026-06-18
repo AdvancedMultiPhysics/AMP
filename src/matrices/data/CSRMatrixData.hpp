@@ -491,17 +491,18 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
         nullptr, 0, static_cast<gidx_t>( rows.size() ), 0, numGlobalColumns(), true );
 
     // copy row selection to device if needed
-    constexpr bool rows_migrated = Config::mem_loc == AMP::Utilities::MemoryType::device;
+    constexpr bool rows_migrated = Config::mem_loc > AMP::Utilities::MemoryType::host;
     gidx_t *rows_d               = nullptr;
     if constexpr ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
         AMP::Utilities::Algorithms::copy_n(
             rows_d, Config::mem_loc, rows.data(), AMP::Utilities::MemoryType::host, rows.size() );
     }
+    const gidx_t *rows_data = rows_migrated ? rows_d : rows.data();
 
     // count nnz per row and write into sub matrix directly
     // also check that passed in rows are in ascending order and owned here
-    CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( rows_migrated ? rows_d : rows.data(),
+    CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( rows_data,
                                                      static_cast<lidx_t>( rows.size() ),
                                                      d_first_row,
                                                      d_diag_matrix->d_row_starts.get(),
@@ -522,7 +523,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     }
 
     // Loop back over diag/offd and copy in marked rows
-    CSRMatrixDataHelpers<Config>::RowSubsetFill( rows_migrated ? rows_d : rows.data(),
+    CSRMatrixDataHelpers<Config>::RowSubsetFill( rows_data,
                                                  static_cast<lidx_t>( rows.size() ),
                                                  d_first_row,
                                                  d_diag_matrix->d_first_col,

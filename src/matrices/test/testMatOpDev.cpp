@@ -251,7 +251,7 @@ void matDeviceOperationsTest( AMP::UnitTest *ut, const std::string &input_file )
     using Config = AMP::LinearAlgebra::DefaultCSRConfig<AMP::LinearAlgebra::alloc::device>;
     const auto backend = AMP::Utilities::Backend::Hip_Cuda;
 #else
-    using Config = AMP::LinearAlgebra::DefaultCSRConfig;
+    using Config = AMP::LinearAlgebra::DefaultCSRConfig<AMP::LinearAlgebra::alloc::host>;
     const auto backend = AMP::Utilities::Backend::Serial;
 #endif
 

@@ -989,7 +989,7 @@ void CSRLocalMatrixData<Config>::printAll( bool force ) const
     }
 
     if constexpr ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
-        AMP_WARNING( "" );
+        AMP_WARNING( "CSRLocalMatrixData::printAll device memory not supported" );
         return;
     }
 

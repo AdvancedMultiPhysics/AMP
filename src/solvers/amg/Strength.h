@@ -83,8 +83,7 @@ private:
         storage( csr_ptrs_t A_ptrs )
             : rowptr( std::get<0>( A_ptrs ) ),
               colind( std::get<1>( A_ptrs ) ),
-              mat_values( std::get<2>( A_ptrs ) ),
-              values( nullptr )
+              mat_values( std::get<2>( A_ptrs ) )
         {
             if ( colind.size() > 0 ) {
                 values = valueAllocator.allocate( colind.size() );
@@ -93,7 +92,7 @@ private:
 
         ~storage()
         {
-            if ( values ) {
+            if ( colind.size() > 0 ) {
                 valueAllocator.deallocate( values, colind.size() );
             }
         }

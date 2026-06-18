@@ -63,7 +63,6 @@ template<class Config>
 void checkEqualEntries( AMP::UnitTest *ut,
                         const std::string &test_name,
                         const std::string &task,
-                        std::shared_ptr<AMP::Discretization::DOFManager> dofManager,
                         std::shared_ptr<AMP::LinearAlgebra::Matrix> X,
                         std::shared_ptr<AMP::LinearAlgebra::Matrix> Y,
                         double tol )
@@ -107,18 +106,17 @@ void testCopyCast( AMP::UnitTest *ut,
     checkEqualEntries<ConfigD>( ut,
                                 test_name,
                                 "copyCast double->float->double",
-                                dofManager,
                                 A,
                                 C,
                                 std::numeric_limits<float>::epsilon() );
 
     C->copyCast( A );
     checkEqualEntries<ConfigD>(
-        ut, test_name, "copy doubles", dofManager, A, C, std::numeric_limits<double>::epsilon() );
+        ut, test_name, "copy doubles", A, C, std::numeric_limits<double>::epsilon() );
 
     D->copyCast( B );
     checkEqualEntries<ConfigF>(
-        ut, test_name, "copy floats", dofManager, B, D, std::numeric_limits<float>::epsilon() );
+        ut, test_name, "copy floats", B, D, std::numeric_limits<float>::epsilon() );
 }
 
 void matDeviceOperationsTest( AMP::UnitTest *ut, const std::string &input_file )
