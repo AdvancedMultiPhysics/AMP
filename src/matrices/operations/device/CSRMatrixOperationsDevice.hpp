@@ -46,9 +46,9 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     AMP_DEBUG_ASSERT( outDataBlock );
     AMP_DEBUG_ASSERT( Config::device_accessible );
-    AMP_DEBUG_INSIST( in->getMemoryLocation() <= AMP::Utilities::MemoryType::managed,
+    AMP_DEBUG_INSIST( in->getMemoryLocation() >= AMP::Utilities::MemoryType::managed,
                       "Input vector from wrong memory space" );
-    AMP_DEBUG_INSIST( out->getMemoryLocation() <= AMP::Utilities::MemoryType::managed,
+    AMP_DEBUG_INSIST( out->getMemoryLocation() >= AMP::Utilities::MemoryType::managed,
                       "Output vector from wrong memory space" );
 
     if ( !diagMatrix->isEmpty() ) {
@@ -155,9 +155,6 @@ void CSRMatrixOperationsDevice<Config>::axpy( AMP::Scalar alpha_in,
 
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
-
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
-                      "CSRMatrixOperationsDevice::axpy X and Y must be in same memory space" );
 
     auto diagMatrixX = csrDataX->getDiagMatrix();
     auto offdMatrixX = csrDataX->getOffdMatrix();

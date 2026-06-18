@@ -23,9 +23,7 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
     PROFILE( "CSRMatrixSpGEMMCommon::multiply" );
 
     // start communication to build BRemote before doing anything
-    if ( A->hasOffDiag() ) {
-        startBRemoteComm();
-    }
+    startBRemoteComm();
 
     C_diag_diag = std::make_shared<localmatrixdata_t>(
         nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), true );
@@ -38,8 +36,10 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
         multiplyLocal( A_diag, B_offd, C_diag_offd );
     }
 
+    // finalize communication before using BRemote
+    endBRemoteComm();
+
     if ( A->hasOffDiag() ) {
-        endBRemoteComm();
         PROFILE( "CSRMatrixSpGEMMCommon::multiply (remote)" );
         if ( BR_diag.get() != nullptr ) {
             C_offd_diag = std::make_shared<localmatrixdata_t>(

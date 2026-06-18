@@ -43,7 +43,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
 #ifdef AMP_USE_DEVICE
-    const auto mem_loc = AMP::Utilities::MemoryType::managed;
+    const auto mem_loc = AMP::Utilities::MemoryType::device;
 #else
     const auto mem_loc = AMP::Utilities::MemoryType::host;
 #endif

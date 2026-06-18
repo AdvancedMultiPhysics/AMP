@@ -88,8 +88,6 @@ void testCopyCast( AMP::UnitTest *ut,
     using ConfigD = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f64>;
     using ConfigF = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f32>;
 
-    const auto mem_loc = AMP::LinearAlgebra::alloc_info<Allocator>::mem_loc;
-
     std::shared_ptr<AMP::LinearAlgebra::Matrix> A = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Matrix> B = nullptr;
     std::shared_ptr<AMP::LinearAlgebra::Matrix> C = nullptr;
