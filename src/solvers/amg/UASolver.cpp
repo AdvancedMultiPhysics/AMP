@@ -1,13 +1,29 @@
 #include "AMP/solvers/amg/UASolver.h"
+#include "AMP/matrices/CSRVisit.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/amg/Aggregation.h"
+#include "AMP/solvers/amg/IntergridRedist.h"
 #include "AMP/solvers/amg/MIS2Aggregator.h"
 #include "AMP/solvers/amg/Relaxation.h"
 #include "AMP/solvers/amg/SimpleAggregator.h"
 #include "AMP/solvers/amg/Stats.h"
+#include "AMP/utils/Flags.h"
 
 namespace AMP::Solver::AMG {
+
+namespace {
+
+struct InactiveCoarseSolver final : SolverStrategy {
+    std::string type() const override { return "InactiveCoarseSolver"; }
+
+    void apply( std::shared_ptr<const AMP::LinearAlgebra::Vector>,
+                std::shared_ptr<AMP::LinearAlgebra::Vector> ) override
+    {
+    }
+};
+
+} // namespace
 
 UASolver::UASolver( std::shared_ptr<SolverStrategyParameters> params ) : SolverStrategy( params )
 {
@@ -25,9 +41,10 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     d_max_levels        = db->getWithDefault<size_t>( "max_levels", 10 );
     d_num_relax_pre     = db->getWithDefault<size_t>( "num_relax_pre", 1 );
     d_num_relax_post    = db->getWithDefault<size_t>( "num_relax_post", 1 );
-    d_boomer_cg         = db->getWithDefault<bool>( "boomer_cg", false );
     d_min_coarse_local  = db->getWithDefault<int>( "min_coarse_local", 10 );
     d_min_coarse_global = db->getWithDefault<size_t>( "min_coarse_global", 100 );
+    if ( db->getWithDefault<bool>( "boomer_cg", false ) )
+        d_flags.raise( flags::boomer_cg );
     d_cycle_settings.kappa =
         db->getWithDefault<size_t>( "kcycle_kappa", std::numeric_limits<size_t>::max() );
     d_cycle_settings.tol = db->getWithDefault<float>( "kcycle_tol", 0 );
@@ -39,16 +56,24 @@ void UASolver::getFromInput( std::shared_ptr<AMP::Database> db )
     d_coarsen_settings.strength_threshold = db->getWithDefault<float>( "strength_threshold", 0.25 );
     d_coarsen_settings.pairwise_passes    = db->getWithDefault<size_t>( "pairwise_passes", 2 );
     d_coarsen_settings.checkdd            = db->getWithDefault<bool>( "checkdd", true );
+    d_coarsen_settings.redist_coarsen_factor =
+        db->getWithDefault<int>( "redist_coarsen_factor", 2 );
 
-    d_implicit_RAP = d_cycle_settings.comm_free_interp =
+    if ( db->getWithDefault<bool>( "redistribute", false ) )
+        d_flags.raise( flags::redistribute );
+
+    auto implicit_RAP = d_cycle_settings.comm_free_interp =
         db->getWithDefault<bool>( "implicit_RAP", false );
+    if ( implicit_RAP )
+        d_flags.raise( flags::implicit_RAP );
+
     if ( d_iDebugPrintInfoLevel > 1 ) {
-        AMP::pout << "UASolver: using " << ( ( d_implicit_RAP ) ? "implicit" : "explicit" )
-                  << " RAP" << std::endl;
+        AMP::pout << "UASolver: using " << ( ( implicit_RAP ) ? "implicit" : "explicit" ) << " RAP"
+                  << std::endl;
     }
 
     auto agg_type = db->getWithDefault<std::string>( "agg_type", "MIS2" );
-    if ( !d_implicit_RAP || ( d_implicit_RAP && ( agg_type != "pairwise" ) ) ) {
+    if ( !implicit_RAP || ( implicit_RAP && ( agg_type != "pairwise" ) ) ) {
         if ( agg_type == "simple" ) {
             d_aggregator = std::make_shared<SimpleAggregator>( d_coarsen_settings );
         } else if ( agg_type == "pairwise" ) {
@@ -121,24 +146,68 @@ void UASolver::registerOperator( std::shared_ptr<AMP::Operator::Operator> op )
 
 void UASolver::makeCoarseSolver()
 {
-    auto coarse_op                      = d_levels.back().A;
+    auto coarse_op = d_levels.back().A;
+    if ( !coarse_op ) {
+        d_coarse_solver = std::make_unique<InactiveCoarseSolver>();
+        return;
+    }
+
     d_coarse_solver_params->d_pOperator = coarse_op;
     d_coarse_solver_params->d_comm      = coarse_op->getMatrix()->getComm();
     d_coarse_solver = AMP::Solver::SolverFactory::create( d_coarse_solver_params );
 }
 
 
+std::optional<UASolver::redist_context>
+UASolver::redistributeIfNeeded( std::shared_ptr<LinearAlgebra::Matrix> &A )
+{
+    std::optional<redist_context> ret;
+
+    if ( d_flags.raised( flags::redistribute ) ) {
+        int nrows_local = static_cast<int>( A->numLocalRows() );
+        auto comm       = A->getComm();
+        if ( comm.anyReduce( nrows_local < d_min_coarse_local ) ) {
+            auto redist_size = comm.getSize() / d_coarsen_settings.redist_coarsen_factor;
+            if ( redist_size < 1 ) {
+                redist_size = 1;
+            }
+            auto plan = Utilities::GroupedRedistributionPlan( comm, redist_size );
+            A   = LinearAlgebra::csrVisit( A, [&]( auto csr ) -> LinearAlgebra::Matrix::shared_ptr {
+                return csr->redistribute( plan );
+            } );
+            ret = std::move( plan );
+        }
+    }
+
+    return ret;
+}
+
 coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop,
                                    const PairwiseCoarsenSettings &coarsen_settings,
                                    std::shared_ptr<Operator::OperatorParameters> op_params )
 {
-    if ( d_implicit_RAP ) {
+    using direction = IntergridRedist::direction;
+
+    if ( d_flags.raised( flags::implicit_RAP ) ) {
         if ( !d_aggregator )
             return pairwise_coarsen( Aop, coarsen_settings );
         return aggregator_coarsen( Aop, *d_aggregator );
     }
 
-    auto A  = Aop->getMatrix();
+    auto A = Aop->getMatrix();
+
+    auto maybe_redist = redistributeIfNeeded( A );
+    if ( !A ) {
+        AMP_ASSERT( maybe_redist.has_value() );
+        auto make_inactive_intergrid =
+            [=]( direction dir ) -> std::shared_ptr<AMP::Operator::Operator> {
+            return std::make_shared<IntergridRedist>( op_params, dir, maybe_redist.value() );
+        };
+        return { make_inactive_intergrid( direction::down ),
+                 nullptr,
+                 make_inactive_intergrid( direction::up ) };
+    }
+
     auto P  = d_aggregator->getAggregateMatrix( A );
     auto R  = P->transpose();
     auto AP = LinearAlgebra::Matrix::matMatMult( A, P );
@@ -146,11 +215,25 @@ coarse_ops_type UASolver::coarsen( std::shared_ptr<Operator::LinearOperator> Aop
 
     auto make_op = [=]( auto mat ) {
         auto op = std::make_shared<Operator::LinearOperator>( op_params );
-        std::dynamic_pointer_cast<Operator::LinearOperator>( op )->setMatrix( mat );
+        op->setMatrix( mat );
         return op;
     };
 
-    return { make_op( R ), make_op( Ac ), make_op( P ) };
+    auto make_intergrid =
+        [=, &maybe_redist]( auto mat, direction dir ) -> std::shared_ptr<AMP::Operator::Operator> {
+        if ( !maybe_redist.has_value() )
+            return make_op( mat );
+
+        auto op = std::make_shared<IntergridRedist>( op_params, dir, maybe_redist.value() );
+        if ( mat ) {
+            op->setMatrix( mat );
+        }
+        return op;
+    };
+
+    return { make_intergrid( R, direction::down ),
+             make_op( Ac ),
+             make_intergrid( P, direction::up ) };
 }
 
 
@@ -171,10 +254,13 @@ void UASolver::setup()
         AMP_DEBUG_ASSERT( linop );
         auto matrix = linop->getMatrix();
         AMP_DEBUG_ASSERT( matrix );
-        int nrows_local   = static_cast<int>( matrix->numLocalRows() );
-        auto nrows_global = matrix->numGlobalRows();
-        return nrows_global <= d_min_coarse_global ||
-               matrix->getComm().anyReduce( nrows_local < d_min_coarse_local );
+        int nrows_local           = static_cast<int>( matrix->numLocalRows() );
+        auto nrows_global         = matrix->numGlobalRows();
+        bool passed_global_thresh = nrows_global <= d_min_coarse_global;
+        if ( d_flags.raised( flags::redistribute ) )
+            return passed_global_thresh;
+        bool passed_local_thresh = matrix->getComm().anyReduce( nrows_local < d_min_coarse_local );
+        return passed_global_thresh || passed_local_thresh;
     };
 
     auto &fine_settings     = d_coarsen_settings;
@@ -184,8 +270,13 @@ void UASolver::setup()
         auto &fine_level = d_levels.back();
         auto [R, Ac, P] =
             coarsen( fine_level.A, ( i == 0 ? fine_settings : coarse_settings ), op_params );
-        if ( !Ac )
+        if ( !Ac ) { // redistributed and rank not active on this level.
+            if ( R || P ) {
+                d_levels.emplace_back().R = R;
+                d_levels.back().P         = P;
+            }
             break;
+        }
 
         d_levels.emplace_back().A       = std::make_shared<LevelOperator>( *Ac );
         d_levels.back().R               = R;
@@ -203,7 +294,11 @@ void UASolver::setup()
     }
 
     makeCoarseSolver();
-    if ( d_iDebugPrintInfoLevel > 1 )
+    auto dropped_ranks = [&]() {
+        auto comm = d_levels.front().A->getMatrix()->getComm();
+        return comm.anyReduce( !d_levels.back().A );
+    }();
+    if ( d_iDebugPrintInfoLevel > 1 && !dropped_ranks )
         print_summary( type(), d_levels, *d_coarse_solver );
 }
 
@@ -287,3 +382,9 @@ void UASolver::apply( std::shared_ptr<const LinearAlgebra::Vector> b,
 }
 
 } // namespace AMP::Solver::AMG
+
+namespace AMP::Utilities {
+
+template struct Flags<AMP::Solver::AMG::UASolver::flags>;
+
+}

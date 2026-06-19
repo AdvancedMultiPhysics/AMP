@@ -9,6 +9,8 @@ struct CoarsenSettings {
     float strength_threshold;
     std::string strength_measure;
     bool checkdd;
+    //! Redistribution coarsening factor for communicator size
+    int redist_coarsen_factor;
 };
 
 struct PairwiseCoarsenSettings : CoarsenSettings {

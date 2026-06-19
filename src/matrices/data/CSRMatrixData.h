@@ -5,6 +5,7 @@
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/GroupedRedistributionPlan.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 
@@ -73,6 +74,18 @@ public:
 
     //! Transpose
     std::shared_ptr<MatrixData> transpose() const override;
+
+    /** \brief Redistribute a square CSR matrix onto the roots of `new_nprocs` contiguous rank
+     *         groups of the current communicator using contiguous row blocks.
+     * \details Inactive ranks return `nullptr`.
+     */
+    std::shared_ptr<CSRMatrixData<Config>> redistribute( int new_nprocs ) const;
+
+    /** \brief Redistribute a square CSR matrix with a precomputed grouped redistribution plan.
+     * \details Inactive ranks return `nullptr`.
+     */
+    std::shared_ptr<CSRMatrixData<Config>>
+    redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const;
 
     //! Return the type of the matrix
     std::string type() const override { return "CSRMatrixData"; }

@@ -177,6 +177,31 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend back
 }
 
 template<typename Config>
+std::shared_ptr<Matrix> CSRMatrix<Config>::redistribute( int new_nprocs ) const
+{
+    PROFILE( "CSRMatrix::redistribute" );
+
+    auto plan = AMP::Utilities::createGroupedRedistributionPlan( getComm(), new_nprocs );
+    return redistribute( plan );
+}
+
+template<typename Config>
+std::shared_ptr<Matrix>
+CSRMatrix<Config>::redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const
+{
+    PROFILE( "CSRMatrix::redistributeWithPlan" );
+
+    auto data = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
+    AMP_ASSERT( data );
+
+    auto redistributed = data->redistribute( plan );
+    if ( !redistributed ) {
+        return nullptr;
+    }
+    return std::make_shared<CSRMatrix<Config>>( redistributed );
+}
+
+template<typename Config>
 void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 {
     PROFILE( "CSRMatrix::setBackend" );

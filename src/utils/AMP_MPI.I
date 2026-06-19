@@ -88,12 +88,18 @@
                                                                      const std::vector<size_t> &,  \
                                                                      const std::vector<size_t> & ) \
         const
+#define INSTANTIATE_MPI_ROOT_GATHER( TYPE )                                                        \
+    template std::vector<TYPE> AMP::AMP_MPI::gather<TYPE>( const TYPE &, int ) const;              \
+    template std::vector<TYPE> AMP::AMP_MPI::gather<TYPE>( const std::vector<TYPE> &, int ) const; \
+    template void AMP::AMP_MPI::gather<TYPE>(                                                      \
+        const TYPE *, int, TYPE *, const int *, const int *, int ) const
 
 #define INSTANTIATE_MPI_TYPE( TYPE )  \
     INSTANTIATE_MPI_REDUCE( TYPE );   \
     INSTANTIATE_MPI_BCAST( TYPE );    \
     INSTANTIATE_MPI_SENDRECV( TYPE ); \
-    INSTANTIATE_MPI_GATHER( TYPE )
+    INSTANTIATE_MPI_GATHER( TYPE );   \
+    INSTANTIATE_MPI_ROOT_GATHER( TYPE )
 
 
 // Use AMP namespace
