@@ -15,6 +15,10 @@
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Utilities.h"
 
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
+#endif
+
 #include <numeric>
 #include <set>
 #include <type_traits>
@@ -428,6 +432,16 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
             d_cols.get(), d_nnz, d_cols_unq.get(), d_ncols_unq, d_cols_loc.get() );
     }
 
+    // Sync before freeing d_cols: hipFree/cudaFree do not wait for prior GPU
+    // work to complete, so freeing while async kernels still read d_cols causes
+    // a use-after-free.  The normal RawCSRMatrixParameters path wraps d_cols with
+    // a no-op deleter and is unaffected; ConcatVertical (redistribution, transpose)
+    // uses a real hipFree deleter and requires this sync.
+#ifdef AMP_USE_DEVICE
+    if ( d_memory_location >= AMP::Utilities::MemoryType::managed ) {
+        deviceSynchronize();
+    }
+#endif
     // free global cols as they should not be used from here on out
     d_cols.reset();
 }
