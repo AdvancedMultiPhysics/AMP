@@ -128,7 +128,16 @@ HierarchyStats collect_statistics( const std::string &amg_name,
     HierarchyStats stats;
 
     for ( auto &level : ml ) {
-        LinearAlgebra::csrVisit( level.A->getMatrix(), [&]( auto A ) {
+        if ( !level.A ) {
+            continue;
+        }
+
+        auto matrix = level.A->getMatrix();
+        if ( !matrix ) {
+            continue;
+        }
+
+        LinearAlgebra::csrVisit( matrix, [&]( auto A ) {
             auto [max_local, min_local] = get_local_nrows( *A );
             stats.levels.push_back( { amg_name,
                                       get_nprocs( *A ),
@@ -137,6 +146,10 @@ HierarchyStats collect_statistics( const std::string &amg_name,
                                       max_local,
                                       min_local } );
         } );
+    }
+
+    if ( stats.levels.empty() ) {
+        return stats;
     }
 
     stats.levels.back().solver_name = cg_solver.type();

@@ -15,6 +15,10 @@
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Utilities.h"
 
+#ifdef AMP_USE_DEVICE
+    #include "AMP/utils/device/Device.h"
+#endif
+
 #include <numeric>
 #include <set>
 #include <type_traits>
@@ -312,17 +316,10 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     // count number of rows and check compatibility of blocks
     auto block      = ( *blocks.begin() ).second;
     lidx_t num_rows = 0;
-    bool all_empty  = block->isEmpty();
     for ( auto it : blocks ) {
         block = it.second;
         AMP_INSIST( !block->d_is_symbolic, "Blocks to concatenate can't be symbolic" );
         num_rows += block->d_num_rows;
-        all_empty = all_empty && block->isEmpty();
-    }
-
-    // extreme edge case where every block happened to be empty
-    if ( all_empty ) {
-        return nullptr;
     }
 
     // create output matrix
@@ -435,6 +432,16 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
             d_cols.get(), d_nnz, d_cols_unq.get(), d_ncols_unq, d_cols_loc.get() );
     }
 
+    // Sync before freeing d_cols: hipFree/cudaFree do not wait for prior GPU
+    // work to complete, so freeing while async kernels still read d_cols causes
+    // a use-after-free.  The normal RawCSRMatrixParameters path wraps d_cols with
+    // a no-op deleter and is unaffected; ConcatVertical (redistribution, transpose)
+    // uses a real hipFree deleter and requires this sync.
+#ifdef AMP_USE_DEVICE
+    if ( d_memory_location >= AMP::Utilities::MemoryType::managed ) {
+        deviceSynchronize();
+    }
+#endif
     // free global cols as they should not be used from here on out
     d_cols.reset();
 }
