@@ -321,16 +321,25 @@ CSRMatrixData<Config>::redistribute( const AMP::Utilities::GroupedRedistribution
         const auto nnz = static_cast<std::size_t>( gathered_nnz[src] );
         auto block = std::make_shared<localmatrixdata_t>( nullptr, 0, nr, 0, global_rows, true );
 
-        AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            gathered_rs.get() + rs_pos, nrs, block->d_row_starts.get() );
+        AMP::Utilities::Algorithms::copy_n( block->d_row_starts.get(),
+                                            d_memory_location,
+                                            gathered_rs.get() + rs_pos,
+                                            comm_block->d_memory_location,
+                                            nrs );
         rs_pos += nrs;
 
         block->setNNZ( false );
         if ( nnz > 0 ) {
-            AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                gathered_cols.get() + nnz_pos, nnz, block->d_cols.get() );
-            AMP::Utilities::Algorithms<scalar_t>::copy_n(
-                gathered_vals.get() + nnz_pos, nnz, block->d_coeffs.get() );
+            AMP::Utilities::Algorithms::copy_n( block->d_cols.get(),
+                                                d_memory_location,
+                                                gathered_cols.get() + nnz_pos,
+                                                comm_block->d_memory_location,
+                                                nnz );
+            AMP::Utilities::Algorithms::copy_n( block->d_coeffs.get(),
+                                                d_memory_location,
+                                                gathered_vals.get() + nnz_pos,
+                                                comm_block->d_memory_location,
+                                                nnz );
         }
         nnz_pos += nnz;
 

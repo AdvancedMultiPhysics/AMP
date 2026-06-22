@@ -79,16 +79,28 @@ void random_kernel( ExecSpace exec, ViewT xv )
     Kokkos::parallel_for(
         "VectorOperationsKokkos::random", pol, KOKKOS_LAMBDA( const int i ) {
             auto gen = random_pool.get_state();
-            xv( i )  = static_cast<T>( gen.drand( 0.0, 1.0 ) );
+            if constexpr ( std::is_floating_point_v<T> ) {
+                xv( i ) = static_cast<T>( gen.drand( 0.0, 1.0 ) );
+            } else if constexpr ( std::is_integral_v<T> ) {
+                const T max_val =
+                    Kokkos::floor( Kokkos::sqrt( double{ 0.1 } * std::numeric_limits<T>::max() ) );
+                xv( i ) = static_cast<T>( gen.urand64( 1, max_val ) );
+            } else {
+                // unreachable
+                xv( i ) = 0;
+            }
             // do not forget to release the state of the engine
             random_pool.free_state( gen );
         } );
+    // exec.fence();
 }
 
 template<typename T>
 void VectorOperationsKokkos<T>::setRandomValues( VectorData &x )
 {
     PROFILE( "VectorOperationsKokkos::setRandomValues" );
+
+    AMP_ASSERT( std::is_integral_v<T> || std::is_floating_point_v<T> );
 
     const auto device_exec =
         AMP::Utilities::memoryLocationsDeviceAccessible( x.getMemoryLocation() );

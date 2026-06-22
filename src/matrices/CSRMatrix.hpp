@@ -139,7 +139,7 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType m
 
     auto data = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
 
-    if ( memType == AMP::Utilities::getAllocatorMemoryType<typename Config::allocator_type>() ) {
+    if ( memType == Config::mem_loc ) {
         return this->clone();
     } else if ( memType == AMP::Utilities::MemoryType::host ) {
         return this->migrate<ConfigHost>( backend );

@@ -1,3 +1,4 @@
+#include "AMP/IO/RestartManager.h"
 #include "AMP/discretization/DOF_Manager.h"
 #include "AMP/matrices/AMPCSRMatrixParameters.h"
 #include "AMP/matrices/MatrixParameters.h"
@@ -130,6 +131,7 @@ template<typename Config>
 void AMPCSRMatrixParameters<Config>::writeRestart( int64_t fid ) const
 {
     MatrixParameters::writeRestart( fid );
+    IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
 }
 
 template<typename Config>
