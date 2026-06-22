@@ -88,12 +88,18 @@
                                                                      const std::vector<size_t> &,  \
                                                                      const std::vector<size_t> & ) \
         const
+#define INSTANTIATE_MPI_ROOT_GATHER( TYPE )                                                        \
+    template std::vector<TYPE> AMP::AMP_MPI::gather<TYPE>( const TYPE &, int ) const;              \
+    template std::vector<TYPE> AMP::AMP_MPI::gather<TYPE>( const std::vector<TYPE> &, int ) const; \
+    template void AMP::AMP_MPI::gather<TYPE>(                                                      \
+        const TYPE *, int, TYPE *, const int *, const int *, int ) const
 
 #define INSTANTIATE_MPI_TYPE( TYPE )  \
     INSTANTIATE_MPI_REDUCE( TYPE );   \
     INSTANTIATE_MPI_BCAST( TYPE );    \
     INSTANTIATE_MPI_SENDRECV( TYPE ); \
-    INSTANTIATE_MPI_GATHER( TYPE )
+    INSTANTIATE_MPI_GATHER( TYPE );   \
+    INSTANTIATE_MPI_ROOT_GATHER( TYPE )
 
 
 // Use AMP namespace
@@ -148,8 +154,9 @@ constexpr bool isMPItype()
            std::is_same_v<TYPE, int8_t> || std::is_same_v<TYPE, uint16_t> ||
            std::is_same_v<TYPE, int16_t> || std::is_same_v<TYPE, uint32_t> ||
            std::is_same_v<TYPE, int32_t> || std::is_same_v<TYPE, uint64_t> ||
-           std::is_same_v<TYPE, int64_t> || std::is_same_v<TYPE, float> ||
-           std::is_same_v<TYPE, double> || std::is_same_v<TYPE, std::complex<float>> ||
+           std::is_same_v<TYPE, int64_t> || std::is_same_v<TYPE, long long> ||
+           std::is_same_v<TYPE, float> || std::is_same_v<TYPE, double> ||
+           std::is_same_v<TYPE, std::complex<float>> ||
            std::is_same_v<TYPE, std::complex<double>> ||
            std::is_same_v<TYPE, TypeIntStruct<short>> || std::is_same_v<TYPE, TypeIntStruct<int>> ||
            std::is_same_v<TYPE, TypeIntStruct<long>> ||
@@ -180,6 +187,8 @@ AMP_MPI::Datatype MPI_getType()
         return MPI_UINT64_T;
     if constexpr ( std::is_same_v<TYPE, int64_t> )
         return MPI_INT64_T;
+    if constexpr ( std::is_same_v<TYPE, long long> )
+        return MPI_LONG_LONG_INT;
     if constexpr ( std::is_same_v<TYPE, float> )
         return MPI_FLOAT;
     if constexpr ( std::is_same_v<TYPE, double> )
@@ -227,6 +236,8 @@ inline size_t MPI_getTypeSize( AMP_MPI::Datatype type )
         return sizeof( uint64_t );
     if ( type == MPI_getType<int64_t>() )
         return sizeof( int64_t );
+    if ( type == MPI_getType<long long>() )
+        return sizeof( long long );
     if ( type == MPI_getType<float>() )
         return sizeof( float );
     if ( type == MPI_getType<double>() )
@@ -912,12 +923,14 @@ void AMP_MPI::gather( const TYPE *sendbuf,
         auto type = MPI_getType<TYPE>();
         MPI_Gatherv( sendbuf, sendcount, type, recvbuf, recv_cnt, recv_disp, type, root, d_comm );
     } else if constexpr ( is_mpi_copyable_v<TYPE> ) {
-        size_t N = sizeof( TYPE );
-        std::vector<int> recv_cnt2( d_size );
-        std::vector<int> recv_disp2( d_size );
-        for ( int i = 0; i < d_size; i++ ) {
-            recv_cnt2[i]  = N * recv_cnt[i];
-            recv_disp2[i] = N * recv_disp[i];
+        const auto N = static_cast<int>( sizeof( TYPE ) );
+        std::vector<int> recv_cnt2( d_size, 0 );
+        std::vector<int> recv_disp2( d_size, 0 );
+        if ( d_rank == root ) {
+            for ( int i = 0; i < d_size; i++ ) {
+                recv_cnt2[i]  = N * recv_cnt[i];
+                recv_disp2[i] = N * recv_disp[i];
+            }
         }
         MPI_Gatherv( sendbuf,
                      N * sendcount,

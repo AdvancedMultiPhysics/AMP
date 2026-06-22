@@ -60,7 +60,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
               << std::endl;
 
     // Create aggregate matrix
-    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min", false };
+    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min", false, 2 };
     auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( crs_settings );
     auto P   = agg->getAggregateMatrix( A );
 

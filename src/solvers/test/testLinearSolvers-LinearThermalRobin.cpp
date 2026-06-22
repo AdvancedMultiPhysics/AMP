@@ -448,6 +448,8 @@ int main( int argc, char *argv[] )
                     "input_testLinearSolvers-LinearThermalRobin-SASolver-BoomerAMG" );
                 hostOnlyInputs.emplace_back(
                     "input_testLinearSolvers-LinearThermalRobin-UASolver-FCG" );
+                hostOnlyInputs.emplace_back(
+                    "input_testLinearSolvers-LinearThermalRobin-UASolver-Redist" );
             }
 
     #ifdef AMP_USE_PETSC
