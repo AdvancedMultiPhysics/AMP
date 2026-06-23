@@ -79,9 +79,9 @@ void random_kernel( ExecSpace exec, ViewT xv )
     Kokkos::parallel_for(
         "VectorOperationsKokkos::random", pol, KOKKOS_LAMBDA( const int i ) {
             auto gen = random_pool.get_state();
-            if constexpr ( std::is_floating_point_v<T> ) {
+            if ( std::is_floating_point_v<T> ) {
                 xv( i ) = static_cast<T>( gen.drand( 0.0, 1.0 ) );
-            } else if constexpr ( std::is_integral_v<T> ) {
+            } else if ( std::is_integral_v<T> ) {
                 const T max_val =
                     Kokkos::floor( Kokkos::sqrt( double{ 0.1 } * std::numeric_limits<T>::max() ) );
                 xv( i ) = static_cast<T>( gen.urand64( 1, max_val ) );
@@ -92,7 +92,6 @@ void random_kernel( ExecSpace exec, ViewT xv )
             // do not forget to release the state of the engine
             random_pool.free_state( gen );
         } );
-    // exec.fence();
 }
 
 template<typename T>
