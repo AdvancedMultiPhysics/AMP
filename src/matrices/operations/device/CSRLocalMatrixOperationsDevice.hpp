@@ -78,7 +78,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setScalar(
 
     const auto tnnz_d = A->numberOfNonZeros();
 
-    AMP::Utilities::Algorithms<typename Config::scalar_t>::fill_n( coeffs_d, tnnz_d, alpha );
+    AMP::Utilities::Algorithms::fill_n( coeffs_d, tnnz_d, alpha, Config::mem_loc );
 }
 
 template<typename Config, class LocalMatrixData>

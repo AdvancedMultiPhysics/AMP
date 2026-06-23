@@ -114,7 +114,7 @@ protected:
 #elif defined( AMP_USE_DEVICE )
     // do not have gpu-aware mpi, only need migration if
     // matrices live on device
-    static constexpr bool MIGRATE_DEV = std::is_same_v<allocator_type, AMP::DeviceAllocator<void>>;
+    static constexpr bool MIGRATE_DEV = Config::mem_loc == AMP::Utilities::MemoryType::device;
 #else
     // not a device build, so migration irrelevant
     static constexpr bool MIGRATE_DEV = false;

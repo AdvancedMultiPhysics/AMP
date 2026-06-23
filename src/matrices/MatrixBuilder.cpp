@@ -95,7 +95,7 @@ createCSRMatrix( AMP::LinearAlgebra::Vector::shared_ptr leftVec,
                  AMP::LinearAlgebra::Vector::shared_ptr rightVec,
                  const std::function<std::vector<size_t>( size_t )> &getRow )
 {
-    auto memType = AMP::Utilities::getMemoryType( rightVec->getRawDataBlockAsVoid( 0 ) );
+    auto memType             = rightVec->getMemoryLocation();
     auto accelerationBackend = AMP::Utilities::getDefaultBackend( memType );
     return createCSRMatrix<Config>( leftVec, rightVec, getRow, accelerationBackend );
 }
@@ -292,7 +292,7 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
 {
 
     // Find memory type associated with (right) vector
-    auto memType = AMP::Utilities::getMemoryType( rightVec->getRawDataBlockAsVoid( 0 ) );
+    auto memType             = rightVec->getMemoryLocation();
     auto accelerationBackend = AMP::Utilities::getDefaultBackend( memType );
     return createMatrix( rightVec, leftVec, accelerationBackend, type, getRow );
 }
@@ -379,7 +379,7 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
     }
 
     // Find memory type associated with (right) vector
-    auto memType = AMP::Utilities::getMemoryType( rightVec->getRawDataBlockAsVoid( 0 ) );
+    auto memType = rightVec->getMemoryLocation();
 
     // Build the matrix
     std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix;

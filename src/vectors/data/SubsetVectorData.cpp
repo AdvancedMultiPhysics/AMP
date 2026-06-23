@@ -145,9 +145,12 @@ static void getData( void *out,
     }
 }
 
-void SubsetVectorData::putRawData( const void *in, const typeID &id )
+void SubsetVectorData::putRawData( const void *in,
+                                   const typeID &id,
+                                   AMP::Utilities::MemoryType buf_loc )
 {
     AMP_ASSERT( id == d_typeID );
+    AMP_ASSERT( buf_loc == AMP::Utilities::MemoryType::host );
     if ( id == getTypeID<double>() ) {
         putData<double>( in, d_dataBlockPtr, d_dataBlockSize );
     } else if ( id == getTypeID<float>() ) {
@@ -157,9 +160,12 @@ void SubsetVectorData::putRawData( const void *in, const typeID &id )
     }
 }
 
-void SubsetVectorData::getRawData( void *out, const typeID &id ) const
+void SubsetVectorData::getRawData( void *out,
+                                   const typeID &id,
+                                   AMP::Utilities::MemoryType buf_loc ) const
 {
     AMP_ASSERT( id == getTypeID<double>() );
+    AMP_ASSERT( buf_loc == AMP::Utilities::MemoryType::host );
     if ( id == getTypeID<double>() ) {
         getData<double>( out, d_dataBlockPtr, d_dataBlockSize );
     } else if ( id == getTypeID<float>() ) {
@@ -176,7 +182,8 @@ void SubsetVectorData::getRawData( void *out, const typeID &id ) const
 void SubsetVectorData::addValuesByLocalID( size_t N,
                                            const size_t *ndx,
                                            const void *vals,
-                                           const typeID &id )
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "SubsetVectorData::addValuesByLocalID" );
 
@@ -184,13 +191,14 @@ void SubsetVectorData::addValuesByLocalID( size_t N,
     std::vector<size_t> index( N );
     for ( size_t i = 0; i != N; i++ )
         index[i] = d_SubsetLocalIDToViewGlobalID[ndx[i]] - d_parentLocalStartID;
-    d_ViewVector->getVectorData()->addValuesByLocalID( N, index.data(), vals, id );
+    d_ViewVector->getVectorData()->addValuesByLocalID( N, index.data(), vals, id, buf_loc );
 }
 
 void SubsetVectorData::setValuesByLocalID( size_t N,
                                            const size_t *ndx,
                                            const void *vals,
-                                           const typeID &id )
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "SubsetVectorData::setValuesByLocalID" );
 
@@ -198,13 +206,14 @@ void SubsetVectorData::setValuesByLocalID( size_t N,
     std::vector<size_t> index( N );
     for ( size_t i = 0; i != N; i++ )
         index[i] = d_SubsetLocalIDToViewGlobalID[ndx[i]] - d_parentLocalStartID;
-    d_ViewVector->getVectorData()->setValuesByLocalID( N, index.data(), vals, id );
+    d_ViewVector->getVectorData()->setValuesByLocalID( N, index.data(), vals, id, buf_loc );
 }
 
 void SubsetVectorData::getValuesByLocalID( size_t N,
                                            const size_t *ndx,
                                            void *vals,
-                                           const typeID &id ) const
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "SubsetVectorData::getValuesByLocalID" );
 
@@ -212,7 +221,7 @@ void SubsetVectorData::getValuesByLocalID( size_t N,
     std::vector<size_t> index( N );
     for ( size_t i = 0; i != N; i++ )
         index[i] = d_SubsetLocalIDToViewGlobalID[ndx[i]] - d_parentLocalStartID;
-    d_ViewVector->getVectorData()->getValuesByLocalID( N, index.data(), vals, id );
+    d_ViewVector->getVectorData()->getValuesByLocalID( N, index.data(), vals, id, buf_loc );
 }
 
 void SubsetVectorData::swapData( VectorData &rhs )

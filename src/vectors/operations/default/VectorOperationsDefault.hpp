@@ -94,7 +94,7 @@ void VectorOperationsDefault<TYPE>::zero( VectorData &x )
     for ( size_t i = 0; i < N_blocks; i++ ) {
         auto data = x.getRawDataBlock<TYPE>( i );
         auto N    = x.sizeOfDataBlock( i );
-        AMP::Utilities::zero( data, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::zero_n( data, N, x.getMemoryLocation() );
     }
     x.fillGhosts( 0 );
     // Override the status state since we set the ghost values
@@ -177,7 +177,8 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
             auto xdata = x.getRawDataBlock<TYPE>( i );
             auto ydata = y.getRawDataBlock<TYPE>( i );
             AMP_ASSERT( xdata && ydata && N == x.sizeOfDataBlock( i ) );
-            AMP::Utilities::memcpy( ydata, xdata, N * sizeof( TYPE ) );
+            AMP::Utilities::Algorithms::copy_n(
+                ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N );
         }
         y.copyGhostValues( x );
     } else if ( N_blocks_x == N_blocks && !x.isType<TYPE>() ) {
@@ -186,12 +187,20 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
             auto ydata = y.getRawDataBlock<TYPE>( i );
             auto type  = x.getType( i );
             AMP_ASSERT( N == x.sizeOfDataBlock( i ) );
-            if ( type == getTypeID<float>() ) {
+            if ( type == getTypeID<float>() && std::is_same_v<TYPE, double> ) {
                 auto xdata = x.getRawDataBlock<float>( i );
-                AMP::Utilities::copy( N, xdata, ydata );
-            } else if ( type == getTypeID<double>() ) {
+                AMP::Utilities::Algorithms::copyCast( reinterpret_cast<double *>( ydata ),
+                                                      y.getMemoryLocation(),
+                                                      xdata,
+                                                      x.getMemoryLocation(),
+                                                      N );
+            } else if ( type == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
                 auto xdata = x.getRawDataBlock<double>( i );
-                AMP::Utilities::copy( N, xdata, ydata );
+                AMP::Utilities::Algorithms::copyCast( reinterpret_cast<float *>( ydata ),
+                                                      y.getMemoryLocation(),
+                                                      xdata,
+                                                      x.getMemoryLocation(),
+                                                      N );
             } else {
                 AMP_ERROR( "copy only implemented for float or doubles" );
             }

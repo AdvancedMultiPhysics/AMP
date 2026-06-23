@@ -85,6 +85,7 @@ uint64_t MatrixData::getID() const { return d_hash; }
  ****************************************************************/
 void MatrixData::registerChildObjects( AMP::IO::RestartManager *manager ) const
 {
+    AMP_ASSERT( manager );
     auto id = manager->registerObject( d_pParameters );
     AMP_ASSERT( id == d_pParameters->getID() );
 }
@@ -99,8 +100,10 @@ MatrixData::MatrixData( int64_t fid, AMP::IO::RestartManager *manager )
 {
     uint64_t paramsID;
     IO::readHDF5( fid, "paramsID", paramsID );
-    if ( paramsID )
+    if ( paramsID ) {
+        AMP_ASSERT( manager );
         d_pParameters = manager->getData<MatrixParametersBase>( paramsID );
+    }
 }
 
 } // namespace AMP::LinearAlgebra
@@ -130,6 +133,7 @@ std::shared_ptr<AMP::LinearAlgebra::MatrixData>
 AMP::IO::RestartManager::DataStoreType<AMP::LinearAlgebra::MatrixData>::read(
     hid_t fid, const std::string &name, RestartManager *manager ) const
 {
+    AMP_ASSERT( manager );
     hid_t gid       = openGroup( fid, name );
     auto matrixData = AMP::LinearAlgebra::MatrixDataFactory::create( gid, manager );
     closeGroup( gid );

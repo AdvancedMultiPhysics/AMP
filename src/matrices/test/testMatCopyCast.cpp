@@ -33,14 +33,11 @@
 // profiling information regarding matvec products with different matrix
 // classes
 
-
 template<typename Config>
 void createMatrixAndVectors( AMP::UnitTest *ut,
-                             const std::string &test_name,
-                             AMP::Utilities::MemoryType mem_loc,
                              AMP::Utilities::Backend backend,
-                             std::shared_ptr<AMP::Discretization::DOFManager> dofManager,
-                             std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
+                             std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
+                             std::shared_ptr<AMP::LinearAlgebra::Matrix> &matrix,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &y )
 {
@@ -48,66 +45,34 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar, true, mem_loc );
-    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar, true, mem_loc );
-
-    ///// Temporary before updating create matrix
-    // Get the DOFs
-    auto leftDOF  = inVec->getDOFManager();
-    auto rightDOF = outVec->getDOFManager();
-
-    const auto _leftDOF  = leftDOF.get();
-    const auto _rightDOF = rightDOF.get();
-    std::function<std::vector<size_t>( size_t )> getRow;
-    getRow = [_leftDOF, _rightDOF]( size_t row ) {
-        auto id = _leftDOF->getElementID( row );
-        return _rightDOF->getRowDOFs( id );
-    };
-
-    // Create the matrix parameters
-    auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOF, rightDOF, comm, inVar, outVar, backend, getRow );
-
-    // Create the matrix
-    auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Config>>( params );
-    matrix    = std::make_shared<AMP::LinearAlgebra::CSRMatrix<Config>>( data );
-    // Initialize the matrix
-    matrix->zero();
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-    ///// END: Temporary before updating create matrix
+    matrix =
+        pseudoLaplacianFromDOFs( "CSRMatrix", dofManager, backend, Config::mem_loc, inVar, outVar );
 
     if ( matrix ) {
-        ut->passes( test_name + ": Able to create a square matrix" );
+        ut->passes( " Able to create a square matrix" );
     } else {
-        ut->failure( test_name + ": Unable to create a square matrix" );
+        ut->failure( " Unable to create a square matrix" );
     }
 
     x = matrix->createInputVector();
     y = matrix->createOutputVector();
 }
 
+// NOTE destructive on Y
 template<class Config>
 void checkEqualEntries( AMP::UnitTest *ut,
                         const std::string &test_name,
                         const std::string &task,
-                        std::shared_ptr<AMP::Discretization::DOFManager> dofManager,
-                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> X,
-                        std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> Y,
+                        std::shared_ptr<AMP::LinearAlgebra::Matrix> X,
+                        std::shared_ptr<AMP::LinearAlgebra::Matrix> Y,
                         double tol )
 {
-    for ( size_t i = dofManager->beginDOF(); i != dofManager->endDOF(); i++ ) {
-        std::vector<size_t> cols_X, cols_Y;
-        std::vector<double> vals_X, vals_Y;
-        X->getRowByGlobalID( i, cols_X, vals_X );
-        Y->getRowByGlobalID( i, cols_Y, vals_Y );
-        for ( size_t j = 0; j != cols_X.size(); j++ ) {
-            if ( std::abs( vals_X[j] - vals_Y[j] ) > tol ) {
-                ut->failure( test_name + ": Fails to " + task +
-                             AMP::Utilities::stringf( ". Difference of %e found between entries",
-                                                      std::abs( vals_X[j] - vals_Y[j] ) ) );
-                return;
-            }
-        }
+    Y->axpy( -1.0, X );
+    const auto norm = static_cast<double>( Y->LinfNorm() );
+    if ( norm > tol ) {
+        ut->failure( test_name + ": Fails to " + task +
+                     AMP::Utilities::stringf( ". Difference of %e found between entries", norm ) );
+        return;
     }
     ut->passes( test_name + ": Able to " + task );
 }
@@ -123,39 +88,33 @@ void testCopyCast( AMP::UnitTest *ut,
     using ConfigD = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f64>;
     using ConfigF = AMP::LinearAlgebra::CSRConfig<Allocator, index::i32, index::i64, scalar::f32>;
 
-    const auto mem_loc = AMP::LinearAlgebra::alloc_info<Allocator>::mem_loc;
-
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigD>> A = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigF>> B = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigD>> C = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<ConfigF>> D = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> x             = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> y             = nullptr;
-    createMatrixAndVectors<ConfigD>( ut, test_name, mem_loc, backend, dofManager, A, x, y );
-    createMatrixAndVectors<ConfigF>( ut, test_name, mem_loc, backend, dofManager, B, x, y );
-    createMatrixAndVectors<ConfigD>( ut, test_name, mem_loc, backend, dofManager, C, x, y );
-    createMatrixAndVectors<ConfigF>( ut, test_name, mem_loc, backend, dofManager, D, x, y );
-
-    fillWithPseudoLaplacian( A );
-    A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> A = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> B = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> C = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> D = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> x = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> y = nullptr;
+    createMatrixAndVectors<ConfigD>( ut, backend, dofManager, A, x, y );
+    createMatrixAndVectors<ConfigF>( ut, backend, dofManager, B, x, y );
+    createMatrixAndVectors<ConfigD>( ut, backend, dofManager, C, x, y );
+    createMatrixAndVectors<ConfigF>( ut, backend, dofManager, D, x, y );
 
     B->copyCast( A );
     C->copyCast( B );
     checkEqualEntries<ConfigD>( ut,
                                 test_name,
                                 "copyCast double->float->double",
-                                dofManager,
                                 A,
                                 C,
                                 std::numeric_limits<float>::epsilon() );
 
     C->copyCast( A );
     checkEqualEntries<ConfigD>(
-        ut, test_name, "copy doubles", dofManager, A, C, std::numeric_limits<double>::epsilon() );
+        ut, test_name, "copy doubles", A, C, std::numeric_limits<double>::epsilon() );
 
     D->copyCast( B );
     checkEqualEntries<ConfigF>(
-        ut, test_name, "copy floats", dofManager, B, D, std::numeric_limits<float>::epsilon() );
+        ut, test_name, "copy floats", B, D, std::numeric_limits<float>::epsilon() );
 }
 
 void matDeviceOperationsTest( AMP::UnitTest *ut, const std::string &input_file )

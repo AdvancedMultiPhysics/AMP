@@ -63,7 +63,9 @@ void NativePetscVectorData::makeConsistent()
     setUpdateStatus( UpdateState::UNCHANGED );
 }
 
-void NativePetscVectorData::putRawData( const void *in, const typeID &id )
+void NativePetscVectorData::putRawData( const void *in,
+                                        const typeID &id,
+                                        AMP::Utilities::MemoryType )
 {
     resetArray();
     constexpr auto type = getTypeID<PetscScalar>();
@@ -78,7 +80,9 @@ void NativePetscVectorData::putRawData( const void *in, const typeID &id )
     VecSetValues( d_petscVec, offs.size(), offs.data(), data, INSERT_VALUES );
 }
 
-void NativePetscVectorData::getRawData( void *out, const typeID &id ) const
+void NativePetscVectorData::getRawData( void *out,
+                                        const typeID &id,
+                                        AMP::Utilities::MemoryType ) const
 {
     resetArray(); // return possibly outstanding raw data block
     constexpr auto type = getTypeID<PetscScalar>();
@@ -143,7 +147,8 @@ void NativePetscVectorData::resetArray() const
 void NativePetscVectorData::setValuesByLocalID( size_t N,
                                                 const size_t *indices,
                                                 const void *vals,
-                                                const typeID &id )
+                                                const typeID &id,
+                                                AMP::Utilities::MemoryType )
 {
     resetArray();
     AMP_ASSERT( id == getTypeID<PetscScalar>() );
@@ -159,7 +164,8 @@ void NativePetscVectorData::setValuesByLocalID( size_t N,
 void NativePetscVectorData::addValuesByLocalID( size_t N,
                                                 const size_t *indices,
                                                 const void *vals,
-                                                const typeID &id )
+                                                const typeID &id,
+                                                AMP::Utilities::MemoryType )
 {
     resetArray();
     AMP_ASSERT( id == getTypeID<PetscScalar>() );
@@ -174,7 +180,8 @@ void NativePetscVectorData::addValuesByLocalID( size_t N,
 void NativePetscVectorData::getValuesByLocalID( size_t N,
                                                 const size_t *indices,
                                                 void *vals,
-                                                const typeID &id ) const
+                                                const typeID &id,
+                                                AMP::Utilities::MemoryType ) const
 {
     resetArray();
     AMP_ASSERT( id == getTypeID<PetscScalar>() );

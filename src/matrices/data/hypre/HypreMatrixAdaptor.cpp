@@ -194,12 +194,11 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
     AMP_INSIST( rs_d && cols_loc_d && coeffs_d, "diagonal block layout cannot be NULL" );
 
     // Fill in the ->i fields of diag and off_diag
-    AMP::Utilities::copy( static_cast<size_t>( nrows + 1 ), rs_d, diag->i );
+    AMP::Utilities::Algorithms::copy_n( diag->i, rs_d, nrows + 1, csr_mem_loc );
     if ( haveOffd ) {
-        AMP::Utilities::copy( static_cast<size_t>( nrows + 1 ), rs_od, off_diag->i );
+        AMP::Utilities::Algorithms::copy_n( off_diag->i, rs_od, nrows + 1, csr_mem_loc );
     } else {
-        AMP::Utilities::Algorithms<HYPRE_Int>::fill_n(
-            off_diag->i, static_cast<size_t>( nrows + 1 ), 0 );
+        AMP::Utilities::Algorithms::zero_n( off_diag->i, nrows + 1, csr_mem_loc );
     }
 
     // This is where we tell hypre to stop owning any data
@@ -228,16 +227,21 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
         // always allocate and set host side offd map
         par_matrix->col_map_offd =
             hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_HOST );
-        AMP::Utilities::copy(
-            static_cast<size_t>( off_diag->num_cols ), colMap, par_matrix->col_map_offd );
+        AMP::Utilities::Algorithms::copyCast( par_matrix->col_map_offd,
+                                              AMP::Utilities::MemoryType::host,
+                                              colMap,
+                                              csr_mem_loc,
+                                              off_diag->num_cols );
 
         // and do device map if needed
         if ( memory_location == HYPRE_MEMORY_DEVICE ) {
             par_matrix->device_col_map_offd =
                 hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_DEVICE );
-            AMP::Utilities::copy( static_cast<size_t>( off_diag->num_cols ),
-                                  colMap,
-                                  par_matrix->device_col_map_offd );
+            AMP::Utilities::Algorithms::copyCast( par_matrix->device_col_map_offd,
+                                                  csr_mem_loc,
+                                                  colMap,
+                                                  csr_mem_loc,
+                                                  off_diag->num_cols );
         }
     }
 

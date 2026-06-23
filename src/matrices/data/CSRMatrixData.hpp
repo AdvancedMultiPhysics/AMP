@@ -120,16 +120,23 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
             for ( lidx_t n = 0; n < nrows; ++n ) {
                 rowHelper->NNZ( d_first_row + n, nnz_diag[n], nnz_offd[n] );
             }
-            d_diag_matrix->setNNZ( nnz_diag.data() );
-            d_offd_matrix->setNNZ( nnz_offd.data() );
+            d_diag_matrix->setNNZ( nnz_diag.data(), AMP::Utilities::MemoryType::host );
+            d_offd_matrix->setNNZ( nnz_offd.data(), AMP::Utilities::MemoryType::host );
 
             auto diag_cols = rowHelper->getLocals();
             auto offd_cols = rowHelper->getRemotes();
 
-            AMP::Utilities::copy( d_diag_matrix->d_nnz, diag_cols, d_diag_matrix->d_cols.get() );
+            AMP::Utilities::Algorithms::copyCast( d_diag_matrix->d_cols.get(),
+                                                  Config::mem_loc,
+                                                  diag_cols,
+                                                  AMP::Utilities::MemoryType::host,
+                                                  d_diag_matrix->d_nnz );
             if ( !d_offd_matrix->d_is_empty ) {
-                AMP::Utilities::copy(
-                    d_offd_matrix->d_nnz, offd_cols, d_offd_matrix->d_cols.get() );
+                AMP::Utilities::Algorithms::copyCast( d_offd_matrix->d_cols.get(),
+                                                      Config::mem_loc,
+                                                      offd_cols,
+                                                      AMP::Utilities::MemoryType::host,
+                                                      d_offd_matrix->d_nnz );
             }
 
             // contents of rowHelper no longer useful, trigger deallocation
@@ -314,16 +321,25 @@ CSRMatrixData<Config>::redistribute( const AMP::Utilities::GroupedRedistribution
         const auto nnz = static_cast<std::size_t>( gathered_nnz[src] );
         auto block = std::make_shared<localmatrixdata_t>( nullptr, 0, nr, 0, global_rows, true );
 
-        AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            gathered_rs.get() + rs_pos, nrs, block->d_row_starts.get() );
+        AMP::Utilities::Algorithms::copy_n( block->d_row_starts.get(),
+                                            d_memory_location,
+                                            gathered_rs.get() + rs_pos,
+                                            comm_block->d_memory_location,
+                                            nrs );
         rs_pos += nrs;
 
         block->setNNZ( false );
         if ( nnz > 0 ) {
-            AMP::Utilities::Algorithms<gidx_t>::copy_n(
-                gathered_cols.get() + nnz_pos, nnz, block->d_cols.get() );
-            AMP::Utilities::Algorithms<scalar_t>::copy_n(
-                gathered_vals.get() + nnz_pos, nnz, block->d_coeffs.get() );
+            AMP::Utilities::Algorithms::copy_n( block->d_cols.get(),
+                                                d_memory_location,
+                                                gathered_cols.get() + nnz_pos,
+                                                comm_block->d_memory_location,
+                                                nnz );
+            AMP::Utilities::Algorithms::copy_n( block->d_coeffs.get(),
+                                                d_memory_location,
+                                                gathered_vals.get() + nnz_pos,
+                                                comm_block->d_memory_location,
+                                                nnz );
         }
         nnz_pos += nnz;
 
@@ -377,7 +393,7 @@ std::shared_ptr<CSRMatrixData<ConfigOut>> CSRMatrixData<Config>::migrate() const
     outData->d_leftCommList           = d_leftCommList;
     outData->d_rightCommList          = d_rightCommList;
     outData->d_pParameters            = std::make_shared<MatrixParametersBase>( *d_pParameters );
-    outData->d_pParameters->d_backend = getDefaultBackend( outData->d_memory_location );
+    outData->d_pParameters->d_backend = getDefaultBackend( ConfigOut::mem_loc );
 
     outData->d_diag_matrix = d_diag_matrix->template migrate<ConfigOut>();
     outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
@@ -454,23 +470,23 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
 
     // make a matrix communicator based on right comm list
     CSRMatrixCommunicator<Config> mat_comm( d_rightCommList, true );
-    auto comm    = d_rightCommList->getComm();
-    auto my_rank = comm.getRank();
+    auto comm          = d_rightCommList->getComm();
+    const auto my_rank = comm.getRank();
     std::map<int, std::shared_ptr<localmatrixdata_t>> send_blocks;
 
     if ( !d_offd_matrix->isEmpty() ) {
         // extract info from offd block
-        auto num_unq = d_offd_matrix->numUniqueColumns();
+        const auto num_unq = d_offd_matrix->numUniqueColumns();
 
         // pull offd column map to host if not accessible
         std::vector<gidx_t> col_map_migrate;
-        if constexpr ( d_memory_location == AMP::Utilities::MemoryType::device ) {
-            d_offd_matrix->getColumnMap( col_map_migrate );
-        }
-
-        gidx_t *col_map = d_memory_location < AMP::Utilities::MemoryType::device ?
-                              d_offd_matrix->getColumnMap() :
-                              col_map_migrate.data();
+        gidx_t *col_map = [&col_map_migrate, d_offd_matrix = d_offd_matrix]() -> gidx_t * {
+            if ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
+                d_offd_matrix->getColumnMap( col_map_migrate );
+                return col_map_migrate.data();
+            }
+            return d_offd_matrix->getColumnMap();
+        }();
 
         // Get the partition from right comm list and test
         // which blocks need to be created
@@ -512,7 +528,8 @@ CSRMatrixData<Config>::transposeOffd( std::shared_ptr<MatrixParametersBase> para
             const auto part_end   = static_cast<gidx_t>( partition[rd] );
             auto block            = subsetCols( part_start, part_end, false );
             if ( !block->isEmpty() ) {
-                send_blocks.insert( { rd, block->transpose( params ) } );
+                auto block_t = block->transpose( params );
+                send_blocks.insert( { rd, block_t } );
             }
         }
     }
@@ -543,13 +560,15 @@ void CSRMatrixData<Config>::setNNZ( lidx_t tot_nnz_diag, lidx_t tot_nnz_offd )
 }
 
 template<typename Config>
-void CSRMatrixData<Config>::setNNZ( const lidx_t *nnz_diag, const lidx_t *nnz_offd )
+void CSRMatrixData<Config>::setNNZ( const lidx_t *nnz_diag,
+                                    const lidx_t *nnz_offd,
+                                    const AMP::Utilities::MemoryType mem_loc )
 {
     PROFILE( "CSRMatrixData::setNNZ" );
 
     // forward to internal blocks to get the internals allocated
-    d_diag_matrix->setNNZ( nnz_diag );
-    d_offd_matrix->setNNZ( nnz_offd );
+    d_diag_matrix->setNNZ( nnz_diag, mem_loc );
+    d_offd_matrix->setNNZ( nnz_offd, mem_loc );
 }
 
 template<typename Config>
@@ -666,16 +685,18 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
         nullptr, 0, static_cast<gidx_t>( rows.size() ), 0, numGlobalColumns(), true );
 
     // copy row selection to device if needed
-    constexpr bool rows_migrated = d_memory_location == AMP::Utilities::MemoryType::device;
+    constexpr bool rows_migrated = Config::mem_loc > AMP::Utilities::MemoryType::host;
     gidx_t *rows_d               = nullptr;
     if constexpr ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
-        AMP::Utilities::copy( rows.size(), rows.data(), rows_d );
+        AMP::Utilities::Algorithms::copy_n(
+            rows_d, Config::mem_loc, rows.data(), AMP::Utilities::MemoryType::host, rows.size() );
     }
+    const gidx_t *rows_data = rows_migrated ? rows_d : rows.data();
 
     // count nnz per row and write into sub matrix directly
     // also check that passed in rows are in ascending order and owned here
-    CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( rows_migrated ? rows_d : rows.data(),
+    CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ( rows_data,
                                                      static_cast<lidx_t>( rows.size() ),
                                                      d_first_row,
                                                      d_diag_matrix->d_row_starts.get(),
@@ -696,7 +717,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     }
 
     // Loop back over diag/offd and copy in marked rows
-    CSRMatrixDataHelpers<Config>::RowSubsetFill( rows_migrated ? rows_d : rows.data(),
+    CSRMatrixDataHelpers<Config>::RowSubsetFill( rows_data,
                                                  static_cast<lidx_t>( rows.size() ),
                                                  d_first_row,
                                                  d_diag_matrix->d_first_col,
@@ -775,7 +796,7 @@ void CSRMatrixData<Config>::getRowByGlobalID( size_t row,
                           row < static_cast<size_t>( d_last_row ),
                       "row must be owned by rank" );
 
-    AMP_DEBUG_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_DEBUG_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
                       "CSRMatrixData::getRowByGlobalID not implemented for device memory" );
 
     auto local_row = row - d_first_row;
@@ -804,8 +825,8 @@ void CSRMatrixData<Config>::getValuesByGlobalID( size_t num_rows,
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::getValuesByGlobalID called with inconsistent typeID" );
 
-    AMP_DEBUG_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                      "CSRMatrixData::getValuesByGlobalID not implemented for device memory" );
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
+                "CSRMatrixData::getValuesByGlobalID not implemented for device memory" );
 
     auto values = reinterpret_cast<scalar_t *>( vals );
 
@@ -842,8 +863,8 @@ void CSRMatrixData<Config>::addValuesByGlobalID( size_t num_rows,
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::addValuesByGlobalID called with inconsistent typeID" );
 
-    AMP_DEBUG_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                      "CSRMatrixData::addValuesByGlobalID not implemented for device memory" );
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
+                "CSRMatrixData::addValuesByGlobalID not implemented for device memory" );
 
     auto values = reinterpret_cast<const scalar_t *>( vals );
 
@@ -878,8 +899,8 @@ void CSRMatrixData<Config>::setValuesByGlobalID( size_t num_rows,
     AMP_DEBUG_INSIST( getTypeID<scalar_t>() == id,
                       "CSRMatrixData::setValuesByGlobalID called with inconsistent typeID" );
 
-    AMP_DEBUG_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                      "CSRMatrixData::setValuesByGlobalID not implemented for device memory" );
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
+                "CSRMatrixData::setValuesByGlobalID not implemented for device memory" );
 
     auto values = reinterpret_cast<const scalar_t *>( vals );
 
@@ -914,14 +935,12 @@ std::vector<size_t> CSRMatrixData<Config>::getColumnIDs( size_t row ) const
 {
     PROFILE( "CSRMatrixData::getColumnIDs" );
 
-    AMP_DEBUG_INSIST( row >= static_cast<size_t>( d_first_row ) &&
-                          row < static_cast<size_t>( d_last_row ),
-                      "CSRMatrixData::getColumnIDs row must be owned by rank" );
+    AMP_INSIST( row >= static_cast<size_t>( d_first_row ) &&
+                    row < static_cast<size_t>( d_last_row ),
+                "CSRMatrixData::getColumnIDs row must be owned by rank" );
 
-    AMP_DEBUG_INSIST( d_diag_matrix, "CSRMatrixData::getColumnIDs diag matrix must exist" );
-
-    AMP_DEBUG_INSIST( d_memory_location < AMP::Utilities::MemoryType::device,
-                      "CSRMatrixData::getColumnIDs not implemented for device memory" );
+    AMP_INSIST( Config::mem_loc == AMP::Utilities::MemoryType::host,
+                "CSRMatrixData::getColumnIDs not implemented for device memory" );
 
     auto local_row              = row - d_first_row;
     std::vector<size_t> cols    = d_diag_matrix->getColumnIDs( local_row );
@@ -1024,10 +1043,12 @@ void CSRMatrixData<Config>::makeConsistent( AMP::LinearAlgebra::ScatterType t )
 {
     PROFILE( "CSRMatrixData::makeConsistent" );
 
-#ifdef AMP_USE_DEVICE
-    deviceSynchronize();
-    getLastDeviceError( "CSRMatrixData::makeConsistent" );
-#endif
+    if constexpr ( Config::mem_loc > AMP::Utilities::MemoryType::host ) {
+        // calls that change d_other_data/d_ghost_data disallowed on device
+        AMP_ASSERT( d_other_data.size() == 0 );
+        AMP_ASSERT( d_ghost_data.size() == 0 );
+        return;
+    }
 
     if ( t == AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD )
         setOtherData( d_other_data, AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
@@ -1220,7 +1241,7 @@ void CSRMatrixData<Config>::writeRestart( int64_t fid ) const
 
     IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
 
-    IO::writeHDF5( fid, "memory_location", static_cast<signed char>( d_memory_location ) );
+    IO::writeHDF5( fid, "memory_location", static_cast<signed char>( Config::mem_loc ) );
     IO::writeHDF5( fid, "is_square", d_is_square );
     IO::writeHDF5( fid, "first_row", d_first_row );
     IO::writeHDF5( fid, "last_row", d_last_row );
@@ -1256,7 +1277,7 @@ CSRMatrixData<Config>::CSRMatrixData( int64_t fid, AMP::IO::RestartManager *mana
 
     signed char memory_location;
     IO::readHDF5( fid, "memory_location", memory_location );
-    AMP_ASSERT( d_memory_location == static_cast<AMP::Utilities::MemoryType>( memory_location ) );
+    AMP_ASSERT( Config::mem_loc == static_cast<AMP::Utilities::MemoryType>( memory_location ) );
 
     IO::readHDF5( fid, "is_square", d_is_square );
     IO::readHDF5( fid, "first_row", d_first_row );

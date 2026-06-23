@@ -36,9 +36,8 @@ void test_space_n_precision_migration( std::shared_ptr<AMP::LinearAlgebra::Matri
                                        AMP::UnitTest *ut )
 {
     auto mat_migrate = AMP::LinearAlgebra::createMatrix<Config>( matrix );
-    auto mem_loc     = AMP::Utilities::getAllocatorMemoryType<typename Config::allocator_type>();
-    auto x = AMP::LinearAlgebra::createVector<typename Config::scalar_t>( inVec, mem_loc );
-    auto y = AMP::LinearAlgebra::createVector<typename Config::scalar_t>( outVec, mem_loc );
+    auto x = AMP::LinearAlgebra::createVector<typename Config::scalar_t>( inVec, Config::mem_loc );
+    auto y = AMP::LinearAlgebra::createVector<typename Config::scalar_t>( outVec, Config::mem_loc );
     x->copy( *inVec );
     y->copy( *outVec );
     x->makeConsistent();
@@ -51,7 +50,7 @@ void test_space_n_precision_migration( std::shared_ptr<AMP::LinearAlgebra::Matri
     } else {
         AMP::pout << "1 Norm " << yNorm << ", number of rows " << mat_migrate->numGlobalRows()
                   << std::endl;
-        std::string space_name( AMP::Utilities::getString( mem_loc ) );
+        std::string space_name( AMP::Utilities::getString( Config::mem_loc ) );
         ut->failure( "Migrate to " + space_name + ": Fails 1 norm test with pseudo Laplacian" );
     }
 }
@@ -72,9 +71,18 @@ void test_accuracy_loss( std::shared_ptr<AMP::LinearAlgebra::Matrix> &matrix,
         std::vector<double> vals_X, vals_Y;
         X->getRowByGlobalID( i, cols_X, vals_X );
         Y->getRowByGlobalID( i, cols_Y, vals_Y );
-        for ( size_t j = 0; j != cols_X.size(); j++ ) {
+        if ( cols_X.size() != cols_Y.size() ) {
+            ut->failure( "Failed: migration did not preserve matrix shape" );
+            return;
+        }
+        for ( size_t j = 0; j < cols_X.size(); ++j ) {
             if ( std::abs( vals_X[j] - vals_Y[j] ) >
                  std::numeric_limits<typename ConfigTo::scalar_t>::epsilon() ) {
+
+                for ( size_t k = 0; k < cols_X.size(); ++k ) {
+                    AMP::pout << "[" << k << "]: " << vals_X[k] << " vs " << vals_Y[k] << std::endl;
+                }
+
                 ut->failure( "Failed. Precision loss higher than expected. " +
                              AMP::Utilities::stringf( "Difference of %e found between entries.",
                                                       std::abs( vals_X[j] - vals_Y[j] ) ) );

@@ -36,6 +36,7 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
     out->zero();
 
     // get all local output data buffer
+    auto inData            = in->getVectorData();
     auto outData           = out->getVectorData();
     scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
@@ -45,7 +46,6 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
 
     if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsDefault::mult (local)" );
-        auto inData = in->getVectorData();
         AMP_DEBUG_INSIST(
             inData->numberOfDataBlocks() == 1,
             "CSRMatrixOperationsDefault::mult only implemented for vectors with one data block" );
@@ -61,16 +61,16 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             auto colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else {
             AMP_WARN_ONCE(
                 "CSRMatrixOperationsDefault::mult deep-copying column map to size_t required" );
             // Fall back to forcing a copy-cast inside matrix data
             auto colMap = offdMatrix->getColumnMapSizeT();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         }
         d_localops_offd->mult( ghosts, offdMatrix, outDataBlock );
     }
@@ -101,6 +101,7 @@ void CSRMatrixOperationsDefault<Config>::multTranspose( std::shared_ptr<const Ve
                       "CSRMatrixOperationsDefault is not implemented for device memory" );
 
     auto inData                 = in->getVectorData();
+    auto outData                = out->getVectorData();
     const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
 
     {
@@ -109,7 +110,8 @@ void CSRMatrixOperationsDefault<Config>::multTranspose( std::shared_ptr<const Ve
         std::vector<scalar_t> vvals;
         std::vector<size_t> rcols;
         d_localops_diag->multTranspose( inDataBlock, diagMatrix, vvals, rcols );
-        out->addValuesByGlobalID( rcols.size(), rcols.data(), vvals.data() );
+        outData->addValuesByGlobalID(
+            rcols.size(), rcols.data(), vvals.data(), AMP::Utilities::MemoryType::host );
     }
     out->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
@@ -120,7 +122,8 @@ void CSRMatrixOperationsDefault<Config>::multTranspose( std::shared_ptr<const Ve
         std::vector<size_t> rcols;
         d_localops_offd->multTranspose( inDataBlock, offdMatrix, vvals, rcols );
         // Write out data, adding to any already present
-        out->addValuesByGlobalID( rcols.size(), rcols.data(), vvals.data() );
+        outData->addValuesByGlobalID(
+            rcols.size(), rcols.data(), vvals.data(), AMP::Utilities::MemoryType::host );
     }
 }
 
@@ -343,9 +346,8 @@ void CSRMatrixOperationsDefault<Config>::extractDiagonal( MatrixData const &A,
     AMP_ASSERT( buf->isType<scalar_t>( 0 ) );
 
     auto *rawVecData = buf->getRawDataBlock<scalar_t>();
-    auto memTypeV    = AMP::Utilities::getMemoryType( rawVecData );
-    AMP_INSIST( memTypeV < AMP::Utilities::MemoryType::device &&
-                    csrData->d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( buf->getMemoryLocation() < AMP::Utilities::MemoryType::device &&
+                    Config::mem_loc < AMP::Utilities::MemoryType::device,
                 "CSRMatrixOperationsDefault::extractDiagonal not implemented for device memory" );
 
     d_localops_diag->extractDiagonal( csrData->getDiagMatrix(), rawVecData );
@@ -364,15 +366,14 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
 
     auto *rawVecData = buf->getRawDataBlock<scalar_t>();
     AMP_ASSERT( rawVecData );
-    auto memTypeV = AMP::Utilities::getMemoryType( rawVecData );
-    AMP_INSIST( memTypeV < AMP::Utilities::MemoryType::device &&
-                    csrData->d_memory_location < AMP::Utilities::MemoryType::device,
+    AMP_INSIST( buf->getMemoryLocation() < AMP::Utilities::MemoryType::device &&
+                    Config::mem_loc < AMP::Utilities::MemoryType::device,
                 "CSRMatrixOperationsDefault::getRowSums not implemented for device memory" );
 
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0 );
+    AMP::Utilities::Algorithms::zero_n( rawVecData, nRows, Config::mem_loc );
 
     d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
@@ -394,16 +395,15 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
 
     auto *rawVecData = buf->getRawDataBlock<scalar_t>();
     AMP_ASSERT( rawVecData );
-    auto memTypeV = AMP::Utilities::getMemoryType( rawVecData );
     AMP_INSIST(
-        memTypeV < AMP::Utilities::MemoryType::device &&
-            csrData->d_memory_location < AMP::Utilities::MemoryType::device,
+        buf->getMemoryLocation() < AMP::Utilities::MemoryType::device &&
+            Config::mem_loc < AMP::Utilities::MemoryType::device,
         "CSRMatrixOperationsDefault::getRowSumsAbsolute not implemented for device memory" );
 
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms<scalar_t>::fill_n( rawVecData, nRows, 0 );
+    AMP::Utilities::Algorithms::zero_n( rawVecData, nRows, Config::mem_loc );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {

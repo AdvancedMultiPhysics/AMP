@@ -85,10 +85,17 @@ private:
               colind( std::get<1>( A_ptrs ) ),
               mat_values( std::get<2>( A_ptrs ) )
         {
-            values = valueAllocator.allocate( colind.size() );
+            if ( colind.size() > 0 ) {
+                values = valueAllocator.allocate( colind.size() );
+            }
         }
 
-        ~storage() { valueAllocator.deallocate( values, colind.size() ); }
+        ~storage()
+        {
+            if ( colind.size() > 0 ) {
+                valueAllocator.deallocate( values, colind.size() );
+            }
+        }
 
         struct reference {
             using ref_type       = mask_t &;
@@ -109,9 +116,9 @@ public:
 
     auto offd() const { return rep_type{ d_offd.rowptr, d_offd.colind, d_offd.values }; }
 
-    const auto diag_mask_data() const { return d_diag.values; }
+    auto diag_mask_data() const { return d_diag.values; }
 
-    const auto offd_mask_data() const { return d_offd.values; }
+    auto offd_mask_data() const { return d_offd.values; }
 
     auto diag_mask_data() { return d_diag.values; }
 

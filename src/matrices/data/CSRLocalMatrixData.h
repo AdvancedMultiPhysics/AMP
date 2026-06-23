@@ -3,6 +3,7 @@
 
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 
@@ -173,7 +174,11 @@ public:
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            AMP::Utilities::copy<gidx_t, idx_t>( d_ncols_unq, d_cols_unq.get(), colMap.data() );
+            AMP::Utilities::Algorithms::copyCast( colMap.data(),
+                                                  AMP::Utilities::MemoryType::host,
+                                                  d_cols_unq.get(),
+                                                  Config::mem_loc,
+                                                  d_ncols_unq );
         }
     }
 
@@ -182,7 +187,7 @@ public:
     void setNNZ( lidx_t tot_nnz );
 
     //! Set number of nonzeros in each row and allocate space accordingly
-    void setNNZ( const lidx_t *nnz );
+    void setNNZ( const lidx_t *nnz, const AMP::Utilities::MemoryType nnz_loc );
 
     //! setNNZ function that references d_row_starts and optionally does scan
     void setNNZ( bool do_accum );
@@ -261,8 +266,7 @@ public:
     CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager *manager );
 
     //! Memory location, set by examining type of Allocator
-    static constexpr AMP::Utilities::MemoryType d_memory_location =
-        AMP::Utilities::getAllocatorMemoryType<allocator_type>();
+    static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
 
 protected:
     /** \brief  Sort the columns/values within each row

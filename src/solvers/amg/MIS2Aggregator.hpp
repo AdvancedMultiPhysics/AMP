@@ -23,7 +23,6 @@
 
 #include "ProfilerApp.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <numeric>
@@ -56,8 +55,7 @@ int MIS2Aggregator::classifyVertices(
     using gidx_t   = typename Config::gidx_t;
     using scalar_t = typename Config::scalar_t;
 
-    constexpr bool host_exec =
-        std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>;
+    constexpr bool host_exec = !Config::device_accessible;
 
     // unpack diag block
     const auto begin_row = A_diag->beginRow();
@@ -290,8 +288,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    constexpr bool host_exec =
-        std::is_same_v<typename Config::allocator_type, AMP::HostAllocator<void>>;
+    constexpr bool host_exec = !Config::device_accessible;
 
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
@@ -342,14 +339,14 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // get temporary storage for aggregate sizes and MIS2 labels
     auto Tv     = localmatrixdata_t::template sharedArrayBuilder<uint64_t>( A_nrows );
     auto Tv_hat = localmatrixdata_t::template sharedArrayBuilder<uint64_t>( A_nrows );
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv.get(), A_nrows, OUT );
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat.get(), A_nrows, OUT );
+    AMP::Utilities::Algorithms::fill_n( Tv.get(), A_nrows, OUT, Config::mem_loc );
+    AMP::Utilities::Algorithms::fill_n( Tv_hat.get(), A_nrows, OUT, Config::mem_loc );
     auto agg_size       = localmatrixdata_t::template sharedArrayBuilder<int>( A_nrows );
     auto agg_root_ids   = localmatrixdata_t::template sharedArrayBuilder<int>( A_nrows );
     auto worklist       = localmatrixdata_t::makeLidxArray( A_nrows );
     lidx_t worklist_len = A_nrows;
-    AMP::Utilities::Algorithms<int>::fill_n( agg_size.get(), A_nrows, -1 );
-    AMP::Utilities::Algorithms<int>::fill_n( agg_root_ids.get(), A_nrows, UNASSIGNED );
+    AMP::Utilities::Algorithms::fill_n( agg_size.get(), A_nrows, -1, Config::mem_loc );
+    AMP::Utilities::Algorithms::fill_n( agg_root_ids.get(), A_nrows, UNASSIGNED, Config::mem_loc );
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
     {
@@ -428,7 +425,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
-        AMP::Utilities::Algorithms<lidx_t>::copy_n( agg_root_ids.get(), A_nrows, agg_ids );
+        AMP::Utilities::Algorithms::copy_n( agg_ids, agg_root_ids.get(), A_nrows, Config::mem_loc );
         auto Tv_ptr           = Tv.get();
         auto agg_size_ptr     = agg_size.get();
         auto agg_root_ids_ptr = agg_root_ids.get();
@@ -478,15 +475,15 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     }
 
     // do a second pass of classification and aggregation
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv.get(), A_nrows, OUT );
-    AMP::Utilities::Algorithms<uint64_t>::fill_n( Tv_hat.get(), A_nrows, OUT );
+    AMP::Utilities::Algorithms::fill_n( Tv.get(), A_nrows, OUT, Config::mem_loc );
+    AMP::Utilities::Algorithms::fill_n( Tv_hat.get(), A_nrows, OUT, Config::mem_loc );
     classifyVertices<Config>(
         A_masked, A->numGlobalRows(), worklist.get(), worklist_len, Tv.get(), Tv_hat.get() );
 
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     {
-        AMP::Utilities::Algorithms<lidx_t>::copy_n( agg_root_ids.get(), A_nrows, agg_ids );
+        AMP::Utilities::Algorithms::copy_n( agg_ids, agg_root_ids.get(), A_nrows, Config::mem_loc );
         auto Tv_ptr           = Tv.get();
         auto agg_size_ptr     = agg_size.get();
         auto agg_root_ids_ptr = agg_root_ids.get();
@@ -543,14 +540,19 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     int num_agg = 0, num_dec = 0;
     auto unq_root_ids = agg_size; // rename for clarity
     {
-        AMP::Utilities::Algorithms<lidx_t>::copy_n(
-            agg_root_ids.get(), A_nrows, unq_root_ids.get() );
-        AMP::Utilities::Algorithms<lidx_t>::sort( unq_root_ids.get(), A_nrows );
-        const auto nunq = AMP::Utilities::Algorithms<lidx_t>::unique( unq_root_ids.get(), A_nrows );
+        AMP::Utilities::Algorithms::copy_n(
+            unq_root_ids.get(), agg_root_ids.get(), A_nrows, Config::mem_loc );
+        AMP::Utilities::Algorithms::sort( unq_root_ids.get(), A_nrows, Config::mem_loc );
+        const auto nunq =
+            AMP::Utilities::Algorithms::unique( unq_root_ids.get(), A_nrows, Config::mem_loc );
         // need to check first two entries of unique'd array
         // if we have UNDECIDED or INVALID need to decrement agg count
         lidx_t first_entries[2];
-        AMP::Utilities::Algorithms<lidx_t>::copy_n( unq_root_ids.get(), 2, first_entries );
+        AMP::Utilities::Algorithms::copy_n( first_entries,
+                                            AMP::Utilities::MemoryType::host,
+                                            unq_root_ids.get(),
+                                            Config::mem_loc,
+                                            2 );
         const int dec_inv = ( first_entries[0] == INVALID || first_entries[1] == INVALID ) ? 1 : 0;
         const int dec_und =
             ( first_entries[0] == UNASSIGNED || first_entries[1] == UNASSIGNED ) ? 1 : 0;

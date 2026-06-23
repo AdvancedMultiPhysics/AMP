@@ -150,9 +150,7 @@ void linearThermalTest( AMP::UnitTest *ut,
 
     auto [linearOperator, sol, rhs] = linearSystem;
 
-    auto &comm     = rhs->getComm();
-    auto solver_db = input_db->getDatabase( "LinearSolver" );
-    solver_db->putScalar( "memory_location", memoryLocation );
+    auto &comm   = rhs->getComm();
     auto mem_loc = AMP::Utilities::memoryLocationFromString( memoryLocation );
     auto backend = AMP::Utilities::backendFromString( accelerationBackend );
 
@@ -164,18 +162,15 @@ void linearThermalTest( AMP::UnitTest *ut,
         auto outVar = migratedOperator->getOutputVariable();
 
         // Create operator to wrap matrix
-        auto op_db = std::make_shared<AMP::Database>( "LinearOperator" );
-        op_db->putScalar<std::string>( "acceleration_backend", accelerationBackend );
-        op_db->putScalar<std::string>( "memory_location", memoryLocation );
-
+        auto op_db          = std::make_shared<AMP::Database>( "LinearOperator" );
         auto opParams       = std::make_shared<AMP::Operator::OperatorParameters>( op_db );
         migratedOperator    = std::make_shared<AMP::Operator::LinearOperator>( opParams );
         auto matrix         = linearOperator->getMatrix();
         auto migratedMatrix = AMP::LinearAlgebra::createMatrix( matrix, mem_loc, backend );
         migratedOperator->setMatrix( migratedMatrix );
         migratedOperator->setVariables( inVar, outVar );
-        u = AMP::LinearAlgebra::createVector( sol, mem_loc, backend );
-        f = AMP::LinearAlgebra::createVector( rhs, mem_loc, backend );
+        u = migratedMatrix->createInputVector();
+        f = migratedMatrix->createOutputVector();
         f->copyVector( rhs );
     } else {
         linearOperator->getMatrix()->setBackend( backend );

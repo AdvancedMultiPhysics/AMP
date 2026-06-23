@@ -1,10 +1,9 @@
 #ifndef included_AMP_VectorData_inline
 #define included_AMP_VectorData_inline
 
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/data/VectorDataIterator.h"
-
-#include <algorithm>
 
 #include "ProfilerApp.h"
 
@@ -77,16 +76,28 @@ inline VectorDataIterator<const TYPE> VectorData::end() const
  * Get/Set raw data                                              *
  ****************************************************************/
 template<class TYPE>
+void VectorData::putRawData( const TYPE *buf, AMP::Utilities::MemoryType buf_loc )
+{
+    constexpr auto type = getTypeID<TYPE>();
+    putRawData( buf, type, buf_loc );
+}
+template<class TYPE>
 void VectorData::putRawData( const TYPE *buf )
 {
     constexpr auto type = getTypeID<TYPE>();
-    putRawData( buf, type );
+    putRawData( buf, type, AMP::Utilities::MemoryType::host );
+}
+template<class TYPE>
+void VectorData::getRawData( TYPE *buf, AMP::Utilities::MemoryType buf_loc ) const
+{
+    constexpr auto type = getTypeID<TYPE>();
+    getRawData( buf, type, buf_loc );
 }
 template<class TYPE>
 void VectorData::getRawData( TYPE *buf ) const
 {
     constexpr auto type = getTypeID<TYPE>();
-    getRawData( buf, type );
+    getRawData( buf, type, AMP::Utilities::MemoryType::host );
 }
 template<typename TYPE>
 TYPE *VectorData::getRawDataBlock( size_t i )
@@ -104,12 +115,36 @@ const TYPE *VectorData::getRawDataBlock( size_t i ) const
  * Get/Set values by global id                                   *
  ****************************************************************/
 template<typename TYPE>
+void VectorData::getValuesByLocalID( size_t N,
+                                     const size_t *ndx,
+                                     TYPE *vals,
+                                     AMP::Utilities::MemoryType buf_loc ) const
+{
+    PROFILE( "VectorData::getValuesByLocalID" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    getValuesByLocalID( N, ndx, vals, type, buf_loc );
+}
+
+template<typename TYPE>
 void VectorData::getValuesByLocalID( size_t N, const size_t *ndx, TYPE *vals ) const
 {
     PROFILE( "VectorData::getValuesByLocalID" );
 
     constexpr auto type = getTypeID<TYPE>();
-    getValuesByLocalID( N, ndx, vals, type );
+    getValuesByLocalID( N, ndx, vals, type, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::setValuesByLocalID( size_t N,
+                                     const size_t *ndx,
+                                     const TYPE *vals,
+                                     AMP::Utilities::MemoryType buf_loc )
+{
+    PROFILE( "VectorData::setValuesByLocalID" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    setValuesByLocalID( N, ndx, vals, type, buf_loc );
 }
 
 template<typename TYPE>
@@ -118,7 +153,19 @@ void VectorData::setValuesByLocalID( size_t N, const size_t *ndx, const TYPE *va
     PROFILE( "VectorData::setValuesByLocalID" );
 
     constexpr auto type = getTypeID<TYPE>();
-    setValuesByLocalID( N, ndx, vals, type );
+    setValuesByLocalID( N, ndx, vals, type, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::addValuesByLocalID( size_t N,
+                                     const size_t *ndx,
+                                     const TYPE *vals,
+                                     AMP::Utilities::MemoryType buf_loc )
+{
+    PROFILE( "VectorData::addValuesByLocalID" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    addValuesByLocalID( N, ndx, vals, type, buf_loc );
 }
 
 template<typename TYPE>
@@ -127,25 +174,28 @@ void VectorData::addValuesByLocalID( size_t N, const size_t *ndx, const TYPE *va
     PROFILE( "VectorData::addValuesByLocalID" );
 
     constexpr auto type = getTypeID<TYPE>();
-    addValuesByLocalID( N, ndx, vals, type );
+    addValuesByLocalID( N, ndx, vals, type, AMP::Utilities::MemoryType::host );
 }
 
 template<typename TYPE>
-void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ ) const
+void VectorData::getValuesByGlobalID( size_t N,
+                                      const size_t *ndx_,
+                                      TYPE *vals_,
+                                      AMP::Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "VectorData::getValuesByGlobalID" );
     auto ndx        = ndx_;
     auto vals       = vals_;
     size_t *ndx_mem = nullptr;
     TYPE *vals_mem  = nullptr;
-    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+    if ( buf_loc >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        AMP::Utilities::memcpy( ndx_mem, ndx_, N * sizeof( size_t ) );
-        ndx = ndx_mem;
-    }
-    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+        AMP::Utilities::Algorithms::copy_n(
+            ndx_mem, AMP::Utilities::MemoryType::host, ndx_, buf_loc, N );
+        ndx      = ndx_mem;
         vals_mem = new TYPE[N];
-        AMP::Utilities::memcpy( vals_mem, vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::copy_n(
+            vals_mem, AMP::Utilities::MemoryType::host, vals_, buf_loc, N );
         vals = vals_mem;
     }
     constexpr size_t N_max = 128;
@@ -165,9 +215,11 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ 
         }
         constexpr auto type = getTypeID<TYPE>();
         if ( N_local > 0 )
-            getValuesByLocalID( N_local, local_index, local_vals, type );
+            getValuesByLocalID(
+                N_local, local_index, local_vals, type, AMP::Utilities::MemoryType::host );
         if ( N_ghost > 0 )
-            getGhostValuesByGlobalID( N_ghost, ghost_index, ghost_vals, type );
+            getGhostValuesByGlobalID(
+                N_ghost, ghost_index, ghost_vals, type, AMP::Utilities::MemoryType::host );
         N_local = 0;
         N_ghost = 0;
         for ( size_t i = 0; i < N2; i++ ) {
@@ -188,21 +240,30 @@ void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ 
 }
 
 template<typename TYPE>
-void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
+void VectorData::getValuesByGlobalID( size_t N, const size_t *ndx_, TYPE *vals_ ) const
+{
+    this->getValuesByGlobalID( N, ndx_, vals_, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::setValuesByGlobalID( size_t N,
+                                      const size_t *ndx_,
+                                      const TYPE *vals_,
+                                      AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "VectorData::setValuesByGlobalID" );
     auto ndx        = ndx_;
     auto vals       = vals_;
     size_t *ndx_mem = nullptr;
     TYPE *vals_mem  = nullptr;
-    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+    if ( buf_loc >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        AMP::Utilities::memcpy( ndx_mem, ndx_, N * sizeof( size_t ) );
-        ndx = ndx_mem;
-    }
-    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+        AMP::Utilities::Algorithms::copy_n(
+            ndx_mem, AMP::Utilities::MemoryType::host, ndx_, buf_loc, N );
+        ndx      = ndx_mem;
         vals_mem = new TYPE[N];
-        AMP::Utilities::memcpy( vals_mem, vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::copy_n(
+            vals_mem, AMP::Utilities::MemoryType::host, vals_, buf_loc, N );
         vals = vals_mem;
     }
     constexpr size_t N_max = 128;
@@ -224,9 +285,11 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
         }
         constexpr auto type = getTypeID<TYPE>();
         if ( N_local > 0 )
-            setValuesByLocalID( N_local, local_index, local_vals, type );
+            setValuesByLocalID(
+                N_local, local_index, local_vals, type, AMP::Utilities::MemoryType::host );
         if ( N_ghost > 0 )
-            setGhostValuesByGlobalID( N_ghost, ghost_index, ghost_vals, type );
+            setGhostValuesByGlobalID(
+                N_ghost, ghost_index, ghost_vals, type, AMP::Utilities::MemoryType::host );
         N -= N2;
         ndx  = &ndx[N2];
         vals = &vals[N2];
@@ -236,7 +299,16 @@ void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
 }
 
 template<typename TYPE>
-void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
+void VectorData::setValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
+{
+    this->setValuesByGlobalID( N, ndx_, vals_, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::addValuesByGlobalID( size_t N,
+                                      const size_t *ndx_,
+                                      const TYPE *vals_,
+                                      AMP::Utilities::MemoryType buf_loc )
 {
     PROFILE( "VectorData::addValuesByGlobalID" );
 
@@ -244,15 +316,15 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
     auto vals       = vals_;
     size_t *ndx_mem = nullptr;
     TYPE *vals_mem  = nullptr;
-    if ( AMP::Utilities::getMemoryType( ndx ) >= AMP::Utilities::MemoryType::managed ) {
+    if ( buf_loc >= AMP::Utilities::MemoryType::managed ) {
         ndx_mem = new size_t[N];
-        ndx     = ndx_mem;
-        AMP::Utilities::memcpy( const_cast<size_t *>( ndx ), ndx_, N * sizeof( size_t ) );
-    }
-    if ( AMP::Utilities::getMemoryType( vals ) >= AMP::Utilities::MemoryType::managed ) {
+        AMP::Utilities::Algorithms::copy_n(
+            ndx_mem, AMP::Utilities::MemoryType::host, ndx_, buf_loc, N );
+        ndx      = ndx_mem;
         vals_mem = new TYPE[N];
-        vals     = vals_mem;
-        AMP::Utilities::memcpy( const_cast<TYPE *>( vals ), vals_, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::copy_n(
+            vals_mem, AMP::Utilities::MemoryType::host, vals_, buf_loc, N );
+        vals = vals_mem;
     }
     constexpr size_t N_max = 128;
     while ( N != 0 ) {
@@ -273,9 +345,11 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
         }
         constexpr auto type = getTypeID<TYPE>();
         if ( N_local > 0 )
-            addValuesByLocalID( N_local, local_index, local_vals, type );
+            addValuesByLocalID(
+                N_local, local_index, local_vals, type, AMP::Utilities::MemoryType::host );
         if ( N_ghost > 0 )
-            addGhostValuesByGlobalID( N_ghost, ghost_index, ghost_vals, type );
+            addGhostValuesByGlobalID(
+                N_ghost, ghost_index, ghost_vals, type, AMP::Utilities::MemoryType::host );
         N -= N2;
         ndx  = &ndx[N2];
         vals = &vals[N2];
@@ -284,6 +358,11 @@ void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *
     delete[] vals_mem;
 }
 
+template<typename TYPE>
+void VectorData::addValuesByGlobalID( size_t N, const size_t *ndx_, const TYPE *vals_ )
+{
+    this->addValuesByGlobalID( N, ndx_, vals_, AMP::Utilities::MemoryType::host );
+}
 
 /****************************************************************
  * Get/Set ghost values by global id                             *
@@ -294,7 +373,19 @@ void VectorData::setGhostValuesByGlobalID( size_t N, const size_t *ndx, const TY
     PROFILE( "VectorData::setGhostValuesByGlobalID" );
 
     constexpr auto type = getTypeID<TYPE>();
-    setGhostValuesByGlobalID( N, ndx, vals, type );
+    setGhostValuesByGlobalID( N, ndx, vals, type, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::setGhostValuesByGlobalID( size_t N,
+                                           const size_t *ndx,
+                                           const TYPE *vals,
+                                           AMP::Utilities::MemoryType buf_loc )
+{
+    PROFILE( "VectorData::setGhostValuesByGlobalID" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    setGhostValuesByGlobalID( N, ndx, vals, type, buf_loc );
 }
 
 template<typename TYPE>
@@ -303,7 +394,19 @@ void VectorData::addGhostValuesByGlobalID( size_t N, const size_t *ndx, const TY
     PROFILE( "VectorData::addGhostValuesByGlobalID" );
 
     constexpr auto type = getTypeID<TYPE>();
-    addGhostValuesByGlobalID( N, ndx, vals, type );
+    addGhostValuesByGlobalID( N, ndx, vals, type, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::addGhostValuesByGlobalID( size_t N,
+                                           const size_t *ndx,
+                                           const TYPE *vals,
+                                           AMP::Utilities::MemoryType buf_loc )
+{
+    PROFILE( "VectorData::addGhostValuesByGlobalID" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    addGhostValuesByGlobalID( N, ndx, vals, type, buf_loc );
 }
 
 template<typename TYPE>
@@ -312,7 +415,19 @@ void VectorData::getGhostValuesByGlobalID( size_t N, const size_t *ndx, TYPE *va
     PROFILE( "VectorData::getGhostValuesByGlobalID" );
 
     constexpr auto type = getTypeID<TYPE>();
-    getGhostValuesByGlobalID( N, ndx, vals, type );
+    getGhostValuesByGlobalID( N, ndx, vals, type, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::getGhostValuesByGlobalID( size_t N,
+                                           const size_t *ndx,
+                                           TYPE *vals,
+                                           AMP::Utilities::MemoryType buf_loc ) const
+{
+    PROFILE( "VectorData::getGhostValuesByGlobalID" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    getGhostValuesByGlobalID( N, ndx, vals, type, buf_loc );
 }
 
 template<typename TYPE>
@@ -321,7 +436,19 @@ void VectorData::getGhostAddValuesByGlobalID( size_t N, const size_t *ndx, TYPE 
     PROFILE( "VectorData::getGhostAddValuesByGlobalID" );
 
     constexpr auto type = getTypeID<TYPE>();
-    getGhostAddValuesByGlobalID( N, ndx, vals, type );
+    getGhostAddValuesByGlobalID( N, ndx, vals, type, AMP::Utilities::MemoryType::host );
+}
+
+template<typename TYPE>
+void VectorData::getGhostAddValuesByGlobalID( size_t N,
+                                              const size_t *ndx,
+                                              TYPE *vals,
+                                              AMP::Utilities::MemoryType buf_loc ) const
+{
+    PROFILE( "VectorData::getGhostAddValuesByGlobalID" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    getGhostAddValuesByGlobalID( N, ndx, vals, type, buf_loc );
 }
 
 template<class TYPE>
@@ -330,10 +457,17 @@ size_t VectorData::getAllGhostValues( TYPE *vals ) const
     PROFILE( "VectorData::getAllGhostValues" );
 
     constexpr auto type = getTypeID<TYPE>();
-    size_t N            = getAllGhostValues( vals, type );
-    return N;
+    return getAllGhostValues( vals, type, AMP::Utilities::MemoryType::host );
 }
 
+template<class TYPE>
+size_t VectorData::getAllGhostValues( TYPE *vals, AMP::Utilities::MemoryType buf_loc ) const
+{
+    PROFILE( "VectorData::getAllGhostValues" );
+
+    constexpr auto type = getTypeID<TYPE>();
+    return getAllGhostValues( vals, type, buf_loc );
+}
 
 } // namespace AMP::LinearAlgebra
 

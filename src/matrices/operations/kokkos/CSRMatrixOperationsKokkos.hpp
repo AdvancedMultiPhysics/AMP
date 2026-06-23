@@ -42,6 +42,7 @@ void CSRMatrixOperationsKokkos<Config>::mult( std::shared_ptr<const Vector> in,
     auto diagMatrix = csrData->getDiagMatrix();
     auto offdMatrix = csrData->getOffdMatrix();
 
+    auto inData            = in->getVectorData();
     auto outData           = out->getVectorData();
     scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
@@ -49,7 +50,6 @@ void CSRMatrixOperationsKokkos<Config>::mult( std::shared_ptr<const Vector> in,
 
     if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsKokkos::mult(local)" );
-        auto inData = in->getVectorData();
         AMP_DEBUG_INSIST(
             inData->numberOfDataBlocks() == 1,
             "CSRMatrixOperationsKokkos::mult only implemented for vectors with one data block" );
@@ -72,14 +72,14 @@ void CSRMatrixOperationsKokkos<Config>::mult( std::shared_ptr<const Vector> in,
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             auto colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else {
             // Fall back to forcing a copy-cast inside matrix data
             auto colMap = offdMatrix->getColumnMapSizeT();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         }
 
         d_localops_offd->mult( ghosts,
@@ -151,7 +151,8 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
         fence();
 
         // copy rcols and vvals into std::vectors and write out
-        out->addValuesByGlobalID( rcols.size(), rcols.data(), vvals_h.data() );
+        outData->addValuesByGlobalID(
+            rcols.size(), rcols.data(), vvals_h.data(), AMP::Utilities::MemoryType::host );
     } else {
         fence(); // still finish with a fence if no offd term present
     }
@@ -505,7 +506,7 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = AMP::Utilities::Algorithms<scalar_t>::max_element( sums.data(), nRows );
+    auto max_norm = AMP::Utilities::Algorithms::max_element( sums.data(), nRows, Config::mem_loc );
     AMP_MPI comm  = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
