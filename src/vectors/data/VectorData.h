@@ -158,6 +158,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
@@ -184,6 +185,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      *
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
      */
@@ -210,6 +212,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details Since the shared buffer and owned buffer are separate,
      * this function must sort the data by buffer before setting
      * values.
@@ -238,6 +241,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
@@ -266,6 +270,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details Since the shared buffer and owned buffer are separate,
      * this function must sort the data by buffer before setting
      * values.
@@ -290,6 +295,7 @@ public: // Get/Set data
      * \param[in] num  number of values to add
      * \param[in] indices the indices of the values to add
      * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      */
     template<class TYPE>
     void addGhostValuesByGlobalID( size_t num,
@@ -312,6 +318,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get the ghosted updates this processor has made.  All indices are
      * from global 0.
      */
@@ -336,6 +343,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get any value used by this core.
      */
     template<class TYPE>
@@ -360,6 +368,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get the owned values for this core.  All indices are
      * from 0.
      */
@@ -384,6 +393,7 @@ public: // Get/Set data
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get any value owned by this core.
      */
     template<class TYPE>
@@ -434,7 +444,7 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
-     * \param[in] buf_loc Memory space of buffer
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
@@ -451,7 +461,7 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
-     * \param[in] buf_loc Memory space of buffer
+     * \param[in] buf_loc Memory space of indices and vals buffers
      *
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
      */
@@ -467,7 +477,7 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
-     * \param[in] buf_loc Memory space of buffer
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
@@ -485,7 +495,7 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to add
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
-     * \param[in] buf_loc Memory space of buffer
+     * \param[in] buf_loc Memory space of indices and vals buffers
      */
     virtual void addGhostValuesByGlobalID( size_t num,
                                            const size_t *indices,
@@ -499,7 +509,7 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
-     * \param[in] buf_loc Memory space of buffer
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get the ghosted updates this processor has made.  All indices are
      * from global 0.
      */
@@ -516,7 +526,7 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
      * \param[in] id   typeID of raw data
-     * \param[in] buf_loc Memory space of buffer
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get any value used by this core.
      */
     virtual void getValuesByLocalID( size_t num,
@@ -531,7 +541,7 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
      * \param[in] id   typeID of raw data
-     * \param[in] buf_loc Memory space of buffer
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get any value owned by this core.
      */
     virtual void getGhostValuesByGlobalID( size_t num,
