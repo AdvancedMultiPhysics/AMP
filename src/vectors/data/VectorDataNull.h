@@ -21,19 +21,34 @@ public: // Functions inherited from VectorData
     std::string VectorDataName() const override { return "VectorDataNull"; }
     inline size_t numberOfDataBlocks() const override { return 0; }
     inline size_t sizeOfDataBlock( size_t = 0 ) const override { return 0; }
-    inline void putRawData( const void *, const typeID & ) override {}
-    inline void getRawData( void *, const typeID & ) const override {}
+    inline void putRawData( const void *, const typeID &, AMP::Utilities::MemoryType ) override {}
+    inline void getRawData( void *, const typeID &, AMP::Utilities::MemoryType ) const override {}
     bool hasGhosts() const override { return false; }
     void fillGhosts( const Scalar & ) override {}
-    void getValuesByLocalID( size_t N, const size_t *, void *, const typeID & ) const override;
-    void setValuesByLocalID( size_t N, const size_t *, const void *, const typeID & ) override;
-    void addValuesByLocalID( size_t N, const size_t *, const void *, const typeID & ) override;
-    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void
-    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    size_t getAllGhostValues( void *, const typeID & ) const override;
+    void getValuesByLocalID( size_t N,
+                             const size_t *,
+                             void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType ) const override;
+    void setValuesByLocalID( size_t N,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType ) override;
+    void addValuesByLocalID( size_t N,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType ) override;
+    void setGhostValuesByGlobalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void addGhostValuesByGlobalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void getGhostValuesByGlobalID(
+        size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const override;
+    void getGhostAddValuesByGlobalID(
+        size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const override;
+    size_t getAllGhostValues( void *, const typeID &, AMP::Utilities::MemoryType ) const override;
     typeID getType( size_t ) const override { return d_type; }
     UpdateState getLocalUpdateStatus() const override { return UpdateState::UNCHANGED; }
     void setUpdateStatus( UpdateState ) override {}

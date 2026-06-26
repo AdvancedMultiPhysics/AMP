@@ -44,32 +44,6 @@ bool memoryLocationsDeviceAccessible( const MemoryType t1,
                                       const MemoryType t3,
                                       const bool check_strict = false );
 
-//! Perform memory-memory copy (pointer may be in any memory space)
-void memcpy( void *dest, const void *src, std::size_t count );
-
-//! Perform memory set (pointer may be in any memory space)
-void memset( void *dest, int ch, std::size_t count );
-
-//! Perform memory zero (pointer may be in any memory space)
-void zero( void *dest, std::size_t count );
-
-//! Perform copy with conversion if necessary
-template<class T1, class T2>
-void copy( size_t N, const T1 *src, T2 *dst );
-
-//! Perform memory-memory copy asynchronously (pointer may be in any memory space)
-void memcpy( void *dest, const void *src, std::size_t count, computeStream_t stream );
-
-//! Perform memory set asynchronously (pointer may be in any memory space)
-void memset( void *dest, int ch, std::size_t count, computeStream_t stream );
-
-//! Perform memory zero asynchronously (pointer may be in any memory space)
-void zero( void *dest, std::size_t count, computeStream_t stream );
-
-//! Perform copy asynchronously with conversion if necessary
-template<class T1, class T2>
-void copy( size_t N, const T1 *src, T2 *dst, computeStream_t stream );
-
 } // namespace AMP::Utilities
 
 

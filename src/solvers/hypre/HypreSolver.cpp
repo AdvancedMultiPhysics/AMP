@@ -194,7 +194,7 @@ void HypreSolver::copyToHypre( std::shared_ptr<const AMP::LinearAlgebra::Vector>
         vals_p = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( amp_v )
                      ->getRawDataBlock<HYPRE_Real>();
 
-        auto memType = AMP::Utilities::getMemoryType( vals_p );
+        auto memType = amp_v->getMemoryLocation();
         // see if memory spaces are compatible
         if ( memType == hypreMemType ) {
             AMP_ASSERT( vals_p );

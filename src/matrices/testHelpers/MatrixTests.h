@@ -14,7 +14,13 @@
 namespace AMP::LinearAlgebra {
 
 void fillWithPseudoLaplacian( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix );
-
+std::shared_ptr<AMP::LinearAlgebra::Matrix>
+pseudoLaplacianFromDOFs( const std::string &,
+                         std::shared_ptr<AMP::Discretization::DOFManager>,
+                         const AMP::Utilities::Backend,
+                         const AMP::Utilities::MemoryType,
+                         std::shared_ptr<AMP::LinearAlgebra::Variable>,
+                         std::shared_ptr<AMP::LinearAlgebra::Variable> );
 
 /**
  * \class MatrixFactory

@@ -28,11 +28,25 @@ public:
     const AMP_MPI &getComm() const override;
     size_t numberOfDataBlocks() const override;
     size_t sizeOfDataBlock( size_t i ) const override;
-    void addValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void setValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getValuesByLocalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void putRawData( const void *in, const typeID &id ) override;
-    void getRawData( void *out, const typeID &id ) const override;
+    void addValuesByLocalID( size_t,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) override;
+    void setValuesByLocalID( size_t,
+                             const size_t *,
+                             const void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) override;
+    void getValuesByLocalID( size_t,
+                             const size_t *,
+                             void *,
+                             const typeID &,
+                             AMP::Utilities::MemoryType buf_loc ) const override;
+    void
+    putRawData( const void *in, const typeID &id, AMP::Utilities::MemoryType buf_loc ) override;
+    void
+    getRawData( void *out, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const override;
     typeID getType( size_t block ) const override { return d_parentData->getType( block ); }
     uint64_t getDataID() const override { return d_parentData->getDataID(); }
     size_t sizeofDataBlockType( size_t ) const override { return sizeof( double ); }
@@ -53,12 +67,27 @@ public: // Ghost data functions
     void setCommunicationList( std::shared_ptr<CommunicationList> ) override {}
     size_t getGhostSize() const override { return 0; }
     bool containsGlobalElement( size_t ) const override;
-    void setGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addGhostValuesByGlobalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getGhostValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void
-    getGhostAddValuesByGlobalID( size_t, const size_t *, void *, const typeID & ) const override;
-    size_t getAllGhostValues( void *, const typeID & ) const override;
+    void setGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void addGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   const void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) override;
+    void getGhostValuesByGlobalID( size_t,
+                                   const size_t *,
+                                   void *,
+                                   const typeID &,
+                                   AMP::Utilities::MemoryType buf_loc ) const override;
+    void getGhostAddValuesByGlobalID( size_t,
+                                      const size_t *,
+                                      void *,
+                                      const typeID &,
+                                      AMP::Utilities::MemoryType buf_loc ) const override;
+    size_t getAllGhostValues( void *, const typeID &, AMP::Utilities::MemoryType ) const override;
     void makeConsistent( ScatterType ) override;
     void makeConsistent() override;
     void dataChanged() override;

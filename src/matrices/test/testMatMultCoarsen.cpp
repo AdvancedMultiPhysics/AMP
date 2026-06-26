@@ -38,24 +38,21 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
                             std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
-    // Create the vectors
+
+    // Create the matrix
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
 #ifdef AMP_USE_DEVICE
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-    return 0;
+    const auto mem_loc = AMP::Utilities::MemoryType::device;
 #else
-    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
+    const auto mem_loc = AMP::Utilities::MemoryType::host;
 #endif
-
-    // Create the matrix
-    auto A = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
-    fillWithPseudoLaplacian( A );
-    A->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    auto A = pseudoLaplacianFromDOFs( "CSRMatrix",
+                                      dofManager,
+                                      AMP::Utilities::getDefaultBackend( mem_loc ),
+                                      mem_loc,
+                                      inVar,
+                                      outVar );
 
     size_t nGlobalRows = A->numGlobalRows();
     size_t nLocalRows  = A->numLocalRows();
@@ -63,7 +60,7 @@ size_t matMultTestWithDOFs( AMP::UnitTest *ut,
               << std::endl;
 
     // Create aggregate matrix
-    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min", false };
+    AMP::Solver::AMG::CoarsenSettings crs_settings{ 0.4f, "classical_min", false, 2 };
     auto agg = std::make_shared<AMP::Solver::AMG::MIS2Aggregator>( crs_settings );
     auto P   = agg->getAggregateMatrix( A );
 

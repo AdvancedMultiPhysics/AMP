@@ -139,7 +139,7 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType m
 
     auto data = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
 
-    if ( memType == AMP::Utilities::getAllocatorMemoryType<typename Config::allocator_type>() ) {
+    if ( memType == Config::mem_loc ) {
         return this->clone();
     } else if ( memType == AMP::Utilities::MemoryType::host ) {
         return this->migrate<ConfigHost>( backend );
@@ -174,6 +174,31 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend back
     std::shared_ptr<Matrix> mat = std::make_shared<CSRMatrix<ConfigOut>>( dataOut );
     mat->setBackend( backend );
     return mat;
+}
+
+template<typename Config>
+std::shared_ptr<Matrix> CSRMatrix<Config>::redistribute( int new_nprocs ) const
+{
+    PROFILE( "CSRMatrix::redistribute" );
+
+    auto plan = AMP::Utilities::createGroupedRedistributionPlan( getComm(), new_nprocs );
+    return redistribute( plan );
+}
+
+template<typename Config>
+std::shared_ptr<Matrix>
+CSRMatrix<Config>::redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const
+{
+    PROFILE( "CSRMatrix::redistributeWithPlan" );
+
+    auto data = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
+    AMP_ASSERT( data );
+
+    auto redistributed = data->redistribute( plan );
+    if ( !redistributed ) {
+        return nullptr;
+    }
+    return std::make_shared<CSRMatrix<Config>>( redistributed );
 }
 
 template<typename Config>

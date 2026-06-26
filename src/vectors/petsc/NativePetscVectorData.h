@@ -43,12 +43,15 @@ public:
     std::string VectorDataName() const override { return "NativePetscVector"; }
     size_t numberOfDataBlocks() const override;
     size_t sizeOfDataBlock( size_t i ) const override;
-    void putRawData( const void *, const typeID & ) override;
-    void getRawData( void *, const typeID & ) const override;
+    void putRawData( const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void getRawData( void *, const typeID &, AMP::Utilities::MemoryType ) const override;
 
-    void setValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void addValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getValuesByLocalID( size_t, const size_t *, void *, const typeID & ) const override;
+    void setValuesByLocalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void addValuesByLocalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void getValuesByLocalID(
+        size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const override;
 
     // Return the id of the data
     uint64_t getDataID() const override

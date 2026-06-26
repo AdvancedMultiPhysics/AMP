@@ -11,6 +11,10 @@ namespace AMP::IO {
 class RestartManager;
 }
 
+namespace AMP::Utilities {
+class GroupedRedistributionPlan;
+}
+
 namespace AMP::LinearAlgebra {
 
 template<typename Policy>
@@ -90,6 +94,17 @@ public:
      */
     template<typename ConfigOut>
     shared_ptr migrate( AMP::Utilities::Backend backend ) const;
+
+    /** \brief Redistribute a square CSR matrix onto the roots of `new_nprocs` contiguous rank
+     *         groups of the current communicator using contiguous row blocks.
+     * \details Inactive ranks return `nullptr`.
+     */
+    shared_ptr redistribute( int new_nprocs ) const;
+
+    /** \brief Redistribute a square CSR matrix with a precomputed grouped redistribution plan.
+     * \details Inactive ranks return `nullptr`.
+     */
+    shared_ptr redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const;
 
     //! Replace current backend with different one
     void setBackend( AMP::Utilities::Backend backend ) override;

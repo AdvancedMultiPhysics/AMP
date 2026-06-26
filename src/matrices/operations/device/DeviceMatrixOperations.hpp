@@ -104,8 +104,6 @@ void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
                                                        const size_t N,
                                                        S *diag )
 {
-    AMP_ASSERT( AMP::Utilities::getMemoryType( diag ) == AMP::Utilities::getMemoryType( coeffs ) );
-
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, extractDiagonal_kernel<L, S>, BlockDim, GridDim );
@@ -132,8 +130,6 @@ void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
                                                    const size_t N,
                                                    const S *diag )
 {
-    AMP_ASSERT( AMP::Utilities::getMemoryType( diag ) == AMP::Utilities::getMemoryType( coeffs ) );
-
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, setDiagonal_kernel<L, S>, BlockDim, GridDim );

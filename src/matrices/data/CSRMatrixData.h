@@ -5,6 +5,7 @@
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/GroupedRedistributionPlan.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 
@@ -73,6 +74,18 @@ public:
 
     //! Transpose
     std::shared_ptr<MatrixData> transpose() const override;
+
+    /** \brief Redistribute a square CSR matrix onto the roots of `new_nprocs` contiguous rank
+     *         groups of the current communicator using contiguous row blocks.
+     * \details Inactive ranks return `nullptr`.
+     */
+    std::shared_ptr<CSRMatrixData<Config>> redistribute( int new_nprocs ) const;
+
+    /** \brief Redistribute a square CSR matrix with a precomputed grouped redistribution plan.
+     * \details Inactive ranks return `nullptr`.
+     */
+    std::shared_ptr<CSRMatrixData<Config>>
+    redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const;
 
     //! Return the type of the matrix
     std::string type() const override { return "CSRMatrixData"; }
@@ -248,7 +261,7 @@ public:
     //! Get the memory space where data is stored
     virtual AMP::Utilities::MemoryType getMemoryLocation() const override
     {
-        return d_memory_location;
+        return Config::mem_loc;
     }
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
@@ -260,8 +273,11 @@ public:
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] nnz_diag   Number of nonzeros in each row of diagonal block
      * \param[in] nnz_offd   Number of nonzeros in each row of off-diagonal block
+     * \param[in] mem_loc    Memory space of input buffers
      */
-    void setNNZ( const lidx_t *nnz_diag, const lidx_t *nnz_offd );
+    void setNNZ( const lidx_t *nnz_diag,
+                 const lidx_t *nnz_offd,
+                 const AMP::Utilities::MemoryType mem_loc );
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] do_accum  Flag for whether entries in row pointers need to be accumulated
@@ -297,7 +313,7 @@ public:
     void printStats( bool verbose, bool show_zeros ) const
     {
         std::cout << "CSRMatrixData stats:" << std::endl;
-        std::cout << "  Memory location: " << AMP::Utilities::getString( d_memory_location )
+        std::cout << "  Memory location: " << AMP::Utilities::getString( Config::mem_loc )
                   << std::endl;
         std::cout << "  Global size: (" << numGlobalRows() << " x " << numGlobalColumns() << ")"
                   << std::endl;
@@ -363,9 +379,8 @@ protected:
                              std::map<gidx_t, std::map<gidx_t, scalar_t>> &data );
 
 public:
-    //! Memory location, set by examining type of Allocator
-    static constexpr AMP::Utilities::MemoryType d_memory_location =
-        AMP::Utilities::getAllocatorMemoryType<allocator_type>();
+    //! Memory location alias
+    static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
 
 protected:
     //! Matrix is square if true

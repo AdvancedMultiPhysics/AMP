@@ -85,10 +85,17 @@ private:
               colind( std::get<1>( A_ptrs ) ),
               mat_values( std::get<2>( A_ptrs ) )
         {
-            values = valueAllocator.allocate( colind.size() );
+            if ( colind.size() > 0 ) {
+                values = valueAllocator.allocate( colind.size() );
+            }
         }
 
-        ~storage() { valueAllocator.deallocate( values, colind.size() ); }
+        ~storage()
+        {
+            if ( colind.size() > 0 ) {
+                valueAllocator.deallocate( values, colind.size() );
+            }
+        }
 
         struct reference {
             using ref_type       = mask_t &;

@@ -62,44 +62,26 @@ void linearThermalTest( AMP::UnitTest *ut,
     auto scalarDOFs =
         AMP::Discretization::simpleDOFManager::create( mesh, AMP::Mesh::GeomType::Vertex, 1, 1 );
 
-    // Create variables and vectors
-    auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
-    auto outVar = inVar;
+    // Create variables and matrix
+    auto inVar   = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
+    auto outVar  = inVar;
+    auto memLoc  = AMP::Utilities::memoryLocationFromString( memoryLocation );
+    auto backend = AMP::Utilities::backendFromString( accelerationBackend );
+    auto matrix =
+        pseudoLaplacianFromDOFs( "CSRMatrix", scalarDOFs, backend, memLoc, inVar, outVar );
 
-    std::shared_ptr<AMP::LinearAlgebra::Vector> inVec, outVec;
+    // Create initial guess and rhs from matrix
+    auto sol = matrix->createInputVector();
+    auto rhs = matrix->createOutputVector();
 
-    // create on host and migrate as the Pseudo-Laplacian fill routines are still host based
-    inVec  = AMP::LinearAlgebra::createVector( scalarDOFs, inVar );
-    outVec = AMP::LinearAlgebra::createVector( scalarDOFs, outVar );
-
-    // Create the matrix
-    auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
-    fillWithPseudoLaplacian( matrix_h );
-
-    auto memLoc = AMP::Utilities::memoryLocationFromString( memoryLocation );
-
-    auto matrix = ( memoryLocation == "host" ) ?
-                      matrix_h :
-                      AMP::LinearAlgebra::createMatrix( matrix_h, memLoc );
-
-    // Create operator to wrap matrix
-    auto op_db = input_db->getDatabase( "LinearOperator" );
-    op_db->putScalar<std::string>( "acceleration_backend", accelerationBackend );
-    op_db->putScalar<std::string>( "memory_location", memoryLocation );
-
+    // Create operator to wrap matrix, create solver
+    auto op_db          = input_db->getDatabase( "LinearOperator" );
     auto opParams       = std::make_shared<AMP::Operator::OperatorParameters>( op_db );
     auto linearOperator = std::make_shared<AMP::Operator::LinearOperator>( opParams );
     linearOperator->setMatrix( matrix );
     linearOperator->setVariables( inVar, outVar );
-
-    auto solver_db = input_db->getDatabase( "LinearSolver" );
-    solver_db->putScalar( "memory_location", memoryLocation );
     auto linearSolver =
         AMP::Solver::Test::buildSolver( "LinearSolver", input_db, comm, nullptr, linearOperator );
-
-    // Set initial guess and rhs
-    auto sol = matrix->createInputVector();
-    auto rhs = matrix->createOutputVector();
 
     auto t1 = std::chrono::high_resolution_clock::now();
 

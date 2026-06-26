@@ -38,11 +38,14 @@ public:
     size_t numberOfDataBlocks() const override;
     size_t sizeOfDataBlock( size_t i ) const override;
 
-    void addValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void setValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getValuesByLocalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void putRawData( const void *, const typeID & ) override;
-    void getRawData( void *, const typeID & ) const override;
+    void addValuesByLocalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void setValuesByLocalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void getValuesByLocalID(
+        size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const override;
+    void putRawData( const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void getRawData( void *, const typeID &, AMP::Utilities::MemoryType ) const override;
     uint64_t getDataID() const override
     {
         return reinterpret_cast<uint64_t>( getRawDataBlockAsVoid( 0 ) );

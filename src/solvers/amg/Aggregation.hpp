@@ -390,6 +390,8 @@ struct UAIntergridParams : AMP::Operator::OperatorParameters {
     enum class intergrid_type { interpolation, restriction };
     UAIntergridParams() : AMP::Operator::OperatorParameters( nullptr ) {}
     std::shared_ptr<const aggregateT_type<Config>> aggregatesT;
+    std::shared_ptr<const LinearAlgebra::Vector> input_vector;
+    std::shared_ptr<const LinearAlgebra::Vector> output_vector;
     intergrid_type transfer_type = intergrid_type::interpolation;
 };
 
@@ -406,6 +408,8 @@ struct AggregateInjection : AMP::Operator::Operator {
         auto params = std::dynamic_pointer_cast<const UAIntergridParams<Config>>( iparams );
         AMP_DEBUG_ASSERT( params );
         d_aggregatesT = params->aggregatesT;
+        d_input_vec   = params->input_vector;
+        d_output_vec  = params->output_vector;
         transfer_type = params->transfer_type;
     }
 
@@ -416,10 +420,32 @@ struct AggregateInjection : AMP::Operator::Operator {
         auto params           = std::make_shared<UAIntergridParams<Config>>();
         params->d_db          = std::make_shared<AMP::Database>();
         params->aggregatesT   = d_aggregatesT;
+        params->input_vector  = d_output_vec;
+        params->output_vector = d_input_vec;
         params->transfer_type = ( transfer_type == intergrid_type::interpolation ) ?
                                     intergrid_type::restriction :
                                     intergrid_type::interpolation;
         return std::make_shared<AggregateInjection<Config>>( params );
+    }
+
+    std::shared_ptr<LinearAlgebra::Vector> createInputVector() const override
+    {
+        return d_input_vec ? d_input_vec->clone() : nullptr;
+    }
+
+    std::shared_ptr<LinearAlgebra::Vector> createOutputVector() const override
+    {
+        return d_output_vec ? d_output_vec->clone() : nullptr;
+    }
+
+    std::shared_ptr<LinearAlgebra::Variable> getInputVariable() const override
+    {
+        return d_input_vec ? d_input_vec->getVariable() : nullptr;
+    }
+
+    std::shared_ptr<LinearAlgebra::Variable> getOutputVariable() const override
+    {
+        return d_output_vec ? d_output_vec->getVariable() : nullptr;
     }
 
     void apply( std::shared_ptr<const LinearAlgebra::Vector> xvec,
@@ -454,17 +480,23 @@ struct AggregateInjection : AMP::Operator::Operator {
 
 protected:
     std::shared_ptr<const aggT_type> d_aggregatesT;
+    std::shared_ptr<const LinearAlgebra::Vector> d_input_vec;
+    std::shared_ptr<const LinearAlgebra::Vector> d_output_vec;
     intergrid_type transfer_type;
 };
 
 template<class Config>
-auto make_ua_intergrid( aggregateT_type<Config> &&aggT )
+auto make_ua_intergrid( aggregateT_type<Config> &&aggT,
+                        std::shared_ptr<const LinearAlgebra::Vector> input_vec,
+                        std::shared_ptr<const LinearAlgebra::Vector> output_vec )
 {
     auto aggT_ptr = std::make_shared<const aggregateT_type<Config>>( std::move( aggT ) );
 
-    auto params         = std::make_shared<UAIntergridParams<Config>>();
-    params->d_db        = std::make_shared<AMP::Database>();
-    params->aggregatesT = aggT_ptr;
+    auto params           = std::make_shared<UAIntergridParams<Config>>();
+    params->d_db          = std::make_shared<AMP::Database>();
+    params->aggregatesT   = aggT_ptr;
+    params->input_vector  = std::move( input_vec );
+    params->output_vector = std::move( output_vec );
     return std::make_shared<AggregateInjection<Config>>( params );
 }
 
@@ -504,7 +536,8 @@ coarse_ops_type pairwise_coarsen( const LinearAlgebra::CSRMatrix<Config> &fine,
     auto aggregatesT = transpose_aggregates( aggregates, fine.numLocalRows() );
     auto matrix      = coarsen_matrix( fine, aggregates, aggregatesT );
     auto Ac          = make_coarse_operator( matrix );
-    auto P           = make_ua_intergrid<Config>( std::move( aggregatesT ) );
+    auto P           = make_ua_intergrid<Config>(
+        std::move( aggregatesT ), Ac->createInputVector(), fine.createInputVector() );
 
     return { P->T(), Ac, P };
 }
@@ -524,7 +557,8 @@ coarse_ops_type aggregator_coarsen( std::shared_ptr<LinearAlgebra::CSRMatrix<Con
     }( aggregatesT, num_agg );
     auto matrix = coarsen_matrix( *fine, aggregates, aggregatesT );
     auto Ac     = make_coarse_operator( matrix );
-    auto P      = make_ua_intergrid<Config>( std::move( aggregatesT ) );
+    auto P      = make_ua_intergrid<Config>(
+        std::move( aggregatesT ), Ac->createInputVector(), fine->createInputVector() );
 
     return { P->T(), Ac, P };
 }
