@@ -169,7 +169,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     // non-zeros only in diag block and at most one per row
     auto diag_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
     auto offd_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
-    AMP::Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc );
+    Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc );
     if constexpr ( !Config::device_accessible ) {
         std::transform( agg_ids.get(),
                         agg_ids.get() + A_nrows,
@@ -178,7 +178,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     } else {
 #ifdef AMP_USE_DEVICE
         thrust::transform(
-            thrust::device.on( Utilities::DeviceContext::stream ),
+            thrust::device.on( Utilities::device_context_default.stream ),
             agg_ids.get(),
             agg_ids.get() + A_nrows,
             diag_nnz.get(),
@@ -230,11 +230,11 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             dim3 BlockDim;
             dim3 GridDim;
             setKernelDims( A_nrows, acc_coarse_null<lidx_t, scalar_t>, BlockDim, GridDim );
-            acc_coarse_null<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+            acc_coarse_null<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
                 agg_ids.get(), null_vals, A_nrows, coarse_null_vals );
             getLastDeviceError( "Aggregator::getAggregateMatrix" );
             thrust::transform(
-                thrust::device.on( Utilities::DeviceContext::stream ),
+                thrust::device.on( Utilities::device_context_default.stream ),
                 coarse_null_vals,
                 coarse_null_vals + num_agg,
                 coarse_null_vals,
@@ -272,15 +272,15 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
                 fill_p_diag_scatter<<<GridDim,
                                       BlockDim,
                                       0,
-                                      AMP::Utilities::DeviceContext::stream>>>( agg_ids.get(),
-                                                                                P_rs,
-                                                                                null_vals,
-                                                                                coarse_null_vals,
-                                                                                A_nrows,
-                                                                                begin_col,
-                                                                                P_cols,
-                                                                                P_cols_loc,
-                                                                                P_coeffs );
+                                      Utilities::device_context_default.stream>>>( agg_ids.get(),
+                                                                                   P_rs,
+                                                                                   null_vals,
+                                                                                   coarse_null_vals,
+                                                                                   A_nrows,
+                                                                                   begin_col,
+                                                                                   P_cols,
+                                                                                   P_cols_loc,
+                                                                                   P_coeffs );
                 getLastDeviceError( "Aggregator::getAggregateMatrix" );
             }
 #else
@@ -310,7 +310,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
                 dim3 BlockDim;
                 dim3 GridDim;
                 setKernelDims( A_nrows, fill_p_diag<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-                fill_p_diag<<<GridDim, BlockDim, 0, AMP::Utilities::DeviceContext::stream>>>(
+                fill_p_diag<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
                     agg_ids.get(), P_rs, A_nrows, begin_col, P_cols, P_cols_loc, P_coeffs );
                 getLastDeviceError( "Aggregator::getAggregateMatrix" );
             }

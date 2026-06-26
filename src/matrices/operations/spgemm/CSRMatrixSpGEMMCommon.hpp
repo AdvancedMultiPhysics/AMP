@@ -287,7 +287,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device.on( Utilities::DeviceContext::stream ),
+            thrust::for_each( thrust::device.on( Utilities::device_context_default.stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_count_all );
@@ -334,7 +334,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device.on( Utilities::DeviceContext::stream ),
+            thrust::for_each( thrust::device.on( Utilities::device_context_default.stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_fill_all );

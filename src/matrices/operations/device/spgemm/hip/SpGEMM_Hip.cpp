@@ -25,7 +25,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
 
     // create handle and matrix descriptions
     rocsparse_create_handle( &handle );
-    rocsparse_set_stream( handle, AMP::Utilities::DeviceContext::stream );
+    rocsparse_set_stream( handle, Utilities::device_context_default.stream );
     rocsparse_create_csr_descr(
         &matA, M, K, A_nnz, A_rs, A_cols, A_vals, itype, jtype, rocsparse_index_base_zero, ttype );
     rocsparse_create_csr_descr(
@@ -51,7 +51,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                       &buffer_size,
                       nullptr );
 
-    deviceMallocAsync( &temp_buffer, buffer_size, AMP::Utilities::DeviceContext::stream );
+    deviceMallocAsync( &temp_buffer, buffer_size, Utilities::device_context_default.stream );
 }
 
 template<typename rowidx_t, typename colidx_t, typename scalar_t>
@@ -65,7 +65,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::~VendorSpGEMM()
     rocsparse_destroy_handle( handle );
 
     // free workspace buffer
-    deviceFreeAsync( temp_buffer, AMP::Utilities::DeviceContext::stream );
+    deviceFreeAsync( temp_buffer, Utilities::device_context_default.stream );
 }
 
 template<typename rowidx_t, typename colidx_t, typename scalar_t>

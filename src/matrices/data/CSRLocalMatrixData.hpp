@@ -14,10 +14,7 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Utilities.h"
-
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/Device.h"
-#endif
+#include "AMP/utils/device/Device.h"
 
 #include <numeric>
 #include <set>
@@ -444,9 +441,10 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
     // a use-after-free.  The normal RawCSRMatrixParameters path wraps d_cols with
     // a no-op deleter and is unaffected; ConcatVertical (redistribution, transpose)
     // uses a real hipFree deleter and requires this sync.
+    // imay: Is this still needed with streams and stream-aware allocators?
 #ifdef AMP_USE_DEVICE
-    if ( d_memory_location >= AMP::Utilities::MemoryType::managed ) {
-        deviceSynchronize();
+    if ( d_memory_location >= Utilities::MemoryType::managed ) {
+        deviceStreamSynchronize( Utilities::device_context_default.stream );
     }
 #endif
     // free global cols as they should not be used from here on out

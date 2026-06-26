@@ -59,36 +59,40 @@ void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
         // deallocate existing data
         if ( this->d_Ghosts ) {
             this->d_alloc.deallocate(
-                this->d_Ghosts, this->d_ghostSize, AMP::Utilities::DeviceContext::stream );
+                this->d_Ghosts, this->d_ghostSize, Utilities::device_context_default.stream );
             this->d_Ghosts = nullptr;
         }
         if ( this->d_AddBuffer ) {
             this->d_alloc.deallocate(
-                this->d_AddBuffer, this->d_ghostSize, AMP::Utilities::DeviceContext::stream );
+                this->d_AddBuffer, this->d_ghostSize, Utilities::device_context_default.stream );
             this->d_AddBuffer = nullptr;
         }
         if ( this->d_ReceiveDOFList ) {
-            this->d_size_t_alloc.deallocate(
-                this->d_ReceiveDOFList, this->d_ghostSize, AMP::Utilities::DeviceContext::stream );
+            this->d_size_t_alloc.deallocate( this->d_ReceiveDOFList,
+                                             this->d_ghostSize,
+                                             Utilities::device_context_default.stream );
             this->d_ReceiveDOFList = nullptr;
         }
 
         // allocate space for ghost and add buffers, cache ghost id's
-        this->d_Ghosts    = d_alloc.allocate( d_ghostSize, AMP::Utilities::DeviceContext::stream );
-        this->d_AddBuffer = d_alloc.allocate( d_ghostSize, AMP::Utilities::DeviceContext::stream );
+        this->d_Ghosts = d_alloc.allocate( d_ghostSize, Utilities::device_context_default.stream );
+        this->d_AddBuffer =
+            d_alloc.allocate( d_ghostSize, Utilities::device_context_default.stream );
         this->d_ReceiveDOFList =
-            d_size_t_alloc.allocate( d_ghostSize, AMP::Utilities::DeviceContext::stream );
+            d_size_t_alloc.allocate( d_ghostSize, Utilities::device_context_default.stream );
 
-        AMP::Utilities::Algorithms::zero_n( this->d_Ghosts, this->d_ghostSize, d_memory_location );
-        AMP::Utilities::Algorithms::zero_n(
-            this->d_AddBuffer, this->d_ghostSize, d_memory_location );
+        Utilities::Algorithms::zero_n( this->d_Ghosts, this->d_ghostSize, d_memory_location );
+        Utilities::Algorithms::zero_n( this->d_AddBuffer, this->d_ghostSize, d_memory_location );
 
         const auto &ghostIDs = this->d_CommList->getGhostIDList();
-        AMP::Utilities::Algorithms::copy_n( this->d_ReceiveDOFList,
-                                            d_memory_location,
-                                            ghostIDs.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            this->d_ghostSize );
+        Utilities::Algorithms::copy_n( this->d_ReceiveDOFList,
+                                       d_memory_location,
+                                       ghostIDs.data(),
+                                       Utilities::MemoryType::host,
+                                       this->d_ghostSize );
+#ifdef AMP_USE_DEVICE
+        deviceStreamSynchronize( Utilities::device_context_default.stream );
+#endif
     }
 }
 
@@ -99,27 +103,27 @@ void GhostDataHelper<TYPE, Allocator>::deallocateBuffers()
 
     if ( this->d_Ghosts ) {
         this->d_alloc.deallocate(
-            this->d_Ghosts, this->d_ghostSize, AMP::Utilities::DeviceContext::stream );
+            this->d_Ghosts, this->d_ghostSize, Utilities::device_context_default.stream );
         this->d_Ghosts = nullptr;
     }
     if ( this->d_AddBuffer ) {
         this->d_alloc.deallocate(
-            this->d_AddBuffer, this->d_ghostSize, AMP::Utilities::DeviceContext::stream );
+            this->d_AddBuffer, this->d_ghostSize, Utilities::device_context_default.stream );
         this->d_AddBuffer = nullptr;
     }
     if ( this->d_SendRecv ) {
         this->d_alloc.deallocate(
-            this->d_SendRecv, this->d_numRemote, AMP::Utilities::DeviceContext::stream );
+            this->d_SendRecv, this->d_numRemote, Utilities::device_context_default.stream );
         this->d_SendRecv = nullptr;
     }
     if ( this->d_localRemote ) {
         this->d_size_t_alloc.deallocate(
-            this->d_localRemote, this->d_numRemote, AMP::Utilities::DeviceContext::stream );
+            this->d_localRemote, this->d_numRemote, Utilities::device_context_default.stream );
         this->d_localRemote = nullptr;
     }
     if ( this->d_ReceiveDOFList ) {
         this->d_size_t_alloc.deallocate(
-            this->d_ReceiveDOFList, this->d_ghostSize, AMP::Utilities::DeviceContext::stream );
+            this->d_ReceiveDOFList, this->d_ghostSize, Utilities::device_context_default.stream );
         this->d_ReceiveDOFList = nullptr;
     }
     this->d_ghostSize = 0;
@@ -128,21 +132,26 @@ void GhostDataHelper<TYPE, Allocator>::deallocateBuffers()
 
     const int size = std::max( this->d_CommList ? this->d_CommList->getComm().getSize() : 1, 1 );
     if ( d_sendSizes ) {
-        d_int_alloc.deallocate( d_sendSizes, size, AMP::Utilities::DeviceContext::stream );
+        d_int_alloc.deallocate( d_sendSizes, size, Utilities::device_context_default.stream );
         d_sendSizes = nullptr;
     }
     if ( d_recvSizes ) {
-        d_int_alloc.deallocate( d_recvSizes, size, AMP::Utilities::DeviceContext::stream );
+        d_int_alloc.deallocate( d_recvSizes, size, Utilities::device_context_default.stream );
         d_recvSizes = nullptr;
     }
     if ( d_sendDisplacements ) {
-        d_int_alloc.deallocate( d_sendDisplacements, size, AMP::Utilities::DeviceContext::stream );
+        d_int_alloc.deallocate(
+            d_sendDisplacements, size, Utilities::device_context_default.stream );
         d_sendDisplacements = nullptr;
     }
     if ( d_recvDisplacements ) {
-        d_int_alloc.deallocate( d_recvDisplacements, size, AMP::Utilities::DeviceContext::stream );
+        d_int_alloc.deallocate(
+            d_recvDisplacements, size, Utilities::device_context_default.stream );
         d_recvDisplacements = nullptr;
     }
+#ifdef AMP_USE_DEVICE
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
+#endif
 }
 
 template<class TYPE, class Allocator>
@@ -180,7 +189,7 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     for ( auto size : sendSizes )
         N += size;
     if ( N > 0 )
-        this->d_SendRecv = d_alloc.allocate( N, AMP::Utilities::DeviceContext::stream );
+        this->d_SendRecv = d_alloc.allocate( N, Utilities::device_context_default.stream );
 
     // Get a list of the local dofs that are remote
     auto replicatedVec = d_CommList->getReplicatedIDList();
@@ -194,11 +203,14 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
 
     if ( N > 0 ) {
         this->d_localRemote = d_size_t_alloc.allocate( N );
-        AMP::Utilities::Algorithms::copy_n( d_localRemote,
-                                            d_memory_location,
-                                            replicatedVec.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            d_numRemote );
+        Utilities::Algorithms::copy_n( d_localRemote,
+                                       d_memory_location,
+                                       replicatedVec.data(),
+                                       Utilities::MemoryType::host,
+                                       d_numRemote );
+#ifdef AMP_USE_DEVICE
+        deviceStreamSynchronize( Utilities::device_context_default.stream );
+#endif
     }
 
     const auto &recvSizes = d_CommList->getReceiveSizes();
@@ -212,26 +224,23 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
         d_recvSizes         = d_int_alloc.allocate( size );
         d_sendDisplacements = d_int_alloc.allocate( size );
         d_recvDisplacements = d_int_alloc.allocate( size );
-        AMP::Utilities::Algorithms::copy_n( d_sendSizes,
-                                            d_memory_location,
-                                            sendSizes.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            size );
-        AMP::Utilities::Algorithms::copy_n( d_recvSizes,
-                                            d_memory_location,
-                                            recvSizes.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            size );
-        AMP::Utilities::Algorithms::copy_n( d_sendDisplacements,
-                                            d_memory_location,
-                                            sendDisp.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            size );
-        AMP::Utilities::Algorithms::copy_n( d_recvDisplacements,
-                                            d_memory_location,
-                                            recvDisp.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            size );
+        Utilities::Algorithms::copy_n(
+            d_sendSizes, d_memory_location, sendSizes.data(), Utilities::MemoryType::host, size );
+        Utilities::Algorithms::copy_n(
+            d_recvSizes, d_memory_location, recvSizes.data(), Utilities::MemoryType::host, size );
+        Utilities::Algorithms::copy_n( d_sendDisplacements,
+                                       d_memory_location,
+                                       sendDisp.data(),
+                                       Utilities::MemoryType::host,
+                                       size );
+        Utilities::Algorithms::copy_n( d_recvDisplacements,
+                                       d_memory_location,
+                                       recvDisp.data(),
+                                       Utilities::MemoryType::host,
+                                       size );
+#ifdef AMP_USE_DEVICE
+        deviceStreamSynchronize( Utilities::device_context_default.stream );
+#endif
     }
 }
 
@@ -272,7 +281,7 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
     PROFILE( "GhostDataHelper::makeConsistent" );
 
 #ifdef AMP_USE_DEVICE
-    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
     getLastDeviceError( "GhostDataHelper::makeConsistent" );
 #endif
 
@@ -280,7 +289,7 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
         if ( t == ScatterType::CONSISTENT_ADD ) {
             AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
             scatter_add();
-            AMP::Utilities::Algorithms::zero_n(
+            Utilities::Algorithms::zero_n(
                 this->d_AddBuffer, this->d_ghostSize, d_memory_location );
         }
         *d_UpdateState = UpdateState::SETTING;
@@ -311,14 +320,13 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     const auto &recvDisp  = d_CommList->getReceiveDisp();
 
     // Have special cases for device memory
-    constexpr AMP::Utilities::MemoryType allocMemType =
-        AMP::Utilities::getAllocatorMemoryType<Allocator>();
+    constexpr Utilities::MemoryType allocMemType = Utilities::getAllocatorMemoryType<Allocator>();
 
     // default buffers
     TYPE *send_p   = d_SendRecv;
     TYPE *ghosts_p = d_Ghosts;
 
-    if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+    if constexpr ( allocMemType == Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
         // don't have gpu aware MPI
         // allocate host buffers and set pointers to them
@@ -330,7 +338,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     }
 
 #ifdef AMP_USE_DEVICE
-    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
 #endif
 
     // post all receives
@@ -346,14 +354,11 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     if ( d_localRemote != nullptr ) {
         PROFILE( "GhostDataHelper::scatter_set (pack buffer)" );
         getValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type, d_memory_location );
-        if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+        if constexpr ( allocMemType == Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
             PROFILE( "GhostDataHelper::scatter_set (D->H copy)" );
-            AMP::Utilities::Algorithms::copy_n( send_p,
-                                                AMP::Utilities::MemoryType::host,
-                                                d_SendRecv,
-                                                d_memory_location,
-                                                d_numRemote );
+            Utilities::Algorithms::copy_n(
+                send_p, Utilities::MemoryType::host, d_SendRecv, d_memory_location, d_numRemote );
 #endif
         }
     }
@@ -372,16 +377,16 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
 
     // we only handle the device case at present though we could prefetch to device for managed
     // memory (TODO)
-    if constexpr ( allocMemType == AMP::Utilities::MemoryType::device ) {
+    if constexpr ( allocMemType == Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
         PROFILE( "GhostDataHelper::scatter_set (H->D copy)" );
-        AMP::Utilities::Algorithms::copy_n( d_Ghosts,
-                                            d_memory_location,
-                                            ghosts_p,
-                                            AMP::Utilities::MemoryType::host,
-                                            this->d_ghostSize );
+        Utilities::Algorithms::copy_n(
+            d_Ghosts, d_memory_location, ghosts_p, Utilities::MemoryType::host, this->d_ghostSize );
 #endif
     }
+#ifdef AMP_USE_DEVICE
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
+#endif
 
     // wait all sends
     comm.waitAll( static_cast<int>( send_request.size() ), send_request.data() );
@@ -411,7 +416,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
     int *recv_sizes_p = const_cast<int *>( recvSizes.data() );
     int *recv_disp_p  = const_cast<int *>( recvDisp.data() );
 
-    if constexpr ( d_memory_location == AMP::Utilities::MemoryType::managed ) {
+    if constexpr ( d_memory_location == Utilities::MemoryType::managed ) {
 
         // we could prefetch to host here when not using gpu aware mpi
         send_sizes_p = d_sendSizes;
@@ -419,7 +424,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
         recv_sizes_p = d_recvSizes;
         recv_disp_p  = d_recvDisplacements;
 
-    } else if constexpr ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+    } else if constexpr ( d_memory_location == Utilities::MemoryType::device ) {
 
 #ifdef AMP_ENABLE_GPU_AWARE_MPI
         send_sizes_p = d_sendSizes;
@@ -430,23 +435,23 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
         // copy into host buffers
         d_SendRecv_h.resize( this->d_numRemote );
         d_AddBuffer_h.resize( this->d_ghostSize );
-        AMP::Utilities::Algorithms::copy_n( d_SendRecv_h.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            d_SendRecv,
-                                            d_memory_location,
-                                            this->d_numRemote );
-        AMP::Utilities::Algorithms::copy_n( d_AddBuffer_h.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            d_AddBuffer,
-                                            d_memory_location,
-                                            this->d_ghostSize );
+        Utilities::Algorithms::copy_n( d_SendRecv_h.data(),
+                                       Utilities::MemoryType::host,
+                                       d_SendRecv,
+                                       d_memory_location,
+                                       this->d_numRemote );
+        Utilities::Algorithms::copy_n( d_AddBuffer_h.data(),
+                                       Utilities::MemoryType::host,
+                                       d_AddBuffer,
+                                       d_memory_location,
+                                       this->d_ghostSize );
         send_recv_p = d_SendRecv_h.data();
         ghost_add_p = d_AddBuffer_h.data();
 #endif
     }
 
 #ifdef AMP_USE_DEVICE
-    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
 #endif
 
     comm.allToAll<TYPE>(
@@ -454,16 +459,19 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
 
     // we only handle the device case at present though we could prefetch to device for managed
     // memory (TODO)
-    if constexpr ( d_memory_location == AMP::Utilities::MemoryType::device ) {
+    if constexpr ( d_memory_location == Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
-        AMP::Utilities::Algorithms::copy_n( d_SendRecv,
-                                            d_memory_location,
-                                            d_SendRecv_h.data(),
-                                            AMP::Utilities::MemoryType::host,
-                                            this->d_numRemote );
+        Utilities::Algorithms::copy_n( d_SendRecv,
+                                       d_memory_location,
+                                       d_SendRecv_h.data(),
+                                       Utilities::MemoryType::host,
+                                       this->d_numRemote );
 #endif
     }
 
+#ifdef AMP_USE_DEVICE
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
+#endif
     // Unpack the add buffers
     if ( d_localRemote != nullptr )
         addValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type, d_memory_location );
@@ -489,8 +497,11 @@ void GhostDataHelper<TYPE, Allocator>::fillGhosts( const Scalar &scalar )
     PROFILE( "GhostDataHelper::fillGhosts" );
 
     const auto y = static_cast<TYPE>( scalar );
-    AMP::Utilities::Algorithms::fill_n( this->d_Ghosts, this->d_ghostSize, y, d_memory_location );
-    AMP::Utilities::Algorithms::zero_n( this->d_AddBuffer, this->d_ghostSize, d_memory_location );
+    Utilities::Algorithms::fill_n( this->d_Ghosts, this->d_ghostSize, y, d_memory_location );
+    Utilities::Algorithms::zero_n( this->d_AddBuffer, this->d_ghostSize, d_memory_location );
+#ifdef AMP_USE_DEVICE
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
+#endif
 }
 
 
@@ -545,15 +556,11 @@ bool GhostDataHelper<TYPE, Allocator>::allGhostIndices( size_t N, const size_t *
 
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::setGhostValuesByGlobalID(
-    size_t N,
-    const size_t *ndx,
-    const void *vals,
-    const typeID &id,
-    AMP::Utilities::MemoryType buf_loc )
+    size_t N, const size_t *ndx, const void *vals, const typeID &id, Utilities::MemoryType buf_loc )
 {
     PROFILE( "GhostDataHelper::setGhostValuesByGlobalID" );
 
-    AMP_ASSERT( buf_loc == AMP::Utilities::MemoryType::host );
+    AMP_ASSERT( buf_loc == Utilities::MemoryType::host );
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *d_UpdateState != UpdateState::ADDING );
         *d_UpdateState = UpdateState::SETTING;
@@ -568,15 +575,11 @@ void GhostDataHelper<TYPE, Allocator>::setGhostValuesByGlobalID(
 }
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::addGhostValuesByGlobalID(
-    size_t N,
-    const size_t *ndx,
-    const void *vals,
-    const typeID &id,
-    AMP::Utilities::MemoryType buf_loc )
+    size_t N, const size_t *ndx, const void *vals, const typeID &id, Utilities::MemoryType buf_loc )
 {
     PROFILE( "GhostDataHelper::addGhostValuesByGlobalID" );
 
-    AMP_ASSERT( buf_loc == AMP::Utilities::MemoryType::host );
+    AMP_ASSERT( buf_loc == Utilities::MemoryType::host );
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
         *d_UpdateState = UpdateState::ADDING;
@@ -592,15 +595,14 @@ void GhostDataHelper<TYPE, Allocator>::addGhostValuesByGlobalID(
 
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalID(
-    size_t N, const size_t *ndx, void *vals, const typeID &id, AMP::Utilities::MemoryType buf_loc )
-    const
+    size_t N, const size_t *ndx, void *vals, const typeID &id, Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "GhostDataHelper::getGhostValuesByGlobalID" );
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
 
-        AMP_ASSERT( buf_loc == AMP::Utilities::MemoryType::host );
+        AMP_ASSERT( buf_loc == Utilities::MemoryType::host );
         // do the lookup assuming that given ndx list is sorted,
         // and fall-back to slower version only if needed
         bool ndx_is_sorted = true;
@@ -628,11 +630,10 @@ void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalID(
 
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalIDUnsorted(
-    size_t N, const size_t *ndx, void *vals, const typeID &id, AMP::Utilities::MemoryType buf_loc )
-    const
+    size_t N, const size_t *ndx, void *vals, const typeID &id, Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "GhostDataHelper::getGhostValuesByGlobalIDUnsorted" );
-    AMP_ASSERT( buf_loc == AMP::Utilities::MemoryType::host );
+    AMP_ASSERT( buf_loc == Utilities::MemoryType::host );
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
@@ -647,12 +648,11 @@ void GhostDataHelper<TYPE, Allocator>::getGhostValuesByGlobalIDUnsorted(
 
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::getGhostAddValuesByGlobalID(
-    size_t N, const size_t *ndx, void *vals, const typeID &id, AMP::Utilities::MemoryType buf_loc )
-    const
+    size_t N, const size_t *ndx, void *vals, const typeID &id, Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "GhostDataHelper::getGhostAddValuesByGlobalID" );
 
-    AMP_ASSERT( buf_loc == AMP::Utilities::MemoryType::host );
+    AMP_ASSERT( buf_loc == Utilities::MemoryType::host );
     if ( id == AMP::getTypeID<TYPE>() ) {
         AMP_INSIST( GhostDataHelper::allGhostIndices( N, ndx ), "Non ghost index encountered" );
         auto data = reinterpret_cast<TYPE *>( vals );
@@ -665,24 +665,25 @@ void GhostDataHelper<TYPE, Allocator>::getGhostAddValuesByGlobalID(
 }
 
 template<class TYPE, class Allocator>
-size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues(
-    void *vals, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const
+size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals,
+                                                            const typeID &id,
+                                                            Utilities::MemoryType buf_loc ) const
 {
     PROFILE( "GhostDataHelper::getAllGhostValues" );
 
+    AMP_ASSERT( buf_loc == Utilities::MemoryType::host );
     if ( id == getTypeID<TYPE>() ) {
         auto data = static_cast<TYPE *>( vals );
-        AMP::Utilities::Algorithms::copy_n(
-            data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize );
+        Utilities::Algorithms::copy_n( data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize );
     } else if ( id == getTypeID<float>() && std::is_same_v<TYPE, double> ) {
         auto data       = static_cast<float *>( vals );
         auto dbl_ghosts = reinterpret_cast<const double *>( d_Ghosts );
-        AMP::Utilities::Algorithms::copyCast(
+        Utilities::Algorithms::copyCast(
             data, buf_loc, dbl_ghosts, d_memory_location, d_ghostSize );
     } else if ( id == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
         auto data       = static_cast<double *>( vals );
         auto flt_ghosts = reinterpret_cast<const float *>( d_Ghosts );
-        AMP::Utilities::Algorithms::copyCast(
+        Utilities::Algorithms::copyCast(
             data, buf_loc, flt_ghosts, d_memory_location, d_ghostSize );
     } else {
         AMP_ERROR( "Ghosts copy with mismatched types only supports float/double combinations" );

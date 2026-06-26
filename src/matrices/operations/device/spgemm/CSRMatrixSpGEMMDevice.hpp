@@ -74,7 +74,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
     // Convert the local indices to globals to make merges easier
     if ( C_data->isDiag() ) {
         const auto first_col = C_data->beginCol();
-        thrust::transform( thrust::device.on( Utilities::DeviceContext::stream ),
+        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
                            C_cols_loc,
                            C_cols_loc + C_nnz,
                            C_cols,
@@ -84,7 +84,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
     } else {
         const auto colmap = B_data->getColumnMap();
         thrust::transform(
-            thrust::device.on( Utilities::DeviceContext::stream ),
+            thrust::device.on( Utilities::device_context_default.stream ),
             C_cols_loc,
             C_cols_loc + C_nnz,
             C_cols,

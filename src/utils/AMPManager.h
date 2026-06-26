@@ -116,20 +116,6 @@ public:
      */
     int default_OpenMP_threads = 0;
 
-    //! Set whether AMP should create a device compute stream, meaningless for host-only
-    bool manage_compute_stream = true;
-
-    /*!
-     * Device compute stream to queue kernels into
-     * In host-only builds this resolves to void* and is never used.
-     * In device-enabled builds {HIP,Cuda} this resolves to {hip,cuda}Stream_t
-     *    If manage_device_compute_stream is true then this is created/destroyed
-     *    by bindDevices/freeDevices in AMPManager.
-     *    If manage_device_compute_stream is false then this must be passed from
-     *    the outside. AMP does not create or destroy it in this case.
-     */
-    computeStream_t compute_stream = nullptr;
-
 private:
     friend class AMPManager;
 };

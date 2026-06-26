@@ -4,19 +4,6 @@
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/device/Device.h"
 
-#ifdef AMP_USE_DEVICE
-    #include <thrust/device_vector.h>
-    #include <thrust/execution_policy.h>
-    #include <thrust/extrema.h>
-    #include <thrust/fill.h>
-    #include <thrust/scan.h>
-    #include <thrust/sort.h>
-    #include <thrust/transform.h>
-    #include <thrust/unique.h>
-#else
-    #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
-#endif
-
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -24,16 +11,17 @@
 
 namespace AMP {
 namespace Utilities {
+namespace Algorithms {
 
 template<typename TYPE>
-void Algorithms::fill_n( TYPE *x, const size_t N, const TYPE alpha, const MemoryType mem_loc )
+void fill_n( TYPE *x, const size_t N, const TYPE alpha, const MemoryType mem_loc )
 {
     if ( N > 0 ) {
         if ( mem_loc <= MemoryType::host ) {
             std::fill_n( x, N, alpha );
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::fill_n( thrust::device.on( Utilities::DeviceContext::stream ), x, N, alpha );
+            thrust::fill_n( thrust::device.on( device_context_default.stream ), x, N, alpha );
 #else
             AMP_ERROR( "Invalid memory type" );
 #endif
@@ -42,13 +30,13 @@ void Algorithms::fill_n( TYPE *x, const size_t N, const TYPE alpha, const Memory
 }
 
 template<typename TYPE>
-void Algorithms::zero_n( TYPE *x, const size_t N, const MemoryType mem_loc )
+void zero_n( TYPE *x, const size_t N, const MemoryType mem_loc )
 {
     fill_n<TYPE>( x, N, 0, mem_loc );
 }
 
 template<typename TYPE>
-void Algorithms::copy_n( TYPE *dst, const TYPE *src, const size_t N, const MemoryType mem_loc )
+void copy_n( TYPE *dst, const TYPE *src, const size_t N, const MemoryType mem_loc )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
     if ( mem_loc <= MemoryType::host ) {
@@ -63,7 +51,7 @@ void Algorithms::copy_n( TYPE *dst, const TYPE *src, const size_t N, const Memor
 }
 
 template<typename TYPE>
-void Algorithms::copy_n(
+void copy_n(
     TYPE *dst, const MemoryType dst_loc, const TYPE *src, const MemoryType src_loc, const size_t N )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
@@ -100,7 +88,7 @@ void Algorithms::copy_n(
 }
 
 template<class TDst, class TSrc>
-void Algorithms::copyCast(
+void copyCast(
     TDst *dst, const MemoryType dst_loc, const TSrc *src, const MemoryType src_loc, size_t N )
 {
     // either both integer types or both floating, but not mixed between the two
@@ -121,9 +109,11 @@ void Algorithms::copyCast(
         if ( dst_loc >= MemoryType::managed && src_loc >= MemoryType::managed ) {
             // both dev accesible, transform on device
             thrust::transform(
-                thrust::device, src, src + N, dst, [] __device__( const TSrc in ) -> TDst {
-                    return static_cast<TDst>( in );
-                } );
+                thrust::device.on( device_context_default.stream ),
+                src,
+                src + N,
+                dst,
+                [] __device__( const TSrc in ) -> TDst { return static_cast<TDst>( in ); } );
         } else if ( dst_loc <= MemoryType::host ) {
             AMP_DEBUG_ASSERT( src_loc == MemoryType::device );
             // destination host, but source not host accessible, need temp array
@@ -145,14 +135,13 @@ void Algorithms::copyCast(
 }
 
 template<typename TYPE>
-void Algorithms::inclusive_scan( const TYPE *x, const size_t N, TYPE *y, const MemoryType mem_loc )
+void inclusive_scan( const TYPE *x, const size_t N, TYPE *y, const MemoryType mem_loc )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::inclusive_scan( x, x + N, y );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::inclusive_scan(
-            thrust::device.on( Utilities::DeviceContext::stream ), x, x + N, y );
+        thrust::inclusive_scan( thrust::device.on( device_context_default.stream ), x, x + N, y );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -160,15 +149,14 @@ void Algorithms::inclusive_scan( const TYPE *x, const size_t N, TYPE *y, const M
 }
 
 template<typename TYPE>
-void Algorithms::exclusive_scan(
-    const TYPE *x, const size_t N, TYPE *y, TYPE alpha, const MemoryType mem_loc )
+void exclusive_scan( const TYPE *x, const size_t N, TYPE *y, TYPE alpha, const MemoryType mem_loc )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::exclusive_scan( x, x + N, y, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
         thrust::exclusive_scan(
-            thrust::device.on( Utilities::DeviceContext::stream ), x, x + N, y, alpha );
+            thrust::device.on( device_context_default.stream ), x, x + N, y, alpha );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -176,14 +164,13 @@ void Algorithms::exclusive_scan(
 }
 
 template<typename TYPE>
-void Algorithms::sort( TYPE *x, const size_t N, const MemoryType mem_loc )
+void sort( TYPE *x, const size_t N, const MemoryType mem_loc )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::sort( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        // thrust::sort( thrust::device.on( Utilities::DeviceContext::stream ), x, x + N );
-        thrust::sort( thrust::device, x, x + N );
+        thrust::sort( thrust::device.on( device_context_default.stream ), x, x + N );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -191,14 +178,14 @@ void Algorithms::sort( TYPE *x, const size_t N, const MemoryType mem_loc )
 }
 
 template<typename TYPE>
-size_t Algorithms::unique( TYPE *x, const size_t N, const MemoryType mem_loc )
+size_t unique( TYPE *x, const size_t N, const MemoryType mem_loc )
 {
     TYPE *last = nullptr;
     if ( mem_loc <= MemoryType::host ) {
         last = std::unique( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        last = thrust::unique( thrust::device, x, x + N );
+        last = thrust::unique( thrust::device.on( device_context_default.stream ), x, x + N );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -209,13 +196,13 @@ size_t Algorithms::unique( TYPE *x, const size_t N, const MemoryType mem_loc )
 }
 
 template<typename TYPE>
-TYPE Algorithms::min_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
+TYPE min_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::min_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        return *thrust::min_element( thrust::device.on( Utilities::DeviceContext::stream ),
+        return *thrust::min_element( thrust::device.on( device_context_default.stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
 #else
@@ -226,13 +213,13 @@ TYPE Algorithms::min_element( const TYPE *x, const size_t N, const MemoryType me
 }
 
 template<typename TYPE>
-TYPE Algorithms::max_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
+TYPE max_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::max_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        return *thrust::max_element( thrust::device.on( Utilities::DeviceContext::stream ),
+        return *thrust::max_element( thrust::device.on( device_context_default.stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
 #else
@@ -243,13 +230,13 @@ TYPE Algorithms::max_element( const TYPE *x, const size_t N, const MemoryType me
 }
 
 template<typename TYPE>
-TYPE Algorithms::accumulate( const TYPE *x, const size_t N, TYPE alpha, const MemoryType mem_loc )
+TYPE accumulate( const TYPE *x, const size_t N, TYPE alpha, const MemoryType mem_loc )
 {
     if ( mem_loc <= MemoryType::host ) {
         return std::accumulate( x, x + N, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
-        return thrust::reduce( thrust::device.on( Utilities::DeviceContext::stream ),
+        return thrust::reduce( thrust::device.on( device_context_default.stream ),
                                x,
                                x + N,
                                alpha,
@@ -261,5 +248,6 @@ TYPE Algorithms::accumulate( const TYPE *x, const size_t N, TYPE alpha, const Me
     }
 }
 
+} // namespace Algorithms
 } // namespace Utilities
 } // namespace AMP

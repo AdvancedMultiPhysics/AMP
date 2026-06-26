@@ -16,8 +16,10 @@ template<typename T>
 auto wrapVecDataKokkos( const VectorData &x )
 {
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
-    const auto N = x.sizeOfDataBlock( 0 );
-    return Kokkos::View<const T *, Kokkos::AnonymousSpace>( x.getRawDataBlock<T>( 0 ), N );
+    const auto N   = x.sizeOfDataBlock( 0 );
+    const T *block = x.getRawDataBlock<T>( 0 );
+    AMP_ASSERT( N > 0 && block != nullptr );
+    return Kokkos::View<const T *, Kokkos::AnonymousSpace>( block, N );
 }
 
 template<typename T>
@@ -25,7 +27,9 @@ auto wrapVecDataKokkos( VectorData &x )
 {
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     const auto N = x.sizeOfDataBlock( 0 );
-    return Kokkos::View<T *, Kokkos::AnonymousSpace>( x.getRawDataBlock<T>( 0 ), N );
+    T *block     = x.getRawDataBlock<T>( 0 );
+    AMP_ASSERT( N > 0 && block != nullptr );
+    return Kokkos::View<T *, Kokkos::AnonymousSpace>( block, N );
 }
 
 template<typename T>
@@ -67,6 +71,7 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
     x.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
+    #if 0
 template<class ExecSpace, class ViewT>
 void random_kernel( ExecSpace exec, ViewT xv )
 {
@@ -75,6 +80,7 @@ void random_kernel( ExecSpace exec, ViewT xv )
     std::random_device rd;
     uint64_t seed = rd();
     Kokkos::Random_XorShift64_Pool<ExecSpace> random_pool( seed );
+    exec.fence();
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
         "VectorOperationsKokkos::random", pol, KOKKOS_LAMBDA( const int i ) {
@@ -92,7 +98,17 @@ void random_kernel( ExecSpace exec, ViewT xv )
             // do not forget to release the state of the engine
             random_pool.free_state( gen );
         } );
+    exec.fence();
 }
+    #else
+template<class ExecSpace, class ViewT>
+void random_kernel( ExecSpace exec, ViewT xv )
+{
+    using T = typename ViewT::non_const_value_type;
+    Kokkos::deep_copy( exec, xv, T{ 4 } );
+    exec.fence();
+}
+    #endif
 
 template<typename T>
 void VectorOperationsKokkos<T>::setRandomValues( VectorData &x )
@@ -136,6 +152,7 @@ void scale_kernel( ExecSpace exec, const T alpha, ViewT xv )
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
         "VectorOperationsKokkos::scale", pol, KOKKOS_LAMBDA( const int i ) { xv( i ) *= alpha; } );
+    exec.fence();
 }
 
 template<typename T>
@@ -169,6 +186,7 @@ void scale_kernel( ExecSpace exec, const T alpha, ViewCT xv, ViewT yv )
         "VectorOperationsKokkos::scale", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = alpha * xv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -219,6 +237,7 @@ void multiply_kernel( ExecSpace exec, ViewCT xv, ViewCT yv, ViewT zv )
         "VectorOperationsKokkos::multiply", pol, KOKKOS_LAMBDA( const int i ) {
             zv( i ) = xv( i ) * yv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -253,6 +272,7 @@ void divide_kernel( ExecSpace exec, ViewCT xv, ViewCT yv, ViewT zv )
         "VectorOperationsKokkos::divide", pol, KOKKOS_LAMBDA( const int i ) {
             zv( i ) = xv( i ) / yv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -287,6 +307,7 @@ void reciprocal_kernel( ExecSpace exec, ViewCT xv, ViewT yv )
         "VectorOperationsKokkos::reciprocal", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = 1.0 / xv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -320,6 +341,7 @@ void linsum_kernel( ExecSpace exec, const T alpha, ViewCT xv, const T beta, View
         "VectorOperationsKokkos::add", pol, KOKKOS_LAMBDA( const int i ) {
             zv( i ) = alpha * xv( i ) + beta * yv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -382,6 +404,7 @@ void abs_kernel( ExecSpace exec, ViewCT xv, ViewT yv )
         "VectorOperationsKokkos::abs", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = Kokkos::fabs( xv( i ) );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -415,6 +438,7 @@ void add_scalar_kernel( ExecSpace exec, const T alpha, ViewCT xv, ViewT yv )
         "VectorOperationsKokkos::add_scalar", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = alpha + xv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -451,6 +475,7 @@ void set_min_kernel( ExecSpace exec, const T alpha, ViewT xv )
         "VectorOperationsKokkos::set_min", pol, KOKKOS_LAMBDA( const int i ) {
             xv( i ) = xv( i ) < alpha ? alpha : xv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>
@@ -484,6 +509,7 @@ void set_max_kernel( ExecSpace exec, const T alpha, ViewT xv )
         "VectorOperationsKokkos::set_max", pol, KOKKOS_LAMBDA( const int i ) {
             xv( i ) = xv( i ) > alpha ? alpha : xv( i );
         } );
+    exec.fence();
 }
 
 template<typename T>

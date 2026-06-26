@@ -175,11 +175,11 @@ public:
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            AMP::Utilities::Algorithms::copyCast( colMap.data(),
-                                                  AMP::Utilities::MemoryType::host,
-                                                  d_cols_unq.get(),
-                                                  Config::mem_loc,
-                                                  d_ncols_unq );
+            Utilities::Algorithms::copyCast( colMap.data(),
+                                             Utilities::MemoryType::host,
+                                             d_cols_unq.get(),
+                                             Config::mem_loc,
+                                             d_ncols_unq );
         }
     }
 
@@ -188,7 +188,7 @@ public:
     void setNNZ( lidx_t tot_nnz );
 
     //! Set number of nonzeros in each row and allocate space accordingly
-    void setNNZ( const lidx_t *nnz, const AMP::Utilities::MemoryType nnz_loc );
+    void setNNZ( const lidx_t *nnz, const Utilities::MemoryType nnz_loc );
 
     //! setNNZ function that references d_row_starts and optionally does scan
     void setNNZ( bool do_accum );
@@ -226,9 +226,9 @@ public:
         using alloc_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<U>;
         alloc_t alloc;
         return std::shared_ptr<typename alloc_t::value_type[]>(
-            alloc.allocate( N, AMP::Utilities::DeviceContext::stream ),
+            alloc.allocate( N, Utilities::device_context_default.stream ),
             [N, &alloc]( auto p ) -> void {
-                alloc.deallocate( p, N, AMP::Utilities::DeviceContext::stream );
+                alloc.deallocate( p, N, Utilities::device_context_default.stream );
             } );
     }
 
@@ -270,7 +270,7 @@ public:
     CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager *manager );
 
     //! Memory location, set by examining type of Allocator
-    static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
+    static constexpr Utilities::MemoryType d_memory_location = Config::mem_loc;
 
 protected:
     /** \brief  Sort the columns/values within each row

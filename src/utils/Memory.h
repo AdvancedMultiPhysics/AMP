@@ -66,7 +66,14 @@ template<typename TYPE>
 using DeviceAllocator = AMP::HipDevAllocator<TYPE>;
 #endif
 
-// host allocator
+// host allocators
+#ifdef AMP_USE_CUDA
+template<typename TYPE>
+using HostAllocator = AMP::CudaHostAllocator<TYPE>;
+#elif defined( AMP_USE_HIP )
+template<typename TYPE>
+using HostAllocator = AMP::HipHostAllocator<TYPE>;
+#else
 template<typename T>
 class HostAllocator
 {
@@ -80,6 +87,7 @@ public:
     void deallocate( T *p, size_t n ) { a.deallocate( p, n ); }
     void deallocate( T *p, size_t n, computeStream_t ) { a.deallocate( p, n ); }
 };
+#endif
 
 // template<typename TYPE>
 // using HostAllocator = std::allocator<TYPE>;

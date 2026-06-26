@@ -11,6 +11,45 @@
 namespace AMP {
 
 /**
+ * \class  CudaHostAllocator
+ * @brief  Allocator based on cudaMallocHost
+ */
+template<typename T>
+class CudaHostAllocator
+{
+public:
+    using value_type = T;
+
+    T *allocate( size_t n )
+    {
+        T *ptr;
+        auto err = cudaMallocHost( &ptr, n * sizeof( T ) );
+        checkCudaErrors( err );
+        return ptr;
+    }
+
+    T *allocate( size_t n, cudaStream_t stream )
+    {
+        T *ptr = allocate( n );
+        deviceStreamSynchronize( stream );
+        return ptr;
+    }
+
+    void deallocate( T *p, size_t )
+    {
+        auto err = cudaFreeHost( p );
+        checkCudaErrors( err );
+    }
+
+    void deallocate( T *p, size_t, cudaStream_t stream)
+    {
+        auto err = cudaFreeHost( p );
+        checkCudaErrors( err );
+        deviceStreamSynchronize( stream );
+    }
+};
+
+/**
  * \class  CudaDevAllocator
  * @brief  Allocator based on cudaMalloc
  */
@@ -68,7 +107,17 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, cudaStream_t ) { return allocate( n ); }
+    T *allocate( size_t n, cudaStream_t stream )
+    {
+        T *ptr;
+        auto err = cudaMallocManaged( &ptr, n * sizeof( T ), cudaMemAttachGlobal );
+        checkCudaErrors( err );
+        deviceStreamSynchronize( stream );
+        err =
+            cudaStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), cudaMemAttachSingle );
+        checkCudaErrors( err );
+        return ptr;
+    }
 
     void deallocate( T *p, size_t )
     {
@@ -76,7 +125,11 @@ public:
         checkCudaErrors( err );
     }
 
-    void deallocate( T *p, size_t, cudaStream_t ) { deallocate( p, 0 ); }
+    void deallocate( T *p, size_t, cudaStream_t stream )
+    {
+        auto err = cudaFreeAsync( p, stream );
+        checkCudaErrors( err );
+    }
 };
 
 } // namespace AMP

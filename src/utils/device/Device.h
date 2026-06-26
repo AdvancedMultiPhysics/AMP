@@ -47,17 +47,19 @@
 // with no device support just stub one in
 typedef void *computeStream_t;
 
-    #define deviceMemcpy( ... ) AMP_ERROR( "Device memcpy without device" )
-
 #endif
 
 namespace AMP::Utilities {
 
-//! Simple static-only struct for any persistent device information
+//! struct for any persistent device information
 struct DeviceContext {
-    //! Compute stream, set and controlled by AMPManager
-    static computeStream_t stream;
+    //! Compute stream
+    computeStream_t stream;
 };
+
+// static instance of context struct as default option
+static DeviceContext device_context_default;
+
 } // namespace AMP::Utilities
 
 #endif

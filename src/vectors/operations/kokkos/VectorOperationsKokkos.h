@@ -27,7 +27,7 @@ public:
     {
     #ifdef AMP_USE_DEVICE
         // if we have device then bind exeuction space to the compute stream
-        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::Utilities::DeviceContext::stream );
+        d_exec_device = Kokkos::DefaultExecutionSpace( Utilities::device_context_default.stream );
     #endif
     }
 

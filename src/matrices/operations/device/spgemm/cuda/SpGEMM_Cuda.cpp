@@ -38,7 +38,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
 {
     // create cusparse handle and spgemm context
     CHECK_CUSPARSE( cusparseCreate( &handle ) );
-    CHECK_CUSPARSE( cusparseSetStream( handle, AMP::Utilities::DeviceContext::stream ) );
+    CHECK_CUSPARSE( cusparseSetStream( handle, Utilities::device_context_default.stream ) );
     CHECK_CUSPARSE( cusparseSpGEMM_createDescr( &spgemmDesc ) );
 
     // Create csr descriptions
@@ -66,7 +66,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                    &bufferSize1,
                                                    nullptr ) );
 
-    deviceMallocAsync( &dBuffer1, bufferSize1, AMP::Utilities::DeviceContext::stream );
+    deviceMallocAsync( &dBuffer1, bufferSize1, Utilities::device_context_default.stream );
 
     CHECK_CUSPARSE( cusparseSpGEMM_workEstimation( handle,
                                                    opA,
@@ -100,7 +100,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                    nullptr,
                                                    nullptr ) );
 
-    deviceMallocAsync( &buffer_tmp, buffer_tmp_size, AMP::Utilities::DeviceContext::stream );
+    deviceMallocAsync( &buffer_tmp, buffer_tmp_size, Utilities::device_context_default.stream );
 
     CHECK_CUSPARSE( cusparseSpGEMM_estimateMemory( handle,
                                                    opA,
@@ -117,8 +117,8 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                    &buffer_tmp_size,
                                                    buffer_tmp,
                                                    &bufferSize2 ) );
-    deviceFreeAsync( buffer_tmp, AMP::Utilities::DeviceContext::stream );
-    deviceMallocAsync( &dBuffer2, bufferSize2, AMP::Utilities::DeviceContext::stream );
+    deviceFreeAsync( buffer_tmp, Utilities::device_context_default.stream );
+    deviceMallocAsync( &dBuffer2, bufferSize2, Utilities::device_context_default.stream );
 
     CHECK_CUSPARSE( cusparseSpGEMM_compute( handle,
                                             opA,
@@ -146,8 +146,8 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::~VendorSpGEMM()
     CHECK_CUSPARSE( cusparseDestroy( handle ) );
 
     // free temporary buffers
-    deviceFreeAsync( dBuffer1, AMP::Utilities::DeviceContext::stream );
-    deviceFreeAsync( dBuffer2, AMP::Utilities::DeviceContext::stream );
+    deviceFreeAsync( dBuffer1, Utilities::device_context_default.stream );
+    deviceFreeAsync( dBuffer2, Utilities::device_context_default.stream );
 }
 
 template<typename rowidx_t, typename colidx_t, typename scalar_t>
@@ -168,7 +168,7 @@ void VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::compute( rowidx_t *C_rs,
     CHECK_CUSPARSE( cusparseCsrSetPointers( matC, C_rs, C_cols, C_vals ) );
     CHECK_CUSPARSE( cusparseSpGEMM_copy(
         handle, opA, opB, &alpha, matA, matB, &beta, matC, computeType, alg, spgemmDesc ) );
-    deviceStreamSynchronize( AMP::Utilities::DeviceContext::stream );
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
 }
 
 // explicit instantiations, only two index types and two scalar types supported

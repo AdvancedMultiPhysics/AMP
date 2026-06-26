@@ -59,9 +59,13 @@ int AMPManager::d_argc                        = 0;
 const char *const *AMPManager::d_argv         = nullptr;
 AMPManagerProperties AMPManager::d_properties = AMPManagerProperties();
 std::vector<std::function<void()>> AMPManager::d_atShutdown;
+
+/****************************************************************************
+ *  Default device context setup/interaction                                 *
+ ****************************************************************************/
 namespace Utilities {
-computeStream_t DeviceContext::stream = nullptr;
-}
+// DeviceContext device_context_default{ nullptr };
+} // namespace Utilities
 
 /****************************************************************************
  *  Get the global communicator                                              *
@@ -215,7 +219,7 @@ void AMPManager::shutdown()
     double hypre_time = stop_HYPRE();
     // shutdown Kokkos
     AMP::Utilities::finalizeKokkos();
-    // free device compute stream if needed
+    // free device compute stream
     freeDevices();
     // Shutdown MPI
     auto MPI_start = std::chrono::steady_clock::now();
@@ -328,15 +332,12 @@ double AMPManager::bindDevices()
         deviceBind( device_id ); // Map MPI-process to a GPU
     }
 
-    if ( d_properties.manage_compute_stream ) {
-        deviceStreamCreate( &d_properties.compute_stream );
-    }
-    Utilities::DeviceContext::stream = d_properties.compute_stream;
+    deviceStreamCreate( &Utilities::device_context_default.stream );
 
     void *tmp;
-    deviceMallocAsync( &tmp, 10, Utilities::DeviceContext::stream );
-    deviceFreeAsync( tmp, Utilities::DeviceContext::stream );
-    deviceStreamSynchronize( Utilities::DeviceContext::stream );
+    deviceMallocAsync( &tmp, 10, Utilities::device_context_default.stream );
+    deviceFreeAsync( tmp, Utilities::device_context_default.stream );
+    deviceStreamSynchronize( Utilities::device_context_default.stream );
 
 #endif
     return getDuration( start );
@@ -349,9 +350,7 @@ double AMPManager::freeDevices()
     auto start = std::chrono::steady_clock::now();
 #ifdef AMP_USE_DEVICE
 
-    if ( d_properties.manage_compute_stream ) {
-        deviceStreamDestroy( d_properties.compute_stream );
-    }
+    deviceStreamDestroy( Utilities::device_context_default.stream );
 
 #endif
     return getDuration( start );
