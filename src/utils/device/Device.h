@@ -58,7 +58,7 @@ struct DeviceContext {
 };
 
 // static instance of context struct as default option
-static DeviceContext device_context_default;
+extern DeviceContext device_context_default;
 
 } // namespace AMP::Utilities
 

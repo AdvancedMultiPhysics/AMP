@@ -28,12 +28,7 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, hipStream_t stream )
-    {
-        T *ptr = allocate( n );
-        deviceStreamSynchronize( stream );
-        return ptr;
-    }
+    T *allocate( size_t n, hipStream_t ) { return allocate( n ); }
 
     void deallocate( T *p, size_t )
     {
@@ -41,11 +36,10 @@ public:
         checkHipErrors( err );
     }
 
-    void deallocate( T *p, size_t, hipStream_t stream )
+    void deallocate( T *p, size_t, hipStream_t )
     {
         auto err = hipFreeHost( p );
         checkHipErrors( err );
-        deviceStreamSynchronize( stream );
     }
 };
 
@@ -106,12 +100,11 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, hipStream_t stream )
+    T *allocate( size_t n, hipStream_t )
     {
         T *ptr;
         auto err = hipMallocManaged( &ptr, n * sizeof( T ), hipMemAttachGlobal );
         checkHipErrors( err );
-        deviceStreamSynchronize( stream );
         // following will be needed some day, but is not currently functional
         // err = hipStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), hipMemAttachSingle
         // );
@@ -125,9 +118,9 @@ public:
         checkHipErrors( err );
     }
 
-    void deallocate( T *p, size_t, hipStream_t stream )
+    void deallocate( T *p, size_t, hipStream_t )
     {
-        auto err = hipFreeAsync( p, stream );
+        auto err = hipFree( p );
         checkHipErrors( err );
     }
 };

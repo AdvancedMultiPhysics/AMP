@@ -71,7 +71,7 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
     x.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
-    #if 0
+    #if 1
 template<class ExecSpace, class ViewT>
 void random_kernel( const ExecSpace &exec, ViewT xv )
 {

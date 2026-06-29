@@ -64,7 +64,7 @@ std::vector<std::function<void()>> AMPManager::d_atShutdown;
  *  Default device context setup/interaction                                 *
  ****************************************************************************/
 namespace Utilities {
-// DeviceContext device_context_default{ nullptr };
+DeviceContext device_context_default{ nullptr };
 } // namespace Utilities
 
 /****************************************************************************

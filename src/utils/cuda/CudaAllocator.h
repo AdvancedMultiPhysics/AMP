@@ -28,12 +28,7 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, cudaStream_t stream )
-    {
-        T *ptr = allocate( n );
-        deviceStreamSynchronize( stream );
-        return ptr;
-    }
+    T *allocate( size_t n, cudaStream_t ) { return allocate( n ); }
 
     void deallocate( T *p, size_t )
     {
@@ -41,11 +36,10 @@ public:
         checkCudaErrors( err );
     }
 
-    void deallocate( T *p, size_t, cudaStream_t stream )
+    void deallocate( T *p, size_t, cudaStream_t )
     {
         auto err = cudaFreeHost( p );
         checkCudaErrors( err );
-        deviceStreamSynchronize( stream );
     }
 };
 
@@ -125,9 +119,9 @@ public:
         checkCudaErrors( err );
     }
 
-    void deallocate( T *p, size_t, cudaStream_t stream )
+    void deallocate( T *p, size_t, cudaStream_t )
     {
-        auto err = cudaFreeAsync( p, stream );
+        auto err = cudaFree( p );
         checkCudaErrors( err );
     }
 };
