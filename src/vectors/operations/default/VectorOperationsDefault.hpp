@@ -181,6 +181,10 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
             AMP::Utilities::Algorithms::copy_n(
                 ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N );
         }
+        std::cout << "Copy from x to y with x-mem: "
+                  << AMP::Utilities::getString( x.getMemoryLocation() )
+                  << " and y-mem: " << AMP::Utilities::getString( y.getMemoryLocation() )
+                  << std::endl;
         y.copyGhostValues( x );
     } else if ( N_blocks_x == N_blocks && !x.isType<TYPE>() ) {
         for ( size_t i = 0; i < N_blocks; i++ ) {

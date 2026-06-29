@@ -112,10 +112,10 @@ public:
         auto err = hipMallocManaged( &ptr, n * sizeof( T ), hipMemAttachGlobal );
         checkHipErrors( err );
         deviceStreamSynchronize( stream );
-        // following is a no-op on most of our ROCm versions
-        // maybe someday this will be useful
-        err = hipStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), hipMemAttachSingle );
-        checkHipErrors( err );
+        // following will be needed some day, but is not currently functional
+        // err = hipStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), hipMemAttachSingle
+        // );
+        // checkHipErrors( err );
         return ptr;
     }
 

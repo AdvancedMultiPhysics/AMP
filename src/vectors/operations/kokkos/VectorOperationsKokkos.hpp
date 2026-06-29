@@ -73,39 +73,37 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
 
     #if 0
 template<class ExecSpace, class ViewT>
-void random_kernel( ExecSpace exec, ViewT xv )
+void random_kernel( const ExecSpace &exec, ViewT xv )
 {
     using T = typename ViewT::non_const_value_type;
-    // adapted from example in Kokkos docs
+
     std::random_device rd;
     uint64_t seed = rd();
     Kokkos::Random_XorShift64_Pool<ExecSpace> random_pool( seed );
-    exec.fence();
-    Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
-    Kokkos::parallel_for(
-        "VectorOperationsKokkos::random", pol, KOKKOS_LAMBDA( const int i ) {
-            auto gen = random_pool.get_state();
-            if ( std::is_floating_point_v<T> ) {
-                xv( i ) = static_cast<T>( gen.drand( 0.0, 1.0 ) );
-            } else if ( std::is_integral_v<T> ) {
-                const T max_val =
-                    Kokkos::floor( Kokkos::sqrt( double{ 0.1 } * std::numeric_limits<T>::max() ) );
-                xv( i ) = static_cast<T>( gen.urand64( 1, max_val ) );
-            } else {
-                // unreachable
-                xv( i ) = 0;
-            }
-            // do not forget to release the state of the engine
-            random_pool.free_state( gen );
-        } );
+
+    if constexpr ( std::is_floating_point_v<T> ) {
+        Kokkos::fill_random( exec, xv, random_pool, T{ 0 }, T{ 1 } );
+    } else {
+        const T max_val = std::floor( std::sqrt( double{ 0.1 } * std::numeric_limits<T>::max() ) );
+        Kokkos::fill_random( exec, xv, random_pool, T{ 0 }, max_val );
+    }
+
     exec.fence();
 }
     #else
+        #warning Kokkos vector ops random kernel extremely not-random
 template<class ExecSpace, class ViewT>
-void random_kernel( ExecSpace exec, ViewT xv )
+void random_kernel( const ExecSpace &exec, ViewT xv )
 {
     using T = typename ViewT::non_const_value_type;
-    Kokkos::deep_copy( exec, xv, T{ 4 } );
+
+    if constexpr ( std::is_floating_point_v<T> ) {
+        const T t = 0.75;
+        Kokkos::deep_copy( exec, xv, t );
+    } else {
+        Kokkos::deep_copy( exec, xv, 4 );
+    }
+
     exec.fence();
 }
     #endif
@@ -147,7 +145,7 @@ void VectorOperationsKokkos<T>::copyCast( const VectorData &x, VectorData &y )
 }
 
 template<typename T, class ExecSpace, class ViewT>
-void scale_kernel( ExecSpace exec, const T alpha, ViewT xv )
+void scale_kernel( const ExecSpace &exec, const T alpha, ViewT xv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -179,7 +177,7 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, VectorData &x )
 }
 
 template<typename T, class ExecSpace, class ViewCT, class ViewT>
-void scale_kernel( ExecSpace exec, const T alpha, ViewCT xv, ViewT yv )
+void scale_kernel( const ExecSpace &exec, const T alpha, ViewCT xv, ViewT yv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -230,7 +228,7 @@ void VectorOperationsKokkos<T>::subtract( const VectorData &x, const VectorData 
 }
 
 template<class ExecSpace, class ViewCT, class ViewT>
-void multiply_kernel( ExecSpace exec, ViewCT xv, ViewCT yv, ViewT zv )
+void multiply_kernel( const ExecSpace &exec, ViewCT xv, ViewCT yv, ViewT zv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -265,7 +263,7 @@ void VectorOperationsKokkos<T>::multiply( const VectorData &x, const VectorData 
 }
 
 template<class ExecSpace, class ViewCT, class ViewT>
-void divide_kernel( ExecSpace exec, ViewCT xv, ViewCT yv, ViewT zv )
+void divide_kernel( const ExecSpace &exec, ViewCT xv, ViewCT yv, ViewT zv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -300,7 +298,7 @@ void VectorOperationsKokkos<T>::divide( const VectorData &x, const VectorData &y
 }
 
 template<class ExecSpace, class ViewCT, class ViewT>
-void reciprocal_kernel( ExecSpace exec, ViewCT xv, ViewT yv )
+void reciprocal_kernel( const ExecSpace &exec, ViewCT xv, ViewT yv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -334,7 +332,8 @@ void VectorOperationsKokkos<T>::reciprocal( const VectorData &x, VectorData &y )
 }
 
 template<typename T, class ExecSpace, class ViewCT, class ViewT>
-void linsum_kernel( ExecSpace exec, const T alpha, ViewCT xv, const T beta, ViewCT yv, ViewT zv )
+void linsum_kernel(
+    const ExecSpace &exec, const T alpha, ViewCT xv, const T beta, ViewCT yv, ViewT zv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -397,7 +396,7 @@ void VectorOperationsKokkos<T>::axpby( const Scalar &alpha_in,
 }
 
 template<class ExecSpace, class ViewCT, class ViewT>
-void abs_kernel( ExecSpace exec, ViewCT xv, ViewT yv )
+void abs_kernel( const ExecSpace &exec, ViewCT xv, ViewT yv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -431,7 +430,7 @@ void VectorOperationsKokkos<T>::abs( const VectorData &x, VectorData &y )
 }
 
 template<typename T, class ExecSpace, class ViewCT, class ViewT>
-void add_scalar_kernel( ExecSpace exec, const T alpha, ViewCT xv, ViewT yv )
+void add_scalar_kernel( const ExecSpace &exec, const T alpha, ViewCT xv, ViewT yv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -468,7 +467,7 @@ void VectorOperationsKokkos<T>::addScalar( const VectorData &x,
 }
 
 template<typename T, class ExecSpace, class ViewT>
-void set_min_kernel( ExecSpace exec, const T alpha, ViewT xv )
+void set_min_kernel( const ExecSpace &exec, const T alpha, ViewT xv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -502,7 +501,7 @@ void VectorOperationsKokkos<T>::setMin( const Scalar &alpha_in, VectorData &x )
 }
 
 template<typename T, class ExecSpace, class ViewT>
-void set_max_kernel( ExecSpace exec, const T alpha, ViewT xv )
+void set_max_kernel( const ExecSpace &exec, const T alpha, ViewT xv )
 {
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
@@ -536,7 +535,7 @@ void VectorOperationsKokkos<T>::setMax( const Scalar &alpha_in, VectorData &x )
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type min_kernel( ExecSpace exec, ViewCT xv )
+typename ViewCT::non_const_value_type min_kernel( const ExecSpace &exec, ViewCT xv )
 {
     using T   = typename ViewCT::non_const_value_type;
     T min_val = std::numeric_limits<T>::max();
@@ -566,7 +565,7 @@ Scalar VectorOperationsKokkos<T>::localMin( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        min_val      = min_kernel( d_exec_device, xv );
+        min_val = min_kernel( d_exec_device, xv );
     #endif
     }
 
@@ -574,7 +573,7 @@ Scalar VectorOperationsKokkos<T>::localMin( const VectorData &x ) const
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type max_kernel( ExecSpace exec, ViewCT xv )
+typename ViewCT::non_const_value_type max_kernel( const ExecSpace &exec, ViewCT xv )
 {
     using T   = typename ViewCT::non_const_value_type;
     T max_val = std::numeric_limits<T>::min();
@@ -604,7 +603,7 @@ Scalar VectorOperationsKokkos<T>::localMax( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        max_val      = max_kernel( d_exec_device, xv );
+        max_val = max_kernel( d_exec_device, xv );
     #endif
     }
 
@@ -612,7 +611,7 @@ Scalar VectorOperationsKokkos<T>::localMax( const VectorData &x ) const
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type sum_kernel( ExecSpace exec, ViewCT xv )
+typename ViewCT::non_const_value_type sum_kernel( const ExecSpace &exec, ViewCT xv )
 {
     using T = typename ViewCT::non_const_value_type;
     T sum   = 0.0;
@@ -642,7 +641,7 @@ Scalar VectorOperationsKokkos<T>::localSum( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        sum          = sum_kernel( d_exec_device, xv );
+        sum = sum_kernel( d_exec_device, xv );
     #endif
     }
 
@@ -650,7 +649,7 @@ Scalar VectorOperationsKokkos<T>::localSum( const VectorData &x ) const
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type l1_norm_kernel( ExecSpace exec, ViewCT xv )
+typename ViewCT::non_const_value_type l1_norm_kernel( const ExecSpace &exec, ViewCT xv )
 {
     using T = typename ViewCT::non_const_value_type;
     T sum   = 0.0;
@@ -680,7 +679,7 @@ Scalar VectorOperationsKokkos<T>::localL1Norm( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = l1_norm_kernel( d_exec_device, xv );
+        norm = l1_norm_kernel( d_exec_device, xv );
     #endif
     }
 
@@ -688,7 +687,7 @@ Scalar VectorOperationsKokkos<T>::localL1Norm( const VectorData &x ) const
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type l2_norm_kernel( ExecSpace exec, ViewCT xv )
+typename ViewCT::non_const_value_type l2_norm_kernel( const ExecSpace &exec, ViewCT xv )
 {
     using T = typename ViewCT::non_const_value_type;
     T sum   = 0.0;
@@ -718,7 +717,7 @@ Scalar VectorOperationsKokkos<T>::localL2Norm2( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = l2_norm_kernel( d_exec_device, xv );
+        norm = l2_norm_kernel( d_exec_device, xv );
     #endif
     }
 
@@ -726,7 +725,7 @@ Scalar VectorOperationsKokkos<T>::localL2Norm2( const VectorData &x ) const
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type max_norm_kernel( ExecSpace exec, ViewCT xv )
+typename ViewCT::non_const_value_type max_norm_kernel( const ExecSpace &exec, ViewCT xv )
 {
     using T   = typename ViewCT::non_const_value_type;
     T max_val = std::numeric_limits<T>::min();
@@ -759,7 +758,7 @@ Scalar VectorOperationsKokkos<T>::localMaxNorm( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = max_norm_kernel( d_exec_device, xv );
+        norm = max_norm_kernel( d_exec_device, xv );
     #endif
     }
 
@@ -767,7 +766,7 @@ Scalar VectorOperationsKokkos<T>::localMaxNorm( const VectorData &x ) const
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type dot_kernel( ExecSpace exec, ViewCT xv, ViewCT yv )
+typename ViewCT::non_const_value_type dot_kernel( const ExecSpace &exec, ViewCT xv, ViewCT yv )
 {
     using T = typename ViewCT::non_const_value_type;
     T sum   = 0.0;
@@ -798,7 +797,7 @@ Scalar VectorOperationsKokkos<T>::localDot( const VectorData &x, const VectorDat
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        dot          = dot_kernel( d_exec_device, xv, yv );
+        dot = dot_kernel( d_exec_device, xv, yv );
     #endif
     }
 
@@ -806,7 +805,8 @@ Scalar VectorOperationsKokkos<T>::localDot( const VectorData &x, const VectorDat
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type min_quotient_kernel( ExecSpace exec, ViewCT xv, ViewCT yv )
+typename ViewCT::non_const_value_type
+min_quotient_kernel( const ExecSpace &exec, ViewCT xv, ViewCT yv )
 {
     using T   = typename ViewCT::non_const_value_type;
     T min_val = std::numeric_limits<T>::max();
@@ -848,7 +848,7 @@ Scalar VectorOperationsKokkos<T>::localMinQuotient( const VectorData &x, const V
 }
 
 template<class ExecSpace, class ViewCT>
-typename ViewCT::non_const_value_type wrms_kernel( ExecSpace exec, ViewCT xv, ViewCT yv )
+typename ViewCT::non_const_value_type wrms_kernel( const ExecSpace &exec, ViewCT xv, ViewCT yv )
 {
     using T = typename ViewCT::non_const_value_type;
     T sum   = 0.0;
@@ -879,7 +879,7 @@ Scalar VectorOperationsKokkos<T>::localWrmsNorm( const VectorData &x, const Vect
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = wrms_kernel( d_exec_device, xv, yv );
+        norm = wrms_kernel( d_exec_device, xv, yv );
     #endif
     }
 
@@ -888,7 +888,7 @@ Scalar VectorOperationsKokkos<T>::localWrmsNorm( const VectorData &x, const Vect
 
 template<class ExecSpace, class ViewCT>
 typename ViewCT::non_const_value_type
-wrms_mask_kernel( ExecSpace exec, ViewCT mv, ViewCT xv, ViewCT yv )
+wrms_mask_kernel( const ExecSpace &exec, ViewCT mv, ViewCT xv, ViewCT yv )
 {
     using T = typename ViewCT::non_const_value_type;
     T sum   = 0.0;
@@ -926,7 +926,7 @@ Scalar VectorOperationsKokkos<T>::localWrmsNormMask( const VectorData &x,
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = wrms_mask_kernel( d_exec_device, mv, xv, yv );
+        norm = wrms_mask_kernel( d_exec_device, mv, xv, yv );
     #endif
     }
 
@@ -934,7 +934,7 @@ Scalar VectorOperationsKokkos<T>::localWrmsNormMask( const VectorData &x,
 }
 
 template<typename T, class ExecSpace, class ViewCT>
-bool equals_kernel( ExecSpace exec, const T tol, ViewCT xv, ViewCT yv )
+bool equals_kernel( const ExecSpace &exec, const T tol, ViewCT xv, ViewCT yv )
 {
     bool equal = true;
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
@@ -972,7 +972,7 @@ bool VectorOperationsKokkos<T>::localEquals( const VectorData &x,
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        equals       = equals_kernel( d_exec_device, tol, xv, yv );
+        equals = equals_kernel( d_exec_device, tol, xv, yv );
     #endif
     }
 

@@ -41,7 +41,7 @@ public:
         checkCudaErrors( err );
     }
 
-    void deallocate( T *p, size_t, cudaStream_t stream)
+    void deallocate( T *p, size_t, cudaStream_t stream )
     {
         auto err = cudaFreeHost( p );
         checkCudaErrors( err );

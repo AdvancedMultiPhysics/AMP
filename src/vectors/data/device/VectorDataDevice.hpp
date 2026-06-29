@@ -303,7 +303,8 @@ VectorDataDevice<TYPE, Allocator>::cloneData( const std::string & ) const
         retVal->setCommunicationList( comm );
 
     if ( this->hasGhosts() ) {
-        retVal->copyGhostValues( *this );
+        Utilities::Algorithms::copy_n(
+            retVal->d_Ghosts, this->d_Ghosts, this->d_ghostSize, d_memory_location );
         Utilities::Algorithms::copy_n(
             retVal->d_AddBuffer, this->d_AddBuffer, this->d_ghostSize, d_memory_location );
     }

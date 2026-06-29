@@ -237,9 +237,9 @@ public:
     }
 
 protected:
-    Kokkos::DefaultHostExecutionSpace d_exec_host;
+    const Kokkos::DefaultHostExecutionSpace &d_exec_host;
     // not device on host-only builds, but also not used in that case
-    Kokkos::DefaultExecutionSpace d_exec_device;
+    const Kokkos::DefaultExecutionSpace &d_exec_device;
 };
 
 } // namespace AMP::LinearAlgebra

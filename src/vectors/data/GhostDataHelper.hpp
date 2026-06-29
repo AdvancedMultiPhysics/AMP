@@ -671,7 +671,6 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals,
 {
     PROFILE( "GhostDataHelper::getAllGhostValues" );
 
-    AMP_ASSERT( buf_loc == Utilities::MemoryType::host );
     if ( id == getTypeID<TYPE>() ) {
         auto data = static_cast<TYPE *>( vals );
         Utilities::Algorithms::copy_n( data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize );
