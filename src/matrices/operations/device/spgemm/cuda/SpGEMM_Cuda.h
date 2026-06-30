@@ -2,6 +2,7 @@
 #define included_AMP_SpGEMM_Cuda
 
 #include "AMP/utils/cuda/Helper_Cuda.h"
+#include "AMP/utils/device/Device.h"
 
 #include <cusparse.h>
 
@@ -42,7 +43,7 @@ public:
                   colidx_t *B_cols,
                   scalar_t *B_vals,
                   rowidx_t *C_rs,
-                  const computeStream_t stream_ );
+                  AMP::Utilities::ComputeStream stream_ );
 
     ~VendorSpGEMM();
 
@@ -65,7 +66,7 @@ private:
     const cusparseOperation_t opB;
     const cusparseSpGEMMAlg_t alg;
 
-    const computeStream_t stream;
+    AMP::Utilities::ComputeStream stream;
 
     cusparseHandle_t handle;
     cusparseSpGEMMDescr_t spgemmDesc;

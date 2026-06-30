@@ -382,11 +382,7 @@ public:
     //! Memory location alias
     static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
 
-    computeStream_t getStream() const { return d_stream; }
-
 protected:
-    const computeStream_t d_stream;
-
     //! Matrix is square if true
     bool d_is_square = true;
     //! Global index of first row of this block

@@ -58,7 +58,8 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
     this->d_localStart = start;
     this->d_data_owned = true;
     this->d_data       = this->d_alloc.allocate( localSize );
-    AMP::Utilities::Algorithms::zero_n( this->d_data, localSize, d_memory_location );
+    AMP::Utilities::Algorithms::zero_n(
+        this->d_data, localSize, d_memory_location, this->d_stream );
 }
 
 template<typename TYPE, class Allocator>

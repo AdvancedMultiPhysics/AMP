@@ -284,8 +284,9 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
     PROFILE( "GhostDataHelper::makeConsistent" );
 
 #ifdef AMP_USE_DEVICE
-    deviceStreamSynchronize( d_stream );
-    getLastDeviceError( "GhostDataHelper::makeConsistent" );
+    if ( d_memory_location >= AMP::Utilities::MemoryType::managed ) {
+        deviceStreamSynchronize( d_stream );
+    }
 #endif
 
     if ( d_CommList ) {

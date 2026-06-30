@@ -83,9 +83,9 @@ public:
     std::allocator<T> a;
 
     T *allocate( size_t n ) { return a.allocate( n ); }
-    T *allocate( size_t n, computeStream_t ) { return a.allocate( n ); }
+    T *allocate( size_t n, ComputeStream ) { return a.allocate( n ); }
     void deallocate( T *p, size_t n ) { a.deallocate( p, n ); }
-    void deallocate( T *p, size_t n, computeStream_t ) { a.deallocate( p, n ); }
+    void deallocate( T *p, size_t n, ComputeStream ) { a.deallocate( p, n ); }
 };
 #endif
 

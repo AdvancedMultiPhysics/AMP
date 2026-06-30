@@ -44,6 +44,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
+    auto stream        = A_data->d_stream;
 
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {
@@ -68,7 +69,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // fill initial ids with -1's to mark as not associated
-    AMP::Utilities::Algorithms::fill_n( agg_ids, A_nrows, -1, Config::mem_loc );
+    AMP::Utilities::Algorithms::fill_n( agg_ids, A_nrows, -1, Config::mem_loc, stream );
 
     // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size( A_nrows, -1 );

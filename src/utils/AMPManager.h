@@ -205,7 +205,10 @@ public:
     //! Get the global comm
     static const AMP::AMP_MPI &getCommWorld();
 
-    static computeStream_t getDefaultComputeStream() { return d_properties.default_compute_stream; }
+    static Utilities::ComputeStream getDefaultComputeStream()
+    {
+        return d_properties.default_compute_stream;
+    }
 
     //! Set the global comm
     static void setCommWorld( const AMP::AMP_MPI & );

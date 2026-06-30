@@ -195,11 +195,13 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
     AMP_INSIST( rs_d && cols_loc_d && coeffs_d, "diagonal block layout cannot be NULL" );
 
     // Fill in the ->i fields of diag and off_diag
-    AMP::Utilities::Algorithms::copy_n( diag->i, rs_d, nrows + 1, csr_mem_loc );
+    AMP::Utilities::Algorithms::copy_n( diag->i, rs_d, nrows + 1, csr_mem_loc, csrData->d_stream );
     if ( haveOffd ) {
-        AMP::Utilities::Algorithms::copy_n( off_diag->i, rs_od, nrows + 1, csr_mem_loc );
+        AMP::Utilities::Algorithms::copy_n(
+            off_diag->i, rs_od, nrows + 1, csr_mem_loc, csrData->d_stream );
     } else {
-        AMP::Utilities::Algorithms::zero_n( off_diag->i, nrows + 1, csr_mem_loc );
+        AMP::Utilities::Algorithms::zero_n(
+            off_diag->i, nrows + 1, csr_mem_loc, csrData->d_stream );
     }
 
     // This is where we tell hypre to stop owning any data
@@ -232,7 +234,8 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
                                               AMP::Utilities::MemoryType::host,
                                               colMap,
                                               csr_mem_loc,
-                                              off_diag->num_cols );
+                                              off_diag->num_cols,
+                                              csrData->d_stream );
 
         // and do device map if needed
         if ( memory_location == HYPRE_MEMORY_DEVICE ) {
@@ -242,13 +245,18 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
                                                   csr_mem_loc,
                                                   colMap,
                                                   csr_mem_loc,
-                                                  off_diag->num_cols );
+                                                  off_diag->num_cols,
+                                                  csrData->d_stream );
         }
     }
 
     // Update ->rownnz fields, note that we don't own these
     hypre_CSRMatrixSetRownnz( diag );
     hypre_CSRMatrixSetRownnz( off_diag );
+
+#ifdef AMP_USE_DEVICE
+    deviceStreamSynchronize( csrData->d_stream );
+#endif
 
     // set assemble flag to indicate that we are done
     d_matrix->assemble_flag = 1;

@@ -31,6 +31,7 @@ void MatrixParametersBase::writeRestart( int64_t fid ) const
 }
 
 MatrixParametersBase::MatrixParametersBase( int64_t fid, AMP::IO::RestartManager *manager )
+    : d_stream( AMP::AMPManager::getDefaultComputeStream() )
 {
     uint64_t commHash, varID;
     AMP::IO::readHDF5( fid, "commHash", commHash );

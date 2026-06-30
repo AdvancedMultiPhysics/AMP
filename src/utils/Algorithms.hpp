@@ -18,7 +18,7 @@ void fill_n( TYPE *x,
              const size_t N,
              const TYPE alpha,
              const MemoryType mem_loc,
-             [[maybe_unused]] const computeStream_t stream )
+             [[maybe_unused]] ComputeStream stream )
 {
     if ( N > 0 ) {
         if ( mem_loc <= MemoryType::host ) {
@@ -34,7 +34,7 @@ void fill_n( TYPE *x,
 }
 
 template<typename TYPE>
-void zero_n( TYPE *x, const size_t N, const MemoryType mem_loc, const computeStream_t stream )
+void zero_n( TYPE *x, const size_t N, const MemoryType mem_loc, ComputeStream stream )
 {
     fill_n<TYPE>( x, N, 0, mem_loc, stream );
 }
@@ -44,7 +44,7 @@ void copy_n( TYPE *dst,
              const TYPE *src,
              const size_t N,
              const MemoryType mem_loc,
-             [[maybe_unused]] const computeStream_t stream )
+             [[maybe_unused]] ComputeStream stream )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
     if ( mem_loc <= MemoryType::host ) {
@@ -64,7 +64,7 @@ void copy_n( TYPE *dst,
              const TYPE *src,
              const MemoryType src_loc,
              const size_t N,
-             [[maybe_unused]] const computeStream_t stream )
+             [[maybe_unused]] ComputeStream stream )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
 
@@ -105,7 +105,7 @@ void copyCast( TDst *dst,
                const TSrc *src,
                const MemoryType src_loc,
                size_t N,
-               [[maybe_unused]] const computeStream_t stream )
+               [[maybe_unused]] ComputeStream stream )
 {
     // either both integer types or both floating, but not mixed between the two
     static_assert( (std::is_integral_v<TSrc> && std::is_integral_v<TDst>) ||
@@ -113,7 +113,7 @@ void copyCast( TDst *dst,
 
     if constexpr ( std::is_same_v<TSrc, TDst> ) {
         // The types are the same, fall back to simpler copy
-        copy_n<TDst>( static_cast<TSrc *>( dst ), dst_loc, src, src_loc, N );
+        copy_n<TDst>( static_cast<TSrc *>( dst ), dst_loc, src, src_loc, N, stream );
     } else if ( ( dst_loc <= MemoryType::host && src_loc <= MemoryType::managed ) ||
                 ( dst_loc <= MemoryType::managed && src_loc <= MemoryType::host ) ) {
         // one on host, other host-accessible, work on host
@@ -134,14 +134,14 @@ void copyCast( TDst *dst,
             AMP_DEBUG_ASSERT( src_loc == MemoryType::device );
             // destination host, but source not host accessible, need temp array
             std::vector<TSrc> src_cpy( N );
-            copy_n<TSrc>( src_cpy.data(), MemoryType::host, src, src_loc, N );
-            copyCast<TDst, TSrc>( dst, dst_loc, src_cpy.data(), MemoryType::host, N );
+            copy_n<TSrc>( src_cpy.data(), MemoryType::host, src, src_loc, N, stream );
+            copyCast<TDst, TSrc>( dst, dst_loc, src_cpy.data(), MemoryType::host, N, stream );
         } else {
             AMP_DEBUG_ASSERT( dst_loc == MemoryType::device );
             TSrc *src_cpy = nullptr;
             deviceMalloc( &src_cpy, N * sizeof( TSrc ) );
-            copy_n<TSrc>( src_cpy, MemoryType::device, src, MemoryType::host, N );
-            copyCast<TDst, TSrc>( dst, dst_loc, src_cpy, MemoryType::device, N );
+            copy_n<TSrc>( src_cpy, MemoryType::device, src, MemoryType::host, N, stream );
+            copyCast<TDst, TSrc>( dst, dst_loc, src_cpy, MemoryType::device, N, stream );
             deviceFree( src_cpy );
         }
 #else
@@ -155,7 +155,7 @@ void inclusive_scan( const TYPE *x,
                      const size_t N,
                      TYPE *y,
                      const MemoryType mem_loc,
-                     [[maybe_unused]] const computeStream_t stream )
+                     [[maybe_unused]] ComputeStream stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::inclusive_scan( x, x + N, y );
@@ -174,7 +174,7 @@ void exclusive_scan( const TYPE *x,
                      TYPE *y,
                      TYPE alpha,
                      const MemoryType mem_loc,
-                     [[maybe_unused]] const computeStream_t stream )
+                     [[maybe_unused]] ComputeStream stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::exclusive_scan( x, x + N, y, alpha );
@@ -191,7 +191,7 @@ template<typename TYPE>
 void sort( TYPE *x,
            const size_t N,
            const MemoryType mem_loc,
-           [[maybe_unused]] const computeStream_t stream )
+           [[maybe_unused]] ComputeStream stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::sort( x, x + N );
@@ -205,10 +205,8 @@ void sort( TYPE *x,
 }
 
 template<typename TYPE>
-size_t unique( TYPE *x,
-               const size_t N,
-               const MemoryType mem_loc,
-               [[maybe_unused]] const computeStream_t stream )
+size_t
+unique( TYPE *x, const size_t N, const MemoryType mem_loc, [[maybe_unused]] ComputeStream stream )
 {
     TYPE *last = nullptr;
     if ( mem_loc <= MemoryType::host ) {
@@ -229,7 +227,7 @@ template<typename TYPE>
 TYPE min_element( const TYPE *x,
                   const size_t N,
                   const MemoryType mem_loc,
-                  [[maybe_unused]] const computeStream_t stream )
+                  [[maybe_unused]] ComputeStream stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::min_element( x, x + N );
@@ -249,7 +247,7 @@ template<typename TYPE>
 TYPE max_element( const TYPE *x,
                   const size_t N,
                   const MemoryType mem_loc,
-                  [[maybe_unused]] const computeStream_t stream )
+                  [[maybe_unused]] ComputeStream stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::max_element( x, x + N );
@@ -270,7 +268,7 @@ TYPE accumulate( const TYPE *x,
                  const size_t N,
                  TYPE alpha,
                  const MemoryType mem_loc,
-                 [[maybe_unused]] const computeStream_t stream )
+                 [[maybe_unused]] ComputeStream stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         return std::accumulate( x, x + N, alpha );

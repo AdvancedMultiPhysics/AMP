@@ -299,6 +299,8 @@ public: // Write/read restart data
 
     std::shared_ptr<MatrixParametersBase> d_pParameters;
 
+    AMP::Utilities::ComputeStream d_stream;
+
 protected:
     // unique hash to identify this object
     uint64_t d_hash = 0;

@@ -44,14 +44,14 @@ constexpr bool migrateDeviceBuffers()
  * Constructors/Destructor                              *
  ********************************************************/
 template<typename Config>
-CSRMatrixData<Config>::CSRMatrixData() : d_stream( AMP::AMPManager::getDefaultComputeStream() )
+CSRMatrixData<Config>::CSRMatrixData()
 {
     AMPManager::incrementResource( "CSRMatrixData" );
 }
 
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> params )
-    : d_stream( AMP::AMPManager::getDefaultComputeStream() ), MatrixData( params )
+    : MatrixData( params )
 {
     PROFILE( "CSRMatrixData::constructor" );
 
@@ -240,7 +240,6 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
             return local_block;
         }
     }();
-    using comm_localmatrixdata_t = typename decltype( comm_block )::element_type;
 
     constexpr int group_root = 0;
     auto gathered_first      = group_comm.gather( d_first_row, group_root );
@@ -266,14 +265,14 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
     std::shared_ptr<gidx_t[]> gathered_cols;
     std::shared_ptr<scalar_t[]> gathered_vals;
     if ( is_root ) {
-        gathered_rs   = comm_localmatrixdata_t::makeLidxArray( total_rs );
-        gathered_cols = comm_localmatrixdata_t::makeGidxArray( total_nnz );
-        gathered_vals = comm_localmatrixdata_t::makeScalarArray( total_nnz );
+        gathered_rs   = comm_block->makeLidxArray( total_rs );
+        gathered_cols = comm_block->makeGidxArray( total_nnz );
+        gathered_vals = comm_block->makeScalarArray( total_nnz );
     }
 
 #ifdef AMP_USE_DEVICE
     if ( comm_block->d_memory_location >= Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
+        deviceStreamSynchronize( comm_block->d_stream );
     }
 #endif
 
@@ -594,6 +593,12 @@ void CSRMatrixData<Config>::assemble( bool force_dm_reset )
 
     globalToLocalColumns();
     resetDOFManagers( force_dm_reset );
+
+#ifdef AMP_USE_DEVICE
+    if ( d_memory_location >= AMP::Utilities::MemoryType::managed ) {
+        deviceStreamSynchronize( d_stream );
+    }
+#endif
 }
 
 template<typename Config>
@@ -711,7 +716,8 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                      d_first_row,
                                                      d_diag_matrix->d_row_starts.get(),
                                                      d_offd_matrix->d_row_starts.get(),
-                                                     sub_matrix->d_row_starts.get() );
+                                                     sub_matrix->d_row_starts.get(),
+                                                     d_stream );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
@@ -740,7 +746,8 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                  d_offd_matrix->d_cols_unq.get(),
                                                  sub_matrix->d_row_starts.get(),
                                                  sub_matrix->d_cols.get(),
-                                                 sub_matrix->d_coeffs.get() );
+                                                 sub_matrix->d_coeffs.get(),
+                                                 d_stream );
 
     if ( rows_migrated ) {
         d_gidxAllocator.deallocate( rows_d, rows.size() );
@@ -771,7 +778,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
                                                      d_offd_matrix->d_cols_loc.get(),
                                                      d_offd_matrix->d_cols_unq.get(),
                                                      nrows,
-                                                     sub_matrix->d_row_starts.get() );
+                                                     sub_matrix->d_row_starts.get(),
+                                                     d_stream );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
@@ -790,7 +798,8 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
                                                  nrows,
                                                  sub_matrix->d_row_starts.get(),
                                                  sub_matrix->d_cols.get(),
-                                                 sub_matrix->d_coeffs.get() );
+                                                 sub_matrix->d_coeffs.get(),
+                                                 d_stream );
 
     return sub_matrix;
 }
@@ -1280,7 +1289,7 @@ void CSRMatrixData<Config>::writeRestart( int64_t fid ) const
 
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData( int64_t fid, AMP::IO::RestartManager *manager )
-    : d_stream( AMP::AMPManager::getDefaultComputeStream() ), MatrixData( fid, manager )
+    : MatrixData( fid, manager )
 {
     uint64_t diagMatrixID, offdMatrixID, leftCommListID, rightCommListID, leftDOFManagerID,
         rightDOFManagerID;

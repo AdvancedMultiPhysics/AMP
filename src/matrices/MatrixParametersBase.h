@@ -1,6 +1,7 @@
 #ifndef included_AMP_MatrixParametersBase
 #define included_AMP_MatrixParametersBase
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Variable.h"
@@ -26,6 +27,7 @@ public:
           d_VariableLeft( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
           d_VariableRight( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
           d_backend( AMP::Utilities::Backend::Serial ),
+          d_stream( AMP::AMPManager::getDefaultComputeStream() ),
           d_hash( reinterpret_cast<uint64_t>( this ) )
     {
     }
@@ -39,6 +41,7 @@ public:
           d_VariableLeft( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
           d_VariableRight( std::make_shared<Variable>( "MatrixParametersBase_default" ) ),
           d_backend( backend ),
+          d_stream( AMP::AMPManager::getDefaultComputeStream() ),
           d_hash( reinterpret_cast<uint64_t>( this ) )
     {
     }
@@ -55,6 +58,7 @@ public:
           d_VariableLeft( varLeft ),
           d_VariableRight( varRight ),
           d_backend( AMP::Utilities::Backend::Serial ),
+          d_stream( AMP::AMPManager::getDefaultComputeStream() ),
           d_hash( reinterpret_cast<uint64_t>( this ) )
     {
     }
@@ -73,6 +77,7 @@ public:
           d_VariableLeft( varLeft ),
           d_VariableRight( varRight ),
           d_backend( backend ),
+          d_stream( AMP::AMPManager::getDefaultComputeStream() ),
           d_hash( reinterpret_cast<uint64_t>( this ) )
     {
     }
@@ -134,6 +139,9 @@ protected:
 public:
     // The backend used for cpus and/or gpu acceleration
     AMP::Utilities::Backend d_backend = AMP::Utilities::Backend::Serial;
+
+    // compute stream for gpu acceleration
+    AMP::Utilities::ComputeStream d_stream;
 
     // unique hash to identify this object
     uint64_t d_hash = 0;

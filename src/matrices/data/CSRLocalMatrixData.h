@@ -222,28 +222,27 @@ public:
                     const bool is_diag );
 
     template<typename U>
-    static std::shared_ptr<U[]> sharedArrayBuilder( const size_t N )
+    std::shared_ptr<U[]> sharedArrayBuilder( const size_t N ) const
     {
         using alloc_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<U>;
         alloc_t alloc;
         return std::shared_ptr<typename alloc_t::value_type[]>(
-            alloc.allocate( N, AMP::AMPManager::getDefaultComputeStream() ),
-            [N, &alloc]( auto p ) -> void {
-                alloc.deallocate( p, N, AMP::AMPManager::getDefaultComputeStream() );
+            alloc.allocate( N, d_stream ), [N, &alloc, d_stream = d_stream]( auto p ) -> void {
+                alloc.deallocate( p, N, d_stream );
             } );
     }
 
-    static std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N )
+    std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N ) const
     {
         return sharedArrayBuilder<lidx_t>( N );
     }
 
-    static std::shared_ptr<gidx_t[]> makeGidxArray( const size_t N )
+    std::shared_ptr<gidx_t[]> makeGidxArray( const size_t N ) const
     {
         return sharedArrayBuilder<gidx_t>( N );
     }
 
-    static std::shared_ptr<scalar_t[]> makeScalarArray( const size_t N )
+    std::shared_ptr<scalar_t[]> makeScalarArray( const size_t N ) const
     {
         return sharedArrayBuilder<scalar_t>( N );
     }
@@ -273,7 +272,7 @@ public:
     //! Memory location, set by examining type of Allocator
     static constexpr Utilities::MemoryType d_memory_location = Config::mem_loc;
 
-    computeStream_t getStream() const { return d_stream; }
+    AMP::Utilities::ComputeStream d_stream;
 
 protected:
     /** \brief  Sort the columns/values within each row
@@ -388,8 +387,6 @@ protected:
     lidx_t d_ncols_unq = 0;
     //! hash to uniquely identify this object during restart
     uint64_t d_hash = 0;
-
-    const computeStream_t d_stream;
 
     //! column map as size_t, generated lazily only if needed
     mutable std::shared_ptr<size_t[]> d_cols_unq_size_t;

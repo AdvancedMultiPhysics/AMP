@@ -89,8 +89,8 @@ void CSRMatrixOperationsKokkos<Config>::mult( std::shared_ptr<const Vector> in,
                                1.0,
                                outDataBlock,
                                outData->getMemoryLocation() );
-        fence();
     }
+    outData->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -147,14 +147,14 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
                                         localmatrixdata_t::d_memory_location );
 
         // now copy vvals_d back to host to write out
-        auto vvals_h = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace{}, vvals_d );
         fence();
+        auto vvals_h = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace{}, vvals_d );
 
         // copy rcols and vvals into std::vectors and write out
         outData->addValuesByGlobalID(
             rcols.size(), rcols.data(), vvals_h.data(), AMP::Utilities::MemoryType::host );
     } else {
-        fence(); // still finish with a fence if no offd term present
+        outData->setUpdateStatus( UpdateState::LOCAL_CHANGED );
     }
 }
 
@@ -178,8 +178,6 @@ void CSRMatrixOperationsKokkos<Config>::scale( AMP::Scalar alpha_in, MatrixData 
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->scale( alpha, offdMatrix );
     }
-
-    fence();
 }
 
 template<typename Config>
@@ -311,8 +309,6 @@ void CSRMatrixOperationsKokkos<Config>::axpy( AMP::Scalar alpha_in,
     if ( csrDataX->hasOffDiag() ) {
         d_localops_offd->axpy( alpha, offdMatrixX, offdMatrixY );
     }
-
-    fence();
 }
 
 template<typename Config>
@@ -335,8 +331,6 @@ void CSRMatrixOperationsKokkos<Config>::setScalar( AMP::Scalar alpha_in, MatrixD
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->setScalar( alpha, offdMatrix );
     }
-
-    fence();
 }
 
 template<typename Config>
@@ -365,8 +359,6 @@ void CSRMatrixOperationsKokkos<Config>::setDiagonal( std::shared_ptr<const Vecto
     AMP_DEBUG_ASSERT( diagMatrix );
 
     d_localops_diag->setDiagonal( vvals_p, in->getMemoryLocation(), diagMatrix );
-
-    fence();
 }
 
 template<typename Config>
@@ -384,8 +376,6 @@ void CSRMatrixOperationsKokkos<Config>::setIdentity( MatrixData &A )
 
     AMP_DEBUG_ASSERT( diagMatrix );
     d_localops_diag->setIdentity( diagMatrix );
-
-    fence();
 }
 
 template<typename Config>
@@ -404,8 +394,6 @@ void CSRMatrixOperationsKokkos<Config>::extractDiagonal( MatrixData const &A,
 
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     d_localops_diag->extractDiagonal( diagMatrix, buf_p, buf->getMemoryLocation() );
-
-    fence();
 }
 
 template<typename Config>
@@ -428,11 +416,9 @@ void CSRMatrixOperationsKokkos<Config>::getRowSums( MatrixData const &A,
 
     d_localops_diag->getRowSums(
         csrData->getDiagMatrix(), rawVecData, buf->getMemoryLocation(), true );
-    fence();
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->getRowSums(
             csrData->getOffdMatrix(), rawVecData, buf->getMemoryLocation(), false );
-        fence();
     }
 }
 
@@ -458,7 +444,6 @@ void CSRMatrixOperationsKokkos<Config>::getRowSumsAbsolute( MatrixData const &A,
     bool initialize_to_zero = true;
     d_localops_diag->getRowSumsAbsolute(
         csrData->getDiagMatrix(), rawVecData, buf->getMemoryLocation(), initialize_to_zero, false );
-    fence();
     if ( csrData->hasOffDiag() ) {
         initialize_to_zero = false;
         d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(),
@@ -466,7 +451,6 @@ void CSRMatrixOperationsKokkos<Config>::getRowSumsAbsolute( MatrixData const &A,
                                              buf->getMemoryLocation(),
                                              initialize_to_zero,
                                              remove_zeros );
-        fence();
     }
 }
 
@@ -494,7 +478,6 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
                                          localmatrixdata_t::d_memory_location,
                                          initialize_to_zero,
                                          remove_zeros );
-    fence();
     if ( csrData->hasOffDiag() ) {
         initialize_to_zero = false;
         d_localops_offd->getRowSumsAbsolute( offdMatrix,
@@ -502,12 +485,12 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
                                              localmatrixdata_t::d_memory_location,
                                              initialize_to_zero,
                                              remove_zeros );
-        fence();
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = AMP::Utilities::Algorithms::max_element( sums.data(), nRows, Config::mem_loc );
-    AMP_MPI comm  = csrData->getComm();
+    auto max_norm =
+        AMP::Utilities::Algorithms::max_element( sums.data(), nRows, Config::mem_loc, A.d_stream );
+    AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
 
@@ -537,8 +520,6 @@ void CSRMatrixOperationsKokkos<Config>::copy( const MatrixData &X, MatrixData &Y
     if ( csrDataX->hasOffDiag() ) {
         d_localops_offd->copy( offdMatrixX, offdMatrixY );
     }
-
-    fence();
 }
 
 template<typename Config>

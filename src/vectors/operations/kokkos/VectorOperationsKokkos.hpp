@@ -64,10 +64,10 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
         Kokkos::deep_copy( d_exec_device, xv, alpha );
-        d_exec_device.fence();
     #endif
     }
-    x.fillGhosts( alpha_in );
+    x.fillGhosts( alpha );
+    // Override the status state since we set the ghost values
     x.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
@@ -87,8 +87,6 @@ void random_kernel( const ExecSpace &exec, ViewT xv )
         const T max_val = std::floor( std::sqrt( double{ 0.1 } * std::numeric_limits<T>::max() ) );
         Kokkos::fill_random( exec, xv, random_pool, T{ 0 }, max_val );
     }
-
-    exec.fence();
 }
     #else
         #warning Kokkos vector ops random kernel extremely not-random
@@ -103,8 +101,6 @@ void random_kernel( const ExecSpace &exec, ViewT xv )
     } else {
         Kokkos::deep_copy( exec, xv, 4 );
     }
-
-    exec.fence();
 }
     #endif
 
@@ -128,7 +124,7 @@ void VectorOperationsKokkos<T>::setRandomValues( VectorData &x )
         random_kernel( d_exec_device, xv );
     #endif
     }
-    x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T>
@@ -150,7 +146,6 @@ void scale_kernel( const ExecSpace &exec, const T alpha, ViewT xv )
     Kokkos::RangePolicy<ExecSpace> pol( exec, 0, xv.extent( 0 ) );
     Kokkos::parallel_for(
         "VectorOperationsKokkos::scale", pol, KOKKOS_LAMBDA( const int i ) { xv( i ) *= alpha; } );
-    exec.fence();
 }
 
 template<typename T>
@@ -173,7 +168,7 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, VectorData &x )
         scale_kernel( d_exec_device, alpha, xv );
     #endif
     }
-    x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T, class ExecSpace, class ViewCT, class ViewT>
@@ -184,7 +179,6 @@ void scale_kernel( const ExecSpace &exec, const T alpha, ViewCT xv, ViewT yv )
         "VectorOperationsKokkos::scale", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = alpha * xv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -208,7 +202,7 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, const VectorData 
         scale_kernel( d_exec_device, alpha, xv, yv );
     #endif
     }
-    y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T>
@@ -235,7 +229,6 @@ void multiply_kernel( const ExecSpace &exec, ViewCT xv, ViewCT yv, ViewT zv )
         "VectorOperationsKokkos::multiply", pol, KOKKOS_LAMBDA( const int i ) {
             zv( i ) = xv( i ) * yv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -259,7 +252,7 @@ void VectorOperationsKokkos<T>::multiply( const VectorData &x, const VectorData 
         multiply_kernel( d_exec_device, xv, yv, zv );
     #endif
     }
-    z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    z.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<class ExecSpace, class ViewCT, class ViewT>
@@ -270,7 +263,6 @@ void divide_kernel( const ExecSpace &exec, ViewCT xv, ViewCT yv, ViewT zv )
         "VectorOperationsKokkos::divide", pol, KOKKOS_LAMBDA( const int i ) {
             zv( i ) = xv( i ) / yv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -294,7 +286,7 @@ void VectorOperationsKokkos<T>::divide( const VectorData &x, const VectorData &y
         divide_kernel( d_exec_device, xv, yv, zv );
     #endif
     }
-    z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    z.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<class ExecSpace, class ViewCT, class ViewT>
@@ -305,7 +297,6 @@ void reciprocal_kernel( const ExecSpace &exec, ViewCT xv, ViewT yv )
         "VectorOperationsKokkos::reciprocal", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = 1.0 / xv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -328,7 +319,7 @@ void VectorOperationsKokkos<T>::reciprocal( const VectorData &x, VectorData &y )
         reciprocal_kernel( d_exec_device, xv, yv );
     #endif
     }
-    y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T, class ExecSpace, class ViewCT, class ViewT>
@@ -340,7 +331,6 @@ void linsum_kernel(
         "VectorOperationsKokkos::add", pol, KOKKOS_LAMBDA( const int i ) {
             zv( i ) = alpha * xv( i ) + beta * yv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -370,7 +360,7 @@ void VectorOperationsKokkos<T>::linearSum( const Scalar &alpha_in,
         linsum_kernel( d_exec_device, alpha, xv, beta, yv, zv );
     #endif
     }
-    z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    z.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T>
@@ -403,7 +393,6 @@ void abs_kernel( const ExecSpace &exec, ViewCT xv, ViewT yv )
         "VectorOperationsKokkos::abs", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = Kokkos::fabs( xv( i ) );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -426,7 +415,7 @@ void VectorOperationsKokkos<T>::abs( const VectorData &x, VectorData &y )
         abs_kernel( d_exec_device, xv, yv );
     #endif
     }
-    y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T, class ExecSpace, class ViewCT, class ViewT>
@@ -437,7 +426,6 @@ void add_scalar_kernel( const ExecSpace &exec, const T alpha, ViewCT xv, ViewT y
         "VectorOperationsKokkos::add_scalar", pol, KOKKOS_LAMBDA( const int i ) {
             yv( i ) = alpha + xv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -463,7 +451,7 @@ void VectorOperationsKokkos<T>::addScalar( const VectorData &x,
         add_scalar_kernel( d_exec_device, alpha, xv, yv );
     #endif
     }
-    y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T, class ExecSpace, class ViewT>
@@ -474,7 +462,6 @@ void set_min_kernel( const ExecSpace &exec, const T alpha, ViewT xv )
         "VectorOperationsKokkos::set_min", pol, KOKKOS_LAMBDA( const int i ) {
             xv( i ) = xv( i ) < alpha ? alpha : xv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -497,7 +484,7 @@ void VectorOperationsKokkos<T>::setMin( const Scalar &alpha_in, VectorData &x )
         set_min_kernel( d_exec_device, alpha, xv );
     #endif
     }
-    x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename T, class ExecSpace, class ViewT>
@@ -508,7 +495,6 @@ void set_max_kernel( const ExecSpace &exec, const T alpha, ViewT xv )
         "VectorOperationsKokkos::set_max", pol, KOKKOS_LAMBDA( const int i ) {
             xv( i ) = xv( i ) > alpha ? alpha : xv( i );
         } );
-    exec.fence();
 }
 
 template<typename T>
@@ -531,7 +517,7 @@ void VectorOperationsKokkos<T>::setMax( const Scalar &alpha_in, VectorData &x )
         set_max_kernel( d_exec_device, alpha, xv );
     #endif
     }
-    x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<class ExecSpace, class ViewCT>

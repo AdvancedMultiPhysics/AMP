@@ -427,11 +427,13 @@ __global__ void remrange_offd_fill( const lidx_t *old_row_starts,
 #endif
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::SortColumnsDiag( typename Config::lidx_t *row_starts,
-                                                    typename Config::gidx_t *cols,
-                                                    typename Config::scalar_t *coeffs,
-                                                    typename Config::lidx_t num_rows,
-                                                    typename Config::gidx_t first_col )
+void CSRMatrixDataHelpers<Config>::SortColumnsDiag(
+    typename Config::lidx_t *row_starts,
+    typename Config::gidx_t *cols,
+    typename Config::scalar_t *coeffs,
+    typename Config::lidx_t num_rows,
+    typename Config::gidx_t first_col,
+    [[maybe_unused]] [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::SortColumnsDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -475,7 +477,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsDiag( typename Config::lidx_t *row
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, sort_row_diag<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        sort_row_diag<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
+        sort_row_diag<<<GridDim, BlockDim, 0, stream>>>(
             row_starts, cols, coeffs, num_rows, first_col );
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsDiag" );
 #else
@@ -485,10 +487,12 @@ void CSRMatrixDataHelpers<Config>::SortColumnsDiag( typename Config::lidx_t *row
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::SortColumnsOffd( typename Config::lidx_t *row_starts,
-                                                    typename Config::gidx_t *cols,
-                                                    typename Config::scalar_t *coeffs,
-                                                    typename Config::lidx_t num_rows )
+void CSRMatrixDataHelpers<Config>::SortColumnsOffd(
+    typename Config::lidx_t *row_starts,
+    typename Config::gidx_t *cols,
+    typename Config::scalar_t *coeffs,
+    typename Config::lidx_t num_rows,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::SortColumnsOffd" );
     if constexpr ( !Config::device_accessible ) {
@@ -530,8 +534,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsOffd( typename Config::lidx_t *row
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, sort_row_offd<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        sort_row_offd<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            row_starts, cols, coeffs, num_rows );
+        sort_row_offd<<<GridDim, BlockDim, 0, stream>>>( row_starts, cols, coeffs, num_rows );
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsOffd" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::SortColumnsOffd Undefined memory location" );
@@ -540,10 +543,12 @@ void CSRMatrixDataHelpers<Config>::SortColumnsOffd( typename Config::lidx_t *row
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::GlobalToLocalDiag( typename Config::gidx_t *cols,
-                                                      typename Config::lidx_t nnz,
-                                                      typename Config::gidx_t first_col,
-                                                      typename Config::lidx_t *cols_loc )
+void CSRMatrixDataHelpers<Config>::GlobalToLocalDiag(
+    typename Config::gidx_t *cols,
+    typename Config::lidx_t nnz,
+    typename Config::gidx_t first_col,
+    typename Config::lidx_t *cols_loc,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::GlobalToLocalDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -552,7 +557,7 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalDiag( typename Config::gidx_t *c
         } );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        thrust::transform( thrust::device.on( stream ),
                            cols,
                            cols + nnz,
                            cols_loc,
@@ -567,11 +572,13 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalDiag( typename Config::gidx_t *c
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::GlobalToLocalOffd( typename Config::gidx_t *cols,
-                                                      typename Config::lidx_t nnz,
-                                                      typename Config::gidx_t *cols_unq,
-                                                      typename Config::lidx_t ncols_unq,
-                                                      typename Config::lidx_t *cols_loc )
+void CSRMatrixDataHelpers<Config>::GlobalToLocalOffd(
+    typename Config::gidx_t *cols,
+    typename Config::lidx_t nnz,
+    typename Config::gidx_t *cols_unq,
+    typename Config::lidx_t ncols_unq,
+    typename Config::lidx_t *cols_loc,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::GlobalToLocalOffd" );
     // copy and modify from Utilities::findfirst to suit task
@@ -593,7 +600,7 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalOffd( typename Config::gidx_t *c
         } );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        thrust::transform( thrust::device.on( stream ),
                            cols,
                            cols + nnz,
                            cols_loc,
@@ -632,7 +639,8 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
     typename Config::gidx_t *out_cols,
     typename Config::scalar_t *out_coeffs,
     typename Config::lidx_t *counters,
-    [[maybe_unused]] typename Config::lidx_t *reduce_space )
+    [[maybe_unused]] typename Config::lidx_t *reduce_space,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::TransposeDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -646,12 +654,12 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
 
         // do cumulative sum of row counts to turn into offsets
         Utilities::Algorithms::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc, stream );
         AMP_DEBUG_INSIST( tot_nnz == out_row_starts[out_num_rows],
                           "CSRMatrixDataHelpers::TransposeDiag: inconsistent total nnz" );
 
         // second pass fill in entries using extra space for row position counters
-        Utilities::Algorithms::zero_n( counters, out_num_rows, Config::mem_loc );
+        Utilities::Algorithms::zero_n( counters, out_num_rows, Config::mem_loc, stream );
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto icl  = in_cols_loc[k];
@@ -679,15 +687,14 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
             dim3 BlockDim;
             dim3 GridDim;
             setKernelDims( in_num_rows, diag_to_coo<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-            diag_to_coo<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-                in_row_starts,
-                in_cols_loc,
-                in_coeffs,
-                in_num_rows,
-                out_first_col,
-                out_cols_loc,
-                out_cols,
-                out_coeffs );
+            diag_to_coo<<<GridDim, BlockDim, 0, stream>>>( in_row_starts,
+                                                           in_cols_loc,
+                                                           in_coeffs,
+                                                           in_num_rows,
+                                                           out_first_col,
+                                                           out_cols_loc,
+                                                           out_cols,
+                                                           out_coeffs );
             getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (to COO)" );
         }
 
@@ -701,32 +708,29 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         ZipIter vals_iter( thrust::make_tuple( cols_iter, coeffs_iter ) );
 
         // sort by key to rearrange cols and coeffs
-        thrust::sort_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
-                             out_cols_loc,
-                             out_cols_loc + tot_nnz,
-                             vals_iter );
+        thrust::sort_by_key(
+            thrust::device.on( stream ), out_cols_loc, out_cols_loc + tot_nnz, vals_iter );
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (sort by key)" );
 
         // reduce by key
-        auto it =
-            thrust::reduce_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
-                                   out_cols_loc,
-                                   out_cols_loc + tot_nnz,
-                                   thrust::constant_iterator<lidx_t>( 1 ),
-                                   reduce_space,
-                                   counters )
-                .first;
+        auto it = thrust::reduce_by_key( thrust::device.on( stream ),
+                                         out_cols_loc,
+                                         out_cols_loc + tot_nnz,
+                                         thrust::constant_iterator<lidx_t>( 1 ),
+                                         reduce_space,
+                                         counters )
+                      .first;
         ptrdiff_t num_unq = it - reduce_space;
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (reduce by key)" );
 
         // copy into row starts and accumulate
-        thrust::scatter( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        thrust::scatter( thrust::device.on( stream ),
                          counters,
                          counters + num_unq,
                          reduce_space,
                          out_row_starts );
         Utilities::Algorithms::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc, stream );
 
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag" );
 #else
@@ -750,7 +754,8 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
     typename Config::gidx_t *out_cols,
     typename Config::scalar_t *out_coeffs,
     typename Config::lidx_t *counters,
-    [[maybe_unused]] typename Config::lidx_t *reduce_space )
+    [[maybe_unused]] typename Config::lidx_t *reduce_space,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::TransposeOffd" );
     if constexpr ( !Config::device_accessible ) {
@@ -764,10 +769,10 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
 
         // do cumulative sum of row counts to turn into offsets
         Utilities::Algorithms::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc, stream );
 
         // second pass fill in entries using extra space for row position counters
-        Utilities::Algorithms::zero_n( counters, out_num_rows, Config::mem_loc );
+        Utilities::Algorithms::zero_n( counters, out_num_rows, Config::mem_loc, stream );
         for ( lidx_t row = 0; row < in_num_rows; ++row ) {
             for ( lidx_t k = in_row_starts[row]; k < in_row_starts[row + 1]; ++k ) {
                 const auto icl  = in_cols[k] - in_first_col;
@@ -787,16 +792,15 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
             dim3 BlockDim;
             dim3 GridDim;
             setKernelDims( in_num_rows, offd_to_coo<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-            offd_to_coo<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-                in_row_starts,
-                in_cols,
-                in_coeffs,
-                in_num_rows,
-                in_first_col,
-                out_first_col,
-                out_cols_loc,
-                out_cols,
-                out_coeffs );
+            offd_to_coo<<<GridDim, BlockDim, 0, stream>>>( in_row_starts,
+                                                           in_cols,
+                                                           in_coeffs,
+                                                           in_num_rows,
+                                                           in_first_col,
+                                                           out_first_col,
+                                                           out_cols_loc,
+                                                           out_cols,
+                                                           out_coeffs );
             getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd (to COO)" );
         }
 
@@ -810,32 +814,29 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
         ZipIter vals_iter( thrust::make_tuple( cols_iter, coeffs_iter ) );
 
         // sort by key to rearrange cols and coeffs
-        thrust::sort_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
-                             out_cols_loc,
-                             out_cols_loc + tot_nnz,
-                             vals_iter );
+        thrust::sort_by_key(
+            thrust::device.on( stream ), out_cols_loc, out_cols_loc + tot_nnz, vals_iter );
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd (sort by key)" );
 
         // reduce by key
-        auto it =
-            thrust::reduce_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
-                                   out_cols_loc,
-                                   out_cols_loc + tot_nnz,
-                                   thrust::constant_iterator<lidx_t>( 1 ),
-                                   reduce_space,
-                                   counters )
-                .first;
+        auto it = thrust::reduce_by_key( thrust::device.on( stream ),
+                                         out_cols_loc,
+                                         out_cols_loc + tot_nnz,
+                                         thrust::constant_iterator<lidx_t>( 1 ),
+                                         reduce_space,
+                                         counters )
+                      .first;
         ptrdiff_t num_unq = it - reduce_space;
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd (reduce by key)" );
 
         // copy into row starts and accumulate
-        thrust::scatter( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        thrust::scatter( thrust::device.on( stream ),
                          counters,
                          counters + num_unq,
                          reduce_space,
                          out_row_starts );
         Utilities::Algorithms::exclusive_scan(
-            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc );
+            out_row_starts, out_num_rows + 1, out_row_starts, 0, Config::mem_loc, stream );
 
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd" );
 #else
@@ -851,7 +852,8 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
     const typename Config::gidx_t first_row,
     const typename Config::lidx_t *diag_row_starts,
     const typename Config::lidx_t *offd_row_starts,
-    typename Config::lidx_t *counts )
+    typename Config::lidx_t *counts,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::RowSubsetCountNNZ" );
     if constexpr ( !Config::device_accessible ) {
@@ -866,7 +868,7 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, row_sub_count<lidx_t, gidx_t>, BlockDim, GridDim );
-        row_sub_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
+        row_sub_count<<<GridDim, BlockDim, 0, stream>>>(
             rows, num_rows, first_row, diag_row_starts, offd_row_starts, counts );
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetCountNNZ" );
 #else
@@ -876,20 +878,22 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::RowSubsetFill( const typename Config::gidx_t *rows,
-                                                  const typename Config::lidx_t num_rows,
-                                                  const typename Config::gidx_t first_row,
-                                                  const typename Config::gidx_t first_col,
-                                                  const typename Config::lidx_t *diag_row_starts,
-                                                  const typename Config::lidx_t *offd_row_starts,
-                                                  const typename Config::lidx_t *diag_cols_loc,
-                                                  const typename Config::lidx_t *offd_cols_loc,
-                                                  const typename Config::scalar_t *diag_coeffs,
-                                                  const typename Config::scalar_t *offd_coeffs,
-                                                  const typename Config::gidx_t *offd_colmap,
-                                                  const typename Config::lidx_t *out_row_starts,
-                                                  typename Config::gidx_t *out_cols,
-                                                  typename Config::scalar_t *out_coeffs )
+void CSRMatrixDataHelpers<Config>::RowSubsetFill(
+    const typename Config::gidx_t *rows,
+    const typename Config::lidx_t num_rows,
+    const typename Config::gidx_t first_row,
+    const typename Config::gidx_t first_col,
+    const typename Config::lidx_t *diag_row_starts,
+    const typename Config::lidx_t *offd_row_starts,
+    const typename Config::lidx_t *diag_cols_loc,
+    const typename Config::lidx_t *offd_cols_loc,
+    const typename Config::scalar_t *diag_coeffs,
+    const typename Config::scalar_t *offd_coeffs,
+    const typename Config::gidx_t *offd_colmap,
+    const typename Config::lidx_t *out_row_starts,
+    typename Config::gidx_t *out_cols,
+    typename Config::scalar_t *out_coeffs,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::RowSubsetFill" );
     if constexpr ( !Config::device_accessible ) {
@@ -915,21 +919,20 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill( const typename Config::gidx_t 
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, row_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        row_sub_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            rows,
-            num_rows,
-            first_row,
-            first_col,
-            diag_row_starts,
-            offd_row_starts,
-            diag_cols_loc,
-            offd_cols_loc,
-            diag_coeffs,
-            offd_coeffs,
-            offd_colmap,
-            out_row_starts,
-            out_cols,
-            out_coeffs );
+        row_sub_fill<<<GridDim, BlockDim, 0, stream>>>( rows,
+                                                        num_rows,
+                                                        first_row,
+                                                        first_col,
+                                                        diag_row_starts,
+                                                        offd_row_starts,
+                                                        diag_cols_loc,
+                                                        offd_cols_loc,
+                                                        diag_coeffs,
+                                                        offd_coeffs,
+                                                        offd_colmap,
+                                                        out_row_starts,
+                                                        out_cols,
+                                                        out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RowSubsetFill Undefined memory location" );
@@ -948,7 +951,8 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
     const typename Config::lidx_t *offd_cols_loc,
     const typename Config::gidx_t *offd_cols_unq,
     const typename Config::lidx_t num_rows,
-    typename Config::lidx_t *out_row_starts )
+    typename Config::lidx_t *out_row_starts,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::ColSubsetCountNNZ" );
     if constexpr ( !Config::device_accessible ) {
@@ -972,17 +976,16 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, col_sub_count<lidx_t, gidx_t>, BlockDim, GridDim );
-        col_sub_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            idx_lo,
-            idx_up,
-            first_col,
-            diag_row_starts,
-            diag_cols_loc,
-            offd_row_starts,
-            offd_cols_loc,
-            offd_cols_unq,
-            num_rows,
-            out_row_starts );
+        col_sub_count<<<GridDim, BlockDim, 0, stream>>>( idx_lo,
+                                                         idx_up,
+                                                         first_col,
+                                                         diag_row_starts,
+                                                         diag_cols_loc,
+                                                         offd_row_starts,
+                                                         offd_cols_loc,
+                                                         offd_cols_unq,
+                                                         num_rows,
+                                                         out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetCountNNZ Undefined memory location" );
@@ -991,20 +994,22 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::ColSubsetFill( const typename Config::gidx_t idx_lo,
-                                                  const typename Config::gidx_t idx_up,
-                                                  const typename Config::gidx_t first_col,
-                                                  const typename Config::lidx_t *diag_row_starts,
-                                                  const typename Config::lidx_t *diag_cols_loc,
-                                                  const typename Config::scalar_t *diag_coeffs,
-                                                  const typename Config::lidx_t *offd_row_starts,
-                                                  const typename Config::lidx_t *offd_cols_loc,
-                                                  const typename Config::gidx_t *offd_cols_unq,
-                                                  const typename Config::scalar_t *offd_coeffs,
-                                                  const typename Config::lidx_t num_rows,
-                                                  typename Config::lidx_t *out_row_starts,
-                                                  typename Config::gidx_t *out_cols,
-                                                  typename Config::scalar_t *out_coeffs )
+void CSRMatrixDataHelpers<Config>::ColSubsetFill(
+    const typename Config::gidx_t idx_lo,
+    const typename Config::gidx_t idx_up,
+    const typename Config::gidx_t first_col,
+    const typename Config::lidx_t *diag_row_starts,
+    const typename Config::lidx_t *diag_cols_loc,
+    const typename Config::scalar_t *diag_coeffs,
+    const typename Config::lidx_t *offd_row_starts,
+    const typename Config::lidx_t *offd_cols_loc,
+    const typename Config::gidx_t *offd_cols_unq,
+    const typename Config::scalar_t *offd_coeffs,
+    const typename Config::lidx_t num_rows,
+    typename Config::lidx_t *out_row_starts,
+    typename Config::gidx_t *out_cols,
+    typename Config::scalar_t *out_coeffs,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::ColSubsetFill" );
     if constexpr ( !Config::device_accessible ) {
@@ -1032,21 +1037,20 @@ void CSRMatrixDataHelpers<Config>::ColSubsetFill( const typename Config::gidx_t 
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, col_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        col_sub_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            idx_lo,
-            idx_up,
-            first_col,
-            diag_row_starts,
-            diag_cols_loc,
-            diag_coeffs,
-            offd_row_starts,
-            offd_cols_loc,
-            offd_cols_unq,
-            offd_coeffs,
-            num_rows,
-            out_row_starts,
-            out_cols,
-            out_coeffs );
+        col_sub_fill<<<GridDim, BlockDim, 0, stream>>>( idx_lo,
+                                                        idx_up,
+                                                        first_col,
+                                                        diag_row_starts,
+                                                        diag_cols_loc,
+                                                        diag_coeffs,
+                                                        offd_row_starts,
+                                                        offd_cols_loc,
+                                                        offd_cols_unq,
+                                                        offd_coeffs,
+                                                        num_rows,
+                                                        out_row_starts,
+                                                        out_cols,
+                                                        out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetFill Undefined memory location" );
@@ -1058,7 +1062,8 @@ template<typename Config>
 void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
     const typename Config::lidx_t *in_row_starts,
     const typename Config::lidx_t num_rows,
-    typename Config::lidx_t *out_row_starts )
+    typename Config::lidx_t *out_row_starts,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1069,8 +1074,7 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, horz_cat_count<lidx_t>, BlockDim, GridDim );
-        horz_cat_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            in_row_starts, num_rows, out_row_starts );
+        horz_cat_count<<<GridDim, BlockDim, 0, stream>>>( in_row_starts, num_rows, out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ Undefined memory location" );
@@ -1087,7 +1091,8 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
     const typename Config::lidx_t *out_row_starts,
     typename Config::lidx_t *row_nnz_ctrs,
     typename Config::gidx_t *out_cols,
-    typename Config::scalar_t *out_coeffs )
+    typename Config::scalar_t *out_coeffs,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1104,15 +1109,14 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, horz_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        horz_cat_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            in_row_starts,
-            in_cols,
-            in_coeffs,
-            num_rows,
-            out_row_starts,
-            row_nnz_ctrs,
-            out_cols,
-            out_coeffs );
+        horz_cat_fill<<<GridDim, BlockDim, 0, stream>>>( in_row_starts,
+                                                         in_cols,
+                                                         in_coeffs,
+                                                         num_rows,
+                                                         out_row_starts,
+                                                         row_nnz_ctrs,
+                                                         out_cols,
+                                                         out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalFill Undefined memory location" );
@@ -1128,7 +1132,8 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
     const typename Config::gidx_t first_col,
     const typename Config::gidx_t last_col,
     const bool keep_inside,
-    typename Config::lidx_t *counts )
+    typename Config::lidx_t *counts,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1146,7 +1151,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, vert_cat_count<lidx_t, gidx_t>, BlockDim, GridDim );
-        vert_cat_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
+        vert_cat_count<<<GridDim, BlockDim, 0, stream>>>(
             row_starts, cols, num_rows, first_col, last_col, keep_inside, counts );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatVerticalCountNNZ" );
 #else
@@ -1167,7 +1172,8 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
     const typename Config::lidx_t row_offset,
     const typename Config::lidx_t *out_row_starts,
     typename Config::gidx_t *out_cols,
-    typename Config::scalar_t *out_coeffs )
+    typename Config::scalar_t *out_coeffs,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1188,18 +1194,17 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, vert_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        vert_cat_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            in_row_starts,
-            in_cols,
-            in_coeffs,
-            num_rows,
-            first_col,
-            last_col,
-            keep_inside,
-            row_offset,
-            out_row_starts,
-            out_cols,
-            out_coeffs );
+        vert_cat_fill<<<GridDim, BlockDim, 0, stream>>>( in_row_starts,
+                                                         in_cols,
+                                                         in_coeffs,
+                                                         num_rows,
+                                                         first_col,
+                                                         last_col,
+                                                         keep_inside,
+                                                         row_offset,
+                                                         out_row_starts,
+                                                         out_cols,
+                                                         out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatVerticalFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatVerticalFill Undefined memory location" );
@@ -1208,11 +1213,13 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::MaskCountNNZ( const typename Config::lidx_t *in_row_starts,
-                                                 const unsigned char *mask,
-                                                 const bool keep_first,
-                                                 const typename Config::lidx_t num_rows,
-                                                 typename Config::lidx_t *out_row_starts )
+void CSRMatrixDataHelpers<Config>::MaskCountNNZ(
+    const typename Config::lidx_t *in_row_starts,
+    const unsigned char *mask,
+    const bool keep_first,
+    const typename Config::lidx_t num_rows,
+    typename Config::lidx_t *out_row_starts,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     if constexpr ( !Config::device_accessible ) {
         const lidx_t kf = keep_first ? 1 : 0; // if keeping then start count at one and skip entry
@@ -1229,7 +1236,7 @@ void CSRMatrixDataHelpers<Config>::MaskCountNNZ( const typename Config::lidx_t *
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, mask_diag_count<lidx_t>, BlockDim, GridDim );
-        mask_diag_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
+        mask_diag_count<<<GridDim, BlockDim, 0, stream>>>(
             in_row_starts, mask, keep_first, num_rows, out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::MaskCountNNZ" );
 #else
@@ -1239,15 +1246,17 @@ void CSRMatrixDataHelpers<Config>::MaskCountNNZ( const typename Config::lidx_t *
 }
 
 template<typename Config>
-void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *in_row_starts,
-                                                 const typename Config::lidx_t *in_cols_loc,
-                                                 const typename Config::scalar_t *in_coeffs,
-                                                 const unsigned char *mask,
-                                                 const bool keep_first,
-                                                 const typename Config::lidx_t num_rows,
-                                                 const typename Config::lidx_t *out_row_starts,
-                                                 typename Config::lidx_t *out_cols_loc,
-                                                 typename Config::scalar_t *out_coeffs )
+void CSRMatrixDataHelpers<Config>::MaskFillDiag(
+    const typename Config::lidx_t *in_row_starts,
+    const typename Config::lidx_t *in_cols_loc,
+    const typename Config::scalar_t *in_coeffs,
+    const unsigned char *mask,
+    const bool keep_first,
+    const typename Config::lidx_t num_rows,
+    const typename Config::lidx_t *out_row_starts,
+    typename Config::lidx_t *out_cols_loc,
+    typename Config::scalar_t *out_coeffs,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1267,16 +1276,15 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, mask_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
-        mask_diag_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            in_row_starts,
-            in_cols_loc,
-            in_coeffs,
-            mask,
-            keep_first,
-            num_rows,
-            out_row_starts,
-            out_cols_loc,
-            out_coeffs );
+        mask_diag_fill<<<GridDim, BlockDim, 0, stream>>>( in_row_starts,
+                                                          in_cols_loc,
+                                                          in_coeffs,
+                                                          mask,
+                                                          keep_first,
+                                                          num_rows,
+                                                          out_row_starts,
+                                                          out_cols_loc,
+                                                          out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::MaskFillDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::MaskFillDiag Undefined memory location" );
@@ -1285,13 +1293,14 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *
 }
 
 template<typename Config>
-typename Config::lidx_t
-CSRMatrixDataHelpers<Config>::RemoveRangeCountDel( const typename Config::lidx_t *row_starts,
-                                                   const typename Config::scalar_t *coeffs,
-                                                   const typename Config::lidx_t num_rows,
-                                                   const typename Config::scalar_t bnd_lo,
-                                                   const typename Config::scalar_t bnd_up,
-                                                   typename Config::lidx_t *del_per_row )
+typename Config::lidx_t CSRMatrixDataHelpers<Config>::RemoveRangeCountDel(
+    const typename Config::lidx_t *row_starts,
+    const typename Config::scalar_t *coeffs,
+    const typename Config::lidx_t num_rows,
+    const typename Config::scalar_t bnd_lo,
+    const typename Config::scalar_t bnd_up,
+    typename Config::lidx_t *del_per_row,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeCountDel" );
     if constexpr ( !Config::device_accessible ) {
@@ -1310,7 +1319,7 @@ CSRMatrixDataHelpers<Config>::RemoveRangeCountDel( const typename Config::lidx_t
     } else {
 #ifdef AMP_USE_DEVICE
         thrust::transform(
-            thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+            thrust::device.on( stream ),
             thrust::make_counting_iterator<lidx_t>( 0 ),
             thrust::make_counting_iterator<lidx_t>( num_rows ),
             del_per_row,
@@ -1325,9 +1334,7 @@ CSRMatrixDataHelpers<Config>::RemoveRangeCountDel( const typename Config::lidx_t
                 return cnt;
             } );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeCountDel" );
-        return thrust::reduce( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
-                               del_per_row,
-                               del_per_row + num_rows );
+        return thrust::reduce( thrust::device.on( stream ), del_per_row, del_per_row + num_rows );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeCountDel Undefined memory location" );
 #endif
@@ -1339,7 +1346,8 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
     const typename Config::lidx_t *in_row_starts,
     const typename Config::lidx_t *del_per_row,
     const typename Config::lidx_t num_rows,
-    typename Config::lidx_t *out_row_starts )
+    typename Config::lidx_t *out_row_starts,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart" );
     if constexpr ( !Config::device_accessible ) {
@@ -1353,7 +1361,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
 #ifdef AMP_USE_DEVICE
         // device version finds nnz per row then accumulates into
         // row starts in two separate steps
-        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        thrust::transform( thrust::device.on( stream ),
                            thrust::make_counting_iterator<lidx_t>( 0 ),
                            thrust::make_counting_iterator<lidx_t>( num_rows ),
                            out_row_starts,
@@ -1363,7 +1371,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
                            } );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart" );
         Utilities::Algorithms::exclusive_scan(
-            out_row_starts, num_rows + 1, out_row_starts, 0, Config::mem_loc );
+            out_row_starts, num_rows + 1, out_row_starts, 0, Config::mem_loc, stream );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart Undefined memory location" );
 #endif
@@ -1380,7 +1388,8 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
     const typename Config::scalar_t bnd_up,
     [[maybe_unused]] const typename Config::lidx_t *new_row_starts,
     typename Config::lidx_t *new_cols_loc,
-    typename Config::scalar_t *new_coeffs )
+    typename Config::scalar_t *new_coeffs,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeFillDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -1399,16 +1408,15 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, remrange_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
-        remrange_diag_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            old_row_starts,
-            old_cols_loc,
-            old_coeffs,
-            num_rows,
-            bnd_lo,
-            bnd_up,
-            new_row_starts,
-            new_cols_loc,
-            new_coeffs );
+        remrange_diag_fill<<<GridDim, BlockDim, 0, stream>>>( old_row_starts,
+                                                              old_cols_loc,
+                                                              old_coeffs,
+                                                              num_rows,
+                                                              bnd_lo,
+                                                              bnd_up,
+                                                              new_row_starts,
+                                                              new_cols_loc,
+                                                              new_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeFillDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeFillDiag Undefined memory location" );
@@ -1427,7 +1435,8 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
     const typename Config::scalar_t bnd_up,
     [[maybe_unused]] const typename Config::lidx_t *new_row_starts,
     typename Config::gidx_t *new_cols,
-    typename Config::scalar_t *new_coeffs )
+    typename Config::scalar_t *new_coeffs,
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeFillOffd" );
     if constexpr ( !Config::device_accessible ) {
@@ -1446,17 +1455,16 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, remrange_offd_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        remrange_offd_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            old_row_starts,
-            old_cols_loc,
-            old_cols_unq,
-            old_coeffs,
-            num_rows,
-            bnd_lo,
-            bnd_up,
-            new_row_starts,
-            new_cols,
-            new_coeffs );
+        remrange_offd_fill<<<GridDim, BlockDim, 0, stream>>>( old_row_starts,
+                                                              old_cols_loc,
+                                                              old_cols_unq,
+                                                              old_coeffs,
+                                                              num_rows,
+                                                              bnd_lo,
+                                                              bnd_up,
+                                                              new_row_starts,
+                                                              new_cols,
+                                                              new_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeFillOffd" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeFillOffd Undefined memory location" );

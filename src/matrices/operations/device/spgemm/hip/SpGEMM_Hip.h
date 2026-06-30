@@ -1,6 +1,7 @@
 #ifndef included_AMP_SpGEMM_Hip
 #define included_AMP_SpGEMM_Hip
 
+#include "AMP/utils/device/Device.h"
 #include "AMP/utils/hip/Helper_Hip.h"
 
 #include <rocsparse/rocsparse.h>
@@ -46,7 +47,7 @@ public:
                   colidx_t *B_cols,
                   scalar_t *B_vals,
                   rowidx_t *C_rs,
-                  const computeStream_t stream_ );
+                  AMP::Utilities::ComputeStream stream_ );
 
     ~VendorSpGEMM();
 
@@ -62,7 +63,7 @@ private:
     scalar_t alpha;
     scalar_t beta;
 
-    const computeStream_t stream;
+    AMP::Utilities::ComputeStream stream;
 
     rocsparse_indextype itype;
     rocsparse_indextype jtype;

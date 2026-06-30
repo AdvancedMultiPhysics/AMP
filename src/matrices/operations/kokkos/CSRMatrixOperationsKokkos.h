@@ -8,7 +8,6 @@
 #include "AMP/matrices/operations/MatrixOperations.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
-#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/device/Device.h"
 #include "AMP/vectors/Vector.h"

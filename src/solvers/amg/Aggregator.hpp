@@ -130,12 +130,13 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     using matrixdata_t      = typename matrix_t::matrixdata_t;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    auto A_data                  = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    const auto A_nrows           = static_cast<lidx_t>( A->numLocalRows() );
-    const computeStream_t stream = A_data->getStream();
+    auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    auto A_diag        = A_data->getDiagMatrix();
+    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
+    AMP::Utilities::ComputeStream stream = A_data->d_stream;
 
     // get aggregates
-    auto agg_ids       = localmatrixdata_t::template sharedArrayBuilder<int>( A_nrows );
+    auto agg_ids       = A_diag->template sharedArrayBuilder<int>( A_nrows );
     const auto num_agg = assignLocalAggregates( A, agg_ids.get() );
 
     // if there is no parameters object passed in create one matching usual
@@ -168,9 +169,9 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     // create and fill matrix data
     auto P = std::make_shared<matrixdata_t>( matParams );
     // non-zeros only in diag block and at most one per row
-    auto diag_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
-    auto offd_nnz = localmatrixdata_t::makeLidxArray( A_nrows );
-    Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc );
+    auto diag_nnz = A_diag->makeLidxArray( A_nrows );
+    auto offd_nnz = A_diag->makeLidxArray( A_nrows );
+    Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc, stream );
     if constexpr ( !Config::device_accessible ) {
         std::transform( agg_ids.get(),
                         agg_ids.get() + A_nrows,

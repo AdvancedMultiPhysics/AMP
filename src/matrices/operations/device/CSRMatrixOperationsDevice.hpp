@@ -279,7 +279,7 @@ AMP::Scalar CSRMatrixOperationsDevice<Config>::LinfNorm( MatrixData const &A ) c
 
     // Reduce row sums to get global Linf norm
     auto max_norm = Utilities::Algorithms::max_element(
-        rowSums.data().get(), nRows, Utilities::MemoryType::device );
+        rowSums.data().get(), nRows, Utilities::MemoryType::device, A.d_stream );
     AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }

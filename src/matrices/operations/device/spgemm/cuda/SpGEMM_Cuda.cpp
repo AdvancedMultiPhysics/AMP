@@ -24,7 +24,7 @@ VendorSpGEMM<rowidx_t, colidx_t, scalar_t>::VendorSpGEMM( const int64_t M_,
                                                           colidx_t *B_cols,
                                                           scalar_t *B_vals,
                                                           rowidx_t *C_rs,
-                                                          const computeStream_t stream_ )
+                                                          AMP::Utilities::ComputeStream stream_ )
     : M( M_ ),
       N( N_ ),
       K( K_ ),
