@@ -123,12 +123,11 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
                                 std::shared_ptr<const LinearAlgebra::Vector> nearNullVec,
                                 std::shared_ptr<LinearAlgebra::MatrixParameters> matParams )
 {
-    using gidx_t            = typename Config::gidx_t;
-    using lidx_t            = typename Config::lidx_t;
-    using scalar_t          = typename Config::scalar_t;
-    using matrix_t          = LinearAlgebra::CSRMatrix<Config>;
-    using matrixdata_t      = typename matrix_t::matrixdata_t;
-    using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
+    using gidx_t       = typename Config::gidx_t;
+    using lidx_t       = typename Config::lidx_t;
+    using scalar_t     = typename Config::scalar_t;
+    using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
+    using matrixdata_t = typename matrix_t::matrixdata_t;
 
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();

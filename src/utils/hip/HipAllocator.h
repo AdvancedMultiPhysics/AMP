@@ -56,7 +56,7 @@ public:
     T *allocate( size_t n )
     {
         T *ptr;
-        auto err = hipMalloc( &ptr, n * sizeof( T ) );
+        auto err = hipMalloc( (void **) &ptr, n * sizeof( T ) );
         checkHipErrors( err );
         return ptr;
     }
@@ -64,20 +64,20 @@ public:
     T *allocate( size_t n, hipStream_t stream )
     {
         T *ptr;
-        auto err = hipMallocAsync( &ptr, n * sizeof( T ), stream );
+        auto err = hipMallocAsync( (void **) &ptr, n * sizeof( T ), stream );
         checkHipErrors( err );
         return ptr;
     }
 
     void deallocate( T *p, size_t )
     {
-        auto err = hipFree( p );
+        auto err = hipFree( (void *) p );
         checkHipErrors( err );
     }
 
     void deallocate( T *p, size_t, hipStream_t stream )
     {
-        auto err = hipFreeAsync( p, stream );
+        auto err = hipFreeAsync( (void *) p, stream );
         checkHipErrors( err );
     }
 };

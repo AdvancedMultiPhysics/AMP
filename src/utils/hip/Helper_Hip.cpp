@@ -36,7 +36,8 @@ void checkHipErrors( T result, const StackTrace::source_location &source )
                  source.function_name() );
         // Make sure we call HIP Device Reset before exiting
         (void) hipDeviceReset();
-        exit( EXIT_FAILURE );
+        AMP_ERROR( "Hip error" );
+        // exit( EXIT_FAILURE );
     }
 }
 void getLastDeviceError( const char *errorMessage, const StackTrace::source_location &source )
@@ -51,7 +52,8 @@ void getLastDeviceError( const char *errorMessage, const StackTrace::source_loca
                  (int) err,
                  hipGetErrorString( err ) );
         (void) hipDeviceReset();
-        exit( EXIT_FAILURE );
+        AMP_ERROR( "Hip error" );
+        // exit( EXIT_FAILURE );
     }
 }
 

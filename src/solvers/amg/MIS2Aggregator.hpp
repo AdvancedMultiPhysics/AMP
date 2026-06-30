@@ -60,10 +60,10 @@ int MIS2Aggregator::classifyVertices(
     // unpack diag block
     const auto begin_row = A_diag->beginRow();
     lidx_t *Ad_rs = nullptr, *Ad_cols_loc = nullptr;
-    gidx_t *Ad_cols                                    = nullptr;
-    scalar_t *Ad_coeffs                                = nullptr;
-    std::tie( Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs ) = A_diag->getDataFields();
-    AMP::Utilities::ComputeStream stream               = A_diag->d_stream;
+    gidx_t *Ad_cols                                       = nullptr;
+    scalar_t *Ad_coeffs                                   = nullptr;
+    std::tie( Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs )    = A_diag->getDataFields();
+    [[maybe_unused]] AMP::Utilities::ComputeStream stream = A_diag->d_stream;
 
     // hash is xorshift* as given on wikipedia
     auto hash = [] AMP_FUNCTION_HD( uint64_t x ) -> uint64_t {
