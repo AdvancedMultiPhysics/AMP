@@ -474,6 +474,7 @@ void multTranspose( const ExecSpace &exec_space,
                               Kokkos::RangePolicy<ExecSpace>( exec_space, 0, nRows ),
                               ftor );
     }
+    exec_space.fence();
 }
 } // namespace impl
 

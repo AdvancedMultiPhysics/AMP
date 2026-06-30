@@ -43,13 +43,8 @@ public:
 
     CSRMatrixOperationsKokkos() : d_use_kokkoskernels_spgemm( false )
     {
-    #ifdef AMP_USE_DEVICE
-        // if we have device then bind exeuction space to the compute stream
-        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
-    #endif
-
-        d_localops_diag = std::make_shared<localops_t>( d_exec_host, d_exec_device );
-        d_localops_offd = std::make_shared<localops_t>( d_exec_host, d_exec_device );
+        d_localops_diag = std::make_shared<localops_t>();
+        d_localops_offd = std::make_shared<localops_t>();
     }
 
     /** \brief  Matrix-vector multiplication
@@ -179,28 +174,18 @@ public:
     void writeRestart( int64_t fid ) const override;
 
     CSRMatrixOperationsKokkos( int64_t, AMP::IO::RestartManager * )
-        : d_localops_diag( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_use_kokkoskernels_spgemm( false )
+        : d_use_kokkoskernels_spgemm( false )
     {
+        d_localops_diag = std::make_shared<localops_t>();
+        d_localops_offd = std::make_shared<localops_t>();
     }
 
 protected:
-    Kokkos::DefaultHostExecutionSpace d_exec_host;
-    // not device on host-only builds, but also not used in that case
-    Kokkos::DefaultExecutionSpace d_exec_device;
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
 
     //! Flag to use kokkos-kernels for spgemm, no effect if kokkos-kernels unavailable
     bool d_use_kokkoskernels_spgemm;
-
-    void fence() const
-    {
-    #ifdef AMP_USE_DEVICE
-        d_exec_device.fence();
-    #endif
-    }
 };
 
 } // namespace AMP::LinearAlgebra

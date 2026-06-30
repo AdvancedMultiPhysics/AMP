@@ -51,8 +51,7 @@ typedef void *computeStream_t;
 
 namespace AMP::Utilities {
 
-typedef const computeStream_t &ComputeStream;
-
+typedef const computeStream_t ComputeStream;
 }
 
 #endif

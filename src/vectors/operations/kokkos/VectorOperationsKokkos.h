@@ -24,12 +24,10 @@ class VectorOperationsKokkos : public VectorOperations
 {
 public:
     // Constructor
-    VectorOperationsKokkos() : d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() )
+    VectorOperationsKokkos()
+        : d_exec_device( AMP::AMPManager::getDefaultComputeStream() ),
+          d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() )
     {
-    #ifdef AMP_USE_DEVICE
-        // if we have device then bind exeuction space to the compute stream
-        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
-    #endif
     }
 
     //! Destructor

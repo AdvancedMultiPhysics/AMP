@@ -147,7 +147,6 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
                                         localmatrixdata_t::d_memory_location );
 
         // now copy vvals_d back to host to write out
-        fence();
         auto vvals_h = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace{}, vvals_d );
 
         // copy rcols and vvals into std::vectors and write out

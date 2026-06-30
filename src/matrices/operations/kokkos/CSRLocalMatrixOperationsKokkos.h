@@ -63,9 +63,7 @@ public:
                    Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>,
                    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, csr_memspace_t>>;
 
-    CSRLocalMatrixOperationsKokkos( Kokkos::DefaultHostExecutionSpace &exec_host,
-                                    Kokkos::DefaultExecutionSpace &exec_device )
-        : d_exec_host( exec_host ), d_exec_device( exec_device )
+    CSRLocalMatrixOperationsKokkos() : d_exec_device( AMP::AMPManager::getDefaultComputeStream() )
     {
     }
 
@@ -237,9 +235,9 @@ public:
     }
 
 protected:
-    const Kokkos::DefaultHostExecutionSpace &d_exec_host;
+    Kokkos::DefaultHostExecutionSpace d_exec_host;
     // not device on host-only builds, but also not used in that case
-    const Kokkos::DefaultExecutionSpace &d_exec_device;
+    Kokkos::DefaultExecutionSpace d_exec_device;
 };
 
 } // namespace AMP::LinearAlgebra

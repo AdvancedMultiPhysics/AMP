@@ -23,7 +23,7 @@ public:
     T *allocate( size_t n )
     {
         T *ptr;
-        auto err = hipHostMalloc( &ptr, n * sizeof( T ) );
+        auto err = hipHostMalloc( (void **) &ptr, n * sizeof( T ) );
         checkHipErrors( err );
         return ptr;
     }
@@ -32,13 +32,13 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        auto err = hipFreeHost( p );
+        auto err = hipFreeHost( (void *) p );
         checkHipErrors( err );
     }
 
     void deallocate( T *p, size_t, hipStream_t )
     {
-        auto err = hipFreeHost( p );
+        auto err = hipFreeHost( (void *) p );
         checkHipErrors( err );
     }
 };
@@ -64,8 +64,10 @@ public:
     T *allocate( size_t n, hipStream_t stream )
     {
         T *ptr;
+        deviceStreamSynchronize( stream );
         auto err = hipMallocAsync( (void **) &ptr, n * sizeof( T ), stream );
         checkHipErrors( err );
+        deviceStreamSynchronize( stream );
         return ptr;
     }
 
@@ -77,8 +79,10 @@ public:
 
     void deallocate( T *p, size_t, hipStream_t stream )
     {
+        deviceStreamSynchronize( stream );
         auto err = hipFreeAsync( (void *) p, stream );
         checkHipErrors( err );
+        deviceStreamSynchronize( stream );
     }
 };
 
@@ -95,7 +99,7 @@ public:
     T *allocate( size_t n )
     {
         T *ptr;
-        auto err = hipMallocManaged( &ptr, n * sizeof( T ), hipMemAttachGlobal );
+        auto err = hipMallocManaged( (void **) &ptr, n * sizeof( T ), hipMemAttachGlobal );
         checkHipErrors( err );
         return ptr;
     }
@@ -103,7 +107,7 @@ public:
     T *allocate( size_t n, hipStream_t )
     {
         T *ptr;
-        auto err = hipMallocManaged( &ptr, n * sizeof( T ), hipMemAttachGlobal );
+        auto err = hipMallocManaged( (void **) &ptr, n * sizeof( T ), hipMemAttachGlobal );
         checkHipErrors( err );
         // following will be needed some day, but is not currently functional
         // err = hipStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), hipMemAttachSingle
@@ -114,13 +118,13 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        auto err = hipFree( p );
+        auto err = hipFree( (void *) p );
         checkHipErrors( err );
     }
 
     void deallocate( T *p, size_t, hipStream_t )
     {
-        auto err = hipFree( p );
+        auto err = hipFree( (void *) p );
         checkHipErrors( err );
     }
 };
