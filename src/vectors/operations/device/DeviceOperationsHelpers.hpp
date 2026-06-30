@@ -1,6 +1,7 @@
 #ifndef included_AMP_DeviceOperationsHelpers_hpp
 #define included_AMP_DeviceOperationsHelpers_hpp
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/device/Device.h"
 
 #include <random>
@@ -29,7 +30,7 @@ void DeviceOperationsHelpers<TYPE>::setRandomValues( size_t N, TYPE *x )
     static std::uniform_int_distribution<size_t> dist;
     size_t seed = dist( gen );
     thrust::counting_iterator<unsigned int> index_begin( 0 );
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        index_begin,
                        index_begin + N,
                        x,
@@ -39,7 +40,7 @@ void DeviceOperationsHelpers<TYPE>::setRandomValues( size_t N, TYPE *x )
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, TYPE *x )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        x,
@@ -49,7 +50,7 @@ void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, TYPE *x )
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, const TYPE *x, TYPE *y )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        y,
@@ -59,7 +60,7 @@ void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha, size_t N, const TYPE *x, 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::add( size_t N, const TYPE *x, const TYPE *y, TYPE *z )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        y,
@@ -70,7 +71,7 @@ void DeviceOperationsHelpers<TYPE>::add( size_t N, const TYPE *x, const TYPE *y,
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::subtract( size_t N, const TYPE *x, const TYPE *y, TYPE *z )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        y,
@@ -81,7 +82,7 @@ void DeviceOperationsHelpers<TYPE>::subtract( size_t N, const TYPE *x, const TYP
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::multiply( size_t N, const TYPE *x, const TYPE *y, TYPE *z )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        y,
@@ -92,7 +93,7 @@ void DeviceOperationsHelpers<TYPE>::multiply( size_t N, const TYPE *x, const TYP
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::divide( size_t N, const TYPE *x, const TYPE *y, TYPE *z )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        y,
@@ -104,7 +105,7 @@ void DeviceOperationsHelpers<TYPE>::divide( size_t N, const TYPE *x, const TYPE 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::reciprocal( size_t N, const TYPE *x, TYPE *y )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        y,
@@ -117,28 +118,28 @@ void DeviceOperationsHelpers<TYPE>::linearSum(
     const TYPE alpha, size_t N, const TYPE *x, const TYPE beta, const TYPE *y, TYPE *z )
 {
     if ( alpha == 1.0 && beta == 1.0 ) {
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            x,
                            x + N,
                            y,
                            z,
                            thrust::plus() );
     } else if ( alpha == 1.0 ) {
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            x,
                            x + N,
                            y,
                            z,
                            thrust::placeholders::_1 + beta * thrust::placeholders::_2 );
     } else if ( beta == 1.0 ) {
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            x,
                            x + N,
                            y,
                            z,
                            alpha * thrust::placeholders::_1 + thrust::placeholders::_2 );
     } else {
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            x,
                            x + N,
                            y,
@@ -153,13 +154,13 @@ void DeviceOperationsHelpers<TYPE>::abs( size_t N, const TYPE *x, TYPE *y )
 {
     auto lambda = [] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
     thrust::transform(
-        thrust::device.on( Utilities::device_context_default.stream ), x, x + N, y, lambda );
+        thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ), x, x + N, y, lambda );
 }
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::addScalar( size_t N, const TYPE *x, TYPE alpha, TYPE *y )
 {
-    thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+    thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                        x,
                        x + N,
                        y,
@@ -171,7 +172,7 @@ void DeviceOperationsHelpers<TYPE>::setMin( size_t N, TYPE alpha, TYPE *x )
 {
     auto lambda = [alpha] __host__ __device__( TYPE x ) { return x < alpha ? alpha : x; };
     thrust::transform(
-        thrust::device.on( Utilities::device_context_default.stream ), x, x + N, x, lambda );
+        thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ), x, x + N, x, lambda );
 }
 
 template<typename TYPE>
@@ -179,13 +180,13 @@ void DeviceOperationsHelpers<TYPE>::setMax( size_t N, TYPE alpha, TYPE *x )
 {
     auto lambda = [alpha] __host__ __device__( TYPE x ) { return x > alpha ? alpha : x; };
     thrust::transform(
-        thrust::device.on( Utilities::device_context_default.stream ), x, x + N, x, lambda );
+        thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ), x, x + N, x, lambda );
 }
 
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMin( size_t N, const TYPE *x )
 {
-    return thrust::reduce( thrust::device.on( Utilities::device_context_default.stream ),
+    return thrust::reduce( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            x,
                            x + N,
                            std::numeric_limits<TYPE>::max(),
@@ -196,19 +197,20 @@ template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMax( size_t N, const TYPE *x )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x; };
-    return thrust::transform_reduce( thrust::device.on( Utilities::device_context_default.stream ),
-                                     x,
-                                     x + N,
-                                     lambda,
-                                     (TYPE) 0,
-                                     thrust::maximum<TYPE>() );
+    return thrust::transform_reduce(
+        thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        x,
+        x + N,
+        lambda,
+        (TYPE) 0,
+        thrust::maximum<TYPE>() );
 }
 
 
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localSum( size_t N, const TYPE *x )
 {
-    return thrust::reduce( thrust::device.on( Utilities::device_context_default.stream ),
+    return thrust::reduce( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            x,
                            x + N,
                            (TYPE) 0,
@@ -219,12 +221,13 @@ template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localL1Norm( size_t N, const TYPE *x )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
-    return thrust::transform_reduce( thrust::device.on( Utilities::device_context_default.stream ),
-                                     x,
-                                     x + N,
-                                     lambda,
-                                     (TYPE) 0,
-                                     thrust::plus<TYPE>() );
+    return thrust::transform_reduce(
+        thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        x,
+        x + N,
+        lambda,
+        (TYPE) 0,
+        thrust::plus<TYPE>() );
 }
 
 template<typename TYPE>
@@ -232,7 +235,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localL2Norm2( size_t N, const TYPE *x )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x * x; };
     auto result =
-        thrust::transform_reduce( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform_reduce( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                                   x,
                                   x + N,
                                   lambda,
@@ -245,25 +248,26 @@ template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMaxNorm( size_t N, const TYPE *x )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
-    return thrust::transform_reduce( thrust::device.on( Utilities::device_context_default.stream ),
-                                     x,
-                                     x + N,
-                                     lambda,
-                                     (TYPE) 0,
-                                     thrust::maximum<TYPE>() );
+    return thrust::transform_reduce(
+        thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
+        x,
+        x + N,
+        lambda,
+        (TYPE) 0,
+        thrust::maximum<TYPE>() );
 }
 
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localDot( size_t N, const TYPE *x, const TYPE *y )
 {
     return thrust::inner_product(
-        thrust::device.on( Utilities::device_context_default.stream ), x, x + N, y, (TYPE) 0 );
+        thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ), x, x + N, y, (TYPE) 0 );
 }
 
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMinQuotient( size_t N, const TYPE *x, const TYPE *y )
 {
-    return thrust::inner_product( thrust::device.on( Utilities::device_context_default.stream ),
+    return thrust::inner_product( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                                   x,
                                   x + N,
                                   y,
@@ -282,7 +286,7 @@ struct thrust_wrs {
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localWrmsNorm( size_t N, const TYPE *x, const TYPE *y )
 {
-    return thrust::inner_product( thrust::device.on( Utilities::device_context_default.stream ),
+    return thrust::inner_product( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                                   x,
                                   x + N,
                                   y,

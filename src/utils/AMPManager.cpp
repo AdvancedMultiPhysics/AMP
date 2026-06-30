@@ -61,13 +61,6 @@ AMPManagerProperties AMPManager::d_properties = AMPManagerProperties();
 std::vector<std::function<void()>> AMPManager::d_atShutdown;
 
 /****************************************************************************
- *  Default device context setup/interaction                                 *
- ****************************************************************************/
-namespace Utilities {
-DeviceContext device_context_default{ nullptr };
-} // namespace Utilities
-
-/****************************************************************************
  *  Get the global communicator                                              *
  ****************************************************************************/
 static AMP_MPI comm_world = AMP::AMP_MPI( AMP_COMM_NULL );
@@ -332,12 +325,16 @@ double AMPManager::bindDevices()
         deviceBind( device_id ); // Map MPI-process to a GPU
     }
 
-    deviceStreamCreate( &Utilities::device_context_default.stream );
+    if ( d_properties.amp_owns_default_compute_stream ) {
+        deviceStreamCreate( &d_properties.default_compute_stream );
+    } else {
+        AMP_ERROR( "AMP must own default compute stream for now" );
+    }
 
     void *tmp;
-    deviceMallocAsync( &tmp, 10, Utilities::device_context_default.stream );
-    deviceFreeAsync( tmp, Utilities::device_context_default.stream );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceMallocAsync( &tmp, 10, d_properties.default_compute_stream );
+    deviceFreeAsync( tmp, d_properties.default_compute_stream );
+    deviceStreamSynchronize( d_properties.default_compute_stream );
 
 #endif
     return getDuration( start );
@@ -350,7 +347,9 @@ double AMPManager::freeDevices()
     auto start = std::chrono::steady_clock::now();
 #ifdef AMP_USE_DEVICE
 
-    deviceStreamDestroy( Utilities::device_context_default.stream );
+    if ( d_properties.amp_owns_default_compute_stream ) {
+        deviceStreamDestroy( d_properties.default_compute_stream );
+    }
 
 #endif
     return getDuration( start );

@@ -4,6 +4,7 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixDataHelpers.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
@@ -474,7 +475,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsDiag( typename Config::lidx_t *row
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, sort_row_diag<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        sort_row_diag<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        sort_row_diag<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             row_starts, cols, coeffs, num_rows, first_col );
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsDiag" );
 #else
@@ -529,7 +530,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsOffd( typename Config::lidx_t *row
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, sort_row_offd<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        sort_row_offd<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        sort_row_offd<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             row_starts, cols, coeffs, num_rows );
         getLastDeviceError( "CSRMatrixDataHelpers::SortColumnsOffd" );
 #else
@@ -551,7 +552,7 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalDiag( typename Config::gidx_t *c
         } );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            cols,
                            cols + nnz,
                            cols_loc,
@@ -592,7 +593,7 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalOffd( typename Config::gidx_t *c
         } );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            cols,
                            cols + nnz,
                            cols_loc,
@@ -678,7 +679,7 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
             dim3 BlockDim;
             dim3 GridDim;
             setKernelDims( in_num_rows, diag_to_coo<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-            diag_to_coo<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+            diag_to_coo<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
                 in_row_starts,
                 in_cols_loc,
                 in_coeffs,
@@ -700,7 +701,7 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         ZipIter vals_iter( thrust::make_tuple( cols_iter, coeffs_iter ) );
 
         // sort by key to rearrange cols and coeffs
-        thrust::sort_by_key( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::sort_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                              out_cols_loc,
                              out_cols_loc + tot_nnz,
                              vals_iter );
@@ -708,7 +709,7 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
 
         // reduce by key
         auto it =
-            thrust::reduce_by_key( thrust::device.on( Utilities::device_context_default.stream ),
+            thrust::reduce_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                                    out_cols_loc,
                                    out_cols_loc + tot_nnz,
                                    thrust::constant_iterator<lidx_t>( 1 ),
@@ -719,7 +720,7 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeDiag (reduce by key)" );
 
         // copy into row starts and accumulate
-        thrust::scatter( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::scatter( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                          counters,
                          counters + num_unq,
                          reduce_space,
@@ -786,7 +787,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
             dim3 BlockDim;
             dim3 GridDim;
             setKernelDims( in_num_rows, offd_to_coo<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-            offd_to_coo<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+            offd_to_coo<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
                 in_row_starts,
                 in_cols,
                 in_coeffs,
@@ -809,7 +810,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
         ZipIter vals_iter( thrust::make_tuple( cols_iter, coeffs_iter ) );
 
         // sort by key to rearrange cols and coeffs
-        thrust::sort_by_key( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::sort_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                              out_cols_loc,
                              out_cols_loc + tot_nnz,
                              vals_iter );
@@ -817,7 +818,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
 
         // reduce by key
         auto it =
-            thrust::reduce_by_key( thrust::device.on( Utilities::device_context_default.stream ),
+            thrust::reduce_by_key( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                                    out_cols_loc,
                                    out_cols_loc + tot_nnz,
                                    thrust::constant_iterator<lidx_t>( 1 ),
@@ -828,7 +829,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
         getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd (reduce by key)" );
 
         // copy into row starts and accumulate
-        thrust::scatter( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::scatter( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                          counters,
                          counters + num_unq,
                          reduce_space,
@@ -865,7 +866,7 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, row_sub_count<lidx_t, gidx_t>, BlockDim, GridDim );
-        row_sub_count<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        row_sub_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             rows, num_rows, first_row, diag_row_starts, offd_row_starts, counts );
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetCountNNZ" );
 #else
@@ -914,7 +915,7 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill( const typename Config::gidx_t 
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, row_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        row_sub_fill<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        row_sub_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             rows,
             num_rows,
             first_row,
@@ -971,7 +972,7 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, col_sub_count<lidx_t, gidx_t>, BlockDim, GridDim );
-        col_sub_count<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        col_sub_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             idx_lo,
             idx_up,
             first_col,
@@ -1031,7 +1032,7 @@ void CSRMatrixDataHelpers<Config>::ColSubsetFill( const typename Config::gidx_t 
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, col_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        col_sub_fill<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        col_sub_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             idx_lo,
             idx_up,
             first_col,
@@ -1068,7 +1069,7 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, horz_cat_count<lidx_t>, BlockDim, GridDim );
-        horz_cat_count<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        horz_cat_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             in_row_starts, num_rows, out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ" );
 #else
@@ -1103,7 +1104,7 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, horz_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        horz_cat_fill<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        horz_cat_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             in_row_starts,
             in_cols,
             in_coeffs,
@@ -1145,7 +1146,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, vert_cat_count<lidx_t, gidx_t>, BlockDim, GridDim );
-        vert_cat_count<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        vert_cat_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             row_starts, cols, num_rows, first_col, last_col, keep_inside, counts );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatVerticalCountNNZ" );
 #else
@@ -1187,7 +1188,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, vert_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        vert_cat_fill<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        vert_cat_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             in_row_starts,
             in_cols,
             in_coeffs,
@@ -1228,7 +1229,7 @@ void CSRMatrixDataHelpers<Config>::MaskCountNNZ( const typename Config::lidx_t *
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, mask_diag_count<lidx_t>, BlockDim, GridDim );
-        mask_diag_count<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        mask_diag_count<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             in_row_starts, mask, keep_first, num_rows, out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::MaskCountNNZ" );
 #else
@@ -1266,7 +1267,7 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag( const typename Config::lidx_t *
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, mask_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
-        mask_diag_fill<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        mask_diag_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             in_row_starts,
             in_cols_loc,
             in_coeffs,
@@ -1309,7 +1310,7 @@ CSRMatrixDataHelpers<Config>::RemoveRangeCountDel( const typename Config::lidx_t
     } else {
 #ifdef AMP_USE_DEVICE
         thrust::transform(
-            thrust::device.on( Utilities::device_context_default.stream ),
+            thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
             thrust::make_counting_iterator<lidx_t>( 0 ),
             thrust::make_counting_iterator<lidx_t>( num_rows ),
             del_per_row,
@@ -1324,7 +1325,7 @@ CSRMatrixDataHelpers<Config>::RemoveRangeCountDel( const typename Config::lidx_t
                 return cnt;
             } );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeCountDel" );
-        return thrust::reduce( thrust::device.on( Utilities::device_context_default.stream ),
+        return thrust::reduce( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                                del_per_row,
                                del_per_row + num_rows );
 #else
@@ -1352,7 +1353,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
 #ifdef AMP_USE_DEVICE
         // device version finds nnz per row then accumulates into
         // row starts in two separate steps
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            thrust::make_counting_iterator<lidx_t>( 0 ),
                            thrust::make_counting_iterator<lidx_t>( num_rows ),
                            out_row_starts,
@@ -1398,7 +1399,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, remrange_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
-        remrange_diag_fill<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        remrange_diag_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             old_row_starts,
             old_cols_loc,
             old_coeffs,
@@ -1445,7 +1446,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, remrange_offd_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
-        remrange_offd_fill<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        remrange_offd_fill<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             old_row_starts,
             old_cols_loc,
             old_cols_unq,

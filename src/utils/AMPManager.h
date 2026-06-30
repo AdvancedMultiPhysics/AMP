@@ -116,6 +116,9 @@ public:
      */
     int default_OpenMP_threads = 0;
 
+    bool amp_owns_default_compute_stream   = true;
+    computeStream_t default_compute_stream = nullptr;
+
 private:
     friend class AMPManager;
 };
@@ -201,6 +204,8 @@ public:
 
     //! Get the global comm
     static const AMP::AMP_MPI &getCommWorld();
+
+    static computeStream_t getDefaultComputeStream() { return d_properties.default_compute_stream; }
 
     //! Set the global comm
     static void setCommWorld( const AMP::AMP_MPI & );

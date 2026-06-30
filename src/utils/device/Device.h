@@ -49,17 +49,4 @@ typedef void *computeStream_t;
 
 #endif
 
-namespace AMP::Utilities {
-
-//! struct for any persistent device information
-struct DeviceContext {
-    //! Compute stream
-    computeStream_t stream;
-};
-
-// static instance of context struct as default option
-extern DeviceContext device_context_default;
-
-} // namespace AMP::Utilities
-
 #endif

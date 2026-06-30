@@ -2,6 +2,7 @@
 #define included_AMP_VectorOperationsKokkos
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/device/Device.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
@@ -27,7 +28,7 @@ public:
     {
     #ifdef AMP_USE_DEVICE
         // if we have device then bind exeuction space to the compute stream
-        d_exec_device = Kokkos::DefaultExecutionSpace( Utilities::device_context_default.stream );
+        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
     #endif
     }
 

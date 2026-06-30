@@ -44,14 +44,14 @@ constexpr bool migrateDeviceBuffers()
  * Constructors/Destructor                              *
  ********************************************************/
 template<typename Config>
-CSRMatrixData<Config>::CSRMatrixData()
+CSRMatrixData<Config>::CSRMatrixData() : d_stream( AMP::AMPManager::getDefaultComputeStream() )
 {
     AMPManager::incrementResource( "CSRMatrixData" );
 }
 
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> params )
-    : MatrixData( params )
+    : d_stream( AMP::AMPManager::getDefaultComputeStream() ), MatrixData( params )
 {
     PROFILE( "CSRMatrixData::constructor" );
 
@@ -127,13 +127,15 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
                                              Config::mem_loc,
                                              diag_cols,
                                              Utilities::MemoryType::host,
-                                             d_diag_matrix->d_nnz );
+                                             d_diag_matrix->d_nnz,
+                                             d_stream );
             if ( !d_offd_matrix->d_is_empty ) {
                 Utilities::Algorithms::copyCast( d_offd_matrix->d_cols.get(),
                                                  Config::mem_loc,
                                                  offd_cols,
                                                  Utilities::MemoryType::host,
-                                                 d_offd_matrix->d_nnz );
+                                                 d_offd_matrix->d_nnz,
+                                                 d_stream );
             }
 
             // contents of rowHelper no longer useful, trigger deallocation
@@ -271,7 +273,7 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
 
 #ifdef AMP_USE_DEVICE
     if ( comm_block->d_memory_location >= Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( Utilities::device_context_default.stream );
+        deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
     }
 #endif
 
@@ -322,7 +324,8 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
                                        d_memory_location,
                                        gathered_rs.get() + rs_pos,
                                        comm_block->d_memory_location,
-                                       nrs );
+                                       nrs,
+                                       d_stream );
         rs_pos += nrs;
 
         block->setNNZ( false );
@@ -331,12 +334,14 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
                                            d_memory_location,
                                            gathered_cols.get() + nnz_pos,
                                            comm_block->d_memory_location,
-                                           nnz );
+                                           nnz,
+                                           d_stream );
             Utilities::Algorithms::copy_n( block->d_coeffs.get(),
                                            d_memory_location,
                                            gathered_vals.get() + nnz_pos,
                                            comm_block->d_memory_location,
-                                           nnz );
+                                           nnz,
+                                           d_stream );
         }
         nnz_pos += nnz;
 
@@ -396,7 +401,7 @@ std::shared_ptr<CSRMatrixData<ConfigOut>> CSRMatrixData<Config>::migrate() const
     outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
 
 #ifdef AMP_USE_DEVICE
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 #endif
 
     outData->d_diag_matrix->d_hash = getComm().rand();
@@ -690,8 +695,12 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     gidx_t *rows_d               = nullptr;
     if constexpr ( rows_migrated ) {
         rows_d = d_gidxAllocator.allocate( rows.size() );
-        Utilities::Algorithms::copy_n(
-            rows_d, Config::mem_loc, rows.data(), Utilities::MemoryType::host, rows.size() );
+        Utilities::Algorithms::copy_n( rows_d,
+                                       Config::mem_loc,
+                                       rows.data(),
+                                       Utilities::MemoryType::host,
+                                       rows.size(),
+                                       d_stream );
     }
     const gidx_t *rows_data = rows_migrated ? rows_d : rows.data();
 
@@ -1271,7 +1280,7 @@ void CSRMatrixData<Config>::writeRestart( int64_t fid ) const
 
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData( int64_t fid, AMP::IO::RestartManager *manager )
-    : MatrixData( fid, manager )
+    : d_stream( AMP::AMPManager::getDefaultComputeStream() ), MatrixData( fid, manager )
 {
     uint64_t diagMatrixID, offdMatrixID, leftCommListID, rightCommListID, leftDOFManagerID,
         rightDOFManagerID;

@@ -1,4 +1,5 @@
 #include "AMP/matrices/operations/device/DeviceMatrixOperations.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/device/Device.h"
@@ -33,9 +34,9 @@ void DeviceMatrixOperations<G, L, S>::mult(
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, mult_kernel<L, S>, BlockDim, GridDim );
-    mult_kernel<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+    mult_kernel<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
         row_starts, cols_loc, coeffs, N, in, out );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 // scale
@@ -54,8 +55,9 @@ void DeviceMatrixOperations<G, L, S>::scale( const size_t N, S *x, const S alpha
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, scale_kernel<S>, BlockDim, GridDim );
-    scale_kernel<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>( N, x, alpha );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    scale_kernel<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
+        N, x, alpha );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 // axpy
@@ -74,9 +76,9 @@ void DeviceMatrixOperations<G, L, S>::axpy( const size_t N, const S alpha, S *x,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, axpy_kernel<S>, BlockDim, GridDim );
-    axpy_kernel<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+    axpy_kernel<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
         N, alpha, x, y );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 // copy
@@ -89,8 +91,8 @@ void DeviceMatrixOperations<G, L, S>::copy( const size_t N,
                        x,
                        N * sizeof( S ),
                        deviceMemcpyDeviceToDevice,
-                       Utilities::device_context_default.stream );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+                       AMP::AMPManager::getDefaultComputeStream() );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 // extract diagonal
@@ -115,9 +117,9 @@ void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, extractDiagonal_kernel<L, S>, BlockDim, GridDim );
-    extractDiagonal_kernel<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+    extractDiagonal_kernel<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
         row_starts, coeffs, N, diag );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 // set diagonal
@@ -142,9 +144,9 @@ void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, setDiagonal_kernel<L, S>, BlockDim, GridDim );
-    setDiagonal_kernel<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+    setDiagonal_kernel<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
         row_starts, coeffs, N, diag );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 // set identity
@@ -164,9 +166,9 @@ void DeviceMatrixOperations<G, L, S>::setIdentity( const L *row_starts, S *coeff
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, setIdentity_kernel<L, S>, BlockDim, GridDim );
-    setIdentity_kernel<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+    setIdentity_kernel<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
         row_starts, coeffs, N );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 // Linf norms
@@ -198,9 +200,9 @@ void DeviceMatrixOperations<G, L, S>::LinfNorm( const size_t N,
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, LinfNorm_kernel<L, S>, BlockDim, GridDim );
-    LinfNorm_kernel<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+    LinfNorm_kernel<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
         N, x, row_starts, row_sums );
-    deviceStreamSynchronize( Utilities::device_context_default.stream );
+    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
 }
 
 } // namespace LinearAlgebra

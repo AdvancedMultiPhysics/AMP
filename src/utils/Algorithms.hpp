@@ -14,14 +14,18 @@ namespace Utilities {
 namespace Algorithms {
 
 template<typename TYPE>
-void fill_n( TYPE *x, const size_t N, const TYPE alpha, const MemoryType mem_loc )
+void fill_n( TYPE *x,
+             const size_t N,
+             const TYPE alpha,
+             const MemoryType mem_loc,
+             [[maybe_unused]] const computeStream_t stream )
 {
     if ( N > 0 ) {
         if ( mem_loc <= MemoryType::host ) {
             std::fill_n( x, N, alpha );
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::fill_n( thrust::device.on( device_context_default.stream ), x, N, alpha );
+            thrust::fill_n( thrust::device.on( stream ), x, N, alpha );
 #else
             AMP_ERROR( "Invalid memory type" );
 #endif
@@ -30,20 +34,24 @@ void fill_n( TYPE *x, const size_t N, const TYPE alpha, const MemoryType mem_loc
 }
 
 template<typename TYPE>
-void zero_n( TYPE *x, const size_t N, const MemoryType mem_loc )
+void zero_n( TYPE *x, const size_t N, const MemoryType mem_loc, const computeStream_t stream )
 {
-    fill_n<TYPE>( x, N, 0, mem_loc );
+    fill_n<TYPE>( x, N, 0, mem_loc, stream );
 }
 
 template<typename TYPE>
-void copy_n( TYPE *dst, const TYPE *src, const size_t N, const MemoryType mem_loc )
+void copy_n( TYPE *dst,
+             const TYPE *src,
+             const size_t N,
+             const MemoryType mem_loc,
+             [[maybe_unused]] const computeStream_t stream )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
     if ( mem_loc <= MemoryType::host ) {
         std::copy_n( src, N, dst );
     } else {
 #ifdef AMP_USE_DEVICE
-        deviceMemcpy( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice );
+        deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice, stream );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -51,29 +59,33 @@ void copy_n( TYPE *dst, const TYPE *src, const size_t N, const MemoryType mem_lo
 }
 
 template<typename TYPE>
-void copy_n(
-    TYPE *dst, const MemoryType dst_loc, const TYPE *src, const MemoryType src_loc, const size_t N )
+void copy_n( TYPE *dst,
+             const MemoryType dst_loc,
+             const TYPE *src,
+             const MemoryType src_loc,
+             const size_t N,
+             [[maybe_unused]] const computeStream_t stream )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
 
     // call single space version if possible
     if ( dst_loc == src_loc ) {
-        copy_n<TYPE>( dst, src, N, src_loc );
+        copy_n<TYPE>( dst, src, N, src_loc, stream );
         return;
     }
 
 #ifdef AMP_USE_DEVICE
     if ( src_loc >= MemoryType::managed && dst_loc >= MemoryType::managed ) {
         // mixture of device and managed, do device copy
-        deviceMemcpy( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice );
+        deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice, stream );
         return;
     } else if ( src_loc <= MemoryType::host ) {
         // src host, and by above dst must be device
-        deviceMemcpy( dst, src, N * sizeof( TYPE ), deviceMemcpyHostToDevice );
+        deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyHostToDevice, stream );
         return;
     } else if ( dst_loc <= MemoryType::host ) {
         // dst host, and by above src must be device
-        deviceMemcpy( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToHost );
+        deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToHost, stream );
         return;
     }
 #endif
@@ -88,8 +100,12 @@ void copy_n(
 }
 
 template<class TDst, class TSrc>
-void copyCast(
-    TDst *dst, const MemoryType dst_loc, const TSrc *src, const MemoryType src_loc, size_t N )
+void copyCast( TDst *dst,
+               const MemoryType dst_loc,
+               const TSrc *src,
+               const MemoryType src_loc,
+               size_t N,
+               [[maybe_unused]] const computeStream_t stream )
 {
     // either both integer types or both floating, but not mixed between the two
     static_assert( (std::is_integral_v<TSrc> && std::is_integral_v<TDst>) ||
@@ -109,7 +125,7 @@ void copyCast(
         if ( dst_loc >= MemoryType::managed && src_loc >= MemoryType::managed ) {
             // both dev accesible, transform on device
             thrust::transform(
-                thrust::device.on( device_context_default.stream ),
+                thrust::device.on( stream ),
                 src,
                 src + N,
                 dst,
@@ -135,13 +151,17 @@ void copyCast(
 }
 
 template<typename TYPE>
-void inclusive_scan( const TYPE *x, const size_t N, TYPE *y, const MemoryType mem_loc )
+void inclusive_scan( const TYPE *x,
+                     const size_t N,
+                     TYPE *y,
+                     const MemoryType mem_loc,
+                     [[maybe_unused]] const computeStream_t stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::inclusive_scan( x, x + N, y );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::inclusive_scan( thrust::device.on( device_context_default.stream ), x, x + N, y );
+        thrust::inclusive_scan( thrust::device.on( stream ), x, x + N, y );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -149,14 +169,18 @@ void inclusive_scan( const TYPE *x, const size_t N, TYPE *y, const MemoryType me
 }
 
 template<typename TYPE>
-void exclusive_scan( const TYPE *x, const size_t N, TYPE *y, TYPE alpha, const MemoryType mem_loc )
+void exclusive_scan( const TYPE *x,
+                     const size_t N,
+                     TYPE *y,
+                     TYPE alpha,
+                     const MemoryType mem_loc,
+                     [[maybe_unused]] const computeStream_t stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::exclusive_scan( x, x + N, y, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::exclusive_scan(
-            thrust::device.on( device_context_default.stream ), x, x + N, y, alpha );
+        thrust::exclusive_scan( thrust::device.on( stream ), x, x + N, y, alpha );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -164,13 +188,16 @@ void exclusive_scan( const TYPE *x, const size_t N, TYPE *y, TYPE alpha, const M
 }
 
 template<typename TYPE>
-void sort( TYPE *x, const size_t N, const MemoryType mem_loc )
+void sort( TYPE *x,
+           const size_t N,
+           const MemoryType mem_loc,
+           [[maybe_unused]] const computeStream_t stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::sort( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        thrust::sort( thrust::device.on( device_context_default.stream ), x, x + N );
+        thrust::sort( thrust::device.on( stream ), x, x + N );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -178,14 +205,17 @@ void sort( TYPE *x, const size_t N, const MemoryType mem_loc )
 }
 
 template<typename TYPE>
-size_t unique( TYPE *x, const size_t N, const MemoryType mem_loc )
+size_t unique( TYPE *x,
+               const size_t N,
+               const MemoryType mem_loc,
+               [[maybe_unused]] const computeStream_t stream )
 {
     TYPE *last = nullptr;
     if ( mem_loc <= MemoryType::host ) {
         last = std::unique( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        last = thrust::unique( thrust::device.on( device_context_default.stream ), x, x + N );
+        last = thrust::unique( thrust::device.on( stream ), x, x + N );
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -196,13 +226,16 @@ size_t unique( TYPE *x, const size_t N, const MemoryType mem_loc )
 }
 
 template<typename TYPE>
-TYPE min_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
+TYPE min_element( const TYPE *x,
+                  const size_t N,
+                  const MemoryType mem_loc,
+                  [[maybe_unused]] const computeStream_t stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::min_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        return *thrust::min_element( thrust::device.on( device_context_default.stream ),
+        return *thrust::min_element( thrust::device.on( stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
 #else
@@ -213,13 +246,16 @@ TYPE min_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
 }
 
 template<typename TYPE>
-TYPE max_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
+TYPE max_element( const TYPE *x,
+                  const size_t N,
+                  const MemoryType mem_loc,
+                  [[maybe_unused]] const computeStream_t stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::max_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        return *thrust::max_element( thrust::device.on( device_context_default.stream ),
+        return *thrust::max_element( thrust::device.on( stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
 #else
@@ -230,17 +266,17 @@ TYPE max_element( const TYPE *x, const size_t N, const MemoryType mem_loc )
 }
 
 template<typename TYPE>
-TYPE accumulate( const TYPE *x, const size_t N, TYPE alpha, const MemoryType mem_loc )
+TYPE accumulate( const TYPE *x,
+                 const size_t N,
+                 TYPE alpha,
+                 const MemoryType mem_loc,
+                 [[maybe_unused]] const computeStream_t stream )
 {
     if ( mem_loc <= MemoryType::host ) {
         return std::accumulate( x, x + N, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
-        return thrust::reduce( thrust::device.on( device_context_default.stream ),
-                               x,
-                               x + N,
-                               alpha,
-                               thrust::plus<TYPE>() );
+        return thrust::reduce( thrust::device.on( stream ), x, x + N, alpha, thrust::plus<TYPE>() );
 #else
         AMP_ERROR( "Invalid memory type" );
         return TYPE{ 0 };

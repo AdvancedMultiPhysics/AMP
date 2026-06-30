@@ -864,13 +864,15 @@ protected:                   // Internal data
     size_t d_globalSize = 0; //! Number of global values
     size_t d_localStart = 0; //! Index of first local value
 
+    const computeStream_t d_stream;
+
     // Friends
     friend class VectorOperations;
 
 
 public:
     //! Default constructors
-    VectorData()                     = default;
+    VectorData() : d_stream( AMP::AMPManager::getDefaultComputeStream() ) {}
     VectorData( const VectorData & ) = delete;
 };
 

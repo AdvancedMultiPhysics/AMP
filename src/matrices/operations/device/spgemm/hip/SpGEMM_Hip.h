@@ -45,7 +45,8 @@ public:
                   rowidx_t *B_rs,
                   colidx_t *B_cols,
                   scalar_t *B_vals,
-                  rowidx_t *C_rs );
+                  rowidx_t *C_rs,
+                  const computeStream_t stream_ );
 
     ~VendorSpGEMM();
 
@@ -60,6 +61,8 @@ private:
 
     scalar_t alpha;
     scalar_t beta;
+
+    const computeStream_t stream;
 
     rocsparse_indextype itype;
     rocsparse_indextype jtype;

@@ -3,9 +3,7 @@
 
 #include "AMP/vectors/data/VectorDataDefault.h"
 
-
 namespace AMP::LinearAlgebra {
-
 
 /**
  * \brief  A class used to hold vector data

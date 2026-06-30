@@ -8,6 +8,7 @@
 #include "AMP/matrices/operations/MatrixOperations.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/device/Device.h"
 #include "AMP/vectors/Vector.h"
@@ -45,7 +46,7 @@ public:
     {
     #ifdef AMP_USE_DEVICE
         // if we have device then bind exeuction space to the compute stream
-        d_exec_device = Kokkos::DefaultExecutionSpace( Utilities::device_context_default.stream );
+        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
     #endif
 
         d_localops_diag = std::make_shared<localops_t>( d_exec_host, d_exec_device );

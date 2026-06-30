@@ -240,7 +240,7 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
                        compute_soc_device<StrengthPolicy, lidx_t, scalar_t, mask_t>,
                        BlockDim,
                        GridDim );
-        compute_soc_device<<<GridDim, BlockDim, 0, Utilities::device_context_default.stream>>>(
+        compute_soc_device<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
             StrengthPolicy{},
             row_ptr_diag,
             cols_loc_diag,

@@ -1,6 +1,7 @@
 #ifndef included_AMP_DevCopyCast_HPP_
 #define included_AMP_DevCopyCast_HPP_
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/device/Device.h"
@@ -23,7 +24,7 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::ManagedAllocato
     void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
         auto lambda = [] __host__ __device__( T1 x ) { return static_cast<T2>( x ); };
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            vec_in,
                            vec_in + len,
                            vec_out,
@@ -36,7 +37,7 @@ struct copyCast_<T1, T2, AMP::Utilities::Backend::Hip_Cuda, AMP::DeviceAllocator
     void static apply( const size_t len, const T1 *vec_in, T2 *vec_out )
     {
         auto lambda = [] __host__ __device__( T1 x ) { return static_cast<T2>( x ); };
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( AMP::AMPManager::getDefaultComputeStream() ),
                            vec_in,
                            vec_in + len,
                            vec_out,

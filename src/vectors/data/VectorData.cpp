@@ -164,6 +164,7 @@ void VectorData::writeRestart( int64_t fid ) const
     IO::writeHDF5( fid, "localStart", d_localStart );
 }
 VectorData::VectorData( int64_t fid, AMP::IO::RestartManager * )
+    : d_stream( AMP::AMPManager::getDefaultComputeStream() )
 {
     IO::readHDF5( fid, "localSize", d_localSize );
     IO::readHDF5( fid, "globalSize", d_globalSize );

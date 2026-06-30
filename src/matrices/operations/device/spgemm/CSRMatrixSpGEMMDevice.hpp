@@ -1,5 +1,6 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/operations/device/spgemm/CSRMatrixSpGEMMDevice.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/device/Device.h"
@@ -56,7 +57,8 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
                                                    B_rs,
                                                    B_cols_loc,
                                                    B_coeffs,
-                                                   C_rs );
+                                                   C_rs,
+                                                   d_stream );
 
     // Get nnz for C and allocate internals
     auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
@@ -74,7 +76,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
     // Convert the local indices to globals to make merges easier
     if ( C_data->isDiag() ) {
         const auto first_col = C_data->beginCol();
-        thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+        thrust::transform( thrust::device.on( d_stream ),
                            C_cols_loc,
                            C_cols_loc + C_nnz,
                            C_cols,
@@ -84,7 +86,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
     } else {
         const auto colmap = B_data->getColumnMap();
         thrust::transform(
-            thrust::device.on( Utilities::device_context_default.stream ),
+            thrust::device.on( d_stream ),
             C_cols_loc,
             C_cols_loc + C_nnz,
             C_cols,

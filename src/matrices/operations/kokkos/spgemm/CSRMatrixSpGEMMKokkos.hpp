@@ -109,7 +109,7 @@ void CSRMatrixSpGEMMKokkos<Config, ExecSpace>::multiplyLocal(
                 } );
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::transform( thrust::device.on( Utilities::device_context_default.stream ),
+            thrust::transform( thrust::device.on( d_stream ),
                                C_cols_loc,
                                C_cols_loc + C_nnz,
                                C_cols,
@@ -130,7 +130,7 @@ void CSRMatrixSpGEMMKokkos<Config, ExecSpace>::multiplyLocal(
         } else {
 #ifdef AMP_USE_DEVICE
             thrust::transform(
-                thrust::device.on( Utilities::device_context_default.stream ),
+                thrust::device.on( d_stream ),
                 C_cols_loc,
                 C_cols_loc + C_nnz,
                 C_cols,
