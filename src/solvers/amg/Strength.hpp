@@ -111,7 +111,8 @@ struct symagg_strength {
 };
 
 template<class Mat>
-AMG::Strength<Mat>::Strength( csr_view<Mat> A ) : d_diag( A.diag() ), d_offd( A.offd() )
+AMG::Strength<Mat>::Strength( csr_view<Mat> A, const AMP::Utilities::ComputeStream stream )
+    : d_diag( A.diag(), stream ), d_offd( A.offd(), stream )
 {
 }
 
@@ -166,12 +167,13 @@ __global__ void compute_soc_device( StrengthPolicy,
 #endif
 
 template<class StrengthPolicy, class Mat>
-Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
+Strength<Mat>
+compute_soc( csr_view<Mat> A, const AMP::Utilities::ComputeStream stream, float threshold )
 {
     using lidx_t   = typename csr_view<Mat>::lidx_t;
     using scalar_t = typename csr_view<Mat>::scalar_t;
 
-    Strength S( A );
+    Strength S( A, stream );
 
     if constexpr ( std::is_same_v<typename csr_view<Mat>::allocator_type,
                                   AMP::HostAllocator<void>> ) {
@@ -240,16 +242,15 @@ Strength<Mat> compute_soc( csr_view<Mat> A, float threshold )
                        compute_soc_device<StrengthPolicy, lidx_t, scalar_t, mask_t>,
                        BlockDim,
                        GridDim );
-        compute_soc_device<<<GridDim, BlockDim, 0, AMP::AMPManager::getDefaultComputeStream()>>>(
-            StrengthPolicy{},
-            row_ptr_diag,
-            cols_loc_diag,
-            vals_diag,
-            row_ptr_offd,
-            vals_offd,
-            num_rows,
-            threshold,
-            mask_data );
+        compute_soc_device<<<GridDim, BlockDim, 0, stream>>>( StrengthPolicy{},
+                                                              row_ptr_diag,
+                                                              cols_loc_diag,
+                                                              vals_diag,
+                                                              row_ptr_offd,
+                                                              vals_offd,
+                                                              num_rows,
+                                                              threshold,
+                                                              mask_data );
         getLastDeviceError( "compute_soc" );
 #else
         AMP_ERROR( "compute_soc: Undefined memory location" );

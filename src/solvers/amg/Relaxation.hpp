@@ -156,7 +156,7 @@ void HybridGS::deallocateGhosts()
 {
     if ( d_ghost_vals != nullptr ) {
         AMP::HostAllocator<std::byte> byteAlloc;
-        byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes );
+        byteAlloc.deallocate( d_ghost_vals, d_num_ghost_bytes, nullptr );
         d_ghost_vals      = nullptr;
         d_num_ghosts      = 0;
         d_num_ghost_bytes = 0;
@@ -373,12 +373,13 @@ void HybridGS::sweep( const Relaxation::Direction relax_dir,
         if ( d_num_ghosts != num_ghosts ) {
             if ( d_ghost_vals != nullptr ) {
                 ghosts = reinterpret_cast<scalar_t *>( d_ghost_vals );
-                scalarAlloc.deallocate( ghosts, d_num_ghosts );
+                scalarAlloc.deallocate( ghosts, d_num_ghosts, nullptr );
                 d_ghost_vals = nullptr;
             }
             d_num_ghosts      = num_ghosts;
             d_num_ghost_bytes = d_num_ghosts * sizeof( scalar_t );
-            d_ghost_vals = reinterpret_cast<std::byte *>( scalarAlloc.allocate( d_num_ghosts ) );
+            d_ghost_vals =
+                reinterpret_cast<std::byte *>( scalarAlloc.allocate( d_num_ghosts, nullptr ) );
         }
 
         ghosts = reinterpret_cast<scalar_t *>( d_ghost_vals );

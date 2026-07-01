@@ -43,15 +43,11 @@
 
 #else
 
+namespace AMP::Utilities {
 // helpers for hip and cuda give a compute stream type
 // with no device support just stub one in
-typedef void *computeStream_t;
-
+typedef void *ComputeStream;
+} // namespace AMP::Utilities
 #endif
-
-namespace AMP::Utilities {
-
-typedef const computeStream_t ComputeStream;
-}
 
 #endif

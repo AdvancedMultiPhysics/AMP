@@ -870,7 +870,7 @@ public: // Write/read restart data
 
     VectorData( int64_t fid, AMP::IO::RestartManager *manager );
 
-    AMP::Utilities::ComputeStream d_stream;
+    const AMP::Utilities::ComputeStream d_stream;
 
 protected:                   // Internal data
     size_t d_localSize  = 0; //! Number of local values

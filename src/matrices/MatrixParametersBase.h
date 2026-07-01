@@ -141,7 +141,7 @@ public:
     AMP::Utilities::Backend d_backend = AMP::Utilities::Backend::Serial;
 
     // compute stream for gpu acceleration
-    AMP::Utilities::ComputeStream d_stream;
+    const AMP::Utilities::ComputeStream d_stream;
 
     // unique hash to identify this object
     uint64_t d_hash = 0;

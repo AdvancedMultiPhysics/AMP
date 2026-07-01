@@ -3,6 +3,7 @@
 
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/solvers/amg/Util.h"
+#include "AMP/utils/device/Device.h"
 
 #include <tuple>
 #include <vector>
@@ -11,7 +12,7 @@ namespace AMP::Solver::AMG {
 
 template<class Mat>
 struct Strength {
-    explicit Strength( csr_view<Mat> A );
+    explicit Strength( csr_view<Mat> A, const AMP::Utilities::ComputeStream stream );
     using mask_t   = typename csr_view<Mat>::mask_t;
     using lidx_t   = typename csr_view<Mat>::lidx_t;
     using scalar_t = typename csr_view<Mat>::scalar_t;
@@ -79,21 +80,23 @@ private:
         span<const scalar_t> mat_values;
         mask_t *values;
         alloc_t valueAllocator;
+        const AMP::Utilities::ComputeStream stream;
 
-        storage( csr_ptrs_t A_ptrs )
+        storage( csr_ptrs_t A_ptrs, AMP::Utilities::ComputeStream stream_ )
             : rowptr( std::get<0>( A_ptrs ) ),
               colind( std::get<1>( A_ptrs ) ),
-              mat_values( std::get<2>( A_ptrs ) )
+              mat_values( std::get<2>( A_ptrs ) ),
+              stream( stream_ )
         {
             if ( colind.size() > 0 ) {
-                values = valueAllocator.allocate( colind.size() );
+                values = valueAllocator.allocate( colind.size(), stream );
             }
         }
 
         ~storage()
         {
             if ( colind.size() > 0 ) {
-                valueAllocator.deallocate( values, colind.size() );
+                valueAllocator.deallocate( values, colind.size(), stream );
             }
         }
 
@@ -133,7 +136,7 @@ template<norm norm_type>
 struct symagg_strength;
 
 template<class StrengthPolicy, class Mat>
-Strength<Mat> compute_soc( csr_view<Mat> A, float threshold );
+Strength<Mat> compute_soc( csr_view<Mat> A, const AMP::Utilities::ComputeStream stream, float threshold );
 
 } // namespace AMP::Solver::AMG
 

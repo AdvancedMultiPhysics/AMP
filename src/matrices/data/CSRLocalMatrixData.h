@@ -272,7 +272,7 @@ public:
     //! Memory location, set by examining type of Allocator
     static constexpr Utilities::MemoryType d_memory_location = Config::mem_loc;
 
-    AMP::Utilities::ComputeStream d_stream;
+    const AMP::Utilities::ComputeStream d_stream;
 
 protected:
     /** \brief  Sort the columns/values within each row

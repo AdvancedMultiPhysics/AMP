@@ -153,7 +153,7 @@ aggregate_type<csr_view<Mat>> pairwise_aggregate( csr_view<Mat> A,
     aggregate_type<csr_view<Mat>> aggregates;
     using lidx_t = typename csr_view<Mat>::lidx_t;
 
-    auto S = compute_soc<classical_strength<norm::min>>( A, settings.strength_threshold );
+    auto S = compute_soc<classical_strength<norm::min>>( A, nullptr, settings.strength_threshold );
 
     prospect unmarked( S, unmarked_list( A, settings.checkdd ) );
 

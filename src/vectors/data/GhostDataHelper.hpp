@@ -192,7 +192,7 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     }
 
     if ( N > 0 ) {
-        this->d_localRemote = d_size_t_alloc.allocate( N );
+        this->d_localRemote = d_size_t_alloc.allocate( N, d_stream );
         Utilities::Algorithms::copy_n( d_localRemote,
                                        d_memory_location,
                                        replicatedVec.data(),
@@ -211,10 +211,10 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     // cache some comm list data used by MPI routines
     if ( hasGhosts() ) {
         const int size      = std::max( this->d_CommList->getComm().getSize(), 1 );
-        d_sendSizes         = d_int_alloc.allocate( size );
-        d_recvSizes         = d_int_alloc.allocate( size );
-        d_sendDisplacements = d_int_alloc.allocate( size );
-        d_recvDisplacements = d_int_alloc.allocate( size );
+        d_sendSizes         = d_int_alloc.allocate( size, d_stream );
+        d_recvSizes         = d_int_alloc.allocate( size, d_stream );
+        d_sendDisplacements = d_int_alloc.allocate( size, d_stream );
+        d_recvDisplacements = d_int_alloc.allocate( size, d_stream );
         Utilities::Algorithms::copy_n( d_sendSizes,
                                        d_memory_location,
                                        sendSizes.data(),

@@ -116,8 +116,8 @@ public:
      */
     int default_OpenMP_threads = 0;
 
-    bool amp_owns_default_compute_stream   = true;
-    computeStream_t default_compute_stream = nullptr;
+    bool amp_owns_default_compute_stream            = true;
+    Utilities::ComputeStream default_compute_stream = nullptr;
 
 private:
     friend class AMPManager;

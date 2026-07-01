@@ -845,7 +845,7 @@ private:
                 for ( size_t i = 0; i < d_N; ++i )
                     p[i].~TYPE();
             }
-            d_alloc.deallocate( p, d_N );
+            d_alloc.deallocate( p, d_N, nullptr );
         }
 
     private:

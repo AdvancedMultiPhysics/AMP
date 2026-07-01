@@ -298,7 +298,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    AMP::Utilities::ComputeStream stream = A_data->d_stream;
+    const auto stream  = A_data->d_stream;
 
     // get fields from A and use to make diagonal-dominance checker
     auto A_diag   = A_data->getDiagMatrix();
@@ -318,20 +318,24 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {
         AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
-        auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        auto S = compute_soc<classical_strength<norm::abs>>(
+            csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "classical_min" ) {
         AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
-        auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        auto S = compute_soc<classical_strength<norm::min>>(
+            csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "symagg_abs" ) {
-        auto S   = compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        auto S =
+            compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else {
         if ( d_strength_measure != "symagg_min" ) {
             AMP_WARN_ONCE( "Unrecognized strength measure, reverting to symagg_min" );
         }
-        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        auto S =
+            compute_soc<symagg_strength<norm::min>>( csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
 

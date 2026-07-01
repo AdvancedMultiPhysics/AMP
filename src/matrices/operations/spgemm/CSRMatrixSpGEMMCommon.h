@@ -93,7 +93,7 @@ protected:
     AMP_MPI comm;
     CSRMatrixCommunicator<Config> d_csr_comm;
 
-    AMP::Utilities::ComputeStream d_stream;
+    const AMP::Utilities::ComputeStream d_stream;
 
     // To overlap comms and calcs it is easiest to form the output in four
     // blocks and merge them together at the end

@@ -13,7 +13,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-typedef cudaStream_t computeStream_t;
+namespace AMP::Utilities {
+typedef cudaStream_t ComputeStream;
+}
 
 #define hostDeviceId cudaCpuDeviceId
 

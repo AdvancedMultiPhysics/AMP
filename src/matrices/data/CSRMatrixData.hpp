@@ -699,7 +699,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     constexpr bool rows_migrated = Config::mem_loc > Utilities::MemoryType::host;
     gidx_t *rows_d               = nullptr;
     if constexpr ( rows_migrated ) {
-        rows_d = d_gidxAllocator.allocate( rows.size() );
+        rows_d = d_gidxAllocator.allocate( rows.size(), d_stream );
         Utilities::Algorithms::copy_n( rows_d,
                                        Config::mem_loc,
                                        rows.data(),
@@ -727,7 +727,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     if ( sub_matrix->d_nnz == 0 ) {
         AMP_WARN_ONCE( "CSRMatrixData::subsetRows got zero NNZ in requested subset" );
         if ( rows_migrated ) {
-            d_gidxAllocator.deallocate( rows_d, rows.size() );
+            d_gidxAllocator.deallocate( rows_d, rows.size(), d_stream );
         }
         return sub_matrix;
     }
@@ -750,7 +750,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                  d_stream );
 
     if ( rows_migrated ) {
-        d_gidxAllocator.deallocate( rows_d, rows.size() );
+        d_gidxAllocator.deallocate( rows_d, rows.size(), d_stream );
     }
 
     return sub_matrix;

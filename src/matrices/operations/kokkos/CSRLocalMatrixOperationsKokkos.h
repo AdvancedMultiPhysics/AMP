@@ -63,8 +63,11 @@ public:
                    Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>,
                    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, csr_memspace_t>>;
 
-    CSRLocalMatrixOperationsKokkos() : d_exec_device( AMP::AMPManager::getDefaultComputeStream() )
+    CSRLocalMatrixOperationsKokkos()
     {
+    #ifdef AMP_USE_DEVICE
+        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
+    #endif
     }
 
     /** \brief  Matrix-vector multiplication

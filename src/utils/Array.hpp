@@ -8,7 +8,6 @@
 #include "AMP/utils/TypeTraits.h"
 #include "AMP/utils/UtilityMacros.h"
 
-
 #include <algorithm>
 #include <cmath>
 #include <complex>
@@ -269,7 +268,7 @@ void Array<TYPE, FUN, Allocator>::allocate( const ArraySize &N )
     size_t length = d_size.length();
     if ( length > 0 ) {
         try {
-            d_data = d_alloc.allocate( length );
+            d_data = d_alloc.allocate( length, nullptr );
             if constexpr ( !std::is_trivially_copyable<TYPE>::value ) {
                 for ( size_t i = 0; i < length; ++i )
                     new ( d_data + i ) TYPE();

@@ -83,9 +83,12 @@ template<typename TYPE, class Allocator>
 void VectorDataDevice<TYPE, Allocator>::setMapScratchSpace( const size_t N ) const
 {
     if ( N > this->d_map_scratch_size ) {
-        d_idx_alloc.deallocate( this->d_idx_map_scratch, this->d_map_scratch_size, this->d_stream );
+        if ( this->d_idx_map_scratch ) {
+            d_idx_alloc.deallocate(
+                this->d_idx_map_scratch, this->d_map_scratch_size, this->d_stream );
+        }
         this->d_map_scratch_size = N;
-        this->d_idx_map_scratch  = d_idx_alloc.allocate( this->d_map_scratch_size );
+        this->d_idx_map_scratch  = d_idx_alloc.allocate( this->d_map_scratch_size, this->d_stream );
         Utilities::Algorithms::zero_n(
             this->d_idx_map_scratch, N, d_memory_location, this->d_stream );
     }
@@ -153,13 +156,16 @@ inline void VectorDataDevice<TYPE, Allocator>::setValuesByLocalID( size_t num,
 
     if ( id == getTypeID<TYPE>() || scratchUsed ) {
         auto data = static_cast<const TYPE *>( vals );
-        DeviceDataHelpers<TYPE>::setValuesByIndex( num, indices, data, this->d_data );
+        DeviceDataHelpers<TYPE>::setValuesByIndex(
+            num, indices, data, this->d_data, this->d_stream );
     } else if ( id == getTypeID<double>() ) {
         auto data = static_cast<const double *>( vals );
-        DeviceDataHelpers<double, TYPE>::setValuesByIndex( num, indices, data, this->d_data );
+        DeviceDataHelpers<double, TYPE>::setValuesByIndex(
+            num, indices, data, this->d_data, this->d_stream );
     } else if ( id == getTypeID<float>() ) {
         auto data = static_cast<const float *>( vals );
-        DeviceDataHelpers<float, TYPE>::setValuesByIndex( num, indices, data, this->d_data );
+        DeviceDataHelpers<float, TYPE>::setValuesByIndex(
+            num, indices, data, this->d_data, this->d_stream );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -179,13 +185,16 @@ inline void VectorDataDevice<TYPE, Allocator>::addValuesByLocalID( size_t num,
 
     if ( id == getTypeID<TYPE>() ) {
         auto data = static_cast<const TYPE *>( vals );
-        DeviceDataHelpers<TYPE>::addValuesByIndex( num, indices, data, this->d_data );
+        DeviceDataHelpers<TYPE>::addValuesByIndex(
+            num, indices, data, this->d_data, this->d_stream );
     } else if ( id == getTypeID<double>() ) {
         auto data = static_cast<const double *>( vals );
-        DeviceDataHelpers<double, TYPE>::addValuesByIndex( num, indices, data, this->d_data );
+        DeviceDataHelpers<double, TYPE>::addValuesByIndex(
+            num, indices, data, this->d_data, this->d_stream );
     } else if ( id == getTypeID<float>() ) {
         auto data = static_cast<const float *>( vals );
-        DeviceDataHelpers<float, TYPE>::addValuesByIndex( num, indices, data, this->d_data );
+        DeviceDataHelpers<float, TYPE>::addValuesByIndex(
+            num, indices, data, this->d_data, this->d_stream );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -205,13 +214,16 @@ VectorDataDevice<TYPE, Allocator>::getValuesByLocalID( size_t num,
 
     if ( id == getTypeID<TYPE>() || scratchUsed ) {
         auto data = static_cast<TYPE *>( vals );
-        DeviceDataHelpers<TYPE>::getValuesByIndex( num, indices, this->d_data, data );
+        DeviceDataHelpers<TYPE>::getValuesByIndex(
+            num, indices, this->d_data, data, this->d_stream );
     } else if ( id == getTypeID<double>() ) {
         auto data = static_cast<double *>( vals );
-        DeviceDataHelpers<TYPE, double>::getValuesByIndex( num, indices, this->d_data, data );
+        DeviceDataHelpers<TYPE, double>::getValuesByIndex(
+            num, indices, this->d_data, data, this->d_stream );
     } else if ( id == getTypeID<float>() ) {
         auto data = static_cast<float *>( vals );
-        DeviceDataHelpers<TYPE, float>::getValuesByIndex( num, indices, this->d_data, data );
+        DeviceDataHelpers<TYPE, float>::getValuesByIndex(
+            num, indices, this->d_data, data, this->d_stream );
     } else {
         AMP_ERROR( "Conversion not supported yet" );
     }
@@ -346,14 +358,15 @@ bool VectorDataDevice<TYPE, Allocator>::containsGlobalElement( size_t i ) const
     if ( ( i >= this->d_CommList->getStartGID() ) &&
          ( i < this->d_CommList->getStartGID() + this->d_CommList->numLocalRows() ) )
         return true;
-    return DeviceDataHelpers<TYPE>::containsIndex( this->d_ghostSize, this->d_ReceiveDOFList, i );
+    return DeviceDataHelpers<TYPE>::containsIndex(
+        this->d_ghostSize, this->d_ReceiveDOFList, i, this->d_stream );
 }
 
 template<typename TYPE, class Allocator>
 bool VectorDataDevice<TYPE, Allocator>::allGhostIndices( size_t N, const size_t *ndx ) const
 {
     return DeviceDataHelpers<TYPE>::allGhostIndices(
-        N, ndx, this->d_localStart, this->d_localStart + this->d_localSize );
+        N, ndx, this->d_localStart, this->d_localStart + this->d_localSize, this->d_stream );
 }
 
 template<typename TYPE, class Allocator>
@@ -378,7 +391,8 @@ void VectorDataDevice<TYPE, Allocator>::setGhostValuesByGlobalID( size_t N,
                                                            this->d_idx_map_scratch,
                                                            data,
                                                            this->d_ghostSize,
-                                                           this->d_Ghosts );
+                                                           this->d_Ghosts,
+                                                           this->d_stream );
     } else {
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
@@ -405,7 +419,8 @@ void VectorDataDevice<TYPE, Allocator>::addGhostValuesByGlobalID( size_t N,
                                                            this->d_idx_map_scratch,
                                                            data,
                                                            this->d_ghostSize,
-                                                           this->d_AddBuffer );
+                                                           this->d_AddBuffer,
+                                                           this->d_stream );
     } else {
         AMP_ERROR( "Ghosts other than same type are not supported yet" );
     }
@@ -434,7 +449,8 @@ void VectorDataDevice<TYPE, Allocator>::getGhostValuesByGlobalID(
                                                            this->d_ghostSize,
                                                            this->d_Ghosts,
                                                            this->d_AddBuffer,
-                                                           data );
+                                                           data,
+                                                           this->d_stream );
 
         if ( scratchUsed ) {
             Utilities::Algorithms::copy_n(
@@ -463,7 +479,8 @@ void VectorDataDevice<TYPE, Allocator>::getGhostAddValuesByGlobalID(
                                                               this->d_idx_map_scratch,
                                                               this->d_ghostSize,
                                                               this->d_AddBuffer,
-                                                              data );
+                                                              data,
+                                                              this->d_stream );
         if ( scratchUsed ) {
             Utilities::Algorithms::copy_n(
                 static_cast<TYPE *>( vals_ ), buf_loc, data, d_memory_location, N, this->d_stream );

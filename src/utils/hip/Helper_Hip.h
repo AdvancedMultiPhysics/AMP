@@ -10,7 +10,9 @@
 #include "AMP/utils/UtilityMacros.h"
 #include "StackTrace/source_location.h"
 
-typedef hipStream_t computeStream_t;
+namespace AMP::Utilities {
+typedef hipStream_t ComputeStream;
+}
 
 #define hostDeviceId hipCpuDeviceId
 
