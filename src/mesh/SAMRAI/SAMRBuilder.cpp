@@ -32,32 +32,29 @@ namespace AMP::Mesh {
 
 
 std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> SAMRBuilder::buildGriddingAlgorithm(
-    const std::shared_ptr<SAMRAI::hier::PatchHierarchy> hierarchy,
-    const std::shared_ptr<AMP::Database> amp_db,
+    std::shared_ptr<SAMRAI::hier::PatchHierarchy> hierarchy,
+    std::shared_ptr<const AMP::Database> db,
     std::shared_ptr<SAMRAI::mesh::StandardTagAndInitStrategy> &test_object )
 {
-    auto db = amp_db->cloneToSAMRAI();
     AMP_ASSERT( db );
-    const SAMRAI::tbox::Dimension dim( static_cast<unsigned short>( db->getInteger( "dim" ) ) );
+    const SAMRAI::tbox::Dimension dim( db->getScalar<int>( "dim" ) );
 
-    const auto print_info_level = db->getIntegerWithDefault( "print_info_level", 0 );
+    int print_info_level = db->getWithDefault<int>( "print_info_level", 0 );
 
     // Get naming suffix
     std::string suffix = "";
     if ( db->keyExists( "suffix" ) )
         suffix = "_" + db->getString( "suffix" );
 
-    std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> gridding_algorithm;
     // Create an application object (if necessary)
     if ( test_object.get() == nullptr )
         test_object = std::make_shared<BogusTagAndInitStrategy>();
 
-    // Classes for error detection, box_generation, and load balancing are needed to build the
-    // mesh::GriddingAlgorithm.
+    // Create the error detector
     auto error_detector = std::make_shared<SAMRAI::mesh::StandardTagAndInitialize>(
         "StandardTagAndInitialize",
         test_object.get(),
-        db->getDatabase( "StandardTagAndInitialize" ) );
+        db->getDatabase( "StandardTagAndInitialize" )->cloneToSAMRAI() );
 
     // Load the box generator
     std::string box_generator_name;
@@ -69,7 +66,7 @@ std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> SAMRBuilder::buildGridd
         box_generator_name = "TileClustering";
     else
         box_generator_name = "BergerRigoutsos";
-    std::shared_ptr<SAMRAI::tbox::Database> box_generator_db;
+    std::shared_ptr<const AMP::Database> box_generator_db;
     if ( db->keyExists( box_generator_name ) )
         box_generator_db = db->getDatabase( box_generator_name );
     std::shared_ptr<SAMRAI::mesh::BoxGeneratorStrategy> box_generator;
@@ -78,57 +75,59 @@ std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> SAMRBuilder::buildGridd
             AMP::pout << "BergerRigoutsos clustering being used for box generation " << std::endl;
         if ( box_generator_db )
             box_generator =
-                std::make_shared<SAMRAI::mesh::BergerRigoutsos>( dim, box_generator_db );
+                std::make_shared<SAMRAI::mesh::BergerRigoutsos>( dim, box_generator_db->cloneToSAMRAI() );
         else
             box_generator = std::make_shared<SAMRAI::mesh::BergerRigoutsos>( dim );
     } else if ( box_generator_name == "TileClustering" ) {
         if ( print_info_level > 0 )
             AMP::pout << "Tile clustering being used for box generation " << std::endl;
-        box_generator = std::make_shared<SAMRAI::mesh::TileClustering>( dim, box_generator_db );
+        box_generator = std::make_shared<SAMRAI::mesh::TileClustering>( dim, box_generator_db->cloneToSAMRAI() );
     } else {
         AMP_ERROR( "Unknown box generator (" + box_generator_name + ")" );
     }
 
     // Load the load balancer
     std::string load_balancer_name;
-    if ( db->keyExists( "LoadBalanceStrategy" ) )
+    if ( db->keyExists( "LoadBalanceStrategy" ) ) {
         load_balancer_name = db->getString( "LoadBalanceStrategy" );
-    else if ( db->keyExists( "CascadePartitioner" ) )
+    } else if ( db->keyExists( "CascadePartitioner" ) ) {
         load_balancer_name = "CascadePartitioner";
-    else if ( db->keyExists( "TreeLoadBalancer" ) )
+    } else if ( db->keyExists( "TreeLoadBalancer" ) ) {
         load_balancer_name = "TreeLoadBalancer";
-    else if ( db->keyExists( "ChopAndPackLoadBalancer" ) )
+    } else if ( db->keyExists( "ChopAndPackLoadBalancer" ) ) {
         load_balancer_name = "ChopAndPackLoadBalancer";
-    else if ( db->keyExists( "DisjointCascadeBalancer" ) )
+    } else if ( db->keyExists( "DisjointCascadeBalancer" ) ) {
         load_balancer_name = "DisjointCascadeBalancer";
-    else if ( db->keyExists( "SimpleLoadBalancer" ) )
+    } else if ( db->keyExists( "SimpleLoadBalancer" ) ) {
         load_balancer_name = "SimpleLoadBalancer";
-    else
-        AMP_ERROR( "Unable to determine the load balancer" );
-    std::shared_ptr<SAMRAI::tbox::Database> load_balancer_db;
-    if ( db->keyExists( load_balancer_name ) )
+    } else {
+        AMP::plog << "No load balance defined, using ChopAndPackLoadBalancer\n";
+        load_balancer_name = "ChopAndPackLoadBalancer";
+    }
+    std::shared_ptr<const AMP::Database> load_balancer_db;
+    if ( db->keyExists( load_balancer_name ) ) {
         load_balancer_db = db->getDatabase( load_balancer_name );
+        load_balancer_db->print( AMP::plog );
+    }
     if ( print_info_level > 0 )
         AMP::pout << load_balancer_name << " being used for load balance" << std::endl;
     std::shared_ptr<SAMRAI::mesh::LoadBalanceStrategy> load_balancer =
         SAMRAILoadBalanceFactory::create( dim, load_balancer_name, load_balancer_db );
     AMP_ASSERT( load_balancer );
-    if ( load_balancer_db )
-        load_balancer_db->printClassData( AMP::plog );
-
     // Create the gridding algorithm
+    std::shared_ptr<const AMP::Database> grid_db;
     if ( db->keyExists( "GriddingAlgorithm" ) ) {
-        gridding_algorithm = std::make_shared<SAMRAI::mesh::GriddingAlgorithm>(
-            hierarchy,
-            "GriddingAlgorithm" + suffix,
-            db->getDatabase( "GriddingAlgorithm" ),
-            error_detector,
-            box_generator,
-            load_balancer );
-
-    } else
-        AMP_ERROR( "Unable to determine the gridding algorithm" );
-
+        grid_db = db->getDatabase( "GriddingAlgorithm" );
+    } else {
+        grid_db = Database::create( "combine_efficiency", 0.95, "efficiency_tolerance", 0.95 );
+    }
+    auto gridding_algorithm = std::make_shared<SAMRAI::mesh::GriddingAlgorithm>(
+        hierarchy,
+        "GriddingAlgorithm" + suffix,
+        grid_db->cloneToSAMRAI(),
+        error_detector,
+        box_generator,
+        load_balancer );
     return gridding_algorithm;
 }
 
