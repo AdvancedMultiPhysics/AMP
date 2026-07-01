@@ -72,7 +72,7 @@ public:
 
     /*!
      * Copy the messages
-     * @param src     Source to copy from
+     * @param ut      Source UnitTest to copy from
      * @param prefix  Optional prefix to append each message
      */
     void copy( const UnitTest &ut, const std::string &prefix );

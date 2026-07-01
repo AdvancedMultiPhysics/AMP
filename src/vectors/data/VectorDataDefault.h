@@ -26,9 +26,7 @@ public: // Member types
     using value_type = TYPE;
     using scalarAllocator_t =
         typename std::allocator_traits<Allocator>::template rebind_alloc<TYPE>;
-
-    static constexpr AMP::Utilities::MemoryType d_memory_location =
-        AMP::Utilities::getAllocatorMemoryType<Allocator>();
+    using GhostDataHelper<TYPE, Allocator>::d_memory_location;
 
 public: // Constructors
     VectorDataDefault( size_t start, size_t localSize, size_t globalSize );
