@@ -544,6 +544,73 @@ int gpuGetMaxGflopsDeviceId()
 }
 
 
+// CUDA Utility Helper Functions
+static int stringRemoveDelimiter( char delimiter, const char *string )
+{
+    int string_start = 0;
+    while ( string[string_start] == delimiter ) {
+        string_start++;
+    }
+    if ( string_start >= (int) strlen( string ) - 1 ) {
+        return 0;
+    }
+    return string_start;
+}
+static bool checkCmdLineFlag( const int argc, const char **argv, const char *string_ref )
+{
+    bool bFound = false;
+    if ( argc >= 1 ) {
+        for ( int i = 1; i < argc; i++ ) {
+            int string_start        = stringRemoveDelimiter( '-', argv[i] );
+            const char *string_argv = &argv[i][string_start];
+
+            const char *equal_pos = strchr( string_argv, '=' );
+            int argv_length =
+                (int) ( equal_pos == 0 ? strlen( string_argv ) : equal_pos - string_argv );
+
+            int length = (int) strlen( string_ref );
+
+            if ( length == argv_length &&
+                 !AMP::Utilities::strnicmp( string_argv, string_ref, length ) ) {
+                bFound = true;
+                continue;
+            }
+        }
+    }
+
+    return bFound;
+}
+static int getCmdLineArgumentInt( const int argc, const char **argv, const char *string_ref )
+{
+    bool bFound = false;
+    int value   = -1;
+    if ( argc >= 1 ) {
+        for ( int i = 1; i < argc; i++ ) {
+            int string_start        = stringRemoveDelimiter( '-', argv[i] );
+            const char *string_argv = &argv[i][string_start];
+            int length              = (int) strlen( string_ref );
+
+            if ( !AMP::Utilities::strnicmp( string_argv, string_ref, length ) ) {
+                if ( length + 1 <= (int) strlen( string_argv ) ) {
+                    int auto_inc = ( string_argv[length] == '=' ) ? 1 : 0;
+                    value        = atoi( &string_argv[length + auto_inc] );
+                } else {
+                    value = 0;
+                }
+
+                bFound = true;
+                continue;
+            }
+        }
+    }
+    if ( bFound ) {
+        return value;
+    } else {
+        return 0;
+    }
+}
+
+
 // Initialization code to find the best CUDA Device
 int findCudaDevice( int argc, const char **argv )
 {
