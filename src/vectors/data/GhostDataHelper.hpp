@@ -666,7 +666,8 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues(
             AMP::Utilities::Algorithms::copyCast(
                 data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize );
         } else {
-            AMP_ERROR( "Ghosts copy with mismatched types only supports float/double combinations" );
+            AMP_ERROR(
+                "Ghosts copy with mismatched types only supports float/double combinations" );
         }
     } else if ( id == getTypeID<double>() ) {
         if constexpr ( std::is_same_v<TYPE, float> ) {
@@ -674,12 +675,19 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues(
             AMP::Utilities::Algorithms::copyCast(
                 data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize );
         } else {
-            AMP_ERROR( "Ghosts copy with mismatched types only supports float/double combinations" );
+            AMP_ERROR(
+                "Ghosts copy with mismatched types only supports float/double combinations" );
         }
     } else {
         AMP_ERROR( "Ghosts copy with mismatched types only supports float/double combinations" );
     }
     return d_ghostSize;
+}
+
+template<class TYPE, class Allocator>
+AMP::Utilities::MemoryType GhostDataHelper<TYPE, Allocator>::getMemoryLocation( size_t ) const
+{
+    return d_memory_location;
 }
 
 
