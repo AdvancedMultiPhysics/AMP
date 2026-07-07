@@ -154,16 +154,6 @@ public:
      */
     void copy( const MatrixData &X, MatrixData &Y ) override;
 
-    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
-     * as x and copy the coefficients after up/down casting
-     * \param[in] x matrix data to copy from
-     * \param[in] y matrix data to copy to after up/down casting the coefficients
-     */
-    void copyCast( const MatrixData &X, MatrixData &Y ) override;
-
-    template<typename ConfigIn>
-    static void copyCast( CSRMatrixData<ConfigIn> *X, CSRMatrixData<Config> *Y );
-
     std::string type() const override { return "CSRMatrixOperationsKokkos"; }
 
     /**

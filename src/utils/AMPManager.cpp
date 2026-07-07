@@ -323,12 +323,13 @@ double AMPManager::bindDevices()
         deviceGetCount( &deviceCount ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
         deviceBind( device_id ); // Map MPI-process to a GPU
+        deviceSynchronize();
     }
 
     if ( d_properties.amp_owns_default_compute_stream ) {
         deviceStreamCreate( &d_properties.default_compute_stream );
     } else {
-        AMP_ERROR( "AMP must own default compute stream for now" );
+        AMP_ERROR( "AMP can not use externally owned compute streams yet." );
     }
 
     void *tmp;

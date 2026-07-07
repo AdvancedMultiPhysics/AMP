@@ -40,7 +40,6 @@ void DeviceMatrixOperations<G, L, S>::mult( const L *row_starts,
     dim3 GridDim;
     setKernelDims( N, mult_kernel<L, S>, BlockDim, GridDim );
     mult_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, cols_loc, coeffs, N, in, out );
-    deviceStreamSynchronize( stream );
 }
 
 // scale
@@ -63,7 +62,6 @@ void DeviceMatrixOperations<G, L, S>::scale( const size_t N,
     dim3 GridDim;
     setKernelDims( N, scale_kernel<S>, BlockDim, GridDim );
     scale_kernel<<<GridDim, BlockDim, 0, stream>>>( N, x, alpha );
-    deviceStreamSynchronize( stream );
 }
 
 // axpy
@@ -84,7 +82,6 @@ void DeviceMatrixOperations<G, L, S>::axpy(
     dim3 GridDim;
     setKernelDims( N, axpy_kernel<S>, BlockDim, GridDim );
     axpy_kernel<<<GridDim, BlockDim, 0, stream>>>( N, alpha, x, y );
-    deviceStreamSynchronize( stream );
 }
 
 // copy
@@ -95,7 +92,6 @@ void DeviceMatrixOperations<G, L, S>::copy( const size_t N,
                                             AMP::Utilities::ComputeStream stream )
 {
     deviceMemcpyAsync( y, x, N * sizeof( S ), deviceMemcpyDeviceToDevice, stream );
-    deviceStreamSynchronize( stream );
 }
 
 // extract diagonal
@@ -122,7 +118,6 @@ void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
     dim3 GridDim;
     setKernelDims( N, extractDiagonal_kernel<L, S>, BlockDim, GridDim );
     extractDiagonal_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, coeffs, N, diag );
-    deviceStreamSynchronize( stream );
 }
 
 // set diagonal
@@ -149,7 +144,6 @@ void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
     dim3 GridDim;
     setKernelDims( N, setDiagonal_kernel<L, S>, BlockDim, GridDim );
     setDiagonal_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, coeffs, N, diag );
-    deviceStreamSynchronize( stream );
 }
 
 // set identity
@@ -173,7 +167,6 @@ void DeviceMatrixOperations<G, L, S>::setIdentity( const L *row_starts,
     dim3 GridDim;
     setKernelDims( N, setIdentity_kernel<L, S>, BlockDim, GridDim );
     setIdentity_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, coeffs, N );
-    deviceStreamSynchronize( stream );
 }
 
 // Linf norms
@@ -207,7 +200,6 @@ void DeviceMatrixOperations<G, L, S>::LinfNorm( const size_t N,
     dim3 GridDim;
     setKernelDims( N, LinfNorm_kernel<L, S>, BlockDim, GridDim );
     LinfNorm_kernel<<<GridDim, BlockDim, 0, stream>>>( N, x, row_starts, row_sums );
-    deviceStreamSynchronize( stream );
 }
 
 } // namespace LinearAlgebra

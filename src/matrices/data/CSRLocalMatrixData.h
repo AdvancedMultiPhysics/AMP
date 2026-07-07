@@ -290,6 +290,10 @@ protected:
     template<typename ConfigOut>
     std::shared_ptr<CSRLocalMatrixData<ConfigOut>> migrate() const;
 
+    //! Copy coefficients from another CSRLocalMatrixData and cast them if needed
+    template<typename ConfigIn>
+    void copyFrom( std::shared_ptr<const CSRLocalMatrixData<ConfigIn>> in );
+
     //! Make matrix data for transpose
     std::shared_ptr<CSRLocalMatrixData>
     transpose( std::shared_ptr<MatrixParametersBase> params ) const;

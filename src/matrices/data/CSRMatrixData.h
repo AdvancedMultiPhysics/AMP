@@ -72,6 +72,10 @@ public:
     template<typename ConfigOut>
     std::shared_ptr<CSRMatrixData<ConfigOut>> migrate() const;
 
+    //! Copy coefficients from another CSRMatrixData and cast them if needed
+    template<typename ConfigIn>
+    void copyFrom( std::shared_ptr<const CSRMatrixData<ConfigIn>> in );
+
     //! Transpose
     std::shared_ptr<MatrixData> transpose() const override;
 

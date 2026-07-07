@@ -22,7 +22,7 @@ public:
 
     T *allocate( size_t n )
     {
-        AMP_ERROR( "non-stream aware: host alloc" );
+        AMP_WARNING( "non-stream aware: host alloc" );
         T *ptr;
         auto err = hipHostMalloc( (void **) &ptr, n * sizeof( T ) );
         checkHipErrors( err );
@@ -39,7 +39,7 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        AMP_ERROR( "non-stream aware: host dealloc" );
+        AMP_WARNING( "non-stream aware: host dealloc" );
         auto err = hipFreeHost( (void *) p );
         checkHipErrors( err );
     }
@@ -63,7 +63,7 @@ public:
 
     T *allocate( size_t n )
     {
-        AMP_ERROR( "non-stream aware: dev alloc" );
+        AMP_WARNING( "non-stream aware: dev alloc" );
         T *ptr;
         auto err = hipMalloc( (void **) &ptr, n * sizeof( T ) );
         checkHipErrors( err );
@@ -73,16 +73,14 @@ public:
     T *allocate( size_t n, hipStream_t stream )
     {
         T *ptr;
-        deviceStreamSynchronize( stream );
         auto err = hipMallocAsync( (void **) &ptr, n * sizeof( T ), stream );
         checkHipErrors( err );
-        deviceStreamSynchronize( stream );
         return ptr;
     }
 
     void deallocate( T *p, size_t )
     {
-        AMP_ERROR( "non-stream aware: dev dealloc" );
+        AMP_WARNING( "non-stream aware: dev dealloc" );
         auto err = hipFree( (void *) p );
         checkHipErrors( err );
     }
@@ -90,10 +88,8 @@ public:
     void deallocate( T *p, size_t, hipStream_t stream )
     {
         AMP_ASSERT( p );
-        deviceStreamSynchronize( stream );
         auto err = hipFreeAsync( (void *) p, stream );
         checkHipErrors( err );
-        deviceStreamSynchronize( stream );
     }
 };
 
@@ -109,7 +105,7 @@ public:
 
     T *allocate( size_t n )
     {
-        AMP_ERROR( "non-stream aware: managed alloc" );
+        AMP_WARNING( "non-stream aware: managed alloc" );
         T *ptr;
         auto err = hipMallocManaged( (void **) &ptr, n * sizeof( T ), hipMemAttachGlobal );
         checkHipErrors( err );
@@ -130,7 +126,7 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        AMP_ERROR( "non-stream aware: managed dealloc" );
+        AMP_WARNING( "non-stream aware: managed dealloc" );
         auto err = hipFree( (void *) p );
         checkHipErrors( err );
     }

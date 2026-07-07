@@ -13,8 +13,8 @@
 #endif
 
 #include <string_view>
+#include <tuple>
 #include <type_traits>
-
 
 namespace AMP::Utilities {
 
@@ -31,18 +31,18 @@ std::string_view getString( MemoryType );
 MemoryType memoryLocationFromString( std::string_view name );
 
 //! Check if MemoryType is device accessible and not unregistered
-bool memoryLocationsDeviceAccessible( const MemoryType t );
+std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t );
 
 //! Check if MemoryTypes are all compatible, registered, and device-accessible
-bool memoryLocationsDeviceAccessible( const MemoryType t1,
-                                      const MemoryType t2,
-                                      const bool check_strict = false );
+std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t1,
+                                                        const MemoryType t2,
+                                                        const bool check_strict = false );
 
 //! Check if MemoryTypes are all compatible, registered, and device-accessible
-bool memoryLocationsDeviceAccessible( const MemoryType t1,
-                                      const MemoryType t2,
-                                      const MemoryType t3,
-                                      const bool check_strict = false );
+std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t1,
+                                                        const MemoryType t2,
+                                                        const MemoryType t3,
+                                                        const bool check_strict = false );
 
 } // namespace AMP::Utilities
 

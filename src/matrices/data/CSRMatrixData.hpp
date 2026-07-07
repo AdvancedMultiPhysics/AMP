@@ -15,7 +15,6 @@
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/copycast/CopyCastHelper.h"
 #include "AMP/utils/device/Device.h"
 
 #include "ProfilerApp.h"
@@ -408,6 +407,22 @@ std::shared_ptr<CSRMatrixData<ConfigOut>> CSRMatrixData<Config>::migrate() const
         outData->d_offd_matrix->d_hash = getComm().rand();
 
     return outData;
+}
+
+template<typename Config>
+template<typename ConfigIn>
+void CSRMatrixData<Config>::copyFrom( std::shared_ptr<const CSRMatrixData<ConfigIn>> in )
+{
+    PROFILE( "CSRMatrixData::copyFrom" );
+
+    d_diag_matrix->template copyFrom<ConfigIn>( in->d_diag_matrix );
+    d_offd_matrix->template copyFrom<ConfigIn>( in->d_offd_matrix );
+
+#ifdef AMP_USE_DEVICE
+    if constexpr ( d_memory_location > AMP::Utilities::MemoryType::host ) {
+        deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
+    }
+#endif
 }
 
 template<typename Config>

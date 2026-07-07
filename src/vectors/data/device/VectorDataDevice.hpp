@@ -99,8 +99,13 @@ template<typename TYPE, class Allocator>
 void VectorDataDevice<TYPE, Allocator>::setScratchSpace( const size_t N ) const
 {
     if ( N > this->d_scratch_size || !this->d_idx_req_scratch ) {
-        d_idx_alloc.deallocate( this->d_idx_req_scratch, this->d_scratch_size, this->d_stream );
-        d_scalar_alloc.deallocate( this->d_scalar_scratch, this->d_scratch_size, this->d_stream );
+        if ( this->d_idx_req_scratch ) {
+            d_idx_alloc.deallocate( this->d_idx_req_scratch, this->d_scratch_size, this->d_stream );
+        }
+        if ( this->d_scalar_scratch ) {
+            d_scalar_alloc.deallocate(
+                this->d_scalar_scratch, this->d_scratch_size, this->d_stream );
+        }
         this->d_scratch_size    = N;
         this->d_idx_req_scratch = d_idx_alloc.allocate( this->d_scratch_size, this->d_stream );
         this->d_scalar_scratch  = d_scalar_alloc.allocate( this->d_scratch_size, this->d_stream );

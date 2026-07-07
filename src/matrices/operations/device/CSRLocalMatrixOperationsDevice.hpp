@@ -150,51 +150,6 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copy(
     }
 }
 
-template<typename Config, class LocalMatrixData>
-template<typename ConfigIn>
-void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copyCast(
-    std::shared_ptr<CSRLocalMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>>>
-        X,
-    std::shared_ptr<LocalMatrixData> Y )
-{
-    // Check compatibility
-    AMP_ASSERT( Y->d_memory_location == X->d_memory_location );
-    AMP_ASSERT( Y->beginRow() == X->beginRow() );
-    AMP_ASSERT( Y->endRow() == X->endRow() );
-    AMP_ASSERT( Y->beginCol() == X->beginCol() );
-    AMP_ASSERT( Y->endCol() == X->endCol() );
-
-    AMP_ASSERT( Y->numberOfNonZeros() == X->numberOfNonZeros() );
-
-    AMP_ASSERT( Y->numLocalRows() == X->numLocalRows() );
-    AMP_ASSERT( Y->numUniqueColumns() == X->numUniqueColumns() );
-
-    // ToDO: d_pParameters = x->d_pParameters;
-
-    // Shallow copy data structure
-    auto [X_row_starts, X_cols, X_cols_loc, X_coeffs] = X->getDataFields();
-    auto [Y_row_starts, Y_cols, Y_cols_loc, Y_coeffs] = Y->getDataFields();
-
-    // Copy column map only if off diag block
-    if ( !X->isDiag() ) {
-        auto X_col_map = X->getColumnMap();
-        auto Y_col_map = Y->getColumnMap();
-        Y_col_map      = X_col_map;
-        AMP_ASSERT( Y_col_map );
-    }
-
-    Y_row_starts = X_row_starts;
-    Y_cols       = X_cols;
-    Y_cols_loc   = X_cols_loc;
-
-    AMP::Utilities::Algorithms::copyCast( Y_coeffs,
-                                          Y->d_memory_location,
-                                          X_coeffs,
-                                          X->d_memory_location,
-                                          X->numberOfNonZeros(),
-                                          Y->d_stream );
-}
-
 } // namespace AMP::LinearAlgebra
 
 #endif

@@ -171,6 +171,8 @@ void VectorOperationsDevice<TYPE>::copyCast( const VectorData &x, VectorData &y 
         copy_deduce_from_type( block_id );
     }
     y.copyGhostValues( x );
+    // Override the status state since we set the ghost values
+    y.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
 template<typename TYPE>

@@ -85,6 +85,7 @@ public:
 
 protected:
     Kokkos::DefaultHostExecutionSpace d_exec_host;
+    Kokkos::DefaultExecutionSpace d_exec_managed;
     Kokkos::DefaultExecutionSpace d_exec_device;
     std::shared_ptr<VectorOperationsDefault<TYPE>> d_default_ops;
 };

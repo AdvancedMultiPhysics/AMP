@@ -65,9 +65,12 @@ MemoryType memoryLocationFromString( [[maybe_unused]] std::string_view name )
 
 /****************************************************************************
  *  Helper functions to check compatibility of memory spaces with eachother *
- *  and if they can run on device                                           *
+ *  and if they can run on device. check_strict ensures compatibility.      *
+ *  Returns pair of bools:                                                  *
+ *     first: all device accesible                                          *
+ *    second: all strictly of device type and not managed                   *
  ****************************************************************************/
-bool memoryLocationsDeviceAccessible( const MemoryType t )
+std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t )
 {
     // Trivial version of following functions. This simply
     // asserts that a space is registered and returns true
@@ -75,12 +78,13 @@ bool memoryLocationsDeviceAccessible( const MemoryType t )
 
     AMP_INSIST( t > MemoryType::unregistered,
                 "AMP::Utilities::memoryLocationsDeviceAccessible: t1 unregistered" );
-    return t >= MemoryType::managed;
+    bool dev_acc = t >= MemoryType::managed;
+    bool all_dev = t == MemoryType::device;
+    return std::make_tuple( dev_acc, all_dev );
 }
 
-bool memoryLocationsDeviceAccessible( const MemoryType t1,
-                                      const MemoryType t2,
-                                      const bool check_strict )
+std::tuple<bool, bool>
+memoryLocationsDeviceAccessible( const MemoryType t1, const MemoryType t2, const bool check_strict )
 {
     // Check that t1 and t2 are identical if user requests strict checking
     if ( check_strict ) {
@@ -95,25 +99,21 @@ bool memoryLocationsDeviceAccessible( const MemoryType t1,
     AMP_INSIST( t2 > MemoryType::unregistered,
                 "AMP::Utilities::memoryLocationsDeviceAccessible: t2 unregistered" );
 
-    // non-strictly both must accessible from the same space
-    // if both are device accessible return true,
-    // else if both are host accessible return false,
-    // finally if one is host-only and other is device-only error out
-    if ( t1 >= MemoryType::managed && t2 >= MemoryType::managed ) {
-        return true;
-    } else if ( t1 <= MemoryType::managed && t2 <= MemoryType::managed ) {
-        return false;
-    } else {
-        AMP_ERROR(
+    bool dev_acc = t1 >= MemoryType::managed && t2 >= MemoryType::managed;
+    bool all_dev = t1 == MemoryType::device && t2 == MemoryType::device;
+    if ( check_strict ) {
+        bool host_acc = t1 <= MemoryType::managed && t2 <= MemoryType::managed;
+        AMP_INSIST(
+            dev_acc || host_acc,
             "AMP::Utilities::memoryLocationsDeviceAccessible: memory spaces are incompatible" );
-        return false;
     }
+    return std::make_tuple( dev_acc, all_dev );
 }
 
-bool memoryLocationsDeviceAccessible( const MemoryType t1,
-                                      const MemoryType t2,
-                                      const MemoryType t3,
-                                      const bool check_strict )
+std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t1,
+                                                        const MemoryType t2,
+                                                        const MemoryType t3,
+                                                        const bool check_strict )
 {
     // Check that t1 == t2 == t3 if user requests strict checking
     if ( check_strict ) {
@@ -133,19 +133,17 @@ bool memoryLocationsDeviceAccessible( const MemoryType t1,
     AMP_INSIST( t3 > MemoryType::unregistered,
                 "AMP::Utilities::memoryLocationsDeviceAccessible: t3 unregistered" );
 
-    // as above, but now all three need to be in compatible space
-    // return true if all are device-accessible, false if all host-accessible,
-    // error if accessibility does not overlap
-    if ( t1 >= MemoryType::managed && t2 >= MemoryType::managed && t3 >= MemoryType::managed ) {
-        return true;
-    } else if ( t1 <= MemoryType::managed && t2 <= MemoryType::managed &&
-                t3 <= MemoryType::managed ) {
-        return false;
-    } else {
-        AMP_ERROR(
+    bool dev_acc =
+        t1 >= MemoryType::managed && t2 >= MemoryType::managed && t3 >= MemoryType::managed;
+    bool all_dev = t1 == MemoryType::device && t2 == MemoryType::device && t3 == MemoryType::device;
+    if ( check_strict ) {
+        bool host_acc =
+            t1 <= MemoryType::managed && t2 <= MemoryType::managed && t3 <= MemoryType::managed;
+        AMP_INSIST(
+            dev_acc || host_acc,
             "AMP::Utilities::memoryLocationsDeviceAccessible: memory spaces are incompatible" );
-        return false;
     }
+    return std::make_tuple( dev_acc, all_dev );
 }
 
 } // namespace AMP::Utilities

@@ -10,6 +10,7 @@
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/data/CSRMatrixDataHelpers.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Array.h"
 #include "AMP/utils/Utilities.h"
@@ -678,13 +679,47 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
         }
     }
 
-#ifdef AMP_USE_DATA
-    if constexpr ( ConfigOut::mem_loc >= AMP::Utilities::MemoryType::managed ) {
+#ifdef AMP_USE_DEVICE
+    if constexpr ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ||
+                   ConfigOut::mem_loc >= AMP::Utilities::MemoryType::managed ) {
         deviceStreamSynchronize( outData->d_stream );
     }
 #endif
 
     return outData;
+}
+
+template<typename Config>
+template<typename ConfigIn>
+void CSRLocalMatrixData<Config>::copyFrom( std::shared_ptr<const CSRLocalMatrixData<ConfigIn>> in )
+{
+    PROFILE( "CSRLocalMatrixData::copyFrom" );
+
+    AMP_INSIST( !d_is_symbolic,
+                "CSRLocalMatrixData::copyFrom not implemented for symbolic matrices" );
+
+    AMP_INSIST( d_nnz == in->d_nnz,
+                "CSRLocalMatrixData::copyFrom matrices must have same non-zero count" );
+
+    AMP_INSIST( d_num_rows == in->d_num_rows,
+                "CSRLocalMatrixData::copyFrom matrices must have same number of rows" );
+
+    if ( d_is_empty ) {
+        return;
+    }
+
+    if constexpr ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ) {
+        AMP_ASSERT( d_stream == AMP::AMPManager::getDefaultComputeStream() );
+    }
+
+    AMP::Utilities::Algorithms::copyCast(
+        d_coeffs.get(), Config::mem_loc, in->d_coeffs.get(), ConfigIn::mem_loc, d_nnz, d_stream );
+
+#ifdef AMP_USE_DEVICE
+    if constexpr ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ) {
+        deviceStreamSynchronize( d_stream );
+    }
+#endif
 }
 
 template<typename Config>
