@@ -80,7 +80,7 @@ std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t )
                 "AMP::Utilities::memoryLocationsDeviceAccessible: t1 unregistered" );
     bool dev_acc = t >= MemoryType::managed;
     bool all_dev = t == MemoryType::device;
-    return std::make_tuple( dev_acc, all_dev );
+    return std::make_tuple( dev_acc, dev_acc );
 }
 
 std::tuple<bool, bool>
@@ -107,7 +107,7 @@ memoryLocationsDeviceAccessible( const MemoryType t1, const MemoryType t2, const
             dev_acc || host_acc,
             "AMP::Utilities::memoryLocationsDeviceAccessible: memory spaces are incompatible" );
     }
-    return std::make_tuple( dev_acc, all_dev );
+    return std::make_tuple( dev_acc, dev_acc );
 }
 
 std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t1,
@@ -143,7 +143,7 @@ std::tuple<bool, bool> memoryLocationsDeviceAccessible( const MemoryType t1,
             dev_acc || host_acc,
             "AMP::Utilities::memoryLocationsDeviceAccessible: memory spaces are incompatible" );
     }
-    return std::make_tuple( dev_acc, all_dev );
+    return std::make_tuple( dev_acc, dev_acc );
 }
 
 } // namespace AMP::Utilities

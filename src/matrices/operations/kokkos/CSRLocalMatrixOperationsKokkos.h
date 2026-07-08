@@ -66,7 +66,14 @@ public:
     CSRLocalMatrixOperationsKokkos()
     {
     #ifdef AMP_USE_DEVICE
-        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
+        if constexpr ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
+            // only pass a stream if this is a pure device matrix
+            // if not then d_exec_device and d_exec_managed will be the same
+            // this simplifies the dispatch logic for operations that don't
+            // depend on external buffers with their own memory types
+            d_exec_device =
+                Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
+        }
     #endif
     }
 
