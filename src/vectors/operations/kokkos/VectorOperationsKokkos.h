@@ -24,12 +24,7 @@ class VectorOperationsKokkos : public VectorOperations
 {
 public:
     // Constructor
-    VectorOperationsKokkos() : d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() )
-    {
-    #ifdef AMP_USE_DEVICE
-        d_exec_device = Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
-    #endif
-    }
+    VectorOperationsKokkos() : d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() ) {}
 
     //! Destructor
     virtual ~VectorOperationsKokkos() = default;
@@ -85,7 +80,6 @@ public:
 
 protected:
     Kokkos::DefaultHostExecutionSpace d_exec_host;
-    Kokkos::DefaultExecutionSpace d_exec_device;
     std::shared_ptr<VectorOperationsDefault<TYPE>> d_default_ops;
 };
 

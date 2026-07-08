@@ -63,19 +63,7 @@ public:
                    Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>,
                    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, csr_memspace_t>>;
 
-    CSRLocalMatrixOperationsKokkos()
-    {
-    #ifdef AMP_USE_DEVICE
-        if constexpr ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
-            // only pass a stream if this is a pure device matrix
-            // if not then d_exec_device and d_exec_managed will be the same
-            // this simplifies the dispatch logic for operations that don't
-            // depend on external buffers with their own memory types
-            d_exec_device =
-                Kokkos::DefaultExecutionSpace( AMP::AMPManager::getDefaultComputeStream() );
-        }
-    #endif
-    }
+    CSRLocalMatrixOperationsKokkos() {}
 
     /** \brief  Matrix-vector multiplication
      * \param[in]  in The vector to multiply
@@ -237,9 +225,6 @@ public:
 
 protected:
     Kokkos::DefaultHostExecutionSpace d_exec_host;
-    // not device on host-only builds, but also not used in that case
-    Kokkos::DefaultExecutionSpace d_exec_device;
-    Kokkos::DefaultExecutionSpace d_exec_managed;
 };
 
 } // namespace AMP::LinearAlgebra

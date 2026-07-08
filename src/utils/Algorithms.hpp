@@ -13,8 +13,6 @@ namespace AMP {
 namespace Utilities {
 namespace Algorithms {
 
-#define AMP_MANAGED_SERIALIZE false
-
 template<typename TYPE>
 void fill_n( TYPE *x,
              const size_t N,
@@ -27,13 +25,7 @@ void fill_n( TYPE *x,
             std::fill_n( x, N, alpha );
         } else {
 #ifdef AMP_USE_DEVICE
-            if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-                deviceStreamSynchronize( stream );
-            }
             thrust::fill_n( thrust::device.on( stream ), x, N, alpha );
-            if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-                deviceStreamSynchronize( stream );
-            }
 #else
             AMP_ERROR( "Invalid memory type" );
 #endif
@@ -60,9 +52,6 @@ void copy_n( TYPE *dst,
     } else {
 #ifdef AMP_USE_DEVICE
         deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice, stream );
-        if ( mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -89,23 +78,14 @@ void copy_n( TYPE *dst,
     if ( src_loc >= MemoryType::managed && dst_loc >= MemoryType::managed ) {
         // mixture of device and managed, do device copy
         deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToDevice, stream );
-        if ( src_loc == MemoryType::managed || dst_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         return;
     } else if ( src_loc <= MemoryType::host ) {
         // src host, and by above dst must be device or managed
         deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyHostToDevice, stream );
-        if ( src_loc == MemoryType::managed || dst_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         return;
     } else if ( dst_loc <= MemoryType::host ) {
         // dst host, and by above src must be device
         deviceMemcpyAsync( dst, src, N * sizeof( TYPE ), deviceMemcpyDeviceToHost, stream );
-        if ( src_loc == MemoryType::managed || dst_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         return;
     }
 #endif
@@ -150,9 +130,6 @@ void copyCast( TDst *dst,
                 src + N,
                 dst,
                 [] __device__( const TSrc in ) -> TDst { return static_cast<TDst>( in ); } );
-            if ( src_loc == MemoryType::managed || dst_loc == MemoryType::managed ) {
-                deviceStreamSynchronize( stream );
-            }
         } else if ( dst_loc <= MemoryType::host ) {
             AMP_ASSERT( src_loc == MemoryType::device );
             // destination host, but source not host accessible, need temp array
@@ -184,13 +161,7 @@ void inclusive_scan( const TYPE *x,
         std::inclusive_scan( x, x + N, y );
     } else {
 #ifdef AMP_USE_DEVICE
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         thrust::inclusive_scan( thrust::device.on( stream ), x, x + N, y );
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -209,13 +180,7 @@ void exclusive_scan( const TYPE *x,
         std::exclusive_scan( x, x + N, y, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         thrust::exclusive_scan( thrust::device.on( stream ), x, x + N, y, alpha );
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -232,13 +197,7 @@ void sort( TYPE *x,
         std::sort( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         thrust::sort( thrust::device.on( stream ), x, x + N );
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -254,13 +213,7 @@ unique( TYPE *x, const size_t N, const MemoryType mem_loc, [[maybe_unused]] Comp
         last = std::unique( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         last = thrust::unique( thrust::device.on( stream ), x, x + N );
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
 #else
         AMP_ERROR( "Invalid memory type" );
 #endif
@@ -280,9 +233,6 @@ TYPE min_element( const TYPE *x,
         return *std::min_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         return *thrust::min_element( thrust::device.on( stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
@@ -303,9 +253,6 @@ TYPE max_element( const TYPE *x,
         return *std::max_element( x, x + N );
     } else {
 #ifdef AMP_USE_DEVICE
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         return *thrust::max_element( thrust::device.on( stream ),
                                      thrust::device_pointer_cast( x ),
                                      thrust::device_pointer_cast( x ) + N );
@@ -327,9 +274,6 @@ TYPE accumulate( const TYPE *x,
         return std::accumulate( x, x + N, alpha );
     } else {
 #ifdef AMP_USE_DEVICE
-        if ( AMP_MANAGED_SERIALIZE && mem_loc == MemoryType::managed ) {
-            deviceStreamSynchronize( stream );
-        }
         return thrust::reduce( thrust::device.on( stream ), x, x + N, alpha, thrust::plus<TYPE>() );
 #else
         AMP_ERROR( "Invalid memory type" );

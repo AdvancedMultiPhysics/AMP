@@ -453,12 +453,12 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
             d_cols.get(), d_nnz, d_cols_unq.get(), d_ncols_unq, d_cols_loc.get(), d_stream );
     }
 
-    // Sync before freeing d_cols: hipFree/cudaFree do not wait for prior GPU
-    // work to complete, so freeing while async kernels still read d_cols causes
-    // a use-after-free.  The normal RawCSRMatrixParameters path wraps d_cols with
-    // a no-op deleter and is unaffected; ConcatVertical (redistribution, transpose)
-    // uses a real hipFree deleter and requires this sync.
-    // imay: Is this still needed with streams and stream-aware allocators?
+// Sync before freeing d_cols: hipFree/cudaFree do not wait for prior GPU
+// work to complete, so freeing while async kernels still read d_cols causes
+// a use-after-free.  The normal RawCSRMatrixParameters path wraps d_cols with
+// a no-op deleter and is unaffected; ConcatVertical (redistribution, transpose)
+// uses a real hipFree deleter and requires this sync.
+#warning imay: Is this still needed with streams and stream-aware allocators?
 #ifdef AMP_USE_DEVICE
     if ( d_memory_location >= Utilities::MemoryType::managed ) {
         deviceStreamSynchronize( d_stream );
@@ -832,15 +832,13 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
             d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0, Config::mem_loc, d_stream );
     }
 
-    if ( Config::mem_loc == AMP::Utilities::MemoryType::device ) {
+    if ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ) {
         const lidx_t *ptr_loc = d_row_starts.get() + d_num_rows;
         AMP::Utilities::Algorithms::copy_n(
             &d_nnz, AMP::Utilities::MemoryType::host, ptr_loc, Config::mem_loc, 1, d_stream );
 #ifdef AMP_USE_DEVICE
         // need nnz before allocations below can be made
-        if ( d_memory_location >= Utilities::MemoryType::managed ) {
-            deviceStreamSynchronize( d_stream );
-        }
+        deviceStreamSynchronize( d_stream );
 #endif
     } else {
         // total nnz in all rows of block is last entry

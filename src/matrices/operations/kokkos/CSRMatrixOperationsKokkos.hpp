@@ -139,6 +139,8 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
         std::vector<size_t> rcols;
         offdMatrix->getColumnMap( rcols );
         auto vvals_d = offdMatrix->makeScalarArray( rcols.size() );
+        AMP::Utilities::Algorithms::zero_n(
+            vvals_d.get(), rcols.size(), localmatrixdata_t::d_memory_location, A.d_stream );
         std::vector<scalar_t> vvals_h( rcols.size() );
 
         d_localops_offd->multTranspose( inDataBlock,
@@ -154,6 +156,12 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
                                             localmatrixdata_t::d_memory_location,
                                             rcols.size(),
                                             A.d_stream );
+    #ifdef AMP_USE_DEVICE
+        if constexpr ( localmatrixdata_t::d_memory_location >=
+                       AMP::Utilities::MemoryType::managed ) {
+            deviceStreamSynchronize( A.d_stream );
+        }
+    #endif
 
         // copy rcols and vvals into std::vectors and write out
         outData->addValuesByGlobalID(
@@ -398,6 +406,7 @@ void CSRMatrixOperationsKokkos<Config>::extractDiagonal( MatrixData const &A,
 
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     d_localops_diag->extractDiagonal( diagMatrix, buf_p, buf->getMemoryLocation() );
+
     buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 

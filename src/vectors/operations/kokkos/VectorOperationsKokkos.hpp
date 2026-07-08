@@ -63,7 +63,7 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        Kokkos::deep_copy( d_exec_device, xv, alpha );
+        Kokkos::deep_copy( Kokkos::DefaultExecutionSpace( x.d_stream ), xv, alpha );
     #endif
     }
     x.fillGhosts( alpha );
@@ -146,7 +146,8 @@ void VectorOperationsKokkos<T>::setRandomValues( VectorData &x )
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        random_call_wrapper<Kokkos::DefaultExecutionSpace>::random_kernel( d_exec_device, xv );
+        random_call_wrapper<Kokkos::DefaultExecutionSpace>::random_kernel(
+            Kokkos::DefaultExecutionSpace( x.d_stream ), xv );
     #endif
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -190,7 +191,7 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, VectorData &x )
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        scale_kernel( d_exec_device, alpha, xv );
+        scale_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), alpha, xv );
     #endif
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -224,7 +225,7 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, const VectorData 
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        scale_kernel( d_exec_device, alpha, xv, yv );
+        scale_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), alpha, xv, yv );
     #endif
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -274,7 +275,7 @@ void VectorOperationsKokkos<T>::multiply( const VectorData &x, const VectorData 
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        multiply_kernel( d_exec_device, xv, yv, zv );
+        multiply_kernel( Kokkos::DefaultExecutionSpace( z.d_stream ), xv, yv, zv );
     #endif
     }
     z.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -308,7 +309,7 @@ void VectorOperationsKokkos<T>::divide( const VectorData &x, const VectorData &y
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        divide_kernel( d_exec_device, xv, yv, zv );
+        divide_kernel( Kokkos::DefaultExecutionSpace( z.d_stream ), xv, yv, zv );
     #endif
     }
     z.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -341,7 +342,7 @@ void VectorOperationsKokkos<T>::reciprocal( const VectorData &x, VectorData &y )
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        reciprocal_kernel( d_exec_device, xv, yv );
+        reciprocal_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), xv, yv );
     #endif
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -382,7 +383,7 @@ void VectorOperationsKokkos<T>::linearSum( const Scalar &alpha_in,
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        linsum_kernel( d_exec_device, alpha, xv, beta, yv, zv );
+        linsum_kernel( Kokkos::DefaultExecutionSpace( z.d_stream ), alpha, xv, beta, yv, zv );
     #endif
     }
     z.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -437,7 +438,7 @@ void VectorOperationsKokkos<T>::abs( const VectorData &x, VectorData &y )
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        abs_kernel( d_exec_device, xv, yv );
+        abs_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), xv, yv );
     #endif
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -473,7 +474,7 @@ void VectorOperationsKokkos<T>::addScalar( const VectorData &x,
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        add_scalar_kernel( d_exec_device, alpha, xv, yv );
+        add_scalar_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), alpha, xv, yv );
     #endif
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -506,7 +507,7 @@ void VectorOperationsKokkos<T>::setMin( const Scalar &alpha_in, VectorData &x )
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        set_min_kernel( d_exec_device, alpha, xv );
+        set_min_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), alpha, xv );
     #endif
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -539,7 +540,7 @@ void VectorOperationsKokkos<T>::setMax( const Scalar &alpha_in, VectorData &x )
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        set_max_kernel( d_exec_device, alpha, xv );
+        set_max_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), alpha, xv );
     #endif
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
@@ -576,7 +577,7 @@ Scalar VectorOperationsKokkos<T>::localMin( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        min_val      = min_kernel( d_exec_device, xv );
+        min_val      = min_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), xv );
     #endif
     }
 
@@ -614,7 +615,7 @@ Scalar VectorOperationsKokkos<T>::localMax( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        max_val      = max_kernel( d_exec_device, xv );
+        max_val      = max_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), xv );
     #endif
     }
 
@@ -652,7 +653,7 @@ Scalar VectorOperationsKokkos<T>::localSum( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        sum          = sum_kernel( d_exec_device, xv );
+        sum          = sum_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), xv );
     #endif
     }
 
@@ -690,7 +691,7 @@ Scalar VectorOperationsKokkos<T>::localL1Norm( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = l1_norm_kernel( d_exec_device, xv );
+        norm         = l1_norm_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), xv );
     #endif
     }
 
@@ -728,7 +729,7 @@ Scalar VectorOperationsKokkos<T>::localL2Norm2( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = l2_norm_kernel( d_exec_device, xv );
+        norm         = l2_norm_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), xv );
     #endif
     }
 
@@ -769,7 +770,7 @@ Scalar VectorOperationsKokkos<T>::localMaxNorm( const VectorData &x ) const
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = max_norm_kernel( d_exec_device, xv );
+        norm         = max_norm_kernel( Kokkos::DefaultExecutionSpace( x.d_stream ), xv );
     #endif
     }
 
@@ -808,7 +809,7 @@ Scalar VectorOperationsKokkos<T>::localDot( const VectorData &x, const VectorDat
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        dot          = dot_kernel( d_exec_device, xv, yv );
+        dot          = dot_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), xv, yv );
     #endif
     }
 
@@ -851,7 +852,7 @@ Scalar VectorOperationsKokkos<T>::localMinQuotient( const VectorData &x, const V
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        min_quotient = min_quotient_kernel( d_exec_device, xv, yv );
+        min_quotient = min_quotient_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), xv, yv );
     #endif
     }
 
@@ -890,7 +891,7 @@ Scalar VectorOperationsKokkos<T>::localWrmsNorm( const VectorData &x, const Vect
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = wrms_kernel( d_exec_device, xv, yv );
+        norm         = wrms_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), xv, yv );
     #endif
     }
 
@@ -937,7 +938,7 @@ Scalar VectorOperationsKokkos<T>::localWrmsNormMask( const VectorData &x,
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        norm         = wrms_mask_kernel( d_exec_device, mv, xv, yv );
+        norm         = wrms_mask_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), mv, xv, yv );
     #endif
     }
 
@@ -983,13 +984,12 @@ bool VectorOperationsKokkos<T>::localEquals( const VectorData &x,
     #ifndef AMP_USE_DEVICE
         AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
     #else
-        equals       = equals_kernel( d_exec_device, tol, xv, yv );
+        equals       = equals_kernel( Kokkos::DefaultExecutionSpace( y.d_stream ), tol, xv, yv );
     #endif
     }
 
     return equals;
 }
-
 
 } // namespace AMP::LinearAlgebra
 

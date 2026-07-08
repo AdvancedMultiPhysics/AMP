@@ -313,7 +313,7 @@ double AMPManager::bindDevices()
         return 0;
     auto start = std::chrono::steady_clock::now();
 #ifdef AMP_USE_DEVICE
-
+    int device_id = 0;
     if ( d_properties.bind_process_to_accelerator ) {
         AMP::Utilities::setenv( "RDMAV_FORK_SAFE", "1" );
         auto nodeComm = comm_world.splitByNode();
@@ -321,7 +321,8 @@ double AMPManager::bindDevices()
         int deviceCount;
 
         deviceGetCount( &deviceCount ); // How many GPUs?
-        int device_id = nodeRank % deviceCount;
+        device_id = nodeRank % deviceCount;
+        std::cout << "Binding to device " << device_id << " out of " << deviceCount << std::endl;
         deviceBind( device_id ); // Map MPI-process to a GPU
         deviceSynchronize();
     }
