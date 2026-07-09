@@ -216,6 +216,7 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
         y.copyGhostValues( x );
         y.setUpdateStatus( UpdateState::UNCHANGED );
     }
+    y.makeConsistent(); // stream syncs for managed, no-op otherwise
 }
 
 template<typename TYPE>

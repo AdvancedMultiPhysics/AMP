@@ -103,6 +103,7 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
     x.fillGhosts( alpha );
     // Override the status state since we set the ghost values
     x.setUpdateStatus( UpdateState::UNCHANGED );
+    x.makeConsistent(); // stream syncs for managed, no-op otherwise
 }
 
 template<typename TYPE>
@@ -124,55 +125,6 @@ void VectorOperationsDevice<TYPE>::copy( const VectorData &x, VectorData &y )
     PROFILE( "VectorOperationsDevice::copy" );
 
     getDefaultOps()->copy( x, y );
-}
-
-template<typename TYPE>
-void VectorOperationsDevice<TYPE>::copyCast( const VectorData &x, VectorData &y )
-{
-    PROFILE( "VectorOperationsDevice::copyCast" );
-    AMP_INSIST(
-        x.numberOfDataBlocks() == y.numberOfDataBlocks(),
-        "Different number of blocks; CopyCast not implemented for non-matching multiblock data." );
-
-    // lambda to narrow down destination type
-    auto copy_deduce_to_type = [&x, &y]( const size_t bid, auto xdata ) -> void {
-        auto N = y.sizeOfDataBlock( bid );
-        AMP_ASSERT( N == x.sizeOfDataBlock( bid ) );
-        if ( y.getType( 0 ) == getTypeID<float>() ) {
-            auto ydata = y.getRawDataBlock<float>( bid );
-            AMP::Utilities::Algorithms::copyCast(
-                ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N, y.d_stream );
-        } else if ( y.getType( 0 ) == getTypeID<double>() ) {
-            auto ydata = y.getRawDataBlock<double>( bid );
-            AMP::Utilities::Algorithms::copyCast(
-                ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N, y.d_stream );
-        } else {
-            AMP_ERROR( "CopyCast only implemented for float or doubles." );
-        }
-    };
-
-    // lambda to narrow down source type
-    auto copy_deduce_from_type = [&x, &y, copy_deduce_to_type]( const size_t bid ) -> void {
-        if ( x.getType( 0 ) == getTypeID<float>() ) {
-            auto xdata = x.getRawDataBlock<float>( bid );
-            copy_deduce_to_type( bid, xdata );
-        } else if ( x.getType( 0 ) == getTypeID<double>() ) {
-            auto xdata = x.getRawDataBlock<double>( bid );
-            copy_deduce_to_type( bid, xdata );
-        } else {
-            AMP_ERROR( "CopyCast only implemented for float or doubles." );
-        }
-    };
-
-    // batch out copy for each datablock
-    for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
-        auto N = y.sizeOfDataBlock( block_id );
-        AMP_ASSERT( N == x.sizeOfDataBlock( block_id ) );
-        copy_deduce_from_type( block_id );
-    }
-    y.copyGhostValues( x );
-    // Override the status state since we set the ghost values
-    y.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
 template<typename TYPE>

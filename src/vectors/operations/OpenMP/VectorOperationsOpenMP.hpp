@@ -2,7 +2,6 @@
 #define included_AMP_VectorOperationsOpenMP_hpp
 
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/copycast/CopyCast.hpp"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
@@ -112,28 +111,49 @@ template<typename TYPE>
 void VectorOperationsOpenMP<TYPE>::copyCast( const VectorData &x, VectorData &y )
 {
     PROFILE( "VectorOperationsOpenMP::copyCast" );
+    AMP_INSIST(
+        x.numberOfDataBlocks() == y.numberOfDataBlocks(),
+        "Different number of blocks; CopyCast not implemented for non-matching multiblock data." );
 
-    constexpr auto OpenMP = AMP::Utilities::Backend::OpenMP;
-    if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
-        for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
-            auto ydata = y.getRawDataBlock<TYPE>( block_id );
-            auto N     = y.sizeOfDataBlock( block_id );
-            AMP_ASSERT( N == x.sizeOfDataBlock( block_id ) );
-            if ( x.getType( 0 ) == getTypeID<float>() ) {
-                auto xdata = x.getRawDataBlock<float>( block_id );
-                AMP::Utilities::copyCast<float, TYPE, OpenMP>( N, xdata, ydata );
-            } else if ( x.getType( 0 ) == getTypeID<double>() ) {
-                auto xdata = x.getRawDataBlock<double>( block_id );
-                AMP::Utilities::copyCast<double, TYPE, OpenMP>( N, xdata, ydata );
-            } else {
-                AMP_ERROR( "CopyCast only implemented for float or doubles." );
-            }
+    // lambda to narrow down destination type
+    auto copy_deduce_to_type = [&x, &y]( const size_t bid, auto xdata ) -> void {
+        auto N = y.sizeOfDataBlock( bid );
+        AMP_ASSERT( N == x.sizeOfDataBlock( bid ) );
+        if ( y.getType( 0 ) == getTypeID<float>() ) {
+            auto ydata = y.getRawDataBlock<float>( bid );
+            AMP::Utilities::Algorithms::copyCast(
+                ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N, y.d_stream );
+        } else if ( y.getType( 0 ) == getTypeID<double>() ) {
+            auto ydata = y.getRawDataBlock<double>( bid );
+            AMP::Utilities::Algorithms::copyCast(
+                ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N, y.d_stream );
+        } else {
+            AMP_ERROR( "CopyCast only implemented for float or doubles." );
         }
-    } else {
-        AMP_ERROR( "Different number of blocks; CopyCast not implemented for non-matching "
-                   "multiblock data." );
+    };
+
+    // lambda to narrow down source type
+    auto copy_deduce_from_type = [&x, &y, copy_deduce_to_type]( const size_t bid ) -> void {
+        if ( x.getType( 0 ) == getTypeID<float>() ) {
+            auto xdata = x.getRawDataBlock<float>( bid );
+            copy_deduce_to_type( bid, xdata );
+        } else if ( x.getType( 0 ) == getTypeID<double>() ) {
+            auto xdata = x.getRawDataBlock<double>( bid );
+            copy_deduce_to_type( bid, xdata );
+        } else {
+            AMP_ERROR( "CopyCast only implemented for float or doubles." );
+        }
+    };
+
+    // batch out copy for each datablock
+    for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
+        auto N = y.sizeOfDataBlock( block_id );
+        AMP_ASSERT( N == x.sizeOfDataBlock( block_id ) );
+        copy_deduce_from_type( block_id );
     }
     y.copyGhostValues( x );
+    // Override the status state since we set the ghost values
+    y.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
 template<typename TYPE>

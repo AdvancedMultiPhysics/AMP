@@ -159,13 +159,6 @@ void VectorOperationsKokkos<T>::copy( const VectorData &x, VectorData &y )
     d_default_ops->copy( x, y );
 }
 
-
-template<typename T>
-void VectorOperationsKokkos<T>::copyCast( const VectorData &x, VectorData &y )
-{
-    d_default_ops->copyCast( x, y );
-}
-
 template<typename T, class ExecSpace, class ViewT>
 void scale_kernel( const ExecSpace &exec, const T alpha, ViewT xv )
 {
