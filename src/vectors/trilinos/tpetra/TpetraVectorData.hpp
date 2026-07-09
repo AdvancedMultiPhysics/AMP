@@ -2,6 +2,7 @@
 #define included_TpetraVectorData_HPP_
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AMPManager.h"
 #ifdef AMP_USE_MPI
     #include "Teuchos_DefaultMpiComm.hpp"
 #else
@@ -62,8 +63,12 @@ void TpetraVectorData<ST, LO, GO, NT>::putRawData( const void *in,
     const auto src_data = reinterpret_cast<const ST *>( in );
     auto dst_data       = this->getTpetraVector()->getDataNonConst( 0 );
     const auto dst_loc  = AMP::Utilities::getMemoryType( dst_data.get() );
-    AMP::Utilities::Algorithms::copy_n(
-        dst_data.get(), dst_loc, src_data, buf_loc, dst_data.size() );
+    AMP::Utilities::Algorithms::copy_n( dst_data.get(),
+                                        dst_loc,
+                                        src_data,
+                                        buf_loc,
+                                        dst_data.size(),
+                                        AMP::AMPManager::getDefaultComputeStream() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -78,8 +83,12 @@ void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *out,
                 "Only implemented for single data block vectors" );
     const auto src_data = tVec->getData( 0 );
     const auto src_loc  = AMP::Utilities::getMemoryType( src_data.get() );
-    AMP::Utilities::Algorithms::copy_n(
-        dst_data, buf_loc, src_data.get(), src_loc, src_data.size() );
+    AMP::Utilities::Algorithms::copy_n( dst_data,
+                                        buf_loc,
+                                        src_data.get(),
+                                        src_loc,
+                                        src_data.size(),
+                                        AMP::AMPManager::getDefaultComputeStream() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

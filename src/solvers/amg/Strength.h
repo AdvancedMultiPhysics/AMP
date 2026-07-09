@@ -136,7 +136,8 @@ template<norm norm_type>
 struct symagg_strength;
 
 template<class StrengthPolicy, class Mat>
-Strength<Mat> compute_soc( csr_view<Mat> A, const AMP::Utilities::ComputeStream stream, float threshold );
+Strength<Mat>
+compute_soc( csr_view<Mat> A, const AMP::Utilities::ComputeStream stream, float threshold );
 
 } // namespace AMP::Solver::AMG
 
